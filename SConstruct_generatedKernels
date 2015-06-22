@@ -106,6 +106,8 @@ vars.AddVariables(
   
   BoolVariable( 'netcdf', 'use netcdf library for mesh input', False ),
   
+  BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
+  
   EnumVariable( 'unitTests', 'builds additional unit tests',
                 'none',
                 allowed_values=('none', 'fast', 'all') ),
@@ -133,6 +135,11 @@ vars.AddVariables(
 
 # external variables
 vars.AddVariables(
+  PathVariable( 'memkindDir',
+                'memkind installation directory',
+                None,
+                PathVariable.PathAccept ),
+                  
   PathVariable( 'netcdfDir',
                 'NetCDF installation directory',
                 None,
@@ -376,6 +383,12 @@ if env['hdf5']:
     env.Tool('Hdf5Tool', required=(not helpMode), toolpath=['build/scons/Tools'])
     env.Append(F90FLAGS=['-DUSE_HDF'])
     env.Append(CPPDEFINES=['USE_HDF'])
+
+# memkind
+if env['memkind']:
+  env.Append(F90FLAGS=['-DUSE_MEMKIND'])
+  env.Append(CPPDEFINES=['USE_MEMKIND'])
+  env.Append(LINKFLAGS=['-lmemkind'])
 
 # set vector instruction set
 if env['arch'] in ['snoarch', 'dnoarch']:

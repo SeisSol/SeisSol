@@ -220,7 +220,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
   l_alignedReals = seissol::kernels::getNumberOfAlignedReals( NUMBER_OF_BASIS_FUNCTIONS );
   l_offset[59] = l_offset[58] + l_alignedReals;
 
-  real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), ALIGNMENT, MEMKIND_GLOBAL );
+  real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL );
 
   /*
    * Set up pointers.
@@ -655,16 +655,16 @@ void seissol::initializers::MemoryManager::allocateInternalState() {
 
 #ifdef USE_MPI
   m_internalState.ghostLayer   = (real*) m_memoryAllocator.allocateMemory( l_ghostSize    * sizeof( real ),
-                                                                           ALIGNMENT,
+                                                                           PAGESIZE_HEAP,
                                                                            MEMKIND_TIMEDOFS                );
 
   m_internalState.copyLayer    = (real*) m_memoryAllocator.allocateMemory( l_copySize     * sizeof( real ),
-                                                                           ALIGNMENT,
+                                                                           PAGESIZE_HEAP,
                                                                            MEMKIND_TIMEDOFS                );
 #endif // USE_MPI
 
   m_internalState.interiorTime = (real*) m_memoryAllocator.allocateMemory( l_interiorSize * sizeof( real ),
-                                                                           ALIGNMENT,
+                                                                           PAGESIZE_HEAP,
                                                                            MEMKIND_TIMEDOFS                );
 
   /*
@@ -678,7 +678,7 @@ void seissol::initializers::MemoryManager::allocateInternalState() {
    * dofs
    */
   m_internalState.dofs         = (real(*)[NUMBER_OF_ALIGNED_DOFS]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof( real[NUMBER_OF_ALIGNED_DOFS] ),
-                                                                                                     ALIGNMENT,
+                                                                                                     PAGESIZE_HEAP,
                                                                                                      MEMKIND_DOFS
                                                                                                    );
 }

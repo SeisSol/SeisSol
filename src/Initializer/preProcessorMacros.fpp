@@ -158,10 +158,17 @@
 #error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
 #endif
 
+
+#if 0
+! page sizes
+! heap: perfect use of transparent huge pages
+#endif
+#define PAGESIZE_HEAP 2097152
+#define PAGESIZE_STACK 4096
+
 #if 0
 ! memory subsystem specifications
 #endif
-
 #ifdef USE_MEMKIND
 #define MEMKIND_GLOBAL 1
 #define MEMKIND_CONSTANT 1
