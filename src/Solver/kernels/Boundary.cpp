@@ -82,7 +82,7 @@ void seissol::kernels::Boundary::computeLocalIntegral( const enum faceType i_fac
    * compute cell local contribution of the boundary integral.
    */
   // temporary product (we have to multiply a matrix from the left and the right)
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(4096)));
+  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
 
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
@@ -154,7 +154,7 @@ void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i
    * compute neighboring cells contribution to the boundary integral.
    */
   // temporary product (we have to multiply a matrix from the left and the right)
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(4096)));
+  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
 
   // iterate over faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {

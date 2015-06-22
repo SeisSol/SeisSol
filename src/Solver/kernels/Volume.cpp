@@ -69,7 +69,7 @@ void seissol::kernels::Volume::computeIntegral( real** i_stiffnessMatrices,
   assert( ((uintptr_t)io_degreesOfFreedom)              % ALIGNMENT == 0 );
 
   // temporary result
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(4096)));
+  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
 
   // iterate over dimensions 
   for( unsigned int l_c = 0; l_c < 3; l_c++ ) {

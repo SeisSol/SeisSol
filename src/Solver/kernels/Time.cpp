@@ -96,8 +96,8 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
   real l_scalar = i_timeStepWidth;
 
   // temporary result
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(4096)));
-  real l_derivativesBuffer[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(4096)));
+  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
+  real l_derivativesBuffer[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(PAGESIZE_STACK)));
 
   // initialize time integrated DOFs and derivatives
   for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
