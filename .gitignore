@@ -1,0 +1,27 @@
+# Mac
+com.apple.timemachine.supported
+
+# Kernel generator
+*.exe
+
+## C++
+# Compiled Object files
+*.slo
+*.lo
+*.o
+# Compiled Dynamic libraries
+*.so
+*.dylb
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Fortran
+*.mod
+
+# Python
+*.py[cod]
+
+# Scons
+*.dblite

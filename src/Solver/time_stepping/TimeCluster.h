@@ -1,0 +1,435 @@
+/**
+ * @file
+ * This file is part of SeisSol.
+ *
+ * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * 
+ * @section LICENSE
+ * Copyright (c) 2013-2015, SeisSol Group
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from this
+ *    software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @section DESCRIPTION
+ * LTS cluster in SeisSol.
+ **/
+
+#ifndef TIMECLUSTER_H_
+#define TIMECLUSTER_H_
+
+#ifdef USE_MPI
+#include <mpi.h>
+#include <list>
+#endif
+
+#include <Initializer/typedefs.hpp>
+#include <utils/logger.h>
+#include <Solver/kernels/Time.h>
+#include <Solver/kernels/Volume.h>
+#include <Solver/kernels/Boundary.h>
+
+namespace seissol {
+  namespace time_stepping {
+    class TimeCluster;
+  }
+}
+
+/**
+ * Time cluster, which represents a collection of elements havign the same time step width.
+ **/
+class seissol::time_stepping::TimeCluster {
+  //private:
+    //! number of time steps
+    unsigned long m_numberOfTimeSteps;
+
+    //! sampling of the receivers
+    double m_receiverSampling;
+
+    /*
+     * integrators
+     */
+    //! time kernel
+    kernels::Time     &m_timeKernel;
+
+    //! volume kernel
+    kernels::Volume   &m_volumeKernel;
+
+    //! boundary kernel
+    kernels::Boundary &m_boundaryKernel;
+
+    /*
+     * mesh structure
+     */
+    struct MeshStructure *m_meshStructure;
+
+    /*
+     * global data
+     */
+     //! global data structures
+    struct GlobalData *m_globalData;
+
+    /*
+     * element data and mpi queues
+     */
+#ifdef USE_MPI
+    //! cell local information in the copy layer
+    struct CellLocalInformation *m_copyCellInformation;
+
+    //! pending copy region sends
+    std::list< MPI_Request* > m_sendQueue;
+
+    //! pending ghost region receives
+    std::list< MPI_Request* > m_receiveQueue;
+#endif
+
+    //! cell local information in the interior
+    struct CellLocalInformation *m_interiorCellInformation;
+
+    //! cell local data in the interior
+    struct CellData *m_interiorCellData;
+
+#ifdef USE_MPI
+    //! cell local data in the copy layer
+    struct CellData *m_copyCellData;
+#endif
+
+    //! degrees of freedom, time buffers, time derivatives
+    struct Cells *m_cells;
+
+    //! receivers
+    std::vector< int > m_receivers;
+    
+    //! Mapping of cells to point sources
+    CellToPointSourcesMapping* m_cellToPointSources;
+
+    //! Number of mapping of cells to point sources
+    unsigned m_numberOfCellToPointSourcesMappings;
+
+    //! Point sources
+    PointSources* m_pointSources;
+
+    //! true if dynamic rupture faces are present
+    bool m_dynamicRuptureFaces;
+
+#ifdef USE_MPI
+    /**
+     * Receives the copy layer data from relevant neighboring MPI clusters.
+     **/
+    void receiveGhostLayer();
+
+    /**
+     * Sends the associated regions of the copy layer to relevant neighboring MPI clusters
+     **/
+    void sendCopyLayer();
+
+#if defined(_OPENMP) && defined(USE_COMM_THREAD)
+    /**
+     * Inits Receives the copy layer data from relevant neighboring MPI clusters, active when using communication thread
+     **/
+    void initReceiveGhostLayer();
+
+    /**
+     * Inits Sends the associated regions of the copy layer to relevant neighboring MPI clusters, active when using communication thread
+     **/
+    void initSendCopyLayer();
+
+    /**
+     * Waits until the initialization of the communication is finished.
+     **/
+    void waitForInits();
+#endif
+
+    /**
+     * Tests for pending ghost layer communication.
+     **/
+    bool testForGhostLayerReceives();
+
+    /**
+     * Tests for pending copy layer communication.
+     **/
+    bool testForCopyLayerSends();
+#endif
+
+    /**
+     * Writes the receiver output if applicable (receivers present, receivers have to be written).
+     **/
+    void writeReceivers();
+
+    /**
+     * Computes the source terms if applicable.
+     **/
+    void computeSources();
+
+    /**
+     * Computes dynamic rupture.
+     **/
+    void computeDynamicRupture();
+
+    /**
+     * Computes all cell local integration.
+     *
+     * This are:
+     *  * time integration
+     *  * volume integration
+     *  * local boundary integration
+     *
+     * Remark: After this step the DOFs are only updated half with the boundary contribution
+     *         of the neighborings cells missing.
+     *
+     * @param i_numberOfCells number of cells.
+     * @param i_cellInformation cell local information.
+     * @param i_cellData cell data.
+     * @param io_buffers time integration buffers.
+     * @param io_derivatives time derivatives.
+     * @param io_dofs degrees of freedom.
+     **/
+    void computeLocalIntegration( unsigned int           i_numberOfCells,
+                                  CellLocalInformation  *i_cellInformation,
+                                  CellData              *i_cellData,
+                                  real                 **io_buffers,
+                                  real                 **io_derivatives,
+                                  real                 (*io_dofs)[NUMBER_OF_ALIGNED_DOFS] );
+
+    /**
+     * Computes the contribution of the neighboring cells to the boundary integral.
+     *
+     * Remark: After this step (in combination with the local integration) the DOFs are at the next time step.
+     * TODO: This excludes dynamic rupture contribution.
+     *
+     * @param i_numberOfCells number of cells.
+     * @param i_cellInformation cell local information.
+     * @param i_cellData cell data.
+     * @param i_faceNeighbors pointers to neighboring time buffers or derivatives.
+     * @param io_dofs degrees of freedom.
+     **/
+    void computeNeighboringIntegration( unsigned int            i_numberOfCells,
+                                        CellLocalInformation   *i_cellInformation,
+                                        CellData               *i_cellData,
+                                        real                 *(*i_faceNeighbors)[4],
+                                        real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS] );
+
+  public:
+    //! cluster id on this rank
+    const unsigned int m_clusterId;
+
+    //! global cluster cluster id
+    const unsigned int m_globalClusterId;
+
+    //! flags identifiying if the respective part is allowed to be updated
+    struct {
+      bool localCopy;
+      bool neighboringCopy;
+      bool localInterior;
+      bool neighboringInterior;
+    } m_updatable;
+
+#ifdef USE_MPI
+    //! send true LTS buffers
+    volatile bool m_sendLtsBuffers;
+#endif
+
+    //! reset lts buffers before performing time predictions
+    volatile bool m_resetLtsBuffers;
+
+    //! time step width of the performed time step.
+    double m_timeStepWidth;
+
+    /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
+     * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time refers to the derivation of the surrounding time derivatives, which
+     * coincides with the last completed time step of the next cluster. The start/end of the time step is the start/end of this clusters time step relative to the zero point.
+     *   Example:
+     *   <verb>
+     *                                              5 dt
+     *   |-----------------------------------------------------------------------------------------| <<< Time stepping of the next cluster (Cn) (5x larger than the current).
+     *   |                 |                 |                 |                 |                 |
+     *   |*****************|*****************|+++++++++++++++++|                 |                 | <<< Status of the current cluster.
+     *   |                 |                 |                 |                 |                 |
+     *   |-----------------|-----------------|-----------------|-----------------|-----------------| <<< Time stepping of the current cluster (Cc).
+     *   0                 dt               2dt               3dt               4dt               5dt
+     *   </verb>
+     *
+     *   In the example above two clusters are illustrated: Cc and Cn. Cc is the current cluster under consideration and Cn the next cluster with respect to LTS terminology.
+     *   Cn is currently at time 0 and provided Cc with derivatives valid until 5dt. Cc updated already twice and did its last full update to reach 2dt (== subTimeStart). Next
+     *   computeNeighboringCopy is called to accomplish the next full update to reach 3dt (+++). Besides working on the buffers of own buffers and those of previous clusters,
+     *   Cc needs to evaluate the time prediction of Cn in the interval [2dt, 3dt].
+     */
+    double m_subTimeStart;
+
+    //! number of full updates the cluster has performed since the last synchronization
+    unsigned int m_numberOfFullUpdates;
+
+    //! simulation time of the last full update (this is a complete volume and boundary integration)
+    double m_fullUpdateTime;
+
+    //! final time of the prediction (derivatives and time integrated DOFs).
+    double m_predictionTime;
+
+    //! time of the next receiver output
+    double m_receiverTime;
+
+    /**
+     * Constructs a new LTS cluster.
+     *
+     * @param i_clusterId id of this cluster with respect to the current rank.
+     * @param i_globalClusterId global id of this cluster.
+     * @param i_timeKernel time integration kernel.
+     * @param i_volumeKernel volume integration kernel.
+     * @param i_boundaryKernel boundary integration kernel.
+     * @param i_meshStructure mesh structure of this cluster.
+     * @param i_copyCellInformation cell information in the copy layer.
+     * @param i_interiorCellInformation cell information in the interior.
+     * @param i_globalData global data.
+     * @param i_copyCellData cell data in the copy layer.
+     * @param i_interiorCellData cell data in the interior.
+     * @param i_cells degrees of freedom, time buffers, time derivatives.
+     **/
+    TimeCluster( unsigned int                   i_clusterId,
+                 unsigned int                   i_globalClusterId,
+                 kernels::Time                 &i_timeKernel,
+                 kernels::Volume               &i_volumeKernel,
+                 kernels::Boundary             &i_boundaryKernel,
+                 struct MeshStructure          *i_meshStructure,
+#ifdef USE_MPI
+                 struct CellLocalInformation   *i_copyCellInformation,
+#endif
+                 struct CellLocalInformation   *i_interiorCellInformation,
+                 struct GlobalData             *i_globalData,
+#ifdef USE_MPI
+                 struct CellData               *i_copyCellData,
+#endif
+                 struct CellData               *i_interiorCellData,
+                 struct Cells                  *i_cells );
+
+    /**
+     * Destructor of a LTS cluster.
+     * TODO: Currently prints only statistics in debug mode.
+     **/
+    ~TimeCluster();
+
+    /**
+     * Adds a source to the cluster.
+     *
+     * @param i_meshId mesh id of the point of interest.
+     **/
+    void addSource( unsigned int i_meshId );
+    
+    /**
+     * Sets the pointer to the cluster's point sources
+     * 
+     * @param i_cellToPointSources Contains mappings of 1 cell offset to m point sources
+     * @param i_numberOfCellToPointSourcesMappings Size of i_cellToPointSources
+     * @param i_pointSources pointer to all point sources used on this cluster
+     */
+    void setPointSources( CellToPointSourcesMapping* i_cellToPointSources,
+                          unsigned i_numberOfCellToPointSourcesMappings,
+                          PointSources* i_pointSources );
+
+    /**
+     * Adds a receiver to the cluster.
+     *
+     * @param i_receiverId id of the receiver as used in Fortran.
+     * @param i_meshId mesh id.
+     **/
+    void addReceiver( unsigned int i_receiverId,
+                      unsigned int i_meshId );
+
+    /**
+     * Sets the receiver sampling for this cluster.
+     *
+     * @param i_receiverSampling receiver sampling.
+     **/
+    void setReceiverSampling( double i_receiverSampling );
+
+    /**
+     * Enables dynamic rupture call-backs in every time step.
+     **/
+    void enableDynamicRupture();
+
+#ifdef USE_MPI
+    /**
+     * Computes cell local integration of all cells in the copy layer and initiates the corresponding communication.
+     * LTS buffers (updated more than once in general) are reset to zero up on request; GTS-Buffers are reset independently of the request.
+     *
+     * Cell local integration is:
+     *  * time integration
+     *  * volume integration
+     *  * local boundary integration
+     *
+     * @return true if the update (incl. communication requests), false if the update failed due to unfinshed sends of copy data to MPI neighbors.
+     **/
+    bool computeLocalCopy();
+#endif
+
+    /**
+     * Computes cell local integration of all cells in the interior.
+     * LTS buffers (updated more than once in general) are reset to zero up on request; GTS-Buffers are reset independently of the request.
+     *
+     * Cell local integration is:
+     *  * time integration
+     *  * volume integration
+     *  * local boundary integration
+     **/
+    void computeLocalInterior();
+
+#ifdef USE_MPI
+    /**
+     * Computes the neighboring contribution to the boundary integral for all cells in the copy layer.
+     *
+     * @return true if the update (incl. communication requests), false if the update failed due to missing data from neighboring ranks.
+     **/
+    bool computeNeighboringCopy();
+#endif
+
+    /**
+     * Computes the neighboring contribution to the boundary integral for all cells in the interior.
+     **/
+    void computeNeighboringInterior();
+
+#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
+    /**
+     * Tests for pending ghost layer communication, active when using communication thread 
+     **/
+    void pollForGhostLayerReceives();
+
+    /**
+     * Polls for pending copy layer communication, active when using communication thread 
+     **/
+    void pollForCopyLayerSends();
+
+    /**
+     * Start Receives the copy layer data from relevant neighboring MPI clusters, active when using communication thread
+     **/
+    void startReceiveGhostLayer();
+
+    /**
+     * start Sends the associated regions of the copy layer to relevant neighboring MPI clusters, active when using communication thread
+     **/
+    void startSendCopyLayer();
+#endif
+};
+
+#endif

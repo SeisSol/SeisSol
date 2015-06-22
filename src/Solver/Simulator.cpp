@@ -1,0 +1,132 @@
+/**
+ * @file
+ * This file is part of SeisSol.
+ *
+ * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * 
+ * @section LICENSE
+ * Copyright (c) 2015, SeisSol Group
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from this
+ *    software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @section DESCRIPTION
+ * Entry point of the simulation.
+ **/
+
+#include <limits>
+
+#include "Simulator.h"
+#include "SeisSol.h"
+#include "Interoperability.h"
+#include "time_stepping/TimeManager.h"
+
+extern seissol::Interoperability e_interoperability;
+
+seissol::Simulator::Simulator():
+  m_currentTime(        0 ),
+  m_upcomingTime(       0 ),
+  m_finalTime(          0 ),
+  m_waveFieldTime(      0 ),
+  m_waveFieldInterval(  std::numeric_limits< double >::max() ),
+  m_checkPointTime(     0 ),
+  m_checkPointInterval( std::numeric_limits< double >::max() ),
+  m_loadCheckPoint( false ) {};
+
+void seissol::Simulator::setWaveFieldInterval( double i_waveFieldInterval ) {
+  assert( m_waveFieldInterval > 0 );
+  m_waveFieldInterval = i_waveFieldInterval;
+}
+
+void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
+  assert( m_checkPointInterval > 0 );
+  m_checkPointInterval = i_checkPointInterval;
+}
+
+void seissol::Simulator::setFinalTime( double i_finalTime ) {
+  assert( i_finalTime > 0 );
+  m_finalTime = i_finalTime;
+}
+
+void seissol::Simulator::setCurrentTime( double i_currentTime ) {
+	assert( i_currentTime > 0 );
+	m_currentTime = i_currentTime;
+}
+
+void seissol::Simulator::simulate() {
+  SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
+
+  // Set start time (required for checkpointing)
+  seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
+
+  // tolerance in time which is neglected
+  double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
+
+  // Write initial wave field snapshot
+  if (m_currentTime == 0.0)
+	  seissol::SeisSol::main.waveFieldWriter().write(0.0);
+
+  // intialize wave field and checkpoint time
+  m_waveFieldTime  = m_currentTime;
+  m_checkPointTime = m_currentTime;
+
+  // start the communication thread (if applicable)
+  seissol::SeisSol::main.timeManager().startCommunicationThread();
+
+  while( m_finalTime > m_currentTime + l_timeTolerance ) {
+    // derive next synchronization time
+    m_upcomingTime = m_finalTime;
+    m_upcomingTime = std::min( m_upcomingTime, std::abs(m_waveFieldTime  + m_waveFieldInterval ) );
+    m_upcomingTime = std::min( m_upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
+
+    // update the DOFs
+    seissol::SeisSol::main.timeManager().advanceInTime( m_upcomingTime );
+
+    // update current time
+    m_currentTime = m_upcomingTime;
+
+    // write wave field output if required
+    if( std::abs( m_currentTime - ( m_waveFieldTime + m_waveFieldInterval) ) < l_timeTolerance ) {
+  	  seissol::SeisSol::main.waveFieldWriter().write(m_currentTime);
+      m_waveFieldTime += m_waveFieldInterval;
+    }
+
+    // write checkpoint if required
+    if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
+		int waveFieldTimeStep = seissol::SeisSol::main.waveFieldWriter().timestep();
+		int faultTimeStep;
+		e_interoperability.getDynamicRuptureTimeStep(faultTimeStep);
+
+      seissol::SeisSol::main.checkPointManager().write(m_currentTime, waveFieldTimeStep, faultTimeStep);
+      m_checkPointTime += m_checkPointInterval;
+    }
+  }
+
+  // stop the communication thread (if applicable)
+  seissol::SeisSol::main.timeManager().stopCommunicationThread();
+}

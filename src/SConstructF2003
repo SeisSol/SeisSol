@@ -1,0 +1,298 @@
+#!/usr/bin/env python
+##
+# @file
+# This file is part of SeisSol.
+#
+# @section LICENSE
+# Copyright (c) SeisSol Group
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+# 
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from this
+#    software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+import os, os.path, sys, fnmatch
+
+# option for machine file option
+machineinfo = int(raw_input(' \
+Choose compiler:\n\
+\n\
+  (1) x86_64\n\
+  (2) SuperMUC\n\
+  (3) Shaheen\n\
+  (4) TETHYS\n\
+  (5) FRAM (CalTech)\n\
+  (6) MAC (iwalter)\n\
+  (7) Shaheen with HDF5\n\
+  (8) Shaheen with OpenMP (Global Time Stepping only) \n\
+  (9) x86_64 with OpenMP (Global Time Stepping only) \n\
+\n\
+'))
+
+#
+# Functions
+#
+
+def Glob(match):
+    """Similar to glob.glob, except globs SCons nodes, and thus sees
+    generated files and files from build directories.  Basically, it sees
+    anything SCons knows about.  A key subtlety is that since this function
+    operates on generated nodes as well as source nodes on the filesystem,
+    it needs to be called after builders that generate files you want to
+    include."""
+    def fn_filter(node):
+        fn = str(node)
+        return fnmatch.fnmatch(os.path.basename(fn), match)
+
+    here = Dir('.')
+
+    children = here.all_children()
+    nodes = map(File, filter(fn_filter, children))
+    node_srcs = [n.srcnode() for n in nodes]
+
+    src = here.srcnode()
+    if src is not here:
+        src_children = map(File, filter(fn_filter, src.all_children()))
+        for s in src_children:
+            if s not in node_srcs:
+                nodes.append(File(os.path.basename(str(s))))
+
+    return nodes
+
+#
+# Paths
+#
+subdirs = ['Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
+modpath = map(lambda d: os.path.join('#/build',d), subdirs)
+
+#
+# Environment
+#
+if machineinfo == 1:
+# x86_64
+  
+  env = Environment(
+    ENV = {'PATH' :  os.environ['PATH']},
+	  F90PATH = modpath,
+	  F90='mpif90.openmpi',
+	  FORTRAN='mpif90.openmpi',
+	  LINK = 'mpif90.openmpi',
+      LIBS = 'stdc++',
+      CXX = 'mpicxx.openmpi',
+	  F90FLAGS = '-fpp -r8 -O2 -ftz -align -fno-alias -DPARALLEL')
+	  
+  env['ENV']['OMPI_FC'] = '/opt/intel/composer_xe_2013.1.117/bin/intel64/ifort'
+  env['ENV']['OMPI_CXX'] = '/opt/intel/composer_xe_2013.1.117/bin/intel64/icpc'
+#  old path:  
+#  env['ENV']['OMPI_FC'] = '/opt/intel/composer_xe_2011_sp1.7.256/bin/intel64/ifort'
+  
+elif machineinfo == 2:
+# SuperMUC
+  
+  env = Environment(
+    ENV = {'PATH' :  os.environ['PATH']},
+	  F90PATH = modpath,
+	  F90='mpif90',
+	  FORTRAN='mpif90',
+	  LINK = 'mpif90',
+	  F90FLAGS = '-fpp -r8 -O2 -ftz -align -fno-alias -DPARALLEL',)
+	  
+  env['ENV']['INTEL_LICENSE_FILE'] = '/lrz/sys/intel/licenses'
+
+elif machineinfo == 3:
+# Shaheen
+  
+  env = Environment(
+        ENV = {'PATH' :  os.environ['PATH']},
+        F90PATH = modpath,
+        F90='mpixlf2003_r',
+        FORTRAN='mpixlf2003_r',
+        LINK = 'mpixlf2003_r',
+        F90FLAGS = '-d -qsuffix=cpp=f90 -qrealsize=8 -WF,-DPARALLEL -qstrict -qzerosize  -qfree=f90 -qnosave -O2 -qhot -qtune=auto -qarch=auto -WF,-DHDF -WF,-DLOGLEVEL=0',
+        FORTRANFLAGS = '-qfixed=72 -d -qsuffix=cpp=f90 -qrealsize=8 -WF,-DPARALLEL -qstrict -qnosave -O2 -qhot -qtune=auto -qarch=auto -WF,-DHDF -WF,-DLOGLEVEL=0',)
+        
+elif machineinfo == 4:
+# TETHYS
+  
+  env = Environment(
+     ENV = {'PATH' :  os.environ['PATH']},
+	F90PATH = modpath,
+	F90='mpif90.openmpi',
+	FORTRAN='mpif90.openmpi',
+	LINK = 'mpif90.openmpi',
+	F90FLAGS = '-fpp -r8 -O2 -ftz -align -fno-alias -DPARALLEL',)
+
+  env['ENV']['OMPI_FC'] = '/opt/intel/Compiler/11/bin/intel64/ifort'
+  
+elif machineinfo == 5:
+# FRAM
+
+  env = Environment(
+     ENV = {'PATH' :  os.environ['PATH']},
+        F90PATH = modpath,
+        F90='mpiifort',
+        FORTRAN='mpiifort',
+        LINK = 'mpiifort',
+        F90FLAGS = '-fpp -r8 -O2 -ftz -align -fno-alias -DPARALLEL',)
+
+  env['ENV']['LD_LIBRARY_PATH'] = os.environ['LD_LIBRARY_PATH']          
+        
+elif machineinfo == 6:
+# MAC
+
+  env = Environment(
+    ENV = {'PATH' :  os.environ['PATH']},
+          F90PATH = modpath,
+          F90='mpif90',
+          FORTRAN='mpif90',
+          LINK = 'mpif90',
+          F90FLAGS = '-fpp -r8 -O2 -ftz -align -fno-alias -DPARALLEL',)
+          #F90FLAGS = '-O2 -xHost -fno-alias -vec-report -ftz -align -fpp -r8 -DPARALLEL',)
+
+elif machineinfo == 7:
+# Shaheen with HDF5 support
+  
+  env  = Environment(
+        ENV = {'PATH' :  os.environ['PATH']},
+        F90PATH = modpath,
+        F90='mpixlf90_r',
+        FORTRAN='mpixlf90_r',
+        LINK = 'mpixlf90_r',
+        LIBPATH=['/opt/share/hdf5/1.8.9/bgp-ibm/lib', '/opt/share/zlib/1.2.5/bgp-ibm/lib'],
+        LIBS = ['hdf5_fortran', 'hdf5', 'z', 'stdc++'],
+        F90FLAGS = '-C -d -g -qsuffix=cpp=f90 -qrealsize=8 -WF,-DBG -WF,-DPARALLEL -WF,-DHDF -qstrict -qzerosize  -qfree=f90 -qnosave -O2 -qhot -qtune=auto -qarch=auto -WF,-DLOGLEVEL=0 -L/opt/share/hdf5/1.8.9/bgp-ibm/lib -L/opt/share/zlib/1.2.5/bgp-ibm/lib  -lhdf5_fortran -lhdf5 -lz -I/opt/share/hdf5/1.8.9/bgp-ibm/include',
+        FORTRANFLAGS = '-C -qfixed=72 -d -g -qsuffix=cpp=f90 -qrealsize=8 -WF,-DPARALLEL -WF,-DHDF  -qstrict -qnosave -O2 -qhot -qtune=auto -qarch=auto -WF,-DLOGLEVEL=0 -L/opt/share/hdf5/1.8.9/bgp-ibm/lib -L/opt/share/zlib/1.2.5/bgp-ibm/lib  -lhdf5_fortran -lhdf5 -lz -I/opt/share/hdf5/1.8.9/bgp-ibm/include',
+	HDF5 = 'ON',
+	BG = 'ON',
+        CXX = 'mpixlcxx_r',
+        #Currently c++ exceptions are disabled using -qnoeh else when linking you get an undefined reference to `__IBMCPlusPlusExceptionV3'
+        CPPFLAGS = '-O2 -qnoeh',
+)
+
+elif machineinfo == 8:
+# Shaheen
+   env = Environment(
+        ENV = {'PATH' :  os.environ['PATH']},
+        F90PATH = modpath,
+        F90='mpixlf90_r',
+        FORTRAN='mpixlf90_r',
+        LINK = 'mpixlf90_r -qsmp=omp',
+        #LIBPATH=['/opt/share/hdf5/1.8.9/bgp-ibm/lib', '/opt/share/zlib/1.2.5/bgp-ibm/lib'],
+        LIBPATH=['/gpfs/DDNgpfs1/walkup/hdf5-1.8.8/lib/'],
+        LIBS = ['hdf5_fortran', 'hdf5', 'stdc++'],
+        F90FLAGS = '-d -qsuffix=cpp=f90 -qrealsize=8 -WF,-DPARALLEL -WF,-DLOGLEVEL=2 -WF,-DHDF -WF,-DMULTITHREADED -qstrict -qzerosize  -qfree=f90 -qnosave -O2 -qhot -qtune=auto -qarch=auto -qsmp=omp -I/gpfs/DDNgpfs1/walkup/hdf5-1.8.8/include',
+        FORTRANFLAGS = '-qfixed=72 -d -qsuffix=cpp=f90 -qrealsize=8 -WF,-DPARALLEL -WF,-DLOGLEVEL=2 -WF,-DMULTITHREADED -WF,-DHDF -qstrict -qnosave -O2 -qhot  -qsmp=omp-qtune=auto -qarch=auto -I/gpfs/DDNgpfs1/walkup/hdf5-1.8.8/include',
+        HDF5 = 'ON', 
+        CXX = 'mpixlcxx_r',
+        CPPFLAGS = '-O2 -DBG -qnoeh',)
+
+elif machineinfo == 9:
+# x86_64 with openMP
+# note LINK argument: -openmp
+# Specify number of threads N with export OMP_NUM_THREADS=N
+  
+  env = Environment(
+    ENV = {'PATH' :  os.environ['PATH']},
+	  F90PATH = modpath,
+	  F90='mpif90.openmpi',
+	  FORTRAN='mpif90.openmpi',
+	  LINK = 'mpif90.openmpi -openmp',
+	  F90FLAGS = '-fpp -r8 -O2 -ftz -align -fno-alias -DPARALLEL -DMULTITHREADED -openmp')
+	  
+  env['ENV']['OMPI_FC'] = '/opt/intel/composer_xe_2013.1.117/bin/intel64/ifort'
+#  old path:  
+#  env['ENV']['OMPI_FC'] = '/opt/intel/composer_xe_2011_sp1.7.256/bin/intel64/ifort'
+ 
+
+elif machineinfo == 10:
+# Shaheen with HDF5 support
+  
+  env  = Environment(
+        ENV = {'PATH' :  os.environ['PATH']},
+        F90PATH = modpath,
+        F90='mpixlf90_r',
+        FORTRAN='mpixlf90_r',
+        LINK = 'mpixlf90_r',
+        LIBPATH=['/gpfs/DDNgpfs1/walkup/hdf5-1.8.8/lib/'],
+        LIBS = ['hdf5_fortran', 'hdf5', 'stdc++'],
+        F90FLAGS = '-d -qsuffix=cpp=f90 -qrealsize=8 -WF,-DPARALLEL -WF,-DLOGLEVEL=2 -WF,-DHDF -qstrict -qzerosize  -qfree=f90 -qnosave -O2 -qhot -qtune=auto -qarch=auto -I/gpfs/DDNgpfs1/walkup/hdf5-1.8.8/include',
+        FORTRANFLAGS = '-qfixed=72 -d -qsuffix=cpp=f90 -qrealsize=8 -WF,-DLOGLEVEL=2 -WF,-DPARALLEL -WF,-DHDF -qstrict -qnosave -O2 -qhot -qtune=auto -qarch=auto -I/gpfs/DDNgpfs1/walkup/hdf5-1.8.8/include',
+	HDF5 = 'ON',
+        CXX = 'mpixlcxx_r',
+        CPPFLAGS = '-O2 -DBG -qnoeh',
+        )
+
+#elif machineinfo == 10:
+ # add new options if necessary...
+	  
+else:
+  
+  print 'SConstruct: compiler option not found!'
+  sys.exit(1)
+
+# if end
+
+# default 'info'-log level
+#this causes issues on Shaheen
+if machineinfo != 7:
+  env.Append(F90FLAGS=['-DLOGLEVEL=2'])
+  
+# Add src and submodules directory to search path for includes
+env.Append(CPPPATH=['#/', '#../submodules'])
+
+#
+# Build dependency tree
+#
+allobjs = []
+for sd in subdirs:
+    buildDir = os.path.join('build',sd)
+    consFile = os.path.join(buildDir,'SConscript')
+    env.VariantDir(buildDir, sd)
+    allobjs = allobjs + env.SConscript(consFile, exports=['env','Glob'])
+
+
+
+#
+# Remove any mod files. These should not be passed to the linker.
+#
+objs = filter(lambda o: str(o)[-4:] != '.mod', allobjs)
+
+
+#
+# Add an action to move any module files
+#
+def moveModFiles(target=None, source=None, env=None):
+    import glob, os, os.path
+    targetdir = target[0].dir
+    for t in target:
+        if t.name[-4:] == '.mod':
+            os.rename(t.name,os.path.join(str(targetdir),t.name))
+
+env.AddPostAction(objs, moveModFiles)
+
+#
+# Build program
+#
+env.Program('seissolxx', ['seissolxx.f90'] + objs )

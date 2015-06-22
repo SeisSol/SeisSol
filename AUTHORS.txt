@@ -1,0 +1,107 @@
+The SeisSol core group is:
+ * Atanasov, Atanas - TUM
+ * Brietzke, Gilbert - LMU, GFZ, LRZ
+ * Bader, Michael - TUM
+ * Breuer, Alexander - TUM
+ * Castro, Cristobal E. - LMU, UniTN
+ * de la Puente, Josep - LMU
+ * Dumbser, Michael - UniTN, UniS
+ * Gabriel, Alice-Agnes - LMU
+ * Heinecke, Alexander - TUM
+ * Hermann, Verena - LMU
+ * Kaeser, Martin - LMU, UniTN
+ * Passone, Luca - KAUST
+ * Pelties, Christian - LMU
+ * Rettenberger, Sebastian - TUM
+ * Wenk, Stefan - LMU
+
+The SeisSol group appreciates the work of following contributors:
+ * Ampuero, Jean-Paul - Caltech
+ * van Driel, Martin - LMU
+ * Gratl, Fabio - TUM
+ * Huang, Yihe - Caltech
+ * Igel, Heiner - LMU
+ * Imperatori, Walter - KAUST
+ * Jordan, Kirk - IBM Research
+ * Li, Yang - TUM
+ * Mai, Martin - KAUST
+ * Nerger, Amaryllis - LMU
+ * Pinaev, Dmitry - TUM
+ * Sachdeva, Vipin - IBM Research
+ * Simon, Marek - LMU
+
+The SeisSol group appreciates the work of the developers of Hydsol, the early roots of the SeisSol code:
+ * Dumbser, Michael - UniTN, UniS
+ * Schwartzkopff, Thomas - UniS
+ * Utzmann, Jens - UniS
+ * Munz, Claus-Dieter - UniS
+
+website: http://seissol.geophysik.uni-muenchen.de
+
+TUM: 
+Technische Universitaet Muenchen
+Department of Informatics
+Chair of Scientific Computing
+Germany
+http://www5.in.tum.de/
+
+LMU:
+Geophysik
+Department für Geo- und Umweltwissenschaften
+Ludwig-Maximilians-Universitaet Muenchen
+Theresienstrasse 41
+80333 Muenchen
+Germany
+http://www.geophysik.uni-muenchen.de
+
+UniTN:
+Dipartimento di Ingegneria Civile Ambientale e Meccanica 
+University of Trento
+Via Mesiano, 77
+38123 Trento
+Italy
+
+LRZ:
+Leibniz-Rechenzentrum
+der Bayerischen Akademie der Wissenschaften
+Boltzmannstraße 1
+85748 Garching bei München
+Germany
+http://www.lrz.de/
+
+GFZ:
+Helmholtz-Zentrum Potsdam - Deutsches GeoForschungsZentrum  GFZ
+Stiftung des Öffentlichen Rechts des Landes Brandenburg
+Telegrafenberg
+14473 Potsdam
+Germany
+http://www.gfz-potsdam.de
+
+KAUST:
+King Abdullah University of Science and Technology
+Thuwal 23955-6900
+Kingdom of Saudi Arabia
+http://www.kaust.edu.sa
+
+Caltech:
+Seismological Laboratory
+California Institute of Technology
+1200 E. California Blvd., MC 252-21
+Pasadena, CA 91125
+USA
+http://www.seismolab.caltech.edu/
+
+IBM Research:
+IBM T.J. Watson Research
+1 Rogers St
+Cambridge, MA, 02142
+USA
+http://www.research.ibm.com/
+
+UniS:
+Institut für Aerodynamik und Gasdynamik
+Universitaet Stuttgart
+Pfaffenwaldring 21
+70550 Stuttgart
+Germany
+http://www.iag.uni-stuttgart.de/

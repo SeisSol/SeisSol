@@ -1,0 +1,131 @@
+#!/usr/bin/env python
+##
+# @file
+# This file is part of SeisSol.
+#
+# @section LICENSE
+# Copyright (c) SeisSol Group
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+# 
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from this
+#    software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+# @section DESCRIPTION
+# This sconscript is used to ensure the code compiles on Shahen when using the automated cronjob
+
+import os, os.path, sys, fnmatch
+
+# option for machine file option
+machineinfo = int('7')
+
+#
+# Functions
+#
+
+def Glob(match):
+    """Similar to glob.glob, except globs SCons nodes, and thus sees
+    generated files and files from build directories.  Basically, it sees
+    anything SCons knows about.  A key subtlety is that since this function
+    operates on generated nodes as well as source nodes on the filesystem,
+    it needs to be called after builders that generate files you want to
+    include."""
+    def fn_filter(node):
+        fn = str(node)
+        return fnmatch.fnmatch(os.path.basename(fn), match)
+
+    here = Dir('.')
+
+    children = here.all_children()
+    nodes = map(File, filter(fn_filter, children))
+    node_srcs = [n.srcnode() for n in nodes]
+
+    src = here.srcnode()
+    if src is not here:
+        src_children = map(File, filter(fn_filter, src.all_children()))
+        for s in src_children:
+            if s not in node_srcs:
+                nodes.append(File(os.path.basename(str(s))))
+
+    return nodes
+
+#
+# Paths
+#
+subdirs = ['Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
+modpath = map(lambda d: os.path.join('#/build',d), subdirs)
+
+# Shaheen with HDF5 support
+env  = Environment(
+      ENV = {'PATH' :  os.environ['PATH']},
+      F90PATH = [modpath, '#/Initializer', '#../submodules'],
+      F90='mpixlf90_r',
+      FORTRAN='mpixlf90_r',
+      LINK = 'mpixlf90_r',
+      LIBPATH=['/opt/share/hdf5/1.8.9/bgp-ibm/lib', '/opt/share/zlib/1.2.5/bgp-ibm/lib'],
+      LIBS = ['hdf5_fortran', 'hdf5', 'z'],
+      F90FLAGS = '-C -d -g -qsuffix=cpp=f90 -qrealsize=8 -WF,-DBG -WF,-DPARALLEL -WF,-DHDF -qstrict -qzerosize  -qfree=f90 -qnosave -O2 -qhot -qtune=auto -qarch=auto -WF,-DBLAS -WF,-DLOGLEVEL=2 -L/opt/share/hdf5/1.8.9/bgp-ibm/lib -L/opt/share/zlib/1.2.5/bgp-ibm/lib  -lhdf5_fortran -lhdf5 -lz -I/opt/share/hdf5/1.8.9/bgp-ibm/include',
+      FORTRANFLAGS = '-C -qfixed=72 -d -g -qsuffix=cpp=f90 -qrealsize=8 -WF,-DBG -WF,-DPARALLEL -WF,-DHDF  -qstrict -qnosave -O2 -qhot -qtune=auto -qarch=auto -WF,-DBLAS -WF,-DLOGLEVEL=2 -L/opt/share/hdf5/1.8.9/bgp-ibm/lib -L/opt/share/zlib/1.2.5/bgp-ibm/lib  -lhdf5_fortran -lhdf5 -lz -I/opt/share/hdf5/1.8.9/bgp-ibm/include',
+      CXX = 'mpixlcxx_r',
+      CPPPATH=['#/', '#../submodules'],
+      CPPFLAGS = '-O2 -DBG -qnoeh -qsuppress=1540-1088:1540-0700:1540-1090',
+      BG = 'ON',
+      HDF5 = 'ON',)
+
+  
+#
+# Build dependency tree
+#
+allobjs = []
+for sd in subdirs:
+    buildDir = os.path.join('build',sd)
+    consFile = os.path.join(buildDir,'SConscript')
+    env.VariantDir(buildDir, sd)
+    allobjs = allobjs + env.SConscript(consFile, exports=['env','Glob'])
+
+
+
+#
+# Remove any mod files. These should not be passed to the linker.
+#
+objs = filter(lambda o: str(o)[-4:] != '.mod', allobjs)
+
+
+#
+# Add an action to move any module files
+#
+def moveModFiles(target=None, source=None, env=None):
+    import glob, os, os.path
+    targetdir = target[0].dir
+    for t in target:
+        if t.name[-4:] == '.mod':
+            os.rename(t.name,os.path.join(str(targetdir),t.name))
+
+env.AddPostAction(objs, moveModFiles)
+
+#
+# Build program
+#
+env.Program('seissolxx', ['seissolxx.f90'] + objs )

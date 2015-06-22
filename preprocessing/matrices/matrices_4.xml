@@ -1,0 +1,801 @@
+<matrices>
+  <global>
+    <inverseMass rows="4" name="m" columns="4" id="60">
+      <entry column="1" value="6.00000000000000000000" row="1"/>
+      <entry column="2" value="60.00000000000000000000" row="2"/>
+      <entry column="3" value="20.00000000000000000000" row="3"/>
+      <entry column="4" value="10.00000000000000000000" row="4"/>
+    </inverseMass>
+    <stiffness rows="4" name="kXiDivM" columns="4" id="53">
+      <entry column="1" value="20." row="2"/>
+    </stiffness>
+    <stiffness rows="4" name="kEtaDivM" columns="4" id="54">
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="10." row="3"/>
+    </stiffness>
+    <stiffness rows="4" name="kZetaDivM" columns="4" id="55">
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="6.6666666666666666667" row="4"/>
+    </stiffness>
+    <stiffness rows="4" name="kXiDivMT" columns="4" id="56">
+      <entry column="2" value="2." row="1"/>
+    </stiffness>
+    <stiffness rows="4" name="kEtaDivMT" columns="4" id="57">
+      <entry column="2" value="1." row="1"/>
+      <entry column="3" value="3." row="1"/>
+    </stiffness>
+    <stiffness rows="4" name="kZetaDivMT" columns="4" id="58">
+      <entry column="2" value="1." row="1"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="4" value="4." row="1"/>
+    </stiffness>
+    <flux rows="4" name="fM1" columns="4" id="0">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="5." row="2"/>
+      <entry column="3" value="5." row="3"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fM2" columns="4" id="1">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="5." row="2"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="5." row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fM3" columns="4" id="2">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="5." row="2"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="5." row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fM4" columns="4" id="3">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="5." row="2"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="5." row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP111" columns="4" id="4">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="2.5000000000000000000" row="3"/>
+      <entry column="3" value="7.5000000000000000000" row="2"/>
+      <entry column="3" value="-2.5000000000000000000" row="3"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP112" columns="4" id="5">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="-2.5000000000000000000" row="3"/>
+      <entry column="3" value="-7.5000000000000000000" row="2"/>
+      <entry column="3" value="-2.5000000000000000000" row="3"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP113" columns="4" id="6">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="-5." row="2"/>
+      <entry column="3" value="5." row="3"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP121" columns="4" id="7">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="5." row="2"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="1.6666666666666666667" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP122" columns="4" id="8">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="-2.5000000000000000000" row="3"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="2.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP123" columns="4" id="9">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="2.5000000000000000000" row="3"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="-2.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP131" columns="4" id="10">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value=".83333333333333333333" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="2.5000000000000000000" row="2"/>
+      <entry column="3" value="4.1666666666666666667" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP132" columns="4" id="11">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="-1.6666666666666666667" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="5." row="2"/>
+      <entry column="3" value="-3.3333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP133" columns="4" id="12">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value=".83333333333333333333" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-7.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP141" columns="4" id="13">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="-.83333333333333333333" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="7.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP142" columns="4" id="14">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="1.6666666666666666667" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-5." row="2"/>
+      <entry column="3" value="-3.3333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP143" columns="4" id="15">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-5." row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="-.83333333333333333333" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-2.5000000000000000000" row="2"/>
+      <entry column="3" value="4.1666666666666666667" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP211" columns="4" id="16">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="5." row="2"/>
+      <entry column="3" value="1.6666666666666666667" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP212" columns="4" id="17">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value=".83333333333333333333" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="-7.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP213" columns="4" id="18">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="-.83333333333333333333" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="7.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP221" columns="4" id="19">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value=".83333333333333333333" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="2.5000000000000000000" row="2"/>
+      <entry column="3" value="4.1666666666666666667" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP222" columns="4" id="20">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-5." row="2"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="5." row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP223" columns="4" id="21">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="-.83333333333333333333" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="-2.5000000000000000000" row="2"/>
+      <entry column="3" value="4.1666666666666666667" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP231" columns="4" id="22">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="2.5000000000000000000" row="3"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="7.5000000000000000000" row="2"/>
+      <entry column="3" value="-2.5000000000000000000" row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP232" columns="4" id="23">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="2.5000000000000000000" row="3"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-2.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP233" columns="4" id="24">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="1.6666666666666666667" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-5." row="2"/>
+      <entry column="3" value="-3.3333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP241" columns="4" id="25">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="-2.5000000000000000000" row="3"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="2.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP242" columns="4" id="26">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="-2.5000000000000000000" row="3"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-7.5000000000000000000" row="2"/>
+      <entry column="3" value="-2.5000000000000000000" row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP243" columns="4" id="27">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-6.6666666666666666667" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="-1.6666666666666666667" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="5." row="2"/>
+      <entry column="3" value="-3.3333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP311" columns="4" id="28">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value=".83333333333333333333" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="2.5000000000000000000" row="2"/>
+      <entry column="3" value="4.1666666666666666667" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP312" columns="4" id="29">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1.6666666666666666667" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="-5." row="2"/>
+      <entry column="3" value="-3.3333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP313" columns="4" id="30">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="-2.5000000000000000000" row="3"/>
+      <entry column="3" value="2.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP321" columns="4" id="31">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="2.5000000000000000000" row="3"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="7.5000000000000000000" row="2"/>
+      <entry column="3" value="-2.5000000000000000000" row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP322" columns="4" id="32">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="-.83333333333333333333" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="7.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP323" columns="4" id="33">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1.6666666666666666667" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="5." row="2"/>
+      <entry column="3" value="-3.3333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP331" columns="4" id="34">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="5." row="2"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="1.6666666666666666667" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP332" columns="4" id="35">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="-.83333333333333333333" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-2.5000000000000000000" row="2"/>
+      <entry column="3" value="4.1666666666666666667" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP333" columns="4" id="36">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="-2.5000000000000000000" row="3"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-7.5000000000000000000" row="2"/>
+      <entry column="3" value="-2.5000000000000000000" row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP341" columns="4" id="37">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="-5." row="2"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="5." row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP342" columns="4" id="38">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value=".83333333333333333333" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-7.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP343" columns="4" id="39">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="-10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="2.5000000000000000000" row="3"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="-2.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP411" columns="4" id="40">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="2.5000000000000000000" row="3"/>
+      <entry column="3" value="-2.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP412" columns="4" id="41">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1.6666666666666666667" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="5." row="2"/>
+      <entry column="3" value="-3.3333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP413" columns="4" id="42">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="-.83333333333333333333" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="-2.5000000000000000000" row="2"/>
+      <entry column="3" value="4.1666666666666666667" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="-3." row="1"/>
+      <entry column="4" value="-10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP421" columns="4" id="43">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value=".83333333333333333333" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="-7.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP422" columns="4" id="44">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="-2.5000000000000000000" row="3"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="-7.5000000000000000000" row="2"/>
+      <entry column="3" value="-2.5000000000000000000" row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP423" columns="4" id="45">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1.6666666666666666667" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="-2." row="1"/>
+      <entry column="3" value="-5." row="2"/>
+      <entry column="3" value="-3.3333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP431" columns="4" id="46">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="-5." row="2"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="5." row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP432" columns="4" id="47">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="-2.5000000000000000000" row="3"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="2.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP433" columns="4" id="48">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="-1." row="1"/>
+      <entry column="2" value="-2.5000000000000000000" row="2"/>
+      <entry column="2" value="-.83333333333333333333" row="3"/>
+      <entry column="2" value="-1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="7.5000000000000000000" row="2"/>
+      <entry column="3" value="-.83333333333333333333" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP441" columns="4" id="49">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="5." row="2"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="1.6666666666666666667" row="3"/>
+      <entry column="3" value="3.3333333333333333333" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="6.6666666666666666667" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+    <flux rows="4" name="fP442" columns="4" id="50">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value="2.5000000000000000000" row="3"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="7.5000000000000000000" row="2"/>
+      <entry column="3" value="-2.5000000000000000000" row="3"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="5." row="4"/>
+    </flux>
+    <flux rows="4" name="fP443" columns="4" id="51">
+      <entry column="1" value="3." row="1"/>
+      <entry column="1" value="10." row="2"/>
+      <entry column="1" value="3.3333333333333333333" row="3"/>
+      <entry column="1" value="1.6666666666666666667" row="4"/>
+      <entry column="2" value="1." row="1"/>
+      <entry column="2" value="2.5000000000000000000" row="2"/>
+      <entry column="2" value=".83333333333333333333" row="3"/>
+      <entry column="2" value="1.6666666666666666667" row="4"/>
+      <entry column="3" value="1." row="1"/>
+      <entry column="3" value="2.5000000000000000000" row="2"/>
+      <entry column="3" value="4.1666666666666666667" row="3"/>
+      <entry column="3" value="-1.6666666666666666667" row="4"/>
+      <entry column="4" value="1." row="1"/>
+      <entry column="4" value="10." row="2"/>
+      <entry column="4" value="-3.3333333333333333333" row="3"/>
+      <entry column="4" value="-1.6666666666666666667" row="4"/>
+    </flux>
+  </global>
+  <local>
+    <fluxSolver rows="9" id="52" columns="9"/>
+    <starMatrix rows="9" id="59" columns="9">
+      <entry column="1" row="7"/>
+      <entry column="1" row="8"/>
+      <entry column="1" row="9"/>
+      <entry column="2" row="7"/>
+      <entry column="2" row="8"/>
+      <entry column="2" row="9"/>
+      <entry column="3" row="7"/>
+      <entry column="3" row="8"/>
+      <entry column="3" row="9"/>
+      <entry column="4" row="7"/>
+      <entry column="4" row="8"/>
+      <entry column="5" row="8"/>
+      <entry column="5" row="9"/>
+      <entry column="6" row="7"/>
+      <entry column="6" row="9"/>
+      <entry column="7" row="1"/>
+      <entry column="7" row="4"/>
+      <entry column="7" row="6"/>
+      <entry column="8" row="2"/>
+      <entry column="8" row="4"/>
+      <entry column="8" row="5"/>
+      <entry column="9" row="3"/>
+      <entry column="9" row="5"/>
+      <entry column="9" row="6"/>
+    </starMatrix>
+  </local>
+</matrices>
