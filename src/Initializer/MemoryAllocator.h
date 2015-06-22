@@ -46,6 +46,10 @@
 #include <iostream>
 #include <vector>
 
+#ifdef USE_MEMKIND
+#include <hbwmalloc.h>
+#endif
+
 #include <utils/logger.h>
 
 namespace seissol {
@@ -80,14 +84,34 @@ class seissol::MemoryAllocator {
      * @todo Allow this function to be called directly (update m_dataMemoryAddresses and free correctly)
      **/
     inline void* allocateMemory( size_t i_size,
-                                 size_t i_alignment ) {
+                                 size_t i_alignment,
+                                 int    i_memkind = 0 ) {
       // do the malloc
       void* l_ptrBuffer;
+
+      #ifdef USE_MEMKIND
+      if( i_memkind == 0 ) {
+        if (i_alignment % (sizeof(void*)) != 0) {
+          l_ptrBuffer = malloc( i_size );
+        } else {
+          posix_memalign( &l_ptrBuffer, i_alignment, i_size );
+        }
+      }
+      else {
+        if (i_alignment % (sizeof(void*)) != 0) {
+          l_ptrBuffer = hbw_malloc( i_size );
+        } else {
+          hbw_posix_memalign( &l_ptrBuffer, i_alignment, i_size );
+        } 
+      }
+      #else
       if (i_alignment % (sizeof(void*)) != 0) {
         l_ptrBuffer = malloc( i_size );
       } else {
         posix_memalign( &l_ptrBuffer, i_alignment, i_size );
       }
+      #endif
+
       return l_ptrBuffer;
     }
 

@@ -159,6 +159,22 @@
 #endif
 
 #if 0
+! memory subsystem specifications
+#endif
+
+#ifdef USE_MEMKIND
+#define MEMKIND_GLOBAL 1
+#define MEMKIND_CONSTANT 1
+#define MEMKIND_DOFS 1
+#define MEMKIND_TIMEDOFS 1
+#else
+#define MEMKIND_GLOBAL 0
+#define MEMKIND_CONSTANT 0
+#define MEMKIND_DOFS 0
+#define MEMKIND_TIMEDOFS 0
+#endif
+
+#if 0
 ! aligned number of basis functions
 #endif
 

@@ -220,7 +220,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
   l_alignedReals = seissol::kernels::getNumberOfAlignedReals( NUMBER_OF_BASIS_FUNCTIONS );
   l_offset[59] = l_offset[58] + l_alignedReals;
 
-  real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), ALIGNMENT );
+  real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), ALIGNMENT, MEMKIND_GLOBAL );
 
   /*
    * Set up pointers.
@@ -561,14 +561,14 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
 
 void seissol::initializers::MemoryManager::allocateConstantData() {
   // allocate cell local data
-  LocalIntegrationData       *l_local       = (LocalIntegrationData*)       m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( LocalIntegrationData ),       1 );
-  NeighboringIntegrationData *l_neighboring = (NeighboringIntegrationData*) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( NeighboringIntegrationData ), 1 );
+  LocalIntegrationData       *l_local       = (LocalIntegrationData*)       m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( LocalIntegrationData ),       1, MEMKIND_CONSTANT );
+  NeighboringIntegrationData *l_neighboring = (NeighboringIntegrationData*) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( NeighboringIntegrationData ), 1, MEMKIND_CONSTANT );
 
   // store per-cluster locations of the data
 #ifdef USE_MPI
-  m_copyCellData     = (struct CellData*) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( struct CellData ), 1 );
+  m_copyCellData     = (struct CellData*) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( struct CellData ), 1, MEMKIND_CONSTANT );
 #endif
-  m_interiorCellData = (struct CellData*) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( struct CellData ), 1 );
+  m_interiorCellData = (struct CellData*) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( struct CellData ), 1, MEMKIND_CONSTANT );
 
   for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
 #ifdef USE_MPI
@@ -655,27 +655,32 @@ void seissol::initializers::MemoryManager::allocateInternalState() {
 
 #ifdef USE_MPI
   m_internalState.ghostLayer   = (real*) m_memoryAllocator.allocateMemory( l_ghostSize    * sizeof( real ),
-                                                                           ALIGNMENT                        );
+                                                                           ALIGNMENT,
+                                                                           MEMKIND_TIMEDOFS                );
 
   m_internalState.copyLayer    = (real*) m_memoryAllocator.allocateMemory( l_copySize     * sizeof( real ),
-                                                                           ALIGNMENT                        );
+                                                                           ALIGNMENT,
+                                                                           MEMKIND_TIMEDOFS                );
 #endif // USE_MPI
 
   m_internalState.interiorTime = (real*) m_memoryAllocator.allocateMemory( l_interiorSize * sizeof( real ),
-                                                                           ALIGNMENT                        );
+                                                                           ALIGNMENT,
+                                                                           MEMKIND_TIMEDOFS                );
 
   /*
    * buffers / derivatives / face neighbors
    */
-  m_internalState.buffers       = (real**)      m_memoryAllocator.allocateMemory( m_totalNumberOfCells * sizeof( real*    ), 1 );
-  m_internalState.derivatives   = (real**)      m_memoryAllocator.allocateMemory( m_totalNumberOfCells * sizeof( real*    ), 1 );
-  m_internalState.faceNeighbors = (real*(*)[4]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( real*[4] ), 1 );
+  m_internalState.buffers       = (real**)      m_memoryAllocator.allocateMemory( m_totalNumberOfCells * sizeof( real*    ), 1, MEMKIND_TIMEDOFS );
+  m_internalState.derivatives   = (real**)      m_memoryAllocator.allocateMemory( m_totalNumberOfCells * sizeof( real*    ), 1, MEMKIND_TIMEDOFS );
+  m_internalState.faceNeighbors = (real*(*)[4]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( real*[4] ), 1, MEMKIND_TIMEDOFS );
 
   /*
    * dofs
    */
   m_internalState.dofs         = (real(*)[NUMBER_OF_ALIGNED_DOFS]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof( real[NUMBER_OF_ALIGNED_DOFS] ),
-                                                                                                     ALIGNMENT                                                                                         );
+                                                                                                     ALIGNMENT,
+                                                                                                     MEMKIND_DOFS
+                                                                                                   );
 }
 
 void seissol::initializers::MemoryManager::initializeFaceNeighbors() {
