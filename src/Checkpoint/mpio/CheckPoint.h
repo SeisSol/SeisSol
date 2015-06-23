@@ -43,6 +43,8 @@
 
 #include <mpi.h>
 
+#include <cassert>
+
 #include "utils/env.h"
 
 #include "Checkpoint/CheckPoint.h"
@@ -75,15 +77,18 @@ private:
 	/** The MPI data type for the header */
 	MPI_Datatype m_headerType;
 
-	/** The MPI data type of the file */
-	MPI_Datatype m_fileType;
+	/** The MPI data type for the file header */
+	MPI_Datatype m_fileHeaderType;
+
+	/** The MPI data type of the file data */
+	MPI_Datatype m_fileDataType;
 
 public:
 	CheckPoint(unsigned long identifier, unsigned int elemSize)
 		: m_identifier(identifier),
 		  m_elemSize(elemSize),
 		  m_headerSize(0), m_headerType(MPI_DATATYPE_NULL),
-		  m_fileType(MPI_DATATYPE_NULL)
+		  m_fileHeaderType(MPI_DATATYPE_NULL), m_fileDataType(MPI_DATATYPE_NULL)
 	{
 	}
 
@@ -99,13 +104,12 @@ public:
 		seissol::checkpoint::CheckPoint::initLate();
 
 		for (unsigned int i = 0; i < 2; i++) {
-			MPI_File_open(comm(), const_cast<char*>(dataFile(i).c_str()),
-					MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &m_mpiFiles[i]);
-
-			MPI_File_set_view(m_mpiFiles[i], 0, MPI_BYTE, m_fileType, "native", MPI_INFO_NULL);
+			checkMPIErr(MPI_File_open(comm(), const_cast<char*>(dataFile(i).c_str()),
+					MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &m_mpiFiles[i]));
 
 			// Sync file (required for performance measure)
-			MPI_File_sync(m_mpiFiles[i]);
+			// TODO preallocate file first
+			checkMPIErr(MPI_File_sync(m_mpiFiles[i]));
 		}
 	}
 
@@ -114,7 +118,9 @@ public:
 		for (unsigned int i = 0; i < 2; i++)
 			MPI_File_close(&m_mpiFiles[i]);
 		MPI_Type_free(&m_headerType);
-		MPI_Type_free(&m_fileType);
+		MPI_Type_free(&m_fileDataType);
+		if (rank() == 0)
+			MPI_Type_free(&m_fileHeaderType);
 	}
 
 protected:
@@ -157,23 +163,26 @@ protected:
 		MPI_Datatype elemType;
 		MPI_Type_contiguous(m_elemSize, MPI_BYTE, &elemType);
 
-		// Create the file view
-		if (rank() == 0) {
-			int blockLength[] = {headerSize, numElem, 1};
-			MPI_Aint displ[] = {0, m_headerSize, totalSize};
-			MPI_Datatype types[] = {MPI_BYTE, elemType, MPI_UB};
-			MPI_Type_create_struct(3, blockLength, displ, types, &m_fileType);
-		} else {
-			int blockLength[] = {numElem, 1};
-			MPI_Aint displ[] = {m_headerSize + fileOffset() * m_elemSize, totalSize};
-			MPI_Datatype types[] = {elemType, MPI_UB};
-			MPI_Type_create_struct(2, blockLength, displ, types, &m_fileType);
-		}
-
-		// Commit the data type
-		MPI_Type_commit(&m_fileType);
+		// Create data file type
+		int blockLength[] = {numElem, 1};
+		MPI_Aint displ[] = {m_headerSize + fileOffset() * m_elemSize, totalSize};
+		MPI_Datatype types[] = {elemType, MPI_UB};
+		MPI_Type_create_struct(2, blockLength, displ, types, &m_fileDataType);
+		MPI_Type_commit(&m_fileDataType);
 
 		MPI_Type_free(&elemType);
+		
+		// Create the header file type
+		if (rank() == 0) {
+			int blockLength[] = {headerSize, 1};
+			MPI_Aint displ[] = {0, m_headerSize};
+			MPI_Datatype types[] = {MPI_BYTE, MPI_UB};
+			MPI_Type_create_struct(2, blockLength, displ, types, &m_fileHeaderType);
+
+			MPI_Type_commit(&m_fileHeaderType);
+		} else
+			// Only first rank write the header
+			m_fileHeaderType = m_fileDataType;
 	}
 
 	bool exists()
@@ -182,6 +191,9 @@ protected:
 			return false;
 
 		MPI_File file = open();
+		if (file == MPI_FILE_NULL)
+			return false;
+
 		bool hasCheckpoint = validate(file);
 		MPI_File_close(&file);
 
@@ -199,7 +211,7 @@ protected:
 		EPIK_USER_START(r_flush);
 		SCOREP_USER_REGION_BEGIN(r_flush, "checkpoint_flush", SCOREP_USER_REGION_TYPE_COMMON);
 
-		MPI_File_sync(m_mpiFiles[odd()]);
+		checkMPIErr(MPI_File_sync(m_mpiFiles[odd()]));
 
 		EPIK_USER_END(r_flush);
 		SCOREP_USER_REGION_END(r_flush);
@@ -216,11 +228,34 @@ protected:
 	{
 		MPI_File fh;
 
-		MPI_File_open(comm(), const_cast<char*>(linkFile()),
+		int result = MPI_File_open(comm(), const_cast<char*>(linkFile()),
 				MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
-		MPI_File_set_view(fh, 0, MPI_BYTE, m_fileType, "native", MPI_INFO_NULL);
+		if (result != 0) {
+			logWarning() << "Could not open checkpoint file";
+			return MPI_FILE_NULL;
+		}
 
 		return fh;
+	}
+
+	/**
+	 * Set header file view
+	 *
+	 * @return The MPI error code
+	 */
+	int setHeaderView(MPI_File file) const
+	{
+		return MPI_File_set_view(file, 0, MPI_BYTE, m_fileHeaderType, "native", MPI_INFO_NULL);
+	}
+
+	/**
+	 * Set data file view
+	 *
+	 * @return The MPI error code
+	 */
+	int setDataView(MPI_File file) const
+	{
+		return MPI_File_set_view(file, 0, MPI_BYTE, m_fileDataType, "native", MPI_INFO_NULL);
 	}
 
 	/**
@@ -256,6 +291,20 @@ protected:
 	 * Validate an existing check point file
 	 */
 	virtual bool validate(MPI_File file) const = 0;
+
+protected:
+	static void checkMPIErr(int ret)
+	{
+		if (ret != 0) {
+			char errString[MPI_MAX_ERROR_STRING+1];
+			int length;
+			MPI_Error_string(ret, errString, &length);
+			assert(length < MPI_MAX_ERROR_STRING+1);
+
+			errString[length] = '\0';
+			logError() << "Error in the MPI checkpoint module:" << errString;
+		}
+	}
 };
 
 }
