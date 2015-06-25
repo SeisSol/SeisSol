@@ -56,6 +56,7 @@ bool seissol::checkpoint::h5::Fault::init(
 	// Dataspace for the file
 	hsize_t fileSize[2] = {numTotalElems(), numBndGP};
 	m_h5fSpaceData = H5Screate_simple(2, fileSize, 0L);
+	checkH5Err(m_h5fSpaceData);
 
 	setupXferList();
 
