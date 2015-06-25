@@ -50,6 +50,7 @@
 #include "h5/Wavefield.h"
 #include "h5/Fault.h"
 #include "mpio/Wavefield.h"
+#include "mpio/Fault.h"
 
 namespace seissol
 {
@@ -98,7 +99,7 @@ public:
 			break;
 		case MPIO:
 			m_waveField = new mpio::Wavefield();
-			m_fault = new h5::Fault();
+			m_fault = new mpio::Fault();
 			break;
 		default:
 			logError() << "Unsupported checkpoint backend";

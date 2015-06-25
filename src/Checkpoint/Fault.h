@@ -41,6 +41,13 @@
 #ifndef CHECKPOINT_FAULT_H
 #define CHECKPOINT_FAULT_H
 
+#ifdef USE_MPI
+#include <mpi.h>
+#endif // USE_MPI
+
+#include <cassert>
+#include <string>
+
 #include "CheckPoint.h"
 
 namespace seissol
@@ -54,13 +61,65 @@ namespace checkpoint
  */
 class Fault : virtual public CheckPoint
 {
+protected:
+	static const int NUM_VARIABLES = 6;
+
+private:
+	/** Pointers to fault data */
+	double* m_data[NUM_VARIABLES];
+
+	/** Number of dynamic rupture sides on this rank */
+	unsigned int m_numSides;
+
+	/** Number of boundary points per side */
+	unsigned int m_numBndGP;
+
 public:
+	Fault()
+		: m_numSides(), m_numBndGP(0)
+	{}
+
+	virtual ~Fault() {}
+
 	/**
 	 * @return True of a valid checkpoint is available
 	 */
 	virtual bool init(double* mu, double* slipRate1, double* slipRate2, double* slip,
 			double* state, double* strength,
-			unsigned int numSides, unsigned int numBndGP) = 0;
+			unsigned int numSides, unsigned int numBndGP)
+	{
+		int rank = 0;
+#ifdef USE_MPI
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#endif // USE_MPI
+
+		logInfo(rank) << "Initializing fault check pointing";
+
+#ifdef USE_MPI
+		// Get the communicator (must be called by all ranks)
+		MPI_Comm comm;
+		MPI_Comm_split(MPI_COMM_WORLD, (numSides == 0 ? MPI_UNDEFINED : 0), rank, &comm);
+#endif // USE_MPI
+
+		if (numSides == 0)
+			return true;
+
+#ifdef USE_MPI
+		setComm(comm);
+#endif // USE_MPI
+
+		// Save data pointers
+		m_data[0] = mu;
+		m_data[1] = slipRate1;
+		m_data[2] = slipRate2;
+		m_data[3] = slip;
+		m_data[4] = state;
+		m_data[5] = strength;
+		m_numSides = numSides;
+		m_numBndGP = numBndGP;
+
+		return false;
+	}
 
 	/**
 	 * @param[out] timestepFault Time step of the fault writer in the checkpoint
@@ -69,6 +128,44 @@ public:
 	virtual void load(int &timestepFault) = 0;
 
 	virtual void write(int timestepFault) = 0;
+
+protected:
+	void initFilename(const char* filename, const char* extension)
+	{
+		std::string file(filename);
+		std::string ext = "." + std::string(extension);
+		if (utils::StringUtils::endsWith(file, ext))
+			utils::StringUtils::replaceLast(file, ext, "-fault");
+		else
+			file += "-fault";
+
+		CheckPoint::initFilename(file.c_str(), extension);
+	}
+
+	double* data(unsigned int var)
+	{
+		assert(var < NUM_VARIABLES);
+		return m_data[var];
+	}
+
+	const double* data(unsigned int var) const
+	{
+		assert(var < NUM_VARIABLES);
+		return m_data[var];
+	}
+
+	unsigned int numSides() const
+	{
+		return m_numSides;
+	}
+
+	unsigned int numBndGP() const
+	{
+		return m_numBndGP;
+	}
+
+	/** Names of the different variables we need to store */
+	static const char* VAR_NAMES[NUM_VARIABLES];
 };
 
 }

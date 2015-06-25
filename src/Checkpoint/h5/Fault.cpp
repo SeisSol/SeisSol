@@ -39,61 +39,22 @@
 
 #include "Fault.h"
 
-#include <cassert>
-
-#include "utils/stringutils.h"
-
-void seissol::checkpoint::h5::Fault::setFilename(const char* filename)
-{
-	std::string file(filename);
-	if (utils::StringUtils::endsWith(file, ".h5"))
-		utils::StringUtils::replaceLast(file, ".h5", "-fault.h5");
-	else
-		file += "-fault.h5";
-
-	CheckPoint::setFilename(file.c_str());
-}
-
 bool seissol::checkpoint::h5::Fault::init(
 		double* mu, double* slipRate1, double* slipRate2, double* slip,
 		double* state, double* strength,
 		unsigned int numSides, unsigned int numBndGP)
 {
-	int rank = 0;
-#ifdef USE_MPI
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-#endif // USE_MPI
-
-	logInfo(rank) << "Initializing fault check pointing";
-
-#ifdef USE_MPI
-	// Get the communicator (must be called by all ranks)
-	MPI_Comm comm;
-	MPI_Comm_split(MPI_COMM_WORLD, (numSides == 0 ? MPI_UNDEFINED : 0), rank, &comm);
-#endif // USE_MPI
+	seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip, state, strength,
+			numSides, numBndGP);
 
 	if (numSides == 0)
 		return true;
-
-#ifdef USE_MPI
-	setComm(comm);
-#endif // USE_MPI
-
-	// Save data pointers
-	m_mu = mu;
-	m_slipRate1 = slipRate1;
-	m_slipRate2 = slipRate2;
-	m_slip = slip;
-	m_state = state;
-	m_strength = strength;
-	m_numSides = numSides;
-	m_numBndGP = numBndGP;
 
 	// Compute total number of cells and local offset
 	setSumOffset(numSides);
 
 	// Dataspace for the file
-	hsize_t fileSize[2] = {numTotalElems(), m_numBndGP};
+	hsize_t fileSize[2] = {numTotalElems(), numBndGP};
 	m_h5fSpaceData = H5Screate_simple(2, fileSize, 0L);
 
 	setupXferList();
@@ -103,7 +64,7 @@ bool seissol::checkpoint::h5::Fault::init(
 
 void seissol::checkpoint::h5::Fault::load(int &timestepFault)
 {
-	if (m_numSides == 0)
+	if (numSides() == 0)
 		return;
 
 	logInfo(rank()) << "Loading fault checkpoint";
@@ -117,12 +78,8 @@ void seissol::checkpoint::h5::Fault::load(int &timestepFault)
 	checkH5Err(H5Aread(h5attr, H5T_NATIVE_INT, &timestepFault));
 	checkH5Err(H5Aclose(h5attr));
 
-	// Create array with all pointers
-	double * const data[] = {m_mu, m_slipRate1, m_slipRate2, m_slip, m_state, m_strength};
-	assert(utils::ArrayUtils::size(data) == utils::ArrayUtils::size(VAR_NAMES));
-
 	// Set the memory space (this is the same for all variables)
-	hsize_t count[2] = {m_numSides, m_numBndGP};
+	hsize_t count[2] = {numSides(), numBndGP()};
 	hid_t h5memSpace = H5Screate_simple(2, count, 0L);
 	checkH5Err(h5memSpace);
 	checkH5Err(H5Sselect_all(h5memSpace));
@@ -131,7 +88,7 @@ void seissol::checkpoint::h5::Fault::load(int &timestepFault)
 	hsize_t fStart[2] = {fileOffset(), 0};
 
 	// Read the data
-	for (unsigned int i = 0; i < utils::ArrayUtils::size(VAR_NAMES); i++) {
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
 		hid_t h5data = H5Dopen(h5file, VAR_NAMES[i], H5P_DEFAULT);
 		checkH5Err(h5data);
 		hid_t h5fSpace = H5Dget_space(h5data);
@@ -141,7 +98,7 @@ void seissol::checkpoint::h5::Fault::load(int &timestepFault)
 		checkH5Err(H5Sselect_hyperslab(h5fSpace, H5S_SELECT_SET, fStart, 0L, count, 0L));
 
 		checkH5Err(H5Dread(h5data, H5T_NATIVE_DOUBLE, h5memSpace, h5fSpace,
-				h5XferList(), data[i]));
+				h5XferList(), data(i)));
 
 		checkH5Err(H5Sclose(h5fSpace));
 		checkH5Err(H5Dclose(h5data));
@@ -156,15 +113,12 @@ void seissol::checkpoint::h5::Fault::write(int timestepFault)
 	EPIK_TRACER("CheckPointFault_write");
 	SCOREP_USER_REGION("CheckPointFault_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	if (m_numSides == 0)
+	if (numSides() == 0)
 		return;
 
 	logInfo(rank()) << "Writing fault check point.";
 
 	// Create array with all pointers
-	const double * const data[] = {m_mu, m_slipRate1, m_slipRate2, m_slip, m_state, m_strength};
-	assert(utils::ArrayUtils::size(data) == utils::ArrayUtils::size(VAR_NAMES));
-
 	EPIK_USER_REG(r_write_fault, "checkpoint_write_fault");
 	SCOREP_USER_REGION_DEFINE(r_write_fault);
 	EPIK_USER_START(r_write_fault);
@@ -175,15 +129,15 @@ void seissol::checkpoint::h5::Fault::write(int timestepFault)
 
 	// Set memory and file space
 	hsize_t fStart[2] = {fileOffset(), 0};
-	hsize_t count[2] = {m_numSides, m_numBndGP};
+	hsize_t count[2] = {numSides(), numBndGP()};
 	hid_t h5memSpace = H5Screate_simple(2, count, 0L);
 	checkH5Err(h5memSpace);
 	checkH5Err(H5Sselect_all(h5memSpace));
 	checkH5Err(H5Sselect_hyperslab(m_h5fSpaceData, H5S_SELECT_SET, fStart, 0L, count, 0L));
 
-	for (unsigned int i = 0; i < utils::ArrayUtils::size(VAR_NAMES); i++) {
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
 		checkH5Err(H5Dwrite(m_h5data[odd()][i], H5T_NATIVE_DOUBLE, h5memSpace, m_h5fSpaceData,
-				h5XferList(), data[i]));
+				h5XferList(), data(i)));
 	}
 
 	checkH5Err(H5Sclose(h5memSpace));
@@ -203,7 +157,7 @@ bool seissol::checkpoint::h5::Fault::validate(hid_t h5file) const
 	H5ErrHandler errHandler;
 
 	// Check dimensions
-	for (unsigned int i = 0; i < utils::ArrayUtils::size(VAR_NAMES); i++) {
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
 		hid_t h5data = H5Dopen(h5file, VAR_NAMES[i], H5P_DEFAULT);
 		if (h5data < 0) {
 			logWarning(rank()) << "Dataset" << VAR_NAMES[i] << "not found in checkpoint.";
@@ -233,7 +187,7 @@ bool seissol::checkpoint::h5::Fault::validate(hid_t h5file) const
 					isValid = false;
 					logWarning(rank()) << "Number of elements for" << VAR_NAMES[i] << "in checkpoint does not match.";
 				}
-				if (dimSize[1] != m_numBndGP) {
+				if (dimSize[1] != numBndGP()) {
 					logWarning(rank()) << "Number of boundary points for" << VAR_NAMES[i] << "in checkpoint does not match.";
 					isValid = false;
 				}
@@ -293,7 +247,4 @@ hid_t seissol::checkpoint::h5::Fault::create(int odd, const char* filename)
 
 	return h5file;
 }
-
-const char* seissol::checkpoint::h5::Fault::VAR_NAMES[6] = {
-		"mu", "slip_rate1", "slip_rate2", "slip", "state", "strength" };
 

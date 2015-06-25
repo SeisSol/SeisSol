@@ -37,67 +37,7 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_MPIO_WAVEFIELD_H
-#define CHECKPOINT_MPIO_WAVEFIELD_H
+#include "Fault.h"
 
-#ifndef USE_MPI
-#include "Checkpoint/WavefieldDummy.h"
-#else // USE_MPI
-
-#include <mpi.h>
-
-#include "CheckPoint.h"
-#include "Checkpoint/Wavefield.h"
-
-#endif // USE_MPI
-
-namespace seissol
-{
-
-namespace checkpoint
-{
-
-namespace mpio
-{
-
-#ifndef USE_MPI
-typedef WavefieldDummy Wavefield;
-#else // USE_MPI
-
-class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
-{
-private:
-	/** Struct describing the  header information in the file */
-	struct Header {
-		unsigned long identifier;
-		int partitions;
-		double time;
-		int timestepWavefield;
-	};
-
-public:
-	Wavefield()
-		: CheckPoint(0x7A3B4, sizeof(real))
-	{
-	}
-
-	bool init(real* dofs, unsigned int numDofs);
-
-	void load(double &time, int &timestepWavefield);
-
-	void write(double time, int timestepWaveField);
-
-protected:
-	bool validate(MPI_File file) const;
-};
-
-#endif // USE_MPI
-
-}
-
-}
-
-}
-
-#endif // CHECKPOINT_MPIO_WAVEFIELD_H
-
+const char* seissol::checkpoint::Fault::VAR_NAMES[NUM_VARIABLES] = {
+		"mu", "slip_rate1", "slip_rate2", "slip", "state", "strength" };

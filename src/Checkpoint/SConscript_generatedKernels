@@ -40,6 +40,7 @@
 
 Import('env')
 
+sourceFiles = ['Fault.cpp']
 sourceDirs = []
 
 if env['hdf5']:
@@ -50,6 +51,9 @@ if env['parallelization'] in ['mpi', 'hybrid']:
 
 # TODO: Add support for single precision
 if env['arch'][0:1] == 'd':
+    
+  for i in sourceFiles:
+    env.sourceFiles.append(env.Object(i))
 
   for sourceDir in sourceDirs:
     Export('env')

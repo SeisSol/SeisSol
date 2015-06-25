@@ -141,7 +141,7 @@ protected:
 	 * @param filename The base file name
 	 * @param extension The extension
 	 */
-	void initFilename(const char* filename, const char* extension)
+	virtual void initFilename(const char* filename, const char* extension)
 	{
 		std::string ext = std::string(".") + extension;
 

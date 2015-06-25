@@ -36,11 +36,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 # @section DESCRIPTION
-# Definition of the hdf5 check point source files.
+# Definition of the MPIO check point source files.
 
 Import('env')
 
-sourceFiles = ['Wavefield.cpp']
+sourceFiles = ['Wavefield.cpp', 'Fault.cpp']
 
 for i in sourceFiles:
     env.sourceFiles.append(env.Object(i))

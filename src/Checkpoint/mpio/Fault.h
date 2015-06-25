@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2015, SeisSol Group
+ * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,31 +37,19 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_H5_FAULT_H
-#define CHECKPOINT_H5_FAULT_H
+#ifndef CHECKPOINT_MPIO_FAULT_H
+#define CHECKPOINT_MPIO_FAULT_H
 
-#ifndef USE_HDF
+#ifndef USE_MPI
 #include "Checkpoint/FaultDummy.h"
-#else // USE_HDF
+#else // USE_MPI
 
-#ifdef USE_MPI
 #include <mpi.h>
-#endif // USE_MPI
-
-#include <cstdio>
-#include <string>
-
-#include <hdf5.h>
-
-#include "utils/arrayutils.h"
-#include "utils/logger.h"
 
 #include "CheckPoint.h"
 #include "Checkpoint/Fault.h"
-#include "Initializer/preProcessorMacros.fpp"
-#include "Initializer/typedefs.hpp"
 
-#endif // USE_HDF
+#endif // USE_MPI
 
 namespace seissol
 {
@@ -69,31 +57,25 @@ namespace seissol
 namespace checkpoint
 {
 
-namespace h5
+namespace mpio
 {
 
-#ifndef USE_HDF
+#ifndef USE_MPI
 typedef FaultDummy Fault;
-#else // USE_HDF
+#else // USE_MPI
 
 class Fault : public CheckPoint, virtual public seissol::checkpoint::Fault
 {
 private:
-	/** Identifiers of the HDF5 fault attributes */
-	hid_t m_h5timestepFault[2];
-
-	/**
-	 * Identifiers of the main data set in the files
-	 * @todo Make the size depend on the size of VAR_NAMES
-	 */
-	hid_t m_h5data[2][6];
-
-	/** Identifiers for the file space of the data set */
-	hid_t m_h5fSpaceData;
+	/** Struct describing the  header information in the file */
+	struct Header {
+		unsigned long identifier;
+		int timestepFault;
+	};
 
 public:
 	Fault()
-		: m_h5fSpaceData(-1)
+		: CheckPoint(0x7A849, sizeof(double)*NUM_VARIABLES)
 	{}
 
 	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip,
@@ -121,24 +103,14 @@ public:
 		if (numSides() == 0)
 			return;
 
-		for (unsigned int i = 0; i < 2; i++) {
-			checkH5Err(H5Aclose(m_h5timestepFault[i]));
-			for (unsigned int j = 0; j < NUM_VARIABLES; j++)
-				checkH5Err(H5Dclose(m_h5data[i][j]));
-		}
-		checkH5Err(H5Sclose(m_h5fSpaceData));
-
 		CheckPoint::close();
 	}
 
-
 private:
-	bool validate(hid_t h5file) const;
-
-	hid_t create(int odd, const char* filename);
+	bool validate(MPI_File file) const;
 };
 
-#endif // USE_HDF
+#endif // USE_MPI
 
 }
 
@@ -146,4 +118,4 @@ private:
 
 }
 
-#endif // CHECKPOINT_H5_FAULT_H
+#endif // CHECKPOINT_MPIO_FAULT_H
