@@ -195,6 +195,9 @@ public:
 	 */
 	void write(double time)
 	{
+		EPIK_TRACER("WaveFieldWriter_write");
+		SCOREP_USER_REGION("WaveFieldWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+
 		if (!m_enabled)
 			return;
 
