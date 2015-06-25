@@ -75,6 +75,8 @@ void seissol::checkpoint::mpio::Fault::load(int &timestepFault)
 
 	logInfo(rank()) << "Loading fault checkpoint";
 
+	seissol::checkpoint::CheckPoint::load();
+
 	MPI_File file = open();
 	if (file == MPI_FILE_NULL)
 		logError() << "Could not open fault checkpoint file";

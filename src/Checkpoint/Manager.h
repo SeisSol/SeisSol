@@ -168,6 +168,10 @@ public:
 
 		m_waveField->write(time, waveFieldTimeStep);
 		m_fault->write(faultTimeStep);
+
+		// Update both links at the "same" time
+		m_waveField->updateLink();
+		m_fault->updateLink();
 	}
 
 	/**

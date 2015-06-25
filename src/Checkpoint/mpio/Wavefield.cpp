@@ -67,6 +67,8 @@ void seissol::checkpoint::mpio::Wavefield::load(double &time, int &timestepWaveF
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
+	seissol::checkpoint::CheckPoint::load();
+
 	MPI_File file = open();
 	if (file == MPI_FILE_NULL)
 		logError() << "Could not open checkpoint file";

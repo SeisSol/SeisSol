@@ -89,7 +89,7 @@ public:
 		seissol::checkpoint::CheckPoint::initLate();
 
 		for (unsigned int i = 0; i < 2; i++) {
-			m_h5files[i] = create(i, dataFile(i).c_str());
+			m_h5files[i] = initFile(i, dataFile(i).c_str());
 
 			// Sync file (required for performance measure)
 			checkH5Err(H5Fflush(m_h5files[i], H5F_SCOPE_GLOBAL));
@@ -125,7 +125,7 @@ protected:
 		if (!seissol::checkpoint::CheckPoint::exists())
 			return false;
 
-		hid_t h5file = open();
+		hid_t h5file = open(linkFile());
 		if (h5file < 0) {
 			logWarning(rank()) << "Failed to open checkpoint file.";
 			return false;
@@ -138,8 +138,7 @@ protected:
 	}
 
 	/**
-	 * Finalize checkpoint writing:
-	 * Flush the file, update symbolic link, ...
+	 * Finalize checkpoint writing: Flush the file
 	 */
 	void finalizeCheckpoint()
 	{
@@ -152,8 +151,6 @@ protected:
 
 		EPIK_USER_END(r_flush);
 		SCOREP_USER_REGION_END(r_flush);
-
-		seissol::checkpoint::CheckPoint::finalizeCheckpoint();
 	}
 
 	hid_t h5XferList() const
@@ -166,20 +163,20 @@ protected:
 	 *
 	 * @return H5 identifier or -1 on failure
 	 */
-	hid_t open()
+	hid_t open(const char* file, bool readonly = true)
 	{
 		hid_t h5plist = H5P_DEFAULT;
-	#ifdef USE_MPI
+#ifdef USE_MPI
 		h5plist = H5Pcreate(H5P_FILE_ACCESS);
 		checkH5Err(h5plist);
 		checkH5Err(H5Pset_fapl_mpio(h5plist, comm(), MPI_INFO_NULL));
-	#endif // USE_MPI
+#endif // USE_MPI
 
 		// Turn of error printing
 		H5ErrHandler errHandler;
 
 		// Do not check the id since this may file if no checkpoint exists
-		hid_t h5file = H5Fopen(linkFile(), H5F_ACC_RDONLY, h5plist);
+		hid_t h5file = H5Fopen(file, (readonly ? H5F_ACC_RDONLY : H5F_ACC_RDWR), h5plist);
 
 		// Restore previous error handler
 		errHandler.outputOn();
@@ -195,13 +192,13 @@ protected:
 	virtual bool validate(hid_t h5file) const = 0;
 
 	/**
-	 * Create a check a checkpoint file
+	 * Create or open a check a checkpoint file for writing
 	 *
 	 * @param odd 1 if odd file should be created, 0 otherwise
 	 * @param filename Path the the HDF5 file that should be created
 	 * @return The id of the created file
 	 */
-	virtual hid_t create(int odd, const char* filename) = 0;
+	virtual hid_t initFile(int odd, const char* filename) = 0;
 
 protected:
 	template<typename T>

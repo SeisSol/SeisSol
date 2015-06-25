@@ -91,6 +91,9 @@ private:
 	/** Offset in the file (in elements) */
 	unsigned long m_fileOffset;
 
+	/** Was the checkpoint loaded */
+	bool m_loaded;
+
 public:
 	CheckPoint()
 		: m_rank(0), m_partitions(1), // default for no MPI
@@ -98,7 +101,8 @@ public:
 		  m_comm(MPI_COMM_NULL),
 #endif // USE_MPI
 		  m_odd(0), // Start with even checkpoint
-		  m_numTotalElems(0), m_fileOffset(0)
+		  m_numTotalElems(0), m_fileOffset(0),
+		  m_loaded(false)
 	{}
 
 	virtual ~CheckPoint() {}
@@ -116,17 +120,37 @@ public:
 	 */
 	virtual void initLate()
 	{
-		for (unsigned int i = 0; i < 2; i++) {
-			std::string filename = dataFile(i);
-			// Backup checkpoint
-			if (m_rank == 0)
-				rename(filename.c_str(), (filename + ".bak").c_str());
-		}
+		// If a checkpoint was loaded, we will reopen the old files
+		// otherwise, create a backup
+		if (!m_loaded) {
+			for (unsigned int i = 0; i < 2; i++) {
+				std::string filename = dataFile(i);
+				// Backup checkpoint
+				if (m_rank == 0)
+					rename(filename.c_str(), (filename + ".bak").c_str());
+			}
 
 #ifdef USE_MPI
-		// Make sure the file is moved before anyone create a new file
-		MPI_Barrier(m_comm);
+			// Make sure the file is moved before anyone create a new file
+			MPI_Barrier(m_comm);
 #endif // USE_MPI
+		}
+	}
+
+	/**
+	 * Update checkpoint symlink
+	 */
+	void updateLink()
+	{
+		// Update the link to the latest checkpoint file
+		if (m_rank == 0) {
+			remove(linkFile());
+			if (symlink(m_files[m_odd].c_str(), linkFile()) != 0)
+				logWarning() << "Failed to create symbolic link to current checkpoint.";
+		}
+
+		// Switch between even and odd
+		m_odd = 1 - m_odd;
 	}
 
 	/**
@@ -212,19 +236,11 @@ protected:
 	}
 
 	/**
-	 * Update checkpoint symlink
+	 * Should be called when a checkpoint is loaded
 	 */
-	void finalizeCheckpoint()
+	void load()
 	{
-		// Update the link to the latest checkpoint file
-		if (m_rank == 0) {
-			remove(linkFile());
-			if (symlink(m_files[m_odd].c_str(), linkFile()) != 0)
-				logWarning() << "Failed to create symbolic link to current checkpoint.";
-		}
-
-		// Switch between even and odd
-		m_odd = 1 - m_odd;
+		m_loaded = true;
 	}
 
 	/**
@@ -251,6 +267,11 @@ protected:
 	int partitions() const
 	{
 		return m_partitions;
+	}
+
+	bool loaded() const
+	{
+		return m_loaded;
 	}
 
 #ifdef USE_MPI

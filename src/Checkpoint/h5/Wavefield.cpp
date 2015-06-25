@@ -63,7 +63,9 @@ void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefie
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
-	hid_t h5file = open();
+	seissol::checkpoint::CheckPoint::load();
+
+	hid_t h5file = open(linkFile());
 	checkH5Err(h5file);
 
 	// Attributes
@@ -245,58 +247,78 @@ bool seissol::checkpoint::h5::Wavefield::validate(hid_t h5file) const
 	return isValid;
 }
 
-hid_t seissol::checkpoint::h5::Wavefield::create(int odd, const char* filename)
+hid_t seissol::checkpoint::h5::Wavefield::initFile(int odd, const char* filename)
 {
-	// Create the file
-	hid_t h5plist = H5Pcreate(H5P_FILE_ACCESS);
-	checkH5Err(h5plist);
-	checkH5Err(H5Pset_libver_bounds(h5plist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
-	hsize_t align = utils::Env::get<hsize_t>("SEISSOL_CHECKPOINT_ALIGNMENT", 0);
-	if (align > 0)
-		checkH5Err(H5Pset_alignment(h5plist, 1, align));
+	hid_t h5file;
+
+	if (loaded()) {
+		// Open the old file
+		h5file = open(filename, false);
+		checkH5Err(h5file);
+
+		// Time
+		m_h5time[odd] = H5Aopen(h5file, "time", H5P_DEFAULT);
+		checkH5Err(m_h5time[odd]);
+
+		// Wavefield writer
+		m_h5timestepWavefield[odd] = H5Aopen(h5file, "timestep_wavefield", H5P_DEFAULT);
+		checkH5Err(m_h5timestepWavefield[odd]);
+
+		// Data
+		m_h5data[odd] = H5Dopen(h5file, "values", H5P_DEFAULT);
+		checkH5Err(m_h5data[odd]);
+	} else {
+		// Create the file
+		hid_t h5plist = H5Pcreate(H5P_FILE_ACCESS);
+		checkH5Err(h5plist);
+		checkH5Err(H5Pset_libver_bounds(h5plist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
+		hsize_t align = utils::Env::get<hsize_t>("SEISSOL_CHECKPOINT_ALIGNMENT", 0);
+		if (align > 0)
+			checkH5Err(H5Pset_alignment(h5plist, 1, align));
 #ifdef USE_MPI
-	checkH5Err(H5Pset_fapl_mpio(h5plist, MPI_COMM_WORLD, MPI_INFO_NULL));
+		checkH5Err(H5Pset_fapl_mpio(h5plist, MPI_COMM_WORLD, MPI_INFO_NULL));
 #endif // USE_MPI
 
-	hid_t h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);
-	checkH5Err(h5file);
-	checkH5Err(H5Pclose(h5plist));
+		h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);
+		checkH5Err(h5file);
+		checkH5Err(H5Pclose(h5plist));
 
-	// Create scalar dataspace for attributes
-	hid_t h5spaceScalar = H5Screate(H5S_SCALAR);
-	checkH5Err(h5spaceScalar);
+		// Create scalar dataspace for attributes
+		hid_t h5spaceScalar = H5Screate(H5S_SCALAR);
+		checkH5Err(h5spaceScalar);
 
-	// Time
-	m_h5time[odd] = H5Acreate(h5file, "time", H5T_IEEE_F64LE, h5spaceScalar,
-			H5P_DEFAULT, H5P_DEFAULT);
-	checkH5Err(m_h5time[odd]);
+		// Time
+		m_h5time[odd] = H5Acreate(h5file, "time", H5T_IEEE_F64LE, h5spaceScalar,
+				H5P_DEFAULT, H5P_DEFAULT);
+		checkH5Err(m_h5time[odd]);
 
-	// Partitions
-	hid_t h5partitions = H5Acreate(h5file, "partitions", H5T_STD_I32LE, h5spaceScalar,
-			H5P_DEFAULT, H5P_DEFAULT);
-	checkH5Err(h5partitions);
-	int p = partitions();
-	checkH5Err(H5Awrite(h5partitions, H5T_NATIVE_INT, &p));
-	checkH5Err(H5Aclose(h5partitions));
+		// Partitions
+		hid_t h5partitions = H5Acreate(h5file, "partitions", H5T_STD_I32LE, h5spaceScalar,
+				H5P_DEFAULT, H5P_DEFAULT);
+		checkH5Err(h5partitions);
+		int p = partitions();
+		checkH5Err(H5Awrite(h5partitions, H5T_NATIVE_INT, &p));
+		checkH5Err(H5Aclose(h5partitions));
 
-	// Wavefield writer
-	m_h5timestepWavefield[odd] = H5Acreate(h5file, "timestep_wavefield",
-			H5T_STD_I32LE, h5spaceScalar, H5P_DEFAULT, H5P_DEFAULT);
-	checkH5Err(m_h5timestepWavefield[odd]);
-	int t = 0;
-	checkH5Err(H5Awrite(m_h5timestepWavefield[odd], H5T_NATIVE_INT, &t));
+		// Wavefield writer
+		m_h5timestepWavefield[odd] = H5Acreate(h5file, "timestep_wavefield",
+				H5T_STD_I32LE, h5spaceScalar, H5P_DEFAULT, H5P_DEFAULT);
+		checkH5Err(m_h5timestepWavefield[odd]);
+		int t = 0;
+		checkH5Err(H5Awrite(m_h5timestepWavefield[odd], H5T_NATIVE_INT, &t));
 
-	checkH5Err(H5Sclose(h5spaceScalar));
+		checkH5Err(H5Sclose(h5spaceScalar));
 
-	// Variable
-	h5plist = H5Pcreate(H5P_DATASET_CREATE);
-	checkH5Err(h5plist);
-	checkH5Err(H5Pset_layout(h5plist, H5D_CONTIGUOUS));
-	checkH5Err(H5Pset_alloc_time(h5plist, H5D_ALLOC_TIME_EARLY));
-	m_h5data[odd] = H5Dcreate(h5file, "values", H5T_IEEE_F64LE, m_h5fSpaceData,
-			H5P_DEFAULT, h5plist, H5P_DEFAULT);
-	checkH5Err(m_h5data[odd]);
-	checkH5Err(H5Pclose(h5plist));
+		// Variable
+		h5plist = H5Pcreate(H5P_DATASET_CREATE);
+		checkH5Err(h5plist);
+		checkH5Err(H5Pset_layout(h5plist, H5D_CONTIGUOUS));
+		checkH5Err(H5Pset_alloc_time(h5plist, H5D_ALLOC_TIME_EARLY));
+		m_h5data[odd] = H5Dcreate(h5file, "values", H5T_IEEE_F64LE, m_h5fSpaceData,
+				H5P_DEFAULT, h5plist, H5P_DEFAULT);
+		checkH5Err(m_h5data[odd]);
+		checkH5Err(H5Pclose(h5plist));
+	}
 
 	return h5file;
 }

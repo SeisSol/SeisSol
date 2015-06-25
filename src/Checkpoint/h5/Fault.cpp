@@ -70,7 +70,9 @@ void seissol::checkpoint::h5::Fault::load(int &timestepFault)
 
 	logInfo(rank()) << "Loading fault checkpoint";
 
-	hid_t h5file = open();
+	seissol::checkpoint::CheckPoint::load();
+
+	hid_t h5file = open(linkFile());
 	checkH5Err(h5file);
 
 	// Attributes
@@ -205,45 +207,61 @@ bool seissol::checkpoint::h5::Fault::validate(hid_t h5file) const
 	return true;
 }
 
-hid_t seissol::checkpoint::h5::Fault::create(int odd, const char* filename)
+hid_t seissol::checkpoint::h5::Fault::initFile(int odd, const char* filename)
 {
-	// Create the file
-	hid_t h5plist = H5Pcreate(H5P_FILE_ACCESS);
-	checkH5Err(h5plist);
-	checkH5Err(H5Pset_libver_bounds(h5plist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
+	hid_t h5file;
+
+	if (loaded()) {
+		// Open the file
+		h5file = open(filename, false);
+		checkH5Err(h5file);
+
+		// Fault writer
+		m_h5timestepFault[odd] = H5Aopen(h5file, "timestep_fault", H5P_DEFAULT);
+		checkH5Err(m_h5timestepFault[odd]);
+
+		// Data
+		for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
+			m_h5data[odd][i] = H5Dopen(h5file, VAR_NAMES[i], H5P_DEFAULT);
+			checkH5Err(m_h5data[odd][i]);
+		}
+	} else {
+		// Create the file
+		hid_t h5plist = H5Pcreate(H5P_FILE_ACCESS);
+		checkH5Err(h5plist);
+		checkH5Err(H5Pset_libver_bounds(h5plist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #ifdef USE_MPI
-	checkH5Err(H5Pset_fapl_mpio(h5plist, comm(), MPI_INFO_NULL));
+		checkH5Err(H5Pset_fapl_mpio(h5plist, comm(), MPI_INFO_NULL));
 #endif // USE_MPI
 
-	hid_t h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);
-	checkH5Err(h5file);
-	checkH5Err(H5Pclose(h5plist));
-
-	// Create scalar dataspace for attributes
-	hid_t h5spaceScalar = H5Screate(H5S_SCALAR);
-	checkH5Err(h5spaceScalar);
-
-	// Fault writer
-	m_h5timestepFault[odd] = H5Acreate(h5file, "timestep_fault",
-			H5T_STD_I32LE, h5spaceScalar, H5P_DEFAULT, H5P_DEFAULT);
-	checkH5Err(m_h5timestepFault[odd]);
-	int t = 0;
-	checkH5Err(H5Awrite(m_h5timestepFault[odd], H5T_NATIVE_INT, &t));
-
-	checkH5Err(H5Sclose(h5spaceScalar));
-
-	// Variables
-	assert(utils::ArrayUtils::size(m_h5data[odd]) == utils::ArrayUtils::size(VAR_NAMES));
-
-	for (unsigned int i = 0; i < utils::ArrayUtils::size(VAR_NAMES); i++) {
-		h5plist = H5Pcreate(H5P_DATASET_CREATE);
-		checkH5Err(h5plist);
-		checkH5Err(H5Pset_layout(h5plist, H5D_CONTIGUOUS));
-		checkH5Err(H5Pset_alloc_time(h5plist, H5D_ALLOC_TIME_EARLY));
-		m_h5data[odd][i] = H5Dcreate(h5file, VAR_NAMES[i], H5T_IEEE_F64LE, m_h5fSpaceData,
-			H5P_DEFAULT, h5plist, H5P_DEFAULT);
-		checkH5Err(m_h5data[odd][i]);
+		h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);
+		checkH5Err(h5file);
 		checkH5Err(H5Pclose(h5plist));
+
+		// Create scalar dataspace for attributes
+		hid_t h5spaceScalar = H5Screate(H5S_SCALAR);
+		checkH5Err(h5spaceScalar);
+
+		// Fault writer
+		m_h5timestepFault[odd] = H5Acreate(h5file, "timestep_fault",
+				H5T_STD_I32LE, h5spaceScalar, H5P_DEFAULT, H5P_DEFAULT);
+		checkH5Err(m_h5timestepFault[odd]);
+		int t = 0;
+		checkH5Err(H5Awrite(m_h5timestepFault[odd], H5T_NATIVE_INT, &t));
+
+		checkH5Err(H5Sclose(h5spaceScalar));
+
+		// Variables
+		for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
+			h5plist = H5Pcreate(H5P_DATASET_CREATE);
+			checkH5Err(h5plist);
+			checkH5Err(H5Pset_layout(h5plist, H5D_CONTIGUOUS));
+			checkH5Err(H5Pset_alloc_time(h5plist, H5D_ALLOC_TIME_EARLY));
+			m_h5data[odd][i] = H5Dcreate(h5file, VAR_NAMES[i], H5T_IEEE_F64LE, m_h5fSpaceData,
+				H5P_DEFAULT, h5plist, H5P_DEFAULT);
+			checkH5Err(m_h5data[odd][i]);
+			checkH5Err(H5Pclose(h5plist));
+		}
 	}
 
 	return h5file;

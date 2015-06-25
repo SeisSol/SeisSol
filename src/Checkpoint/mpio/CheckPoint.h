@@ -215,8 +215,6 @@ protected:
 
 		EPIK_USER_END(r_flush);
 		SCOREP_USER_REGION_END(r_flush);
-
-		seissol::checkpoint::CheckPoint::finalizeCheckpoint();
 	}
 
 	/**

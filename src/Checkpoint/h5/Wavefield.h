@@ -116,7 +116,7 @@ public:
 protected:
 	bool validate(hid_t h5file) const;
 
-	hid_t create(int odd, const char* filename);
+	hid_t initFile(int odd, const char* filename);
 };
 
 #endif // USE_HDF
