@@ -143,6 +143,18 @@ public:
 	virtual void load(double &time, int &timestepWavefield) = 0;
 
 	/**
+	 * Prepare writing a checkpoint
+	 *
+	 * Overwrite this function to start an asynchronous checkpoint write
+	 *
+	 * @param time The current time
+	 * @param timestepWaveField The current time step of the wave field
+	 */
+	virtual void writePrepare(double time, int timestepWaveField)
+	{
+	}
+
+	/**
 	 * Write a checkpoint for the current time
 	 *
 	 * @param time The current time

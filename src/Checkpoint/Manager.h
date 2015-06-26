@@ -50,7 +50,9 @@
 #include "h5/Wavefield.h"
 #include "h5/Fault.h"
 #include "mpio/Wavefield.h"
+#include "mpio/WavefieldAsync.h"
 #include "mpio/Fault.h"
+#include "mpio/FaultAsync.h"
 
 namespace seissol
 {
@@ -100,6 +102,10 @@ public:
 		case MPIO:
 			m_waveField = new mpio::Wavefield();
 			m_fault = new mpio::Fault();
+			break;
+		case MPIO_ASYNC:
+			m_waveField = new mpio::WavefieldAsync();
+			m_fault = new mpio::FaultAsync();
 			break;
 		default:
 			logError() << "Unsupported checkpoint backend";
@@ -172,6 +178,10 @@ public:
 		// Update both links at the "same" time
 		m_waveField->updateLink();
 		m_fault->updateLink();
+
+		// Prepare next checkpoint (only for async checkpoints)
+		m_waveField->writePrepare(time, waveFieldTimeStep);
+		m_fault->writePrepare(faultTimeStep);
 	}
 
 	/**

@@ -106,8 +106,10 @@ public:
 		CheckPoint::close();
 	}
 
-private:
+protected:
 	bool validate(MPI_File file) const;
+
+	void writeHeader(int timestepFault);
 };
 
 #endif // USE_MPI

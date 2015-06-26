@@ -37,75 +37,70 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_MPIO_WAVEFIELD_H
-#define CHECKPOINT_MPIO_WAVEFIELD_H
-
-#ifndef USE_MPI
-#include "Checkpoint/WavefieldDummy.h"
-#else // USE_MPI
-
 #include <mpi.h>
 
-#include "CheckPoint.h"
-#include "Checkpoint/Wavefield.h"
+#include <cstring>
 
-#endif // USE_MPI
+#include "WavefieldAsync.h"
 
-namespace seissol
+bool seissol::checkpoint::mpio::WavefieldAsync::init(real* dofs, unsigned int numDofs)
 {
+	bool exists = Wavefield::init(dofs, numDofs);
 
-namespace checkpoint
-{
+	m_dofsCopy = new real[numDofs];
 
-namespace mpio
-{
-
-#ifndef USE_MPI
-typedef WavefieldDummy Wavefield;
-#else // USE_MPI
-
-class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
-{
-private:
-	/** Struct describing the  header information in the file */
-	struct Header {
-		unsigned long identifier;
-		int partitions;
-		double time;
-		int timestepWavefield;
-	};
-
-public:
-	Wavefield()
-		: CheckPoint(0x7A3B4, sizeof(real))
-	{
-	}
-
-	bool init(real* dofs, unsigned int numDofs);
-
-	void load(double &time, int &timestepWavefield);
-
-	void write(double time, int timestepWaveField);
-
-protected:
-	bool validate(MPI_File file) const;
-
-	/**
-	 * Write the header information to the file
-	 *
-	 * @param time
-	 * @param timestepWaveField
-	 */
-	void writeHeader(double time, int timestepWaveField);
-};
-
-#endif // USE_MPI
-
+	return exists;
 }
 
+void seissol::checkpoint::mpio::WavefieldAsync::writePrepare(double time, int timestepWaveField)
+{
+	EPIK_TRACER("CheckPoint_writePrepare");
+	SCOREP_USER_REGION("CheckPoint_writePrepare", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+	// Write the header
+	writeHeader(time, timestepWaveField);
+
+	// Create copy of the dofs
+	memcpy(m_dofsCopy, dofs(), numDofs()*sizeof(real));
+
+	// Save data
+	EPIK_USER_REG(r_write_wavefield, "checkpoint_write_begin_wavefield");
+	SCOREP_USER_REGION_DEFINE(r_write_wavefield);
+	EPIK_USER_START(r_write_wavefield);
+	SCOREP_USER_REGION_BEGIN(r_write_wavefield, "checkpoint_write_begin_wavefield", SCOREP_USER_REGION_TYPE_COMMON);
+
+	checkMPIErr(setDataView(file()));
+
+	checkMPIErr(MPI_File_write_all_begin(file(), m_dofsCopy, numDofs(), MPI_DOUBLE));
+
+	EPIK_USER_END(r_write_wavefield);
+	SCOREP_USER_REGION_END(r_write_wavefield);
+
+	m_started = true;
+
+	logInfo(rank()) << "Writing check point. Done.";
 }
 
+void seissol::checkpoint::mpio::WavefieldAsync::write(double time, int timestepWaveField)
+{
+	EPIK_TRACER("CheckPoint_write");
+	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+	logInfo(rank()) << "Writing check point.";
+
+	if (m_started)
+		checkMPIErr(MPI_File_write_all_end(file(), m_dofsCopy, MPI_STATUS_IGNORE));
+
+	// Finalize the checkpoint
+	finalizeCheckpoint();
 }
 
-#endif // CHECKPOINT_MPIO_WAVEFIELD_H
+void seissol::checkpoint::mpio::WavefieldAsync::close()
+{
+	// Finalize last checkpoint
+	write(0, 0); // Time does not matter
 
+	delete [] m_dofsCopy;
+
+	Wavefield::close();
+}

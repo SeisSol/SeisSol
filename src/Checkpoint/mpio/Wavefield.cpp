@@ -100,25 +100,7 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 	logInfo(rank()) << "Writing check point.";
 
 	// Write the header
-	EPIK_USER_REG(r_header, "checkpoint_write_header");
-	SCOREP_USER_REGION_DEFINE(r_header);
-	EPIK_USER_START(r_header);
-	SCOREP_USER_REGION_BEGIN(r_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
-
-	checkMPIErr(setHeaderView(file()));
-
-	if (rank() == 0) {
-		Header header;
-		header.identifier = identifier();
-		header.partitions = partitions();
-		header.time = time;
-		header.timestepWavefield = timestepWaveField;
-
-		checkMPIErr(MPI_File_write(file(), &header, 1, headerType(), MPI_STATUS_IGNORE));
-	}
-
-	EPIK_USER_END(r_header);
-	SCOREP_USER_REGION_END(r_header);
+	writeHeader(time, timestepWaveField);
 
 	// Save data
 	EPIK_USER_REG(r_write_wavefield, "checkpoint_write_wavefield");
@@ -167,4 +149,22 @@ bool seissol::checkpoint::mpio::Wavefield::validate(MPI_File file) const
 	MPI_Bcast(&result, 1, MPI_INT, 0, comm());
 
 	return result;
+}
+
+void seissol::checkpoint::mpio::Wavefield::writeHeader(double time, int timestepWaveField)
+{
+	EPIK_TRACER("checkpoint_write_header");
+	SCOREP_USER_REGION("checkpoint_write_header", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+	checkMPIErr(setHeaderView(file()));
+
+	if (rank() == 0) {
+		Header header;
+		header.identifier = identifier();
+		header.partitions = partitions();
+		header.time = time;
+		header.timestepWavefield = timestepWaveField;
+
+		checkMPIErr(MPI_File_write(file(), &header, 1, headerType(), MPI_STATUS_IGNORE));
+	}
 }

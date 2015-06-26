@@ -37,17 +37,14 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_MPIO_WAVEFIELD_H
-#define CHECKPOINT_MPIO_WAVEFIELD_H
+#ifndef CHECKPOINT_MPIO_WAVEFIELD_ASYNC_H
+#define CHECKPOINT_MPIO_WAVEFIELD_ASYNC_H
 
 #ifndef USE_MPI
 #include "Checkpoint/WavefieldDummy.h"
 #else // USE_MPI
 
-#include <mpi.h>
-
-#include "CheckPoint.h"
-#include "Checkpoint/Wavefield.h"
+#include "Wavefield.h"
 
 #endif // USE_MPI
 
@@ -61,42 +58,31 @@ namespace mpio
 {
 
 #ifndef USE_MPI
-typedef WavefieldDummy Wavefield;
+typedef WavefieldDummy WavefieldAsync;
 #else // USE_MPI
 
-class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
+class WavefieldAsync : public Wavefield
 {
 private:
-	/** Struct describing the  header information in the file */
-	struct Header {
-		unsigned long identifier;
-		int partitions;
-		double time;
-		int timestepWavefield;
-	};
+	/** Buffer for storing the DOFs copy */
+	real* m_dofsCopy;
+
+	/** True if a checkpoint was started */
+	bool m_started;
 
 public:
-	Wavefield()
-		: CheckPoint(0x7A3B4, sizeof(real))
+	WavefieldAsync()
+		: m_dofsCopy(0L), m_started(false)
 	{
 	}
 
 	bool init(real* dofs, unsigned int numDofs);
 
-	void load(double &time, int &timestepWavefield);
+	void writePrepare(double time, int timestepWaveField);
 
 	void write(double time, int timestepWaveField);
 
-protected:
-	bool validate(MPI_File file) const;
-
-	/**
-	 * Write the header information to the file
-	 *
-	 * @param time
-	 * @param timestepWaveField
-	 */
-	void writeHeader(double time, int timestepWaveField);
+	void close();
 };
 
 #endif // USE_MPI
@@ -107,5 +93,5 @@ protected:
 
 }
 
-#endif // CHECKPOINT_MPIO_WAVEFIELD_H
+#endif // CHECKPOINT_MPIO_WAVEFIELD_ASYNC_H
 

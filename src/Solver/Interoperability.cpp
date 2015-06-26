@@ -578,6 +578,8 @@ void seissol::Interoperability::enableCheckPointing( double *i_checkPointInterva
 	  seissol::SeisSol::main.checkPointManager().setBackend(checkpoint::HDF5);
   else if (strcmp(i_checkPointBackend, "mpio") == 0)
 	  seissol::SeisSol::main.checkPointManager().setBackend(checkpoint::MPIO);
+  else if (strcmp(i_checkPointBackend, "mpio_async") == 0)
+	  seissol::SeisSol::main.checkPointManager().setBackend(checkpoint::MPIO_ASYNC);
   else
 	  logError() << "Unknown checkpoint backend";
   seissol::SeisSol::main.checkPointManager().setFilename( i_checkPointFilename );

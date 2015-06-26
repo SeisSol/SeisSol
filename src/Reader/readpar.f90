@@ -3667,6 +3667,12 @@ ALLOCATE( SpacePositionx(nDirac), &
             stop
 #endif
             logInfo0(*) 'Using MPI-IO checkpoint backend'
+        case ("mpio_async")
+#ifndef USE_MPI
+            logError(*) 'This version does not support MPI-IO checkpoints'
+            stop
+#endif
+            logInfo(*) 'Using async MPI-IO checkpoint backend'
         case ("none")
             io%checkpoint%interval = 0
         case default

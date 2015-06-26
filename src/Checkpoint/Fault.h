@@ -127,6 +127,15 @@ public:
 	 */
 	virtual void load(int &timestepFault) = 0;
 
+	/**
+	 * Prepare writing a checkpoint
+	 *
+	 * Overwrite this function to start an asynchronous checkpoint write
+	 */
+	virtual void writePrepare(int timestepFault)
+	{
+	}
+
 	virtual void write(int timestepFault) = 0;
 
 protected:
