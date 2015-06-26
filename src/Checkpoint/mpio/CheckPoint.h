@@ -68,7 +68,7 @@ private:
 	/** The size of an element (in bytes) */
 	const unsigned int m_elemSize;
 
-	/** Identifiers of the HDF5 files */
+	/** Identifiers of the files */
 	MPI_File m_mpiFiles[2];
 
 	/** Number of bytes reserved for the header */

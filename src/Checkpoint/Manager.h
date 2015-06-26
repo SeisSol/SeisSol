@@ -47,6 +47,7 @@
 
 #include "Wavefield.h"
 #include "Fault.h"
+#include "posix/Wavefield.h"
 #include "h5/Wavefield.h"
 #include "h5/Fault.h"
 #include "mpio/Wavefield.h"
@@ -62,6 +63,7 @@ namespace checkpoint
 
 /** Checkpoint backend types */
 enum Backend {
+	POSIX,
 	HDF5,
 	MPIO,
 	MPIO_ASYNC,
@@ -95,6 +97,10 @@ public:
 	void setBackend(Backend backend)
 	{
 		switch (backend) {
+		case POSIX:
+			m_waveField = new posix::Wavefield();
+			m_fault = new mpio::Fault();
+			break;
 		case HDF5:
 			m_waveField = new h5::Wavefield();
 			m_fault = new h5::Fault();

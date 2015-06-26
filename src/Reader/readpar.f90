@@ -3655,6 +3655,8 @@ ALLOCATE( SpacePositionx(nDirac), &
 #endif
 
       select case (io%checkpoint%backend)
+        case ("posix")
+            logInfo(*) 'Using POSIX checkpoint backend'
         case ("hdf5")
 #ifndef USE_HDF
             logError(*) 'This version does not support HDF5 checkpoints'

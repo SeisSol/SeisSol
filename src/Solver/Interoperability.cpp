@@ -574,7 +574,9 @@ void seissol::Interoperability::enableWaveFieldOutput( double *i_waveFieldInterv
 void seissol::Interoperability::enableCheckPointing( double *i_checkPointInterval,
 		const char *i_checkPointFilename, const char *i_checkPointBackend ) {
   seissol::SeisSol::main.simulator().setCheckPointInterval( *i_checkPointInterval );
-  if (strcmp(i_checkPointBackend, "hdf5") == 0)
+  if (strcmp(i_checkPointBackend, "posix") == 0)
+	  seissol::SeisSol::main.checkPointManager().setBackend(checkpoint::POSIX);
+  else if (strcmp(i_checkPointBackend, "hdf5") == 0)
 	  seissol::SeisSol::main.checkPointManager().setBackend(checkpoint::HDF5);
   else if (strcmp(i_checkPointBackend, "mpio") == 0)
 	  seissol::SeisSol::main.checkPointManager().setBackend(checkpoint::MPIO);

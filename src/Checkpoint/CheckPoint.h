@@ -167,21 +167,28 @@ protected:
 	 */
 	virtual void initFilename(const char* filename, const char* extension)
 	{
-		std::string ext = std::string(".") + extension;
+		std::string ext;
+		if (extension)
+			ext = std::string(".") + extension;
 
 		// Link file
 		m_linkFile = filename;
-		if (!utils::StringUtils::endsWith(m_linkFile, ext))
+		if (extension && !utils::StringUtils::endsWith(m_linkFile, ext))
 			m_linkFile += ext;
 
 		m_dir = utils::Path(m_linkFile).dir();
 
 		// Real output files
 		m_files[0] = m_files[1] = utils::Path(m_linkFile).basename();
-		std::string ext0 = ".0" + ext;
-		utils::StringUtils::replaceLast(m_files[0], ext, ext0);
-		std::string ext1 = ".1" + ext;
-		utils::StringUtils::replaceLast(m_files[1], ext, ext1);
+		if (extension) {
+			std::string ext0 = ".0" + ext;
+			utils::StringUtils::replaceLast(m_files[0], ext, ext0);
+			std::string ext1 = ".1" + ext;
+			utils::StringUtils::replaceLast(m_files[1], ext, ext1);
+		} else {
+			m_files[0] += ".0";
+			m_files[1] += ".1";
+		}
 	}
 
 #ifdef USE_MPI
