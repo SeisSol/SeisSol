@@ -454,9 +454,9 @@ if env['scalasca'] == 'kernels_2.x':
 
 # set (pre-)compiler flags for the compile modes
 if env['compileMode'] == 'debug':
-  env.Append(F90FLAGS=['-O0', '-shared-intel',  '-align', 'array64byte', '-traceback'])
+  env.Append(F90FLAGS=['-O0', '-shared-intel',  '-align', 'array64byte'])
 if env['compileMode'] in ['debug', 'relWithDebInfo']:
-  env.Append(F90FLAGS=['-g'])
+  env.Append(F90FLAGS=['-g', '-traceback'])
   env.Append(LINKFLAGS=['-g', '-rdynamic'])
 if env['compileMode'] in ['relWithDebInfo', 'release']:
   env.Append(F90FLAGS=['-DNDEBUG', '-O2', '-ftz', '-align', '-align', 'array64byte', '-fno-alias']) #disable assertions, agressive optimizations, flush denormal results to zero, align data, no aliasing is assumed
@@ -471,9 +471,9 @@ env.Append( CFLAGS  =['-Wall', '-Werror', '-ansi'],
 
 # optimization levels
 if env['compileMode'] == 'debug':
-  env.Append(CXXFLAGS=['-O0', '-shared-intel', '-traceback'])
+  env.Append(CXXFLAGS=['-O0', '-shared-intel'])
 if env['compileMode'] in ['debug', 'relWithDebInfo']:
-  env.Append(CXXFLAGS=['-g'])
+  env.Append(CXXFLAGS=['-g', '-traceback'])
 if env['compileMode'] in ['relWithDebInfo', 'release']:
   env.Append( CFLAGS   = ['-DNDEBUG', '-O2'], 
               CXXFLAGS = ['-DNDEBUG', '-O2'])
