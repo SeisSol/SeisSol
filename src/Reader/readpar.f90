@@ -1606,7 +1606,7 @@ CONTAINS
                                               RS_iniSlipRate2, v_star, L, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s
+                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
                                                 Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1618,7 +1618,7 @@ CONTAINS
                                                 NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, &
-                                                OutputPointType, magnitude_output_on
+                                                OutputPointType, magnitude_output_on, cohesion_0
     !------------------------------------------------------------------------                                                                                   
     
     ! Setting default values
@@ -1671,6 +1671,7 @@ CONTAINS
     NucShearXZ_0 = 0
     NucRS_sv0 = 0
     r_s = 0
+    cohesion_0 = 0
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
 
@@ -1684,7 +1685,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,50,60,61,62,70,100,101,103)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,50,60,61,62,70,100,101,103,1000)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
@@ -1695,14 +1696,15 @@ CONTAINS
              EQN%XRef = XRef
              EQN%YRef = YRef
              EQN%ZRef = ZRef
+             DISC%DynRup%cohesion_0 = cohesion_0
            CASE(16,17)
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise
              EQN%XRef = XRef
              EQN%YRef = YRef
-             EQN%ZRef = ZRef        
+             EQN%ZRef = ZRef
            CASE DEFAULT
-             logError(*) 'Unknown Stress Background Type',DISC%DynRup%BackgroundType
+             logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
              STOP
            END SELECT           
 

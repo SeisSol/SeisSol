@@ -891,6 +891,7 @@ MODULE TypesDef
      REAL, POINTER                          :: Mu_D(:,:)                        !< Dynamic friction coefficient at given fault node
      REAL, POINTER                          :: StateVar(:,:)                    !< State variable used at Rate-and-state friction laws
      REAL, POINTER                          :: cohesion(:,:)                    !< cohesion at given fault node  (should be negative since negative normal stress is compression)
+     REAL                                   :: cohesion_0                       !< Default cohesion value
      REAL, POINTER                          :: forced_rupture_time(:,:)         !< forced rupture time at given fault node
      REAL, ALLOCATABLE                      :: BndBF_GP_Tet(:,:,:)              !< Basis functions of '-' element at fault surface with matching GP (nDegFr,nBndGP,nSide)
      REAL, ALLOCATABLE                      :: FluxInt(:,:,:)                   !< corresponding flux integration matrix (nDegFr,nDegFr,nSide))
@@ -1226,6 +1227,7 @@ MODULE TypesDef
      INTEGER                                :: FileOut_Tet                      !< Result file
      INTEGER                                :: FileOut_Hex                      !< Result file
      INTEGER                                :: FileIn                           !< Mesh input file
+     INTEGER                                :: FileIn_FaultStress               !< Fault-local stress field input file
      INTEGER                                :: other01                          !< Different other files
      INTEGER                                :: other02
      INTEGER                                :: other03

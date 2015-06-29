@@ -49,7 +49,7 @@
 using namespace std;
 
 /*Alice TODO remove hard coding of BigEndian */
-const std::string vtkWriter::HEADER = "<VTKFile type='UnstructuredGrid' version='0.1' byte_order='LittleEndian' header_type='UInt16'>\n" \
+const std::string vtkWriter::HEADER = "<VTKFile type='UnstructuredGrid' version='0.1' byte_order='LittleEndian' header_type='UInt32'>\n" \
 "<UnstructuredGrid>\n" \
 
 ;
