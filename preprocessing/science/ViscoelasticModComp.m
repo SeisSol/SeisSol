@@ -88,7 +88,7 @@ disp('======================================')
 %Attenuation Q-Solver parameters:
 QPval=20.0;          % Desired QP constant value
 QSval=10.0;          % Desired QS constant value
-n=3;                 % Number of mechanisms we want to have
+n=5;                 % Number of mechanisms we want to have
 
 %Frequency parameters:
 freq=1;            %  Central frequency of the absorption band (in Hertz). Good to center it
@@ -126,7 +126,7 @@ disp(strcat('Q for S-wave=  ',num2str(QSval)));
 %%%%%%%%%% PROBLEM SETUP %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %Derived quantities initialization
-w_max=11;          % Maximum frequency (minimum freq = -w_max). Is better to keep an odd number 
+w_max=10001;          % Maximum frequency (minimum freq = -w_max). Is better to keep an odd number 
 w_inc=0.1;           % Increment in frequency
 w0=freq*(2*pi);        % Conversion to angular velocity
 w=[0:w_inc:w_max];
@@ -146,7 +146,7 @@ YS=zeros(n,1);
 
 %% Selection of the logarithmically equispaced frequencies
 wmean=2*pi*freq;
-wmin_disc=wmean/sqrt(f_ratio);
+wmin_disc=wmean/sqrt(f_ratio); 
 
 if n==1
     w_disc=w0;
@@ -156,11 +156,6 @@ else
     end
 end
 
-
-% alpha = 0.2;
-% w_0 = 2*pi*1;
-% QP=1 ./ QPval .* (w_disc' / w_0).^alpha;  %Desired values of Q for each mechanism inverted (P wave)
-% QS=1 ./ QSval .* (w_disc' / w_0).^alpha;  % " " (S wave)
 %% Filling of the linear system matrix %%
 for m=1:kmax
     for j=1:n
@@ -221,12 +216,10 @@ end
 
 subplot(1,2,1),
 semilogx(xfrq/(2*pi),Q_contP,xfrq/(2*pi),QPval*ones(length(xfrq),1)),
-hold on; semilogx(w_disc ./ (2*pi), 1 ./ QP);
 title('Q for the P-wave'),legend('computed','desired')
 xlabel('frequency (Hz)'),ylabel('Q'),axis([wmin/(2*pi) wmax/(2*pi) 0 QPval*1.25])
 subplot(1,2,2),
-semilogx(xfrq/(2*pi),Q_contS,xfrq/(2*pi),QSval*ones(length(xfrq),1))
-hold on; semilogx(w_disc ./ (2*pi), 1 ./ QS);
+semilogx(xfrq/(2*pi),Q_contS,xfrq/(2*pi),QSval*ones(length(xfrq),1)),
 title('Q for the S-wave'),legend('computed','desired'),
 xlabel('frequency (Hz)'),ylabel('Q'),axis([wmin/(2*pi) wmax/(2*pi) 0 QSval*1.25])
 

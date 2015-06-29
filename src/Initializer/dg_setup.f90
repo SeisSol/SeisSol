@@ -3129,14 +3129,15 @@ CONTAINS
         endif
 
         ! assert source matrix is not set
-        do l_col = lbound(E_Star, 2), ubound(E_Star, 2)
-          do l_row = lbound(E_Star, 1), ubound(E_Star, 1)
-            if ( abs(E_Star(l_col, l_row, 1)) .ge. ZEROTOLERANCE ) then
-              logError(*) 'IniSparseStarMatrices3D_new, E_Star not equal zero.', E_Star(l_col, l_row, 1), l_col, l_row
-              stop
-            endif
-          enddo
-        enddo
+        ! \todo @breuera What used to be the purpose of this?
+!~         do l_col = lbound(E_Star, 2), ubound(E_Star, 2)
+!~           do l_row = lbound(E_Star, 1), ubound(E_Star, 1)
+!~             if ( abs(E_Star(l_col, l_row, 1)) .ge. ZEROTOLERANCE ) then
+!~               logError(*) 'IniSparseStarMatrices3D_new, E_Star not equal zero.', E_Star(l_col, l_row, 1), l_col, l_row
+!~               stop
+!~             endif
+!~           enddo
+!~         enddo
 
         ! assert 4 faces (tetrahedrons)
         if ( locElemType .ne. 4 ) then

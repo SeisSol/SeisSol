@@ -102,27 +102,8 @@
 #define ZEROTOLERANCE 1e-10
 #endif
 
-#if 0
-! check if the necessary precompiler macros are defined
-#endif
-#ifndef NUMBER_OF_QUANTITIES
-#error Preprocessor flag NUMBER_OF_QUANTITIES not set.
-#endif
-
 #ifndef CONVERGENCE_ORDER
 #error  Preprocessor flag ONVERGENCE_ORDER not set.
-#endif
-
-
-#if 0
-! check valid preprocessor flags.
-! * The number of variables depends on the degree of attenuation.
-!   Whereas 9 variables correspond to the elastic wave equations.
-! * The number of basis functions depends on the order of the discontinuous Galerkin method.
-!   Therfore valid values are given by the formula (O)*(O+1)*(O+2)/6, where O is the order of method.
-#endif
-#if NUMBER_OF_QUANTITIES != 9
-#error Preprocessor flag NUMBER_OF_QUANTITIES is not equal 9 (elastic wave equations).
 #endif
 
 #if 0

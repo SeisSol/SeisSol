@@ -3962,7 +3962,15 @@ ALLOCATE( SpacePositionx(nDirac), &
     !------------------------------------------------------------------------
     INTENT(IN)                 :: EQN, DISC, MESH, SOURCE, IO
     !------------------------------------------------------------------------
-    !                                                                                
+    
+! Generated kernels sanity check
+#ifdef GENERATEDKERNELS
+    if (NUMBER_OF_QUANTITIES .NE. EQN%nVarTotal) then
+      logError(*) 'Generated kernels: The number of quantities defined by the parameter file (', EQN%nVarTotal, ') does not the number of quantities this version was compiled for (', NUMBER_OF_QUANTITIES, ').'
+      stop
+    end if
+#endif
+                                                                       
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  END OF PARAMETER FILE                                  >'
     logInfo(*) '<-------------------------------------------------------- >'

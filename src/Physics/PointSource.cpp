@@ -78,6 +78,10 @@ void seissol::physics::transformMomentTensor(real const i_localMomentTensor[3][3
     }
   }
   
+#if NUMBER_OF_QUANTITIES < 6
+  #error You cannot use PointSource with less than 6 quantities.
+#endif
+  
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u, v, w)
   o_momentTensor[0] = M[0][0];
   o_momentTensor[1] = M[1][1];
@@ -85,9 +89,9 @@ void seissol::physics::transformMomentTensor(real const i_localMomentTensor[3][3
   o_momentTensor[3] = M[0][1];
   o_momentTensor[4] = M[1][2];
   o_momentTensor[5] = M[0][2];
-  o_momentTensor[6] = 0.0;
-  o_momentTensor[7] = 0.0;
-  o_momentTensor[8] = 0.0;
+  for (unsigned m = 6; m < NUMBER_OF_QUANTITIES; ++m) {
+    o_momentTensor[m] = 0.0;
+  }
 }
 
 real seissol::physics::computePwLFTimeIntegral(PiecewiseLinearFunction1D const* i_pwLF,

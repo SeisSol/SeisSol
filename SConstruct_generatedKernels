@@ -267,7 +267,9 @@ else:
 
 # set precompiler mode for the number of quantities and basis functions
 env.Append(F90FLAGS='-DCONVERGENCE_ORDER='+env['order'])
-env.Append(F90FLAGS='-DNUMBER_OF_QUANTITIES=9')
+
+numberOfQuantities = { 'elastic' : 9, 'viscoelastic' : 27 }
+env.Append(F90FLAGS='-DNUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]))
 
 # set number of temporal integration points for dynamic ruputure boundary conditions
 if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
