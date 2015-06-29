@@ -42,7 +42,7 @@
 #define COMMON_HPP
 
 #include <set>
-#include <Solver/kernels/Time.h>
+#include <Kernels/Time.h>
 
 namespace seissol {
 namespace initializers {

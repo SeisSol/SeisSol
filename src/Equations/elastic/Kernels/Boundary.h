@@ -41,7 +41,7 @@
 #ifndef BOUNDARY_H_
 #define BOUNDARY_H_
 
-#include "typedefs.hpp"
+#include <Initializer/typedefs.hpp>
 
 namespace seissol {
   namespace kernels {

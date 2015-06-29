@@ -70,7 +70,7 @@ contains
     integer                                                       :: l_source, l_elem, l_dof, l_numberOfSources, l_newSource
     integer, pointer                                              :: l_elements(:)
     integer, pointer                                              :: l_oldSourceIndex(:)
-    real, dimension(NUMBER_OF_ALIGNED_BASIS_FUNCTIONS), target    :: l_mInvJInvPhisAtSources
+    real, dimension(NUMBER_OF_BASIS_FUNCTIONS), target            :: l_mInvJInvPhisAtSources
     real, target                                                  :: l_momentTensor(3,3)
     real                                                          :: l_xi, l_eta, l_zeta
     

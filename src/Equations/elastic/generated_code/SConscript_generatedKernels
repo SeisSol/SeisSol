@@ -40,8 +40,8 @@
 
 Import('env')
 
-matrixKernelFiles = [ 'matrix_kernels/' +  env['arch'][0:1] + 'gemm_' + env['arch'][1:] + '.cpp' ]
-matrixKernelFiles = matrixKernelFiles + [ 'matrix_kernels/sparse_' + env['arch'] + '.cpp' ]
+matrixKernelFiles = ['matrix_kernels/' +  env['arch'][0:1] + 'gemm_' + env['arch'][1:] + '.cpp' ]
+matrixKernelFiles = matrixKernelFiles + ['matrix_kernels/sparse_' + env['arch'] + '.cpp' ]
 
 for i in matrixKernelFiles:
   env.sourceFiles.append(env.Object(i))

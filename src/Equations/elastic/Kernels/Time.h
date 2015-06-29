@@ -43,7 +43,7 @@
 
 #include <cassert>
 #include <limits>
-#include "typedefs.hpp"
+#include <Initializer/typedefs.hpp>
 #include "common.hpp"
 
 namespace seissol {

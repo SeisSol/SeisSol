@@ -44,7 +44,7 @@
 
 #include <vector>
 #include <Initializer/typedefs.hpp>
-#include <Solver/kernels/Time.h>
+#include <Kernels/Time.h>
 
 namespace seissol {
   class Interoperability;

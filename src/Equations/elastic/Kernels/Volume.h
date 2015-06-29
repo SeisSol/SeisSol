@@ -41,7 +41,7 @@
 #ifndef VOLUME_H_
 #define VOLUME_H_
 
-#include "typedefs.hpp"
+#include <Initializer/typedefs.hpp>
 #include <cassert>
 #include "common.hpp"
 

@@ -3,10 +3,10 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2012, SeisSol Group
+# Copyright (c) 2015, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -39,34 +39,16 @@
 # Definition of the solver source files.
 
 Import('env')
-
-# solver source files
-solverFiles = [ 'calc_seissol.f90',
-                'close_seissol.f90',
-                'calc_deltat.f90',
-                'cauchykovalewski.f90',
-                'friction.f90',
-                'galerkin3d_solver.f90',
-                'plasticity.f90',
-                'prak_clif_mod.f90' ]
-
-# solver using generated kernels
+  
 if env['generatedKernels']:
-  solverFiles = ['f_ftoc_bind_interoperability.f90',
-                 'f_ctof_bind_interoperability.f90',
-                 'Interoperability.cpp',
-                 'time_stepping/TimeCluster.cpp',
-                 'time_stepping/TimeManager.cpp',
-                 'Simulator.cpp' ] + solverFiles
-else:
-  solverFiles = solverFiles + ['dgsponge.f90']
+  sourceDir = 'Equations/' + env['equations'] + '/generated_code/';
+  SConscript(sourceDir + 'SConscript_generatedKernels', variant_dir='#/'+env['buildDir']+'/' + sourceDir, duplicate=0)
 
-# source files for mpi parallelizazion
-if env['parallelization'] in ['mpi', 'hybrid']:
-  solverFiles.append( [ 'mpiexchangevalues.f90' ] )
-
-
-for i in solverFiles:
-  env.sourceFiles.append(env.Object(i))
+  solverFiles = [ 'Kernels/Time.cpp',
+                  'Kernels/Volume.cpp',
+                  'Kernels/Boundary.cpp' ]
+  for i in solverFiles:
+    env.sourceFiles.append(env.Object(i))
 
 Export('env')
+

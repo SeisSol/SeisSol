@@ -40,7 +40,7 @@
 #include "MemoryManager.h"
 #include "InternalState.h"
 
-#include <Solver/kernels/common.hpp>
+#include <Kernels/common.hpp>
 
 seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i_matrixReader ) {
   // init the sparse switch

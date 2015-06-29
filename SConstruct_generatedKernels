@@ -80,8 +80,15 @@ if 'buildVariablesFile' in env:
 
 # SeisSol specific variables
 vars.AddVariables(
+  EnumVariable( 'equations',
+                'system of PDEs that will be solved',
+                'elastic',
+                allowed_values=('elastic', 'viscoelastic')
+              ),
+  
+
   EnumVariable( 'order',
-                'convegence order of the ADER-DG method',
+                'convergence order of the ADER-DG method',
                 'none',
                 allowed_values=('none', '2', '3', '4', '5', '6', '7', '8')
               ),
@@ -491,7 +498,7 @@ env.Append(F90FLAGS=['-r8'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
-env.Append(CPPPATH=['#/src', '#/src/generated_code'])
+env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equations/' + env['equations'] + '/generated_code'])
 
 # compile all fortran dialects with the same flags
 env['FORTRANFLAGS'] = env['F90FLAGS']

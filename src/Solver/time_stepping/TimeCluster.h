@@ -48,9 +48,9 @@
 
 #include <Initializer/typedefs.hpp>
 #include <utils/logger.h>
-#include <Solver/kernels/Time.h>
-#include <Solver/kernels/Volume.h>
-#include <Solver/kernels/Boundary.h>
+#include <Kernels/Time.h>
+#include <Kernels/Volume.h>
+#include <Kernels/Boundary.h>
 
 namespace seissol {
   namespace time_stepping {

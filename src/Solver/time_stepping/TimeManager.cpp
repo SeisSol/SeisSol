@@ -40,6 +40,7 @@
 #include "TimeManager.h"
 
 #include "SeisSol.h"
+#include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
 
 #define MATRIXXMLFILE "matrices_" STR(NUMBER_OF_BASIS_FUNCTIONS) ".xml"

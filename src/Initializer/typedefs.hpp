@@ -46,6 +46,7 @@
 #endif
 
 #include <Initializer/preProcessorMacros.fpp>
+#include <Kernels/definitions.hpp>
 #include <initialization/precision.h>
 
 // define floating point precision

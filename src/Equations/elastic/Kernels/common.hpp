@@ -42,7 +42,7 @@
 #define COMMON_HPP_
 
 #include <algorithm>
-#include "typedefs.hpp"
+#include <Initializer/typedefs.hpp>
 
 namespace seissol {
   namespace kernels {
