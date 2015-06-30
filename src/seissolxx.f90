@@ -157,7 +157,7 @@ PROGRAM SeisSol
   domain%IO%UNIT%other03                 = 112
   domain%IO%UNIT%other04                 = 113
   domain%IO%UNIT%other05                 = 114
-  domain%IO%UNIT%FileIn_FaultStress      = 115                          ! Fault-local stress field input file
+  domain%IO%UNIT%FileIn_Fault            = 115                          ! Input file for fault parameters
   domain%IO%UNIT%FileOut_Tet             = 118
   domain%IO%UNIT%FileOut_Hex             = 119
   domain%IO%UNIT%receiverStart           = 120                          ! Ab hier koennen Unitnumbers fuer receiver

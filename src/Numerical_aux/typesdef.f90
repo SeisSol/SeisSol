@@ -886,7 +886,7 @@ MODULE TypesDef
      REAL, POINTER                          :: Slip(:,:)                        !< Slip path at given fault node
      REAL, POINTER                          :: SlipRate1(:,:)                   !< Slip Rate at given fault node
      REAL, POINTER                          :: SlipRate2(:,:)                   !< Slip Rate at given fault node
-     REAL, POINTER                          :: Mu(:,:)                          !< Dynamic friction coefficient at given fault node
+     REAL, POINTER                          :: Mu(:,:)                          !< Current friction coefficient at given fault node
      REAL, POINTER                          :: Mu_S(:,:)                        !< Static friction coefficient at given fault node
      REAL, POINTER                          :: Mu_D(:,:)                        !< Dynamic friction coefficient at given fault node
      REAL, POINTER                          :: StateVar(:,:)                    !< State variable used at Rate-and-state friction laws
@@ -928,9 +928,10 @@ MODULE TypesDef
      REAL                                   :: NucShearXZ_0                     !< Nucleation shear stress
      REAL                                   :: NucRS_sv0                        !< Nucleation state variable
      REAL                                   :: r_s                              !< width of the smooth transition
+     INTEGER                                :: read_fault_file                  !< Switch for reading in fault parameters from Par_file_faults (1: on, 0: off)
      INTEGER                                :: BackgroundType                   !< Type of background stresses (0: homogeneous)
      TYPE(tbackground_stress)               :: bg_stress                        !< includes background stress information for dynamic rupture
-     INTEGER                                :: inst_healing                     !< instantaneous healing swith (1: on, 0: off)
+     INTEGER                                :: inst_healing                     !< instantaneous healing switch (1: on, 0: off)
      ! case(6) bimaterial with LSW
      REAL                                   :: v_Star                           !< reference velocity of prakash-cliff regularization
      REAL                                   :: L                                !< reference length of prakash-cliff regularization
@@ -1227,7 +1228,7 @@ MODULE TypesDef
      INTEGER                                :: FileOut_Tet                      !< Result file
      INTEGER                                :: FileOut_Hex                      !< Result file
      INTEGER                                :: FileIn                           !< Mesh input file
-     INTEGER                                :: FileIn_FaultStress               !< Fault-local stress field input file
+     INTEGER                                :: FileIn_Fault                     !< Input file for fault parameters
      INTEGER                                :: other01                          !< Different other files
      INTEGER                                :: other02
      INTEGER                                :: other03

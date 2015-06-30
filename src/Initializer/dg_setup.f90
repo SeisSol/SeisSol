@@ -928,7 +928,7 @@ CONTAINS
     END SELECT
 
 #ifdef GENERATEDKERNELS
-    logInfo0(*) 'Generated Kernels: initalalizing source term datastructure.'
+    logInfo0(*) 'Generated Kernels: initializing source term datastructure.'
 
     ! Source Term optimization: We want to touch only those elements equipped with a source term
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1016,10 +1016,10 @@ CONTAINS
 !~     ENDIF
 
     call InitSourceTermsGK(DISC, MESH, SOURCE)
-    logInfo0(*) 'Generated Kernels: initalalizing source term datastructure. Done.'
+    logInfo0(*) 'Generated Kernels: initializing source term datastructure. Done.'
 #endif
 
-    logInfo0(*) 'Initalalizing DR parallelization'   
+    logInfo0(*) 'Initializing DR parallelization'   
     DISC%DynRup%nDRElems = 0
 
     IF(EQN%DR.EQ.1) THEN 
@@ -1069,7 +1069,7 @@ CONTAINS
       allocate( DISC%DynRup%indicesOfDRElems( 1 ) )
     ENDIF
 
-    logInfo0(*) 'Initalalizing DR parallelization. Done.'
+    logInfo0(*) 'Initializing DR parallelization. Done.'
 
     !
     !CALL ini_DGSponge(EQN,DISC,MESH,IO)  ! not yet done for hybrids

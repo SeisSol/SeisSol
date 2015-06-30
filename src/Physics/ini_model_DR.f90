@@ -3,7 +3,6 @@
 !! This file is part of SeisSol.
 !!
 !! @author Alice Gabriel (gabriel AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/gabriel)
-!! @author Johannes Klicpera (johannes.klicpera AT tum.de)
 !!
 !! @section LICENSE
 !! Copyright (c) 2014, SeisSol Group
@@ -52,6 +51,7 @@ MODULE ini_model_DR_mod
   USE TypesDef
   USE DGBasis_mod
   USE read_backgroundstress_mod
+  USE faultinput_mod
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
   PRIVATE
@@ -97,36 +97,6 @@ MODULE ini_model_DR_mod
   PRIVATE :: friction_RSF103
   PRIVATE :: friction_LSW
   PRIVATE :: friction_LSW6
-  !---------------------------------------------------------------------------!
-  private :: background_faultlocal
-  private :: read_dist2d
-
-  ! Type for collecting all the information about heterogeneous distribution blocks,
-  ! used in the input of fault-local stress fields
-  type :: tDist2d
-    
-    ! Basic information
-    integer :: vec													! Direction on which this distribution acts: 1=normal, 4=along-strike, 6=along-dip
-    integer :: type													! Type of this heterogeneous distribution block:
-    																! 0  = unknown shape
-    																! 1  = square
-    																! 2  = rectangle
-    																! 3  = rectangle with taper
-    																! 10 = circle
-    																! 11 = ellipse
-    																! 12 = x-cylinder
-    																! 13 = y-cylinder
-    																! 14 = z-cylinder
-    
-    ! Block parameters
-    real :: val														! Standard stress field value 
-    real :: valh													! Second stress field value for the rectangle with taper
-    real :: xc, yc, zc												! Center coordinates of the distribution block
-    real :: l														! Side length of the square
-    real :: lx, ly, lz												! Side lengths of the rectangle, distortion length of the ellipse, height of the cylinders
-    real :: r														! Radius of the circle and ellipse
-    
-  end type tDist2d
   !---------------------------------------------------------------------------!
   
   CONTAINS
@@ -214,9 +184,6 @@ MODULE ini_model_DR_mod
     CASE(103)
        ! SCEC TPV103 test with velocity weakening friction (based on slip law)
        CALL background_TPV103(DISC,EQN,MESH,BND)
-    CASE(1000)
-       ! Fault-local stress field input from SPECFEM3D-style file
-       CALL background_faultlocal(disc,eqn,mesh,bnd,IO)
     !
     ! Add your background stress model subroutine call here
     !   
@@ -277,6 +244,11 @@ MODULE ini_model_DR_mod
      CALL friction_RSF103(DISC,EQN,MESH,BND)
     END SELECT  ! Initialize model dependent rate-and-state friction law parameters type 
     !-------------------------------------------------------------------------! 
+    
+    ! Read fault parameters from Par_file_faults
+    if (DISC%DynRup%read_fault_file == 1) then
+       call faultinput(disc,eqn,mesh,bnd,IO)
+    end if
       
   END SUBROUTINE DR_setup
 
@@ -3861,344 +3833,5 @@ MODULE ini_model_DR_mod
   END SUBROUTINE friction_LSW6    ! Initialization of friction for bimaterial linear slip weakening
   
   
-  !-----------------------------------------------------------------------------!
-  !  Subroutine for reading in fault-local stress fields from the SPECFEM3D-style "Par_file_faults"-file
-  !-----------------------------------------------------------------------------!
-  subroutine background_faultlocal (disc, eqn, mesh, bnd, IO)
-  	!-------------------------------------------------------------------------!
-	!use TypesDef
-    use JacobiNormal_mod, only: RotationMatrix3D
-	use COMMON_operators_mod
-  	!-------------------------------------------------------------------------!
-  	implicit none
-	!-------------------------------------------------------------------------!
-	type(tDiscretization), intent(inout), target  :: disc
-	type(tEquations), intent(inout)               :: eqn
-	type(tUnstructMesh), intent(in)               :: mesh
-    type (tBoundary), intent(in)                  :: bnd
-    type(tInputOutput), intent(in)                :: IO
-  	!-------------------------------------------------------------------------!
-  	! Local variable declaration
-  	
-  	! index variables
-  	integer :: iFault												! Iteration over fault faces
-    integer :: iBndGP                                               ! Iteration over boundary Gaussian points
-  	integer :: iDist2d												! Iteration over heterogeneous distributions
-  	integer :: iElem												! Index of fault neighboring element
-  	integer :: iSide												! Index of the fault neigboring side inside the neighboring element
-  	integer :: i													! General purpose counter
-  	integer :: iLocal					        					! Index of fault neighboring element on "-" side
-  	integer :: iLocalSide   			          					! Index of the fault neigboring side inside the neighboring element on "-" side
-    integer :: MPIIndex, iObject                                    ! Indices for MPI call for neighboring element in different MPI-domain
-  	
-  	real	:: geoZ(3)												! base vector in z-direction (0,0,1)
-  	
-  	! Temporary information about the fault face currently being processed
-  	real :: localStress(6) 											! Fault-local stress field: 1=xx=fault-normal stress, 4=xy=along-strike shear, 6=xz=along-dip shear
-  	real :: geoStrike(3)											! Vector in along-strike direction
-  	real :: geoDip(3)												! Vector in along-dip direction
-  	real :: rotationMatrix(eqn%nVar,eqn%nVar)						! Rotation matrix from fault-local to global coordinates
-  	real :: invMatrix(eqn%nVar,eqn%nVar)							! Rotation matrix from global to fault-local coordinates (unused)
-  	real, dimension(mesh%GlobalVrtxType) :: xV, yV, zV              ! Coordinates of the tetragon's (or other body's) vertices
-  	real :: chi,tau, xi, eta, zeta                                  ! Temporary variables for transformation of boundary Gaussian point coordinates into XYZ coordinate system
-    real :: xGP, yGP, zGP                                           ! Coordinates of the currently processed boundary Gaussian point
-  	
-  	! Variables for file input
-    integer :: ios                                                  ! I/O-Status of input
-  	real :: S1, S2, S3												! File input for constant stress fields: S1=along-strike shear, S2=along-dip shear, S3=fault-normal stress
-  	real :: Sigma(6)												! File input for constant stress fields in the global coordinate system
-  	integer :: n1, n2, n3											! Number of heterogeneous distribution blocks for n1=along-strike shear, n2=along-dip shear, n3=fault-normal stress
-  	integer :: nSum													! Total number of heterogeneous distribution blocks
-  	
-  	type(tDist2d), allocatable  :: dists(:)							! Heterogeneous distribution blocks
-  
-  	! Namelists
-  	namelist /stress_tensor/ Sigma
-  	namelist /init_stress/ S1, S2, S3, n1, n2, n3
-  	!-------------------------------------------------------------------------!
-  
-  	! set default values
-  	geoZ(:) = (/0, 0, 1/)
-  	n1 = 0
-  	n2 = 0
-  	n3 = 0
-  	S1 = 0
-  	S2 = 0
-  	S3 = 0
-  	Sigma(1) = eqn%Bulk_xx_0
-  	Sigma(2) = eqn%Bulk_yy_0
-  	Sigma(3) = eqn%Bulk_zz_0
-  	Sigma(4) = eqn%ShearXY_0
-  	Sigma(5) = eqn%ShearYZ_0
-  	Sigma(6) = eqn%ShearXZ_0
-  	
-    
-  	open(IO%unit%FileIn_FaultStress, file="Par_file_faults", status='old', action="read", iostat=ios)
-    if (ios /= 0) then
-        logError(*) 'Error opening the local fault parameter file. File "Par_file_faults" present?'
-    end if
-  
-    !stress_tensor may not be present, which is allowed.
-  	read(IO%unit%FileIn_FaultStress, nml=stress_tensor, iostat=ios)
-    if (ios > 0) then
-        logError(*) 'Error reading in the stress_tensor namelist.'
-    end if
-    rewind(IO%unit%FileIn_FaultStress)
-  	read(IO%unit%FileIn_FaultStress, nml=init_stress, iostat=ios)
-    if (ios /= 0) then
-        logError(*) 'Error reading in the init_stress namelist.'
-    end if
-  	
-  	! Read in the heterogeneous distribution blocks
-  	nSum = n1 + n2 + n3
-  	allocate(dists(nSum))
-  	! 1. along-strike
-  	do i = 1, n1
-  		dists(i)%vec = 4
-  		call read_dist2d(dist=dists(i), IO=IO)
-  	end do
-  	! 2. along-dip
-  	do i = n1+1, n1+n2
-  		dists(i)%vec = 6
-  		call read_dist2d(dist=dists(i), IO=IO)
-  	end do
-  	! 3. fault-normal: change of sign from SpecFem3D!
-  	do i = n1+n2+1, n1+n2+n3
-  		dists(i)%vec = 1
-  		call read_dist2d(dist=dists(i), IO=IO)
-  	end do
-  	
-  	close(IO%unit%FileIn_FaultStress)
-  	
-  	! Process stress input
-  	FaultFacesIteration: do iFault = 1, mesh%Fault%nSide
-  	
-  		! switch for rupture front output: RF
-  		if (disc%DynRup%RF_output_on == 1) then
-  		  ! rupture front output just for + side elements!
-  		  if (mesh%fault%Face(iFault,1,1) .NE. 0) disc%DynRup%RF(iFault,:) = .TRUE.
-  		end if
-  
-  		! constant state variable
-  		eqn%IniStateVar(iFault,:) =  eqn%RS_sv0
-  
-  		! constant stress tensor in global coordinates
-  		eqn%IniBulk_xx(iFault,:)  =  Sigma(1)
-  		eqn%IniBulk_yy(iFault,:)  =  Sigma(2)
-  		eqn%IniBulk_zz(iFault,:)  =  Sigma(3)
-  		eqn%IniShearXY(iFault,:)  =  Sigma(4)
-  		eqn%IniShearYZ(iFault,:)  =  Sigma(5)
-  		eqn%IniShearXZ(iFault,:)  =  Sigma(6)
-  		
-        ! Get index of neighbouring element and the neighbour side within that element
-        iElem = mesh%Fault%Face(iFault,1,1)
-        iSide = mesh%Fault%Face(iFault,2,1)
-        if (iElem == 0) then ! iElem is in the neighbor domain (different MPI domain)
-            iLocal = mesh%Fault%Face(iFault,1,2)   ! iLocal denotes local "-" side
-            iLocalSide = mesh%Fault%Face(iFault,2,2)
-            iObject  = mesh%elem%BoundaryToObject(iLocalSide,iLocal)
-            MPIIndex = mesh%elem%MPINumber(iLocalSide,iLocal)
-            
-            xV(:) = bnd%ObjMPI(iObject)%NeighborCoords(1,:,MPIIndex)
-            yV(:) = bnd%ObjMPI(iObject)%NeighborCoords(2,:,MPIIndex)
-            zV(:) = bnd%ObjMPI(iObject)%NeighborCoords(3,:,MPIIndex)
-        else
-            xV(:) = mesh%vrtx%xyNode(1,mesh%elem%Vertex(:,iElem))
-            yV(:) = mesh%vrtx%xyNode(2,mesh%elem%Vertex(:,iElem))
-            zV(:) = mesh%vrtx%xyNode(3,mesh%elem%Vertex(:,iElem))
-        end if
-
-        ! Get base vectors of the fault-local coordinate system
-        geoStrike = mesh%Fault%geoNormals(:,iFault) .x. geoZ								! cross-product to get along-strike vector
-        geoStrike = geoStrike / sqrt(geoStrike(1)**2 + geoStrike(2)**2 + geoStrike(3)**2)	! normalize along-strike vector
-        geoDip = mesh%Fault%geoNormals(:,iFault) .x. geoStrike								! cross-product to get along-dip vector
-        
-        ! Get rotation matrix from fault-local to global coordinate system
-        call RotationMatrix3D( n1  = mesh%fault%geoNormals(:,iFault), &
-                               n2  = geoStrike, &
-                               n3  = geoDip, &
-                               T   = rotationMatrix, &
-                               iT  = invMatrix, &
-                               eqn = eqn )
-        
-        ! Iterate over Gaussian points
-        GaussPointIteration: do iBndGP = 1, disc%Galerkin%nBndGP
-        
-            ! constant stress tensor in fault-local coordinates
-            localStress(1) = S3 ! fault-normal
-            localStress(2) = 0.0
-            localStress(3) = 0.0
-            localStress(4) = S1 ! along-strike
-            localStress(5) = 0.0
-            localStress(6) = S2 ! along-dip
-        
-            ! Transformation of boundary Gaussian point's coordinates into XYZ coordinate system
-            chi  = mesh%elem%BndGP_Tri(1,iBndGP)
-            tau  = mesh%elem%BndGP_Tri(2,iBndGP)
-            call TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-            call TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-            
-            !----------------- process the heterogeneous distributions -----------------!
-            Dist2DIteration: do iDist2d = 1, nSum
-                select case (dists(iDist2d)%type)
-                    case (1)	! square (actually a cube)
-                        if ( abs(xGP - dists(iDist2d)%xc) < dists(iDist2d)%l / 2.0 .and. &		! x in bounds?
-                                abs(yGP - dists(iDist2d)%yc) < dists(iDist2d)%l / 2.0 .and. &	! y in bounds?
-                                abs(zGP - dists(iDist2d)%zc) < dists(iDist2d)%l / 2.0 ) then	! z in bounds?
-                                
-                            localStress(dists(iDist2d)%vec) = dists(iDist2d)%val
-                        end if
-                    case (2)	! rectangle (actually a cuboid)
-                        if ( abs(xGP - dists(iDist2d)%xc) < dists(iDist2d)%lx / 2.0 .and. &		! x in bounds?
-                                abs(yGP - dists(iDist2d)%yc) < dists(iDist2d)%ly / 2.0 .and. &	! y in bounds?
-                                abs(zGP - dists(iDist2d)%zc) < dists(iDist2d)%lz / 2.0 ) then	! z in bounds?
-                                
-                            localStress(dists(iDist2d)%vec) = dists(iDist2d)%val
-                        end if
-                    case (3)	! rectangle with taper (actually a cuboid)
-                        if ( abs(xGP - dists(iDist2d)%xc) < dists(iDist2d)%lx / 2.0 .and. &		! x in bounds?
-                                abs(yGP - dists(iDist2d)%yc) < dists(iDist2d)%ly / 2.0 .and. &	! y in bounds?
-                                abs(zGP - dists(iDist2d)%zc) < dists(iDist2d)%lz / 2.0 ) then	! z in bounds?
-                                
-                            ! linear interpolation in z-direction between val and valh
-                            localStress(dists(iDist2d)%vec) = (dists(iDist2d)%valh + dists(iDist2d)%val) * 0.5 & ! add central value
-                                + (zGP - dists(iDist2d)%zc) * (dists(iDist2d)%valh - dists(iDist2d)%val) / dists(iDist2d)%lz	! add interpolation value
-                        end if
-                    case (10)	! circle (actually a sphere)
-                        if ( (xGP - dists(iDist2d)%xc)**2 + (yGP - dists(iDist2d)%yc)**2 + (zGP - dists(iDist2d)%zc)**2 & ! distance from circle center
-                                < dists(iDist2d)%r**2 ) then
-                            
-                            localStress(dists(iDist2d)%vec) = dists(iDist2d)%val
-                        end if
-                    case (11)	! ellipse
-                        if ( ((xGP - dists(iDist2d)%xc)/dists(iDist2d)%lx)**2 &
-                                + ((yGP - dists(iDist2d)%yc)/dists(iDist2d)%ly)**2 &
-                                + ((zGP - dists(iDist2d)%zc)/dists(iDist2d)%lz)**2 & ! distance from circle center in elliptic coordinates (defined by lx, ly, lz)
-                                < dists(iDist2d)%r**2 ) then
-                                
-                            localStress(dists(iDist2d)%vec) = dists(iDist2d)%val
-                        end if
-                    case (12)	! x-cylinder
-                        if ( (yGP - dists(iDist2d)%yc)**2 + (zGP - dists(iDist2d)%zc)**2 < dists(iDist2d)%r**2 & ! distance from circle center in yz-plane
-                                .and. abs(xGP - dists(iDist2d)%xc) < dists(iDist2d)%lx / 2.0) then					 ! x in bounds?
-                                
-                            localStress(dists(iDist2d)%vec) = dists(iDist2d)%val
-                        end if
-                    case (13)	! y-cylinder
-                        if ( (xGP - dists(iDist2d)%xc)**2 + (zGP - dists(iDist2d)%zc)**2 < dists(iDist2d)%r**2 & ! distance from circle center in xz-plane
-                                .and. abs(yGP - dists(iDist2d)%yc) < dists(iDist2d)%ly / 2.0) then					 ! y in bounds?
-                                
-                            localStress(dists(iDist2d)%vec) = dists(iDist2d)%val
-                        end if
-                    case (14)	! z-cylinder
-                        if ( (xGP - dists(iDist2d)%xc)**2 + (yGP - dists(iDist2d)%yc)**2 < dists(iDist2d)%r**2 & ! distance from circle center in xy-plane
-                                .and. abs(zGP - dists(iDist2d)%zc) < dists(iDist2d)%lz / 2.0) then					 ! z in bounds?
-                                
-                            localStress(dists(iDist2d)%vec) = dists(iDist2d)%val
-                        end if
-                    case default ! unknown shape
-                        logError(*) 'Unknown shape in heterogeneous distribution block ',iDist2d,'!'
-                end select
-            end do Dist2DIteration
-            !--------------------------------------------------------------------------!
-            
-            !--------- Convert fault-local stress field to global coordinates ---------!
-            
-            ! Transform local stress field to global coordinates
-            localStress = matmul(rotationMatrix(:6,:6), localStress)
-            
-            ! Add to global stress field
-            eqn%IniBulk_xx(iFault,iBndGP)  =  eqn%IniBulk_xx(iFault,iBndGP) + localStress(1)
-            eqn%IniBulk_yy(iFault,iBndGP)  =  eqn%IniBulk_yy(iFault,iBndGP) + localStress(2)
-            eqn%IniBulk_zz(iFault,iBndGP)  =  eqn%IniBulk_zz(iFault,iBndGP) + localStress(3)
-            eqn%IniShearXY(iFault,iBndGP)  =  eqn%IniShearXY(iFault,iBndGP) + localStress(4)
-            eqn%IniShearYZ(iFault,iBndGP)  =  eqn%IniShearYZ(iFault,iBndGP) + localStress(5)
-            eqn%IniShearXZ(iFault,iBndGP)  =  eqn%IniShearXZ(iFault,iBndGP) + localStress(6)
-            eqn%IniStateVar(iFault,iBndGP) =  EQN%RS_sv0
-            
-            !--------------------------------------------------------------------------!
-            
-            end do GaussPointIteration
-  		
-  	end do FaultFacesIteration
-  
-  end subroutine background_faultlocal
-  
-  ! Subroutine for reading in heterogeneous distribution blocks
-  subroutine read_dist2d(dist, IO)
-  	!-------------------------------------------------------------------------!
-  	implicit none
-  	!-------------------------------------------------------------------------!
-  	type(tDist2d), intent(inout)     :: dist
-    type(tInputOutput)             :: IO
-  	!-------------------------------------------------------------------------!
-  	! Local variable declaration
-    integer :: ios                                                  ! I/O-Status of input
-  	character(len=20) :: shapeval									! Shape specification string
-  	real :: val														! Standard stress field value
-  	real :: valh													! Second stress field value for the rectangle with taper
-  	real :: xc, yc, zc												! Center coordinates of the distribution block
-  	real :: l														! Side length of the square
-  	real :: lx, ly, lz												! Side lengths of the rectangle, distortion length of the ellipse, height of the cylinders
-  	real :: r														! Radius of the circle and ellipse
-  	
-  	! Namelist
-  	namelist /dist2d/ shapeval, val, valh, xc, yc, zc, r, l, lx, ly, lz
-  	!-------------------------------------------------------------------------!
-    
-    ! set default values
-    val = 0.0
-    valh = 0.0
-    xc = 0.0
-    yc = 0.0
-    zc = 0.0
-    l = 0.0
-    lx = 0.0
-    ly = 0.0
-    lz = 0.0
-    r = 0.0
-    
-    ! read in the heterogeneous distribution block
-  	read(IO%UNIT%FileIn_FaultStress, nml=dist2d, iostat=ios)
-    if (ios /= 0) then
-        logError(*) 'Error reading in the dist2d namelist. Number of heterogeneous distribution blocks correct?'
-    end if
-  
-  	! Copy read-in values into distribution struct
-  	dist%val = val
-  	dist%valh = valh
-  	dist%xc = xc
-  	dist%yc = yc
-  	dist%zc = zc
-  	dist%l = l
-  	dist%lx = lx
-  	dist%ly = ly
-  	dist%lz = lz
-  	dist%r = r
-  	
-  	! Select type
-  	select case (shapeval)
-  		case ('square')
-  			dist%type = 1
-  		case ('rectangle')
-  			dist%type = 2
-  		case ('rectangle-taper')
-  			dist%type = 3
-  		case ('circle')
-  			dist%type = 10
-  		case ('ellipse')
-  			dist%type = 11
-  		case ('x-cylinder')
-  			dist%type = 12
-  		case ('y-cylinder')
-  			dist%type = 13
-  		case ('z-cylinder')
-  			dist%type = 14
-  		case default
-  			dist%type = 0
-            logError(*) 'Shape type "',shapeval,'" could not be recognized!'
-  	end select
-  end subroutine read_dist2d
-  !-----------------------------------------------------------------------------!
   
   END MODULE ini_model_DR_mod

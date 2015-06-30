@@ -1596,7 +1596,7 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, &
-                                              OutputPointType, magnitude_output_on
+                                              OutputPointType, magnitude_output_on, read_fault_file
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
                                               Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1618,7 +1618,7 @@ CONTAINS
                                                 NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, &
-                                                OutputPointType, magnitude_output_on, cohesion_0
+                                                OutputPointType, magnitude_output_on, cohesion_0, read_fault_file
     !------------------------------------------------------------------------                                                                                   
     
     ! Setting default values
@@ -1672,12 +1672,16 @@ CONTAINS
     NucRS_sv0 = 0
     r_s = 0
     cohesion_0 = 0
+    read_fault_file = 0
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
 
-            ! Read-in dynamic rupture parameters
-            READ(IO%UNIT%FileIn, nml = DynamicRupture)
-            logInfo(*) 'Beginning dynamic rupture initialization. '
+           ! Read-in dynamic rupture parameters
+           READ(IO%UNIT%FileIn, nml = DynamicRupture)
+           logInfo(*) 'Beginning dynamic rupture initialization. '
+           
+           ! Read fault parameters from Par_file_faults?
+           DISC%DynRup%read_fault_file = read_fault_file
 
            !FRICTION LAW CHOICE
            EQN%FL = FL
@@ -1685,7 +1689,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,50,60,61,62,70,100,101,103,1000)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,50,60,61,62,70,100,101,103)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
