@@ -140,7 +140,7 @@ public:
 	/**
 	 * Update checkpoint symlink
 	 */
-	void updateLink()
+	virtual void updateLink()
 	{
 		// Update the link to the latest checkpoint file
 		if (m_rank == 0) {

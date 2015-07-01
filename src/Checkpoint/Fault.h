@@ -138,6 +138,14 @@ public:
 
 	virtual void write(int timestepFault) = 0;
 
+	void updateLink()
+	{
+		if (m_numSides == 0)
+			return;
+
+		CheckPoint::updateLink();
+	}
+
 protected:
 	void initFilename(const char* filename, const char* extension)
 	{
