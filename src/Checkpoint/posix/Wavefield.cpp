@@ -99,7 +99,16 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	EPIK_USER_START(r_write_wavefield);
 	SCOREP_USER_REGION_BEGIN(r_write_wavefield, "checkpoint_write_wavefield", SCOREP_USER_REGION_TYPE_COMMON);
 
-	checkErr(::write(file(), dofs(), numDofs()*sizeof(real)), numDofs()*sizeof(real));
+	// Convert to char* to do pointer arithmetic
+	const char* buffer = reinterpret_cast<const char*>(dofs());
+	unsigned long left = numDofs()*sizeof(real);
+	while (left > 0) {
+		unsigned long written = ::write(file(), dofs(), numDofs()*sizeof(real));
+		if (written <= 0)
+			checkErr(written, left);
+		buffer += written;
+		left -= written;
+	}
 
 	EPIK_USER_END(r_write_wavefield);
 	SCOREP_USER_REGION_END(r_write_wavefield);
