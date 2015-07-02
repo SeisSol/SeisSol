@@ -103,7 +103,7 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	const char* buffer = reinterpret_cast<const char*>(dofs());
 	unsigned long left = numDofs()*sizeof(real);
 	while (left > 0) {
-		unsigned long written = ::write(file(), dofs(), numDofs()*sizeof(real));
+		unsigned long written = ::write(file(), dofs(), left);
 		if (written <= 0)
 			checkErr(written, left);
 		buffer += written;
