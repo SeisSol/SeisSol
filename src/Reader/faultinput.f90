@@ -53,7 +53,9 @@ module faultinput_mod
   private
   !---------------------------------------------------------------------------!
   public :: faultinput
+  private :: read_specfem3d
   private :: read_dist
+  private :: process_dist
   private :: set_param
   private :: cnt_dist
 
@@ -72,7 +74,7 @@ module faultinput_mod
   end enum
   
   enum, bind(C)
-    enumerator :: shape_unknown=0, shape_square, shape_rectangle, shape_rectangle_taper, &
+    enumerator :: shape_unknown=0, shape_global, shape_square, shape_rectangle, shape_rectangle_taper, &
                     shape_circle, shape_ellipse, shape_xCylinder, shape_yCylinder, shape_zCylinder
   end enum
 
@@ -140,99 +142,43 @@ module faultinput_mod
   	
   	! Variables for file input
     integer :: ios                                                  ! I/O-Status of input
-  	real :: S1, S2, S3												! File input for constant stress fields: S1=along-strike shear, S2=along-dip shear, S3=fault-normal stress
-  	real :: Sigma(6)												! File input for constant stress fields in the global coordinate system
-  	integer :: n1, n2, n3											! Number of heterogeneous distribution blocks for n1=along-strike shear, n2=along-dip shear, n3=fault-normal stress
+    real    :: localStress_0(3)                                     ! Default values for the fault-local stress field
   	integer :: nSum													! Total number of heterogeneous distribution blocks
+    integer :: nSpecfem                                             ! Number of distribution blocks needed for SPECFEM3D blocks
   	
   	type(tDist), allocatable  :: dists(:)							! Heterogeneous distribution blocks
-  
-  	! Namelists
-  	namelist /stress_tensor/ Sigma
-  	namelist /init_stress/ S1, S2, S3, n1, n2, n3
   	!-------------------------------------------------------------------------!
   
   	! set default values
   	geoZ(:) = (/0, 0, 1/)
-  	n1 = 0
-  	n2 = 0
-  	n3 = 0
-  	S1 = 0
-  	S2 = 0
-  	S3 = 0
-  	Sigma(global_xx) = eqn%Bulk_xx_0
-  	Sigma(global_yy) = eqn%Bulk_yy_0
-  	Sigma(global_zz) = eqn%Bulk_zz_0
-  	Sigma(global_xy) = eqn%ShearXY_0
-  	Sigma(global_yz) = eqn%ShearYZ_0
-  	Sigma(global_xz) = eqn%ShearXZ_0
   	
     
   	open(IO%unit%FileIn_Fault, file="Par_file_faults", status='old', action="read", iostat=ios)
     if (ios /= 0) then
         logError(*) 'Error opening the local fault parameter file. File "Par_file_faults" present?'
     end if
-  
-    ! Read in stress_tensor and init_stress (they may not be present)
-  	read(IO%unit%FileIn_Fault, nml=stress_tensor, iostat=ios)
-    if (ios > 0) then
-        logError(*) 'Error reading in the stress_tensor namelist.'
-    end if
-    rewind(IO%unit%FileIn_Fault)
-  	read(IO%unit%FileIn_Fault, nml=init_stress, iostat=ios)
-    if (ios > 0) then
-        logError(*) 'Error reading in the init_stress namelist.'
-    end if
-    rewind(IO%unit%FileIn_Fault)
     
-    ! Get number of heterogeneous distribution blocks
+    ! Get total number of heterogeneous distribution blocks
     nSum = cnt_dist(eqn, IO)
-    if (nSum < n1 + n2 + n3) then
-        logError(*) 'Error reading in the dist2d namelists. Too few heterogeneous distribution blocks!'
-    end if
   	allocate(dists(nSum))
-  	
-  	! Read in the heterogeneous distribution blocks specified in init_stress (SPECFEM3D-style)
-  	! 1. along-strike
-  	do i = 1, n1
-  		call read_dist(eqn, IO, dists(i), ios)
-        if (ios /= 0) then
-            logError(*) 'Error reading in the dist2d namelist.'
-        end if
-        dists(i)%param = par_localStress
-  		dists(i)%dir = dir_along_strike
-  	end do
-  	! 2. along-dip
-  	do i = n1+1, n1+n2
-  		call read_dist(eqn, IO, dists(i), ios)
-        if (ios /= 0) then
-            logError(*) 'Error reading in the dist2d namelist.'
-        end if
-        dists(i)%param = par_localStress
-  		dists(i)%dir = dir_along_dip
-  	end do
-  	! 3. fault-normal
-  	do i = n1+n2+1, n1+n2+n3
-  		call read_dist(eqn, IO, dists(i), ios)
-        if (ios /= 0) then
-            logError(*) 'Error reading in the dist2d namelist.'
-        end if
-        dists(i)%param = par_localStress
-  		dists(i)%dir = dir_normal
-  	end do
-  	
     
-    ! Read in other distribution blocks (parameter type and direction from namelist)
-  	do i = n1+n2+n3+1, nSum
+    ! Process namelists in SPECFEM3D-style
+    call read_specfem3d(disc, eqn, IO, ios, dists, nSum, nSpecfem, localStress_0)
+    
+    ! Set parameters to default values
+    eqn%IniStateVar(:,:) =  eqn%RS_sv0
+    DISC%DynRup%cohesion(:,:) = DISC%DynRup%cohesion_0
+    
+    ! Read in other distribution blocks (parameter type and direction from namelist, SeisSol-style)
+  	do i = nSpecfem + 1, nSum
   		call read_dist(eqn, IO, dists(i), ios)
         if (ios /= 0) then
-            logError(*) 'Error reading in the dist2d namelist.'
+            logError(*) 'Error reading in a dist2d namelist.'
         end if
   	end do
     
   	close(IO%unit%FileIn_Fault)
   	
-    
     
   	! Process stress input
   	FaultFacesIteration: do iFault = 1, mesh%Fault%nSide
@@ -242,20 +188,6 @@ module faultinput_mod
   		  ! rupture front output just for + side elements!
   		  if (mesh%fault%Face(iFault,1,1) .NE. 0) disc%DynRup%RF(iFault,:) = .TRUE.
   		end if
-  
-  		! constant state variable
-  		eqn%IniStateVar(iFault,:) =  eqn%RS_sv0
-  
-  		! constant stress tensor in global coordinates
-  		eqn%IniBulk_xx(iFault,:)  =  Sigma(global_xx)
-  		eqn%IniBulk_yy(iFault,:)  =  Sigma(global_yy)
-  		eqn%IniBulk_zz(iFault,:)  =  Sigma(global_zz)
-  		eqn%IniShearXY(iFault,:)  =  Sigma(global_xy)
-  		eqn%IniShearYZ(iFault,:)  =  Sigma(global_yz)
-  		eqn%IniShearXZ(iFault,:)  =  Sigma(global_xz)
-        
-        ! set to default value
-        eqn%IniStateVar(iFault,:) =  EQN%RS_sv0
   		
         ! Get index of neighbouring element and the neighbour side within that element
         iElem = mesh%Fault%Face(iFault,1,1)
@@ -266,6 +198,7 @@ module faultinput_mod
             iObject  = mesh%elem%BoundaryToObject(iLocalSide,iLocal)
             MPIIndex = mesh%elem%MPINumber(iLocalSide,iLocal)
             
+            ! Get XYZ coordinates of the element
             xV(:) = bnd%ObjMPI(iObject)%NeighborCoords(1,:,MPIIndex)
             yV(:) = bnd%ObjMPI(iObject)%NeighborCoords(2,:,MPIIndex)
             zV(:) = bnd%ObjMPI(iObject)%NeighborCoords(3,:,MPIIndex)
@@ -277,7 +210,7 @@ module faultinput_mod
 
         ! Get base vectors of the fault-local coordinate system
         geoStrike = mesh%Fault%geoNormals(:,iFault) .x. geoZ								! cross-product to get along-strike vector
-        geoStrike = geoStrike / sqrt(geoStrike(1)**2 + geoStrike(2)**2 + geoStrike(3)**2)	! normalize along-strike vector
+        geoStrike = geoStrike / sqrt(geoStrike(1)**2 + geoStrike(2)**2)	                    ! normalize along-strike vector
         geoDip = mesh%Fault%geoNormals(:,iFault) .x. geoStrike								! cross-product to get along-dip vector
         
         ! Get rotation matrix from fault-local to global coordinate system
@@ -292,12 +225,12 @@ module faultinput_mod
         GaussPointIteration: do iBndGP = 1, disc%Galerkin%nBndGP
         
             ! constant stress tensor in fault-local coordinates
-            localStress(1) = S3 ! fault-normal
+            localStress(1) = localStress_0(3) ! fault-normal
             localStress(2) = 0.0
             localStress(3) = 0.0
-            localStress(4) = S1 ! along-strike
+            localStress(4) = localStress_0(1) ! along-strike
             localStress(5) = 0.0
-            localStress(6) = S2 ! along-dip
+            localStress(6) = localStress_0(2) ! along-dip
         
             ! Transformation of boundary Gaussian point's coordinates into XYZ coordinate system
             chi  = mesh%elem%BndGP_Tri(1,iBndGP)
@@ -307,7 +240,7 @@ module faultinput_mod
             
             ! process the heterogeneous distribution blocks
             DistIteration: do iDist = 1, nSum
-                call check_dist(disc, eqn, localStress, dists(iDist), iFault, iBndGP, xGP, yGP, zGP)
+                call process_dist(disc, eqn, localStress, dists(iDist), iFault, iBndGP, xGP, yGP, zGP)
             end do DistIteration
             
             !--------- Convert fault-local stress field to global coordinates ---------!
@@ -331,9 +264,160 @@ module faultinput_mod
   
   end subroutine faultinput
   
+  ! Subroutine for reading in namelists in SPECFEM3D format
+  subroutine read_specfem3d(disc, eqn, IO, ios, dists, nSum, nSpecfem, localStress_0)
+  	!-------------------------------------------------------------------------!
+  	implicit none
+  	!-------------------------------------------------------------------------!
+	type(tDiscretization), intent(inout), target :: disc
+	type(tEquations), intent(in)                 :: eqn
+    type(tInputOutput)                           :: IO
+    integer, intent(out)                         :: ios             ! I/O-Status of input
+  	type(tDist), allocatable, intent(inout)      :: dists(:)        ! Heterogeneous distribution blocks
+    integer, intent(in)                          :: nSum            ! Total number of heterogeneous distribution blocks
+    integer, intent(out)                         :: nSpecfem        ! Number of distribution blocks needed for SPECFEM3D blocks
+    real, intent(out)                            :: localStress_0(3)! Constant stress field in fault-local coordinates
+  	!-------------------------------------------------------------------------!
+  	integer :: i													! General purpose counter
+    
+  	real        :: Sigma(6)											! File input for constant stress fields in the global coordinate system
+  	real        :: S1, S2, S3										! File input for constant fault-local stress fields: S1=along-strike shear, S2=along-dip shear, S3=fault-normal stress
+  	integer     :: n1, n2, n3									    ! Number of heterogeneous distribution blocks for n1=along-strike shear, n2=along-dip shear, n3=fault-normal stress
+  	real        :: mus, mud, dc										! File input for constant SWF: mus=static friction coefficient, mud=dynamic friction coefficient, dc=critical slip-weakening distance
+  	integer     :: nmus, nmud, ndc									! Number of heterogeneous distribution blocks for SWF parameters
+  
+  	! Namelists
+  	namelist /stress_tensor/ Sigma                                  ! Constant stress field in global coordinates
+  	namelist /init_stress/ S1, S2, S3, n1, n2, n3                   ! Stress field in fault-local coordinates
+    namelist /SWF/ mus, mud, dc, nmus, nmud, ndc                    ! Parameters for slip-weakening friction
+  	!-------------------------------------------------------------------------!
+    
+    ! Set default values
+  	Sigma(global_xx) = eqn%Bulk_xx_0
+  	Sigma(global_yy) = eqn%Bulk_yy_0
+  	Sigma(global_zz) = eqn%Bulk_zz_0
+  	Sigma(global_xy) = eqn%ShearXY_0
+  	Sigma(global_yz) = eqn%ShearYZ_0
+  	Sigma(global_xz) = eqn%ShearXZ_0
+  	S1 = 0
+  	S2 = 0
+  	S3 = 0
+  	n1 = 0
+  	n2 = 0
+  	n3 = 0
+    mus = disc%DynRup%Mu_S_ini
+    mud = disc%DynRup%Mu_D_ini
+    dc = disc%DynRup%D_C_ini
+    nmus = 0
+    nmud = 0
+    ndc = 0
+    
+  
+    ! Read in stress_tensor, init_stress and SWF namelists (each may not be present)
+  	read(IO%unit%FileIn_Fault, nml=stress_tensor, iostat=ios)
+    if (ios > 0) then
+        logError(*) 'Error reading in the stress_tensor namelist.'
+    end if
+    rewind(IO%unit%FileIn_Fault)
+    ! Save constant values
+    eqn%IniBulk_xx(:,:)  =  Sigma(global_xx)
+    eqn%IniBulk_yy(:,:)  =  Sigma(global_yy)
+    eqn%IniBulk_zz(:,:)  =  Sigma(global_zz)
+    eqn%IniShearXY(:,:)  =  Sigma(global_xy)
+    eqn%IniShearYZ(:,:)  =  Sigma(global_yz)
+    eqn%IniShearXZ(:,:)  =  Sigma(global_xz)
+    
+  	read(IO%unit%FileIn_Fault, nml=init_stress, iostat=ios)
+    if (ios > 0) then
+        logError(*) 'Error reading in the init_stress namelist.'
+    end if
+    rewind(IO%unit%FileIn_Fault)
+    localStress_0(1) = S1 ! along-strike
+    localStress_0(2) = S2 ! along-dip
+    localStress_0(3) = S3 ! fault-normal
+    
+  	read(IO%unit%FileIn_Fault, nml=SWF, iostat=ios)
+    if (ios > 0) then
+        logError(*) 'Error reading in the SWF namelist.'
+    end if
+    if (ios == 0 .and. eqn%FL /= 2) then
+        logError(*) 'Slip weakening parameters set in Par_file_faults, while friction type is not set to linear slip weakening.'
+    end if
+    rewind(IO%unit%FileIn_Fault)
+    ! Save constant values
+    disc%DynRup%Mu_S(:,:) = mus
+    disc%DynRup%Mu_D(:,:) = mud
+    disc%DynRup%D_C(:,:) = dc
+    
+    
+    ! Check if number of heterogeneous distribution blocks is sufficient
+    nSpecfem = n1 + n2 + n3 + nmus + nmud + ndc
+    if (nsum < nSpecfem) then
+        logError(*) 'Error reading in the dist2d namelists. Too few heterogeneous distribution blocks!'
+    end if
+    
+    
+  	
+  	! Read in the heterogeneous distribution blocks specified in init_stress
+  	! 1. along-strike
+  	do i = 1, n1
+  		call read_dist(eqn, IO, dists(i), ios)
+        if (ios /= 0) then
+            logError(*) 'Error reading in a dist2d namelist.'
+        end if
+        dists(i)%param = par_localStress
+  		dists(i)%dir = dir_along_strike
+  	end do
+  	! 2. along-dip
+  	do i = n1+1, n1+n2
+  		call read_dist(eqn, IO, dists(i), ios)
+        if (ios /= 0) then
+            logError(*) 'Error reading in a dist2d namelist.'
+        end if
+        dists(i)%param = par_localStress
+  		dists(i)%dir = dir_along_dip
+  	end do
+  	! 3. fault-normal
+  	do i = n1+n2+1, n1+n2+n3
+  		call read_dist(eqn, IO, dists(i), ios)
+        if (ios /= 0) then
+            logError(*) 'Error reading in a dist2d namelist.'
+        end if
+        dists(i)%param = par_localStress
+  		dists(i)%dir = dir_normal
+  	end do
+  	
+  	! Read in the heterogeneous distribution blocks specified in SWF
+  	! 1. static friction coefficient
+  	do i = 1, nmus
+  		call read_dist(eqn, IO, dists(i), ios)
+        if (ios /= 0) then
+            logError(*) 'Error reading in a dist2d namelist.'
+        end if
+        dists(i)%param = par_Mu_S
+  	end do
+  	! 2. dynamic friction coefficient
+  	do i = nmus+1, nmus+nmud
+  		call read_dist(eqn, IO, dists(i), ios)
+        if (ios /= 0) then
+            logError(*) 'Error reading in a dist2d namelist.'
+        end if
+        dists(i)%param = par_Mu_D
+  	end do
+  	! 3. critical slip-weakening distance
+  	do i = nmus+nmud+1, nmus+nmud+ndc
+  		call read_dist(eqn, IO, dists(i), ios)
+        if (ios /= 0) then
+            logError(*) 'Error reading in a dist2d namelist.'
+        end if
+        dists(i)%param = par_D_C
+  	end do
+  
+  end subroutine read_specfem3d
+  
   
   ! Subroutine for checking if the point is in the distribution block and setting the parameter
-  subroutine check_dist(disc, eqn, localStress, dist, iFault, iBndGP, x, y, z)
+  subroutine process_dist(disc, eqn, localStress, dist, iFault, iBndGP, x, y, z)
   	!-------------------------------------------------------------------------!
   	implicit none
 	!-------------------------------------------------------------------------!
@@ -347,6 +431,8 @@ module faultinput_mod
   	!-------------------------------------------------------------------------!
   
     select case (dist%shape)
+        case (shape_global)
+            call set_param(disc, eqn, localStress, dist, iFault, iBndGP, dist%val)
         case (shape_square)	! (actually a cube)
             if ( abs(x - dist%xc) < dist%l / 2.0 .and. &		! x in bounds?
                     abs(y - dist%yc) < dist%l / 2.0 .and. &	! y in bounds?
@@ -380,20 +466,20 @@ module faultinput_mod
         case (shape_ellipse)
             if ( ((x - dist%xc)/dist%lx)**2 &
                     + ((y - dist%yc)/dist%ly)**2 &
-                    + ((z - dist%zc)/dist%lz)**2 & ! distance from circle center in elliptic coordinates (defined by lx, ly, lz)
-                    < dist%r**2 ) then
+                    + ((z - dist%zc)/dist%lz)**2 &
+                    < 1 ) then
                     
                 call set_param(disc, eqn, localStress, dist, iFault, iBndGP, dist%val)
             end if
         case (shape_xCylinder)
             if ( (y - dist%yc)**2 + (z - dist%zc)**2 < dist%r**2 & ! distance from circle center in yz-plane
-                    .and. abs(x - dist%xc) < dist%lx / 2.0) then					 ! x in bounds?
+                    .and. abs(x - dist%xc) < dist%lz / 2.0) then					 ! x in bounds?
                     
                 call set_param(disc, eqn, localStress, dist, iFault, iBndGP, dist%val)
             end if
         case (shape_yCylinder)
             if ( (x - dist%xc)**2 + (z - dist%zc)**2 < dist%r**2 & ! distance from circle center in xz-plane
-                    .and. abs(y - dist%yc) < dist%ly / 2.0) then					 ! y in bounds?
+                    .and. abs(y - dist%yc) < dist%lz / 2.0) then					 ! y in bounds?
                     
                 call set_param(disc, eqn, localStress, dist, iFault, iBndGP, dist%val)
             end if
@@ -407,7 +493,7 @@ module faultinput_mod
             logError(*) 'Unknown shape in heterogeneous distribution block!'
     end select
     
-  end subroutine check_dist
+  end subroutine process_dist
   
   
   ! Subroutine for choosing and setting a parameter to the specified value
@@ -630,6 +716,8 @@ module faultinput_mod
   	
   	! Select shape
   	select case (shapeval)
+  		case ('global')
+  			dist%shape = shape_global
   		case ('square')
   			dist%shape = shape_square
   		case ('rectangle')
@@ -651,6 +739,5 @@ module faultinput_mod
             logError(*) 'Shape type "',shapeval,'" could not be recognized!'
   	end select
   end subroutine read_dist
-  !-----------------------------------------------------------------------------!
   
 end module faultinput_mod

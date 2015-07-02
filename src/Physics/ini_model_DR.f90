@@ -303,9 +303,6 @@ MODULE ini_model_DR_mod
     ! ini rupture front output
     DISC%DynRup%RF = .FALSE.
     
-    ! Set cohesion to default value
-    DISC%DynRup%cohesion = DISC%DynRup%cohesion_0
-    
     !frictional parameter initialization
     SELECT CASE(EQN%FL)
     CASE(0)

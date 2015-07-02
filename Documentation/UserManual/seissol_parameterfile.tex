@@ -22,6 +22,8 @@
 \usepackage{hyperref}
 \usepackage{xcolor}
 \usepackage{listings}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,
+  moredelim=**[is][\color{green}]{@}{@},}
 \usepackage{ulem}
 \hypersetup{
     colorlinks,%
@@ -54,9 +56,9 @@
 \vspace{0,2cm}
            Seismic Wave Propagation}} \\
 \vspace{4,0cm}
-{\LARGE{\sc User Manual - Parameter file}}\\
+{\LARGE{\sc User Manual - Parameter files}}\\
 \vspace{4,0cm}
-{\Large Amaryillis Nerger \& Christian Pelties\\}
+{\Large Amaryillis Nerger, Christian Pelties \& Johannes Klicpera\\}
 %{\large Last update: \today \\}
 \vspace{2,5cm}
 {\Large{\sc Geophysics\\
@@ -623,7 +625,7 @@ BC\_pe & 0 & integer & \# periodic boundaries.\\
 \end{table}
 \newpage
 
-\subsection{Dynamic Rupture}
+\section{Dynamic Rupture}
 \noindent
 If \hypertarget{dynrupture}{dynamic rupture} is simulated set rupture inner boundaries to 1 
 and add the new namelist \textbf{DynamicRupture}.
@@ -640,16 +642,16 @@ you can find three additional tabulars below (\ref{bt-table}, \ref{fl-table},
 
 \newpage 
 
-\begin{table}[H]
+\begin{longtable}{|p{4.8cm}|p{2.4cm}|p{2cm}|p{5cm}|}
 \caption{Parameters and their default values as well as type for the namelist \textbf{DynamicRupture}.
          Changing the parameter from the default value often results in setting additional parameters 
          in the corresponding namelist (indicated in green). 
          If changing the default value requires an additional setting of a parameter in a different namelist, 
          the namelist is written in red. If you change the value for 
          \textit{BackgroundType}, \textit{FL} or \textit{Nucelation}, add the table \ref{bt-table}, 
-         \ref{fl-table}, \ref{nuc-table}, respectively.}
-\begin{center}
-\begin{tabular}{|p{4.8cm}|p{2.4cm}|p{2cm}|p{5cm}|}
+         \ref{fl-table}, \ref{nuc-table}, respectively.} \\
+%\begin{center}
+%\begin{tabular}{|p{4.8cm}|p{2.4cm}|p{2cm}|p{5cm}|}
 \hline
 Parameter & Default Value & Type & Short Description \\
 \hline
@@ -663,6 +665,10 @@ Nucleation & 0 & integer &  Characteristics of the Nucleation Patch. For changin
 RF\_output\_on & 0 & 0/1 & Rupture front output off/on\\
 \hline
 magnitude\_output\_on & 0 & 0/1 & output scalar seismic moment off/on\\
+\hline
+cohesion\_0 & 0 & real & Default cohesion value\\
+\hline
+read\_fault\_file & 0 & 0/1 & Input of fault parameters from Par\_file\_faults off/on (see section \ref{subsec-faultinput})\\
 \hline
 OutputPointType & 3 & integer & Output is Pickpointwise.\\
 \hdashline
@@ -687,11 +693,9 @@ OutputPointType & 3 & integer & Output is Pickpointwise.\\
 \textcolor{red}{Add both namelists:} & & &\\
 \textcolor{red}{Pickpoint} and \textcolor{red}{Elementwise} & & &\\
 \hline
-\end{tabular}
-\end{center}
-\end{table}
-
-\newpage
+%\end{tabular}
+%\end{center}
+\end{longtable}
 
 \begin{table}[H]
 \caption{Parameters and their default values as well as type for the namelist \textbf{DynamicRupture}, 
@@ -842,6 +846,249 @@ Nucleation & 0 & integer & Characteristics of the nucleation patch type.\\
 \end{center}
 \label{nuc-table}
 \end{table}
+
+\subsection{Fault input using Par\_file\_faults} \label{subsec-faultinput}
+
+Apart from defining basic values in the namelist \texttt{DynamicRupture} and coding most of the background parameters in \texttt{Physics/ini\_model\_DR.f90},
+fault parameters can also be read in from a text file called \texttt{Par\_file\_faults}. This feature is enabled by setting \texttt{read\_fault\_file} in the \texttt{DynamicRupture} namelist to 1.
+Values set in this file have priority over values set in the PARAMETER-file and over those set in the subroutines in \texttt{Physics/ini\_model\_DR.f90}.
+For sign and vector conventions see \texttt{RD\_sign\_conventions.pdf}. These conventions are compatible with SPECFEM3D.
+
+The file uses namelists defining different geometric shapes to specify the parameters. The stress field and slip-weakening friction input can be written in a SPECFEM3D-compatible style. The \texttt{Par\_file\_faults} file from SPECFEM3D can simply be copied into the working directory and SeisSol will interpret these parts correctly (see section \ref{subsubsec-specfem3d}).
+
+\subsubsection{Heterogeneous distribution blocks (DIST2D-blocks)} \label{subsubsec-dist2d}
+
+DIST2D-blocks use different geometric shapes for specifying heterogeneous distributions of different parameters. The parameter on all boundary Gaussian points inside of a specified shape is set to the given value. This means that for the specified parameter $p$ at the boundary Gaussian point with coordinates $\vec{x}$
+
+\begin{equation}
+p(\vec{x}) =
+\begin{cases}
+ a, & \vec{x} \in V \\
+ p_\text{prev}(\vec{x}), & \text{otherwise}
+\end{cases}
+\end{equation}
+
+with $a$ being the value specified in the distribution block, $V$ the volume defined by the block's shape and $p_\text{prev}(\vec{x})$ the value the parameter previously had.
+
+
+The values specified in these blocks are exclusive for each parameter, they are not added up. The \emph{last} block in which a point lies specifies the value of the specified parameter. The stress fields in local and global coordinates are added up.
+
+For example, to set up a homogeneous stress field with a nucleation patch, a global shape for the homogeneous stress field and afterwards a rectangular shape for the nucleation patch could be specified.
+
+If SPECFEM3D namelists are present, the first blocks are used for the ones specified in these namelists (see section \ref{subsubsec-specfem3d}). The values of \texttt{param} and \texttt{dir} are ignored for these blocks.
+
+\newpage
+
+\begin{longtable}{|p{4.8cm}|p{2cm}|p{2cm}|p{5.4cm}|}
+\caption{Namelist \textbf{DIST2D}, used for setting the value of a parameter inside a geometric shape to a given value.}\\
+\hline
+Parameter & Default value & Type & Short description \\
+\hline
+\hline
+\textbf{param} & - & string & String defining the parameter on which this block acts\\
+\hdashline
+\uline{param} = 'globalstress' & & & Stress field using global xyz-coordinates\vspace{0.25cm}\\
+\textcolor{green}{dir} & - & string & Stress field direction\\
+\hdashline
+\uline{param} = 'localstress' & & & Stress field using fault-local coordinates\vspace{0.25cm}\\
+\textcolor{green}{dir} & - & string & Stress field direction\\
+\hdashline
+\uline{param} = 'cohesion' & & & Fault cohesion (negative, since compression is negative normal stress)\\
+\hdashline
+\textit{Rate-and-state friction} \vspace{0.2cm} & & & \\
+\uline{param} = 'd\_c' & & & Critical slip\\
+\uline{param} = 'inistatevar' & & & Initial state variable used for rate-and-state friction\\
+\uline{param} = 'rs\_a' & & & RS constitutive parameter "a"\\
+\uline{param} = 'rs\_srw' & & & Velocity weakening scale\\
+\uline{param} = 'inimu' & & & Initial friction coefficient\\
+\hdashline
+\textit{Linear slip-weakening friction} \vspace{0.2cm} & & & $\mu =
+\begin{cases}
+ \mu_\text{s} - \frac{\mu_\text{s} - \mu_\text{d}}{D_\text{c}}\delta, & \delta < D_\text{c}\\
+ \mu_\text{d}, & \delta \ge D_\text{c}
+\end{cases}$\\
+\uline{param} = 'd\_c' & & & Critical slip-weakening distance\\
+\uline{param} = 'mu\_s' & & & Static friction coefficient\\
+\uline{param} = 'mu\_d' & & & Dynamic friction coefficient\\
+\hdashline
+\uline{param} = 'strength' & & & Strength parameter $S=\frac{\tau_\text{s} - \tau_\text{0}}{\tau_\text{0}-\tau_\text{d}}$ (static and dynamic tractions $\tau_\text{s}$ and $\tau_\text{d}$, shear traction $\tau_\text{0}$). Use only if no initial stress field is given.\\
+\hline
+\textbf{dir} & - & string & String defining the stress field direction on which this block acts\\
+\hdashline
+\uline{param} = 'globalstress' & & & \vspace{0.25cm}\\
+\uline{dir} = 'xx' & & & Bulk stress xx-component\\
+\uline{dir} = 'yy' & & & Bulk stress yy-component\\
+\uline{dir} = 'zz' & & & Bulk stress zz-component\\
+\uline{dir} = 'xy' & & & Shear stress xy-component\\
+\uline{dir} = 'yz' & & & Shear stress yz-component\\
+\uline{dir} = 'xz' & & & Shear stress xz-component\\
+\hdashline
+\uline{param} = 'localstress' & & & \vspace{0.25cm}\\
+\uline{dir} = 'strike' & & & Along-strike shear stress\\
+\uline{dir} = 'dip' & & & Along-dip shear stress\\
+\uline{dir} = 'normal' & & & fault-normal stress (negative is compression)\\
+\hline
+\textbf{shapeval} & - & string & String defining the shape of this block\\
+\hdashline
+\uline{shapeval} = 'global' & & & The parameter at all points is assigned to this value\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter\\
+\hdashline
+\uline{shapeval} = 'square' & & & Cube\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter\\
+\textcolor{green}{xc} & 0 & real & x-coordinate of the center\\
+\textcolor{green}{yc} & 0 & real & y-coordinate of the center\\
+\textcolor{green}{zc} & 0 & real & z-coordinate of the center\\
+\textcolor{green}{l} & 0 & real & Side length of the cube\\
+\hdashline
+\uline{shapeval} = 'rectangle' & & & Cuboid\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter\\
+\textcolor{green}{xc} & 0 & real & x-coordinate of the center\\
+\textcolor{green}{yc} & 0 & real & y-coordinate of the center\\
+\textcolor{green}{zc} & 0 & real & z-coordinate of the center\\
+\textcolor{green}{lx} & 0 & real & length of the cuboid along x\\
+\textcolor{green}{ly} & 0 & real & length of the cuboid along y\\
+\textcolor{green}{lz} & 0 & real & length of the cuboid along z\\
+\hdashline
+\uline{shapeval} = 'rectangle-taper' & & & Cuboid with a linear variation of the value along the z-direction\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter at $z=z_\text{c}-l_\text{z}/2$\\
+\textcolor{green}{valh} & 0 & real & Value of the parameter at $z=z_\text{c}+l_\text{z}/2$\\
+\textcolor{green}{xc} & 0 & real & x-coordinate of the center\\
+\textcolor{green}{yc} & 0 & real & y-coordinate of the center\\
+\textcolor{green}{zc} & 0 & real & z-coordinate of the center\\
+\textcolor{green}{lx} & 0 & real & length of the cuboid along x\\
+\textcolor{green}{ly} & 0 & real & length of the cuboid along y\\
+\textcolor{green}{lz} & 0 & real & length of the cuboid along z\\
+\hdashline
+\uline{shapeval} = 'circle' & & & Sphere\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter\\
+\textcolor{green}{xc} & 0 & real & x-coordinate of the center\\
+\textcolor{green}{yc} & 0 & real & y-coordinate of the center\\
+\textcolor{green}{zc} & 0 & real & z-coordinate of the center\\
+\textcolor{green}{r} & 0 & real & Radius of the sphere\\
+\hdashline
+\uline{shapeval} = 'ellipse' & & & Ellipsoid with semiaxes along x-, y- and z-direction\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter\\
+\textcolor{green}{xc} & 0 & real & x-coordinate of the center\\
+\textcolor{green}{yc} & 0 & real & y-coordinate of the center\\
+\textcolor{green}{zc} & 0 & real & z-coordinate of the center\\
+\textcolor{green}{lx} & 0 & real & Length of semiaxis along x\\
+\textcolor{green}{ly} & 0 & real & Length of semiaxis along y\\
+\textcolor{green}{lz} & 0 & real & Length of semiaxis along z\\
+\hdashline
+\uline{shapeval} = 'x-cylinder' & & & Cylinder with central axis along x-direction\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter\\
+\textcolor{green}{xc} & 0 & real & x-coordinate of the center\\
+\textcolor{green}{yc} & 0 & real & y-coordinate of the center\\
+\textcolor{green}{zc} & 0 & real & z-coordinate of the center\\
+\textcolor{green}{r} & 0 & real & Radius of the base circle\\
+\textcolor{green}{lz} & 0 & real & Height of the cylinder\\
+\hdashline
+\uline{shapeval} = 'y-cylinder' & & & Cylinder with central axis along y-direction\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter\\
+\textcolor{green}{xc} & 0 & real & x-coordinate of the center\\
+\textcolor{green}{yc} & 0 & real & y-coordinate of the center\\
+\textcolor{green}{zc} & 0 & real & z-coordinate of the center\\
+\textcolor{green}{r} & 0 & real & Radius of the base circle\\
+\textcolor{green}{lz} & 0 & real & Height of the cylinder\\
+\hdashline
+\uline{shapeval} = 'z-cylinder' & & & Cylinder with central axis along z-direction\vspace{0.25cm}\\
+\textcolor{green}{val} & 0 & real & Value of the parameter\\
+\textcolor{green}{xc} & 0 & real & x-coordinate of the center\\
+\textcolor{green}{yc} & 0 & real & y-coordinate of the center\\
+\textcolor{green}{zc} & 0 & real & z-coordinate of the center\\
+\textcolor{green}{r} & 0 & real & Radius of the base circle\\
+\textcolor{green}{lz} & 0 & real & Height of the cylinder\\
+\hline
+\label{DIST2D-table}
+\end{longtable}
+
+\subsubsection{SPECFEM3D namelists} \label{subsubsec-specfem3d}
+
+The file can optionally start with a part in the syntax of the SPECFEM3D\linebreak \texttt{Par\_file\_faults} file. The purpose of this section is primarily offering compatibility with this format. The functionality offered by directly using heterogeneous blocks with a value for \texttt{param} (DIST2D-blocks, described in section \ref{subsubsec-dist2d}) is more powerful.
+
+In addition to the DIST2D-blocks, SPECFEM3D files use three different namelists for specifying the stress field and the slip-weakening friction parameters:\linebreak \texttt{stress\_tensor}, \texttt{init\_stress} and \texttt{SWF}. The first DIST2D-blocks in the file are interpreted as those specified in \texttt{init\_stress} (in the order 1. along-strike, 2. along-dip, 3. normal). The blocks after these are interpreted as those specified in \texttt{SWF} (in the order 1. static friction coefficient, 2. dynamic friction coefficient, 3. critical slip-weakening distance). All the following blocks are interpreted using the value in \texttt{param}.
+
+\begin{table}[H]
+\caption{Namelist \textbf{init\_stress}, used for defining a homogeneous stress field in fault-local coordinates
+	and specifying a number of heterogeneous blocks (DIST2D-blocks) for a heterogeneous stress field in fault-local coordinates}
+\begin{center}
+\begin{tabular}{|p{4.8cm}|p{2cm}|p{2cm}|p{5.4cm}|}
+\hline
+Parameter & Default value & Type & Short description \\
+\hline
+\hline
+S1 & 0 & real & Initial homogeneous along-strike shear stress\\
+S2 & 0 & real & Initial homogeneous along-dip shear stress\\
+S3 & 0 & real & Initial homogeneous fault-normal stress (negative is compression)\\
+n1 & 0 & integer & Number of heterogeneous blocks (DIST2D-blocks) for along-strike shear stress\\
+n2 & 0 & integer & Number of heterogeneous blocks (DIST2D-blocks) for along-dip shear stress\\
+n3 & 0 & integer & Number of heterogeneous blocks (DIST2D-blocks) for fault-normal stress\\
+\hline
+\end{tabular}
+\end{center}
+\label{init_stress-table}
+\end{table}
+
+\begin{table}[H]
+\caption{Namelist \textbf{stress\_tensor}, used for defining a homogeneous stress field in global XYZ-coordinates}
+\begin{center}
+\begin{tabular}{|p{4.8cm}|p{2cm}|p{2cm}|p{5.4cm}|}
+\hline
+Parameter & Default value & Type & Short description \\
+\hline
+\hline
+Sigma & 0 0 0 0 0 0 & real & Initial homogeneous stress field, components: XX, YY, ZZ, XY, YZ, XZ\\
+\hline
+\end{tabular}
+\end{center}
+\label{stress_tensor-table}
+\end{table}
+
+\begin{table}[H]
+\caption{Namelist \textbf{SWF}, used for defining homogeneous slip-weakening friction parameters 
+	and specifying a number of DIST2D-blocks for heterogeneous parameters}
+\begin{center}
+\begin{tabular}{|p{4.8cm}|p{2cm}|p{2cm}|p{5.4cm}|}
+\hline
+Parameter & Default value & Type & Short description \\
+\hline
+\hline
+mus & 0 & real & Homogeneous static friction coefficient\\
+mud & 0 & real & Homogeneous dynamic friction coefficient\\
+dc & 0 & real & Homogeneous critical slip-weakening distance\\
+nmus & 0 & integer & Number of heterogeneous blocks (DIST2D-blocks) for the static friction coefficient\\
+nmud & 0 & integer & Number of heterogeneous blocks (DIST2D-blocks) for the dynamic friction coefficient\\
+ndc & 0 & integer & Number of heterogeneous blocks (DIST2D-blocks) for the critical slip-weakening distance\\
+\hline
+\end{tabular}
+\end{center}
+\label{SWF-table}
+\end{table}
+
+\newpage
+
+\subsubsection{Example}
+
+An example of a \texttt{Par\_file\_faults} file with different shapes and parameters is given below. It contains a section with SPECFEM3D-compatible definitions for a fault-local stress field.
+
+\begin{lstlisting}[mathescape]
+@! ----------------- SPECFEM3D-compatible part -----------------@
+&INIT_STRESS S1=0.0, S2=0.0, S3=0.0, n1=0, n2=1, n3=1 /
+
+@! ------ along-dip ------@
+&DIST2D shapeval='x-cylinder', val=-80e6, xc=0, yc=0, zc=-15e3, lz=3e3, r=2.0e3 /
+
+@! ----- fault-normal -----@
+@! Stress: $\textcolor{green}{1020 \cdot |z|}$ @
+&DIST2D shapeval='rectangle-taper', val = -20.4e6, valh = 0, xc =0, yc=-3.75e3, zc=-10e3, lx=32.0e3, ly=9.0e3, lz=20.0e3 /
+
+@! ------------------- SeisSol-exclusive part -------------------@
+&DIST2D param='localstress', dir='dip', shapeval='square', val = -100e6, xc=0, yc=0, zc=-5e3, l=2.0e3 /
+
+&DIST2D param='globalstress', dir='yz', shapeval='circle', val=60e6, xc=0, yc=0, zc=-10e3, r=3.0e3 /
+
+&DIST2D param='cohesion', shapeval='ellipse', val=40e6, xc=10e3, yc=0, zc=-10e3, lx=4e3, ly=1e3, lz=2e3 /
+\end{lstlisting}
 
 \newpage
 
