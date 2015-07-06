@@ -392,7 +392,7 @@ void seissol::Interoperability::allocatePointSources( int* i_meshIds,
     // add the copy layer offsets
     for (unsigned cell = 0; cell < m_meshStructure[cluster].numberOfCopyCells; ++cell) {
       unsigned cellMeshId = m_copyInteriorToMesh[cell + clusterOffset];
-      assert(mapping < 4 * numberOfSourcesInCluster);
+      assert(mapping < 4 * static_cast<int>(numberOfSourcesInCluster));
       ++mapping;
       cellToPointSources[mapping].numberOfPointSources = 0;
       cellToPointSources[mapping].copyInteriorOffset = cell;
