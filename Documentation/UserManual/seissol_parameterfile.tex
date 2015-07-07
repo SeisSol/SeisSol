@@ -22,6 +22,7 @@
 \usepackage{hyperref}
 \usepackage{xcolor}
 \usepackage{listings}
+\usepackage{textcomp}     % access \textquotesingle
 \lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,
   moredelim=**[is][\color{green}]{@}{@},}
 \usepackage{ulem}
@@ -65,7 +66,7 @@
 Department of Earth and Environment\\
 Ludwig-Maximilians-Universit\"at M\"unchen\\}}
 \end{center}
- 
+
 \end{titlepage}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PAGE LAYOUT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -99,18 +100,18 @@ The parameter file must be specified for a correct job submission as\\
 \\
 \texttt{mpirun.openmpi -n NRprocs seissolxx PARAMETERS.par}\\
 \\
-that has usually the extension {\tt*.par} by convention. 
+that has usually the extension {\tt*.par} by convention.
 SeisSol reads the file during initialization enabling run-time settings of various model parameters.
-The routine \url{/src/Reader/readpar.f90} handles the reading 
+The routine \url{/src/Reader/readpar.f90} handles the reading
 and can be modified for the introduction of further parameters and options.
 The parameter file must be located in the current working directory or preceded by a link to its location.
-We use Fortran's namelist approach which is structured by namelist blocks indicated by an ampersand \&  
-followed by the namelist's name and ends by a common slash /. 
+We use Fortran's namelist approach which is structured by namelist blocks indicated by an ampersand \&
+followed by the namelist's name and ends by a common slash /.
 In such blocks parameter$=$option pairs can be set in arbitrary order.
-Certain parameters require additional information in form of further input files, 
+Certain parameters require additional information in form of further input files,
 which may be limited to static order.
 Default options (as specified later in this document) are opt by leaving the namelist blocks empty or individual parameters are dropped.
-However, the namelist blocks 
+However, the namelist blocks
 \textbf{Equations, IniCondition, Boundaries, SourceType, SpongeLayer, MeshNml, Discretization, Output, AbortCriteria, Analysis, Debugging}\\
 have be included even if not used as:\\
 
@@ -129,7 +130,7 @@ This manual is structured according to the available namelist blocks.
 The tables will guide you in the following way to change the option of a parameter.\\
 Black: The parameter has a default value. You only have to add this parameter to your namelist if you want to change its option.\\
 \textcolor{green}{Green}: If changing a option requires setting other parameters, you have to add the green parameters.\\
-\textcolor{red}{Red}:  If changing a option requires setting other parameters in a new namelist, 
+\textcolor{red}{Red}:  If changing a option requires setting other parameters in a new namelist,
 you have to add the red namelist with the green options.\\
 \textcolor{blue}{Blue}: For some special cases you can find more information in this manual which is linked to the according blue words.
 
@@ -144,17 +145,17 @@ Documented example {\tt*.par} and input/output files are located in \url{/Docume
 
 \section{Equations}
 \label{sec-block-eqs}
-This block handles the information related to the equations to be solved, 
-as well as all the material properties and similar basic information. 
-In the underlying ADER-DG method, 
+This block handles the information related to the equations to be solved,
+as well as all the material properties and similar basic information.
+In the underlying ADER-DG method,
 this is equivalent to specifying the shape and size of the Jacobian and reaction matrices to be used.
 The size of the Jacobian (square) matrices is the same as the size of the vectors of unknowns,
-and thus the larger they are the more computational cost is involved in their solution. 
-The standard for a SeisSol simulation is the elastic isotropic case, in which the Jacobian matrices have a size of $5$ (in 2D) 
-and $9$ (in 3D) and no reaction terms. 
-In this case, the flags for advection, anisotropy, anelasticity, poroelasticity 
-and the material file are set equal to 0 and the materials are described by only three material reference values, 
-namely $\rho$ (material density), $\mu$ and $\lambda$ (Lam{\' e} parameters). 
+and thus the larger they are the more computational cost is involved in their solution.
+The standard for a SeisSol simulation is the elastic isotropic case, in which the Jacobian matrices have a size of $5$ (in 2D)
+and $9$ (in 3D) and no reaction terms.
+In this case, the flags for advection, anisotropy, anelasticity, poroelasticity
+and the material file are set equal to 0 and the materials are described by only three material reference values,
+namely $\rho$ (material density), $\mu$ and $\lambda$ (Lam{\' e} parameters).
 This is fully described in \cite{KaeserDumbser06} and \cite{DumbserKaeser06}.\\
 
 In the following, we list all parameters with their possible and default values to be set in the namelist \textbf{Equations}
@@ -165,10 +166,10 @@ A blue keyword indicates a link to the according section:\\
 
 \begin{longtable}{|p{3cm}|p{2.4cm}|p{2cm}|p{5cm}|}%[H]
 \caption{Parameters and their default values as well as type for the namelist \textbf{Equations}.
-         changing the parameter from the default value often results in setting additional parameters in the corresponding namelist 
-         (indicated in green). 
-         If changing the default value requires an additional setting of a parameter in a different namelist, 
-         the namelist is written in red. The blue words represent 
+         changing the parameter from the default value often results in setting additional parameters in the corresponding namelist
+         (indicated in green).
+         If changing the default value requires an additional setting of a parameter in a different namelist,
+         the namelist is written in red. The blue words represent
          links for navigating to a detailed description of the parameter.} \\
 %\begin{center}
 %\begin{tabular}{|p{3cm}|p{2.4cm}|p{2cm}|p{5cm}|}
@@ -222,30 +223,30 @@ RandomField\_Flag & 0 & integer & Material random fields\\
 \end{longtable}
 
 \noindent
-\hypertarget{aniso}{ANISOTROPY}: This option allows to use materials with different wave velocities in different directions, 
+\hypertarget{aniso}{ANISOTROPY}: This option allows to use materials with different wave velocities in different directions,
 usually described by the 21 independent coefficients of the general Hooke's tensor.
-Isotropic materials are just particular cases of the anisotropic framework. 
+Isotropic materials are just particular cases of the anisotropic framework.
 The size of the Jacobian matrices remains unchanged, and so anisotropy has little impact in the computational costs.
 Setting the value of anisotropy equal to $1$ requires also setting the material file option to $1$.
 Additional information can be found in \cite{PuenteKaeserDumbserIgel07}.\\
 
 
 \noindent
-\hypertarget{anelas}{ANELASTICITY}: This option allows to include viscoelastic dissipation or 
+\hypertarget{anelas}{ANELASTICITY}: This option allows to include viscoelastic dissipation or
 attenuation using the Generalized Maxwell Body theory.
 The attenuation is measured in terms of two quality factors $\Q$, one for the P- and one for the S-waves.
-This value will then be approximated in a given frequency band by a series of attenuating mechanisms in order 
+This value will then be approximated in a given frequency band by a series of attenuating mechanisms in order
 to reproduce an almost frequency independent attenuation.
-The use of this option enlarges the size of the Jacobian matrices by $3$ (in 2D) or $6$ (in 3D) per attenuating 
+The use of this option enlarges the size of the Jacobian matrices by $3$ (in 2D) or $6$ (in 3D) per attenuating
 mechanism used and causes the apparition of a reaction matrix.
-As a consequence the computational costs increase and the user should choose carefully the number of mechanisms 
+As a consequence the computational costs increase and the user should choose carefully the number of mechanisms
 required for his particular case.
 A number between 2 and 5 mechanisms is considered acceptable for attenuating bandwidths of around 100Hz.
 Setting the value of anelasticity to $1$ requires setting the material file option to $1$.
 Additional information can be found in \cite{KaeserDumbserPuente07}.\\
 
 \noindent
-\hypertarget{plast}{PLASTICITY}: 
+\hypertarget{plast}{PLASTICITY}:
 This option enables the use of a Drucker-Prager yield criterion that is used to simulate plastic material behaviour. \\
 Specifying $1$ as plasticity option requires three additional variables providing the parameters for plastic cohesion $c$, the bulk friction $v$ and a relaxation coefficient $T_v$. $T_v$ is used for the adjustment factor for the stresses when the material behaves plastically. For the relaxation coefficent, we recommend using a guiding value of $T_v\approx \frac{\Delta x / (\# BF)}{V_p}$ where $\Delta x$ is the smallest distance between two nodes, $\# BF$ is the number of basis functions (depending on the approximation order) and $V_s§$ is the S-wave velocity. \\
 When using the plasticity option, the user has to specify initial background stresses for every element in the domain.
@@ -257,7 +258,7 @@ In every time step and for every element the values for normal and shear stresse
 \begin{eqnarray*}
 \tau_c &=& c\cdot \cos \phi-\sigma_m\cdot \sin \phi \\
 \tau_{max} &=& \sqrt{\sigma^2_{xy}+(\sigma_{xx}-\sigma_{yy})/2)^2},
-\end{eqnarray*} 
+\end{eqnarray*}
 where $c$ is the plastic cohesion, $\phi=\arctan(v)$ the internal coeffcient of friction for the bulk friction $v$ and $\sigma_m$ the mean stress.\\
 If the yield criterion($\tau_c < \tau_{max}$) is violated, the deviatoric stresses are adjusted by the factor $1-(1-\tau_c/\tau_{max})(1-\exp(-\Delta t /T_v))$, for the timestep $\Delta t$ and $T_v$ as stated above. The initial background stress is then subtracted such that it is only used to check the yield criterion.
 For further information see /trunk/src/Solver/plasticity.f90 or \cite{Andrews2005}.
@@ -267,18 +268,18 @@ For further information see /trunk/src/Solver/plasticity.f90 or \cite{Andrews200
 \subsection{Material File}
 \label{sec-matfile}
 
-\hypertarget{material}{A material file is required} in the following cases: 
-either the user wants to treat heterogeneous materials or 
+\hypertarget{material}{A material file is required} in the following cases:
+either the user wants to treat heterogeneous materials or
 at least one of the anisotropy, anelasticity or poroelasticity options is activated.
-When option $1$ is selected for the material file, the name of the material file, which has a {\tt .def} extension by convention, 
+When option $1$ is selected for the material file, the name of the material file, which has a {\tt .def} extension by convention,
 has to be given.
 Additionally, the three values set as material reference values will become now dummy values now.
 
 \noindent
 A general material file will always begin by defining the number of material zones N existing in our simulation.
-This number must be the same as the zones defined in our mesh. 
-Then, for each of this zones 1,...,N we must first give the zone index and then a series of $m$ material values, 
-depending on the rheology type the user has chosen. 
+This number must be the same as the zones defined in our mesh.
+Then, for each of this zones 1,...,N we must first give the zone index and then a series of $m$ material values,
+depending on the rheology type the user has chosen.
 Material properties can also be individually applied to each element.
 In this case, each element can be considered and is treated as a zone without specifying any zones in the mesh generator.
 In this particular case of element-wise material properties the number of zones at the beginning of
@@ -288,25 +289,25 @@ the material definition file has to equal the total number of elements.\\
 Elastic Isotropic ($m=3$): $\rho$, $\mu$ and $\lambda$.\\
 
 \noindent
-Elastic Anisotropic ($m=31$): $\rho$, $c_{11}$, $c_{12}$, $c_{13}$, $c_{14}$, $c_{15}$, $c_{16}$, $c_{22}$, $c_{23}$, $c_{24}$, $c_{25}$, $c_{26}$, $c_{33}$, $c_{34}$, $c_{35}$, 
+Elastic Anisotropic ($m=31$): $\rho$, $c_{11}$, $c_{12}$, $c_{13}$, $c_{14}$, $c_{15}$, $c_{16}$, $c_{22}$, $c_{23}$, $c_{24}$, $c_{25}$, $c_{26}$, $c_{33}$, $c_{34}$, $c_{35}$,
 $c_{36}$, $c_{44}$, $c_{45}$, $c_{46}$, $c_{55}$, $c_{56}$, $c_{66}$, $n_x$, $n_y$, $n_z$, $s_x$, $s_y$, $s_z$, $t_x$, $t_y$, $t_z$.\\
 
 \noindent
-Poroelastic ($m=42$):$\rho_S$, $c_{11}$, $c_{12}$, $c_{13}$, $c_{14}$, $c_{15}$, $c_{16}$, $c_{22}$, $c_{23}$, $c_{24}$, $c_{25}$, $c_{26}$, $c_{33}$, $c_{34}$, $c_{35}$, 
-$c_{36}$, $c_{44}$, $c_{45}$, $c_{46}$, $c_{55}$, $c_{56}$, $c_{66}$, $\rho_F$, $K_F$, $\nu$, $K_S$, $\phi$, $\kappa_1$, $\kappa_2$, $\kappa_3$, $T_1$, $T_2$, $T_3$, $n_x$, 
+Poroelastic ($m=42$):$\rho_S$, $c_{11}$, $c_{12}$, $c_{13}$, $c_{14}$, $c_{15}$, $c_{16}$, $c_{22}$, $c_{23}$, $c_{24}$, $c_{25}$, $c_{26}$, $c_{33}$, $c_{34}$, $c_{35}$,
+$c_{36}$, $c_{44}$, $c_{45}$, $c_{46}$, $c_{55}$, $c_{56}$, $c_{66}$, $\rho_F$, $K_F$, $\nu$, $K_S$, $\phi$, $\kappa_1$, $\kappa_2$, $\kappa_3$, $T_1$, $T_2$, $T_3$, $n_x$,
 $n_y$, $n_z$, $s_x$, $s_y$, $s_z$, $t_x$, $t_y$, $t_z$.\\
 
 \noindent
-where the $\vec n$, $\vec s$ and $\vec t$ entries are the directions of the three coordinate axis 
+where the $\vec n$, $\vec s$ and $\vec t$ entries are the directions of the three coordinate axis
 in which is defined the material described in the material file.
 The reader is addressed to the bibliography for the description of each of these parameters.\\
 
 \noindent
-In the anelastic case, we must add three lines after the first, 
-which define the number of attenuating mechanisms, central frequency and bandwidth of the attenuating mechanisms 
-given by the ratio of the maximum to minimum frequency over which the Q-law is approximated by the attenuation mechanisms. 
-Those apply to all material zones. 
-Then, attenuation will be described individually for each zone by adding two additional values to the material properties 
+In the anelastic case, we must add three lines after the first,
+which define the number of attenuating mechanisms, central frequency and bandwidth of the attenuating mechanisms
+given by the ratio of the maximum to minimum frequency over which the Q-law is approximated by the attenuation mechanisms.
+Those apply to all material zones.
+Then, attenuation will be described individually for each zone by adding two additional values to the material properties
 (that means $m_{new}=m_{old}+2$) which are the $\Q$ factors for the P- and S-waves at that particular zone.
 Those values have to be typed after all the other parameter values but before the $\vec n$, $\vec s$ and $\vec t$ entries, if present.
 A value of $\Q$ higher than $9999$ in any of those implies that no attenuation is considered in that particular layer.
@@ -317,7 +318,7 @@ material definition file.
 \noindent
 Notice, that acoustic wave propagation can be simulated by setting $\mu=0$.
 This way the code understands that the value set for the $\lambda$ parameter corresponds to the acoustic bulk modulus $K$.
-It should also be remarked that values higher than $1$ are possible for the material file value, 
+It should also be remarked that values higher than $1$ are possible for the material file value,
 but those correspond to specific cases not covered in the present general manual.
 
 \begin{table}
@@ -404,7 +405,7 @@ $\Delta\lambda_{6000}$ \\
 \label{sec-block-ic}
 
 In the following, we list all parameters with their possible and default values to be set in the namelist  \textbf{IniCondition}
-If changing a value requires setting a new 
+If changing a value requires setting a new
 parameter it is indicated in green after the dashed line:\\
 
 \begin{table}[H]
@@ -570,8 +571,8 @@ File Name for data for eigenvectors and eigenvalues\\
 \section{Boundaries}
 \label{sec-block-bnd}
 
-In the following, we list all parameters with their possible and default values to be set in the namelist \textbf{Boundaries}. 
-If changing a value requires setting a new parameter it is indicated in green after the dashed line 
+In the following, we list all parameters with their possible and default values to be set in the namelist \textbf{Boundaries}.
+If changing a value requires setting a new parameter it is indicated in green after the dashed line
 (if changing a value results in setting a new parameter in a different namelist, this namelist is written in red).
 A blue keyword indicates a link to the according section:\\
 
@@ -579,10 +580,10 @@ A blue keyword indicates a link to the according section:\\
 
 \begin{table}[H]
 \caption{Parameters and their default values as well as type for the namelist \textbf{Boundaries}.
-         Changing the parameter from the default value often results in setting additional parameters 
-         in the corresponding namelist (indicated in green). 
-         If changing the default value requires an additional setting of a parameter in a different namelist, 
-         the namelist is written in red. The blue words represent 
+         Changing the parameter from the default value often results in setting additional parameters
+         in the corresponding namelist (indicated in green).
+         If changing the default value requires an additional setting of a parameter in a different namelist,
+         the namelist is written in red. The blue words represent
          links for navigating to a detailed description of the parameter.}
 \begin{center}
 \begin{tabular}{|p{4.5cm}|p{2.4cm}|p{2cm}|p{4cm}|}
@@ -627,28 +628,28 @@ BC\_pe & 0 & integer & \# periodic boundaries.\\
 
 \section{Dynamic Rupture}
 \noindent
-If \hypertarget{dynrupture}{dynamic rupture} is simulated set rupture inner boundaries to 1 
+If \hypertarget{dynrupture}{dynamic rupture} is simulated set rupture inner boundaries to 1
 and add the new namelist \textbf{DynamicRupture}.
 Dynamic rupture is treated in SeisSol as a boundary condition and, thus, is not listed in the source section.
 For details about its implementation and the theory we refer to \cite{Pelties12} and \cite{Pelties14}.
 \\
 
 \noindent
-Since the namelist \textbf{DynamicRupture} requires many additional parameters, 
+Since the namelist \textbf{DynamicRupture} requires many additional parameters,
 the structure of the tabulars differs slightly from the rest of the tabulars in this documentation.
-For changing the three parameters Backgroundtype, Friction Law and Nucleation 
+For changing the three parameters Backgroundtype, Friction Law and Nucleation
 you can find three additional tabulars below (\ref{bt-table}, \ref{fl-table},
  \ref{nuc-table}).
 
-\newpage 
+\newpage
 
 \begin{longtable}{|p{4.8cm}|p{2.4cm}|p{2cm}|p{5cm}|}
 \caption{Parameters and their default values as well as type for the namelist \textbf{DynamicRupture}.
-         Changing the parameter from the default value often results in setting additional parameters 
-         in the corresponding namelist (indicated in green). 
-         If changing the default value requires an additional setting of a parameter in a different namelist, 
-         the namelist is written in red. If you change the value for 
-         \textit{BackgroundType}, \textit{FL} or \textit{Nucelation}, add the table \ref{bt-table}, 
+         Changing the parameter from the default value often results in setting additional parameters
+         in the corresponding namelist (indicated in green).
+         If changing the default value requires an additional setting of a parameter in a different namelist,
+         the namelist is written in red. If you change the value for
+         \textit{BackgroundType}, \textit{FL} or \textit{Nucelation}, add the table \ref{bt-table},
          \ref{fl-table}, \ref{nuc-table}, respectively.} \\
 %\begin{center}
 %\begin{tabular}{|p{4.8cm}|p{2.4cm}|p{2cm}|p{5cm}|}
@@ -698,9 +699,9 @@ OutputPointType & 3 & integer & Output is Pickpointwise.\\
 \end{longtable}
 
 \begin{table}[H]
-\caption{Parameters and their default values as well as type for the namelist \textbf{DynamicRupture}, 
+\caption{Parameters and their default values as well as type for the namelist \textbf{DynamicRupture},
          if you have set \textit{BackgoundType}
-         unequal to 0. Changing the parameter from the default value often results in 
+         unequal to 0. Changing the parameter from the default value often results in
          setting additional parameters in the corresponding namelist (indicated in green).}
 \begin{center}
 \begin{tabular}{|p{4.8cm}|p{2.4cm}|p{2cm}|p{5cm}|}
@@ -739,7 +740,7 @@ BackgroundType & 0 & integer & Type of the stress background.\\
 \begin{table}[H]
 \caption{Parameters and their default values as well as type for the namelist \textbf{DynamicRupture},
          if you have set \textit{FL} unequal to 0.
-         Changing the parameter from the default value often results in setting additional parameters 
+         Changing the parameter from the default value often results in setting additional parameters
          in the corresponding namelist (indicated in green).}
 \begin{center}
 \begin{tabular}{|p{4.8cm}|p{2.4cm}|p{2cm}|p{5cm}|}
@@ -798,9 +799,9 @@ FL & 0 & integer & Type of the friction Law\\
 \newpage
 
 \begin{table}[H]
-\caption{Parameters and their default values as well as type for the namelist \textbf{DynamicRupture}, 
+\caption{Parameters and their default values as well as type for the namelist \textbf{DynamicRupture},
          if you have set \textit{Nucleation} unequal to zero.
-         Changing the parameter from the default value often results in setting additional parameters 
+         Changing the parameter from the default value often results in setting additional parameters
          in the corresponding namelist (indicated in green).}
 \begin{center}
 \begin{tabular}{|p{4.8cm}|p{2.4cm}|p{2cm}|p{5cm}|}
@@ -885,13 +886,13 @@ If SPECFEM3D namelists are present, the first blocks are used for the ones speci
 Parameter & Default value & Type & Short description \\
 \hline
 \hline
-\textbf{param} & - & string & String defining the parameter on which this block acts\\
+\textbf{param} & \textquotesingle\ \textquotesingle & string & String defining the parameter on which this block acts\\
 \hdashline
 \uline{param} = 'globalstress' & & & Stress field using global xyz-coordinates\vspace{0.25cm}\\
-\textcolor{green}{dir} & - & string & Stress field direction\\
+\textcolor{green}{dir} & \textquotesingle\ \textquotesingle & string & Stress field direction\\
 \hdashline
 \uline{param} = 'localstress' & & & Stress field using fault-local coordinates\vspace{0.25cm}\\
-\textcolor{green}{dir} & - & string & Stress field direction\\
+\textcolor{green}{dir} & \textquotesingle\ \textquotesingle & string & Stress field direction\\
 \hdashline
 \uline{param} = 'cohesion' & & & Fault cohesion (negative, since compression is negative normal stress)\\
 \hdashline
@@ -913,7 +914,7 @@ Parameter & Default value & Type & Short description \\
 \hdashline
 \uline{param} = 'strength' & & & Strength parameter $S=\frac{\tau_\text{s} - \tau_\text{0}}{\tau_\text{0}-\tau_\text{d}}$ (static and dynamic tractions $\tau_\text{s}$ and $\tau_\text{d}$, shear traction $\tau_\text{0}$). Use only if no initial stress field is given.\\
 \hline
-\textbf{dir} & - & string & String defining the stress field direction on which this block acts\\
+\textbf{dir} & \textquotesingle\ \textquotesingle & string & String defining the stress field direction on which this block acts\\
 \hdashline
 \uline{param} = 'globalstress' & & & \vspace{0.25cm}\\
 \uline{dir} = 'xx' & & & Bulk stress xx-component\\
@@ -928,7 +929,7 @@ Parameter & Default value & Type & Short description \\
 \uline{dir} = 'dip' & & & Along-dip shear stress\\
 \uline{dir} = 'normal' & & & fault-normal stress (negative is compression)\\
 \hline
-\textbf{shapeval} & - & string & String defining the shape of this block\\
+\textbf{shapeval} & \textquotesingle\ \textquotesingle & string & String defining the shape of this block\\
 \hdashline
 \uline{shapeval} = 'global' & & & The parameter at all points is assigned to this value\vspace{0.25cm}\\
 \textcolor{green}{val} & 0 & real & Value of the parameter\\
@@ -1045,7 +1046,7 @@ Sigma & 0 0 0 0 0 0 & real & Initial homogeneous stress field, components: XX, Y
 \end{table}
 
 \begin{table}[H]
-\caption{Namelist \textbf{SWF}, used for defining homogeneous slip-weakening friction parameters 
+\caption{Namelist \textbf{SWF}, used for defining homogeneous slip-weakening friction parameters
 	and specifying a number of DIST2D-blocks for heterogeneous parameters}
 \begin{center}
 \begin{tabular}{|p{4.8cm}|p{2cm}|p{2cm}|p{5.4cm}|}
@@ -1096,14 +1097,14 @@ An example of a \texttt{Par\_file\_faults} file with different shapes and parame
 \label{sec-block-src}
 
 In the following, we list all parameters with their possible and default values to be set in the namelist \textbf{SourceType}.
-If changing a value requires setting a new 
-parameter it is indicated in green after the dashed line (if changing a value results in setting a new 
+If changing a value requires setting a new
+parameter it is indicated in green after the dashed line (if changing a value results in setting a new
 parameter in a different namelist, this namelist is written in red):\\
 
 \begin{table}[H]
 \caption{Parameters and their default values as well as type for the namelist \textbf{SourceType}.
-         Changing the parameter from the default value often results in setting additional parameters in the corresponding namelist (indicated in green). 
-         If changing the default value requires an additional setting of a parameter in a different namelist, the namelist is written in red. The blue words represent 
+         Changing the parameter from the default value often results in setting additional parameters in the corresponding namelist (indicated in green).
+         If changing the default value requires an additional setting of a parameter in a different namelist, the namelist is written in red. The blue words represent
          links for navigating to a detailed description of the parameter.}
 \begin{center}
 \begin{tabular}{|p{4cm}|p{2.7cm}|p{2cm}|p{4cm}|}
@@ -1115,7 +1116,7 @@ Type & 0 & integer & Source Type\\
 \hdashline
 \uline{Type} = 1 & & &\\
 \textcolor{red}{New namelist:} & & &\\
-\textcolor{red}{Source110} & & &\\ 
+\textcolor{red}{Source110} & & &\\
 \textcolor{green}{U0} &  & real & \\
 \textcolor{green}{l1} &  & real & \\
 \hdashline
@@ -1146,7 +1147,7 @@ Type & 0 & integer & Source Type\\
 % \end{center}
 % \label{src1-table}
 % \end{table}
-% 
+%
 % \begin{table}[H]
 % \caption{Continue table of table \ref{src1-table}}
 % \begin{center}
@@ -1186,7 +1187,7 @@ Type & 0 & integer & Source Type\\
 \newpage
 
 \subsection{Source\%Type 16 = RICKER}
-\hypertarget{src16}{Like} source type 18 but other wavelet!. 
+\hypertarget{src16}{Like} source type 18 but other wavelet!.
 Dirac sources in space and Ricker wavelet in time.
 
 \begin{equation}
@@ -1207,7 +1208,7 @@ Single point source described by
 % An interesting characteristic of this function is that the integral of the
 % equation above over time interval $t \in [-\infty , \infty]$ is $\tau A_0$. From
 % this relation we can define $A_0$ considering
-% 
+%
 % \begin{equation}
 %    \tau A_0 = \int S(t) \, dt = \frac{M_0}{\mu A}\,
 %    \label{eq::Source19_2}
@@ -1237,31 +1238,31 @@ Single point source described by
 % \end{lstlisting}
 
 % \subsection{SOURCE\%Type = 19}
-% 
+%
 % \hypertarget{src19}{Single} point source describes by
 % \begin{equation}
 % 	s(t) = \frac{A_0}{exp(\pi (t-t_0)^2 / \tau^2)} \,.
 % 	\label{eq:Source19_1}
 % \end{equation}
-% 
-% An interesting characteristic of this function is that the integral of (\ref{eq:Source19_1}) over time interval 
-% $t \in [-\infty , \infty]$ is $\tau A_0$. From this relation 
+%
+% An interesting characteristic of this function is that the integral of (\ref{eq:Source19_1}) over time interval
+% $t \in [-\infty , \infty]$ is $\tau A_0$. From this relation
 % we can define $A_0$  considering
-% 
+%
 % \begin{equation}
 % 	\tau A_0 = \int S(t) \, dt = \frac{M_0}{\mu A}\,
 % 	\label{eq::Source19_2}
 % \end{equation}
 % %
-% with $M_0 $ in [Nm] the scalar seismic moment, $\mu$ in [Pa] the shear module and $A=1$ in [$m^2$] the area of the source. 
+% with $M_0 $ in [Nm] the scalar seismic moment, $\mu$ in [Pa] the shear module and $A=1$ in [$m^2$] the area of the source.
 % Now, for a explosive source ($xx$ and $yy$ stresses)
-%  at $(x,y)=(-5530.0,-10420.0)$, a given scalar seismic moment $M_0=7.53\time 10^{18}$ [Nm], 
-% a shear module $\mu = 2.2 \times 10^9$ [Pa] and $\tau = 0.5$ [s] with get 
+%  at $(x,y)=(-5530.0,-10420.0)$, a given scalar seismic moment $M_0=7.53\time 10^{18}$ [Nm],
+% a shear module $\mu = 2.2 \times 10^9$ [Pa] and $\tau = 0.5$ [s] with get
 % $A_0 = 6.8\bar{45} \times 10^9$ [m/s].For using the source type, center the function at $t=t_0=0.5$ [s].
 
 \subsection{SOURCE\%Type = 20}
 \hypertarget{src20}{A single point} force is an important source type for the computation of Green's functions.
-Computing the solution for the three different point forces in x-, y- and z-direction allows us to synthesize seismograms 
+Computing the solution for the three different point forces in x-, y- and z-direction allows us to synthesize seismograms
 that would result from an arbitrary moment tensor afterwards.
 Each single force can have an individual source time function for the slip.
 As an example, Tab.~\ref{SF-source-file} shows the buildup of such a source file.\\
@@ -1301,7 +1302,7 @@ Section~\ref{sec-block-out} and denoted as {\em Moment Tensor Contribution}.
 
 \subsection{SOURCE\%Type = 50}
 \noindent
-\hypertarget{src50}{A very important} source type is given by the SOURCE\%Type=50. 
+\hypertarget{src50}{A very important} source type is given by the SOURCE\%Type=50.
 It offers extended finite sources with a double couple moment tensor with individual slip rate history for each subfault.
 All information is comprised in a separate file, which we usually call {\tt FSRM-filename.dat} as it is a Finite Source Rupture Model.
 
@@ -1340,11 +1341,11 @@ Samples\\
 \end{table}
 
 The number of subfaults is given in line 6. In the example of Table~\ref{FSRM-source-file} line 8 and 9
-(the number of lines has to coincide with the number of subfaults!) give information about the location 
+(the number of lines has to coincide with the number of subfaults!) give information about the location
 and the properties of the rupture.
 Angles of strike, dip, and rake have to be specified in rad.
-Afterwards the shape of the impulse time function itself is specified by the sampling interval (e.g. 0.001 sec) 
-and the number of samples (e.g. 3). 
+Afterwards the shape of the impulse time function itself is specified by the sampling interval (e.g. 0.001 sec)
+and the number of samples (e.g. 3).
 Then, the 3 values of these samples are given line by line for subfault 1.
 Then the values of subfault 2 are listed and so on, such that there are $n =$ number-of-subfaults $\times$ number-of-samples lines.
 
@@ -1355,33 +1356,33 @@ Then the values of subfault 2 are listed and so on, such that there are $n =$ nu
 
 
 The sponge consists of one (or more) cohesive layer(s) around the computational domain.
-In contrast to common absorbing boundary conditions it uses not just the outermost boundary of the grid 
-but has a thickness of several elements. 
-As already indicated, the sponge layer is a technical construct which absorbs the outgoing waves 
+In contrast to common absorbing boundary conditions it uses not just the outermost boundary of the grid
+but has a thickness of several elements.
+As already indicated, the sponge layer is a technical construct which absorbs the outgoing waves
 in order to minimize unwanted reflections due to the artificial boundaries.\\
-The current parameter file allows 3 different values for the type of sponge: 
-Option 0 means that no sponge is used. 
+The current parameter file allows 3 different values for the type of sponge:
+Option 0 means that no sponge is used.
 Option 1 activates one (or more) sponge layer(s), in which the outgoing waves are attenuated uniformly.
 The dumping factor depends on the distance to the outermost boundary, where the waves should finally\index{} be absorbed completely.\\
-Several studies of the last few years showed that these sponge layers do not work satisfying. 
-Reflections into the computational domain are still observed. 
-Therefore, another type of layer (option 2) was introduced. 
-The perfectly matched layer (PML) differentiates between the spatial components of the outgoing waves and therefore improves the 
-nullification of reflections. 
+Several studies of the last few years showed that these sponge layers do not work satisfying.
+Reflections into the computational domain are still observed.
+Therefore, another type of layer (option 2) was introduced.
+The perfectly matched layer (PML) differentiates between the spatial components of the outgoing waves and therefore improves the
+nullification of reflections.
 As in our case the PML is still under construction, option 1 is kept running.\\
 \newpage
 
-In the following, we list all parameters with their possible and default values to be set in the namelist \textbf{SpongeLayer}. 
-If changing a value requires setting a new 
-parameter it is indicated in green after the dashed line (if changing a value results in setting a new 
+In the following, we list all parameters with their possible and default values to be set in the namelist \textbf{SpongeLayer}.
+If changing a value requires setting a new
+parameter it is indicated in green after the dashed line (if changing a value results in setting a new
 parameter in a different namelist, this namelist is written in red):\\
 
 
 \begin{table}[H]
 \caption{Parameters and their default values as well as type for the namelist \textbf{SpongeLayer}.
-         Changing the parameter from the default value often results in setting additional parameters 
-         in the corresponding namelist (indicated in green). 
-         If changing the default value requires an additional setting of a parameter in a different namelist, 
+         Changing the parameter from the default value often results in setting additional parameters
+         in the corresponding namelist (indicated in green).
+         If changing the default value requires an additional setting of a parameter in a different namelist,
          the namelist is written in red.}
 \begin{center}
 \begin{tabular}{|p{4cm}|p{2.7cm}|p{2cm}|p{4cm}|}
@@ -1442,42 +1443,42 @@ periodic\_direction & (0, 0, 0) & 0/1 & Vector with 3 switches, indicating if pe
 \label{mesh-table}
 \end{table}
 
-\newpage 
+\newpage
 
 \section{Discretization}
 \label{sec-block-dis}
 
-This block collects the information on the polynomial approximation used for the numerical simulation 
+This block collects the information on the polynomial approximation used for the numerical simulation
 as well as the particularities of the solver chosen. \\
-%The first parameter is a switch on whether to use or not the \textit{fine output} output type. 
-%This output type will be sampled under the same circumstances as other assigned 
+%The first parameter is a switch on whether to use or not the \textit{fine output} output type.
+%This output type will be sampled under the same circumstances as other assigned
 %snapshot output later in block~\ref{sec-block-dis}.
-%The main difference with respect to the standard snapshot output is that it will output the maximum spatial information 
-%available, that is, all the degrees of freedom being used by the code. 
+%The main difference with respect to the standard snapshot output is that it will output the maximum spatial information
+%available, that is, all the degrees of freedom being used by the code.
 %The structure and content of the fine output files will be treated in a Section of its own.\\
 The SeisSol variants are, at the present moment, either 1 or 3 (option 2 is disabled).
 Option 1 means a global time stepping (GTS) computation and option 3 a local time stepping (LTS) computation.
-The difference between both is that GTS updates all the cells from time step to time step at once. 
-Therefore the minimum stable time increment has to be used for all cells. 
-LTS computations, on the other hand, iterate the updates for each cell independently, 
-minimizing the total number of operations required. 
-In general, for very uneven meshes, LTS should be faster. 
-Further information can be found in \cite{DumbserKaeserToro07}. 
-% Still is possible to use option 4, a so-called 
-% \textit{reconstruction} ADER-DG scheme. The concept is to mix in-cell resolution from DG schemes with stencil 
-% reconstruction from Finite Volumes. In an extreme case of using 
-% just order 1 approximation inside each element, a pure high-order FV scheme will be produced. 
-% Details on the usage of this option 4 will be skipped in the following although 
+The difference between both is that GTS updates all the cells from time step to time step at once.
+Therefore the minimum stable time increment has to be used for all cells.
+LTS computations, on the other hand, iterate the updates for each cell independently,
+minimizing the total number of operations required.
+In general, for very uneven meshes, LTS should be faster.
+Further information can be found in \cite{DumbserKaeserToro07}.
+% Still is possible to use option 4, a so-called
+% \textit{reconstruction} ADER-DG scheme. The concept is to mix in-cell resolution from DG schemes with stencil
+% reconstruction from Finite Volumes. In an extreme case of using
+% just order 1 approximation inside each element, a pure high-order FV scheme will be produced.
+% Details on the usage of this option 4 will be skipped in the following although
 % some results computed with it can be found in \cite{DumbserKaeserdelaPuente06}.\\
 The time integration variant includes two possible types.
-First is the standard ADER based upon a Cauchy-Kovalewski procedure (value 0), as used in most practical problems and 
-described in \cite{KaeserDumbser06} and \cite{DumbserKaeser06}. 
-The other type is the Space-Time Discontinuous ADER time integration (value 1) which is just as accurate but 
+First is the standard ADER based upon a Cauchy-Kovalewski procedure (value 0), as used in most practical problems and
+described in \cite{KaeserDumbser06} and \cite{DumbserKaeser06}.
+The other type is the Space-Time Discontinuous ADER time integration (value 1) which is just as accurate but
 more robust for solving stiff problems (see \cite{PuenteDumbserKaeserIgel07}). \\
 For LTS simulation, we must specify what we call a computing \textit{cycle}.
-Using a value 1 means that one cycle is fulfilled each time we loop over all elements, 
+Using a value 1 means that one cycle is fulfilled each time we loop over all elements,
 independently on whether we update their values or not.
-Using a value 2 means that one cycle is fulfilled once each and every 
+Using a value 2 means that one cycle is fulfilled once each and every
 element has been at least updated once.\\
 Next, we can adapt the order of the scheme $\O$.
 This value is linked to the polyomial degree of the basis functions $p$ by $\O=p-1$.
@@ -1488,12 +1489,12 @@ This number is the fraction of the CFL stability limit, which for our DG schemes
 \label{cfl}
 \Delta t\leq C \frac{1}{2p+1}\frac{\Delta x}{\alpha}\,,
 \end{equation}
-being $\alpha$ the maximum wave velocity allowed, usually the P-wave velocity, 
+being $\alpha$ the maximum wave velocity allowed, usually the P-wave velocity,
 $\Delta x$ a measure of the size of the element (3D tetrahedral elements: in-sphere diameter)
-and $p$ is the polynomial degree of the approximation. 
-Notice, that equation~\eqref{cfl} must be fulfilled by all elements, 
+and $p$ is the polynomial degree of the approximation.
+Notice, that equation~\eqref{cfl} must be fulfilled by all elements,
 hence the advantage of the above mentioned LTS schemes over GTS schemes in highly uneven meshes.
-The value of $C$ is bound by the upper value $C=1$, although for ADER-DG the maximum is $C=0.7$. 
+The value of $C$ is bound by the upper value $C=1$, although for ADER-DG the maximum is $C=0.7$.
 Often a safer value of $C=0.5$ is used.\\
 The last important parameter is the fixed timestep, a value $\Delta t$ at which we want to impose the scheme to iterate.
 In general, we do not want to impose such number, but let the code choose the optimal following equation~\eqref{cfl}.
@@ -1527,7 +1528,7 @@ DGMethod & 0 & integer & Possiblity to choose time stepping.\\
 \textcolor{green}{Order} & & integer & \\
 \textcolor{green}{nPolyMap} & 0 & integer & \\
 \textcolor{green}{Material} & 0 & integer & Material basis functions degree.\\
-\textcolor{green}{IterationCriterion} & & 1/2 & 1: Iteration is defined as one cycle; 
+\textcolor{green}{IterationCriterion} & & 1/2 & 1: Iteration is defined as one cycle;
 2: Iteration is defined by update of all elements.\\
 % \hdashline
 % \uline{DGMethod} = 4 & & & Godunov flux and global time stepping. \\
@@ -1566,13 +1567,13 @@ in Source\&Type $= 20$. For further information see~\cite{GravesWald01}.
 
 \noindent
 The number of variables (stresses and velocities) that can be outputted depends on the equations being solved and the dimension.
-A 0-1 switch has to be specified for each variable, meaning 1 that the user wants to output that particular variable 
+A 0-1 switch has to be specified for each variable, meaning 1 that the user wants to output that particular variable
 and 0 that he does not want. The following variables' switches have to be specified:\\
 2D, 5 switches: $\sigma_{xx}$, $\sigma_{yy}$, $\sigma_{xy}$, $u$, $v$.\\
 3D, 9 switches: $\sigma_{xx}$, $\sigma_{yy}$, $\sigma_{zz}$, $\sigma_{xy}$, $\sigma_{yz}$, $\sigma_{xz}$, $u$, $v$, $w$.\\
 
 \noindent
-For the poroelastic case, one additional parameter has to be provided specifying the output switches for the fluid variables 
+For the poroelastic case, one additional parameter has to be provided specifying the output switches for the fluid variables
 (pressure and fluid velocities) as follows:\\
 2D, 3 switches: $p$, $u_f$, $v_f$.\\
 3D, 4 switches: $p$, $u_f$, $v_f$, $w_f$.\\
@@ -1582,7 +1583,7 @@ If changing a value requires setting a new parameter it is indicated in green af
 
 \begin{table}[H]
 \caption{Parameters and their default values as well as type for the namelist \textbf{Output}.
-         Changing the parameter from the default value often results in setting additional parameters 
+         Changing the parameter from the default value often results in setting additional parameters
          in the corresponding namelist (indicated in green).}
 \begin{center}
 \begin{tabular}{|p{4cm}|p{2.7cm}|p{2cm}|p{4cm}|}
@@ -1628,18 +1629,18 @@ checkPointFile & & character & Checkpoint filename \\
 \subsection{Snapshot Output}
 \label{sec-block-snap}
 
-For the snapshot output, the material parameters to be outputted have to be defined by switches 
-in a similar way as the variables just shown in the last paragraphs. 
+For the snapshot output, the material parameters to be outputted have to be defined by switches
+in a similar way as the variables just shown in the last paragraphs.
 The material values depend on the rheology type chosen.
 They are described in the Section~\ref{sec-matfile} in the proper order.
-All the material parameters can be outputted with the sole exception of the $\Q$ values 
+All the material parameters can be outputted with the sole exception of the $\Q$ values
 and the $\vec n$, $\vec s$ and $\vec t$ entries.
 The switches have to be typed in order and not more than 11 switches per line.
 If the number of material parameters is larger than 11, a second line will have to be added.
 In case more than 22 parameters are required, a third line is needed.
 
 \noindent
-SeisSol currently only accepts 2 output format for snapshots 
+SeisSol currently only accepts 2 output format for snapshots
 and requires TECPLOT or paraview (use postprocessing conversion script tecp2vtk!) to be visualized:\\
 
 \noindent
@@ -1647,15 +1648,15 @@ and requires TECPLOT or paraview (use postprocessing conversion script tecp2vtk!
 5: HDF5/XDMF parallel binary output for paraview\\
 
 \noindent
-There are 3 possible criteria: Output every given number of timesteps 
-(option $1$), every given multiples of a specified time (option $2$) 
+There are 3 possible criteria: Output every given number of timesteps
+(option $1$), every given multiples of a specified time (option $2$)
 or when any of both criteria just mentioned are fulfilled (option $3$). \\
 
 \subsection{Receiver Output}
 \label{sec-block-rec}
 
-For the receiver output, three parameters are required: 
-the time sampling rate, the number of receiver stations and their locations. 
+For the receiver output, three parameters are required:
+the time sampling rate, the number of receiver stations and their locations.
 The code will automatically interpolate the variables' values at the desired times.
 
 \newpage
@@ -1698,15 +1699,15 @@ In all other cases (e.g. simulations for applications), which are not convergenc
 has to be $0$.
 
 In the following, we list all parameters with their possible and default values to be set in the namelist \textbf{Analysis}.
-If changing a value requires setting a new 
-parameter it is indicated in green after the dashed line (if changing a value results in setting a new 
+If changing a value requires setting a new
+parameter it is indicated in green after the dashed line (if changing a value results in setting a new
 parameter in a different namelist, this namelist is written in red):\\
 
 \begin{table}[H]
 \caption{Parameters and their default values as well as type for the namelist \textbf{Analysis}.
-         Changing the parameter from the default value often results in setting additional parameters 
-         in the corresponding namelist (indicated in green). 
-         If changing the default value requires an additional setting of a parameter in a different namelist, 
+         Changing the parameter from the default value often results in setting additional parameters
+         in the corresponding namelist (indicated in green).
+         If changing the default value requires an additional setting of a parameter in a different namelist,
          the namelist is written in red.}
 \begin{center}
 \begin{tabular}{|p{4cm}|p{2.7cm}|p{2cm}|p{4cm}|}
@@ -1739,7 +1740,7 @@ At the moment, to be set to $0$ as other options are not possible.
 This option is a default for debugging purposes.
 
 In the following, we list all parameters with their possible and default values to be set in the namelist \textbf{Debugging}.
-If changing a value requires setting a new 
+If changing a value requires setting a new
 parameter it is indicated in green after the dashed line:\\
 
 \begin{table}[H]
@@ -1767,7 +1768,7 @@ debug\_flag & 0 & 0/1 & Debug mode off/on. \\
 \section{DISCLAIMER}
 
 Note that the here documented features are not all compatible with each other.
-Moreover, no guarantee is given that some features might be outdated or their functionality changed 
+Moreover, no guarantee is given that some features might be outdated or their functionality changed
 as the SeisSol development is always in progress.
 We highly recommend to test thoroughly each functionality for your individual problem.
 
@@ -1789,44 +1790,44 @@ POSSIBILITY OF SUCH DAMAGE.
 \begin{thebibliography}{99}
 \bibitem{Andrews2005}D.J. Andrews, 2005. \textit{Rupture dynamics with energy loss outside the slip zone}, Journal of Geophysical Research.
 \bibitem{PuenteDumbserKaeserIgel07}
-  de la Puente, J., Dumbser,M., K\"aser, M. \& Igel, H.: Discontinuous Galerkin Methods for Wave Propagation in Poroelastic Media, \textit{Geophysics}. 73(5), T77-T97, 2008.  
+  de la Puente, J., Dumbser,M., K\"aser, M. \& Igel, H.: Discontinuous Galerkin Methods for Wave Propagation in Poroelastic Media, \textit{Geophysics}. 73(5), T77-T97, 2008.
 \bibitem{PuenteKaeserDumbserIgel07}
-  de la Puente, J., K\"aser, M., Dumbser, M. \& Igel, H., 2007. An Arbitrary High Order Discontinuous 
+  de la Puente, J., K\"aser, M., Dumbser, M. \& Igel, H., 2007. An Arbitrary High Order Discontinuous
   Galerkin Method for Elastic Waves on Unstructured Meshes - IV. Anisotropy.
-  \textit{Geophys.~J.~Int.} \textbf{169 (3)}, 1210-1228. 
+  \textit{Geophys.~J.~Int.} \textbf{169 (3)}, 1210-1228.
 \bibitem{DumbserKaeser06}
-  Dumbser, M. \& K\"aser, M., 2006. An Arbitrary High Order Discontinuous Galerkin Method for 
-  Elastic Waves on Unstructured Meshes - II. The Three-Dimensional Isotropic Case. 
+  Dumbser, M. \& K\"aser, M., 2006. An Arbitrary High Order Discontinuous Galerkin Method for
+  Elastic Waves on Unstructured Meshes - II. The Three-Dimensional Isotropic Case.
   \textit{Geophys.~J.~Int.} \textbf{167 (1)}, 319-336.
 \bibitem{DumbserKaeserToro07}
   Dumbser, M., K\"aser, M. \& Toro, E.F., 2007. An arbitrary high-order Discontinuous Galerkin method for elastic
-  waves on unstructured meshes  V. Local time stepping and p-adaptivity. 
-  \textit{Geophys.~J.~Int.}   
+  waves on unstructured meshes  V. Local time stepping and p-adaptivity.
+  \textit{Geophys.~J.~Int.}
 \bibitem{DumbserKaeserdelaPuente06}
-  Dumbser, M., K\"aser, M. \& de la Puente, J., 2007. Arbitrary High Order Finite Volume Schemes for Seismic Wave Propagation on 
-  Unstructured Meshes in 2D and 3D, 
-  \textit{Geophys.~J.~Int.} 
+  Dumbser, M., K\"aser, M. \& de la Puente, J., 2007. Arbitrary High Order Finite Volume Schemes for Seismic Wave Propagation on
+  Unstructured Meshes in 2D and 3D,
+  \textit{Geophys.~J.~Int.}
 \bibitem{GravesWald01}
-  Graves, W.R. \& Wald, D.J., 2001. Resolution analysis of finite fault source inversion using one- and three-dimensional Green's functions    1. Strong motions, 
-  \textit{J.~Geophys.Res.}, \textbf{106 (B5)}, 8745-8766.     
+  Graves, W.R. \& Wald, D.J., 2001. Resolution analysis of finite fault source inversion using one- and three-dimensional Green's functions    1. Strong motions,
+  \textit{J.~Geophys.Res.}, \textbf{106 (B5)}, 8745-8766.
 \bibitem{KaeserDumbser06}
-  K\"aser, M. \& Dumbser, M., 2006. An Arbitrary High Order Discontinuous Galerkin Method for 
-  Elastic Waves on Unstructured Meshes - I. The Two-Dimensional Isotropic Case with External Source Terms. 
-  \textit{Geophys.~J.~Int.}, \textbf{166 (2)}, 855-877.  
+  K\"aser, M. \& Dumbser, M., 2006. An Arbitrary High Order Discontinuous Galerkin Method for
+  Elastic Waves on Unstructured Meshes - I. The Two-Dimensional Isotropic Case with External Source Terms.
+  \textit{Geophys.~J.~Int.}, \textbf{166 (2)}, 855-877.
 \bibitem{KaeserDumbserPuente07}
-  K\"aser, M., Dumbser, M., de la Puente, J. \& Igel, H., 2007. An Arbitrary High Order Discontinuous 
-  Galerkin Method for Elastic Waves on Unstructured Meshes - III. Viscoelastic Attenuation. 
-  \textit{Geophys.~J.~Int.}, \textbf{168 (1)}, 224-242.  
+  K\"aser, M., Dumbser, M., de la Puente, J. \& Igel, H., 2007. An Arbitrary High Order Discontinuous
+  Galerkin Method for Elastic Waves on Unstructured Meshes - III. Viscoelastic Attenuation.
+  \textit{Geophys.~J.~Int.}, \textbf{168 (1)}, 224-242.
 \bibitem{Pelties12}
   Pelties, C., de~la Puente, P., Ampuero, J.-P., Brietzke, G.~B., and K\"aser,
   M.: Three-dimensional dynamic rupture simulation with a high-order
   discontinuous {G}alerkin method on unstructured tetrahedral meshes,
   J.~Geophys.~Res., 117, B02309,
-  \url{http://dx.doi.org/10.1029/2011JB008857}, 2012. 
-\bibitem{Pelties14}  
+  \url{http://dx.doi.org/10.1029/2011JB008857}, 2012.
+\bibitem{Pelties14}
   Pelties, C., Gabriel, A.-A., and  Ampuero, J.-P.:
   Verification of an ADER-DG method for complex dynamic rupture problems,
-  Geosci.~Model~Dev., 7, 847-866, 2014.  
+  Geosci.~Model~Dev., 7, 847-866, 2014.
 \end{thebibliography}
 
 \end{document}
