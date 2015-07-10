@@ -63,8 +63,18 @@ void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWave
 	checkErr(read(file, &timestepWaveField, sizeof(timestepWaveField)),
 			sizeof(timestepWaveField));
 
+	// Convert to char* to do pointer arithmetic
+	char* buffer = reinterpret_cast<char*>(dofs());
+	unsigned long left = numDofs()*sizeof(real);
+
 	// Read dofs
-	checkErr(read(file, dofs(), numDofs()*sizeof(real)), numDofs()*sizeof(real));
+	while (left > 0) {
+		unsigned long readSize = read(file, buffer, left);
+		if (readSize <= 0)
+			checkErr(readSize, left);
+		buffer += readSize;
+		left -= readSize;
+	}
 
 	// Close the file
 	checkErr(::close(file));
@@ -103,7 +113,7 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	const char* buffer = reinterpret_cast<const char*>(dofs());
 	unsigned long left = numDofs()*sizeof(real);
 	while (left > 0) {
-		unsigned long written = ::write(file(), dofs(), left);
+		unsigned long written = ::write(file(), buffer, left);
 		if (written <= 0)
 			checkErr(written, left);
 		buffer += written;
