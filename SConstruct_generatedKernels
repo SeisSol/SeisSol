@@ -301,7 +301,11 @@ if env['scalasca'] in ['default_2.x', 'kernels_2.x']:
   if env['parallelization'] in ['mpi', 'none']:
     l_scorepCxxArguments = l_scorepArguments + ' --thread=none '
   else:
-    l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
+    if env['commThread']:
+      # Seems to work with "RF_output_on = 0"
+      l_scorepCxxArguments = l_scorepArguments + ' --thread=pthread '
+    else:
+      l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
 
   for mode in ['FORTRAN', 'F90']:
     env[mode] = 'scorep' + l_scorepArguments + ' --thread=none ' + env[mode]
