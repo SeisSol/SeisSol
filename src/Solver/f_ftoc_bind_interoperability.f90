@@ -112,20 +112,25 @@ module f_ftoc_bind_interoperability
       type(c_ptr), value :: i_receiverSampling
     end subroutine
   end interface
-
-  interface c_interoperability_setCellLocalData
-    subroutine c_interoperability_setCellLocalData( i_meshId, i_starMatrices, i_nApNm1, i_nAmNm1 ) bind( C, name='c_interoperability_setCellLocalData' )
-      use iso_c_binding, only: c_ptr
-      implicit none
-      type(c_ptr), value :: i_meshId
-      type(c_ptr), value :: i_starMatrices
-      type(c_ptr), value :: i_nApNm1
-      type(c_ptr), value :: i_nAmNm1
+  
+  interface c_interoperability_setMaterial
+    subroutine c_interoperability_setMaterial( i_elem, i_side, i_materialVal, i_numMaterialVals ) bind( C, name='c_interoperability_setMaterial' )
+    use iso_c_binding, only: c_ptr
+    implicit none
+    type(c_ptr), value :: i_elem
+    type(c_ptr), value :: i_side
+    type(c_ptr), value :: i_materialVal
+    type(c_ptr), value :: i_numMaterialVals
+    end subroutine
+  end interface
+  
+  interface c_interoperability_initializeCellLocalMatrices
+    subroutine c_interoperability_initializeCellLocalMatrices() bind( C, name='c_interoperability_initializeCellLocalMatrices' )
     end subroutine
   end interface
 
-  interface c_interoperability_synchronizeCellLocalData
-    subroutine c_interoperability_synchronizeCellLocalData() bind( C, name='c_interoperability_synchronizeCellLocalData' )
+  interface c_interoperability_synchronizeMaterial
+    subroutine c_interoperability_synchronizeMaterial() bind( C, name='c_interoperability_synchronizeMaterial' )
     end subroutine
   end interface
 

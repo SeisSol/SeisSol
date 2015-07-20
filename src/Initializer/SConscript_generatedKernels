@@ -48,7 +48,12 @@ initializeFiles = [ 'ini_seissol.f90',
 
 # generated kernels specific initializers
 if env['generatedKernels']:
-  initializeFiles = ['InternalState.cpp', 'MemoryAllocator.cpp', 'MemoryManager.cpp', 'time_stepping/LtsLayout.cpp', 'InitSourceTermsGK.f90'] + initializeFiles
+  initializeFiles = [ 'InternalState.cpp',
+                      'MemoryAllocator.cpp',
+                      'MemoryManager.cpp',
+                      'time_stepping/LtsLayout.cpp',
+                      'InitSourceTermsGK.f90',
+                      'CellLocalMatrices.cpp'] + initializeFiles
 
 for i in initializeFiles:
   env.sourceFiles.append(env.Object(i))

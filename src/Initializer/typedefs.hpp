@@ -46,25 +46,9 @@
 #endif
 
 #include <Initializer/preProcessorMacros.fpp>
-#include <Kernels/definitions.hpp>
-#include <initialization/precision.h>
-
-// define floating point precision
-#ifdef SINGLE_PRECISION
-typedef float real;
-#endif
-#ifdef DOUBLE_PRECISION
-typedef double real;
-#endif
-
-#ifdef USE_MPI
-#ifdef SINGLE_PRECISION
-static MPI_Datatype real_mpi = MPI_FLOAT;
-#endif
-#ifdef DOUBLE_PRECISION
-static MPI_Datatype real_mpi = MPI_DOUBLE;
-#endif
-#endif
+#include <Kernels/precision.hpp>
+#include <Kernels/equations.hpp>
+#include <Model/datastructures.hpp>
 
 enum Layer {
   ghost,
@@ -322,6 +306,12 @@ struct NeighboringIntegrationData {
   real nAmNm1[4][NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
 };
 
+// material constants per cell
+struct CellMaterialData {
+  seissol::model::Material local;
+  seissol::model::Material neighbor[4];
+};
+
 /**
  * Cell local data (material dependent).
  **/
@@ -330,6 +320,8 @@ struct CellData {
   struct LocalIntegrationData       *localIntegration;
   // neighboring integration data
   struct NeighboringIntegrationData *neighboringIntegration;
+  // local and neighbor material data
+  CellMaterialData                  *material;
 };
 
 /**

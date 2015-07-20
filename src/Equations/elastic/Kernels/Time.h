@@ -44,7 +44,7 @@
 #include <cassert>
 #include <limits>
 #include <Initializer/typedefs.hpp>
-#include "common.hpp"
+#include <Kernels/common.hpp>
 
 namespace seissol {
   namespace kernels {

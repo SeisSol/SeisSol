@@ -205,24 +205,25 @@ class seissol::Interoperability {
     * Enables dynamic rupture.
     **/
    void enableDynamicRupture();
+   
+   /**
+    * Set material parameters for cell
+    **/
+   void setMaterial( int*    i_meshId,
+                     int*    i_side,
+                     double* i_materialVal,
+                     int*    i_numMaterialVals );
+   
+   /**
+    * \todo Move this somewhere else when we have a C++ main loop.
+    **/
+   void initializeCellLocalMatrices();
+
 
    /**
-    * Sets the cell local data of the specified mesh id.
-    *
-    * @param i_mesh mesh id of the cell, Fortran notation is assumed - starting at 1 instead of 0.
-    * @param i_starMatrices star matrices \f$A^*\f$, \f$B^*\f$  and \f$C^*\f$ in sparse (non-zeros only) column-major format.
-    * @param i_nApNm1 flux solver for the four faces and neighboring elements contribution in dense column-major format.
-    * @param i_nAmNm1 flux solver for the four faces and the elements own contributions in dense column-major format.
+    * Synchronizes the cell local material data.
     **/
-   void setCellLocalData( int    *i_meshId,
-                          double  i_starMatrices[3][NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
-                          double  i_nApNm1[4][      NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
-                          double  i_nAmNm1[4][      NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
-
-   /**
-    * Synchronizes the cell local data.
-    **/
-   void synchronizeCellLocalData();
+   void synchronizeMaterial();
 
    /**
     * Synchronizes the DOFs in the copy layer.

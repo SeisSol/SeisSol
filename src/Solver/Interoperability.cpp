@@ -46,6 +46,8 @@
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
 #include <Physics/PointSource.h>
+#include <Initializer/CellLocalMatrices.h>
+#include <Model/Setup.h>
 
 seissol::Interoperability e_interoperability;
 
@@ -121,19 +123,20 @@ extern "C" {
   void c_interoperability_enableDynamicRupture() {
     e_interoperability.enableDynamicRupture();
   }
-
-  void c_interoperability_setCellLocalData( int    *i_meshId,
-                                            double  i_starMatrices[3][NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
-                                            double  i_nApNm1[4][      NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
-                                            double  i_nAmNm1[4][      NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] ) {
-    e_interoperability.setCellLocalData( i_meshId,
-                                         i_starMatrices,
-                                         i_nApNm1,
-                                         i_nAmNm1 );
+  
+  void c_interoperability_setMaterial( int*    i_meshId,
+                                       int*    i_side,
+                                       double* i_materialVal,
+                                       int*    i_numMaterialVals ) {
+    e_interoperability.setMaterial(i_meshId, i_side, i_materialVal, i_numMaterialVals);
+  }
+  
+  void c_interoperability_initializeCellLocalMatrices() {
+    e_interoperability.initializeCellLocalMatrices();
   }
 
-  void c_interoperability_synchronizeCellLocalData() {
-    e_interoperability.synchronizeCellLocalData();
+  void c_interoperability_synchronizeMaterial() {
+    e_interoperability.synchronizeMaterial();
   }
 
   void c_interoperability_synchronizeCopyLayerDofs() {
@@ -496,52 +499,43 @@ void seissol::Interoperability::enableDynamicRupture() {
   seissol::SeisSol::main.timeManager().enableDynamicRupture();
 }
 
-void seissol::Interoperability::setCellLocalData( int    *i_meshId,
-                                                  double  i_starMatrices[3][NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
-                                                  double  i_nApNm1[4][      NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES],
-                                                  double  i_nAmNm1[4][      NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] ) {
-  unsigned int l_copyInteriorId = m_meshToCopyInterior[(*i_meshId) - 1];
-
-  // set up star matrices
-  for( int l_c = 0; l_c < 3; l_c++ ) {
-    if( STAR_NNZ == 24 ) {
-      seissol::kernels::convertStarMatrix( i_starMatrices[l_c], m_cellData->localIntegration[l_copyInteriorId].starMatrices[l_c] );
-    }
-    else {
-      for( int l_i = 0; l_i < STAR_NNZ; l_i++ ) {
-        m_cellData->localIntegration[l_copyInteriorId].starMatrices[l_c][l_i] = i_starMatrices[l_c][l_i];
-      }
-    }
+void seissol::Interoperability::setMaterial(int* i_meshId, int* i_side, double* i_materialVal, int* i_numMaterialVals)
+{
+  unsigned int copyInteriorId = m_meshToCopyInterior[*i_meshId - 1];
+  int side = *i_side - 1;
+  seissol::model::Material* material;
+  
+  if (side < 0) {
+    material = &m_cellData->material[copyInteriorId].local;
+  } else {
+    assert(side < 4);
+    material = &m_cellData->material[copyInteriorId].neighbor[side];
   }
-
-  // set up flux solvers
-  for( int l_face = 0; l_face < 4; l_face++ ) {
-    for( int l_i = 0; l_i < NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES; l_i++ ) {
-      m_cellData->localIntegration[l_copyInteriorId      ].nApNm1[l_face][l_i] = i_nApNm1[l_face][l_i];
-      m_cellData->neighboringIntegration[l_copyInteriorId].nAmNm1[l_face][l_i] = i_nAmNm1[l_face][l_i];
-    }
-  }
+  
+  seissol::model::setMaterial(i_materialVal, *i_numMaterialVals, material);
 }
 
-void seissol::Interoperability::synchronizeCellLocalData() {
+void seissol::Interoperability::initializeCellLocalMatrices()
+{
+  // \todo Move this to some common initialization place
+  seissol::initializers::initializeCellLocalMatrices( seissol::SeisSol::main.meshReader(),
+                                                      m_copyInteriorToMesh,
+                                                      m_meshToLts,
+                                                      m_numberOfCopyInteriorCells,
+                                                      m_cellInformation,
+                                                      m_cellData );
+}
+
+void seissol::Interoperability::synchronizeMaterial() {
   // iterate over the mesh and set all redundant data
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
   for( unsigned int l_cell = 0; l_cell < m_numberOfCopyInteriorCells; l_cell++ ) {
-    // assign the star matrices of this cell
-    for( unsigned int l_c = 0; l_c < 3; l_c++ ) {
-      for( int l_i = 0; l_i < STAR_NNZ; l_i++ ) {
-        m_cellData->localIntegration[l_cell].starMatrices[l_c][l_i] = m_cellData->localIntegration[ m_meshToCopyInterior[m_copyInteriorToMesh[l_cell]] ].starMatrices[l_c][l_i];
-      }
-    }
-
-    // assign flux solvers
-    for( int l_face = 0; l_face < 4; l_face++ ) {
-      for( int l_i = 0; l_i < NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES; l_i++ ) {
-        m_cellData->localIntegration[l_cell      ].nApNm1[l_face][l_i] = m_cellData->localIntegration[       m_meshToCopyInterior[m_copyInteriorToMesh[l_cell]] ].nApNm1[l_face][l_i];
-        m_cellData->neighboringIntegration[l_cell].nAmNm1[l_face][l_i] = m_cellData->neighboringIntegration[ m_meshToCopyInterior[m_copyInteriorToMesh[l_cell]] ].nAmNm1[l_face][l_i];
-      }
+    unsigned sourceId = m_meshToCopyInterior[m_copyInteriorToMesh[l_cell]];
+    m_cellData->material[l_cell].local = m_cellData->material[sourceId].local;
+    for (unsigned side = 0; side < 4; ++side) {
+      m_cellData->material[l_cell].neighbor[side] = m_cellData->material[sourceId].neighbor[side];
     }
   }
 }

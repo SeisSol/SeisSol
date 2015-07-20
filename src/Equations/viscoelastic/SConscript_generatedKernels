@@ -46,7 +46,8 @@ if env['generatedKernels']:
 
   solverFiles = [ 'Kernels/Time.cpp',
                   'Kernels/Volume.cpp',
-                  'Kernels/Boundary.cpp' ]
+                  'Kernels/Boundary.cpp',
+                  'Model/Setup.cpp' ]
   for i in solverFiles:
     env.sourceFiles.append(env.Object(i))
 

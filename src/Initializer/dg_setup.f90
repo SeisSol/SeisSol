@@ -419,7 +419,6 @@ CONTAINS
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER                         :: i, j, k, l, iElem, iDirac, iRicker
-    INTEGER                         :: iElemST
     INTEGER                         :: iDRFace
     INTEGER                         :: iCurElem
     INTEGER                         :: nDGWorkVar
@@ -441,6 +440,8 @@ CONTAINS
 #ifdef GENERATEDKERNELS
     real                            :: l_timeStepWidth
     real                            :: l_loads(3), l_scalings(3), l_cuts(2), l_timeScalings(2), l_gts
+    integer                         :: iObject, iSide, iNeighbor, MPIIndex
+    real, target                    :: NeigMaterialVal(EQN%nBackgroundVar)
 #endif
     ! ------------------------------------------------------------------------!
     !
@@ -929,92 +930,6 @@ CONTAINS
 
 #ifdef GENERATEDKERNELS
     logInfo0(*) 'Generated Kernels: initializing source term datastructure.'
-
-    ! Source Term optimization: We want to touch only those elements equipped with a source term
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! Determining the number of source terms
-!~     DISC%Galerkin%nSourceTermElems = 0
-!~     SELECT CASE(SOURCE%Type)
-!~     CASE(1)
-!~       DISC%Galerkin%nSourceTermElems = MESH%nElem
-!~     CASE(16,18,20,30,50)
-!~       DO iElemST = 1, MESH%nElem
-!~         DO iRicker = 1, SOURCE%Ricker%nRicker
-!~           IF( SOURCE%Ricker%Element(iRicker).EQ.iElemST) THEN
-!~             DISC%Galerkin%nSourceTermElems = DISC%Galerkin%nSourceTermElems + 1
-!~             EXIT
-!~           ENDIF
-!~           IF( SOURCE%RP%Element(iRicker).EQ.iElemST) THEN
-!~             DISC%Galerkin%nSourceTermElems = DISC%Galerkin%nSourceTermElems + 1
-!~             EXIT
-!~           ENDIF
-!~         ENDDO
-!~         IF(MESH%IncludesFSRP(iElemST)) THEN
-!~           DO iDirac = 1, SOURCE%RP%nxRP*SOURCE%RP%nzRP
-!~             IF( SOURCE%RP%Element(iDirac).EQ.iElemST) THEN
-!~               DISC%Galerkin%nSourceTermElems = DISC%Galerkin%nSourceTermElems + 1
-!~               EXIT
-!~             ENDIF
-!~           ENDDO
-!~           DO iDirac = 1, SOURCE%RP%nSbfs(1)
-!~             IF( SOURCE%RP%Element(iDirac).EQ.iElemST) THEN
-!~               DISC%Galerkin%nSourceTermElems = DISC%Galerkin%nSourceTermElems + 1
-!~               EXIT
-!~             ENDIF
-!~           ENDDO
-!~         ENDIF
-!~       ENDDO
-!~     ENDSELECT
-!~ 
-!~     logInfo(*) 'Generated Kernels: number of source terms: ', DISC%Galerkin%nSourceTermElems
-!~ 
-!~     ! Creating gather data structure for the later source application
-!~     IF (DISC%Galerkin%nSourceTermElems.NE.0) THEN
-!~       !this gather array employs FORTRAN numbering terminated at 1
-!~       !@TODO there is currenlty no free for these two data structures
-!~       allocate( DISC%Galerkin%indicesOfSourceTermsElems( DISC%Galerkin%nSourceTermElems ) )
-!~       allocate( DISC%Galerkin%dgsourceterms(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,  DISC%Galerkin%nSourceTermElems) )
-!~        
-!~       DISC%Galerkin%nSourceTermElems = 0
-!~       if (SOURCE%Type.EQ.1) THEN
-!~         DISC%Galerkin%nSourceTermElems = MESH%nElem
-!~         DO iElemST = 1, MESH%nElem
-!~           DISC%Galerkin%indicesOfSourceTermsElems(iElemST) = iElemSt
-!~         ENDDO
-!~       ELSE
-!~         DO iElemST = 1, MESH%nElem
-!~           DO iRicker = 1, SOURCE%Ricker%nRicker
-!~             IF( SOURCE%Ricker%Element(iRicker).EQ.iElemST) THEN
-!~               DISC%Galerkin%nSourceTermElems = DISC%Galerkin%nSourceTermElems + 1
-!~               DISC%Galerkin%indicesOfSourceTermsElems(DISC%Galerkin%nSourceTermElems) = iElemST
-!~               EXIT
-!~             ENDIF
-!~             IF( SOURCE%RP%Element(iRicker).EQ.iElemST) THEN
-!~               DISC%Galerkin%nSourceTermElems = DISC%Galerkin%nSourceTermElems + 1
-!~               DISC%Galerkin%indicesOfSourceTermsElems(DISC%Galerkin%nSourceTermElems) = iElemST
-!~               EXIT
-!~             ENDIF
-!~           ENDDO
-!~           IF(MESH%IncludesFSRP(iElemST)) THEN
-!~             DO iDirac = 1, SOURCE%RP%nxRP*SOURCE%RP%nzRP
-!~               IF( SOURCE%RP%Element(iDirac).EQ.iElemST) THEN
-!~                 DISC%Galerkin%nSourceTermElems = DISC%Galerkin%nSourceTermElems + 1
-!~                 DISC%Galerkin%indicesOfSourceTermsElems(DISC%Galerkin%nSourceTermElems) = iElemST
-!~                 EXIT
-!~               ENDIF
-!~             ENDDO
-!~             DO iDirac = 1, SOURCE%RP%nSbfs(1)
-!~               IF( SOURCE%RP%Element(iDirac).EQ.iElemST) THEN
-!~                 DISC%Galerkin%nSourceTermElems = DISC%Galerkin%nSourceTermElems + 1
-!~                 DISC%Galerkin%indicesOfSourceTermsElems(DISC%Galerkin%nSourceTermElems) = iElemST
-!~                 EXIT
-!~               ENDIF
-!~             ENDDO
-!~           ENDIF
-!~         ENDDO
-!~       ENDIF
-!~     ENDIF
-
     call InitSourceTermsGK(DISC, MESH, SOURCE)
     logInfo0(*) 'Generated Kernels: initializing source term datastructure. Done.'
 #endif
@@ -1094,14 +1009,53 @@ CONTAINS
     !
     ! Initialize sparse star matrices
     !
-    CALL IniSparseStarMatrices3D_new(EQN, DISC, MESH, BND, SOURCE, OptionalFields%BackgroundValue, IO)
-
-#ifdef GENERATEDKERNELS
+#if defined(GENERATEDKERNELS)
+  do iElem = 1, MESH%nElem
+    iSide = 0
+    
+    call c_interoperability_setMaterial( i_elem = c_loc(iElem),                                         \
+                                         i_side = c_loc(iSide),                                         \
+                                         i_materialVal = c_loc(OptionalFields%BackgroundValue(iElem,:)),\
+                                         i_numMaterialVals = c_loc(EQN%nBackgroundVar)                  )
+                                         
+    do iSide = 1,4
+      IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
+          iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
+          MPIIndex        = MESH%ELEM%MPINumber(iSide,iElem)
+          NeigMaterialVal = BND%ObjMPI(iObject)%NeighborBackground(1:3,MPIIndex) ! rho,mu,lambda
+      ELSE
+          SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
+          CASE(0)
+              iNeighbor       = MESH%ELEM%SideNeighbor(iSide,iElem)
+              NeigMaterialVal = OptionalFields%BackgroundValue(iNeighbor,:)
+          CASE DEFAULT ! For boundary conditions take inside material
+              NeigMaterialVal = OptionalFields%BackgroundValue(iElem,:)
+          END SELECT
+      ENDIF      
+      call c_interoperability_setMaterial( i_elem = c_loc(iElem),                        \
+                                           i_side = c_loc(iSide),                        \
+                                           i_materialVal = c_loc(NeigMaterialVal),       \
+                                           i_numMaterialVals = c_loc(EQN%nBackgroundVar) )
+                                           
+    enddo
+  enddo
+  
 #ifdef USE_MPI
-    ! synchronize redundant cell data
-    logInfo0(*) 'synchronizing copy cell data';
-    call c_interoperability_synchronizeCellLocalData;
+      ! synchronize redundant cell data
+      logInfo0(*) 'Synchronizing copy cell material data.';
+      call c_interoperability_synchronizeMaterial;
 #endif
+  
+  if (DISC%Galerkin%FluxMethod .ne. 0) then
+    logError(*) 'Generated kernels currently supports Godunov fluxes only.'
+    stop
+  endif
+
+
+  logInfo0(*) 'Initializing element local matrices.'
+  call c_interoperability_initializeCellLocalMatrices;
+#else
+    CALL IniSparseStarMatrices3D_new(EQN, DISC, MESH, BND, SOURCE, OptionalFields%BackgroundValue, IO)
 #endif
 
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
@@ -3162,10 +3116,10 @@ CONTAINS
         enddo
 
         ! initialize the constant data for this element in the overlapping structures
-        call c_interoperability_setCellLocalData( i_meshId       = c_loc(iElem),          \
-                                                  i_starMatrices = c_loc(l_starMatrices), \
-                                                  i_nApNm1       = c_loc(l_nApNm1),       \
-                                                  i_nAmNm1       = c_loc(l_nAmNm1)        )
+!~         call c_interoperability_setCellLocalData( i_meshId       = c_loc(iElem),          \
+!~                                                   i_starMatrices = c_loc(l_starMatrices), \
+!~                                                   i_nApNm1       = c_loc(l_nApNm1),       \
+!~                                                   i_nAmNm1       = c_loc(l_nAmNm1)        )
 #endif
         !
         NULLIFY(Tens3GaussP)

@@ -563,6 +563,7 @@ void seissol::initializers::MemoryManager::allocateConstantData() {
   // allocate cell local data
   LocalIntegrationData       *l_local       = (LocalIntegrationData*)       m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( LocalIntegrationData ),       1, MEMKIND_CONSTANT );
   NeighboringIntegrationData *l_neighboring = (NeighboringIntegrationData*) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( NeighboringIntegrationData ), 1, MEMKIND_CONSTANT );
+  CellMaterialData           *material      = (CellMaterialData*)           m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( CellMaterialData ),           1, MEMKIND_CONSTANT );
 
   // store per-cluster locations of the data
 #ifdef USE_MPI
@@ -575,18 +576,22 @@ void seissol::initializers::MemoryManager::allocateConstantData() {
     // set copy cell data
     m_copyCellData[l_cluster].localIntegration       = l_local;
     m_copyCellData[l_cluster].neighboringIntegration = l_neighboring;
+    m_copyCellData[l_cluster].material = material;
 #endif
     // jump over copy cells
     l_local       += m_meshStructure[l_cluster].numberOfCopyCells;
     l_neighboring += m_meshStructure[l_cluster].numberOfCopyCells;
+    material      += m_meshStructure[l_cluster].numberOfCopyCells;
 
     // set interior cell data
     m_interiorCellData[l_cluster].localIntegration       = l_local;
     m_interiorCellData[l_cluster].neighboringIntegration = l_neighboring;
+    m_interiorCellData[l_cluster].material               = material;
     
     // jump over interior
     l_local       += m_meshStructure[l_cluster].numberOfInteriorCells;
     l_neighboring += m_meshStructure[l_cluster].numberOfInteriorCells;
+    material      += m_meshStructure[l_cluster].numberOfInteriorCells;
   }
 }
 

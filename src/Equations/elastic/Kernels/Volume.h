@@ -43,7 +43,7 @@
 
 #include <Initializer/typedefs.hpp>
 #include <cassert>
-#include "common.hpp"
+#include <Kernels/common.hpp>
 
 namespace seissol {
   namespace kernels {

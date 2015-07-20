@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-06-29 16:03:37.178998
+// @date 2015-07-13 15:29:43.483523
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -525,7 +525,7 @@ m_sparseSwitch[58] = -1;
 m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 81
+#define STAR_NNZ 729
 
 #endif
 
@@ -999,7 +999,7 @@ m_sparseSwitch[58] = -1;
 m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 81
+#define STAR_NNZ 729
 
 #endif
 
@@ -1485,7 +1485,7 @@ m_sparseSwitch[58] = -1;
 m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 81
+#define STAR_NNZ 729
 
 #endif
 
@@ -1983,7 +1983,7 @@ m_sparseSwitch[58] = -1;
 m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 81
+#define STAR_NNZ 729
 
 #endif
 
@@ -2493,7 +2493,7 @@ m_sparseSwitch[58] = -1;
 m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 81
+#define STAR_NNZ 729
 
 #endif
 
@@ -3015,7 +3015,7 @@ m_sparseSwitch[58] = -1;
 m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 81
+#define STAR_NNZ 729
 
 #endif
 
@@ -3549,7 +3549,7 @@ m_sparseSwitch[58] = -1;
 m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 81
+#define STAR_NNZ 729
 
 #endif
 

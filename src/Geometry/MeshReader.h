@@ -173,7 +173,7 @@ public:
 				MeshTools::cross(chiVec, tauVec, f.normal);
 
 				// Normalize normal
-				MeshTools::mul(f.normal, 1.0 / std::sqrt(MeshTools::norm(f.normal)), f.normal);
+				MeshTools::mul(f.normal, 1.0 / MeshTools::norm(f.normal), f.normal);
 
 				// Check whether the tetrahedron and the reference point are on the same side of the face
 				VrtxCoords tmp1, tmp2;
@@ -196,7 +196,7 @@ public:
 				}
 
 				// Compute vector inside the triangle's plane for the rotation matrix
-				MeshTools::mul(chiVec, 1.0 / std::sqrt(MeshTools::norm(chiVec)), f.tangent1);
+				MeshTools::mul(chiVec, 1.0 / MeshTools::norm(chiVec), f.tangent1);
 				// Compute second vector in the plane, orthogonal to the normal and tangent 1 vectors
 				MeshTools::cross(f.normal, f.tangent1, f.tangent2);
 

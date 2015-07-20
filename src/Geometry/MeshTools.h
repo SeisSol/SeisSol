@@ -44,6 +44,7 @@
 #include "MeshDefinition.h"
 
 #include <vector>
+#include <cmath>
 
 class MeshTools
 {
@@ -84,6 +85,13 @@ public:
 		sub(vertices[e.vertices[FACE2NODES[face][2]]].coords, vertices[e.vertices[FACE2NODES[face][0]]].coords, ac);
 		cross(ab, ac, normal);
 	}
+  
+  static void normalAndTangents(Element const& e, int face, std::vector<Vertex> const& vertices, VrtxCoords nrmal, VrtxCoords tangent1, VrtxCoords tangent2)
+  {
+    normal(e, face, vertices, nrmal);
+		sub(vertices[e.vertices[FACE2NODES[face][1]]].coords, vertices[e.vertices[FACE2NODES[face][0]]].coords, tangent1);
+		cross(nrmal, tangent1, tangent2);
+  }
 
 	/**
 	 * Subtracts <code>v2</code> from <code>v1</code>
@@ -126,9 +134,17 @@ public:
 	}
 
 	/**
-	 * Computes the square of the Euclidean norm
+	 * Computes the Euclidean norm
 	 */
 	static double norm(const VrtxCoords v)
+	{
+		return sqrt(norm2(v));
+	}
+
+	/**
+	 * Computes the square of the Euclidean norm
+	 */
+	static double norm2(const VrtxCoords v)
 	{
 		return square(v[0]) + square(v[1]) + square(v[2]);
 	}
@@ -142,6 +158,50 @@ public:
 		sub(v1, v2, diff);
 		return norm(diff);
 	}
+  
+  /**
+   * Calculates the surface of a triangle based on its (unnormalized) normal.
+   **/
+  static double surface(VrtxCoords faceNormal)
+  {
+    // Area of a triangle spanned by a and b = 0.5 * ||a x b||.
+    return 0.5 * norm(faceNormal);
+  }
+  
+  /**
+   * Returns the surface area of the side of a tetrahedron.
+   **/
+  static double surface(Element const& e, int face, const std::vector<Vertex>& vertices)
+  {
+    VrtxCoords N;
+    normal(e, face, vertices, N);
+    return surface(N);
+  }
+  
+  /**
+   * Returns the volume of a tetrahedron.
+   **/
+  static double volume(Element const& e, const std::vector<Vertex>& vertices)
+  {
+    VrtxCoords ab;
+		VrtxCoords ac;
+		VrtxCoords ad;
+		sub(vertices[e.vertices[1]].coords, vertices[e.vertices[0]].coords, ab);
+		sub(vertices[e.vertices[2]].coords, vertices[e.vertices[0]].coords, ac);
+		sub(vertices[e.vertices[3]].coords, vertices[e.vertices[0]].coords, ad);
+    VrtxCoords area;
+		cross(ab, ac, area);
+    return fabs(dot(ad, area)) / 6.0;
+  }
+  
+  /**
+   * vnormalized = v / ||v||
+   **/
+	static void normalize(VrtxCoords const v, VrtxCoords vnormalized)
+  {
+    mul(v, 1.0 / norm(v), vnormalized);
+  }
+  
 
 	/** Maps from the face to the list of nodes */
 	const static int FACE2NODES[4][3];
