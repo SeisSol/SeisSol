@@ -123,6 +123,15 @@ module f_ftoc_bind_interoperability
     type(c_ptr), value :: i_numMaterialVals
     end subroutine
   end interface
+
+  interface c_interoperability_setInitialLoading
+    subroutine c_interoperability_setInitialLoading( i_meshId, i_initialLoading ) bind( C, name='c_interoperability_setInitialLoading' )
+      use iso_c_binding, only: c_ptr
+      implicit none
+      type(c_ptr), value :: i_meshId
+      type(c_ptr), value :: i_initialLoading
+    end subroutine
+  end interface
   
   interface c_interoperability_initializeCellLocalMatrices
     subroutine c_interoperability_initializeCellLocalMatrices() bind( C, name='c_interoperability_initializeCellLocalMatrices' )

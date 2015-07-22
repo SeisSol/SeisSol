@@ -130,6 +130,13 @@ extern "C" {
                                        int*    i_numMaterialVals ) {
     e_interoperability.setMaterial(i_meshId, i_side, i_materialVal, i_numMaterialVals);
   }
+
+#ifdef USE_PLASTICITY
+ void c_interoperability_setInitialLoading( int    *i_meshId,
+                                            double *i_initialLoading ) {
+    e_interoperability.setInitialLoading( i_meshId, i_initialLoading );
+  }
+#endif
   
   void c_interoperability_initializeCellLocalMatrices() {
     e_interoperability.initializeCellLocalMatrices();
@@ -226,6 +233,13 @@ extern "C" {
   extern void f_interoperability_computeDynamicRupture( void   *i_domain,
                                                         double *i_fullUpdateTime,
                                                         double *i_timeStepWidth );
+
+  extern void f_interoperability_computePlasticity( void    *i_domain,
+                                                    double  *i_timestep,
+                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
+                                                    double  *i_stresses,
+                                                    double  *o_plasticUpdate );
+
 
   extern void f_interoperability_writeReceivers( void   *i_domain,
                                                  double *i_fullUpdateTime,
@@ -515,6 +529,18 @@ void seissol::Interoperability::setMaterial(int* i_meshId, int* i_side, double* 
   seissol::model::setMaterial(i_materialVal, *i_numMaterialVals, material);
 }
 
+#ifdef USE_PLASTICITY
+void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {\
+  unsigned int l_copyInteriorId = m_meshToCopyInterior[*i_meshId - 1];
+
+  for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
+    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
+      m_cellData->neighboringIntegration[l_copyInteriorId].initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
+    }
+  }
+}
+#endif
+
 void seissol::Interoperability::initializeCellLocalMatrices()
 {
   // \todo Move this to some common initialization place
@@ -742,3 +768,35 @@ void seissol::Interoperability::computeDynamicRupture( double i_fullUpdateTime,
                                             &i_fullUpdateTime,
                                             &i_timeStepWidth );
 }
+
+#ifdef USE_PLASTICITY
+void seissol::Interoperability::computePlasticity(  double i_timeStep,
+                                                    double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
+                                                    double *io_dofs ) {
+  // collect stresses
+  double l_stresses[6*NUMBER_OF_BASIS_FUNCTIONS];
+
+  for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
+    for( unsigned int l_dof = 0; l_dof < NUMBER_OF_BASIS_FUNCTIONS; l_dof++ ) {
+      l_stresses[l_quantity*NUMBER_OF_BASIS_FUNCTIONS+l_dof] = io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_dof];
+    }
+  }
+
+  // platic update
+  double l_plasticUpdate[6*NUMBER_OF_BASIS_FUNCTIONS];
+
+  // call fortran routine
+  f_interoperability_computePlasticity(  m_domain,
+                                        &i_timeStep,
+                                         i_initialLoading,
+                                         l_stresses,
+                                         l_plasticUpdate );
+
+  // update degrees of freedom
+  for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
+    for( unsigned int l_dof = 0; l_dof < NUMBER_OF_BASIS_FUNCTIONS; l_dof++ ) {
+      io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_dof] += l_plasticUpdate[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_dof];
+    }
+  }
+}
+#endif

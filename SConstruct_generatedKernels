@@ -138,6 +138,8 @@ vars.AddVariables(
               ),
 
   BoolVariable( 'commThread', 'use communication thread for MPI progression (option has no effect when not compiling hybrid target)', False ),
+
+  BoolVariable( 'plasticity', 'enable plasticity (generated kernels only)', False )
 )
 
 # external variables
@@ -274,6 +276,9 @@ env.Append(F90FLAGS='-DNUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equ
 # set number of temporal integration points for dynamic ruputure boundary conditions
 if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
   env.Append(F90FLAGS='-DNUMBER_OF_TEMPORAL_INTEGRATION_POINTS='+env['numberOfTemporalIntegrationPoints'])
+
+if( env['plasticity'] ):
+  env.Append(F90FLAGS='-DUSE_PLASTICITY')
 
 # set compiler and linker environment variables
 for mode in ['FORTRAN', 'F90', 'LINK']:

@@ -304,6 +304,11 @@ struct LocalIntegrationData {
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+
+#ifdef USE_PLASTICITY
+  // initial loading (stress tensor)
+  real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
+#endif
 };
 
 // material constants per cell

@@ -213,6 +213,17 @@ class seissol::Interoperability {
                      int*    i_side,
                      double* i_materialVal,
                      int*    i_numMaterialVals );
+
+   /**
+    * Sets the intial loading for a cell (plasticity).
+    *
+    * @param i_meshId mesh id.
+    * @param i_initialLoading initial loading (stress tensor).
+    **/
+#ifdef USE_PLASTICITY
+   void setInitialLoading( int    *i_meshId,
+                           double *i_initialLoading );
+#endif
    
    /**
     * \todo Move this somewhere else when we have a C++ main loop.
@@ -348,6 +359,19 @@ class seissol::Interoperability {
     **/
    void computeDynamicRupture( double i_fullUpdateTime,
                                double i_timeStepWidth );
+
+   /**
+    * Computes platisticity.
+    *
+    * @param i_timeStep time step of the previous update.
+    * @param i_initialLoading initial loading of the associated cell.
+    * @param io_dofs degrees of freedom (including alignment).
+    **/
+#ifdef USE_PLASTICITY
+   void computePlasticity( double   i_timeStep,
+                           double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
+                           double  *io_dofs );
+#endif
 
    /**
     * Simulates until the final time is reached.
