@@ -71,7 +71,7 @@ private:
 	std::string m_outputPrefix;
 
 	/** The XMDF Writer used for the wave field */
-	XdmfWriter* m_waveFieldWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_waveFieldWriter;
 
 	/** Number of variables */
 	unsigned int m_numVariables;
@@ -160,7 +160,8 @@ public:
 		variables[7] = "v";
 		variables[8] = "w";
 
-		m_waveFieldWriter = new XdmfWriter(m_rank, m_outputPrefix.c_str(), variables, timestep);
+		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
+				m_rank, m_outputPrefix.c_str(), variables, timestep);
 
 		m_tetRefinement = new refinement::TetsNone(meshReader,
 				numVars, numBasisFuncs);
