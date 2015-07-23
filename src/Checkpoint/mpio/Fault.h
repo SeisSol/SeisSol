@@ -78,7 +78,7 @@ public:
 		: CheckPoint(0x7A849, sizeof(double)*NUM_VARIABLES)
 	{}
 
-	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip,
+	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
 			double* state, double* strength,
 			unsigned int numSides, unsigned int numBndGP);
 

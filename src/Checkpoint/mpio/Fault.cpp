@@ -40,11 +40,12 @@
 #include "Fault.h"
 
 bool seissol::checkpoint::mpio::Fault::init(
-		double* mu, double* slipRate1, double* slipRate2, double* slip,
+		double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
+
 		double* state, double* strength,
 		unsigned int numSides, unsigned int numBndGP)
 {
-	seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip, state, strength,
+	seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip1, slip2, state, strength,
 			numSides, numBndGP);
 
 	if (numSides == 0)

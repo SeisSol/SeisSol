@@ -76,7 +76,7 @@ public:
 	{
 	}
 
-	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip,
+	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
 			double* state, double* strength,
 			unsigned int numSides, unsigned int numBndGP);
 

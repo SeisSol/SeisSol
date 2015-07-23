@@ -863,7 +863,6 @@ MODULE TypesDef
      INTEGER                                :: nOutVars
         !< Number of output variables (calculated using OututMask)
      INTEGER                                :: printtimeinterval                !< Time interval at which output will be written
-     INTEGER                                :: SlipUpdateInterval               !< Time interval at which fault output are recalculated for computing the slip (should be small enough + should be a divisor of printtimeinterval)
      INTEGER                                :: OutputMask(1:6)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement
      INTEGER                      , POINTER :: OutputLabel(:)                   !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
      LOGICAL                                :: DR_pick_output                   !< DR output at certain receiver stations
@@ -883,7 +882,8 @@ MODULE TypesDef
   END TYPE tDynRup_output
 
   TYPE tDynRup
-     REAL, POINTER                          :: Slip(:,:)                        !< Slip path at given fault node
+     REAL, POINTER                          :: Slip1(:,:)                        !< Slip path at given fault node along loc dir 1
+     REAL, POINTER                          :: Slip2(:,:)                        !< Slip path at given fault node along loc dir 2
      REAL, POINTER                          :: SlipRate1(:,:)                   !< Slip Rate at given fault node
      REAL, POINTER                          :: SlipRate2(:,:)                   !< Slip Rate at given fault node
      REAL, POINTER                          :: Mu(:,:)                          !< Current friction coefficient at given fault node

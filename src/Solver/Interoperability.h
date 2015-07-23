@@ -260,7 +260,7 @@ class seissol::Interoperability {
 		   const char *i_checkPointFilename, const char* i_checkPointBackend );
 
    void initializeIO(double* mu, double* slipRate1, double* slipRate2,
-			  double* slip, double* state, double* strength,
+			  double* slip1, double* slip2, double* state, double* strength,
 			  int numSides, int numBndGP);
 
    /**

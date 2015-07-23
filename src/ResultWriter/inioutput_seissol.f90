@@ -187,7 +187,8 @@ CONTAINS
         i_mu        = c_loc(disc%DynRup%mu),        &
         i_slipRate1 = c_loc(disc%DynRup%slipRate1), &
         i_slipRate2 = c_loc(disc%DynRup%slipRate2), &
-        i_slip      = c_loc(disc%DynRup%slip),      &
+        i_slip1      = c_loc(disc%DynRup%slip1),    &
+        i_slip2      = c_loc(disc%DynRup%slip2),    &
         i_state     = c_loc(disc%DynRup%stateVar),  &
         i_strength  = c_loc(disc%DynRup%strength),  &
         i_numSides  = c_loc(mesh%fault%nSide),      &

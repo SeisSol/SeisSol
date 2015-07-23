@@ -250,7 +250,7 @@ MODULE Eval_friction_law_mod
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(1:6,1:nBndGP)
     REAL        :: tmpSlip
-    REAL        :: LocMu, LocD_C, LocSlip, LocP, P, LocSR, ShTest
+    REAL        :: LocMu, LocD_C, LocSlip1, LocSlip2, LocSlip, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
     REAL        :: P_0,Strength,cohesion
@@ -291,7 +291,8 @@ MODULE Eval_friction_law_mod
      LocMu_S   = DISC%DynRup%Mu_S(iFace,iBndGP)
      LocMu_D   = DISC%DynRup%Mu_D(iFace,iBndGP)
      LocD_C    = DISC%DynRup%D_C(iFace,iBndGP)
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
+     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
+     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
@@ -334,7 +335,9 @@ MODULE Eval_friction_law_mod
        LocSR      = SQRT(LocSR1**2 + LocSR2**2)
        !
        ! Update slip
-       LocSlip = LocSlip + LocSR*time_inc
+       LocSlip1 = LocSlip1 + LocSR1*time_inc
+       LocSlip2 = LocSlip2 + LocSR2*time_inc
+       LocSlip      = SQRT(LocSlip1**2 + LocSlip2**2)
        tmpSlip = tmpSlip + LocSR*time_inc
        !
        IF(ABS(LocSlip).LT.LocD_C) THEN
@@ -370,7 +373,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
+     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 
@@ -418,7 +422,7 @@ MODULE Eval_friction_law_mod
     REAL        :: sigma
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(6,1:nBndGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocP, P, LocSR, ShTest
+    REAL        :: LocMu, LocD_C, LocSlip1, LocSlip2, LocSlip, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
     REAL        :: P_0,cohesion, Strength
@@ -457,7 +461,8 @@ MODULE Eval_friction_law_mod
      LocMu_S   = DISC%DynRup%Mu_S(iFace,iBndGP)
      LocMu_D   = DISC%DynRup%Mu_D(iFace,iBndGP)
      LocD_C    = DISC%DynRup%D_C(iFace,iBndGP)
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
+     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
+     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
@@ -497,7 +502,9 @@ MODULE Eval_friction_law_mod
        LocSR      = SQRT(LocSR1**2 + LocSR2**2)
        !
        ! Update slip
-       LocSlip = LocSlip + LocSR*time_inc
+       LocSlip1 = LocSlip1 + LocSR1*time_inc
+       LocSlip2 = LocSlip2 + LocSR2*time_inc
+       LocSlip      = SQRT(LocSlip1**2 + LocSlip2**2)
        !
        IF(ABS(LocSlip).LT.LocD_C) THEN
          LocMu = LocMu_S - (LocMu_S-LocMu_D)/LocD_C*ABS(LocSlip)
@@ -531,7 +538,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
+     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
      DISC%DynRup%Strength(iFace,iBndGP)  = Strength_exp
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -571,7 +579,7 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(1:6,1:nBndGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocP, P, LocSR, ShTest
+    REAL        :: LocMu, LocD_C, LocSlip1, LocSlip2, LocSlip, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: tmpSlip
     REAL        :: LocSR1,LocSR2
@@ -585,7 +593,6 @@ MODULE Eval_friction_law_mod
     INTENT(IN)    :: EQN,MESH,MPI,IO
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
-
     tmpSlip = 0.0D0
 
     ! get time increment
@@ -613,7 +620,8 @@ MODULE Eval_friction_law_mod
      LocMu_S   = DISC%DynRup%Mu_S(iFace,iBndGP)
      LocMu_D   = DISC%DynRup%Mu_D(iFace,iBndGP)
      LocD_C    = DISC%DynRup%D_C(iFace,iBndGP)
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
+     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
+     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
@@ -655,7 +663,10 @@ MODULE Eval_friction_law_mod
        LocSR      = SQRT(LocSR1**2 + LocSR2**2)
        !
        ! Update slip
-       LocSlip = LocSlip + LocSR*time_inc
+       LocSlip1 = LocSlip1 + LocSR1*time_inc
+       LocSlip2 = LocSlip2 + LocSR2*time_inc
+       LocSlip      = SQRT(LocSlip1**2 + LocSlip2**2)
+       
        tmpSlip = tmpSlip + LocSR*time_inc
        !
        IF(ABS(LocSlip).LT.LocD_C) THEN
@@ -663,7 +674,7 @@ MODULE Eval_friction_law_mod
        ELSE
          LocMu = LocMu_D
        ENDIF
-       
+      
 ! NO instantaneous healing for SCEC TPV16/17
 !       ! instantaneous healing
 !       IF (DISC%DynRup%inst_healing == 1) THEN
@@ -691,7 +702,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
+     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 
@@ -739,7 +751,7 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(6,1:nBndGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocP, P, LocSR, ShTest
+    REAL        :: LocMu, LocD_C, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
     REAL        :: P_0,Strength,cohesion
@@ -776,7 +788,8 @@ MODULE Eval_friction_law_mod
 
     DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
+     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
+     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
@@ -868,11 +881,15 @@ MODULE Eval_friction_law_mod
        LocTracXZ = LocTracXZ - Stress(6,iBndGP)
        !
        ! Compute slip
-       LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
+       !LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
        !
        !Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
        LocSR1     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
        LocSR2     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
+
+       LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
+       LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
+
        !LocSR1     = SignSR1*ABS(LocSR1)
        !LocSR2     = SignSR2*ABS(LocSR2)           
        !
@@ -894,7 +911,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
+     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -933,7 +951,7 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(6,1:nBndGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocP, P, LocSR, ShTest
+    REAL        :: LocMu, LocD_C, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
     REAL        :: P_0,Strength,cohesion
@@ -980,7 +998,8 @@ MODULE Eval_friction_law_mod
 
     DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
+     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
+     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
@@ -1055,11 +1074,14 @@ MODULE Eval_friction_law_mod
        LocTracXZ = LocTracXZ - Stress(6,iBndGP)
        !
        ! Compute slip
-       LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
+       !LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
        !
        !Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
        LocSR1     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
        LocSR2     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
+
+       LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
+       LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
        !LocSR1     = SignSR1*ABS(LocSR1)
        !LocSR2     = SignSR2*ABS(LocSR2)
        !
@@ -1080,7 +1102,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
+     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -1125,7 +1148,7 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(6,1:nBndGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocP, P, LocSR, ShTest
+    REAL        :: LocMu, LocD_C, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
     REAL        :: P_0,Strength,cohesion
@@ -1255,7 +1278,8 @@ MODULE Eval_friction_law_mod
     !
     DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
+     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
+     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
@@ -1344,11 +1368,14 @@ MODULE Eval_friction_law_mod
        LocTracXZ = LocTracXZ - Stress(6,iBndGP)
        !
        ! Compute slip
-       LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
+       !LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
        !
        !Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
        LocSR1     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
        LocSR2     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
+
+       LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
+       LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
        !LocSR1     = SignSR1*ABS(LocSR1)
        !LocSR2     = SignSR2*ABS(LocSR2)
        !
@@ -1369,7 +1396,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
+     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -1413,7 +1441,7 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(6,1:nBndGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocP, P, LocSR, ShTest
+    REAL        :: LocMu, LocD_C, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
     REAL        :: P_0,Strength,cohesion
@@ -1544,7 +1572,8 @@ MODULE Eval_friction_law_mod
     !
     DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
+     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
+     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
@@ -1640,11 +1669,14 @@ MODULE Eval_friction_law_mod
          LocTracXZ = LocTracXZ - Stress(6,iBndGP)
          !
          ! Compute slip
-         LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
+         !LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
          !
          !Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
          LocSR1     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
          LocSR2     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
+
+       LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
+       LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
          !LocSR1     = SignSR1*ABS(LocSR1)
          !LocSR2     = SignSR2*ABS(LocSR2)
          !
@@ -1665,7 +1697,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
+     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
   !
  ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP

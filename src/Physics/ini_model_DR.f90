@@ -297,6 +297,7 @@ MODULE ini_model_DR_mod
     IF (DISC%DynRup%magnitude_output_on.EQ.1) THEN
        ALLOCATE(  DISC%DynRup%averaged_Slip(MESH%Fault%nSide)        )
        !ini magnitude output
+       DISC%DynRup%magnitude_out(:) = .TRUE.
        DISC%DynRup%averaged_Slip(:) = 0.0D0
     ENDIF
     

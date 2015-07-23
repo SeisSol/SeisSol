@@ -44,11 +44,11 @@
 #include "FaultAsync.h"
 
 bool seissol::checkpoint::mpio::FaultAsync::init(
-		double* mu, double* slipRate1, double* slipRate2, double* slip,
+		double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
 		double* state, double* strength,
 		unsigned int numSides, unsigned int numBndGP)
 {
-	bool exists = Fault::init(mu, slipRate1, slipRate2, slip, state, strength,
+	bool exists = Fault::init(mu, slipRate1, slipRate2, slip1, slip2, state, strength,
 			numSides, numBndGP);
 
 	if (numSides != 0)

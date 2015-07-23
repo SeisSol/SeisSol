@@ -1392,13 +1392,12 @@ CONTAINS
     ! localVariables
     INTEGER                    :: OutputMask(6)
     INTEGER                    :: printtimeinterval
-    INTEGER                    :: SlipUpdateInterval
     INTEGER                    :: refinement_strategy, refinement, BinaryOutput
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IO, DISC
     INTENT(INOUT)              :: BND
     NAMELIST                   /Elementwise/ printtimeinterval, OutputMask, refinement_strategy, &
-                                                refinement, BinaryOutput, SlipUpdateInterval
+                                                refinement, BinaryOutput
     !Setting default values
     printtimeinterval = 2
     OutputMask(:) = 1
@@ -1407,7 +1406,6 @@ CONTAINS
     refinement_strategy = 2
     refinement = 2
     BinaryOutput = 0 ! 0/ASCII 1/binary float 2/binary double
-    SlipUpdateInterval = 1
     !
     READ(IO%UNIT%FileIn, nml = Elementwise)
     !
@@ -1418,12 +1416,7 @@ CONTAINS
                                                                                      ! 5/ background values
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
     DISC%DynRup%DynRup_out_elementwise%BinaryOutput = BinaryOutput             
-    DISC%DynRup%DynRup_out_elementwise%SlipUpdateInterval = SlipUpdateInterval
 
-    IF ((OutputMask(6).EQ.1).AND.(MOD(printtimeinterval,SlipUpdateInterval).NE.0)) THEN
-        logError(*) 'printtimeinterval should be a multiple of SlipUpdateInterval'
-        STOP
-    ENDIF     
     IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. & 
        DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1) THEN
         logError(*) 'Undefined refinement strategy for fault output!'

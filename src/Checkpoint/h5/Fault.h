@@ -86,7 +86,7 @@ private:
 	 * Identifiers of the main data set in the files
 	 * @todo Make the size depend on the size of VAR_NAMES
 	 */
-	hid_t m_h5data[2][6];
+	hid_t m_h5data[2][7];
 
 	/** Identifiers for the file space of the data set */
 	hid_t m_h5fSpaceData;
@@ -96,7 +96,7 @@ public:
 		: m_h5fSpaceData(-1)
 	{}
 
-	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip,
+	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
 			double* state, double* strength,
 			unsigned int numSides, unsigned int numBndGP);
 

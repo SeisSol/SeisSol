@@ -85,7 +85,6 @@ CONTAINS
       LOGICAL                  :: isOnPickpoint
       LOGICAL                  :: isOnElementwise
       LOGICAL                  :: isOnFaultoutput
-      INTEGER                  :: ndtSinceLastUp
       INTEGER                  :: i, rank_int                                   ! Loop variables
       !-------------------------------------------------------------------------!
       isOnPickpoint = .FALSE.
@@ -123,17 +122,11 @@ CONTAINS
          ELSE
             RETURN
          ENDIF
-         CALL calc_FaultOutput(DISC%DynRup%DynRup_out_atPickpoint, DISC, EQN, MESH, MaterialVal, BND, time, dt)
+         CALL calc_FaultOutput(DISC%DynRup%DynRup_out_atPickpoint, DISC, EQN, MESH, MaterialVal, BND, time)
          CALL write_FaultOutput_atPickpoint(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
 
        !Fault Element Output
        CASE(4)
-         !for an accurate slip we have to calculate the fault output more often (Every SlipUpdateInterval)
-         IF  ((DISC%DynRup%DynRup_out_elementwise%OutputMask(6).EQ.1).AND. &
-             (MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%SlipUpdateInterval).EQ.0)) THEN
-           CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time, dt)
-         ENDIF
-
          ! fault output iterations, including iteration 1 and last timestep
          IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
          ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))) THEN
@@ -143,22 +136,8 @@ CONTAINS
          ELSE  ! all timesteps without fault output
             RETURN
          ENDIF
-
-         IF  (DISC%DynRup%DynRup_out_elementwise%OutputMask(6).NE.1) THEN
-            CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time, dt)
-         ELSE
-         ! as printtimeinterval is a multiple of SlipUpdateInterval calc_FaultOutput has already been called
-         ! but we have to deal with the special case of last time step : 
-         ! calc_FaultOutput should be called with adapted dt parameter for reliable slip calculation
-            IF ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0)) THEN
-               ndtSinceLastUp = MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%SlipUpdateInterval)
-               IF (ndtSinceLastUp.NE.0) THEN
-                  CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time, &
-                     dt*ndtSinceLastUp/(1d0*DISC%DynRup%DynRup_out_elementwise%SlipUpdateInterval))
-               ENDIF
-            ENDIF  
-         ENDIF     
-
+         ! DR output at each element
+         CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
          CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
          logInfo(*) 'Faultoutput successfully written to .vtu files at time', time
          ! remember that fault output was written here
@@ -176,41 +155,21 @@ CONTAINS
          IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0 &
          .OR. (min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0) ) THEN
             isOnElementwise=.TRUE.
-         ENDIF
+		 ENDIF
          ! print always first timestep
          IF(DISC%iterationstep .EQ. 1) THEN
            isOnPickpoint = .TRUE.
            isOnElementwise=.TRUE.
          ENDIF
-         !for an accurate slip we have to calculate the fault output more often (Every SlipUpdateInterval)
-         IF  ((DISC%DynRup%DynRup_out_elementwise%OutputMask(6).EQ.1).AND. &
-             (MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%SlipUpdateInterval).EQ.0)) THEN
-           DISC%DynRup%OutputPointType=4
-           CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time, dt)
-           DISC%DynRup%OutputPointType=5
-         ENDIF
          !
          IF (isOnPickpoint) THEN
-           CALL calc_FaultOutput(DISC%DynRup%DynRup_out_atPickpoint, DISC, EQN, MESH, MaterialVal, BND, time, dt)
+           CALL calc_FaultOutput(DISC%DynRup%DynRup_out_atPickpoint, DISC, EQN, MESH, MaterialVal, BND, time)
            CALL write_FaultOutput_atPickpoint(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
          ENDIF
          !
          IF (isOnElementwise) THEN
            DISC%DynRup%OutputPointType=4
-           IF  (DISC%DynRup%DynRup_out_elementwise%OutputMask(6).NE.1) THEN
-              CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time, dt)
-           ELSE
-              ! as printtimeinterval is a multiple of SlipUpdateInterval calc_FaultOutput has already been called
-              ! but we have to deal with the special case of last time step : 
-              ! calc_FaultOutput should be called with adapted dt parameter for reliable slip calculation
-              IF ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0)) THEN
-                 ndtSinceLastUp = MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%SlipUpdateInterval)
-                 IF (ndtSinceLastUp.NE.0) THEN
-                    CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time, &
-                       dt*ndtSinceLastUp/(1d0*DISC%DynRup%DynRup_out_elementwise%SlipUpdateInterval))
-                 ENDIF
-              ENDIF  
-           ENDIF 
+           CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
            CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
            DISC%DynRup%OutputPointType=5
          ENDIF
@@ -223,13 +182,14 @@ CONTAINS
 !
 !> Fault output calculation at specific positions (receiver and elementwise)
 !<
-  SUBROUTINE calc_FaultOutput( DynRup_output, DISC, EQN, MESH, MaterialVal, BND, time, dt)
+  SUBROUTINE calc_FaultOutput( DynRup_output, DISC, EQN, MESH, MaterialVal, BND, time )
 #ifdef GENERATEDKERNELS
     use  f_ftoc_bind_interoperability
     use iso_c_binding, only: c_loc
 #endif
 
     !-------------------------------------------------------------------------!
+    USE common_operators_mod
     USE JacobiNormal_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -243,7 +203,6 @@ CONTAINS
     TYPE(tBoundary)               :: BND                                      !< BND    data structure
     REAL                          :: MaterialVal(MESH%nElem,EQN%nBackgroundVar) !< Local Mean Values
     REAL                          :: time                                     !< time
-    REAL                          :: dt                                       !< time step
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     TYPE(tDynRup_output), target  :: DynRup_output                            !< Output data for Dynamic Rupture processes
@@ -279,6 +238,8 @@ CONTAINS
     REAL    :: rotmat(1:6,1:6)                                                ! Rotation matrix
     REAL    :: TmpMat(EQN%nBackgroundVar)                                     ! temporary material values
     REAL    :: NorDivisor,ShearDivisor,UVelDivisor
+    REAL    :: strike_vector(1:3), crossprod(1:3) !for rotation of Slip from local to strike, dip coordinate
+    REAL    :: cos1, sin1, scalarprod
     REAL, PARAMETER    :: ZERO = 0.0D0
 #ifndef GENERATEDKERNELS
     REAL, POINTER     :: DOFiElem_ptr(:,:)  => NULL()                         ! Actual dof
@@ -288,7 +249,7 @@ CONTAINS
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiNeigh_ptr ! no pointer again
 #endif
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: BND, DISC, EQN, MESH, MaterialVal, time, dt
+    INTENT(IN)    :: BND, DISC, EQN, MESH, MaterialVal, time
     INTENT(INOUT) :: DynRup_output
     !-------------------------------------------------------------------------!
     !
@@ -521,7 +482,15 @@ CONTAINS
           LocSRs = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(TracMat(4)-LocMat(4))
           LocSRd = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(TracMat(6)-LocMat(6))
 
+
+          ! TU 06.2015: average stress over the element in the considered direction
+          ! (uncomment for rough geometry)
+          !SideVal(1)  =  V1(1,1)*DynRup_output%OutEval(iOutPoints,1,1,1)
+          !SideVal2(1) =  V2(1,1)*DynRup_output%OutEval(iOutPoints,1,1,2)
+          !LocP = SideVal(1)+(((SideVal2(1)-SideVal(1))+w_speed_neig(1)*rho_neig*(SideVal2(7)-SideVal(7)))* &
+          !       w_speed(1)*rho) * NorDivisor
           ! Store Values into Output vector OutVal
+
           OutVars = 0
           IF (DynRup_output%OutputMask(1).EQ.1) THEN
               OutVars = OutVars + 1
@@ -558,13 +527,29 @@ CONTAINS
 
           IF (DISC%DynRup%OutputPointType.EQ.4) THEN
               IF (DynRup_output%OutputMask(6).EQ.1) THEN
+
+              ! TU 07.15 rotate Slip from face reference coordinate to (strike,dip, normal) reference cordinate
+              strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
+              strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
+              strike_vector(3) = 0.0D0
+
+              cos1 = dot_product(strike_vector(:),NormalVect_s(:))
+              crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
+
+              scalarprod = dot_product(crossprod(:),NormalVect_n(:))
+              IF (scalarprod.GT.0) THEN
+                  sin1=sqrt(1-cos1**2)
+              ELSE
+                  sin1=-sqrt(1-cos1**2)
+              ENDIF
+
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars)  = DynRup_output%OutVal(iOutPoints,1,OutVars)  + DynRup_output%SlipUpdateInterval*dt*DynRup_output%OutVal(iOutPoints,1,1)
+              DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%Slip1(iFace,iBndGP) - sin1* DISC%DynRup%Slip2(iFace,iBndGP)
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars)  = DynRup_output%OutVal(iOutPoints,1,OutVars)  + DynRup_output%SlipUpdateInterval*dt*DynRup_output%OutVal(iOutPoints,1,2)
+              DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%Slip1(iFace,iBndGP) + cos1 * DISC%DynRup%Slip2(iFace,iBndGP)
               ENDIF
           ENDIF
-          !
+
           ! Store output
           IF (DISC%DynRup%OutputPointType.NE.4) THEN
           DynRup_output%CurrentPick(iOutPoints) = DynRup_output%CurrentPick(iOutPoints) +1
@@ -574,7 +559,6 @@ CONTAINS
           ELSE
           DynRup_output%CurrentPick(iOutPoints) = 1
           ENDIF
-
           DynRup_output%TmpState(iOutPoints,DynRup_output%CurrentPick(iOutPoints),:) = DynRup_output%OutVal(iOutPoints,1,:)
           !
 #ifndef GENERATEDKERNELS

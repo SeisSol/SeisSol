@@ -161,9 +161,9 @@ extern "C" {
   }
 
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
-		  double* slip, double* state, double* strength,
+		  double* slip1, double* slip2, double* state, double* strength,
 		  int *numSides, int *numBndGP) {
-	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, state, strength,
+	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip1, slip2, state, strength,
 			  *numSides, *numBndGP);
   }
 
@@ -609,7 +609,7 @@ void seissol::Interoperability::enableCheckPointing( double *i_checkPointInterva
 
 void seissol::Interoperability::initializeIO(
 		  double* mu, double* slipRate1, double* slipRate2,
-		  double* slip, double* state, double* strength,
+		  double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP)
 {
 	  // Initialize checkpointing
@@ -618,7 +618,7 @@ void seissol::Interoperability::initializeIO(
 	  int faultTimeStep;
 	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_dofs),
 				  m_numberOfCopyInteriorCells * NUMBER_OF_ALIGNED_DOFS,
-				  mu, slipRate1, slipRate2, slip,
+				  mu, slipRate1, slipRate2, slip1, slip2,
 				  state, strength, numSides, numBndGP,
 				  currentTime, waveFieldTimeStep, faultTimeStep);
 	  if (hasCheckpoint) {
