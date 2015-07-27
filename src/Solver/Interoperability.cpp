@@ -657,6 +657,9 @@ void seissol::Interoperability::getTimeDerivatives( int    *i_meshId,
                             m_globalData->stiffnessMatricesTransposed,
                             m_dofs[ m_meshToCopyInterior[(*i_meshId)-1] ],
                             m_cellData->localIntegration[ m_meshToCopyInterior[ (*i_meshId)-1] ].starMatrices,
+#ifdef REQUIRE_SOURCE_MATRIX
+                            m_cellData->localIntegration[ m_meshToCopyInterior[ (*i_meshId)-1] ].sourceMatrix,
+#endif
                             l_timeIntegrated,
                             l_timeDerivatives );
 

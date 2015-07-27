@@ -409,6 +409,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
                                            m_globalData->stiffnessMatricesTransposed,
                                            io_dofs[l_cell],
                                            i_cellData->localIntegration[l_cell].starMatrices,
+#ifdef REQUIRE_SOURCE_MATRIX
+                                           i_cellData->localIntegration[l_cell].sourceMatrix,
+#endif
                                            l_bufferPointer,
                                            io_derivatives[l_cell] );
 
@@ -422,6 +425,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
                                            l_bufferPointer,
                                            i_cellData->localIntegration[l_cell].nApNm1,
                                            io_dofs[l_cell] );
+
+#ifdef REQUIRE_SOURCE_MATRIX
+    m_sourceKernel.computeIntegral(        l_bufferPointer,
+                                           i_cellData->localIntegration[l_cell].sourceMatrix,
+                                           io_dofs[l_cell] );
+#endif
+
 #ifndef NDEBUG
     unsigned int l_tempHardwareFlops = 0;
     unsigned int l_tempNonZeroFlops = 0;

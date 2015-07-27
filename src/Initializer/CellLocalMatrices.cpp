@@ -165,5 +165,9 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         }
       }
     }
+#ifdef REQUIRE_SOURCE_MATRIX
+    MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> sourceMatrix(io_cellData->localIntegration[cell].sourceMatrix);
+    seissol::model::setSourceMatrix(io_cellData->material[cell].local, sourceMatrix);
+#endif
   }
 }

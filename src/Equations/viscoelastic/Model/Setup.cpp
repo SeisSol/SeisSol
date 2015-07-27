@@ -43,7 +43,6 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 
-
 void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
                                                  unsigned        i_dim,
                                                  MatrixView<9,6> o_M )
@@ -140,14 +139,17 @@ void seissol::model::setMaterial( double* i_materialVal,
                                   int i_numMaterialVals,
                                   seissol::model::Material* o_material )
 {
-  assert(i_numMaterialVals == 3);
+  assert(i_numMaterialVals == 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
  
   o_material->rho = i_materialVal[0];
   o_material->mu = i_materialVal[1];
   o_material->lambda = i_materialVal[2];  
   
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    o_material->omega[mech] = i_materialVal[4 + 4*mech];
+    o_material->omega[mech] = i_materialVal[3 + 4*mech];
+    for (unsigned i = 1; i < 4; ++i) {
+      o_material->theta[mech][i-1] = i_materialVal[3 + 4*mech + i];
+    }
   }
 }
 
@@ -171,5 +173,44 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
     unsigned origin = 9 + mech * 6;
     seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<6,6>(origin, origin));
     seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<6,6>(origin, origin));
+  }
+}
+
+void getTransposedSourceCoefficientMatrix( real const      theta[3],
+                                           MatrixView<6,9> E )
+{
+  E(0,0) = theta[0];
+  E(1,0) = theta[1];
+  E(2,0) = theta[1];
+  E(0,1) = theta[1];
+  E(1,1) = theta[0];
+  E(2,1) = theta[1];  
+  E(0,2) = theta[1];
+  E(1,2) = theta[1];
+  E(2,2) = theta[0];  
+  E(3,3) = theta[2];
+  E(4,4) = theta[2];
+  E(5,5) = theta[2];
+}
+
+void seissol::model::setSourceMatrix( seissol::model::Material const&                        local,
+                                      MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> sourceMatrix )
+{
+  sourceMatrix.setZero();
+
+  //       | E_1^T |
+  // E^T = |  ...  |
+  //       | E_L^T |
+  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+    getTransposedSourceCoefficientMatrix(local.theta[mech], sourceMatrix.block<6,9>(9 + mech * 6, 0));
+    
+  }
+  
+  // E' = diag(-omega_1 I, ..., -omega_L I)
+  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+    for (unsigned i = 0; i < 6; ++i) {
+      unsigned idx = 9 + 6*mech + i;
+      sourceMatrix(idx,idx) = -local.omega[mech];
+    }
   }
 }

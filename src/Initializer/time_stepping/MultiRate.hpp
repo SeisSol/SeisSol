@@ -112,6 +112,9 @@ class seissol::initializers::time_stepping::MultiRate {
         l_minimumTimeStepWidth = std::min( l_minimumTimeStepWidth, i_cellTimeStepWidths[l_cell] );
         l_maximumTimeStepWidth = std::max( l_maximumTimeStepWidth, i_cellTimeStepWidths[l_cell] );
       }
+      
+      assert(l_minimumTimeStepWidth != std::numeric_limits<double>::max());
+      assert(l_maximumTimeStepWidth != std::numeric_limits<double>::min());
 
 #ifdef USE_MPI
       // derive global minimum and maximum time step widths

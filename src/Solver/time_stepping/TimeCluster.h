@@ -51,6 +51,9 @@
 #include <Kernels/Time.h>
 #include <Kernels/Volume.h>
 #include <Kernels/Boundary.h>
+#ifdef REQUIRE_SOURCE_MATRIX
+#include <Kernels/Source.h>
+#endif
 
 namespace seissol {
   namespace time_stepping {
@@ -80,6 +83,10 @@ class seissol::time_stepping::TimeCluster {
 
     //! boundary kernel
     kernels::Boundary &m_boundaryKernel;
+    
+#ifdef REQUIRE_SOURCE_MATRIX
+    kernels::Source    m_sourceKernel;
+#endif
 
     /*
      * mesh structure

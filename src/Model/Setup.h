@@ -83,6 +83,11 @@ namespace seissol {
                                 VrtxCoords const i_tangent2,
                                 MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
                                 MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv );
+                                
+#ifdef REQUIRE_SOURCE_MATRIX
+    void setSourceMatrix( seissol::model::Material const&                        local,
+                          MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> sourceMatrix );
+#endif
   }
 }
 

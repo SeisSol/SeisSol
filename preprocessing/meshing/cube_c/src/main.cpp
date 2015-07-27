@@ -146,6 +146,7 @@ int main(int argc, char* argv[])
 	args.addOption("py", 0, "number of partitions y dimension");
 	args.addOption("pz", 0, "number of partitions z dimension");
 	args.addOption("output", 'o', "output file for resulting netCDF mesh");
+  args.addOption("scale", 's', "size of the domain = [-s/2, s/2]^3 (default: 100)", utils::Args::Required, false);
 
 	unsigned int numCubes[4];
 	unsigned int numPartitions[4];
@@ -267,8 +268,8 @@ int main(int argc, char* argv[])
 	checkNcError(nc_def_var(ncFile, "element_mpi_indices", NC_INT, 3, dimsElemSides, &ncVarElemMPIIndices));
 //	checkNcError(nc_var_par_access(ncFile, ncVarElemMPIIndices, NC_COLLECTIVE));
 
-//	int ncVarElemGroup;
-//	checkNcError(nc_def_var(ncFile, "element_group", NC_INT, 2, dimsElemSides, &ncVarElemGroup));
+	int ncVarElemGroup;
+	checkNcError(nc_def_var(ncFile, "element_group", NC_INT, 2, dimsElemSides, &ncVarElemGroup));
 //	checkNcError(nc_var_par_access(ncFile, ncVarElemGroup, NC_COLLECTIVE));
 
 	int ncVarVrtxSize;
@@ -1174,6 +1175,10 @@ int main(int argc, char* argv[])
 	writes_done++; loadBar(writes_done, netcdf_writes);
 
 	double *vrtxCoords = new double[uniqueVertices.size()*3];
+  
+  
+  double scale = args.getArgument<double>("scale", 100.0);
+  double halfWidth = scale / 2.0;
 
 	for (unsigned int z = 0; z < numPartitions[2]; z++) {
 		for (unsigned int y = 0; y < numPartitions[1]; y++) {
@@ -1181,9 +1186,9 @@ int main(int argc, char* argv[])
 
 				#pragma omp parallel for
 				for (unsigned int i = 0; i < uniqueVertices.size(); i++) {
-					vrtxCoords[i*3] = static_cast<double>(uniqueVertices.at(i).v[0] + x*numCubesPerPart[0])/static_cast<double>(numCubes[0])*100. - 50.;
-					vrtxCoords[i*3+1] = static_cast<double>(uniqueVertices.at(i).v[1] + y*numCubesPerPart[1])/static_cast<double>(numCubes[1])*100. - 50.;
-					vrtxCoords[i*3+2] = static_cast<double>(uniqueVertices.at(i).v[2] + z*numCubesPerPart[2])/static_cast<double>(numCubes[2])*100. - 50.;
+					vrtxCoords[i*3] = static_cast<double>(uniqueVertices.at(i).v[0] + x*numCubesPerPart[0])/static_cast<double>(numCubes[0])*scale - halfWidth;
+					vrtxCoords[i*3+1] = static_cast<double>(uniqueVertices.at(i).v[1] + y*numCubesPerPart[1])/static_cast<double>(numCubes[1])*scale - halfWidth;
+					vrtxCoords[i*3+2] = static_cast<double>(uniqueVertices.at(i).v[2] + z*numCubesPerPart[2])/static_cast<double>(numCubes[2])*scale - halfWidth;
 				}
 
 				size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, 0, 0};
@@ -1195,6 +1200,14 @@ int main(int argc, char* argv[])
 	}
 
 	delete [] vrtxCoords;
+  
+  // Set material zone to 1
+  int *elemGroup = new int[numPartitions[3] * numElemPerPart[3]];
+	std::fill(elemGroup, elemGroup + numPartitions[3] * numElemPerPart[3], 1);
+  size_t start[2] = { 0, 0 };
+  size_t count[2] = { numPartitions[3], numElemPerPart[3] };
+	checkNcError(nc_put_vara_int(ncFile, ncVarElemGroup, start, count, elemGroup));
+	delete[] elemGroup;
 
 	checkNcError(nc_close(ncFile));
 

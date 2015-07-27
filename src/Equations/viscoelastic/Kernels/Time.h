@@ -402,6 +402,7 @@ class seissol::kernels::Time {
                             real** i_stiffnessMatrices,
                       const real*  i_degreesOfFreedom,
                             real   i_starMatrices[3][STAR_NNZ],
+                      const real   sourceMatrix[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES],
                             real*  o_timeIntegrated,
                             real*  o_timeDerivatives = NULL );
 

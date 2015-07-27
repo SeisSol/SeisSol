@@ -2533,7 +2533,7 @@ CONTAINS
     REAL, POINTER :: MassMatrix(:,:)    =>NULL()
 #ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
-    real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVar)
+    real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2622,7 +2622,8 @@ CONTAINS
             DO iDegFr = 1, nDegFr
                 phi = IntGPBaseFunc(iDegFr,iIntGP)
 #ifdef GENERATEDKERNELS
-                l_dofsUpdate(iDegFr, :) = l_dofsUpdate(iDegFr, :) + intGaussW(iIntGP)*iniGP(:)*phi
+                l_dofsUpdate(iDegFr, 1:EQN%nVar) = l_dofsUpdate(iDegFr, 1:EQN%nVar) + intGaussW(iIntGP)*iniGP(:)*phi
+                l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) = l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) + intGaussW(iIntGP)*iniGP_ane(:)*phi
 #else
                 DISC%Galerkin%dgvar(iDegFr,1:EQN%nVar,iElem,1) =                                                    &
                 DISC%Galerkin%dgvar(iDegFr,1:EQN%nVar,iElem,1) + IntGaussW(iIntGP)*iniGP(:)*phi

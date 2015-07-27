@@ -298,6 +298,11 @@ struct LocalIntegrationData {
 
   // flux solver for element local contribution
   real nApNm1[4][NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+  
+  // Matrix for source terms of the form E_pq Q_q
+#ifdef REQUIRE_SOURCE_MATRIX
+  real sourceMatrix[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+#endif
 };
 
 // data for the neighboring boundary integration
