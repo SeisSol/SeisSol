@@ -20,8 +20,13 @@ com.apple.timemachine.supported
 # Fortran
 *.mod
 
+# Executable
+build/SeisSol_*
+
 # Python
 *.py[cod]
 
 # Scons
 *.dblite
+config.log
+.sconf_temp
