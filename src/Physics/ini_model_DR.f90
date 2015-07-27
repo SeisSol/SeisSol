@@ -272,6 +272,7 @@ MODULE ini_model_DR_mod
     REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
     REAL                           :: chi,tau
     REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
+    REAL                           :: r, Vs, r_crit, hypox, hypoy, hypoz
     !-------------------------------------------------------------------------! 
     INTENT(IN)    :: MESH, BND
     INTENT(INOUT) :: EQN,DISC
@@ -372,6 +373,68 @@ MODULE ini_model_DR_mod
          ENDDO ! iBndGP
       
      ENDDO !    MESH%Fault%nSide   
+
+     CASE(30) !smooth forced rupture for benchmarks like TPV29/30 and TPV26/27
+
+       ALLOCATE(  DISC%DynRup%D_C(MESH%Fault%nSide,DISC%Galerkin%nBndGP)       )
+       ALLOCATE(  DISC%DynRup%Mu_S(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
+       ALLOCATE(  DISC%DynRup%Mu_D(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
+       ALLOCATE(DISC%DynRup%forced_rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+
+       DISC%DynRup%D_C(:,:)  = DISC%DynRup%D_C_ini
+       DISC%DynRup%Mu_S(:,:) = DISC%DynRup%Mu_S_ini
+       DISC%DynRup%Mu_D(:,:) = DISC%DynRup%Mu_D_ini
+       EQN%IniMu(:,:)        =  DISC%DynRup%Mu_S_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
+
+       Vs = SQRT(EQN%mu/EQN%rho0)
+       r_crit = DISC%DynRup%R_crit
+       hypox = DISC%DynRup%XHypo
+       hypoy = DISC%DynRup%YHypo
+       hypoz = DISC%DynRup%ZHypo
+
+       !calculate time of forced rupture for every BndGP, dependent of the distance to the hypocenter
+       DO i = 1, MESH%Fault%nSide
+       
+        ! element ID    
+        iElem = MESH%Fault%Face(i,1,1)
+        iSide = MESH%Fault%Face(i,2,1)         
+     
+        ! get vertices of complete tet
+        IF (MESH%Fault%Face(i,1,1) == 0) THEN
+          ! iElem is in the neighbor domain
+          ! The neighbor element belongs to a different MPI domain
+            iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
+            iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
+            iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+            MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+         
+            xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+            yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+            zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+        ELSE 
+           ! get vertices
+            xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+            yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+            zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+        ENDIF
+      
+        DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
+           ! Transformation of boundary GP's into XYZ coordinate system
+            chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+            tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+            CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
+            CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
+
+           r = SQRT((xGP-hypox)**2+(yGP-hypoy)**2+(zGP-hypoz)**2)
+           
+           IF (r.LE.r_crit) THEN
+              DISC%DynRup%forced_rupture_time(i,iBndGP) = r/(0.7d0*Vs)+(0.081d0*r_crit/(0.7d0*Vs))*(1d0/(1d0-(r/r_crit)*(r/r_crit))-1d0)
+           ELSE
+              DISC%DynRup%forced_rupture_time(i,iBndGP) = 1d9
+           ENDIF
+
+       ENDDO !iBndGP
+      ENDDO !i
 
     CASE(3,4,7,12,101,103)
        ! ini initial slip rate fields to zero (for rate and state friction cases) 
@@ -1592,7 +1655,6 @@ MODULE ini_model_DR_mod
   
   ! OPEN backgroundstress field
   CALL read_scec_stress(DISC,IO)          
-  ALLOCATE(DISC%DynRup%forced_rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
  
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
@@ -1721,8 +1783,8 @@ MODULE ini_model_DR_mod
       ENDDO
            
   ENDDO !    MESH%Fault%nSide   
-              
   END SUBROUTINE background_TOH1       ! Tohoku 1
+
   
   !> Landers1 fault system backround stress model
   !<

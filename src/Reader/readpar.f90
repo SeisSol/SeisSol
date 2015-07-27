@@ -1596,7 +1596,7 @@ CONTAINS
                                               RS_sv0, XRef, YRef, ZRef, GPwise, Rupspeed, &
                                               Mu_D_ini, Mu_S_ini, Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                               RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
-                                              RS_iniSlipRate2, v_star, L, Mu_W, RS_srW,  &
+                                              RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                               NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0
@@ -1607,7 +1607,7 @@ CONTAINS
                                                 GPwise, inst_healing, Rupspeed, &
                                                 Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                                 RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
-                                                RS_iniSlipRate2, v_star, L, Mu_W, RS_srW, Nucleation, &
+                                                RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Mu_W, RS_srW, Nucleation, &
                                                 NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, &
@@ -1647,6 +1647,8 @@ CONTAINS
     RS_iniSlipRate1 = 0
     RS_iniSlipRate2 = 0
     v_star = 0
+    R_crit = 0
+    t_0 = 0
     L = 0
     Mu_W = 0
     RS_srW = 0
@@ -1743,6 +1745,15 @@ CONTAINS
              ! all parameters are defined in input file of INITIAL VALUES
              DISC%DynRup%inst_healing = 0
              CONTINUE
+           CASE(30) !LSW with a smoothed rupture in a circular patch, used for example in TPV29/TPV30 and TPV26/TPV27
+             DISC%DynRup%Mu_D_ini = Mu_D_ini
+             DISC%DynRup%Mu_S_ini = Mu_S_ini
+             DISC%DynRup%D_C_ini  = D_C_ini
+             DISC%DynRup%XHypo  = XHypo
+             DISC%DynRup%YHypo  = YHypo
+             DISC%DynRup%ZHypo  = ZHypo
+             DISC%DynRup%R_crit   = R_crit    ! radius of the nucleation patch
+             DISC%DynRup%t_0      = t_0       ! forced rupture decay time
            CASE(103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
@@ -3426,11 +3437,11 @@ ALLOCATE( SpacePositionx(nDirac), &
                 ENDIF  
                 IF(EQN%Plasticity.EQ.1) THEN !plastic strain output
                     IO%TitleMask(13) = TRIM(' "eps_p_xx"')
-                    IO%TitleMask(14) = TRIM(' "eps__p_yy"')
+                    IO%TitleMask(14) = TRIM(' "eps_p_yy"')
                     IO%TitleMask(15) = TRIM(' "eps_p_zz"')
                     IO%TitleMask(16) = TRIM(' "eps_p_xy"')
                     IO%TitleMask(17) = TRIM(' "eps_p_yz"')
-                    IO%TitleMask(18) = TRIM(' "eps_p_xz"')             
+                    IO%TitleMask(18) = TRIM(' "eps_p_xz"') 
                 ENDIF       
       ENDIF
       !

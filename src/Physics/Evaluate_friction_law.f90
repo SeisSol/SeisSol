@@ -154,7 +154,7 @@ MODULE Eval_friction_law_mod
                                 time,iT,                                   & ! IN: time, inv Trafo
                                 DISC,EQN,MESH,MPI,IO)
 
-        CASE(16,17) ! Specific conditions for SCEC TPV16/17
+        CASE(16,17,29,30) ! Specific conditions for SCEC TPV16/17
                     ! basically, introduction of a time dependent forced rupture
 
            CALL Linear_slip_weakening_TPV1617(                             & !
@@ -587,12 +587,15 @@ MODULE Eval_friction_law_mod
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
+    REAL        :: t_0
+    REAL        :: f1,f2,tn
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
     INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP
     INTENT(IN)    :: EQN,MESH,MPI,IO
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
+    t_0 = DISC%DynRup%t_0
     tmpSlip = 0.0D0
 
     ! get time increment
@@ -627,13 +630,15 @@ MODULE Eval_friction_law_mod
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
      P_0       = Stress(1,iBndGP)
      !
+     tn = time
      DO iTimeGP=1,nTimeGP
        LocP   = NorStressGP(iBndGP,iTimeGP)
        time_inc = DeltaT(iTimeGP)
+       tn=tn + time_inc
        !
-       IF (time .GE. DISC%DynRup%forced_rupture_time(iFace,iBndGP)) THEN
-          LocMu = LocMu_D
-       ENDIF
+       !IF (time .GE. DISC%DynRup%forced_rupture_time(iFace,iBndGP)) THEN
+       !   LocMu = LocMu_D
+       !ENDIF
        !
        P = LocP + P_0
        ! prevents tension at the fault:
@@ -669,12 +674,20 @@ MODULE Eval_friction_law_mod
        
        tmpSlip = tmpSlip + LocSR*time_inc
        !
-       IF(ABS(LocSlip).LT.LocD_C) THEN
-         LocMu = LocMu_S - (LocMu_S-LocMu_D)/LocD_C*ABS(LocSlip)
+       ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
+       f1=dmin1(ABS(LocSlip)/LocD_C,1d0)
+       IF (t_0.eq.0) THEN
+          IF (tn .GE. DISC%DynRup%forced_rupture_time(iFace,iBndGP)) THEN
+             f2=1.
+          ELSE
+             f2=0.
+          ENDIF
        ELSE
-         LocMu = LocMu_D
+          f2=dmax1(0d0,dmin1((time-DISC%DynRup%forced_rupture_time(iFace,iBndGP))/t_0,1d0))
        ENDIF
-      
+
+       LocMu = LocMu_S - (LocMu_S-LocMu_D)*dmax1(f1,f2)
+    
 ! NO instantaneous healing for SCEC TPV16/17
 !       ! instantaneous healing
 !       IF (DISC%DynRup%inst_healing == 1) THEN

@@ -893,6 +893,11 @@ MODULE TypesDef
      REAL, POINTER                          :: cohesion(:,:)                    !< cohesion at given fault node  (should be negative since negative normal stress is compression)
      REAL                                   :: cohesion_0                       !< Default cohesion value
      REAL, POINTER                          :: forced_rupture_time(:,:)         !< forced rupture time at given fault node
+     REAL                                   :: XHypo                            !< x-coordinate of the forced rupture patch
+     REAL                                   :: YHypo                            !< y-coordinate of the forced rupture circle
+     REAL                                   :: ZHypo                            !< z-coordinate of the forced rupture circle
+     REAL                                   :: R_crit                           !< radius for the forced rupture nucleation patch
+     REAL                                   :: t_0                              !< forced rupture decay time
      REAL, ALLOCATABLE                      :: BndBF_GP_Tet(:,:,:)              !< Basis functions of '-' element at fault surface with matching GP (nDegFr,nBndGP,nSide)
      REAL, ALLOCATABLE                      :: FluxInt(:,:,:)                   !< corresponding flux integration matrix (nDegFr,nDegFr,nSide))
      REAL, ALLOCATABLE                      :: RS_srW_array(:,:)                !< velocity weakening scale, array of spatial dependency
