@@ -1,0 +1,12 @@
+[submodule "submodules/xdmfwriter"]
+	path = submodules/xdmfwriter
+	url = https://github.com/TUM-I5/XdmfWriter.git
+[submodule "submodules/cxxtest"]
+	path = submodules/cxxtest
+	url = https://github.com/CxxTest/cxxtest.git
+[submodule "submodules/pugixml"]
+	path = submodules/pugixml
+	url = https://github.com/zeux/pugixml.git
+[submodule "submodules/utils"]
+	path = submodules/utils
+	url = https://github.com/TUM-I5/utils.git
