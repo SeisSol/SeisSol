@@ -42,7 +42,8 @@ import Waveform
 def read(fileName):
   data = []
   variables = ''
-  for row in open(fileName):
+  f = open(fileName)
+  for row in f:
     row = row.strip()
     if not row[0].isalpha() and not row[0] == '#':
       values = row.split()
@@ -51,5 +52,5 @@ def read(fileName):
       row = row.split('=')
       variables = row[1].replace('"', '').split(',')
       variables = [v.strip() for v in variables]
-  
+  f.close()
   return Waveform.Waveform(variables, data)

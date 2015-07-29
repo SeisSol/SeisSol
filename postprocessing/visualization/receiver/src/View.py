@@ -75,24 +75,24 @@ class View(QWidget):
         numPlots = max(numPlots, len(wf.names))
         names.update(set(wf.names))
         waveforms.append(wf)
-    names = list(names)
-    names.sort()
-
-    wf = waveforms[0]
-
+        
     self.figure.clear()
-    numRows = math.ceil(math.sqrt(numPlots));
-    numCols = math.ceil(numPlots / numRows)
-    subplots = dict()
-    for i in range(0, len(names)):
-      subplots[ names[i] ] = self.figure.add_subplot(numRows, numCols, i+1)
+    if numPlots > 0:
+      names = list(names)
+      names.sort()
 
-    for wf in waveforms:
-      for name in wf.names:
-        p = subplots[name]
-        p.plot(wf.time, wf.waveforms[name])
-        p.set_xlabel('t')
-        p.set_ylabel(name)
+      numRows = math.ceil(math.sqrt(numPlots));
+      numCols = math.ceil(numPlots / numRows)
+      subplots = dict()
+      for i in range(0, len(names)):
+        subplots[ names[i] ] = self.figure.add_subplot(numRows, numCols, i+1)
 
-    self.figure.tight_layout()
+      for wf in waveforms:
+        for name in wf.names:
+          p = subplots[name]
+          p.plot(wf.time, wf.waveforms[name])
+          p.set_xlabel('t')
+          p.set_ylabel(name)
+
+      self.figure.tight_layout()
     self.canvas.draw()

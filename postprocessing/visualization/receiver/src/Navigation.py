@@ -45,45 +45,60 @@ import Tecplot
 import Waveform
 
 class Navigation(QWidget):
-  activeItemChanged = pyqtSignal(QModelIndex, name='activeItemChanged')
+  activeItemChanged = pyqtSignal(name='activeItemChanged')
 
   def __init__(self, parent = None):
     super(Navigation, self).__init__(parent)
+    
+    self.currentFolder = ''
 
     openIcon = QIcon.fromTheme('folder-open')
-    openButton = QPushButton(openIcon, 'Open', self)
+    openButton = QPushButton(openIcon, '', self)
     openButton.clicked.connect(self.selectFolder)
+    refreshIcon = QIcon.fromTheme('view-refresh')
+    refreshButton = QPushButton(refreshIcon, '', self)
+    refreshButton.clicked.connect(self.refreshFolder)
     
     self.receiverList = QListView(self)
     self.model = QStandardItemModel()
     self.receiverList.setModel(self.model)
     self.receiverList.clicked.connect(self.activeItemChanged)
+    
+    buttonLayout = QHBoxLayout()
+    buttonLayout.addWidget(openButton)
+    buttonLayout.addWidget(refreshButton)
+    buttonLayout.addStretch()
 
-    layout = QVBoxLayout()
-    layout.addWidget(openButton)
+    layout = QVBoxLayout(self)
+    layout.addLayout(buttonLayout)
     layout.addWidget(self.receiverList)
-    self.setLayout(layout)
 
   def selectFolder(self):
-    folder = QFileDialog.getExistingDirectory(self, 'Open directory', '', QFileDialog.ShowDirsOnly)
+    folder = QFileDialog.getExistingDirectory(self, 'Open directory', self.currentFolder, QFileDialog.ShowDirsOnly)
     if not folder.isEmpty():
-      self.readFolder(str(folder))
+      self.currentFolder = str(folder)
+      self.readFolder(self.currentFolder)
       
   def readFolder(self, folder):
-    self.model.clear()
-    files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
-    files.sort()
-    for f in files:
-      wf = Tecplot.read(os.path.join(folder,f))
-      item = QStandardItem(f)
-      item.setData(wf)
-      self.model.appendRow(item)
+    if len(folder) != 0:
+      self.model.clear()
+      files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
+      files.sort()
+      for f in files:
+        wf = Tecplot.read(os.path.join(folder,f))
+        item = QStandardItem(f)
+        item.setData(wf)
+        self.model.appendRow(item)
     
   def getActiveWaveforms(self):
     waveforms = []
     for index in self.receiverList.selectedIndexes():
       waveforms.append(self.model.itemFromIndex(index).data().toPyObject())
     return waveforms
+    
+  def refreshFolder(self):
+    self.readFolder(self.currentFolder)
+    self.activeItemChanged.emit()
       
     
 
