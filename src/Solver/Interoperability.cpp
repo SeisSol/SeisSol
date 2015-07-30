@@ -663,8 +663,22 @@ void seissol::Interoperability::getTimeDerivatives( int    *i_meshId,
                             l_timeIntegrated,
                             l_timeDerivatives );
 
+// We cannot use derivative compression with a source matrix
+#ifdef REQUIRE_SOURCE_MATRIX
+  for (unsigned order = 0; order < CONVERGENCE_ORDER; ++order) {
+    seissol::kernels::copySubMatrix( &l_timeDerivatives[order * NUMBER_OF_ALIGNED_DOFS],
+                                     NUMBER_OF_BASIS_FUNCTIONS,
+                                     NUMBER_OF_QUANTITIES,
+                                     NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+                                     o_timeDerivatives[order],
+                                     NUMBER_OF_BASIS_FUNCTIONS,
+                                     NUMBER_OF_QUANTITIES,
+                                     NUMBER_OF_BASIS_FUNCTIONS );
+  }
+#else
   seissol::kernels::convertAlignedCompressedTimeDerivatives( l_timeDerivatives,
                                                              o_timeDerivatives );
+#endif
 }
 
 void seissol::Interoperability::getFaceDerInt( int    *i_meshId,
