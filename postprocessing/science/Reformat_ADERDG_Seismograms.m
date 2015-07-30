@@ -56,12 +56,34 @@ disp(' '),disp(' ')
 
 clear, close all;
 filename = input('     Specify root-filename (typically: *file*-receiver-...):  ','s');
-ndt      = input('     Give number of time samples of the data:              ');
-nseis    = input('     Give number of seismograms:                           ');
+
+%evaluate nb of files and nb of time samples
+%do not consider files with only header
+eval(['!find -name "',filename,'*-receiver*" -size +30k | xargs wc -l > tmp.dat']);
+
+tmp_file = 'tmp.dat';
+fid   = fopen(tmp_file);
+command_result = textscan(fid,'%d %s',[2 inf]);
+fclose(fid);
+eval(['!rm tmp.dat']);
+
+[nseis,y]=size(command_result{1});
+nseis=nseis-1;
+ndt=min(command_result{1}(1:end-1))-5;
+
+msg = sprintf('found %d seismogram(s)', nseis)
+disp(msg);
+msg = sprintf('found %d time sample(s)', ndt)
+disp(msg);
+
+%ndt      = input('     Give number of time samples of the data:              ');
+%nseis    = input('     Give number of seismograms:                           ');
 nvar     = input('     Give number of variables (including time):            ');
 
 disp(' '),  disp('     Creating seismogram-processor relation ...' )
-eval(['!ls -l ',filename,'-receiver* > tmp.dat']);
+%eval(['!ls -l ',filename,'-receiver* > tmp.dat']);
+eval(['!find -name "',filename,'*-receiver*" -size +30k | xargs ls -l >tmp.dat']);
+
 tmp_file = 'tmp.dat';
 fid   = fopen(tmp_file);
   for i=1:nseis
@@ -72,6 +94,7 @@ eval(['!rm tmp.dat']);
 
 num = 1;
 ind = 0;
+location(3,1:nseis) = 0;
 
 for num = 1:nseis
      
@@ -93,15 +116,21 @@ for num = 1:nseis
     [tmp,k,kk] = unique(data(:,1));
     data  = data(k,:);
     
+    location(:,num) = [x1; x2; x3];
+    
     disp(sprintf('\n Samples in seismogram nr. %i\t:   %i', num,size(data,1)));
     MATLAB_OUTPUT(:,:,num) = data;
     fclose(fid);
       
 end
+% add to struct
+d.data=MATLAB_OUTPUT;d.location=location;
+d.datalegend=char;
+d.locationlegend=('X,Y,Z');
 
+% output
 disp(' '),  disp('     Finished conversion!'), disp(' ')
-out_filename = input('     Give filename to save MATLAB data:  ','s');
+out_filename = input('     Give filename to save MATLAB data (add .mat):  ','s');
 out_file = out_filename(1:end-4);
-eval([out_file,'= MATLAB_OUTPUT;']);
-eval(['save ',out_filename,'  ',out_file]);
+save(out_filename,'-v7.3','d')
 disp(sprintf('    \n Saved data as :  %s\n',out_filename));

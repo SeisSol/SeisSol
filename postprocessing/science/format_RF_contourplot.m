@@ -40,7 +40,7 @@
 
 clear all
 
-tpv = input('Specify TPV case:  ','s');
+%tpv = input('Specify TPV case:  ','s');
 
 disp('Code revision 782???');
 
@@ -50,10 +50,18 @@ data=loadmatfile('RF.mat');
 
 %% prepare data
 
-% kick out y component
-tmp(1,:) = data(1,:);
-tmp(2:3,:) = data(3:4,:);
-clear data
+% % kick out y component
+% tmp(1,:) = data(1,:);
+% tmp(2:3,:) = data(3:4,:);
+% clear data
+
+%%%%TEMPORAIRE
+disp('temporaire Y up')
+% % kick out y component
+ tmp(1,:) = data(1,:);
+ tmp(2:3,:) = data(3:4,:);
+ clear data
+
 
 % make depth positive
 tmp(2,:)=abs(tmp(2,:)); 
@@ -65,8 +73,8 @@ clear tmp;
 
 % ATTENTION: right-lateral rupture has strike direction -x and has to be
 % changed
-disp('Prepare data for right-lateral case - switch sign of x coordinate!')
-RF(1,:)=-1.*RF(1,:);
+% disp('Prepare data for right-lateral case - switch sign of x coordinate!')
+% RF(1,:)=-1.*RF(1,:);
 
 [a b] = size(RF);
 
@@ -78,12 +86,15 @@ str3 = date;
 disp('Save file...')
 fid=fopen('cplot.dat','w');
 
-fprintf(fid,['# problem=TPV',tpv,'\n']);
-fprintf(fid,'# author=Christian Pelties\n');
+fprintf(fid,'# problem=TPV29\n');
+fprintf(fid,'# author=Thomas ULRICH\n');
 fprintf(fid,['# date=',str3,'\n']);
 fprintf(fid,'# code=SeisSol (ADER-DG)\n');
-fprintf(fid,'# code_version=revision 782\n');
-fprintf(fid,'# element_size=200 m\n');
+fprintf(fid,'# code_version=revision 2280\n');
+%printf(fid,'# Background stress is assigned to a complete element determined by its geometrical barycenter\n');
+fprintf(fid,'# Background stress is assigned to each individual Gaussian integation point (GP)\n');    
+fprintf(fid,'# element_size=100 m on fault 5000m far away Growth rate 1.10\n');
+fprintf(fid,'# 0,40e6 tetra elements\n');
 fprintf(fid,'# order of approximation in space and time= O4\n');
 fprintf(fid,'# Column #1 = horizontal coordinate, distance along strike (m)\n');
 fprintf(fid,'# Column #2 = vertical coordinate, distance down-dip (m)\n');
@@ -96,9 +107,15 @@ fprintf(fid,'# coordinate (k), and the third column contains the time (t).\n');
 fprintf(fid,'j k t\n');
 fprintf(fid,'#\n');
 fprintf(fid,'# Here is the rupture history\n');
+
+i=0;
 for j = 1:b
 fprintf(fid,'%15.7e %15.7e %15.7e \n', ...
             RF(1,j),RF(2,j),RF(3,j));
+            if(mod(j,round(b/25))==0)
+                i = i+1;
+                disp(sprintf('     %g percent done!',i*4))
+            end
 end;
 
 % close file
