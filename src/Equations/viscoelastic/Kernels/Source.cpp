@@ -54,21 +54,13 @@ seissol::kernels::Source::Source() {
 #include <initialization/bind.h>
 #undef VOLUME_KERNEL
 }
-#include <iostream>
+
 void seissol::kernels::Source::computeIntegral( real*  timeIntegratedDegreesOfFreedom,
                                                 real   sourceMatrix[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES],
                                                 real*  degreesOfFreedom ) {
   // assert alignments
   assert( ((uintptr_t)timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
   assert( ((uintptr_t)degreesOfFreedom)               % ALIGNMENT == 0 );
-  
-      // DEBUG
-    /*for (unsigned i = 0; i < NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES; ++i) {
-      
-        std::cout << sourceMatrix[i] << " ";
-    }
-    std::cout << std::endl << std::endl;*/
-    // END DEBUG
   
   m_matrixKernels[3]   ( timeIntegratedDegreesOfFreedom, sourceMatrix, degreesOfFreedom, NULL, NULL, NULL );
 }
