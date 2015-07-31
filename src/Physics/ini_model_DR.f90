@@ -1655,6 +1655,7 @@ MODULE ini_model_DR_mod
   
   ! OPEN backgroundstress field
   CALL read_scec_stress(DISC,IO)          
+  ALLOCATE(DISC%DynRup%forced_rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
  
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
