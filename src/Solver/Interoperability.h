@@ -252,7 +252,7 @@ class seissol::Interoperability {
 
    void initializeIO(double* mu, double* slipRate1, double* slipRate2,
 			  double* slip, double* slip1, double* slip2, double* state, double* strength,
-			  int numSides, int numBndGP);
+			  int numSides, int numBndGP, int refinement);
 
    /**
     * Get the current dynamic rupture time step

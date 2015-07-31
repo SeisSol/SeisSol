@@ -43,49 +43,99 @@
 
 #include <cassert>
 #include <cstring>
+#include <vector>
+#include "RefinerUtils.h"
 
 namespace refinement
 {
+
+//------------------------------------------------------------------------------
 
 /**
  * Base class for triangle/tetrahedron refinement
  *
  * @todo free mesh resources after initialization
  */
+template<class T>
 class Refinement
 {
-private:
-	/** Number of vertices in the refined mesh */
-	unsigned int m_nVertices;
-
-	/** Number of cells in the refined mesh */
-	const unsigned int m_nCells;
+protected:
+    const unsigned int m_numVariables;
 
 	/** Vertices of the mesh */
-	double* m_vertices;
+    std::vector<T> m_vertices;
 
 	/** Cells of the original mesh */
-	unsigned int* m_cells;
+    std::vector<unsigned int> m_cells;
+
+	/**
+	 * Set a vertex
+	 *
+	 * @param n The id of the vertex
+	 * @param coords The coordinates of the vertex
+	 */
+	void setVertex(unsigned int n, const T coords[3])
+	{
+        setVertex(n, coords[0], coords[1], coords[2]);
+	}
+
+	/**
+	 * Set a vertex
+	 *
+	 * @param n The id of the vertex
+	 * @param x The x coordinate of the vertex
+	 * @param y The y coordinate of the vertex
+	 * @param z The z coordinate of the vertex
+	 */
+    void setVertex(unsigned int n, T x, T y, T z)
+    {
+		assert(n < m_vertices.size());
+        m_vertices[n*3]   = x;
+        m_vertices[n*3+1] = y;
+        m_vertices[n*3+2] = z;
+    }
+
+	/**
+	 * Set a cell
+	 *
+	 * @param n The id of the cell
+	 * @param vertices The vertex ids
+	 */
+	void setCell(unsigned int n, const int vertices[4])
+	{
+        setCell(n, vertices[0], vertices[1], vertices[2], vertices[3]);
+	}
+
+	/**
+	 * Set a cell
+	 *
+	 * @param n The id of the cell
+	 * @param a The id of the vertex a
+	 * @param b The id of the vertex b
+	 * @param c The id of the vertex c
+	 * @param d The id of the vertex d
+	 */
+	void setCell(unsigned int n, int a, int b, int c, int d)
+	{
+		assert(n*4 < m_cells.size());
+		m_cells[n*4]   = a;
+		m_cells[n*4+1] = b;
+		m_cells[n*4+2] = c;
+		m_cells[n*4+3] = d;
+	}
 
 public:
-	Refinement(unsigned int nCells)
-		: m_nVertices(0L), m_nCells(nCells),
-		  m_vertices(0L), m_cells(new unsigned int[nCells * 4])
-	{
-	}
+    Refinement(unsigned int numVariables) : m_numVariables(numVariables)
+    {}
 
-	virtual ~Refinement()
-	{
-		delete [] m_vertices;
-		delete [] m_cells;
-	}
+    virtual ~Refinement() {};
 
 	/**
 	 * @return Number of vertices in the refined mesh
 	 */
 	unsigned int nVertices() const
 	{
-		return m_nVertices;
+		return m_vertices.size() / 3;
 	}
 
 	/**
@@ -93,15 +143,15 @@ public:
 	 */
 	unsigned int nCells() const
 	{
-		return m_nCells;
+		return m_cells.size() / 4;
 	}
 
 	/**
 	 * @return Vertices of the refined mesh
 	 */
-	const double* vertices() const
+	const T* vertices() const
 	{
-		return m_vertices;
+		return m_vertices.data();
 	}
 
 	/**
@@ -109,7 +159,7 @@ public:
 	 */
 	const unsigned int* cells() const
 	{
-		return m_cells;
+		return m_cells.data();
 	}
 
 	/**
@@ -124,48 +174,11 @@ public:
 			int variable, double* odata) const = 0;
 
 	// TODO add getAll to extract all variables if required
-
-protected:
-	/**
-	 * Set the number of vertices
-	 *
-	 * @param n The number of vertices
-	 */
-	void setNVertices(unsigned int n)
-	{
-		m_nVertices = n;
-		m_vertices = new double[n*3];
-	}
-
-	/**
-	 * Set a vertex
-	 *
-	 * @param n The id of the vertex
-	 * @param coords The coordinates of the vertex
-	 */
-	void setVertex(unsigned int n, const double coords[3])
-	{
-		assert(n < m_nVertices);
-		memcpy(&m_vertices[n*3], coords, sizeof(double)*3);
-	}
-
-	/**
-	 * Set a cell
-	 *
-	 * @param n The id of the cell
-	 * @param vertices The vertex ids
-	 */
-	void setCell(unsigned int n, const int vertices[4])
-	{
-		// convert from int to unsigned int
-		assert(n < m_nCells);
-		m_cells[n*4] = vertices[0];
-		m_cells[n*4+1] = vertices[1];
-		m_cells[n*4+2] = vertices[2];
-		m_cells[n*4+3] = vertices[3];
-	}
+    
 };
 
-}
+//------------------------------------------------------------------------------
+
+} // namespace
 
 #endif // REFINEMENT_REFINEMENT_H

@@ -104,7 +104,7 @@ CONTAINS
     INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE
     INTENT(INOUT)                   :: EQN,IO, usMESH
     !--------------------------------------------------------------------------
-    PARAMETER(actual_version_of_readpar = 19)
+    PARAMETER(actual_version_of_readpar = 20)
     !--------------------------------------------------------------------------
     !                                                                        !        
     IO%Mesh_is_structured       = .FALSE.                                    ! PostProcessing in default position
@@ -3160,7 +3160,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       !------------------------------------------------------------------------
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
-                                          iOutputMaskMaterial(1:3), nRecordPoints
+                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement
       REAL                             :: TimeInterval, pickdt, Interval, checkPointInterval
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       character(LEN=64)                :: checkPointBackend
@@ -3168,7 +3168,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
-                                                checkPointInterval, checkPointFile, checkPointBackend
+                                                checkPointInterval, checkPointFile, checkPointBackend, Refinement
     !------------------------------------------------------------------------  
     !                                                                       
       logInfo(*) '<--------------------------------------------------------->'        
@@ -3189,6 +3189,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       FaultOutputFlag = 0
       checkPointInterval = 0
       checkPointBackend = 'none'
+      Refinement = 0
       !
       READ(IO%UNIT%FileIn, nml = Output)                                                            
       IO%OutputFile = OutputFile                                                   ! read output field file
@@ -3593,6 +3594,31 @@ ALLOCATE( SpacePositionx(nDirac), &
         stop
       endif
 #endif
+      
+      IO%Refinement = Refinement
+      SELECT CASE(Refinement)
+         CASE(0)
+
+            logInfo(*) 'Refinement is disabled'
+
+         CASE(1)
+
+             logInfo(*) 'Refinement strategy is Face Extraction :  4 subcells per cell'
+
+         CASE(2)
+
+             logInfo(*) 'Refinement strategy is Equal Face Area : 8 subcells per cell'
+
+         CASE(3)
+
+             logInfo(*) 'Refinement strategy is Equal Face Area and Face Extraction : 32 subcells per cell'
+
+         CASE DEFAULT
+
+             logError(*) 'This refinement strategy is N O T supported'
+             STOP
+
+      END SELECT
 
       select case (io%checkpoint%backend)
         case ("posix")
