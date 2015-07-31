@@ -186,7 +186,8 @@ CONTAINS
           !
           IF(IO%UnstructRecpoint(iPick)%inside) THEN
             DO iCPU = 0, MPI%myrank-1
-              IF(MPI_receiver_Element(iPick,iCPU).NE.-1) THEN
+            ! check IO%UnstructRecPoint(iPick)%index .ge. 0 in order to avoid double cleaning
+              IF(MPI_receiver_Element(iPick,iCPU).NE.-1 .and. IO%UnstructRecPoint(iPick)%index .ge. 0) THEN
                 logInfo(*) ' '
                 logInfo(*) 'receiver number ', iPick, ' cleaned in element ', IO%UnstructRecPoint(iPick)%index
                 logInfo(*) 'It was already found in element ', MPI_receiver_Element(iPick,iCPU), ' in CPU ', iCPU
