@@ -37,18 +37,31 @@
  * @section DESCRIPTION
  */
 
-#include "Wavefield.h"
+#include "Fault.h"
 
-bool seissol::checkpoint::posix::Wavefield::init(real* dofs, unsigned int numDofs)
+#include "Kernels/precision.hpp"
+
+bool seissol::checkpoint::posix::Fault::init(
+		double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
+
+		double* state, double* strength,
+		unsigned int numSides, unsigned int numBndGP)
 {
-	seissol::checkpoint::Wavefield::init(dofs, numDofs);
+	seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip1, slip2, state, strength,
+			numSides, numBndGP);
+
+	if (numSides == 0)
+		return true;
 
 	return exists();
 }
 
-void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWaveField)
+void seissol::checkpoint::posix::Fault::load(int &timestepFault)
 {
-	logInfo(rank()) << "Loading wave field checkpoint";
+	if (numSides() == 0)
+		return;
+
+	logInfo(rank()) << "Loading fault checkpoint";
 
 	seissol::checkpoint::CheckPoint::load();
 
@@ -59,72 +72,54 @@ void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWave
 	checkErr(lseek64(file, sizeof(unsigned long), SEEK_SET));
 
 	// Read header
-	checkErr(read(file, &time, sizeof(time)), sizeof(time));
-	checkErr(read(file, &timestepWaveField, sizeof(timestepWaveField)),
-			sizeof(timestepWaveField));
+	checkErr(read(file, &timestepFault, sizeof(timestepFault)),	sizeof(timestepFault));
 
-	// Convert to char* to do pointer arithmetic
-	char* buffer = reinterpret_cast<char*>(dofs());
-	unsigned long left = numDofs()*sizeof(real);
-
-	// Read dofs
-	while (left > 0) {
-		unsigned long readSize = read(file, buffer, left);
-		if (readSize <= 0)
-			checkErr(readSize, left);
-		buffer += readSize;
-		left -= readSize;
-	}
+	// Read data
+	for (int i = 0; i < NUM_VARIABLES; i++)
+		checkErr(read(file, data(i), numSides() * numBndGP() * sizeof(real)));
 
 	// Close the file
 	checkErr(::close(file));
 }
 
-void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveField)
+void seissol::checkpoint::posix::Fault::write(int timestepFault)
 {
-	EPIK_TRACER("CheckPoint_write");
-	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+	EPIK_TRACER("CheckPointFault_write");
+	SCOREP_USER_REGION("CheckPointFault_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	logInfo(rank()) << "Writing check point.";
+	if (numSides() == 0)
+		return;
+
+	logInfo(rank()) << "Writing fault check point.";
 
 	// Skip identifier
 	checkErr(lseek64(file(), sizeof(unsigned long), SEEK_SET));
 
 	// Write the header
-	EPIK_USER_REG(r_write_header, "checkpoint_write_header");
+	EPIK_USER_REG(r_write_header, "checkpoint_write_fault_header");
 	SCOREP_USER_REGION_DEFINE(r_write_header);
 	EPIK_USER_START(r_write_header);
-	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
+	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_fault_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	checkErr(::write(file(), &time, sizeof(time)), sizeof(time));
-	checkErr(::write(file(), &timestepWaveField, sizeof(timestepWaveField)),
-			sizeof(timestepWaveField));
+	checkErr(::write(file(), &timestepFault, sizeof(timestepFault)), sizeof(timestepFault));
 
 	EPIK_USER_END(r_write_header);
 	SCOREP_USER_REGION_END(r_write_header);
 
 	// Save data
-	EPIK_USER_REG(r_write_wavefield, "checkpoint_write_wavefield");
-	SCOREP_USER_REGION_DEFINE(r_write_wavefield);
+	EPIK_USER_REG(r_write_wavefield, "checkpoint_write_fault");
+	SCOREP_USER_REGION_DEFINE(r_write_fault);
 	EPIK_USER_START(r_write_wavefield);
-	SCOREP_USER_REGION_BEGIN(r_write_wavefield, "checkpoint_write_wavefield", SCOREP_USER_REGION_TYPE_COMMON);
+	SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);
 
-	// Convert to char* to do pointer arithmetic
-	const char* buffer = reinterpret_cast<const char*>(dofs());
-	unsigned long left = numDofs()*sizeof(real);
-	while (left > 0) {
-		unsigned long written = ::write(file(), buffer, left);
-		if (written <= 0)
-			checkErr(written, left);
-		buffer += written;
-		left -= written;
-	}
+	for (int i = 0; i < NUM_VARIABLES; i++)
+		checkErr(::write(file(), data(i), numSides() * numBndGP() * sizeof(real)));
 
-	EPIK_USER_END(r_write_wavefield);
-	SCOREP_USER_REGION_END(r_write_wavefield);
+	EPIK_USER_END(r_write_fault);
+	SCOREP_USER_REGION_END(r_write_fault);
 
 	// Finalize the checkpoint
 	finalizeCheckpoint();
 
-	logInfo(rank()) << "Writing check point. Done.";
+	logInfo(rank()) << "Writing fault check point. Done.";
 }

@@ -47,6 +47,7 @@
 
 #include "Wavefield.h"
 #include "Fault.h"
+#include "posix/Fault.h"
 #include "posix/Wavefield.h"
 #include "h5/Wavefield.h"
 #include "h5/Fault.h"
@@ -99,7 +100,7 @@ public:
 		switch (backend) {
 		case POSIX:
 			m_waveField = new posix::Wavefield();
-			m_fault = new mpio::Fault();
+			m_fault = new posix::Fault();
 			break;
 		case HDF5:
 			m_waveField = new h5::Wavefield();

@@ -136,8 +136,12 @@ protected:
 		if (file < 0)
 			return false;
 
-		bool hasCheckpoint = validate(file);
+		int hasCheckpoint = validate(file);
 		::close(file);
+
+#ifdef USE_MPI
+		MPI_Allreduce(MPI_IN_PLACE, &hasCheckpoint, 1, MPI_INT, MPI_LAND, comm());
+#endif // USE_MPI
 
 		return hasCheckpoint;
 	}
@@ -203,10 +207,26 @@ protected:
 		return m_identifier;
 	}
 
+private:
 	/**
 	 * Validate an existing check point file
 	 */
-	virtual bool validate(int file) const = 0;
+	bool validate(int file) const
+	{
+		unsigned long id;
+		ssize_t size = read(file, &id, sizeof(id));
+		if (size < sizeof(id)) {
+			logWarning() << "Could not read checkpoint header";
+			return false;
+		}
+
+		if (id != identifier()) {
+			logWarning() << "Checkpoint identifier does match";
+			return false;
+		}
+
+		return true;
+	}
 
 protected:
 	template<typename T>

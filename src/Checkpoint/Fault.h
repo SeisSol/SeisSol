@@ -152,7 +152,9 @@ protected:
 	void initFilename(const char* filename, const char* extension)
 	{
 		std::string file(filename);
-		std::string ext = "." + std::string(extension);
+		std::string ext;
+		if (extension)
+			ext = std::string(".") + extension;
 		if (utils::StringUtils::endsWith(file, ext))
 			utils::StringUtils::replaceLast(file, ext, "-fault");
 		else
