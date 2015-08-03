@@ -1,6 +1,11 @@
 # Mac
 com.apple.timemachine.supported
 
+# Eclipse
+.cproject
+.project
+.settings
+
 # Kernel generator
 *.exe
 
@@ -20,7 +25,8 @@ com.apple.timemachine.supported
 # Fortran
 *.mod
 
-# Executable
+# Build
+build/build_*
 build/SeisSol_*
 
 # Python
