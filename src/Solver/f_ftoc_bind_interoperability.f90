@@ -138,8 +138,8 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface c_interoperability_synchronizeMaterial
-    subroutine c_interoperability_synchronizeMaterial() bind( C, name='c_interoperability_synchronizeMaterial' )
+  interface c_interoperability_synchronizeCellLocalData
+    subroutine c_interoperability_synchronizeCellLocalData() bind( C, name='c_interoperability_synchronizeCellLocalData' )
     end subroutine
   end interface
 

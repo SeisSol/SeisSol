@@ -88,7 +88,7 @@ MODULE Plasticity_mod
     REAL        :: BulkFriction, Tv, PlastCo
     REAL        :: DOFStress(1:nDegFr,1:6)
     REAL        :: dgvar(1:nDegFr,1:6)
-    REAL        :: dudt_plastic(1:nDegFr,1:9)
+    REAL        :: dudt_plastic(1:nDegFr,1:6)
     !REAL        :: dudt_pstrain(1:nDegFr,1:9)
     REAL        :: dudt_pstrain(1:6)
     !-------------------------------------------------------------------------!

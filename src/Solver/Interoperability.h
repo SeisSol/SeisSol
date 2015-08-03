@@ -234,7 +234,7 @@ class seissol::Interoperability {
    /**
     * Synchronizes the cell local material data.
     **/
-   void synchronizeMaterial();
+   void synchronizeCellLocalData();
 
    /**
     * Synchronizes the DOFs in the copy layer.

@@ -177,15 +177,12 @@ module f_ctof_bind_interoperability
       ! local data
       real*8                                :: dudt_pstrain( 6 )
 
-      integer                               :: l_dof, l_quantity
-
       ! convert c to fotran pointers
       call c_f_pointer( i_domain,         l_domain                                         )
       call c_f_pointer( i_timeStep,       l_timeStep                                       )
       call c_f_pointer( i_initialLoading, l_initialLoading, [NUMBER_OF_BASIS_FUNCTIONS,6]  )
       call c_f_pointer( i_stresses,       l_stresses,       [NUMBER_OF_BASIS_FUNCTIONS,6]  )
       call c_f_pointer( o_plasticUpdate,  l_plasticUpdate,  [NUMBER_OF_BASIS_FUNCTIONS,6]  )
-
 
       ! TODO: remove ielem
       call plasticity_3d( dgvar        = l_stresses, &

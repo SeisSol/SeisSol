@@ -1043,7 +1043,7 @@ CONTAINS
 #ifdef USE_MPI
       ! synchronize redundant cell data
       logInfo0(*) 'Synchronizing copy cell material data.';
-      call c_interoperability_synchronizeMaterial;
+      call c_interoperability_synchronizeCellLocalData;
 #endif
   
   if (DISC%Galerkin%FluxMethod .ne. 0) then
@@ -2532,11 +2532,7 @@ CONTAINS
 #ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
-
-#ifdef USE_PLASTICITY
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 ) 
-#endif
-
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2565,11 +2561,12 @@ CONTAINS
     nDegFr = DISC%Galerkin%nDegFr
 
 #ifdef GENERATEDKERNELS
-    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, iniGp, iniGp_ane, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix, l_dofsUpdate)
+    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, iniGp, iniGp_ane, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix, l_dofsUpdate,l_initialLoading,iniGP_plast)
 #endif
     DO iElem = 1,MESH%nElem
 #ifdef GENERATEDKERNELS
         l_dofsUpdate = 0
+        l_initialLoading=0
 #endif
 
         x = 0.; y = 0.; z = 0.;
@@ -2644,31 +2641,19 @@ CONTAINS
 
             IF(EQN%Plasticity.EQ.1) THEN  
 #ifdef GENERATEDKERNELS
-
-#ifdef USE_PLASTICITY
               iniGP_plast(:) = eqn%iniStress(1:6,iElem)
-               do iDegFr = 1, nDegFr
-                 phi = IntGPBaseFunc(iDegFr,iIntGP)
-                 l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
-
-                 ! multiply by inverse mass matrix
-                 l_initialLoading(iDegFr, :) = l_l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-
-                 ! initialize loading in C
-                 call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
-                                                            i_initialLoading = c_loc( l_initialLoading ) )
-               enddo     
-#endif
-
+              do iDegFr = 1, nDegFr
+                phi = IntGPBaseFunc(iDegFr,iIntGP)
+                l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+              enddo
 #else
-                       ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
-                   iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
-                       DO iDegFr = 1, nDegFr
-                          phi = IntGPBaseFunc(iDegFr,iIntGP)
-                          DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) = &
-                          DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
-                          DISC%Galerkin%DOFStress(iDegFr,:,iElem) = DISC%Galerkin%DOFStress(iDegFr,:,iElem)/ MassMatrix(iDegFr, iDegFr)
-                       ENDDO
+              ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
+              iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
+              DO iDegFr = 1, nDegFr
+                phi = IntGPBaseFunc(iDegFr,iIntGP)
+                DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) = &
+                DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+              ENDDO
 #endif
            ENDIF
         ENDDO
@@ -2681,10 +2666,28 @@ CONTAINS
 #endif
         ENDDO
 
+        if(eqn%plasticity .eq. 1) then
+          do iDegFr = 1, nDegFr
+            ! multiply by inverse mass matrix
+#ifdef GENERATEDKERNELS
+            l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+#else
+            DISC%Galerkin%DOFStress(iDegFr,:,iElem) = DISC%Galerkin%DOFStress(iDegFr,:,iElem)/ MassMatrix(iDegFr, iDegFr)
+#endif
+          enddo
+        endif
+
 #ifdef GENERATEDKERNELS
         ! write the update back
         call c_interoperability_addToDofs(  i_meshId  = c_loc( iElem ), \
                                             i_update  = c_loc( l_dofsUpdate ) )
+
+#ifdef USE_PLASTICITY
+        ! initialize loading in C
+        call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
+                                                   i_initialLoading = c_loc( l_initialLoading ) )
+#endif
+
 #endif
 
         NULLIFY(intGaussP)
@@ -2693,6 +2696,13 @@ CONTAINS
         NULLIFY(MassMatrix)
 
     ENDDO ! iElem
+
+#ifdef GENERATEDKERNELS
+#ifdef USE_PLASTICITY
+    ! TODO: redundant (see iniGalerkin3D_us_level2_new) call to ensure correct intitial loading in copy layers.
+    call c_interoperability_synchronizeCellLocalData();
+#endif
+#endif
 
 #ifndef GENERATEDKERNELS
     ! For p-adaptivity, kill all degrees of freedom that exceed the local

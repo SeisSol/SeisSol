@@ -142,8 +142,8 @@ extern "C" {
     e_interoperability.initializeCellLocalMatrices();
   }
 
-  void c_interoperability_synchronizeMaterial() {
-    e_interoperability.synchronizeMaterial();
+  void c_interoperability_synchronizeCellLocalData() {
+    e_interoperability.synchronizeCellLocalData();
   }
 
   void c_interoperability_synchronizeCopyLayerDofs() {
@@ -531,7 +531,7 @@ void seissol::Interoperability::setMaterial(int* i_meshId, int* i_side, double* 
 
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {\
-  unsigned int l_copyInteriorId = m_meshToCopyInterior[*i_meshId - 1];
+  unsigned int l_copyInteriorId = m_meshToCopyInterior[(*i_meshId) - 1];
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
     for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
@@ -552,7 +552,7 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                       m_cellData );
 }
 
-void seissol::Interoperability::synchronizeMaterial() {
+void seissol::Interoperability::synchronizeCellLocalData() {
   // iterate over the mesh and set all redundant data
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
@@ -563,6 +563,16 @@ void seissol::Interoperability::synchronizeMaterial() {
     for (unsigned side = 0; side < 4; ++side) {
       m_cellData->material[l_cell].neighbor[side] = m_cellData->material[sourceId].neighbor[side];
     }
+
+#ifdef USE_PLASTICITY
+    // sync initial loading
+    for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
+      for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
+        m_cellData->neighboringIntegration[l_cell].initialLoading[l_quantity][l_basis] = m_cellData->neighboringIntegration[sourceId].initialLoading[l_quantity][l_basis];
+      }
+    }
+#endif
+
   }
 }
 
@@ -794,8 +804,8 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
   double l_stresses[6*NUMBER_OF_BASIS_FUNCTIONS];
 
   for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
-    for( unsigned int l_dof = 0; l_dof < NUMBER_OF_BASIS_FUNCTIONS; l_dof++ ) {
-      l_stresses[l_quantity*NUMBER_OF_BASIS_FUNCTIONS+l_dof] = io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_dof];
+    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
+      l_stresses[l_quantity * NUMBER_OF_BASIS_FUNCTIONS + l_basis] = io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basis];
     }
   }
 
@@ -811,8 +821,8 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
 
   // update degrees of freedom
   for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
-    for( unsigned int l_dof = 0; l_dof < NUMBER_OF_BASIS_FUNCTIONS; l_dof++ ) {
-      io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_dof] += l_plasticUpdate[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_dof];
+    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
+      io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basis] -= l_plasticUpdate[l_quantity * NUMBER_OF_BASIS_FUNCTIONS + l_basis];
     }
   }
 }
