@@ -4,6 +4,7 @@ com.apple.timemachine.supported
 # Eclipse
 .cproject
 .project
+.pydevproject
 .settings
 
 # Kernel generator
