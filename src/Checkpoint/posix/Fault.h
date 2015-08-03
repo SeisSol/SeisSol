@@ -37,11 +37,11 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_POSIX_WAVEFIELD_H
-#define CHECKPOINT_POSIX_WAVEFIELD_H
+#ifndef CHECKPOINT_POSIX_FAULT_H
+#define CHECKPOINT_POSIX_FAULT_H
 
 #include "CheckPoint.h"
-#include "Checkpoint/Wavefield.h"
+#include "Checkpoint/Fault.h"
 
 namespace seissol
 {
@@ -52,19 +52,47 @@ namespace checkpoint
 namespace posix
 {
 
-class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
+class Fault : public CheckPoint, virtual public seissol::checkpoint::Fault
 {
+private:
+	/** Struct describing the  header information in the file */
+	struct Header {
+		unsigned long identifier;
+		int timestepFault;
+	};
+
 public:
-	Wavefield()
-		: CheckPoint(0x7A56F)
+	Fault()
+		: CheckPoint(0x7A127)
+	{}
+
+	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
+			double* state, double* strength,
+			unsigned int numSides, unsigned int numBndGP);
+
+	void initLate()
 	{
+		if (numSides() == 0)
+			return;
+
+		CheckPoint::initLate();
 	}
 
-	bool init(real* dofs, unsigned int numDofs);
+	/**
+	 * @param[out] timestepFault Time step of the fault writer in the checkpoint
+	 *  (if the fault writer was active)
+	 */
+	void load(int &timestepFault);
 
-	void load(double &time, int &timestepWavefield);
+	void write(int timestepFault);
 
-	void write(double time, int timestepWaveField);
+	void close()
+	{
+		if (numSides() == 0)
+			return;
+
+		CheckPoint::close();
+	}
 };
 
 }
@@ -73,5 +101,4 @@ public:
 
 }
 
-#endif // CHECKPOINT_POSIX_WAVEFIELD_H
-
+#endif // CHECKPOINT_POSIX_FAULT_H

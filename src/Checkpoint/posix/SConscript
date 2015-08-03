@@ -40,7 +40,7 @@
 
 Import('env')
 
-sourceFiles = ['Wavefield.cpp']
+sourceFiles = ['Fault.cpp', 'Wavefield.cpp']
 
 for i in sourceFiles:
     env.sourceFiles.append(env.Object(i))
