@@ -68,14 +68,6 @@ public:
 
 protected:
 	bool validate(int file) const;
-
-	/**
-	 * Write the header information to the file
-	 *
-	 * @param time
-	 * @param timestepWaveField
-	 */
-	void writeHeader(double time, int timestepWaveField);
 };
 
 }
