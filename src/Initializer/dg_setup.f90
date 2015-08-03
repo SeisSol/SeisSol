@@ -2531,7 +2531,7 @@ CONTAINS
     REAL, POINTER :: MassMatrix(:,:)    =>NULL()
 #ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
-    real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVar)
+    real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
 
 #ifdef USE_PLASTICITY
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 ) 

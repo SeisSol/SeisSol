@@ -1079,16 +1079,10 @@ CONTAINS
       ! 
       ! Compute Thetas for source term E
       DO i=1,EQN%nMechanisms
-#ifdef GENERATEDKERNELS
-           Theta(i,1) = - (Lambda_INF * Y_alpha(i) + 2.d0*mu_INF * Y_beta(i))
-           Theta(i,2) = - Lambda_INF * Y_alpha(i)
-           Theta(i,3) = - 2.d0 * mu_INF * Y_beta(i)
-#else
-           ! WTF???
-           Theta(i,1) = - (Lambda_INF+2.d0*mu_INF) * Y_alpha(i)
-           Theta(i,2) = - (Lambda_INF+2.d0*mu_INF) * Y_alpha(i) + 2.d0*mu_INF * Y_beta(i)
-           Theta(i,3) = -2.d0 * mu_INF * Y_beta(i)
-#endif
+         ! Note to future self: Y_alpha != Y_lambda
+         Theta(i,1) = - (Lambda_INF+2.d0*mu_INF) * Y_alpha(i)
+         Theta(i,2) = - (Lambda_INF+2.d0*mu_INF) * Y_alpha(i) + 2.d0*mu_INF * Y_beta(i)
+         Theta(i,3) = -2.d0 * mu_INF * Y_beta(i)
       ENDDO  
       !
     CASE(1)

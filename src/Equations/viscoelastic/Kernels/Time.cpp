@@ -55,10 +55,6 @@ extern long long libxsmm_num_total_flops;
 #include <immintrin.h>
 #endif
 
-// DEBUG
-#include <iostream>
-// END DEBUG
-
 seissol::kernels::Time::Time() {
   // compute the aligned number of basis functions and offsets of the derivatives
   // \todo This is obsolete for viscoelasticity
@@ -161,15 +157,23 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
         }
       }
     }
+    
+    // DEBUG
+    /*for (unsigned quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
+        for (unsigned bf = reducedOrderNumberOfBasisFunctions; bf < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++bf) {
+          currentDerivative[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = 0.0;
+        }
+      }*/
+    // END DEBUG
 
     // + Q*E^T
     // \todo generate a kernel
+    memset(l_temporaryResult, 0, NUMBER_OF_ALIGNED_DOFS * sizeof(real));
     for (unsigned quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
         for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
-        l_temporaryResult[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = 0.0;
-        for (unsigned k = 0; k < NUMBER_OF_QUANTITIES; ++k) {
-          l_temporaryResult[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] += currentDerivative[bf + k * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] * sourceMatrix[k + quantity * NUMBER_OF_QUANTITIES];
-        }
+          for (unsigned k = 0; k < NUMBER_OF_QUANTITIES; ++k) {
+            l_temporaryResult[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] += currentDerivative[bf + k * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] * sourceMatrix[k + quantity * NUMBER_OF_QUANTITIES];
+          }
       }
     }
 
