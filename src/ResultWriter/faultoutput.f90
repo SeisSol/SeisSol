@@ -191,6 +191,7 @@ CONTAINS
     !-------------------------------------------------------------------------!
     USE common_operators_mod
     USE JacobiNormal_mod
+    USE DGBasis_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -241,6 +242,14 @@ CONTAINS
     REAL    :: strike_vector(1:3), crossprod(1:3) !for rotation of Slip from local to strike, dip coordinate
     REAL    :: cos1, sin1, scalarprod
     REAL, PARAMETER    :: ZERO = 0.0D0
+    ! Parameters used for calculating Vr
+    INTEGER :: nDegFr2d, jBndGP
+    REAL    :: chi, tau, phiT, phi2T(2),Slowness, dt_dchi, dt_dtau, Vr
+    REAL    :: dt_dx1, dt_dy1
+    REAL    :: xV(4), yV(4), zV(4)
+    REAL    :: xab(3), xac(3), grad2d(2,2), JacobiT2d(2,2)
+    REAL, ALLOCATABLE  :: projected_RT(:)
+
 #ifndef GENERATEDKERNELS
     REAL, POINTER     :: DOFiElem_ptr(:,:)  => NULL()                         ! Actual dof
     REAL, POINTER     :: DOFiNeigh_ptr(:,:) => NULL()                         ! Actual dof
@@ -526,27 +535,118 @@ CONTAINS
           ENDIF
 
           IF (DISC%DynRup%OutputPointType.EQ.4) THEN
+
               IF (DynRup_output%OutputMask(6).EQ.1) THEN
+                  ! TU 07.15 rotate Slip from face reference coordinate to (strike,dip, normal) reference cordinate
+                  strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
+                  strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
+                  strike_vector(3) = 0.0D0
 
-              ! TU 07.15 rotate Slip from face reference coordinate to (strike,dip, normal) reference cordinate
-              strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-              strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-              strike_vector(3) = 0.0D0
+                  cos1 = dot_product(strike_vector(:),NormalVect_s(:))
+                  crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
 
-              cos1 = dot_product(strike_vector(:),NormalVect_s(:))
-              crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
+                  scalarprod = dot_product(crossprod(:),NormalVect_n(:))
+                  IF (scalarprod.GT.0) THEN
+                      sin1=sqrt(1-cos1**2)
+                  ELSE
+                      sin1=-sqrt(1-cos1**2)
+                  ENDIF
 
-              scalarprod = dot_product(crossprod(:),NormalVect_n(:))
-              IF (scalarprod.GT.0) THEN
-                  sin1=sqrt(1-cos1**2)
-              ELSE
-                  sin1=-sqrt(1-cos1**2)
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%Slip1(iFace,iBndGP) - sin1* DISC%DynRup%Slip2(iFace,iBndGP)
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%Slip1(iFace,iBndGP) + cos1 * DISC%DynRup%Slip2(iFace,iBndGP)
               ENDIF
 
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%Slip1(iFace,iBndGP) - sin1* DISC%DynRup%Slip2(iFace,iBndGP)
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%Slip1(iFace,iBndGP) + cos1 * DISC%DynRup%Slip2(iFace,iBndGP)
+              IF (DynRup_output%OutputMask(7).EQ.1) THEN
+                ! Thomas Ulrich 3.08.2015
+                ! Calculation of rupture velocity from rupture time array
+                ! using the 2d basis functions and their derivatives
+
+                !project rupture_time onto the basis functions
+                nDegFr2d = (DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2)/2
+                !projection of the rupture time on the basis functions
+                ALLOCATE(projected_RT(nDegFr2d))
+                projected_RT(:)=0.
+
+                DO jBndGP = 1,DISC%Galerkin%nBndGP
+                  chi  = MESH%ELEM%BndGP_Tri(1,jBndGP)
+                  tau  = MESH%ELEM%BndGP_Tri(2,jBndGP)
+                  DO iDegFr = 1, nDegFr2d
+                     call BaseFunc_Tri(phiT,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
+                     projected_RT(iDegFr) = projected_RT(iDegFr) + &
+                        DISC%Galerkin%BndGaussW_Tet(jBndGP)*DISC%DynRup%rupture_time(iFace,jBndGP)*phiT
+                  ENDDO
+                ENDDO
+                DO iDegFr = 1,nDegFr2d
+                   projected_RT(iDegFr) =  projected_RT(iDegFr)/DISC%Galerkin%MassMatrix_Tri(iDegFr,iDegFr,DISC%Galerkin%nPoly)
+                ENDDO
+
+                !calculation of the spatial derivatives of the rupture time
+                chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+                tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+                dt_dchi=0d0
+                dt_dtau=0d0
+                DO iDegFr = 1, nDegFr2d
+                   call BaseGrad_Tri(phi2T,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
+                   dt_dchi = dt_dchi + projected_RT(iDegFr) * phi2T(1)
+                   dt_dtau = dt_dtau + projected_RT(iDegFr) * phi2T(2)
+                ENDDO
+
+                !For calculating the 2d Jacobian matrix we will need the nodal coordinates
+                IF (MESH%Fault%Face(iFace,1,1) == 0) THEN
+                ! iElem is in the neighbor domain
+                ! The neighbor element belongs to a different MPI domain
+                iNeighbor           = MESH%Fault%Face(iFace,1,2)          ! iNeighbor denotes "-" side
+                iLocalNeighborSide  = MESH%Fault%Face(iFace,2,2)
+                iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+                MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+                !
+                xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+                yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+                zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+                ELSE
+                !
+                ! get vertices
+                xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+                yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+                zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+                ENDIF
+
+                SELECT CASE(iSide)
+                 CASE(1)
+                    xab = (/ xV(3)-xV(1), yV(3)-yV(1), zV(3)-zV(1) /)
+                    xac = (/ xV(2)-xV(1), yV(2)-yV(1), zV(2)-zV(1) /)
+                 CASE(2)
+                    xab = (/ xV(2)-xV(1), yV(2)-yV(1), zV(2)-zV(1) /)
+                    xac = (/ xV(4)-xV(1), yV(4)-yV(1), zV(4)-zV(1) /)
+                 CASE(3)
+                    xab = (/ xV(4)-xV(1), yV(4)-yV(1), zV(4)-zV(1) /)
+                    xac = (/ xV(3)-xV(1), yV(3)-yV(1), zV(3)-zV(1) /)
+                 CASE(4)
+                    xab = (/ xV(3)-xV(2), yV(3)-yV(2), zV(3)-zV(2) /)
+                    xac = (/ xV(4)-xV(2), yV(4)-yV(2), zV(4)-zV(2) /)
+                ENDSELECT
+
+                grad2d(1,1) = dot_product(NormalVect_s(:),xab)
+                grad2d(2,1) = dot_product(NormalVect_t(:),xab)
+                grad2d(1,2) = dot_product(NormalVect_s(:),xac)
+                grad2d(2,2) = dot_product(NormalVect_t(:),xac)
+                CALL MatrixInverse2x2(JacobiT2d,grad2d)
+
+                dt_dx1 = JacobiT2d(1,1) * dt_dchi + JacobiT2d(1,2) * dt_dtau
+                dt_dy1 = JacobiT2d(2,1) * dt_dchi + JacobiT2d(2,2) * dt_dtau
+                Slowness = sqrt(dt_dx1**2 + dt_dy1**2)
+
+                IF (Slowness.EQ.0d0) THEN
+                  Vr=0d0
+                ElSE
+                  Vr=1d0/Slowness
+                ENDIF
+                DEALLOCATE(projected_RT)
+
+                OutVars = OutVars + 1
+                DynRup_output%OutVal(iOutPoints,1,OutVars)  = Vr
               ENDIF
           ENDIF
 
