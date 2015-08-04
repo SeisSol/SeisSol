@@ -629,8 +629,8 @@ CONTAINS
                 ENDSELECT
 
                 grad2d(1,1) = dot_product(NormalVect_s(:),xab)
-                grad2d(2,1) = dot_product(NormalVect_t(:),xab)
-                grad2d(1,2) = dot_product(NormalVect_s(:),xac)
+                grad2d(1,2) = dot_product(NormalVect_t(:),xab)
+                grad2d(2,1) = dot_product(NormalVect_s(:),xac)
                 grad2d(2,2) = dot_product(NormalVect_t(:),xac)
                 CALL MatrixInverse2x2(JacobiT2d,grad2d)
 
