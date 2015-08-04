@@ -77,6 +77,9 @@ MODULE dg_setup_mod
   INTERFACE IniSparseStarMatrices3D_new
      MODULE PROCEDURE IniSparseStarMatrices3D_new
   END INTERFACE
+  INTERFACE Read2dGF
+     MODULE PROCEDURE Read2dGF
+  END INTERFACE
 
 !  INTERFACE NonConformingGPEvaluation3D
 !     MODULE PROCEDURE NonConformingGPEvaluation3D
@@ -94,7 +97,8 @@ MODULE dg_setup_mod
        iniGalerkin3D_us_level2_new,        &
        iniGalerkin3D_us_intern_new,        &
        icGalerkin3D_us_new,                &
-       IniSparseStarMatrices3D_new
+       IniSparseStarMatrices3D_new,        &
+       Read2dGF
 !      NonConformingGPEvaluation3D
   !---------------------------------------------------------------------------!
 
@@ -3202,7 +3206,7 @@ CONTAINS
 !    INTEGER                         :: iDegFr
 !    INTEGER                         :: MPIIndex
 !    INTEGER                         :: iObject
-! 	INTEGER                         :: LocElemType, LocVrtxType
+!     INTEGER                         :: LocElemType, LocVrtxType
 !    REAL                            :: xGP,yGP,zGP
 !    REAL                            :: xi,eta,zeta
 !    REAL                            :: x_host(MESH%nVertexMax), y_host(MESH%nVertexMax), z_host(MESH%nVertexMax)
@@ -4427,5 +4431,133 @@ CONTAINS
     logInfo(*) '--------------------------------------'           !
     !                                                                            !
   END SUBROUTINE AnalyseGalerkin3D_us_new
+
+  ! Read the 2d Green function file
+  ! Used for computing the rupture velocity
+
+  SUBROUTINE Read2dGF(DISC,IO)
+    USE QuadPoints_mod
+    TYPE(tInputOutput)       :: IO
+    TYPE(tDiscretization)           :: DISC
+    INTEGER :: allocstat                                  ! Allocation status !
+    INTEGER :: stat                                       ! IO status         !
+    INTEGER nMaxPoly,MaxDegFr,iPoly,iDegFr,DegFr,iEta,iXi,k,l
+    LOGICAL                         :: configexist
+    CHARACTER(LEN=200)   :: DGPATH
+    CHARACTER(LEN=200)   :: FileName_Tri
+
+
+    INQUIRE(                                            & !
+     FILE= 'DGPATH'                                   , & !
+     EXIST=configexist                                  ) !
+    !                                                     !
+    IF (configexist) THEN                                 !
+       !                                                  !
+       OPEN(                                            & !
+        UNIT= IO%UNIT%FileIn                          , & !
+        FILE= 'DGPATH'                                , & !
+        IOSTAT = STAT                                   ) !
+       !                                                  !
+       IF (stat.NE.0) THEN                                !
+      logError(*) 'cannot open DGPATH'                    !
+      STOP
+       END IF                                             !
+       !                                                  !
+       READ(IO%UNIT%FileIn,'(A)') DGPATH                  !
+       !                                                  !
+       CLOSE(IO%UNIT%FileIn)                              !
+       !                                                  !
+       !                                                  !
+       logInfo(*) 'Path to the DG directory is: ',TRIM(DGPATH)
+
+    WRITE(FileName_Tri,'(a,a20)') TRIM(DGPATH), 'BasisFunctions2D.tri'
+    OPEN( UNIT = IO%UNIT%FileIn, FILE = TRIM(FileName_Tri), IOSTAT = STAT, STATUS='OLD' )
+    !
+    IF(stat.NE.0) THEN
+        WRITE(*,*) ' ERROR! File ', TRIM(FileName_Tri), ' could not be opened. '
+        STOP
+    ENDIF
+    WRITE(*,*) ' | Reading basis functions and mass matrices for DG method '
+    WRITE(*,*) ' | from file ', TRIM(FileName_Tri)
+
+    READ(IO%UNIT%FileIn,*)
+    READ(IO%UNIT%FileIn,*)
+    ! Read maximal degree of basis polynomials stored in the file.
+    READ(IO%UNIT%FileIn,*) nMaxPoly
+    IF(DISC%Galerkin%nPoly.GT.nMaxPoly) THEN
+        WRITE(*,*) 'ERROR: Required polynomial for DG method is higher than the ones stored in file ', TRIM(FileName_Tri)
+        STOP
+    ENDIF
+
+    MaxDegFr = (DISC%Galerkin%nPoly+1)*(DISC%Galerkin%nPoly+2)/2
+
+    ALLOCATE(                                                                                        &
+        DISC%Galerkin%cPoly_Tri(0:nMaxPoly, 0:nMaxPoly, 0:MaxDegFr-1, 0:nMaxPoly),                   &
+        DISC%Galerkin%MassMatrix_Tri(MaxDegFr,MaxDegFr, 0:nMaxPoly),                                 &
+        DISC%Galerkin%NonZeroCPoly_Tri(0:MaxDegFr-1,0:nMaxPoly),                                     &
+        DISC%Galerkin%NonZeroCPolyIndex_Tri(3,1:nMaxPoly**3,0:MaxDegFr,0:nMaxPoly),                  &
+        STAT = allocstat)
+    IF(allocStat .NE. 0) THEN
+        WRITE(*,*) 'ERROR: could not allocate all variables!'
+        STOP
+    END IF
+
+    ! Read coefficients of basis functions and mass matrices up to degree nMaxPoly
+    !DO iPoly = 0, nMaxPoly
+    DO iPoly = 0, DISC%Galerkin%nPoly
+        ! Read comment in front of the basis functions' coefficients
+        WRITE(*,*) ' | Reading basis functions of order ', iPoly
+        READ(IO%UNIT%FileIn,*)
+        DegFr = (iPoly + 1)*(iPoly + 2)/2
+        ! Read polynomial coefficients
+        ! where the index of the degrees of freedom starts at zero
+        DO iDegFr = 0, DegFr-1
+            DO iEta = 0, iPoly
+                DO iXi = 0, iPoly
+                    READ(IO%UNIT%FileIn,*) DISC%Galerkin%cPoly_Tri(iXi,iEta,iDegFr,iPoly)
+                ENDDO
+            ENDDO
+        ENDDO
+        ! Read comment in front of the entries of the mass matrix
+        READ(IO%UNIT%FileIn,*)
+        WRITE(*,*) ' | Reading mass matrices   of order ', iPoly
+        ! Read entries of the mass matrix
+        DO k = 1, DegFr
+            DO l = 1, DegFr
+                READ(IO%UNIT%FileIn,*) DISC%Galerkin%MassMatrix_Tri(k,l,iPoly)
+            ENDDO
+        ENDDO
+    ENDDO
+    CLOSE(IO%UNIT%FileIn)
+
+    DISC%Galerkin%NonZeroCPoly_Tri(:,:)          = 0
+    DISC%Galerkin%NonZeroCPolyIndex_Tri(:,:,:,:) = -1
+    !DO iPoly = 0, nMaxPoly
+    DO iPoly = 0, DISC%Galerkin%nPoly
+       DegFr = (iPoly + 1)*(iPoly + 2)/2
+       DO iDegFr = 0, DegFr-1
+            DO iEta = 0, iPoly
+              DO iXi = 0, iPoly
+                 IF(ABS(DISC%Galerkin%cPoly_Tri(iXi,iEta,iDegFr,iPoly)).GE.1e-6) THEN
+                    DISC%Galerkin%NonZeroCPoly_Tri(iDegFr,iPoly) = DISC%Galerkin%NonZeroCPoly_Tri(iDegFr,iPoly) + 1
+                    DISC%Galerkin%NonZeroCPolyIndex_Tri(1,DISC%Galerkin%NonZeroCPoly_Tri(iDegFr,iPoly),iDegFr,iPoly) = iXi
+                    DISC%Galerkin%NonZeroCPolyIndex_Tri(2,DISC%Galerkin%NonZeroCPoly_Tri(iDegFr,iPoly),iDegFr,iPoly) = iEta
+                 ENDIF
+              ENDDO
+            ENDDO
+       ENDDO
+    ENDDO
+    ENDIF
+
+        ! Compute and store surface gaussian integration points
+        CALL TriangleQuadraturePoints(                         &
+                 nIntGP     = DISC%Galerkin%nBndGP,            &
+                 IntGaussP  = DISC%Galerkin%BndGaussP_Tet,     &
+                 IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
+                 M          = DISC%Galerkin%nPoly+2,           &
+                 IO         = IO,                              &
+                 quiet      = .TRUE.                           )
+      
+  END SUBROUTINE Read2dGF
 
 END MODULE dg_setup_mod

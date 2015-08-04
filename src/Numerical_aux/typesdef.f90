@@ -863,7 +863,7 @@ MODULE TypesDef
      INTEGER                                :: nOutVars
         !< Number of output variables (calculated using OututMask)
      INTEGER                                :: printtimeinterval                !< Time interval at which output will be written
-     INTEGER                                :: OutputMask(1:6)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement
+     INTEGER                                :: OutputMask(1:7)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed
      INTEGER                      , POINTER :: OutputLabel(:)                   !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
      LOGICAL                                :: DR_pick_output                   !< DR output at certain receiver stations
      INTEGER                                :: nDR_pick                         !< number of DR output receiver for this domain
@@ -893,6 +893,7 @@ MODULE TypesDef
      REAL, POINTER                          :: cohesion(:,:)                    !< cohesion at given fault node  (should be negative since negative normal stress is compression)
      REAL                                   :: cohesion_0                       !< Default cohesion value
      REAL, POINTER                          :: forced_rupture_time(:,:)         !< forced rupture time at given fault node
+     REAL, POINTER                          :: rupture_time(:,:)                !< rupture time at given fault node> used for VR ouput calculation
      REAL                                   :: XHypo                            !< x-coordinate of the forced rupture patch
      REAL                                   :: YHypo                            !< y-coordinate of the forced rupture circle
      REAL                                   :: ZHypo                            !< z-coordinate of the forced rupture circle

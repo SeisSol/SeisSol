@@ -304,6 +304,9 @@ MODULE ini_model_DR_mod
     
     ! ini rupture front output
     DISC%DynRup%RF = .FALSE.
+    !T. Ulrich 8.2015 initial rupture time array (for Vr calculations)
+    ALLOCATE(DISC%DynRup%rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+    DISC%DynRup%rupture_time(:,:)=0.
     
     !frictional parameter initialization
     SELECT CASE(EQN%FL)

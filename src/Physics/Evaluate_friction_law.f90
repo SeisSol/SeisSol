@@ -366,6 +366,7 @@ MODULE Eval_friction_law_mod
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iFace, iBndGP)=time
          CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
          DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
@@ -531,6 +532,7 @@ MODULE Eval_friction_law_mod
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iFace, iBndGP)=time
         CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
@@ -708,6 +710,7 @@ MODULE Eval_friction_law_mod
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iFace, iBndGP)=time
         CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
@@ -917,6 +920,7 @@ MODULE Eval_friction_law_mod
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iFace, iBndGP)=time
         CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
@@ -1108,6 +1112,7 @@ MODULE Eval_friction_law_mod
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iFace, iBndGP)=time
         CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
@@ -1402,6 +1407,7 @@ MODULE Eval_friction_law_mod
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iFace, iBndGP)=time
         CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
@@ -1703,6 +1709,7 @@ MODULE Eval_friction_law_mod
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iFace, iBndGP)=time
          CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
          DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
