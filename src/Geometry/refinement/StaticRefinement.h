@@ -147,10 +147,12 @@ public:
         // Iterate over original Cells c and subsampled cells i
         for (unsigned int i = 0; i < this->nCells()/kSubCellsPerCell; i++)
             // Iterate over refined subcells which are in a fixed order
-            for (unsigned int sc = 0; sc < kSubCellsPerCell; sc++)
+            for (unsigned int sc = 0; sc < kSubCellsPerCell; sc++) {
+                std::size_t offset = variable * m_NumAlignedBasicFunctions;
                 odata[i*kSubCellsPerCell+sc] = m_BasicFunctions[sc].evalWithCoefs(
-                        &idata[cellMap[i] * this->m_numVariables + variable]
+                        &idata[cellMap[i] * this->m_numVariables + offset]
                         );
+            }
     }
 };
 
