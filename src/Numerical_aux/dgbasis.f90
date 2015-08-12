@@ -783,7 +783,7 @@ contains
     integer                 :: iDegFr
 #ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
-    real                    :: l_dofs(disc%galerkin%nDegFr, eqn%nVar)
+    real                    :: l_dofs(disc%galerkin%nDegFr, eqn%nVarTotal)
 #endif
     !-------------------------------------------------------------------------!
     intent(IN)              :: iElem, iIntGP, LocElemType
@@ -804,7 +804,7 @@ contains
             phi = DISC%Galerkin%IntGPBaseFunc_Hex(iDegFr,iIntGP,DISC%Galerkin%nPoly)
         end select
 #ifdef GENERATEDKERNELS
-       state(1:EQN%nVar) = state(1:EQN%nVar) + phi*l_dofs( iDegFr, : )
+       state(1:EQN%nVar) = state(1:EQN%nVar) + phi*l_dofs( iDegFr, 1:EQN%nVar )
 #else
        state(1:EQN%nVar) = state(1:EQN%nVar) + phi*DISC%Galerkin%DGvar(iDegFr,1:EQN%nVar,iElem,1)
 #endif

@@ -143,7 +143,7 @@ void seissol::model::setMaterial( double* i_materialVal,
  
   o_material->rho = i_materialVal[0];
   o_material->mu = i_materialVal[1];
-  o_material->lambda = i_materialVal[2];  
+  o_material->lambda = i_materialVal[2];
   
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     o_material->omega[mech] = i_materialVal[3 + 4*mech];

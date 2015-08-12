@@ -2626,22 +2626,25 @@ CONTAINS
             DO iDegFr = 1, nDegFr
                 phi = IntGPBaseFunc(iDegFr,iIntGP)
 #ifdef GENERATEDKERNELS
-                l_dofsUpdate(iDegFr, :) = l_dofsUpdate(iDegFr, :) + intGaussW(iIntGP)*iniGP(:)*phi
+                l_dofsUpdate(iDegFr, 1:EQN%nVar) = l_dofsUpdate(iDegFr, 1:EQN%nVar) + intGaussW(iIntGP)*iniGP(:)*phi
 #else
                 DISC%Galerkin%dgvar(iDegFr,1:EQN%nVar,iElem,1) =                                                    &
                 DISC%Galerkin%dgvar(iDegFr,1:EQN%nVar,iElem,1) + IntGaussW(iIntGP)*iniGP(:)*phi
 #endif
             ENDDO
-            !
-!            IF(EQN%Anelasticity.EQ.1) THEN
-!                ! Projection of anelatic functions
-!                DO iDegFr = 1, nDegFr
-!                    phi = IntGPBaseFunc(iDegFr,iIntGP)
-!                    DISC%Galerkin%dgvar(iDegFr,EQN%nVar+1:EQN%nVarTotal,iElem,1) =                                  &
-!                    DISC%Galerkin%dgvar(iDegFr,EQN%nVar+1:EQN%nVarTotal,iElem,1) + IntGaussW(iIntGP)*iniGP_ANE(:)*phi
-!                ENDDO
-!            ENDIF
-            !
+            
+            IF(EQN%Anelasticity.EQ.1) THEN
+                ! Projection of anelastic functions
+                DO iDegFr = 1, nDegFr
+#ifdef GENERATEDKERNELS
+                  l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) = l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) + IntGaussW(iIntGP)*iniGP_Ane(:)*phi
+#else
+                  phi = IntGPBaseFunc(iDegFr,iIntGP)
+                  DISC%Galerkin%dgvar(iDegFr,EQN%nVar+1:EQN%nVarTotal,iElem,1) =                                  &
+                  DISC%Galerkin%dgvar(iDegFr,EQN%nVar+1:EQN%nVarTotal,iElem,1) + IntGaussW(iIntGP)*iniGP_Ane(:)*phi
+#endif
+                ENDDO
+            ENDIF
 
             IF(EQN%Plasticity.EQ.1) THEN  
 #ifdef GENERATEDKERNELS
