@@ -2636,10 +2636,10 @@ CONTAINS
             IF(EQN%Anelasticity.EQ.1) THEN
                 ! Projection of anelastic functions
                 DO iDegFr = 1, nDegFr
+                  phi = IntGPBaseFunc(iDegFr,iIntGP)
 #ifdef GENERATEDKERNELS
                   l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) = l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) + IntGaussW(iIntGP)*iniGP_Ane(:)*phi
 #else
-                  phi = IntGPBaseFunc(iDegFr,iIntGP)
                   DISC%Galerkin%dgvar(iDegFr,EQN%nVar+1:EQN%nVarTotal,iElem,1) =                                  &
                   DISC%Galerkin%dgvar(iDegFr,EQN%nVar+1:EQN%nVarTotal,iElem,1) + IntGaussW(iIntGP)*iniGP_Ane(:)*phi
 #endif
