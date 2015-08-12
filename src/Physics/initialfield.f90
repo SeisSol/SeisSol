@@ -474,7 +474,7 @@ CONTAINS
        ! Wavenumbers      
             kx    = IC%PWAN%Wavenumbers(1)
             ky    = IC%PWAN%Wavenumbers(2)
-            kz    = IC%PWAN%Wavenumbers(2)
+            kz    = IC%PWAN%Wavenumbers(3)
 
        ! Imaginary Unit
        IU = (0.,1.)
