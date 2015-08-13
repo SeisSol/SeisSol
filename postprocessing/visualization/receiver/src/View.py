@@ -55,16 +55,29 @@ class View(QWidget):
     self.canvas = FigureCanvas(self.figure)
     self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
     
+    self.navigationLayout = QHBoxLayout()
+    
     layout = QHBoxLayout(self)
     self.navigations = []
     for i in range(0, 2):
-      navigation = Navigation.Navigation(self)
-      navigation.activeItemChanged.connect(self.plot)
-      navigation.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
-      layout.addWidget(navigation)
-      self.navigations.append(navigation)
+      self.addNavigation()
+    
+    addIcon = QIcon.fromTheme('list-add')
+    addNaviButton = QPushButton(addIcon, 'Add navigation', self)
+    addNaviButton.clicked.connect(self.addNavigation)
 
+    sideLayout = QVBoxLayout()
+    sideLayout.addWidget(addNaviButton)
+    sideLayout.addLayout(self.navigationLayout)
+    layout.addLayout(sideLayout)
     layout.addWidget(self.canvas)
+    
+  def addNavigation(self):
+    navigation = Navigation.Navigation(self)
+    navigation.activeItemChanged.connect(self.plot)
+    navigation.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
+    self.navigationLayout.addWidget(navigation)
+    self.navigations.append(navigation)
 
   def plot(self):
     waveforms = []

@@ -203,6 +203,8 @@ CONTAINS
 
     ! do the simulation
     call c_interoperability_simulate( i_finalTime =  c_loc(disc%endTime) );
+    ! End time is currently the only supported abort criteria by GK
+    time = disc%endTime
 #else
     !
     !                                                   !

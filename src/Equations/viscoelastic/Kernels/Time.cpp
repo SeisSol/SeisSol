@@ -128,19 +128,21 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
                                 o_timeDerivatives );
   }
   
-  unsigned reducedOrderNumberOfBasisFunctions = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - 1, ALIGNMENT );
+  unsigned reducedOrderNumberOfBasisFunctions = getNumberOfBasisFunctions( CONVERGENCE_ORDER - 1 );
+  unsigned reducedOrderNumberOfAlignedBasisFunctions = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - 1, ALIGNMENT );
 
   // compute all derivatives and contributions to the time integrated DOFs
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
     // iterate over dimensions 
+    real* lastDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative-1];
     real* currentDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative];
     for( unsigned int l_c = 0; l_c < 3; l_c++ ) {
       for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
         l_temporaryResult2[l_dof] = 0.0;
       }
                 
-      m_matrixKernels[l_c](i_stiffnessMatrices[l_c], l_derivativesBuffer+m_derivativesOffsets[l_derivative-1], l_temporaryResult,  NULL, NULL, NULL);
-      m_matrixKernels[3]  (l_temporaryResult,        i_starMatrices[l_c],                                      l_temporaryResult2, NULL, NULL, NULL);
+      m_matrixKernels[l_c](i_stiffnessMatrices[l_c], lastDerivative, l_temporaryResult,  NULL, NULL, NULL);
+      m_matrixKernels[3]  (l_temporaryResult,        i_starMatrices[l_c], l_temporaryResult2, NULL, NULL, NULL);
 
       /* matrixKernels[0:2] (C = AB) and matrixKernels[3] (C += AB) assume that 
        * C has leading dimension getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - 1, ALIGNMENT )
@@ -153,18 +155,10 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
       */
       for (unsigned quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
         for (unsigned bf = 0; bf < reducedOrderNumberOfBasisFunctions; ++bf) {
-          currentDerivative[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] += l_temporaryResult2[bf + quantity * reducedOrderNumberOfBasisFunctions];
+          currentDerivative[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] += l_temporaryResult2[bf + quantity * reducedOrderNumberOfAlignedBasisFunctions];
         }
       }
     }
-    
-    // DEBUG
-    /*for (unsigned quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
-        for (unsigned bf = reducedOrderNumberOfBasisFunctions; bf < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++bf) {
-          currentDerivative[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = 0.0;
-        }
-      }*/
-    // END DEBUG
 
     // + Q*E^T
     // \todo generate a kernel
@@ -172,7 +166,7 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
     for (unsigned quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
         for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
           for (unsigned k = 0; k < NUMBER_OF_QUANTITIES; ++k) {
-            l_temporaryResult[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] += currentDerivative[bf + k * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] * sourceMatrix[k + quantity * NUMBER_OF_QUANTITIES];
+            l_temporaryResult[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] += lastDerivative[bf + k * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] * sourceMatrix[k + quantity * NUMBER_OF_QUANTITIES];
           }
       }
     }

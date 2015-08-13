@@ -3815,7 +3815,7 @@ ALLOCATE( SpacePositionx(nDirac), &
        !
        ANALYSE%PW%setvar = setvar                                        ! characteristic waves
        ALLOCATE(ANALYSE%PW%varfield(ANALYSE%PW%setvar),ANALYSE%PW%ampfield(ANALYSE%PW%setvar))
-       call readAnalysisFields(IO, setvar, varfield, ampfield)         
+       call readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)         
        ANALYSE%PW%varfield(:)  = varfield(:)                                  
        ANALYSE%PW%ampfield(:)  = ampfield(:)                                  
 
@@ -3884,13 +3884,14 @@ ALLOCATE( SpacePositionx(nDirac), &
     !                                                                       
   END SUBROUTINE readpar_analyse
 
-  SUBROUTINE readAnalysisFields(IO, setvar, varfield, ampfield)
+  SUBROUTINE readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)
     IMPLICIT NONE 
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: setvar
     REAL, DIMENSION(:), ALLOCATABLE        :: varfield, ampfield
-    NAMELIST                               /AnalysisFields/ varfield, ampfield
+    CHARACTER(LEN=600)                     :: EigenVecValName
+    NAMELIST                               /AnalysisFields/ varfield, ampfield, EigenVecValName
     !---------------------------------------------------------------------- 
        ALLOCATE(varfield(setvar), &
                 ampfield(setvar))
