@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-05-09 22:17:48.683991
+// @date 2015-08-14 10:02:00.829924
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -75,1390 +75,1390 @@
 extern long long libxsmm_num_total_flops;
 #endif
 
-void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna2_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-for (unsigned int i = 0; i < 1; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna2_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  for ( l_m = 0; l_m < 1; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 48;
 #endif
-
 }
 
-void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna3_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(4)
-#pragma vector aligned
-for (unsigned int i = 0; i < 4; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna3_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(4)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 4; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 192;
 #endif
-
 }
 
-void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna3_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-for (unsigned int i = 0; i < 1; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna3_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  for ( l_m = 0; l_m < 1; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 48;
 #endif
-
 }
 
-void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna4_ldC12_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 10; i += 1)
-{
-C[(i)+(0)] += A[(i)+(72)] * values[0];
-C[(i)+(0)] += A[(i)+(84)] * values[1];
-C[(i)+(0)] += A[(i)+(96)] * values[2];
-C[(i)+(12)] += A[(i)+(72)] * values[3];
-C[(i)+(12)] += A[(i)+(84)] * values[4];
-C[(i)+(12)] += A[(i)+(96)] * values[5];
-C[(i)+(24)] += A[(i)+(72)] * values[6];
-C[(i)+(24)] += A[(i)+(84)] * values[7];
-C[(i)+(24)] += A[(i)+(96)] * values[8];
-C[(i)+(36)] += A[(i)+(72)] * values[9];
-C[(i)+(36)] += A[(i)+(84)] * values[10];
-C[(i)+(48)] += A[(i)+(84)] * values[11];
-C[(i)+(48)] += A[(i)+(96)] * values[12];
-C[(i)+(60)] += A[(i)+(72)] * values[13];
-C[(i)+(60)] += A[(i)+(96)] * values[14];
-C[(i)+(72)] += A[(i)+(0)] * values[15];
-C[(i)+(72)] += A[(i)+(36)] * values[16];
-C[(i)+(72)] += A[(i)+(60)] * values[17];
-C[(i)+(84)] += A[(i)+(12)] * values[18];
-C[(i)+(84)] += A[(i)+(36)] * values[19];
-C[(i)+(84)] += A[(i)+(48)] * values[20];
-C[(i)+(96)] += A[(i)+(24)] * values[21];
-C[(i)+(96)] += A[(i)+(48)] * values[22];
-C[(i)+(96)] += A[(i)+(60)] * values[23];
-}
+void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna4_ldC12_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 10; l_m++) {
+    C[0+l_m] += A[72+l_m] * B[0];
+    C[0+l_m] += A[84+l_m] * B[1];
+    C[0+l_m] += A[96+l_m] * B[2];
+    C[12+l_m] += A[72+l_m] * B[3];
+    C[12+l_m] += A[84+l_m] * B[4];
+    C[12+l_m] += A[96+l_m] * B[5];
+    C[24+l_m] += A[72+l_m] * B[6];
+    C[24+l_m] += A[84+l_m] * B[7];
+    C[24+l_m] += A[96+l_m] * B[8];
+    C[36+l_m] += A[72+l_m] * B[9];
+    C[36+l_m] += A[84+l_m] * B[10];
+    C[48+l_m] += A[84+l_m] * B[11];
+    C[48+l_m] += A[96+l_m] * B[12];
+    C[60+l_m] += A[72+l_m] * B[13];
+    C[60+l_m] += A[96+l_m] * B[14];
+    C[72+l_m] += A[0+l_m] * B[15];
+    C[72+l_m] += A[36+l_m] * B[16];
+    C[72+l_m] += A[60+l_m] * B[17];
+    C[84+l_m] += A[12+l_m] * B[18];
+    C[84+l_m] += A[36+l_m] * B[19];
+    C[84+l_m] += A[48+l_m] * B[20];
+    C[96+l_m] += A[24+l_m] * B[21];
+    C[96+l_m] += A[48+l_m] * B[22];
+    C[96+l_m] += A[60+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 480;
 #endif
-
 }
 
-void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna4_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(4)
-#pragma vector aligned
-for (unsigned int i = 0; i < 4; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna4_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(4)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 4; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 192;
 #endif
-
 }
 
-void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna4_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-for (unsigned int i = 0; i < 1; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna4_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  for ( l_m = 0; l_m < 1; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 48;
 #endif
-
 }
 
-void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna5_ldC20_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 20; i += 1)
-{
-C[(i)+(0)] += A[(i)+(120)] * values[0];
-C[(i)+(0)] += A[(i)+(140)] * values[1];
-C[(i)+(0)] += A[(i)+(160)] * values[2];
-C[(i)+(20)] += A[(i)+(120)] * values[3];
-C[(i)+(20)] += A[(i)+(140)] * values[4];
-C[(i)+(20)] += A[(i)+(160)] * values[5];
-C[(i)+(40)] += A[(i)+(120)] * values[6];
-C[(i)+(40)] += A[(i)+(140)] * values[7];
-C[(i)+(40)] += A[(i)+(160)] * values[8];
-C[(i)+(60)] += A[(i)+(120)] * values[9];
-C[(i)+(60)] += A[(i)+(140)] * values[10];
-C[(i)+(80)] += A[(i)+(140)] * values[11];
-C[(i)+(80)] += A[(i)+(160)] * values[12];
-C[(i)+(100)] += A[(i)+(120)] * values[13];
-C[(i)+(100)] += A[(i)+(160)] * values[14];
-C[(i)+(120)] += A[(i)+(0)] * values[15];
-C[(i)+(120)] += A[(i)+(60)] * values[16];
-C[(i)+(120)] += A[(i)+(100)] * values[17];
-C[(i)+(140)] += A[(i)+(20)] * values[18];
-C[(i)+(140)] += A[(i)+(60)] * values[19];
-C[(i)+(140)] += A[(i)+(80)] * values[20];
-C[(i)+(160)] += A[(i)+(40)] * values[21];
-C[(i)+(160)] += A[(i)+(80)] * values[22];
-C[(i)+(160)] += A[(i)+(100)] * values[23];
-}
+void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna5_ldC20_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 20; l_m++) {
+    C[0+l_m] += A[120+l_m] * B[0];
+    C[0+l_m] += A[140+l_m] * B[1];
+    C[0+l_m] += A[160+l_m] * B[2];
+    C[20+l_m] += A[120+l_m] * B[3];
+    C[20+l_m] += A[140+l_m] * B[4];
+    C[20+l_m] += A[160+l_m] * B[5];
+    C[40+l_m] += A[120+l_m] * B[6];
+    C[40+l_m] += A[140+l_m] * B[7];
+    C[40+l_m] += A[160+l_m] * B[8];
+    C[60+l_m] += A[120+l_m] * B[9];
+    C[60+l_m] += A[140+l_m] * B[10];
+    C[80+l_m] += A[140+l_m] * B[11];
+    C[80+l_m] += A[160+l_m] * B[12];
+    C[100+l_m] += A[120+l_m] * B[13];
+    C[100+l_m] += A[160+l_m] * B[14];
+    C[120+l_m] += A[0+l_m] * B[15];
+    C[120+l_m] += A[60+l_m] * B[16];
+    C[120+l_m] += A[100+l_m] * B[17];
+    C[140+l_m] += A[20+l_m] * B[18];
+    C[140+l_m] += A[60+l_m] * B[19];
+    C[140+l_m] += A[80+l_m] * B[20];
+    C[160+l_m] += A[40+l_m] * B[21];
+    C[160+l_m] += A[80+l_m] * B[22];
+    C[160+l_m] += A[100+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 960;
 #endif
-
 }
 
-void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna5_ldC12_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 10; i += 1)
-{
-C[(i)+(0)] += A[(i)+(72)] * values[0];
-C[(i)+(0)] += A[(i)+(84)] * values[1];
-C[(i)+(0)] += A[(i)+(96)] * values[2];
-C[(i)+(12)] += A[(i)+(72)] * values[3];
-C[(i)+(12)] += A[(i)+(84)] * values[4];
-C[(i)+(12)] += A[(i)+(96)] * values[5];
-C[(i)+(24)] += A[(i)+(72)] * values[6];
-C[(i)+(24)] += A[(i)+(84)] * values[7];
-C[(i)+(24)] += A[(i)+(96)] * values[8];
-C[(i)+(36)] += A[(i)+(72)] * values[9];
-C[(i)+(36)] += A[(i)+(84)] * values[10];
-C[(i)+(48)] += A[(i)+(84)] * values[11];
-C[(i)+(48)] += A[(i)+(96)] * values[12];
-C[(i)+(60)] += A[(i)+(72)] * values[13];
-C[(i)+(60)] += A[(i)+(96)] * values[14];
-C[(i)+(72)] += A[(i)+(0)] * values[15];
-C[(i)+(72)] += A[(i)+(36)] * values[16];
-C[(i)+(72)] += A[(i)+(60)] * values[17];
-C[(i)+(84)] += A[(i)+(12)] * values[18];
-C[(i)+(84)] += A[(i)+(36)] * values[19];
-C[(i)+(84)] += A[(i)+(48)] * values[20];
-C[(i)+(96)] += A[(i)+(24)] * values[21];
-C[(i)+(96)] += A[(i)+(48)] * values[22];
-C[(i)+(96)] += A[(i)+(60)] * values[23];
-}
+void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna5_ldC12_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 10; l_m++) {
+    C[0+l_m] += A[72+l_m] * B[0];
+    C[0+l_m] += A[84+l_m] * B[1];
+    C[0+l_m] += A[96+l_m] * B[2];
+    C[12+l_m] += A[72+l_m] * B[3];
+    C[12+l_m] += A[84+l_m] * B[4];
+    C[12+l_m] += A[96+l_m] * B[5];
+    C[24+l_m] += A[72+l_m] * B[6];
+    C[24+l_m] += A[84+l_m] * B[7];
+    C[24+l_m] += A[96+l_m] * B[8];
+    C[36+l_m] += A[72+l_m] * B[9];
+    C[36+l_m] += A[84+l_m] * B[10];
+    C[48+l_m] += A[84+l_m] * B[11];
+    C[48+l_m] += A[96+l_m] * B[12];
+    C[60+l_m] += A[72+l_m] * B[13];
+    C[60+l_m] += A[96+l_m] * B[14];
+    C[72+l_m] += A[0+l_m] * B[15];
+    C[72+l_m] += A[36+l_m] * B[16];
+    C[72+l_m] += A[60+l_m] * B[17];
+    C[84+l_m] += A[12+l_m] * B[18];
+    C[84+l_m] += A[36+l_m] * B[19];
+    C[84+l_m] += A[48+l_m] * B[20];
+    C[96+l_m] += A[24+l_m] * B[21];
+    C[96+l_m] += A[48+l_m] * B[22];
+    C[96+l_m] += A[60+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 480;
 #endif
-
 }
 
-void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna5_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(4)
-#pragma vector aligned
-for (unsigned int i = 0; i < 4; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna5_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(4)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 4; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 192;
 #endif
-
 }
 
-void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna5_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-for (unsigned int i = 0; i < 1; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna5_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  for ( l_m = 0; l_m < 1; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 48;
 #endif
-
 }
 
-void ssparse_starMatrix_m35_n9_k9_ldA36_ldBna6_ldC36_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 35; i += 1)
-{
-C[(i)+(0)] += A[(i)+(216)] * values[0];
-C[(i)+(0)] += A[(i)+(252)] * values[1];
-C[(i)+(0)] += A[(i)+(288)] * values[2];
-C[(i)+(36)] += A[(i)+(216)] * values[3];
-C[(i)+(36)] += A[(i)+(252)] * values[4];
-C[(i)+(36)] += A[(i)+(288)] * values[5];
-C[(i)+(72)] += A[(i)+(216)] * values[6];
-C[(i)+(72)] += A[(i)+(252)] * values[7];
-C[(i)+(72)] += A[(i)+(288)] * values[8];
-C[(i)+(108)] += A[(i)+(216)] * values[9];
-C[(i)+(108)] += A[(i)+(252)] * values[10];
-C[(i)+(144)] += A[(i)+(252)] * values[11];
-C[(i)+(144)] += A[(i)+(288)] * values[12];
-C[(i)+(180)] += A[(i)+(216)] * values[13];
-C[(i)+(180)] += A[(i)+(288)] * values[14];
-C[(i)+(216)] += A[(i)+(0)] * values[15];
-C[(i)+(216)] += A[(i)+(108)] * values[16];
-C[(i)+(216)] += A[(i)+(180)] * values[17];
-C[(i)+(252)] += A[(i)+(36)] * values[18];
-C[(i)+(252)] += A[(i)+(108)] * values[19];
-C[(i)+(252)] += A[(i)+(144)] * values[20];
-C[(i)+(288)] += A[(i)+(72)] * values[21];
-C[(i)+(288)] += A[(i)+(144)] * values[22];
-C[(i)+(288)] += A[(i)+(180)] * values[23];
-}
+void ssparse_starMatrix_m35_n9_k9_ldA36_ldBna6_ldC36_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 35; l_m++) {
+    C[0+l_m] += A[216+l_m] * B[0];
+    C[0+l_m] += A[252+l_m] * B[1];
+    C[0+l_m] += A[288+l_m] * B[2];
+    C[36+l_m] += A[216+l_m] * B[3];
+    C[36+l_m] += A[252+l_m] * B[4];
+    C[36+l_m] += A[288+l_m] * B[5];
+    C[72+l_m] += A[216+l_m] * B[6];
+    C[72+l_m] += A[252+l_m] * B[7];
+    C[72+l_m] += A[288+l_m] * B[8];
+    C[108+l_m] += A[216+l_m] * B[9];
+    C[108+l_m] += A[252+l_m] * B[10];
+    C[144+l_m] += A[252+l_m] * B[11];
+    C[144+l_m] += A[288+l_m] * B[12];
+    C[180+l_m] += A[216+l_m] * B[13];
+    C[180+l_m] += A[288+l_m] * B[14];
+    C[216+l_m] += A[0+l_m] * B[15];
+    C[216+l_m] += A[108+l_m] * B[16];
+    C[216+l_m] += A[180+l_m] * B[17];
+    C[252+l_m] += A[36+l_m] * B[18];
+    C[252+l_m] += A[108+l_m] * B[19];
+    C[252+l_m] += A[144+l_m] * B[20];
+    C[288+l_m] += A[72+l_m] * B[21];
+    C[288+l_m] += A[144+l_m] * B[22];
+    C[288+l_m] += A[180+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 1680;
 #endif
-
 }
 
-void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna6_ldC20_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 20; i += 1)
-{
-C[(i)+(0)] += A[(i)+(120)] * values[0];
-C[(i)+(0)] += A[(i)+(140)] * values[1];
-C[(i)+(0)] += A[(i)+(160)] * values[2];
-C[(i)+(20)] += A[(i)+(120)] * values[3];
-C[(i)+(20)] += A[(i)+(140)] * values[4];
-C[(i)+(20)] += A[(i)+(160)] * values[5];
-C[(i)+(40)] += A[(i)+(120)] * values[6];
-C[(i)+(40)] += A[(i)+(140)] * values[7];
-C[(i)+(40)] += A[(i)+(160)] * values[8];
-C[(i)+(60)] += A[(i)+(120)] * values[9];
-C[(i)+(60)] += A[(i)+(140)] * values[10];
-C[(i)+(80)] += A[(i)+(140)] * values[11];
-C[(i)+(80)] += A[(i)+(160)] * values[12];
-C[(i)+(100)] += A[(i)+(120)] * values[13];
-C[(i)+(100)] += A[(i)+(160)] * values[14];
-C[(i)+(120)] += A[(i)+(0)] * values[15];
-C[(i)+(120)] += A[(i)+(60)] * values[16];
-C[(i)+(120)] += A[(i)+(100)] * values[17];
-C[(i)+(140)] += A[(i)+(20)] * values[18];
-C[(i)+(140)] += A[(i)+(60)] * values[19];
-C[(i)+(140)] += A[(i)+(80)] * values[20];
-C[(i)+(160)] += A[(i)+(40)] * values[21];
-C[(i)+(160)] += A[(i)+(80)] * values[22];
-C[(i)+(160)] += A[(i)+(100)] * values[23];
-}
+void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna6_ldC20_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 20; l_m++) {
+    C[0+l_m] += A[120+l_m] * B[0];
+    C[0+l_m] += A[140+l_m] * B[1];
+    C[0+l_m] += A[160+l_m] * B[2];
+    C[20+l_m] += A[120+l_m] * B[3];
+    C[20+l_m] += A[140+l_m] * B[4];
+    C[20+l_m] += A[160+l_m] * B[5];
+    C[40+l_m] += A[120+l_m] * B[6];
+    C[40+l_m] += A[140+l_m] * B[7];
+    C[40+l_m] += A[160+l_m] * B[8];
+    C[60+l_m] += A[120+l_m] * B[9];
+    C[60+l_m] += A[140+l_m] * B[10];
+    C[80+l_m] += A[140+l_m] * B[11];
+    C[80+l_m] += A[160+l_m] * B[12];
+    C[100+l_m] += A[120+l_m] * B[13];
+    C[100+l_m] += A[160+l_m] * B[14];
+    C[120+l_m] += A[0+l_m] * B[15];
+    C[120+l_m] += A[60+l_m] * B[16];
+    C[120+l_m] += A[100+l_m] * B[17];
+    C[140+l_m] += A[20+l_m] * B[18];
+    C[140+l_m] += A[60+l_m] * B[19];
+    C[140+l_m] += A[80+l_m] * B[20];
+    C[160+l_m] += A[40+l_m] * B[21];
+    C[160+l_m] += A[80+l_m] * B[22];
+    C[160+l_m] += A[100+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 960;
 #endif
-
 }
 
-void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna6_ldC12_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 10; i += 1)
-{
-C[(i)+(0)] += A[(i)+(72)] * values[0];
-C[(i)+(0)] += A[(i)+(84)] * values[1];
-C[(i)+(0)] += A[(i)+(96)] * values[2];
-C[(i)+(12)] += A[(i)+(72)] * values[3];
-C[(i)+(12)] += A[(i)+(84)] * values[4];
-C[(i)+(12)] += A[(i)+(96)] * values[5];
-C[(i)+(24)] += A[(i)+(72)] * values[6];
-C[(i)+(24)] += A[(i)+(84)] * values[7];
-C[(i)+(24)] += A[(i)+(96)] * values[8];
-C[(i)+(36)] += A[(i)+(72)] * values[9];
-C[(i)+(36)] += A[(i)+(84)] * values[10];
-C[(i)+(48)] += A[(i)+(84)] * values[11];
-C[(i)+(48)] += A[(i)+(96)] * values[12];
-C[(i)+(60)] += A[(i)+(72)] * values[13];
-C[(i)+(60)] += A[(i)+(96)] * values[14];
-C[(i)+(72)] += A[(i)+(0)] * values[15];
-C[(i)+(72)] += A[(i)+(36)] * values[16];
-C[(i)+(72)] += A[(i)+(60)] * values[17];
-C[(i)+(84)] += A[(i)+(12)] * values[18];
-C[(i)+(84)] += A[(i)+(36)] * values[19];
-C[(i)+(84)] += A[(i)+(48)] * values[20];
-C[(i)+(96)] += A[(i)+(24)] * values[21];
-C[(i)+(96)] += A[(i)+(48)] * values[22];
-C[(i)+(96)] += A[(i)+(60)] * values[23];
-}
+void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna6_ldC12_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 10; l_m++) {
+    C[0+l_m] += A[72+l_m] * B[0];
+    C[0+l_m] += A[84+l_m] * B[1];
+    C[0+l_m] += A[96+l_m] * B[2];
+    C[12+l_m] += A[72+l_m] * B[3];
+    C[12+l_m] += A[84+l_m] * B[4];
+    C[12+l_m] += A[96+l_m] * B[5];
+    C[24+l_m] += A[72+l_m] * B[6];
+    C[24+l_m] += A[84+l_m] * B[7];
+    C[24+l_m] += A[96+l_m] * B[8];
+    C[36+l_m] += A[72+l_m] * B[9];
+    C[36+l_m] += A[84+l_m] * B[10];
+    C[48+l_m] += A[84+l_m] * B[11];
+    C[48+l_m] += A[96+l_m] * B[12];
+    C[60+l_m] += A[72+l_m] * B[13];
+    C[60+l_m] += A[96+l_m] * B[14];
+    C[72+l_m] += A[0+l_m] * B[15];
+    C[72+l_m] += A[36+l_m] * B[16];
+    C[72+l_m] += A[60+l_m] * B[17];
+    C[84+l_m] += A[12+l_m] * B[18];
+    C[84+l_m] += A[36+l_m] * B[19];
+    C[84+l_m] += A[48+l_m] * B[20];
+    C[96+l_m] += A[24+l_m] * B[21];
+    C[96+l_m] += A[48+l_m] * B[22];
+    C[96+l_m] += A[60+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 480;
 #endif
-
 }
 
-void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna6_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(4)
-#pragma vector aligned
-for (unsigned int i = 0; i < 4; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna6_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(4)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 4; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 192;
 #endif
-
 }
 
-void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna6_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-for (unsigned int i = 0; i < 1; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna6_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  for ( l_m = 0; l_m < 1; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 48;
 #endif
-
 }
 
-void ssparse_starMatrix_m56_n9_k9_ldA56_ldBna7_ldC56_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 56; i += 1)
-{
-C[(i)+(0)] += A[(i)+(336)] * values[0];
-C[(i)+(0)] += A[(i)+(392)] * values[1];
-C[(i)+(0)] += A[(i)+(448)] * values[2];
-C[(i)+(56)] += A[(i)+(336)] * values[3];
-C[(i)+(56)] += A[(i)+(392)] * values[4];
-C[(i)+(56)] += A[(i)+(448)] * values[5];
-C[(i)+(112)] += A[(i)+(336)] * values[6];
-C[(i)+(112)] += A[(i)+(392)] * values[7];
-C[(i)+(112)] += A[(i)+(448)] * values[8];
-C[(i)+(168)] += A[(i)+(336)] * values[9];
-C[(i)+(168)] += A[(i)+(392)] * values[10];
-C[(i)+(224)] += A[(i)+(392)] * values[11];
-C[(i)+(224)] += A[(i)+(448)] * values[12];
-C[(i)+(280)] += A[(i)+(336)] * values[13];
-C[(i)+(280)] += A[(i)+(448)] * values[14];
-C[(i)+(336)] += A[(i)+(0)] * values[15];
-C[(i)+(336)] += A[(i)+(168)] * values[16];
-C[(i)+(336)] += A[(i)+(280)] * values[17];
-C[(i)+(392)] += A[(i)+(56)] * values[18];
-C[(i)+(392)] += A[(i)+(168)] * values[19];
-C[(i)+(392)] += A[(i)+(224)] * values[20];
-C[(i)+(448)] += A[(i)+(112)] * values[21];
-C[(i)+(448)] += A[(i)+(224)] * values[22];
-C[(i)+(448)] += A[(i)+(280)] * values[23];
-}
+void ssparse_starMatrix_m56_n9_k9_ldA56_ldBna7_ldC56_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 56; l_m++) {
+    C[0+l_m] += A[336+l_m] * B[0];
+    C[0+l_m] += A[392+l_m] * B[1];
+    C[0+l_m] += A[448+l_m] * B[2];
+    C[56+l_m] += A[336+l_m] * B[3];
+    C[56+l_m] += A[392+l_m] * B[4];
+    C[56+l_m] += A[448+l_m] * B[5];
+    C[112+l_m] += A[336+l_m] * B[6];
+    C[112+l_m] += A[392+l_m] * B[7];
+    C[112+l_m] += A[448+l_m] * B[8];
+    C[168+l_m] += A[336+l_m] * B[9];
+    C[168+l_m] += A[392+l_m] * B[10];
+    C[224+l_m] += A[392+l_m] * B[11];
+    C[224+l_m] += A[448+l_m] * B[12];
+    C[280+l_m] += A[336+l_m] * B[13];
+    C[280+l_m] += A[448+l_m] * B[14];
+    C[336+l_m] += A[0+l_m] * B[15];
+    C[336+l_m] += A[168+l_m] * B[16];
+    C[336+l_m] += A[280+l_m] * B[17];
+    C[392+l_m] += A[56+l_m] * B[18];
+    C[392+l_m] += A[168+l_m] * B[19];
+    C[392+l_m] += A[224+l_m] * B[20];
+    C[448+l_m] += A[112+l_m] * B[21];
+    C[448+l_m] += A[224+l_m] * B[22];
+    C[448+l_m] += A[280+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 2688;
 #endif
-
 }
 
-void ssparse_starMatrix_m35_n9_k9_ldA36_ldBna7_ldC36_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 35; i += 1)
-{
-C[(i)+(0)] += A[(i)+(216)] * values[0];
-C[(i)+(0)] += A[(i)+(252)] * values[1];
-C[(i)+(0)] += A[(i)+(288)] * values[2];
-C[(i)+(36)] += A[(i)+(216)] * values[3];
-C[(i)+(36)] += A[(i)+(252)] * values[4];
-C[(i)+(36)] += A[(i)+(288)] * values[5];
-C[(i)+(72)] += A[(i)+(216)] * values[6];
-C[(i)+(72)] += A[(i)+(252)] * values[7];
-C[(i)+(72)] += A[(i)+(288)] * values[8];
-C[(i)+(108)] += A[(i)+(216)] * values[9];
-C[(i)+(108)] += A[(i)+(252)] * values[10];
-C[(i)+(144)] += A[(i)+(252)] * values[11];
-C[(i)+(144)] += A[(i)+(288)] * values[12];
-C[(i)+(180)] += A[(i)+(216)] * values[13];
-C[(i)+(180)] += A[(i)+(288)] * values[14];
-C[(i)+(216)] += A[(i)+(0)] * values[15];
-C[(i)+(216)] += A[(i)+(108)] * values[16];
-C[(i)+(216)] += A[(i)+(180)] * values[17];
-C[(i)+(252)] += A[(i)+(36)] * values[18];
-C[(i)+(252)] += A[(i)+(108)] * values[19];
-C[(i)+(252)] += A[(i)+(144)] * values[20];
-C[(i)+(288)] += A[(i)+(72)] * values[21];
-C[(i)+(288)] += A[(i)+(144)] * values[22];
-C[(i)+(288)] += A[(i)+(180)] * values[23];
-}
+void ssparse_starMatrix_m35_n9_k9_ldA36_ldBna7_ldC36_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 35; l_m++) {
+    C[0+l_m] += A[216+l_m] * B[0];
+    C[0+l_m] += A[252+l_m] * B[1];
+    C[0+l_m] += A[288+l_m] * B[2];
+    C[36+l_m] += A[216+l_m] * B[3];
+    C[36+l_m] += A[252+l_m] * B[4];
+    C[36+l_m] += A[288+l_m] * B[5];
+    C[72+l_m] += A[216+l_m] * B[6];
+    C[72+l_m] += A[252+l_m] * B[7];
+    C[72+l_m] += A[288+l_m] * B[8];
+    C[108+l_m] += A[216+l_m] * B[9];
+    C[108+l_m] += A[252+l_m] * B[10];
+    C[144+l_m] += A[252+l_m] * B[11];
+    C[144+l_m] += A[288+l_m] * B[12];
+    C[180+l_m] += A[216+l_m] * B[13];
+    C[180+l_m] += A[288+l_m] * B[14];
+    C[216+l_m] += A[0+l_m] * B[15];
+    C[216+l_m] += A[108+l_m] * B[16];
+    C[216+l_m] += A[180+l_m] * B[17];
+    C[252+l_m] += A[36+l_m] * B[18];
+    C[252+l_m] += A[108+l_m] * B[19];
+    C[252+l_m] += A[144+l_m] * B[20];
+    C[288+l_m] += A[72+l_m] * B[21];
+    C[288+l_m] += A[144+l_m] * B[22];
+    C[288+l_m] += A[180+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 1680;
 #endif
-
 }
 
-void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna7_ldC20_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 20; i += 1)
-{
-C[(i)+(0)] += A[(i)+(120)] * values[0];
-C[(i)+(0)] += A[(i)+(140)] * values[1];
-C[(i)+(0)] += A[(i)+(160)] * values[2];
-C[(i)+(20)] += A[(i)+(120)] * values[3];
-C[(i)+(20)] += A[(i)+(140)] * values[4];
-C[(i)+(20)] += A[(i)+(160)] * values[5];
-C[(i)+(40)] += A[(i)+(120)] * values[6];
-C[(i)+(40)] += A[(i)+(140)] * values[7];
-C[(i)+(40)] += A[(i)+(160)] * values[8];
-C[(i)+(60)] += A[(i)+(120)] * values[9];
-C[(i)+(60)] += A[(i)+(140)] * values[10];
-C[(i)+(80)] += A[(i)+(140)] * values[11];
-C[(i)+(80)] += A[(i)+(160)] * values[12];
-C[(i)+(100)] += A[(i)+(120)] * values[13];
-C[(i)+(100)] += A[(i)+(160)] * values[14];
-C[(i)+(120)] += A[(i)+(0)] * values[15];
-C[(i)+(120)] += A[(i)+(60)] * values[16];
-C[(i)+(120)] += A[(i)+(100)] * values[17];
-C[(i)+(140)] += A[(i)+(20)] * values[18];
-C[(i)+(140)] += A[(i)+(60)] * values[19];
-C[(i)+(140)] += A[(i)+(80)] * values[20];
-C[(i)+(160)] += A[(i)+(40)] * values[21];
-C[(i)+(160)] += A[(i)+(80)] * values[22];
-C[(i)+(160)] += A[(i)+(100)] * values[23];
-}
+void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna7_ldC20_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 20; l_m++) {
+    C[0+l_m] += A[120+l_m] * B[0];
+    C[0+l_m] += A[140+l_m] * B[1];
+    C[0+l_m] += A[160+l_m] * B[2];
+    C[20+l_m] += A[120+l_m] * B[3];
+    C[20+l_m] += A[140+l_m] * B[4];
+    C[20+l_m] += A[160+l_m] * B[5];
+    C[40+l_m] += A[120+l_m] * B[6];
+    C[40+l_m] += A[140+l_m] * B[7];
+    C[40+l_m] += A[160+l_m] * B[8];
+    C[60+l_m] += A[120+l_m] * B[9];
+    C[60+l_m] += A[140+l_m] * B[10];
+    C[80+l_m] += A[140+l_m] * B[11];
+    C[80+l_m] += A[160+l_m] * B[12];
+    C[100+l_m] += A[120+l_m] * B[13];
+    C[100+l_m] += A[160+l_m] * B[14];
+    C[120+l_m] += A[0+l_m] * B[15];
+    C[120+l_m] += A[60+l_m] * B[16];
+    C[120+l_m] += A[100+l_m] * B[17];
+    C[140+l_m] += A[20+l_m] * B[18];
+    C[140+l_m] += A[60+l_m] * B[19];
+    C[140+l_m] += A[80+l_m] * B[20];
+    C[160+l_m] += A[40+l_m] * B[21];
+    C[160+l_m] += A[80+l_m] * B[22];
+    C[160+l_m] += A[100+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 960;
 #endif
-
 }
 
-void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna7_ldC12_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 10; i += 1)
-{
-C[(i)+(0)] += A[(i)+(72)] * values[0];
-C[(i)+(0)] += A[(i)+(84)] * values[1];
-C[(i)+(0)] += A[(i)+(96)] * values[2];
-C[(i)+(12)] += A[(i)+(72)] * values[3];
-C[(i)+(12)] += A[(i)+(84)] * values[4];
-C[(i)+(12)] += A[(i)+(96)] * values[5];
-C[(i)+(24)] += A[(i)+(72)] * values[6];
-C[(i)+(24)] += A[(i)+(84)] * values[7];
-C[(i)+(24)] += A[(i)+(96)] * values[8];
-C[(i)+(36)] += A[(i)+(72)] * values[9];
-C[(i)+(36)] += A[(i)+(84)] * values[10];
-C[(i)+(48)] += A[(i)+(84)] * values[11];
-C[(i)+(48)] += A[(i)+(96)] * values[12];
-C[(i)+(60)] += A[(i)+(72)] * values[13];
-C[(i)+(60)] += A[(i)+(96)] * values[14];
-C[(i)+(72)] += A[(i)+(0)] * values[15];
-C[(i)+(72)] += A[(i)+(36)] * values[16];
-C[(i)+(72)] += A[(i)+(60)] * values[17];
-C[(i)+(84)] += A[(i)+(12)] * values[18];
-C[(i)+(84)] += A[(i)+(36)] * values[19];
-C[(i)+(84)] += A[(i)+(48)] * values[20];
-C[(i)+(96)] += A[(i)+(24)] * values[21];
-C[(i)+(96)] += A[(i)+(48)] * values[22];
-C[(i)+(96)] += A[(i)+(60)] * values[23];
-}
+void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna7_ldC12_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 10; l_m++) {
+    C[0+l_m] += A[72+l_m] * B[0];
+    C[0+l_m] += A[84+l_m] * B[1];
+    C[0+l_m] += A[96+l_m] * B[2];
+    C[12+l_m] += A[72+l_m] * B[3];
+    C[12+l_m] += A[84+l_m] * B[4];
+    C[12+l_m] += A[96+l_m] * B[5];
+    C[24+l_m] += A[72+l_m] * B[6];
+    C[24+l_m] += A[84+l_m] * B[7];
+    C[24+l_m] += A[96+l_m] * B[8];
+    C[36+l_m] += A[72+l_m] * B[9];
+    C[36+l_m] += A[84+l_m] * B[10];
+    C[48+l_m] += A[84+l_m] * B[11];
+    C[48+l_m] += A[96+l_m] * B[12];
+    C[60+l_m] += A[72+l_m] * B[13];
+    C[60+l_m] += A[96+l_m] * B[14];
+    C[72+l_m] += A[0+l_m] * B[15];
+    C[72+l_m] += A[36+l_m] * B[16];
+    C[72+l_m] += A[60+l_m] * B[17];
+    C[84+l_m] += A[12+l_m] * B[18];
+    C[84+l_m] += A[36+l_m] * B[19];
+    C[84+l_m] += A[48+l_m] * B[20];
+    C[96+l_m] += A[24+l_m] * B[21];
+    C[96+l_m] += A[48+l_m] * B[22];
+    C[96+l_m] += A[60+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 480;
 #endif
-
 }
 
-void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna7_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(4)
-#pragma vector aligned
-for (unsigned int i = 0; i < 4; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna7_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(4)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 4; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 192;
 #endif
-
 }
 
-void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna7_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-for (unsigned int i = 0; i < 1; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna7_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  for ( l_m = 0; l_m < 1; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 48;
 #endif
-
 }
 
-void ssparse_starMatrix_m84_n9_k9_ldA84_ldBna8_ldC84_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 84; i += 1)
-{
-C[(i)+(0)] += A[(i)+(504)] * values[0];
-C[(i)+(0)] += A[(i)+(588)] * values[1];
-C[(i)+(0)] += A[(i)+(672)] * values[2];
-C[(i)+(84)] += A[(i)+(504)] * values[3];
-C[(i)+(84)] += A[(i)+(588)] * values[4];
-C[(i)+(84)] += A[(i)+(672)] * values[5];
-C[(i)+(168)] += A[(i)+(504)] * values[6];
-C[(i)+(168)] += A[(i)+(588)] * values[7];
-C[(i)+(168)] += A[(i)+(672)] * values[8];
-C[(i)+(252)] += A[(i)+(504)] * values[9];
-C[(i)+(252)] += A[(i)+(588)] * values[10];
-C[(i)+(336)] += A[(i)+(588)] * values[11];
-C[(i)+(336)] += A[(i)+(672)] * values[12];
-C[(i)+(420)] += A[(i)+(504)] * values[13];
-C[(i)+(420)] += A[(i)+(672)] * values[14];
-C[(i)+(504)] += A[(i)+(0)] * values[15];
-C[(i)+(504)] += A[(i)+(252)] * values[16];
-C[(i)+(504)] += A[(i)+(420)] * values[17];
-C[(i)+(588)] += A[(i)+(84)] * values[18];
-C[(i)+(588)] += A[(i)+(252)] * values[19];
-C[(i)+(588)] += A[(i)+(336)] * values[20];
-C[(i)+(672)] += A[(i)+(168)] * values[21];
-C[(i)+(672)] += A[(i)+(336)] * values[22];
-C[(i)+(672)] += A[(i)+(420)] * values[23];
-}
+void ssparse_starMatrix_m84_n9_k9_ldA84_ldBna8_ldC84_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 84; l_m++) {
+    C[0+l_m] += A[504+l_m] * B[0];
+    C[0+l_m] += A[588+l_m] * B[1];
+    C[0+l_m] += A[672+l_m] * B[2];
+    C[84+l_m] += A[504+l_m] * B[3];
+    C[84+l_m] += A[588+l_m] * B[4];
+    C[84+l_m] += A[672+l_m] * B[5];
+    C[168+l_m] += A[504+l_m] * B[6];
+    C[168+l_m] += A[588+l_m] * B[7];
+    C[168+l_m] += A[672+l_m] * B[8];
+    C[252+l_m] += A[504+l_m] * B[9];
+    C[252+l_m] += A[588+l_m] * B[10];
+    C[336+l_m] += A[588+l_m] * B[11];
+    C[336+l_m] += A[672+l_m] * B[12];
+    C[420+l_m] += A[504+l_m] * B[13];
+    C[420+l_m] += A[672+l_m] * B[14];
+    C[504+l_m] += A[0+l_m] * B[15];
+    C[504+l_m] += A[252+l_m] * B[16];
+    C[504+l_m] += A[420+l_m] * B[17];
+    C[588+l_m] += A[84+l_m] * B[18];
+    C[588+l_m] += A[252+l_m] * B[19];
+    C[588+l_m] += A[336+l_m] * B[20];
+    C[672+l_m] += A[168+l_m] * B[21];
+    C[672+l_m] += A[336+l_m] * B[22];
+    C[672+l_m] += A[420+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 4032;
 #endif
-
 }
 
-void ssparse_starMatrix_m56_n9_k9_ldA56_ldBna8_ldC56_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 56; i += 1)
-{
-C[(i)+(0)] += A[(i)+(336)] * values[0];
-C[(i)+(0)] += A[(i)+(392)] * values[1];
-C[(i)+(0)] += A[(i)+(448)] * values[2];
-C[(i)+(56)] += A[(i)+(336)] * values[3];
-C[(i)+(56)] += A[(i)+(392)] * values[4];
-C[(i)+(56)] += A[(i)+(448)] * values[5];
-C[(i)+(112)] += A[(i)+(336)] * values[6];
-C[(i)+(112)] += A[(i)+(392)] * values[7];
-C[(i)+(112)] += A[(i)+(448)] * values[8];
-C[(i)+(168)] += A[(i)+(336)] * values[9];
-C[(i)+(168)] += A[(i)+(392)] * values[10];
-C[(i)+(224)] += A[(i)+(392)] * values[11];
-C[(i)+(224)] += A[(i)+(448)] * values[12];
-C[(i)+(280)] += A[(i)+(336)] * values[13];
-C[(i)+(280)] += A[(i)+(448)] * values[14];
-C[(i)+(336)] += A[(i)+(0)] * values[15];
-C[(i)+(336)] += A[(i)+(168)] * values[16];
-C[(i)+(336)] += A[(i)+(280)] * values[17];
-C[(i)+(392)] += A[(i)+(56)] * values[18];
-C[(i)+(392)] += A[(i)+(168)] * values[19];
-C[(i)+(392)] += A[(i)+(224)] * values[20];
-C[(i)+(448)] += A[(i)+(112)] * values[21];
-C[(i)+(448)] += A[(i)+(224)] * values[22];
-C[(i)+(448)] += A[(i)+(280)] * values[23];
-}
+void ssparse_starMatrix_m56_n9_k9_ldA56_ldBna8_ldC56_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 56; l_m++) {
+    C[0+l_m] += A[336+l_m] * B[0];
+    C[0+l_m] += A[392+l_m] * B[1];
+    C[0+l_m] += A[448+l_m] * B[2];
+    C[56+l_m] += A[336+l_m] * B[3];
+    C[56+l_m] += A[392+l_m] * B[4];
+    C[56+l_m] += A[448+l_m] * B[5];
+    C[112+l_m] += A[336+l_m] * B[6];
+    C[112+l_m] += A[392+l_m] * B[7];
+    C[112+l_m] += A[448+l_m] * B[8];
+    C[168+l_m] += A[336+l_m] * B[9];
+    C[168+l_m] += A[392+l_m] * B[10];
+    C[224+l_m] += A[392+l_m] * B[11];
+    C[224+l_m] += A[448+l_m] * B[12];
+    C[280+l_m] += A[336+l_m] * B[13];
+    C[280+l_m] += A[448+l_m] * B[14];
+    C[336+l_m] += A[0+l_m] * B[15];
+    C[336+l_m] += A[168+l_m] * B[16];
+    C[336+l_m] += A[280+l_m] * B[17];
+    C[392+l_m] += A[56+l_m] * B[18];
+    C[392+l_m] += A[168+l_m] * B[19];
+    C[392+l_m] += A[224+l_m] * B[20];
+    C[448+l_m] += A[112+l_m] * B[21];
+    C[448+l_m] += A[224+l_m] * B[22];
+    C[448+l_m] += A[280+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 2688;
 #endif
-
 }
 
-void ssparse_starMatrix_m35_n9_k9_ldA36_ldBna8_ldC36_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 35; i += 1)
-{
-C[(i)+(0)] += A[(i)+(216)] * values[0];
-C[(i)+(0)] += A[(i)+(252)] * values[1];
-C[(i)+(0)] += A[(i)+(288)] * values[2];
-C[(i)+(36)] += A[(i)+(216)] * values[3];
-C[(i)+(36)] += A[(i)+(252)] * values[4];
-C[(i)+(36)] += A[(i)+(288)] * values[5];
-C[(i)+(72)] += A[(i)+(216)] * values[6];
-C[(i)+(72)] += A[(i)+(252)] * values[7];
-C[(i)+(72)] += A[(i)+(288)] * values[8];
-C[(i)+(108)] += A[(i)+(216)] * values[9];
-C[(i)+(108)] += A[(i)+(252)] * values[10];
-C[(i)+(144)] += A[(i)+(252)] * values[11];
-C[(i)+(144)] += A[(i)+(288)] * values[12];
-C[(i)+(180)] += A[(i)+(216)] * values[13];
-C[(i)+(180)] += A[(i)+(288)] * values[14];
-C[(i)+(216)] += A[(i)+(0)] * values[15];
-C[(i)+(216)] += A[(i)+(108)] * values[16];
-C[(i)+(216)] += A[(i)+(180)] * values[17];
-C[(i)+(252)] += A[(i)+(36)] * values[18];
-C[(i)+(252)] += A[(i)+(108)] * values[19];
-C[(i)+(252)] += A[(i)+(144)] * values[20];
-C[(i)+(288)] += A[(i)+(72)] * values[21];
-C[(i)+(288)] += A[(i)+(144)] * values[22];
-C[(i)+(288)] += A[(i)+(180)] * values[23];
-}
+void ssparse_starMatrix_m35_n9_k9_ldA36_ldBna8_ldC36_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 35; l_m++) {
+    C[0+l_m] += A[216+l_m] * B[0];
+    C[0+l_m] += A[252+l_m] * B[1];
+    C[0+l_m] += A[288+l_m] * B[2];
+    C[36+l_m] += A[216+l_m] * B[3];
+    C[36+l_m] += A[252+l_m] * B[4];
+    C[36+l_m] += A[288+l_m] * B[5];
+    C[72+l_m] += A[216+l_m] * B[6];
+    C[72+l_m] += A[252+l_m] * B[7];
+    C[72+l_m] += A[288+l_m] * B[8];
+    C[108+l_m] += A[216+l_m] * B[9];
+    C[108+l_m] += A[252+l_m] * B[10];
+    C[144+l_m] += A[252+l_m] * B[11];
+    C[144+l_m] += A[288+l_m] * B[12];
+    C[180+l_m] += A[216+l_m] * B[13];
+    C[180+l_m] += A[288+l_m] * B[14];
+    C[216+l_m] += A[0+l_m] * B[15];
+    C[216+l_m] += A[108+l_m] * B[16];
+    C[216+l_m] += A[180+l_m] * B[17];
+    C[252+l_m] += A[36+l_m] * B[18];
+    C[252+l_m] += A[108+l_m] * B[19];
+    C[252+l_m] += A[144+l_m] * B[20];
+    C[288+l_m] += A[72+l_m] * B[21];
+    C[288+l_m] += A[144+l_m] * B[22];
+    C[288+l_m] += A[180+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 1680;
 #endif
-
 }
 
-void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna8_ldC20_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 20; i += 1)
-{
-C[(i)+(0)] += A[(i)+(120)] * values[0];
-C[(i)+(0)] += A[(i)+(140)] * values[1];
-C[(i)+(0)] += A[(i)+(160)] * values[2];
-C[(i)+(20)] += A[(i)+(120)] * values[3];
-C[(i)+(20)] += A[(i)+(140)] * values[4];
-C[(i)+(20)] += A[(i)+(160)] * values[5];
-C[(i)+(40)] += A[(i)+(120)] * values[6];
-C[(i)+(40)] += A[(i)+(140)] * values[7];
-C[(i)+(40)] += A[(i)+(160)] * values[8];
-C[(i)+(60)] += A[(i)+(120)] * values[9];
-C[(i)+(60)] += A[(i)+(140)] * values[10];
-C[(i)+(80)] += A[(i)+(140)] * values[11];
-C[(i)+(80)] += A[(i)+(160)] * values[12];
-C[(i)+(100)] += A[(i)+(120)] * values[13];
-C[(i)+(100)] += A[(i)+(160)] * values[14];
-C[(i)+(120)] += A[(i)+(0)] * values[15];
-C[(i)+(120)] += A[(i)+(60)] * values[16];
-C[(i)+(120)] += A[(i)+(100)] * values[17];
-C[(i)+(140)] += A[(i)+(20)] * values[18];
-C[(i)+(140)] += A[(i)+(60)] * values[19];
-C[(i)+(140)] += A[(i)+(80)] * values[20];
-C[(i)+(160)] += A[(i)+(40)] * values[21];
-C[(i)+(160)] += A[(i)+(80)] * values[22];
-C[(i)+(160)] += A[(i)+(100)] * values[23];
-}
+void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna8_ldC20_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 20; l_m++) {
+    C[0+l_m] += A[120+l_m] * B[0];
+    C[0+l_m] += A[140+l_m] * B[1];
+    C[0+l_m] += A[160+l_m] * B[2];
+    C[20+l_m] += A[120+l_m] * B[3];
+    C[20+l_m] += A[140+l_m] * B[4];
+    C[20+l_m] += A[160+l_m] * B[5];
+    C[40+l_m] += A[120+l_m] * B[6];
+    C[40+l_m] += A[140+l_m] * B[7];
+    C[40+l_m] += A[160+l_m] * B[8];
+    C[60+l_m] += A[120+l_m] * B[9];
+    C[60+l_m] += A[140+l_m] * B[10];
+    C[80+l_m] += A[140+l_m] * B[11];
+    C[80+l_m] += A[160+l_m] * B[12];
+    C[100+l_m] += A[120+l_m] * B[13];
+    C[100+l_m] += A[160+l_m] * B[14];
+    C[120+l_m] += A[0+l_m] * B[15];
+    C[120+l_m] += A[60+l_m] * B[16];
+    C[120+l_m] += A[100+l_m] * B[17];
+    C[140+l_m] += A[20+l_m] * B[18];
+    C[140+l_m] += A[60+l_m] * B[19];
+    C[140+l_m] += A[80+l_m] * B[20];
+    C[160+l_m] += A[40+l_m] * B[21];
+    C[160+l_m] += A[80+l_m] * B[22];
+    C[160+l_m] += A[100+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 960;
 #endif
-
 }
 
-void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna8_ldC12_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 10; i += 1)
-{
-C[(i)+(0)] += A[(i)+(72)] * values[0];
-C[(i)+(0)] += A[(i)+(84)] * values[1];
-C[(i)+(0)] += A[(i)+(96)] * values[2];
-C[(i)+(12)] += A[(i)+(72)] * values[3];
-C[(i)+(12)] += A[(i)+(84)] * values[4];
-C[(i)+(12)] += A[(i)+(96)] * values[5];
-C[(i)+(24)] += A[(i)+(72)] * values[6];
-C[(i)+(24)] += A[(i)+(84)] * values[7];
-C[(i)+(24)] += A[(i)+(96)] * values[8];
-C[(i)+(36)] += A[(i)+(72)] * values[9];
-C[(i)+(36)] += A[(i)+(84)] * values[10];
-C[(i)+(48)] += A[(i)+(84)] * values[11];
-C[(i)+(48)] += A[(i)+(96)] * values[12];
-C[(i)+(60)] += A[(i)+(72)] * values[13];
-C[(i)+(60)] += A[(i)+(96)] * values[14];
-C[(i)+(72)] += A[(i)+(0)] * values[15];
-C[(i)+(72)] += A[(i)+(36)] * values[16];
-C[(i)+(72)] += A[(i)+(60)] * values[17];
-C[(i)+(84)] += A[(i)+(12)] * values[18];
-C[(i)+(84)] += A[(i)+(36)] * values[19];
-C[(i)+(84)] += A[(i)+(48)] * values[20];
-C[(i)+(96)] += A[(i)+(24)] * values[21];
-C[(i)+(96)] += A[(i)+(48)] * values[22];
-C[(i)+(96)] += A[(i)+(60)] * values[23];
-}
+void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna8_ldC12_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 10; l_m++) {
+    C[0+l_m] += A[72+l_m] * B[0];
+    C[0+l_m] += A[84+l_m] * B[1];
+    C[0+l_m] += A[96+l_m] * B[2];
+    C[12+l_m] += A[72+l_m] * B[3];
+    C[12+l_m] += A[84+l_m] * B[4];
+    C[12+l_m] += A[96+l_m] * B[5];
+    C[24+l_m] += A[72+l_m] * B[6];
+    C[24+l_m] += A[84+l_m] * B[7];
+    C[24+l_m] += A[96+l_m] * B[8];
+    C[36+l_m] += A[72+l_m] * B[9];
+    C[36+l_m] += A[84+l_m] * B[10];
+    C[48+l_m] += A[84+l_m] * B[11];
+    C[48+l_m] += A[96+l_m] * B[12];
+    C[60+l_m] += A[72+l_m] * B[13];
+    C[60+l_m] += A[96+l_m] * B[14];
+    C[72+l_m] += A[0+l_m] * B[15];
+    C[72+l_m] += A[36+l_m] * B[16];
+    C[72+l_m] += A[60+l_m] * B[17];
+    C[84+l_m] += A[12+l_m] * B[18];
+    C[84+l_m] += A[36+l_m] * B[19];
+    C[84+l_m] += A[48+l_m] * B[20];
+    C[96+l_m] += A[24+l_m] * B[21];
+    C[96+l_m] += A[48+l_m] * B[22];
+    C[96+l_m] += A[60+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 480;
 #endif
-
 }
 
-void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna8_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(4)
-#pragma vector aligned
-for (unsigned int i = 0; i < 4; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna8_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(4)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 4; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 192;
 #endif
-
 }
 
-void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna8_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-for (unsigned int i = 0; i < 1; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m1_n9_k9_ldA4_ldBna8_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  for ( l_m = 0; l_m < 1; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 48;
 #endif
-
 }
 
-void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna2_ldC4_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(4)
-#pragma vector aligned
-for (unsigned int i = 0; i < 4; i += 1)
-{
-C[(i)+(0)] += A[(i)+(24)] * values[0];
-C[(i)+(0)] += A[(i)+(28)] * values[1];
-C[(i)+(0)] += A[(i)+(32)] * values[2];
-C[(i)+(4)] += A[(i)+(24)] * values[3];
-C[(i)+(4)] += A[(i)+(28)] * values[4];
-C[(i)+(4)] += A[(i)+(32)] * values[5];
-C[(i)+(8)] += A[(i)+(24)] * values[6];
-C[(i)+(8)] += A[(i)+(28)] * values[7];
-C[(i)+(8)] += A[(i)+(32)] * values[8];
-C[(i)+(12)] += A[(i)+(24)] * values[9];
-C[(i)+(12)] += A[(i)+(28)] * values[10];
-C[(i)+(16)] += A[(i)+(28)] * values[11];
-C[(i)+(16)] += A[(i)+(32)] * values[12];
-C[(i)+(20)] += A[(i)+(24)] * values[13];
-C[(i)+(20)] += A[(i)+(32)] * values[14];
-C[(i)+(24)] += A[(i)+(0)] * values[15];
-C[(i)+(24)] += A[(i)+(12)] * values[16];
-C[(i)+(24)] += A[(i)+(20)] * values[17];
-C[(i)+(28)] += A[(i)+(4)] * values[18];
-C[(i)+(28)] += A[(i)+(12)] * values[19];
-C[(i)+(28)] += A[(i)+(16)] * values[20];
-C[(i)+(32)] += A[(i)+(8)] * values[21];
-C[(i)+(32)] += A[(i)+(16)] * values[22];
-C[(i)+(32)] += A[(i)+(20)] * values[23];
-}
+void ssparse_starMatrix_m4_n9_k9_ldA4_ldBna2_ldC4_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(4)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 4; l_m++) {
+    C[0+l_m] += A[24+l_m] * B[0];
+    C[0+l_m] += A[28+l_m] * B[1];
+    C[0+l_m] += A[32+l_m] * B[2];
+    C[4+l_m] += A[24+l_m] * B[3];
+    C[4+l_m] += A[28+l_m] * B[4];
+    C[4+l_m] += A[32+l_m] * B[5];
+    C[8+l_m] += A[24+l_m] * B[6];
+    C[8+l_m] += A[28+l_m] * B[7];
+    C[8+l_m] += A[32+l_m] * B[8];
+    C[12+l_m] += A[24+l_m] * B[9];
+    C[12+l_m] += A[28+l_m] * B[10];
+    C[16+l_m] += A[28+l_m] * B[11];
+    C[16+l_m] += A[32+l_m] * B[12];
+    C[20+l_m] += A[24+l_m] * B[13];
+    C[20+l_m] += A[32+l_m] * B[14];
+    C[24+l_m] += A[0+l_m] * B[15];
+    C[24+l_m] += A[12+l_m] * B[16];
+    C[24+l_m] += A[20+l_m] * B[17];
+    C[28+l_m] += A[4+l_m] * B[18];
+    C[28+l_m] += A[12+l_m] * B[19];
+    C[28+l_m] += A[16+l_m] * B[20];
+    C[32+l_m] += A[8+l_m] * B[21];
+    C[32+l_m] += A[16+l_m] * B[22];
+    C[32+l_m] += A[20+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 192;
 #endif
-
 }
 
-void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna3_ldC12_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 10; i += 1)
-{
-C[(i)+(0)] += A[(i)+(72)] * values[0];
-C[(i)+(0)] += A[(i)+(84)] * values[1];
-C[(i)+(0)] += A[(i)+(96)] * values[2];
-C[(i)+(12)] += A[(i)+(72)] * values[3];
-C[(i)+(12)] += A[(i)+(84)] * values[4];
-C[(i)+(12)] += A[(i)+(96)] * values[5];
-C[(i)+(24)] += A[(i)+(72)] * values[6];
-C[(i)+(24)] += A[(i)+(84)] * values[7];
-C[(i)+(24)] += A[(i)+(96)] * values[8];
-C[(i)+(36)] += A[(i)+(72)] * values[9];
-C[(i)+(36)] += A[(i)+(84)] * values[10];
-C[(i)+(48)] += A[(i)+(84)] * values[11];
-C[(i)+(48)] += A[(i)+(96)] * values[12];
-C[(i)+(60)] += A[(i)+(72)] * values[13];
-C[(i)+(60)] += A[(i)+(96)] * values[14];
-C[(i)+(72)] += A[(i)+(0)] * values[15];
-C[(i)+(72)] += A[(i)+(36)] * values[16];
-C[(i)+(72)] += A[(i)+(60)] * values[17];
-C[(i)+(84)] += A[(i)+(12)] * values[18];
-C[(i)+(84)] += A[(i)+(36)] * values[19];
-C[(i)+(84)] += A[(i)+(48)] * values[20];
-C[(i)+(96)] += A[(i)+(24)] * values[21];
-C[(i)+(96)] += A[(i)+(48)] * values[22];
-C[(i)+(96)] += A[(i)+(60)] * values[23];
-}
+void ssparse_starMatrix_m10_n9_k9_ldA12_ldBna3_ldC12_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 10; l_m++) {
+    C[0+l_m] += A[72+l_m] * B[0];
+    C[0+l_m] += A[84+l_m] * B[1];
+    C[0+l_m] += A[96+l_m] * B[2];
+    C[12+l_m] += A[72+l_m] * B[3];
+    C[12+l_m] += A[84+l_m] * B[4];
+    C[12+l_m] += A[96+l_m] * B[5];
+    C[24+l_m] += A[72+l_m] * B[6];
+    C[24+l_m] += A[84+l_m] * B[7];
+    C[24+l_m] += A[96+l_m] * B[8];
+    C[36+l_m] += A[72+l_m] * B[9];
+    C[36+l_m] += A[84+l_m] * B[10];
+    C[48+l_m] += A[84+l_m] * B[11];
+    C[48+l_m] += A[96+l_m] * B[12];
+    C[60+l_m] += A[72+l_m] * B[13];
+    C[60+l_m] += A[96+l_m] * B[14];
+    C[72+l_m] += A[0+l_m] * B[15];
+    C[72+l_m] += A[36+l_m] * B[16];
+    C[72+l_m] += A[60+l_m] * B[17];
+    C[84+l_m] += A[12+l_m] * B[18];
+    C[84+l_m] += A[36+l_m] * B[19];
+    C[84+l_m] += A[48+l_m] * B[20];
+    C[96+l_m] += A[24+l_m] * B[21];
+    C[96+l_m] += A[48+l_m] * B[22];
+    C[96+l_m] += A[60+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 480;
 #endif
-
 }
 
-void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna4_ldC20_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 20; i += 1)
-{
-C[(i)+(0)] += A[(i)+(120)] * values[0];
-C[(i)+(0)] += A[(i)+(140)] * values[1];
-C[(i)+(0)] += A[(i)+(160)] * values[2];
-C[(i)+(20)] += A[(i)+(120)] * values[3];
-C[(i)+(20)] += A[(i)+(140)] * values[4];
-C[(i)+(20)] += A[(i)+(160)] * values[5];
-C[(i)+(40)] += A[(i)+(120)] * values[6];
-C[(i)+(40)] += A[(i)+(140)] * values[7];
-C[(i)+(40)] += A[(i)+(160)] * values[8];
-C[(i)+(60)] += A[(i)+(120)] * values[9];
-C[(i)+(60)] += A[(i)+(140)] * values[10];
-C[(i)+(80)] += A[(i)+(140)] * values[11];
-C[(i)+(80)] += A[(i)+(160)] * values[12];
-C[(i)+(100)] += A[(i)+(120)] * values[13];
-C[(i)+(100)] += A[(i)+(160)] * values[14];
-C[(i)+(120)] += A[(i)+(0)] * values[15];
-C[(i)+(120)] += A[(i)+(60)] * values[16];
-C[(i)+(120)] += A[(i)+(100)] * values[17];
-C[(i)+(140)] += A[(i)+(20)] * values[18];
-C[(i)+(140)] += A[(i)+(60)] * values[19];
-C[(i)+(140)] += A[(i)+(80)] * values[20];
-C[(i)+(160)] += A[(i)+(40)] * values[21];
-C[(i)+(160)] += A[(i)+(80)] * values[22];
-C[(i)+(160)] += A[(i)+(100)] * values[23];
-}
+void ssparse_starMatrix_m20_n9_k9_ldA20_ldBna4_ldC20_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 20; l_m++) {
+    C[0+l_m] += A[120+l_m] * B[0];
+    C[0+l_m] += A[140+l_m] * B[1];
+    C[0+l_m] += A[160+l_m] * B[2];
+    C[20+l_m] += A[120+l_m] * B[3];
+    C[20+l_m] += A[140+l_m] * B[4];
+    C[20+l_m] += A[160+l_m] * B[5];
+    C[40+l_m] += A[120+l_m] * B[6];
+    C[40+l_m] += A[140+l_m] * B[7];
+    C[40+l_m] += A[160+l_m] * B[8];
+    C[60+l_m] += A[120+l_m] * B[9];
+    C[60+l_m] += A[140+l_m] * B[10];
+    C[80+l_m] += A[140+l_m] * B[11];
+    C[80+l_m] += A[160+l_m] * B[12];
+    C[100+l_m] += A[120+l_m] * B[13];
+    C[100+l_m] += A[160+l_m] * B[14];
+    C[120+l_m] += A[0+l_m] * B[15];
+    C[120+l_m] += A[60+l_m] * B[16];
+    C[120+l_m] += A[100+l_m] * B[17];
+    C[140+l_m] += A[20+l_m] * B[18];
+    C[140+l_m] += A[60+l_m] * B[19];
+    C[140+l_m] += A[80+l_m] * B[20];
+    C[160+l_m] += A[40+l_m] * B[21];
+    C[160+l_m] += A[80+l_m] * B[22];
+    C[160+l_m] += A[100+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 960;
 #endif
-
 }
 
-void ssparse_starMatrix_m35_n9_k9_ldA36_ldBna5_ldC36_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 35; i += 1)
-{
-C[(i)+(0)] += A[(i)+(216)] * values[0];
-C[(i)+(0)] += A[(i)+(252)] * values[1];
-C[(i)+(0)] += A[(i)+(288)] * values[2];
-C[(i)+(36)] += A[(i)+(216)] * values[3];
-C[(i)+(36)] += A[(i)+(252)] * values[4];
-C[(i)+(36)] += A[(i)+(288)] * values[5];
-C[(i)+(72)] += A[(i)+(216)] * values[6];
-C[(i)+(72)] += A[(i)+(252)] * values[7];
-C[(i)+(72)] += A[(i)+(288)] * values[8];
-C[(i)+(108)] += A[(i)+(216)] * values[9];
-C[(i)+(108)] += A[(i)+(252)] * values[10];
-C[(i)+(144)] += A[(i)+(252)] * values[11];
-C[(i)+(144)] += A[(i)+(288)] * values[12];
-C[(i)+(180)] += A[(i)+(216)] * values[13];
-C[(i)+(180)] += A[(i)+(288)] * values[14];
-C[(i)+(216)] += A[(i)+(0)] * values[15];
-C[(i)+(216)] += A[(i)+(108)] * values[16];
-C[(i)+(216)] += A[(i)+(180)] * values[17];
-C[(i)+(252)] += A[(i)+(36)] * values[18];
-C[(i)+(252)] += A[(i)+(108)] * values[19];
-C[(i)+(252)] += A[(i)+(144)] * values[20];
-C[(i)+(288)] += A[(i)+(72)] * values[21];
-C[(i)+(288)] += A[(i)+(144)] * values[22];
-C[(i)+(288)] += A[(i)+(180)] * values[23];
-}
+void ssparse_starMatrix_m35_n9_k9_ldA36_ldBna5_ldC36_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 35; l_m++) {
+    C[0+l_m] += A[216+l_m] * B[0];
+    C[0+l_m] += A[252+l_m] * B[1];
+    C[0+l_m] += A[288+l_m] * B[2];
+    C[36+l_m] += A[216+l_m] * B[3];
+    C[36+l_m] += A[252+l_m] * B[4];
+    C[36+l_m] += A[288+l_m] * B[5];
+    C[72+l_m] += A[216+l_m] * B[6];
+    C[72+l_m] += A[252+l_m] * B[7];
+    C[72+l_m] += A[288+l_m] * B[8];
+    C[108+l_m] += A[216+l_m] * B[9];
+    C[108+l_m] += A[252+l_m] * B[10];
+    C[144+l_m] += A[252+l_m] * B[11];
+    C[144+l_m] += A[288+l_m] * B[12];
+    C[180+l_m] += A[216+l_m] * B[13];
+    C[180+l_m] += A[288+l_m] * B[14];
+    C[216+l_m] += A[0+l_m] * B[15];
+    C[216+l_m] += A[108+l_m] * B[16];
+    C[216+l_m] += A[180+l_m] * B[17];
+    C[252+l_m] += A[36+l_m] * B[18];
+    C[252+l_m] += A[108+l_m] * B[19];
+    C[252+l_m] += A[144+l_m] * B[20];
+    C[288+l_m] += A[72+l_m] * B[21];
+    C[288+l_m] += A[144+l_m] * B[22];
+    C[288+l_m] += A[180+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 1680;
 #endif
-
 }
 
-void ssparse_starMatrix_m56_n9_k9_ldA56_ldBna6_ldC56_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 56; i += 1)
-{
-C[(i)+(0)] += A[(i)+(336)] * values[0];
-C[(i)+(0)] += A[(i)+(392)] * values[1];
-C[(i)+(0)] += A[(i)+(448)] * values[2];
-C[(i)+(56)] += A[(i)+(336)] * values[3];
-C[(i)+(56)] += A[(i)+(392)] * values[4];
-C[(i)+(56)] += A[(i)+(448)] * values[5];
-C[(i)+(112)] += A[(i)+(336)] * values[6];
-C[(i)+(112)] += A[(i)+(392)] * values[7];
-C[(i)+(112)] += A[(i)+(448)] * values[8];
-C[(i)+(168)] += A[(i)+(336)] * values[9];
-C[(i)+(168)] += A[(i)+(392)] * values[10];
-C[(i)+(224)] += A[(i)+(392)] * values[11];
-C[(i)+(224)] += A[(i)+(448)] * values[12];
-C[(i)+(280)] += A[(i)+(336)] * values[13];
-C[(i)+(280)] += A[(i)+(448)] * values[14];
-C[(i)+(336)] += A[(i)+(0)] * values[15];
-C[(i)+(336)] += A[(i)+(168)] * values[16];
-C[(i)+(336)] += A[(i)+(280)] * values[17];
-C[(i)+(392)] += A[(i)+(56)] * values[18];
-C[(i)+(392)] += A[(i)+(168)] * values[19];
-C[(i)+(392)] += A[(i)+(224)] * values[20];
-C[(i)+(448)] += A[(i)+(112)] * values[21];
-C[(i)+(448)] += A[(i)+(224)] * values[22];
-C[(i)+(448)] += A[(i)+(280)] * values[23];
-}
+void ssparse_starMatrix_m56_n9_k9_ldA56_ldBna6_ldC56_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 56; l_m++) {
+    C[0+l_m] += A[336+l_m] * B[0];
+    C[0+l_m] += A[392+l_m] * B[1];
+    C[0+l_m] += A[448+l_m] * B[2];
+    C[56+l_m] += A[336+l_m] * B[3];
+    C[56+l_m] += A[392+l_m] * B[4];
+    C[56+l_m] += A[448+l_m] * B[5];
+    C[112+l_m] += A[336+l_m] * B[6];
+    C[112+l_m] += A[392+l_m] * B[7];
+    C[112+l_m] += A[448+l_m] * B[8];
+    C[168+l_m] += A[336+l_m] * B[9];
+    C[168+l_m] += A[392+l_m] * B[10];
+    C[224+l_m] += A[392+l_m] * B[11];
+    C[224+l_m] += A[448+l_m] * B[12];
+    C[280+l_m] += A[336+l_m] * B[13];
+    C[280+l_m] += A[448+l_m] * B[14];
+    C[336+l_m] += A[0+l_m] * B[15];
+    C[336+l_m] += A[168+l_m] * B[16];
+    C[336+l_m] += A[280+l_m] * B[17];
+    C[392+l_m] += A[56+l_m] * B[18];
+    C[392+l_m] += A[168+l_m] * B[19];
+    C[392+l_m] += A[224+l_m] * B[20];
+    C[448+l_m] += A[112+l_m] * B[21];
+    C[448+l_m] += A[224+l_m] * B[22];
+    C[448+l_m] += A[280+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 2688;
 #endif
-
 }
 
-void ssparse_starMatrix_m84_n9_k9_ldA84_ldBna7_ldC84_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 84; i += 1)
-{
-C[(i)+(0)] += A[(i)+(504)] * values[0];
-C[(i)+(0)] += A[(i)+(588)] * values[1];
-C[(i)+(0)] += A[(i)+(672)] * values[2];
-C[(i)+(84)] += A[(i)+(504)] * values[3];
-C[(i)+(84)] += A[(i)+(588)] * values[4];
-C[(i)+(84)] += A[(i)+(672)] * values[5];
-C[(i)+(168)] += A[(i)+(504)] * values[6];
-C[(i)+(168)] += A[(i)+(588)] * values[7];
-C[(i)+(168)] += A[(i)+(672)] * values[8];
-C[(i)+(252)] += A[(i)+(504)] * values[9];
-C[(i)+(252)] += A[(i)+(588)] * values[10];
-C[(i)+(336)] += A[(i)+(588)] * values[11];
-C[(i)+(336)] += A[(i)+(672)] * values[12];
-C[(i)+(420)] += A[(i)+(504)] * values[13];
-C[(i)+(420)] += A[(i)+(672)] * values[14];
-C[(i)+(504)] += A[(i)+(0)] * values[15];
-C[(i)+(504)] += A[(i)+(252)] * values[16];
-C[(i)+(504)] += A[(i)+(420)] * values[17];
-C[(i)+(588)] += A[(i)+(84)] * values[18];
-C[(i)+(588)] += A[(i)+(252)] * values[19];
-C[(i)+(588)] += A[(i)+(336)] * values[20];
-C[(i)+(672)] += A[(i)+(168)] * values[21];
-C[(i)+(672)] += A[(i)+(336)] * values[22];
-C[(i)+(672)] += A[(i)+(420)] * values[23];
-}
+void ssparse_starMatrix_m84_n9_k9_ldA84_ldBna7_ldC84_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 84; l_m++) {
+    C[0+l_m] += A[504+l_m] * B[0];
+    C[0+l_m] += A[588+l_m] * B[1];
+    C[0+l_m] += A[672+l_m] * B[2];
+    C[84+l_m] += A[504+l_m] * B[3];
+    C[84+l_m] += A[588+l_m] * B[4];
+    C[84+l_m] += A[672+l_m] * B[5];
+    C[168+l_m] += A[504+l_m] * B[6];
+    C[168+l_m] += A[588+l_m] * B[7];
+    C[168+l_m] += A[672+l_m] * B[8];
+    C[252+l_m] += A[504+l_m] * B[9];
+    C[252+l_m] += A[588+l_m] * B[10];
+    C[336+l_m] += A[588+l_m] * B[11];
+    C[336+l_m] += A[672+l_m] * B[12];
+    C[420+l_m] += A[504+l_m] * B[13];
+    C[420+l_m] += A[672+l_m] * B[14];
+    C[504+l_m] += A[0+l_m] * B[15];
+    C[504+l_m] += A[252+l_m] * B[16];
+    C[504+l_m] += A[420+l_m] * B[17];
+    C[588+l_m] += A[84+l_m] * B[18];
+    C[588+l_m] += A[252+l_m] * B[19];
+    C[588+l_m] += A[336+l_m] * B[20];
+    C[672+l_m] += A[168+l_m] * B[21];
+    C[672+l_m] += A[336+l_m] * B[22];
+    C[672+l_m] += A[420+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 4032;
 #endif
-
 }
 
-void ssparse_starMatrix_m120_n9_k9_ldA120_ldBna8_ldC120_beta1_pfsigonly(const float* A, const float* values, float* C, const float* A_prefetch = NULL, const float* B_prefetch = NULL, const float* C_prefetch = NULL)
-{
-#pragma simd vectorlength(8)
-#pragma vector aligned
-for (unsigned int i = 0; i < 120; i += 1)
-{
-C[(i)+(0)] += A[(i)+(720)] * values[0];
-C[(i)+(0)] += A[(i)+(840)] * values[1];
-C[(i)+(0)] += A[(i)+(960)] * values[2];
-C[(i)+(120)] += A[(i)+(720)] * values[3];
-C[(i)+(120)] += A[(i)+(840)] * values[4];
-C[(i)+(120)] += A[(i)+(960)] * values[5];
-C[(i)+(240)] += A[(i)+(720)] * values[6];
-C[(i)+(240)] += A[(i)+(840)] * values[7];
-C[(i)+(240)] += A[(i)+(960)] * values[8];
-C[(i)+(360)] += A[(i)+(720)] * values[9];
-C[(i)+(360)] += A[(i)+(840)] * values[10];
-C[(i)+(480)] += A[(i)+(840)] * values[11];
-C[(i)+(480)] += A[(i)+(960)] * values[12];
-C[(i)+(600)] += A[(i)+(720)] * values[13];
-C[(i)+(600)] += A[(i)+(960)] * values[14];
-C[(i)+(720)] += A[(i)+(0)] * values[15];
-C[(i)+(720)] += A[(i)+(360)] * values[16];
-C[(i)+(720)] += A[(i)+(600)] * values[17];
-C[(i)+(840)] += A[(i)+(120)] * values[18];
-C[(i)+(840)] += A[(i)+(360)] * values[19];
-C[(i)+(840)] += A[(i)+(480)] * values[20];
-C[(i)+(960)] += A[(i)+(240)] * values[21];
-C[(i)+(960)] += A[(i)+(480)] * values[22];
-C[(i)+(960)] += A[(i)+(600)] * values[23];
-}
+void ssparse_starMatrix_m120_n9_k9_ldA120_ldBna8_ldC120_beta1_pfsigonly(const float* A, const float* B, float* C, const float* A_prefetch, const float* B_prefetch, const float* C_prefetch) {
+  unsigned int l_m = 0;
+
+  #pragma simd vectorlength(8)
+  #pragma vector aligned
+  for ( l_m = 0; l_m < 120; l_m++) {
+    C[0+l_m] += A[720+l_m] * B[0];
+    C[0+l_m] += A[840+l_m] * B[1];
+    C[0+l_m] += A[960+l_m] * B[2];
+    C[120+l_m] += A[720+l_m] * B[3];
+    C[120+l_m] += A[840+l_m] * B[4];
+    C[120+l_m] += A[960+l_m] * B[5];
+    C[240+l_m] += A[720+l_m] * B[6];
+    C[240+l_m] += A[840+l_m] * B[7];
+    C[240+l_m] += A[960+l_m] * B[8];
+    C[360+l_m] += A[720+l_m] * B[9];
+    C[360+l_m] += A[840+l_m] * B[10];
+    C[480+l_m] += A[840+l_m] * B[11];
+    C[480+l_m] += A[960+l_m] * B[12];
+    C[600+l_m] += A[720+l_m] * B[13];
+    C[600+l_m] += A[960+l_m] * B[14];
+    C[720+l_m] += A[0+l_m] * B[15];
+    C[720+l_m] += A[360+l_m] * B[16];
+    C[720+l_m] += A[600+l_m] * B[17];
+    C[840+l_m] += A[120+l_m] * B[18];
+    C[840+l_m] += A[360+l_m] * B[19];
+    C[840+l_m] += A[480+l_m] * B[20];
+    C[960+l_m] += A[240+l_m] * B[21];
+    C[960+l_m] += A[480+l_m] * B[22];
+    C[960+l_m] += A[600+l_m] * B[23];
+  }
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
 #endif
 libxsmm_num_total_flops += 5760;
 #endif
-
 }
 
 #endif
