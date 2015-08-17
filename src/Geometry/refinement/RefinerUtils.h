@@ -48,6 +48,13 @@ struct Vec3D {
     {
         return (x==b.x) && (y==b.y) && (z==b.z);
     }
+
+    void dumpData(T*& dest) const
+    {
+        *dest++ = x;
+        *dest++ = y;
+        *dest++ = z;
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -89,6 +96,14 @@ struct Tetrahedron {
     const Vec3D<T> center() const
     {
         return middle(middle(a, b), middle(c, d));
+    }
+
+    void dumpData(T*& dest) const
+    {
+        a.dumpData(dest);
+        b.dumpData(dest);
+        c.dumpData(dest);
+        d.dumpData(dest);
     }
 };
 
