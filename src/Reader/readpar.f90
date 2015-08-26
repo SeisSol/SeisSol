@@ -3286,7 +3286,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       logInfo(*) 'Data OUTPUT is written to files '                               
       logInfo(*) '  ' ,IO%OutputFile
 
-      iOutputMask(10:12) = iOutputMaskMaterial(1:3)
       IO%nOutputMask = 60                                                                          
       ALLOCATE(IO%OutputMask(1:IO%nOutputMask), IO%TitleMask(1:IO%nOutputMask),  &                 
                STAT=allocStat                                            )                         
@@ -3316,7 +3315,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          IO%OutputMask(4:12)   = iOutputMask(1:9)                                           ! State vector
 
          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN                           ! Isotropic material
-            IO%OutputMask(13:15)  = iOutputMask(10:12)                                      ! Constants for Jacobians
+            IO%OutputMask(13:15)  = iOutputMaskMaterial(1:3)                                      ! Constants for Jacobians
          ENDIF
 
          IF(EQN%Anisotropy.EQ.1.AND.EQN%Poroelasticity.EQ.0) THEN                           ! Anisotropic (triclinic) material
