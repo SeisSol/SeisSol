@@ -110,9 +110,7 @@ CONTAINS
     SCOREP_USER_FUNC_BEGIN("data_output")
 
     if (IO%Format .eq. 6) then
-#ifdef GGENERATEDKERNELS
         call WaveFieldWriterWriteStep(time, disc, mesh, mpi)
-#endif
     else
         if (IO%Format .eq. 10) then
             ! Output is disabled
