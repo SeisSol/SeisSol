@@ -1959,7 +1959,7 @@ MODULE ini_model_DR_mod
   ! Define segment triangulars:
   ! segment 7 (last point far right of the fault)
   x7 = (/-7900.0, -7680.0, -7000.0/)
-  y7 = (/30010.0, 27070, 28500.0/)
+  y7 = (/30010.0, 27070.0, 28500.0/)
 
   ! segment 8
   x8 = (/-7900.0, -2500.0, -2500.0/)
@@ -2186,7 +2186,7 @@ MODULE ini_model_DR_mod
   ! Define segment triangulars:
   ! segment 7 (last point far right of the fault)
   x7 = (/-7900.0, -7680.0, -7000.0/)
-  y7 = (/30010.0, 27070, 28500.0/)
+  y7 = (/30010.0, 27070.0, 28500.0/)
 
   ! segment 8
   x8 = (/-7900.0, -2500.0, -2500.0/)
