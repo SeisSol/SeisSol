@@ -44,8 +44,14 @@
 #include <omp.h>
 #endif // _OPENMP
 
-void seissol::SeisSol::init(int rank)
+#include "utils/timeutils.h"
+
+void seissol::SeisSol::init(int argc, char* argv[])
 {
+	m_mpi.init(argc, argv);
+
+	const int rank = m_mpi.rank();
+
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
   logInfo(rank) << "Copyright (c) 2012-2015, SeisSol Group";
@@ -70,15 +76,37 @@ void seissol::SeisSol::init(int rank)
 #endif // _OPENMP
 }
 
-seissol::SeisSol seissol::SeisSol::main;
-
-// Fortran interface
-extern "C"
+void seissol::SeisSol::finalize()
 {
+	const int rank = m_mpi.rank();
 
-void init(int rank)
-{
-  seissol::SeisSol::main.init(rank);
+	m_mpi.finalize();
+
+	logInfo(rank) << "SeisSol done. Goodbye.";
 }
 
+seissol::SeisSol seissol::SeisSol::main;
+
+// Fortran main definition
+extern "C" {
+
+void fortran_main();
+
+}
+
+// Start here
+
+int main(int argc, char* argv[])
+{
+	EPIK_TRACER("SeisSol");
+	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+	// Initialize SeisSol
+	seissol::SeisSol::main.init(argc, argv);
+
+	// Initialize Fortan Part and run SeisSol
+	fortran_main();
+
+	// Finalize SeisSol
+	seissol::SeisSol::main.finalize();
 }
