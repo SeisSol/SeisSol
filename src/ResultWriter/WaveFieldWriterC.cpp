@@ -38,7 +38,9 @@
  * Wave field Fortran interface
  */
 
+#ifdef USE_MPI
 #include <mpi.h>
+#endif // USE_MPI
 
 #include "utils/logger.h"
 
