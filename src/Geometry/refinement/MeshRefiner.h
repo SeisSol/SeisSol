@@ -17,8 +17,9 @@ template<typename T>
 class MeshRefiner
 {
 private:
-    std::vector<double> m_cells;
-    std::vector<std::size_t> m_vertices;
+    // m_cells contains the indices of the cells
+    std::vector<unsigned int> m_cells;
+    std::vector<double> m_vertices;
 
     static const unsigned int kCoordsPerCell = 4 * 3;
     static const unsigned int kIndicesPerCell = 4;
@@ -29,7 +30,7 @@ public:
     MeshRefiner(const MeshReader& meshReader,
             const TetrahedronRefiner<T>& tetRefiner);
 
-    const std::size_t* getCellData() const;
+    const unsigned int* getCellData() const;
     const T* getVertexData() const;
 
     std::size_t getNumCells() const;
@@ -95,7 +96,7 @@ MeshRefiner<T>::MeshRefiner(
 //------------------------------------------------------------------------------
 
 template<typename T>
-const std::size_t* MeshRefiner<T>::getCellData() const {
+const unsigned int* MeshRefiner<T>::getCellData() const {
     return m_cells.data();
 }
 

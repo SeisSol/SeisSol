@@ -119,6 +119,22 @@ public:
 //------------------------------------------------------------------------------
 
 template<class T>
+class IdentityRefiner : public TetrahedronRefiner<T> {
+public:
+    void operator()(const Tetrahedron<T>& in, Tetrahedron<T>* out) const
+    {
+        *out = in;
+    }
+
+    unsigned int getDivisionCount() const
+    {
+        return 1;
+    }
+};
+
+//------------------------------------------------------------------------------
+
+template<class T>
 class DivideTetrahedronBy4 : public TetrahedronRefiner<T> {
 public:
     void operator()(const Tetrahedron<T>& in, Tetrahedron<T>* out) const
