@@ -47,6 +47,7 @@
 #include "SeisSol.h"
 #include "WaveFieldWriter.h"
 #include "Geometry/MeshReader.h"
+#include "Equations/elastic/Kernels/equations.hpp"
 
 /**
  * Last output time
@@ -78,6 +79,7 @@ void wavefield_hdf_init(int rank, const char* outputPrefix,
 		cellMap[i] = i;
 
 	seissol::SeisSol::main.waveFieldWriter().init(numVars, numBasisFuncs,
+            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			meshReader,	dofs, cellMap, refinement, timestep);
 
 	// I/O is currently the last initialization that requires the mesh reader

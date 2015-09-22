@@ -509,6 +509,7 @@ void seissol::Interoperability::initializeIO(
 	  // Initialize wave field output
 	  seissol::SeisSol::main.waveFieldWriter().init(
 			  NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
+              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			  seissol::SeisSol::main.meshReader(),
 			  reinterpret_cast<const double*>(m_dofs), m_meshToCopyInterior,
 			  refinement, waveFieldTimeStep);

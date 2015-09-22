@@ -46,6 +46,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "utils/logger.h"
 
@@ -53,9 +54,8 @@
 
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/RefinerUtils.h"
-#include "Geometry/refinement/Refinement.h"
-#include "Geometry/refinement/NoRefinement.h"
-#include "Geometry/refinement/StaticRefinement.h"
+#include "Geometry/refinement/MeshRefiner.h"
+#include "Geometry/refinement/VariableSubSampler.h"
 
 namespace seissol
 {
@@ -73,13 +73,13 @@ private:
     std::string m_outputPrefix;
 
     /** The XMDF Writer used for the wave field */
-    xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_waveFieldWriter;
+    std::auto_ptr<xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON> > m_waveFieldWriter;
+
+    /** The variable subsampler for the refined mesh **/
+    std::auto_ptr<refinement::VariableSubsampler<double> > m_variableSubsampler;
 
     /** Number of variables */
     unsigned int m_numVariables;
-
-    /** Tet refinement strategy */
-    refinement::Refinement<double>* m_tetRefinement;
 
     /** Pointer to the degrees of freedom */
     const double* m_dofs;
@@ -88,7 +88,12 @@ private:
     const unsigned int* m_map;
 
     /** Buffer required to extract the output data from the unknowns */
-    double *m_outputBuffer;
+    std::vector<double> m_outputBuffer;
+
+    /** Number of cells after refinement step **/
+    std::size_t m_refCellCount;
+
+    std::vector<bool> m_output_flags;
 
     /** Checks wether a refinement strategy is valid or not. **/
     static bool isRefinementStartegyValid(int refinement) {
@@ -109,11 +114,10 @@ private:
 public:
     WaveFieldWriter()
     : m_enabled(false), m_rank(0),
-    m_waveFieldWriter(0L),
+    m_waveFieldWriter(NULL),
     m_numVariables(0),
-    m_tetRefinement(0L),
-    m_dofs(0L), m_map(0L),
-    m_outputBuffer(0L)
+    m_dofs(NULL), m_map(NULL),
+    m_refCellCount(0)
     {
     }
 
@@ -146,7 +150,7 @@ public:
      *
      * @param map The mapping from the cell order to dofs order
      */
-    void init(int numVars, int order,
+    void init(int numVars, int order, int numAlignedDOF,
             const MeshReader &meshReader,
             const double* dofs, const unsigned int* map,
             int refinement, int timestep)
@@ -161,7 +165,7 @@ public:
 
         logInfo(m_rank) << "Initializing HDF5 wave field output.";
 
-        if (m_waveFieldWriter != 0L)
+        if (m_waveFieldWriter.get() != NULL)
             logError() << "Wave field writer already initialized";
 
         m_numVariables = numVars;
@@ -179,10 +183,13 @@ public:
         variables[7] = "v";
         variables[8] = "w";
 
-        m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
-                m_rank, m_outputPrefix.c_str(), variables, timestep);
+        // Currently all variables have to be chosen.
+        m_output_flags.resize(numVars);
+        std::fill(m_output_flags.begin(), m_output_flags.end(), true);
 
-        // Setup cell refinement class
+        m_waveFieldWriter.reset(new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
+                m_rank, m_outputPrefix.c_str(), variables, timestep));
+
         if (!isRefinementStartegyValid(refinement)) {
             logError()  << "Refinement Strategy is invalid!" << std::endl
             << "Current value : " << refinement << std::endl
@@ -192,53 +199,56 @@ public:
             << "2 - Refinement by 8" << std::endl
             << "3 - Refinement by 32";
         }
-        if (refinement == 0) {
-            logInfo(m_rank) << "Refinement is turned off.";
-            m_tetRefinement = new refinement::NoRefinement<double>(
-                    meshReader, order, numVars);
-        }
-        else {
-            switch(refinement) {
-                case(1):
-                    logInfo(m_rank) << "Refinement Startegy is \"Divide by 4\"";
-                    m_tetRefinement = new refinement::StaticRefinement<double>(
-                            meshReader,
-                            refinement::DivideTetrahedronBy4<double>(),
-                            order, numVars);
-                    break;
-                case(2):
-                    logInfo(m_rank) << "Refinement Startegy is \"Divide by 8\"";
-                    m_tetRefinement = new refinement::StaticRefinement<double>(
-                            meshReader,
-                            refinement::DivideTetrahedronBy8<double>(),
-                            order, numVars);
-                    break;
-                case(3):
-                    logInfo(m_rank) << "Refinement Startegy is \"Divide by 32\"";
-                    m_tetRefinement = new refinement::StaticRefinement<double>(
-                            meshReader,
-                            refinement::DivideTetrahedronBy32<double>(),
-                            order, numVars);
-                    break;
-            }
+
+        std::auto_ptr<refinement::TetrahedronRefiner<double> > tetRefiner(NULL);
+        switch(refinement) {
+            case(0):
+                logInfo(m_rank) << "Refinement is turned off.";
+                tetRefiner.reset(new refinement::IdentityRefiner<double>());
+                break;
+            case(1):
+                logInfo(m_rank) << "Refinement Startegy is \"Divide by 4\"";
+                tetRefiner.reset(new refinement::DivideTetrahedronBy4<double>());
+                break;
+            case(2):
+                logInfo(m_rank) << "Refinement Startegy is \"Divide by 8\"";
+                tetRefiner.reset(new refinement::DivideTetrahedronBy8<double>());
+                break;
+            case(3):
+                logInfo(m_rank) << "Refinement Startegy is \"Divide by 32\"";
+                tetRefiner.reset(new refinement::DivideTetrahedronBy32<double>());
+                break;
         }
 
-        logInfo(m_rank) << "Refinement class initialized : ("
-        << meshReader.getElements().size() << "Cells, "
-        << meshReader.getVertices().size() << "Vertices)"
-        << " -refined-to-> (" 
-        << m_tetRefinement->nCells() << "Cells, " 
-        << m_tetRefinement->nVertices() << " Vertices)";
+        refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
+
+        logInfo(m_rank) << "Refinement class initialized";
+        logInfo(m_rank) << "Cells : "
+        << meshReader.getElements().size() << " -refined-to-> "
+        << meshRefiner.getNumCells();
+        logInfo(m_rank) << "Vertices : "
+        << meshReader.getVertices().size()
+        << " -refined-to-> " 
+        << meshRefiner.getNumVertices();
 
         m_waveFieldWriter->init(
-                m_tetRefinement->nCells(), m_tetRefinement->cells(),
-                m_tetRefinement->nVertices(), m_tetRefinement->vertices(),
+                meshRefiner.getNumCells(), meshRefiner.getCellData(),
+                meshRefiner.getNumVertices(), meshRefiner.getVertexData(),
                 true);
+
+        // Save cellcount for later use
+        m_refCellCount = meshRefiner.getNumCells();
 
         logInfo(m_rank) << "WaveFieldWriter initialized";
 
+        m_variableSubsampler.reset(new refinement::VariableSubsampler<double>(
+                    *tetRefiner, order, numVars, numAlignedDOF
+                    ));
+
+        logInfo(m_rank) << "VariableSubsampler initialized";
+
         // Create output buffer
-        m_outputBuffer = new double[m_tetRefinement->nCells()];
+        m_outputBuffer.resize(meshRefiner.getNumCells());
 
         // Save dof/map pointer
         m_dofs = dofs;
@@ -274,9 +284,12 @@ public:
         m_waveFieldWriter->addTimeStep(time);
 
         for (unsigned int i = 0; i < m_numVariables; i++) {
-            m_tetRefinement->get(m_dofs, m_map, i, m_outputBuffer);
+            if (!m_output_flags[i]) continue;
 
-            m_waveFieldWriter->writeData(i, m_outputBuffer);
+            m_variableSubsampler->getSingle(m_dofs, m_map, i,
+                    m_refCellCount, m_outputBuffer.data());
+
+            m_waveFieldWriter->writeData(i, m_outputBuffer.data());
         }
 
         m_waveFieldWriter->flush();
@@ -292,12 +305,9 @@ public:
         if (!m_enabled)
             return;
 
-        delete m_waveFieldWriter;
-        m_waveFieldWriter = 0L;
-        delete m_tetRefinement;
-        m_tetRefinement = 0L;
-        delete m_outputBuffer;
-        m_outputBuffer = 0L;
+        m_waveFieldWriter.reset();
+        m_variableSubsampler.reset();
+        std::vector<double>().swap(m_outputBuffer); // reset and clean memory
     }
 };
 
