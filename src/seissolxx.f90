@@ -41,7 +41,7 @@
 
 #include <Initializer/preProcessorMacros.fpp>
 
-PROGRAM SeisSol
+module SeisSol
   !----------------------------------------------------------------------------
   USE ini_SeisSol_mod
   USE calc_SeisSol_mod
@@ -51,21 +51,16 @@ PROGRAM SeisSol
   USE TypesDef
   USE pvd
   USE COMMON_operators_mod, ONLY: OpenFile
-#ifdef GENERATEDKERNELS
+
   use iso_c_binding
+#ifdef GENERATEDKERNELS
   use f_ftoc_bind_interoperability
 #endif
   !----------------------------------------------------------------------------
   IMPLICIT NONE
 
-  ! C Interface
-  interface
-    subroutine init(rank) bind(c, name="init")
-      use iso_c_binding
-      integer(c_int), value :: rank
-    end subroutine init
-  end interface
-
+contains
+  subroutine main() bind(c, name='fortran_main')
   !----------------------------------------------------------------------------
 #ifdef PARALLEL
   INCLUDE 'mpif.h'
@@ -73,22 +68,12 @@ PROGRAM SeisSol
   !----------------------------------------------------------------------------
   REAL                                   :: time
   INTEGER                                :: timestep
-  INTEGER*4                              :: now(3)
   TYPE (tUnstructDomainDescript), target :: domain
   TYPE (tDebug)                          :: Debug
   CHARACTER(LEN=600)                     :: name
   INTEGER                                :: iTry
   LOGICAL                                :: fexist
   !----------------------------------------------------------------------------
-  
-  ! register epik/scorep function SeisSol
-  EPIK_FUNC_REG("SeisSol")
-  SCOREP_USER_FUNC_DEFINE()
-
-  ! start the SeisSol main function in epik/scorep
-  !   Remark: We cover the regular exit point of SeisSol (everything works as expected) only.
-  EPIK_FUNC_START()
-  SCOREP_USER_FUNC_BEGIN( "SeisSol" )
 
   domain%IO%AbortStatus = 2
 
@@ -101,7 +86,6 @@ PROGRAM SeisSol
 #ifdef PARALLEL
   ! Initialize MPI 
 
-   CALL MPI_INIT(domain%MPI%iErr)
    CALL MPI_COMM_RANK(MPI_COMM_WORLD, domain%MPI%myrank, domain%MPI%iErr)
    CALL MPI_COMM_SIZE(MPI_COMM_WORLD, domain%MPI%nCPU,   domain%MPI%iErr)
 
@@ -141,9 +125,6 @@ PROGRAM SeisSol
   domain%IO%ErrorFile                    = 'IRREGULARITIES.log'         ! Name der Datei in die Fehler geschrieben werden
   myrank = 0
 #endif
-
-  call itime(now)
-  logInfo0('(A,I2,A,I2,A,I2)') ' SeisSol started. Welcome!            system-time: ', now(1), ':', now(2), ':', now(3)
 
   domain%programTitle                    ='SeisSol'                     ! Name des Programms
   domain%IO%Path                         = ''                           ! Standardmaessig liegen alle Dateien im lokalen Verzeichnis
@@ -186,9 +167,6 @@ PROGRAM SeisSol
          EXIT
       ENDIF 
   ENDDO
-
-  ! Init C++ part
-  call init(myrank)
 
   logInfo0(*) '<--------------------------------------------------------->'  !
   logInfo0(*) '<     Start ini_SeisSol ...                               >'  !
@@ -318,21 +296,7 @@ domain%IO%MPIPickCleaningDone = 0
   ! Finalize MPI 
 
    CALL MPI_BARRIER(MPI_COMM_WORLD,domain%MPI%iErr)
-
-   logInfo0(*) '<--------------------------------------------------------->'
-   logInfo0(*) '<                SeisSol MPI finalization                 >'
-   logInfo0(*) '<--------------------------------------------------------->'
-   CALL MPI_FINALIZE(domain%MPI%iErr)
-   logInfo0(*) 'MPI finalization done. '
-   logInfo0(*) '<--------------------------------------------------------->'
 #endif
+  end subroutine main
 
-  ! end epik/scorep function SeisSol
-  !   Remark: This is the only covered exit point.
-  EPIK_FUNC_END()
-  SCOREP_USER_FUNC_END()
-
-  call itime(now)
-  logInfo0('(A,I2,A,I2,A,I2)') ' SeisSol done. Goodbye.               system-time: ', now(1), ':', now(2), ':', now(3)
-
-END PROGRAM SeisSol
+END module SeisSol

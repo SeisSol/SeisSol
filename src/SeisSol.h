@@ -38,9 +38,7 @@
  * Main C++ SeisSol file
  */
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
+#include "Parallel/MPI.h"
 
 #ifdef GENERATEDKERNELS
 #include "Solver/time_stepping/TimeManager.h"
@@ -66,6 +64,8 @@ namespace seissol
 class SeisSol
 {
 private:
+	MPI m_mpi;
+
 	MeshReader* m_meshReader;
 
 #ifdef GENERATEDKERNELS
@@ -106,10 +106,18 @@ public:
 
 	/**
 	 * Initialize C++ part of the program
-	 *
-	 * @param rank
 	 */
-	void init(int rank);
+	void init(int argc, char* argv[]);
+
+	/**
+	 * Finalize SeisSol
+	 */
+	void finalize();
+
+	const MPI& mpi() const
+	{
+		return m_mpi;
+	}
 
 #ifdef GENERATEDKERNELS
 	initializers::time_stepping::LtsLayout& getLtsLayout(){ return m_ltsLayout; }
