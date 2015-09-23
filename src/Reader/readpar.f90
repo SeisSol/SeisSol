@@ -3324,7 +3324,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          ENDIF
 
          IF(EQN%Plasticity.EQ.1) THEN                                                       ! Plastic material properties                              
-            IO%OutputMask(13:18)  = iOutputMask(10:15)                                      ! plastic strain output
+            IO%OutputMask(13:19)  = iOutputMask(10:16)                                      ! plastic strain output
          ENDIF
 
          IF(IO%Rotation.EQ.1) THEN
@@ -3442,6 +3442,8 @@ ALLOCATE( SpacePositionx(nDirac), &
                     IO%TitleMask(16) = TRIM(' "eps_p_xy"')
                     IO%TitleMask(17) = TRIM(' "eps_p_yz"')
                     IO%TitleMask(18) = TRIM(' "eps_p_xz"') 
+                    IO%TitleMask(19) = TRIM(' "eta_p"')
+
                 ENDIF       
       ENDIF
       !

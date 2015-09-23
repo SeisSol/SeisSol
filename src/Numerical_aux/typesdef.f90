@@ -426,6 +426,7 @@ MODULE TypesDef
 ! never used    REAL, POINTER     :: dgvar_ane(:,:,:,:)          !< Data-array for expansion (Anel.)
     REAL, POINTER         :: DOFStress(:,:,:)      !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: pstrain(:,:)          !< plastic strain
+    REAL, POINTER         :: accpstrain(:)          !< accumulated plastic strain
 #ifdef GENERATEDKERNELS
 !    integer              :: nSourceTermElems !< number of elemens having a source term
 !    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms

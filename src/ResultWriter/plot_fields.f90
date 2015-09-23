@@ -147,14 +147,9 @@ CONTAINS
              optionalFields%fieldMask( 16)%ptr => disc%galerkin%pstrain(4,:)
              optionalFields%fieldMask( 17)%ptr => disc%galerkin%pstrain(5,:)
              optionalFields%fieldMask( 18)%ptr => disc%galerkin%pstrain(6,:)
+             optionalFields%fieldMask( 19)%ptr => disc%galerkin%accpstrain(:)
 
-            !CALL Verlinken(OptionalFields%FieldMask(13)%PTR,IO%OutputMask(13),pvar       ,10)
-            !CALL Verlinken(OptionalFields%FieldMask(14)%PTR,IO%OutputMask(14),pvar       ,11)
-            !CALL Verlinken(OptionalFields%FieldMask(15)%PTR,IO%OutputMask(15),pvar       ,12)
-            !CALL Verlinken(OptionalFields%FieldMask(16)%PTR,IO%OutputMask(16),pvar       ,13)
-            !CALL Verlinken(OptionalFields%FieldMask(17)%PTR,IO%OutputMask(16),pvar       ,14)
-            !CALL Verlinken(OptionalFields%FieldMask(18)%PTR,IO%OutputMask(16),pvar       ,15)
-            EndLink = 18
+            EndLink = 19
           ENDIF
           !
           DO i = 1, EQN%nBackgroundVar-EQN%nMechanisms*4  ! Link constants 
