@@ -84,6 +84,7 @@ CONTAINS
     USE TrilinearInterpolation_mod
     USE read_backgroundstress_mod
     USE ini_model_DR_mod
+    use VelocityFieldReader
 
     !--------------------------------------------------------------------------
     IMPLICIT NONE
@@ -682,83 +683,15 @@ CONTAINS
          ENDDO
       !
       CASE(101) ! special case of 3D complex medium, imposed without meshed layers
-      ! media properties given as structured grid, which can be smaller than domain size
-      ! interpolation to elements
-      !
-      ! e.g. SCEC 3D velocity model surrounding the Northridge fault
-      !
-      ! ATTENTION: zones in the mesh are ignored
-      !
-        ! Interpolation of the background field onto the barycenter of the element
-        ALLOCATE( posx(MESH%nElem), posy(MESH%nElem), posz(MESH%nElem), ElemID(MESH%nElem), P(MESH%nElem,3) )
+        ! media properties given as structured grid, which can be smaller than domain size
+        ! interpolation to elements
+        !
+        ! e.g. SCEC 3D velocity model surrounding the Northridge fault
+        !
+        ! ATTENTION: zones in the mesh are ignored
+        !
+        call readVelocityField(eqn, mesh, materialVal(:,1:3))
 
-        ! dimension of input grid
-        posx_max = MAXVAL(IO%MaterialVal(:,1))
-        posx_min = MINVAL(IO%MaterialVal(:,1))
-        posy_max = MAXVAL(IO%MaterialVal(:,2))
-        posy_min = MINVAL(IO%MaterialVal(:,2))
-        posz_max = MAXVAL(IO%MaterialVal(:,3))
-        posz_min = MINVAL(IO%MaterialVal(:,3))
-        !
-        counter=0
-        !
-        DO iElem = 1,MESH%nElem
-           ! Position of elements inside structured grid for linear interpolation
-           IF( (MESH%ELEM%xyBary(1,iElem).GE.posx_min).AND.(MESH%ELEM%xyBary(1,iElem).LE.posx_max).AND. &
-               (MESH%ELEM%xyBary(2,iElem).GE.posy_min).AND.(MESH%ELEM%xyBary(2,iElem).LE.posy_max).AND. &
-               (MESH%ELEM%xyBary(3,iElem).GE.posz_min).AND.(MESH%ELEM%xyBary(3,iElem).LE.posz_max) ) THEN
-                   counter=counter+1
-                   ! x,y,z interpolation coordinates
-                   posx(counter) = (MESH%ELEM%xyBary(1,iElem))
-                   posy(counter) = (MESH%ELEM%xyBary(2,iElem))
-                   posz(counter) = (MESH%ELEM%xyBary(3,iElem))
-                   ElemID(counter) = iElem
-           ! elements outside structured grid get constant material values
-           ELSE
-                   MaterialVal(iElem,1) = EQN%rho0
-                   MaterialVal(iElem,2) = EQN%mu
-                   MaterialVal(iElem,3) = EQN%lambda
-           ENDIF
-         ENDDO !iElem
-         !
-         ! Linear interpolation 
-         IF (counter.GT.0) THEN
-            DO i=1,3 !rho,mu,lamda
-                        CALL TrilinearFromRaster(P(1:counter,i),    &           !interpolated values
-                                posx(1:counter),posy(1:counter),posz(1:counter),                   &             !position vectors
-                                EQN%MaterialGrid(:,:,:,i),        &             !input array
-                                EQN%MaterialGridSpace(1),EQN%MaterialGridSpace(2),EQN%MaterialGridSpace(3), & !dx,dy,dz
-                                posx_min,posy_min,posz_min)                     !corner of structured grid
-                        
-                         
-            ENDDO
-            ! assigning new material values
-            DO iElem = 1,counter
-                !check interpolated min. and max. values
-                !rho
-                IF (P(counter,1).LT.MINVAL(IO%MaterialVal(:,4))) THEN 
-                        P(counter,1) = MINVAL(IO%MaterialVal(:,4))
-                ELSEIF (P(counter,1).GT.MAXVAL(IO%MaterialVal(:,4))) THEN 
-                        P(counter,1) = MAXVAL(IO%MaterialVal(:,4))
-                ENDIF
-                !mu
-                IF (P(counter,2).LT.MINVAL(IO%MaterialVal(:,5))) THEN 
-			P(counter,2) = MINVAL(IO%MaterialVal(:,5))
-                ELSEIF (P(counter,2).GT.MAXVAL(IO%MaterialVal(:,5))) THEN 
-			P(counter,2) = MAXVAL(IO%MaterialVal(:,5))
-                ENDIF
-                !lambda
-		IF (P(counter,3).LT.MINVAL(IO%MaterialVal(:,6))) THEN 
-			P(counter,3) = MINVAL(IO%MaterialVal(:,6))
-                ELSEIF (P(counter,3).GT.MAXVAL(IO%MaterialVal(:,6))) THEN 
-			P(counter,3) = MAXVAL(IO%MaterialVal(:,6))
-                ENDIF
-                MaterialVal(ElemID(iElem),1:3) = P(counter,1:3)
-            ENDDO
-            DEALLOCATE(P)
-         ENDIF
-         DEALLOCATE (posx, posy, posz)
-       !
       CASE DEFAULT
         logError(*) 'Wrong linType for elastic wave equations.'
         STOP

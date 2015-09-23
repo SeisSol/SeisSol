@@ -379,10 +379,10 @@ CONTAINS
     !                                                      
     SELECT CASE(EQN%linType)                                   
     CASE(0)         ! use constant material properties                                                                                        
-      logInfo(*) 'Jacobians are globally constant with rho0, mu, lambda:'
-      logInfo(*) ' rho0 = ', EQN%rho0     ! (1)
-      logInfo(*) ' mu = ', EQN%mu       ! (2)
-      logInfo(*) ' lambda = ', EQN%lambda   ! (3)
+      logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
+      logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
+      logInfo0(*) ' mu = ', EQN%mu       ! (2)
+      logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
       !
     CASE(1,11)          ! get material properties from file
       call readmaterial(IO, EQN, DISC )
@@ -390,11 +390,11 @@ CONTAINS
     CASE(2)                !special case for radially symmetric PREM data
       SELECT CASE(EQN%Anelasticity)
       CASE(0)
-         logInfo(*) 'The Jacobians are based on the PREM model. '
+         logInfo0(*) 'The Jacobians are based on the PREM model. '
       CASE(1)
-         logInfo(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
-         logInfo(*) 'with central frequency ',EQN%FreqCentral
-         logInfo(*) 'and frequency ratio ',EQN%FreqRatio
+         logInfo0(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
+         logInfo0(*) 'with central frequency ',EQN%FreqCentral
+         logInfo0(*) 'and frequency ratio ',EQN%FreqRatio
          EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
          EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
          EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms                                                    !
@@ -403,8 +403,8 @@ CONTAINS
       !
     CASE(3)                !special case for layered medium linear variation of material parameters
         
-      logInfo(*) 'Material property is defined by linear spline. '
-      logInfo(*) 'Linear spline data are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property is defined by linear spline. '
+      logInfo0(*) 'Linear spline data are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -420,8 +420,8 @@ CONTAINS
       logInfo(*) 'Linear spline data are read from file.     '
       !
     CASE(4)  !special case for Sismovalp 2D benchmark test (model M2)
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by the mesh generator. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &                        
@@ -442,8 +442,8 @@ CONTAINS
       logInfo(*) '   ', EQN%lambda   ! (3)
       !
     CASE(5)  !special case for Sismovalp 2D benchmark test (model M2 SH-wave)
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by the mesh generator. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -465,8 +465,8 @@ CONTAINS
       !   
     CASE(6,7)  !special case for (6) Grenoble benchmark test
                !                 (7) Euroseistest benchmark (Volvi Lake)
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by the mesh generator. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -493,8 +493,8 @@ CONTAINS
       !
     CASE(8)  !special case for Sonic logging
       !
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by the mesh generator. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -513,8 +513,8 @@ CONTAINS
       !
     CASE(9)  ! special case for a hemisphere with different material properties at the top of a box
       !
-      logInfo(*) 'Material property zones are defined by SeisSol. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by SeisSol. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -534,58 +534,26 @@ CONTAINS
   CASE(12) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
            ! special case for TPV13, add other cases that use plasticity with different initial stress values here
       IF (EQN%Plasticity.EQ.1)THEN
-        logInfo(*) 'Jacobians are globally constant with rho0, mu, lambda:'
-        logInfo(*) ' rho0 = ', EQN%rho0     ! (1)
-        logInfo(*) ' mu = ', EQN%mu       ! (2)
-        logInfo(*) ' lambda = ', EQN%lambda   ! (3)
+        logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
+        logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
+        logInfo0(*) ' mu = ', EQN%mu       ! (2)
+        logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
       ELSE
         logInfo(*) '| ERROR: MaterialType 12 is only used for plastic calculations.'
       ENDIF
       !
   CASE(60,61) ! special case of 1D landers example
       !
-      logInfo(*) 'Material property zones are defined by SeisSol. '
+      logInfo0(*) 'Material property zones are defined by SeisSol. '
   CASE(99,100) ! special case of 1D layered medium, imposed without meshed layers
       !
-      logInfo(*) 'Material property zones are defined by SeisSol. '
+      logInfo0(*) 'Material property zones are defined by SeisSol. '
 
   CASE(101) ! special case of 3D complex medium, imposed without meshed layers
       ! e.g. SCEC 3D velocity model surrounding the Northridge fault
       !
-      logInfo(*) 'No material property zones are defined. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) 'Reading material property file ...  '
-      ALLOCATE(EQN%MaterialGridSpace(3))
-      READ(IO%UNIT%other01,*) lines, ix, iy, iz, EQN%MaterialGridSpace(1), EQN%MaterialGridSpace(2), EQN%MaterialGridSpace(3)
-      ! Sepcifications of structured grid of material parameters (total number of lines, nx, ny, nz, dx, dz)
-      ALLOCATE(IO%MaterialVal(lines,6))
-      ! Read data (6 columns) x,y,z,rho,mu,lamda: linewise
-      DO i = 1,lines
-           READ(IO%UNIT%other01,*) IO%MaterialVal(i,:)
-      ENDDO ! i lines
-      CLOSE(IO%UNIT%other01)
-      ! Reorder Material array for trilinear interpolation
-      ALLOCATE( EQN%MaterialGrid(ix,iy,iz,3) )      ! x,y,z,rho,mu,lamda: grid
-      intDummy=0
-      DO i = 1,ix
-      DO j = 1,iy
-      DO k = 1,iz
-        intDummy=intDummy+1
-        EQN%MaterialGrid(i,j,k,1:3) = IO%MaterialVal(intDummy,4:6)
-      ENDDO
-      ENDDO
-      ENDDO
-      ! check correct dimensions of structured grid
-      IF (intDummy.EQ.(ix*iy*iz)) THEN
-           logInfo(*) 'Material model read in successfully! '
-      ELSE
-           logInfo(*) 'Material model in wrong format (must be (x*y*z) values of structured grid in x,y,z order!)'
-           STOP
-      ENDIF
+      logInfo0(*) 'No material property zones are defined. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       !
   CASE DEFAULT
          logError(*) 'Wrong linearization type.'

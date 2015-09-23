@@ -85,6 +85,19 @@ public:
 	}
 
 	/**
+	 * @return The main communicator for the application
+	 */
+	MPI_Comm comm() const
+	{
+		return MPI_COMM_WORLD;
+	}
+
+	void barrier(MPI_Comm comm) const
+	{
+		MPI_Barrier(comm);
+	}
+
+	/**
 	 * Finalize MPI
 	 */
 	void finalize()

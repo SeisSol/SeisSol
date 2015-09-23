@@ -124,6 +124,8 @@ vars.AddVariables(
   BoolVariable( 'netcdf', 'use netcdf library for mesh input', False ),
   
   BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
+
+  BoolVariable( 'asagi', 'use asagi for material input', False ),
   
   BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
   
@@ -477,7 +479,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/glm'] )
 
 #
 # add libraries
@@ -488,6 +490,10 @@ env.Tool('DirTool', fortran=True)
 
 # GLM
 env.Append(CPPPATH=['#/submodules/glm'])
+env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
+
+# GLM
+# Workaround for wrong C++11 detection
 env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
 
 # HDF5
@@ -510,6 +516,14 @@ if env['sionlib']:
   env.Tool('SionTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']))
 else:
   env['sionlib'] = False
+
+# ASAGI
+if env['asagi']:
+    if env['scalasca'] in ['default', 'kernels']:
+        ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
+    
+    env.Tool('AsagiTool', required=(not helpMode), toolpath=['build/scons/Tools'])
+    env.Append(CPPDEFINES=['USE_ASAGI'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
