@@ -3687,6 +3687,12 @@ ALLOCATE( SpacePositionx(nDirac), &
             stop
 #endif
             logInfo(*) 'Using async MPI-IO checkpoint backend'
+        case ("sionlib")
+#ifndef USE_SIONLIB
+            logError(*) 'This version does not support SIONlib checkpoints'
+            stop
+#endif
+            logInfo(*) 'Using SIONlib checkpoint backend'
         case ("none")
             io%checkpoint%interval = 0
         case default

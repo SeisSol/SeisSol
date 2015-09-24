@@ -55,6 +55,8 @@
 #include "mpio/WavefieldAsync.h"
 #include "mpio/Fault.h"
 #include "mpio/FaultAsync.h"
+#include "sionlib/Fault.h"
+#include "sionlib/Wavefield.h"
 
 namespace seissol
 {
@@ -68,6 +70,7 @@ enum Backend {
 	HDF5,
 	MPIO,
 	MPIO_ASYNC,
+	SIONLIB,
 	DISABLED
 };
 
@@ -114,6 +117,17 @@ public:
 			m_waveField = new mpio::WavefieldAsync();
 			m_fault = new mpio::FaultAsync();
 			break;
+		case SIONLIB:
+#ifdef USE_SIONLIB
+			m_waveField = new sionlib::Wavefield();
+			m_fault = new sionlib::Fault();
+			break;
+#else //USE_SIONLIB
+			m_waveField = new posix::Wavefield();
+			m_fault = new posix::Fault();
+			logError() << "sionlib checkpoint backend unsupported - using posix instead";
+			break;
+#endif //USE_SIONLIB
 		default:
 			logError() << "Unsupported checkpoint backend";
 		}
