@@ -68,6 +68,11 @@ public:
  */
 extern "C" {
   // fortran to c
+  void c_interoperability_getParameterFile(int i_maxlen, char* o_file)
+  {
+	  strncpy(o_file, seissol::SeisSol::main.parameterFile(), i_maxlen);
+  }
+
   void c_interoperability_setDomain( void *i_domain ) {
     e_interoperability.setDomain( i_domain );
   }
