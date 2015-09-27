@@ -182,6 +182,19 @@ class seissol::kernels::Time {
                                        real*        o_timeIntegrated,
                                        real*        o_timeDerivatives );
 
+    /**
+     * Initialize the timeIntegrated and derivativesBuffer before computing the time integration
+     *
+     * @param i_scalar the scalar factor of the time integration for the derivative which is currently being processed
+     * @param i_degreesOfFreedom of the current time step \f$ t^\text{cell} \f$
+     * @param o_timeIntegrated the buffer into which the time integration is accumulated to
+     * @param o_derivativesBuffer time derivatives of the degrees of freedom in compressed format, this needs to be start address
+     */
+    inline void initialize( const real         i_scalar,
+                            const real*        i_degreesOfFreedom,
+                                  real*        o_timeIntegrated,
+                                  real*        o_derivativesBuffer );
+
   public:
     /**
      * Gets the lts setup in relation to the four face neighbors.
@@ -248,7 +261,7 @@ class seissol::kernels::Time {
     static unsigned short getLtsSetup(      unsigned int   i_localClusterId,
                                             unsigned int   i_neighboringClusterIds[4],
                                       const enum faceType  i_faceTypes[4],
-                                      const unsigned int   i_faceNeighborIds[4],
+                                      const unsigned int   i_faceNeighborIds[4], // TODO: Remove, outdated
                                             bool           i_copy = false ) {
       // reset the LTS setup
       unsigned short l_ltsSetup = 0;
@@ -268,7 +281,7 @@ class seissol::kernels::Time {
         }
         // dynamic rupture faces are always global time stepping but operate on derivatives
         else if( i_faceTypes[l_face] == dynamicRupture ) {
-          // face-neighbor provides derivatives
+          // face-neighbor provides GTS derivatives
           l_ltsSetup |= ( 1 << l_face     );
           l_ltsSetup |= ( 1 << l_face + 4 );
 

@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-08-14 10:02:00.712213
+// @date 2015-09-27 13:24:48.584198
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -83,7 +83,7 @@ void sgemm_m16_n9_k4_ldA64_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -147,7 +147,7 @@ void sgemm_m16_n9_k4_ldA64_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "addq $64, %%rdx\n\t"
                        "subq $960, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -170,7 +170,7 @@ void sgemm_m48_n9_k9_ldA48_ldB9_ldC48_beta1_pfsigonly(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vmovaps 0(%%rdx), %%zmm23\n\t"
                        "vmovaps 192(%%rdx), %%zmm24\n\t"
@@ -288,7 +288,7 @@ void sgemm_m48_n9_k9_ldA48_ldB9_ldC48_beta1_pfsigonly(const float* A, const floa
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $48, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -311,7 +311,7 @@ void sgemm_m128_n9_k120_ldA128_ldB128_ldC128_beta0_pfsigonly(const float* A, con
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -1558,7 +1558,7 @@ void sgemm_m128_n9_k120_ldA128_ldB128_ldC128_beta0_pfsigonly(const float* A, con
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $128, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -1581,7 +1581,7 @@ void sgemm_m128_n9_k84_ldA128_ldB128_ldC128_beta0_pfsigonly(const float* A, cons
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -2465,7 +2465,7 @@ void sgemm_m128_n9_k84_ldA128_ldB128_ldC128_beta0_pfsigonly(const float* A, cons
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $128, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -2488,7 +2488,7 @@ void sgemm_m16_n9_k10_ldA48_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -2625,7 +2625,7 @@ void sgemm_m16_n9_k10_ldA48_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -2648,7 +2648,7 @@ void sgemm_m128_n9_k9_ldA128_ldB9_ldC128_beta1_pfsigonly(const float* A, const f
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vmovaps 0(%%rdx), %%zmm23\n\t"
                        "vmovaps 512(%%rdx), %%zmm24\n\t"
@@ -2766,7 +2766,7 @@ void sgemm_m128_n9_k9_ldA128_ldB9_ldC128_beta1_pfsigonly(const float* A, const f
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $128, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -2789,7 +2789,7 @@ void sgemm_m96_n9_k9_ldA96_ldB9_ldC96_beta1_pfsigonly(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vmovaps 0(%%rdx), %%zmm23\n\t"
                        "vmovaps 384(%%rdx), %%zmm24\n\t"
@@ -2907,7 +2907,7 @@ void sgemm_m96_n9_k9_ldA96_ldB9_ldC96_beta1_pfsigonly(const float* A, const floa
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $96, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -2930,7 +2930,7 @@ void sgemm_m32_n9_k10_ldA32_ldB32_ldC32_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -3067,7 +3067,7 @@ void sgemm_m32_n9_k10_ldA32_ldB32_ldC32_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $32, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -3090,7 +3090,7 @@ void sgemm_m96_n9_k120_ldA96_ldB128_ldC96_beta0_pfsigonly(const float* A, const 
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -4337,7 +4337,7 @@ void sgemm_m96_n9_k120_ldA96_ldB128_ldC96_beta0_pfsigonly(const float* A, const 
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $96, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -4360,7 +4360,7 @@ void sgemm_m16_n9_k4_ldA48_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -4424,7 +4424,7 @@ void sgemm_m16_n9_k4_ldA48_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "addq $64, %%rdx\n\t"
                        "subq $704, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -4447,7 +4447,7 @@ void sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vmovaps 0(%%rdx), %%zmm23\n\t"
                        "vmovaps 64(%%rdx), %%zmm24\n\t"
@@ -4565,7 +4565,7 @@ void sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly(const float* A, const floa
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -4588,7 +4588,7 @@ void sgemm_m64_n9_k35_ldA64_ldB64_ldC64_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -4979,7 +4979,7 @@ void sgemm_m64_n9_k35_ldA64_ldB64_ldC64_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $64, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -5002,7 +5002,7 @@ void sgemm_m16_n9_k20_ldA48_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -5239,7 +5239,7 @@ void sgemm_m16_n9_k20_ldA48_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -5262,7 +5262,7 @@ void sgemm_m96_n9_k56_ldA96_ldB96_ldC96_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -5863,7 +5863,7 @@ void sgemm_m96_n9_k56_ldA96_ldB96_ldC96_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $96, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -5886,7 +5886,7 @@ void sgemm_m16_n9_k20_ldA96_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -6123,7 +6123,7 @@ void sgemm_m16_n9_k20_ldA96_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -6146,7 +6146,7 @@ void sgemm_m32_n9_k35_ldA64_ldB48_ldC32_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -6537,7 +6537,7 @@ void sgemm_m32_n9_k35_ldA64_ldB48_ldC32_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $32, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -6560,7 +6560,7 @@ void sgemm_m32_n9_k20_ldA32_ldB32_ldC32_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -6797,7 +6797,7 @@ void sgemm_m32_n9_k20_ldA32_ldB32_ldC32_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $32, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -6821,7 +6821,7 @@ void sgemm_m48_n9_k35_ldA48_ldB48_ldC48_beta0_BL2viaC(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -7222,7 +7222,7 @@ void sgemm_m48_n9_k35_ldA48_ldB48_ldC48_beta0_BL2viaC(const float* A, const floa
                        "addq $64, %%r8\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $48, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C), "m"(B_prefetch) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -7245,7 +7245,7 @@ void sgemm_m32_n9_k35_ldA48_ldB48_ldC32_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -7636,7 +7636,7 @@ void sgemm_m32_n9_k35_ldA48_ldB48_ldC32_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $32, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -7659,7 +7659,7 @@ void sgemm_m48_n9_k56_ldA64_ldB64_ldC48_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -8260,7 +8260,7 @@ void sgemm_m48_n9_k56_ldA64_ldB64_ldC48_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $48, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -8283,7 +8283,7 @@ void sgemm_m64_n9_k84_ldA64_ldB96_ldC64_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -9167,7 +9167,7 @@ void sgemm_m64_n9_k84_ldA64_ldB96_ldC64_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $64, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -9190,7 +9190,7 @@ void sgemm_m16_n9_k1_ldA16_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -9224,7 +9224,7 @@ void sgemm_m16_n9_k1_ldA16_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "addq $64, %%rdx\n\t"
                        "subq $0, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -9247,7 +9247,7 @@ void sgemm_m48_n9_k56_ldA96_ldB64_ldC48_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -9848,7 +9848,7 @@ void sgemm_m48_n9_k56_ldA96_ldB64_ldC48_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $48, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -9871,7 +9871,7 @@ void sgemm_m16_n9_k20_ldA64_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -10108,7 +10108,7 @@ void sgemm_m16_n9_k20_ldA64_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -10131,7 +10131,7 @@ void sgemm_m16_n9_k10_ldA96_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -10268,7 +10268,7 @@ void sgemm_m16_n9_k10_ldA96_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -10292,7 +10292,7 @@ void sgemm_m96_n9_k84_ldA96_ldB96_ldC96_beta0_BL2viaC(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -11186,7 +11186,7 @@ void sgemm_m96_n9_k84_ldA96_ldB96_ldC96_beta0_BL2viaC(const float* A, const floa
                        "addq $64, %%r8\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $96, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C), "m"(B_prefetch) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -11210,7 +11210,7 @@ void sgemm_m64_n9_k56_ldA64_ldB64_ldC64_beta0_BL2viaC(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -11821,7 +11821,7 @@ void sgemm_m64_n9_k56_ldA64_ldB64_ldC64_beta0_BL2viaC(const float* A, const floa
                        "addq $64, %%r8\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $64, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C), "m"(B_prefetch) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -11845,7 +11845,7 @@ void sgemm_m32_n9_k20_ldA32_ldB32_ldC32_beta0_BL2viaC(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -12092,7 +12092,7 @@ void sgemm_m32_n9_k20_ldA32_ldB32_ldC32_beta0_BL2viaC(const float* A, const floa
                        "addq $64, %%r8\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $32, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C), "m"(B_prefetch) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -12115,7 +12115,7 @@ void sgemm_m16_n9_k4_ldA96_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -12179,7 +12179,7 @@ void sgemm_m16_n9_k4_ldA96_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "addq $64, %%rdx\n\t"
                        "subq $1472, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -12203,7 +12203,7 @@ void sgemm_m128_n9_k120_ldA128_ldB128_ldC128_beta0_BL2viaC(const float* A, const
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -13460,7 +13460,7 @@ void sgemm_m128_n9_k120_ldA128_ldB128_ldC128_beta0_BL2viaC(const float* A, const
                        "addq $64, %%r8\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $128, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C), "m"(B_prefetch) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -13484,7 +13484,7 @@ void sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_BL2viaC(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -13631,7 +13631,7 @@ void sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_BL2viaC(const float* A, const floa
                        "addq $64, %%r8\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C), "m"(B_prefetch) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -13654,7 +13654,7 @@ void sgemm_m48_n9_k20_ldA48_ldB48_ldC48_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -13891,7 +13891,7 @@ void sgemm_m48_n9_k20_ldA48_ldB48_ldC48_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $48, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -13914,7 +13914,7 @@ void sgemm_m48_n9_k35_ldA48_ldB48_ldC48_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -14305,7 +14305,7 @@ void sgemm_m48_n9_k35_ldA48_ldB48_ldC48_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $48, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -14329,7 +14329,7 @@ void sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_BL2viaC(const float* A, const float
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -14403,7 +14403,7 @@ void sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_BL2viaC(const float* A, const float
                        "addq $64, %%r8\n\t"
                        "subq $192, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C), "m"(B_prefetch) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -14426,7 +14426,7 @@ void sgemm_m16_n9_k4_ldA32_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -14490,7 +14490,7 @@ void sgemm_m16_n9_k4_ldA32_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "addq $64, %%rdx\n\t"
                        "subq $448, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -14513,7 +14513,7 @@ void sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_pfsigonly(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vmovaps 0(%%rdx), %%zmm23\n\t"
                        "vmovaps 128(%%rdx), %%zmm24\n\t"
@@ -14631,7 +14631,7 @@ void sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_pfsigonly(const float* A, const floa
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $32, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -14654,7 +14654,7 @@ void sgemm_m32_n9_k35_ldA96_ldB48_ldC32_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -15045,7 +15045,7 @@ void sgemm_m32_n9_k35_ldA96_ldB48_ldC32_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $32, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -15068,7 +15068,7 @@ void sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -15132,7 +15132,7 @@ void sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "addq $64, %%rdx\n\t"
                        "subq $192, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -15155,7 +15155,7 @@ void sgemm_m16_n9_k10_ldA64_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -15292,7 +15292,7 @@ void sgemm_m16_n9_k10_ldA64_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -15316,7 +15316,7 @@ void sgemm_m16_n9_k1_ldA16_ldB16_ldC16_beta0_BL2viaC(const float* A, const float
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -15360,7 +15360,7 @@ void sgemm_m16_n9_k1_ldA16_ldB16_ldC16_beta0_BL2viaC(const float* A, const float
                        "addq $64, %%r8\n\t"
                        "subq $0, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C), "m"(B_prefetch) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -15383,7 +15383,7 @@ void sgemm_m16_n9_k20_ldA16_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -15620,7 +15620,7 @@ void sgemm_m16_n9_k20_ldA16_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -15643,7 +15643,7 @@ void sgemm_m64_n9_k56_ldA64_ldB64_ldC64_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -16244,7 +16244,7 @@ void sgemm_m64_n9_k56_ldA64_ldB64_ldC64_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $64, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -16267,7 +16267,7 @@ void sgemm_m16_n9_k10_ldA32_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -16404,7 +16404,7 @@ void sgemm_m16_n9_k10_ldA32_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -16427,7 +16427,7 @@ void sgemm_m96_n9_k84_ldA96_ldB96_ldC96_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -17311,7 +17311,7 @@ void sgemm_m96_n9_k84_ldA96_ldB96_ldC96_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $96, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -17334,7 +17334,7 @@ void sgemm_m64_n9_k9_ldA64_ldB9_ldC64_beta1_pfsigonly(const float* A, const floa
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vmovaps 0(%%rdx), %%zmm23\n\t"
                        "vmovaps 256(%%rdx), %%zmm24\n\t"
@@ -17452,7 +17452,7 @@ void sgemm_m64_n9_k9_ldA64_ldB9_ldC64_beta1_pfsigonly(const float* A, const floa
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $64, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -17475,7 +17475,7 @@ void sgemm_m16_n9_k20_ldA32_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -17712,7 +17712,7 @@ void sgemm_m16_n9_k20_ldA32_ldB32_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -17735,7 +17735,7 @@ void sgemm_m48_n9_k56_ldA48_ldB64_ldC48_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -18336,7 +18336,7 @@ void sgemm_m48_n9_k56_ldA48_ldB64_ldC48_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $48, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -18359,7 +18359,7 @@ void sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -18496,7 +18496,7 @@ void sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -18519,7 +18519,7 @@ void sgemm_m16_n9_k0_ldA16_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -18543,7 +18543,7 @@ void sgemm_m16_n9_k0_ldA16_ldB16_ldC16_beta0_pfsigonly(const float* A, const flo
                        "addq $64, %%rdx\n\t"
                        "subq $-64, %%rdi\n\t"
                        "cmpq $16, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -18566,7 +18566,7 @@ void sgemm_m32_n9_k35_ldA32_ldB48_ldC32_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -18957,7 +18957,7 @@ void sgemm_m32_n9_k35_ldA32_ldB48_ldC32_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $32, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)
@@ -18980,7 +18980,7 @@ void sgemm_m64_n9_k84_ldA96_ldB96_ldC64_beta0_pfsigonly(const float* A, const fl
                        "movq $0, %%r12\n\t"
                        "movq $0, %%r13\n\t"
                        "movq $0, %%r14\n\t"
-                       "2016:\n\t"
+                       "0:\n\t"
                        "addq $16, %%r12\n\t"
                        "vpxord %%zmm23, %%zmm23, %%zmm23\n\t"
                        "vpxord %%zmm24, %%zmm24, %%zmm24\n\t"
@@ -19864,7 +19864,7 @@ void sgemm_m64_n9_k84_ldA96_ldB96_ldC64_beta0_pfsigonly(const float* A, const fl
                        "addq $64, %%rdx\n\t"
                        "addq $64, %%rdi\n\t"
                        "cmpq $64, %%r12\n\t"
-                       "jl 2016b\n\t"
+                       "jl 0b\n\t"
                        : : "m"(B), "m"(A), "m"(C) : "k1","rax","rbx","rcx","rdx","rdi","rsi","r8","r9","r10","r12","r13","r14","r15","zmm0","zmm1","zmm2","zmm3","zmm4","zmm5","zmm6","zmm7","zmm8","zmm9","zmm10","zmm11","zmm12","zmm13","zmm14","zmm15","zmm16","zmm17","zmm18","zmm19","zmm20","zmm21","zmm22","zmm23","zmm24","zmm25","zmm26","zmm27","zmm28","zmm29","zmm30","zmm31");
 #else
 #pragma message ("LIBXSMM KERNEL COMPILATION ERROR in: " __FILE__)

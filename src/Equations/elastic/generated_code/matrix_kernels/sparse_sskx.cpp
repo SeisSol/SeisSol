@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-08-14 10:02:00.794743
+// @date 2015-09-27 13:24:48.675790
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -1232,7 +1232,7 @@ void ssparse_fP113DivM_m4_n9_k4_ldAna2_ldB16_ldC16_beta0_pfsigonly(const float* 
     }
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b0 = _mm256_broadcast_ss(&B[(l_n*16)+0]);
+    __m128 b0 = _mm_broadcast_ss(&B[(l_n*16)+0]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b0 = _mm_load_ss(&B[(l_n*16)+0]);    b0 = _mm_shuffle_ps(b0, b0, 0x00);
@@ -1252,7 +1252,7 @@ void ssparse_fP113DivM_m4_n9_k4_ldAna2_ldB16_ldC16_beta0_pfsigonly(const float* 
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b1 = _mm256_broadcast_ss(&B[(l_n*16)+1]);
+    __m128 b1 = _mm_broadcast_ss(&B[(l_n*16)+1]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b1 = _mm_load_ss(&B[(l_n*16)+1]);    b1 = _mm_shuffle_ps(b1, b1, 0x00);
@@ -1267,7 +1267,7 @@ void ssparse_fP113DivM_m4_n9_k4_ldAna2_ldB16_ldC16_beta0_pfsigonly(const float* 
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b2 = _mm256_broadcast_ss(&B[(l_n*16)+2]);
+    __m128 b2 = _mm_broadcast_ss(&B[(l_n*16)+2]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b2 = _mm_load_ss(&B[(l_n*16)+2]);    b2 = _mm_shuffle_ps(b2, b2, 0x00);
@@ -1282,7 +1282,7 @@ void ssparse_fP113DivM_m4_n9_k4_ldAna2_ldB16_ldC16_beta0_pfsigonly(const float* 
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b3 = _mm256_broadcast_ss(&B[(l_n*16)+3]);
+    __m128 b3 = _mm_broadcast_ss(&B[(l_n*16)+3]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b3 = _mm_load_ss(&B[(l_n*16)+3]);    b3 = _mm_shuffle_ps(b3, b3, 0x00);
@@ -1361,7 +1361,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
     }
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b0 = _mm256_broadcast_ss(&B[(l_n*16)+0]);
+    __m128 b0 = _mm_broadcast_ss(&B[(l_n*16)+0]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b0 = _mm_load_ss(&B[(l_n*16)+0]);    b0 = _mm_shuffle_ps(b0, b0, 0x00);
@@ -1386,7 +1386,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b1 = _mm256_broadcast_ss(&B[(l_n*16)+1]);
+    __m128 b1 = _mm_broadcast_ss(&B[(l_n*16)+1]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b1 = _mm_load_ss(&B[(l_n*16)+1]);    b1 = _mm_shuffle_ps(b1, b1, 0x00);
@@ -1406,7 +1406,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b2 = _mm256_broadcast_ss(&B[(l_n*16)+2]);
+    __m128 b2 = _mm_broadcast_ss(&B[(l_n*16)+2]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b2 = _mm_load_ss(&B[(l_n*16)+2]);    b2 = _mm_shuffle_ps(b2, b2, 0x00);
@@ -1426,7 +1426,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b3 = _mm256_broadcast_ss(&B[(l_n*16)+3]);
+    __m128 b3 = _mm_broadcast_ss(&B[(l_n*16)+3]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b3 = _mm_load_ss(&B[(l_n*16)+3]);    b3 = _mm_shuffle_ps(b3, b3, 0x00);
@@ -1451,7 +1451,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b4 = _mm256_broadcast_ss(&B[(l_n*16)+4]);
+    __m128 b4 = _mm_broadcast_ss(&B[(l_n*16)+4]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b4 = _mm_load_ss(&B[(l_n*16)+4]);    b4 = _mm_shuffle_ps(b4, b4, 0x00);
@@ -1466,7 +1466,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b5 = _mm256_broadcast_ss(&B[(l_n*16)+5]);
+    __m128 b5 = _mm_broadcast_ss(&B[(l_n*16)+5]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b5 = _mm_load_ss(&B[(l_n*16)+5]);    b5 = _mm_shuffle_ps(b5, b5, 0x00);
@@ -1481,7 +1481,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b6 = _mm256_broadcast_ss(&B[(l_n*16)+6]);
+    __m128 b6 = _mm_broadcast_ss(&B[(l_n*16)+6]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b6 = _mm_load_ss(&B[(l_n*16)+6]);    b6 = _mm_shuffle_ps(b6, b6, 0x00);
@@ -1496,7 +1496,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b7 = _mm256_broadcast_ss(&B[(l_n*16)+7]);
+    __m128 b7 = _mm_broadcast_ss(&B[(l_n*16)+7]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b7 = _mm_load_ss(&B[(l_n*16)+7]);    b7 = _mm_shuffle_ps(b7, b7, 0x00);
@@ -1516,7 +1516,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b8 = _mm256_broadcast_ss(&B[(l_n*16)+8]);
+    __m128 b8 = _mm_broadcast_ss(&B[(l_n*16)+8]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b8 = _mm_load_ss(&B[(l_n*16)+8]);    b8 = _mm_shuffle_ps(b8, b8, 0x00);
@@ -1536,7 +1536,7 @@ void ssparse_fP113DivM_m10_n9_k10_ldAna3_ldB16_ldC16_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b9 = _mm256_broadcast_ss(&B[(l_n*16)+9]);
+    __m128 b9 = _mm_broadcast_ss(&B[(l_n*16)+9]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b9 = _mm_load_ss(&B[(l_n*16)+9]);    b9 = _mm_shuffle_ps(b9, b9, 0x00);
@@ -1700,7 +1700,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
     }
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b0 = _mm256_broadcast_ss(&B[(l_n*64)+0]);
+    __m128 b0 = _mm_broadcast_ss(&B[(l_n*64)+0]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b0 = _mm_load_ss(&B[(l_n*64)+0]);    b0 = _mm_shuffle_ps(b0, b0, 0x00);
@@ -1740,7 +1740,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b1 = _mm256_broadcast_ss(&B[(l_n*64)+1]);
+    __m128 b1 = _mm_broadcast_ss(&B[(l_n*64)+1]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b1 = _mm_load_ss(&B[(l_n*64)+1]);    b1 = _mm_shuffle_ps(b1, b1, 0x00);
@@ -1775,7 +1775,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b2 = _mm256_broadcast_ss(&B[(l_n*64)+2]);
+    __m128 b2 = _mm_broadcast_ss(&B[(l_n*64)+2]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b2 = _mm_load_ss(&B[(l_n*64)+2]);    b2 = _mm_shuffle_ps(b2, b2, 0x00);
@@ -1810,7 +1810,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b3 = _mm256_broadcast_ss(&B[(l_n*64)+3]);
+    __m128 b3 = _mm_broadcast_ss(&B[(l_n*64)+3]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b3 = _mm_load_ss(&B[(l_n*64)+3]);    b3 = _mm_shuffle_ps(b3, b3, 0x00);
@@ -1850,7 +1850,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b4 = _mm256_broadcast_ss(&B[(l_n*64)+4]);
+    __m128 b4 = _mm_broadcast_ss(&B[(l_n*64)+4]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b4 = _mm_load_ss(&B[(l_n*64)+4]);    b4 = _mm_shuffle_ps(b4, b4, 0x00);
@@ -1880,7 +1880,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b5 = _mm256_broadcast_ss(&B[(l_n*64)+5]);
+    __m128 b5 = _mm_broadcast_ss(&B[(l_n*64)+5]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b5 = _mm_load_ss(&B[(l_n*64)+5]);    b5 = _mm_shuffle_ps(b5, b5, 0x00);
@@ -1910,7 +1910,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b6 = _mm256_broadcast_ss(&B[(l_n*64)+6]);
+    __m128 b6 = _mm_broadcast_ss(&B[(l_n*64)+6]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b6 = _mm_load_ss(&B[(l_n*64)+6]);    b6 = _mm_shuffle_ps(b6, b6, 0x00);
@@ -1940,7 +1940,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b7 = _mm256_broadcast_ss(&B[(l_n*64)+7]);
+    __m128 b7 = _mm_broadcast_ss(&B[(l_n*64)+7]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b7 = _mm_load_ss(&B[(l_n*64)+7]);    b7 = _mm_shuffle_ps(b7, b7, 0x00);
@@ -1975,7 +1975,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b8 = _mm256_broadcast_ss(&B[(l_n*64)+8]);
+    __m128 b8 = _mm_broadcast_ss(&B[(l_n*64)+8]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b8 = _mm_load_ss(&B[(l_n*64)+8]);    b8 = _mm_shuffle_ps(b8, b8, 0x00);
@@ -2010,7 +2010,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b9 = _mm256_broadcast_ss(&B[(l_n*64)+9]);
+    __m128 b9 = _mm_broadcast_ss(&B[(l_n*64)+9]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b9 = _mm_load_ss(&B[(l_n*64)+9]);    b9 = _mm_shuffle_ps(b9, b9, 0x00);
@@ -2050,7 +2050,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b10 = _mm256_broadcast_ss(&B[(l_n*64)+10]);
+    __m128 b10 = _mm_broadcast_ss(&B[(l_n*64)+10]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b10 = _mm_load_ss(&B[(l_n*64)+10]);    b10 = _mm_shuffle_ps(b10, b10, 0x00);
@@ -2075,7 +2075,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b11 = _mm256_broadcast_ss(&B[(l_n*64)+11]);
+    __m128 b11 = _mm_broadcast_ss(&B[(l_n*64)+11]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b11 = _mm_load_ss(&B[(l_n*64)+11]);    b11 = _mm_shuffle_ps(b11, b11, 0x00);
@@ -2100,7 +2100,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b12 = _mm256_broadcast_ss(&B[(l_n*64)+12]);
+    __m128 b12 = _mm_broadcast_ss(&B[(l_n*64)+12]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b12 = _mm_load_ss(&B[(l_n*64)+12]);    b12 = _mm_shuffle_ps(b12, b12, 0x00);
@@ -2125,7 +2125,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b13 = _mm256_broadcast_ss(&B[(l_n*64)+13]);
+    __m128 b13 = _mm_broadcast_ss(&B[(l_n*64)+13]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b13 = _mm_load_ss(&B[(l_n*64)+13]);    b13 = _mm_shuffle_ps(b13, b13, 0x00);
@@ -2150,7 +2150,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b14 = _mm256_broadcast_ss(&B[(l_n*64)+14]);
+    __m128 b14 = _mm_broadcast_ss(&B[(l_n*64)+14]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b14 = _mm_load_ss(&B[(l_n*64)+14]);    b14 = _mm_shuffle_ps(b14, b14, 0x00);
@@ -2180,7 +2180,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b15 = _mm256_broadcast_ss(&B[(l_n*64)+15]);
+    __m128 b15 = _mm_broadcast_ss(&B[(l_n*64)+15]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b15 = _mm_load_ss(&B[(l_n*64)+15]);    b15 = _mm_shuffle_ps(b15, b15, 0x00);
@@ -2210,7 +2210,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b16 = _mm256_broadcast_ss(&B[(l_n*64)+16]);
+    __m128 b16 = _mm_broadcast_ss(&B[(l_n*64)+16]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b16 = _mm_load_ss(&B[(l_n*64)+16]);    b16 = _mm_shuffle_ps(b16, b16, 0x00);
@@ -2240,7 +2240,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b17 = _mm256_broadcast_ss(&B[(l_n*64)+17]);
+    __m128 b17 = _mm_broadcast_ss(&B[(l_n*64)+17]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b17 = _mm_load_ss(&B[(l_n*64)+17]);    b17 = _mm_shuffle_ps(b17, b17, 0x00);
@@ -2275,7 +2275,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b18 = _mm256_broadcast_ss(&B[(l_n*64)+18]);
+    __m128 b18 = _mm_broadcast_ss(&B[(l_n*64)+18]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b18 = _mm_load_ss(&B[(l_n*64)+18]);    b18 = _mm_shuffle_ps(b18, b18, 0x00);
@@ -2310,7 +2310,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b19 = _mm256_broadcast_ss(&B[(l_n*64)+19]);
+    __m128 b19 = _mm_broadcast_ss(&B[(l_n*64)+19]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b19 = _mm_load_ss(&B[(l_n*64)+19]);    b19 = _mm_shuffle_ps(b19, b19, 0x00);
@@ -2350,7 +2350,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b20 = _mm256_broadcast_ss(&B[(l_n*64)+20]);
+    __m128 b20 = _mm_broadcast_ss(&B[(l_n*64)+20]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b20 = _mm_load_ss(&B[(l_n*64)+20]);    b20 = _mm_shuffle_ps(b20, b20, 0x00);
@@ -2370,7 +2370,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b21 = _mm256_broadcast_ss(&B[(l_n*64)+21]);
+    __m128 b21 = _mm_broadcast_ss(&B[(l_n*64)+21]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b21 = _mm_load_ss(&B[(l_n*64)+21]);    b21 = _mm_shuffle_ps(b21, b21, 0x00);
@@ -2390,7 +2390,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b22 = _mm256_broadcast_ss(&B[(l_n*64)+22]);
+    __m128 b22 = _mm_broadcast_ss(&B[(l_n*64)+22]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b22 = _mm_load_ss(&B[(l_n*64)+22]);    b22 = _mm_shuffle_ps(b22, b22, 0x00);
@@ -2410,7 +2410,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b23 = _mm256_broadcast_ss(&B[(l_n*64)+23]);
+    __m128 b23 = _mm_broadcast_ss(&B[(l_n*64)+23]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b23 = _mm_load_ss(&B[(l_n*64)+23]);    b23 = _mm_shuffle_ps(b23, b23, 0x00);
@@ -2430,7 +2430,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b24 = _mm256_broadcast_ss(&B[(l_n*64)+24]);
+    __m128 b24 = _mm_broadcast_ss(&B[(l_n*64)+24]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b24 = _mm_load_ss(&B[(l_n*64)+24]);    b24 = _mm_shuffle_ps(b24, b24, 0x00);
@@ -2450,7 +2450,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b25 = _mm256_broadcast_ss(&B[(l_n*64)+25]);
+    __m128 b25 = _mm_broadcast_ss(&B[(l_n*64)+25]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b25 = _mm_load_ss(&B[(l_n*64)+25]);    b25 = _mm_shuffle_ps(b25, b25, 0x00);
@@ -2475,7 +2475,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b26 = _mm256_broadcast_ss(&B[(l_n*64)+26]);
+    __m128 b26 = _mm_broadcast_ss(&B[(l_n*64)+26]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b26 = _mm_load_ss(&B[(l_n*64)+26]);    b26 = _mm_shuffle_ps(b26, b26, 0x00);
@@ -2500,7 +2500,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b27 = _mm256_broadcast_ss(&B[(l_n*64)+27]);
+    __m128 b27 = _mm_broadcast_ss(&B[(l_n*64)+27]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b27 = _mm_load_ss(&B[(l_n*64)+27]);    b27 = _mm_shuffle_ps(b27, b27, 0x00);
@@ -2525,7 +2525,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b28 = _mm256_broadcast_ss(&B[(l_n*64)+28]);
+    __m128 b28 = _mm_broadcast_ss(&B[(l_n*64)+28]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b28 = _mm_load_ss(&B[(l_n*64)+28]);    b28 = _mm_shuffle_ps(b28, b28, 0x00);
@@ -2550,7 +2550,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b29 = _mm256_broadcast_ss(&B[(l_n*64)+29]);
+    __m128 b29 = _mm_broadcast_ss(&B[(l_n*64)+29]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b29 = _mm_load_ss(&B[(l_n*64)+29]);    b29 = _mm_shuffle_ps(b29, b29, 0x00);
@@ -2580,7 +2580,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b30 = _mm256_broadcast_ss(&B[(l_n*64)+30]);
+    __m128 b30 = _mm_broadcast_ss(&B[(l_n*64)+30]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b30 = _mm_load_ss(&B[(l_n*64)+30]);    b30 = _mm_shuffle_ps(b30, b30, 0x00);
@@ -2610,7 +2610,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b31 = _mm256_broadcast_ss(&B[(l_n*64)+31]);
+    __m128 b31 = _mm_broadcast_ss(&B[(l_n*64)+31]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b31 = _mm_load_ss(&B[(l_n*64)+31]);    b31 = _mm_shuffle_ps(b31, b31, 0x00);
@@ -2640,7 +2640,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b32 = _mm256_broadcast_ss(&B[(l_n*64)+32]);
+    __m128 b32 = _mm_broadcast_ss(&B[(l_n*64)+32]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b32 = _mm_load_ss(&B[(l_n*64)+32]);    b32 = _mm_shuffle_ps(b32, b32, 0x00);
@@ -2675,7 +2675,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b33 = _mm256_broadcast_ss(&B[(l_n*64)+33]);
+    __m128 b33 = _mm_broadcast_ss(&B[(l_n*64)+33]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b33 = _mm_load_ss(&B[(l_n*64)+33]);    b33 = _mm_shuffle_ps(b33, b33, 0x00);
@@ -2710,7 +2710,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b34 = _mm256_broadcast_ss(&B[(l_n*64)+34]);
+    __m128 b34 = _mm_broadcast_ss(&B[(l_n*64)+34]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b34 = _mm_load_ss(&B[(l_n*64)+34]);    b34 = _mm_shuffle_ps(b34, b34, 0x00);
@@ -2750,7 +2750,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b35 = _mm256_broadcast_ss(&B[(l_n*64)+35]);
+    __m128 b35 = _mm_broadcast_ss(&B[(l_n*64)+35]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b35 = _mm_load_ss(&B[(l_n*64)+35]);    b35 = _mm_shuffle_ps(b35, b35, 0x00);
@@ -2765,7 +2765,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b36 = _mm256_broadcast_ss(&B[(l_n*64)+36]);
+    __m128 b36 = _mm_broadcast_ss(&B[(l_n*64)+36]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b36 = _mm_load_ss(&B[(l_n*64)+36]);    b36 = _mm_shuffle_ps(b36, b36, 0x00);
@@ -2780,7 +2780,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b37 = _mm256_broadcast_ss(&B[(l_n*64)+37]);
+    __m128 b37 = _mm_broadcast_ss(&B[(l_n*64)+37]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b37 = _mm_load_ss(&B[(l_n*64)+37]);    b37 = _mm_shuffle_ps(b37, b37, 0x00);
@@ -2795,7 +2795,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b38 = _mm256_broadcast_ss(&B[(l_n*64)+38]);
+    __m128 b38 = _mm_broadcast_ss(&B[(l_n*64)+38]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b38 = _mm_load_ss(&B[(l_n*64)+38]);    b38 = _mm_shuffle_ps(b38, b38, 0x00);
@@ -2810,7 +2810,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b39 = _mm256_broadcast_ss(&B[(l_n*64)+39]);
+    __m128 b39 = _mm_broadcast_ss(&B[(l_n*64)+39]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b39 = _mm_load_ss(&B[(l_n*64)+39]);    b39 = _mm_shuffle_ps(b39, b39, 0x00);
@@ -2825,7 +2825,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b40 = _mm256_broadcast_ss(&B[(l_n*64)+40]);
+    __m128 b40 = _mm_broadcast_ss(&B[(l_n*64)+40]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b40 = _mm_load_ss(&B[(l_n*64)+40]);    b40 = _mm_shuffle_ps(b40, b40, 0x00);
@@ -2840,7 +2840,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b41 = _mm256_broadcast_ss(&B[(l_n*64)+41]);
+    __m128 b41 = _mm_broadcast_ss(&B[(l_n*64)+41]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b41 = _mm_load_ss(&B[(l_n*64)+41]);    b41 = _mm_shuffle_ps(b41, b41, 0x00);
@@ -2860,7 +2860,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b42 = _mm256_broadcast_ss(&B[(l_n*64)+42]);
+    __m128 b42 = _mm_broadcast_ss(&B[(l_n*64)+42]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b42 = _mm_load_ss(&B[(l_n*64)+42]);    b42 = _mm_shuffle_ps(b42, b42, 0x00);
@@ -2880,7 +2880,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b43 = _mm256_broadcast_ss(&B[(l_n*64)+43]);
+    __m128 b43 = _mm_broadcast_ss(&B[(l_n*64)+43]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b43 = _mm_load_ss(&B[(l_n*64)+43]);    b43 = _mm_shuffle_ps(b43, b43, 0x00);
@@ -2900,7 +2900,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b44 = _mm256_broadcast_ss(&B[(l_n*64)+44]);
+    __m128 b44 = _mm_broadcast_ss(&B[(l_n*64)+44]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b44 = _mm_load_ss(&B[(l_n*64)+44]);    b44 = _mm_shuffle_ps(b44, b44, 0x00);
@@ -2920,7 +2920,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b45 = _mm256_broadcast_ss(&B[(l_n*64)+45]);
+    __m128 b45 = _mm_broadcast_ss(&B[(l_n*64)+45]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b45 = _mm_load_ss(&B[(l_n*64)+45]);    b45 = _mm_shuffle_ps(b45, b45, 0x00);
@@ -2940,7 +2940,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b46 = _mm256_broadcast_ss(&B[(l_n*64)+46]);
+    __m128 b46 = _mm_broadcast_ss(&B[(l_n*64)+46]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b46 = _mm_load_ss(&B[(l_n*64)+46]);    b46 = _mm_shuffle_ps(b46, b46, 0x00);
@@ -2965,7 +2965,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b47 = _mm256_broadcast_ss(&B[(l_n*64)+47]);
+    __m128 b47 = _mm_broadcast_ss(&B[(l_n*64)+47]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b47 = _mm_load_ss(&B[(l_n*64)+47]);    b47 = _mm_shuffle_ps(b47, b47, 0x00);
@@ -2990,7 +2990,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b48 = _mm256_broadcast_ss(&B[(l_n*64)+48]);
+    __m128 b48 = _mm_broadcast_ss(&B[(l_n*64)+48]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b48 = _mm_load_ss(&B[(l_n*64)+48]);    b48 = _mm_shuffle_ps(b48, b48, 0x00);
@@ -3015,7 +3015,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b49 = _mm256_broadcast_ss(&B[(l_n*64)+49]);
+    __m128 b49 = _mm_broadcast_ss(&B[(l_n*64)+49]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b49 = _mm_load_ss(&B[(l_n*64)+49]);    b49 = _mm_shuffle_ps(b49, b49, 0x00);
@@ -3040,7 +3040,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b50 = _mm256_broadcast_ss(&B[(l_n*64)+50]);
+    __m128 b50 = _mm_broadcast_ss(&B[(l_n*64)+50]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b50 = _mm_load_ss(&B[(l_n*64)+50]);    b50 = _mm_shuffle_ps(b50, b50, 0x00);
@@ -3070,7 +3070,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b51 = _mm256_broadcast_ss(&B[(l_n*64)+51]);
+    __m128 b51 = _mm_broadcast_ss(&B[(l_n*64)+51]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b51 = _mm_load_ss(&B[(l_n*64)+51]);    b51 = _mm_shuffle_ps(b51, b51, 0x00);
@@ -3100,7 +3100,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b52 = _mm256_broadcast_ss(&B[(l_n*64)+52]);
+    __m128 b52 = _mm_broadcast_ss(&B[(l_n*64)+52]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b52 = _mm_load_ss(&B[(l_n*64)+52]);    b52 = _mm_shuffle_ps(b52, b52, 0x00);
@@ -3130,7 +3130,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b53 = _mm256_broadcast_ss(&B[(l_n*64)+53]);
+    __m128 b53 = _mm_broadcast_ss(&B[(l_n*64)+53]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b53 = _mm_load_ss(&B[(l_n*64)+53]);    b53 = _mm_shuffle_ps(b53, b53, 0x00);
@@ -3165,7 +3165,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b54 = _mm256_broadcast_ss(&B[(l_n*64)+54]);
+    __m128 b54 = _mm_broadcast_ss(&B[(l_n*64)+54]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b54 = _mm_load_ss(&B[(l_n*64)+54]);    b54 = _mm_shuffle_ps(b54, b54, 0x00);
@@ -3200,7 +3200,7 @@ void ssparse_fP113DivM_m56_n9_k56_ldAna6_ldB64_ldC64_beta0_pfsigonly(const float
 
 #if defined(__SSE3__) || defined(__AVX__)
 #if defined(__SSE3__) && defined(__AVX__)
-    __m256 b55 = _mm256_broadcast_ss(&B[(l_n*64)+55]);
+    __m128 b55 = _mm_broadcast_ss(&B[(l_n*64)+55]);
 #endif
 #if defined(__SSE3__) && !defined(__AVX__)
     __m128 b55 = _mm_load_ss(&B[(l_n*64)+55]);    b55 = _mm_shuffle_ps(b55, b55, 0x00);

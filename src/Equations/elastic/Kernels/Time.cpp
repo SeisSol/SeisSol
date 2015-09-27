@@ -100,10 +100,7 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
   real l_derivativesBuffer[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(PAGESIZE_STACK)));
 
   // initialize time integrated DOFs and derivatives
-  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
-    l_derivativesBuffer[l_dof] = i_degreesOfFreedom[l_dof];
-    o_timeIntegrated[l_dof]  = i_degreesOfFreedom[l_dof] * l_scalar;
-  }
+  initialize( l_scalar, i_degreesOfFreedom, o_timeIntegrated, l_derivativesBuffer );
 
 #ifndef NDEBUG
 #ifdef _OPENMP
@@ -111,10 +108,6 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
 #endif
   libxsmm_num_total_flops += NUMBER_OF_ALIGNED_DOFS;
 #endif
-
-  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof++ ) {
-    l_derivativesBuffer[l_dof] = 0.0;
-  }
 
   // stream out frist derivative (order 0)
   if ( o_timeDerivatives != NULL ) {
@@ -413,6 +406,110 @@ void seissol::kernels::Time::integrateInTime( const real*        i_derivativesBu
 #endif
     }
   }
+}
+
+void seissol::kernels::Time::initialize( const real         i_scalar,
+                                         const real*        i_degreesOfFreedom,
+                                               real*        o_timeIntegrated,
+                                               real*        o_derivativesBuffer ) {
+#if defined(__AVX512F__) || defined(__MIC__)
+#if defined(DOUBLE_PRECISION)
+#if defined(__AVX512F__)
+  __m512d l_intrin_scalar = _mm512_broadcast_f64x4(_mm256_broadcast_sd(&i_scalar));
+#endif
+#if defined(__MIC__)
+  __m512d l_intrin_scalar = _mm512_extload_pd(&i_scalar, _MM_UPCONV_PD_NONE, _MM_BROADCAST_1X8, _MM_HINT_NONE);
+#endif
+  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof += 8 ) {
+    __m512d l_temp_dof = _mm512_load_pd( i_degreesOfFreedom + l_dof );
+    _mm512_store_pd( o_derivativesBuffer + l_dof, l_temp_dof );
+    _mm512_store_pd( o_timeIntegrated + l_dof, _mm512_mul_pd( l_temp_dof, l_intrin_scalar ) );
+  }
+  __m512d l_zero = _mm512_setzero_pd();
+  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof += 8 ) {
+    _mm512_store_pd( o_derivativesBuffer + l_dof, l_zero );
+  }
+#elif defined(SINGLE_PRECISION)
+#if defined(__AVX512F__)
+  __m512 l_intrin_scalar = _mm512_broadcast_f32x8(_mm256_broadcast_ss(&i_scalar));
+#endif
+#if defined(__MIC__)
+  __m512 l_intrin_scalar = _mm512_extload_ps(&i_scalar, _MM_UPCONV_PS_NONE, _MM_BROADCAST_1X16, _MM_HINT_NONE);
+#endif
+  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof += 16 ) {
+    __m512 l_temp_dof = _mm512_load_ps( i_degreesOfFreedom + l_dof );
+    _mm512_store_ps( o_derivativesBuffer + l_dof, l_temp_dof );
+    _mm512_store_ps( o_timeIntegrated + l_dof, _mm512_mul_ps( l_temp_dof, l_intrin_scalar ) );
+  }
+  __m512 l_zero = _mm512_setzero_ps();
+  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof += 16 ) {
+    _mm512_store_ps( o_derivativesBuffer + l_dof, l_zero );
+  }
+#else
+#error no precision was defined 
+#endif
+#elif defined(__AVX__)
+#if defined(DOUBLE_PRECISION)
+  __m256d l_intrin_scalar = _mm256_broadcast_sd(&i_scalar);
+  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof += 4 ) {
+    __m256d l_temp_dof = _mm256_load_pd( i_degreesOfFreedom + l_dof );
+    _mm256_store_pd( o_derivativesBuffer + l_dof, l_temp_dof );
+    _mm256_store_pd( o_timeIntegrated + l_dof, _mm256_mul_pd( l_temp_dof, l_intrin_scalar ) );
+  }
+  __m256d l_zero = _mm256_setzero_pd();
+  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof += 4 ) {
+    _mm256_store_pd( o_derivativesBuffer + l_dof, l_zero );
+  }
+#elif defined(SINGLE_PRECISION)
+  __m256 l_intrin_scalar = _mm256_broadcast_ss(&i_scalar);
+  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof += 8 ) {
+    __m256 l_temp_dof = _mm256_load_ps( i_degreesOfFreedom + l_dof );
+    _mm256_store_ps( o_derivativesBuffer + l_dof, l_temp_dof );
+    _mm256_store_ps( o_timeIntegrated + l_dof, _mm256_mul_ps( l_temp_dof, l_intrin_scalar ) );
+  }
+  __m256 l_zero = _mm256_setzero_ps();
+  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof += 8 ) {
+    _mm256_store_ps( o_derivativesBuffer + l_dof, l_zero );
+  }
+#else
+#error no precision was defined 
+#endif
+#elif defined(__SSE3__)
+#if defined(DOUBLE_PRECISION)
+  __m128d l_intrin_scalar = _mm_loaddup_pd(&i_scalar);
+  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof += 2 ) {
+    __m128d l_temp_dof = _mm_load_pd( i_degreesOfFreedom + l_dof );
+    _mm_store_pd( o_derivativesBuffer + l_dof, l_temp_dof );
+    _mm_store_pd( o_timeIntegrated + l_dof, _mm_mul_pd( l_temp_dof, l_intrin_scalar ) );
+  }
+  __m128d l_zero = _mm_setzero_pd();
+  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof += 2 ) {
+    _mm_store_pd( o_derivativesBuffer + l_dof, l_zero );
+  }
+#elif defined(SINGLE_PRECISION)
+  __m128 l_intrin_scalar = _mm_load_ss(&i_scalar);
+  l_intrin_scalar = _mm_shuffle_ps(l_intrin_scalar, l_intrin_scalar, 0x00);
+  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof += 4 ) {
+    __m128 l_temp_dof = _mm_load_ps( i_degreesOfFreedom + l_dof );
+    _mm_store_ps( o_derivativesBuffer + l_dof, l_temp_dof );
+    _mm_store_ps( o_timeIntegrated + l_dof, _mm_mul_ps( l_temp_dof, l_intrin_scalar ) );
+  }
+  __m128 l_zero = _mm_setzero_ps();
+  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof += 4 ) {
+    _mm_store_ps( o_derivativesBuffer + l_dof, l_zero );
+  }
+#else
+#error no precision was defined 
+#endif
+#else
+  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
+    o_derivativesBuffer[l_dof] = i_degreesOfFreedom[l_dof];
+    o_timeIntegrated[l_dof]  = i_degreesOfFreedom[l_dof] * i_scalar;
+  }
+  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof++ ) {
+    o_derivativesBuffer[l_dof] = 0.0;
+  }
+#endif
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
