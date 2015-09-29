@@ -46,15 +46,6 @@ module f_ftoc_bind_interoperability
   ! Fortran to C bindings
   !
 
-  interface
-    subroutine c_interoperability_getParameterFile( i_maxlen, o_file ) bind( C, name='c_interoperability_getParameterFile' )
-        use iso_c_binding
-        implicit none
-        integer(kind=c_int), value                        :: i_maxlen
-        character(kind=c_char), dimension(*), intent(out) :: o_file
-    end subroutine
-  end interface
-
   interface c_interoperability_setDomain
     subroutine c_interoperability_setDomain( i_domain ) bind( C, name='c_interoperability_setDomain' )
       use iso_c_binding, only: c_ptr

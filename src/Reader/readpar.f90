@@ -105,6 +105,15 @@ MODULE COMMON_readpar_mod
      MODULE PROCEDURE analyse_readpar_unstruct
   END INTERFACE
 
+  interface
+    subroutine getParameterFile( i_maxlen, o_file ) bind( C, name='getParameterFile' )
+        use iso_c_binding
+        implicit none
+        integer(kind=c_int), value                        :: i_maxlen
+        character(kind=c_char), dimension(*), intent(out) :: o_file
+    end subroutine
+  end interface
+
   !----------------------------------------------------------------------------
   PUBLIC  :: readpar
   !----------------------------------------------------------------------------
@@ -115,7 +124,6 @@ CONTAINS
 
   SUBROUTINE readpar(EQN,IC,usMESH,DISC,SOURCE,BND,IO, &
                      ANALYSE,Debug,programTitle,MPI)
-    use f_ftoc_bind_interoperability
     !--------------------------------------------------------------------------
     IMPLICIT NONE 
     !--------------------------------------------------------------------------
@@ -154,7 +162,7 @@ CONTAINS
        STOP                                                                  !
     END IF                                                                   !
     !                                                                        !
-    call c_interoperability_getParameterFile(len(IO%ParameterFile), IO%ParameterFile)
+    call getParameterFile(len(IO%ParameterFile), IO%ParameterFile)
 
     ! Check if the parameter file exists
     inquire(file=IO%ParameterFile,EXIST=existence)
