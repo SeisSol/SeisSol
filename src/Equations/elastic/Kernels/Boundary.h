@@ -75,18 +75,18 @@ class seissol::kernels::Boundary {
      * @param i_BPrefetch right matrix \f$ B \f$ of the next matrix triple \f$ (A, B, C) \f$.
      * @param i_CPrefetch result matrix \f$ C \f$ of the next matrix triple \f$ (A, B, C) \f$.
      **/  
-    void (*m_matrixKernels[54])( const real *i_A,         const real *i_B,               real *io_C,
+    void (*m_matrixKernels[55])( const real *i_A,         const real *i_B,               real *io_C,
                                  const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 
     /**
      * Number of non-zero floating point operations performed by each matrix kernel.
      **/
-    unsigned int m_nonZeroFlops[54];
+    unsigned int m_nonZeroFlops[55];
 
     /**
      * Number of floating point operations in hardware performed by each matrix kernels
      **/
-    unsigned int m_hardwareFlops[54];
+    unsigned int m_hardwareFlops[55];
 
   public:
     /**
@@ -123,7 +123,13 @@ class seissol::kernels::Boundary {
                                      real         *i_fluxMatrices[52],
                                      real          i_timeIntegrated[    NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
                                      real          i_fluxSolvers[4][    NUMBER_OF_QUANTITIES             *NUMBER_OF_QUANTITIES ],
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+                                     real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
+                                     real          i_timeIntegrated_prefetch[    NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
+                                     real          io_degreesOfFreedom_prefetch[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] );
+#else
                                      real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] );
+#endif
 
     /**
      * Derives the number of sparse and hardware floating point operations performed in the local boundary integral.

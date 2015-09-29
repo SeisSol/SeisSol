@@ -43,6 +43,9 @@ Import('env')
 sourceFiles = ['Fault.cpp']
 sourceDirs = ['posix']
 
+if env['sionlib']:
+	sourceDirs += ['sionlib']
+
 if env['hdf5']:
     sourceDirs += ['h5']
     

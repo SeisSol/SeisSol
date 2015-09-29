@@ -113,6 +113,8 @@ vars.AddVariables(
   
   BoolVariable( 'netcdf', 'use netcdf library for mesh input', False ),
   
+  BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
+  
   BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
   
   EnumVariable( 'unitTests', 'builds additional unit tests',
@@ -443,10 +445,10 @@ elif env['arch'] in ['sknc', 'dknc']:
               LINKFLAGS = ['-mmic', '-fma'] )
 elif env['arch'] in ['sknl', 'dknl']:
   env['alignment'] = 64
-  env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'] ) 
+  env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+              CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+              F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+              LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'] ) 
 else:
   #assert(env['compileMode'] == 'debug')
   pass
@@ -465,6 +467,21 @@ if env['netcdf']:
     env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode), toolpath=['build/scons/Tools'])
     env.Append(F90FLAGS=['-DUSE_NETCDF'])
     env.Append(CPPDEFINES=['USE_NETCDF'])
+    
+# sionlib still need to create a Tool for autoconfiguration
+if env['sionlib']:
+  env.Append(F90FLAGS=['-DUSE_SIONLIB'])
+  env.Append(CPPDEFINES=['USE_SIONLIB'])
+  env.Append(CXXFLAGS=['-I/lrz/sys/libraries/sionlib/1.5p1/intel/ibmmpi/include'])
+  env.Append(LIBPATH=['/lrz/sys/libraries/sionlib/1.5p1/intel/ibmmpi/lib'])
+  env.Append(LINKFLAGS=['-lsionmpi_cxx_64'])
+	#    env.Append(LINKFLAGS=['-lsionser_cxx_64'])
+  env.Append(LIBS=['sionmpi_64'])
+  env.Append(LIBS=['sionser_64'])
+  env.Append(LIBS=['sioncom_64'])
+  env.Append(LIBS=['sioncom_64_lock_none'])
+  env.Append(LIBS=['rt'])
+
 
 # kernel instrumentation with scalasca
 if env['scalasca'] == 'kernels_2.x':
@@ -582,6 +599,8 @@ Import('env')
 sourceFiles = []
 for sourceFile in env.sourceFiles:
   sourceFiles.append(sourceFile[0])
+
+#print env.Dump()
 
 # build standard version
 env.Program('#/'+env['programFile'], sourceFiles)

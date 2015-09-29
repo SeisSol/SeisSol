@@ -41,8 +41,8 @@
 #ifndef VOLUME_H_
 #define VOLUME_H_
 
-#include <Initializer/typedefs.hpp>
 #include <cassert>
+#include <Initializer/typedefs.hpp>
 #include <Kernels/common.hpp>
 
 namespace seissol {

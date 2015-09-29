@@ -163,6 +163,9 @@ void seissol::initializers::time_stepping::LtsLayout::derivePlainGhost() {
   // number of ghost cells
   m_numberOfPlainGhostCells = new unsigned int[ m_plainNeighboringRanks.size() ];
 
+#ifdef USE_MPI
+  // TODO please check if this ifdef is correct
+
   MPI_Request *l_requests = new MPI_Request[ m_plainNeighboringRanks.size() * 2 ];
 
   for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
@@ -192,6 +195,7 @@ void seissol::initializers::time_stepping::LtsLayout::derivePlainGhost() {
   MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
                l_requests,                       // array of requests
                MPI_STATUS_IGNORE );              // mpi status
+#endif // USE_MPI
 
   // free memory
   delete[] l_numberOfCopyCells;
@@ -239,6 +243,9 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
   l_localMappingSizes.resize(  m_plainNeighboringRanks.size() );
   l_remoteMappingSizes.resize( m_plainNeighboringRanks.size() );
 
+#ifdef USE_MPI
+  // TODO please check if this ifdef is correct
+
   // exchange information about the size of the mappings (for debugging purposes only)
   MPI_Request *l_requests = new MPI_Request[ m_plainNeighboringRanks.size() * 2 ];
   for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
@@ -267,6 +274,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
   MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
                l_requests,                       // array of requests
                MPI_STATUS_IGNORE );              // mpi status
+#endif
 
   // make sure the sizes of the local mapping and neighboring mapping match
   for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
@@ -284,6 +292,9 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
   for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
     l_remoteFaceToCellIdMappings[l_region].resize( l_faceToCellIdMappings[l_region].size() );
   }
+
+#ifdef USE_MPI
+  // TODO please check if this ifdef is correct
 
   // exchange the mappings
   for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
@@ -310,6 +321,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
   MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
                l_requests,                       // array of requests
                MPI_STATUS_IGNORE );              // mpi status
+#endif // USE_MPI
 
   /*
    * Replace the useless mpi-indices by the neighboring cell id
@@ -367,9 +379,6 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
 }
 
 void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClusterIds() {
-  // mpi requests
-  MPI_Request *l_requests = new MPI_Request[ m_plainNeighboringRanks.size() * 2 ];
-
   // buffer for copy cell cluster ids
   std::vector< std::vector< unsigned int > > l_copyBuffer;
 
@@ -380,6 +389,12 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClust
       l_copyBuffer[l_region].push_back( m_cellClusterIds[ m_plainCopyRegions[l_region][l_copyCell] ] );
     }
   }
+
+#ifdef USE_MPI
+  // TODO please check if this ifdef is correct
+
+  // mpi requests
+  MPI_Request *l_requests = new MPI_Request[ m_plainNeighboringRanks.size() * 2 ];
 
   // exchange copy/ghost cluster ids
   for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
@@ -408,6 +423,7 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClust
                MPI_STATUS_IGNORE );              // mpi status
 
   delete[] l_requests;
+#endif // USE_MPI
 }
 
 unsigned int seissol::initializers::time_stepping::LtsLayout::enforceMaximumDifference( unsigned int i_difference ) {
@@ -550,11 +566,24 @@ void seissol::initializers::time_stepping::LtsLayout::getTheoreticalSpeedup( dou
   unsigned int l_globalNumberOfCells = 0;
 
   // derive global number of cells
+#ifdef USE_MPI
+  // TODO please check if this ifdef is correct
+
   MPI_Allreduce( &l_localNumberOfCells, &l_globalNumberOfCells, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD );
+#else // USE_MPI
+  l_globalNumberOfCells = l_localNumberOfCells;
+#endif // USE_MPI
 
   // derive global "speedup"
+#ifdef USE_MPI
+  // TODO please check if this ifdef is correct
+
   MPI_Allreduce( l_localPerCellSpeedup,    &o_perCellTimeStepWidths, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
   MPI_Allreduce( l_localClusteringSpeedup, &o_clustering,            1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
+#else // USE_MPI
+  o_perCellTimeStepWidths = l_localPerCellSpeedup[0];
+  o_clustering = l_localClusteringSpeedup[0];
+#endif // USE_MPI
 
   o_perCellTimeStepWidths = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_perCellTimeStepWidths;
   o_clustering            = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_clustering;
@@ -821,6 +850,9 @@ void seissol::initializers::time_stepping::LtsLayout::deriveClusteredGhost() {
     l_numberOfMpiRequests += m_clusteredCopy[l_localCluster].size();
   }
 
+#ifdef USE_MPI
+  // TODO please check if this ifdef is correct
+
   // mpi requests spawned
   MPI_Request *l_requests = new MPI_Request[ l_numberOfMpiRequests*2 ];
 
@@ -869,6 +901,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveClusteredGhost() {
   MPI_Waitall( l_numberOfMpiRequests*2, // size
                l_requests,              // array of requests
                MPI_STATUS_IGNORE );     // mpi status
+#endif // USE_MPI
 
   /*
    * Get cell ids of the ghost regions.
@@ -883,6 +916,9 @@ void seissol::initializers::time_stepping::LtsLayout::deriveClusteredGhost() {
       m_clusteredGhost[l_cluster][l_region].second.resize( l_clusteredGhostSizes[l_cluster][l_region] );
     }
   }
+
+#ifdef USE_MPI
+  // TODO please check if this ifdef is correct
 
   // reset number of requests
   l_request = 0;
@@ -978,6 +1014,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveClusteredGhost() {
 
   // free memory
   delete[] l_requests;
+#endif // USE_MPI
 }
 
 void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClustering i_timeClustering,

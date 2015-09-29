@@ -49,7 +49,7 @@ import sys
 print '********************************************'
 print '** Welcome to the build script of SeisSol **'
 print '********************************************'
-print 'Copyright (c) 2012-2014, SeisSol Group'
+print 'Copyright (c) 2012-2015, SeisSol Group'
 
 # Check if we the user wants to show help only
 if '-h' in sys.argv or '--help' in sys.argv:
@@ -80,8 +80,15 @@ if 'buildVariablesFile' in env:
 
 # SeisSol specific variables
 vars.AddVariables(
+  EnumVariable( 'equations',
+                'system of PDEs that will be solved',
+                'elastic',
+                allowed_values=('elastic', 'viscoelastic')
+              ),
+  
+
   EnumVariable( 'order',
-                'convegence order of the ADER-DG method',
+                'convergence order of the ADER-DG method',
                 'none',
                 allowed_values=('none', '2', '3', '4', '5', '6', '7', '8')
               ),
@@ -106,6 +113,10 @@ vars.AddVariables(
   
   BoolVariable( 'netcdf', 'use netcdf library for mesh input', False ),
   
+  BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
+  
+  BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
+  
   EnumVariable( 'unitTests', 'builds additional unit tests',
                 'none',
                 allowed_values=('none', 'fast', 'all') ),
@@ -128,11 +139,18 @@ vars.AddVariables(
                 allowed_values=('auto', '1', '2', '3', '4', '5', '6')
               ),
 
-  BoolVariable( 'commThread', 'use communcation thread for MPI progression (option has no effect when not compiling hybrid target)', False ),
+  BoolVariable( 'commThread', 'use communication thread for MPI progression (option has no effect when not compiling hybrid target)', False ),
+
+  BoolVariable( 'plasticity', 'enable plasticity (generated kernels only)', False )
 )
 
 # external variables
 vars.AddVariables(
+  PathVariable( 'memkindDir',
+                'memkind installation directory',
+                None,
+                PathVariable.PathAccept ),
+                  
   PathVariable( 'netcdfDir',
                 'NetCDF installation directory',
                 None,
@@ -253,11 +271,16 @@ else:
 
 # set precompiler mode for the number of quantities and basis functions
 env.Append(F90FLAGS='-DCONVERGENCE_ORDER='+env['order'])
-env.Append(F90FLAGS='-DNUMBER_OF_QUANTITIES=9')
+
+numberOfQuantities = { 'elastic' : 9, 'viscoelastic' : 27 }
+env.Append(F90FLAGS='-DNUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]))
 
 # set number of temporal integration points for dynamic ruputure boundary conditions
 if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
   env.Append(F90FLAGS='-DNUMBER_OF_TEMPORAL_INTEGRATION_POINTS='+env['numberOfTemporalIntegrationPoints'])
+
+if( env['plasticity'] ):
+  env.Append(F90FLAGS='-DUSE_PLASTICITY')
 
 # set compiler and linker environment variables
 for mode in ['FORTRAN', 'F90', 'LINK']:
@@ -285,7 +308,11 @@ if env['scalasca'] in ['default_2.x', 'kernels_2.x']:
   if env['parallelization'] in ['mpi', 'none']:
     l_scorepCxxArguments = l_scorepArguments + ' --thread=none '
   else:
-    l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
+    if env['commThread']:
+      # Seems to work with "RF_output_on = 0"
+      l_scorepCxxArguments = l_scorepArguments + ' --thread=pthread '
+    else:
+      l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
 
   for mode in ['FORTRAN', 'F90']:
     env[mode] = 'scorep' + l_scorepArguments + ' --thread=none ' + env[mode]
@@ -302,8 +329,8 @@ if env['parallelization'] in ['mpi', 'hybrid']:
 
 # add OpenMP flags
 if env['parallelization'] in ['omp', 'hybrid']:
-  env.Append(F90FLAGS=['-DOMP', '-openmp'])
-  env.Append(LINKFLAGS=['-openmp'] )
+  env.Append(F90FLAGS=['-DOMP', '-fopenmp'])
+  env.Append(LINKFLAGS=['-fopenmp'] )
 
 # set pre compiler flags for matrix optimizations
 if env['generatedKernels']:
@@ -377,6 +404,12 @@ if env['hdf5']:
     env.Append(F90FLAGS=['-DUSE_HDF'])
     env.Append(CPPDEFINES=['USE_HDF'])
 
+# memkind
+if env['memkind']:
+  env.Append(F90FLAGS=['-DUSE_MEMKIND'])
+  env.Append(CPPDEFINES=['USE_MEMKIND'])
+  env.Append(LINKFLAGS=['-lmemkind'])
+
 # set vector instruction set
 if env['arch'] in ['snoarch', 'dnoarch']:
   env['alignment'] = 16
@@ -412,10 +445,10 @@ elif env['arch'] in ['sknc', 'dknc']:
               LINKFLAGS = ['-mmic', '-fma'] )
 elif env['arch'] in ['sknl', 'dknl']:
   env['alignment'] = 64
-  env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'] ) 
+  env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+              CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+              F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+              LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'] ) 
 else:
   #assert(env['compileMode'] == 'debug')
   pass
@@ -434,6 +467,21 @@ if env['netcdf']:
     env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode), toolpath=['build/scons/Tools'])
     env.Append(F90FLAGS=['-DUSE_NETCDF'])
     env.Append(CPPDEFINES=['USE_NETCDF'])
+    
+# sionlib still need to create a Tool for autoconfiguration
+if env['sionlib']:
+  env.Append(F90FLAGS=['-DUSE_SIONLIB'])
+  env.Append(CPPDEFINES=['USE_SIONLIB'])
+  env.Append(CXXFLAGS=['-I/lrz/sys/libraries/sionlib/1.5p1/intel/ibmmpi/include'])
+  env.Append(LIBPATH=['/lrz/sys/libraries/sionlib/1.5p1/intel/ibmmpi/lib'])
+  env.Append(LINKFLAGS=['-lsionmpi_cxx_64'])
+	#    env.Append(LINKFLAGS=['-lsionser_cxx_64'])
+  env.Append(LIBS=['sionmpi_64'])
+  env.Append(LIBS=['sionser_64'])
+  env.Append(LIBS=['sioncom_64'])
+  env.Append(LIBS=['sioncom_64_lock_none'])
+  env.Append(LIBS=['rt'])
+
 
 # kernel instrumentation with scalasca
 if env['scalasca'] == 'kernels_2.x':
@@ -481,7 +529,7 @@ env.Append(F90FLAGS=['-ffree-line-length-none'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
-env.Append(CPPPATH=['#/src', '#/src/generated_code'])
+env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equations/' + env['equations'] + '/generated_code'])
 
 # compile all fortran dialects with the same flags
 env['FORTRANFLAGS'] = env['F90FLAGS']
@@ -540,7 +588,7 @@ for buildDir in range(len(buildDirectories)):
 env.AppendUnique(F90PATH=buildDirectories)
 
 # set module path
-env.Append(F90FLAGS='-J ${TARGET.dir}')
+env.Append(F90FLAGS='-module ${TARGET.dir}')
 
 # get the source files
 env.sourceFiles = []
@@ -554,6 +602,8 @@ Import('env')
 sourceFiles = []
 for sourceFile in env.sourceFiles:
   sourceFiles.append(sourceFile[0])
+
+#print env.Dump()
 
 # build standard version
 env.Program('#/'+env['programFile'], sourceFiles)

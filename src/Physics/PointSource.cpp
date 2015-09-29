@@ -113,9 +113,9 @@ real seissol::physics::computePwLFTimeIntegral(PiecewiseLinearFunction1D const* 
    real l_time = i_pwLF->onsetTime + l_fromIndex * i_pwLF->samplingInterval;
    l_integral = 0.0;
    for (int j = l_fromIndex; j <= l_toIndex; ++j) {
-     real tFrom = std::max(i_fromTime, l_time);
+     real tFrom = std::max((real)i_fromTime, l_time);
      l_time += i_pwLF->samplingInterval;
-     real tTo = std::min(i_toTime, l_time);
+     real tTo = std::min((real)i_toTime, l_time);
      l_integral += 0.5 * i_pwLF->slopes[j] * (tTo * tTo - tFrom * tFrom) + i_pwLF->intercepts[j] * (tTo - tFrom);
    }
    

@@ -164,20 +164,17 @@ protected:
 		MPI_Type_contiguous(m_elemSize, MPI_BYTE, &elemType);
 
 		// Create data file type
-		int blockLength[] = {numElem, 1};
-		MPI_Aint displ[] = {m_headerSize + fileOffset() * m_elemSize, totalSize};
-		MPI_Datatype types[] = {elemType, MPI_UB};
-		MPI_Type_create_struct(2, blockLength, displ, types, &m_fileDataType);
+		int blockLength[] = {numElem};
+		MPI_Aint displ[] = {m_headerSize + fileOffset() * m_elemSize};
+		MPI_Datatype types[] = {elemType};
+		MPI_Type_create_struct(1, blockLength, displ, types, &m_fileDataType);
 		MPI_Type_commit(&m_fileDataType);
 
 		MPI_Type_free(&elemType);
 		
 		// Create the header file type
 		if (rank() == 0) {
-			int blockLength[] = {headerSize, 1};
-			MPI_Aint displ[] = {0, m_headerSize};
-			MPI_Datatype types[] = {MPI_BYTE, MPI_UB};
-			MPI_Type_create_struct(2, blockLength, displ, types, &m_fileHeaderType);
+			MPI_Type_contiguous(headerSize, MPI_BYTE, &m_fileHeaderType);
 
 			MPI_Type_commit(&m_fileHeaderType);
 		} else

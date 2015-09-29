@@ -466,8 +466,10 @@ CONTAINS
                  !update the dofs 
                  DISC%Galerkin%dgvar(:,1:6,iElem,1) = DISC%Galerkin%dgvar(:,1:6,iElem,1) - dudt_plastic(:,1:6)
                  !update the increase of plastic strain
-                 !DISC&Galerkin%pstrain(:,1:6,iElem) = DISC&Galerkin%pstrain(:,1:6,iElem) + dudt_pstrain(:,1:6)
                  DISC%Galerkin%pstrain(1:6,iElem) = DISC%Galerkin%pstrain(1:6,iElem) + dudt_pstrain(1:6)
+                 !scalar value, integral over time of the accumulated plastic strain
+                 DISC%Galerkin%accpstrain(iElem) = DISC%Galerkin%accpstrain(iElem)+ dt*sqrt(0.5*(dudt_pstrain(1)**2 + dudt_pstrain(2)**2 &
+                                                   + dudt_pstrain(3)**2)+ dudt_pstrain(4)**2 + dudt_pstrain(5)**2 + dudt_pstrain(6)**2)
 
 #else
 ! TODO (clustered lts): Add plasticity

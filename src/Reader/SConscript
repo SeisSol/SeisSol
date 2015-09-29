@@ -36,6 +36,6 @@
 Import('env','Glob')
 
 sources = Glob('*.f90') + Glob('*.f')
-objs = env.Object(['readpar.f90', 'read_backgroundstress.f90', 'faultinput.f90'])
+objs = env.Object(['readpar.f90', 'readparC.cpp', 'read_backgroundstress.f90', 'faultinput.f90'])
 
 Return('objs')

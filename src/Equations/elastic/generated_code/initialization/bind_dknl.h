@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-05-09 22:18:39.903155
+// @date 2015-09-27 13:26:42.935226
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -459,6 +459,13 @@ m_hardwareFlops[53] = 1296;
 m_matrixKernels[53] = dgemm_m8_n9_k9_ldA8_ldB9_ldC8_beta1_AL2jpst_BL2viaC;
 #else
 m_matrixKernels[53] = dgemm_m8_n9_k9_ldA8_ldB9_ldC8_beta1_pfsigonly;
+#endif
+m_nonZeroFlops[54] = 648;
+m_hardwareFlops[54] = 1296;
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+m_matrixKernels[54] = dgemm_m8_n9_k9_ldA8_ldB9_ldC8_beta1_BL2viaC;
+#else
+m_matrixKernels[54] = dgemm_m8_n9_k9_ldA8_ldB9_ldC8_beta1_pfsigonly;
 #endif
 #endif
 
@@ -933,6 +940,13 @@ m_hardwareFlops[53] = 2592;
 m_matrixKernels[53] = dgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_AL2jpst_BL2viaC;
 #else
 m_matrixKernels[53] = dgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+#endif
+m_nonZeroFlops[54] = 1620;
+m_hardwareFlops[54] = 2592;
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+m_matrixKernels[54] = dgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_BL2viaC;
+#else
+m_matrixKernels[54] = dgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
 #endif
 #endif
 
@@ -1419,6 +1433,13 @@ m_hardwareFlops[53] = 3888;
 m_matrixKernels[53] = dgemm_m24_n9_k9_ldA24_ldB9_ldC24_beta1_AL2jpst_BL2viaC;
 #else
 m_matrixKernels[53] = dgemm_m24_n9_k9_ldA24_ldB9_ldC24_beta1_pfsigonly;
+#endif
+m_nonZeroFlops[54] = 3240;
+m_hardwareFlops[54] = 3888;
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+m_matrixKernels[54] = dgemm_m24_n9_k9_ldA24_ldB9_ldC24_beta1_BL2viaC;
+#else
+m_matrixKernels[54] = dgemm_m24_n9_k9_ldA24_ldB9_ldC24_beta1_pfsigonly;
 #endif
 #endif
 
@@ -1918,6 +1939,13 @@ m_matrixKernels[53] = dgemm_m40_n9_k9_ldA40_ldB9_ldC40_beta1_AL2jpst_BL2viaC;
 #else
 m_matrixKernels[53] = dgemm_m40_n9_k9_ldA40_ldB9_ldC40_beta1_pfsigonly;
 #endif
+m_nonZeroFlops[54] = 5670;
+m_hardwareFlops[54] = 6480;
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+m_matrixKernels[54] = dgemm_m40_n9_k9_ldA40_ldB9_ldC40_beta1_BL2viaC;
+#else
+m_matrixKernels[54] = dgemm_m40_n9_k9_ldA40_ldB9_ldC40_beta1_pfsigonly;
+#endif
 #endif
 
 #ifdef SPARSE_SWITCH
@@ -2097,8 +2125,12 @@ m_matrixKernels[5] = dgemm_m56_n9_k56_ldA56_ldB56_ldC56_beta0_curAL2_BL2viaC;
 m_matrixKernels[5] = dgemm_m56_n9_k56_ldA56_ldB56_ldC56_beta0_pfsigonly;
 #endif
 m_nonZeroFlops[6] = 3528;
-m_hardwareFlops[6] = 3528;
-m_matrixKernels[6] = dsparse_fP113DivM_m56_n9_k56_ldAna6_ldB56_ldC56_beta0_pfsigonly;
+m_hardwareFlops[6] = 56448;
+#ifdef ENABLE_MATRIX_PREFETCH
+m_matrixKernels[6] = dgemm_m56_n9_k56_ldA56_ldB56_ldC56_beta0_curAL2_BL2viaC;
+#else
+m_matrixKernels[6] = dgemm_m56_n9_k56_ldA56_ldB56_ldC56_beta0_pfsigonly;
+#endif
 m_nonZeroFlops[7] = 12348;
 m_hardwareFlops[7] = 56448;
 #ifdef ENABLE_MATRIX_PREFETCH
@@ -2424,6 +2456,13 @@ m_matrixKernels[53] = dgemm_m56_n9_k9_ldA56_ldB9_ldC56_beta1_AL2jpst_BL2viaC;
 #else
 m_matrixKernels[53] = dgemm_m56_n9_k9_ldA56_ldB9_ldC56_beta1_pfsigonly;
 #endif
+m_nonZeroFlops[54] = 9072;
+m_hardwareFlops[54] = 9072;
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+m_matrixKernels[54] = dgemm_m56_n9_k9_ldA56_ldB9_ldC56_beta1_BL2viaC;
+#else
+m_matrixKernels[54] = dgemm_m56_n9_k9_ldA56_ldB9_ldC56_beta1_pfsigonly;
+#endif
 #endif
 
 #ifdef SPARSE_SWITCH
@@ -2433,7 +2472,7 @@ m_sparseSwitch[2] = -1;
 m_sparseSwitch[3] = -1; 
 m_sparseSwitch[4] = -1; 
 m_sparseSwitch[5] = -1; 
-m_sparseSwitch[6] = 196; 
+m_sparseSwitch[6] = -1; 
 m_sparseSwitch[7] = -1; 
 m_sparseSwitch[8] = -1; 
 m_sparseSwitch[9] = -1; 
@@ -2601,8 +2640,12 @@ m_nonZeroFlops[3] = 61992;
 m_hardwareFlops[3] = 133056;
 m_matrixKernels[3] = dgemm_m88_n9_k84_ldA88_ldB88_ldC88_beta0_pfsigonly;
 m_nonZeroFlops[4] = 19332;
-m_hardwareFlops[4] = 19332;
-m_matrixKernels[4] = dsparse_fP111DivM_m84_n9_k84_ldAna7_ldB88_ldC88_beta0_pfsigonly;
+m_hardwareFlops[4] = 133056;
+#ifdef ENABLE_MATRIX_PREFETCH
+m_matrixKernels[4] = dgemm_m88_n9_k84_ldA88_ldB88_ldC88_beta0_curAL2_BL2viaC;
+#else
+m_matrixKernels[4] = dgemm_m88_n9_k84_ldA88_ldB88_ldC88_beta0_pfsigonly;
+#endif
 m_nonZeroFlops[5] = 19332;
 m_hardwareFlops[5] = 133056;
 #ifdef ENABLE_MATRIX_PREFETCH
@@ -2611,8 +2654,12 @@ m_matrixKernels[5] = dgemm_m88_n9_k84_ldA88_ldB88_ldC88_beta0_curAL2_BL2viaC;
 m_matrixKernels[5] = dgemm_m88_n9_k84_ldA88_ldB88_ldC88_beta0_pfsigonly;
 #endif
 m_nonZeroFlops[6] = 6048;
-m_hardwareFlops[6] = 6048;
-m_matrixKernels[6] = dsparse_fP113DivM_m84_n9_k84_ldAna7_ldB88_ldC88_beta0_pfsigonly;
+m_hardwareFlops[6] = 133056;
+#ifdef ENABLE_MATRIX_PREFETCH
+m_matrixKernels[6] = dgemm_m88_n9_k84_ldA88_ldB88_ldC88_beta0_curAL2_BL2viaC;
+#else
+m_matrixKernels[6] = dgemm_m88_n9_k84_ldA88_ldB88_ldC88_beta0_pfsigonly;
+#endif
 m_nonZeroFlops[7] = 24192;
 m_hardwareFlops[7] = 133056;
 #ifdef ENABLE_MATRIX_PREFETCH
@@ -2938,6 +2985,13 @@ m_matrixKernels[53] = dgemm_m88_n9_k9_ldA88_ldB9_ldC88_beta1_AL2jpst_BL2viaC;
 #else
 m_matrixKernels[53] = dgemm_m88_n9_k9_ldA88_ldB9_ldC88_beta1_pfsigonly;
 #endif
+m_nonZeroFlops[54] = 13608;
+m_hardwareFlops[54] = 14256;
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+m_matrixKernels[54] = dgemm_m88_n9_k9_ldA88_ldB9_ldC88_beta1_BL2viaC;
+#else
+m_matrixKernels[54] = dgemm_m88_n9_k9_ldA88_ldB9_ldC88_beta1_pfsigonly;
+#endif
 #endif
 
 #ifdef SPARSE_SWITCH
@@ -2945,9 +2999,9 @@ m_sparseSwitch[0] = -1;
 m_sparseSwitch[1] = -1; 
 m_sparseSwitch[2] = -1; 
 m_sparseSwitch[3] = -1; 
-m_sparseSwitch[4] = 1074; 
+m_sparseSwitch[4] = -1; 
 m_sparseSwitch[5] = -1; 
-m_sparseSwitch[6] = 336; 
+m_sparseSwitch[6] = -1; 
 m_sparseSwitch[7] = -1; 
 m_sparseSwitch[8] = -1; 
 m_sparseSwitch[9] = -1; 
@@ -3471,6 +3525,13 @@ m_hardwareFlops[53] = 19440;
 m_matrixKernels[53] = dgemm_m120_n9_k9_ldA120_ldB9_ldC120_beta1_AL2jpst_BL2viaC;
 #else
 m_matrixKernels[53] = dgemm_m120_n9_k9_ldA120_ldB9_ldC120_beta1_pfsigonly;
+#endif
+m_nonZeroFlops[54] = 19440;
+m_hardwareFlops[54] = 19440;
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+m_matrixKernels[54] = dgemm_m120_n9_k9_ldA120_ldB9_ldC120_beta1_BL2viaC;
+#else
+m_matrixKernels[54] = dgemm_m120_n9_k9_ldA120_ldB9_ldC120_beta1_pfsigonly;
 #endif
 #endif
 

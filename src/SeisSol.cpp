@@ -44,8 +44,14 @@
 #include <omp.h>
 #endif // _OPENMP
 
-void seissol::SeisSol::init(int rank)
+#include "utils/args.h"
+
+void seissol::SeisSol::init(int argc, char* argv[])
 {
+	m_mpi.init(argc, argv);
+
+	const int rank = m_mpi.rank();
+
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
   logInfo(rank) << "Copyright (c) 2012-2015, SeisSol Group";
@@ -68,17 +74,52 @@ void seissol::SeisSol::init(int rank)
 #endif
 #endif
 #endif // _OPENMP
+
+  // Parse command line arguments
+  utils::Args args;
+  args.addAdditionalOption("file", "The parameter file", false);
+  switch (args.parse(argc, argv)) {
+  case utils::Args::Help:
+  case utils::Args::Error:
+	  m_mpi.finalize();
+	  exit(1);
+	  break;
+  }
+
+  m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+}
+
+void seissol::SeisSol::finalize()
+{
+	const int rank = m_mpi.rank();
+
+	m_mpi.finalize();
+
+	logInfo(rank) << "SeisSol done. Goodbye.";
 }
 
 seissol::SeisSol seissol::SeisSol::main;
 
-// Fortran interface
-extern "C"
-{
+// Fortran main definition
+extern "C" {
 
-void init(int rank)
-{
-  seissol::SeisSol::main.init(rank);
+void fortran_main();
+
 }
 
+// Start here
+
+int main(int argc, char* argv[])
+{
+	EPIK_TRACER("SeisSol");
+	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+	// Initialize SeisSol
+	seissol::SeisSol::main.init(argc, argv);
+
+	// Initialize Fortan Part and run SeisSol
+	fortran_main();
+
+	// Finalize SeisSol
+	seissol::SeisSol::main.finalize();
 }

@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Martin Kaeser (martin.kaeser AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/kaeser)
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2010, SeisSol Group
+!! Copyright (c) 2010-2015, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -50,10 +51,6 @@ MODULE COMMON_readpar_mod
   !----------------------------------------------------------------------------
   INTERFACE readpar
      MODULE PROCEDURE readpar
-  END INTERFACE
-
-  INTERFACE readpar_getArguments
-     MODULE PROCEDURE readpar_getArguments
   END INTERFACE
 
   INTERFACE readpar_header
@@ -108,6 +105,15 @@ MODULE COMMON_readpar_mod
      MODULE PROCEDURE analyse_readpar_unstruct
   END INTERFACE
 
+  interface
+    subroutine getParameterFile( i_maxlen, o_file ) bind( C, name='getParameterFile' )
+        use iso_c_binding
+        implicit none
+        integer(kind=c_int), value                        :: i_maxlen
+        character(kind=c_char), dimension(*), intent(out) :: o_file
+    end subroutine
+  end interface
+
   !----------------------------------------------------------------------------
   PUBLIC  :: readpar
   !----------------------------------------------------------------------------
@@ -136,6 +142,7 @@ CONTAINS
     INTEGER                         :: actual_version_of_readpar
     CHARACTER(LEN=600)              :: Name
     CHARACTER(LEN=801)              :: Name1
+    logical :: existence
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: programTitle
     INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE,Debug
@@ -155,11 +162,18 @@ CONTAINS
        STOP                                                                  !
     END IF                                                                   !
     !                                                                        !
-    CALL readpar_getArguments(                                          &    ! 
-            IC           = IC                                            , & !
-            IO           = IO                                            , & !
-            programTitle = programTitle                                    ) !
-    !                                                                        ! 
+    call getParameterFile(len(IO%ParameterFile), IO%ParameterFile)
+
+    ! Check if the parameter file exists
+    inquire(file=IO%ParameterFile,EXIST=existence)
+    if(existence)then
+    else
+       logError(*) 'You did not specify a valid parameter-file'
+       stop
+    endif
+    !
+    logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
+    logInfo0(*) '<                                                         >'
     Name1 = TRIM(IO%ParameterFile)                       !
     Name = Name1(1:600)
     !                                                                        ! 
@@ -199,88 +213,6 @@ CONTAINS
     RETURN                                                                   !
     !                                                                        !        
   END SUBROUTINE readpar                                                     !
-
-  !============================================================================
-  ! G E T   A R G U M E N T S
-  !============================================================================
-
-  SUBROUTINE readpar_getArguments(IC,IO,programTitle)
-    !------------------------------------------------------------------------
-    
-    !------------------------------------------------------------------------
-    IMPLICIT NONE 
-    !------------------------------------------------------------------------
-#ifdef PARALLEL
-    include 'mpif.h'
-#endif
-    TYPE (tInitialCondition)   :: IC
-    TYPE (tInputOutput)        :: IO
-    CHARACTER(LEN=100)         :: programTitle
-    ! local variables
-    character(len=500) :: arg,strdummy
-    character(len=4):: file_ext
-    logical :: existence
-    INTEGER                    :: NARG,iErr,i,len_str,myrank,mpisize    
-    !------------------------------------------------------------------------
-    INTENT(IN)                 :: programTitle
-    INTENT(INOUT)              :: IC, IO
-    !------------------------------------------------------------------------
-    ! Reading in command line arguments                                     !
-    !                                                                       !
-    NARG = COMMAND_ARGUMENT_COUNT() ! Number of command-line arguments    
-    IO%MetisWeights =.FALSE.                                                
-    IO%ParameterFile='PARAMETERS.par'
-
-#ifdef PARALLEL
-    !broadcast number of arguments in mpi-version
-    call mpi_bcast(%val(loc(narg)),1,MPI_INTEGER,0,MPI_COMM_WORLD,iErr);
-    !comment on bcast:
-    !%VAL and LOC are non-intrinsic functions necessary when using compaq visual fortran.
-    !For the case your environment doesn't provide these functions - try without, e.g.:
-    !call mpi_bcast(arg,len(arg),MPI_CHARACTER,0,MPI_COMM_WORLD,iErr);
-
-    ! get the rank of this process
-    call mpi_comm_rank(mpi_comm_world,myrank,iErr)
-#endif
-    do i = 1,narg ! loop over commandline arguments
-       CALL GET_COMMAND_ARGUMENT(i,arg) !get argument strings
-#ifdef PARALLEL
-       !broadcast arguments in mpi-version
-       call mpi_bcast(%val(loc(arg)),len(arg),MPI_CHARACTER,0,MPI_COMM_WORLD,iErr);
-       !comment on bcast:
-       !%VAL and LOC are non-intrinsic functions necessary when using compaq visual fortran.
-       !For the case your environment doesn't provide these functions - try without, e.g.:
-       !call mpi_bcast(arg,len(arg),MPI_CHARACTER,0,MPI_COMM_WORLD,iErr);
-#endif
-       inquire(file=trim(adjustl(arg)),EXIST=existence)!check if argument is existing file
-       len_str=len(trim(adjustl(arg)))
-       strdummy=trim(adjustl(arg))
-       file_ext=strdummy(len_str-3:len_str)
-       if((existence).and.(file_ext=='.par'))then !if argument is file with .par extension use parameterfile
-          IO%ParameterFile=trim(adjustl(strdummy))
-          logInfo0(*) 'Will read from parameter-file: ',trim(adjustl(IO%ParameterFile))
-       endif
-       if(trim(adjustl(arg))=='weights')then
-          IO%MetisWeights =.TRUE.
-          logInfo0(*) 'set Metis weights: ',IO%MetisWeights
-       endif
-    enddo
-    inquire(file=IO%ParameterFile,EXIST=existence)
-    if(existence)then
-    else
-#ifdef PARALLEL
-       call mpi_barrier(MPI_COMM_WORLD,iErr)
-       call mpi_finalize(iErr)
-#endif
-
-       logError(*) 'You did not specify any parameter-file for: ',TRIM(adjustl(programTitle))
-       logError(*) '... finalized program execution!'
-       stop
-    endif
-    logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
-    logInfo0(*) '<                                                         >'
-   !
-  END SUBROUTINE readpar_getArguments                                       !
 
   !============================================================================
   ! H E A D E R
@@ -3292,7 +3224,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       logInfo(*) 'Data OUTPUT is written to files '                               
       logInfo(*) '  ' ,IO%OutputFile
 
-      iOutputMask(10:12) = iOutputMaskMaterial(1:3)
       IO%nOutputMask = 60                                                                          
       ALLOCATE(IO%OutputMask(1:IO%nOutputMask), IO%TitleMask(1:IO%nOutputMask),  &                 
                STAT=allocStat                                            )                         
@@ -3322,7 +3253,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          IO%OutputMask(4:12)   = iOutputMask(1:9)                                           ! State vector
 
          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN                           ! Isotropic material
-            IO%OutputMask(13:15)  = iOutputMask(10:12)                                      ! Constants for Jacobians
+            IO%OutputMask(13:15)  = iOutputMaskMaterial(1:3)                                      ! Constants for Jacobians
          ENDIF
 
          IF(EQN%Anisotropy.EQ.1.AND.EQN%Poroelasticity.EQ.0) THEN                           ! Anisotropic (triclinic) material
@@ -3331,7 +3262,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          ENDIF
 
          IF(EQN%Plasticity.EQ.1) THEN                                                       ! Plastic material properties                              
-            IO%OutputMask(13:18)  = iOutputMask(10:15)                                      ! plastic strain output
+            IO%OutputMask(13:19)  = iOutputMask(10:16)                                      ! plastic strain output
          ENDIF
 
          IF(IO%Rotation.EQ.1) THEN
@@ -3449,6 +3380,8 @@ ALLOCATE( SpacePositionx(nDirac), &
                     IO%TitleMask(16) = TRIM(' "eps_p_xy"')
                     IO%TitleMask(17) = TRIM(' "eps_p_yz"')
                     IO%TitleMask(18) = TRIM(' "eps_p_xz"') 
+                    IO%TitleMask(19) = TRIM(' "eta_p"')
+
                 ENDIF       
       ENDIF
       !
@@ -3673,7 +3606,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
       select case (io%checkpoint%backend)
         case ("posix")
-            logInfo(*) 'Using POSIX checkpoint backend'
+            logInfo0(*) 'Using POSIX checkpoint backend'
         case ("hdf5")
 #ifndef USE_HDF
             logError(*) 'This version does not support HDF5 checkpoints'
@@ -3691,7 +3624,13 @@ ALLOCATE( SpacePositionx(nDirac), &
             logError(*) 'This version does not support MPI-IO checkpoints'
             stop
 #endif
-            logInfo(*) 'Using async MPI-IO checkpoint backend'
+            logInfo0(*) 'Using async MPI-IO checkpoint backend'
+        case ("sionlib")
+#ifndef USE_SIONLIB
+            logError(*) 'This version does not support SIONlib checkpoints'
+            stop
+#endif
+            logInfo0(*) 'Using SIONlib checkpoint backend'
         case ("none")
             io%checkpoint%interval = 0
         case default

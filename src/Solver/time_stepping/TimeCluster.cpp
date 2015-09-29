@@ -424,7 +424,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
                                            m_globalData->fluxMatrices,
                                            l_bufferPointer,
                                            i_cellData->localIntegration[l_cell].nApNm1,
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+                                           io_dofs[l_cell],
+                                           io_buffers[l_cell+1],
+                                           io_dofs[l_cell+1] );
+#else
                                            io_dofs[l_cell] );
+#endif
 
 #ifdef REQUIRE_SOURCE_MATRIX
     m_sourceKernel.computeIntegral(        l_bufferPointer,
@@ -540,8 +546,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
                                                                +(i_cellInformation[l_cell+1].faceRelations[l_face][0]*3)
                                                                +(i_cellInformation[l_cell+1].faceRelations[l_face][1])];
     } else {
-      l_faceNeighbors_prefetch[3] = i_faceNeighbors[l_cell][l_face];
-      l_fluxMatricies_prefetch[3] = m_globalData->fluxMatrices[4+(l_face*12)
+      l_faceNeighbors_prefetch[3] = i_faceNeighbors[l_cell][3];
+      l_fluxMatricies_prefetch[3] = m_globalData->fluxMatrices[4+(3*12)
                                                                +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
                                                                +(i_cellInformation[l_cell].faceRelations[l_face][1])];
     }

@@ -88,7 +88,7 @@ def Glob(match):
 #
 # Paths
 #
-subdirs = ['Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
+subdirs = ['Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter', 'Parallel']
 modpath = map(lambda d: os.path.join('#/build',d), subdirs)
 
 #
