@@ -353,16 +353,16 @@ elif env['arch'] in ['swsm', 'dwsm']:
               LINKFLAGS = ['-msse3']  )
 elif env['arch'] in ['shsw', 'dhsw']:
   env['alignment'] = 32
-  env.Append( CFLAGS    = ['-xCORE-AVX2'],
-              CXXFLAGS  = ['-xCORE-AVX2'],
-              F90FLAGS  = ['-xCORE-AVX2'],
-              LINKFLAGS = ['-xCORE-AVX2']  )
   if env['compiler'] == 'intel':
-      env.Append( CFLAGS    = ['-fma'],
-                  CXXFLAGS  = ['-fma'],
-                  F90FLAGS  = ['-fma'],
-                  LINKFLAGS = ['-fma']  )
-      
+      env.Append( CFLAGS    = ['-xCORE-AVX2', '-fma'],
+                  CXXFLAGS  = ['-xCORE-AVX2', '-fma'],
+                  F90FLAGS  = ['-xCORE-AVX2', '-fma'],
+                  LINKFLAGS = ['-xCORE-AVX2', '-fma']  )
+  else:
+      env.Append( CFLAGS    = ['-mavx2'],
+                  CXXFLAGS  = ['-mavx2'],
+                  F90FLAGS  = ['-mavx2'],
+                  LINKFLAGS = ['-mavx2']  )
 elif env['arch'] in ['sskx', 'dskx']:
   env['alignment'] = 64
   env.Append( CFLAGS    = ['-xCORE-AVX512', '-fma'],
