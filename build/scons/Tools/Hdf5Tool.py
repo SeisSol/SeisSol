@@ -129,6 +129,7 @@ def generate(env, **kw):
         # Try to find all additional libraries
         conf.CheckLib('curl')
         conf.CheckLib('gpfs')
+        conf.CheckLib('dl')
  
         ret = conf.CheckHDF5Linking("Checking whether all HDF5 dependencies are found")
         if not ret:
