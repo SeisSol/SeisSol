@@ -20,4 +20,4 @@ addons:
    - libnetcdf-dev
 
 script:
- - scons -f SConstruct_generatedKernels compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=dhsw
+ - scons -f SConstruct_generatedKernels compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=dhsw compiler=gcc
