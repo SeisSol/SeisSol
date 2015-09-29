@@ -9,7 +9,7 @@ before_install:
  - sudo apt-get update -qq
 
 install:
- - sudo apt-get install -qq g++-4.7 gfortran openmpi-bin openmpi-common openmpi-dev libhdf5-openmpi-1.8.4 libhdf5-openmpi-1.8.4-dev libnetcdf6 libnetcdf-dev
+ - sudo apt-get install -qq g++-4.7 gfortran openmpi-bin openmpi-common openmpi-dev libhdf5-openmpi-1.8.4 libhdf5-openmpi-dev libnetcdf6 libnetcdf-dev
  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.7 50 --slave /usr/bin/g++ g++ /usr/bin/g++-4.7
  - sudo update-alternatives --set gcc /usr/bin/gcc-4.7
 
