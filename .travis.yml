@@ -1,0 +1,23 @@
+sudo: false
+
+language: cpp
+
+compiler: gcc
+
+addons:
+ apt:
+  sources:
+   - ppa:ubuntu-toolchain-r/test
+  packages:
+   - g++-4.7
+   - gfortran
+   - openmpi-bin
+   - openmpi-common
+   - openmpi-dev
+   - libhdf5-openmpi-1.8.4
+   - libhdf5-openmpi-1.8.4-dev
+   - libnetcdf6
+   - libnetcdf-dev
+
+script:
+ - scons -f SConstruct_generatedKernels compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=dhsw
