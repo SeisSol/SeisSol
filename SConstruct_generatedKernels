@@ -197,31 +197,6 @@ env = Environment(variables=vars)
 
 if env['useExecutionEnvironment']:
     env['ENV'] = os.environ
-    
-#   if 'PATH' in os.environ:
-#     env.AppendENVPath( 'PATH', os.environ['PATH'] )
-#   if 'LIBRARY_PATH' in os.environ:
-#     env.Append(LIBPATH=[os.environ['LIBRARY_PATH'].split(' ')] )
-#     env.Append(RPATH=[os.environ['LIBRARY_PATH']])
-#   if 'LD_LIBRARY_PATH' in os.environ:
-#     env.AppendENVPath( 'LD_LIBRARY_PATH', os.environ['LD_LIBRARY_PATH'] )
-#   if 'LIBS' in os.environ:
-#     env.Append(LIBS=[os.environ['LIBS'].split(' ')])
-#   if 'CPLUS_INCLUDE_PATH' in os.environ:
-#     env.AppendENVPath( 'CPLUS_INCLUDE_PATH', os.environ['CPLUS_INCLUDE_PATH'] )
-#   if 'INTEL_LICENSE_FILE' in os.environ:
-#     env['ENV']['INTEL_LICENSE_FILE'] = os.environ['INTEL_LICENSE_FILE']
-#   if 'OMPI_FC' in os.environ:
-#     env['ENV']['OMPI_FC'] = os.environ['OMPI_FC']
-#   if 'OMPI_CXX' in os.environ:
-#     env['ENV']['OMPI_CXX'] = os.environ['OMPI_CXX']
-#   if 'MPICH_F90' in os.environ:
-#     env['ENV']['MPICH_F90'] = os.environ['MPICH_F90']
-#   if 'MPICH_CXX' in os.environ:
-#     env['ENV']['MPICH_CXX'] = os.environ['MPICH_CXX']
-#   if 'MIC_SYSROOT' in os.environ:
-#     env['ENV']['MIC_SYSROOT'] = os.environ['MIC_SYSROOT']
-
 
 # generate help text
 Help(vars.GenerateHelpText(env))
@@ -378,10 +353,16 @@ elif env['arch'] in ['swsm', 'dwsm']:
               LINKFLAGS = ['-msse3']  )
 elif env['arch'] in ['shsw', 'dhsw']:
   env['alignment'] = 32
-  env.Append( CFLAGS    = ['-xCORE-AVX2', '-fma'],
-              CXXFLAGS  = ['-xCORE-AVX2', '-fma'],
-              F90FLAGS  = ['-xCORE-AVX2', '-fma'],
-              LINKFLAGS = ['-xCORE-AVX2', '-fma']  )
+  env.Append( CFLAGS    = ['-xCORE-AVX2'],
+              CXXFLAGS  = ['-xCORE-AVX2'],
+              F90FLAGS  = ['-xCORE-AVX2'],
+              LINKFLAGS = ['-xCORE-AVX2']  )
+  if env['compiler'] == 'intel':
+      env.Append( CFLAGS    = ['-fma'],
+                  CXXFLAGS  = ['-fma'],
+                  F90FLAGS  = ['-fma'],
+                  LINKFLAGS = ['-fma']  )
+      
 elif env['arch'] in ['sskx', 'dskx']:
   env['alignment'] = 64
   env.Append( CFLAGS    = ['-xCORE-AVX512', '-fma'],
