@@ -403,6 +403,12 @@ CONTAINS
       STOP
     END SELECT
     !
+#if defined(GENERATEDKERNELS) && defined(USE_PLASTICITY)
+    if (Plasticity .eq. 0) then
+      logWarning(*) 'Plasticity is disabled, but this version was compiled with Plasticity. Setting Plasticity=1.'
+      Plasticity = 1
+    endif
+#endif
     SELECT CASE(Plasticity)
     CASE(0)
       logInfo(*) 'No plasticity assumed. '
