@@ -44,9 +44,9 @@ from SCons.Variables import PathVariable
 
 # Add more variables here for other MPI libraries
 MPI_ENV_VARIABLES = {
-    'CC': ['OMPI_CC', 'MPICH_CC'],
-    'CXX': ['OMPI_CXX', 'MPICH_CXX'],
-    'F90': ['OMPI_FC', 'MPICH_F90']}
+    'CC': ['OMPI_CC', 'MPICH_CC', 'I_MPI_CC'],
+    'CXX': ['OMPI_CXX', 'MPICH_CXX', 'I_MPI_CXX'],
+    'F90': ['OMPI_FC', 'MPICH_F90', 'I_MPI_F90']}
 
 def generate(env, **kw):
     # Do we need to set the scons variables?
@@ -76,7 +76,19 @@ def generate(env, **kw):
         env['mpicxx'] = 'mpiCC'
     if not 'mpif90' in env:
         env['mpif90'] = 'mpif90'
-    
+   
+    #check if we are using Intel MPI -> adjust CXX wrapper
+    #by testing for Intel MPI's most basic env variable
+    if os.environ['I_MPI_ROOT']:
+      if env['compiler'] == 'intel':
+        env['mpicc'] = 'mpiicc'
+        env['mpicxx'] = 'mpiicpc'
+        env['mpif90'] = 'mpiifort'
+      else:
+        env['mpicc'] = 'mpicc'
+        env['mpicxx'] = 'mpicxx'
+        env['mpif90'] = 'mpif90'
+
     # Update the environment and build environment
     for (compiler, wrapper) in [('CC', 'mpicc'), ('CXX', 'mpicxx'), ('F90', 'mpif90')]:
         # Set all known env variables
