@@ -452,7 +452,7 @@ void seissol::initializers::MemoryManager::deriveLayerLayouts() {
         bool l_buffer      = ( m_ghostCellInformation[l_cluster][l_cell+l_ghostOffset].ltsSetup >> 8 ) % 2;
         bool l_derivatives = ( m_ghostCellInformation[l_cluster][l_cell+l_ghostOffset].ltsSetup >> 9 ) % 2;
 
-        if( l_buffer && l_derivatives || ( l_buffer || l_derivatives ) == false ) logError() << "invalid ghost lts setup" << l_buffer << l_derivatives;
+        if( (l_buffer && l_derivatives) || ( l_buffer || l_derivatives ) == false ) logError() << "invalid ghost lts setup" << l_buffer << l_derivatives;
 
         // check if this cell requires a buffer and/or derivatives
         if( ( m_ghostCellInformation[l_cluster][l_cell+l_ghostOffset].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfGhostRegionBuffers[    l_cluster][l_region]++;
@@ -699,7 +699,7 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors() {
     // iterate over copy layer and interior
     for( unsigned int l_clusterCell = 0; l_clusterCell < m_meshStructure[l_cluster].numberOfCopyCells + m_meshStructure[l_cluster].numberOfInteriorCells; l_clusterCell++ ) {
       // get cell information for the current cell
-      CellLocalInformation *l_cellInformation;
+      CellLocalInformation *l_cellInformation = 0L; // TODO check if NULL pointer is correct in serial version
 
       if( l_clusterCell < m_meshStructure[l_cluster].numberOfCopyCells ) {
 #ifdef USE_MPI

@@ -152,8 +152,8 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param i_timeStepWidth time step width of the cell, Fortran notation is assumed (starting at 0).
     **/
-   void setTimeStepWidth( int    *i_meshId,
-                          double *i_timeStepWidth );
+   void setTimeStepWidth( int    i_meshId,
+                          double i_timeStepWidth );
 
    /**
     * Initializes clustered local time stepping.
@@ -167,23 +167,23 @@ class seissol::Interoperability {
     *
     * @param i_clustering clustering strategy 
     **/
-   void initializeClusteredLts( int *i_clustering );
+   void initializeClusteredLts( int i_clustering );
   
    //! \todo Documentation
    void allocatePointSources( int* i_meshIds,
-                              int* i_numberOfPointSources );
+                              int i_numberOfPointSources );
    
    //! \todo Documentation                          
-   void setupPointSource( int* i_source,
+   void setupPointSource( int i_source,
                           double* i_mInvJInvPhisAtSources,
                           double* i_localMomentTensor,
                           double* i_strike,
                           double* i_dip,
                           double* i_rake,
                           double* i_samples,
-                          int* i_numberOfSamples,
+                          int i_numberOfSamples,
                           double* i_onsetTime,
-                          double* i_samplingInterval );
+                          double i_samplingInterval );
 
    /**
     * Adds a receiver at the specified mesh id.
@@ -191,15 +191,15 @@ class seissol::Interoperability {
     * @param i_receiverId pointer to the global id of the receiver.
     * @param i_meshId pointer to the mesh id.
     **/
-   void addReceiver( int *i_receiverId,
-                     int *i_meshId );
+   void addReceiver( int i_receiverId,
+                     int i_meshId );
 
    /**
     * Sets the sampling of the receivers.
     *
     * @param i_receiverSampling sampling of the receivers.
     **/
-   void setReceiverSampling( double *i_receiverSampling );
+   void setReceiverSampling( double i_receiverSampling );
 
    /**
     * Enables dynamic rupture.
@@ -209,10 +209,10 @@ class seissol::Interoperability {
    /**
     * Set material parameters for cell
     **/
-   void setMaterial( int*    i_meshId,
-                     int*    i_side,
+   void setMaterial( int    i_meshId,
+                     int    i_side,
                      double* i_materialVal,
-                     int*    i_numMaterialVals );
+                     int    i_numMaterialVals );
 
    /**
     * Sets the intial loading for a cell (plasticity).
@@ -247,7 +247,7 @@ class seissol::Interoperability {
     * @param i_waveFieldInterval plotting interval of the wave field.
     * @param i_waveFieldFilename file name prefix of the wave field.
     **/
-   void enableWaveFieldOutput( double *i_waveFieldInterval, const char *i_waveFieldFilename );
+   void enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename );
 
    /**
     * Enable checkpointing.
@@ -256,7 +256,7 @@ class seissol::Interoperability {
     * @param i_checkPointFilename file name prefix for checkpointing.
     * @param i_checkPointBackend name of the checkpoint backend
     **/
-   void enableCheckPointing( double *i_checkPointInterval,
+   void enableCheckPointing( double i_checkPointInterval,
 		   const char *i_checkPointFilename, const char* i_checkPointBackend );
 
    void initializeIO(double* mu, double* slipRate1, double* slipRate2,
@@ -276,8 +276,8 @@ class seissol::Interoperability {
     * @param i_mesh mesh id of the cell, Fortran notation is assumed - starting at 1 instead of 0.
     * @param i_update update which is applied.
     **/
-   void addToDofs( int    *i_meshId,
-                   double  i_update[NUMBER_OF_DOFS] );
+   void addToDofs( int    i_meshId,
+                   double i_update[NUMBER_OF_DOFS] );
 
    /**
     * Writes the receivers.
@@ -298,7 +298,7 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param o_timeDerivatives time derivatives in deprecated full storage scheme (including zero blocks).
     **/
-   void getTimeDerivatives( int    *i_meshId,
+   void getTimeDerivatives( int    i_meshId,
                             double  o_timeDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] );
 
    /**
@@ -312,13 +312,13 @@ class seissol::Interoperability {
     * @param o_timeIntegratedCell time integrated degrees of freem of the cell.
     * @param o_timeIntegratedNeighbor time integrated degrees of free of the neighboring cell.
     **/
-   void getFaceDerInt( int    *i_meshId,
-                       int    *i_localFaceId,
-                       double *i_timeStepWidth,
-                       double  o_timeDerivativesCell[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                       double  o_timeDerivativesNeighbor[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                       double  o_timeIntegratedCell[NUMBER_OF_DOFS],
-                       double  o_timeIntegratedNeighbor[NUMBER_OF_DOFS] );
+   void getFaceDerInt( int    _meshId,
+                       int    i_localFaceId,
+                       double i_timeStepWidth,
+                       double o_timeDerivativesCell[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
+                       double o_timeDerivativesNeighbor[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
+                       double o_timeIntegratedCell[NUMBER_OF_DOFS],
+                       double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] );
 
    /**
     * Gets the DOFs.
@@ -326,8 +326,8 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param o_dofs degrees of freedom.
     **/
-   void getDofs( int    *i_meshId,
-                 double  o_dofs[NUMBER_OF_DOFS] );
+   void getDofs( int    i_meshId,
+                 double o_dofs[NUMBER_OF_DOFS] );
 
    /**
     * Gets the DOFs from the derivatives.
@@ -336,8 +336,8 @@ class seissol::Interoperability {
     * @param i_meshId mesh id.
     * @param o_dofs degrees of freedom.
     **/
-   void getDofsFromDerivatives( int    *i_meshId,
-                                double  o_dofs[NUMBER_OF_DOFS] );
+   void getDofsFromDerivatives( int    i_meshId,
+                                double o_dofs[NUMBER_OF_DOFS] );
 
    /**
     * Gets the neighboring DOFs from the derivatives.
@@ -347,9 +347,9 @@ class seissol::Interoperability {
     * @param i_localFaceId local id of the face neighbor.
     * @param o_dofs degrees of freedom.
     **/
-   void getNeighborDofsFromDerivatives( int    *i_meshId,
-                                        int    *i_localFaceId,
-                                        double  o_dofs[NUMBER_OF_DOFS] );
+   void getNeighborDofsFromDerivatives( int    i_meshId,
+                                        int    i_localFaceId,
+                                        double o_dofs[NUMBER_OF_DOFS] );
 
    /**
     * Computes dynamic rupture on the faces.
@@ -378,7 +378,7 @@ class seissol::Interoperability {
     *
     * @param i_finalTime final time to reach.
     **/
-   void simulate( double *i_finalTime );
+   void simulate( double i_finalTime );
 
    /**
     * Finalizes I/O

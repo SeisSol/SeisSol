@@ -62,7 +62,7 @@ namespace checkpoint
 class Fault : virtual public CheckPoint
 {
 protected:
-	static const int NUM_VARIABLES = 7;
+	static const unsigned int NUM_VARIABLES = 7;
 
 private:
 	/** Pointers to fault data */

@@ -528,13 +528,13 @@ CONTAINS
       endif
 #endif
 
-      call c_interoperability_setTimeStepWidth( i_meshId        = c_loc(iElem),                               &
-                                                i_timeStepWidth = c_loc( l_timeStepWidth ) &
+      call c_interoperability_setTimeStepWidth( i_meshId        = iElem,          &
+                                                i_timeStepWidth = l_timeStepWidth &
                                               )
     enddo
 
     ! put the clusters under control of the time manager
-    call c_interoperability_initializeClusteredLts( i_clustering =c_loc(disc%galerkin%clusteredLts) );
+    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts );
 #endif
 
     !
@@ -1017,10 +1017,10 @@ CONTAINS
   do iElem = 1, MESH%nElem
     iSide = 0
     
-    call c_interoperability_setMaterial( i_elem = c_loc(iElem),                                         \
-                                         i_side = c_loc(iSide),                                         \
-                                         i_materialVal = c_loc(OptionalFields%BackgroundValue(iElem,:)),\
-                                         i_numMaterialVals = c_loc(EQN%nBackgroundVar)                  )
+    call c_interoperability_setMaterial( i_elem = iElem,                                         \
+                                         i_side = iSide,                                         \
+                                         i_materialVal = OptionalFields%BackgroundValue(iElem,:),\
+                                         i_numMaterialVals = EQN%nBackgroundVar                  )
                                          
     do iSide = 1,4
       IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
@@ -1036,10 +1036,10 @@ CONTAINS
               NeigMaterialVal = OptionalFields%BackgroundValue(iElem,:)
           END SELECT
       ENDIF      
-      call c_interoperability_setMaterial( i_elem = c_loc(iElem),                        \
-                                           i_side = c_loc(iSide),                        \
-                                           i_materialVal = c_loc(NeigMaterialVal),       \
-                                           i_numMaterialVals = c_loc(EQN%nBackgroundVar) )
+      call c_interoperability_setMaterial( i_elem = iElem,                        \
+                                           i_side = iSide,                        \
+                                           i_materialVal = NeigMaterialVal,       \
+                                           i_numMaterialVals = EQN%nBackgroundVar )
                                            
     enddo
   enddo
@@ -2687,8 +2687,8 @@ CONTAINS
 
 #ifdef GENERATEDKERNELS
         ! write the update back
-        call c_interoperability_addToDofs(  i_meshId  = c_loc( iElem ), \
-                                            i_update  = c_loc( l_dofsUpdate ) )
+        call c_interoperability_addToDofs(  i_meshId  = iElem, \
+                                            i_update  = l_dofsUpdate )
 
 #ifdef USE_PLASTICITY
         ! initialize loading in C

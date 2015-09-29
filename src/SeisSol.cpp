@@ -84,6 +84,8 @@ void seissol::SeisSol::init(int argc, char* argv[])
 	  m_mpi.finalize();
 	  exit(1);
 	  break;
+  case utils::Args::Success:
+	  break;
   }
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");

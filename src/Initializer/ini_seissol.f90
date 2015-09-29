@@ -54,7 +54,7 @@ MODULE ini_SeisSol_mod
 CONTAINS
 
   SUBROUTINE ini_SeisSol(time,timestep,pvar,cvar,EQN,IC,MESH,MPI,      &         
-       SOURCE,DISC,BND,OptionalFields,IO,Analyse,Debug, &
+       SOURCE,DISC,BND,OptionalFields,IO,Analyse, &
        programTitle) !
     !--------------------------------------------------------------------------
     USE COMMON_readpar_mod
@@ -101,7 +101,6 @@ CONTAINS
     TYPE (tInputOutput)            :: IO                                       !
     TYPE (tBoundary)               :: BND                                      !
     TYPE (tAnalyse)                :: Analyse                                  !
-    TYPE (tDebug)                  :: Debug                                    !
     CHARACTER(LEN=100)             :: programTitle                             !
     ! local variable declaration                                               !
     INTEGER                        :: iElem, iSide, iVtx, i                    !
@@ -149,7 +148,7 @@ CONTAINS
     INTENT(IN)                     :: programTitle                             !
     INTENT(INOUT)                  :: EQN,DISC,IO                              ! Some values are set in the TypesDef
     INTENT(OUT)                    :: IC,MESH,SOURCE,BND, OptionalFields       !
-    INTENT(OUT)                    :: Debug,time,timestep, Analyse             !
+    INTENT(OUT)                    :: time,timestep, Analyse             !
 
     ! register ini_seissol function
     EPIK_FUNC_REG("ini_SeisSol")
@@ -184,7 +183,6 @@ CONTAINS
          BND          = BND                             , &                    !
          IO           = IO                              , &                    !
          Analyse      = Analyse                         , &                    !
-         Debug        = Debug                           , &                    !
          programTitle = programTitle                    , &                    !
          MPI          = MPI                               )
 
@@ -198,12 +196,12 @@ CONTAINS
     ! Set ouput and checkpoint parameters
     ! This has to be done before the LTS setup!
     if( io%format .eq. 6 ) then
-      call c_interoperability_enableWaveFieldOutput( i_waveFieldInterval = c_loc(io%outInterval%timeInterval), &
+      call c_interoperability_enableWaveFieldOutput( i_waveFieldInterval = io%outInterval%timeInterval, &
                                                      i_waveFieldFilename = trim(io%OutputFile) // c_null_char )
     endif
 
     if( io%checkpoint%interval .gt. 0 ) then
-        call c_interoperability_enableCheckPointing( i_checkPointInterval = c_loc(io%checkpoint%interval), &
+        call c_interoperability_enableCheckPointing( i_checkPointInterval = io%checkpoint%interval, &
                                                      i_checkPointFilename = trim(io%checkpoint%filename) // c_null_char, &
                                                      i_checkPointBackend = trim(io%checkpoint%backend) // c_null_char )
     endif
@@ -323,7 +321,6 @@ CONTAINS
             MESH           = MESH                         , &                  ! Initialize Local Linearized calculation
             IC             = IC                           , &                  ! Initialize Local Linearized calculation
             IO             = IO                           , &                  ! Initialize Local Linearized calculation
-            Debug          = DEBUG                        , &                  ! Initialize Local Linearized calculation
             DISC           = DISC                         , &                  ! Initialize Local Linearized calculation
             BND            = BND                            )                  ! Initialize Local Linearized calculation
     END IF                                                                     !
@@ -485,9 +482,9 @@ CONTAINS
                                  s0      = mesh%fault%geoTangent1( 1:3, l_ruptureFace ),\
                                  t0      = mesh%fault%geoTangent2( 1:3, l_ruptureFace ),\
                                  eqn     = eqn,\
-                                 io      = io,\
+                                 io      = io, &
                                  ! @breuera: different wave speeds for the faces? that's strange..
-                                 w_speed = disc%galerkin%waveSpeed(l_elementId, l_localFaceId, :),\
+                                 w_speed = disc%galerkin%waveSpeed(l_elementId, l_localFaceId, :), &
                                  aniVec  = l_attenuation )
 
             ! rotate jacobian to match SeisSol's storage scheme

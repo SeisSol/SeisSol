@@ -217,14 +217,14 @@ CONTAINS
 #ifdef GENERATEDKERNELS
   do i=1, io%ntotalRecordPoint
     if( io%unstructRecPoint(i)%index .ge. 0 ) then
-      call c_interoperability_addReceiver( c_loc(i), c_loc(io%unstructRecPoint(i)%index) )
+      call c_interoperability_addReceiver( i, io%unstructRecPoint(i)%index )
     endif
   enddo
 
   if (IO%pickDtType .eq. 2) then
     logError(*), "no support for time step width dependent receivers."
   else
-    call c_interoperability_setReceiverSampling( c_loc( io%pickdt ) )
+    call c_interoperability_setReceiverSampling( io%pickdt )
   endif
 #endif
 
@@ -381,8 +381,8 @@ CONTAINS
       NULLIFY(Tens_xi_Sp_ptr, Tens_eta_Sp_ptr, Tens_zeta_Sp_ptr, Tens_klm_sp_ptr)
     ENDIF
 #else
-     call c_interoperability_getTimeDerivatives( i_meshId         = c_loc( iElem  ), \
-                                                 o_timeDerivatives = c_loc( taylorDof(:,:,0) ) )
+     call c_interoperability_getTimeDerivatives( i_meshId         = iElem, \
+                                                 o_timeDerivatives = taylorDof(:,:,0) )
 #endif
     !
   END SUBROUTINE common_receiver_ck

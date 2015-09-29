@@ -94,7 +94,7 @@ void seissol::checkpoint::mpio::Fault::load(int &timestepFault)
 
 	// Read data
 	checkMPIErr(setDataView(file));
-	for (int i = 0; i < NUM_VARIABLES; i++)
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
 		checkMPIErr(MPI_File_read_all(file, data(i), numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
 
 	// Close the file
@@ -122,7 +122,7 @@ void seissol::checkpoint::mpio::Fault::write(int timestepFault)
 
 	checkMPIErr(setDataView(file()));
 
-	for (int i = 0; i < NUM_VARIABLES; i++)
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
 		checkMPIErr(MPI_File_write_all(file(), data(i), numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
 
 	EPIK_USER_END(r_write_fault);

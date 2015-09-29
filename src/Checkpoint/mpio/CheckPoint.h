@@ -146,7 +146,7 @@ protected:
 		// Check header size
 		MPI_Aint size;
 		MPI_Type_extent(m_headerType, &size);
-		if (size != headerSize)
+		if (size != static_cast<MPI_Aint>(headerSize))
 			logError() << "Size of C struct and MPI data type do not match.";
 
 		unsigned long align = utils::Env::get<unsigned long>("SEISSOL_CHECKPOINT_ALIGNMENT", 0);
@@ -156,16 +156,13 @@ protected:
 		} else
 			m_headerSize = headerSize;
 
-		// Get total size of the file
-		unsigned long totalSize = numTotalElems() * m_elemSize;
-
 		// Create element type
 		MPI_Datatype elemType;
 		MPI_Type_contiguous(m_elemSize, MPI_BYTE, &elemType);
 
 		// Create data file type
-		int blockLength[] = {numElem};
-		MPI_Aint displ[] = {m_headerSize + fileOffset() * m_elemSize};
+		int blockLength[] = {static_cast<int>(numElem)};
+		MPI_Aint displ[] = {static_cast<MPI_Aint>(m_headerSize + fileOffset() * m_elemSize)};
 		MPI_Datatype types[] = {elemType};
 		MPI_Type_create_struct(1, blockLength, displ, types, &m_fileDataType);
 		MPI_Type_commit(&m_fileDataType);
@@ -240,7 +237,7 @@ protected:
 	 */
 	int setHeaderView(MPI_File file) const
 	{
-		return MPI_File_set_view(file, 0, MPI_BYTE, m_fileHeaderType, "native", MPI_INFO_NULL);
+		return MPI_File_set_view(file, 0, MPI_BYTE, m_fileHeaderType, const_cast<char*>("native"), MPI_INFO_NULL);
 	}
 
 	/**
@@ -250,7 +247,7 @@ protected:
 	 */
 	int setDataView(MPI_File file) const
 	{
-		return MPI_File_set_view(file, 0, MPI_BYTE, m_fileDataType, "native", MPI_INFO_NULL);
+		return MPI_File_set_view(file, 0, MPI_BYTE, m_fileDataType, const_cast<char*>("native"), MPI_INFO_NULL);
 	}
 
 	/**

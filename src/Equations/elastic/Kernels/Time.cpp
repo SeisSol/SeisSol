@@ -682,7 +682,7 @@ void seissol::kernels::Time::computeIntegrals( unsigned short      i_ltsSetup,
 
   // adjust start times for GTS on derivatives
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-    if( (i_ltsSetup >> l_face + 4 ) % 2 ) {
+    if( (i_ltsSetup >> (l_face + 4) ) % 2 ) {
       l_startTimes[l_face+1] = i_timeStepStart;
     }
   }

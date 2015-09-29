@@ -422,22 +422,22 @@ MODULE Friction_mod
        !
 #else
        if( iElem .ne. 0 ) then
-         call c_interoperability_getFaceDerInt( i_meshId                  = c_loc( iElem              ), \
-                                                i_faceId                  = c_loc( iSide              ), \
-                                                i_timeStepWidth           = c_loc( dt                 ), \
-                                                o_timeDerivativesCell     = c_loc( taylor1(:,:,0)     ), \
-                                                o_timeDerivativesNeighbor = c_loc( taylor2(:,:,0)     ), \
-                                                o_timeIntegratedCell      = c_loc( timeIntDof_iElem   ), \
-                                                o_timeIntegratedNeighbor  = c_loc( timeIntDof_iNeigh  )  \
+         call c_interoperability_getFaceDerInt( i_meshId                  = iElem             , \
+                                                i_faceId                  = iSide             , \
+                                                i_timeStepWidth           = dt                , \
+                                                o_timeDerivativesCell     = taylor1(:,:,0)    , \
+                                                o_timeDerivativesNeighbor = taylor2(:,:,0)    , \
+                                                o_timeIntegratedCell      = timeIntDof_iElem  , \
+                                                o_timeIntegratedNeighbor  = timeIntDof_iNeigh   \
                                               )
        else
-         call c_interoperability_getFaceDerInt( i_meshId                  = c_loc( iNeighbor          ), \
-                                                i_faceId                  = c_loc( iLocalNeighborSide ), \
-                                                i_timeStepWidth           = c_loc( dt                 ), \
-                                                o_timeDerivativesCell     = c_loc( taylor2(:,:,0)     ), \
-                                                o_timeDerivativesNeighbor = c_loc( taylor1(:,:,0)     ), \
-                                                o_timeIntegratedCell      = c_loc( timeIntDof_iNeigh  ), \
-                                                o_timeIntegratedNeighbor  = c_loc( timeIntDof_iElem   )  \
+         call c_interoperability_getFaceDerInt( i_meshId                  = iNeighbor          , \
+                                                i_faceId                  = iLocalNeighborSide , \
+                                                i_timeStepWidth           = dt                 , \
+                                                o_timeDerivativesCell     = taylor2(:,:,0)     , \
+                                                o_timeDerivativesNeighbor = taylor1(:,:,0)     , \
+                                                o_timeIntegratedCell      = timeIntDof_iNeigh  , \
+                                                o_timeIntegratedNeighbor  = timeIntDof_iElem     \
                                               )
        endif
 #endif
@@ -510,7 +510,7 @@ MODULE Friction_mod
 
          ! multiply by inverse mass matrix
          do iDegFr = 1, LocDegFr
-           dudt(iDegFr,:) = dudt(iDegFr, :) * -disc%galerkin%iMassMatrix_tet(iDegFr, iDegFr, locPoly)
+           dudt(iDegFr,:) = dudt(iDegFr, :) * (-disc%galerkin%iMassMatrix_tet(iDegFr, iDegFr, locPoly))
          enddo
 
          ! Write update buffer of fault elements, this is to avoid conflicts due to elements with more than one dynamic rupture face
@@ -580,8 +580,8 @@ MODULE Friction_mod
     ENDDO
 #else
     do iFace=1,DISC%DynRup%nDRElems
-      call c_interoperability_addToDofs( i_meshId  = c_loc( DISC%DynRup%indicesOfDRElems(iFace) ), \
-                                         i_update  = c_loc( DISC%DynRup%DRupdates(1:DISC%Galerkin%nDegFr,1:EQN%nVar,iFace) ) )
+      call c_interoperability_addToDofs( i_meshId  = DISC%DynRup%indicesOfDRElems(iFace), \
+                                         i_update  = DISC%DynRup%DRupdates(1:DISC%Galerkin%nDegFr,1:EQN%nVar,iFace) )
     enddo
 #endif
 

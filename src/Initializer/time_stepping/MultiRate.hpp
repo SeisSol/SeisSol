@@ -239,7 +239,7 @@ class seissol::initializers::time_stepping::MultiRate {
                                   unsigned int  &o_numberOfGlobalClusters,
                                   double       *&o_globalTimeStepWidths,
                                   unsigned int *&o_globalTimeStepRates ) {
-      double l_minimumTimeStepWidth, l_maximumTimeStepWidth;
+      double l_minimumTimeStepWidth = 0, l_maximumTimeStepWidth = 0; // TODO check if 0 is current in serial version
 
       // derive global minimum and maximum
       deriveTimeStepWidthLimits( i_numberOfCells,

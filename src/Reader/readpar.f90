@@ -97,10 +97,6 @@ MODULE COMMON_readpar_mod
      MODULE PROCEDURE readpar_analyse
   END INTERFACE
 
-  INTERFACE readpar_debug
-     MODULE PROCEDURE readpar_debug
-  END INTERFACE
-
   INTERFACE analyse_readpar
      MODULE PROCEDURE analyse_readpar_unstruct
   END INTERFACE
@@ -123,7 +119,7 @@ MODULE COMMON_readpar_mod
 CONTAINS
 
   SUBROUTINE readpar(EQN,IC,usMESH,DISC,SOURCE,BND,IO, &
-                     ANALYSE,Debug,programTitle,MPI)
+                     ANALYSE,programTitle,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE 
     !--------------------------------------------------------------------------
@@ -135,7 +131,6 @@ CONTAINS
     TYPE (tBoundary)                :: BND
     TYPE (tInputOutput)             :: IO
     TYPE (tAnalyse)                 :: ANALYSE
-    TYPE (tDebug)                   :: Debug
     TYPE (tMPI)          , OPTIONAL :: MPI                                      
     CHARACTER(LEN=100)              :: programTitle
     ! local variables
@@ -145,7 +140,7 @@ CONTAINS
     logical :: existence
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: programTitle
-    INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE,Debug
+    INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE
     INTENT(INOUT)                   :: EQN,IO, usMESH
     !--------------------------------------------------------------------------
     PARAMETER(actual_version_of_readpar = 19)
@@ -203,8 +198,6 @@ CONTAINS
     CALL readpar_abort(DISC,IO)                                    !
     !                                                                        !        
     CALL readpar_analyse(ANALYSE,EQN,DISC,IC,IO)                             ! 
-    !                                                                        !        
-    CALL readpar_debug(IO,Debug)                                             !   read Debug
     !                                                                        !        
     CLOSE(IO%UNIT%FileIn,status='keep')                                      !
     !                                                                        !        
@@ -3844,51 +3837,6 @@ ALLOCATE( SpacePositionx(nDirac), &
     READ(IO%UNIT%FileIn, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for ampfield, ...
    END SUBROUTINE  
-  !
-  !============================================================================
-  ! D E B U G                
-  !============================================================================
-
-  SUBROUTINE readpar_debug(IO,DEBUG)
-    !------------------------------------------------------------------------
-    IMPLICIT NONE 
-    !------------------------------------------------------------------------
-    TYPE (tInputOutput)        :: IO
-    TYPE (tDebug)              :: Debug
-    INTEGER                    :: debug_flag, level
-    !------------------------------------------------------------------------
-    INTENT(IN)                 :: IO
-    INTENT(OUT)                :: Debug
-    !------------------------------------------------------------------------
-    NAMELIST                         /Debugging/ debug_flag, level
-    !------------------------------------------------------------------------    
-    !                                                                             
-    logInfo(*) '<--------------------------------------------------------->'
-    logInfo(*) '<  D E B U G G I N G     M O D U S                        >'
-    logInfo(*) '<--------------------------------------------------------->'
-    ! 
-    ! Setting default values
-    debug_flag = 0                                                                       
-    level = 0
-    READ(IO%UNIT%FileIn, nml = Debugging)
-    DEBUG%enabled = debug_flag                                 
-    !                                                                            
-    IF (DEBUG%enabled .ne. 0) THEN                                           
-       !                                                                     
-       logInfo(*)  'Running in DEBUG modus !'                                
-       !                                                                     
-       DEBUG%level = level                                                   
-       !                                                                     
-       logInfo(*)                                          &                 
-            '                             level: '       , &                 
-            DEBUG%level                                                      
-    ELSE                                                                     
-       !                                                                     
-       logInfo(*)  'NO Debugging messages are shown '
-       !                                                                     
-    END IF                                                                  
-    !                                                                               
-  END SUBROUTINE readpar_debug
 
   !============================================================================
   ! A N A L Y S E           

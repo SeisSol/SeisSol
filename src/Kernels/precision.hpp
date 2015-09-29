@@ -7,21 +7,19 @@
 #include <initialization/precision.h>
 
 #ifdef SINGLE_PRECISION
-#define REAL_BYTES sizeof(float)
 typedef float real;
 #endif
 #ifdef DOUBLE_PRECISION
-#define REAL_BYTES sizeof(double)
 typedef double real;
 #endif
 
 
 #ifdef USE_MPI
 #ifdef SINGLE_PRECISION
-static MPI_Datatype real_mpi = MPI_FLOAT;
+#define MPI_C_REAL MPI_FLOAT
 #endif
 #ifdef DOUBLE_PRECISION
-static MPI_Datatype real_mpi = MPI_DOUBLE;
+#define MPI_C_REAL MPI_DOUBLE
 #endif
 #endif
 

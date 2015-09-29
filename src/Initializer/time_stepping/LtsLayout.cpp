@@ -53,9 +53,9 @@ seissol::initializers::time_stepping::LtsLayout::LtsLayout():
  m_cellClusterIds(           NULL ),
  m_globalTimeStepWidths(     NULL ),
  m_globalTimeStepRates(      NULL ),
+ m_plainCopyRegions(         NULL ),
  m_numberOfPlainGhostCells(  NULL ),
- m_plainGhostCellClusterIds( NULL ),
- m_plainCopyRegions(         NULL ) {}
+ m_plainGhostCellClusterIds( NULL ) {}
 
 seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables
@@ -225,7 +225,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
         int l_mpiIndex = m_cells[l_cell].mpiIndices[l_face];
 
         // resize mapping array to hold this index if required
-        if( l_faceToCellIdMappings[l_region].size() <= l_mpiIndex ) {
+        if( l_faceToCellIdMappings[l_region].size() <= static_cast<unsigned int>(l_mpiIndex) ) {
           l_faceToCellIdMappings[l_region].resize( l_mpiIndex+1 );
         }
 
@@ -1238,7 +1238,8 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( unsign
             unsigned int l_localNeighboringRegion;
             for( l_localNeighboringRegion = 0; l_localNeighboringRegion < m_clusteredCopy[l_cluster].size(); l_localNeighboringRegion++ ) {
               // match if the ghost regions matches the neighboring rank and cluster
-              if( m_clusteredCopy[l_cluster][l_localNeighboringRegion].first[0] == m_cells[l_meshId].neighborRanks[l_face] &&
+              if( m_clusteredCopy[l_cluster][l_localNeighboringRegion].first[0]
+						== static_cast<unsigned int>(m_cells[l_meshId].neighborRanks[l_face]) &&
                   m_clusteredCopy[l_cluster][l_localNeighboringRegion].first[1] == l_globalNeighboringCluster ) break;
 
               // make sure there's a match
@@ -1269,7 +1270,10 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( unsign
                 m_cells[l_neighboringMeshId].neighborRanks[3] != m_rank    ) {
 
               // get neighboring copy positions
-              unsigned int l_localNeighboringClusterId, l_neighboringCopyRegion, l_localNeighboringCellId;
+              unsigned int l_localNeighboringClusterId;
+              // TODO check if these values are really initialized by searchClusterCopyCell()
+			  unsigned int l_neighboringCopyRegion = std::numeric_limits<unsigned int>::max();
+			  unsigned int l_localNeighboringCellId = std::numeric_limits<unsigned int>::max();
 
               searchClusteredCopyCell( l_neighboringMeshId,
                                        l_localNeighboringClusterId,
@@ -1338,7 +1342,10 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( unsign
               m_cells[l_neighboringMeshId].neighborRanks[3] != m_rank    ) {
 
             // get neighboring copy positions
-            unsigned int l_localNeighboringClusterId, l_neighboringCopyRegion, l_localNeighboringCellId;
+            unsigned int l_localNeighboringClusterId;
+            // TODO check if these values are really initialized by searchClusterCopyCell()
+			unsigned int l_neighboringCopyRegion = std::numeric_limits<unsigned int>::max();
+			unsigned int l_localNeighboringCellId = std::numeric_limits<unsigned int>::max();
 
             searchClusteredCopyCell( l_neighboringMeshId,
                                      l_localNeighboringClusterId,

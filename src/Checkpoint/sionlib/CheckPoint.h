@@ -215,7 +215,7 @@ private:
 	{
 		unsigned long id;
 		ssize_t size = read(file, &id, sizeof(id));
-		if (size < sizeof(id)) {
+		if (size < static_cast<ssize_t>(sizeof(id))) {
 			logWarning() << "Could not read checkpoint header";
 			return false;
 		}

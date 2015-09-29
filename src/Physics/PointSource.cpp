@@ -62,7 +62,11 @@ void seissol::physics::transformMomentTensor(real const i_localMomentTensor[3][3
     {                        -sdip*srake,                        -crake*sdip,         cdip }
   };
   
-  real M[3][3] = { 0.0 };
+  real M[3][3] = {
+		  {0.0, 0.0, 0.0},
+		  {0.0, 0.0, 0.0},
+		  {0.0, 0.0, 0.0}
+  };
 
   // Calculate M_{ij} = R_{ki} * LM_{kl} * R_{lj}.
   // Note, again, that X[j][i] = X_{ij} here.

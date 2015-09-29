@@ -155,8 +155,10 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
  * @param i_numberOfCluster number of clusters.
  * @param io_meshStructure mesh structure.
  * @param io_cellLocalInformation cell local information which lts setup will be written using present face and cluster.
+ *
+ * @todo Is inline a good idea? Static does not work!
  **/
-static void deriveLtsSetups( unsigned int                 i_numberOfClusters,
+inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
                              struct MeshStructure        *io_meshStructure,
                              struct CellLocalInformation *io_cellLocalInformation ) {
   unsigned int l_cell = 0;
@@ -264,8 +266,10 @@ static void deriveLtsSetups( unsigned int                 i_numberOfClusters,
  * @param i_numberOfCells number of cells to derive the lts setup for.
  * @param io_cellLocalInformation cell local information which lts setup will be written using present face and cluster.
  * @param i_ghostLayer true if the cells are part of the ghost layer, information is required for corner cases where every cell-neighbor is part of the computational domain.
+ *
+ * @todo Is inline a good idea? Static does not work!
  **/
-static void deriveLtsSetups(  unsigned int          i_numberOfCells,
+inline void deriveLtsSetups(  unsigned int          i_numberOfCells,
                               CellLocalInformation *io_cellLocalInformation,
                               bool                  i_ghostLayer = false ) {
   // iterate over all cells

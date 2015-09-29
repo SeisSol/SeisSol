@@ -69,7 +69,6 @@ contains
   REAL                                   :: time
   INTEGER                                :: timestep
   TYPE (tUnstructDomainDescript), target :: domain
-  TYPE (tDebug)                          :: Debug
   CHARACTER(LEN=600)                     :: name
   INTEGER                                :: iTry
   LOGICAL                                :: fexist
@@ -200,7 +199,6 @@ contains
        OptionalFields = domain%OptionalFields    , &  
        IO             = domain%IO                , &
        Analyse        = domain%Analyse           , &
-       Debug          =        Debug             , &
        programTitle   = domain%programTitle        )
 domain%IO%MPIPickCleaningDone = 0
 
@@ -223,7 +221,6 @@ domain%IO%MPIPickCleaningDone = 0
          OptionalFields = domain%OptionalFields    , &  
          IO             = domain%IO                , &
          Analyse        = domain%Analyse           , &
-         Debug          =        Debug             , &
          programTitle   = domain%programTitle        )
 
     logInfo0(*) '<--------------------------------------------------------->'  !
@@ -244,8 +241,7 @@ domain%IO%MPIPickCleaningDone = 0
          OptionalFields = domain%OptionalFields    , &  
          IO             = domain%IO                , &
          MPI            = domain%MPI               , &
-         Analyse        = domain%Analyse           , &
-         Debug          = Debug                    )
+         Analyse        = domain%Analyse           )
 
   IF(domain%IO%AbortStatus.EQ.0) THEN
 
@@ -266,7 +262,6 @@ domain%IO%MPIPickCleaningDone = 0
            IO             = domain%IO                , &
            Analyse        = domain%Analyse           , &
            OptionalFields = domain%OptionalFields    , &
-           Debug          =        Debug             , &
            MPI            = domain%MPI                 )
 
    ENDIF
