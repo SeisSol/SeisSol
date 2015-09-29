@@ -1932,9 +1932,12 @@ CONTAINS
         DISC%DynRup%BndBF_GP_Tet = 0.0D0
         DISC%DynRup%FluxInt = 0.0D0
         !
+#if __INTEL_COMPILER == 1600
+#else
 #ifdef OMP
         !$omp parallel private(iFace, iElem, iSide, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, xV, yV, zV, x_host, y_host, z_host, iBndGP, chi, tau, xi, eta, zeta, xGP, yGP, zGP, iDegFr, iDegFr2, phi_iDegFr, phi_iDegFr2) shared( mesh, disc, eqn, bnd) default( none )
         !$omp do schedule(static)
+#endif
 #endif
         DO iFace=1,MESH%Fault%nSide
             !
@@ -2024,8 +2027,11 @@ CONTAINS
             ENDDO
             !
         ENDDO ! iFace
-#if defined(OMP)
+#if __INTEL_COMPILER == 1600
+#else
+#ifdef OMP
         !$omp end parallel
+#endif
 #endif
         !
         ! accordingly to normal FluxInt matrix all values small than 1e-10 are set to zero
