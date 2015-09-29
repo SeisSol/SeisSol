@@ -144,8 +144,8 @@ protected:
 	void defineFileView(unsigned long headerSize, unsigned long numElem)
 	{
 		// Check header size
-		MPI_Aint size;
-		MPI_Type_extent(m_headerType, &size);
+		MPI_Aint lb, size;
+		MPI_Type_get_extent(m_headerType, &lb, &size);
 		if (size != static_cast<MPI_Aint>(headerSize))
 			logError() << "Size of C struct and MPI data type do not match.";
 

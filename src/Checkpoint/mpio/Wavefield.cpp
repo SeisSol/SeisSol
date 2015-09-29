@@ -49,12 +49,11 @@ bool seissol::checkpoint::mpio::Wavefield::init(real* dofs, unsigned int numDofs
 
 	// Create the header data type
 	MPI_Datatype headerType;
-	int blockLength[] = {1, 1, 1, 1, 1};
+	int blockLength[] = {1, 1, 1, 1};
 	MPI_Aint displ[] = {offsetof(Header, identifier), offsetof(Header, partitions),
-			offsetof(Header, time), offsetof(Header, timestepWavefield),
-			sizeof(Header)};
-	MPI_Datatype types[] = {MPI_UNSIGNED_LONG, MPI_INT, MPI_DOUBLE, MPI_INT, MPI_UB};
-	MPI_Type_create_struct(5, blockLength, displ, types, &headerType);
+			offsetof(Header, time), offsetof(Header, timestepWavefield)};
+	MPI_Datatype types[] = {MPI_UNSIGNED_LONG, MPI_INT, MPI_DOUBLE, MPI_INT};
+	MPI_Type_create_struct(4, blockLength, displ, types, &headerType);
 	setHeaderType(headerType);
 
 	// Define the file view

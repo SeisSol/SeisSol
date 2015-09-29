@@ -56,11 +56,10 @@ bool seissol::checkpoint::mpio::Fault::init(
 
 	// Create the header data type
 	MPI_Datatype headerType;
-	int blockLength[] = {1, 1, 1};
-	MPI_Aint displ[] = {offsetof(Header, identifier), offsetof(Header, timestepFault),
-			sizeof(Header)};
-	MPI_Datatype types[] = {MPI_UNSIGNED_LONG, MPI_INT, MPI_UB};
-	MPI_Type_create_struct(3, blockLength, displ, types, &headerType);
+	int blockLength[] = {1, 1};
+	MPI_Aint displ[] = {offsetof(Header, identifier), offsetof(Header, timestepFault)};
+	MPI_Datatype types[] = {MPI_UNSIGNED_LONG, MPI_INT};
+	MPI_Type_create_struct(2, blockLength, displ, types, &headerType);
 	setHeaderType(headerType);
 
 	// Define the file view
