@@ -354,21 +354,27 @@ elif env['arch'] in ['swsm', 'dwsm']:
 elif env['arch'] in ['shsw', 'dhsw']:
   env['alignment'] = 32
   if env['compiler'] == 'intel':
-      env.Append( CFLAGS    = ['-xCORE-AVX2', '-fma'],
-                  CXXFLAGS  = ['-xCORE-AVX2', '-fma'],
-                  F90FLAGS  = ['-xCORE-AVX2', '-fma'],
-                  LINKFLAGS = ['-xCORE-AVX2', '-fma']  )
+    env.Append( CFLAGS    = ['-xCORE-AVX2', '-fma'],
+                CXXFLAGS  = ['-xCORE-AVX2', '-fma'],
+                F90FLAGS  = ['-xCORE-AVX2', '-fma'],
+                LINKFLAGS = ['-xCORE-AVX2', '-fma']  )
   else:
-      env.Append( CFLAGS    = ['-mavx2'],
-                  CXXFLAGS  = ['-mavx2'],
-                  F90FLAGS  = ['-mavx2'],
-                  LINKFLAGS = ['-mavx2']  )
+    env.Append( CFLAGS    = ['-mavx2', '-mfma'],
+                CXXFLAGS  = ['-mavx2', '-mfma'],
+                F90FLAGS  = ['-mavx2', '-mfma'],
+                LINKFLAGS = ['-mavx2', '-mfma']  )
 elif env['arch'] in ['sskx', 'dskx']:
   env['alignment'] = 64
-  env.Append( CFLAGS    = ['-xCORE-AVX512', '-fma'],
-              CXXFLAGS  = ['-xCORE-AVX512', '-fma'],
-              F90FLAGS  = ['-xCORE-AVX512', '-fma'],
-              LINKFLAGS = ['-xCORE-AVX512', '-fma'] ) 
+  if env['compiler'] == 'intel':
+    env.Append( CFLAGS    = ['-xCORE-AVX512', '-fma'],
+                CXXFLAGS  = ['-xCORE-AVX512', '-fma'],
+                F90FLAGS  = ['-xCORE-AVX512', '-fma'],
+                LINKFLAGS = ['-xCORE-AVX512', '-fma'] ) 
+  else:
+    env.Append( CFLAGS    = ['-mavx512f', '-mavx512cd', '-mfma'],
+                CXXFLAGS  = ['-mavx512f', '-mavx512cd', '-mfma'],
+                F90FLAGS  = ['-mavx512f', '-mavx512cd', '-mfma'],
+                LINKFLAGS = ['-mavx512f', '-mavx512cd', '-mfma']  )
 elif env['arch'] in ['sknc', 'dknc']:
   env['alignment'] = 64
   env.Append( CFLAGS    = ['-mmic', '-fma'],
@@ -377,10 +383,16 @@ elif env['arch'] in ['sknc', 'dknc']:
               LINKFLAGS = ['-mmic', '-fma'] )
 elif env['arch'] in ['sknl', 'dknl']:
   env['alignment'] = 64
-  env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
-              CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
-              F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
-              LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'] ) 
+  if env['compiler'] == 'intel':
+    env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'] ) 
+  else:
+    env.Append( CFLAGS    = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                CXXFLAGS  = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                F90FLAGS  = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                LINKFLAGS = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH']  )
 else:
   #assert(env['compileMode'] == 'debug')
   pass
