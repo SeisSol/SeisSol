@@ -38,6 +38,7 @@
  */
 
 #include <cstddef>
+
 #include "Fault.h"
 
 bool seissol::checkpoint::mpio::Fault::init(

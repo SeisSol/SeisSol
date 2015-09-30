@@ -48,6 +48,15 @@ MPI_ENV_VARIABLES = {
     'CXX': ['OMPI_CXX', 'MPICH_CXX', 'I_MPI_CXX'],
     'F90': ['OMPI_FC', 'MPICH_F90', 'I_MPI_F90']}
 
+def CheckCompiler(context, command):
+    context.Message('Checking for '+command+'... ')
+    # Use the version key word since this should be available
+    # for all compilers
+    ret = context.TryAction(command+' --version')[0]
+    context.Result(ret)
+    
+    return ret
+
 def generate(env, **kw):
     # Do we need to set the scons variables?
     if 'vars' in kw:
@@ -69,25 +78,43 @@ def generate(env, **kw):
         
         return
     
+    conf = env.Configure(custom_tests = {'CheckCompiler' : CheckCompiler})
+    
     # Set default compilers
+    # Use I_MPI_ROOT to detect special Intel MPI wrappers
     if not 'mpicc' in env:
-        env['mpicc'] = 'mpicc'
+        if 'I_MPI_ROOT' in env['ENV']:
+            if env['compiler'] == 'intel':
+                env['mpicc'] = 'mpiicc'
+            else:
+                env['mpicc'] = 'mpicc'
+        else:
+            env['mpicc'] = 'mpicc'
     if not 'mpicxx' in env:
-        env['mpicxx'] = 'mpiCC'
+        if 'I_MPI_ROOT' in env['ENV']:
+            if env['compiler'] == 'intel':
+                env['mpicxx'] = 'mpiicpc'
+            else:
+                env['mpicxx'] = 'mpicxx'
+        else:
+            if conf.CheckCompiler('mpicxx'):
+                env['mpicxx'] = 'mpicxx'
+            else:
+                env['mpicxx'] = 'mpiCC'
     if not 'mpif90' in env:
-        env['mpif90'] = 'mpif90'
-   
-    #check if we are using Intel MPI -> adjust CXX wrapper
-    #by testing for Intel MPI's most basic env variable
-    if os.environ.get('I_MPI_ROOT') != None:
-      if env['compiler'] == 'intel':
-        env['mpicc'] = 'mpiicc'
-        env['mpicxx'] = 'mpiicpc'
-        env['mpif90'] = 'mpiifort'
-      else:
-        env['mpicc'] = 'mpicc'
-        env['mpicxx'] = 'mpicxx'
-        env['mpif90'] = 'mpif90'
+        if 'I_MPI_ROOT' in env['ENV']:
+            if env['compiler'] == 'intel':
+                env['mpif90'] = 'mpiifort'
+            else:
+                env['mpif90'] = 'mpi90'
+        else:
+            env['mpif90'] = 'mpif90'
+            
+    # Check all MPI wrappers
+    ret = [conf.CheckCompiler(env[cc]) for cc in ['mpicc', 'mpicxx', 'mpif90']]
+    if not all(ret):
+        print 'Could not find all MPI wrappers!'
+        env.Exit(1)
 
     # Update the environment and build environment
     for (compiler, wrapper) in [('CC', 'mpicc'), ('CXX', 'mpicxx'), ('F90', 'mpif90')]:
@@ -97,6 +124,8 @@ def generate(env, **kw):
             
         # Update the build environment
         env[compiler] = env[wrapper]
+        
+    conf.Finish()
 
 def exists(env):
     return True
