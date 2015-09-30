@@ -27,3 +27,6 @@ script:
  - scons -f SConstruct_generatedKernels compileMode=release order=6 generatedKernels=no parallelization=mpi arch=dsnb compiler=gcc -j2
  - scons -f SConstruct_generatedKernels compileMode=release order=6 generatedKernels=no parallelization=mpi netcdf=yes arch=dsnb compiler=gcc -j2
  - scons -f SConstruct_generatedKernels compileMode=release order=6 generatedKernels=no parallelization=none arch=dsnb compiler=gcc -j2
+ - scons -f SConstruct_generatedKernels compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=ssnb compiler=gcc -j2
+ - scons -f SConstruct_generatedKernels compileMode=release order=6 generatedKernels=yes parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc -j2
+ - scons -f SConstruct_generatedKernels compileMode=debug order=6 generatedKernels=yes parallelization=hybrid arch=ssnb compiler=gcc -j2
