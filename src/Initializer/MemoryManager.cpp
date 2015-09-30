@@ -84,7 +84,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrix(          int 
   // easy case: just write the values one after another
   if( i_sparse != -1 ) {
     // assert we have all nonzeros
-    assert( i_values.size() == i_sparse );
+    assert( static_cast<int>(i_values.size()) == i_sparse );
 
     for( unsigned int l_entry = 0; l_entry < i_values.size(); l_entry++) {
       o_matrix[l_entry] = i_values[l_entry];

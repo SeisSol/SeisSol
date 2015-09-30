@@ -333,7 +333,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
         int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
 
         // assert we have a corresponding mappiong
-        assert( m_cells[l_cell].mpiIndices[l_face] < l_remoteFaceToCellIdMappings[l_region].size() );
+        assert( m_cells[l_cell].mpiIndices[l_face] < static_cast<int>(l_remoteFaceToCellIdMappings[l_region].size()) );
 
         // replace mpi index by the cell id
         m_cells[l_cell].mpiIndices[l_face] = l_remoteFaceToCellIdMappings[l_region][ m_cells[l_cell].mpiIndices[l_face] ];

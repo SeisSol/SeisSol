@@ -316,7 +316,7 @@ private:
 		for (std::vector<Element>::const_iterator i = m_elements.begin();
 				i != m_elements.end(); i++) {
 			for (int j = 0; j < 4; j++) {
-				assert(i->vertices[j] < m_vertices.size());
+				assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
 				m_vertices[i->vertices[j]].elements.push_back(i->localId);
 			}
 		}

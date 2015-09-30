@@ -197,7 +197,7 @@ private:
 			if (elementRank == m_rank) {
 				int n, t;
 
-				assert(k < m_elements.size());
+				assert(static_cast<size_t>(k) < m_elements.size());
 
 				m_elements[k].localId = k;
 
