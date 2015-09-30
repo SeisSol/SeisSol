@@ -79,8 +79,9 @@ contains
   CALL CPU_TIME(domain%IO%WallStart)
 
   ! Set line size for stdout and stderr (removes auto newlines)
-  open(FORTRAN_STDOUT, recl=FORTRAN_LINE_SIZE)
-  open(FORTRAN_STDERR, recl=FORTRAN_LINE_SIZE)
+  ! This does no longer work with C++ main() and produces errors with gfortran
+  !open(FORTRAN_STDOUT, recl=FORTRAN_LINE_SIZE)
+  !open(FORTRAN_STDERR, recl=FORTRAN_LINE_SIZE)
 
 #ifdef PARALLEL
   ! Initialize MPI 
