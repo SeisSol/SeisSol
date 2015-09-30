@@ -413,9 +413,13 @@ if env['arch'] in ['sknc', 'dknc', 'sknl', 'dknl']:
 
 # set (pre-)compiler flags for the compile modes
 if env['compileMode'] == 'debug':
-  env.Append(F90FLAGS = ['-O0', '-shared-intel'],
-             CLFGAGS  = ['-O0', '-shared-intel'],
-             CXXFLAGS = ['-O0', '-shared-intel'])
+  env.Append(F90FLAGS = ['-O0'],
+             CLFGAGS  = ['-O0'],
+             CXXFLAGS = ['-O0'])
+  if env['compiler'] == 'intel':
+      env.Append(F90FLAGS = ['-shared-intel'],
+                 CLFGAGS  = ['-shared-intel'],
+                 CXXFLAGS = ['-shared-intel'])
 if env['compileMode'] in ['debug', 'relWithDebInfo']:
   env.Append(F90FLAGS  = ['-g'],
              CFLAGS    = ['-g'],
