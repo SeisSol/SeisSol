@@ -70,9 +70,17 @@ def CheckHDF5Linking(context, message):
     
     return ret
 
+def CheckV18API(context):
+    context.Message('Checking for HDF5 v18 API... ')
+    ret = context.TryAction('h5cc -showconfig | fgrep v18')[0]
+    context.Result(ret)
+    
+    return ret
+
 def generate(env, **kw):
     conf = env.Configure(custom_tests = {'CheckHDF5FortranInclude' : CheckHDF5FortranInclude,
-                                         'CheckHDF5Linking' : CheckHDF5Linking})
+                                         'CheckHDF5Linking' : CheckHDF5Linking,
+                                         'CheckV18API' : CheckV18API})
     
     if 'required' in kw:
         required = kw['required']
@@ -140,46 +148,13 @@ def generate(env, **kw):
                 conf.Finish()            
                 return
     
-#     if 'parallel' in kw and kw['parallel']:
-#         parallel = True
-#         header = 'netcdf_par.h'
-#     else:
-#         parallel = False
-#         header = 'netcdf.h'
-#         
-#     if not conf.CheckLibWithHeader('netcdf', header, 'c'):
-#         if required:
-#             print 'Could not find netCDF!'
-#             env.Exit(1)
-#         else:
-#             conf.Finish()
-#             return
-#         
-#     ret = conf.CheckNetcdfLinking(parallel, "Checking whether shared netCDF library is used")
-#     if not ret:
-#         # Static library, link with HDF5 and zlib as well
-#         ret = [conf.CheckLib(lib) for lib in ['hdf5_hl', 'hdf5', 'z']]
-#         
-#         if not all(ret):
-#             if required:
-#                 print 'Could not find HDF5 or zlib!'
-#                 env.Exit(1)
-#             else:
-#                 conf.Finish()
-#                 return
-# 
-#         # Try to find all additional libraries
-#         conf.CheckLib('curl')
-#         conf.CheckLib('gpfs')
-# 
-#         ret = conf.CheckNetcdfLinking(parallel, "Checking whether all netCDF dependencies are found")
-#         if not ret:
-#             if required:
-#                 print 'Could not find all netCDF dependencies!'
-#                 env.Exit(1)
-#             else:
-#                 conf.Finish()
-#                 return
+    # Check API Mapping
+    if not conf.CheckV18API():
+        # TODO We might need to extent this list
+        conf.env.Append(CPPDEFINES=['H5Dcreate_vers=2',
+                                    'H5Dopen_vers=2',
+                                    'H5Eget_auto_vers=2',
+                                    'H5Eset_auto_vers=2'])
             
     conf.Finish()
 
