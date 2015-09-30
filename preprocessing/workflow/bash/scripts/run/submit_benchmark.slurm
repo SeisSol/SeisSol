@@ -35,22 +35,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-##SBATCH -o tpv16.%j.%N.out                   # command line parameter
-##SBATCH -J tpv16                             # command line parameter
 #SBATCH --get-user-env 
-##SBATCH --partition=snb                      # command line parameter
-##SBATCH --constraint=turbo_off               # command line parameter
-##SBATCH --ntasks=16                          # command line parameter
-#SBATCH --cpus-per-task=32
-#SBATCH --mail-type=end                                             
-#SBATCH --mail-user=breuera@in.tum.de
-#SBATCH --export=NONE
+# this is for sorting out nodes
 ##SBATCH --exclude=mac-bdz02,mac-bdz03,mac-bdz09,mac-bdz10,mac-bdz11,mac-bdz14,mac-snb01,mac-snb07,mac-snb08,mac-snb09,mac-snb11,mac-snb13,mac-snb16,mac-snb20,mac-snb26 # weak nodes
-##SBATCH --time=10:00:00                      # command line parameter
 #SBATCH --nice=500
-
-. /etc/profile 
-. /etc/profile.d/modules.sh
 
 # Usage info
 show_help() {
@@ -70,6 +58,7 @@ Submits a Benchmark-job to Slurm.
      -m NUMBER_OF_MPI_RANKS  total number of MPI-ranks.
      -r RANKS_PER_NODE       MPI-ranks used per node.
      -t THREADS_PER_RANK     number of OMP-threads per rank.
+     -b THREAD_BINDING       thread pinning
      -e EXECUTABLE           name of the executable.
      -f SCRIPTS_DIRECTORY    directory containing further bash scripts.
      -i ENVIRONMENT          script executed to setup bash-variables
@@ -91,12 +80,13 @@ BENCHMARK_DIRECTORY=NOT_SET
 NUMBER_OF_MPI_RANKS=NOT_SET
 RANKS_PER_NODE=NOT_SET
 THREADS_PER_RANK=NOT_SET
+THREAD_BINDING=NOT_SET
 EXECUTABLE=NOT_SET
 SCRIPTS_DIRECTORY=NOT_SET
 ENVIRONMENT=NOT_SET
 
 OPTIND=1
-while getopts "hd:c:a:p:u:s:q:o:n:m:r:t:e:f:i:" opt; do
+while getopts "hd:c:a:p:u:s:q:o:n:m:r:t:b:e:f:i:" opt; do
     case "$opt" in
         h)
             show_help
@@ -126,6 +116,8 @@ while getopts "hd:c:a:p:u:s:q:o:n:m:r:t:e:f:i:" opt; do
         r) RANKS_PER_NODE=$OPTARG
             ;;
         t) THREADS_PER_RANK=$OPTARG
+            ;;
+        b) THREAD_BINDING=$OPTARG
             ;;
         e) EXECUTABLE=$OPTARG
             ;;
@@ -183,7 +175,7 @@ fi
 echo "executing SeisSol: ${date}"
 if [[ ${ARCHITECTURE} != *"knc" ]]
 then
-  MPIEXEC_ARGUMENTS="-ppn ${RANKS_PER_NODE} -n ${NUMBER_OF_MPI_RANKS}"
+  MPIEXEC_ARGUMENTS="-genv I_MPI_DEBUG 4 -genv OMP_NUM_THREADS ${THREADS_PER_RANK} -genv KMP_AFFINITY ${THREAD_BINDING} -ppn ${RANKS_PER_NODE} -n ${NUMBER_OF_MPI_RANKS}"
   if [[ $SCALASCA != "none" ]]
   then
     scalasca -analyze mpiexec.hydra "${MPIEXEC_ARGUMENTS}" ./${EXECUTABLE} parameters.par
