@@ -153,6 +153,7 @@ def generate(env, **kw):
         # TODO We might need to extent this list
         conf.env.Append(CPPDEFINES=['H5Dcreate_vers=2',
                                     'H5Dopen_vers=2',
+                                    'H5Acreate_vers=2',
                                     'H5Eget_auto_vers=2',
                                     'H5Eset_auto_vers=2'])
             
