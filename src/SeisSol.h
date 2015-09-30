@@ -38,6 +38,9 @@
  * Main C++ SeisSol file
  */
 
+#ifndef SEISSOL_H
+#define SEISSOL_H
+
 #include "Parallel/MPI.h"
 
 #include <string>
@@ -196,3 +199,5 @@ public:
 };
 
 }
+
+#endif // SEISSOL_H
