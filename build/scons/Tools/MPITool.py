@@ -106,7 +106,7 @@ def generate(env, **kw):
             if env['compiler'] == 'intel':
                 env['mpif90'] = 'mpiifort'
             else:
-                env['mpif90'] = 'mpi90'
+                env['mpif90'] = 'mpif90'
         else:
             env['mpif90'] = 'mpif90'
             
