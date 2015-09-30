@@ -79,7 +79,7 @@ def generate(env, **kw):
    
     #check if we are using Intel MPI -> adjust CXX wrapper
     #by testing for Intel MPI's most basic env variable
-    if os.environ['I_MPI_ROOT']:
+    if os.environ.get('I_MPI_ROOT') != None:
       if env['compiler'] == 'intel':
         env['mpicc'] = 'mpiicc'
         env['mpicxx'] = 'mpiicpc'
