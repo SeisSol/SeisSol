@@ -315,9 +315,9 @@ env.Append(F90FLAGS=['-cpp'])
 if env['compiler'] == 'gcc':
     env.Append(F90FLAGS=['-ffree-line-length-none'])
   
-# enforce 8 byte precision for reals (required in SeisSol)
+# enforce 8 byte precision for reals (required in SeisSol) and compile time boundary check
 if env['compiler'] == 'intel':
-    env.Append(F90FLAGS=['-r8'])
+    env.Append(F90FLAGS=['-r8', '-WB'])
 elif env['compiler'] == 'gcc':
     env.Append(F90FLAGS=['-fdefault-real-8'])
     
@@ -426,9 +426,12 @@ if env['compileMode'] in ['debug', 'relWithDebInfo']:
              CXXFLAGS  = ['-g'],
              LINKFLAGS = ['-g', '-rdynamic'])
   if env['compiler'] == 'intel':
-      env.Append(F90FLAGS  = ['-traceback'],
+      env.Append(F90FLAGS  = ['-traceback', '-check'],
                  CFLAGS    = ['-traceback'],
                  CXXFLAGS  = ['-traceback'])
+  else:
+      env.Append(F90FLAGS  = ['-fbacktrace', '-fcheck=all'])
+
 if env['compileMode'] in ['relWithDebInfo', 'release']:
     env.Append(CPPDEFINES = ['NDEBUG'])
     env.Append(F90FLAGS = ['-O2'],
