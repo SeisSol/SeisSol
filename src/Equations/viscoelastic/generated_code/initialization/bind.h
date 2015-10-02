@@ -63,45 +63,5 @@
 // 
 // @section DESCRIPTION
 // Remark: This file was generated.
-#ifdef SWSM
-#include <initialization/bind_swsm.h>
-#endif
-#ifdef SSNB
-#include <initialization/bind_ssnb.h>
-#endif
-#ifdef SHSW
-#include <initialization/bind_shsw.h>
-#endif
-#ifdef SSKX
-#include <initialization/bind_sskx.h>
-#endif
-#ifdef SKNC
-#include <initialization/bind_sknc.h>
-#endif
-#ifdef SKNL
-#include <initialization/bind_sknl.h>
-#endif
-#ifdef SNOARCH
-#include <initialization/bind_snoarch.h>
-#endif
-#ifdef DWSM
-#include <initialization/bind_dwsm.h>
-#endif
-#ifdef DSNB
-#include <initialization/bind_dsnb.h>
-#endif
-#ifdef DHSW
-#include <initialization/bind_dhsw.h>
-#endif
-#ifdef DSKX
-#include <initialization/bind_dskx.h>
-#endif
-#ifdef DKNC
-#include <initialization/bind_dknc.h>
-#endif
-#ifdef DKNL
-#include <initialization/bind_dknl.h>
-#endif
-#ifdef DNOARCH
-#include <initialization/bind_dnoarch.h>
-#endif
+
+#define STAR_NNZ (NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES)
