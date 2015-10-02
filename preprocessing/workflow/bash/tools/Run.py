@@ -91,7 +91,8 @@ echo "$(date) submitting benchmarks"
                                " -J "          + l_build['id'] + '_' + l_benchmark['id']+\
                                " --partition=" + l_benchmark['queue']+\
                                " --nodes="    + l_benchmark['number_of_nodes']+\
-                               " --time="      + l_benchmark['maximum_runtime']
+                               " --time="      + l_benchmark['maximum_runtime']+\
+                               " --ntasks-per-node=" + l_benchmark['ranks_per_node']
 
           l_submitArguments =  " -d " + l_build['compile_mode']+\
                                " -c " + l_build['code_version']+\
@@ -105,6 +106,7 @@ echo "$(date) submitting benchmarks"
                                " -m " + l_benchmark['number_of_mpi_ranks']+\
                                " -r " + l_benchmark['ranks_per_node']+\
                                " -t " + l_benchmark['threads_per_rank']+\
+                               " -b " + l_benchmark['thread_binding']+\
                                " -e " + l_build['id']+\
                                " -f " + " ${SCRIPTS_DIRECTORY}/run/"+\
                                " -i " + "${INPUT_DIRECTORY}/env_vars.sh"

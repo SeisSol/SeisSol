@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Cristobal E. Castro (ccastro AT uc.cl https://sites.google.com/a/uc.cl/cristobal-e-castro/)
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2008-2014, SeisSol Group
+!! Copyright (c) 2008-2015, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -1877,11 +1878,5 @@ MODULE TypesDef
      REAL                                   :: dtReference
      REAL                                   :: PeriodicDisp(4) 
   END TYPE tUnstructDomainDescript
-
-  !<--- Debug ------------------------------------------------------------------
-  TYPE tDebug
-     LOGICAL                                :: enabled                          !< debugging messages on (T) or off (F)
-     INTEGER                                :: level                            !< level of debugging messages
-  END TYPE tDebug
 
 END MODULE TypesDef

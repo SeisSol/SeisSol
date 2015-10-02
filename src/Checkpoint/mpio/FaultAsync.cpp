@@ -69,7 +69,7 @@ void seissol::checkpoint::mpio::FaultAsync::writePrepare(int timestepFault)
 	writeHeader(timestepFault);
 
 	// Create copy of the data
-	for (int i = 0; i < NUM_VARIABLES; i++)
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
 		memcpy(&m_dataCopy[i*numSides()*numBndGP()],
 				data(i), numSides()*numBndGP()*sizeof(double));
 

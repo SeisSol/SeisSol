@@ -53,7 +53,7 @@ MODULE analyse_SeisSol_mod
 CONTAINS
 
   SUBROUTINE analyse_SeisSol(time,timestep,pvar,EQN,IC,MESH,DISC,BND,     &
-       SOURCE,IO,Analyse,OptionalFields,Debug,MPI)
+       SOURCE,IO,Analyse,OptionalFields,MPI)
     !--------------------------------------------------------------------------
     USE TypesDef
     USE plot_fields_mod
@@ -73,7 +73,6 @@ CONTAINS
     TYPE (tInputOutput)      :: IO
     TYPE (tAnalyse)          :: Analyse
     TYPE (tUnstructOptionalFields) :: OptionalFields
-    TYPE (tDebug)            :: Debug
     TYPE (tMPI)              :: MPI
     REAL                     :: time
     INTEGER                  :: timestep
@@ -97,7 +96,7 @@ CONTAINS
     CHARACTER(LEN=610)       :: Name
     CHARACTER (LEN=350)      :: Filename
     !--------------------------------------------------------------------------
-    INTENT(IN)               :: time,timestep,Debug
+    INTENT(IN)               :: time,timestep
     INTENT(INOUT)            :: IO,pvar,IC,EQN,DISC,MESH,OptionalFields
     !--------------------------------------------------------------------------
     !                                                                          !

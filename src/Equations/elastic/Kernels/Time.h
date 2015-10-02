@@ -277,13 +277,14 @@ class seissol::kernels::Time {
         }
         // free surface fake neighbors are GTS
         else if( i_faceTypes[l_face] == freeSurface ) {
-          l_ltsSetup |= (1 << l_face+4 );
+          l_ltsSetup |= (1 << (l_face+4) );
         }
         // dynamic rupture faces are always global time stepping but operate on derivatives
         else if( i_faceTypes[l_face] == dynamicRupture ) {
           // face-neighbor provides GTS derivatives
-          l_ltsSetup |= ( 1 << l_face     );
-          l_ltsSetup |= ( 1 << l_face + 4 );
+          // face-neighbor provides derivatives
+          l_ltsSetup |= ( 1 <<  l_face      );
+          l_ltsSetup |= ( 1 << (l_face + 4) );
 
           // cell is required to provide derivatives for dynamic rupture
           l_ltsSetup |= ( 1 << 9 );
@@ -305,7 +306,7 @@ class seissol::kernels::Time {
           }
           // GTS relation
           else if( i_localClusterId == i_neighboringClusterIds[l_face] ) {
-            l_ltsSetup |= ( 1 << l_face + 4 );
+            l_ltsSetup |= ( 1 << (l_face + 4) );
           }
 
           // cell is required to provide derivatives
@@ -366,7 +367,7 @@ class seissol::kernels::Time {
       // iterate over the face neighbors
       for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
         // enforce derivatives if this is a "GTS on derivatives" relation
-        if( (io_localLtsSetup >> l_face + 4)%2 && (i_neighboringLtsSetups[l_face] >> 10)%2 == 1 ) {
+        if( (io_localLtsSetup >> (l_face + 4))%2 && (i_neighboringLtsSetups[l_face] >> 10)%2 == 1 ) {
           io_localLtsSetup |= (1 << l_face);
         }
       }

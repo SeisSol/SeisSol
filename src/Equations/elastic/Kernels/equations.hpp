@@ -5,7 +5,7 @@ constexpr unsigned numberOfBasisFunctions(unsigned O) {
 }
 
 constexpr unsigned numberOfAlignedBasisFunctions(unsigned O) {
-  return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) * REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES;
+  return (numberOfBasisFunctions(O) * sizeof(real) + (ALIGNMENT - (numberOfBasisFunctions(O) * sizeof(real)) % ALIGNMENT) % ALIGNMENT) / sizeof(real);
 }
 
 constexpr unsigned numberOfAlignedDerBasisFunctions(unsigned O) {

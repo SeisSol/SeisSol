@@ -65,7 +65,7 @@ MODULE inioutput_SeisSol_mod
 CONTAINS
 
   SUBROUTINE inioutput_SeisSol(time,timestep,pvar,cvar,EQN,IC,MESH,MPI,      &         
-       SOURCE,DISC,BND,OptionalFields,IO,Analyse,Debug, &
+       SOURCE,DISC,BND,OptionalFields,IO,Analyse, &
        programTitle) !
     !--------------------------------------------------------------------------
     USE TypesDef
@@ -108,7 +108,6 @@ CONTAINS
     TYPE (tInputOutput)            :: IO                                       !
     TYPE (tBoundary)               :: BND                                      !
     TYPE (tAnalyse)                :: Analyse                                  !
-    TYPE (tDebug)                  :: Debug                                    !
     CHARACTER(LEN=100)             :: programTitle                             !
     ! local variable declaration                                               !
     CHARACTER(LEN=256)             :: outfile   
@@ -119,7 +118,7 @@ CONTAINS
     INTENT(IN)                     :: programTitle                             !
     INTENT(INOUT)                  :: EQN,DISC,IO, OptionalFields, MESH        ! Some values are set in the TypesDef
     INTENT(INOUT)                  :: IC,SOURCE,BND       !
-    INTENT(INOUT)                  :: Debug,time,timestep, Analyse             !
+    INTENT(INOUT)                  :: time,timestep, Analyse             !
     !--------------------------------------------------------------------------
     !                                                                          !
     ! register epik/scorep function
@@ -151,7 +150,7 @@ CONTAINS
          IO     = IO                                    , &                    ! Initialize receivers
          MPI    = MPI                                     )                    ! Initialize receivers
     !                                                                          !
-#endif                                                                   !
+#endif
 
 #ifdef PARALLEL
     WRITE(cmyrank,'(I5.5)') MPI%myrank     ! myrank -> cmyrank
@@ -184,15 +183,15 @@ CONTAINS
 
 #ifdef GENERATEDKERNELS
     call c_interoperability_initializeIO(           &
-        i_mu        = c_loc(disc%DynRup%mu),        &
-        i_slipRate1 = c_loc(disc%DynRup%slipRate1), &
-        i_slipRate2 = c_loc(disc%DynRup%slipRate2), &
-        i_slip1      = c_loc(disc%DynRup%slip1),    &
-        i_slip2      = c_loc(disc%DynRup%slip2),    &
-        i_state     = c_loc(disc%DynRup%stateVar),  &
-        i_strength  = c_loc(disc%DynRup%strength),  &
-        i_numSides  = c_loc(mesh%fault%nSide),      &
-        i_numBndGP  = c_loc(disc%galerkin%nBndGP)   )
+        i_mu        = disc%DynRup%mu,        &
+        i_slipRate1 = disc%DynRup%slipRate1, &
+        i_slipRate2 = disc%DynRup%slipRate2, &
+        i_slip1     = disc%DynRup%slip1,    &
+        i_slip2     = disc%DynRup%slip2,    &
+        i_state     = disc%DynRup%stateVar,  &
+        i_strength  = disc%DynRup%strength,  &
+        i_numSides  = mesh%fault%nSide,      &
+        i_numBndGP  = disc%galerkin%nBndGP   )
 #else
     if (IO%Format .eq. 6) then
         call waveFieldWriterInit(0, disc, eqn, io, mesh, mpi)

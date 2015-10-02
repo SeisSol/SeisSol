@@ -75,7 +75,7 @@ void seissol::checkpoint::posix::Fault::load(int &timestepFault)
 	checkErr(read(file, &timestepFault, sizeof(timestepFault)),	sizeof(timestepFault));
 
 	// Read data
-	for (int i = 0; i < NUM_VARIABLES; i++)
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
 		checkErr(read(file, data(i), numSides() * numBndGP() * sizeof(real)));
 
 	// Close the file
@@ -112,7 +112,7 @@ void seissol::checkpoint::posix::Fault::write(int timestepFault)
 	EPIK_USER_START(r_write_wavefield);
 	SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);
 
-	for (int i = 0; i < NUM_VARIABLES; i++)
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
 		checkErr(::write(file(), data(i), numSides() * numBndGP() * sizeof(real)));
 
 	EPIK_USER_END(r_write_fault);

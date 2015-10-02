@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  * 
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -56,10 +57,10 @@ pthread_t g_commThread;
 #endif
 
 seissol::time_stepping::TimeManager::TimeManager():
-  m_mpiRank(0),
-  m_logUpdates(std::numeric_limits<unsigned int>::max()),
   m_xmlParser(            MATRIXXMLFILE   ),
-  m_memoryManager(        m_xmlParser     ) {
+  m_memoryManager(        m_xmlParser     ),
+  m_logUpdates(std::numeric_limits<unsigned int>::max())
+{
 }
 
 seissol::time_stepping::TimeManager::~TimeManager() {
@@ -73,12 +74,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
                                                        struct MeshStructure         *i_meshStructure,
                                                        struct CellLocalInformation  *io_cellLocalInformation,
                                                        unsigned int                (*i_meshToClusters)[2]  ) {
-  SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-#ifdef USE_MPI
-  // init mpi rank
-  MPI_Comm_rank( MPI_COMM_WORLD, &m_mpiRank);
-#endif
+  SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
 
   // assert non-zero pointers
   assert( i_meshStructure         != NULL );
@@ -392,8 +388,10 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
         m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates % 100 == 0 ) {
       m_logUpdates = m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates;
 
-      logInfo(m_mpiRank) << "#max-updates since sync: " << m_logUpdates
-                         << " @ "                       << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
+      int rank = SeisSol::main.mpi().rank();
+
+      logInfo(rank) << "#max-updates since sync: " << m_logUpdates
+                         << " @ "                  << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
     }
   }
 }

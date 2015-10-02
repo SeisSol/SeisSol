@@ -791,8 +791,8 @@ contains
     !-------------------------------------------------------------------------!
 #ifdef GENERATEDKERNELS
     ! TODO (clustered LTS): get the degrees of freedom
-    call c_interoperability_getDofs( i_meshId = c_loc( iElem ), \
-                                     o_dofs   = c_loc( l_dofs ) )
+    call c_interoperability_getDofs( i_meshId = iElem  , \
+                                     o_dofs   = l_dofs )
 #endif
 
     state(:) = 0.

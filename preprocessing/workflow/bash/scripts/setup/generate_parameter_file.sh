@@ -105,13 +105,6 @@ shift "$((OPTIND-1))" # Shift off the options and optional --.
 #
 # Set up environment
 #
-echo "loading modules"
-source /etc/profile
-source /etc/profile.d/modules.sh
-
-module load fortran/intel
-module load ccomp/intel
-
 if [ "${ENVIRONMENT}" != "NOT_SET" ]
 then
   source ${ENVIRONMENT}

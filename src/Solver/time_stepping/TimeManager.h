@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  * 
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -85,9 +86,6 @@ class seissol::time_stepping::TimeManager {
 
     //! boundary kernel
     kernels::Boundary m_boundaryKernel;
-
-    //! mpi rank of this process
-    int m_mpiRank;
 
     //! last #updates of log
     unsigned int m_logUpdates;

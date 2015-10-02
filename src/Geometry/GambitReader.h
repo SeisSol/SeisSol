@@ -45,12 +45,6 @@
 #include <mpi.h>
 #endif
 
-#include "MeshReader.h"
-#include "vectors.h"
-
-#include "utils/stringutils.h"
-#include "utils/logger.h"
-
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
@@ -59,6 +53,13 @@
 #include <map>
 #include <string>
 #include <vector>
+
+#include "MeshReader.h"
+#include "SeisSol.h"
+#include "vectors.h"
+
+#include "utils/stringutils.h"
+#include "utils/logger.h"
 
 class GambitReader : public MeshReader
 {
@@ -188,6 +189,8 @@ private:
 #endif // PARALLEL
 		// Do not seek the mesh file, we should be at the correct position
 
+		int numPartitions = seissol::SeisSol::main.mpi().size();
+
 		m_elements.resize(m_g2lElements.size());
 		int k = 0;
 		for (int i = 0; i < m_nGlobElements; i++) {
@@ -197,7 +200,7 @@ private:
 			if (elementRank == m_rank) {
 				int n, t;
 
-				assert(k < m_elements.size());
+				assert(static_cast<size_t>(k) < m_elements.size());
 
 				m_elements[k].localId = k;
 
@@ -231,6 +234,8 @@ private:
 
 				k++;
 				m_mesh >> std::ws; // Skip rest of the line
+			} else if (elementRank >= numPartitions) {
+				logError() << "Invalid Partition file. Found element rank" << elementRank;
 			} else {
 				getline(m_mesh, line);
 			}

@@ -37,6 +37,8 @@
  * @section DESCRIPTION
  */
 
+#include <cstddef>
+
 #include "Fault.h"
 
 bool seissol::checkpoint::mpio::Fault::init(
@@ -56,11 +58,10 @@ bool seissol::checkpoint::mpio::Fault::init(
 
 	// Create the header data type
 	MPI_Datatype headerType;
-	int blockLength[] = {1, 1, 1};
-	MPI_Aint displ[] = {offsetof(Header, identifier), offsetof(Header, timestepFault),
-			sizeof(Header)};
-	MPI_Datatype types[] = {MPI_UNSIGNED_LONG, MPI_INT, MPI_UB};
-	MPI_Type_create_struct(3, blockLength, displ, types, &headerType);
+	int blockLength[] = {1, 1};
+	MPI_Aint displ[] = {offsetof(Header, identifier), offsetof(Header, timestepFault)};
+	MPI_Datatype types[] = {MPI_UNSIGNED_LONG, MPI_INT};
+	MPI_Type_create_struct(2, blockLength, displ, types, &headerType);
 	setHeaderType(headerType);
 
 	// Define the file view
@@ -94,7 +95,7 @@ void seissol::checkpoint::mpio::Fault::load(int &timestepFault)
 
 	// Read data
 	checkMPIErr(setDataView(file));
-	for (int i = 0; i < NUM_VARIABLES; i++)
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
 		checkMPIErr(MPI_File_read_all(file, data(i), numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
 
 	// Close the file
@@ -122,7 +123,7 @@ void seissol::checkpoint::mpio::Fault::write(int timestepFault)
 
 	checkMPIErr(setDataView(file()));
 
-	for (int i = 0; i < NUM_VARIABLES; i++)
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
 		checkMPIErr(MPI_File_write_all(file(), data(i), numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
 
 	EPIK_USER_END(r_write_fault);

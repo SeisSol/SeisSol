@@ -53,7 +53,7 @@ MODULE calc_SeisSol_mod
 CONTAINS
 
   SUBROUTINE calc_SeisSol(time,timestep,pvar,cvar,EQN,MESH,DISC,SOURCE,BND,IC, &
-                         OptionalFields,IO,MPI,Debug,Analyse)
+                         OptionalFields,IO,MPI,Analyse)
     !--------------------------------------------------------------------------
     USE TypesDef
     USE COMMON_printThisTimeStep_mod
@@ -95,7 +95,6 @@ CONTAINS
     TYPE (tUnstructOptionalFields):: OptionalFields
     TYPE (tInputOutput)           :: IO
     TYPE (tMPI)                   :: MPI
-    TYPE (tDebug)                 :: Debug 
     TYPE (tAnalyse)               :: Analyse
 
     REAL                          :: time                 ! current time
@@ -124,7 +123,6 @@ CONTAINS
     INTEGER                       :: iDRupdate
 #endif
     !--------------------------------------------------------------------------
-    INTENT(IN)                    :: Debug       
     INTENT(INOUT)                 :: time,timestep,OptionalFields,EQN,IO,BND,DISC,MESH,SOURCE
 
     ! register epik/scorep region for time stepping loop
@@ -202,7 +200,7 @@ CONTAINS
     endif
 
     ! do the simulation
-    call c_interoperability_simulate( i_finalTime =  c_loc(disc%endTime) );
+    call c_interoperability_simulate( i_finalTime = disc%endTime );
     ! End time is currently the only supported abort criteria by GK
     time = disc%endTime
 #else
