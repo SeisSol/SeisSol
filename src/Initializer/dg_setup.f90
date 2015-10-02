@@ -1090,6 +1090,15 @@ CONTAINS
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
       DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
 
+    else
+        ! Allocate dummy arrays to avoid debug errors
+        allocate(DISC%DynRup%SlipRate1(0,0), &
+            DISC%DynRup%SlipRate2(0,0),      &
+            DISC%DynRup%Slip1(0,0),          &
+            DISC%DynRup%Slip2(0,0),          &
+            DISC%DynRup%Mu(0,0),             &
+            DISC%DynRup%StateVar(0,0),       &
+            DISC%DynRup%Strength(0,0))
     ENDIF
     !
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
