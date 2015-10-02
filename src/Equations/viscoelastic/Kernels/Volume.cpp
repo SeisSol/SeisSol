@@ -40,9 +40,6 @@
 
 #include "Volume.h"
 
-#include <matrix_kernels/sparse.h>
-#include <matrix_kernels/dense.h>
-
 #ifndef NDEBUG
 #pragma message "compiling volume kernel with assertions"
 #endif
@@ -50,16 +47,12 @@
 #include <cassert>
 #include <stdint.h>
 
-seissol::kernels::Volume::Volume() {
-  // intialize the function pointers to the matrix kernels
-#define VOLUME_KERNEL
-#include <initialization/bind.h>
-#undef VOLUME_KERNEL
-}
+#include <generated_code/kernels.h>
 
 void seissol::kernels::Volume::computeIntegral( real** i_stiffnessMatrices,
                                                 real*  i_timeIntegratedDegreesOfFreedom,
                                                 real   i_starMatrices[3][STAR_NNZ],
+                                                real   sourceMatrix[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES],
                                                 real*  io_degreesOfFreedom ) {
   // assert alignments
   assert( ((uintptr_t)i_stiffnessMatrices[0])           % ALIGNMENT == 0 );
@@ -67,17 +60,18 @@ void seissol::kernels::Volume::computeIntegral( real** i_stiffnessMatrices,
   assert( ((uintptr_t)i_stiffnessMatrices[2])           % ALIGNMENT == 0 );
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
   assert( ((uintptr_t)io_degreesOfFreedom)              % ALIGNMENT == 0 );
-
-  // temporary result
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-
-  // iterate over dimensions 
-  for( unsigned int l_c = 0; l_c < 3; l_c++ ) {
-    m_matrixKernels[l_c] ( i_stiffnessMatrices[l_c], i_timeIntegratedDegreesOfFreedom, l_temporaryResult,
-                           NULL,                     NULL,                             NULL                 ); // These will be be ignored
-    m_matrixKernels[3]   ( l_temporaryResult,        i_starMatrices[l_c],              io_degreesOfFreedom,
-                           NULL,                     NULL,                             NULL                 ); // These will be be ignored
-  }
+  
+  seissol::generatedKernels::volume(
+    i_starMatrices[0],
+    i_starMatrices[1],
+    i_starMatrices[2],
+    i_stiffnessMatrices[1],
+    i_stiffnessMatrices[0],
+    i_stiffnessMatrices[2],
+    sourceMatrix,
+    i_timeIntegratedDegreesOfFreedom,
+    io_degreesOfFreedom
+  );
 }
 
 void seissol::kernels::Volume::flopsIntegral( unsigned int &o_nonZeroFlops,

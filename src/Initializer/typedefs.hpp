@@ -50,6 +50,11 @@
 #include <Kernels/equations.hpp>
 #include <Model/datastructures.hpp>
 
+// equations == viscoelastic
+#ifdef REQUIRE_SOURCE_MATRIX
+#include <generated_code/init.h>
+#endif
+
 enum Layer {
   ghost,
   copy,
@@ -301,7 +306,7 @@ struct LocalIntegrationData {
   
   // Matrix for source terms of the form E_pq Q_q
 #ifdef REQUIRE_SOURCE_MATRIX
-  real sourceMatrix[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+  real sourceMatrix[seissol::model::source::reals];
 #endif
 };
 

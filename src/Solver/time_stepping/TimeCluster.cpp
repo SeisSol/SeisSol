@@ -418,6 +418,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
     m_volumeKernel.computeIntegral(        m_globalData->stiffnessMatrices,
                                            l_bufferPointer,
                                            i_cellData->localIntegration[l_cell].starMatrices,
+#ifdef REQUIRE_SOURCE_MATRIX
+                                           i_cellData->localIntegration[l_cell].sourceMatrix,
+#endif
                                            io_dofs[l_cell] );
 
     m_boundaryKernel.computeLocalIntegral( i_cellInformation[l_cell].faceTypes,
@@ -429,12 +432,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
                                            io_buffers[l_cell+1],
                                            io_dofs[l_cell+1] );
 #else
-                                           io_dofs[l_cell] );
-#endif
-
-#ifdef REQUIRE_SOURCE_MATRIX
-    m_sourceKernel.computeIntegral(        l_bufferPointer,
-                                           i_cellData->localIntegration[l_cell].sourceMatrix,
                                            io_dofs[l_cell] );
 #endif
 

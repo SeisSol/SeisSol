@@ -93,6 +93,10 @@ vars.AddVariables(
                 allowed_values=('none', '2', '3', '4', '5', '6', '7', '8')
               ),
 
+  ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
+
+  ( 'libxsmmGenerator', 'Path to code generator from libxsmm (needs to be set if equations=viscoelastic).' ),
+
   ( 'programName', 'name of the executable', 'none' ),
 
   PathVariable( 'buildDir', 'where to build the code', 'build', PathVariable.PathIsDirCreate ),
@@ -222,6 +226,8 @@ if env['useExecutionEnvironment'] == True:
     env['ENV']['MPICH_CXX'] = os.environ['MPICH_CXX']
   if 'MIC_SYSROOT' in os.environ:
     env['ENV']['MIC_SYSROOT'] = os.environ['MIC_SYSROOT']
+  if 'PYTHONPATH' in os.environ:
+    env['ENV']['PYTHONPATH'] = os.environ['PYTHONPATH']
 
 
 # generate help text
@@ -240,6 +246,12 @@ if unknownVariables:
   
 if env['order'] == 'none':
   ConfigurationError("*** Convergence order not set.")
+  
+if env['equations'] == 'viscoelastic':
+  if env['numberOfMechanisms'] == '0':
+    ConfigurationError("*** Number of mechanisms not set.")
+  if not os.path.exists(os.path.expanduser(env['libxsmmGenerator'])):
+    ConfigurationError("*** Path to libxsmm code generator not set.")
   
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
@@ -272,7 +284,7 @@ else:
 # set precompiler mode for the number of quantities and basis functions
 env.Append(F90FLAGS='-DCONVERGENCE_ORDER='+env['order'])
 
-numberOfQuantities = { 'elastic' : 9, 'viscoelastic' : 27 }
+numberOfQuantities = { 'elastic' : 9, 'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6 }
 env.Append(F90FLAGS='-DNUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]))
 
 # set number of temporal integration points for dynamic ruputure boundary conditions
@@ -537,45 +549,26 @@ env['F95FLAGS'] = env['F90FLAGS']
 # setup the program name and the build directory
 #
 if env['programName'] == 'none':
-  # compile mode
-  program_name = '_'+env['compileMode']
-
-  # matrix optimizations
-  if env['generatedKernels']:
-    program_name += '_'+'generatedKernels'
-  else:
-    program_name += '_'+'classic'
-
-  # vector instruction set
-  program_name += '_'+env['arch'] 
- 
-  # Parallelization?
-  if env['parallelization'] == 'omp':
-    program_name += '_omp'
-  elif env['parallelization'] == 'mpi':
-    program_name += '_mpi'
-  elif env['parallelization'] == 'hybrid':
-    program_name += '_hybrid'
-  else:
-    program_name += '_none'
-
-  # Sclasca?
-  if env['scalasca'] != 'none':
-    program_name += '_scalasca'
-  else:
-    program_name += '_none'
- 
-  # add number of quantities and basis functions
-  program_name += '_'+'9'
-  program_name += '_'+env['order']
-  env['programFile'] = env['buildDir']+'/SeisSol'+program_name
+  program_suffix = '{}_{}_{}_{}_{}_{}_{}'.format(
+    env['compileMode'],
+    'generatedKernels' if env['generatedKernels'] else 'classic',
+    env['arch'],
+    env['parallelization'],
+    'scalasca' if env['scalasca'] != 'none' else 'none',
+    numberOfQuantities[ env['equations'] ],
+    env['order']
+  )
+  env['programFile'] = '{}/SeisSol_{}'.format(
+    env['buildDir'],
+    program_suffix
+  )
 else:
-  program_name = "_"+env['programName']
+  program_suffix = env['programName']
   env['programFile'] = env['buildDir']+'/'+env['programName']
 
 # build directory
 
-env['buildDir'] = env['buildDir']+'/build'+program_name
+env['buildDir'] = '{}/build_{}'.format(env['buildDir'], program_suffix)
 
 # set sub directories (important for scons tree)
 buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
@@ -591,6 +584,7 @@ env.Append(F90FLAGS='-module ${TARGET.dir}')
 env.sourceFiles = []
 
 Export('env')
+SConscript('generated_code/SConscript_generatedKernels', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
 SConscript('src/SConscript_generatedKernels', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
 SConscript('submodules/SConscript_generatedKernels', variant_dir='#/'+env['buildDir']+'/submodules', duplicate=0)
 Import('env')

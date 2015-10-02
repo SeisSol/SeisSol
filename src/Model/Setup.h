@@ -85,8 +85,8 @@ namespace seissol {
                                 MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv );
                                 
 #ifdef REQUIRE_SOURCE_MATRIX
-    void setSourceMatrix( seissol::model::Material const&                        local,
-                          MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> sourceMatrix );
+    void setSourceMatrix( seissol::model::Material const& local,
+                          real*                           sourceMatrix );
 #endif
   }
 }

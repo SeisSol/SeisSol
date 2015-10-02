@@ -42,6 +42,11 @@
 
 #include <Kernels/common.hpp>
 
+// if equations == viscoelastic
+#ifdef REQUIRE_SOURCE_MATRIX
+#include <generated_code/init.h>
+#endif
+
 seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i_matrixReader ) {
   // init the sparse switch
 #define SPARSE_SWITCH
@@ -51,9 +56,35 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
   // allocate memory for the pointers to the individual matrices
   m_fluxMatrixPointers      = new real*[52];
   m_stiffnessMatrixPointers = new real*[6];
-
+  
+// if equations == viscoelastic
+// \todo Remove ifdef and generalize initialization
+#ifdef REQUIRE_SOURCE_MATRIX
+  real* globalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
+  for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
+    memcpy(
+      &globalMatrixMem[ seissol::model::globalMatrixOffsets[matrix] ],
+      seissol::model::globalMatrixValues[matrix],
+      (seissol::model::globalMatrixOffsets[matrix+1] - seissol::model::globalMatrixOffsets[matrix]) * sizeof(real)
+    );
+  }
+  for (unsigned flux = 0; flux < 52; ++flux) {
+    m_fluxMatrixPointers[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[flux] ];
+  }
+  for (unsigned stiffness = 0; stiffness < 6; ++stiffness) {
+    m_stiffnessMatrixPointers[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + stiffness] ];
+  }
+  // \todo Integrate this step into the code generator
+  for (unsigned transposedStiffness = 52; transposedStiffness < 55; ++transposedStiffness) {
+    real* matrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
+    for (unsigned i = 0; i < seissol::model::globalMatrixOffsets[transposedStiffness+1]-seissol::model::globalMatrixOffsets[transposedStiffness]; ++i) {
+      matrix[i] *= -1.0;
+    }
+  }
+#else
   // initialize global matrices
   initializeGlobalMatrices( i_matrixReader );
+#endif
 
   setFluxMatrices(                m_globalData.fluxMatrices );
   setStiffnessMatrices(           m_globalData.stiffnessMatrices );

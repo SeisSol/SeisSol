@@ -56,29 +56,6 @@ class seissol::kernels::Boundary {
   // explicit private for unit tests
   private:
     /**
-     * Collection of matrix kernels, which perform the matrix product \f$ C += A.B\f$,
-     * where \f$ A \f$ is a global flux matrix (case a) or B the flux solver (case b, 52).
-     *   Each kernel can be dense or sparse.
-     *   The kernels are ordered element local contribution \f$ F^{-, i} \f$ in front, which is 
-     *   followed by the flux matrices for the neighbor element contribution \f$ F^{+, i, j, h} \f$
-     *    0-51:  \f$ F^{-, 1} \vee \ldots \vee F^{-, 4} \vee F^+{+, 1, 1, 1} \vee \ldots \vee F^+{+, 4, 4, 3} \f$
-     *    52:    \f$ N_{k,i} A_k^+ N_{k,i}^{-1}\f$ or \f$ N_{k,i} A_{k(i)}^- N_{k,i}^{-1} \f$ without prefetches
-     *    53:    \f$ N_{k,i} A_k^+ N_{k,i}^{-1}\f$ or \f$ N_{k,i} A_{k(i)}^- N_{k,i}^{-1} \f$ with prefetches
-     *
-     * The matrix kernels might prefetch matrices of the next matrix multiplication triple \f$ A =+ B.C \f$,
-     * thus loading upcoming matrices into lower level memory while the FPUs are busy.
-     *
-     * @param i_A left/flux matrix (case a) or unknowns matrix (case b).
-     * @param i_B right/unknowns matrix (case a) or flux solver (case b).
-     * @param io_C result matrix.
-     * @param i_APrefetch left matrix \f$ A \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     * @param i_BPrefetch right matrix \f$ B \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     * @param i_CPrefetch result matrix \f$ C \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     **/  
-    void (*m_matrixKernels[54])( const real *i_A,         const real *i_B,               real *io_C,
-                                 const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
-
-    /**
      * Number of non-zero floating point operations performed by each matrix kernel.
      **/
     unsigned int m_nonZeroFlops[54];
@@ -92,7 +69,7 @@ class seissol::kernels::Boundary {
     /**
      * Constructor, which initializes the boundary kernel.
      **/
-    Boundary();
+    Boundary() {}
 
     /**
      * Computes the cell's local contribution to the boundary integral.

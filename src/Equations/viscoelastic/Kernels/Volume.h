@@ -58,28 +58,6 @@ class seissol::kernels::Volume {
   // explicit private for unit tests
   private:
     /**
-     * Collection of matrix kernels, which perform the matrix product \f$ C += A.B\f$,
-     * where \f$ A \f$ is a global stiffness matrix (case a) or B the sparse star matrix (case b).
-     * Each kernel can be dense or sparse, the kernels are ordered as follows:
-     *    0:  \f$ K^\xi   \f$
-     *    1:  \f$ K^\eta  \f$
-     *    2:  \f$ K^\zeta \f$
-     *    3:  \f$ A^* \vee B^* \vee C^* \f
-     *
-     * The matrix kernels might prefetch matrices of the next matrix multiplication triple \f$ A =+ B.C \f$,
-     * thus loading upcoming matrices into lower level memory while the FPUs are busy.
-     * 
-     * @param i_A left/stiffness matrix (case a) or time integrated DOFs matrix (case b).
-     * @param i_B right/time integrated DOFs matrix (case a) or star matrix (case b).
-     * @param io_C result matrix.
-     * @param i_APrefetch left matrix \f$ A \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     * @param i_BPrefetch right matrix \f$ B \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     * @param i_CPrefetch result matrix \f$ C \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     **/  
-    void (*m_matrixKernels[4])( const real *i_A,         const real *i_B,               real *io_C,
-                                const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
-
-    /**
      * Number of non-zero floating point operations performed by each matrix kernel.
      **/
     unsigned int m_nonZeroFlops[4];
@@ -93,7 +71,7 @@ class seissol::kernels::Volume {
     /**
      * Constructor, which initializes the volume kernel.
      **/
-    Volume();
+    Volume() {}
 
     /**
      * Computes the volume integral from previously computed time integrated degrees of freedom.
@@ -106,6 +84,7 @@ class seissol::kernels::Volume {
     void computeIntegral( real** i_stiffnessMatrices,
                           real*  i_timeIntegratedDegreesOfFreedom,
                           real   i_starMatrices[3][STAR_NNZ],
+                          real   sourceMatrix[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES],
                           real*  io_degreesOfFreedom );
 
     /**
