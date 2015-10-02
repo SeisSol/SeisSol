@@ -445,7 +445,7 @@ CONTAINS
     real                            :: l_timeStepWidth
     real                            :: l_loads(3), l_scalings(3), l_cuts(2), l_timeScalings(2), l_gts
     integer                         :: iObject, iSide, iNeighbor, MPIIndex
-    real, target                    :: NeigMaterialVal(EQN%nBackgroundVar)
+    real, target                    :: materialVal(EQN%nBackgroundVar)
 #endif
     ! ------------------------------------------------------------------------!
     !
@@ -1017,28 +1017,29 @@ CONTAINS
   do iElem = 1, MESH%nElem
     iSide = 0
     
+    materialVal = OptionalFields%BackgroundValue(iElem,:)
     call c_interoperability_setMaterial( i_elem = iElem,                                         \
                                          i_side = iSide,                                         \
-                                         i_materialVal = OptionalFields%BackgroundValue(iElem,:),\
+                                         i_materialVal = materialVal,\
                                          i_numMaterialVals = EQN%nBackgroundVar                  )
                                          
     do iSide = 1,4
       IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
           iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
           MPIIndex        = MESH%ELEM%MPINumber(iSide,iElem)
-          NeigMaterialVal = BND%ObjMPI(iObject)%NeighborBackground(1:3,MPIIndex) ! rho,mu,lambda
+          materialVal = BND%ObjMPI(iObject)%NeighborBackground(1:3,MPIIndex) ! rho,mu,lambda
       ELSE
           SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
           CASE(0)
               iNeighbor       = MESH%ELEM%SideNeighbor(iSide,iElem)
-              NeigMaterialVal = OptionalFields%BackgroundValue(iNeighbor,:)
+              materialVal = OptionalFields%BackgroundValue(iNeighbor,:)
           CASE DEFAULT ! For boundary conditions take inside material
-              NeigMaterialVal = OptionalFields%BackgroundValue(iElem,:)
+              materialVal = OptionalFields%BackgroundValue(iElem,:)
           END SELECT
       ENDIF      
       call c_interoperability_setMaterial( i_elem = iElem,                        \
                                            i_side = iSide,                        \
-                                           i_materialVal = NeigMaterialVal,       \
+                                           i_materialVal = materialVal,       \
                                            i_numMaterialVals = EQN%nBackgroundVar )
                                            
     enddo
