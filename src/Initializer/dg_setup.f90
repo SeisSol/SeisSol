@@ -1253,11 +1253,11 @@ CONTAINS
 !===================================================================================!
 
     IF(MESH%nElem_Tet .GT. 0)THEN
-        logInfo(*) 'Tetrahedral Elements '
+        logInfo0(*) 'Tetrahedral Elements '
         CALL OpenFile(IO%UNIT%FileIn,FileName_Tet,.FALSE.)
 
-        logInfo(*) 'Reading basis functions and mass matrices for DG method '
-        logInfo(*) '  from file ', TRIM(FileName_Tet)
+        logInfo0(*) 'Reading basis functions and mass matrices for DG method '
+        logInfo0(*) '  from file ', TRIM(FileName_Tet)
 
         ! Read comment
         READ(IO%UNIT%FileIn,*)
@@ -1300,7 +1300,7 @@ CONTAINS
         ! BasisFunctions3D.tri
         DO iPoly = 0, DISC%Galerkin%nPolyRec
             ! Read comment in front of the basis functions' coefficients
-            logInfo(*) 'Reading basis functions of order ', iPoly
+            logInfo0(*) 'Reading basis functions of order ', iPoly
             READ(IO%UNIT%FileIn,*)
             nDegFr = (iPoly + 1)*(iPoly + 2)*(iPoly + 3)/6
             ! Read polynomial coefficients
@@ -1316,7 +1316,7 @@ CONTAINS
             ENDDO
             ! Read comment in front of the entries of the mass matrix
             READ(IO%UNIT%FileIn,*)
-            logInfo(*) 'Reading mass matrices   of order ', iPoly
+            logInfo0(*) 'Reading mass matrices   of order ', iPoly
             ! Read entries of the mass matrix
             DO k = 1, nDegFr
                 DO l = 1, nDegFr
@@ -1355,11 +1355,11 @@ CONTAINS
 !===================================================================================!
 
     IF(MESH%nElem_Hex .GT. 0)THEN
-        logInfo(*) 'Hexahedral Elements '
+        logInfo0(*) 'Hexahedral Elements '
         CALL OpenFile(IO%UNIT%FileIn,FileName_Hex,.FALSE.)
 
-        logInfo(*) 'Reading basis functions and mass matrices for DG method '
-        logInfo(*) '  from file ', TRIM(FileName_Hex)
+        logInfo0(*) 'Reading basis functions and mass matrices for DG method '
+        logInfo0(*) '  from file ', TRIM(FileName_Hex)
 
         ! Read comment
         READ(IO%UNIT%FileIn,*)
@@ -4488,24 +4488,24 @@ CONTAINS
        CLOSE(IO%UNIT%FileIn)                              !
        !                                                  !
        !                                                  !
-       logInfo(*) 'Path to the DG directory is: ',TRIM(DGPATH)
+       logInfo0(*) 'Path to the DG directory is: ',TRIM(DGPATH)
 
     WRITE(FileName_Tri,'(a,a20)') TRIM(DGPATH), 'BasisFunctions2D.tri'
     OPEN( UNIT = IO%UNIT%FileIn, FILE = TRIM(FileName_Tri), IOSTAT = STAT, STATUS='OLD' )
     !
     IF(stat.NE.0) THEN
-        WRITE(*,*) ' ERROR! File ', TRIM(FileName_Tri), ' could not be opened. '
+        logError(*) ' ERROR! File ', TRIM(FileName_Tri), ' could not be opened. '
         STOP
     ENDIF
-    WRITE(*,*) ' | Reading basis functions and mass matrices for DG method '
-    WRITE(*,*) ' | from file ', TRIM(FileName_Tri)
+    logInfo0(*) 'Reading basis functions and mass matrices for DG method '
+    logInfo0(*) 'from file ', TRIM(FileName_Tri)
 
     READ(IO%UNIT%FileIn,*)
     READ(IO%UNIT%FileIn,*)
     ! Read maximal degree of basis polynomials stored in the file.
     READ(IO%UNIT%FileIn,*) nMaxPoly
     IF(DISC%Galerkin%nPoly.GT.nMaxPoly) THEN
-        WRITE(*,*) 'ERROR: Required polynomial for DG method is higher than the ones stored in file ', TRIM(FileName_Tri)
+        logError(*) 'ERROR: Required polynomial for DG method is higher than the ones stored in file ', TRIM(FileName_Tri)
         STOP
     ENDIF
 
@@ -4518,7 +4518,7 @@ CONTAINS
         DISC%Galerkin%NonZeroCPolyIndex_Tri(3,1:nMaxPoly**3,0:MaxDegFr,0:nMaxPoly),                  &
         STAT = allocstat)
     IF(allocStat .NE. 0) THEN
-        WRITE(*,*) 'ERROR: could not allocate all variables!'
+        logError(*) 'ERROR: could not allocate all variables!'
         STOP
     END IF
 
@@ -4526,7 +4526,7 @@ CONTAINS
     !DO iPoly = 0, nMaxPoly
     DO iPoly = 0, DISC%Galerkin%nPoly
         ! Read comment in front of the basis functions' coefficients
-        WRITE(*,*) ' | Reading basis functions of order ', iPoly
+        logInfo0(*) 'Reading basis functions of order ', iPoly
         READ(IO%UNIT%FileIn,*)
         DegFr = (iPoly + 1)*(iPoly + 2)/2
         ! Read polynomial coefficients
@@ -4540,7 +4540,7 @@ CONTAINS
         ENDDO
         ! Read comment in front of the entries of the mass matrix
         READ(IO%UNIT%FileIn,*)
-        WRITE(*,*) ' | Reading mass matrices   of order ', iPoly
+        logInfo0(*)  'Reading mass matrices   of order ', iPoly
         ! Read entries of the mass matrix
         DO k = 1, DegFr
             DO l = 1, DegFr
