@@ -79,7 +79,7 @@ public:
 		size_t partitions;
 		checkNcError(nc_inq_dimlen(ncFile, ncDimPart, &partitions));
 
-		if (partitions != nProcs)
+		if (partitions != static_cast<unsigned int>(nProcs))
 			logError() << "Number of partitions in netCDF file does not match number of MPI ranks.";
 
 		int ncDimBndSize;
@@ -162,7 +162,7 @@ public:
 		logInfo(rank) << "Start reading mesh from netCDF file";
 
 		// Elements
-		size_t start[3] = {rank, 0, 0};
+		size_t start[3] = {static_cast<size_t>(rank), 0, 0};
 		int size;
 		checkNcError(nc_get_var1_int(ncFile, ncVarElemSize, start, &size));
 
@@ -182,7 +182,7 @@ public:
 		EPIK_USER_START(r_read_elements);
 		SCOREP_USER_REGION_BEGIN( r_read_elements, "read_elements", SCOREP_USER_REGION_TYPE_COMMON )
 		// Read element buffers from netcdf
-		size_t count[3] = {1, size, 4};
+		size_t count[3] = {1, static_cast<size_t>(size), 4};
 		checkNcError(nc_get_vara_int(ncFile, ncVarElemVertices, start, count, reinterpret_cast<int*>(elemVertices)));
 		checkNcError(nc_get_vara_int(ncFile, ncVarElemNeighbors, start, count, reinterpret_cast<int*>(elemNeighbors)));
 		checkNcError(nc_get_vara_int(ncFile, ncVarElemNeighborSides, start, count, reinterpret_cast<int*>(elemNeighborSides)));
@@ -259,7 +259,7 @@ public:
 			MPINeighbor neighbor;
 			neighbor.localID = i;
 
-			size_t bndStart[3] = {rank, i, 0};
+			size_t bndStart[3] = {static_cast<size_t>(rank), static_cast<size_t>(i), 0};
 
 			// Get neighbor rank from netcdf
 			int bndRank;
@@ -316,7 +316,7 @@ private:
 		for (std::vector<Element>::const_iterator i = m_elements.begin();
 				i != m_elements.end(); i++) {
 			for (int j = 0; j < 4; j++) {
-				assert(i->vertices[j] < m_vertices.size());
+				assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
 				m_vertices[i->vertices[j]].elements.push_back(i->localId);
 			}
 		}

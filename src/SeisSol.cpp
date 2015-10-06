@@ -44,7 +44,7 @@
 #include <omp.h>
 #endif // _OPENMP
 
-#include "utils/timeutils.h"
+#include "utils/args.h"
 
 void seissol::SeisSol::init(int argc, char* argv[])
 {
@@ -74,6 +74,21 @@ void seissol::SeisSol::init(int argc, char* argv[])
 #endif
 #endif
 #endif // _OPENMP
+
+  // Parse command line arguments
+  utils::Args args;
+  args.addAdditionalOption("file", "The parameter file", false);
+  switch (args.parse(argc, argv)) {
+  case utils::Args::Help:
+  case utils::Args::Error:
+	  m_mpi.finalize();
+	  exit(1);
+	  break;
+  case utils::Args::Success:
+	  break;
+  }
+
+  m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
 }
 
 void seissol::SeisSol::finalize()

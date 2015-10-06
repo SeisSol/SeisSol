@@ -150,7 +150,7 @@ public:
 	}
 
 	/**
-	 * Computes the square of the Euclidean distance of to coordinates
+	 * Computes the Euclidean distance of two coordinates
 	 */
 	static double distance(const VrtxCoords v1, const VrtxCoords v2)
 	{

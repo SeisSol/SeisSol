@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Martin Kaeser (martin.kaeser AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/kaeser)
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2010, SeisSol Group
+!! Copyright (c) 2010-2015, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -52,10 +53,6 @@ MODULE COMMON_readpar_mod
      MODULE PROCEDURE readpar
   END INTERFACE
 
-  INTERFACE readpar_getArguments
-     MODULE PROCEDURE readpar_getArguments
-  END INTERFACE
-
   INTERFACE readpar_header
      MODULE PROCEDURE readpar_header
   END INTERFACE
@@ -100,13 +97,18 @@ MODULE COMMON_readpar_mod
      MODULE PROCEDURE readpar_analyse
   END INTERFACE
 
-  INTERFACE readpar_debug
-     MODULE PROCEDURE readpar_debug
-  END INTERFACE
-
   INTERFACE analyse_readpar
      MODULE PROCEDURE analyse_readpar_unstruct
   END INTERFACE
+
+  interface
+    subroutine getParameterFile( i_maxlen, o_file ) bind( C, name='getParameterFile' )
+        use iso_c_binding
+        implicit none
+        integer(kind=c_int), value                        :: i_maxlen
+        character(kind=c_char), dimension(*), intent(out) :: o_file
+    end subroutine
+  end interface
 
   !----------------------------------------------------------------------------
   PUBLIC  :: readpar
@@ -117,7 +119,7 @@ MODULE COMMON_readpar_mod
 CONTAINS
 
   SUBROUTINE readpar(EQN,IC,usMESH,DISC,SOURCE,BND,IO, &
-                     ANALYSE,Debug,programTitle,MPI)
+                     ANALYSE,programTitle,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE 
     !--------------------------------------------------------------------------
@@ -129,16 +131,16 @@ CONTAINS
     TYPE (tBoundary)                :: BND
     TYPE (tInputOutput)             :: IO
     TYPE (tAnalyse)                 :: ANALYSE
-    TYPE (tDebug)                   :: Debug
     TYPE (tMPI)          , OPTIONAL :: MPI                                      
     CHARACTER(LEN=100)              :: programTitle
     ! local variables
     INTEGER                         :: actual_version_of_readpar
     CHARACTER(LEN=600)              :: Name
     CHARACTER(LEN=801)              :: Name1
+    logical :: existence
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: programTitle
-    INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE,Debug
+    INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE
     INTENT(INOUT)                   :: EQN,IO, usMESH
     !--------------------------------------------------------------------------
     PARAMETER(actual_version_of_readpar = 19)
@@ -155,11 +157,18 @@ CONTAINS
        STOP                                                                  !
     END IF                                                                   !
     !                                                                        !
-    CALL readpar_getArguments(                                          &    ! 
-            IC           = IC                                            , & !
-            IO           = IO                                            , & !
-            programTitle = programTitle                                    ) !
-    !                                                                        ! 
+    call getParameterFile(len(IO%ParameterFile), IO%ParameterFile)
+
+    ! Check if the parameter file exists
+    inquire(file=IO%ParameterFile,EXIST=existence)
+    if(existence)then
+    else
+       logError(*) 'You did not specify a valid parameter-file'
+       stop
+    endif
+    !
+    logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
+    logInfo0(*) '<                                                         >'
     Name1 = TRIM(IO%ParameterFile)                       !
     Name = Name1(1:600)
     !                                                                        ! 
@@ -190,8 +199,6 @@ CONTAINS
     !                                                                        !        
     CALL readpar_analyse(ANALYSE,EQN,DISC,IC,IO)                             ! 
     !                                                                        !        
-    CALL readpar_debug(IO,Debug)                                             !   read Debug
-    !                                                                        !        
     CLOSE(IO%UNIT%FileIn,status='keep')                                      !
     !                                                                        !        
     CALL analyse_readpar(EQN,DISC,usMESH,IC,SOURCE,IO,MPI)                   ! Check parameterfile...
@@ -199,88 +206,6 @@ CONTAINS
     RETURN                                                                   !
     !                                                                        !        
   END SUBROUTINE readpar                                                     !
-
-  !============================================================================
-  ! G E T   A R G U M E N T S
-  !============================================================================
-
-  SUBROUTINE readpar_getArguments(IC,IO,programTitle)
-    !------------------------------------------------------------------------
-    
-    !------------------------------------------------------------------------
-    IMPLICIT NONE 
-    !------------------------------------------------------------------------
-#ifdef PARALLEL
-    include 'mpif.h'
-#endif
-    TYPE (tInitialCondition)   :: IC
-    TYPE (tInputOutput)        :: IO
-    CHARACTER(LEN=100)         :: programTitle
-    ! local variables
-    character(len=500) :: arg,strdummy
-    character(len=4):: file_ext
-    logical :: existence
-    INTEGER                    :: NARG,iErr,i,len_str,myrank,mpisize    
-    !------------------------------------------------------------------------
-    INTENT(IN)                 :: programTitle
-    INTENT(INOUT)              :: IC, IO
-    !------------------------------------------------------------------------
-    ! Reading in command line arguments                                     !
-    !                                                                       !
-    NARG = COMMAND_ARGUMENT_COUNT() ! Number of command-line arguments    
-    IO%MetisWeights =.FALSE.                                                
-    IO%ParameterFile='PARAMETERS.par'
-
-#ifdef PARALLEL
-    !broadcast number of arguments in mpi-version
-    call mpi_bcast(%val(loc(narg)),1,MPI_INTEGER,0,MPI_COMM_WORLD,iErr);
-    !comment on bcast:
-    !%VAL and LOC are non-intrinsic functions necessary when using compaq visual fortran.
-    !For the case your environment doesn't provide these functions - try without, e.g.:
-    !call mpi_bcast(arg,len(arg),MPI_CHARACTER,0,MPI_COMM_WORLD,iErr);
-
-    ! get the rank of this process
-    call mpi_comm_rank(mpi_comm_world,myrank,iErr)
-#endif
-    do i = 1,narg ! loop over commandline arguments
-       CALL GET_COMMAND_ARGUMENT(i,arg) !get argument strings
-#ifdef PARALLEL
-       !broadcast arguments in mpi-version
-       call mpi_bcast(%val(loc(arg)),len(arg),MPI_CHARACTER,0,MPI_COMM_WORLD,iErr);
-       !comment on bcast:
-       !%VAL and LOC are non-intrinsic functions necessary when using compaq visual fortran.
-       !For the case your environment doesn't provide these functions - try without, e.g.:
-       !call mpi_bcast(arg,len(arg),MPI_CHARACTER,0,MPI_COMM_WORLD,iErr);
-#endif
-       inquire(file=trim(adjustl(arg)),EXIST=existence)!check if argument is existing file
-       len_str=len(trim(adjustl(arg)))
-       strdummy=trim(adjustl(arg))
-       file_ext=strdummy(len_str-3:len_str)
-       if((existence).and.(file_ext=='.par'))then !if argument is file with .par extension use parameterfile
-          IO%ParameterFile=trim(adjustl(strdummy))
-          logInfo0(*) 'Will read from parameter-file: ',trim(adjustl(IO%ParameterFile))
-       endif
-       if(trim(adjustl(arg))=='weights')then
-          IO%MetisWeights =.TRUE.
-          logInfo0(*) 'set Metis weights: ',IO%MetisWeights
-       endif
-    enddo
-    inquire(file=IO%ParameterFile,EXIST=existence)
-    if(existence)then
-    else
-#ifdef PARALLEL
-       call mpi_barrier(MPI_COMM_WORLD,iErr)
-       call mpi_finalize(iErr)
-#endif
-
-       logError(*) 'You did not specify any parameter-file for: ',TRIM(adjustl(programTitle))
-       logError(*) '... finalized program execution!'
-       stop
-    endif
-    logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
-    logInfo0(*) '<                                                         >'
-   !
-  END SUBROUTINE readpar_getArguments                                       !
 
   !============================================================================
   ! H E A D E R
@@ -403,6 +328,12 @@ CONTAINS
       STOP
     END SELECT
     !
+#if defined(GENERATEDKERNELS) && defined(USE_PLASTICITY)
+    if (Plasticity .eq. 0) then
+      logWarning(*) 'Plasticity is disabled, but this version was compiled with Plasticity. Setting Plasticity=1.'
+      Plasticity = 1
+    endif
+#endif
     SELECT CASE(Plasticity)
     CASE(0)
       logInfo(*) 'No plasticity assumed. '
@@ -3324,7 +3255,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          ENDIF
 
          IF(EQN%Plasticity.EQ.1) THEN                                                       ! Plastic material properties                              
-            IO%OutputMask(13:18)  = iOutputMask(10:15)                                      ! plastic strain output
+            IO%OutputMask(13:19)  = iOutputMask(10:16)                                      ! plastic strain output
          ENDIF
 
          IF(IO%Rotation.EQ.1) THEN
@@ -3442,6 +3373,8 @@ ALLOCATE( SpacePositionx(nDirac), &
                     IO%TitleMask(16) = TRIM(' "eps_p_xy"')
                     IO%TitleMask(17) = TRIM(' "eps_p_yz"')
                     IO%TitleMask(18) = TRIM(' "eps_p_xz"') 
+                    IO%TitleMask(19) = TRIM(' "eta_p"')
+
                 ENDIF       
       ENDIF
       !
@@ -3666,7 +3599,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
       select case (io%checkpoint%backend)
         case ("posix")
-            logInfo(*) 'Using POSIX checkpoint backend'
+            logInfo0(*) 'Using POSIX checkpoint backend'
         case ("hdf5")
 #ifndef USE_HDF
             logError(*) 'This version does not support HDF5 checkpoints'
@@ -3684,7 +3617,13 @@ ALLOCATE( SpacePositionx(nDirac), &
             logError(*) 'This version does not support MPI-IO checkpoints'
             stop
 #endif
-            logInfo(*) 'Using async MPI-IO checkpoint backend'
+            logInfo0(*) 'Using async MPI-IO checkpoint backend'
+        case ("sionlib")
+#ifndef USE_SIONLIB
+            logError(*) 'This version does not support SIONlib checkpoints'
+            stop
+#endif
+            logInfo0(*) 'Using SIONlib checkpoint backend'
         case ("none")
             io%checkpoint%interval = 0
         case default
@@ -3898,51 +3837,6 @@ ALLOCATE( SpacePositionx(nDirac), &
     READ(IO%UNIT%FileIn, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for ampfield, ...
    END SUBROUTINE  
-  !
-  !============================================================================
-  ! D E B U G                
-  !============================================================================
-
-  SUBROUTINE readpar_debug(IO,DEBUG)
-    !------------------------------------------------------------------------
-    IMPLICIT NONE 
-    !------------------------------------------------------------------------
-    TYPE (tInputOutput)        :: IO
-    TYPE (tDebug)              :: Debug
-    INTEGER                    :: debug_flag, level
-    !------------------------------------------------------------------------
-    INTENT(IN)                 :: IO
-    INTENT(OUT)                :: Debug
-    !------------------------------------------------------------------------
-    NAMELIST                         /Debugging/ debug_flag, level
-    !------------------------------------------------------------------------    
-    !                                                                             
-    logInfo(*) '<--------------------------------------------------------->'
-    logInfo(*) '<  D E B U G G I N G     M O D U S                        >'
-    logInfo(*) '<--------------------------------------------------------->'
-    ! 
-    ! Setting default values
-    debug_flag = 0                                                                       
-    level = 0
-    READ(IO%UNIT%FileIn, nml = Debugging)
-    DEBUG%enabled = debug_flag                                 
-    !                                                                            
-    IF (DEBUG%enabled .ne. 0) THEN                                           
-       !                                                                     
-       logInfo(*)  'Running in DEBUG modus !'                                
-       !                                                                     
-       DEBUG%level = level                                                   
-       !                                                                     
-       logInfo(*)                                          &                 
-            '                             level: '       , &                 
-            DEBUG%level                                                      
-    ELSE                                                                     
-       !                                                                     
-       logInfo(*)  'NO Debugging messages are shown '
-       !                                                                     
-    END IF                                                                  
-    !                                                                               
-  END SUBROUTINE readpar_debug
 
   !============================================================================
   ! A N A L Y S E           

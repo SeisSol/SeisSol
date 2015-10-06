@@ -43,6 +43,7 @@ Import('env')
 # parameter reader source file
 readerFiles = [ 'read_backgroundstress.f90',
                 'readpar.f90',
+                'readparC.cpp',
                 'faultinput.f90' ]
 
 for i in readerFiles:

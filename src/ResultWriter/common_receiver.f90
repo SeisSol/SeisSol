@@ -104,6 +104,7 @@ CONTAINS
     !--------------------------------------------------------------------------
     INTEGER                  :: i, iElem, iPick, iCPU
     INTEGER,ALLOCATABLE      :: MPI_receiver_Element(:,:)
+    INTEGER,ALLOCATABLE      :: MPI_receiver_Index(:)
     REAL                     :: io_x, io_y, io_z, t
     REAL                     :: xmin, xmax, ymin, ymax, zmin, zmax
     REAL                     :: xV(MESH%nVertexMax), yV(MESH%nVertexMax), zV(MESH%nVertexMax)
@@ -171,10 +172,13 @@ CONTAINS
         ! log info
         logInfo(*) 'Cleaning possible double receiver locations for MPI... '
         !
-        ALLOCATE(  MPI_receiver_Element(IO%ntotalRecordPoint,0:MPI%nCPU-1) )
+        ALLOCATE( MPI_receiver_Element(IO%ntotalRecordPoint,0:MPI%nCPU-1) )
+        ALLOCATE( MPI_receiver_Index( IO%ntotalRecordPoint ) )
 
-        CALL MPI_ALLGATHER(IO%UnstructRecPoint(:)%index,  IO%ntotalRecordPoint,MPI_INTEGER, &
-                           MPI_receiver_Element,          IO%ntotalRecordPoint,MPI_INTEGER, &
+        MPI_receiver_Index(:) = IO%UnstructRecPoint(:)%index
+
+        CALL MPI_ALLGATHER(MPI_receiver_Index,     IO%ntotalRecordPoint,MPI_INTEGER, &
+                           MPI_receiver_Element,   IO%ntotalRecordPoint,MPI_INTEGER, &
                            MPI_COMM_WORLD, MPI%iErr                                          )
 
         DO iPick = 1, IO%ntotalRecordPoint
@@ -200,7 +204,8 @@ CONTAINS
           ENDIF
         ENDDO
         !
-        DEALLOCATE(MPI_receiver_Element )
+        DEALLOCATE( MPI_receiver_Element )
+        DEALLOCATE( MPI_receiver_Index )
         logInfo(*) 'MPI receiver cleaning done.  '
         IO%MPIPickCleaningDone = 1
       ENDIF
@@ -217,14 +222,14 @@ CONTAINS
 #ifdef GENERATEDKERNELS
   do i=1, io%ntotalRecordPoint
     if( io%unstructRecPoint(i)%index .ge. 0 ) then
-      call c_interoperability_addReceiver( c_loc(i), c_loc(io%unstructRecPoint(i)%index) )
+      call c_interoperability_addReceiver( i, io%unstructRecPoint(i)%index )
     endif
   enddo
 
   if (IO%pickDtType .eq. 2) then
     logError(*), "no support for time step width dependent receivers."
   else
-    call c_interoperability_setReceiverSampling( c_loc( io%pickdt ) )
+    call c_interoperability_setReceiverSampling( io%pickdt )
   endif
 #endif
 
@@ -381,8 +386,8 @@ CONTAINS
       NULLIFY(Tens_xi_Sp_ptr, Tens_eta_Sp_ptr, Tens_zeta_Sp_ptr, Tens_klm_sp_ptr)
     ENDIF
 #else
-     call c_interoperability_getTimeDerivatives( i_meshId         = c_loc( iElem  ), \
-                                                 o_timeDerivatives = c_loc( taylorDof(:,:,0) ) )
+     call c_interoperability_getTimeDerivatives( i_meshId         = iElem, \
+                                                 o_timeDerivatives = taylorDof(:,:,0) )
 #endif
     !
   END SUBROUTINE common_receiver_ck

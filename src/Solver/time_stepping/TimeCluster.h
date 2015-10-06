@@ -51,9 +51,6 @@
 #include <Kernels/Time.h>
 #include <Kernels/Volume.h>
 #include <Kernels/Boundary.h>
-#ifdef REQUIRE_SOURCE_MATRIX
-#include <Kernels/Source.h>
-#endif
 
 namespace seissol {
   namespace time_stepping {
@@ -64,8 +61,16 @@ namespace seissol {
 /**
  * Time cluster, which represents a collection of elements havign the same time step width.
  **/
-class seissol::time_stepping::TimeCluster {
-  //private:
+class seissol::time_stepping::TimeCluster
+{
+public:
+    //! cluster id on this rank
+    const unsigned int m_clusterId;
+
+    //! global cluster cluster id
+    const unsigned int m_globalClusterId;
+
+private:
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
 
@@ -83,10 +88,6 @@ class seissol::time_stepping::TimeCluster {
 
     //! boundary kernel
     kernels::Boundary &m_boundaryKernel;
-    
-#ifdef REQUIRE_SOURCE_MATRIX
-    kernels::Source    m_sourceKernel;
-#endif
 
     /*
      * mesh structure
@@ -116,13 +117,13 @@ class seissol::time_stepping::TimeCluster {
     //! cell local information in the interior
     struct CellLocalInformation *m_interiorCellInformation;
 
-    //! cell local data in the interior
-    struct CellData *m_interiorCellData;
-
 #ifdef USE_MPI
     //! cell local data in the copy layer
     struct CellData *m_copyCellData;
 #endif
+
+    //! cell local data in the interior
+    struct CellData *m_interiorCellData;
 
     //! degrees of freedom, time buffers, time derivatives
     struct Cells *m_cells;
@@ -240,12 +241,6 @@ class seissol::time_stepping::TimeCluster {
                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS] );
 
   public:
-    //! cluster id on this rank
-    const unsigned int m_clusterId;
-
-    //! global cluster cluster id
-    const unsigned int m_globalClusterId;
-
     //! flags identifiying if the respective part is allowed to be updated
     struct {
       bool localCopy;

@@ -88,13 +88,13 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_boundaryKernel(          i_boundaryKernel           ),
  // mesh structure
  m_meshStructure(           i_meshStructure            ),
+ // global data
+ m_globalData(              i_globalData               ),
  // cell info
 #ifdef USE_MPI
  m_copyCellInformation(     i_copyCellInformation      ),
 #endif
  m_interiorCellInformation( i_interiorCellInformation  ),
- // global data
- m_globalData(              i_globalData               ),
  // cell data
 #ifdef USE_MPI
  m_copyCellData(            i_copyCellData             ),
@@ -254,11 +254,11 @@ void seissol::time_stepping::TimeCluster::receiveGhostLayer(){
    */
   for( unsigned int l_region = 0; l_region < m_meshStructure->numberOfRegions; l_region++ ) {
     // continue only if the cluster qualifies for communication
-    if( m_resetLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= m_globalClusterId ) {
+    if( m_resetLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= static_cast<int>(m_globalClusterId) ) {
       // post receive request
       MPI_Irecv(   m_meshStructure->ghostRegions[l_region],                // initial address
                    m_meshStructure->ghostRegionSizes[l_region],            // number of elements in the receive buffer
-                   real_mpi,                                               // datatype of each receive buffer element
+                   MPI_C_REAL,                                               // datatype of each receive buffer element
                    m_meshStructure->neighboringClusters[l_region][0],      // rank of source
                    timeData+m_meshStructure->receiveIdentifiers[l_region], // message tag
                    MPI_COMM_WORLD,                                         // communicator
@@ -278,11 +278,11 @@ void seissol::time_stepping::TimeCluster::sendCopyLayer(){
    * Send data of the copy regions
    */
   for( unsigned int l_region = 0; l_region < m_meshStructure->numberOfRegions; l_region++ ) {
-    if( m_sendLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= m_globalClusterId ) {
+    if( m_sendLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= static_cast<int>(m_globalClusterId) ) {
       // post send request
       MPI_Isend(   m_meshStructure->copyRegions[l_region],              // initial address
                    m_meshStructure->copyRegionSizes[l_region],          // number of elements in the send buffer
-                   real_mpi,                                            // datatype of each send buffer element
+                   MPI_C_REAL,                                            // datatype of each send buffer element
                    m_meshStructure->neighboringClusters[l_region][0],   // rank of destination
                    timeData+m_meshStructure->sendIdentifiers[l_region], // message tag
                    MPI_COMM_WORLD,                                      // communicator
@@ -418,17 +418,20 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
     m_volumeKernel.computeIntegral(        m_globalData->stiffnessMatrices,
                                            l_bufferPointer,
                                            i_cellData->localIntegration[l_cell].starMatrices,
+#ifdef REQUIRE_SOURCE_MATRIX
+                                           i_cellData->localIntegration[l_cell].sourceMatrix,
+#endif
                                            io_dofs[l_cell] );
 
     m_boundaryKernel.computeLocalIntegral( i_cellInformation[l_cell].faceTypes,
                                            m_globalData->fluxMatrices,
                                            l_bufferPointer,
                                            i_cellData->localIntegration[l_cell].nApNm1,
-                                           io_dofs[l_cell] );
-
-#ifdef REQUIRE_SOURCE_MATRIX
-    m_sourceKernel.computeIntegral(        l_bufferPointer,
-                                           i_cellData->localIntegration[l_cell].sourceMatrix,
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+                                           io_dofs[l_cell],
+                                           io_buffers[l_cell+1],
+                                           io_dofs[l_cell+1] );
+#else
                                            io_dofs[l_cell] );
 #endif
 
@@ -504,7 +507,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
   #pragma omp parallel for schedule(static) private(l_integrationBuffer, l_timeIntegrated)
 #endif
 #endif
-  for( int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
+  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
     m_timeKernel.computeIntegrals(             i_cellInformation[l_cell].ltsSetup,
                                                i_cellInformation[l_cell].faceTypes,
                                                m_subTimeStart,
@@ -540,8 +543,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
                                                                +(i_cellInformation[l_cell+1].faceRelations[l_face][0]*3)
                                                                +(i_cellInformation[l_cell+1].faceRelations[l_face][1])];
     } else {
-      l_faceNeighbors_prefetch[3] = i_faceNeighbors[l_cell][l_face];
-      l_fluxMatricies_prefetch[3] = m_globalData->fluxMatrices[4+(l_face*12)
+      l_faceNeighbors_prefetch[3] = i_faceNeighbors[l_cell][3];
+      l_fluxMatricies_prefetch[3] = m_globalData->fluxMatrices[4+(3*12)
                                                                +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
                                                                +(i_cellInformation[l_cell].faceRelations[l_face][1])];
     }

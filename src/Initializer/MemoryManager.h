@@ -103,12 +103,12 @@ class seissol::initializers::MemoryManager {
     /**
      * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
      *
-     *    0:  \f$ M^{-1} K^\xi \f$
-     *    1:  \f$ M^{-1} K^\eta \f$
-     *    2:  \f$ M^{-1} K^\zeta f$
-     *    3:  \f$ M^{-1} ( K^\xi )^T \f$
-     *    4:  \f$ M^{-1} ( K^\eta )^T \f$
-     *    5:  \f$ M^{-1} ( K^\zeta )^T \f$
+     *    0:  \f$ M^{-1} ( K^\xi )^T \f$
+     *    1:  \f$ M^{-1} ( K^\eta )^T \f$
+     *    2:  \f$ M^{-1} ( K^\zeta )^T \f$
+     *    3:  \f$ M^{-1} K^\xi \f$
+     *    4:  \f$ M^{-1} K^\eta \f$
+     *    5:  \f$ M^{-1} K^\zeta f$
      *
      **/ 
     real** m_stiffnessMatrixPointers;

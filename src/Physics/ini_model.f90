@@ -75,7 +75,7 @@ MODULE ini_MODEL_mod
 CONTAINS
 
 
-  SUBROUTINE ini_MODEL(MaterialVal,OptionalFields,EQN,MESH,IC,IO,DEBUG,DISC,BND)
+  SUBROUTINE ini_MODEL(MaterialVal,OptionalFields,EQN,MESH,IC,IO,DISC,BND)
     !--------------------------------------------------------------------------
     
     USE COMMON_operators_mod, ONLY: OpenFile, XYinTriangle
@@ -93,7 +93,6 @@ CONTAINS
     TYPE (tUnstructMesh)            :: MESH
     TYPE (tInputOutput)             :: IO
     TYPE (tInitialCondition)        :: IC
-    TYPE (tDebug)                   :: DEBUG
     TYPE (tDiscretization)          :: DISC
     TYPE (tBoundary)                :: BND
     TYPE (tUnstructOptionalFields)  :: OptionalFields
@@ -152,7 +151,7 @@ CONTAINS
     
     INTEGER                         :: InterpolationScheme = 1                ! Select the interpolation scheme (linear=1, cubic=else)
     !--------------------------------------------------------------------------
-    INTENT(IN)                      :: MESH,IC,DEBUG
+    INTENT(IN)                      :: MESH,IC
     INTENT(OUT)                     :: MaterialVal
     INTENT(INOUT)                   :: EQN,OptionalFields
     ! -------------------------------------------------------------------------

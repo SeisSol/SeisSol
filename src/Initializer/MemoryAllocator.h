@@ -99,8 +99,10 @@ class seissol::MemoryAllocator {
       }
       else {
         if (i_alignment % (sizeof(void*)) != 0) {
+          /* @TODO make sure that we free this memory with hbw_free */
           l_ptrBuffer = hbw_malloc( i_size );
         } else {
+          /* @TODO make sure that we free this memory with hbw_free */
           hbw_posix_memalign( &l_ptrBuffer, i_alignment, i_size );
         } 
       }
@@ -108,7 +110,9 @@ class seissol::MemoryAllocator {
       if (i_alignment % (sizeof(void*)) != 0) {
         l_ptrBuffer = malloc( i_size );
       } else {
-        posix_memalign( &l_ptrBuffer, i_alignment, i_size );
+        int err = posix_memalign( &l_ptrBuffer, i_alignment, i_size );
+        if (err)
+        	logError() << "posix_memalign failed" << err;
       }
       #endif
 

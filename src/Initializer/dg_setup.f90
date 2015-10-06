@@ -445,7 +445,7 @@ CONTAINS
     real                            :: l_timeStepWidth
     real                            :: l_loads(3), l_scalings(3), l_cuts(2), l_timeScalings(2), l_gts
     integer                         :: iObject, iSide, iNeighbor, MPIIndex
-    real, target                    :: NeigMaterialVal(EQN%nBackgroundVar)
+    real, target                    :: materialVal(EQN%nBackgroundVar)
 #endif
     ! ------------------------------------------------------------------------!
     !
@@ -528,13 +528,13 @@ CONTAINS
       endif
 #endif
 
-      call c_interoperability_setTimeStepWidth( i_meshId        = c_loc(iElem),                               &
-                                                i_timeStepWidth = c_loc( l_timeStepWidth ) &
+      call c_interoperability_setTimeStepWidth( i_meshId        = iElem,          &
+                                                i_timeStepWidth = l_timeStepWidth &
                                               )
     enddo
 
     ! put the clusters under control of the time manager
-    call c_interoperability_initializeClusteredLts( i_clustering =c_loc(disc%galerkin%clusteredLts) );
+    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts );
 #endif
 
     !
@@ -1017,29 +1017,30 @@ CONTAINS
   do iElem = 1, MESH%nElem
     iSide = 0
     
-    call c_interoperability_setMaterial( i_elem = c_loc(iElem),                                         \
-                                         i_side = c_loc(iSide),                                         \
-                                         i_materialVal = c_loc(OptionalFields%BackgroundValue(iElem,:)),\
-                                         i_numMaterialVals = c_loc(EQN%nBackgroundVar)                  )
+    materialVal = OptionalFields%BackgroundValue(iElem,:)
+    call c_interoperability_setMaterial( i_elem = iElem,                                         \
+                                         i_side = iSide,                                         \
+                                         i_materialVal = materialVal,\
+                                         i_numMaterialVals = EQN%nBackgroundVar                  )
                                          
     do iSide = 1,4
       IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
           iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
           MPIIndex        = MESH%ELEM%MPINumber(iSide,iElem)
-          NeigMaterialVal = BND%ObjMPI(iObject)%NeighborBackground(1:3,MPIIndex) ! rho,mu,lambda
+          materialVal = BND%ObjMPI(iObject)%NeighborBackground(1:3,MPIIndex) ! rho,mu,lambda
       ELSE
           SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
           CASE(0)
               iNeighbor       = MESH%ELEM%SideNeighbor(iSide,iElem)
-              NeigMaterialVal = OptionalFields%BackgroundValue(iNeighbor,:)
+              materialVal = OptionalFields%BackgroundValue(iNeighbor,:)
           CASE DEFAULT ! For boundary conditions take inside material
-              NeigMaterialVal = OptionalFields%BackgroundValue(iElem,:)
+              materialVal = OptionalFields%BackgroundValue(iElem,:)
           END SELECT
       ENDIF      
-      call c_interoperability_setMaterial( i_elem = c_loc(iElem),                        \
-                                           i_side = c_loc(iSide),                        \
-                                           i_materialVal = c_loc(NeigMaterialVal),       \
-                                           i_numMaterialVals = c_loc(EQN%nBackgroundVar) )
+      call c_interoperability_setMaterial( i_elem = iElem,                        \
+                                           i_side = iSide,                        \
+                                           i_materialVal = materialVal,       \
+                                           i_numMaterialVals = EQN%nBackgroundVar )
                                            
     enddo
   enddo
@@ -1089,6 +1090,15 @@ CONTAINS
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
       DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
 
+    else
+        ! Allocate dummy arrays to avoid debug errors
+        allocate(DISC%DynRup%SlipRate1(0,0), &
+            DISC%DynRup%SlipRate2(0,0),      &
+            DISC%DynRup%Slip1(0,0),          &
+            DISC%DynRup%Slip2(0,0),          &
+            DISC%DynRup%Mu(0,0),             &
+            DISC%DynRup%StateVar(0,0),       &
+            DISC%DynRup%Strength(0,0))
     ENDIF
     !
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
@@ -1243,11 +1253,11 @@ CONTAINS
 !===================================================================================!
 
     IF(MESH%nElem_Tet .GT. 0)THEN
-        logInfo(*) 'Tetrahedral Elements '
+        logInfo0(*) 'Tetrahedral Elements '
         CALL OpenFile(IO%UNIT%FileIn,FileName_Tet,.FALSE.)
 
-        logInfo(*) 'Reading basis functions and mass matrices for DG method '
-        logInfo(*) '  from file ', TRIM(FileName_Tet)
+        logInfo0(*) 'Reading basis functions and mass matrices for DG method '
+        logInfo0(*) '  from file ', TRIM(FileName_Tet)
 
         ! Read comment
         READ(IO%UNIT%FileIn,*)
@@ -1290,7 +1300,7 @@ CONTAINS
         ! BasisFunctions3D.tri
         DO iPoly = 0, DISC%Galerkin%nPolyRec
             ! Read comment in front of the basis functions' coefficients
-            logInfo(*) 'Reading basis functions of order ', iPoly
+            logInfo0(*) 'Reading basis functions of order ', iPoly
             READ(IO%UNIT%FileIn,*)
             nDegFr = (iPoly + 1)*(iPoly + 2)*(iPoly + 3)/6
             ! Read polynomial coefficients
@@ -1306,7 +1316,7 @@ CONTAINS
             ENDDO
             ! Read comment in front of the entries of the mass matrix
             READ(IO%UNIT%FileIn,*)
-            logInfo(*) 'Reading mass matrices   of order ', iPoly
+            logInfo0(*) 'Reading mass matrices   of order ', iPoly
             ! Read entries of the mass matrix
             DO k = 1, nDegFr
                 DO l = 1, nDegFr
@@ -1345,11 +1355,11 @@ CONTAINS
 !===================================================================================!
 
     IF(MESH%nElem_Hex .GT. 0)THEN
-        logInfo(*) 'Hexahedral Elements '
+        logInfo0(*) 'Hexahedral Elements '
         CALL OpenFile(IO%UNIT%FileIn,FileName_Hex,.FALSE.)
 
-        logInfo(*) 'Reading basis functions and mass matrices for DG method '
-        logInfo(*) '  from file ', TRIM(FileName_Hex)
+        logInfo0(*) 'Reading basis functions and mass matrices for DG method '
+        logInfo0(*) '  from file ', TRIM(FileName_Hex)
 
         ! Read comment
         READ(IO%UNIT%FileIn,*)
@@ -1932,9 +1942,12 @@ CONTAINS
         DISC%DynRup%BndBF_GP_Tet = 0.0D0
         DISC%DynRup%FluxInt = 0.0D0
         !
+#if __INTEL_COMPILER == 1600
+#else
 #ifdef OMP
         !$omp parallel private(iFace, iElem, iSide, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, xV, yV, zV, x_host, y_host, z_host, iBndGP, chi, tau, xi, eta, zeta, xGP, yGP, zGP, iDegFr, iDegFr2, phi_iDegFr, phi_iDegFr2) shared( mesh, disc, eqn, bnd) default( none )
         !$omp do schedule(static)
+#endif
 #endif
         DO iFace=1,MESH%Fault%nSide
             !
@@ -2024,8 +2037,11 @@ CONTAINS
             ENDDO
             !
         ENDDO ! iFace
-#if defined(OMP)
+#if __INTEL_COMPILER == 1600
+#else
+#ifdef OMP
         !$omp end parallel
+#endif
 #endif
         !
         ! accordingly to normal FluxInt matrix all values small than 1e-10 are set to zero
@@ -2551,10 +2567,11 @@ CONTAINS
     !
 
     IF(EQN%Plasticity.EQ.1) THEN
-      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(6, MESH%nElem))
+      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(6, MESH%nElem), DISC%Galerkin%accpstrain(MESH%nElem))
 !#ifdef GENERATEDKERNELS
                DISC%Galerkin%DOFStress = 0.
                DISC%Galerkin%pstrain = 0.
+               DISC%Galerkin%accpstrain = 0.
 !#endif
     ENDIF
 
@@ -2686,8 +2703,8 @@ CONTAINS
 
 #ifdef GENERATEDKERNELS
         ! write the update back
-        call c_interoperability_addToDofs(  i_meshId  = c_loc( iElem ), \
-                                            i_update  = c_loc( l_dofsUpdate ) )
+        call c_interoperability_addToDofs(  i_meshId  = iElem, \
+                                            i_update  = l_dofsUpdate )
 
 #ifdef USE_PLASTICITY
         ! initialize loading in C
@@ -4471,24 +4488,24 @@ CONTAINS
        CLOSE(IO%UNIT%FileIn)                              !
        !                                                  !
        !                                                  !
-       logInfo(*) 'Path to the DG directory is: ',TRIM(DGPATH)
+       logInfo0(*) 'Path to the DG directory is: ',TRIM(DGPATH)
 
     WRITE(FileName_Tri,'(a,a20)') TRIM(DGPATH), 'BasisFunctions2D.tri'
     OPEN( UNIT = IO%UNIT%FileIn, FILE = TRIM(FileName_Tri), IOSTAT = STAT, STATUS='OLD' )
     !
     IF(stat.NE.0) THEN
-        WRITE(*,*) ' ERROR! File ', TRIM(FileName_Tri), ' could not be opened. '
+        logError(*) ' ERROR! File ', TRIM(FileName_Tri), ' could not be opened. '
         STOP
     ENDIF
-    WRITE(*,*) ' | Reading basis functions and mass matrices for DG method '
-    WRITE(*,*) ' | from file ', TRIM(FileName_Tri)
+    logInfo0(*) 'Reading basis functions and mass matrices for DG method '
+    logInfo0(*) 'from file ', TRIM(FileName_Tri)
 
     READ(IO%UNIT%FileIn,*)
     READ(IO%UNIT%FileIn,*)
     ! Read maximal degree of basis polynomials stored in the file.
     READ(IO%UNIT%FileIn,*) nMaxPoly
     IF(DISC%Galerkin%nPoly.GT.nMaxPoly) THEN
-        WRITE(*,*) 'ERROR: Required polynomial for DG method is higher than the ones stored in file ', TRIM(FileName_Tri)
+        logError(*) 'ERROR: Required polynomial for DG method is higher than the ones stored in file ', TRIM(FileName_Tri)
         STOP
     ENDIF
 
@@ -4501,7 +4518,7 @@ CONTAINS
         DISC%Galerkin%NonZeroCPolyIndex_Tri(3,1:nMaxPoly**3,0:MaxDegFr,0:nMaxPoly),                  &
         STAT = allocstat)
     IF(allocStat .NE. 0) THEN
-        WRITE(*,*) 'ERROR: could not allocate all variables!'
+        logError(*) 'ERROR: could not allocate all variables!'
         STOP
     END IF
 
@@ -4509,7 +4526,7 @@ CONTAINS
     !DO iPoly = 0, nMaxPoly
     DO iPoly = 0, DISC%Galerkin%nPoly
         ! Read comment in front of the basis functions' coefficients
-        WRITE(*,*) ' | Reading basis functions of order ', iPoly
+        logInfo0(*) 'Reading basis functions of order ', iPoly
         READ(IO%UNIT%FileIn,*)
         DegFr = (iPoly + 1)*(iPoly + 2)/2
         ! Read polynomial coefficients
@@ -4523,7 +4540,7 @@ CONTAINS
         ENDDO
         ! Read comment in front of the entries of the mass matrix
         READ(IO%UNIT%FileIn,*)
-        WRITE(*,*) ' | Reading mass matrices   of order ', iPoly
+        logInfo0(*)  'Reading mass matrices   of order ', iPoly
         ! Read entries of the mass matrix
         DO k = 1, DegFr
             DO l = 1, DegFr

@@ -53,7 +53,11 @@ class View(QWidget):
 
     self.figure = plt.figure()
     self.canvas = FigureCanvas(self.figure)
-    self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)    
+    toolbar = NavigationToolbar(self.canvas, self)
+    plotLayout = QVBoxLayout()
+    plotLayout.addWidget(toolbar)
+    plotLayout.addWidget(self.canvas)
     
     self.navigationLayout = QHBoxLayout()
     
@@ -70,7 +74,7 @@ class View(QWidget):
     sideLayout.addWidget(addNaviButton)
     sideLayout.addLayout(self.navigationLayout)
     layout.addLayout(sideLayout)
-    layout.addWidget(self.canvas)
+    layout.addLayout(plotLayout)
     
   def addNavigation(self):
     navigation = Navigation.Navigation(self)

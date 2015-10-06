@@ -93,6 +93,10 @@ vars.AddVariables(
                 allowed_values=('none', '2', '3', '4', '5', '6', '7', '8')
               ),
 
+  ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
+
+  ( 'libxsmmGenerator', 'Path to code generator from libxsmm (needs to be set if equations=viscoelastic).' ),
+
   ( 'programName', 'name of the executable', 'none' ),
 
   PathVariable( 'buildDir', 'where to build the code', 'build', PathVariable.PathIsDirCreate ),
@@ -112,6 +116,8 @@ vars.AddVariables(
   BoolVariable( 'hdf5', 'use hdf5 library for data output', False ),
   
   BoolVariable( 'netcdf', 'use netcdf library for mesh input', False ),
+  
+  BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
   
   BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
   
@@ -164,18 +170,13 @@ vars.AddVariables(
                 None,
                 PathVariable.PathAccept ),
                   
-  PathVariable( 'cppCompiler',
-                'C++ compiler (default: icpc (serial), mpiCC (parallel).',
-                None,
-                PathVariable.PathAccept ),
-                
-  PathVariable( 'fortranCompiler',
-                'Fortran compiler (default: ifort (serial), mpif90 (parallel). Is used as Linker too.',
-                None,
-                PathVariable.PathAccept ),
+  EnumVariable( 'compiler',
+                'Select the compiler (default: intel)',
+                'intel',
+                allowed_values=('intel', 'gcc')),
                 
   BoolVariable( 'useExecutionEnvironment',
-                'set variables set in the execution environment ($PATH, $LIBRARY_PATH, $LD_LIBRARY_PATH, $CPLUS_INCLUDE_PATH, $INTEL_LICENSE_FILE, $OMPI_FC, $OMPI_CXX, $LIBS)',
+                'set variables set in the execution environment',
                 False ),
 
   EnumVariable( 'arch',
@@ -193,34 +194,13 @@ vars.AddVariables(
               ),
 )
 
+env.Tool('MPITool', vars=vars, toolpath=['build/scons/Tools'])
+
 # set environment
 env = Environment(variables=vars)
 
-if env['useExecutionEnvironment'] == True:
-  if 'PATH' in os.environ:
-    env.AppendENVPath( 'PATH', os.environ['PATH'] )
-  if 'LIBRARY_PATH' in os.environ:
-    env.Append(LIBPATH=[os.environ['LIBRARY_PATH'].split(' ')] )
-    env.Append(RPATH=[os.environ['LIBRARY_PATH']])
-  if 'LD_LIBRARY_PATH' in os.environ:
-    env.AppendENVPath( 'LD_LIBRARY_PATH', os.environ['LD_LIBRARY_PATH'] )
-  if 'LIBS' in os.environ:
-    env.Append(LIBS=[os.environ['LIBS'].split(' ')])
-  if 'CPLUS_INCLUDE_PATH' in os.environ:
-    env.AppendENVPath( 'CPLUS_INCLUDE_PATH', os.environ['CPLUS_INCLUDE_PATH'] )
-  if 'INTEL_LICENSE_FILE' in os.environ:
-    env['ENV']['INTEL_LICENSE_FILE'] = os.environ['INTEL_LICENSE_FILE']
-  if 'OMPI_FC' in os.environ:
-    env['ENV']['OMPI_FC'] = os.environ['OMPI_FC']
-  if 'OMPI_CXX' in os.environ:
-    env['ENV']['OMPI_CXX'] = os.environ['OMPI_CXX']
-  if 'MPICH_F90' in os.environ:
-    env['ENV']['MPICH_F90'] = os.environ['MPICH_F90']
-  if 'MPICH_CXX' in os.environ:
-    env['ENV']['MPICH_CXX'] = os.environ['MPICH_CXX']
-  if 'MIC_SYSROOT' in os.environ:
-    env['ENV']['MIC_SYSROOT'] = os.environ['MIC_SYSROOT']
-
+if env['useExecutionEnvironment']:
+    env['ENV'] = os.environ
 
 # generate help text
 Help(vars.GenerateHelpText(env))
@@ -239,56 +219,55 @@ if unknownVariables:
 if env['order'] == 'none':
   ConfigurationError("*** Convergence order not set.")
   
+if env['equations'] == 'viscoelastic':
+  if env['numberOfMechanisms'] == '0':
+    ConfigurationError("*** Number of mechanisms not set.")
+  if not os.path.exists(os.path.expanduser(env['libxsmmGenerator'])):
+    ConfigurationError("*** Path to libxsmm code generator not set.")
+  
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
-  print "*** Warning: Using fallback code for unknown architecture. Performace will suffer greatly if used by mistake and an architecture-specific implementation is available."
+  print "*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available."
   
 if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['parallelization'] == 'hybrid' ):
   ConfigurationError("*** Classic version does not support hybrid parallelization")
 
 #
-# precompiler, compiler and linker flags
+# preprocessor, compiler and linker
 #
 
-# set compilers
-if 'cppCompiler' in env:
-  cppCompiler = env['cppCompiler']
+# Basic compiler setting
+if env['compiler'] == 'intel':
+    env['CC'] = 'icc'
+    env['CXX'] = 'icpc'
+    env['F90'] = 'ifort'
+elif env['compiler'] == 'gcc':
+    env['CC'] = 'gcc'
+    env['CXX'] = 'g++'
+    env['F90'] = 'gfortran'
 else:
-  if env['parallelization'] in ['mpi', 'hybrid']:
-    cppCompiler = 'mpiCC'
-  else:
-    cppCompiler = 'icpc'
+    assert(false)
     
-if 'fortranCompiler' in env:
-  fortranCompiler = env['fortranCompiler']
-else:
-  if env['parallelization'] in ['mpi', 'hybrid']:
-    fortranCompiler = 'mpif90'
-  else:
-    fortranCompiler = 'ifort'
+# Parallel compiler required?
+if env['parallelization'] in ['mpi', 'hybrid']:
+    env.Tool('MPITool', toolpath=['build/scons/Tools'])
+    
+    # Do not include C++ MPI Bindings
+    env.Append(CPPDEFINES=['OMPI_SKIP_MPICXX'])
 
-# set precompiler mode for the number of quantities and basis functions
-env.Append(F90FLAGS='-DCONVERGENCE_ORDER='+env['order'])
+# Include preprocessor in all Fortran builds
+env['F90COM'] = env['F90PPCOM']
 
-numberOfQuantities = { 'elastic' : 9, 'viscoelastic' : 27 }
-env.Append(F90FLAGS='-DNUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]))
+# Use Fortran for linking
+env['LINK'] = env['F90']
 
-# set number of temporal integration points for dynamic ruputure boundary conditions
-if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
-  env.Append(F90FLAGS='-DNUMBER_OF_TEMPORAL_INTEGRATION_POINTS='+env['numberOfTemporalIntegrationPoints'])
-
-if( env['plasticity'] ):
-  env.Append(F90FLAGS='-DUSE_PLASTICITY')
-
-# set compiler and linker environment variables
-for mode in ['FORTRAN', 'F90', 'LINK']:
-  env[mode] = fortranCompiler
-for mode in ['CC', 'CXX']:
-  env[mode]   = cppCompiler
+#
+# Scalasca
+#
 
 # instrument code with scalasca
 if env['scalasca'] in ['default', 'kernels']:
-  for mode in ['CC', 'CXX', 'FORTRAN', 'F90', 'LINK']:
+  for mode in ['CC', 'CXX', 'F90', 'LINK']:
     l_scalascaPrelude = 'scalasca -instrument -comp=none -user '
 
     if env['parallelization'] in ['mpi', 'hybrid']:
@@ -312,101 +291,60 @@ if env['scalasca'] in ['default_2.x', 'kernels_2.x']:
     else:
       l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
 
-  for mode in ['FORTRAN', 'F90']:
+  for mode in ['F90']:
     env[mode] = 'scorep' + l_scorepArguments + ' --thread=none ' + env[mode]
   for mode in ['CC', 'CXX', 'LINK']:
-    env[mode] = 'scorep' + l_scorepCxxArguments + env[mode] 
+    env[mode] = 'scorep' + l_scorepCxxArguments + env[mode]
+    
+# kernel instrumentation with scalasca
+if env['scalasca'] == 'kernels_2.x':
+  env.Append(CPPDEFINES=['INSTRUMENT_KERNELS'])
+    
+#
+# Common settings
+#
+
+# enforce restrictive C/C++-Code
+env.Append(CFLAGS   = ['-Wall', '-Werror', '-ansi'],
+           CXXFLAGS = ['-Wall', '-Werror', '-ansi'])
+if env['compiler'] == 'intel':
+    env.Append(CXXFLGAS = ['-wd13379'])
+elif env['compiler'] == 'gcc':
+    # TODO Fix kernel generation
+    env.Append(CXXFLAGS = ['-Wno-error=unknown-pragmas'])
+
+# generate vector report (only if requested)
+if env['vecReport']:
+  env.Append(CXXFLAGS = ['-vec-report3'])
+  env.Append(CFLAGS   = ['-vec-report3'])
+
+# run preprocessor before compiling
+env.Append(F90FLAGS=['-cpp'])
+
+# Use complete line
+if env['compiler'] == 'gcc':
+    env.Append(F90FLAGS=['-ffree-line-length-none'])
+  
+# enforce 8 byte precision for reals (required in SeisSol) and compile time boundary check
+if env['compiler'] == 'intel':
+    env.Append(F90FLAGS=['-r8', '-WB'])
+elif env['compiler'] == 'gcc':
+    env.Append(F90FLAGS=['-fdefault-real-8'])
+    
+# Align structs and arrays
+if env['compiler'] == 'intel':
+    # TODO Check if Fortran alignment is still necessary in the latest version 
+    env.Append(F90LFAGS=['-align', '-align', 'array64byte'])
 
 # Add  Linker-flags  for cross-compiling
-env.Append(LINKFLAGS=['-nofor-main', '-cxxlib']) #Add -ldmalloc for ddt
-
-# add parallel flag for mpi
-if env['parallelization'] in ['mpi', 'hybrid']:
-  env.Append(F90FLAGS=['-DPARALLEL'])
-  env.Append(F90FLAGS=['-DUSE_MPI'])
-
-# add OpenMP flags
-if env['parallelization'] in ['omp', 'hybrid']:
-  env.Append(F90FLAGS=['-DOMP', '-openmp'])
-  env.Append(LINKFLAGS=['-openmp'] )
-
-# set pre compiler flags for matrix optimizations
-if env['generatedKernels']:
-  env.Append(F90FLAGS=['-DGENERATEDKERNELS'])
-  env.Append(F90FLAGS=['-DCLUSTERED_LTS'])
-
-# set pre compiler flags and link flags for commuincation thread
-if env['commThread']:
-  env.Append(F90FLAGS=['-DUSE_COMM_THREAD'])
-  env.Append(LINKFLAGS=['-lpthread'] )
-
-# set C and C++ flags
-env['CFLAGS'] = env['CXXFLAGS'] = env['F90FLAGS']
-
-# enable interproc. opts for small cores
-if env['arch'] in ['sknc', 'dknc', 'sknl', 'dknl']:
-  env.Append( F90FLAGS  = ['-ip'],
-              CFLAGS    = ['-ip'],
-              CXXFLAGS  = ['-ip'],
-              LINKFLAGS = ['-ip'] )
-
-  env.Append( F90FLAGS  = ['-ipo'],
-              CFLAGS    = ['-ipo'],
-              CXXFLAGS  = ['-ipo'],
-              LINKFLAGS = ['-ipo'] )
- 
-# Default log level for rank 0 is same as logLevel
-if env['logLevel0'] == 'none':
-  env['logLevel0'] = env['logLevel']
-
-# set level of logger
-if env['logLevel'] == 'debug':
-  env.Append(F90FLAGS=['-DLOGLEVEL=3'])
-elif env['logLevel'] == 'info':
-  env.Append(F90FLAGS=['-DLOGLEVEL=2'])
-elif env['logLevel'] == 'warning':
-  env.Append(F90FLAGS=['-DLOGLEVEL=1'])
-elif env['logLevel'] == 'error':
-  env.Append(F90FLAGS=['-DLOGLEVEL=0'])
-else:
-  assert(false)
-  
-# set level of logger for rank 0 and C++
-if env['logLevel0'] == 'debug':
-  env.Append(F90FLAGS=['-DLOGLEVEL0=3'])
-  env.Append(CPPDEFINES=['LOG_LEVEL=3'])
-elif env['logLevel0'] == 'info':
-  env.Append(F90FLAGS=['-DLOGLEVEL0=2'])
-  env.Append(CPPDEFINES=['LOG_LEVEL=2'])
-elif env['logLevel0'] == 'warning':
-  env.Append(F90FLAGS=['-DLOGLEVEL0=1'])
-  env.Append(CPPDEFINES=['LOG_LEVEL=1'])
-elif env['logLevel0'] == 'error':
-  env.Append(F90FLAGS=['-DLOGLEVEL0=0'])
-  env.Append(CPPDEFINES=['LOG_LEVEL=0'])
-else:
-  assert(false)
-
-# add include path for submodules
-env.Append( CPPPATH=['#/submodules'] )
-
+if env['compiler'] == 'intel':
+    env.Append(LINKFLAGS=['-nofor-main', '-cxxlib']) #Add -ldmalloc for ddt
+elif env['compiler'] == 'gcc':
+    env.Append(LIBS=['stdc++'])
+    
 #
-# add libraries
+# Architecture dependent settings
 #
-# Library pathes
-env.Tool('DirTool', fortran=True, toolpath=['build/scons/Tools'])
-
-# HDF5
-if env['hdf5']:
-    env.Tool('Hdf5Tool', required=(not helpMode), toolpath=['build/scons/Tools'])
-    env.Append(F90FLAGS=['-DUSE_HDF'])
-    env.Append(CPPDEFINES=['USE_HDF'])
-
-# memkind
-if env['memkind']:
-  env.Append(F90FLAGS=['-DUSE_MEMKIND'])
-  env.Append(CPPDEFINES=['USE_MEMKIND'])
-  env.Append(LINKFLAGS=['-lmemkind'])
 
 # set vector instruction set
 if env['arch'] in ['snoarch', 'dnoarch']:
@@ -425,16 +363,28 @@ elif env['arch'] in ['swsm', 'dwsm']:
               LINKFLAGS = ['-msse3']  )
 elif env['arch'] in ['shsw', 'dhsw']:
   env['alignment'] = 32
-  env.Append( CFLAGS    = ['-xCORE-AVX2', '-fma'],
-              CXXFLAGS  = ['-xCORE-AVX2', '-fma'],
-              F90FLAGS  = ['-xCORE-AVX2', '-fma'],
-              LINKFLAGS = ['-xCORE-AVX2', '-fma']  )
+  if env['compiler'] == 'intel':
+    env.Append( CFLAGS    = ['-xCORE-AVX2', '-fma'],
+                CXXFLAGS  = ['-xCORE-AVX2', '-fma'],
+                F90FLAGS  = ['-xCORE-AVX2', '-fma'],
+                LINKFLAGS = ['-xCORE-AVX2', '-fma']  )
+  else:
+    env.Append( CFLAGS    = ['-mavx2', '-mfma'],
+                CXXFLAGS  = ['-mavx2', '-mfma'],
+                F90FLAGS  = ['-mavx2', '-mfma'],
+                LINKFLAGS = ['-mavx2', '-mfma']  )
 elif env['arch'] in ['sskx', 'dskx']:
   env['alignment'] = 64
-  env.Append( CFLAGS    = ['-xCORE-AVX512', '-fma'],
-              CXXFLAGS  = ['-xCORE-AVX512', '-fma'],
-              F90FLAGS  = ['-xCORE-AVX512', '-fma'],
-              LINKFLAGS = ['-xCORE-AVX512', '-fma'] ) 
+  if env['compiler'] == 'intel':
+    env.Append( CFLAGS    = ['-xCORE-AVX512', '-fma'],
+                CXXFLAGS  = ['-xCORE-AVX512', '-fma'],
+                F90FLAGS  = ['-xCORE-AVX512', '-fma'],
+                LINKFLAGS = ['-xCORE-AVX512', '-fma'] ) 
+  else:
+    env.Append( CFLAGS    = ['-mavx512f', '-mavx512cd', '-mfma'],
+                CXXFLAGS  = ['-mavx512f', '-mavx512cd', '-mfma'],
+                F90FLAGS  = ['-mavx512f', '-mavx512cd', '-mfma'],
+                LINKFLAGS = ['-mavx512f', '-mavx512cd', '-mfma']  )
 elif env['arch'] in ['sknc', 'dknc']:
   env['alignment'] = 64
   env.Append( CFLAGS    = ['-mmic', '-fma'],
@@ -443,122 +393,199 @@ elif env['arch'] in ['sknc', 'dknc']:
               LINKFLAGS = ['-mmic', '-fma'] )
 elif env['arch'] in ['sknl', 'dknl']:
   env['alignment'] = 64
-  env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'],
-              LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH'] ) 
+  if env['compiler'] == 'intel':
+    env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'] ) 
+  else:
+    env.Append( CFLAGS    = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                CXXFLAGS  = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                F90FLAGS  = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH'],
+                LINKFLAGS = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH']  )
 else:
   #assert(env['compileMode'] == 'debug')
   pass
 
-env.Append( CFLAGS    = ['-DALIGNMENT='+str(env['alignment'])],
-            CXXFLAGS  = ['-DALIGNMENT='+str(env['alignment'])],
-            F90FLAGS  = ['-DALIGNMENT='+str(env['alignment'])],
-            LINKFLAGS = ['-DALIGNMENT='+str(env['alignment'])] )
+env.Append(CPPDEFINES=['ALIGNMENT='+str(env['alignment']),
+                       str(env['arch']).upper()])
 
-env.Append( CFLAGS    = ['-D'+str(env['arch']).upper()],
-            CXXFLAGS  = ['-D'+str(env['arch']).upper()],
-            F90FLAGS  = ['-D'+str(env['arch']).upper()] )
+# enable interproc. opts for small cores
+if env['arch'] in ['sknc', 'dknc', 'sknl', 'dknl']:
+  env.Append( F90FLAGS  = ['-ip', '-ipo'],
+              CFLAGS    = ['-ip', '-ipo'],
+              CXXFLAGS  = ['-ip', '-ipo'],
+              LINKFLAGS = ['-ip', '-ipo'] )
+  
+#
+# Compile mode settings
+#
+
+# set (pre-)compiler flags for the compile modes
+if env['compileMode'] == 'debug':
+  env.Append(F90FLAGS = ['-O0'],
+             CLFGAGS  = ['-O0'],
+             CXXFLAGS = ['-O0'])
+  if env['compiler'] == 'intel':
+      env.Append(F90FLAGS = ['-shared-intel', '-check'],
+                 CLFGAGS  = ['-shared-intel'],
+                 CXXFLAGS = ['-shared-intel'])
+  else:
+      env.Append(F90FLAGS = ['-fcheck=all'])
+if env['compileMode'] in ['debug', 'relWithDebInfo']:
+  env.Append(F90FLAGS  = ['-g'],
+             CFLAGS    = ['-g'],
+             CXXFLAGS  = ['-g'],
+             LINKFLAGS = ['-g', '-rdynamic'])
+  if env['compiler'] == 'intel':
+      env.Append(F90FLAGS  = ['-traceback'],
+                 CFLAGS    = ['-traceback'],
+                 CXXFLAGS  = ['-traceback'])
+  else:
+      env.Append(F90FLAGS  = ['-fbacktrace'])
+
+if env['compileMode'] in ['relWithDebInfo', 'release']:
+    env.Append(CPPDEFINES = ['NDEBUG'])
+    env.Append(F90FLAGS = ['-O2'],
+               CFLAGS   = ['-O2'], 
+               CXXFLAGS = ['-O2'])
+    if env['compiler'] == 'intel':
+        env.Append(F90FLAGS = ['-fno-alias'])
+    
+#
+# Basic preprocessor defines
+#
+
+# set precompiler mode for the number of quantities and basis functions
+env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
+
+numberOfQuantities = { 'elastic' : 9, 'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6 }
+env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
+
+# set number of temporal integration points for dynamic ruputure boundary conditions
+if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
+  env.Append(CPPDEFINES=['NUMBER_OF_TEMPORAL_INTEGRATION_POINTS='+env['numberOfTemporalIntegrationPoints']])
+
+# add parallel flag for mpi
+if env['parallelization'] in ['mpi', 'hybrid']:
+    # TODO rename PARALLEL to USE_MPI in the code
+    env.Append(CPPDEFINES=['PARALLEL', 'USE_MPI'])
+
+# add OpenMP flags
+if env['parallelization'] in ['omp', 'hybrid']:
+    env.Append(CPPDEFINES=['OMP'])
+    env.Append(CFLAGS    = ['-fopenmp'],
+               CXXFLAGS  = ['-fopenmp'],
+               F90FLAGS  = ['-fopenmp'],
+               LINKFLAGS = ['-fopenmp'])
+
+if( env['plasticity'] ):
+  env.Append(CPPDEFINES=['USE_PLASTICITY'])
+
+# set pre compiler flags for matrix optimizations
+if env['generatedKernels']:
+  env.Append(CPPDEFINES=['GENERATEDKERNELS', 'CLUSTERED_LTS'])
+
+# set pre compiler flags and link flags for commuincation thread
+if env['commThread']:
+  env.Append(CPPDEFINES=['USE_COMM_THREAD'])
+  env.Append(LINKFLAGS=['-lpthread'] )
+ 
+# Default log level for rank 0 is same as logLevel
+if env['logLevel0'] == 'none':
+  env['logLevel0'] = env['logLevel']
+
+# set level of logger for fortran
+if env['logLevel'] == 'debug':
+  env.Append(CPPDEFINES=['LOGLEVEL=3'])
+elif env['logLevel'] == 'info':
+  env.Append(CPPDEFINES=['LOGLEVEL=2'])
+elif env['logLevel'] == 'warning':
+  env.Append(CPPDEFINES=['LOGLEVEL=1'])
+elif env['logLevel'] == 'error':
+  env.Append(CPPDEFINES=['LOGLEVEL=0'])
+else:
+  assert(false)
+  
+# set level of logger for rank 0 and C++
+if env['logLevel0'] == 'debug':
+  env.Append(CPPDEFINES=['LOGLEVEL0=3', 'LOG_LEVEL=3'])
+elif env['logLevel0'] == 'info':
+  env.Append(CPPDEFINES=['LOGLEVEL0=2', 'LOG_LEVEL=2'])
+elif env['logLevel0'] == 'warning':
+  env.Append(CPPDEFINES=['LOGLEVEL0=1', 'LOG_LEVEL=1'])
+elif env['logLevel0'] == 'error':
+  env.Append(CPPDEFINES=['LOGLEVEL0=0', 'LOG_LEVEL=0'])
+else:
+  assert(false)
+
+# add include path for submodules
+env.Append( CPPPATH=['#/submodules'] )
+
+#
+# add libraries
+#
+
+# Library pathes
+env.Tool('DirTool', fortran=True, toolpath=['build/scons/Tools'])
+
+# HDF5
+if env['hdf5']:
+    env.Tool('Hdf5Tool', required=(not helpMode), toolpath=['build/scons/Tools'])
+    env.Append(CPPDEFINES=['USE_HDF'])
+
+# memkind
+if env['memkind']:
+  env.Append(CPPDEFINES=['USE_MEMKIND'])
+  env.Append(LINKFLAGS=['-lmemkind'])
 
 # netCDF
 if env['netcdf']:
     env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode), toolpath=['build/scons/Tools'])
-    env.Append(F90FLAGS=['-DUSE_NETCDF'])
     env.Append(CPPDEFINES=['USE_NETCDF'])
-
-# kernel instrumentation with scalasca
-if env['scalasca'] == 'kernels_2.x':
-  env.Append(CXXFLAGS=['-DINSTRUMENT_KERNELS'])
-
-# set (pre-)compiler flags for the compile modes
-if env['compileMode'] == 'debug':
-  env.Append(F90FLAGS=['-O0', '-shared-intel',  '-align', 'array64byte'])
-if env['compileMode'] in ['debug', 'relWithDebInfo']:
-  env.Append(F90FLAGS=['-g', '-traceback'])
-  env.Append(LINKFLAGS=['-g', '-rdynamic'])
-if env['compileMode'] in ['relWithDebInfo', 'release']:
-  env.Append(F90FLAGS=['-DNDEBUG', '-O2', '-ftz', '-align', '-align', 'array64byte', '-fno-alias']) #disable assertions, agressive optimizations, flush denormal results to zero, align data, no aliasing is assumed
-
-#
-# C/C++-Code options
-#
-
-# enforce restrictive C/C++-Code
-env.Append( CFLAGS  =['-Wall', '-Werror', '-ansi'],
-            CXXFLAGS=['-Wall', '-Werror', '-wd13379' ,'-ansi'])
-
-# optimization levels
-if env['compileMode'] == 'debug':
-  env.Append(CXXFLAGS=['-O0', '-shared-intel'])
-if env['compileMode'] in ['debug', 'relWithDebInfo']:
-  env.Append(CXXFLAGS=['-g', '-traceback'])
-if env['compileMode'] in ['relWithDebInfo', 'release']:
-  env.Append( CFLAGS   = ['-DNDEBUG', '-O2'], 
-              CXXFLAGS = ['-DNDEBUG', '-O2'])
-
-# generate vector report only if requested
-if env['vecReport']:
-  env.Append(CXXFLAGS = ['-vec-report3'])
-  env.Append(CFLAGS   = ['-vec-report3'])
-
-# set compile flags for intel compiler
-env.Append(F90FLAGS=['-fpp']) #run preprocessor before compiling
-  
-# enforce 8 byte precision for reals (required in SeisSol)
-env.Append(F90FLAGS=['-r8'])
+    
+# sionlib still need to create a Tool for autoconfiguration
+if env['sionlib']:
+  env.Append(F90FLAGS=['-DUSE_SIONLIB'])
+  env.Append(CPPDEFINES=['USE_SIONLIB'])
+  env.Append(CXXFLAGS=['-I/lrz/sys/libraries/sionlib/1.5p1/intel/ibmmpi/include'])
+  env.Append(LIBPATH=['/lrz/sys/libraries/sionlib/1.5p1/intel/ibmmpi/lib'])
+  env.Append(LINKFLAGS=['-lsionmpi_cxx_64'])
+    #    env.Append(LINKFLAGS=['-lsionser_cxx_64'])
+  env.Append(LIBS=['sionmpi_64'])
+  env.Append(LIBS=['sionser_64'])
+  env.Append(LIBS=['sioncom_64'])
+  env.Append(LIBS=['sioncom_64_lock_none'])
+  env.Append(LIBS=['rt'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
 env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equations/' + env['equations'] + '/generated_code'])
 
-# compile all fortran dialects with the same flags
-env['FORTRANFLAGS'] = env['F90FLAGS']
-env['F77FLAGS'] = env['F90FLAGS']
-env['F95FLAGS'] = env['F90FLAGS']
-
 #
 # setup the program name and the build directory
 #
 if env['programName'] == 'none':
-  # compile mode
-  program_name = '_'+env['compileMode']
-
-  # matrix optimizations
-  if env['generatedKernels']:
-    program_name += '_'+'generatedKernels'
-  else:
-    program_name += '_'+'classic'
-
-  # vector instruction set
-  program_name += '_'+env['arch'] 
- 
-  # Parallelization?
-  if env['parallelization'] == 'omp':
-    program_name += '_omp'
-  elif env['parallelization'] == 'mpi':
-    program_name += '_mpi'
-  elif env['parallelization'] == 'hybrid':
-    program_name += '_hybrid'
-  else:
-    program_name += '_none'
-
-  # Sclasca?
-  if env['scalasca'] != 'none':
-    program_name += '_scalasca'
-  else:
-    program_name += '_none'
- 
-  # add number of quantities and basis functions
-  program_name += '_'+'9'
-  program_name += '_'+env['order']
-  env['programFile'] = env['buildDir']+'/SeisSol'+program_name
+  program_suffix = '{}_{}_{}_{}_{}_{}_{}'.format(
+    env['compileMode'],
+    'generatedKernels' if env['generatedKernels'] else 'classic',
+    env['arch'],
+    env['parallelization'],
+    'scalasca' if env['scalasca'] != 'none' else 'none',
+    numberOfQuantities[ env['equations'] ],
+    env['order']
+  )
+  env['programFile'] = '{}/SeisSol_{}'.format(
+    env['buildDir'],
+    program_suffix
+  )
 else:
-  program_name = "_"+env['programName']
+  program_suffix = env['programName']
   env['programFile'] = env['buildDir']+'/'+env['programName']
 
 # build directory
 
-env['buildDir'] = env['buildDir']+'/build'+program_name
+env['buildDir'] = '{}/build_{}'.format(env['buildDir'], program_suffix)
 
 # set sub directories (important for scons tree)
 buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
@@ -568,12 +595,16 @@ for buildDir in range(len(buildDirectories)):
 env.AppendUnique(F90PATH=buildDirectories)
 
 # set module path
-env.Append(F90FLAGS='-module ${TARGET.dir}')
+if env['compiler'] == 'intel':
+    env.Append(F90FLAGS='-module ${TARGET.dir}')
+elif env['compiler'] == 'gcc':
+    env.Append(F90FLAGS='-J ${TARGET.dir}')
 
 # get the source files
 env.sourceFiles = []
 
 Export('env')
+SConscript('generated_code/SConscript_generatedKernels', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
 SConscript('src/SConscript_generatedKernels', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
 SConscript('submodules/SConscript_generatedKernels', variant_dir='#/'+env['buildDir']+'/submodules', duplicate=0)
 Import('env')
@@ -582,6 +613,8 @@ Import('env')
 sourceFiles = []
 for sourceFile in env.sourceFiles:
   sourceFiles.append(sourceFile[0])
+
+#print env.Dump()
 
 # build standard version
 env.Program('#/'+env['programFile'], sourceFiles)

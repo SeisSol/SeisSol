@@ -299,16 +299,16 @@ CONTAINS
             mpiindex_dr = mesh%elem%mpiNumber_dr(     iLocalNeighborSide, iNeighbor )
             dofiElem_ptr => bnd%objMpi(iObject)%mpi_dr_dgvar(:, :, mpiIndex_dr)
 #else
-            call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = c_loc( iNeighbor ), \
-                                                                    i_faceId = c_loc( iLocalNeighborSide ), \
-                                                                    o_dofs   = c_loc( dofiElem_ptr ) )
+            call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = iNeighbor, \
+                                                                    i_faceId = iLocalNeighborSide, \
+                                                                    o_dofs   = dofiElem_ptr )
 #endif
           else
 #ifndef GENERATEDKERNELS
             dofiElem_ptr => disc%galerkin%dgvar( :, :, iElem,1)
 #else
-            call c_interoperability_getDofsFromDerivatives( i_meshId = c_loc( iElem), \
-                                                            o_dofs   = c_loc( DOFiElem_ptr  ))
+            call c_interoperability_getDofsFromDerivatives( i_meshId = iElem, \
+                                                            o_dofs   = DOFiElem_ptr)
 #endif
           endif
 
@@ -322,9 +322,9 @@ CONTAINS
 
             DOFiNeigh_ptr   => BND%ObjMPI(iObject)%MPI_DR_dgvar(:,:,MPIIndex_DR)
 #else
-            call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = c_loc( iElem ), \
-                                                                    i_faceId = c_loc( iSide ), \
-                                                                    o_dofs   = c_loc( DOFiNeigh_ptr ) )
+            call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = iElem, \
+                                                                    i_faceId = iSide, \
+                                                                    o_dofs   = DOFiNeigh_ptr )
 #endif
 
             ! Bimaterial case only possible for elastic isotropic materials
@@ -340,8 +340,8 @@ CONTAINS
 #ifndef GENERATEDKERNELS
             DOFiNeigh_ptr   => DISC%Galerkin%dgvar(:,:,iNeighbor,1)
 #else
-            call c_interoperability_getDofsFromDerivatives( i_meshId = c_loc( iNeighbor ), \
-                                                            o_dofs   = c_loc( DOFiNeigh_ptr ) )
+            call c_interoperability_getDofsFromDerivatives( i_meshId = iNeighbor, \
+                                                            o_dofs   = DOFiNeigh_ptr )
 #endif
             w_speed_neig(:) = DISC%Galerkin%WaveSpeed(iNeighbor,iLocalNeighborSide,:)
             rho_neig        = MaterialVal(iNeighbor,1)

@@ -40,23 +40,15 @@
 
 #include "Boundary.h"
 
-#include <matrix_kernels/sparse.h>
-#include <matrix_kernels/dense.h>
-
 #ifndef NDEBUG
 #pragma message "compiling boundary kernel with assertions"
 #endif
 
+#include <generated_code/kernels.h>
+
 #include <cassert>
 #include <stdint.h>
 #include <cstddef>
-
-seissol::kernels::Boundary::Boundary() {
-  // intialize the function pointers to the matrix kernels
-#define BOUNDARY_KERNEL
-#include <initialization/bind.h>
-#undef BOUNDARY_KERNEL
-}
 
 void seissol::kernels::Boundary::computeLocalIntegral( const enum faceType i_faceTypes[4],
                                                              real         *i_fluxMatrices[52],
@@ -81,18 +73,15 @@ void seissol::kernels::Boundary::computeLocalIntegral( const enum faceType i_fac
   /*
    * compute cell local contribution of the boundary integral.
    */
-  // temporary product (we have to multiply a matrix from the left and the right)
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if( i_faceTypes[l_face] != dynamicRupture ) {
-      // compute neighboring elements contribution
-      m_matrixKernels[l_face]( i_fluxMatrices[l_face], i_timeIntegrated,      l_temporaryResult,
-                               NULL,                   NULL,                  NULL                 ); // These will be be ignored
-
-      m_matrixKernels[52](     l_temporaryResult,      i_fluxSolvers[l_face], io_degreesOfFreedom,
-                               NULL,                   NULL,                  NULL                 ); // These will be be ignored
+      seissol::generatedKernels::localFlux[l_face](
+        i_fluxSolvers[l_face],
+        i_fluxMatrices[l_face],
+        i_timeIntegrated,
+        io_degreesOfFreedom
+      );
     }
   }
 }
@@ -153,49 +142,34 @@ void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i
   /*
    * compute neighboring cells contribution to the boundary integral.
    */
-  // temporary product (we have to multiply a matrix from the left and the right)
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-
   // iterate over faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
     if( i_faceTypes[l_face] != outflow && i_faceTypes[l_face] != dynamicRupture ) {
-      // id of the flux matrix (0-3: element local, 4-51: neighboring element)
-      unsigned int l_id;
-
       // compute the neighboring elements flux matrix id.
       if( i_faceTypes[l_face] != freeSurface ) {
         // derive memory and kernel index
-        l_id = 4                                   // jump over flux matrices \f$ F^{-, i} \f$
-              + l_face*12                          // jump over index \f$i\f$
-              + i_neighboringIndices[l_face][0]*3  // jump over index \f$j\f$
-              + i_neighboringIndices[l_face][1];   // jump over index \f$h\f$
-
-        // assert we have a neighboring index in the case of non-absorbing boundary conditions.
-        assert( l_id >= 4 || i_faceTypes[l_face] == outflow );
+        unsigned l_id = l_face*12                          // jump over index \f$i\f$
+                      + i_neighboringIndices[l_face][0]*3  // jump over index \f$j\f$
+                      + i_neighboringIndices[l_face][1];   // jump over index \f$h\f$
+        
+        // assert we have a valid index.
+        assert( l_id < 48 );
+        
+        seissol::generatedKernels::neighboringFlux[l_id](
+          i_fluxSolvers[l_face],
+          i_fluxMatrices[4 + l_id],
+          i_timeIntegrated[l_face],
+          io_degreesOfFreedom
+        );
+      } else { // fall back to local matrices in case of free surface boundary conditions
+        seissol::generatedKernels::localFlux[l_face](
+          i_fluxSolvers[l_face],
+          i_fluxMatrices[l_face],
+          i_timeIntegrated[l_face],
+          io_degreesOfFreedom
+        );
       }
-      else { // fall back to local matrices in case of free surface boundary conditions
-        l_id = l_face;
-      }
-
-      // assert we have a valid index.
-      assert( l_id < 52 );
-
-#ifdef ENABLE_MATRIX_PREFETCH
-      // compute neighboring elements contribution
-      m_matrixKernels[l_id]( i_fluxMatrices[l_id], i_timeIntegrated[l_face],         l_temporaryResult,
-                             i_fluxMatricies_prefetch[l_face], i_faceNeighbors_prefetch[l_face], NULL                 ); 
-
-      m_matrixKernels[53](   l_temporaryResult,                i_fluxSolvers[l_face],    io_degreesOfFreedom,
-                             i_fluxMatricies_prefetch[l_face], i_faceNeighbors_prefetch[l_face],                     NULL                 ); 
-#else
-      // compute neighboring elements contribution
-      m_matrixKernels[l_id]( i_fluxMatrices[l_id], i_timeIntegrated[l_face], l_temporaryResult,
-                             NULL,                 NULL,                     NULL                 );  // These will be be ignored
-
-      m_matrixKernels[53](   l_temporaryResult,    i_fluxSolvers[l_face],    io_degreesOfFreedom,
-                             NULL,                 NULL,                     NULL                 );  // These will be be ignored
-#endif
     }
   }
 }

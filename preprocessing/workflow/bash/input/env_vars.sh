@@ -38,6 +38,7 @@
 # @DESCRIPTION
 # User dependent setup of the environment.
 
+# these two lines are LRZ specific
 . /etc/profile 
 . /etc/profile.d/modules.sh
 

@@ -480,6 +480,7 @@ CONTAINS
     !--------------------------------------------------------------------------
     REAL                           :: time, dt
     REAL                           :: state( EQN%nVarTotal), state_rot(9)
+    REAL                           :: stateToWrite( EQN%nVarTotal ), stateToWrite_rot(9)  ! local variables to avoid fortran runtime warnings when writing output
     REAL                           :: PGD_tot, PGV_tot, PGA_tot
     REAL                           :: TaylorDOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,0:DISC%Galerkin%nPolyRec)
     REAL                           :: localpicktime
@@ -503,6 +504,8 @@ CONTAINS
     EPIK_FUNC_START()
     SCOREP_USER_FUNC_BEGIN("receiver")
     !
+    stateToWrite(:) = 0.0
+    stateToWrite_rot(:) = 0.0
 #ifdef GENERATEDKERNELS
     do l_receiver =1,i_numberOfReceivers
       j = i_receiverIds(l_receiver)
@@ -559,16 +562,18 @@ CONTAINS
                     STOP                                                              !
                   END IF                                                               !
                   !
+                  stateToWrite(1:size(IO%pickmask)) = State(IO%pickmask(:))
                   IF(IO%Rotation.EQ.0) THEN
-                    WRITE(IO%UNIT%VFile(j),*) localpicktime, State(IO%pickmask(:))
+                    WRITE(IO%UNIT%VFile(j),*) localpicktime, stateToWrite(1:size(IO%pickmask))
                   ELSE
-                    WRITE(IO%UNIT%VFile(j),*) localpicktime, State(IO%pickmask(:)), State_rot(IO%pickmask_rot(:))
+                    stateToWrite_rot(1:size(IO%pickmask_rot)) = State_rot(IO%pickmask_rot(:))
+                    WRITE(IO%UNIT%VFile(j),*) localpicktime, stateToWrite(1:size(IO%pickmask)), stateToWrite_rot(1:size(IO%pickmask_rot))
                   ENDIF
 
                   CLOSE( IO%UNIT%VFILE(j) )
 
                 ELSEIF(IO%PickLarge.EQ.1) THEN
-              
+                  !@TODO we might want to fix frontran runtime warnings here as well!
                   IO%CurrentPick(j) = IO%CurrentPick(j) +1
                   IO%TmpTime(j,IO%CurrentPick(j)) = localpicktime
                   IO%TmpState(j,IO%CurrentPick(j),:) = State(IO%pickmask(:))

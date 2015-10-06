@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-08-14 10:02:00.730497
+// @date 2015-09-27 13:24:48.603900
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -98,11 +98,14 @@ void sgemm_m32_n9_k20_ldA32_ldB32_ldC32_beta0_curAL2_BL2viaC(const real *i_A, co
 void sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_curAL2_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m32_n9_k35_ldA64_ldB48_ldC32_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m32_n9_k20_ldA32_ldB32_ldC32_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
+void sgemm_m48_n9_k9_ldA48_ldB9_ldC48_beta1_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k1_ldA16_ldB16_ldC16_beta0_curAL2_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m32_n9_k35_ldA48_ldB48_ldC32_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m48_n9_k56_ldA64_ldB64_ldC48_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m48_n9_k9_ldA48_ldB9_ldC48_beta1_AL2jpst_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
+void sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m64_n9_k84_ldA64_ldB96_ldC64_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
+void sgemm_m128_n9_k9_ldA128_ldB9_ldC128_beta1_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k1_ldA16_ldB16_ldC16_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m48_n9_k56_ldA96_ldB64_ldC48_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k20_ldA64_ldB32_ldC16_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
@@ -110,6 +113,7 @@ void sgemm_m16_n9_k10_ldA96_ldB16_ldC16_beta0_pfsigonly(const real *i_A, const r
 void sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_curAL2_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k4_ldA96_ldB16_ldC16_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m64_n9_k56_ldA64_ldB64_ldC64_beta0_curAL2_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
+void sgemm_m64_n9_k9_ldA64_ldB9_ldC64_beta1_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m48_n9_k20_ldA48_ldB48_ldC48_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m48_n9_k35_ldA48_ldB48_ldC48_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k4_ldA32_ldB16_ldC16_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
@@ -122,11 +126,13 @@ void sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_AL2jpst_BL2viaC(const real *i_A, con
 void sgemm_m96_n9_k9_ldA96_ldB9_ldC96_beta1_AL2jpst_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m64_n9_k56_ldA64_ldB64_ldC64_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k10_ldA32_ldB16_ldC16_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
+void sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m96_n9_k84_ldA96_ldB96_ldC96_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m64_n9_k9_ldA64_ldB9_ldC64_beta1_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k20_ldA32_ldB32_ldC16_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m48_n9_k56_ldA48_ldB64_ldC48_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
+void sgemm_m96_n9_k9_ldA96_ldB9_ldC96_beta1_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m16_n9_k0_ldA16_ldB16_ldC16_beta0_pfsigonly(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m128_n9_k9_ldA128_ldB9_ldC128_beta1_AL2jpst_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
 void sgemm_m48_n9_k35_ldA48_ldB48_ldC48_beta0_curAL2_BL2viaC(const real *i_A, const real *i_B, real *io_C,const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );

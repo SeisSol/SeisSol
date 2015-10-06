@@ -40,13 +40,12 @@
 
 #include "Time.h"
 
-#include <matrix_kernels/sparse.h>
-#include <matrix_kernels/dense.h>
-
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
 extern long long libxsmm_num_total_flops;
 #endif
+
+#include <generated_code/kernels.h>
 
 #include <cstring>
 #include <cassert>
@@ -70,11 +69,6 @@ seissol::kernels::Time::Time() {
     }
   }
   // end todo
-
-  // intialize the function pointers to the matrix kernels
-#define TIME_KERNEL
-#include <initialization/bind.h>
-#undef TIME_KERNEL
 }
 
 void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
@@ -101,8 +95,6 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
   real l_scalar = i_timeStepWidth;
 
   // temporary result
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-  real l_temporaryResult2[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
   real l_derivativesBuffer[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(PAGESIZE_STACK)));
 
   // initialize time integrated DOFs and derivatives
@@ -127,53 +119,22 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
     streamstoreFirstDerivative( i_degreesOfFreedom,
                                 o_timeDerivatives );
   }
-  
-  unsigned reducedOrderNumberOfBasisFunctions = getNumberOfBasisFunctions( CONVERGENCE_ORDER - 1 );
-  unsigned reducedOrderNumberOfAlignedBasisFunctions = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - 1, ALIGNMENT );
 
   // compute all derivatives and contributions to the time integrated DOFs
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    // iterate over dimensions 
-    real* lastDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative-1];
+    real const* lastDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative-1];
     real* currentDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative];
-    for( unsigned int l_c = 0; l_c < 3; l_c++ ) {
-      for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
-        l_temporaryResult2[l_dof] = 0.0;
-      }
-                
-      m_matrixKernels[l_c](i_stiffnessMatrices[l_c], lastDerivative, l_temporaryResult,  NULL, NULL, NULL);
-      m_matrixKernels[3]  (l_temporaryResult,        i_starMatrices[l_c], l_temporaryResult2, NULL, NULL, NULL);
-
-      /* matrixKernels[0:2] (C = AB) and matrixKernels[3] (C += AB) assume that 
-       * C has leading dimension getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - 1, ALIGNMENT )
-       * instead of getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER, ALIGNMENT ).
-       * This is due to an optimisation that is possible in the elastic case, but not
-       * in the viscoelastic case. It would be appropriate and far less retarded
-       * to change the code generator in order to increase the leading dimension of
-       * C. However, I do not want to mess with the code generator right now and
-       * this has to suffice as a temporary hack.
-      */
-      for (unsigned quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
-        for (unsigned bf = 0; bf < reducedOrderNumberOfBasisFunctions; ++bf) {
-          currentDerivative[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] += l_temporaryResult2[bf + quantity * reducedOrderNumberOfAlignedBasisFunctions];
-        }
-      }
-    }
-
-    // + Q*E^T
-    // \todo generate a kernel
-    memset(l_temporaryResult, 0, NUMBER_OF_ALIGNED_DOFS * sizeof(real));
-    for (unsigned quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
-        for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
-          for (unsigned k = 0; k < NUMBER_OF_QUANTITIES; ++k) {
-            l_temporaryResult[bf + quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] += lastDerivative[bf + k * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] * sourceMatrix[k + quantity * NUMBER_OF_QUANTITIES];
-          }
-      }
-    }
-
-    for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DOFS; ++dof) {
-      currentDerivative[dof] += l_temporaryResult[dof];
-    }
+    seissol::generatedKernels::derivative[l_derivative](
+      i_starMatrices[0],
+      i_starMatrices[1],
+      i_starMatrices[2],
+      i_stiffnessMatrices[1],
+      i_stiffnessMatrices[0],
+      i_stiffnessMatrices[2],
+      sourceMatrix,
+      lastDerivative,
+      currentDerivative
+    );
 
     // update scalar for this derivative
     l_scalar *= i_timeStepWidth / real(l_derivative+1);

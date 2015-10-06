@@ -43,6 +43,10 @@
 #include <matrix_kernels/sparse.h>
 #include <matrix_kernels/dense.h>
 
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+#include <immintrin.h>
+#endif
+
 #ifndef NDEBUG
 #pragma message "compiling boundary kernel with assertions"
 #endif
@@ -62,7 +66,13 @@ void seissol::kernels::Boundary::computeLocalIntegral( const enum faceType i_fac
                                                              real         *i_fluxMatrices[52],
                                                              real          i_timeIntegrated[    NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
                                                              real          i_fluxSolvers[4][    NUMBER_OF_QUANTITIES             *NUMBER_OF_QUANTITIES ],
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+                                                             real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
+                                                             real          i_timeIntegrated_prefetch[    NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
+                                                             real          io_degreesOfFreedom_prefetch[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] ) {
+#else
                                                              real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] ) {
+#endif
   /*
    * assert valid input
    */
@@ -90,9 +100,33 @@ void seissol::kernels::Boundary::computeLocalIntegral( const enum faceType i_fac
       // compute neighboring elements contribution
       m_matrixKernels[l_face]( i_fluxMatrices[l_face], i_timeIntegrated,      l_temporaryResult,
                                NULL,                   NULL,                  NULL                 ); // These will be be ignored
-
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+      if (l_face == 1) {
+        m_matrixKernels[54](     l_temporaryResult,      i_fluxSolvers[l_face],       io_degreesOfFreedom,
+                                 NULL,                   i_timeIntegrated_prefetch,   NULL                 );
+      } else if (l_face == 2) {
+        m_matrixKernels[54](     l_temporaryResult,      i_fluxSolvers[l_face],              io_degreesOfFreedom,
+                                 NULL,                   io_degreesOfFreedom_prefetch,       NULL                 );
+      } else {
+        m_matrixKernels[52](     l_temporaryResult,      i_fluxSolvers[l_face], io_degreesOfFreedom,
+                                 NULL,                   NULL,                  NULL                 ); // These will be be ignored
+      }
+#else
       m_matrixKernels[52](     l_temporaryResult,      i_fluxSolvers[l_face], io_degreesOfFreedom,
                                NULL,                   NULL,                  NULL                 ); // These will be be ignored
+#endif
+    } else {
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+      if (l_face == 0) {
+        for (unsigned int l_p = 0; l_p < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES; l_p += 8 ){
+          _mm_prefetch( (const char*) i_timeIntegrated_prefetch+l_p, _MM_HINT_T1 );
+        }
+      } else if (l_face == 1) {
+        for (unsigned int l_p = 0; l_p < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES; l_p += 8 ){
+          _mm_prefetch( (const char*) io_degreesOfFreedom_prefetch+l_p, _MM_HINT_T1 );
+        }
+      }
+#endif
     }
   }
 }
@@ -156,6 +190,13 @@ void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i
   // temporary product (we have to multiply a matrix from the left and the right)
   real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
 
+#ifdef ENABLE_STREAM_MATRIX_PREFETCH
+  // perfetch the first cacheline per column for the DOFs
+  for ( unsigned int l_var = 0; l_var < NUMBER_OF_QUANTITIES; l_var++ ) {
+    _mm_prefetch( (const char*) io_degreesOfFreedom+(l_var*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS), _MM_HINT_T1 );
+  }
+#endif
+
   // iterate over faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
@@ -182,12 +223,25 @@ void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i
       assert( l_id < 52 );
 
 #ifdef ENABLE_MATRIX_PREFETCH
-      // compute neighboring elements contribution
-      m_matrixKernels[l_id]( i_fluxMatrices[l_id], i_timeIntegrated[l_face],         l_temporaryResult,
-                             i_fluxMatricies_prefetch[l_face], i_faceNeighbors_prefetch[l_face], NULL                 ); 
+      real* l_faceNeigh_prefetch = NULL;
+      real* l_flux_prefetch = NULL;
+      if (i_faceNeighbors_prefetch[l_face] != NULL) {
+        l_faceNeigh_prefetch = i_faceNeighbors_prefetch[l_face];
+      } else {
+        l_faceNeigh_prefetch = io_degreesOfFreedom;
+      }
+      if (i_fluxMatricies_prefetch[l_face] != NULL) {
+        l_flux_prefetch = i_fluxMatricies_prefetch[l_face];
+      } else {
+        l_flux_prefetch = i_fluxMatrices[l_id];
+      }
 
-      m_matrixKernels[53](   l_temporaryResult,                i_fluxSolvers[l_face],    io_degreesOfFreedom,
-                             i_fluxMatricies_prefetch[l_face], i_faceNeighbors_prefetch[l_face],                     NULL                 ); 
+      // compute neighboring elements contribution
+      m_matrixKernels[l_id]( i_fluxMatrices[l_id], i_timeIntegrated[l_face], l_temporaryResult,
+                             l_flux_prefetch,      l_faceNeigh_prefetch,     NULL                 ); 
+
+      m_matrixKernels[53](   l_temporaryResult,    i_fluxSolvers[l_face],    io_degreesOfFreedom,
+                             l_flux_prefetch,      l_faceNeigh_prefetch,     NULL                 ); 
 #else
       // compute neighboring elements contribution
       m_matrixKernels[l_id]( i_fluxMatrices[l_id], i_timeIntegrated[l_face], l_temporaryResult,

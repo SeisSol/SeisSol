@@ -1,0 +1,92 @@
+#! /usr/bin/python
+##
+# @file
+# This file is part of SeisSol.
+#
+# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+#
+# @section LICENSE
+# Copyright (c) 2015, SeisSol Group
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+# 
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from this
+#    software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+# @section DESCRIPTION
+#
+
+Import('env')
+
+import os
+
+def generate_code(target, source, env, for_signature):
+  return 'python {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --generator {}'.format(
+    source[0],
+    os.path.split(str(source[0]))[0],
+    os.path.split(str(target[0]))[0],
+    env['arch'],
+    env['order'],
+    env['numberOfMechanisms'],
+    env['libxsmmGenerator']
+  )
+
+env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
+
+if env['equations'] == 'viscoelastic':
+  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'kernels.cpp', 'kernels.h'], ['viscoelastic.py', Glob('gemmgen/*.py')])
+  env.Append(CPPPATH='#/{}/'.format(env['buildDir']))
+
+  buildPath = '#/' + env['buildDir'] + '/'
+  cppFiles = filter(lambda t: str(t).endswith('.cpp'), generated)
+  for cpp in cppFiles:
+    obj = env.Object(cpp)
+    env.Depends(obj, generated)
+    env.sourceFiles.append(obj)
+  
+
+#~ sourceFiles = ['seissolxx.f90', 'SeisSol.cpp']
+#~ 
+#~ for i in sourceFiles:
+    #~ env.sourceFiles.append(env.Object(i))
+#~ 
+#~ sourceDirectories = ['Monitoring', 'Geometry', 'Initializer', 'Equations', 'Model', 'Numerical_aux', 'Physics', 'Reader', 'ResultWriter', 'Solver', 'Parallel']
+#~ 
+#~ if env['generatedKernels']:
+  #~ sourceDirectories = sourceDirectories + ['Checkpoint']
+#~ 
+#~ for sourceDir in sourceDirectories:
+  #~ Export('env')
+  #~ SConscript(sourceDir+'/SConscript_generatedKernels', variant_dir='#/'+env['buildDir']+'/'+sourceDir, duplicate=0)
+  #~ Import('env')
+#~ 
+#~ if env['parallelization'] in ['hybrid', 'mpi']:
+  #~ Export('env')
+  #~ SConscript('xdmfwriter/SConscript', variant_dir='#/'+env['buildDir']+'/xdmfwriter', duplicate=0)
+  #~ Import('env')
+  #~ env.sourceFiles.append(env.XdmfWriterSourceFiles)
+
+
+Export('env')

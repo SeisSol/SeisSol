@@ -181,24 +181,26 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault)
 		if (meshReader.hasPlusFault())
 			hasplusfault();
 
-		int* faultface;
-		double* faultnormals;
-		double* faulttangent1;
-		double* faulttangent2;
-		getfaultface(&size, &faultface);
-		getfaultnormals(&size, &faultnormals);
-		getfaulttangent1(&size, &faulttangent1);
-		getfaulttangent2(&size, &faulttangent2);
+		if (fault.size() > 0) {
+			int* faultface;
+			double* faultnormals;
+			double* faulttangent1;
+			double* faulttangent2;
+			getfaultface(&size, &faultface);
+			getfaultnormals(&size, &faultnormals);
+			getfaulttangent1(&size, &faulttangent1);
+			getfaulttangent2(&size, &faulttangent2);
 
-		for (int i = 0; i < size; i++) {
-			faultface[i] = fault[i].element + 1;
-			faultface[i + size] = fault[i].side + 1;
-			faultface[i + size*2] = fault[i].neighborElement + 1;
-			faultface[i + size*3] = fault[i].neighborSide + 1;
+			for (int i = 0; i < size; i++) {
+				faultface[i] = fault[i].element + 1;
+				faultface[i + size] = fault[i].side + 1;
+				faultface[i + size*2] = fault[i].neighborElement + 1;
+				faultface[i + size*3] = fault[i].neighborSide + 1;
 
-			memcpy(&faultnormals[i*3], fault[i].normal, sizeof(double)*3);
-			memcpy(&faulttangent1[i*3], fault[i].tangent1, sizeof(double)*3);
-			memcpy(&faulttangent2[i*3], fault[i].tangent2, sizeof(double)*3);
+				memcpy(&faultnormals[i*3], fault[i].normal, sizeof(double)*3);
+				memcpy(&faulttangent1[i*3], fault[i].tangent1, sizeof(double)*3);
+				memcpy(&faulttangent2[i*3], fault[i].tangent2, sizeof(double)*3);
+			}
 		}
 
 		for (std::map<int, std::vector<MPINeighborElement> >::const_iterator i = mpiFaultNeighbors.begin();

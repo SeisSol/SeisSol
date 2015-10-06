@@ -215,7 +215,7 @@ private:
 	{
 		unsigned long id;
 		ssize_t size = read(file, &id, sizeof(id));
-		if (size < sizeof(id)) {
+		if (size < static_cast<ssize_t>(sizeof(id))) {
 			logWarning() << "Could not read checkpoint header";
 			return false;
 		}
@@ -246,7 +246,7 @@ protected:
 	static void checkErr(T ret, U target)
 	{
 		checkErr(ret);
-		if (ret != target)
+		if (ret != static_cast<T>(target))
 			logError() << "Error in the POSIX checkpoint module:"
 				<< target << "bytes expected;" << ret << "bytes gotten";
 	}

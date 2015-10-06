@@ -38,7 +38,12 @@
  * Main C++ SeisSol file
  */
 
+#ifndef SEISSOL_H
+#define SEISSOL_H
+
 #include "Parallel/MPI.h"
+
+#include <string>
 
 #ifdef GENERATEDKERNELS
 #include "Solver/time_stepping/TimeManager.h"
@@ -65,6 +70,9 @@ class SeisSol
 {
 private:
 	MPI m_mpi;
+
+	/** The name of the parameter file */
+	std::string m_parameterFile;
 
 	MeshReader* m_meshReader;
 
@@ -117,6 +125,11 @@ public:
 	const MPI& mpi() const
 	{
 		return m_mpi;
+	}
+
+	const char* parameterFile() const
+	{
+		return m_parameterFile.c_str();
 	}
 
 #ifdef GENERATEDKERNELS
@@ -186,3 +199,5 @@ public:
 };
 
 }
+
+#endif // SEISSOL_H

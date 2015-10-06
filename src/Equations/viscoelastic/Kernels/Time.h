@@ -112,42 +112,6 @@ class seissol::kernels::Time {
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
 
     /**
-     * Collection of matrix kernels, which perform the matrix product \f$ C += A.B\f$,
-     * where \f$ A \f$ is a global transposed stiffness matrix (case a) or B a star matrix (case b).
-     * Each matrix kernel can be dense or sparse.
-     * Each kernel has hardcoded BLAS-specifiers (M, N, K, ld(A), ld(B), ld(C), beta) exploiting the recursive structure.
-     * The kernels are ordered as follows:
-     *    0-2:       1st derivative \f$ M^{-1} ( K^\xi )^T \vee M^{-1} ( K^\eta )^T \vee M^{-1} ( K^\zeta )^T \f$
-     *    3:         1st derivative \f$ A^* \vee B^* \vee C^* \f
-     *    4-6:       2nd derivative \f$ M^{-1} ( K^\xi )^T \vee M^{-1} ( K^\eta )^T \vee M^{-1} ( K^\zeta )^T \f$
-     *    7:         2nd derivative \f$ A^* \vee B^* \vee C^* \f
-     *    ...
-     *    4*(O-2):   O-1th derivative
-     *    4*(O-2)+1: O-1th derivative
-     *
-     * Remark: The mass matrix \f$ M \f$ is diagonal.
-     * 
-     * The matrix kernels might prefetch matrices of the next matrix multiplication triple \f$ A =+ B.C \f$,
-     * thus loading upcoming matrices into lower level memory while the FPUs are busy.
-     * In the case of the time integrator this means prefetching the transposed stiffness matrices (multiplied by the inverse mass matrices)
-     * or star matrices of the upcoming operations in the recursive computation of the time derivatives.
-     * The last operation,
-     * \f[
-     *   \left( \frac{\partial^{j_{\max-1}}}{\partial t^{j_{\max-1}} Q_k \right) C_k^*
-     * \f],
-     * already prefetches the stiffness, unknowns and time integrated unknowns matrix of the upcoming time integration of the next element.
-     *
-     * @param i_A left/transposed stiffness matrix (case a) or derivatives matrix (case b).
-     * @param i_B right/derivatives matrix (case a) or star matrix (case b).
-     * @param io_C resulting matrix.
-     * @param i_APrefetch left matrix \f$ A \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     * @param i_BPrefetch right matrix \f$ B \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     * @param i_CPrefetch result matrix \f$ C \f$ of the next matrix triple \f$ (A, B, C) \f$.
-     **/  
-    void (*m_matrixKernels[(CONVERGENCE_ORDER-1)*4])( const real *i_A,         const real *i_B,               real *io_C,
-                                                      const real *i_APrefetch, const real *i_BPrefetch, const real *i_CPrefetch );
-
-    /**
      * Number of non-zero floating point operations performed by each matrix kernel.
      **/
     unsigned int m_nonZeroFlops[(CONVERGENCE_ORDER-1)*4];

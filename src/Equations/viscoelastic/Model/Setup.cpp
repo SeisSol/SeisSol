@@ -43,6 +43,10 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 
+#include <generated_code/init.h>
+
+using namespace seissol::model::source;
+
 void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
                                                  unsigned        i_dim,
                                                  MatrixView<9,6> o_M )
@@ -176,41 +180,36 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   }
 }
 
-void getTransposedSourceCoefficientMatrix( real const      theta[3],
-                                           MatrixView<6,9> E )
+void seissol::model::setSourceMatrix( seissol::model::Material const& local,
+                                      real*                           sourceMatrix )
 {
-  E(0,0) = theta[0];
-  E(1,0) = theta[1];
-  E(2,0) = theta[1];
-  E(0,1) = theta[1];
-  E(1,1) = theta[0];
-  E(2,1) = theta[1];  
-  E(0,2) = theta[1];
-  E(1,2) = theta[1];
-  E(2,2) = theta[0];  
-  E(3,3) = theta[2];
-  E(4,4) = theta[2];
-  E(5,5) = theta[2];
-}
-
-void seissol::model::setSourceMatrix( seissol::model::Material const&                        local,
-                                      MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> sourceMatrix )
-{
-  sourceMatrix.setZero();
+  seissol::model::source::setZero(sourceMatrix);
 
   //       | E_1^T |
   // E^T = |  ...  |
   //       | E_L^T |
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    getTransposedSourceCoefficientMatrix(local.theta[mech], sourceMatrix.block<6,9>(9 + mech * 6, 0));
-    
+    unsigned offset = 9 + mech * 6;
+    real const* theta = local.theta[mech];
+    sourceMatrix[source::index(offset,     0)] = theta[0];
+    sourceMatrix[source::index(offset + 1, 0)] = theta[1];
+    sourceMatrix[source::index(offset + 2, 0)] = theta[1];
+    sourceMatrix[source::index(offset,     1)] = theta[1];
+    sourceMatrix[source::index(offset + 1, 1)] = theta[0];
+    sourceMatrix[source::index(offset + 2, 1)] = theta[1];  
+    sourceMatrix[source::index(offset,     2)] = theta[1];
+    sourceMatrix[source::index(offset + 1, 2)] = theta[1];
+    sourceMatrix[source::index(offset + 2, 2)] = theta[0];  
+    sourceMatrix[source::index(offset + 3, 3)] = theta[2];
+    sourceMatrix[source::index(offset + 4, 4)] = theta[2];
+    sourceMatrix[source::index(offset + 5, 5)] = theta[2];    
   }
   
   // E' = diag(-omega_1 I, ..., -omega_L I)
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     for (unsigned i = 0; i < 6; ++i) {
       unsigned idx = 9 + 6*mech + i;
-      sourceMatrix(idx,idx) = -local.omega[mech];
+      sourceMatrix[source::index(idx, idx)] = -local.omega[mech];
     }
   }
 }

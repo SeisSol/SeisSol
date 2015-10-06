@@ -111,6 +111,7 @@ def generate(env, **kw):
         # Try to find all additional libraries
         conf.CheckLib('curl')
         conf.CheckLib('gpfs')
+        conf.CheckLib('dl')
 
         ret = conf.CheckNetcdfLinking(parallel, "Checking whether all netCDF dependencies are found")
         if not ret:
