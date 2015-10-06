@@ -39,7 +39,7 @@
 #
 
 from gemmgen import DB, Tools, Arch
-from numpy import matlib, bmat, float64
+import numpy as np
 import argparse
 
 cmdLineParser = argparse.ArgumentParser()
@@ -66,17 +66,17 @@ db = Tools.parseMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, 
 db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArgs.matricesDir), clones))
 db['timeIntegrated'] = DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities)
 db['timeDerivative0'] = DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities)
-riemannSolverSpp = bmat([[matlib.ones((9, numberOfQuantities), dtype=float64)], [matlib.zeros((numberOfQuantities-9, numberOfQuantities), dtype=float64)]])
+riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfQuantities-9, numberOfQuantities), dtype=np.float64)]])
 db['AplusT'] = DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp)
 #~ db['Aplus'].fitBlocksToSparsityPattern()
 db['AminusT'] = DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp)
 #~ db['Aminus'].fitBlocksToSparsityPattern()
 
-mechMatrix = matlib.zeros((15, numberOfQuantities))
-mechMatrix[0:9,0:9] = matlib.identity(9)
+mechMatrix = np.matlib.zeros((15, numberOfQuantities))
+mechMatrix[0:9,0:9] = np.matlib.identity(9)
 for m in range(0, numberOfMechanisms):
-  mechMatrix[9:15,9+6*m:9+6*(m+1)] = matlib.identity(6)
-tallMatrix = matlib.zeros((numberOfQuantities, 15))
+  mechMatrix[9:15,9+6*m:9+6*(m+1)] = np.matlib.identity(6)
+tallMatrix = np.matlib.zeros((numberOfQuantities, 15))
 tallMatrix[0:15,0:15] = db[clones['star'][0]].spp
 starMatrix = tallMatrix * mechMatrix
 for clone in clones['star']:
@@ -84,11 +84,11 @@ for clone in clones['star']:
   #~ db[clone].setBlocks([DB.MatrixBlock(0, 9, 0, 9), DB.MatrixBlock(0, 9, 9, numberOfQuantities)])
   #~ db[clone].fitBlocksToSparsityPattern()
   
-source = matlib.zeros((numberOfQuantities, numberOfQuantities))
+source = np.matlib.zeros((numberOfQuantities, numberOfQuantities))
 for m in range(0, numberOfMechanisms):
   r = slice(9+6*m, 9+6*(m+1))
   source[r,0:6] = db['YT'].spp
-  source[r,r] = matlib.identity(6)
+  source[r,r] = np.matlib.identity(6)
 db['source'] = DB.MatrixInfo('source', numberOfQuantities, numberOfQuantities, source)
 #~ db['source'].setBlocks([DB.MatrixBlock(9, numberOfQuantities, 0, 9), DB.MatrixBlock(9, numberOfQuantities, 9, numberOfQuantities)])
 #~ db['source'].fitBlocksToSparsityPattern()
