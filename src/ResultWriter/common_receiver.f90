@@ -104,6 +104,7 @@ CONTAINS
     !--------------------------------------------------------------------------
     INTEGER                  :: i, iElem, iPick, iCPU
     INTEGER,ALLOCATABLE      :: MPI_receiver_Element(:,:)
+    INTEGER,ALLOCATABLE      :: MPI_receiver_Index(:)
     REAL                     :: io_x, io_y, io_z, t
     REAL                     :: xmin, xmax, ymin, ymax, zmin, zmax
     REAL                     :: xV(MESH%nVertexMax), yV(MESH%nVertexMax), zV(MESH%nVertexMax)
@@ -171,10 +172,13 @@ CONTAINS
         ! log info
         logInfo(*) 'Cleaning possible double receiver locations for MPI... '
         !
-        ALLOCATE(  MPI_receiver_Element(IO%ntotalRecordPoint,0:MPI%nCPU-1) )
+        ALLOCATE( MPI_receiver_Element(IO%ntotalRecordPoint,0:MPI%nCPU-1) )
+        ALLOCATE( MPI_receiver_Index( IO%ntotalRecordPoint ) )
 
-        CALL MPI_ALLGATHER(IO%UnstructRecPoint(:)%index,  IO%ntotalRecordPoint,MPI_INTEGER, &
-                           MPI_receiver_Element,          IO%ntotalRecordPoint,MPI_INTEGER, &
+        MPI_receiver_Index(:) = IO%UnstructRecPoint(:)%index
+
+        CALL MPI_ALLGATHER(MPI_receiver_Index,     IO%ntotalRecordPoint,MPI_INTEGER, &
+                           MPI_receiver_Element,   IO%ntotalRecordPoint,MPI_INTEGER, &
                            MPI_COMM_WORLD, MPI%iErr                                          )
 
         DO iPick = 1, IO%ntotalRecordPoint
@@ -200,7 +204,8 @@ CONTAINS
           ENDIF
         ENDDO
         !
-        DEALLOCATE(MPI_receiver_Element )
+        DEALLOCATE( MPI_receiver_Element )
+        DEALLOCATE( MPI_receiver_Index )
         logInfo(*) 'MPI receiver cleaning done.  '
         IO%MPIPickCleaningDone = 1
       ENDIF

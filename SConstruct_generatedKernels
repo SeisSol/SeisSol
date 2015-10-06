@@ -427,20 +427,22 @@ if env['compileMode'] == 'debug':
              CLFGAGS  = ['-O0'],
              CXXFLAGS = ['-O0'])
   if env['compiler'] == 'intel':
-      env.Append(F90FLAGS = ['-shared-intel'],
+      env.Append(F90FLAGS = ['-shared-intel', '-check'],
                  CLFGAGS  = ['-shared-intel'],
                  CXXFLAGS = ['-shared-intel'])
+  else:
+      env.Append(F90FLAGS = ['-fcheck=all'])
 if env['compileMode'] in ['debug', 'relWithDebInfo']:
   env.Append(F90FLAGS  = ['-g'],
              CFLAGS    = ['-g'],
              CXXFLAGS  = ['-g'],
              LINKFLAGS = ['-g', '-rdynamic'])
   if env['compiler'] == 'intel':
-      env.Append(F90FLAGS  = ['-traceback', '-check'],
+      env.Append(F90FLAGS  = ['-traceback'],
                  CFLAGS    = ['-traceback'],
                  CXXFLAGS  = ['-traceback'])
   else:
-      env.Append(F90FLAGS  = ['-fbacktrace', '-fcheck=all'])
+      env.Append(F90FLAGS  = ['-fbacktrace'])
 
 if env['compileMode'] in ['relWithDebInfo', 'release']:
     env.Append(CPPDEFINES = ['NDEBUG'])

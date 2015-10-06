@@ -123,18 +123,6 @@ then
   source ${ENVIRONMENT}
 fi
 
-#@TODO this is outdated
-#if [ "${PARALLELIZATION}" == "mpi" ] || [ "${PARALLELIZATION}" == "hybrid" ]
-#then
-#  CPP_COMPILER=mpiCC
-#  FORTRAN_COMPILER=mpif90
-#  CPP_COMPILER=mpiicpc
-#  FORTRAN_COMPILER=mpiifort
-#else
-#  CPP_COMPILER=icpc
-#  FORTRAN_COMPILER=ifort
-#fi
-
 # take some guesses and print our environment
 module list
 echo $PATH
@@ -182,10 +170,12 @@ date
 if [ "${CODE_VERSION}" == "generated" ]
 then
     # building generated kernels version
+#    scons -f SConstruct_generatedKernels logLevel=warning logLevel0=info compileMode=${COMPILE_MODE} generatedKernels=yes arch=${ARCHITECTURE} parallelization=${PARALLELIZATION} commThread=${COMMUNICATION_THREAD} scalasca=${SCALASCA} order=${ORDER} cppCompiler=mpiicpc fortranCompiler=mpiifort useExecutionEnvironment=yes netcdf=${NETCDF_SWITCH} hdf5=${HDF5_SWITCH} zlibDir=${ZLIB_DIR} hdf5Dir=${HDF5_DIR} netcdfDir=${NETCDF4DIR} numberOfTemporalIntegrationPoints=${NUMBER_OF_TEMPORAL_INTEGRATION_POINTS} programName=${PROGRAM_NAME}
     scons -f SConstruct_generatedKernels logLevel=warning logLevel0=info compileMode=${COMPILE_MODE} generatedKernels=yes arch=${ARCHITECTURE} parallelization=${PARALLELIZATION} commThread=${COMMUNICATION_THREAD} scalasca=${SCALASCA} order=${ORDER} compiler=intel useExecutionEnvironment=yes netcdf=${NETCDF_SWITCH} hdf5=${HDF5_SWITCH} zlibDir=${ZLIB_DIR} hdf5Dir=${HDF5_DIR} netcdfDir=${NETCDF4DIR} numberOfTemporalIntegrationPoints=${NUMBER_OF_TEMPORAL_INTEGRATION_POINTS} programName=${PROGRAM_NAME}
 elif [ "${CODE_VERSION}" == "classic" ]
 then
   # build old classic SeisSol code
+#  scons -f SConstruct_generatedKernels logLevel=warning logLevel0=info compileMode=${COMPILE_MODE} generatedKernels=no arch=${ARCHITECTURE} parallelization=mpi scalasca=${SCALASCA} order=${ORDER} cppCompiler=mpiicpc fortranCompiler=mpiifort useExecutionEnvironment=yes netcdf=${NETCDF_SWITCH} hdf5=${HDF5_SWITCH} zlibDir=${ZLIB_DIR} hdf5Dir=${HDF5_DIR} netcdfDir=${NETCDF4DIR} numberOfTemporalIntegrationPoints=${NUMBER_OF_TEMPORAL_INTEGRATION_POINTS} programName=${PROGRAM_NAME}
   scons -f SConstruct_generatedKernels logLevel=warning logLevel0=info compileMode=${COMPILE_MODE} generatedKernels=no arch=${ARCHITECTURE} parallelization=mpi scalasca=${SCALASCA} order=${ORDER} compiler=intel useExecutionEnvironment=yes netcdf=${NETCDF_SWITCH} hdf5=${HDF5_SWITCH} zlibDir=${ZLIB_DIR} hdf5Dir=${HDF5_DIR} netcdfDir=${NETCDF4DIR} numberOfTemporalIntegrationPoints=${NUMBER_OF_TEMPORAL_INTEGRATION_POINTS} programName=${PROGRAM_NAME}
 else
   echo "unknown code version, aborting"
