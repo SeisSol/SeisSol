@@ -106,14 +106,13 @@ D. Installing netCDF
 E. Compiling SeisSol
 --------------------
 
-1. scons -f SConstruct_generatedKernels buildVariablesFile=build/options/supermuc_mac_cluster.py compileMode=release arch=$ARCH numberOfTemporalIntegrationPoints=1 cppCompiler=mpiicpc fortranCompiler=mpiifort order=$ORDER generatedKernels=yes netcdf=yes netcdfDir=$HOME hdf5Dir=$HOME -j 32 
+1. scons -f SConstruct_generatedKernels buildVariablesFile=build/options/supermuc_mac_cluster.py compileMode=release arch=$ARCH numberOfTemporalIntegrationPoints=1 order=$ORDER generatedKernels=yes netcdf=yes netcdfDir=$HOME hdf5Dir=$HOME -j 32 
 
 with:
 ORDER convergence order you want to use
 ARCH target architecture
 
-NOTE: This is with Intel MPI, if you have to use a different MPI, please adjust mpiicc and mpiifort accordingly to
-         the scripts that call icc and ifort!
+NOTE: SCons will try to detect the correct MPI wrappers. If this fails, you can overwrite the detected wrappers with the variables "mpicc", "mpicxx" and "mpif90".
 
 you can run scons -f SConstruct_generatedKernels -h to get some help on options
 

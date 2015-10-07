@@ -55,23 +55,31 @@ disp(' '),disp(' ')
 clear, close all;
 filename = input('     Specify root-filename (typically: **file**-pickpoints-, without the -):  ','s');
 
-%evaluate nb of files and nb of time samples
-eval(['!wc -l ',filename,'*faultreceiver* > tmp.dat']);
 
+%evaluate nb of files and nb of time samples
+%do not consider files with only header
+eval(['!find -name "',filename,'*faultreceiver*" -size +50k | xargs wc -l > tmp.dat']);
 tmp_file = 'tmp.dat';
 fid   = fopen(tmp_file);
-command_result = textscan(fid,'%d %s',[2 inf]);
+command_result = textscan(fid,'%d %s',[inf 2]);
 fclose(fid);
 eval(['!rm tmp.dat']);
 
 [nseis,y]=size(command_result{1});
 nseis=nseis-1;
-%assuming 8 header lines
-ndt=min(command_result{1}(1:end-1))-8;
 
-msg = sprintf('found %d seismogram(s)', nseis)
+msg = sprintf('found %d seismogram(s)', nseis);
 disp(msg);
-msg = sprintf('found %d time sample(s)', ndt)
+
+[status,coutput]=system(['awk ''/#/{a=NR}END{print a}'' ',command_result{2}{1}]);
+last_header_line=str2num(coutput);
+ndt=min(command_result{1}(1:end-1))-last_header_line;
+
+if (last_header_line>8)
+    disp('Warning: more than 8 header line found')
+end
+
+msg = sprintf('found %d time sample(s) (last header line: %d)', ndt, last_header_line);
 disp(msg);
 
 %nseis    = input('     Give number of last seismogram:                             ');
@@ -102,15 +110,15 @@ if (RS == 1);
 end;
 disp(' '), disp(sprintf('    \n Total number of variables including time:  %i\n',nvar));
 
-disp(' '),  disp('     Creating seismogram-processor relation ...' )
-eval(['!ls -l ',filename,'*faultreceiver* > tmp.dat']);
-tmp_file = 'tmp.dat';
-fid   = fopen(tmp_file);
-  for i=1:nseis
-    junk  = fgetl(fid); proc_s(i,1:30)=junk(end-29:end); 
-  end
-fclose(fid);
-eval(['!rm tmp.dat']);
+% disp(' '),  disp('     Creating seismogram-processor relation ...' )
+% eval(['!ls -l ',filename,'*faultreceiver* -size +50k> tmp.dat']);
+% tmp_file = 'tmp.dat';
+% fid   = fopen(tmp_file);
+%   for i=1:nseis
+%     junk  = fgetl(fid); proc_s(i,1:30)=junk(end-29:end); 
+%   end
+% fclose(fid);
+% eval(['!rm tmp.dat']);
 
 num = 1;
 ind = 0;
@@ -119,7 +127,8 @@ backgroundstress(3,1:nseis) = 0;
 
 for num = 1:nseis
      
-    in_file = [filename,proc_s(num,:)];
+    in_file = command_result{2}{num};
+    %[filename,proc_s(num,:)];
     
     fid   = fopen(in_file);
     junk  = fgetl(fid); junk  = fgetl(fid); 
@@ -136,13 +145,18 @@ for num = 1:nseis
     T_s   = fscanf(fid,'%g',[1,1]);
     junk  = fscanf(fid,'%c',[7,1]);
     T_d   = fscanf(fid,'%g',[1,1]);
+
+    %SKIP extra header lines
+    for i=8:last_header_line
+        junk  = fgetl(fid);
+    end
+    
     data = fscanf(fid,'%g',[nvar,ndt]); data = data';
 
     %determine and delete double samples from a possible restart
-    data(:,1) = (round(data(:,1)*1000000))/1000000;
-    [tmp,k,kk] = unique(data(:,1));
-    data  = data(k,:);
-    
+    %data(:,1) = (round(data(:,1)*1000000))/1000000;
+    %[tmp,k,kk] = unique(data(:,1));
+    %data  = data(k,:);
     disp(sprintf('\n Samples in seismogram nr. %i\t:   %i', num,size(data,1)));
     MATLAB_OUTPUT(:,:,num) = data;
     location(:,num) = [x1; x2; x3];
@@ -162,4 +176,5 @@ disp(' '),  disp('     Finished conversion!'), disp(' ')
 out_filename = input('     Give filename to save MATLAB data (add .mat):  ','s');
 out_file = out_filename(1:end-4);
 save(out_filename,'-v7.3','d')
+
 disp(sprintf('    \n Saved data as :  %s\n',out_filename));

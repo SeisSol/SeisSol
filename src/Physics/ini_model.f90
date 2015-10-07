@@ -123,6 +123,7 @@ CONTAINS
     REAL                            :: material(1:3), MaterialVal_k
     REAL                            :: ZoneIns, ZoneTrans, xG, yG, X2, LocX(3), LocY(3), tmp
     REAL                            :: BedrockVelModel(7,4)
+    REAL                            :: b11, b33, b13, g, Pf
     INTEGER                         :: eType
     INTEGER         :: nTens3GP
     REAL,POINTER    :: Tens3GaussP(:,:)
@@ -311,7 +312,7 @@ CONTAINS
            z = MESH%ELEM%xyBary(3,iElem)
            FoundLayer = .FALSE. 
            DO iLayer = 1, EQN%nLayers - 1
-             IF( (z.LE.EQN%MODEL(iLayer,1)).AND.(z.GE.EQN%MODEL(iLayer+1,1)) ) THEN
+             IF( (z.LE.EQN%MODEL(iLayer,1)).AND.(z.GT.EQN%MODEL(iLayer+1,1)) ) THEN
                FoundLayer = .TRUE.
                MaterialVal(iElem,1:3) = EQN%MODEL(iLayer,2:4) + (EQN%MODEL(iLayer+1,2:4) - EQN%MODEL(iLayer,2:4)) /  &
                                                                 (EQN%MODEL(iLayer+1,1)   - EQN%MODEL(iLayer,1)  ) *  &
@@ -536,6 +537,46 @@ CONTAINS
               ENDIF
         ENDDO
         !
+      CASE(30) !TPV29-30 : Plasticity and fault roughness
+         b11 = 1.025837D0
+         b33 = 0.974162D0
+         b13 =-0.158649D0
+         g = 9.8D0    
+
+        MaterialVal(:,1) = EQN%rho0
+        MaterialVal(:,2) = EQN%mu
+        MaterialVal(:,3) = EQN%lambda
+        ! Initialisation of IniStress(6 stress components in 3D)
+        !
+        ALLOCATE(EQN%IniStress(6,MESH%nElem))
+                 EQN%IniStress(:,:)=0.0D0
+
+        DO iElem=1, MESH%nElem
+
+                z = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
+
+          IF (z.GE.-17000.0D0) THEN
+              Omega = 1D0
+          ELSEIF (z.GE.-22000D0) THEN
+              Omega = (z+22000D0)/5000D0
+          ELSE
+              Omega = 0D0
+          ENDIF
+          Pf = -1000D0 * g * z
+          EQN%IniStress(3,iElem) = 2670d0*g*z
+          EQN%IniStress(1,iElem) =  Omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1d0-Omega)*EQN%IniStress(3,iElem)
+          EQN%IniStress(2,iElem) =  Omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1d0-Omega)*EQN%IniStress(3,iElem)
+          EQN%IniStress(4,iElem)  =  Omega*(b13*(EQN%IniStress(3,iElem)+Pf))
+          EQN%IniStress(5,iElem)  = 0.0  
+          EQN%IniStress(6,iElem)  = 0.0  
+          EQN%IniStress(1,iElem)  =   EQN%IniStress(1,iElem) + Pf
+          EQN%IniStress(2,iElem)  =   EQN%IniStress(2,iElem) + Pf
+          EQN%IniStress(3,iElem)  =   EQN%IniStress(3,iElem) + Pf
+
+        ENDDO
+
+
+
       CASE(60) ! special case of 1D layered medium, imposed without meshed layers for Landers 1992
                ! after Wald and Heaton 1994, Table 1
                ! Note that mesh coordinates are in km, but the scaling matrix is used in read_mesh
