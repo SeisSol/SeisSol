@@ -41,6 +41,11 @@
 % when the mesh is very large (+5e6 elements)
 % This amended version should do the job quicker
 home;
+if verLessThan('matlab', '8.5')
+    disp('YOUR MATLAB VERSION IS TOO OLD FOR THAT SCRIPT')
+    return
+end
+
 disp(' ')
 disp('    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
 disp('    %%                                                     %%')
