@@ -37,16 +37,17 @@
 # @section DESCRIPTION
 #
 
-from numpy import zeros, int
-from copy import deepcopy
+import numpy as np
+import copy
+import sys
 
 def equivalentMultiplicationPatterns(sparsityPatterns):
   layers = list()
   for pattern in sparsityPatterns:
-    layers.append(zeros(pattern.shape[0], dtype=int))
-  layers.append(zeros(sparsityPatterns[-1].shape[1], dtype=int))
+    layers.append(np.zeros(pattern.shape[0], dtype=np.int))
+  layers.append(np.zeros(sparsityPatterns[-1].shape[1], dtype=np.int))
   
-  sweepedPatterns = deepcopy(sparsityPatterns)
+  sweepedPatterns = copy.deepcopy(sparsityPatterns)
 
   for r, pattern in enumerate(sparsityPatterns):
     for i in range(0, pattern.shape[0]):
@@ -71,3 +72,31 @@ def equivalentMultiplicationPatterns(sparsityPatterns):
         sweepedPatterns[R-1][:,i] = 0.0
 
   return sweepedPatterns
+  
+  
+def sparseMatrixChainOrder(sparsityPatterns):
+  p = list()
+  p.append(sparsityPatterns[0].shape[0])
+  for pattern in sparsityPatterns:
+    p.append(pattern.shape[1])
+  
+  n = len(sparsityPatterns)
+  m = np.matlib.zeros((n, n))
+  s = np.matlib.zeros((n, n), dtype=int)
+  products = [[0 for j in range(0,n)] for i in range(0,n)]
+  for i,matrix in enumerate(sparsityPatterns):
+    products[i][i] = matrix
+  for L in range(1,n):
+    for i in range(0, n-L):
+      j = i + L
+      m[i, j] = sys.maxint
+      for k in range(i, j):
+        product = products[i][k]*products[k+1][j]
+        q = m[i,k] + m[k+1,j] + np.sum(product)
+        if q < m[i,j]:
+          m[i,j] = q
+          s[i,j] = k
+          product[np.abs(product) > 0] = 1.0
+          products[i][j] = product
+
+  return s

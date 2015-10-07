@@ -61,6 +61,15 @@ class Architecture(object):
       raise ValueError('Unknown precision type ' + self.precision)
     self.alignment = alignment
     self.alignedReals = self.alignment / self.bytesPerReal
+    
+  def getAlignedIndex(self, index):
+    return index - index % self.alignedReals
+
+  def getAlignedDim(self, dim):
+    return dim + (self.alignedReals - dim % self.alignedReals) % self.alignedReals
+
+  def checkAlignment(self, offset):
+    return offset % self.alignedReals == 0
 
 def getArchitectureByIdentifier(ident):
   precision = ident[0].upper()

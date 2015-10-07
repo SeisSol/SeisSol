@@ -37,8 +37,7 @@
 # @section DESCRIPTION
 #
 
-from sympy import MatrixSymbol, block_collapse
-from sys import maxint
+import sympy
 
 def checkExprTree(expr):
   valid = True
@@ -47,7 +46,7 @@ def checkExprTree(expr):
       valid &= checkExprTree(arg)
   elif expr.is_MatMul:
     for arg in expr.args:
-      valid &= isinstance(arg, MatrixSymbol)
+      valid &= isinstance(arg, sympy.MatrixSymbol)
   else:
     valid = False
   return valid

@@ -37,25 +37,15 @@
 # @section DESCRIPTION
 #
 
-from sys import maxint
-from scipy.sparse import coo_matrix
-from numpy import float64, ones, matlib, sum, where, abs
-from sympy import MatrixSymbol
-from copy import deepcopy
+import numpy as np
+import numpy.matlib
+import scipy.sparse
+import sympy
+import copy
 import re
 
-def getAlignedIndex(index, architecture):
-  return index - index % architecture.alignedReals
-
-def getAlignedDim(dim, architecture):
-  return dim + (architecture.alignedReals - dim % architecture.alignedReals) % architecture.alignedReals
-
-def checkAlignment(offset, architecture):
-  alignedReals = architecture.alignment / architecture.bytesPerReal
-  return offset % alignedReals == 0
-
 def getImplementationPattern(fittedBlocks, pattern):
-  implementationPattern = deepcopy(pattern)
+  implementationPattern = copy.deepcopy(pattern)
   for block in fittedBlocks:
     implementationPattern[block.slice()] = 1.0
   return implementationPattern
@@ -115,18 +105,18 @@ class MatrixInfo:
     self.requiredReals = -1
     self.leftMultiplication = False
     self.rightMultiplication = False
-    self.symbol = MatrixSymbol(name, self.rows, self.cols)
+    self.symbol = sympy.MatrixSymbol(name, self.rows, self.cols)
     self.globalMatrixId = -1
 
     if isinstance(sparsityPattern, tuple):
-      self.spp = coo_matrix((ones(len(sparsityPattern[0])), sparsityPattern), shape=(self.rows, self.cols), dtype=float64).todense()
+      self.spp = scipy.sparse.coo_matrix((np.ones(len(sparsityPattern[0])), sparsityPattern), shape=(self.rows, self.cols), dtype=np.float64).todense()
     elif sparsityPattern is None:
-      self.spp = matlib.ones((self.rows, self.cols), dtype=float64)
+      self.spp = np.matlib.ones((self.rows, self.cols), dtype=np.float64)
     else:
       self.spp = sparsityPattern
     
     # ensure that spp has only zeros and ones
-    self.spp[abs(self.spp) > 0] = 1.0
+    self.spp[np.abs(self.spp) > 0] = 1.0
       
     if self.spp.shape[0] != self.rows or self.spp.shape[1] != self.cols:
       raise ValueError('Matrix dimensions are different to the dimensions of the sparsity pattern.')
@@ -167,9 +157,9 @@ class MatrixInfo:
           raise ValueError('{}: The memory blocks {} and {} overlap.'.format(self.name, bi, bj))
     
     # check if all nnzs are contained in the blocks
-    nnz = sum(self.spp)
+    nnz = np.sum(self.spp)
     for block in self.blocks:
-      nnz -= sum(self.spp[block.slice()])
+      nnz -= np.sum(self.spp[block.slice()])
     
     if nnz != 0:
       raise ValueError('{}: The memory blocks do not cover all nonzeros.'.format(self.name))
@@ -178,10 +168,10 @@ class MatrixInfo:
     self.requiredReals = 0
     if alignStartrow == True:
       for block in self.blocks:
-        if checkAlignment(block.startrow, architecture) == False:
-          block.startrow = getAlignedIndex(block.startrow, architecture)
+        if architecture.checkAlignment(block.startrow) == False:
+          block.startrow = architecture.getAlignedIndex(block.startrow)
     for block in self.blocks:
-      block.ld = getAlignedDim(block.rows(), architecture) if self.leftMultiplication or not self.rightMultiplication else block.rows()
+      block.ld = architecture.getAlignedDim(block.rows()) if self.leftMultiplication or not self.rightMultiplication else block.rows()
       block.offset = self.requiredReals
       self.requiredReals += block.ld * block.cols()
     

@@ -602,6 +602,7 @@ elif env['compiler'] == 'gcc':
 
 # get the source files
 env.sourceFiles = []
+env.testSourceFiles = []
 
 Export('env')
 SConscript('generated_code/SConscript_generatedKernels', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
@@ -642,12 +643,13 @@ if env['unitTests'] != 'none':
   
   # Get test source files
   env.sourceFiles = []
-  env.testSourceFiles = []
   
   Export('env')
   SConscript('src/tests/SConscript', variant_dir='#/'+env['buildDir']+'/tests', src_dir='#/')
   Import('env')
-    
+
+  # Remove main() to avoid double definition
+  sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'main.o', sourceFiles)
   # Remove .mod files from additional Fortran files
   for sourceFile in env.sourceFiles:
     sourceFiles.append(sourceFile[0])

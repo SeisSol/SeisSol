@@ -37,11 +37,11 @@
 # @section DESCRIPTION
 #
 
-from lxml import etree
-from DB import MatrixInfo, getAlignedDim
-from Expr import analyseKernels
-from Generator import Generator
-from sympy import pprint, pretty
+import lxml.etree
+import DB
+import Expr
+import Generator
+import sympy
 
 def __complain(child):
   raise ValueError('Unknown tag ' + child.tag)
@@ -72,14 +72,14 @@ def __parseMatrix(node, clones):
   dbUpdate = dict()
   if clones.has_key(name):
     for clone in clones[name]:
-      dbUpdate[clone] = MatrixInfo(clone, rows, columns, spp, values)
+      dbUpdate[clone] = DB.MatrixInfo(clone, rows, columns, spp, values)
   else:
-    dbUpdate[name] = MatrixInfo(name, rows, columns, spp, values)
+    dbUpdate[name] = DB.MatrixInfo(name, rows, columns, spp, values)
   
   return dbUpdate  
 
 def parseMatrixFile(xmlFile, clones):
-  tree = etree.parse(xmlFile)
+  tree = lxml.etree.parse(xmlFile)
   root = tree.getroot()
   
   matrices = dict()
@@ -96,10 +96,10 @@ def numberOfBasisFunctions(order):
   return order * (order + 1) * (order + 2) / 6
   
 def alignedNumberOfBasisFunctions(order, architecture):
-  return getAlignedDim(numberOfBasisFunctions(order), architecture)
+  return architecture.getAlignedDim(numberOfBasisFunctions(order))
 
 def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
-  analyseKernels(db, kernels)
+  Expr.analyseKernels(db, kernels)
 
   for matrixInfo in db.itervalues():
     matrixInfo.generateMemoryLayout(architecture, alignStartrow=matrixInfo.leftMultiplication)    
@@ -109,7 +109,7 @@ def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
   print('\nKernels')
   print('-------')
   for name, kernel in kernels:
-    print(u'{}: {}'.format(name, pretty(kernel.symbol)))
+    print(u'{}: {}'.format(name, sympy.pretty(kernel.symbol)))
 
   print('\nMemory layout')
   print('-------------')
@@ -121,8 +121,8 @@ def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
       print('{:16} {}'.format(name, block))
       name = ''
 
-  generator = Generator(db, libxsmmGenerator, architecture)
+  generator = Generator.Generator(db, libxsmmGenerator, architecture)
   generator.generateKernels(outputDir, kernels)
   generator.generateInitializer(outputDir)
-  generator.generateGemms(outputDir)
+  generator.generateUnitTests(outputDir, kernels)
   

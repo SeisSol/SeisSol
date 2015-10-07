@@ -35,69 +35,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Main C++ SeisSol file
  */
 
 #include "SeisSol.h"
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
-
-#include "utils/args.h"
-
-void seissol::SeisSol::init(int argc, char* argv[])
-{
-	m_mpi.init(argc, argv);
-
-	const int rank = m_mpi.rank();
-
-  // Print welcome message
-  logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012-2015, SeisSol Group";
-  logInfo(rank) << "Built on:" << __DATE__ << __TIME__
-#ifdef GENERATEDKERNELS
-                << "(generated kernels)"
-#endif // GENERATEDKERNELS
-  ;
-#ifdef _OPENMP
-  logInfo(rank) << "Version:" << SEISSOL_VERSION_STRING;
-  logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
-#ifdef USE_MPI
-#ifdef USE_COMM_THREAD
-  logWarning(rank) << "Running with communication thread in hybrid mode!";
-  logWarning(rank) << "Make sure that OMP is just using N-1 cores!";
-  logWarning(rank) << "The communication thread will pin itself to OS core-id N-1!";
-  logWarning(rank) << "Check the pinning settings of your OMP implementation!";
-  logWarning(rank) << "Do not pin OMP threads to HW threads of the last OS core!";
-  logWarning(rank) << "Do not use more than 1 MPI rank per node!";
-#endif
-#endif
-#endif // _OPENMP
-
-  // Parse command line arguments
-  utils::Args args;
-  args.addAdditionalOption("file", "The parameter file", false);
-  switch (args.parse(argc, argv)) {
-  case utils::Args::Help:
-  case utils::Args::Error:
-	  m_mpi.finalize();
-	  exit(1);
-	  break;
-  case utils::Args::Success:
-	  break;
-  }
-
-  m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+extern "C" {
+  void fortran_main();
 }
 
-void seissol::SeisSol::finalize()
+int main(int argc, char* argv[])
 {
-	const int rank = m_mpi.rank();
+	EPIK_TRACER("SeisSol");
+	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	m_mpi.finalize();
+	// Initialize SeisSol
+	seissol::SeisSol::main.init(argc, argv);
 
-	logInfo(rank) << "SeisSol done. Goodbye.";
+	// Initialize Fortan Part and run SeisSol
+	fortran_main();
+
+	// Finalize SeisSol
+	seissol::SeisSol::main.finalize();
 }
-
-seissol::SeisSol seissol::SeisSol::main;

@@ -56,7 +56,7 @@ def generate_code(target, source, env, for_signature):
 env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
 
 if env['equations'] == 'viscoelastic':
-  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'kernels.cpp', 'kernels.h'], ['viscoelastic.py', Glob('gemmgen/*.py')])
+  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'kernels.cpp', 'kernels.h', 'KernelTests.t.h'], ['viscoelastic.py', Glob('gemmgen/*.py')])
   env.Append(CPPPATH='#/{}/'.format(env['buildDir']))
 
   buildPath = '#/' + env['buildDir'] + '/'
@@ -66,27 +66,9 @@ if env['equations'] == 'viscoelastic':
     env.Depends(obj, generated)
     env.sourceFiles.append(obj)
   
-
-#~ sourceFiles = ['seissolxx.f90', 'SeisSol.cpp']
-#~ 
-#~ for i in sourceFiles:
-    #~ env.sourceFiles.append(env.Object(i))
-#~ 
-#~ sourceDirectories = ['Monitoring', 'Geometry', 'Initializer', 'Equations', 'Model', 'Numerical_aux', 'Physics', 'Reader', 'ResultWriter', 'Solver', 'Parallel']
-#~ 
-#~ if env['generatedKernels']:
-  #~ sourceDirectories = sourceDirectories + ['Checkpoint']
-#~ 
-#~ for sourceDir in sourceDirectories:
-  #~ Export('env')
-  #~ SConscript(sourceDir+'/SConscript_generatedKernels', variant_dir='#/'+env['buildDir']+'/'+sourceDir, duplicate=0)
-  #~ Import('env')
-#~ 
-#~ if env['parallelization'] in ['hybrid', 'mpi']:
-  #~ Export('env')
-  #~ SConscript('xdmfwriter/SConscript', variant_dir='#/'+env['buildDir']+'/xdmfwriter', duplicate=0)
-  #~ Import('env')
-  #~ env.sourceFiles.append(env.XdmfWriterSourceFiles)
+  testFiles = filter(lambda t: str(t).endswith('.t.h'), generated)
+  for test in testFiles:
+    env.testSourceFiles.append(test.abspath)
 
 
 Export('env')
