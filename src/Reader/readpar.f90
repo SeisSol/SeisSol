@@ -3417,6 +3417,7 @@ ALLOCATE( SpacePositionx(nDirac), &
               'every ', IO%outInterval%Interval, '. timestep'                  !
 #ifdef GENERATEDKERNELS
          logError(*) 'Time step-wise output only with classic version'
+         stop
 #endif
       END IF                                                                   !
       IF (      IO%outInterval%printIntervalCriterion .EQ. 2 &                 !
