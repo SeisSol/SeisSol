@@ -1,5 +1,9 @@
 sudo: required
 
+notifications:
+  email:
+    - seissol-commits@googlegroups.com
+
 language: cpp
 
 compiler: gcc
