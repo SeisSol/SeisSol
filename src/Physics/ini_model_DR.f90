@@ -2079,7 +2079,7 @@ MODULE ini_model_DR_mod
           EQN%IniShearYZ(i,iBndGP)  =  0d0
 
           ! distance to hypocenter (approx plane fault)
-          r = dsqrt( (x-xHypo)*(x-xHypo)+(z-zHypo)*(z-zHypo))
+          r = sqrt( ((x-xHypo)*(x-xHypo))+((z-zHypo)*(z-zHypo)))
 
           IF (r.LE.1400D0) THEN
              EQN%IniShearXY(i,iBndGP)  =  EQN%IniShearXY(i,iBndGP)+4.95d6*mu/mu0
