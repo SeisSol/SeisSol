@@ -49,9 +49,12 @@
 
 #include "utils/logger.h"
 
-void read_mesh(int rank, MeshReader &meshReader, bool hasFault)
+void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
 	logInfo(rank) << "Mesh reading done.";
+  
+  meshReader.displaceMesh(displacement);
+  meshReader.scaleMesh(scalingMatrix);
 
 	const std::vector<Element>& elements = meshReader.getElements();
 	const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -231,24 +234,24 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault)
 
 extern "C" {
 
-void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitionfile, bool hasFault)
+void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitionfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
 	logInfo(rank) << "Reading Gambit mesh using fast reader";
 	logInfo(rank) << "Parsing mesh and partition file:" << meshfile << ';' << partitionfile;
 
 	seissol::SeisSol::main.setMeshReader(new GambitReader(rank, meshfile, partitionfile));
 
-	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault);
+	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
 }
 
-void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFault)
+void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
 #ifdef USE_NETCDF
 	logInfo(rank) << "Reading netCDF mesh" << meshfile;
 
 	seissol::SeisSol::main.setMeshReader(new NetcdfReader(rank, nProcs, meshfile));
 
-	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault);
+	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
 #else // USE_NETCDF
 	logError() << "netCDF not supported";
 #endif // USE_NETCDF

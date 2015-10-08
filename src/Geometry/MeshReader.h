@@ -115,6 +115,29 @@ public:
 	{
 		return m_hasPlusFault;
 	}
+  
+  void displaceMesh(double const displacement[3])
+  {
+    for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
+      for (unsigned i = 0; i < 3; ++i) {
+        m_vertices[vertexNo].coords[i] += displacement[i];
+      }
+    }
+  }
+  
+  // scalingMatrix is stored column-major, i.e. 
+  // scalingMatrix_ij = scalingMatrix[j][i] 
+  void scaleMesh(double const scalingMatrix[3][3])
+  {
+    for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
+      double x = m_vertices[vertexNo].coords[0];
+      double y = m_vertices[vertexNo].coords[1];
+      double z = m_vertices[vertexNo].coords[2];
+      for (unsigned i = 0; i < 3; ++i) {
+        m_vertices[vertexNo].coords[i] = scalingMatrix[0][i] * x + scalingMatrix[1][i] * y + scalingMatrix[2][i] * z;
+      }
+    }
+  }
 
 	/**
 	 * Reconstruct the fault information from the boundary conditions

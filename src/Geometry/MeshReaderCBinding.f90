@@ -58,22 +58,26 @@ module MeshReaderCBinding
     type (tMPI), pointer :: m_mpi
 
     interface
-        subroutine read_mesh_gambitfast_c(rank, meshfile, partitionfile, hasFault) bind(C, name="read_mesh_gambitfast_c")
+        subroutine read_mesh_gambitfast_c(rank, meshfile, partitionfile, hasFault, displacement, scalingMatrix) bind(C, name="read_mesh_gambitfast_c")
             use, intrinsic :: iso_c_binding
 
             integer( kind=c_int ), value                       :: rank
             character( kind=c_char ), dimension(*), intent(in) :: meshfile
             character( kind=c_char ), dimension(*), intent(in) :: partitionfile
             logical( kind=c_bool ), value                      :: hasFault
+            real(kind=c_double), dimension(*), intent(in)      :: displacement
+            real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
         end subroutine
 
-        subroutine read_mesh_netcdf_c(rank, nprocs, meshfile, hasFault) bind(C, name="read_mesh_netcdf_c")
+        subroutine read_mesh_netcdf_c(rank, nprocs, meshfile, hasFault, displacement, scalingMatrix) bind(C, name="read_mesh_netcdf_c")
             use, intrinsic :: iso_c_binding
 
             integer( kind=c_int ), value                       :: rank
             integer( kind=c_int ), value                       :: nprocs
             character( kind=c_char ), dimension(*), intent(in) :: meshfile
             logical( kind=c_bool ), value                      :: hasFault
+            real(kind=c_double), dimension(*), intent(in)      :: displacement
+            real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
         end subroutine
     end interface
 
@@ -109,12 +113,12 @@ contains
         write(str, *) mpi%nCPU
         if (io%meshgenerator .eq. 'Gambit3D-fast') then
             call read_mesh_gambitfast_c(mpi%myRank, trim(io%MeshFile) // c_null_char, \
-                trim(io%MetisFile) // '.epart.' // trim(adjustl(str)) // c_null_char, hasFault)
+                trim(io%MetisFile) // '.epart.' // trim(adjustl(str)) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
         elseif (io%meshgenerator .eq. 'Netcdf') then
 #ifdef PARALLEL
-            call read_mesh_netcdf_c(mpi%myRank, mpi%nCPU, trim(io%MeshFile) // c_null_char, hasFault)
+            call read_mesh_netcdf_c(mpi%myRank, mpi%nCPU, trim(io%MeshFile) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
 #else
-            call read_mesh_netcdf_c(0, 1, trim(io%MeshFile) // c_null_char, hasFault)
+            call read_mesh_netcdf_c(0, 1, trim(io%MeshFile) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
 #endif
         else
             logError(*) 'Unknown mesh reader'
@@ -169,15 +173,6 @@ contains
 
         real :: x1,y1,z1, x2,y2,z2, x3,y3,z3, x4,y4,z4
         integer :: i, nElements, nVertices
-
-        nVertices = size(m_mesh%VRTX%xyNode, 2)
-
-        ! Apply vertex transformation
-        do i=1,nVertices
-            ! TODO support displacement
-            ! m_mesh%VRTX%xyNode(:,iNode) = MESH%VRTX%xyNode(:,iNode) + MESH%Displacement(:)
-            m_mesh%VRTX%xyNode(:,i) = MATMUL(m_mesh%ScalingMatrix(:,:), m_mesh%VRTX%xyNode(:,i))
-        enddo
 
         nElements = size(m_mesh%ELEM%Vertex, 2)
 
