@@ -63,19 +63,12 @@ end;
 disp(' '),  disp('     Read data...' )
 
 % read in data
-%workingdir='/home/ulrich/WorkingDirSeissol/RESULTS31c2m100a2/'
-workingdir='./'
-prefix='ParRF100-600'
-%Ssearch = sprintf('%s%s',workingdir,'*-RF-*');
-Ssearch = sprintf('%s%s%s',workingdir,prefix,'-RF-*');
-liste=dir(Ssearch);
-
+liste=dir('*-RF-*');
 files = {liste.name};
 istart=1;
 for k=1:numel(files)
     % read files
-    sfilename = sprintf('%s%s',workingdir,files{k});
-    fid = fopen(sfilename,'r');
+    fid = fopen(files{k},'r');
     maxnumberlines = fscanf(fid,'%g',[1,1]);
     data_tmp(:,:) = fscanf(fid,'%g',[4,maxnumberlines]);
     fclose(fid);
