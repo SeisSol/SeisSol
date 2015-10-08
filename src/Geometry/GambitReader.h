@@ -49,7 +49,6 @@
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
-#include <iomanip>
 #include <fstream>
 #include <map>
 #include <string>
@@ -327,13 +326,7 @@ private:
 
 		for (int i = 0; i < groupSize; i++) {
 			int element;
-			//Modif T. Ulrich 5.03.15
-			//for mesh with more than 1e7 elements
-			//m_mesh >> element;
-                        char sBuffer[9];
-                        m_mesh >> std::setw(9)>> sBuffer;
-                        element = atoi(sBuffer);
-
+			m_mesh >> element;
 			if (m_g2lElements.find(element-1) != m_g2lElements.end())
 				m_elements[m_g2lElements[element-1]].material = groupId;
 		}

@@ -564,7 +564,7 @@ CONTAINS
       ENDDO
       CLOSE(IO%UNIT%other01)      
       !
-  CASE(12,30) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
+  CASE(12) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
            ! special case for TPV13, add other cases that use plasticity with different initial stress values here
       IF (EQN%Plasticity.EQ.1)THEN
         logInfo(*) 'Jacobians are globally constant with rho0, mu, lambda:'
@@ -1616,7 +1616,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,29,30,31,32,50,60,61,62,70,100,101,103,120)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,50,60,61,62,70,100,101,103)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
