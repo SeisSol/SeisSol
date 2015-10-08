@@ -116,8 +116,8 @@ CONTAINS
     CHARACTER(LEN=5)               :: cmyrank
     CHARACTER(LEN=600)             :: Filename, InFileName, OutFileName
     LOGICAL                        :: exists
-    REAL                           :: MaterialVals(EQN%nBackgroundVar)
-    REAL                           :: WaveSpeeds(EQN%nNonZeroEV)
+    REAL, ALLOCATABLE              :: MaterialVals(:)
+    REAL, ALLOCATABLE              :: WaveSpeeds(:)
 #ifdef HDF
 ! HDF5 variables
      CHARACTER(LEN=100) :: file_name = "" ! File name
@@ -441,6 +441,8 @@ CONTAINS
 
       ! [quantity][quantity][minus/plus][face]
       allocate( mesh%fault%fluxSolver( eqn%nvar, eqn%nvar, 2, mesh%fault%nSide) )
+      
+      allocate( MaterialVals(EQN%nBackgroundVar), WaveSpeeds(EQN%nNonZeroEV) )
 
       do l_ruptureFace = 1, mesh%fault%nSide
         ! compute & store rotation matrices:
@@ -476,8 +478,8 @@ CONTAINS
             l_B = 0.0
             l_attenuation = 0.0
 
-            MaterialVals(1:EQN%nBackgroundVar) = optionalFields%backgroundValue(l_elementId, :)
-            WaveSpeeds(1:EQN%nNonZeroEV) = disc%galerkin%waveSpeed(l_elementId, l_localFaceId, :)
+            MaterialVals = optionalFields%backgroundValue(l_elementId, :)
+            WaveSpeeds = disc%galerkin%waveSpeed(l_elementId, l_localFaceId, :)
             ! compute face normal jacobians
             call JacobiNormal3D( A       = l_A,\
                                  absA    = l_B,\
@@ -503,6 +505,8 @@ CONTAINS
           endif
         enddo
       enddo
+      
+      deallocate( MaterialVals, WaveSpeeds )
     endif
 
     !                                                                          ! 
