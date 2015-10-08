@@ -476,8 +476,8 @@ CONTAINS
             l_B = 0.0
             l_attenuation = 0.0
 
-            MaterialVals = optionalFields%backgroundValue(l_elementId, :)
-            WaveSpeeds = disc%galerkin%waveSpeed(l_elementId, l_localFaceId, :)
+            MaterialVals(1:EQN%nBackgroundVar) = optionalFields%backgroundValue(l_elementId, :)
+            WaveSpeeds(1:EQN%nNonZeroEV) = disc%galerkin%waveSpeed(l_elementId, l_localFaceId, :)
             ! compute face normal jacobians
             call JacobiNormal3D( A       = l_A,\
                                  absA    = l_B,\
