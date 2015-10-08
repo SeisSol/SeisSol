@@ -116,6 +116,8 @@ CONTAINS
     CHARACTER(LEN=5)               :: cmyrank
     CHARACTER(LEN=600)             :: Filename, InFileName, OutFileName
     LOGICAL                        :: exists
+    REAL                           :: MaterialVals(EQN%nBackgroundVar)
+    REAL                           :: WaveSpeeds(EQN%nNonZeroEV)
 #ifdef HDF
 ! HDF5 variables
      CHARACTER(LEN=100) :: file_name = "" ! File name
@@ -474,17 +476,19 @@ CONTAINS
             l_B = 0.0
             l_attenuation = 0.0
 
+            MaterialVals = optionalFields%backgroundValue(l_elementId, :)
+            WaveSpeeds = disc%galerkin%waveSpeed(l_elementId, l_localFaceId, :)
             ! compute face normal jacobians
             call JacobiNormal3D( A       = l_A,\
                                  absA    = l_B,\
-                                 w0      = optionalFields%backgroundValue(l_elementId, :),\
+                                 w0      = MaterialVals,\
                                  n0      = mesh%fault%geoNormals(  1:3, l_ruptureFace ),\
                                  s0      = mesh%fault%geoTangent1( 1:3, l_ruptureFace ),\
                                  t0      = mesh%fault%geoTangent2( 1:3, l_ruptureFace ),\
                                  eqn     = eqn,\
                                  io      = io, &
                                  ! @breuera: different wave speeds for the faces? that's strange..
-                                 w_speed = disc%galerkin%waveSpeed(l_elementId, l_localFaceId, :), &
+                                 w_speed = WaveSpeeds, &
                                  aniVec  = l_attenuation )
 
             ! rotate jacobian to match SeisSol's storage scheme
