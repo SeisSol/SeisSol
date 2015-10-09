@@ -3418,13 +3418,22 @@ ALLOCATE( SpacePositionx(nDirac), &
 #ifdef GENERATEDKERNELS
          logError(*) 'Time step-wise output only with classic version'
          stop
+#else
+         logError(*) 'Time step-wise output is not compatible with generated kernel version, therefore deprecated!'
+         !stop
 #endif
       END IF                                                                   !
       IF (      IO%outInterval%printIntervalCriterion .EQ. 2 &                 !
            .OR. IO%outInterval%printIntervalCriterion .EQ. 3 ) THEN  
-          IO%outInterval%TimeInterval = TimeInterval          !
-         logInfo0(*) 'Output data are generated '          , & !
-              'at delta T= ', IO%OutInterval%TimeInterval                      !
+         IF( IO%Format .eq. 10) THEN
+           ! we don't want output, so avoid confusing time stepping by setting 
+           ! plot interval to "infinity"
+           IO%outInterval%TimeInterval = 1E99
+           logInfo0(*) 'No output (FORMAT=10) specified, delta T set to: ', IO%OutInterval%TimeInterval
+         ELSE 
+           IO%outInterval%TimeInterval = TimeInterval          !
+           logInfo0(*) 'Output data are generated at delta T= ', IO%OutInterval%TimeInterval
+         ENDIF
       END IF                                                                   !
       !                                                                        ! 
       !
@@ -3438,6 +3447,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          IO%pickDtType = pickDtType
          IF (DISC%Galerkin%DGMethod .ne. 1 .and. IO%pickDtType .ne. 1) THEN
             logError(*) 'Pickpoint sampling every x timestep can only be used with global timesteping'
+            STOP
          ENDIF
          SELECT CASE (IO%pickDtType)
          CASE (1)
