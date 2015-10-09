@@ -2,7 +2,8 @@ sudo: required
 
 notifications:
   email:
-    - seissol-commits@googlegroups.com
+    on_success: always
+    on_failure: always
 
 language: cpp
 
