@@ -884,8 +884,9 @@ MODULE TypesDef
   END TYPE tDynRup_output
 
   TYPE tDynRup
-     REAL, POINTER                          :: Slip1(:,:)                        !< Slip path at given fault node along loc dir 1
-     REAL, POINTER                          :: Slip2(:,:)                        !< Slip path at given fault node along loc dir 2
+     REAL, POINTER                          :: Slip(:,:)                        !< Slip path at given fault node
+     REAL, POINTER                          :: Slip1(:,:)                        !< Slip at given fault node along loc dir 1
+     REAL, POINTER                          :: Slip2(:,:)                        !< Slip at given fault node along loc dir 2
      REAL, POINTER                          :: SlipRate1(:,:)                   !< Slip Rate at given fault node
      REAL, POINTER                          :: SlipRate2(:,:)                   !< Slip Rate at given fault node
      REAL, POINTER                          :: Mu(:,:)                          !< Current friction coefficient at given fault node

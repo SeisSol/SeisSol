@@ -186,6 +186,7 @@ CONTAINS
         i_mu        = disc%DynRup%mu,        &
         i_slipRate1 = disc%DynRup%slipRate1, &
         i_slipRate2 = disc%DynRup%slipRate2, &
+        i_slip     = disc%DynRup%slip,      &
         i_slip1     = disc%DynRup%slip1,    &
         i_slip2     = disc%DynRup%slip2,    &
         i_state     = disc%DynRup%stateVar,  &

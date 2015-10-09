@@ -153,7 +153,7 @@ public:
 	 * @return True is a checkpoint was loaded, false otherwise
 	 */
 	bool init(real* dofs, unsigned int numDofs,
-			double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
+			double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
 
 			double* state, double* strength, unsigned int numSides, unsigned int numBndGP,
 			double &time, int &waveFieldTimeStep, int &faultTimeStep)
@@ -162,7 +162,7 @@ public:
 			return false;
 
 		int exists = m_waveField->init(dofs, numDofs);
-		exists &= m_fault->init(mu, slipRate1, slipRate2, slip1, slip2,
+		exists &= m_fault->init(mu, slipRate1, slipRate2, slip, slip1, slip2,
 				state, strength, numSides, numBndGP);
 
 		// Make sure all rank think the same about the existing checkpoint
