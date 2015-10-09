@@ -169,7 +169,7 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in) :: i_checkPointBackend
     end subroutine
 
-    subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip1, i_slip2, i_state, i_strength, i_numSides, i_numBndGP ) &
+    subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, i_numSides, i_numBndGP ) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -177,6 +177,7 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), dimension(*), intent(in) :: i_mu
       real(kind=c_double), dimension(*), intent(in) :: i_slipRate1
       real(kind=c_double), dimension(*), intent(in) :: i_slipRate2
+      real(kind=c_double), dimension(*), intent(in) :: i_slip
       real(kind=c_double), dimension(*), intent(in) :: i_slip1
       real(kind=c_double), dimension(*), intent(in) :: i_slip2
       real(kind=c_double), dimension(*), intent(in) :: i_state

@@ -62,7 +62,7 @@ namespace checkpoint
 class Fault : virtual public CheckPoint
 {
 protected:
-	static const unsigned int NUM_VARIABLES = 7;
+	static const unsigned int NUM_VARIABLES = 8;
 
 private:
 	/** Pointers to fault data */
@@ -84,7 +84,7 @@ public:
 	/**
 	 * @return True of a valid checkpoint is available
 	 */
-	virtual bool init(double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
+	virtual bool init(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
 
 			double* state, double* strength,
 			unsigned int numSides, unsigned int numBndGP)
@@ -113,10 +113,11 @@ public:
 		m_data[0] = mu;
 		m_data[1] = slipRate1;
 		m_data[2] = slipRate2;
-		m_data[3] = slip1;
-		m_data[4] = slip2;
-		m_data[5] = state;
-		m_data[6] = strength;
+		m_data[3] = slip;
+		m_data[4] = slip1;
+		m_data[5] = slip2;
+		m_data[6] = state;
+		m_data[7] = strength;
 		m_numSides = numSides;
 		m_numBndGP = numBndGP;
 
