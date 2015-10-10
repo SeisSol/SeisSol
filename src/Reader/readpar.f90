@@ -3419,8 +3419,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          logError(*) 'Time step-wise output only with classic version'
          stop
 #else
-         logError(*) 'Time step-wise output is not compatible with generated kernel version, therefore deprecated!'
-         !stop
+         logWarning(*) 'Time step-wise output is deprecated! Your parameter file is not compatible with GK version!'
 #endif
       END IF                                                                   !
       IF (      IO%outInterval%printIntervalCriterion .EQ. 2 &                 !
@@ -3686,6 +3685,16 @@ ALLOCATE( SpacePositionx(nDirac), &
     !                                                                        
     DISC%MaxIteration =  MaxIteration                               ! nr of the end iteration
     !                                                                         
+#ifdef GENERATEDKERNELS
+    if (DISC%MaxIteration .lt. 10000000) then
+      logError(*) 'GK version does not support MaxIteration!'
+      stop
+    endif
+#else
+    if (DISC%MaxIteration .lt. 10000000) then
+      logWarning(*) 'MaxIteration is deprecated! Your parameter file is not compatible with GK version!'
+    endif
+#endif
     logInfo(*) 'Maximum ITERATION number allowed:', DISC%MaxIteration                                                   
     !
     !
