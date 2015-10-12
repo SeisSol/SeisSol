@@ -1436,7 +1436,7 @@ MODULE TypesDef
      INTEGER                                :: AbortStatus                      !< 0 = regular
                                                                                 !< 1 = lack of CPU time
                                                                                 !< 2 = other error
-     LOGICAL                                :: MetisWeights                     !< Run Seissol to compute METIS weights only
+!     LOGICAL                                :: MetisWeights                     !< Run Seissol to compute METIS weights only
      INTEGER                                :: FaultOutputFlag                  !< Flag if fault output is required or not (1 or 0)
 #ifdef HDF
      TYPE(thd_output)             , POINTER :: hd_out

@@ -347,6 +347,8 @@ CONTAINS
        !                                                                       !
     ENDIF                                                                      !
     !
+    !aheineck: Metisweighs are not used, @TODO we should delete this
+#if 0
     IF(IO%METISWeights) THEN ! not yet done for hybrids
         ! Compute Metis weights
         logInfo(*) 'Computing Metis weights ...'
@@ -417,6 +419,7 @@ CONTAINS
         logInfo(*) 'Terminating Programm !'
         STOP
     ENDIF    
+#endif
 
     ! TODO do we need to call this function when we read a checkpoint?? (SR)
     CALL icGalerkin3D_us_new(EQN, DISC, MESH, IC, SOURCE, IO)
