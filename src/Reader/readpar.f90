@@ -296,6 +296,7 @@ CONTAINS
     !
     EQN%linearized = .TRUE.
     EQN%Poroelasticity = 0
+    EQN%nBackgroundVar = 0
 
     ! Setting the default values
     rho                 = 1.
@@ -1245,7 +1246,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: allocStat, OutputMask(4), i
+    INTEGER                    :: allocStat, OutputMask(5), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
     REAL, DIMENSION(:), ALLOCATABLE ::X, Y, Z
@@ -1260,12 +1261,12 @@ CONTAINS
     !Setting default values
     printtimeinterval = 1
     OutputMask(1:3) = 1
-    OutputMask(4) = 0
+    OutputMask(4:5) = 0
     !
     READ(IO%UNIT%FileIn, nml = Pickpoint)
     !                                              
      DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
-     DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:4) =  OutputMask(1:4)      ! read info of desired output 1/ yes, 0/ no
+     DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:5) =  OutputMask(1:5)      ! read info of desired output 1/ yes, 0/ no
                                                                                 ! position: 1/ slip rate 2/ stress 3/ normal velocity 
      DISC%DynRup%DynRup_out_atPickpoint%nOutPoints = nOutPoints                 ! 4/ in case of rate and state output friction and state variable
      logInfo(*) '| '
@@ -3023,6 +3024,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     !                                                                 !                                                                 !
     DISC%DiscretizationMethod = 2                                     !
     logInfo(*) 'Discontinuous Galerkin technique is used. ' 
+    DISC%Galerkin%ZoneOrderFlag = 0 ! aheineck, this is used but never set, but we need to init it
 
     ! Setting default values
     DGFineOut1D = 0
