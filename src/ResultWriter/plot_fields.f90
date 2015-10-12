@@ -208,10 +208,11 @@ CONTAINS
     ENDIF                                               !
     IF(ASSOCIATED(OptionalFields%divB)) THEN            !
        DEALLOCATE(OptionalFields%divB)                  !
-    ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%grd)) THEN             !
-       DEALLOCATE(OptionalFields%grd)                   !
-    ENDIF                                               !
+    ENDIF  
+! aheineck, @TODO, not referecned in the code, commented!
+!    IF(ASSOCIATED(OptionalFields%grd)) THEN            !
+!       DEALLOCATE(OptionalFields%grd)                  !
+!    ENDIF                                              !
     !                                                   !
   END SUBROUTINE close_plot_fields                      !
 

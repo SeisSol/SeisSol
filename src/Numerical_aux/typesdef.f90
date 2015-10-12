@@ -1825,7 +1825,7 @@ MODULE TypesDef
      REAL                         , POINTER :: Alf(:)
      REAL                         , POINTER :: rotB(:,:)
      REAL                         , POINTER :: divB(:)
-     REAL                         , POINTER :: grd(:,:,:)
+!     REAL                         , POINTER :: grd(:,:,:)                      ! aheineck @TODO not referenced in the code -> commented
      TYPE(tPointerToField)        , POINTER :: FieldMask(:)
      !< calc_deltaT
      REAL                         , POINTER :: vel(  :)

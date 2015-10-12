@@ -3031,7 +3031,7 @@ CONTAINS
             CASE(6)
                 CALL HexaTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,x,y,z)
             END SELECT ! LocElemType
-            LocMaterialVal = MaterialVal(iElem,:) ! rho,mu,lambda
+            LocMaterialVal(:) = MaterialVal(iElem,:) ! rho,mu,lambda
             !
             CALL ModelDefinition_new(A,B,C,E,xGP,yGP,zGP,LocMaterialVal,             &
                                      EQN%LocAnelastic(iElem),                        &
@@ -3062,14 +3062,14 @@ CONTAINS
                 IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
                     iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
                     MPIIndex        = MESH%ELEM%MPINumber(iSide,iElem)
-                    NeigMaterialVal = BND%ObjMPI(iObject)%NeighborBackground(1:3,MPIIndex) ! rho,mu,lambda
+                    NeigMaterialVal(1:3) = BND%ObjMPI(iObject)%NeighborBackground(1:3,MPIIndex) ! rho,mu,lambda
                 ELSE
                     SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
                     CASE(0)
                         iNeighbor       = MESH%ELEM%SideNeighbor(iSide,iElem)
-                        NeigMaterialVal = MaterialVal(iNeighbor,:) ! rho,mu,lambda
+                        NeigMaterialVal(:) = MaterialVal(iNeighbor,:) ! rho,mu,lambda
                     CASE DEFAULT ! For boundary conditions take inside material
-                        NeigMaterialVal = LocMaterialVal           ! rho,mu,lambda
+                        NeigMaterialVal(:) = LocMaterialVal(:)           ! rho,mu,lambda
                     END SELECT
                 ENDIF
                 !

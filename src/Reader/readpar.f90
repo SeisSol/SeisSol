@@ -295,6 +295,7 @@ CONTAINS
     logInfo(*) 'Solving evolution equation for seismic wave propagation. '
     !
     EQN%linearized = .TRUE.
+    EQN%Poroelasticity = 0
 
     ! Setting the default values
     rho                 = 1.
