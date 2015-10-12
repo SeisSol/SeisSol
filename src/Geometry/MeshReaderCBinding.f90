@@ -133,6 +133,7 @@ contains
         mesh%nNode = nVertices
         mesh%nElem = nElements
         mesh%nElem_Tet = nElements
+        mesh%nElem_Hex = 0
 
         bnd%NoMPIDomains = nBndMPI
 
