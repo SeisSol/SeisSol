@@ -1,10 +1,12 @@
-#!/usr/bin/env python
+#! /usr/bin/python
 ##
 # @file
 # This file is part of SeisSol.
 #
+# @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+#
 # @section LICENSE
-# Copyright (c) SeisSol Group
+# Copyright (c) 2012-2014, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -32,23 +34,29 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+#
+# @section DESCRIPTION
+# Definition of the numerical_aux source files.
 
-Import('env','Glob')
+Import('env')
 
-sources = Glob('*.f90') + Glob('*.f')
+# numical auxiliary source files
+numericalAuxFiles = [ 'gauss.f90',
+                      'create_fault_rotationmatrix.f90',
+                      'typesdef.f90',
+                      'operators.f90',
+                      'convertxieta2xy.f90',
+                      'dgbasis.f90',
+                      'ini_quadfreedg.f90',
+                      'jacobinormal.f90',
+                      'quadpoints.f90',
+                      'sp_matmul.f90',
+                      'trilinearinterpolation.f90' ]
 
-# Temporarily fix until the IBM F2003 compiler is fast enough for compiling
-try:
-        env['BG']
-        objs = env.Object(['typesdef.f90', 'operators.f90',
-	'gauss.f90','convertxieta2xy.f90', 'dgbasis.f90',
-	'ini_quadfreedg.f90', 'jacobinormal.f90',
-	'quadpoints.f90', 'sp_matmul.f90', 'trilinearinterpolation.f90','create_fault_rotationmatrix.f90']) 
+if env['generatedKernels']:
+  numericalAuxFiles = [ 'Transformation.cpp' ] + numericalAuxFiles
 
-except KeyError:
-        objs = env.Object(['gauss.f90','typesdef.f90', 'operators.f90',
-        'convertxieta2xy.f90', 'dgbasis.f90',
-        'ini_quadfreedg.f90', 'jacobinormal.f90',
-        'quadpoints.f90', 'sp_matmul.f90', 'trilinearinterpolation.f90','create_fault_rotationmatrix.f90'])
+for i in numericalAuxFiles:
+  env.sourceFiles.append(env.Object(i))
 
-Return('objs')
+Export('env')

@@ -1,10 +1,12 @@
-#!/usr/bin/env python
+#! /usr/bin/python
 ##
 # @file
 # This file is part of SeisSol.
 #
+# @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+#
 # @section LICENSE
-# Copyright (c) SeisSol Group
+# Copyright (c) 2012-2014, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -32,22 +34,60 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+#
+# @section DESCRIPTION
+# Definition of the result writer source files.
 
-Import('env','Glob')
+Import('env')
 
-
+# result writer source files
 try:
-        env['HDF5']
-        sources = Glob('*.f90') + Glob('*.f')+ Glob('*.cpp')
-        print 'Using HDF5 support'
-#        objs =  env.Object(['vtkWriter.cpp','pvdWriter.cpp','vtk_writer.f90','pvd_writer.f90','analyse_seissol.f90', 'data_output.f90', 'inioutput_seissol.f90', 'common_receiver.f90', 'receiver_hdf.f90', 'plot_fields.f90', 'printthistimestep.f90', 'restart_data.f90', 'output_rupturefront.f90', 'hdf_output_utils.f90', 'hd_output.f90', 'faultoutput.f90', 'ini_faultoutput.f90', 'magnitude_output.f90'])
-        objs =  env.Object(['vtkWriter.cpp','pvdWriter.cpp','WaveFieldWriterC.cpp','vtk_writer.f90','pvd_writer.f90','analyse_seissol.f90', 'data_output.f90', 'inioutput_seissol.f90', 'common_receiver.f90', 'common_fault_receiver.f90', 'receiver_hdf.f90', 'plot_fields.f90', 'printthistimestep.f90', 'output_rupturefront.f90', 'hdf_output_utils.f90', 'hd_output.f90', 'hdf_faultoutput.f90', 'faultoutput.f90', 'ini_faultoutput.f90', 'vertex_hashmap.cpp', 'magnitude_output.f90','WaveFieldWriterF.f90', 'xdmfwriter/ParallelVertexFilter.cpp'])
+    env['HDF5']
+    writerFiles = ['vtk_writer.f90',
+                   'pvd_writer.f90',
+                   'analyse_seissol.f90',
+                   'data_output.f90',
+                   'inioutput_seissol.f90',
+                   'common_receiver.f90',
+                   'receiver_hdf.f90',
+                   'receiver.f90',
+                   'plot_fields.f90',
+                   'printthistimestep.f90',
+                   'output_rupturefront.f90',
+                   'magnitude_output.f90',
+                   'hd_output.f90',
+                   'hdf_output_utils.f90',
+                   'hdf_faultoutput.f90',
+                   'common_fault_receiver.f90',
+                   'faultoutput.f90',
+                   'ini_faultoutput.f90',
+                   'vtkWriter.cpp',
+                   'pvdWriter.cpp',
+                   'vertex_hashmap.cpp']
 
 except KeyError:
-        print 'HDF5 key not initialized'
-        print 'HDF5 is off'
-        sources = Glob('*.f90') + Glob('*.f')+ Glob('*.cpp')
+    writerFiles = [ 'analyse_seissol.f90',
+                    'inioutput_seissol.f90',
+                    'data_output.f90',
+                    'output_rupturefront.f90',
+                    'magnitude_output.f90',
+                    'common_receiver.f90',
+                    'receiver.f90',
+                    'plot_fields.f90',
+                    'printthistimestep.f90',
+                    'vtk_writer.f90',
+                    'pvd_writer.f90',
+                    'common_fault_receiver.f90',
+                    'faultoutput.f90',
+                    'ini_faultoutput.f90',
+                    'vertex_hashmap.cpp',
+                    'vtkWriter.cpp',
+                    'pvdWriter.cpp' ]
+    
+writerFiles += [ 'WaveFieldWriterC.cpp',
+                 'WaveFieldWriterF.f90' ]
 
-        objs = env.Object(['vtkWriter.cpp','pvdWriter.cpp','WaveFieldWriterC.cpp','vtk_writer.f90','pvd_writer.f90','vertex_hashmap.cpp','analyse_seissol.f90', 'data_output.f90', 'inioutput_seissol.f90', 'common_receiver.f90', 'common_fault_receiver.f90', 'receiver.f90', 'plot_fields.f90', 'printthistimestep.f90', 'output_rupturefront.f90','faultoutput.f90', 'ini_faultoutput.f90', 'magnitude_output.f90','WaveFieldWriterF.f90'])
+for i in writerFiles:
+  env.sourceFiles.append(env.Object(i))
 
-Return('objs')
+Export('env')

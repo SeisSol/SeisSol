@@ -605,9 +605,9 @@ env.sourceFiles = []
 env.testSourceFiles = []
 
 Export('env')
-SConscript('generated_code/SConscript_generatedKernels', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
-SConscript('src/SConscript_generatedKernels', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
-SConscript('submodules/SConscript_generatedKernels', variant_dir='#/'+env['buildDir']+'/submodules', duplicate=0)
+SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
+SConscript('src/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
+SConscript('submodules/SConscript', variant_dir='#/'+env['buildDir']+'/submodules', duplicate=0)
 Import('env')
 
 # remove .mod entries for the linker

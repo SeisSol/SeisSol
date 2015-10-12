@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#! /usr/bin/python
 ##
 # @file
 # This file is part of SeisSol.
@@ -34,10 +34,16 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+#
+# @section DESCRIPTION
+# Definition of the reader source files.
 
-Import('env','Glob')
+Import('env')
 
-sources = Glob('*.f90') + Glob('*.f')
-objs = env.Object(['MPI.cpp'])
+# parameter reader source file
+readerFiles = [ 'MPI.cpp' ]
 
-Return('objs')
+for i in readerFiles:
+  env.sourceFiles.append(env.Object(i))
+
+Export('env')

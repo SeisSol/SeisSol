@@ -1,10 +1,12 @@
-#!/usr/bin/env python
+#! /usr/bin/python
 ##
 # @file
 # This file is part of SeisSol.
 #
+# @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+#
 # @section LICENSE
-# Copyright (c) SeisSol Group
+# Copyright (c) 2012, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -32,10 +34,28 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+#
+# @section DESCRIPTION
+# Definition of the initializer source files.
 
-Import('env','Glob')
+Import('env')
 
-sources = Glob('*.f90') + Glob('*.f')
-objs = env.Object(['dg_setup.f90', 'ini_calcseissol.f90', 'ini_optionalfields.f90', 'ini_seissol.f90'])
+# initializer source files
+initializeFiles = [ 'ini_seissol.f90',
+                    'ini_optionalfields.f90',
+                    'dg_setup.f90',
+                    'ini_calcseissol.f90' ]
 
-Return('objs')
+# generated kernels specific initializers
+if env['generatedKernels']:
+  initializeFiles = [ 'InternalState.cpp',
+                      'MemoryAllocator.cpp',
+                      'MemoryManager.cpp',
+                      'time_stepping/LtsLayout.cpp',
+                      'InitSourceTermsGK.f90',
+                      'CellLocalMatrices.cpp'] + initializeFiles
+
+for i in initializeFiles:
+  env.sourceFiles.append(env.Object(i))
+
+Export('env')
