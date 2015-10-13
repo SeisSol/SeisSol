@@ -126,10 +126,11 @@ CONTAINS
     END IF                                              !
     IF (ASSOCIATED(OptionalFields%mask)) THEN           !
         DEALLOCATE(OptionalFields%mask)                 ! Deallocate
-    END IF                                              !
-    IF (ASSOCIATED(OptionalFields%dt_viscos)) THEN      !
-        DEALLOCATE(OptionalFields%dt_viscos)            ! Deallocate
-    END IF                                              !
+    END IF
+! aheineck, @TODO, not referecned in the code, commented                                              !
+!    IF (ASSOCIATED(OptionalFields%dt_viscos)) THEN      !
+!        DEALLOCATE(OptionalFields%dt_viscos)            ! Deallocate
+!    END IF                                              !
   END SUBROUTINE close_calc_deltaT                      !
     
   SUBROUTINE calc_deltaT(OptionalFields,EQN,MESH,DISC,SOURCE,IO,time,printTime)

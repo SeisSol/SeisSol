@@ -1831,7 +1831,7 @@ MODULE TypesDef
      REAL                         , POINTER :: vel(  :)
      REAL                         , POINTER :: sound(:)
      REAL                         , POINTER :: dt_convectiv(:)
-     REAL                         , POINTER :: dt_viscos(:)
+!     REAL                         , POINTER :: dt_viscos(:)                    ! aheineck @TODO not referenced in the code -> commented
      LOGICAL                      , POINTER :: mask( :)
      !< FaceAdjustment und
      !< Viscous Part
