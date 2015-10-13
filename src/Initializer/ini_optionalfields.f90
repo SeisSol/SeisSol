@@ -90,8 +90,7 @@ CONTAINS
     !                                                                           
     ! --- Hintergrundswerte f�r ALLE linearen Gleichungen -------------------- 
     !                                                                          
-    IF(EQN%linearized) THEN
-       PRINT *, MESH%nElem, EQN%nBackgroundVar                                                   
+    IF(EQN%linearized) THEN                                                   
        ALLOCATE(OptionalFields%BackgroundValue(MESH%nElem,EQN%nBackgroundVar),& 
                 STAT=allocStat(4)                                          ) 
        OptionalFields%BackgroundValue(:,:) = 0.                                           
