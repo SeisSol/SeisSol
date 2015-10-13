@@ -152,7 +152,8 @@ contains
         allocate(mesh%LocalElemType(nElements))
         mesh%LocalElemType(:) = 4
 
-        allocate(mesh%ELEM%BndGW_Tri((disc%Galerkin%nPoly+2)**2))
+        allocate(mesh%ELEM%BndGP_Tri(2, (disc%Galerkin%nPoly+2)**2), &
+                 mesh%ELEM%BndGW_Tri((disc%Galerkin%nPoly+2)**2))
         call TriangleQuadraturePoints(                    &
                   nIntGP     = disc%Galerkin%nBndGP,      &
                   IntGaussP  = mesh%ELEM%BndGP_Tri,       &
