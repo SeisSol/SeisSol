@@ -1816,15 +1816,15 @@ MODULE TypesDef
      REAL                         , POINTER :: DGLimiter(:)                     !< TVD Limiter Marker for DG
      !< plot fields dateien
      REAL                         , POINTER :: weight(:)
-     REAL                         , POINTER :: Mach(:)
-     REAL                         , POINTER :: Entropie(:)
-     REAL                         , POINTER :: Temp(:)
+!     REAL                         , POINTER :: Mach(:)                         ! aheineck @TODO not referenced in the code -> commented
+!     REAL                         , POINTER :: Entropie(:)                     ! aheineck @TODO not referenced in the code -> commented
+!     REAL                         , POINTER :: Temp(:)                         ! aheineck @TODO not referenced in the code -> commented
      REAL                         , POINTER :: AuxField(:,:)
-     REAL                         , POINTER :: rot(:,:)
+!     REAL                         , POINTER :: rot(:,:)                        ! aheineck @TODO not referenced in the code -> commented
      REAL                         , POINTER :: div(:)
-     REAL                         , POINTER :: Alf(:)
-     REAL                         , POINTER :: rotB(:,:)
-     REAL                         , POINTER :: divB(:)
+!     REAL                         , POINTER :: Alf(:)                          ! aheineck @TODO not referenced in the code -> commented
+!     REAL                         , POINTER :: rotB(:,:)                       ! aheineck @TODO not referenced in the code -> commented
+!     REAL                         , POINTER :: divB(:)                         ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: grd(:,:,:)                      ! aheineck @TODO not referenced in the code -> commented
      TYPE(tPointerToField)        , POINTER :: FieldMask(:)
      !< calc_deltaT

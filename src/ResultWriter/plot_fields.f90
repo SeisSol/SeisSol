@@ -185,31 +185,31 @@ CONTAINS
     IF(ASSOCIATED(OptionalFields%weight)) THEN          !
        DEALLOCATE(OptionalFields%weight)                !
     ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%Mach)) THEN            !
-       DEALLOCATE(OptionalFields%Mach)                  !
-    ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%Entropie)) THEN        !
-       DEALLOCATE(OptionalFields%Entropie)              !
-    ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%Temp)) THEN            !
-       DEALLOCATE(OptionalFields%Temp)                  !
-    ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%Alf)) THEN             !
-       DEALLOCATE(OptionalFields%Alf)                   !
-    ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%rot)) THEN             !
-       DEALLOCATE(OptionalFields%rot)                   !
-    ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%div)) THEN             !
-       DEALLOCATE(OptionalFields%div)                   !
-    ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%rotB)) THEN            !
-       DEALLOCATE(OptionalFields%rotB)                  !
-    ENDIF                                               !
-    IF(ASSOCIATED(OptionalFields%divB)) THEN            !
-       DEALLOCATE(OptionalFields%divB)                  !
-    ENDIF  
 ! aheineck, @TODO, not referecned in the code, commented!
+!    IF(ASSOCIATED(OptionalFields%Mach)) THEN            !
+!       DEALLOCATE(OptionalFields%Mach)                  !
+!    ENDIF                                               !
+!    IF(ASSOCIATED(OptionalFields%Entropie)) THEN        !
+!       DEALLOCATE(OptionalFields%Entropie)              !
+!    ENDIF                                               !
+!    IF(ASSOCIATED(OptionalFields%Temp)) THEN            !
+!       DEALLOCATE(OptionalFields%Temp)                  !
+!    ENDIF                                               !
+!    IF(ASSOCIATED(OptionalFields%Alf)) THEN             !
+!       DEALLOCATE(OptionalFields%Alf)                   !
+!    ENDIF                                               !
+!    IF(ASSOCIATED(OptionalFields%rot)) THEN             !
+!       DEALLOCATE(OptionalFields%rot)                   !
+!    ENDIF                                               !
+!    IF(ASSOCIATED(OptionalFields%div)) THEN             !
+!       DEALLOCATE(OptionalFields%div)                   !
+!    ENDIF                                               !
+!    IF(ASSOCIATED(OptionalFields%rotB)) THEN            !
+!       DEALLOCATE(OptionalFields%rotB)                  !
+!    ENDIF                                               !
+!    IF(ASSOCIATED(OptionalFields%divB)) THEN            !
+!       DEALLOCATE(OptionalFields%divB)                  !
+!    ENDIF  
 !    IF(ASSOCIATED(OptionalFields%grd)) THEN            !
 !       DEALLOCATE(OptionalFields%grd)                  !
 !    ENDIF                                              !
