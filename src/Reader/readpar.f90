@@ -102,7 +102,7 @@ MODULE COMMON_readpar_mod
   END INTERFACE
 
   interface
-    subroutine getParameterFile( i_maxlen, o_file ) bind( C, name='getParameterFile' )
+    subroutine getParameterFileC( i_maxlen, o_file ) bind( C, name='getParameterFile' )
         use iso_c_binding
         implicit none
         integer(kind=c_int), value                        :: i_maxlen
@@ -117,6 +117,20 @@ MODULE COMMON_readpar_mod
   LOGICAL :: CalledFromStructCode ! 
 
 CONTAINS
+
+  subroutine getParameterFile(parafile)
+    use iso_c_binding
+    character(*), intent(out) :: parafile
+    integer(c_int) :: i_maxlen
+    character(c_char) :: o_file(len(parafile))
+    integer :: i
+    parafile=''; i_maxlen = len(parafile)
+    call getParameterFileC(i_maxlen,o_file)
+    do i =1,i_maxlen
+       if(o_file(i)==c_null_char)return
+       parafile(i:i) = o_file(i)
+    end do
+  end subroutine getParameterFile
 
   SUBROUTINE readpar(EQN,IC,usMESH,DISC,SOURCE,BND,IO, &
                      ANALYSE,programTitle,MPI)
@@ -157,7 +171,7 @@ CONTAINS
        STOP                                                                  !
     END IF                                                                   !
     !                                                                        !
-    call getParameterFile(len(IO%ParameterFile), IO%ParameterFile)
+    call getParameterFile(IO%ParameterFile)
 
     ! Check if the parameter file exists
     inquire(file=IO%ParameterFile,EXIST=existence)
@@ -169,13 +183,14 @@ CONTAINS
     !
     logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
     logInfo0(*) '<                                                         >'
-    Name1 = TRIM(IO%ParameterFile)                       !
-    Name = Name1(1:600)
+    !Name1 = TRIM(IO%ParameterFile)                       !
+    !Name = Name1(1:600)
     !                                                                        ! 
-    CALL OpenFile(                                                         & !
-         UnitNr       = IO%UNIT%FileIn                                   , & !
-         Name         = name                                             , & !
-         create       = .FALSE.                                            ) !
+    CALL OpenFile(UnitNr=IO%UNIT%FileIn, name=trim(IO%ParameterFile), create=.FALSE.)
+!!$    CALL OpenFile(                                                         & !
+!!$         UnitNr       = IO%UNIT%FileIn                                   , & !
+!!$         Name         = name                                             , & !
+!!$         create       = .FALSE.                                            ) !
     !                                                                        ! 
     CALL readpar_header(IO,IC,actual_version_of_readpar,programTitle) !
     !                                                                        !
