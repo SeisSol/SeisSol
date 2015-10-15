@@ -177,7 +177,7 @@ vars.AddVariables(
                 
   BoolVariable( 'useExecutionEnvironment',
                 'set variables set in the execution environment',
-                False ),
+                True ),
 
   EnumVariable( 'arch',
                 'precision -- s for single- and d for double precision -- and architecture used. Warning: \'noarch\' calls the fall-back code and is outperformed by architecture-specific optimizations (if available) greatly.',
