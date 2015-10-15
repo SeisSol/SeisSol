@@ -585,7 +585,7 @@ else:
 
 # build directory
 
-env['buildDir'] = '{}/build_{}'.format(env['buildDir'], program_suffix)
+env['buildDir'] = '{0}/build_{1}'.format(env['buildDir'], program_suffix)
 
 # set sub directories (important for scons tree)
 buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
