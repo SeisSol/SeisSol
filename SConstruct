@@ -566,7 +566,7 @@ env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equat
 # setup the program name and the build directory
 #
 if env['programName'] == 'none':
-  program_suffix = '{}_{}_{}_{}_{}_{}_{}'.format(
+  program_suffix = '{0}_{1}_{2}_{3}_{4}_{5}_{6}'.format(
     env['compileMode'],
     'generatedKernels' if env['generatedKernels'] else 'classic',
     env['arch'],
@@ -575,7 +575,7 @@ if env['programName'] == 'none':
     numberOfQuantities[ env['equations'] ],
     env['order']
   )
-  env['programFile'] = '{}/SeisSol_{}'.format(
+  env['programFile'] = '{0}/SeisSol_{1}'.format(
     env['buildDir'],
     program_suffix
   )
