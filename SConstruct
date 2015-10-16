@@ -566,7 +566,7 @@ env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equat
 # setup the program name and the build directory
 #
 if env['programName'] == 'none':
-  program_suffix = '{0}_{1}_{2}_{3}_{4}_{5}_{6}'.format(
+  program_suffix = '%s_%s_%s_%s_%s_%s_%s' %(
     env['compileMode'],
     'generatedKernels' if env['generatedKernels'] else 'classic',
     env['arch'],
@@ -575,7 +575,7 @@ if env['programName'] == 'none':
     numberOfQuantities[ env['equations'] ],
     env['order']
   )
-  env['programFile'] = '{0}/SeisSol_{1}'.format(
+  env['programFile'] = '%s/SeisSol_%s' %(
     env['buildDir'],
     program_suffix
   )
@@ -585,7 +585,7 @@ else:
 
 # build directory
 
-env['buildDir'] = '{0}/build_{1}'.format(env['buildDir'], program_suffix)
+env['buildDir'] = '%s/build_%s' %(env['buildDir'], program_suffix)
 
 # set sub directories (important for scons tree)
 buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
