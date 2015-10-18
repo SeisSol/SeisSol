@@ -472,13 +472,13 @@ MODULE TypesDef
     REAL, POINTER     :: intGaussW_Hex(:)            !< Internal Gaussweights
     REAL, POINTER     :: RecIntGaussP(:,:)           !< Internal GP coordinates
     REAL, POINTER     :: RecIntGaussW(:)             !< Internal Gaussweights
-    REAL, POINTER     :: bndGaussP(:,:,:)            !< Boundary GP (ref. xi/eta)
-    REAL, POINTER     :: bndGaussP3D(:,:)            !< Boundary GP (ref. xi/eta)
-    REAL, POINTER     :: bndGaussP_Tet(:,:)          !< Boundary GP (ref. xi/eta)
-    REAL, POINTER     :: bndGaussP_Hex(:,:)          !< Boundary GP (ref. xi/eta)
-    REAL, POINTER     :: bndGaussW(:)                !< Gaussweights on boundary
-    REAL, POINTER     :: bndGaussW_Tet(:)            !< Gaussweights on boundary
-    REAL, POINTER     :: bndGaussW_Hex(:)            !< Gaussweights on boundary
+    REAL, POINTER     :: bndGaussP(:,:,:)    =>NULL()         !< Boundary GP (ref. xi/eta)
+    REAL, POINTER     :: bndGaussP3D(:,:)    =>NULL()         !< Boundary GP (ref. xi/eta)
+    REAL, POINTER     :: bndGaussP_Tet(:,:)  =>NULL()         !< Boundary GP (ref. xi/eta)
+    REAL, POINTER     :: bndGaussP_Hex(:,:)  =>NULL()         !< Boundary GP (ref. xi/eta)
+    REAL, POINTER     :: bndGaussW(:)        =>NULL()         !< Gaussweights on boundary
+    REAL, POINTER     :: bndGaussW_Tet(:)    =>NULL()         !< Gaussweights on boundary
+    REAL, POINTER     :: bndGaussW_Hex(:)    =>NULL()         !< Gaussweights on boundary
     REAL, POINTER     :: FR_GP(:,:)                  !< Neighbor flux of GP of nc edge
     !<
     REAL, ALLOCATABLE :: MassMatrix(:,:,:)           !< Mass Matrix
