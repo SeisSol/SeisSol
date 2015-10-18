@@ -588,7 +588,7 @@ CONTAINS
     IMPLICIT NONE
     !------------------------------------------------------------------------!
     INTEGER            :: UnitNr
-    CHARACTER(LEN=600) :: Name
+    CHARACTER(LEN=*)   :: Name
     LOGICAL            :: create
     ! local variables
     INTEGER            :: status
