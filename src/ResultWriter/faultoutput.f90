@@ -1046,6 +1046,7 @@ CONTAINS
     INTEGER :: stat
     INTEGER :: nOutPoints
     INTEGER :: iOutPoints, k                                                  ! Loop variables                   !
+    REAL, ALLOCATABLE       :: TmpStateIO(:)                                  ! local variable to avoid fortran runtime copy 
     CHARACTER (LEN=5)       :: cmyrank
     CHARACTER (len=200)     :: ptsoutfile
     !-------------------------------------------------------------------------!
@@ -1053,6 +1054,8 @@ CONTAINS
     INTENT(INOUT) :: DISC
     !-------------------------------------------------------------------------!
     !
+
+    ALLOCATE ( TmpStateIO( UBOUND(DISC%DynRup%DynRup_out_atPickpoint%TmpState, 3) ) )
     nOutPoints = DISC%DynRup%DynRup_out_atPickpoint%nDR_pick                   ! number of output receivers for this MPI domain
     DO iOutPoints = 1,nOutPoints                                               ! loop over number of output receivers for this domain
           !
@@ -1078,7 +1081,8 @@ CONTAINS
             END IF
             !
             DO k=1,DISC%DynRup%DynRup_out_atPickpoint%CurrentPick(iOutPoints)
-               WRITE(DISC%DynRup%DynRup_out_atPickpoint%VFile(iOutPoints),*) DISC%DynRup%DynRup_out_atPickpoint%TmpTime(k), DISC%DynRup%DynRup_out_atPickpoint%TmpState(iOutPoints,k,:)
+               TmpStateIO(:) = DISC%DynRup%DynRup_out_atPickpoint%TmpState(iOutPoints,k,:)
+               WRITE(DISC%DynRup%DynRup_out_atPickpoint%VFile(iOutPoints),*) DISC%DynRup%DynRup_out_atPickpoint%TmpTime(k), TmpStateIO(:)
             ENDDO
             !
             DISC%DynRup%DynRup_out_atPickpoint%CurrentPick(iOutPoints) = 0
@@ -1087,6 +1091,7 @@ CONTAINS
             !
           ENDIF
     ENDDO ! iOutPoints = 1,DISC%DynRup%nOutPoints
+    DEALLOCATE ( TmpStateIO )
   END SUBROUTINE write_FaultOutput_atPickpoint
  !
  END MODULE faultoutput_mod
