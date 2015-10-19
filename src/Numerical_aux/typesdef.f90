@@ -856,26 +856,26 @@ MODULE TypesDef
 
 !< Dynamic Rupture output variables, without rupture front output
   TYPE tDynRup_output
-     REAL, POINTER                          :: OutNodes(:,:)                    !< Node output positions at fault
-     REAL, POINTER                          :: OutEval(:,:,:,:)                 !< Values for the automatic evaluation of DOFs at fault output nodes
-     REAL, POINTER                          :: OutVal(:,:,:)                    !< State variable used at Rate-and-state friction laws
-     REAL, POINTER                          :: OutInt(:,:)                      !< nearest BndGP from output faultreceiver
-     REAL, POINTER                          :: OutInt_dist(:)                   !< distance from nearest BndGP from output faultreceiver
+     REAL, POINTER                          :: OutNodes(:,:)    => NULL()                !< Node output positions at fault
+     REAL, POINTER                          :: OutEval(:,:,:,:) => NULL()                !< Values for the automatic evaluation of DOFs at fault output nodes
+     REAL, POINTER                          :: OutVal(:,:,:)   => NULL()                 !< State variable used at Rate-and-state friction laws
+     REAL, POINTER                          :: OutInt(:,:)     => NULL()                 !< nearest BndGP from output faultreceiver
+     REAL, POINTER                          :: OutInt_dist(:)   => NULL()                !< distance from nearest BndGP from output faultreceiver
      INTEGER                                :: nOutPoints                       !< Number of output points per element
      INTEGER                                :: nOutVars
         !< Number of output variables (calculated using OututMask)
      INTEGER                                :: printtimeinterval                !< Time interval at which output will be written
      INTEGER                                :: OutputMask(1:7)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed
-     INTEGER                      , POINTER :: OutputLabel(:)                   !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
+     INTEGER                      , POINTER :: OutputLabel(:)    => NULL()               !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
      LOGICAL                                :: DR_pick_output                   !< DR output at certain receiver stations
      INTEGER                                :: nDR_pick                         !< number of DR output receiver for this domain
-     TYPE(tUnstructPoint)         , POINTER :: RecPoint(:)                      !< DR pickpoint location
-     INTEGER                      , POINTER :: VFile(:)                         !< unit numbers for DR pickpoints
+     TYPE(tUnstructPoint)         , POINTER :: RecPoint(:)    => NULL()                  !< DR pickpoint location
+     INTEGER                      , POINTER :: VFile(:)     => NULL()                    !< unit numbers for DR pickpoints
      INTEGER                                :: MaxPickStore                     !< output every MaxPickStore
-     INTEGER                      , POINTER :: CurrentPick(:)                   !< Current storage time level
-     REAL                         , POINTER :: TmpTime(:)                       !< Stored time levels
-     REAL                         , POINTER :: TmpState(:,:,:)                  !< Stored variables
-     REAL                         , POINTER :: rotmat(:,:,:)                    !< stores rotation matrix for fault receiver
+     INTEGER                      , POINTER :: CurrentPick(:)   => NULL()                !< Current storage time level
+     REAL                         , POINTER :: TmpTime(:) => NULL()                      !< Stored time levels
+     REAL                         , POINTER :: TmpState(:,:,:)  => NULL()                !< Stored variables
+     REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
      REAL                                   :: p0
      integer                                :: refinement
      integer                                :: BinaryOutput
@@ -884,19 +884,19 @@ MODULE TypesDef
   END TYPE tDynRup_output
 
   TYPE tDynRup
-     REAL, POINTER                          :: Slip(:,:)                        !< Slip path at given fault node
-     REAL, POINTER                          :: Slip1(:,:)                        !< Slip at given fault node along loc dir 1
-     REAL, POINTER                          :: Slip2(:,:)                        !< Slip at given fault node along loc dir 2
-     REAL, POINTER                          :: SlipRate1(:,:)                   !< Slip Rate at given fault node
-     REAL, POINTER                          :: SlipRate2(:,:)                   !< Slip Rate at given fault node
-     REAL, POINTER                          :: Mu(:,:)                          !< Current friction coefficient at given fault node
-     REAL, POINTER                          :: Mu_S(:,:)                        !< Static friction coefficient at given fault node
-     REAL, POINTER                          :: Mu_D(:,:)                        !< Dynamic friction coefficient at given fault node
-     REAL, POINTER                          :: StateVar(:,:)                    !< State variable used at Rate-and-state friction laws
-     REAL, POINTER                          :: cohesion(:,:)                    !< cohesion at given fault node  (should be negative since negative normal stress is compression)
+     REAL, POINTER                          :: Slip(:,:) => NULL()               !< Slip path at given fault node
+     REAL, POINTER                          :: Slip1(:,:) => NULL()                      !< Slip at given fault node along loc dir 1
+     REAL, POINTER                          :: Slip2(:,:) => NULL()                      !< Slip at given fault node along loc dir 2
+     REAL, POINTER                          :: SlipRate1(:,:) => NULL()                  !< Slip Rate at given fault node
+     REAL, POINTER                          :: SlipRate2(:,:) => NULL()                  !< Slip Rate at given fault node
+     REAL, POINTER                          :: Mu(:,:) => NULL()                         !< Current friction coefficient at given fault node
+     REAL, POINTER                          :: Mu_S(:,:) => NULL()                       !< Static friction coefficient at given fault node
+     REAL, POINTER                          :: Mu_D(:,:) => NULL()                       !< Dynamic friction coefficient at given fault node
+     REAL, POINTER                          :: StateVar(:,:) => NULL()                   !< State variable used at Rate-and-state friction laws
+     REAL, POINTER                          :: cohesion(:,:) => NULL()                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
      REAL                                   :: cohesion_0                       !< Default cohesion value
-     REAL, POINTER                          :: forced_rupture_time(:,:)         !< forced rupture time at given fault node
-     REAL, POINTER                          :: rupture_time(:,:)                !< rupture time at given fault node> used for VR ouput calculation
+     REAL, POINTER                          :: forced_rupture_time(:,:) => NULL()        !< forced rupture time at given fault node
+     REAL, POINTER                          :: rupture_time(:,:) => NULL()               !< rupture time at given fault node> used for VR ouput calculation
      REAL                                   :: XHypo                            !< x-coordinate of the forced rupture patch
      REAL                                   :: YHypo                            !< y-coordinate of the forced rupture circle
      REAL                                   :: ZHypo                            !< z-coordinate of the forced rupture circle
@@ -909,7 +909,7 @@ MODULE TypesDef
      REAL                                   :: RS_sl0                           !< Reference slip
      REAL                                   :: RS_f0                            !< Reference friction coefficient
      REAL                                   :: RS_a                             !< RS constitutive parameter "a"
-     REAL, POINTER                          :: RS_a_array(:,:)                  !< Spatial dependent RS constitutive parameter "a"
+     REAL, POINTER                          :: RS_a_array(:,:) => NULL()                 !< Spatial dependent RS constitutive parameter "a"
      REAL                                   :: RS_b                             !< RS constitutive parameter "b"
      REAL                                   :: RS_iniSlipRate1                  !< initial slip rate for rate and state friction
      REAL                                   :: RS_iniSlipRate2                  !< initial slip rate for rate and state friction
@@ -921,7 +921,7 @@ MODULE TypesDef
      REAL                                   :: Mu_SNuc_ini                      !< Static friction coefficient inside the nucleation zone ini scalar value
      REAL                                   :: Mu_D_ini                         !< Dynamic friction coefficient ini scalar value
      REAL                                   :: D_C_ini                          !< Critical slip read-in variable for constant value over the entire fault
-     REAL, POINTER                          :: D_C(:,:)                         !< Critical slip at given fault node
+     REAL, POINTER                          :: D_C(:,:) => NULL()                         !< Critical slip at given fault node
      INTEGER                                :: Nucleation                       !< Nucleation
      INTEGER                                :: NucDirX                          !< Axis for locating nucleation patch (1: x, 2: y)
      INTEGER                                :: NucDirY                          !< Axis for locating nucleation patch (1: x, 2: y)
@@ -944,7 +944,7 @@ MODULE TypesDef
      ! case(6) bimaterial with LSW
      REAL                                   :: v_Star                           !< reference velocity of prakash-cliff regularization
      REAL                                   :: L                                !< reference length of prakash-cliff regularization
-     REAL, POINTER                          :: Strength(:,:)                    !< save strength since it is used for bimaterial
+     REAL, POINTER                          :: Strength(:,:) => NULL()                   !< save strength since it is used for bimaterial
      !RF output handled in tDynRup as it has to be computed in the friction solver
      INTEGER                                :: RF_output_on                     !< rupture front output on = 1, off = 0
      LOGICAL, ALLOCATABLE                   :: RF(:,:)                          !< rupture front output for this GP: true or false
@@ -958,7 +958,7 @@ MODULE TypesDef
      TYPE(tDynRup_output)                   :: DynRup_out_atPickpoint           !< Output data at pickpoints for Dynamic Rupture processes
      TYPE(tDynRup_output)                   :: DynRup_out_elementwise           !< Output data at all elements for Dynamic Rupture processes
 #ifdef HDF
-     TYPE(thd_fault_receiver)           , POINTER :: hd_rec                           !< HDF5 file handle for fault hdf5 outpu
+     TYPE(thd_fault_receiver)           , POINTER :: hd_rec  => NULL()                         !< HDF5 file handle for fault hdf5 outpu
 #endif
 
     integer              :: nDRElems !< number of DR Elems
@@ -971,7 +971,7 @@ MODULE TypesDef
     integer, allocatable :: indicesOfDRElemsMIC(:) !< indices of elements having a pickpoint
     integer, allocatable :: indicesOfDRElemsInCPUupdates(:) !< indices of elements having a pickpoint
 
-     type(tDynRun_constants),pointer         :: DynRup_Constants(:), DynRup_Constants_globInd(:)
+     type(tDynRun_constants),pointer         :: DynRup_Constants(:), DynRup_Constants_globInd(:) => NULL()
    END TYPE tDynRup                                                        !<
 
   !<--- Tracing with Intel Trace Tools, function handles -----------------------
@@ -993,7 +993,7 @@ MODULE TypesDef
      INTEGER                                :: myrank                           !< My own processor number
      INTEGER                                :: nCPU                             !< Total number of CPUs
      !<                                                                         !<
-     INTEGER, POINTER                       :: CPUDistribution(:)               !< Distribution of CPUs as given by METIS
+     INTEGER, POINTER                       :: CPUDistribution(:) => NULL()              !< Distribution of CPUs as given by METIS
      !<                                                                         !<
      INTEGER                                :: integer_kind                     !< Kinds of integers
      INTEGER                                :: integer_kindtest                 !< Testvariable of integer kind
@@ -1006,18 +1006,18 @@ MODULE TypesDef
      !<                                                                            implemented for reals
      INTEGER                                :: iErr, status                     !< Standard error and status variables
      !<                                                                         !<
-     INTEGER, POINTER                       :: nCPUReceiveElements(:)           !< Number of elem. per CPU to receive
-     INTEGER, POINTER                       :: CPUReceiveElements(:,:)          !< Element numbers in the total mesh to receive
-     INTEGER, POINTER                       :: nCPUSendElements(:)              !< Number of elem. per CPU to send
-     INTEGER, POINTER                       :: CPUSendElements(:,:)             !< Element numbers in the total mesh to send
+     INTEGER, POINTER                       :: nCPUReceiveElements(:)  => NULL()         !< Number of elem. per CPU to receive
+     INTEGER, POINTER                       :: CPUReceiveElements(:,:) => NULL()         !< Element numbers in the total mesh to receive
+     INTEGER, POINTER                       :: nCPUSendElements(:) => NULL()             !< Number of elem. per CPU to send
+     INTEGER, POINTER                       :: CPUSendElements(:,:) => NULL()            !< Element numbers in the total mesh to send
      !<
      INTEGER                                :: nSendCPU, nRecvCPU
-     INTEGER, POINTER                       :: SendCPU(:), RecvCPU(:)
+     INTEGER, POINTER                       :: SendCPU(:), RecvCPU(:) => NULL()
      !<
      TYPE(tTracing)                         :: Trace                            !< For instrumented tracing of MPI calls
      TYPE(tTimer)                           :: Chron                           !< For instrumented load balance measure
      !<
-     REAL, POINTER                          :: PGMarray(:,:)                    !< Array to collect all PGM from CPUs
+     REAL, POINTER                          :: PGMarray(:,:) => NULL()                   !< Array to collect all PGM from CPUs
      !<
   END TYPE tMPI
 
