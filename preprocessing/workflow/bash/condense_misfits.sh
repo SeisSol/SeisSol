@@ -28,56 +28,31 @@
 # Alexander Heinecke (Intel Corp.)
 ################################################################################
 
-# check if we got 4 arguments
-if [[ $# -ne 4 ]]
+# check if we got 1 arguments
+if [[ $# -ne 1 ]]
 then
-  echo "you need to specify 4 argumenrs: WORKFLOW_SCRIPT WORKFLOW_INPUT_DIR SCRIPTS_DIR WORKFLOW_OUTPUT_DIR"
+  echo "you need to specify 4 argumenrs: WORKFLOW_OUTPUT_DIR"
   exit
 fi
 
 # read arguments
-if [[ $# -eq 4 ]]
+if [[ $# -eq 1 ]]
 then
-  WORKFLOW_SCRIPT=$1
-  WORKFLOW_INPUT_DIR=$2
-  SCRIPTS_DIR=$3
-  WORKFLOW_OUTPUT_DIR=$4
+  WORKFLOW_OUTPUT_DIR=$1
 fi
 
-# remove output dir
-rm -rf ${WORKFLOW_OUTPUT_DIR}
+CONDENSED_MISFITS=${WORKFLOW_OUTPUT_DIR}/maxmisfits
+rm -rf ${CONDENSED_MISFITS}
+CUR_DATE=`date +"%Y-%m-%d"`
+SUMMARY=${WORKFLOW_OUTPUT_DIR}/../${CUR_DATE}_maxmisfits.txt
+touch ${SUMMARY}
 
-#setup everything
-bash ${WORKFLOW_SCRIPT} -s -i ${WORKFLOW_INPUT_DIR} -e ${SCRIPTS_DIR} -w ${WORKFLOW_OUTPUT_DIR}
-
-# submitting jobs to SLURM
-bash ${WORKFLOW_SCRIPT} -b -i ${WORKFLOW_INPUT_DIR} -e ${SCRIPTS_DIR} -w ${WORKFLOW_OUTPUT_DIR} | grep "Submitted" | awk '{print $4}' > ${WORKFLOW_OUTPUT_DIR}/jobs
-
-# querying for completion of SLURM jobs
-SLURM_WORKFLOW_JOBS=`cat ${WORKFLOW_OUTPUT_DIR}/jobs | wc | awk '{print $1}'`
-SLURM_WORKFLOW_DONE=`cat ${WORKFLOW_OUTPUT_DIR}/jobs | wc | awk '{print $1}'`
-while [[  ${SLURM_WORKFLOW_DONE} -gt 0 ]] 
+#@TODO we might need some special handling for tpv16 since p_n is broken
+for MISFITS in `find ${WORKFLOW_OUTPUT_DIR}/ -name "misfits.csv" | sort`
 do
-  SLURM_WORKFLOW_DONE=0
-  # loop over submitted jobs
-  for i in `cat ${WORKFLOW_OUTPUT_DIR}/jobs`
-  do 
-    # check job
-    JOB_STATUS=`squeue -j $i 2> /dev/null | wc | awk '{print $1}'`
-    if [[ ${JOB_STATUS} -eq 2 ]]
-    then 
-      SLURM_WORKFLOW_DONE=$((SLURM_WORKFLOW_DONE + 1))
-    fi
-  done
-  # print status
-  CUR_TIMESTAMP=`date`
-  echo "${CUR_TIMESTAMP} running ${WORKFLOW_SCRIPT}, still to go: ${SLURM_WORKFLOW_DONE} of ${SLURM_WORKFLOW_JOBS}"
-  # let's sleep 60s to avoid DOS attack of SLURM daemon
-  if [[ ${SLURM_WORKFLOW_DONE} -ne 0 ]]
-  then 
-    sleep 60
-  fi
+  MAX_MISFIT=`cat ${MISFITS} | awk -F"," '{print $5}' | sort -g | tail -n 1`
+  cat ${MISFITS} | grep ${MAX_MISFIT} | awk -F"," '{print $2 ":\n" $3 " " $4 " " $5}' >> ${CONDENSED_MISFITS}
+  echo "" >> ${CONDENSED_MISFITS}
 done
 
-#analyse everything
-bash ${WORKFLOW_SCRIPT} -a -i ${WORKFLOW_INPUT_DIR} -e ${SCRIPTS_DIR} -w ${WORKFLOW_OUTPUT_DIR}
+cat ${CONDENSED_MISFITS} >> ${SUMMARY}

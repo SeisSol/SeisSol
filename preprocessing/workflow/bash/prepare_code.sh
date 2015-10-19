@@ -28,56 +28,52 @@
 # Alexander Heinecke (Intel Corp.)
 ################################################################################
 
-# check if we got 4 arguments
-if [[ $# -ne 4 ]]
+# check if we got 1 arguments
+if [[ $# -ne 1 ]]
 then
-  echo "you need to specify 4 argumenrs: WORKFLOW_SCRIPT WORKFLOW_INPUT_DIR SCRIPTS_DIR WORKFLOW_OUTPUT_DIR"
+  echo "you need to specify 4 argumenrs: WORKFLOW_INPUT_DIR"
   exit
 fi
 
 # read arguments
-if [[ $# -eq 4 ]]
+if [[ $# -eq 1 ]]
 then
-  WORKFLOW_SCRIPT=$1
-  WORKFLOW_INPUT_DIR=$2
-  SCRIPTS_DIR=$3
-  WORKFLOW_OUTPUT_DIR=$4
+  WORKFLOW_INPUT_DIR=$1
 fi
 
-# remove output dir
-rm -rf ${WORKFLOW_OUTPUT_DIR}
+CODE_ARCHIVE_OLD=${WORKFLOW_INPUT_DIR}/code.tar.gz
+CODE_ARCHIVE_NEW=${WORKFLOW_INPUT_DIR}/code_new.tar.gz
+HASH_OLD=00000000000000000000000000000000
+HASH_NEW=00000000000000000000000000000000
+#return 1 means no new code, nothing to prepare
+RETURN=1
 
-#setup everything
-bash ${WORKFLOW_SCRIPT} -s -i ${WORKFLOW_INPUT_DIR} -e ${SCRIPTS_DIR} -w ${WORKFLOW_OUTPUT_DIR}
+# generate md5 hase of current code
+if [[ -a ${CODE_ARCHIVE_OLD} ]]
+then
+  HASH_OLD=`md5sum ${CODE_ARCHIVE_OLD} | awk '{print $1}'`
+fi
 
-# submitting jobs to SLURM
-bash ${WORKFLOW_SCRIPT} -b -i ${WORKFLOW_INPUT_DIR} -e ${SCRIPTS_DIR} -w ${WORKFLOW_OUTPUT_DIR} | grep "Submitted" | awk '{print $4}' > ${WORKFLOW_OUTPUT_DIR}/jobs
+# clone current github
+SAVED_DIR=`pwd`
+cd /tmp/
+git clone --recursive https://github.com/SeisSol/SeisSol.git
+cd SeisSol
+tar -czf $CODE_ARCHIVE_NEW *
+cd ..
+rm -rf SeisSol
+cd $SAVE_DIR
 
-# querying for completion of SLURM jobs
-SLURM_WORKFLOW_JOBS=`cat ${WORKFLOW_OUTPUT_DIR}/jobs | wc | awk '{print $1}'`
-SLURM_WORKFLOW_DONE=`cat ${WORKFLOW_OUTPUT_DIR}/jobs | wc | awk '{print $1}'`
-while [[  ${SLURM_WORKFLOW_DONE} -gt 0 ]] 
-do
-  SLURM_WORKFLOW_DONE=0
-  # loop over submitted jobs
-  for i in `cat ${WORKFLOW_OUTPUT_DIR}/jobs`
-  do 
-    # check job
-    JOB_STATUS=`squeue -j $i 2> /dev/null | wc | awk '{print $1}'`
-    if [[ ${JOB_STATUS} -eq 2 ]]
-    then 
-      SLURM_WORKFLOW_DONE=$((SLURM_WORKFLOW_DONE + 1))
-    fi
-  done
-  # print status
-  CUR_TIMESTAMP=`date`
-  echo "${CUR_TIMESTAMP} running ${WORKFLOW_SCRIPT}, still to go: ${SLURM_WORKFLOW_DONE} of ${SLURM_WORKFLOW_JOBS}"
-  # let's sleep 60s to avoid DOS attack of SLURM daemon
-  if [[ ${SLURM_WORKFLOW_DONE} -ne 0 ]]
-  then 
-    sleep 60
-  fi
-done
+# create hash of new code
+HASH_NEW=`md5sum ${CODE_ARCHIVE_NEW} | awk '{print $1}'`
 
-#analyse everything
-bash ${WORKFLOW_SCRIPT} -a -i ${WORKFLOW_INPUT_DIR} -e ${SCRIPTS_DIR} -w ${WORKFLOW_OUTPUT_DIR}
+# compare and take action
+if [[ ${HASH_NEW} != ${HASH_OLD} ]]
+then
+  mv ${CODE_ARCHIVE_NEW} ${CODE_ARCHIVE_OLD}
+  RETURN=0
+else
+  rm ${CODE_ARCHIVE_NEW}
+fi
+
+exit ${RETURN}
