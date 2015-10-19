@@ -504,6 +504,7 @@ CONTAINS
     EPIK_FUNC_START()
     SCOREP_USER_FUNC_BEGIN("receiver")
     !
+    localpicktime = 0
     stateToWrite(:) = 0.0
     stateToWrite_rot(:) = 0.0
 #ifdef GENERATEDKERNELS
