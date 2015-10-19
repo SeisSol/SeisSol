@@ -1,8 +1,9 @@
+//*-* c++ -*-
 /**
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Gilbert Brietzke (gilbert.brietzke AT LRZ.de, http://www.lrz.de)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
@@ -41,90 +42,71 @@
 
 bool seissol::checkpoint::sionlib::Wavefield::init(real* dofs, unsigned int numDofs)
 {
-	seissol::checkpoint::Wavefield::init(dofs, numDofs);
+  seissol::checkpoint::Wavefield::init(dofs, numDofs);
 
-	return exists();
+#ifdef USE_SIONLIB
+
+  sion_int64 mychunksize;
+
+  mychunksize = this->numDofs()*sizeof(double)+sizeof(double)+sizeof(int)+sizeof(unsigned long);
+
+  set_chunksize(mychunksize);
+
+#endif
+
+  return exists();
 }
 
 void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWaveField)
-{
-	logInfo(rank()) << "Loading wave field checkpoint";
+{  
+  seissol::checkpoint::CheckPoint::load();
 
-	seissol::checkpoint::CheckPoint::load();
+  FILE *file_ptr;  
+  int globalrank,numFiles,file;
+  char fname[1023], *newfname=NULL;
+  unsigned long lidentifier;   
+  real *dofs1;
+    
+  globalrank = rank(); numFiles = 0; m_gComm = comm(); m_lComm = m_gComm;
+  
+#ifdef USE_SIONLIB
 
-	int file = open();
-	checkErr(file);
+  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
 
-	// Skip identifier
-	checkErr(lseek64(file, sizeof(unsigned long), SEEK_SET));
+  file = sion_paropen_mpi(const_cast<char*>(linkFile().c_str()), "br", &numFiles, m_gComm, &m_lComm,
+			  &m_chunksize_sion, &fsblksize, &globalrank, &file_ptr, &newfname);
+  checkErr(file);  
+  checkErr(sion_fread(&lidentifier, sizeof(unsigned long),1,file));
+  checkErr(sion_fread(&time, sizeof(time),1,file));
+  checkErr(sion_fread(&timestepWaveField, sizeof(timestepWaveField),1,file));
+  checkErr(sion_fread(dofs(), sizeof(double),numDofs(),file));
+  if (ferror (file_ptr))
+    logWarning(rank())<<"Error reading dofs\n";
+  checkErr(sion_parclose_mpi(file));
 
-	// Read header
-	checkErr(read(file, &time, sizeof(time)), sizeof(time));
-	checkErr(read(file, &timestepWaveField, sizeof(timestepWaveField)),
-			sizeof(timestepWaveField));
-
-	// Convert to char* to do pointer arithmetic
-	char* buffer = reinterpret_cast<char*>(dofs());
-	unsigned long left = numDofs()*sizeof(real);
-
-	// Read dofs
-	while (left > 0) {
-		unsigned long readSize = read(file, buffer, left);
-		if (readSize <= 0)
-			checkErr(readSize, left);
-		buffer += readSize;
-		left -= readSize;
-	}
-
-	// Close the file
-	checkErr(::close(file));
+#endif
 }
 
 void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWaveField)
 {
-	EPIK_TRACER("CheckPoint_write");
-	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+  int globalrank,numFiles;
+  char fname[1023], *newfname=NULL;
 
-	logInfo(rank()) << "Writing check point.";
+  m_gComm = comm(); m_lComm = m_gComm; globalrank = rank(); numFiles = 0;
 
-	// Skip identifier
-	checkErr(lseek64(file(), sizeof(unsigned long), SEEK_SET));
+#ifdef USE_SIONLIB
 
-	// Write the header
-	EPIK_USER_REG(r_write_header, "checkpoint_write_header");
-	SCOREP_USER_REGION_DEFINE(r_write_header);
-	EPIK_USER_START(r_write_header);
-	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
-
-	checkErr(::write(file(), &time, sizeof(time)), sizeof(time));
-	checkErr(::write(file(), &timestepWaveField, sizeof(timestepWaveField)),
-			sizeof(timestepWaveField));
-
-	EPIK_USER_END(r_write_header);
-	SCOREP_USER_REGION_END(r_write_header);
-
-	// Save data
-	EPIK_USER_REG(r_write_wavefield, "checkpoint_write_wavefield");
-	SCOREP_USER_REGION_DEFINE(r_write_wavefield);
-	EPIK_USER_START(r_write_wavefield);
-	SCOREP_USER_REGION_BEGIN(r_write_wavefield, "checkpoint_write_wavefield", SCOREP_USER_REGION_TYPE_COMMON);
-
-	// Convert to char* to do pointer arithmetic
-	const char* buffer = reinterpret_cast<const char*>(dofs());
-	unsigned long left = numDofs()*sizeof(real);
-	while (left > 0) {
-		unsigned long written = ::write(file(), buffer, left);
-		if (written <= 0)
-			checkErr(written, left);
-		buffer += written;
-		left -= written;
-	}
-
-	EPIK_USER_END(r_write_wavefield);
-	SCOREP_USER_REGION_END(r_write_wavefield);
-
-	// Finalize the checkpoint
-	finalizeCheckpoint();
-
-	logInfo(rank()) << "Writing check point. Done.";
+  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
+  
+  m_files[odd()] = sion_paropen_mpi(const_cast<char*>(dataFile(odd()).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
+				    &m_chunksize_sion, &fsblksize, &globalrank, &m_fptr_sion[odd()], &newfname);
+  checkErr(m_files[odd()]);
+  unsigned long lidentifier; lidentifier = identifier();
+  checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
+  checkErr(sion_fwrite(&time, sizeof(time),1,m_files[odd()]));
+  checkErr(sion_fwrite(&timestepWaveField, sizeof(timestepWaveField),1,m_files[odd()]));
+  checkErr(sion_fwrite(dofs(),sizeof(real), numDofs(),m_files[odd()]));
+  checkErr(sion_parclose_mpi(m_files[odd()]));
+  //  finalizeCheckpoint();  
+#endif
 }

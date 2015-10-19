@@ -1,8 +1,9 @@
+//-*-c++-*-
 /**
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Gilbert Brietzke (gilbert.brietzke AT lrz.de, http://www.lrz.de)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
@@ -42,6 +43,7 @@
 
 #include "CheckPoint.h"
 #include "Checkpoint/Fault.h"
+#include <iostream>
 
 namespace seissol
 {
@@ -66,8 +68,8 @@ public:
 		: CheckPoint(0x7A127)
 	{}
 
-	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip1, double* slip2,
-			double* state, double* strength,
+	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, 
+		  double* slip2, double* state, double* strength,
 			unsigned int numSides, unsigned int numBndGP);
 
 	void initLate()
