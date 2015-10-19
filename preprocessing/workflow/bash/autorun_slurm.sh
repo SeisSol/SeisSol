@@ -68,7 +68,7 @@ do
   done
   # print status
   CUR_TIMESTAMP=`date`
-  echo "${CUR_TIMESTAMP} - running ${WORKFLOW_SCRIPT}, still to go: ${SLURM_WORKFLOW_DONE} of ${SLURM_WORKFLOW_JOBS}"
+  echo "${CUR_TIMESTAMP} running ${WORKFLOW_SCRIPT}, still to go: ${SLURM_WORKFLOW_DONE} of ${SLURM_WORKFLOW_JOBS}"
   # let's sleep 60s to avoid DOS attack of SLURM daemon
   if [[ ${SLURM_WORKFLOW_DONE} -ne 0 ]]
   then 
