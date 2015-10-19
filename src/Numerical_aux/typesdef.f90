@@ -422,103 +422,103 @@ MODULE TypesDef
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
     real*8, allocatable   :: dgvar(:,:,:,:)            !< storage of all unknowns (solution).
 #else
-    REAL, POINTER         :: dgvar(:,:,:,:)              !< Data-array for expansion
+    REAL, POINTER         :: dgvar(:,:,:,:)  => NULL() !< Data-array for expansion
 #endif
 ! never used    REAL, POINTER     :: dgvar_ane(:,:,:,:)          !< Data-array for expansion (Anel.)
-    REAL, POINTER         :: DOFStress(:,:,:)      !< DOF's for the initial stress loading for the plastic calculations
-    REAL, POINTER         :: pstrain(:,:)          !< plastic strain
-    REAL, POINTER         :: accpstrain(:)          !< accumulated plastic strain
+    REAL, POINTER         :: DOFStress(:,:,:) => NULL() !< DOF's for the initial stress loading for the plastic calculations
+    REAL, POINTER         :: pstrain(:,:) => NULL()     !< plastic strain
+    REAL, POINTER         :: accpstrain(:) => NULL()    !< accumulated plastic strain
 #ifdef GENERATEDKERNELS
 !    integer              :: nSourceTermElems !< number of elemens having a source term
 !    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
 !    integer, allocatable :: indicesOfSourceTermsElems(:) !< indices of elements having a source term
 #else
-    REAL, POINTER     :: DGwork(:,:,:)               !< Work array for DG method
+    REAL, POINTER     :: DGwork(:,:,:) => NULL()     !< Work array for DG method
 #endif
-    REAL, POINTER     :: DGTaylor(:,:,:,:)           !< Work array for local dt DG
+    REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
 ! never used    REAL, POINTER     :: AneWork(:,:,:,:)            !< As above, but for ane. variables
     real              :: totcputime
-    REAL, POINTER     :: OutFlow(:,:,:,:)            !< Outflowing flux for backpropagation
+    REAL, POINTER     :: OutFlow(:,:,:,:) => NULL()  !< Outflowing flux for backpropagation
     !< Geometry
-    REAL, POINTER     :: geoNormals(:,:,:)           !< Side normal vectors
-    REAL, POINTER     :: geoTangent1(:,:,:)          !< Vector 1 in the side plane
-    REAL, POINTER     :: geoTangent2(:,:,:)          !< Vector 2 in the side plane
-    REAL, POINTER     :: geoSurfaces(:,:)            !< Cell side lengths in 2D
+    REAL, POINTER     :: geoNormals(:,:,:) => NULL() !< Side normal vectors
+    REAL, POINTER     :: geoTangent1(:,:,:) => NULL()!< Vector 1 in the side plane
+    REAL, POINTER     :: geoTangent2(:,:,:) => NULL()!< Vector 2 in the side plane
+    REAL, POINTER     :: geoSurfaces(:,:) => NULL()  !< Cell side lengths in 2D
     !< Other variables related to the DG - Method
     REAL, ALLOCATABLE :: cPoly(:,:,:,:)              !< Coeff. of base polynomials
     REAL, ALLOCATABLE :: cPoly_Tri(:,:,:,:)          !< Coeff. of base polynomials
     REAL, ALLOCATABLE :: cPoly_Quad(:,:,:,:)         !< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D(:,:,:,:,:)          !< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D_Tet(:,:,:,:,:)      !< Coeff. of base polynomials
-    REAL, POINTER     :: cPoly3D_Hex(:,:,:,:,:)      !< Coeff. of base polynomials
-    REAL, POINTER     :: cPolyRec(:,:,:,:)           !< Coeff. of rec. polynomials
-    REAL, POINTER     :: KMatrix(:,:)                !< Precalculated i. integrals
-    REAL, POINTER     :: F1Matrix(:,:)               !< Precalculated b. integrals
-    REAL, POINTER     :: F2Matrix(:,:)               !< Precalculated b. integrals
-    REAL, POINTER     :: F3Matrix(:,:)               !< Precalculated b. integrals
-    REAL, POINTER     :: F4Matrix(:,:)               !< Precalculated b. integrals
-    REAL, POINTER     :: InvA(:,:)
-    REAL, POINTER     :: A(:,:)                      !< Jacobian in x-dir
-    REAL, POINTER     :: B(:,:)                      !< Jacobian in y-dir
-    REAL, POINTER     :: RKalpha(:)                  !< Alpha values for RK (y)
-    REAL, POINTER     :: RKbeta(:)                   !< Beta values for RK (t)
-    REAL, POINTER     :: TimeGaussP(:)               !< Gausspoints in time
-    REAL, POINTER     :: TimeGaussW(:)               !< Gaussweights in time
-    REAL, POINTER     :: intGaussP(:,:)              !< Internal GP coordinates
-    REAL, POINTER     :: intGaussW(:)                !< Internal Gaussweights
-    REAL, POINTER     :: intGaussP_Tet(:,:)          !< Internal GP coordinates
-    REAL, POINTER     :: intGaussW_Tet(:)            !< Internal Gaussweights
-    REAL, POINTER     :: intGaussP_Hex(:,:)          !< Internal GP coordinates
-    REAL, POINTER     :: intGaussW_Hex(:)            !< Internal Gaussweights
-    REAL, POINTER     :: RecIntGaussP(:,:)           !< Internal GP coordinates
-    REAL, POINTER     :: RecIntGaussW(:)             !< Internal Gaussweights
+    REAL, POINTER     :: cPoly3D(:,:,:,:,:) => NULL()!< Coeff. of base polynomials
+    REAL, POINTER     :: cPoly3D_Tet(:,:,:,:,:) => NULL() !< Coeff. of base polynomials
+    REAL, POINTER     :: cPoly3D_Hex(:,:,:,:,:) => NULL() !< Coeff. of base polynomials
+    REAL, POINTER     :: cPolyRec(:,:,:,:) => NULL() !< Coeff. of rec. polynomials
+    REAL, POINTER     :: KMatrix(:,:) => NULL()      !< Precalculated i. integrals
+    REAL, POINTER     :: F1Matrix(:,:) => NULL()     !< Precalculated b. integrals
+    REAL, POINTER     :: F2Matrix(:,:) => NULL()     !< Precalculated b. integrals
+    REAL, POINTER     :: F3Matrix(:,:) => NULL()     !< Precalculated b. integrals
+    REAL, POINTER     :: F4Matrix(:,:) => NULL()     !< Precalculated b. integrals
+    REAL, POINTER     :: InvA(:,:) => NULL()
+    REAL, POINTER     :: A(:,:) => NULL()            !< Jacobian in x-dir
+    REAL, POINTER     :: B(:,:) => NULL()            !< Jacobian in y-dir
+    REAL, POINTER     :: RKalpha(:) => NULL()        !< Alpha values for RK (y)
+    REAL, POINTER     :: RKbeta(:) => NULL()         !< Beta values for RK (t)
+    REAL, POINTER     :: TimeGaussP(:) => NULL()     !< Gausspoints in time
+    REAL, POINTER     :: TimeGaussW(:) => NULL()     !< Gaussweights in time
+    REAL, POINTER     :: intGaussP(:,:) => NULL()    !< Internal GP coordinates
+    REAL, POINTER     :: intGaussW(:) => NULL()      !< Internal Gaussweights
+    REAL, POINTER     :: intGaussP_Tet(:,:) => NULL() !< Internal GP coordinates
+    REAL, POINTER     :: intGaussW_Tet(:) => NULL()  !< Internal Gaussweights
+    REAL, POINTER     :: intGaussP_Hex(:,:) => NULL() !< Internal GP coordinates
+    REAL, POINTER     :: intGaussW_Hex(:) => NULL()  !< Internal Gaussweights
+    REAL, POINTER     :: RecIntGaussP(:,:) => NULL() !< Internal GP coordinates
+    REAL, POINTER     :: RecIntGaussW(:) => NULL()   !< Internal Gaussweights
     REAL, POINTER     :: bndGaussP(:,:,:)    =>NULL()         !< Boundary GP (ref. xi/eta)
     REAL, POINTER     :: bndGaussP3D(:,:)    =>NULL()         !< Boundary GP (ref. xi/eta)
     REAL, POINTER     :: bndGaussP_Tet(:,:)  =>NULL()         !< Boundary GP (ref. xi/eta)
     REAL, POINTER     :: bndGaussP_Hex(:,:)  =>NULL()         !< Boundary GP (ref. xi/eta)
     REAL, POINTER     :: bndGaussW(:)        =>NULL()         !< Gaussweights on boundary
     REAL, POINTER     :: bndGaussW_Tet(:)    =>NULL()         !< Gaussweights on boundary
-    REAL, POINTER     :: bndGaussW_Hex(:)    =>NULL()         !< Gaussweights on boundary
-    REAL, POINTER     :: FR_GP(:,:)                  !< Neighbor flux of GP of nc edge
+    REAL, POINTER     :: bndGaussW_Hex(:)    => NULL()         !< Gaussweights on boundary
+    REAL, POINTER     :: FR_GP(:,:)    => NULL()              !< Neighbor flux of GP of nc edge
     !<
     REAL, ALLOCATABLE :: MassMatrix(:,:,:)           !< Mass Matrix
     REAL, ALLOCATABLE :: iMassMatrix(:,:,:)          !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Tet(:,:,:)       !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Tet(:,:,:)      !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Hex(:,:,:)       !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Hex(:,:,:)      !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Tri(:,:,:)       !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Tri(:,:,:)      !< Inverse Mass Matrix
-    REAL, POINTER     :: MassMatrix_Quad(:,:,:)      !< Mass Matrix
-    REAL, POINTER     :: iMassMatrix_Quad(:,:,:)     !< Inverse Mass Matrix
-    REAL, POINTER     :: FMatrix(:,:,:,:)            !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix_Tri(:,:,:,:)        !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D(:,:,:,:,:)        !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D_Tet(:,:,:,:,:,:)  !< Flux matrices (Quadfree)
-    REAL, POINTER     :: FMatrix3D_Hex(:,:,:,:,:,:)  !< Flux matrices (Quadfree)
-    REAL, POINTER     :: Kxi(:,:)                    !< Stiffness Matrix (xi)
-    REAL, POINTER     :: Keta(:,:)                   !< Stiffness Matrix (eta)
-    REAL, POINTER     :: Kzeta(:,:)                  !< Stiffness Matrix (zeta)
-    REAL, POINTER     :: Coeff_level0(:,:,:,:)       !< ADER DG Coefficients
-    REAL, POINTER     :: Coeff_level03D(:,:,:,:,:)   !< ADER DG Coefficients
-    REAL, POINTER     :: Coeff_level03D_Tet(:,:,:,:,:)   !< ADER DG Coefficients
-    REAL, POINTER     :: Coeff_level03D_Hex(:,:,:,:,:)   !< ADER DG Coefficients
-    TYPE(tSparseVector), POINTER :: Sp_Coeff_level03D(:,:,:,:) !< ADER DG Coefficients
-    TYPE(tSparseVector), POINTER :: Sp_Coeff_level02D(:,:,:)
-    TYPE(tSparseVector), POINTER :: Sp_Coeff_level03D_Tet(:,:,:,:) !< ADER DG Coefficients
-    TYPE(tSparseVector), POINTER :: Sp_Coeff_level03D_Hex(:,:,:,:) !< ADER DG Coefficients
+    REAL, POINTER     :: MassMatrix_Tet(:,:,:) => NULL()      !< Mass Matrix
+    REAL, POINTER     :: iMassMatrix_Tet(:,:,:) => NULL()     !< Inverse Mass Matrix
+    REAL, POINTER     :: MassMatrix_Hex(:,:,:) => NULL()      !< Mass Matrix
+    REAL, POINTER     :: iMassMatrix_Hex(:,:,:) => NULL()     !< Inverse Mass Matrix
+    REAL, POINTER     :: MassMatrix_Tri(:,:,:) => NULL()      !< Mass Matrix
+    REAL, POINTER     :: iMassMatrix_Tri(:,:,:) => NULL()     !< Inverse Mass Matrix
+    REAL, POINTER     :: MassMatrix_Quad(:,:,:) => NULL()     !< Mass Matrix
+    REAL, POINTER     :: iMassMatrix_Quad(:,:,:)  => NULL()   !< Inverse Mass Matrix
+    REAL, POINTER     :: FMatrix(:,:,:,:) => NULL()           !< Flux matrices (Quadfree)
+    REAL, POINTER     :: FMatrix_Tri(:,:,:,:) => NULL()       !< Flux matrices (Quadfree)
+    REAL, POINTER     :: FMatrix3D(:,:,:,:,:) => NULL()       !< Flux matrices (Quadfree)
+    REAL, POINTER     :: FMatrix3D_Tet(:,:,:,:,:,:) => NULL() !< Flux matrices (Quadfree)
+    REAL, POINTER     :: FMatrix3D_Hex(:,:,:,:,:,:) => NULL() !< Flux matrices (Quadfree)
+    REAL, POINTER     :: Kxi(:,:) => NULL()                   !< Stiffness Matrix (xi)
+    REAL, POINTER     :: Keta(:,:) => NULL()                  !< Stiffness Matrix (eta)
+    REAL, POINTER     :: Kzeta(:,:) => NULL()                 !< Stiffness Matrix (zeta)
+    REAL, POINTER     :: Coeff_level0(:,:,:,:) => NULL()      !< ADER DG Coefficients
+    REAL, POINTER     :: Coeff_level03D(:,:,:,:,:) => NULL()  !< ADER DG Coefficients
+    REAL, POINTER     :: Coeff_level03D_Tet(:,:,:,:,:) => NULL()  !< ADER DG Coefficients
+    REAL, POINTER     :: Coeff_level03D_Hex(:,:,:,:,:) => NULL()  !< ADER DG Coefficients
+    TYPE(tSparseVector), POINTER :: Sp_Coeff_level03D(:,:,:,:) => NULL() !< ADER DG Coefficients
+    TYPE(tSparseVector), POINTER :: Sp_Coeff_level02D(:,:,:) => NULL()
+    TYPE(tSparseVector), POINTER :: Sp_Coeff_level03D_Tet(:,:,:,:) => NULL() !< ADER DG Coefficients
+    TYPE(tSparseVector), POINTER :: Sp_Coeff_level03D_Hex(:,:,:,:) => NULL() !< ADER DG Coefficients
     INTEGER           :: NonZeroCoeff                !< Number of non-zero coeffs
-    INTEGER, POINTER  :: NonZeroCoeffIndex(:,:)      !< Index into "
+    INTEGER, POINTER  :: NonZeroCoeffIndex(:,:) => NULL()     !< Index into "
     INTEGER           :: NonZeroCoeff_Tet            !< Number of non-zero coeffs
-    INTEGER, POINTER  :: NonZeroCoeffIndex_Tet(:,:)  !< Index into "
+    INTEGER, POINTER  :: NonZeroCoeffIndex_Tet(:,:) => NULL() !< Index into "
     INTEGER           :: NonZeroCoeff_Hex            !< Number of non-zero coeffs
-    INTEGER, POINTER  :: NonZeroCoeffIndex_Hex(:,:)  !< Index into "
-    INTEGER, POINTER  :: NonZeroCPoly(:,:)       !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPoly_Tet(:,:)   !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPoly_Hex(:,:)   !< Non zero coeff in cpoly
-    INTEGER, POINTER  :: NonZeroCPolyIndex(:,:,:,:)
-    INTEGER, POINTER  :: NonZeroCPolyIndex_Tet(:,:,:,:)
-    INTEGER, POINTER  :: NonZeroCPolyIndex_Hex(:,:,:,:)      !<
+    INTEGER, POINTER  :: NonZeroCoeffIndex_Hex(:,:) => NULL() !< Index into "
+    INTEGER, POINTER  :: NonZeroCPoly(:,:) => NULL()      !< Non zero coeff in cpoly
+    INTEGER, POINTER  :: NonZeroCPoly_Tet(:,:) => NULL()  !< Non zero coeff in cpoly
+    INTEGER, POINTER  :: NonZeroCPoly_Hex(:,:) => NULL()  !< Non zero coeff in cpoly
+    INTEGER, POINTER  :: NonZeroCPolyIndex(:,:,:,:) => NULL()
+    INTEGER, POINTER  :: NonZeroCPolyIndex_Tet(:,:,:,:) => NULL()
+    INTEGER, POINTER  :: NonZeroCPolyIndex_Hex(:,:,:,:)  => NULL()     !<
     INTEGER, ALLOCATABLE  :: NonZeroCPoly_Tri(:,:)           !< Non zero coeff in cpoly
     INTEGER, ALLOCATABLE  :: NonZeroCPolyIndex_Tri(:,:,:,:)  !<
     INTEGER, ALLOCATABLE  :: NonZeroCPoly_Quad(:,:)          !< Non zero coeff in cpoly
@@ -530,110 +530,110 @@ MODULE TypesDef
     REAL              :: refFactor                   !< Factor for ref. element
     REAL              :: CFL                         !< CFL number
     !<
-    REAL, POINTER     :: BasisToTaylor(:,:)          !< Basis to Taylor series
-    REAL, POINTER     :: invBasisToTaylor(:,:)       !< Taylor series to basis
-    REAL, POINTER     :: Faculty(:)                  !< Precalculated Faculties...
-    REAL, POINTER     :: dtPowerFactor(:,:)          !< dt^k/k!< for Taylor series
-    REAL, POINTER     :: dtPowerFactorInt(:,:)       !< dt^(k+1)/(k+1)!< for Taylor series
-    REAL, POINTER     :: IntGPBaseFunc(:,:,:)        !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad(:,:,:,:)      !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc(:,:,:,:)      !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D(:,:,:)      !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseFunc_Tet(:,:,:)        !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad_Tet(:,:,:,:)      !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc_Tet(:,:,:,:)      !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D_Tet(:,:,:)      !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseFunc_Hex(:,:,:)        !< Precalc. basis functions
-    REAL, POINTER     :: IntGPBaseGrad_Hex(:,:,:,:)      !< Precalc. basis gradients
-    REAL, POINTER     :: BndGPBaseFunc_Hex(:,:,:,:)      !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D_Hex(:,:,:)      !< Precalc. basis functions
-    REAL, POINTER     :: RecIntGPBaseFunc(:,:)       !< Precalc. basis functions
-    INTEGER, POINTER  :: SectorPoints(:,:)
-    REAL, POINTER     :: UnitElementPoints(:,:)
-    REAL, POINTER     :: SectorVectors(:,:,:)
-    REAL, POINTER     :: Sector_iR(:,:,:)
+    REAL, POINTER     :: BasisToTaylor(:,:) => NULL()         !< Basis to Taylor series
+    REAL, POINTER     :: invBasisToTaylor(:,:) => NULL()      !< Taylor series to basis
+    REAL, POINTER     :: Faculty(:) => NULL()                 !< Precalculated Faculties...
+    REAL, POINTER     :: dtPowerFactor(:,:) => NULL()         !< dt^k/k!< for Taylor series
+    REAL, POINTER     :: dtPowerFactorInt(:,:) => NULL()      !< dt^(k+1)/(k+1)!< for Taylor series
+    REAL, POINTER     :: IntGPBaseFunc(:,:,:) => NULL()       !< Precalc. basis functions
+    REAL, POINTER     :: IntGPBaseGrad(:,:,:,:) => NULL()     !< Precalc. basis gradients
+    REAL, POINTER     :: BndGPBaseFunc(:,:,:,:) => NULL()     !< Precalc. basis functions
+    REAL, POINTER     :: BndGPBaseFunc3D(:,:,:) => NULL()     !< Precalc. basis functions
+    REAL, POINTER     :: IntGPBaseFunc_Tet(:,:,:) => NULL()       !< Precalc. basis functions
+    REAL, POINTER     :: IntGPBaseGrad_Tet(:,:,:,:) => NULL()     !< Precalc. basis gradients
+    REAL, POINTER     :: BndGPBaseFunc_Tet(:,:,:,:) => NULL()     !< Precalc. basis functions
+    REAL, POINTER     :: BndGPBaseFunc3D_Tet(:,:,:) => NULL()     !< Precalc. basis functions
+    REAL, POINTER     :: IntGPBaseFunc_Hex(:,:,:) => NULL()       !< Precalc. basis functions
+    REAL, POINTER     :: IntGPBaseGrad_Hex(:,:,:,:) => NULL()     !< Precalc. basis gradients
+    REAL, POINTER     :: BndGPBaseFunc_Hex(:,:,:,:) => NULL()     !< Precalc. basis functions
+    REAL, POINTER     :: BndGPBaseFunc3D_Hex(:,:,:) => NULL()     !< Precalc. basis functions
+    REAL, POINTER     :: RecIntGPBaseFunc(:,:) => NULL()      !< Precalc. basis functions
+    INTEGER, POINTER  :: SectorPoints(:,:) => NULL()
+    REAL, POINTER     :: UnitElementPoints(:,:) => NULL()
+    REAL, POINTER     :: SectorVectors(:,:,:) => NULL()
+    REAL, POINTER     :: Sector_iR(:,:,:) => NULL()
     !<
-    REAL, POINTER     :: IntMonomial(:,:)            !< Factors for integrating 2D 
+    REAL, POINTER     :: IntMonomial(:,:) => NULL()           !< Factors for integrating 2D 
     !<                                                !< monomials over ref. elem.
     !< Now, all variables for the quadrature-free nonlinear ADER-DG follow:        
-    REAL, POINTER     :: LocalBinomialCoeff(:,:)     !< Bico. with higher order    
-    REAL, POINTER     :: Kxi_loc( :,:,:)             !< xi stiffness, nl. ADER-DG  
-    REAL, POINTER     :: Keta_loc(:,:,:)             !< eta stiffness, nl. ADER-DG  
-    REAL, POINTER     :: Flux_loc(:,:,:)             !< flux-matrix, nl. ADER-DG   
-    REAL, POINTER     :: CNonZero_Kxi(:)             !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Keta(:)            !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kzeta(:)           !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kxi_Tet(:)             !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Keta_Tet(:)            !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kzeta_Tet(:)           !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Flux(:,:)          !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Flux3D(:,:,:,:)    !< Sparsity coefficients      
+    REAL, POINTER     :: LocalBinomialCoeff(:,:) => NULL()    !< Bico. with higher order    
+    REAL, POINTER     :: Kxi_loc( :,:,:) => NULL()            !< xi stiffness, nl. ADER-DG  
+    REAL, POINTER     :: Keta_loc(:,:,:) => NULL()            !< eta stiffness, nl. ADER-DG  
+    REAL, POINTER     :: Flux_loc(:,:,:) => NULL()            !< flux-matrix, nl. ADER-DG   
+    REAL, POINTER     :: CNonZero_Kxi(:) => NULL()            !< Sparsity coefficients      
+    REAL, POINTER     :: CNonZero_Keta(:) => NULL()           !< Sparsity coefficients      
+    REAL, POINTER     :: CNonZero_Kzeta(:) => NULL()          !< Sparsity coefficients      
+    REAL, POINTER     :: CNonZero_Kxi_Tet(:) => NULL()            !< Sparsity coefficients      
+    REAL, POINTER     :: CNonZero_Keta_Tet(:) => NULL()           !< Sparsity coefficients      
+    REAL, POINTER     :: CNonZero_Kzeta_Tet(:) => NULL()          !< Sparsity coefficients      
+    REAL, POINTER     :: CNonZero_Flux(:,:) => NULL()         !< Sparsity coefficients      
+    REAL, POINTER     :: CNonZero_Flux3D(:,:,:,:) => NULL()   !< Sparsity coefficients      
     INTEGER           :: NonZero_Kxi                 !< No. of nonzero elements    
     INTEGER           :: NonZero_Keta                !< No. of nonzero elements    
     INTEGER           :: NonZero_Kzeta               !< No. of nonzero elements    
     INTEGER           :: NonZero_Kxi_Tet             !< No. of nonzero elements    
     INTEGER           :: NonZero_Keta_Tet            !< No. of nonzero elements    
     INTEGER           :: NonZero_Kzeta_Tet           !< No. of nonzero elements    
-    INTEGER, POINTER  :: NonZero_Flux(:)             !< No. of nonzero elements    
-    INTEGER, POINTER  :: NonZero_Flux3D(:,:,:)       !< No. of nonzero elements    
-    INTEGER, POINTER  :: IndexNonZero_Kxi(:,:)       !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Keta(:,:)      !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kzeta(:,:)     !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kxi_Tet(:,:)       !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Keta_Tet(:,:)      !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kzeta_Tet(:,:)     !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Flux(:,:,:)    !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Flux3D(:,:,:,:,:)!< Sparsity: non-zero indices  
+    INTEGER, POINTER  :: NonZero_Flux(:) => NULL()            !< No. of nonzero elements    
+    INTEGER, POINTER  :: NonZero_Flux3D(:,:,:) => NULL()      !< No. of nonzero elements    
+    INTEGER, POINTER  :: IndexNonZero_Kxi(:,:) => NULL()      !< Sparsity: non-zero indices  
+    INTEGER, POINTER  :: IndexNonZero_Keta(:,:) => NULL()     !< Sparsity: non-zero indices  
+    INTEGER, POINTER  :: IndexNonZero_Kzeta(:,:) => NULL()    !< Sparsity: non-zero indices  
+    INTEGER, POINTER  :: IndexNonZero_Kxi_Tet(:,:) => NULL()      !< Sparsity: non-zero indices  
+    INTEGER, POINTER  :: IndexNonZero_Keta_Tet(:,:) => NULL()     !< Sparsity: non-zero indices  
+    INTEGER, POINTER  :: IndexNonZero_Kzeta_Tet(:,:) => NULL()    !< Sparsity: non-zero indices  
+    INTEGER, POINTER  :: IndexNonZero_Flux(:,:,:) => NULL()   !< Sparsity: non-zero indices  
+    INTEGER, POINTER  :: IndexNonZero_Flux3D(:,:,:,:,:)=> NULL()!< Sparsity: non-zero indices  
 
-    REAL, POINTER     :: NC_BndBF_GP(:,:,:)          !<Precomputed basis functions at Gauss Point of non-conforming elements
+    REAL, POINTER     :: NC_BndBF_GP(:,:,:) => NULL()         !<Precomputed basis functions at Gauss Point of non-conforming elements
     !< ---------------------------------------------------------------------------
     !< Galerkin fine output
     !< To recover the full quality of the numerical DG solution,
     !< u_h can be written into a file for more than one point per element.         !
     INTEGER           :: DGFineOut1D                 !< Number of 1D Gausspoints
     INTEGER           :: DGFineOut2D                 !< Number of 2D Gausspoints
-    REAL, POINTER     :: DGFineOutPoints(:,:)        !< locations for fine output
-    REAL, POINTER     :: DGFineOutWeights(:)         !< weights (dummy variable)
-    REAL, POINTER     :: DGFineOutPhi(:,:)           !< Basis functions at points
+    REAL, POINTER     :: DGFineOutPoints(:,:) => NULL()       !< locations for fine output
+    REAL, POINTER     :: DGFineOutWeights(:) => NULL()        !< weights (dummy variable)
+    REAL, POINTER     :: DGFineOutPhi(:,:) => NULL()          !< Basis functions at points
     !<
-    REAL, POINTER     :: MaxWaveSpeed(:,:)           !< Max. wavespeed over edges
-    REAL, POINTER     :: WaveSpeed(:,:,:)            !< All Wavespeeds over edges
-    REAL, POINTER     :: cTimePoly(:,:,:)            !< Coefficients and matrices
-    REAL, POINTER     :: TimeMassMatrix(:,:,:)       !< for projection on series
-    REAL, POINTER     :: iTimeMassMatrix(:,:,:)      !< in time. Basis: Legendre
-    REAL, POINTER     :: dPsi_dt(:,:)                !< Time der. of time basefun
-    REAL, POINTER     :: mdtr(:)                     !< Aux. factor for CK proc.
+    REAL, POINTER     :: MaxWaveSpeed(:,:) => NULL()           !< Max. wavespeed over edges
+    REAL, POINTER     :: WaveSpeed(:,:,:) => NULL()           !< All Wavespeeds over edges
+    REAL, POINTER     :: cTimePoly(:,:,:) => NULL()           !< Coefficients and matrices
+    REAL, POINTER     :: TimeMassMatrix(:,:,:) => NULL()      !< for projection on series
+    REAL, POINTER     :: iTimeMassMatrix(:,:,:) => NULL()     !< in time. Basis: Legendre
+    REAL, POINTER     :: dPsi_dt(:,:) => NULL()               !< Time der. of time basefun
+    REAL, POINTER     :: mdtr(:) => NULL()                    !< Aux. factor for CK proc.
 
     !<
-    REAL, POINTER     :: AStar(:,:), BStar(:,:)        !< A and B star matrices
-    INTEGER, POINTER  :: IndexNonZeroADERDG2_Kxi(:,:)  !< Sparsity: non-zero indices
+    REAL, POINTER     :: AStar(:,:), BStar(:,:) => NULL()       !< A and B star matrices
+    INTEGER, POINTER  :: IndexNonZeroADERDG2_Kxi(:,:) => NULL()  !< Sparsity: non-zero indices
     INTEGER           :: nNonZeroADERDG2_Kxi           !< Sparsity: non-zero entries
-    INTEGER, POINTER  :: IndexNonZeroADERDG2_Keta(:,:) !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZeroADERDG2_Keta(:,:) => NULL() !< Sparsity: non-zero indices
     INTEGER           :: nNonZeroADERDG2_Keta          !< Sparsity: non-zero entries
-    INTEGER, POINTER  :: IndexNonZeroADERDG2_AB(:,:)   !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZeroADERDG2_AB(:,:) => NULL()  !< Sparsity: non-zero indices
     INTEGER           :: nNonZeroADERDG2_AB            !< Sparsity: non-zero entries
     !<
-    TYPE(tSparseMatrix), POINTER   :: ASpStar(:)       !< Sparse star matrix A
-    TYPE(tSparseMatrix), POINTER   :: BSpStar(:)       !< Sparse star matrix B
-    TYPE(tSparseMatrix), POINTER   :: CSpStar(:)       !< Sparse star matrix C
-    TYPE(tSparseMatrix), POINTER   :: ESpStar(:)       !< Sparse star matrix E
-    TYPE(tSparseMatrix), POINTER   :: ASp(:)           !< Sparse matrix A
-    TYPE(tSparseMatrix), POINTER   :: BSp(:)           !< Sparse matrix B
-    TYPE(tSparseMatrix), POINTER   :: CSp(:)           !< Sparse matrix C
-    TYPE(tSparseMatrix), POINTER   :: A_ane(:)         !< Sparse matrix A  (ane part)
-    TYPE(tSparseMatrix), POINTER   :: B_ane(:)         !< Sparse matrix B  (ane part)
-    TYPE(tSparseMatrix), POINTER   :: C_ane(:)         !< Sparse matrix C  (ane part)
-    TYPE(tSparseMatrix), POINTER   :: ASpPlus(:,:)     !< Sparse + matrix (flux)
-    TYPE(tSparseMatrix), POINTER   :: ASpMinus(:,:)    !< Sparse - matrix (flux)
-    TYPE(tSparseMatrix), POINTER   :: FMatrix3DSp(:,:,:) !< Sparse 3D Flux matrices
-    TYPE(tSparseMatrix), POINTER   :: FMatrix3DSp_Tet(:,:,:) !< Sparse 3D Flux matrices
+    TYPE(tSparseMatrix), POINTER   :: ASpStar(:) => NULL()      !< Sparse star matrix A
+    TYPE(tSparseMatrix), POINTER   :: BSpStar(:) => NULL()      !< Sparse star matrix B
+    TYPE(tSparseMatrix), POINTER   :: CSpStar(:) => NULL()      !< Sparse star matrix C
+    TYPE(tSparseMatrix), POINTER   :: ESpStar(:) => NULL()      !< Sparse star matrix E
+    TYPE(tSparseMatrix), POINTER   :: ASp(:) => NULL()          !< Sparse matrix A
+    TYPE(tSparseMatrix), POINTER   :: BSp(:) => NULL()          !< Sparse matrix B
+    TYPE(tSparseMatrix), POINTER   :: CSp(:) => NULL()          !< Sparse matrix C
+    TYPE(tSparseMatrix), POINTER   :: A_ane(:) => NULL()        !< Sparse matrix A  (ane part)
+    TYPE(tSparseMatrix), POINTER   :: B_ane(:) => NULL()        !< Sparse matrix B  (ane part)
+    TYPE(tSparseMatrix), POINTER   :: C_ane(:) => NULL()        !< Sparse matrix C  (ane part)
+    TYPE(tSparseMatrix), POINTER   :: ASpPlus(:,:) => NULL()    !< Sparse + matrix (flux)
+    TYPE(tSparseMatrix), POINTER   :: ASpMinus(:,:) => NULL()   !< Sparse - matrix (flux)
+    TYPE(tSparseMatrix), POINTER   :: FMatrix3DSp(:,:,:) => NULL()!< Sparse 3D Flux matrices
+    TYPE(tSparseMatrix), POINTER   :: FMatrix3DSp_Tet(:,:,:) => NULL()!< Sparse 3D Flux matrices
     TYPE(tSparseMatrix)            :: KxiSp            !< Sparse stiffness matrix
     TYPE(tSparseMatrix)            :: KetaSp           !< Sparse stiffness matrix
     TYPE(tSparseMatrix)            :: KzetaSp          !< Sparse stiffness matrix
     TYPE(tSparseMatrix)            :: KxiSp_Tet        !< Sparse stiffness matrix
     TYPE(tSparseMatrix)            :: KetaSp_Tet       !< Sparse stiffness matrix
     TYPE(tSparseMatrix)            :: KzetaSp_Tet      !< Sparse stiffness matrix
-    TYPE(tSparseTensor4), POINTER  :: I_pqlm(:)        !< ADER-DG time int. tensor
+    TYPE(tSparseTensor4), POINTER  :: I_pqlm(:) => NULL()       !< ADER-DG time int. tensor
     TYPE(tSparseMatrix)            :: ADG_xi
     TYPE(tSparseMatrix)            :: ADG_Eta
     TYPE(tSparseMatrix)            :: ADG_Zeta
@@ -662,48 +662,48 @@ MODULE TypesDef
     !<
     INTEGER                           :: nDGSponge     !< Number of sponged boundaries
     REAL                              :: DGSpongeTol   !< Tolerance for search algorithm
-    TYPE(tDGSponge), POINTER          :: DGSponge(:)   !< Sponge data structure
+    TYPE(tDGSponge), POINTER          :: DGSponge(:) => NULL()  !< Sponge data structure
     TYPE(tPMLayer)                    :: PMLayer       !< PML data structure
     !< p-adaptivity related variables
-    REAL, POINTER                     :: LocPoly(:)      !< Local polynomial degree
+    REAL, POINTER                     :: LocPoly(:) => NULL()     !< Local polynomial degree
     INTEGER                           :: pAdaptivity     !< 0=no, 1=yes
     INTEGER                           :: ZoneOrderFlag   !< Flag for dependence of local polynomial degree on zones
     INTEGER                           :: nPolyLayers     !< Number of zones
-    REAL, POINTER                     :: ZonePower(:)    !< Power for p-distribution (linear,degressive,progressive...)
-    INTEGER, POINTER                  :: ZoneOrder(:)    !< Local ordering of p-distribution (1=ascending with size, -1 = descending with size)
-    INTEGER, POINTER                  :: ZoneMinPoly(:)  !< Local polynomial degree depending on zone
-    INTEGER, POINTER                  :: ZoneMaxPoly(:)  !< Local polynomial degree depending on zone
+    REAL, POINTER                     :: ZonePower(:) => NULL()   !< Power for p-distribution (linear,degressive,progressive...)
+    INTEGER, POINTER                  :: ZoneOrder(:) => NULL()   !< Local ordering of p-distribution (1=ascending with size, -1 = descending with size)
+    INTEGER, POINTER                  :: ZoneMinPoly(:) => NULL()  !< Local polynomial degree depending on zone
+    INTEGER, POINTER                  :: ZoneMaxPoly(:) => NULL() !< Local polynomial degree depending on zone
     CHARACTER(LEN=600)                :: OrderFileName   !< Filename for zone orders
     !<
     INTEGER                           :: nMPIRecValues        !< Number of communication elements for reconstruction
-    REAL, POINTER                     :: MPIRecValues(:,:,:)  !< Communicated values entering the reconstruction
+    REAL, POINTER                     :: MPIRecValues(:,:,:) => NULL() !< Communicated values entering the reconstruction
     !<
     !< Stuff for hexahedrons
     !<
-    REAL, POINTER                     :: KxiHexa(:,:,:)     !< Stiffness in xi
-    REAL, POINTER                     :: KetaHexa(:,:,:)    !< Stiffness in eta
-    REAL, POINTER                     :: KzetaHexa(:,:,:)   !< Stiffness in zeta
-    REAL, POINTER                     :: KxiHexa2(:,:,:)    !< Stiffness in xi
-    REAL, POINTER                     :: KetaHexa2(:,:,:)   !< Stiffness in eta
-    REAL, POINTER                     :: KzetaHexa2(:,:,:)  !< Stiffness in zeta
+    REAL, POINTER                     :: KxiHexa(:,:,:) => NULL()    !< Stiffness in xi
+    REAL, POINTER                     :: KetaHexa(:,:,:) => NULL()   !< Stiffness in eta
+    REAL, POINTER                     :: KzetaHexa(:,:,:) => NULL()  !< Stiffness in zeta
+    REAL, POINTER                     :: KxiHexa2(:,:,:) => NULL()    !< Stiffness in xi
+    REAL, POINTER                     :: KetaHexa2(:,:,:) => NULL()  !< Stiffness in eta
+    REAL, POINTER                     :: KzetaHexa2(:,:,:) => NULL() !< Stiffness in zeta
     TYPE(tSparseTensor3b)             :: KxiHexa_Sp         !< Stiffness in xi (sparse)
     TYPE(tSparseTensor3b)             :: KetaHexa_Sp        !< Stiffness in eta (sparse)
     TYPE(tSparseTensor3b)             :: KzetaHexa_Sp       !< Stiffness in zeta (sparse)
     TYPE(tSparseTensor3b)             :: KxiHexa2_Sp        !< Stiffness in xi (sparse)
     TYPE(tSparseTensor3b)             :: KetaHexa2_Sp       !< Stiffness in eta (sparse)
     TYPE(tSparseTensor3b)             :: KzetaHexa2_Sp      !< Stiffness in zeta (sparse)
-    REAL, POINTER                     :: ADGxiHexa(:,:,:)   !< Transpose stiffness / mass in xi
-    REAL, POINTER                     :: ADGetaHexa(:,:,:)  !< Transpose stiffness / mass in eta
-    REAL, POINTER                     :: ADGzetaHexa(:,:,:) !< Transpose stiffness / mass in zeta
+    REAL, POINTER                     :: ADGxiHexa(:,:,:) => NULL()  !< Transpose stiffness / mass in xi
+    REAL, POINTER                     :: ADGetaHexa(:,:,:) => NULL() !< Transpose stiffness / mass in eta
+    REAL, POINTER                     :: ADGzetaHexa(:,:,:) => NULL()!< Transpose stiffness / mass in zeta
     TYPE(tSparseTensor3b)             :: ADGxiHexa_Sp       !< Transpose stiffness / mass in xi (sparse)
     TYPE(tSparseTensor3b)             :: ADGetaHexa_Sp      !< Transpose stiffness / mass in eta (sparse)
     TYPE(tSparseTensor3b)             :: ADGzetaHexa_Sp     !< Transpose stiffness / mass in zeta (sparse)
-    REAL, POINTER                     :: F3DHexa(:,:,:,:,:,:)  !< Flux matrices
-    TYPE(tSparseTensor3b), POINTER    :: F3DHexa_Sp(:,:,:)  !< Sparse flux matrices
-    TYPE(tSparseTensor3), POINTER     :: ASpHexa(:)         !< Sparse star tensor A
-    TYPE(tSparseTensor3), POINTER     :: BSpHexa(:)         !< Sparse star tensor B
-    TYPE(tSparseTensor3), POINTER     :: CSpHexa(:)         !< Sparse star tensor C
-    TYPE(tSparseTensor3), POINTER     :: ESpHexa(:)         !< Sparse star tensor E
+    REAL, POINTER                     :: F3DHexa(:,:,:,:,:,:) => NULL() !< Flux matrices
+    TYPE(tSparseTensor3b), POINTER    :: F3DHexa_Sp(:,:,:) => NULL() !< Sparse flux matrices
+    TYPE(tSparseTensor3), POINTER     :: ASpHexa(:) => NULL()        !< Sparse star tensor A
+    TYPE(tSparseTensor3), POINTER     :: BSpHexa(:) => NULL()        !< Sparse star tensor B
+    TYPE(tSparseTensor3), POINTER     :: CSpHexa(:) => NULL()        !< Sparse star tensor C
+    TYPE(tSparseTensor3), POINTER     :: ESpHexa(:) => NULL()        !< Sparse star tensor E
     !<
     INTEGER                           :: VarCoefRiemannSolv = 0  !< Selector for computing Riemann problems with
                                                             !<  discontinuous material or not.
@@ -712,32 +712,32 @@ MODULE TypesDef
     !<
     !< Gauss-Lobatto-Legendre points associated info
     !<
-    REAL, POINTER                     :: GLL(:)                !< Position of Gauss-Lobatto-Legendre points in [-1,+1] domain
-    REAL, POINTER                     :: W_GLL(:)           !< Integration weights associated to GLL points
-    REAL, POINTER                     :: GLLPolyC(:,:)      !< Coefficients of the 1D Legendre polynomials
-    REAL, POINTER                     :: D_GLL(:,:)         !< Derivatives of Legendre basis functions at each GLL point
-    REAL, POINTER                     :: D_GLL_T(:,:)       !< Transpose of the derivatives matrix D_GLL
-    INTEGER, POINTER                  :: GLLIndex3D(:,:)    !< Local indexing of each GLL node in xi eta and zeta
-    INTEGER, POINTER                  :: GLLTopo3D(:,:,:)   !< Correspondence local to global node ordering
-    INTEGER, POINTER                  :: GLLIndex2D(:,:)    !< Local indexing of each GLL node in xi eta and zeta
-    INTEGER, POINTER                  :: GLLTopo2D(:,:)     !< Correspondence local to global node ordering
-    REAL, POINTER                     :: Dx_Dxi(:,:,:,:)    !< Gradients of the deformation of the elements at each GLL point
-    REAL, POINTER                     :: Dxi_Dx(:,:,:,:)    !< Inverse of Dx_Dxi
-    REAL, POINTER                     :: Jacobian(:,:)      !< Determinant of the Jacobian matrix (dxi_i/dx_i) at each GLL point
-    REAL, POINTER                     :: RhoInvGLL(:,:)     !< Inverse of density at each GLL node
-    REAL, POINTER                     :: CijGLL(:,:,:)      !< Material stiffness entries at each GLL node
-    REAL, POINTER                     :: MaxWaveSpeedGLL(:,:) !< Maximum Cp at each GLL node
+    REAL, POINTER                     :: GLL(:) => NULL()               !< Position of Gauss-Lobatto-Legendre points in [-1,+1] domain
+    REAL, POINTER                     :: W_GLL(:) => NULL()          !< Integration weights associated to GLL points
+    REAL, POINTER                     :: GLLPolyC(:,:) => NULL()     !< Coefficients of the 1D Legendre polynomials
+    REAL, POINTER                     :: D_GLL(:,:) => NULL()        !< Derivatives of Legendre basis functions at each GLL point
+    REAL, POINTER                     :: D_GLL_T(:,:) => NULL()      !< Transpose of the derivatives matrix D_GLL
+    INTEGER, POINTER                  :: GLLIndex3D(:,:) => NULL()   !< Local indexing of each GLL node in xi eta and zeta
+    INTEGER, POINTER                  :: GLLTopo3D(:,:,:) => NULL()  !< Correspondence local to global node ordering
+    INTEGER, POINTER                  :: GLLIndex2D(:,:) => NULL()   !< Local indexing of each GLL node in xi eta and zeta
+    INTEGER, POINTER                  :: GLLTopo2D(:,:) => NULL()    !< Correspondence local to global node ordering
+    REAL, POINTER                     :: Dx_Dxi(:,:,:,:) => NULL()   !< Gradients of the deformation of the elements at each GLL point
+    REAL, POINTER                     :: Dxi_Dx(:,:,:,:) => NULL()   !< Inverse of Dx_Dxi
+    REAL, POINTER                     :: Jacobian(:,:) => NULL()     !< Determinant of the Jacobian matrix (dxi_i/dx_i) at each GLL point
+    REAL, POINTER                     :: RhoInvGLL(:,:) => NULL()    !< Inverse of density at each GLL node
+    REAL, POINTER                     :: CijGLL(:,:,:) => NULL()     !< Material stiffness entries at each GLL node
+    REAL, POINTER                     :: MaxWaveSpeedGLL(:,:) => NULL() !< Maximum Cp at each GLL node
     INTEGER                           :: Hetero             !< 0: Homogenous material present, 1: Heterogeneous material present
     !<
     !< Space-time DG matrices
-    REAL, POINTER                     :: ST_MassMatrix(:,:)
-    REAL, POINTER                     :: ST_Kxi(:,:)
-    REAL, POINTER                     :: ST_Keta(:,:)
-    REAL, POINTER                     :: ST_Kzeta(:,:)
-    REAL, POINTER                     :: ST_Ktau(:,:)
-    REAL, POINTER                     :: ST_F0(:,:)
-    REAL, POINTER                     :: ST_F1(:,:)
-    TYPE(tSparseMatrix), POINTER      :: InvSystemMatrix(:)    !< Inverse system matrices
+    REAL, POINTER                     :: ST_MassMatrix(:,:) => NULL()
+    REAL, POINTER                     :: ST_Kxi(:,:) => NULL()
+    REAL, POINTER                     :: ST_Keta(:,:) => NULL()
+    REAL, POINTER                     :: ST_Kzeta(:,:) => NULL()
+    REAL, POINTER                     :: ST_Ktau(:,:) => NULL()
+    REAL, POINTER                     :: ST_F0(:,:) => NULL()
+    REAL, POINTER                     :: ST_F1(:,:) => NULL()
+    TYPE(tSparseMatrix), POINTER      :: InvSystemMatrix(:) => NULL()   !< Inverse system matrices
     INTEGER                           :: InvSyst_MaxnNonZeros  !< Maximum number of non-zero entries in all InvSysemMatrix-es (used for MPI)
     !<
     !< Computational cost info
@@ -1093,7 +1093,7 @@ MODULE TypesDef
      REAL                                   :: r_max, r_ave, LDA_Percentage     !< Maximum amplitude of change in computational area / Average amplitude of change per node
      REAL                                   :: EndTime                          !< Simulation end time
      REAL                                   :: time                             !< updating Time
-     INTEGER                                :: iterationstep                    !< current Iterationstep
+     INTEGER                                :: iterationstep = 0                !< current Iterationstep
      REAL                                   :: dt                               !< current delta t
      INTEGER                                :: ICAccuracy                       !< Accuracy for integration of initial condition
      INTEGER                                :: nIntGP                           !< Number of internal Gausspoints for volume integration
@@ -1412,7 +1412,7 @@ MODULE TypesDef
      REAL                                   :: k,k0,k1,k2,k3,k4                 !< for RD-Schemes
      REAL                                   :: a,b                              !<
      REAL                                   :: picktime                         !< Time for next pickpointing
-     REAL, POINTER                          :: localpicktime(:)                 !< Time for next pickpointing (local dt)
+     REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
      integer                                :: pickDtType                       !< Meaning of pickdt: 1 = time, 2 = timestep(s)
      INTEGER                                :: PickLarge                        !< 0 = IO at each time level, 1 = IO every some number of levels
