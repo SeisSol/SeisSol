@@ -1096,6 +1096,7 @@ CONTAINS
         ! Allocate dummy arrays to avoid debug errors
         allocate(DISC%DynRup%SlipRate1(0,0), &
             DISC%DynRup%SlipRate2(0,0),      &
+            DISC%DynRup%Slip(0,0),           &
             DISC%DynRup%Slip1(0,0),          &
             DISC%DynRup%Slip2(0,0),          &
             DISC%DynRup%Mu(0,0),             &
