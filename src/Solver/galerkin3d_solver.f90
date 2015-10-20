@@ -449,7 +449,7 @@ CONTAINS
         ENDDO
         !
     ENDDO ! iElem
-#endif !GENERATED_KERNELS
+#endif
 
 
 
