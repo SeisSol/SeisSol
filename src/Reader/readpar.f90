@@ -49,58 +49,6 @@ MODULE COMMON_readpar_mod
   IMPLICIT NONE
   PRIVATE
   !----------------------------------------------------------------------------
-  INTERFACE readpar
-     MODULE PROCEDURE readpar
-  END INTERFACE
-
-  INTERFACE readpar_header
-     MODULE PROCEDURE readpar_header
-  END INTERFACE
-
-  INTERFACE readpar_equations
-     MODULE PROCEDURE readpar_equations
-  END INTERFACE
-
-  INTERFACE readpar_ini_condition
-     MODULE PROCEDURE readpar_ini_condition
-  END INTERFACE
-
-  INTERFACE readpar_boundaries
-     MODULE PROCEDURE readpar_boundaries
-  END INTERFACE
-
-  INTERFACE readpar_sourceterm
-     MODULE PROCEDURE readpar_sourceterm
-  END INTERFACE
-
-  INTERFACE readpar_spongelayer
-     MODULE PROCEDURE readpar_spongelayer
-  END INTERFACE
-
-  INTERFACE readpar_mesh
-     MODULE PROCEDURE readpar_unstruct_mesh
-  END INTERFACE
-
-  INTERFACE readpar_discretisation
-     MODULE PROCEDURE readpar_discretisation
-  END INTERFACE
-
-  INTERFACE readpar_output
-     MODULE PROCEDURE readpar_output
-  END INTERFACE
-
-  INTERFACE readpar_abort
-     MODULE PROCEDURE readpar_abort
-  END INTERFACE
-
-  INTERFACE readpar_analyse
-     MODULE PROCEDURE readpar_analyse
-  END INTERFACE
-
-  INTERFACE analyse_readpar
-     MODULE PROCEDURE analyse_readpar_unstruct
-  END INTERFACE
-
   interface
     subroutine getParameterFileC( i_maxlen, o_file ) bind( C, name='getParameterFile' )
         use iso_c_binding
@@ -109,7 +57,6 @@ MODULE COMMON_readpar_mod
         character(kind=c_char), dimension(*), intent(out) :: o_file
     end subroutine
   end interface
-
   !----------------------------------------------------------------------------
   PUBLIC  :: readpar
   !----------------------------------------------------------------------------
@@ -183,14 +130,8 @@ CONTAINS
     !
     logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
     logInfo0(*) '<                                                         >'
-    !Name1 = TRIM(IO%ParameterFile)                       !
-    !Name = Name1(1:600)
     !                                                                        ! 
     CALL OpenFile(UnitNr=IO%UNIT%FileIn, name=trim(IO%ParameterFile), create=.FALSE.)
-!!$    CALL OpenFile(                                                         & !
-!!$         UnitNr       = IO%UNIT%FileIn                                   , & !
-!!$         Name         = name                                             , & !
-!!$         create       = .FALSE.                                            ) !
     !                                                                        ! 
     CALL readpar_header(IO,IC,actual_version_of_readpar,programTitle) !
     !                                                                        !
@@ -2796,7 +2737,7 @@ ALLOCATE( SpacePositionx(nDirac), &
   ! M E S H                  
   !============================================================================
   
-  SUBROUTINE readpar_unstruct_mesh(EQN,IC,MESH,DISC,BND,SOURCE,IO)
+  SUBROUTINE readpar_mesh(EQN,IC,MESH,DISC,BND,SOURCE,IO)
     !--------------------------------------------------------------------------
     
     !--------------------------------------------------------------------------
@@ -3000,7 +2941,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          END DO
     ENDIF       
     !
-  END SUBROUTINE readpar_unstruct_mesh
+  END SUBROUTINE readpar_mesh
 
   !============================================================================
   ! D I S C R E T I S A T I O N
@@ -3883,8 +3824,8 @@ ALLOCATE( SpacePositionx(nDirac), &
   ! A N A L Y S E           
   !============================================================================
   ! Checks the correct setting of the .par file
-
-  SUBROUTINE analyse_readpar_unstruct(EQN,DISC,MESH,IC,SOURCE,IO,MPI)
+  SUBROUTINE analyse_readpar(EQN,DISC,MESH,IC,SOURCE,IO,MPI)
+  !SUBROUTINE analyse_readpar_unstruct(EQN,DISC,MESH,IC,SOURCE,IO,MPI)
     !--------------------------------------------------------------------------
     
     !------------------------------------------------------------------------
@@ -3920,8 +3861,8 @@ ALLOCATE( SpacePositionx(nDirac), &
     logInfo(*) '<-------------------------------------------------------- >'
     logInfo(*) ' '
     !
-    !          
-  END SUBROUTINE analyse_readpar_unstruct
+  END SUBROUTINE analyse_readpar
+  !END SUBROUTINE analyse_readpar_unstruct
 
    !>
    !! normalize vectors and initialize the Voigt matrix
