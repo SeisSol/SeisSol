@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/python
 ##
 # @file
 # This file is part of SeisSol.
@@ -44,20 +44,21 @@ sourceFiles = ['Fault.cpp']
 sourceDirs = ['posix']
 
 if env['sionlib']:
-	sourceDirs += ['sionlib']
-
+    sourceDirs += ['sionlib']
+    
 if env['hdf5']:
     sourceDirs += ['h5']
     
 if env['parallelization'] in ['mpi', 'hybrid']:
     sourceDirs += ['mpio']
-    
+            
 for i in sourceFiles:
-  	env.sourceFiles.append(env.Object(i))
+    env.sourceFiles.append(env.Object(i))
 
 for sourceDir in sourceDirs:
-	Export('env')
-  	SConscript('checkpoint/'+sourceDir+'/SConscript', variant_dir='#/'+env['buildDir']+'/Checkpoint/'+sourceDir, duplicate=0)
-  	Import('env')
+    print sourceDir
+    Export('env')
+    SConscript('checkpoint/'+sourceDir+'/SConscript', variant_dir='#/'+env['buildDir']+'/Checkpoint/'+sourceDir, duplicate=0)
+    Import('env')
 
 Export('env')

@@ -135,9 +135,9 @@ namespace seissol
       protected:
 	
 	int         m_files[2];
-#ifdef USE_MPI
+	//#ifdef USE_MPI
 	MPI_Comm    m_gComm, m_lComm;
-#endif // USE_MPI
+	//#endif // USE_MPI
 	FILE       *m_fptr_sion[2];
 	sion_int64  m_chunksize_sion;
 	FILE       *m_fptr;

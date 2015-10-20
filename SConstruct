@@ -545,6 +545,12 @@ if env['netcdf']:
     env.Append(CPPDEFINES=['USE_NETCDF'])
     
 # sionlib still need to create a Tool for autoconfiguration
+if env['sionlib'] and not ( env['parallelization'] in ['mpi', 'hybrid']):
+  env['sionlib'] = False
+  print "conflict: non mpi or hybrid build but sionlib requires mpi:"
+  print "          ... deactivating sionlib: env['sionlib'] =",env['sionlib']
+  print "          during runtime: sionlib will use posix as fallback solution"
+
 if env['sionlib']:
   env.Append(F90FLAGS=['-DUSE_SIONLIB'])
   env.Append(CPPDEFINES=['USE_SIONLIB'])
