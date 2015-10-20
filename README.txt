@@ -9,8 +9,6 @@ It contains the following folders:
   Files for compiling the optimized generated kernel version
 - Documentation/   
   User Manual and tutorial can be found here
-- examples/
-  Some ready to go initial examples
 - Maple/
   Includes precomputed basis functions and other Maple tools; folder is essential to run SeisSol
 - postprocessing/
