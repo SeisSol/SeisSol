@@ -55,9 +55,10 @@
 #include "mpio/WavefieldAsync.h"
 #include "mpio/Fault.h"
 #include "mpio/FaultAsync.h"
+#ifdef USE_SIONLIB
 #include "sionlib/Fault.h"
 #include "sionlib/Wavefield.h"
-
+#endif
 namespace seissol
 {
 
