@@ -101,12 +101,12 @@ namespace seissol
 	
 	void initLate()
 	{
+#ifdef USE_SIONLIB
 	  int globalrank,numFiles;
 	  char fname[1023], *newfname=NULL;
 	  m_gComm=comm(); m_lComm = m_gComm; globalrank = rank(); numFiles = 0;
 	  seissol::checkpoint::CheckPoint::initLate();
 	  	  
-#ifdef USE_SIONLIB
  	  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
 	  for (unsigned int i = 0; i < 2; i++) {
 	    m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
@@ -168,13 +168,13 @@ namespace seissol
 	 */
 	int open()
 	{
+	  int fh;
+	  fh=-1;
+#ifdef USE_SIONLIB
 	  int globalrank,numFiles;
 	  FILE* fptr_sion;
 	  char fname[1023], *newfname=NULL;
-	  int fh;
-	  fh=-1;
 	  globalrank = rank(); numFiles = 0; m_gComm = comm(); m_lComm = m_gComm;
-#ifdef USE_SIONLIB
 	  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
 	  fh = sion_paropen_mpi(const_cast<char*>(linkFile().c_str()), "br", &numFiles, m_gComm, &m_lComm,
 	  			&m_chunksize_sion, &fsblksize, &globalrank, &m_fptr, &newfname);
