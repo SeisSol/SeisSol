@@ -37,45 +37,30 @@
  *
  * @section DESCRIPTION
  */
-
 #include "Wavefield.h"
 
-bool seissol::checkpoint::sionlib::Wavefield::init(real* dofs, unsigned int numDofs)
-{
+
+bool seissol::checkpoint::sionlib::Wavefield::init(real* dofs, unsigned int numDofs){
   seissol::checkpoint::Wavefield::init(dofs, numDofs);
-
 #ifdef USE_SIONLIB
-
-  sion_int64 mychunksize;
-
-  mychunksize = this->numDofs()*sizeof(double)+sizeof(double)+sizeof(int)+sizeof(unsigned long);
-
-  set_chunksize(mychunksize);
-
+  set_chunksize(this->numDofs()*sizeof(double)+sizeof(double)+sizeof(int)+sizeof(unsigned long));
 #endif
-
   return exists();
 }
 
-void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWaveField)
-{  
-  seissol::checkpoint::CheckPoint::load();
-
-  FILE *file_ptr;  
-  int globalrank,numFiles,file;
-  char fname[1023], *newfname=NULL;
-  unsigned long lidentifier;   
-  real *dofs1;
-    
-  globalrank = rank(); numFiles = 0; m_gComm = comm(); m_lComm = m_gComm;
-  
+void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWaveField) {  
 #ifdef USE_SIONLIB
-
+  seissol::checkpoint::CheckPoint::load();
+  int globalrank,numFiles,file; FILE *file_ptr;
+  char fname[1023], *newfname=NULL;
+  unsigned long lidentifier;
+  real *dofs1;    
   sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
-
+  m_gComm = comm(); m_lComm = m_gComm;
+  globalrank = rank(); numFiles = 0; 
   file = sion_paropen_mpi(const_cast<char*>(linkFile().c_str()), "br", &numFiles, m_gComm, &m_lComm,
-			  &m_chunksize_sion, &fsblksize, &globalrank, &file_ptr, &newfname);
-  checkErr(file);  
+			  &m_chunksize, &fsblksize, &globalrank, &file_ptr, &newfname);
+  checkErr(file);
   checkErr(sion_fread(&lidentifier, sizeof(unsigned long),1,file));
   checkErr(sion_fread(&time, sizeof(time),1,file));
   checkErr(sion_fread(&timestepWaveField, sizeof(timestepWaveField),1,file));
@@ -83,30 +68,24 @@ void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWa
   if (ferror (file_ptr))
     logWarning(rank())<<"Error reading dofs\n";
   checkErr(sion_parclose_mpi(file));
-
 #endif
 }
 
-void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWaveField)
-{
+void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWaveField) {
+#ifdef USE_SIONLIB
   int globalrank,numFiles;
   char fname[1023], *newfname=NULL;
-
-  m_gComm = comm(); m_lComm = m_gComm; globalrank = rank(); numFiles = 0;
-
-#ifdef USE_SIONLIB
-
-  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
-  
-  m_files[odd()] = sion_paropen_mpi(const_cast<char*>(dataFile(odd()).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
-				    &m_chunksize_sion, &fsblksize, &globalrank, &m_fptr_sion[odd()], &newfname);
-  checkErr(m_files[odd()]);
-  unsigned long lidentifier; lidentifier = identifier();
+  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);  
+  unsigned long lidentifier;
+  m_gComm = comm(); m_lComm = m_gComm;
+  globalrank = rank(); numFiles = 0;
+  lidentifier = identifier();
+  setpos();
   checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
   checkErr(sion_fwrite(&time, sizeof(time),1,m_files[odd()]));
   checkErr(sion_fwrite(&timestepWaveField, sizeof(timestepWaveField),1,m_files[odd()]));
-  checkErr(sion_fwrite(dofs(),sizeof(real), numDofs(),m_files[odd()]));
-  checkErr(sion_parclose_mpi(m_files[odd()]));
+  checkErr(sion_fwrite(dofs(),sizeof(real), numDofs(),m_files[odd()]));  
+  flushCheckpoint();
   //  finalizeCheckpoint();  
 #endif
 }

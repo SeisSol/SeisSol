@@ -56,7 +56,6 @@ for i in sourceFiles:
     env.sourceFiles.append(env.Object(i))
 
 for sourceDir in sourceDirs:
-    print sourceDir
     Export('env')
     SConscript('checkpoint/'+sourceDir+'/SConscript', variant_dir='#/'+env['buildDir']+'/Checkpoint/'+sourceDir, duplicate=0)
     Import('env')
