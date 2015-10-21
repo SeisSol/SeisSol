@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-09-27 13:26:40.971713
+// @date 2015-10-20 16:05:15.780649
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -80,8 +80,8 @@ m_nonZeroFlops[2] = 54;
 m_matrixKernels[2] = sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[2] = 1152;
 m_nonZeroFlops[3] = 48;
-m_hardwareFlops[3] = 48;
-m_matrixKernels[3] = ssparse_starMatrix_m1_n9_k9_ldA16_ldBna2_ldC16_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[3] = 2592;
 #endif
 
 
@@ -96,8 +96,8 @@ m_nonZeroFlops[2] = 54;
 m_matrixKernels[2] = sgemm_m16_n9_k1_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[2] = 288;
 m_nonZeroFlops[3] = 192;
-m_hardwareFlops[3] = 192;
-m_matrixKernels[3] = ssparse_starMatrix_m4_n9_k9_ldA16_ldBna2_ldC16_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[3] = 2592;
 #endif
 
 
@@ -529,10 +529,10 @@ m_sparseSwitch[55] = -1;
 m_sparseSwitch[56] = -1; 
 m_sparseSwitch[57] = -1; 
 m_sparseSwitch[58] = -1; 
-m_sparseSwitch[59] = 24; 
+m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 24
+#define STAR_NNZ 81
 
 #endif
 
@@ -549,8 +549,8 @@ m_nonZeroFlops[2] = 396;
 m_matrixKernels[2] = sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[2] = 2880;
 m_nonZeroFlops[3] = 192;
-m_hardwareFlops[3] = 192;
-m_matrixKernels[3] = ssparse_starMatrix_m4_n9_k9_ldA16_ldBna3_ldC16_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[3] = 2592;
 m_nonZeroFlops[4] = 18;
 m_matrixKernels[4] = sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[4] = 1152;
@@ -561,8 +561,8 @@ m_nonZeroFlops[6] = 54;
 m_matrixKernels[6] = sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[6] = 1152;
 m_nonZeroFlops[7] = 48;
-m_hardwareFlops[7] = 48;
-m_matrixKernels[7] = ssparse_starMatrix_m1_n9_k9_ldA16_ldBna3_ldC16_beta1_pfsigonly;
+m_matrixKernels[7] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[7] = 2592;
 #endif
 
 
@@ -577,8 +577,8 @@ m_nonZeroFlops[2] = 396;
 m_matrixKernels[2] = sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[2] = 1152;
 m_nonZeroFlops[3] = 480;
-m_hardwareFlops[3] = 480;
-m_matrixKernels[3] = ssparse_starMatrix_m10_n9_k9_ldA16_ldBna3_ldC16_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[3] = 2592;
 #endif
 
 
@@ -1010,10 +1010,10 @@ m_sparseSwitch[55] = -1;
 m_sparseSwitch[56] = -1; 
 m_sparseSwitch[57] = -1; 
 m_sparseSwitch[58] = -1; 
-m_sparseSwitch[59] = 24; 
+m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 24
+#define STAR_NNZ 81
 
 #endif
 
@@ -1030,8 +1030,8 @@ m_nonZeroFlops[2] = 1656;
 m_matrixKernels[2] = sgemm_m16_n9_k20_ldA16_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[2] = 5760;
 m_nonZeroFlops[3] = 480;
-m_hardwareFlops[3] = 480;
-m_matrixKernels[3] = ssparse_starMatrix_m10_n9_k9_ldA16_ldBna4_ldC16_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[3] = 2592;
 m_nonZeroFlops[4] = 126;
 m_matrixKernels[4] = sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[4] = 2880;
@@ -1042,8 +1042,8 @@ m_nonZeroFlops[6] = 396;
 m_matrixKernels[6] = sgemm_m16_n9_k10_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[6] = 2880;
 m_nonZeroFlops[7] = 192;
-m_hardwareFlops[7] = 192;
-m_matrixKernels[7] = ssparse_starMatrix_m4_n9_k9_ldA16_ldBna4_ldC16_beta1_pfsigonly;
+m_matrixKernels[7] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[7] = 2592;
 m_nonZeroFlops[8] = 18;
 m_matrixKernels[8] = sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[8] = 1152;
@@ -1054,8 +1054,8 @@ m_nonZeroFlops[10] = 54;
 m_matrixKernels[10] = sgemm_m16_n9_k4_ldA16_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[10] = 1152;
 m_nonZeroFlops[11] = 48;
-m_hardwareFlops[11] = 48;
-m_matrixKernels[11] = ssparse_starMatrix_m1_n9_k9_ldA16_ldBna4_ldC16_beta1_pfsigonly;
+m_matrixKernels[11] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[11] = 2592;
 #endif
 
 
@@ -1070,8 +1070,8 @@ m_nonZeroFlops[2] = 1656;
 m_matrixKernels[2] = sgemm_m32_n9_k10_ldA32_ldB32_ldC32_beta0_pfsigonly;
 m_hardwareFlops[2] = 5760;
 m_nonZeroFlops[3] = 960;
-m_hardwareFlops[3] = 960;
-m_matrixKernels[3] = ssparse_starMatrix_m20_n9_k9_ldA32_ldBna4_ldC32_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_pfsigonly;
+m_hardwareFlops[3] = 5184;
 #endif
 
 
@@ -1503,10 +1503,10 @@ m_sparseSwitch[55] = -1;
 m_sparseSwitch[56] = -1; 
 m_sparseSwitch[57] = -1; 
 m_sparseSwitch[58] = -1; 
-m_sparseSwitch[59] = 24; 
+m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 24
+#define STAR_NNZ 81
 
 #endif
 
@@ -1523,8 +1523,8 @@ m_nonZeroFlops[2] = 5166;
 m_matrixKernels[2] = sgemm_m32_n9_k35_ldA32_ldB48_ldC32_beta0_pfsigonly;
 m_hardwareFlops[2] = 20160;
 m_nonZeroFlops[3] = 960;
-m_hardwareFlops[3] = 960;
-m_matrixKernels[3] = ssparse_starMatrix_m20_n9_k9_ldA32_ldBna5_ldC32_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_pfsigonly;
+m_hardwareFlops[3] = 5184;
 m_nonZeroFlops[4] = 594;
 m_matrixKernels[4] = sgemm_m16_n9_k20_ldA32_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[4] = 5760;
@@ -1535,8 +1535,8 @@ m_nonZeroFlops[6] = 1656;
 m_matrixKernels[6] = sgemm_m16_n9_k20_ldA32_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[6] = 5760;
 m_nonZeroFlops[7] = 480;
-m_hardwareFlops[7] = 480;
-m_matrixKernels[7] = ssparse_starMatrix_m10_n9_k9_ldA16_ldBna5_ldC16_beta1_pfsigonly;
+m_matrixKernels[7] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[7] = 2592;
 m_nonZeroFlops[8] = 126;
 m_matrixKernels[8] = sgemm_m16_n9_k10_ldA32_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[8] = 2880;
@@ -1547,8 +1547,8 @@ m_nonZeroFlops[10] = 396;
 m_matrixKernels[10] = sgemm_m16_n9_k10_ldA32_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[10] = 2880;
 m_nonZeroFlops[11] = 192;
-m_hardwareFlops[11] = 192;
-m_matrixKernels[11] = ssparse_starMatrix_m4_n9_k9_ldA16_ldBna5_ldC16_beta1_pfsigonly;
+m_matrixKernels[11] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[11] = 2592;
 m_nonZeroFlops[12] = 18;
 m_matrixKernels[12] = sgemm_m16_n9_k4_ldA32_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[12] = 1152;
@@ -1559,8 +1559,8 @@ m_nonZeroFlops[14] = 54;
 m_matrixKernels[14] = sgemm_m16_n9_k4_ldA32_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[14] = 1152;
 m_nonZeroFlops[15] = 48;
-m_hardwareFlops[15] = 48;
-m_matrixKernels[15] = ssparse_starMatrix_m1_n9_k9_ldA16_ldBna5_ldC16_beta1_pfsigonly;
+m_matrixKernels[15] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[15] = 2592;
 #endif
 
 
@@ -1575,8 +1575,8 @@ m_nonZeroFlops[2] = 5166;
 m_matrixKernels[2] = sgemm_m48_n9_k20_ldA48_ldB48_ldC48_beta0_pfsigonly;
 m_hardwareFlops[2] = 17280;
 m_nonZeroFlops[3] = 1680;
-m_hardwareFlops[3] = 1680;
-m_matrixKernels[3] = ssparse_starMatrix_m35_n9_k9_ldA48_ldBna5_ldC48_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m48_n9_k9_ldA48_ldB9_ldC48_beta1_pfsigonly;
+m_hardwareFlops[3] = 7776;
 #endif
 
 
@@ -2008,10 +2008,10 @@ m_sparseSwitch[55] = -1;
 m_sparseSwitch[56] = -1; 
 m_sparseSwitch[57] = -1; 
 m_sparseSwitch[58] = -1; 
-m_sparseSwitch[59] = 24; 
+m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 24
+#define STAR_NNZ 81
 
 #endif
 
@@ -2028,8 +2028,8 @@ m_nonZeroFlops[2] = 13356;
 m_matrixKernels[2] = sgemm_m48_n9_k56_ldA48_ldB64_ldC48_beta0_pfsigonly;
 m_hardwareFlops[2] = 48384;
 m_nonZeroFlops[3] = 1680;
-m_hardwareFlops[3] = 1680;
-m_matrixKernels[3] = ssparse_starMatrix_m35_n9_k9_ldA48_ldBna6_ldC48_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m48_n9_k9_ldA48_ldB9_ldC48_beta1_pfsigonly;
+m_hardwareFlops[3] = 7776;
 m_nonZeroFlops[4] = 1944;
 m_matrixKernels[4] = sgemm_m32_n9_k35_ldA48_ldB48_ldC32_beta0_pfsigonly;
 m_hardwareFlops[4] = 20160;
@@ -2040,8 +2040,8 @@ m_nonZeroFlops[6] = 5166;
 m_matrixKernels[6] = sgemm_m32_n9_k35_ldA48_ldB48_ldC32_beta0_pfsigonly;
 m_hardwareFlops[6] = 20160;
 m_nonZeroFlops[7] = 960;
-m_hardwareFlops[7] = 960;
-m_matrixKernels[7] = ssparse_starMatrix_m20_n9_k9_ldA32_ldBna6_ldC32_beta1_pfsigonly;
+m_matrixKernels[7] = sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_pfsigonly;
+m_hardwareFlops[7] = 5184;
 m_nonZeroFlops[8] = 594;
 m_matrixKernels[8] = sgemm_m16_n9_k20_ldA48_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[8] = 5760;
@@ -2052,8 +2052,8 @@ m_nonZeroFlops[10] = 1656;
 m_matrixKernels[10] = sgemm_m16_n9_k20_ldA48_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[10] = 5760;
 m_nonZeroFlops[11] = 480;
-m_hardwareFlops[11] = 480;
-m_matrixKernels[11] = ssparse_starMatrix_m10_n9_k9_ldA16_ldBna6_ldC16_beta1_pfsigonly;
+m_matrixKernels[11] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[11] = 2592;
 m_nonZeroFlops[12] = 126;
 m_matrixKernels[12] = sgemm_m16_n9_k10_ldA48_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[12] = 2880;
@@ -2064,8 +2064,8 @@ m_nonZeroFlops[14] = 396;
 m_matrixKernels[14] = sgemm_m16_n9_k10_ldA48_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[14] = 2880;
 m_nonZeroFlops[15] = 192;
-m_hardwareFlops[15] = 192;
-m_matrixKernels[15] = ssparse_starMatrix_m4_n9_k9_ldA16_ldBna6_ldC16_beta1_pfsigonly;
+m_matrixKernels[15] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[15] = 2592;
 m_nonZeroFlops[16] = 18;
 m_matrixKernels[16] = sgemm_m16_n9_k4_ldA48_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[16] = 1152;
@@ -2076,8 +2076,8 @@ m_nonZeroFlops[18] = 54;
 m_matrixKernels[18] = sgemm_m16_n9_k4_ldA48_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[18] = 1152;
 m_nonZeroFlops[19] = 48;
-m_hardwareFlops[19] = 48;
-m_matrixKernels[19] = ssparse_starMatrix_m1_n9_k9_ldA16_ldBna6_ldC16_beta1_pfsigonly;
+m_matrixKernels[19] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[19] = 2592;
 #endif
 
 
@@ -2092,8 +2092,8 @@ m_nonZeroFlops[2] = 13356;
 m_matrixKernels[2] = sgemm_m64_n9_k35_ldA64_ldB64_ldC64_beta0_pfsigonly;
 m_hardwareFlops[2] = 40320;
 m_nonZeroFlops[3] = 2688;
-m_hardwareFlops[3] = 2688;
-m_matrixKernels[3] = ssparse_starMatrix_m56_n9_k9_ldA64_ldBna6_ldC64_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m64_n9_k9_ldA64_ldB9_ldC64_beta1_pfsigonly;
+m_hardwareFlops[3] = 10368;
 #endif
 
 
@@ -2525,10 +2525,10 @@ m_sparseSwitch[55] = -1;
 m_sparseSwitch[56] = -1; 
 m_sparseSwitch[57] = -1; 
 m_sparseSwitch[58] = -1; 
-m_sparseSwitch[59] = 24; 
+m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 24
+#define STAR_NNZ 81
 
 #endif
 
@@ -2545,8 +2545,8 @@ m_nonZeroFlops[2] = 30240;
 m_matrixKernels[2] = sgemm_m64_n9_k84_ldA64_ldB96_ldC64_beta0_pfsigonly;
 m_hardwareFlops[2] = 96768;
 m_nonZeroFlops[3] = 2688;
-m_hardwareFlops[3] = 2688;
-m_matrixKernels[3] = ssparse_starMatrix_m56_n9_k9_ldA64_ldBna7_ldC64_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m64_n9_k9_ldA64_ldB9_ldC64_beta1_pfsigonly;
+m_hardwareFlops[3] = 10368;
 m_nonZeroFlops[4] = 5292;
 m_matrixKernels[4] = sgemm_m48_n9_k56_ldA64_ldB64_ldC48_beta0_pfsigonly;
 m_hardwareFlops[4] = 48384;
@@ -2557,8 +2557,8 @@ m_nonZeroFlops[6] = 13356;
 m_matrixKernels[6] = sgemm_m48_n9_k56_ldA64_ldB64_ldC48_beta0_pfsigonly;
 m_hardwareFlops[6] = 48384;
 m_nonZeroFlops[7] = 1680;
-m_hardwareFlops[7] = 1680;
-m_matrixKernels[7] = ssparse_starMatrix_m35_n9_k9_ldA48_ldBna7_ldC48_beta1_pfsigonly;
+m_matrixKernels[7] = sgemm_m48_n9_k9_ldA48_ldB9_ldC48_beta1_pfsigonly;
+m_hardwareFlops[7] = 7776;
 m_nonZeroFlops[8] = 1944;
 m_matrixKernels[8] = sgemm_m32_n9_k35_ldA64_ldB48_ldC32_beta0_pfsigonly;
 m_hardwareFlops[8] = 20160;
@@ -2569,8 +2569,8 @@ m_nonZeroFlops[10] = 5166;
 m_matrixKernels[10] = sgemm_m32_n9_k35_ldA64_ldB48_ldC32_beta0_pfsigonly;
 m_hardwareFlops[10] = 20160;
 m_nonZeroFlops[11] = 960;
-m_hardwareFlops[11] = 960;
-m_matrixKernels[11] = ssparse_starMatrix_m20_n9_k9_ldA32_ldBna7_ldC32_beta1_pfsigonly;
+m_matrixKernels[11] = sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_pfsigonly;
+m_hardwareFlops[11] = 5184;
 m_nonZeroFlops[12] = 594;
 m_matrixKernels[12] = sgemm_m16_n9_k20_ldA64_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[12] = 5760;
@@ -2581,8 +2581,8 @@ m_nonZeroFlops[14] = 1656;
 m_matrixKernels[14] = sgemm_m16_n9_k20_ldA64_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[14] = 5760;
 m_nonZeroFlops[15] = 480;
-m_hardwareFlops[15] = 480;
-m_matrixKernels[15] = ssparse_starMatrix_m10_n9_k9_ldA16_ldBna7_ldC16_beta1_pfsigonly;
+m_matrixKernels[15] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[15] = 2592;
 m_nonZeroFlops[16] = 126;
 m_matrixKernels[16] = sgemm_m16_n9_k10_ldA64_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[16] = 2880;
@@ -2593,8 +2593,8 @@ m_nonZeroFlops[18] = 396;
 m_matrixKernels[18] = sgemm_m16_n9_k10_ldA64_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[18] = 2880;
 m_nonZeroFlops[19] = 192;
-m_hardwareFlops[19] = 192;
-m_matrixKernels[19] = ssparse_starMatrix_m4_n9_k9_ldA16_ldBna7_ldC16_beta1_pfsigonly;
+m_matrixKernels[19] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[19] = 2592;
 m_nonZeroFlops[20] = 18;
 m_matrixKernels[20] = sgemm_m16_n9_k4_ldA64_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[20] = 1152;
@@ -2605,8 +2605,8 @@ m_nonZeroFlops[22] = 54;
 m_matrixKernels[22] = sgemm_m16_n9_k4_ldA64_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[22] = 1152;
 m_nonZeroFlops[23] = 48;
-m_hardwareFlops[23] = 48;
-m_matrixKernels[23] = ssparse_starMatrix_m1_n9_k9_ldA16_ldBna7_ldC16_beta1_pfsigonly;
+m_matrixKernels[23] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[23] = 2592;
 #endif
 
 
@@ -2621,8 +2621,8 @@ m_nonZeroFlops[2] = 30240;
 m_matrixKernels[2] = sgemm_m96_n9_k56_ldA96_ldB96_ldC96_beta0_pfsigonly;
 m_hardwareFlops[2] = 96768;
 m_nonZeroFlops[3] = 4032;
-m_hardwareFlops[3] = 4032;
-m_matrixKernels[3] = ssparse_starMatrix_m84_n9_k9_ldA96_ldBna7_ldC96_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m96_n9_k9_ldA96_ldB9_ldC96_beta1_pfsigonly;
+m_hardwareFlops[3] = 15552;
 #endif
 
 
@@ -3054,10 +3054,10 @@ m_sparseSwitch[55] = -1;
 m_sparseSwitch[56] = -1; 
 m_sparseSwitch[57] = -1; 
 m_sparseSwitch[58] = -1; 
-m_sparseSwitch[59] = 24; 
+m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 24
+#define STAR_NNZ 81
 
 #endif
 
@@ -3074,8 +3074,8 @@ m_nonZeroFlops[2] = 61884;
 m_matrixKernels[2] = sgemm_m96_n9_k120_ldA96_ldB128_ldC96_beta0_pfsigonly;
 m_hardwareFlops[2] = 207360;
 m_nonZeroFlops[3] = 4032;
-m_hardwareFlops[3] = 4032;
-m_matrixKernels[3] = ssparse_starMatrix_m84_n9_k9_ldA96_ldBna8_ldC96_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m96_n9_k9_ldA96_ldB9_ldC96_beta1_pfsigonly;
+m_hardwareFlops[3] = 15552;
 m_nonZeroFlops[4] = 12348;
 m_matrixKernels[4] = sgemm_m64_n9_k84_ldA96_ldB96_ldC64_beta0_pfsigonly;
 m_hardwareFlops[4] = 96768;
@@ -3086,8 +3086,8 @@ m_nonZeroFlops[6] = 30240;
 m_matrixKernels[6] = sgemm_m64_n9_k84_ldA96_ldB96_ldC64_beta0_pfsigonly;
 m_hardwareFlops[6] = 96768;
 m_nonZeroFlops[7] = 2688;
-m_hardwareFlops[7] = 2688;
-m_matrixKernels[7] = ssparse_starMatrix_m56_n9_k9_ldA64_ldBna8_ldC64_beta1_pfsigonly;
+m_matrixKernels[7] = sgemm_m64_n9_k9_ldA64_ldB9_ldC64_beta1_pfsigonly;
+m_hardwareFlops[7] = 10368;
 m_nonZeroFlops[8] = 5292;
 m_matrixKernels[8] = sgemm_m48_n9_k56_ldA96_ldB64_ldC48_beta0_pfsigonly;
 m_hardwareFlops[8] = 48384;
@@ -3098,8 +3098,8 @@ m_nonZeroFlops[10] = 13356;
 m_matrixKernels[10] = sgemm_m48_n9_k56_ldA96_ldB64_ldC48_beta0_pfsigonly;
 m_hardwareFlops[10] = 48384;
 m_nonZeroFlops[11] = 1680;
-m_hardwareFlops[11] = 1680;
-m_matrixKernels[11] = ssparse_starMatrix_m35_n9_k9_ldA48_ldBna8_ldC48_beta1_pfsigonly;
+m_matrixKernels[11] = sgemm_m48_n9_k9_ldA48_ldB9_ldC48_beta1_pfsigonly;
+m_hardwareFlops[11] = 7776;
 m_nonZeroFlops[12] = 1944;
 m_matrixKernels[12] = sgemm_m32_n9_k35_ldA96_ldB48_ldC32_beta0_pfsigonly;
 m_hardwareFlops[12] = 20160;
@@ -3110,8 +3110,8 @@ m_nonZeroFlops[14] = 5166;
 m_matrixKernels[14] = sgemm_m32_n9_k35_ldA96_ldB48_ldC32_beta0_pfsigonly;
 m_hardwareFlops[14] = 20160;
 m_nonZeroFlops[15] = 960;
-m_hardwareFlops[15] = 960;
-m_matrixKernels[15] = ssparse_starMatrix_m20_n9_k9_ldA32_ldBna8_ldC32_beta1_pfsigonly;
+m_matrixKernels[15] = sgemm_m32_n9_k9_ldA32_ldB9_ldC32_beta1_pfsigonly;
+m_hardwareFlops[15] = 5184;
 m_nonZeroFlops[16] = 594;
 m_matrixKernels[16] = sgemm_m16_n9_k20_ldA96_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[16] = 5760;
@@ -3122,8 +3122,8 @@ m_nonZeroFlops[18] = 1656;
 m_matrixKernels[18] = sgemm_m16_n9_k20_ldA96_ldB32_ldC16_beta0_pfsigonly;
 m_hardwareFlops[18] = 5760;
 m_nonZeroFlops[19] = 480;
-m_hardwareFlops[19] = 480;
-m_matrixKernels[19] = ssparse_starMatrix_m10_n9_k9_ldA16_ldBna8_ldC16_beta1_pfsigonly;
+m_matrixKernels[19] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[19] = 2592;
 m_nonZeroFlops[20] = 126;
 m_matrixKernels[20] = sgemm_m16_n9_k10_ldA96_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[20] = 2880;
@@ -3134,8 +3134,8 @@ m_nonZeroFlops[22] = 396;
 m_matrixKernels[22] = sgemm_m16_n9_k10_ldA96_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[22] = 2880;
 m_nonZeroFlops[23] = 192;
-m_hardwareFlops[23] = 192;
-m_matrixKernels[23] = ssparse_starMatrix_m4_n9_k9_ldA16_ldBna8_ldC16_beta1_pfsigonly;
+m_matrixKernels[23] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[23] = 2592;
 m_nonZeroFlops[24] = 18;
 m_matrixKernels[24] = sgemm_m16_n9_k4_ldA96_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[24] = 1152;
@@ -3146,8 +3146,8 @@ m_nonZeroFlops[26] = 54;
 m_matrixKernels[26] = sgemm_m16_n9_k4_ldA96_ldB16_ldC16_beta0_pfsigonly;
 m_hardwareFlops[26] = 1152;
 m_nonZeroFlops[27] = 48;
-m_hardwareFlops[27] = 48;
-m_matrixKernels[27] = ssparse_starMatrix_m1_n9_k9_ldA16_ldBna8_ldC16_beta1_pfsigonly;
+m_matrixKernels[27] = sgemm_m16_n9_k9_ldA16_ldB9_ldC16_beta1_pfsigonly;
+m_hardwareFlops[27] = 2592;
 #endif
 
 
@@ -3162,8 +3162,8 @@ m_nonZeroFlops[2] = 61884;
 m_matrixKernels[2] = sgemm_m128_n9_k84_ldA128_ldB128_ldC128_beta0_pfsigonly;
 m_hardwareFlops[2] = 193536;
 m_nonZeroFlops[3] = 5760;
-m_hardwareFlops[3] = 5760;
-m_matrixKernels[3] = ssparse_starMatrix_m120_n9_k9_ldA128_ldBna8_ldC128_beta1_pfsigonly;
+m_matrixKernels[3] = sgemm_m128_n9_k9_ldA128_ldB9_ldC128_beta1_pfsigonly;
+m_hardwareFlops[3] = 20736;
 #endif
 
 
@@ -3595,10 +3595,10 @@ m_sparseSwitch[55] = -1;
 m_sparseSwitch[56] = -1; 
 m_sparseSwitch[57] = -1; 
 m_sparseSwitch[58] = -1; 
-m_sparseSwitch[59] = 24; 
+m_sparseSwitch[59] = -1; 
 #endif
 
-#define STAR_NNZ 24
+#define STAR_NNZ 81
 
 #endif
 
