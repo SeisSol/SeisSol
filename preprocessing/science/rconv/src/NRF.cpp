@@ -82,8 +82,8 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
     param[Timestep] = source.dt;
     
     map.map(source.longitude, source.latitude, source.depth, &param[CentreX], &param[CentreY], &param[CentreZ]);
-    map.toMCS(source.strike, source.dip, source.rake, 1.0, 0.0, 0.0, &param[SlipX], &param[SlipY], &param[SlipZ]);
-    map.toMCS(source.strike, source.dip, source.rake, 0.0, 1.0, 0.0, &param[TanSlipX], &param[TanSlipY], &param[TanSlipZ]);
+    map.toMCS(source.strike, source.dip, source.rake, 1.0, 0.0, 0.0, &param[Tan1X], &param[Tan1Y], &param[Tan1Z]);
+    map.toMCS(source.strike, source.dip, source.rake, 0.0, 1.0, 0.0, &param[Tan2X], &param[Tan2Y], &param[Tan2Z]);
     map.toMCS(source.strike, source.dip, source.rake, 0.0, 0.0, 1.0, &param[NormalX], &param[NormalY], &param[NormalZ]);    
     
     // cm^2 -> m^2

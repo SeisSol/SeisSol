@@ -2399,6 +2399,19 @@ CONTAINS
        DEALLOCATE ( dummy )
        !
        !
+       
+    case(42) ! Netcdf rupture format
+      logInfo(*) 'Netcdf rupture format chosen.'
+      SOURCE%NRFFileName = FileName
+#ifndef GENERATEDKERNELS
+      logError(*) 'NRF unsupported in classic.'
+      stop
+#endif
+#ifndef USE_NETCDF
+      logError(*) 'NRF sources require netcdf support.'
+      stop
+#endif
+      
     CASE(50) !Finite sources with individual slip rate history for each subfault
    
        ALLOCATE ( SOURCE%RP%nSbfs(1) )  

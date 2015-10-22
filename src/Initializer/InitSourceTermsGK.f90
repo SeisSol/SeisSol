@@ -78,6 +78,9 @@ contains
     case(0)
       ! No source terms
       ! Do nothing
+    case(42)
+      call c_interoperability_setupNRFPointSources(trim(SOURCE%NRFFileName) // c_null_char)
+      
     case(50)
       allocate( l_elements(SOURCE%RP%nSbfs(1)) )
       allocate( l_oldSourceIndex(SOURCE%RP%nSbfs(1)) )
@@ -92,7 +95,7 @@ contains
         end if
       end do
 
-      call c_interopability_allocatePointSources( i_meshIds = l_elements,    &
+      call c_interoperability_allocatePointSources( i_meshIds = l_elements,    &
                                                   i_numberOfPointSources = l_numberOfSources )
       
       do l_newSource = 1, l_numberOfSources
@@ -128,16 +131,16 @@ contains
           
           l_momentTensor = SOURCE%RP%Area(l_source) * SOURCE%RP%MomentTensor
           
-          call c_interopability_setupPointSource( i_source                = l_newSource,                     &
-                                                  i_mInvJInvPhisAtSources = c_loc(l_mInvJInvPhisAtSources),         &
-                                                  i_localMomentTensor     = c_loc(l_momentTensor),                  &
-                                                  i_strike                = c_loc(SOURCE%RP%strks(1,l_source)),     &
-                                                  i_dip                   = c_loc(SOURCE%RP%dips(1,l_source)),      &
-                                                  i_rake                  = c_loc(SOURCE%RP%rake(1,l_source)),      &
-                                                  i_samples               = SOURCE%RP%TimeHist(:,l_source),  &
-                                                  i_numberOfSamples       = SOURCE%RP%nsteps,                &
-                                                  i_onsetTime             = c_loc(SOURCE%RP%Tonset(l_source)),      &
-                                                  i_samplingInterval      = SOURCE%RP%t_samp                 )
+          call c_interoperability_setupPointSource( i_source                = l_newSource,                     &
+                                                    i_mInvJInvPhisAtSources = c_loc(l_mInvJInvPhisAtSources),         &
+                                                    i_localMomentTensor     = c_loc(l_momentTensor),                  &
+                                                    i_strike                = c_loc(SOURCE%RP%strks(1,l_source)),     &
+                                                    i_dip                   = c_loc(SOURCE%RP%dips(1,l_source)),      &
+                                                    i_rake                  = c_loc(SOURCE%RP%rake(1,l_source)),      &
+                                                    i_samples               = SOURCE%RP%TimeHist(:,l_source),  &
+                                                    i_numberOfSamples       = SOURCE%RP%nsteps,                &
+                                                    i_onsetTime             = c_loc(SOURCE%RP%Tonset(l_source)),      &
+                                                    i_samplingInterval      = SOURCE%RP%t_samp                 )
       end do
 
       deallocate(l_elements)

@@ -112,6 +112,9 @@ void Map::adjustAxes(double* x, double* y, double* z) const
 
 void Map::toMCS(double strike, double dip, double rake, double u1, double u2, double u3, double* x, double* y, double* z) const
 {
+  strike *= DEG_TO_RAD;
+  dip *= DEG_TO_RAD;
+  rake *= DEG_TO_RAD;  
   *x = u1*(sin(rake)*sin(strike)*cos(dip) + cos(rake)*cos(strike)) + u2*(-sin(rake)*cos(strike) + sin(strike)*cos(dip)*cos(rake)) - u3*sin(dip)*sin(strike);
   *y = u1*(-sin(rake)*cos(dip)*cos(strike) + sin(strike)*cos(rake)) + u2*(-sin(rake)*sin(strike) - cos(dip)*cos(rake)*cos(strike)) + u3*sin(dip)*cos(strike);
   *z = -u1*sin(dip)*sin(rake) - u2*sin(dip)*cos(rake) - u3*cos(dip);

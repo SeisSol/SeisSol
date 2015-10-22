@@ -170,6 +170,9 @@ class seissol::Interoperability {
    void initializeClusteredLts( int i_clustering );
   
    //! \todo Documentation
+   void setupNRFPointSources( char* nrfFileName );
+  
+   //! \todo Documentation
    void allocatePointSources( int* i_meshIds,
                               int i_numberOfPointSources );
    

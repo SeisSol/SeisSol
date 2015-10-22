@@ -1779,6 +1779,7 @@ MODULE TypesDef
      TYPE (tConvergenceSource)              :: CS                               !< Source for convergence studies
      LOGICAL                                :: CauchyKovalewski                 !< Use Cauchy-Kovalewski procedure for sourceterms?
      CHARACTER(LEN=600)                     :: FSRMFileName                     !< Filename of Finite Source Rupture Model
+     character(len=600)                     :: NRFFileName                      !< Filename of Netcdf rupture format source description
   END TYPE tSource
   !<--------------------------------------------------------------------------
   !<

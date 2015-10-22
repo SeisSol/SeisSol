@@ -510,6 +510,35 @@ struct PointSources {
   unsigned numberOfSources;
 };
 
+/// \todo Remove PointSources and handle sampled point sources exclusively with NRFPointSources.
+struct NRFPointSources {
+  /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
+   *  basis function and xi_s, eta_s, and zeta_s are the space position
+   *  of the point source in the reference tetrahedron. */
+  real (*mInvJInvPhisAtSources)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+
+  /** Basis vectors of the fault.
+   * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
+   * 3-5: Tan2X-Z   = second fault tangent
+   * 6-8: NormalX-Z = fault normal */
+  real (*faultBasis)[9];
+  
+  /// mu*Area
+  real *muA;
+  
+  /// lambda*Area
+  real *lambdaA;
+  
+  /** slip rate in
+   * 0: Tan1 direction
+   * 1: Tan2 direction
+   * 2: Normal direction */
+  PiecewiseLinearFunction1D (*slipRates)[3];
+  
+  /** Number of point sources in this struct. */
+  unsigned numberOfSources;      
+};
+
 
 /** Maps cells to points sources
  */

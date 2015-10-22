@@ -71,8 +71,17 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
   
-  interface c_interopability_allocatePointSources
-    subroutine c_interopability_allocatePointSources( i_meshIds, i_numberOfPointSources ) bind ( C, name='c_interopability_allocatePointSources' )
+  ! Don't forget to add // c_null_char to NRFFileName when using this interface
+  interface
+    subroutine c_interoperability_setupNRFPointSources( NRFFileName ) bind( C, name='c_interoperability_setupNRFPointSources' )
+      use iso_c_binding, only: c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: NRFFileName
+    end subroutine
+  end interface
+  
+  interface
+    subroutine c_interoperability_allocatePointSources( i_meshIds, i_numberOfPointSources ) bind ( C, name='c_interoperability_allocatePointSources' )
       use iso_c_binding
       implicit none
       integer(kind=c_int), dimension(*), intent(in) :: i_meshIds
@@ -80,8 +89,8 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
   
-  interface c_interopability_setupPointSource
-    subroutine c_interopability_setupPointSource( i_source, i_mInvJInvPhisAtSources, i_localMomentTensor, i_strike, i_dip, i_rake, i_samples, i_numberOfSamples, i_onsetTime, i_samplingInterval ) bind ( C, name='c_interopability_setupPointSource' )
+  interface
+    subroutine c_interoperability_setupPointSource( i_source, i_mInvJInvPhisAtSources, i_localMomentTensor, i_strike, i_dip, i_rake, i_samples, i_numberOfSamples, i_onsetTime, i_samplingInterval ) bind ( C, name='c_interoperability_setupPointSource' )
       use iso_c_binding
       implicit none
       integer(kind=c_int), value :: i_source

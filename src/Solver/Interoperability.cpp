@@ -81,13 +81,18 @@ extern "C" {
   void c_interoperability_initializeClusteredLts( int i_clustering ) {
     e_interoperability.initializeClusteredLts( i_clustering );
   }
+  
+  void c_interoperability_setupNRFPointSources(char* nrfFileName)
+  {
+    e_interoperability.setupNRFPointSources( nrfFileName );
+  }
                                            
-  void c_interopability_allocatePointSources(int* i_meshIds, int i_numberOfPointSources)
+  void c_interoperability_allocatePointSources(int* i_meshIds, int i_numberOfPointSources)
   {
     e_interoperability.allocatePointSources(i_meshIds, i_numberOfPointSources);
   }
   
-  void c_interopability_setupPointSource(int i_source,
+  void c_interoperability_setupPointSource(int i_source,
                                          double* i_mInvJInvPhisAtSources,
                                          double* i_localMomentTensor,
                                          double* i_strike,
@@ -340,6 +345,11 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                    m_buffers,
                                                    m_derivatives,
                                                    m_faceNeighbors );
+}
+
+void seissol::Interoperability::setupNRFPointSources( char* nrfFileName )
+{
+  std::cout << nrfFileName << std::endl;
 }
 
 void seissol::Interoperability::allocatePointSources( int* i_meshIds,
