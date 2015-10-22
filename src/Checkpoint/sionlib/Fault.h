@@ -47,60 +47,47 @@
 
 namespace seissol
 {
-
-namespace checkpoint
-{
-
-namespace sionlib
-{
-
-class Fault : public CheckPoint, virtual public seissol::checkpoint::Fault
-{
-private:
+  namespace checkpoint
+  {
+    namespace sionlib
+    {
+      class Fault : public CheckPoint, virtual public seissol::checkpoint::Fault
+      {
+      private:
 	/** Struct describing the  header information in the file */
 	struct Header {
-		unsigned long identifier;
-		int timestepFault;
+	  unsigned long identifier;
+	  int timestepFault;
 	};
-
-public:
+	
+      public:
 	Fault()
-		: CheckPoint(0x7A127)
-	{}
-
+	  : CheckPoint(0x7A127)
+	{}	
 	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, 
 		  double* slip2, double* state, double* strength,
-			unsigned int numSides, unsigned int numBndGP);
-
+		  unsigned int numSides, unsigned int numBndGP);
+	
 	void initLate()
 	{
-		if (numSides() == 0)
-			return;
-
-		CheckPoint::initLate();
+	  if (numSides() == 0)
+	    return; 
+	  CheckPoint::initLate();
 	}
-
 	/**
 	 * @param[out] timestepFault Time step of the fault writer in the checkpoint
 	 *  (if the fault writer was active)
 	 */
 	void load(int &timestepFault);
-
-	void write(int timestepFault);
-
-	void close()
-	{
-		if (numSides() == 0)
-			return;
-
-		CheckPoint::close();
+	void write(int timestepFault);	
+	void close() {
+	  if (numSides() == 0)
+	    return; 
+	  CheckPoint::close();
 	}
-};
-
-}
-
-}
-
+      }; 
+    } 
+  }  
 }
 
 #endif // CHECKPOINT_SIONLIB_FAULT_H
