@@ -73,6 +73,8 @@ contains
     real, dimension(NUMBER_OF_BASIS_FUNCTIONS), target            :: l_mInvJInvPhisAtSources
     real, target                                                  :: l_momentTensor(3,3)
     real                                                          :: l_xi, l_eta, l_zeta
+    integer                                                       :: indices(MESH%nVertices_Tet)
+    real                                                          :: x(MESH%GlobalVrtxType), y(MESH%GlobalVrtxType), z(MESH%GlobalVrtxType)
     
     select case(SOURCE%Type)
     case(0)
@@ -101,6 +103,10 @@ contains
       do l_newSource = 1, l_numberOfSources
           l_elem = l_elements(l_newSource)
           l_source = l_oldSourceIndex(l_newSource)
+          indices = MESH%ELEM%Vertex(1:MESH%nVertices_Tet, l_elem)
+          x = MESH%VRTX%xyNode(1, indices)
+          y = MESH%VRTX%xyNode(2, indices)
+          z = MESH%VRTX%xyNode(3, indices)
           
           !-------------------------------------------------------------------------!
           ! Compute and set all phisAtSource                                        !
@@ -111,10 +117,10 @@ contains
                                   xP    = SOURCE%RP%SpacePosition(1, l_source),                                 &
                                   yP    = SOURCE%RP%SpacePosition(2, l_source),                                 &
                                   zP    = SOURCE%RP%SpacePosition(3, l_source),                                 &
-                                  x     = MESH%VRTX%xyNode(1, MESH%ELEM%Vertex(1:MESH%nVertices_Tet, l_elem)),  &
-                                  y     = MESH%VRTX%xyNode(2, MESH%ELEM%Vertex(1:MESH%nVertices_Tet, l_elem)),  &
-                                  z     = MESH%VRTX%xyNode(3, MESH%ELEM%Vertex(1:MESH%nVertices_Tet, l_elem)),  &
-                                  vType = MESH%LocalVrtxType(l_elem)                                            )
+                                  x     = x,  &
+                                  y     = y,  &
+                                  z     = z,  &
+                                  vType = MESH%GlobalVrtxType                                                   )
           do l_dof = 1, NUMBER_OF_BASIS_FUNCTIONS
             call BaseFunc3D(l_mInvJInvPhisAtSources(l_dof),    &
                             l_dof,                             &
