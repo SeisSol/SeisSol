@@ -1810,50 +1810,50 @@ MODULE TypesDef
   END TYPE tAnalyse
   !<--- Optinal Fields --------------------------------------------------------
   TYPE tUnstructOptionalFields
-     LOGICAL                      , POINTER :: Marker(:)                        !< Markierungsfeld f� Gitterverfeinerung oder -vergr�ung
-     REAL                         , POINTER :: dt(:)                            !< Zeitschritt pro Zelle
-     REAL                         , POINTER :: RK_k(:,:,:)                      !< Runge-Kutta K's
-     REAL                         , POINTER :: BackgroundValue(:,:)             !< Hintergrundwerte f�earisierte Eulergleichungen
-     REAL                         , POINTER :: DGLimiter(:)                     !< TVD Limiter Marker for DG
+     LOGICAL                      , POINTER :: Marker(:)  => NULL()                       !< Markierungsfeld f� Gitterverfeinerung oder -vergr�ung
+     REAL                         , POINTER :: dt(:)      => NULL()                      !< Zeitschritt pro Zelle
+     REAL                         , POINTER :: RK_k(:,:,:) => NULL()                     !< Runge-Kutta K's
+     REAL                         , POINTER :: BackgroundValue(:,:) => NULL()            !< Hintergrundwerte f�earisierte Eulergleichungen
+     REAL                         , POINTER :: DGLimiter(:) => NULL()                    !< TVD Limiter Marker for DG
      !< plot fields dateien
-     REAL                         , POINTER :: weight(:)
+     REAL                         , POINTER :: weight(:) => NULL()
 !     REAL                         , POINTER :: Mach(:)                         ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: Entropie(:)                     ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: Temp(:)                         ! aheineck @TODO not referenced in the code -> commented
-     REAL                         , POINTER :: AuxField(:,:)
+     REAL                         , POINTER :: AuxField(:,:) => NULL()
 !     REAL                         , POINTER :: rot(:,:)                        ! aheineck @TODO not referenced in the code -> commented
-     REAL                         , POINTER :: div(:)
+     REAL                         , POINTER :: div(:) => NULL()
 !     REAL                         , POINTER :: Alf(:)                          ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: rotB(:,:)                       ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: divB(:)                         ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: grd(:,:,:)                      ! aheineck @TODO not referenced in the code -> commented
-     TYPE(tPointerToField)        , POINTER :: FieldMask(:)
+     TYPE(tPointerToField)        , POINTER :: FieldMask(:) => NULL()
      !< calc_deltaT
-     REAL                         , POINTER :: vel(  :)
-     REAL                         , POINTER :: sound(:)
-     REAL                         , POINTER :: dt_convectiv(:)
+     REAL                         , POINTER :: vel(  :) => NULL()
+     REAL                         , POINTER :: sound(:) => NULL()
+     REAL                         , POINTER :: dt_convectiv(:) => NULL()
 !     REAL                         , POINTER :: dt_viscos(:)                    ! aheineck @TODO not referenced in the code -> commented
-     LOGICAL                      , POINTER :: mask( :)
+     LOGICAL                      , POINTER :: mask( :) => NULL()
      !< FaceAdjustment und
      !< Viscous Part
-     REAL                         , POINTER :: pvar_n(:,:)
+     REAL                         , POINTER :: pvar_n(:,:) => NULL()
      !< Viscous Part
-     REAL                         , POINTER :: rh(:)
+     REAL                         , POINTER :: rh(:) => NULL()
      !< Spatial Disc
-     REAL                         , POINTER :: xlim(  :,:  )
-     REAL                         , POINTER :: grad(  :,:,:)
-     REAL                         , POINTER :: pvarlr(:,:,:,:)
-     REAL                         , POINTER :: ftmp(  :,:  )
+     REAL                         , POINTER :: xlim(  :,:  ) => NULL()
+     REAL                         , POINTER :: grad(  :,:,:) => NULL()
+     REAL                         , POINTER :: pvarlr(:,:,:,:) => NULL()
+     REAL                         , POINTER :: ftmp(  :,:  ) => NULL()
      !< FV Discretization
-     REAL                         , POINTER :: work( :,:)
-     REAL                         , POINTER :: work0(:,:)
-     REAL                         , POINTER :: flux( :,:)
+     REAL                         , POINTER :: work( :,:) => NULL()
+     REAL                         , POINTER :: work0(:,:) => NULL()
+     REAL                         , POINTER :: flux( :,:) => NULL()
      !<
      !< Facet information for distance calculation
      !<
      INTEGER                         :: nFacet
-     INTEGER, POINTER                :: FacetList(:,:)
-     REAL, POINTER                   :: FacetBary(:,:)
+     INTEGER, POINTER                :: FacetList(:,:) => NULL()
+     REAL, POINTER                   :: FacetBary(:,:) => NULL()
      !<
   END TYPE tUnstructOptionalFields
   !<--------------------------------------------------------------------------
