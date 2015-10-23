@@ -294,6 +294,11 @@ struct GlobalData {
    * Address of the global inverse mass matrix
    **/
   real *inverseMassMatrix;
+
+  /**
+   * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
+   **/
+  real *integrationBufferLTS;
 };
 
 // data for the cell local integration

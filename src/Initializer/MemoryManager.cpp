@@ -47,6 +47,10 @@
 #include <generated_code/init.h>
 #endif
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i_matrixReader ) {
   // init the sparse switch
 #define SPARSE_SWITCH
@@ -90,6 +94,7 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
   setStiffnessMatrices(           m_globalData.stiffnessMatrices );
   setStiffnessMatricesTransposed( m_globalData.stiffnessMatricesTransposed );
   setInverseMassMatrix(           m_globalData.inverseMassMatrix );
+  setIntegrationBufferLTS(        &(m_globalData.integrationBufferLTS) );
 }
 
 seissol::initializers::MemoryManager::~MemoryManager() {
@@ -253,6 +258,19 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
 
   real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL );
 
+  // (thread-local) LTS integration buffers
+  int l_numberOfThreads = 0;
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    #pragma omp master
+    {
+      l_numberOfThreads = omp_get_num_threads();
+    }
+  }
+#endif
+  m_integrationBufferLTS  = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_TIMEDOFS ) ;
+
   /*
    * Set up pointers.
    */
@@ -328,6 +346,23 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
                           l_matrixColumns[58],
                           l_matrixValues[58],
                           m_inverseMassMatrixPointer );
+
+  /*
+   *  (thread-local) LTS integration buffers
+   */
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    size_t l_threadOffset = omp_get_thread_num()*(4*NUMBER_OF_ALIGNED_DOFS);
+#else
+    size_t l_threadOffset = 0;
+#endif
+    for ( unsigned int l_dof = 0; l_dof < (4*NUMBER_OF_ALIGNED_DOFS); l_dof++ ) {
+      m_integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
+    }
+#ifdef _OPENMP
+  }
+#endif
 }
 
 real** seissol::initializers::MemoryManager::getFluxMatrixPointers() const {
@@ -358,6 +393,10 @@ void seissol::initializers::MemoryManager::setFluxMatrices( real *o_fluxMatrices
 
 void seissol::initializers::MemoryManager::setInverseMassMatrix( real* o_inverseMassMatrix ) {
   o_inverseMassMatrix = m_inverseMassMatrixPointer;
+}
+
+void seissol::initializers::MemoryManager::setIntegrationBufferLTS( real** o_integrationBufferLTS ) {
+  *o_integrationBufferLTS = m_integrationBufferLTS;
 }
 
 void seissol::initializers::MemoryManager::setUpLayers( struct CellLocalInformation *i_cellLocalInformation ) {

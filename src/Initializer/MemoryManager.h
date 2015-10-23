@@ -118,6 +118,11 @@ class seissol::initializers::MemoryManager {
      **/ 
     real* m_inverseMassMatrixPointer;
 
+    /**
+     * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
+     **/
+    real* m_integrationBufferLTS;
+
     //! LTS mesh structure
     struct MeshStructure *m_meshStructure;
 
@@ -377,6 +382,13 @@ class seissol::initializers::MemoryManager {
      * @param o_inverseMassMatrix pointer, which will be set.
      */
     void setInverseMassMatrix( real* o_inverseMassMatrix );
+
+    /**
+     * Set the pointers to the (thread-local) LTS integration buffer
+     *
+     * @param o_integrationBufferLTS  pointer, which will be set.
+     */
+    void setIntegrationBufferLTS ( real** o_integrationBufferLTS  );
 
     /**
      * Set up the internal structure, allocate memory, set up the pointers and intializes the data to zero or NULL.
