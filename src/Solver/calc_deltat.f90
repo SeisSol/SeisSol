@@ -210,7 +210,7 @@ CONTAINS
     REAL                                  :: dtmin(MESH%nElem)
     !--------------------------------------------------------------------------
     INTENT(IN)                            :: EQN, MESH, IO
-    INTENT(OUT)                           :: OptionalFields
+    INTENT(INOUT)                         :: OptionalFields
     INTENT(INOUT)                         :: DISC
     !--------------------------------------------------------------------------
     !                                                                         !
