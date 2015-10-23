@@ -93,7 +93,7 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
   setFluxMatrices(                m_globalData.fluxMatrices );
   setStiffnessMatrices(           m_globalData.stiffnessMatrices );
   setStiffnessMatricesTransposed( m_globalData.stiffnessMatricesTransposed );
-  setInverseMassMatrix(           m_globalData.inverseMassMatrix );
+  setInverseMassMatrix(           &(m_globalData.inverseMassMatrix) );
   setIntegrationBufferLTS(        &(m_globalData.integrationBufferLTS) );
 }
 
@@ -391,8 +391,8 @@ void seissol::initializers::MemoryManager::setFluxMatrices( real *o_fluxMatrices
   }
 }
 
-void seissol::initializers::MemoryManager::setInverseMassMatrix( real* o_inverseMassMatrix ) {
-  o_inverseMassMatrix = m_inverseMassMatrixPointer;
+void seissol::initializers::MemoryManager::setInverseMassMatrix( real** o_inverseMassMatrix ) {
+  *o_inverseMassMatrix = m_inverseMassMatrixPointer;
 }
 
 void seissol::initializers::MemoryManager::setIntegrationBufferLTS( real** o_integrationBufferLTS ) {

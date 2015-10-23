@@ -381,7 +381,7 @@ class seissol::initializers::MemoryManager {
      *
      * @param o_inverseMassMatrix pointer, which will be set.
      */
-    void setInverseMassMatrix( real* o_inverseMassMatrix );
+    void setInverseMassMatrix( real** o_inverseMassMatrix );
 
     /**
      * Set the pointers to the (thread-local) LTS integration buffer
