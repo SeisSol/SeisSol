@@ -217,14 +217,6 @@ CONTAINS
     ! Compute Velocities                       
     !                                                                         
     !                                                                      
-       IF ((.NOT.ASSOCIATED(OptionalFields%BackgroundValue))) THEN              
-          logError(*) 'OptionalFields%BackgroundValue not associated!'
-          logError(*) 'although linearized Equations are specified. '
-          STOP                                                                
-       END IF                                                                 
-       !                                                                      
-       MaterialVal => OptionalFields%BackgroundValue                                
-
        DO iElem = 1, MESH%nElem
            OptionalFields%sound(iElem) = MAXVAL( DISC%Galerkin%MaxWaveSpeed(iElem,:) )
        ENDDO
@@ -233,6 +225,12 @@ CONTAINS
        CASE(0) 
            OptionalFields%vel(:) = 0.
        CASE(1)
+           IF ((.NOT.ASSOCIATED(OptionalFields%BackgroundValue))) THEN              
+              logError(*) 'OptionalFields%BackgroundValue not associated!'
+              logError(*) 'although linearized Equations are specified. '
+              STOP                                                                
+           END IF                                                                                                                              
+           MaterialVal => OptionalFields%BackgroundValue           
            OptionalFields%vel(:) = SQRT( MaterialVal(:,4)**2 + MaterialVal(:,5)**2 + MaterialVal(:,6)**2 )
        END SELECT
     !                                                                         
