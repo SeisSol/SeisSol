@@ -2949,9 +2949,9 @@ ALLOCATE( SpacePositionx(nDirac), &
        
          !
          logInfo(*) 'Scaling and Rotation of original mesh'
-         DO i=1, EQN%Dimension
-         logInfo(*) '  ', MESH%ScalingMatrix(i,:)
-         END DO
+         logInfo(*) ScalingMatrixX
+         logInfo(*) ScalingMatrixY
+         logInfo(*) ScalingMatrixZ
     ENDIF       
     !
   END SUBROUTINE readpar_mesh
