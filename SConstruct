@@ -536,8 +536,8 @@ if env['hdf5']:
 
 # memkind
 if env['memkind']:
+  env.Tool('MemkindTool', toolpath=['build/scons/Tools'])
   env.Append(CPPDEFINES=['USE_MEMKIND'])
-  env.Append(LINKFLAGS=['-lmemkind'])
 
 # netCDF
 if env['netcdf']:

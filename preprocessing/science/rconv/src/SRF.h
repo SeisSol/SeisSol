@@ -49,6 +49,7 @@ struct SRFPointSource {
   double strike;                  // (degree)
   double dip;                     // (degree)
   double rake;                    // (degree)
+  double shearModulus;            // (g/(cm s^2))
   double area;                    // (cm^2)
   double tinit;                   // (s)      initiation time of slip
   double dt;                      // (s)      time step of slip rate function

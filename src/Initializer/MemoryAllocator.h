@@ -60,9 +60,12 @@ namespace seissol {
  * Allocates aligned memory for dynamic chunk sizes.
  **/
 class seissol::MemoryAllocator {
-  //private:
+  private:
+    typedef std::pair<unsigned, void*> Address; 
+    typedef std::vector<Address>       AddressVector;
+  
     //! holds all memory addresses, which point to data arrays and have been returned by mallocs calling functions of the memory allocator.
-    std::vector< void* > m_dataMemoryAddresses;
+    AddressVector m_dataMemoryAddresses;
 
     /**
      * Prints the memory alignment of in terms of relative start and ends in bytes.
@@ -72,6 +75,11 @@ class seissol::MemoryAllocator {
     void printMemoryAlignment( std::vector< std::vector<unsigned long long> > i_memoryAlignment );
 
   public:
+    enum Memkind {
+      Standard = 0,
+      HighBandwidth = 1
+    };
+  
     MemoryAllocator();
 
     /**
@@ -85,36 +93,36 @@ class seissol::MemoryAllocator {
      **/
     inline void* allocateMemory( size_t i_size,
                                  size_t i_alignment,
-                                 int    i_memkind = 0 ) {
-      // do the malloc
+                                 int    i_memkind = 0 )
+    {
       void* l_ptrBuffer;
+      bool error = false;
 
-      #ifdef USE_MEMKIND
+#ifdef USE_MEMKIND
       if( i_memkind == 0 ) {
+#endif
         if (i_alignment % (sizeof(void*)) != 0) {
           l_ptrBuffer = malloc( i_size );
+          error = (l_ptrBuffer == NULL);
         } else {
-          posix_memalign( &l_ptrBuffer, i_alignment, i_size );
+          error = (posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
         }
-      }
-      else {
+#ifdef USE_MEMKIND
+      } else {
         if (i_alignment % (sizeof(void*)) != 0) {
-          /* @TODO make sure that we free this memory with hbw_free */
           l_ptrBuffer = hbw_malloc( i_size );
+          error = (l_ptrBuffer == NULL);
         } else {
-          /* @TODO make sure that we free this memory with hbw_free */
-          hbw_posix_memalign( &l_ptrBuffer, i_alignment, i_size );
+          error = (hbw_posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
         } 
       }
-      #else
-      if (i_alignment % (sizeof(void*)) != 0) {
-        l_ptrBuffer = malloc( i_size );
+#endif
+      
+      if (!error) {
+        m_dataMemoryAddresses.push_back( Address(i_memkind, l_ptrBuffer) );
       } else {
-        int err = posix_memalign( &l_ptrBuffer, i_alignment, i_size );
-        if (err)
-        	logError() << "posix_memalign failed" << err;
+        logError() << "The malloc failed (bytes: " << i_size << ", alignment: " << i_alignment << ", memkind: " << i_memkind << ").";
       }
-      #endif
 
       return l_ptrBuffer;
     }

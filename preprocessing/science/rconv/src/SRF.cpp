@@ -59,6 +59,8 @@ void parsePOINTS_1_0(std::ifstream& in, SRFPointSource& ps)
   // Point source, line 2
   in >> ps.rake >> dummy >> nt[0] >> dummy >> nt[1] >> dummy >> nt[2];
   
+  ps.shearModulus = 0.0; // = unknown
+  
   for (unsigned i = 0; i < 3; ++i) {
     parseSamples(in, ps.slipRate[i], nt[i]);
   }
@@ -74,9 +76,7 @@ void parsePOINTS_2_0(std::ifstream& in, SRFPointSource& ps)
   // Point source, line 2
   in >> ps.rake >> dummy >> nt[0] >> dummy >> nt[1] >> dummy >> nt[2];
   
-  if (vs != -1.0 || den != -1.0) {
-    std::cout << "Warning: vs and den will be ignored." << std::endl;
-  }
+  ps.shearModulus = (vs > 0.0 && den > 0.0) ? vs * vs * den : 0.0;
   
   for (unsigned i = 0; i < 3; ++i) {
     parseSamples(in, ps.slipRate[i], nt[i]);

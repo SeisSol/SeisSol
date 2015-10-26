@@ -51,6 +51,11 @@
 #include <omp.h>
 #endif
 
+#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
+#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+
 seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i_matrixReader ) {
   // init the sparse switch
 #define SPARSE_SWITCH

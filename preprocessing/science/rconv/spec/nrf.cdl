@@ -1,0 +1,55 @@
+netcdf nrf {
+types:
+  compound Vector3 {
+    double x;
+    double y;
+    double z;
+  } ;
+
+  compound Subfault {
+    double tinit ;
+    double timestep ;
+    double mu ;
+    double area ;
+    Vector3 tan1 ;
+    Vector3 tan2 ;
+    Vector3 normal ;
+  } ;
+
+  compound Subfault_units {
+    string tinit ;
+    string timestep ;
+    string mu ;
+    string area ;
+    string tan1 ;
+    string tan2 ;
+    string normal ;
+  } ;
+
+dimensions:
+	source = UNLIMITED ;
+	sroffset = UNLIMITED ;
+  direction = 3 ;
+  sample1 = UNLIMITED ;
+  sample2 = UNLIMITED ;
+  sample3 = UNLIMITED ;  
+
+variables:
+  Vector3 centres(source) ;
+    centres:units = "m" ;
+	Subfault subfaults(source) ;
+	    Subfault_units subfaults:units = {"s", "s", "pascal", "m^2", "m", "m", "m"} ;
+      subfaults:_DeflateLevel = 1 ;
+  uint sroffsets(sroffset, direction) ;
+    sroffsets:_DeflateLevel = 1 ;
+  double sliprates1(sample1) ;
+    sliprates1:units = "m/s" ;
+    sliprates1:_DeflateLevel = 1 ;
+  double sliprates2(sample2) ;
+    sliprates2:units = "m/s" ;
+    sliprates2:_DeflateLevel = 1 ;
+  double sliprates3(sample3) ;
+    sliprates3:units = "m/s" ;
+    sliprates3:_DeflateLevel = 1 ;
+} 
+

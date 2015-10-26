@@ -143,21 +143,6 @@
 #define PAGESIZE_STACK 4096
 
 #if 0
-! memory subsystem specifications
-#endif
-#ifdef USE_MEMKIND
-#define MEMKIND_GLOBAL 1
-#define MEMKIND_CONSTANT 0
-#define MEMKIND_DOFS 0
-#define MEMKIND_TIMEDOFS 1
-#else
-#define MEMKIND_GLOBAL 0
-#define MEMKIND_CONSTANT 0
-#define MEMKIND_DOFS 0
-#define MEMKIND_TIMEDOFS 0
-#endif
-
-#if 0
 ! fortran specific variables
 #endif
 #if !defined(__STDC__) || (defined(BG) && !defined(__bg__))

@@ -50,8 +50,16 @@ void seissol::MemoryAllocator::printMemoryAlignment( std::vector< std::vector<un
 }
 
 void seissol::MemoryAllocator::freeMemory() {
-  for( unsigned long long l_i = 0; l_i < m_dataMemoryAddresses.size(); l_i++ ) {
-    free( m_dataMemoryAddresses[l_i] );
+  for (AddressVector::const_iterator it = m_dataMemoryAddresses.begin(); it != m_dataMemoryAddresses.end(); ++it) {
+#ifdef USE_MEMKIND
+    if (it->first == Standard) {
+#endif
+      free( it->second );
+#ifdef USE_MEMKIND
+    } else {
+      hbw_free( it->second );
+    }
+#endif
   }
 
   // reset memory vectors
