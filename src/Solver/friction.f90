@@ -95,7 +95,6 @@ MODULE Friction_mod
     TYPE(tUnstructOptionalFields)  :: OptionalFields                                ! OptionalFields data strucure
     TYPE(tBoundary)                :: BND                                           ! BND    data structure
     TYPE(tInputOutput)             :: IO
-    REAL                           :: MaterialVal(MESH%nElem,EQN%nBackgroundVar)    ! Local Mean Values
     REAL                           :: time
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
@@ -185,9 +184,6 @@ MODULE Friction_mod
     !
     ReactionTerm = 0
     !
-    ! Load material properties
-    MaterialVal(:,:) = OptionalFields%BackgroundValue(:,:)
-    !
     ! Determine Gaussian integration points in time
     call gausslegendre(0.,dt,DISC%Galerkin%TimeGaussP,DISC%Galerkin%TimeGaussW)
     !
@@ -211,11 +207,11 @@ MODULE Friction_mod
     !
 #ifdef OMP
 #ifndef GENERATEDKERNELS
-     !$omp parallel private(iFace,iElem,iSide,iNeighbor,iLocalNeighborSide,LocElemType,geoSurface,NormalVect_n,NormalVect_s,NormalVect_t,T,iT,iObject,MPIIndex,MPIIndex_DR,DOFiElem_ptr,AStar_Sp_ptr,BStar_Sp_ptr,CStar_Sp_ptr,EStar_Sp_ptr,TmpMat,rho,mu,lambda,w_speed,AniVec,JacobiDet,DOFiNeigh_ptr,AStar_Neighbor_Sp_ptr,BStar_Neighbor_Sp_ptr,CStar_Neighbor_Sp_ptr,EStar_Neighbor_Sp_ptr,rho_neig,mu_neig,lambda_neig,w_speed_neig,rho_minus,FluxInt,phi_array,godunov_state,JacobiDet_neig,TimeIntDof_iElem,TimeIntDof_iNeigh,TaylorDOF,Taylor1,Taylor2,BndVar1,BndVar2,NorStressGP,XYStressGP,XZStressGP,UVelGP,iDegFr,iTimePoly,iTimeGP,iBndGP,TractionGP_XY,TractionGP_XZ,Trac_XY_DOF,Trac_XZ_DOF,NorStressDOF,UVelDOF,Trac_XY_NgbDOF,Trac_XZ_NgbDOF,NorStress_NgbDOF,UVel_NgbDOF,iVar,auxMatrix,dudt,iPoly)  private(Tens_xi_Sp_ptr,Tens_eta_Sp_ptr,Tens_zeta_Sp_ptr,Tens_klm_Sp_ptr)  shared(MESH,DISC,EQN,BND,IO,MaterialVal,LocPoly,LocnVar,LocDegFr,LocDegFrMat,ReactionTerm,MPI) shared(dt,time) default(none)
+     !$omp parallel private(iFace,iElem,iSide,iNeighbor,iLocalNeighborSide,LocElemType,geoSurface,NormalVect_n,NormalVect_s,NormalVect_t,T,iT,iObject,MPIIndex,MPIIndex_DR,DOFiElem_ptr,AStar_Sp_ptr,BStar_Sp_ptr,CStar_Sp_ptr,EStar_Sp_ptr,TmpMat,rho,mu,lambda,w_speed,AniVec,JacobiDet,DOFiNeigh_ptr,AStar_Neighbor_Sp_ptr,BStar_Neighbor_Sp_ptr,CStar_Neighbor_Sp_ptr,EStar_Neighbor_Sp_ptr,rho_neig,mu_neig,lambda_neig,w_speed_neig,rho_minus,FluxInt,phi_array,godunov_state,JacobiDet_neig,TimeIntDof_iElem,TimeIntDof_iNeigh,TaylorDOF,Taylor1,Taylor2,BndVar1,BndVar2,NorStressGP,XYStressGP,XZStressGP,UVelGP,iDegFr,iTimePoly,iTimeGP,iBndGP,TractionGP_XY,TractionGP_XZ,Trac_XY_DOF,Trac_XZ_DOF,NorStressDOF,UVelDOF,Trac_XY_NgbDOF,Trac_XZ_NgbDOF,NorStress_NgbDOF,UVel_NgbDOF,iVar,auxMatrix,dudt,iPoly)  private(Tens_xi_Sp_ptr,Tens_eta_Sp_ptr,Tens_zeta_Sp_ptr,Tens_klm_Sp_ptr)  shared(MESH,DISC,EQN,BND,IO,optionalFields,LocPoly,LocnVar,LocDegFr,LocDegFrMat,ReactionTerm,MPI) shared(dt,time) default(none)
      !$omp do schedule(static)
 #else
     ! TODO, @breuera: what a mess..
-    !$omp parallel private(iElem, iFace, iSide, iNeighbor, iLocalNeighborSide,locElemType, geoSurface, normalVect_n, normalVect_s, normalVect_t, t, iT, iObject, mpiIndex, mpiIndex_dr, tmpMat, rho, mu, lambda, w_speed, aniVec, jacobiDet, rho_neig, mu_neig, lambda_neig, w_speed_neig, rho_minus, fluxInt, phi_array, godunov_state, jacobiDet_neig, timeIntDof_iElem, timeIntDof_iNeigh, taylorDOF, taylor1, taylor2, bndVar1, bndVar2, norStressGP, xYStressGP, xZStressGP, uVelGP, iDegFr, iTimePoly, iTimeGP, iBndGP, tractionGP_XY, tractionGP_XZ, trac_XY_DOF, trac_XZ_DOF, norStressDOF, uVelDOF, trac_XY_NgbDOF, trac_XZ_NgbDOF, norStress_NgbDOF, uVel_NgbDOF, iVar, auxMatrix, dudt, iPoly ) shared( mesh, disc, eqn, bnd, io, materialVal, optionalFields, locPoly, locnVar, locDegFr, locDegFrMat, reactionTerm, mpi, dt, time, l_deltaTLower) default( none ) 
+    !$omp parallel private(iElem, iFace, iSide, iNeighbor, iLocalNeighborSide,locElemType, geoSurface, normalVect_n, normalVect_s, normalVect_t, t, iT, iObject, mpiIndex, mpiIndex_dr, tmpMat, rho, mu, lambda, w_speed, aniVec, jacobiDet, rho_neig, mu_neig, lambda_neig, w_speed_neig, rho_minus, fluxInt, phi_array, godunov_state, jacobiDet_neig, timeIntDof_iElem, timeIntDof_iNeigh, taylorDOF, taylor1, taylor2, bndVar1, bndVar2, norStressGP, xYStressGP, xZStressGP, uVelGP, iDegFr, iTimePoly, iTimeGP, iBndGP, tractionGP_XY, tractionGP_XZ, trac_XY_DOF, trac_XZ_DOF, norStressDOF, uVelDOF, trac_XY_NgbDOF, trac_XZ_NgbDOF, norStress_NgbDOF, uVel_NgbDOF, iVar, auxMatrix, dudt, iPoly ) shared( mesh, disc, eqn, bnd, io, optionalFields, locPoly, locnVar, locDegFr, locDegFrMat, reactionTerm, mpi, dt, time, l_deltaTLower) default( none ) 
     !$omp do schedule(static)
 #endif
 #endif
@@ -286,7 +282,7 @@ MODULE Friction_mod
          ! normal case: iElem present in local domain
          LocElemType     = MESH%LocalElemType(iElem)
          w_speed(:)      = DISC%Galerkin%WaveSpeed(iElem,iSide,:)
-         rho             = MaterialVal(iElem,1)
+         rho             = OptionalFields%BackgroundValue(iElem,1)
          geoSurface      = 2.0D0*DISC%Galerkin%geoSurfaces(iSide,iElem)
          !
          ! Local side's normal and tangential vectors
@@ -354,7 +350,7 @@ MODULE Friction_mod
        ELSE
          ! normal case: iNeighbor present in local domain
          w_speed_neig(:) = DISC%Galerkin%WaveSpeed(iNeighbor,iLocalNeighborSide,:)
-         rho_neig        = MaterialVal(iNeighbor,1)
+         rho_neig        = OptionalFields%BackgroundValue(iNeighbor,1)
          !
 
 #ifndef GENERATEDKERNELS
