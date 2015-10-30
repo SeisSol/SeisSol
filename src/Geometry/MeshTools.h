@@ -202,6 +202,28 @@ public:
     mul(v, 1.0 / norm(v), vnormalized);
   }
   
+  /**
+   * Checks if a point p is inside a tetrahedron
+   **/
+  static bool inside(Element const&e, std::vector<Vertex> const& vertices, VrtxCoords const p)
+  {
+    VrtxCoords nrm;
+    /* Our tetrahedron has 4 faces with the normals pointing outward.
+     * The point is inside the tetrahedron if it lies on the backside
+     * of each of the 4 planes defined by the normal vectors (and a point
+     * on the plane). */
+    for (unsigned face = 0; face < 4; ++face) {
+      VrtxCoords pp;
+      sub(p, vertices[e.vertices[FACE2NODES[face][0]]].coords, pp);
+      normal(e, face, vertices, nrm);
+      if (dot(nrm, pp) > 0.0) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
 
 	/** Maps from the face to the list of nodes */
 	const static int FACE2NODES[4][3];

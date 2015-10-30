@@ -398,10 +398,9 @@ CONTAINS
     USE MPIExchangeValues_mod
 #endif
 #ifdef GENERATEDKERNELS
-    use iso_c_binding, only: c_loc
+    use iso_c_binding, only: c_loc, c_null_char
     use f_ftoc_bind_interoperability
     use calc_deltaT_mod
-    use InitSourceTermsGK_mod
 #endif
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -565,6 +564,9 @@ CONTAINS
            STOP
         END IF
     ENDIF
+
+! GENERATEDKERNELS: We eliminate double source locations in the C++ part
+#ifndef GENERATEDKERNELS
     !
     ! Initialize Dirac sources in space
     !
@@ -608,7 +610,7 @@ CONTAINS
            DEALLOCATE(MPI_Dirac_Element )
            logInfo(*) 'MPI source cleaning done.  '
        ENDIF
-#endif
+#endif ! PARALLEL
        !
     CASE(16,18)   ! Dirac in space, Ricker or Gaussian wavelet in time
        !
@@ -649,7 +651,7 @@ CONTAINS
            DEALLOCATE(MPI_Dirac_Element )
            logInfo(*) 'MPI source cleaning done.  '
        ENDIF
-#endif
+#endif ! PARALLEL
        !
     CASE(20)   ! Dirac in space, Ricker wavelet in time
        !
@@ -690,7 +692,7 @@ CONTAINS
            DEALLOCATE(MPI_Dirac_Element )
            logInfo(*) 'MPI source cleaning done.  '
        ENDIF
-#endif
+#endif ! PARALLEL
     CASE(30)   ! Finite Source Rupture Model
        !
        ! Transformation of local Rupture Plane coordinates from input file
@@ -876,7 +878,7 @@ CONTAINS
            DEALLOCATE(MPI_Dirac_Element )
            logInfo(*) 'MPI source cleaning done.  '
        ENDIF
-#endif
+#endif ! PARALLEL
     CASE(50)
 
        ALLOCATE( MESH%IncludesFSRP(MESH%nElem) )
@@ -928,15 +930,10 @@ CONTAINS
            DEALLOCATE(MPI_Dirac_Element )
            logInfo(*) 'MPI source cleaning done.  '
        ENDIF
-#endif
+#endif ! PARALLEL
        !
     END SELECT
-
-#ifdef GENERATEDKERNELS
-    logInfo0(*) 'Generated Kernels: initializing source term datastructure.'
-    call InitSourceTermsGK(DISC, MESH, SOURCE)
-    logInfo0(*) 'Generated Kernels: initializing source term datastructure. Done.'
-#endif
+#endif ! GENERATEDKERNELS
 
     logInfo0(*) 'Initializing DR parallelization'   
     DISC%DynRup%nDRElems = 0
@@ -1046,21 +1043,44 @@ CONTAINS
   enddo
   
 #ifdef USE_MPI
-      ! synchronize redundant cell data
-      logInfo0(*) 'Synchronizing copy cell material data.';
-      call c_interoperability_synchronizeCellLocalData;
+  ! synchronize redundant cell data
+  logInfo0(*) 'Synchronizing copy cell material data.';
+  call c_interoperability_synchronizeCellLocalData;
 #endif
   
+  ! Initialize source terms
+  select case(SOURCE%Type)
+    case(0)
+      ! No source terms
+      ! Do nothing
+    case(42)
+      call c_interoperability_setupNRFPointSources(trim(SOURCE%NRFFileName) // c_null_char)
+    case(50)
+      call c_interoperability_setupFSRMPointSources( momentTensor     = SOURCE%RP%MomentTensor,  &
+                                                     numberOfSources  = SOURCE%RP%nSbfs(1),      &
+                                                     centres          = SOURCE%RP%SpacePosition, &
+                                                     strikes          = SOURCE%RP%Strks,         &
+                                                     dips             = SOURCE%RP%Dips,          &
+                                                     rakes            = SOURCE%RP%Rake,          &
+                                                     onsets           = SOURCE%RP%Tonset,        &
+                                                     areas            = SOURCE%RP%Area,          &
+                                                     timestep         = SOURCE%RP%t_samp,        &
+                                                     numberOfSamples  = SOURCE%RP%nsteps,        &
+                                                     timeHistories    = SOURCE%RP%TimeHist       )
+    case default
+      logError(*) 'Generated Kernels: Unsupported source type: ', SOURCE%Type
+      stop
+  end select
+
   if (DISC%Galerkin%FluxMethod .ne. 0) then
     logError(*) 'Generated kernels currently supports Godunov fluxes only.'
     stop
   endif
 
-
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices;
 #else
-    CALL IniSparseStarMatrices3D_new(EQN, DISC, MESH, BND, SOURCE, OptionalFields%BackgroundValue, IO)
+  CALL IniSparseStarMatrices3D_new(EQN, DISC, MESH, BND, SOURCE, OptionalFields%BackgroundValue, IO)
 #endif
 
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
@@ -1110,7 +1130,6 @@ CONTAINS
         STOP
         !
     ENDIF
-    !
   END SUBROUTINE iniGalerkin3D_us_level2_new
 
 

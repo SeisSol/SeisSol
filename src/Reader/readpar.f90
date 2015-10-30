@@ -2473,7 +2473,7 @@ CONTAINS
        CLOSE(IO%UNIT%other01)
        !
     CASE DEFAULT                                                                                   !
-       logError(*)  'The sourctype specified is unknown! '                  !
+       logError(*)  'The sourctype specified (', SOURCE%Type, ') is unknown! '                  !
        STOP                                                                                        ! STOP
     END SELECT                                                                                     !
                                                                                                       

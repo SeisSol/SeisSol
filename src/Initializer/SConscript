@@ -52,7 +52,6 @@ if env['generatedKernels']:
                       'MemoryAllocator.cpp',
                       'MemoryManager.cpp',
                       'time_stepping/LtsLayout.cpp',
-                      'InitSourceTermsGK.f90',
                       'CellLocalMatrices.cpp'] + initializeFiles
 
 for i in initializeFiles:

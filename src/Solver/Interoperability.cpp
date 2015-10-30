@@ -45,23 +45,10 @@
 #include "Interoperability.h"
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
-#include <Physics/PointSource.h>
 #include <Initializer/CellLocalMatrices.h>
 #include <Model/Setup.h>
 
 seissol::Interoperability e_interoperability;
-
-template<typename T>
-class index_sort_by_value
-{
-private:
-    T const* value;
-public:
-    index_sort_by_value(T const* value) : value(value) {}
-    inline bool operator()(unsigned i, unsigned j) const {
-        return value[i] < value[j];
-    }
-};
 
 /*
  * C bindings
@@ -84,35 +71,32 @@ extern "C" {
   
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
-    e_interoperability.setupNRFPointSources( nrfFileName );
-  }
-                                           
-  void c_interoperability_allocatePointSources(int* i_meshIds, int i_numberOfPointSources)
-  {
-    e_interoperability.allocatePointSources(i_meshIds, i_numberOfPointSources);
+    e_interoperability.setupNRFPointSources(nrfFileName);
   }
   
-  void c_interoperability_setupPointSource(int i_source,
-                                         double* i_mInvJInvPhisAtSources,
-                                         double* i_localMomentTensor,
-                                         double* i_strike,
-                                         double* i_dip,
-                                         double* i_rake,
-                                         double* i_samples,
-                                         int i_numberOfSamples,
-                                         double* i_onsetTime,
-                                         double i_samplingInterval )
+  void c_interoperability_setupFSRMPointSources( double*  momentTensor,
+                                                 int      numberOfSources,
+                                                 double*  centres,
+                                                 double*  strikes,
+                                                 double*  dips,
+                                                 double*  rakes,
+                                                 double*  onsets,
+                                                 double*  areas,
+                                                 double   timestep,
+                                                 int      numberOfSamples,
+                                                 double*  timeHistories )
   {
-    e_interoperability.setupPointSource( i_source,
-                                         i_mInvJInvPhisAtSources,
-                                         i_localMomentTensor,
-                                         i_strike,
-                                         i_dip,
-                                         i_rake,
-                                         i_samples,
-                                         i_numberOfSamples,
-                                         i_onsetTime,
-                                         i_samplingInterval );
+    e_interoperability.setupFSRMPointSources( momentTensor, 
+                                              numberOfSources,
+                                              centres,
+                                              strikes,
+                                              dips,
+                                              rakes,
+                                              onsets,
+                                              areas,
+                                              timestep,
+                                              numberOfSamples,
+                                              timeHistories );
   }
 
   void c_interoperability_addReceiver( int i_receiverId,
@@ -252,44 +236,25 @@ extern "C" {
                                                  double *i_receiverTime,
                                                  int    *i_numberOfReceivers, 
                                                  int    *i_receiverIds );
+                                                 
+  extern void f_interoperability_computeMInvJInvPhisAtSources( void*    i_domain,
+                                                               double   i_x,
+                                                               double   i_y,
+                                                               double   i_z,
+                                                               int      i_elem,
+                                                               double*  o_mInvJInvPhisAtSources );
 }
 
 /*
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_domain(NULL), // reset domain pointer
-  m_pointSourceToCluster(NULL),
-  m_pointSources(NULL),
-  m_cellToPointSources(NULL),
-  m_numberOfCellToPointSourcesMappings(NULL)
+  m_domain(NULL) // reset domain pointer
 {
 }
 
 seissol::Interoperability::~Interoperability()
 {
-  if (m_pointSources != NULL) {
-    for (unsigned cluster = 0; cluster < m_timeStepping.numberOfLocalClusters; ++cluster) {
-      for (unsigned pwlf = 0; pwlf < m_pointSources[cluster].numberOfSources; ++pwlf) {
-        delete[] m_pointSources[cluster].momentTimeFunctions[pwlf].slopes;
-        delete[] m_pointSources[cluster].momentTimeFunctions[pwlf].intercepts;
-      }
-
-      delete[] m_pointSources[cluster].mInvJInvPhisAtSources;
-      delete[] m_pointSources[cluster].momentTensors;
-      delete[] m_pointSources[cluster].momentTimeFunctions;  
-    }
-  }
-  delete[] m_pointSources;
-  delete[] m_pointSourceToCluster;
-  
-  if (m_cellToPointSources != NULL) {
-    for (unsigned cluster = 0; cluster < m_timeStepping.numberOfLocalClusters; ++cluster) {
-      delete[] m_cellToPointSources[cluster];
-    }
-  }
-  delete[] m_cellToPointSources;
-  delete[] m_numberOfCellToPointSourcesMappings;
 }
 
 void seissol::Interoperability::setDomain( void* i_domain ) {
@@ -347,161 +312,54 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                    m_faceNeighbors );
 }
 
-void seissol::Interoperability::setupNRFPointSources( char* nrfFileName )
+void seissol::Interoperability::setupNRFPointSources( char const* fileName )
 {
-  std::cout << nrfFileName << std::endl;
+  SeisSol::main.sourceTermManager().loadSourcesFromNRF(
+    fileName,
+    seissol::SeisSol::main.meshReader(),
+    m_cellData->material,
+    m_meshToClusters,
+    m_meshToCopyInterior,
+    m_copyInteriorToMesh,
+    m_meshStructure,
+    m_timeStepping.numberOfLocalClusters,
+    seissol::SeisSol::main.timeManager()
+  );
 }
 
-void seissol::Interoperability::allocatePointSources( int* i_meshIds,
-                                                      int i_numberOfPointSources )
+void seissol::Interoperability::setupFSRMPointSources( double const* momentTensor,
+                                                       int           numberOfSources,
+                                                       double const* centres,
+                                                       double const* strikes,
+                                                       double const* dips,
+                                                       double const* rakes,
+                                                       double const* onsets,
+                                                       double const* areas,
+                                                       double        timestep,
+                                                       int           numberOfSamples,
+                                                       double const* timeHistories )
 {
-  m_pointSourceToCluster = new unsigned[i_numberOfPointSources][2];
-  m_pointSources = new PointSources[m_timeStepping.numberOfLocalClusters];
-  m_cellToPointSources = new CellToPointSourcesMapping*[m_timeStepping.numberOfLocalClusters];
-  m_numberOfCellToPointSourcesMappings = new unsigned[m_timeStepping.numberOfLocalClusters];
-  
-  for (unsigned cluster = 0; cluster < m_timeStepping.numberOfLocalClusters; ++cluster) {
-    m_pointSources[cluster].numberOfSources = 0;
-    m_cellToPointSources[cluster] = NULL;
-  }
-  
-  unsigned* sortedPointSourceIndex = new unsigned[i_numberOfPointSources];
-  for (int source = 0; source < i_numberOfPointSources; ++source) {
-    sortedPointSourceIndex[source] = source;
-  }
-  std::sort(sortedPointSourceIndex, sortedPointSourceIndex + i_numberOfPointSources, index_sort_by_value<int>(i_meshIds));
-  
-  std::vector< std::vector<unsigned> > clusterToPointSources(m_timeStepping.numberOfLocalClusters);
-
-  // distribute sources to clusters
-  for (int source = 0; source < i_numberOfPointSources; ++source) {
-    unsigned sortedSource = sortedPointSourceIndex[source];
-    // get cell id (Fortran-formatting expected)
-    unsigned meshId = i_meshIds[sortedSource]-1;
-    unsigned cluster = m_meshToClusters[meshId][0];
-    m_pointSourceToCluster[sortedSource][0] = cluster;
-    m_pointSourceToCluster[sortedSource][1] = m_pointSources[cluster].numberOfSources++;
-    clusterToPointSources[cluster].push_back(sortedSource);
-  }
-  
-  delete[] sortedPointSourceIndex;
-
-  unsigned clusterOffset = 0;
-  for (unsigned cluster = 0; cluster < m_timeStepping.numberOfLocalClusters; ++cluster) {
-    unsigned numberOfSourcesInCluster = m_pointSources[cluster].numberOfSources;
-    
-    // Find the cell offsets for a point source. As a cell has 4 neighbors,
-    // the cell might exist up to 4 times in the copy layer.
-    CellToPointSourcesMapping* cellToPointSources = new CellToPointSourcesMapping[4 * numberOfSourcesInCluster + 1];
-
-    int mapping = -1;
-    unsigned lastMeshId = std::numeric_limits<unsigned>::max();
-    // add only the interior layer offsets
-    for (std::vector<unsigned>::const_iterator source = clusterToPointSources[cluster].begin(); source != clusterToPointSources[cluster].end(); ++source) {
-      unsigned meshId = i_meshIds[*source]-1;      
-      unsigned offset = m_meshToCopyInterior[meshId];
-      // If we have a interior cell
-      if (offset >= clusterOffset + m_meshStructure[cluster].numberOfCopyCells) {
-        unsigned clusterPointSourceId = m_pointSourceToCluster[*source][1];
-        if (lastMeshId == meshId) {
-          assert(clusterPointSourceId <= cellToPointSources[mapping].pointSourcesOffset + cellToPointSources[mapping].numberOfPointSources);
-          ++cellToPointSources[mapping].numberOfPointSources;
-        } else {
-          lastMeshId = meshId;
-          ++mapping;
-          cellToPointSources[mapping].copyInteriorOffset = offset - clusterOffset;
-          cellToPointSources[mapping].pointSourcesOffset = clusterPointSourceId;
-          cellToPointSources[mapping].numberOfPointSources = 1;
-        }
-      }
-    }
-    
-    // add the copy layer offsets
-    for (unsigned cell = 0; cell < m_meshStructure[cluster].numberOfCopyCells; ++cell) {
-      unsigned cellMeshId = m_copyInteriorToMesh[cell + clusterOffset];
-      assert(mapping < 4 * static_cast<int>(numberOfSourcesInCluster));
-      ++mapping;
-      cellToPointSources[mapping].numberOfPointSources = 0;
-      cellToPointSources[mapping].copyInteriorOffset = cell;
-      
-      for (std::vector<unsigned>::const_iterator source = clusterToPointSources[cluster].begin(); source != clusterToPointSources[cluster].end(); ++source) {
-        // get cell id (Fortran-formatting expected)
-        unsigned sourceMeshId = i_meshIds[*source]-1;
-        if (sourceMeshId == cellMeshId) {
-          unsigned clusterPointSourceId = m_pointSourceToCluster[*source][1];
-          if (cellToPointSources[mapping].numberOfPointSources == 0) {
-            cellToPointSources[mapping].pointSourcesOffset = clusterPointSourceId;
-          }
-          assert(clusterPointSourceId <= cellToPointSources[mapping].pointSourcesOffset + cellToPointSources[mapping].numberOfPointSources);
-          ++cellToPointSources[mapping].numberOfPointSources;
-        }
-      }
-        
-      if (cellToPointSources[mapping].numberOfPointSources == 0) {
-        --mapping;
-      }
-    }
-    
-    m_numberOfCellToPointSourcesMappings[cluster] = mapping+1;
-    
-    m_cellToPointSources[cluster] = new CellToPointSourcesMapping[ m_numberOfCellToPointSourcesMappings[cluster] ];
-    for (unsigned i = 0; i < m_numberOfCellToPointSourcesMappings[cluster]; ++i) {
-      m_cellToPointSources[cluster][i] = cellToPointSources[i];
-    }    
-    delete[] cellToPointSources;
-    clusterOffset += m_meshStructure[cluster].numberOfCopyCells + m_meshStructure[cluster].numberOfInteriorCells;
-
-    m_pointSources[cluster].mInvJInvPhisAtSources = new real[numberOfSourcesInCluster][NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-    m_pointSources[cluster].momentTensors = new real[numberOfSourcesInCluster][NUMBER_OF_QUANTITIES];
-    m_pointSources[cluster].momentTimeFunctions = new PiecewiseLinearFunction1D[numberOfSourcesInCluster];
-    
-    for (unsigned pwlf = 0; pwlf < numberOfSourcesInCluster; ++pwlf) {
-      m_pointSources[cluster].momentTimeFunctions[pwlf].slopes = NULL;
-      m_pointSources[cluster].momentTimeFunctions[pwlf].intercepts = NULL;
-    }
-  }
-  
-  seissol::SeisSol::main.timeManager().setPointSourcesForClusters( m_cellToPointSources,
-                                                                   m_numberOfCellToPointSourcesMappings,
-                                                                   m_pointSources,
-                                                                   m_timeStepping.numberOfLocalClusters );
-}
-
-void seissol::Interoperability::setupPointSource( int i_source,
-                                                  double* i_mInvJInvPhisAtSources,
-                                                  double* i_localMomentTensor,
-                                                  double* i_strike,
-                                                  double* i_dip,
-                                                  double* i_rake,
-                                                  double* i_samples,
-                                                  int i_numberOfSamples,
-                                                  double* i_onsetTime,
-                                                  double i_samplingInterval )
-{  
-  // get point source id (Fortan-formatting expected)
-  unsigned cluster = m_pointSourceToCluster[i_source-1][0];
-  unsigned localSourceId = m_pointSourceToCluster[i_source-1][1];
-  
-  memset(m_pointSources[cluster].mInvJInvPhisAtSources[localSourceId], 0.0, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * sizeof(real));
-  seissol::kernels::copySubMatrix( i_mInvJInvPhisAtSources, NUMBER_OF_BASIS_FUNCTIONS, 1, NUMBER_OF_BASIS_FUNCTIONS,
-                                   m_pointSources[cluster].mInvJInvPhisAtSources[localSourceId], NUMBER_OF_BASIS_FUNCTIONS, 1, NUMBER_OF_BASIS_FUNCTIONS );
-
-  // Do floating point precision conversion if necessary
-  real localMomentTensor[3][3]; 
-  seissol::kernels::copySubMatrix( i_localMomentTensor, 3, 3, 3,
-                                     &localMomentTensor[0][0], 3, 3, 3 );
-
-  seissol::physics::transformMomentTensor( localMomentTensor,
-                                           *i_strike,
-                                           *i_dip,
-                                           *i_rake,
-                                           m_pointSources[cluster].momentTensors[localSourceId] );  
-
-  seissol::physics::samplesToPiecewiseLinearFunction1D( i_samples,
-                                                        i_numberOfSamples,
-                                                        *i_onsetTime,
-                                                        i_samplingInterval,
-                                                        &m_pointSources[cluster].momentTimeFunctions[localSourceId] );
+  SeisSol::main.sourceTermManager().loadSourcesFromFSRM(
+    momentTensor, 
+    numberOfSources,
+    centres,
+    strikes,
+    dips,
+    rakes,
+    onsets,
+    areas,
+    timestep,
+    numberOfSamples,
+    timeHistories,
+    seissol::SeisSol::main.meshReader(),
+    m_cellData->material,
+    m_meshToClusters,
+    m_meshToCopyInterior,
+    m_copyInteriorToMesh,
+    m_meshStructure,
+    m_timeStepping.numberOfLocalClusters,
+    seissol::SeisSol::main.timeManager()
+  );
 }
 
 void seissol::Interoperability::addReceiver( int i_receiverId,
@@ -835,3 +693,16 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
   }
 }
 #endif
+
+void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS])
+{
+  double f_mInvJInvPhisAtSources[NUMBER_OF_BASIS_FUNCTIONS];
+  
+  int elem = static_cast<int>(element);
+  f_interoperability_computeMInvJInvPhisAtSources(m_domain, x, y, z, elem, f_mInvJInvPhisAtSources);
+  
+  memset(mInvJInvPhisAtSources, 0, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * sizeof(real));
+  for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
+    mInvJInvPhisAtSources[bf] = f_mInvJInvPhisAtSources[bf];
+  }
+}

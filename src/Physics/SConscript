@@ -46,9 +46,6 @@ physicsFiles = [ 'Evaluate_friction_law.f90',
                  'ini_model.f90',
                  'ini_model_DR.f90',
                  'initialfield.f90' ]
-                 
-if env['generatedKernels']:
-  physicsFiles = [ 'PointSource.cpp' ] + physicsFiles
 
 for i in physicsFiles:
   env.sourceFiles.append(env.Object(i))

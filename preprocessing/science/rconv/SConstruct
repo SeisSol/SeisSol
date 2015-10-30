@@ -78,7 +78,7 @@ elif env['compileMode'] == 'release':
   env.Append(CXXFLAGS=['-O2'])
 
 # add pathname to the list of directories which are search for include
-env.Append(CPPPATH=['#/src', '#/../../../submodules'])
+env.Append(CPPPATH=['#/src', '#/../../../src', '#/../../../submodules'])
 
 #
 # add libraries

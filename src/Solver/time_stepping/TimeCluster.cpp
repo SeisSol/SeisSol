@@ -44,7 +44,7 @@
 
 #include "TimeCluster.h"
 #include <Solver/Interoperability.h>
-#include <Physics/PointSource.h>
+#include <SourceTerm/PointSource.h>
 
 #ifndef NDEBUG
 extern long long g_SeisSolNonZeroFlopsLocal;
@@ -103,7 +103,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  // cells
  m_cells(                   i_cells                    ),
  m_cellToPointSources(      NULL                       ),
- m_numberOfCellToPointSourcesMappings(0                ), 
+ m_numberOfCellToPointSourcesMappings(0                ),
  m_pointSources(            NULL                       )
 {
     // assert all pointers are valid
@@ -152,9 +152,9 @@ seissol::time_stepping::TimeCluster::~TimeCluster() {
 #endif
 }
 
-void seissol::time_stepping::TimeCluster::setPointSources( CellToPointSourcesMapping* i_cellToPointSources,
+void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
                                                            unsigned i_numberOfCellToPointSourcesMappings,
-                                                           PointSources* i_pointSources )
+                                                           sourceterm::PointSources const* i_pointSources )
 {
   m_cellToPointSources = i_cellToPointSources;
   m_numberOfCellToPointSourcesMappings = i_numberOfCellToPointSourcesMappings;
@@ -206,14 +206,28 @@ void seissol::time_stepping::TimeCluster::computeSources() {
       real dofUpdate[NUMBER_OF_ALIGNED_DOFS];
       memset(dofUpdate, 0, NUMBER_OF_ALIGNED_DOFS * sizeof(real));
 
+      unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
       unsigned endSource = m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
-      for (unsigned source = m_cellToPointSources[mapping].pointSourcesOffset; source < endSource; ++source) {
-        seissol::physics::addTimeIntegratedPointSource( m_pointSources->mInvJInvPhisAtSources[source],
-                                                        m_pointSources->momentTensors[source],
-                                                        &m_pointSources->momentTimeFunctions[source],
+      if (m_pointSources->mode == sourceterm::PointSources::NRF) {
+        for (unsigned source = startSource; source < endSource; ++source) {
+          sourceterm::addTimeIntegratedPointSourceNRF( m_pointSources->mInvJInvPhisAtSources[source],
+                                                       m_pointSources->tensor[source],
+                                                       m_pointSources->muA[source],
+                                                       m_pointSources->lambdaA[source],
+                                                       &m_pointSources->slipRates[source],
+                                                       m_fullUpdateTime,
+                                                       m_fullUpdateTime + m_timeStepWidth,
+                                                       dofUpdate );
+        }
+      } else {
+        for (unsigned source = startSource; source < endSource; ++source) {
+          sourceterm::addTimeIntegratedPointSourceFSRM( m_pointSources->mInvJInvPhisAtSources[source],
+                                                        m_pointSources->tensor[source],
+                                                        &m_pointSources->slipRates[source][0],
                                                         m_fullUpdateTime,
                                                         m_fullUpdateTime + m_timeStepWidth,
                                                         dofUpdate );
+        }
       }
       
       unsigned offset = m_cellToPointSources[mapping].copyInteriorOffset;

@@ -38,7 +38,7 @@
  **/
 
 #include "SRF.h"
-#include "NRF.h"
+#include "NRFWriter.h"
 
 #include <utils/args.h>
 #include <iostream>

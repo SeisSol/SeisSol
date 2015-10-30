@@ -45,6 +45,7 @@
 #include <vector>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
+#include <SourceTerm/NRF.h>
 
 namespace seissol {
   class Interoperability;
@@ -119,18 +120,6 @@ class seissol::Interoperability {
     //! raw pointers to face neighbors: covering all clusters and layers.
     real *(*m_faceNeighbors)[4];
 
-    //! mapping: point source id to cluster id [0] and to cluster-local point source id [1]
-    unsigned (*m_pointSourceToCluster)[2];
-    
-    //! Point sources for each cluster
-    PointSources* m_pointSources;
-    
-    //! Mapping of cells to point sources for each cluster
-    CellToPointSourcesMapping** m_cellToPointSources;
-    
-    //! Number of mapping of cells to point sources for each cluster
-    unsigned* m_numberOfCellToPointSourcesMappings;
-
  public:
    /**
     * Constructor.
@@ -168,25 +157,22 @@ class seissol::Interoperability {
     * @param i_clustering clustering strategy 
     **/
    void initializeClusteredLts( int i_clustering );
-  
-   //! \todo Documentation
-   void setupNRFPointSources( char* nrfFileName );
-  
-   //! \todo Documentation
-   void allocatePointSources( int* i_meshIds,
-                              int i_numberOfPointSources );
    
-   //! \todo Documentation                          
-   void setupPointSource( int i_source,
-                          double* i_mInvJInvPhisAtSources,
-                          double* i_localMomentTensor,
-                          double* i_strike,
-                          double* i_dip,
-                          double* i_rake,
-                          double* i_samples,
-                          int i_numberOfSamples,
-                          double* i_onsetTime,
-                          double i_samplingInterval );
+   //! \todo Documentation
+   void setupNRFPointSources( char const* fileName );
+   
+   //! \todo Documentation
+   void setupFSRMPointSources( double const* momentTensor,
+                               int           numberOfSources,
+                               double const* centres,
+                               double const* strikes,
+                               double const* dips,
+                               double const* rakes,
+                               double const* onsets,
+                               double const* areas,
+                               double        timestep,
+                               int           numberOfSamples,
+                               double const* timeHistories );
 
    /**
     * Adds a receiver at the specified mesh id.
@@ -375,6 +361,22 @@ class seissol::Interoperability {
                            double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
                            double  *io_dofs );
 #endif
+
+   /**
+    * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
+    * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
+    * 
+    * @param x x coordinate
+    * @param y y coordinate
+    * @param z z coordinate
+    * @param element Number of element in that x, y, z resides
+    * @param mInvJInvPhisAtSources contains the output
+    */
+   void computeMInvJInvPhisAtSources( double x,
+                                      double y,
+                                      double z,
+                                      unsigned element,
+                                      real mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] );
 
    /**
     * Simulates until the final time is reached.

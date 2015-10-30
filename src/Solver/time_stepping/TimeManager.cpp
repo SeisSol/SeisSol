@@ -400,17 +400,12 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
   return 1E-5 * m_timeStepping.globalCflTimeStepWidths[0];
 }
 
-void seissol::time_stepping::TimeManager::setPointSourcesForClusters( CellToPointSourcesMapping** i_cellToPointSources,
-                                                                      unsigned* i_numberOfCellToPointSourcesMappings,
-                                                                      PointSources* i_pointSources,
-                                                                      unsigned i_numberOfLocalClusters )
+void seissol::time_stepping::TimeManager::setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources )
 {
-  assert( i_numberOfLocalClusters == m_clusters.size() );
-  
-  for (unsigned cluster = 0; cluster < i_numberOfLocalClusters; ++cluster) {
-    m_clusters[cluster]->setPointSources( i_cellToPointSources[cluster],
-                                          i_numberOfCellToPointSourcesMappings[cluster],
-                                          &i_pointSources[cluster] );
+  for (unsigned cluster = 0; cluster < m_clusters.size(); ++cluster) {
+    m_clusters[cluster]->setPointSources( cms[cluster].cellToSources,
+                                          cms[cluster].numberOfMappings,
+                                          &pointSources[cluster] );
   }
 }
 

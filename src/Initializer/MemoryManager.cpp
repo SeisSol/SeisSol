@@ -106,9 +106,6 @@ seissol::initializers::MemoryManager::~MemoryManager() {
   // free members
   delete[] m_fluxMatrixPointers;
   delete[] m_stiffnessMatrixPointers;
-
-  // free memory of the memory allocate
-  m_memoryAllocator.freeMemory();
 }
 
 void seissol::initializers::MemoryManager::initializeGlobalMatrix(          int                        i_sparse,

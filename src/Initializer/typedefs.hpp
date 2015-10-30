@@ -489,75 +489,9 @@ struct PiecewiseLinearFunction1D {
   
   /** samplingInterval = dt */
   real samplingInterval;
-};
-
-/** Models point sources of the form
- *    S(xi, eta, zeta, t) := (1 / |J|) * S(t) * M * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
- * where S(t) : t -> \mathbb R is the moment time history,
- * M \in \mathbb R^{9} contains entries of the moment tensor,
- * and delta is the 3-dimensional dirac distribution.
- * 
- * (The scaling factor (1 / |J|) is due to the coordinate transformation (x,y,z) -> (xi,eta,zeta).)
- **/
-struct PointSources {
-  /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
-   *  basis function and xi_s, eta_s, and zeta_s are the space position
-   *  of the point source in the reference tetrahedron. */
-  real (*mInvJInvPhisAtSources)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-
-  /** The moment tensor scales the value of the source term for each quantity. */
-  real (*momentTensors)[NUMBER_OF_QUANTITIES];
-
-  /** Moment time function modeled as piecewise linear function. */
-  PiecewiseLinearFunction1D* momentTimeFunctions;
   
-  /** Saves the amount of point sources in this struct. */
-  unsigned numberOfSources;
-};
-
-/// \todo Remove PointSources and handle sampled point sources exclusively with NRFPointSources.
-struct NRFPointSources {
-  /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
-   *  basis function and xi_s, eta_s, and zeta_s are the space position
-   *  of the point source in the reference tetrahedron. */
-  real (*mInvJInvPhisAtSources)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-
-  /** Basis vectors of the fault.
-   * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
-   * 3-5: Tan2X-Z   = second fault tangent
-   * 6-8: NormalX-Z = fault normal */
-  real (*faultBasis)[9];
-  
-  /// mu*Area
-  real *muA;
-  
-  /// lambda*Area
-  real *lambdaA;
-  
-  /** slip rate in
-   * 0: Tan1 direction
-   * 1: Tan2 direction
-   * 2: Normal direction */
-  PiecewiseLinearFunction1D (*slipRates)[3];
-  
-  /** Number of point sources in this struct. */
-  unsigned numberOfSources;      
-};
-
-
-/** Maps cells to points sources
- */
-struct CellToPointSourcesMapping {
-  //! Cluster-local offset of the cell in the DOF buffer
-  unsigned copyInteriorOffset;
-  //! First point source that has an effect on the cell
-  unsigned pointSourcesOffset;
-  /** The point sources buffer is ordered by cells, hence the point sources
-   * that affect the cell with copyInteriorOffset reside in
-   * [pointSourcesOffset, pointSourcesOffset + numberOfPointSources)
-   * in the point sources buffer.
-   **/
-  unsigned numberOfPointSources;
+  PiecewiseLinearFunction1D() : slopes(NULL), intercepts(NULL), numberOfPieces(0) {}
+  ~PiecewiseLinearFunction1D() { delete[] slopes; delete[] intercepts; numberOfPieces = 0; }
 };
 
 #endif

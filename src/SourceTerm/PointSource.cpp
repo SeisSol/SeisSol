@@ -42,7 +42,7 @@
 #include <cmath>
 #include <algorithm>
  
-void seissol::physics::transformMomentTensor(real const i_localMomentTensor[3][3],
+void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3][3],
                                              real strike,
                                              real dip,
                                              real rake,
@@ -98,10 +98,10 @@ void seissol::physics::transformMomentTensor(real const i_localMomentTensor[3][3
   }
 }
 
-real seissol::physics::computePwLFTimeIntegral(PiecewiseLinearFunction1D const* i_pwLF,
+real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D const* i_pwLF,
                                                double i_fromTime,
                                                double i_toTime)
-{   
+{
    real l_integral;
    // j_{from} := \argmax_j s.t. t_{from} >= t_{onset} + j*dt   =   floor[(t_{from} - t_{onset}) / dt]
    int l_fromIndex = (i_fromTime - i_pwLF->onsetTime) / i_pwLF->samplingInterval;
@@ -126,12 +126,55 @@ real seissol::physics::computePwLFTimeIntegral(PiecewiseLinearFunction1D const* 
    return l_integral;
 }
 
-void seissol::physics::addTimeIntegratedPointSource(real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                                                    real const i_momentTensor[NUMBER_OF_QUANTITIES],
-                                                    PiecewiseLinearFunction1D const* i_pwLF,
-                                                    double i_fromTime,
-                                                    double i_toTime,
-                                                    real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS])
+void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                           real const faultBasis[9],
+                                                           real muA,
+                                                           real lambdaA,
+                                                           PiecewiseLinearFunction1D const (*slipRates)[3],
+                                                           double i_fromTime,
+                                                           double i_toTime,
+                                                           real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] )
+{  
+  real slip[] = { 0.0, 0.0, 0.0};
+  for (unsigned i = 0; i < 3; ++i) {
+    if (slipRates[i]->numberOfPieces > 0) {
+      slip[i] = computePwLFTimeIntegral(slipRates[i], i_fromTime, i_toTime);
+    }
+  }
+  
+  real rotatedSlip[] = { 0.0, 0.0, 0.0 };
+  for (unsigned i = 0; i < 3; ++i) {
+    for (unsigned j = 0; j < 3; ++j) {
+      rotatedSlip[j] += faultBasis[j + i*3] * slip[i];
+    }
+  }
+  
+  real normalDotSlip = 0.0;
+  for (unsigned i = 0; i < 3; ++i) {
+    normalDotSlip += faultBasis[6 + i] * rotatedSlip[i];
+  }
+
+  real moment[6];
+  for (unsigned i = 0; i < 3; ++i) {
+    moment[i] = lambdaA * normalDotSlip + 2.0 * muA * faultBasis[6 + i] * rotatedSlip[i];
+  }
+  moment[3] = muA * (faultBasis[6 + 0] * rotatedSlip[1] + faultBasis[6 + 1] * rotatedSlip[0]);
+  moment[4] = muA * (faultBasis[6 + 1] * rotatedSlip[2] + faultBasis[6 + 2] * rotatedSlip[1]);
+  moment[5] = muA * (faultBasis[6 + 0] * rotatedSlip[2] + faultBasis[6 + 2] * rotatedSlip[0]);
+
+  for (unsigned quantity = 0; quantity < 6; ++quantity) {
+    for (unsigned basisFunction = 0; basisFunction < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++basisFunction) {
+      o_dofUpdate[quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + basisFunction] -= i_mInvJInvPhisAtSources[basisFunction] * moment[quantity];
+    }
+  }
+}
+
+void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                                            real const i_momentTensor[NUMBER_OF_QUANTITIES],
+                                                            PiecewiseLinearFunction1D const* i_pwLF,
+                                                            double i_fromTime,
+                                                            double i_toTime,
+                                                            real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] )
 {
   real l_integral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);  
 
