@@ -261,7 +261,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
   real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL );
 
   // (thread-local) LTS integration buffers
-  int l_numberOfThreads = 0;
+  int l_numberOfThreads = 1;
 #ifdef _OPENMP
   #pragma omp parallel
   {

@@ -99,6 +99,13 @@ class seissol::MemoryAllocator {
       void* l_ptrBuffer;
       bool error = false;
 
+      /* handle zero allocation */
+      if ( i_size == 0 ) {
+        logWarning() << "allocation of size 0 requested, returning NULL; (alignment: " << i_alignment << ", memkind: " << i_memkind << ").";
+        l_ptrBuffer = NULL;
+        return l_ptrBuffer;
+      }
+
 #ifdef USE_MEMKIND
       if( i_memkind == 0 ) {
 #endif
