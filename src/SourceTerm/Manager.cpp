@@ -99,7 +99,7 @@ void seissol::sourceterm::cleanDoubles(uint8_t* contained, unsigned numSources)
   unsigned cleaned = 0;
   for (unsigned source = 0; source < numSources; ++source) {
     if (contained[source] == 1) {
-      for (unsigned rank = 0; rank < myrank; ++rank) {
+      for (int rank = 0; rank < myrank; ++rank) {
         if (globalContained[rank * numSources + source] == 1) {
           contained[source] = 0;
           ++cleaned;
@@ -184,13 +184,13 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
   }
   
   unsigned* sortedPointSourceIndex = new unsigned[numberOfSources];
-  for (int source = 0; source < numberOfSources; ++source) {
+  for (unsigned source = 0; source < numberOfSources; ++source) {
     sortedPointSourceIndex[source] = source;
   }
   std::sort(sortedPointSourceIndex, sortedPointSourceIndex + numberOfSources, index_sort_by_value<unsigned>(meshIds));
   
   // Distribute sources to clusters
-  for (int source = 0; source < numberOfSources; ++source) {
+  for (unsigned source = 0; source < numberOfSources; ++source) {
     unsigned sortedSource = sortedPointSourceIndex[source];
     unsigned meshId = meshIds[sortedSource];
     unsigned cluster = meshToClusters[meshId][0];
@@ -295,7 +295,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   unsigned* meshIds = new unsigned[numberOfSources];
   Vector3* centres3 = new Vector3[numberOfSources];
   
-  for (unsigned source = 0; source < numberOfSources; ++source) {
+  for (int source = 0; source < numberOfSources; ++source) {
     centres3[source].x = centres[3*source];
     centres3[source].y = centres[3*source + 1];
     centres3[source].z = centres[3*source + 2];
@@ -312,7 +312,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
 
   unsigned* originalIndex = new unsigned[numberOfSources];
   unsigned numSources = 0;
-  for (unsigned source = 0; source < numberOfSources; ++source) {
+  for (int source = 0; source < numberOfSources; ++source) {
     originalIndex[numSources] = source;
     meshIds[numSources] = meshIds[source];
     numSources += contained[source];
@@ -369,6 +369,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   timeManager.setPointSourcesForClusters(cmps, sources);
 }
 
+#ifdef USE_NETCDF
 void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*                   fileName,
                                                        MeshReader const&             mesh,
                                                        CellMaterialData const*       materials,
@@ -442,3 +443,4 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
   
   timeManager.setPointSourcesForClusters(cmps, sources);
 }
+#endif

@@ -55,6 +55,8 @@
 #include <generated_code/init.h>
 #endif
 
+#include <cstddef>
+
 enum Layer {
   ghost,
   copy,

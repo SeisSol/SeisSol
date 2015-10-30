@@ -115,6 +115,7 @@ public:
                             unsigned                      numberOfClusters,
                             time_stepping::TimeManager&   timeManager);
 
+#ifdef USE_NETCDF
   void loadSourcesFromNRF( char const*                   fileName,
                            MeshReader const&             mesh,
                            CellMaterialData const*       materials,
@@ -124,6 +125,7 @@ public:
                            MeshStructure const*          meshStructure,
                            unsigned                      numberOfClusters,
                            time_stepping::TimeManager&   timeManager );
+#endif
 };
 
 #endif

@@ -112,7 +112,7 @@ namespace seissol {
       CellToPointSourcesMapping* cellToSources;
       unsigned                   numberOfMappings;
       
-      ClusterMapping() : sources(NULL), numberOfSources(NULL), cellToSources(NULL), numberOfMappings(0) {}
+      ClusterMapping() : sources(NULL), numberOfSources(0), cellToSources(NULL), numberOfMappings(0) {}
       ~ClusterMapping() { delete[] sources; numberOfSources = 0; delete[] cellToSources; numberOfMappings = 0; }
     };
   }

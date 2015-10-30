@@ -71,7 +71,9 @@ extern "C" {
   
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
+#ifdef USE_NETCDF
     e_interoperability.setupNRFPointSources(nrfFileName);
+#endif
   }
   
   void c_interoperability_setupFSRMPointSources( double*  momentTensor,
@@ -312,6 +314,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                    m_faceNeighbors );
 }
 
+#ifdef USE_NETCDF
 void seissol::Interoperability::setupNRFPointSources( char const* fileName )
 {
   SeisSol::main.sourceTermManager().loadSourcesFromNRF(
@@ -326,6 +329,7 @@ void seissol::Interoperability::setupNRFPointSources( char const* fileName )
     seissol::SeisSol::main.timeManager()
   );
 }
+#endif
 
 void seissol::Interoperability::setupFSRMPointSources( double const* momentTensor,
                                                        int           numberOfSources,

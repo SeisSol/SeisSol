@@ -157,9 +157,11 @@ class seissol::Interoperability {
     * @param i_clustering clustering strategy 
     **/
    void initializeClusteredLts( int i_clustering );
-   
+
+#ifdef USE_NETCDF
    //! \todo Documentation
    void setupNRFPointSources( char const* fileName );
+#endif
    
    //! \todo Documentation
    void setupFSRMPointSources( double const* momentTensor,
