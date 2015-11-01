@@ -177,7 +177,7 @@ class seissol::time_stepping::TimeManager {
     /**
      * Gets the raw data of the time manager.
      *
-     * @param o_globalData global data.
+     * @param o_globalData global data, this is just the master data structure in case of multiple copies
      * @param o_cellData cell local data.
      * @param o_dofs degrees of freedom.
      * @param o_buffers time buffers.
