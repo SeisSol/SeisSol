@@ -76,18 +76,27 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
     );
   }
   for (unsigned flux = 0; flux < 52; ++flux) {
-    m_fluxMatrixPointers[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[flux] ];
+    m_globalData.fluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[flux] ];
   }
-  for (unsigned stiffness = 0; stiffness < 6; ++stiffness) {
-    m_stiffnessMatrixPointers[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + stiffness] ];
+  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+    m_globalData.stiffnessMatricesTransposed[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + transposedStiffness] ];
   }
-  // \todo Integrate this step into the code generator
+  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
+    m_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + stiffness + 3] ];
+  }
+  // @TODO handle LTS integrataion buffer
+  // missing
+
+  // @TODO Integrate this step into the code generator
   for (unsigned transposedStiffness = 52; transposedStiffness < 55; ++transposedStiffness) {
     real* matrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
     for (unsigned i = 0; i < seissol::model::globalMatrixOffsets[transposedStiffness+1]-seissol::model::globalMatrixOffsets[transposedStiffness]; ++i) {
       matrix[i] *= -1.0;
     }
   }
+
+  // @TODO handle LTS integrataion buffer
+  // missing
 #else
   // initialize global matrices
   initializeGlobalMatrices( i_matrixReader, m_globalData );
