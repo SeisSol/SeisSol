@@ -61,13 +61,11 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
 #define SPARSE_SWITCH
 #include <initialization/bind.h>
 #undef SPARSE_SWITCH
-
-  // allocate memory for the pointers to the individual matrices
-  m_fluxMatrixPointers      = new real*[52];
-  m_stiffnessMatrixPointers = new real*[6];
   
 // if equations == viscoelastic
-// \todo Remove ifdef and generalize initialization
+// @TODO Remove ifdef and generalize initialization
+// @TODO This implementation doesn't backport the support for multiple copies of global data
+// @TODO make sure that multiple copies of global data are still supported by this unified implementation
 #ifdef REQUIRE_SOURCE_MATRIX
   real* globalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
   for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
@@ -92,20 +90,12 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
   }
 #else
   // initialize global matrices
-  initializeGlobalMatrices( i_matrixReader );
+  initializeGlobalMatrices( i_matrixReader, m_globalData );
 #endif
-
-  setFluxMatrices(                m_globalData.fluxMatrices );
-  setStiffnessMatrices(           m_globalData.stiffnessMatrices );
-  setStiffnessMatricesTransposed( m_globalData.stiffnessMatricesTransposed );
-  setInverseMassMatrix(           &(m_globalData.inverseMassMatrix) );
-  setIntegrationBufferLTS(        &(m_globalData.integrationBufferLTS) );
 }
 
 seissol::initializers::MemoryManager::~MemoryManager() {
   // free members
-  delete[] m_fluxMatrixPointers;
-  delete[] m_stiffnessMatrixPointers;
 
   // free memory of the memory allocate
   m_memoryAllocator.freeMemory();
@@ -157,7 +147,8 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrix(          int 
   }
 }
 
-void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader ) {
+void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader,
+                                                                     struct GlobalData        &o_globalData ) {
   /*
    * read the global matrices
    */
@@ -274,24 +265,24 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
     }
   }
 #endif
-  m_integrationBufferLTS  = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_TIMEDOFS ) ;
+  o_globalData.integrationBufferLTS  = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_TIMEDOFS ) ;
 
   /*
    * Set up pointers.
    */
   for( unsigned int l_transposedStiffnessMatrix = 0; l_transposedStiffnessMatrix < 3; l_transposedStiffnessMatrix++ ) {
-    m_stiffnessMatrixPointers[l_transposedStiffnessMatrix] = l_pointer + l_offset[l_transposedStiffnessMatrix];
+    o_globalData.stiffnessMatricesTransposed[l_transposedStiffnessMatrix] = l_pointer + l_offset[l_transposedStiffnessMatrix];
   }
 
-  for( unsigned int l_stiffnessMatrix = 3; l_stiffnessMatrix < 6; l_stiffnessMatrix++ ) {
-    m_stiffnessMatrixPointers[l_stiffnessMatrix] = l_pointer + l_offset[l_stiffnessMatrix];
+  for( unsigned int l_stiffnessMatrix = 0; l_stiffnessMatrix < 3; l_stiffnessMatrix++ ) {
+    o_globalData.stiffnessMatrices[l_stiffnessMatrix] = l_pointer + l_offset[l_stiffnessMatrix+3];
   }
 
   for( unsigned int l_fluxMatrix = 0; l_fluxMatrix < 52; l_fluxMatrix++ ) {
-    m_fluxMatrixPointers[l_fluxMatrix] = l_pointer + l_offset[l_fluxMatrix+6];
+    o_globalData.fluxMatrices[l_fluxMatrix] = l_pointer + l_offset[l_fluxMatrix+6];
   }
 
-  m_inverseMassMatrixPointer = l_pointer + l_offset[58];
+  o_globalData.inverseMassMatrix = l_pointer + l_offset[58];
 
   /**
    * Initialize transposed stiffness matrices.
@@ -307,7 +298,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
                             l_matrixRows[l_globalMatrix-1], // -1: flux solver is not part of the matrices read from XML
                             l_matrixColumns[l_globalMatrix-1],
                             l_matrixValues[l_globalMatrix-1],
-                            m_stiffnessMatrixPointers[l_transposedStiffnessMatrix] );
+                            o_globalData.stiffnessMatricesTransposed[l_transposedStiffnessMatrix] );
   }
 
   /*
@@ -324,7 +315,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
                             l_matrixRows[l_globalMatrix-1],
                             l_matrixColumns[l_globalMatrix-1],
                             l_matrixValues[l_globalMatrix-1],
-                            m_stiffnessMatrixPointers[l_stiffnessMatrix+3] );
+                            o_globalData.stiffnessMatrices[l_stiffnessMatrix] );
   }
 
   /*
@@ -338,7 +329,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
                             l_matrixRows[l_fluxMatrix],
                             l_matrixColumns[l_fluxMatrix],
                             l_matrixValues[l_fluxMatrix],
-                            m_fluxMatrixPointers[l_fluxMatrix] );
+                            o_globalData.fluxMatrices[l_fluxMatrix] );
   }
   
   /*
@@ -350,7 +341,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
                           l_matrixRows[58],
                           l_matrixColumns[58],
                           l_matrixValues[58],
-                          m_inverseMassMatrixPointer );
+                          o_globalData.inverseMassMatrix );
 
   /*
    *  (thread-local) LTS integration buffers
@@ -363,45 +354,11 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
     size_t l_threadOffset = 0;
 #endif
     for ( unsigned int l_dof = 0; l_dof < (4*NUMBER_OF_ALIGNED_DOFS); l_dof++ ) {
-      m_integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
+      o_globalData.integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
     }
 #ifdef _OPENMP
   }
 #endif
-}
-
-real** seissol::initializers::MemoryManager::getFluxMatrixPointers() const {
-  return m_fluxMatrixPointers;
-}
-
-real** seissol::initializers::MemoryManager::getStiffnessMatrixPointers() const {
-  return m_stiffnessMatrixPointers;
-}
-
-void seissol::initializers::MemoryManager::setStiffnessMatrices( real *o_stiffnessMatrices[3] ) {
-  o_stiffnessMatrices[0] = m_stiffnessMatrixPointers[3];
-  o_stiffnessMatrices[1] = m_stiffnessMatrixPointers[4];
-  o_stiffnessMatrices[2] = m_stiffnessMatrixPointers[5];
-}
-
-void seissol::initializers::MemoryManager::setStiffnessMatricesTransposed( real *o_stiffnessMatricesTransposed[3] ) {
-  o_stiffnessMatricesTransposed[0] = m_stiffnessMatrixPointers[0];
-  o_stiffnessMatricesTransposed[1] = m_stiffnessMatrixPointers[1];
-  o_stiffnessMatricesTransposed[2] = m_stiffnessMatrixPointers[2];
-}
-
-void seissol::initializers::MemoryManager::setFluxMatrices( real *o_fluxMatrices[52] ) {
-  for( int l_matrix = 0; l_matrix < 52; l_matrix++ ) {
-    o_fluxMatrices[l_matrix] = m_fluxMatrixPointers[l_matrix];
-  }
-}
-
-void seissol::initializers::MemoryManager::setInverseMassMatrix( real** o_inverseMassMatrix ) {
-  *o_inverseMassMatrix = m_inverseMassMatrixPointer;
-}
-
-void seissol::initializers::MemoryManager::setIntegrationBufferLTS( real** o_integrationBufferLTS ) {
-  *o_integrationBufferLTS = m_integrationBufferLTS;
 }
 
 void seissol::initializers::MemoryManager::setUpLayers( struct CellLocalInformation *i_cellLocalInformation ) {

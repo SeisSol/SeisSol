@@ -80,49 +80,6 @@ class seissol::initializers::MemoryManager {
      **/
     int m_sparseSwitch[60];
 
-    /**
-     * Addresses of the global flux matrices (multiplied by the inverse diagonal mass matrix):
-     *
-     *    0:  \f$ M^{-1} F^{-, 1} \f$
-     *    1:  \f$ M^{-1} F^{-, 2} \f$
-     *    2:  \f$ M^{-1} F^{-, 3} \f$
-     *    3:  \f$ M^{-1} F^{-, 4} \f$
-     *    4:  \f$ M^{-1} F^+{+, 1, 1, 1} \f$
-     *    5:  \f$ M^{-1} F^+{+, 1, 1, 2} \f$
-     *    6:  \f$ M^{-1} F^+{+, 1, 1, 3} \f$
-     *    7:  \f$ M^{-1} F^+{+, 1, 2, 1} \f$
-     *    8:  \f$ M^{-1} F^+{+, 1, 1, 2} \f$
-     *    9:  \f$ M^{-1} F^+{+, 1, 1, 3} \f$
-     *    [..]
-     *    51: \f$ M^{-1} F^+{+, 4, 4, 3} \f$
-     *    52: \f$ N_{k,i} A_k^+ N_{k,i}^{-1}\f$ or \f$ N_{k,i} A_{k(i)}^- N_{k,i}^{-1} \f$
-     *
-     **/ 
-    real** m_fluxMatrixPointers;
-
-    /**
-     * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
-     *
-     *    0:  \f$ M^{-1} ( K^\xi )^T \f$
-     *    1:  \f$ M^{-1} ( K^\eta )^T \f$
-     *    2:  \f$ M^{-1} ( K^\zeta )^T \f$
-     *    3:  \f$ M^{-1} K^\xi \f$
-     *    4:  \f$ M^{-1} K^\eta \f$
-     *    5:  \f$ M^{-1} K^\zeta f$
-     *
-     **/ 
-    real** m_stiffnessMatrixPointers;
-    
-    /**
-     * Address of the global inverse mass matrix
-     **/ 
-    real* m_inverseMassMatrixPointer;
-
-    /**
-     * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
-     **/
-    real* m_integrationBufferLTS;
-
     //! LTS mesh structure
     struct MeshStructure *m_meshStructure;
 
@@ -233,8 +190,10 @@ class seissol::initializers::MemoryManager {
      * Allocates memory for the global matrices and initializes it.
      *
      * @param i_matrixReader XML matrix reader.
+     * @param o_globalData global matrices data structure that should be uniquely initialized
      **/
-    void initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader );
+    void initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader,
+                                   struct GlobalData        &o_globalData );
 
     /**
      * Sets up the layers: Total number of ghost, copy and interior cells & cell information per layer.
@@ -338,57 +297,6 @@ class seissol::initializers::MemoryManager {
      * Destructor, which frees all allocated memory.
      **/
     ~MemoryManager();
-
-    /**
-     * Gets the pointers to the 52 memory chunks of the flux matrices.
-     * Additionally the 53rd pointer gives the address of the stiffness matrix \f$ M^{-1} K^\xi \f$. 
-     *
-     * @return 52 pointers to the memory chunks of the flux matrices (and as 53rd pointer \f$ M^{-1} K^\xi \f$).
-     **/
-    real** getFluxMatrixPointers() const;
-
-    /**
-     * Get the pointers to the 2*3 (non-transposed and transposed) memory chunks of the stiffness matrices.
-     * Additionally the seventh pointer gives the address of the flux matrix \f$ M^{-1} F^{-, 1} \f$.
-     *
-     * @return 6 pointers to the memory chunks of the flux matrices (and as 7th pointer \f$ M^{-1} F^{-, 1} \f$).
-     **/    
-    real** getStiffnessMatrixPointers() const;
-
-    /**
-     * Set the pointers to the stiffness matrices (multiplied in by \f$M^-1\f$)
-     *
-     * @param o_stiffnessMatrices pointers, which will be set.
-     */
-    void setStiffnessMatrices( real *o_stiffnessMatrices[3] );
-    
-    /**
-     * Set the pointers to the transposed stiffness matrices (multiplied in by \f$M^-1\f$)
-     *
-     * @param o_stiffnessMatricesTransposed pointers, which will be set.
-     */
-    void setStiffnessMatricesTransposed( real *o_stiffnessMatricesTransposed[3] );
-
-    /**
-     * Set the pointers to the flux matrices (multiplied in by \f$M^-1\f$)
-     *
-     * @param o_fluxMatrices pointers, which will be set.
-     */
-    void setFluxMatrices( real *o_fluxMatrices[52] );
-
-    /**
-     * Set the pointers to the inverse matrix
-     *
-     * @param o_inverseMassMatrix pointer, which will be set.
-     */
-    void setInverseMassMatrix( real** o_inverseMassMatrix );
-
-    /**
-     * Set the pointers to the (thread-local) LTS integration buffer
-     *
-     * @param o_integrationBufferLTS  pointer, which will be set.
-     */
-    void setIntegrationBufferLTS ( real** o_integrationBufferLTS  );
 
     /**
      * Set up the internal structure, allocate memory, set up the pointers and intializes the data to zero or NULL.
