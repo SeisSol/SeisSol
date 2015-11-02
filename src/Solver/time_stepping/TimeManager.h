@@ -200,6 +200,9 @@ class seissol::time_stepping::TimeManager {
 #endif
       struct CellData              *l_interiorCellData        = NULL;
       struct Cells                 *l_cells                   = NULL;
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+      struct GlobalData            *l_globalDataCopies        = NULL;
+#endif
 
       m_memoryManager.getMemoryLayout( 0,
                                        l_meshStructure,
@@ -208,6 +211,9 @@ class seissol::time_stepping::TimeManager {
 #endif
                                        l_interiorCellInformation,
                                       o_globalData,
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+                                      l_globalDataCopies,
+#endif
 #ifdef USE_MPI
                                        l_copyCellData,
 #endif

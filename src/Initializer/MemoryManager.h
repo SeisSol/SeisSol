@@ -153,6 +153,13 @@ class seissol::initializers::MemoryManager {
      */
     //! global data
     struct GlobalData     m_globalData;
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#if NUMBER_OF_GLOBALDATA_COPIES > 0
+    struct GlobalData     m_globalDataCopies[NUMBER_OF_GLOBALDATA_COPIES];
+#else
+#error NUMBER_OF_GLOBALDATA_COPIES needs to be larger than 0 if defined
+#endif
+#endif
 
 #ifdef USE_MPI
     struct CellData      *m_copyCellData;
@@ -317,6 +324,7 @@ class seissol::initializers::MemoryManager {
      * @param o_copyCellInformation cell information in the copy layer.
      * @param o_interiorCellInformation cell information in the interior.
      * @param o_globalData global data.
+     * @oaram o_globalDataCopies several copies of global data
      * @param o_copyCellData cell data of the copy layer.
      * @param o_interiorCellData cell data in the interior.
      * @param o_cells cells.
@@ -328,6 +336,9 @@ class seissol::initializers::MemoryManager {
 #endif
                           struct CellLocalInformation   *&o_interiorCellInformation,
                           struct GlobalData             *&o_globalData,
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+                          struct GlobalData             *&o_globalDataCopies,
+#endif
 #ifdef USE_MPI
                           struct CellData               *&o_copyCellData,
 #endif

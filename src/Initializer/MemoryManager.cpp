@@ -99,7 +99,17 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
   // missing
 #else
   // initialize global matrices
+#ifndef NUMBER_OF_GLOBALDATA_COPIES
   initializeGlobalMatrices( i_matrixReader, m_globalData );
+#else
+  // initialize all copies
+  // @TODO add NUMA support to this loop
+  for ( unsigned int l_globalDataCopy = 0; l_globalDataCopy < NUMBER_OF_GLOBALDATA_COPIES; l_globalDataCopy++ ) {
+    initializeGlobalMatrices( i_matrixReader, m_globalDataCopies[l_globalDataCopy] );
+  }
+  // set master structure
+  m_globalData = m_globalDataCopies[0];
+#endif
 #endif
 }
 
@@ -1038,6 +1048,9 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
 #endif
                                                             struct CellLocalInformation   *&o_interiorCellInformation,
                                                             struct GlobalData             *&o_globalData,
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+                                                            struct GlobalData             *&o_globalDataCopies,
+#endif
 #ifdef USE_MPI
                                                             struct CellData               *&o_copyCellData,
 #endif
@@ -1049,6 +1062,9 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
 #endif
   o_interiorCellInformation =  m_interiorCellInformation[i_cluster];
   o_globalData              = &m_globalData;
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+  o_globalDataCopies        =  m_globalDataCopies;
+#endif
 #ifdef USE_MPI
   o_copyCellData            =  m_copyCellData     + i_cluster;
 #endif

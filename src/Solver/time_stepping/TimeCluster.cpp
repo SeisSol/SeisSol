@@ -74,6 +74,9 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 #endif
                                                   struct CellLocalInformation   *i_interiorCellInformation,
                                                   struct GlobalData             *i_globalData,
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+                                                  struct GlobalData             *i_globalDataCopies,
+#endif
 #ifdef USE_MPI
                                                   struct CellData               *i_copyCellData,
 #endif
@@ -90,6 +93,10 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_meshStructure(           i_meshStructure            ),
  // global data
  m_globalData(              i_globalData               ),
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+ // global data copies
+ m_globalDataCopies(        i_globalDataCopies         ),
+#endif
  // cell info
 #ifdef USE_MPI
  m_copyCellInformation(     i_copyCellInformation      ),
@@ -113,6 +120,9 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 #endif
     assert( m_interiorCellInformation                  != NULL );
     assert( m_globalData                               != NULL );
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+    assert( m_globalDataCopies                         != NULL );
+#endif
 #ifdef USE_MPI
     assert( m_copyCellData                             != NULL );
     assert( m_copyCellData->localIntegration           != NULL );
@@ -553,9 +563,15 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
     }
 #endif
 
+    // @TODO in case of multiple global data copies, choose a distribution which
+    //       cannot generate a 0-id copy reference in the end as remainder handling
     m_boundaryKernel.computeNeighborsIntegral( i_cellInformation[l_cell].faceTypes,
                                                i_cellInformation[l_cell].faceRelations,
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+                                               m_globalDataCopies[(omp_get_thread_num()/(omp_get_num_threads()/NUMBER_OF_GLOBALDATA_COPIES))%NUMBER_OF_GLOBALDATA_COPIES].fluxMatrices,
+#else
                                                m_globalData->fluxMatrices,
+#endif
                                                l_timeIntegrated,
                                                i_cellData->neighboringIntegration[l_cell].nAmNm1,
 #ifdef ENABLE_MATRIX_PREFETCH

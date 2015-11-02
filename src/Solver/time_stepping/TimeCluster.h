@@ -99,6 +99,13 @@ private:
      */
      //! global data structures
     struct GlobalData *m_globalData;
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#if NUMBER_OF_GLOBALDATA_COPIES > 0
+    struct GlobalData *m_globalDataCopies;
+#else
+#error NUMBER_OF_GLOBALDATA_COPIES needs to be larger than 0 if defined
+#endif
+#endif
 
     /*
      * element data and mpi queues
@@ -320,6 +327,9 @@ private:
 #endif
                  struct CellLocalInformation   *i_interiorCellInformation,
                  struct GlobalData             *i_globalData,
+#ifdef NUMBER_OF_GLOBALDATA_COPIES
+                 struct GlobalData             *i_globalDataCopies,
+#endif
 #ifdef USE_MPI
                  struct CellData               *i_copyCellData,
 #endif
