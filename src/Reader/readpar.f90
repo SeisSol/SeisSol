@@ -1324,6 +1324,11 @@ CONTAINS
 
     DISC%DynRup%DynRup_out_elementwise%refinement = refinement                 ! read info of desired refinement level : default 0
 
+   IF ((OutputMask(7).EQ.1) .AND. (DISC%DynRup%RF_output_on.EQ.0)) THEN
+        logError(*) 'For Vr output, RF_output_on have to be set to 1'
+        logError(*) 'Setting RF_output_on to 1'
+        DISC%DynRup%RF_output_on = 1
+   ENDIF
 
   end SUBROUTINE readpar_faultElementwise
 

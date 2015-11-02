@@ -546,10 +546,11 @@ CONTAINS
                   crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
 
                   scalarprod = dot_product(crossprod(:),NormalVect_n(:))
+                  !TU 2.11.15 :cos1**2 can be greater than 1 because of rounding errors -> min
                   IF (scalarprod.GT.0) THEN
-                      sin1=sqrt(1-cos1**2)
+                      sin1=sqrt(1-min(1d0,cos1**2))
                   ELSE
-                      sin1=-sqrt(1-cos1**2)
+                      sin1=-sqrt(1-min(1d0,cos1**2))
                   ENDIF
 
                   OutVars = OutVars + 1
