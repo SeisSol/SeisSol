@@ -426,6 +426,7 @@ CONTAINS
     REAL                      :: phigrad(3), grad(3,3), tmp(3,3)
     INTEGER                   :: i, k, h, n, l, iElem, iDegFr
     INTEGER                   :: LocElemType
+    real                      :: cPoly3DTmp(0:DISC%Galerkin%nPolyRec, 0:DISC%Galerkin%nPolyRec, 0:DISC%Galerkin%nPolyRec, 0:DISC%Galerkin%nDegFrRec-1)
     !--------------------------------------------------------------------------
     INTENT(IN)                :: EQN,MESH,DISC,j,TaylorDof,time,localpicktime
     INTENT(OUT)               :: state, state_rot
@@ -492,14 +493,11 @@ CONTAINS
           ENDDO
           !
           !Getting the polynomial of the variables in the X,Y,Z coordinate system
+          cPoly3DTmp = cPoly3D(0:DISC%Galerkin%nPolyRec, 0:DISC%Galerkin%nPolyRec, 0:DISC%Galerkin%nPolyRec, 0:DISC%Galerkin%nDegFrRec-1, DISC%Galerkin%nPolyRec)
           CALL ConvertXiEtaZeta2XYZ( &
                    XYZcPoly   = XYZcPoly,                                                &
                    u_hat      = InterpDOF,                                               &
-                   cpoly      = cPoly3D(0:DISC%Galerkin%nPolyRec,                        &
-                                                          0:DISC%Galerkin%nPolyRec,      &
-                                                          0:DISC%Galerkin%nPolyRec,      &
-                                                          0:DISC%Galerkin%nDegFrRec-1,   &
-                                                          DISC%Galerkin%nPolyRec),       &
+                   cpoly      = cPoly3DTmp,                                              &
                    x          = x,                                                       &
                    y          = y,                                                       &
                    z          = z,                                                       &

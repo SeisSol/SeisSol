@@ -49,6 +49,10 @@
 #include <mpi.h>
 #endif
 
+#if defined(__AVX__)
+#include <immintrin.h>
+#endif
+
 extern seissol::Interoperability e_interoperability;
 
 template<typename T>
@@ -65,24 +69,85 @@ public:
 
 void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& mesh, unsigned numSources, uint8_t* contained, unsigned* meshIds)
 {
-  memset(contained, 0, numSources * sizeof(uint8_t));
-
   std::vector<Vertex> const& vertices = mesh.getVertices();
   std::vector<Element> const& elements = mesh.getElements();
-
+  
+  memset(contained, 0, numSources * sizeof(uint8_t));
+  
+  double (*planeEquations)[4][4];
+  int err = posix_memalign(reinterpret_cast<void**>(&planeEquations), ALIGNMENT, elements.size() * sizeof(double[4][4]));
+  if (err != 0) {
+    logError() << "Failed to allocate memory in findMeshIds().";
+  }
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
-    for (unsigned source = 0; source < numSources; ++source) {
-      VrtxCoords centre;
-      centre[0] = centres[source].x;
-      centre[1] = centres[source].y;
-      centre[2] = centres[source].z;
+    for (int face = 0; face < 4; ++face) {
+      VrtxCoords n, p;
+      MeshTools::pointOnPlane(elements[elem], face, vertices, p);
+      MeshTools::normal(elements[elem], face, vertices, n);
+      
+      for (unsigned i = 0; i < 3; ++i) {
+        planeEquations[elem][i][face] = n[i];
+      }
+      planeEquations[elem][3][face] = - MeshTools::dot(n, p);
+    }
+  }
+  
+  double (*centres1)[4] = new double[numSources][4];
+  for (unsigned source = 0; source < numSources; ++source) {
+    centres1[source][0] = centres[source].x;
+    centres1[source][1] = centres[source].y;
+    centres1[source][2] = centres[source].z;
+    centres1[source][3] = 1.0;
+  }
 
-      if (MeshTools::inside(elements[elem], vertices, centre)) {
+#if defined(__AVX__)
+  __m256d zero = _mm256_set1_pd(0.0);
+#endif  
+  
+/// \todo Could use the code generator for the following
+  for (unsigned elem = 0; elem < elements.size(); ++elem) {
+#if defined(__AVX__)
+      __m256d planeDims[4];
+      for (unsigned i = 0; i < 4; ++i) {
+        planeDims[i] = _mm256_load_pd(&planeEquations[elem][i][0]);
+      }
+#endif
+    #pragma omp parallel for schedule(static)
+    for (unsigned source = 0; source < numSources; ++source) {
+      double inside;
+#if defined(__AVX__)
+      __m256d result = _mm256_set1_pd(0.0);
+      for (unsigned dim = 0; dim < 4; ++dim) {
+        result = _mm256_add_pd(result, _mm256_mul_pd(planeDims[dim], _mm256_broadcast_sd(&centres1[source][dim])) );
+      }
+      // >0 = NaN; <0 = 0
+      __m256d inside4 = _mm256_cmp_pd(result, zero, _CMP_GE_OQ);
+      __m256d sumHalf = _mm256_hadd_pd(inside4, inside4);
+      __m128d sumHigh = _mm256_extractf128_pd(sumHalf, 1);
+      __m128d sum = _mm_add_pd(sumHigh, _mm256_castpd256_pd128(sumHalf));      
+      _mm_store_pd1(&inside, sum);
+#else
+      double result[4] = { 0.0, 0.0, 0.0, 0.0 };
+      for (unsigned dim = 0; dim < 4; ++dim) {
+        for (unsigned face = 0; face < 4; ++face) {
+          result[face] += planeEquations[elem][i][face] * centres1[source][dim][face];
+        }
+      }
+      for (unsigned face = 0; face < 4; ++face) {
+        result[face] = (result[face] >= 0) ? NAN : 0.0;
+      }
+      inside = result[0] + result[1] + result[2] + result[3];
+#endif
+
+      if (!isnan(inside)) {
         contained[source] = 1;
         meshIds[source] = elem;
       }
     }
   }
+  
+  free(planeEquations);
+  delete[] centres1;
 }
 
 #ifdef USE_MPI
@@ -194,8 +259,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
     unsigned sortedSource = sortedPointSourceIndex[source];
     unsigned meshId = meshIds[sortedSource];
     unsigned cluster = meshToClusters[meshId][0];
-    cmps[cluster].sources[source] = sortedSource;
-    ++cmps[cluster].numberOfSources;
+    cmps[cluster].sources[ cmps[cluster].numberOfSources++ ] = sortedSource;
   }  
   delete[] sortedPointSourceIndex;
 
@@ -217,13 +281,13 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
       // If we have a interior cell
       if (cell >= meshStructure[cluster].numberOfCopyCells) {
         if (lastMeshId == meshId) {
-          assert(source <= cellToPointSources[mapping].pointSourcesOffset + cellToPointSources[mapping].numberOfPointSources);
+          assert(clusterSource <= cellToPointSources[mapping].pointSourcesOffset + cellToPointSources[mapping].numberOfPointSources);
           ++cellToPointSources[mapping].numberOfPointSources;
         } else {
           lastMeshId = meshId;
           ++mapping;
           cellToPointSources[mapping].copyInteriorOffset = cell;
-          cellToPointSources[mapping].pointSourcesOffset = source;
+          cellToPointSources[mapping].pointSourcesOffset = clusterSource;
           cellToPointSources[mapping].numberOfPointSources = 1;
         }
       }
@@ -333,12 +397,14 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
     /// \todo allocate aligned or remove ALIGNED_
     sources[cluster].mInvJInvPhisAtSources = new real[cmps[cluster].numberOfSources][NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-    sources[cluster].tensor                = new real[1][9];
+    sources[cluster].tensor                = new real[cmps[cluster].numberOfSources][9];
     sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
+      //~ logInfo() << cluster << cmps[cluster].numberOfSources << clusterSource;
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned fsrmIndex = originalIndex[sourceIndex];
+      //~ logInfo() << sourceIndex << fsrmIndex;
       
       e_interoperability.computeMInvJInvPhisAtSources( centres3[fsrmIndex].x,
                                                        centres3[fsrmIndex].y,

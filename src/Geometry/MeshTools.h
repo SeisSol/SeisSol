@@ -203,6 +203,17 @@ public:
   }
   
   /**
+   * Returns a point on the plane spanned by the face-th plane.
+   */
+  static void pointOnPlane(Element const& e, int face, std::vector<Vertex> const& vertices, VrtxCoords result)
+  {
+    int index = e.vertices[FACE2NODES[face][0]];
+    for (int i = 0; i < 3; i++) {
+			result[i] = vertices[index].coords[i];
+    }
+  }
+  
+  /**
    * Checks if a point p is inside a tetrahedron
    **/
   static bool inside(Element const&e, std::vector<Vertex> const& vertices, VrtxCoords const p)
