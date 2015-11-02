@@ -147,6 +147,12 @@ int main(int argc, char* argv[])
 	args.addOption("pz", 0, "number of partitions z dimension");
 	args.addOption("output", 'o', "output file for resulting netCDF mesh");
   args.addOption("scale", 's', "size of the domain = [-s/2, s/2]^3 (default: 100)", utils::Args::Required, false);
+  args.addOption("sx", 0, "scale in x direction (overwrites scale in x direction)", utils::Args::Required, false);
+  args.addOption("sy", 0, "scale in y direction (overwrites scale in y direction)", utils::Args::Required, false);
+  args.addOption("sz", 0, "scale in z direction (overwrites scale in z direction)", utils::Args::Required, false);
+  args.addOption("tx", 0, "mesh translation in x direction (after scaling)", utils::Args::Required, false);
+  args.addOption("ty", 0, "mesh translation in y direction (after scaling)", utils::Args::Required, false);
+  args.addOption("tz", 0, "mesh translation in z direction (after scaling)", utils::Args::Required, false);
 
 	unsigned int numCubes[4];
 	unsigned int numPartitions[4];
@@ -1178,7 +1184,16 @@ int main(int argc, char* argv[])
   
   
   double scale = args.getArgument<double>("scale", 100.0);
-  double halfWidth = scale / 2.0;
+  double scaleX = args.getArgument<double>("sx", scale);
+  double scaleY = args.getArgument<double>("sy", scale);
+  double scaleZ = args.getArgument<double>("sz", scale);
+  double halfWidthX = scaleX / 2.0;
+  double halfWidthY = scaleY / 2.0;
+  double halfWidthZ = scaleZ / 2.0;
+  
+  double tx = args.getArgument<double>("tx", 0.0);
+  double ty = args.getArgument<double>("ty", 0.0);
+  double tz = args.getArgument<double>("tz", 0.0);
 
 	for (unsigned int z = 0; z < numPartitions[2]; z++) {
 		for (unsigned int y = 0; y < numPartitions[1]; y++) {
@@ -1186,9 +1201,9 @@ int main(int argc, char* argv[])
 
 				#pragma omp parallel for
 				for (unsigned int i = 0; i < uniqueVertices.size(); i++) {
-					vrtxCoords[i*3] = static_cast<double>(uniqueVertices.at(i).v[0] + x*numCubesPerPart[0])/static_cast<double>(numCubes[0])*scale - halfWidth;
-					vrtxCoords[i*3+1] = static_cast<double>(uniqueVertices.at(i).v[1] + y*numCubesPerPart[1])/static_cast<double>(numCubes[1])*scale - halfWidth;
-					vrtxCoords[i*3+2] = static_cast<double>(uniqueVertices.at(i).v[2] + z*numCubesPerPart[2])/static_cast<double>(numCubes[2])*scale - halfWidth;
+					vrtxCoords[i*3] = static_cast<double>(uniqueVertices.at(i).v[0] + x*numCubesPerPart[0])/static_cast<double>(numCubes[0])*scaleX - halfWidthX + tx;
+					vrtxCoords[i*3+1] = static_cast<double>(uniqueVertices.at(i).v[1] + y*numCubesPerPart[1])/static_cast<double>(numCubes[1])*scaleY - halfWidthY + ty;
+					vrtxCoords[i*3+2] = static_cast<double>(uniqueVertices.at(i).v[2] + z*numCubesPerPart[2])/static_cast<double>(numCubes[2])*scaleZ - halfWidthZ + tz;
 				}
 
 				size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, 0, 0};

@@ -130,7 +130,7 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
       double result[4] = { 0.0, 0.0, 0.0, 0.0 };
       for (unsigned dim = 0; dim < 4; ++dim) {
         for (unsigned face = 0; face < 4; ++face) {
-          result[face] += planeEquations[elem][i][face] * centres1[source][dim][face];
+          result[face] += planeEquations[elem][dim][face] * centres1[source][dim];
         }
       }
       for (unsigned face = 0; face < 4; ++face) {
@@ -401,10 +401,8 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
-      //~ logInfo() << cluster << cmps[cluster].numberOfSources << clusterSource;
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned fsrmIndex = originalIndex[sourceIndex];
-      //~ logInfo() << sourceIndex << fsrmIndex;
       
       e_interoperability.computeMInvJInvPhisAtSources( centres3[fsrmIndex].x,
                                                        centres3[fsrmIndex].y,
