@@ -685,7 +685,8 @@ OutputPointType & 3 & integer & Output is Pickpointwise.\\
 \textcolor{red}{New namelist:} & & &\\
 \textcolor{red}{Elementwise} & & &\\
 \textcolor{green}{printtimeinterval} & 2 & integer & Timeinterval \\
-\textcolor{green}{OutputMask} & (1, 1, 1, 0, 1)& integer & \\
+\textcolor{green}{OutputMask} & (1, 1, 1, 0, 1, 0, 0)& integer & 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable
+                               ! 5/ background values 6/ strike and dip slip 7/ rupture velocity (require RF output)\\
 \textcolor{green}{refinement\_strategy} & 2 & integer & \\
 \textcolor{green}{refinement} & 2 & integer & \\
 \textcolor{green}{BinaryOutput} & 0 & integer & 0: ASCII; 1: binary float; 2: binary double\\
