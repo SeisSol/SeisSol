@@ -42,34 +42,7 @@
 #include "SRF.h"
 #include "Map.h"
 
-typedef struct Vector3 {
-    double x;
-    double y;
-    double z;
-} Vector3;
-
-typedef struct Subfault_units {
-    char* tinit;
-    char* timestep;
-    char* mu;
-    char* area;
-    char* tan1;
-    char* tan2;
-    char* normal;
-} Subfault_units;
-
-typedef struct Subfault {
-    double tinit;
-    double timestep;
-    double mu;
-    double area;
-    Vector3 tan1;
-    Vector3 tan2;
-    Vector3 normal;
-} Subfault;
-
-typedef unsigned Offsets[3];
-
+#include <SourceTerm/NRF.h>
 
 void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map);
 

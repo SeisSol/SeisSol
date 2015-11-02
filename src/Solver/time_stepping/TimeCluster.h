@@ -47,6 +47,7 @@
 #endif
 
 #include <Initializer/typedefs.hpp>
+#include <SourceTerm/typedefs.hpp>
 #include <utils/logger.h>
 #include <Kernels/Time.h>
 #include <Kernels/Volume.h>
@@ -139,13 +140,13 @@ private:
     std::vector< int > m_receivers;
     
     //! Mapping of cells to point sources
-    CellToPointSourcesMapping* m_cellToPointSources;
+    sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
 
     //! Number of mapping of cells to point sources
     unsigned m_numberOfCellToPointSourcesMappings;
 
     //! Point sources
-    PointSources* m_pointSources;
+    sourceterm::PointSources const* m_pointSources;
 
     //! true if dynamic rupture faces are present
     bool m_dynamicRuptureFaces;
@@ -356,9 +357,9 @@ private:
      * @param i_numberOfCellToPointSourcesMappings Size of i_cellToPointSources
      * @param i_pointSources pointer to all point sources used on this cluster
      */
-    void setPointSources( CellToPointSourcesMapping* i_cellToPointSources,
+    void setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
                           unsigned i_numberOfCellToPointSourcesMappings,
-                          PointSources* i_pointSources );
+                          sourceterm::PointSources const* i_pointSources );
 
     /**
      * Adds a receiver to the cluster.

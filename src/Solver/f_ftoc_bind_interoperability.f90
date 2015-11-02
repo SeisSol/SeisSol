@@ -80,29 +80,22 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
   
+  ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
-    subroutine c_interoperability_allocatePointSources( i_meshIds, i_numberOfPointSources ) bind ( C, name='c_interoperability_allocatePointSources' )
-      use iso_c_binding
+    subroutine c_interoperability_setupFSRMPointSources( momentTensor, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) bind( C, name='c_interoperability_setupFSRMPointSources' )
+      use iso_c_binding, only: c_double, c_int
       implicit none
-      integer(kind=c_int), dimension(*), intent(in) :: i_meshIds
-      integer(kind=c_int), value                    :: i_numberOfPointSources
-    end subroutine
-  end interface
-  
-  interface
-    subroutine c_interoperability_setupPointSource( i_source, i_mInvJInvPhisAtSources, i_localMomentTensor, i_strike, i_dip, i_rake, i_samples, i_numberOfSamples, i_onsetTime, i_samplingInterval ) bind ( C, name='c_interoperability_setupPointSource' )
-      use iso_c_binding
-      implicit none
-      integer(kind=c_int), value :: i_source
-      type(c_ptr), value :: i_mInvJInvPhisAtSources
-      type(c_ptr), value :: i_localMomentTensor
-      type(c_ptr), value :: i_strike
-      type(c_ptr), value :: i_dip
-      type(c_ptr), value :: i_rake
-      real(kind=c_double), dimension(*), intent(in) :: i_samples
-      integer(kind=c_int), value :: i_numberOfSamples
-      type(c_ptr), value :: i_onsetTime
-      real(kind=c_double), value :: i_samplingInterval
+      real(kind=c_double), dimension(*), intent(in) :: momentTensor
+      integer(kind=c_int), value                    :: numberOfSources
+      real(kind=c_double), dimension(*), intent(in) :: centres
+      real(kind=c_double), dimension(*), intent(in) :: strikes
+      real(kind=c_double), dimension(*), intent(in) :: dips
+      real(kind=c_double), dimension(*), intent(in) :: rakes
+      real(kind=c_double), dimension(*), intent(in) :: onsets
+      real(kind=c_double), dimension(*), intent(in) :: areas
+      real(kind=c_double), value                    :: timestep
+      integer(kind=c_int), value                    :: numberOfSamples
+      real(kind=c_double), dimension(*), intent(in) :: timeHistories
     end subroutine
   end interface
 

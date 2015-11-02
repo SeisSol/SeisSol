@@ -36,7 +36,7 @@
  **/
 #include <cxxtest/TestSuite.h>
 
-#include <Physics/PointSource.h>
+#include <SourceTerm/PointSource.h>
 
 namespace seissol {
   namespace unit_test {

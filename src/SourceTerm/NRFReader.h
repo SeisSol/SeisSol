@@ -2,10 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2013, SeisSol Group
+ * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -35,37 +35,18 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Aligned memory allocation.
+ * Point source computation.
  **/
-#include "MemoryAllocator.h"
 
-seissol::MemoryAllocator::MemoryAllocator() {
-}
+#ifndef READER_NRFREADER_H_
+#define READER_NRFREADER_H_
 
-seissol::MemoryAllocator::~MemoryAllocator() {
-  freeMemory();
-}
+#include "NRF.h"
 
-void seissol::MemoryAllocator::printMemoryAlignment( std::vector< std::vector<unsigned long long> > i_memoryAlignment ) {
-  logDebug() << "printing memory alignment per struct";
-  for( unsigned long long l_i = 0; l_i < i_memoryAlignment.size(); l_i++ ) {
-    logDebug() << i_memoryAlignment[l_i][0] << ", " << i_memoryAlignment[l_i][1];
+namespace seissol {
+  namespace sourceterm {
+    void readNRF(char const* filename, NRF& nrf);
   }
 }
 
-void seissol::MemoryAllocator::freeMemory() {
-  for (AddressVector::const_iterator it = m_dataMemoryAddresses.begin(); it != m_dataMemoryAddresses.end(); ++it) {
-#ifdef USE_MEMKIND
-    if (it->first == Standard) {
 #endif
-      free( it->second );
-#ifdef USE_MEMKIND
-    } else {
-      hbw_free( it->second );
-    }
-#endif
-  }
-
-  // reset memory vectors
-  m_dataMemoryAddresses.clear();
-}

@@ -37,12 +37,17 @@
  * @section DESCRIPTION
  **/
 
-#include "NRF.h"
+#include "NRFWriter.h"
 #include <netcdf.h>
 #include <iostream>
 #include <cstring>
 #include <limits>
 #include <cmath>
+
+using seissol::sourceterm::Vector3;
+using seissol::sourceterm::Subfault;
+using seissol::sourceterm::Subfault_units;
+using seissol::sourceterm::Offsets;
 
 void check_err(const int stat, const int line, const char *file) {
     if (stat != NC_NOERR) {

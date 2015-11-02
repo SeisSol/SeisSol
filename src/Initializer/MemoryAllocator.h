@@ -81,6 +81,7 @@ class seissol::MemoryAllocator {
     };
   
     MemoryAllocator();
+    ~MemoryAllocator();
 
     /**
      * Allocates a single chunk of memory with the given size and alignment.
@@ -136,8 +137,6 @@ class seissol::MemoryAllocator {
 
     /**
      * Frees all memory, which was allocated by functions of the MemoryAllocator.
-     *
-     * @todo call this function from the destructor automatically
      **/
     void freeMemory();
 };

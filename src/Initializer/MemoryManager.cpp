@@ -114,8 +114,6 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
 }
 
 seissol::initializers::MemoryManager::~MemoryManager() {
-  // free members
-
   // free memory of the memory allocate
   m_memoryAllocator.freeMemory();
 }

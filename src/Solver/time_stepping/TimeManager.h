@@ -47,6 +47,7 @@
 #include <cassert>
 
 #include <Initializer/typedefs.hpp>
+#include <SourceTerm/typedefs.hpp>
 #include <utils/logger.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
@@ -247,10 +248,7 @@ class seissol::time_stepping::TimeManager {
      * @param i_pointSources Array of PointSources
      * @param i_numberOfLocalClusters Number of entries in i_pointSources
      */
-    void setPointSourcesForClusters( CellToPointSourcesMapping** i_cellToPointSources,
-                                     unsigned* i_numberOfCellToPointSourcesMappings,
-                                     PointSources* i_pointSources,
-                                     unsigned i_numberOfLocalClusters );
+    void setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources );
 
     /**
      * Adds a receiver.

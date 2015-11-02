@@ -38,13 +38,13 @@
  * Point source computation.
  **/
 
-#ifndef PHYSICS_POINTSOURCE_H_
-#define PHYSICS_POINTSOURCE_H_
+#ifndef SOURCETERM_POINTSOURCE_H_
+#define SOURCETERM_POINTSOURCE_H_
 
 #include <Initializer/typedefs.hpp>
 
 namespace seissol {
-  namespace physics {
+  namespace sourceterm {
     /** The local moment tensor shall be transformed into the global coordinate system.
      * 
      * The second order tensor (matrix) can be understood as a transform
@@ -78,7 +78,14 @@ namespace seissol {
                                             real i_onsetTime,
                                             real i_samplingInterval,
                                             PiecewiseLinearFunction1D* o_pwLF)
-    {     
+    {
+      if (i_numberOfSamples == 0) {
+        o_pwLF->numberOfPieces = 0;
+        o_pwLF->slopes = NULL;
+        o_pwLF->intercepts = NULL;
+        return;        
+      }
+
       unsigned l_np = i_numberOfSamples - 1;
       
       o_pwLF->slopes = new real[l_np];
@@ -116,6 +123,14 @@ namespace seissol {
                                  double i_fromTime,
                                  double i_toTime);
 
+    void addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                          real const faultBasis[9],
+                                          real muA,
+                                          real lambdaA,
+                                          PiecewiseLinearFunction1D const (*slipRates)[3],
+                                          double i_fromTime,
+                                          double i_toTime,
+                                          real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] );
     /**
      * Point sources in SeisSol (\delta(x-x_s) * S(t)).
      * 
@@ -123,13 +138,13 @@ namespace seissol {
      * Q_kl is a DOF. phiAtSource times momentTensor is to be understood
      * as outer product of two vectors (i.e. yields a rank-1 dof-update-matrix that shall
      * be scaled with the time integral of the source term).
-     **/
-    void addTimeIntegratedPointSource(real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                                      real const i_momentTensor[NUMBER_OF_QUANTITIES],
-                                      PiecewiseLinearFunction1D const* i_pwLF,
-                                      double i_fromTime,
-                                      double i_toTime,
-                                      real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS]);
+     **/                                      
+    void addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+                                           real const i_momentTensor[NUMBER_OF_QUANTITIES],
+                                           PiecewiseLinearFunction1D const* i_pwLF,
+                                           double i_fromTime,
+                                           double i_toTime,
+                                           real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] );
   }
 }
 

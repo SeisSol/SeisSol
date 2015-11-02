@@ -50,6 +50,7 @@
 #include "Solver/Simulator.h"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Checkpoint/Manager.h"
+#include "SourceTerm/Manager.h"
 #endif // GENERATEDKERNELS
 
 #include "ResultWriter/WaveFieldWriter.h"
@@ -90,6 +91,9 @@ private:
 
 	/** Check pointing module */
 	checkpoint::Manager m_checkPointManager;
+  
+  /** Source term module */
+  sourceterm::Manager m_sourceTermManager;
 #endif // GENERATEDKERNELS
 
 	/** Wavefield output module */
@@ -146,6 +150,11 @@ public:
 	{
 		return m_checkPointManager;
 	}
+  
+  sourceterm::Manager& sourceTermManager()
+  {
+    return m_sourceTermManager;
+  }
 #endif // GENERATEDKERNELS
 	/**
 	 * Get the wave field writer module

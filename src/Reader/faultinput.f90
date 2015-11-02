@@ -276,7 +276,7 @@ module faultinput_mod
   	implicit none
   	!-------------------------------------------------------------------------!
 	type(tDiscretization), intent(inout), target :: disc
-	type(tEquations), intent(in)                 :: eqn
+	type(tEquations), intent(inout)                 :: eqn
     type(tInputOutput)                           :: IO
     integer, intent(out)                         :: ios             ! I/O-Status of input
   	type(tDist), allocatable, intent(inout)      :: dists(:)        ! Heterogeneous distribution blocks

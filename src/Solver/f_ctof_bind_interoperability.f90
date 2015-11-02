@@ -243,4 +243,59 @@ module f_ctof_bind_interoperability
                      io                  = l_domain%io )
     end subroutine
 
+
+    subroutine f_interoperability_computeMInvJInvPhisAtSources( i_domain, i_x, i_y, i_z, i_elem, o_mInvJInvPhisAtSources ) bind( c, name='f_interoperability_computeMInvJInvPhisAtSources')
+      use iso_c_binding
+      use TypesDef
+      use DGBasis_mod
+
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+
+      real(kind=c_double), value             :: i_x, i_y, i_z      
+      integer(kind=c_int), value             :: i_elem
+
+      type(c_ptr), value                     :: o_mInvJInvPhisAtSources
+      real*8, pointer                        :: l_mInvJInvPhisAtSources(:)
+      
+      real                                   :: l_xi, l_eta, l_zeta
+      integer                                :: indices(4) ! == MESH%nVertices_Tet
+      integer                                :: l_elem, l_dof
+      real                                   :: vx(4), vy(4), vz(4)
+      
+      call c_f_pointer( i_domain,                 l_domain                                              )
+      call c_f_pointer( o_mInvJInvPhisAtSources,  l_mInvJInvPhisAtSources,  [NUMBER_OF_BASIS_FUNCTIONS] )
+      
+      ! f_elem = c_elem + 1
+      l_elem = i_elem + 1
+      indices = l_domain%MESH%ELEM%Vertex(1:l_domain%MESH%nVertices_Tet, l_elem)
+      vx = l_domain%MESH%VRTX%xyNode(1, indices)
+      vy = l_domain%MESH%VRTX%xyNode(2, indices)
+      vz = l_domain%MESH%VRTX%xyNode(3, indices)
+      
+      call TrafoXYZ2XiEtaZeta(xi    = l_xi,   &
+                              eta   = l_eta,  &
+                              zeta  = l_zeta, &
+                              xP    = i_x,    &
+                              yP    = i_y,    &
+                              zP    = i_z,    &
+                              x     = vx,     &
+                              y     = vy,     &
+                              z     = vz,     &
+                              vType = l_domain%MESH%GlobalVrtxType )
+
+      do l_dof = 1, NUMBER_OF_BASIS_FUNCTIONS
+        call BaseFunc3D(l_mInvJInvPhisAtSources(l_dof),             &
+                        l_dof,                                      &
+                        l_xi,                                       &
+                        l_eta,                                      &
+                        l_zeta,                                     &
+                        l_domain%DISC%Galerkin%nPoly,               &
+                        l_domain%DISC%Galerkin%cPoly3D_Tet,         &
+                        l_domain%DISC%Galerkin%NonZeroCPoly_Tet,    &
+                        l_domain%DISC%Galerkin%NonZeroCPolyIndex_Tet)
+
+        l_mInvJInvPhisAtSources(l_dof) = l_mInvJInvPhisAtSources(l_dof) / ( 6.0d0 * l_domain%MESH%ELEM%Volume(l_elem) * l_domain%DISC%Galerkin%MassMatrix_Tet(l_dof, l_dof, l_domain%DISC%Galerkin%nPoly) )
+      end do
+    end subroutine
 end module

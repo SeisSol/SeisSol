@@ -46,7 +46,7 @@ sourceFiles = ['seissolxx.f90', 'SeisSol.cpp', 'main.cpp']
 for i in sourceFiles:
     env.sourceFiles.append(env.Object(i))
 
-sourceDirectories = ['Monitoring', 'Geometry', 'Initializer', 'Equations', 'Model', 'Numerical_aux', 'Physics', 'Reader', 'ResultWriter', 'Solver', 'Parallel']
+sourceDirectories = ['Monitoring', 'Geometry', 'Initializer', 'Equations', 'Model', 'Numerical_aux', 'Physics', 'Reader', 'ResultWriter', 'Solver', 'SourceTerm', 'Parallel']
 
 if env['generatedKernels']:
   sourceDirectories = sourceDirectories + ['Checkpoint']
