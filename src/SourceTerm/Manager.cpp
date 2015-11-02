@@ -112,7 +112,9 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
         planeDims[i] = _mm256_load_pd(&planeEquations[elem][i][0]);
       }
 #endif
+#ifdef _OPENMP
     #pragma omp parallel for schedule(static)
+#endif
     for (unsigned source = 0; source < numSources; ++source) {
       double inside;
 #if defined(__AVX__)
@@ -175,7 +177,7 @@ void seissol::sourceterm::cleanDoubles(uint8_t* contained, unsigned numSources)
   }
   
   if (cleaned > 0) {
-    logInfo() << "Cleaned " << cleaned << " double occurring sources on rank " << myrank << ".";
+    logInfo(myrank) << "Cleaned " << cleaned << " double occurring sources on rank " << myrank << ".";
   }
   
   delete[] globalContained;
@@ -351,9 +353,16 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
 {
   freeSources();
   
-  logInfo() << "<--------------------------------------------------------->";
-  logInfo() << "<                      Point sources                      >";
-  logInfo() << "<--------------------------------------------------------->";
+  int rank;
+#ifdef USE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+  rank = 0;
+#endif
+  
+  logInfo(rank) << "<--------------------------------------------------------->";
+  logInfo(rank) << "<                      Point sources                      >";
+  logInfo(rank) << "<--------------------------------------------------------->";
 
   uint8_t* contained = new uint8_t[numberOfSources];
   unsigned* meshIds = new unsigned[numberOfSources];
@@ -365,12 +374,12 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     centres3[source].z = centres[3*source + 2];
   }
   
-  logInfo() << "Finding meshIds for point sources...";
+  logInfo(rank) << "Finding meshIds for point sources...";
   
   findMeshIds(centres3, mesh, numberOfSources, contained, meshIds);
 
 #ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring point sources for MPI...";
+  logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
   cleanDoubles(contained, numberOfSources);
 #endif
 
@@ -383,7 +392,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   }
   delete[] contained;
 
-  logInfo() << "Mapping point sources to LTS cells...";
+  logInfo(rank) << "Mapping point sources to LTS cells...";
   mapPointSourcesToClusters(meshIds, numSources, meshToClusters, meshToCopyInterior, copyInteriorToMesh, meshStructure, numberOfClusters);
   
   real localMomentTensor[3][3];
@@ -445,23 +454,30 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
                                                        time_stepping::TimeManager&   timeManager )
 {
   freeSources();
-
-  logInfo() << "<--------------------------------------------------------->";
-  logInfo() << "<                      Point sources                      >";
-  logInfo() << "<--------------------------------------------------------->";
   
-  logInfo() << "Reading" << fileName;
+  int rank;
+#ifdef USE_MPI
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#else
+  rank = 0;
+#endif
+
+  logInfo(rank) << "<--------------------------------------------------------->";
+  logInfo(rank) << "<                      Point sources                      >";
+  logInfo(rank) << "<--------------------------------------------------------->";
+  
+  logInfo(rank) << "Reading" << fileName;
   NRF nrf;
   readNRF(fileName, nrf);
   
   uint8_t* contained = new uint8_t[nrf.source];
   unsigned* meshIds = new unsigned[nrf.source];
   
-  logInfo() << "Finding meshIds for point sources...";
+  logInfo(rank) << "Finding meshIds for point sources...";
   findMeshIds(nrf.centres, mesh, nrf.source, contained, meshIds);
 
 #ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring point sources for MPI...";
+  logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
   cleanDoubles(contained, nrf.source);
 #endif
 
@@ -474,7 +490,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
   }
   delete[] contained;
 
-  logInfo() << "Mapping point sources to LTS cells...";
+  logInfo(rank) << "Mapping point sources to LTS cells...";
   mapPointSourcesToClusters(meshIds, numSources, meshToClusters, meshToCopyInterior, copyInteriorToMesh, meshStructure, numberOfClusters);
   
   sources = new PointSources[numberOfClusters];
