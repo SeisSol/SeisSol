@@ -97,12 +97,12 @@ public:
     }
 };
 
-void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& mesh, unsigned numSources, uint8_t* contained, unsigned* meshIds)
+void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& mesh, unsigned numSources, short* contained, unsigned* meshIds)
 {
   std::vector<Vertex> const& vertices = mesh.getVertices();
   std::vector<Element> const& elements = mesh.getElements();
   
-  memset(contained, 0, numSources * sizeof(uint8_t));
+  memset(contained, 0, numSources * sizeof(short));
   
   double (*planeEquations)[4][4];
   int err = posix_memalign(reinterpret_cast<void**>(&planeEquations), ALIGNMENT, elements.size() * sizeof(double[4][4]));
@@ -185,15 +185,15 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
 }
 
 #ifdef USE_MPI
-void seissol::sourceterm::cleanDoubles(uint8_t* contained, unsigned numSources)
+void seissol::sourceterm::cleanDoubles(short* contained, unsigned numSources)
 {
   int myrank;
   int size;
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  uint8_t* globalContained = new uint8_t[size * numSources];
-  MPI_Allgather(contained, numSources, MPI_UINT8_T, globalContained, numSources, MPI_UINT8_T, MPI_COMM_WORLD);
+  short* globalContained = new short[size * numSources];
+  MPI_Allgather(contained, numSources, MPI_SHORT, globalContained, numSources, MPI_SHORT, MPI_COMM_WORLD);
   
   unsigned cleaned = 0;
   for (unsigned source = 0; source < numSources; ++source) {
@@ -396,7 +396,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   logInfo(rank) << "<                      Point sources                      >";
   logInfo(rank) << "<--------------------------------------------------------->";
 
-  uint8_t* contained = new uint8_t[numberOfSources];
+  short* contained = new short[numberOfSources];
   unsigned* meshIds = new unsigned[numberOfSources];
   Vector3* centres3 = new Vector3[numberOfSources];
   
@@ -502,7 +502,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
   NRF nrf;
   readNRF(fileName, nrf);
   
-  uint8_t* contained = new uint8_t[nrf.source];
+  short* contained = new short[nrf.source];
   unsigned* meshIds = new unsigned[nrf.source];
   
   logInfo(rank) << "Finding meshIds for point sources...";
