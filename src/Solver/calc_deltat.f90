@@ -115,16 +115,16 @@ CONTAINS
     TYPE (tUnstructOptionalFields):: OptionalFields
     !--------------------------------------------------------------------------
     !                                                   !
-    IF (ASSOCIATED(OptionalFields%vel)) THEN            !
+    IF (allocated(OptionalFields%vel)) THEN            !
         DEALLOCATE(OptionalFields%vel)                  ! Deallocate
     END IF                                              !
-    IF (ASSOCIATED(OptionalFields%sound)) THEN          !
+    IF (allocated(OptionalFields%sound)) THEN          !
         DEALLOCATE(OptionalFields%sound)                ! Deallocate
     END IF                                              !
-    IF (ASSOCIATED(OptionalFields%dt_convectiv)) THEN   !
+    IF (allocated(OptionalFields%dt_convectiv)) THEN   !
         DEALLOCATE(OptionalFields%dt_convectiv)         ! Deallocate
     END IF                                              !
-    IF (ASSOCIATED(OptionalFields%mask)) THEN           !
+    IF (allocated(OptionalFields%mask)) THEN           !
         DEALLOCATE(OptionalFields%mask)                 ! Deallocate
     END IF
 ! aheineck, @TODO, not referecned in the code, commented                                              !
@@ -197,7 +197,7 @@ CONTAINS
     IMPLICIT NONE
     !--------------------------------------------------------------------------
     ! argument list declaration
-    TYPE (tUnstructOptionalFields),TARGET :: OptionalFields
+    TYPE (tUnstructOptionalFields)        :: OptionalFields
     TYPE (tEquations)                     :: EQN
     TYPE (tUnstructMesh)                  :: MESH
     TYPE (tDiscretization)                :: DISC

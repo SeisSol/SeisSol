@@ -1829,11 +1829,11 @@ MODULE TypesDef
 !     REAL                         , POINTER :: grd(:,:,:)                      ! aheineck @TODO not referenced in the code -> commented
      TYPE(tPointerToField)        , POINTER :: FieldMask(:) => NULL()
      !< calc_deltaT
-     REAL                         , POINTER :: vel(  :) => NULL()
-     REAL                         , POINTER :: sound(:) => NULL()
-     REAL                         , POINTER :: dt_convectiv(:) => NULL()
+     real, dimension(:), allocatable        :: vel
+     real, dimension(:), allocatable        :: sound
+     real, dimension(:), allocatable        :: dt_convectiv
 !     REAL                         , POINTER :: dt_viscos(:)                    ! aheineck @TODO not referenced in the code -> commented
-     LOGICAL                      , POINTER :: mask( :) => NULL()
+     logical, dimension(:), allocatable     :: mask
      !< FaceAdjustment und
      !< Viscous Part
      REAL                         , POINTER :: pvar_n(:,:) => NULL()
