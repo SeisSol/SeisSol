@@ -130,15 +130,15 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
                                                            real const faultBasis[9],
                                                            real muA,
                                                            real lambdaA,
-                                                           PiecewiseLinearFunction1D const (*slipRates)[3],
+                                                           PiecewiseLinearFunction1D const slipRates[3],
                                                            double i_fromTime,
                                                            double i_toTime,
                                                            real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] )
 {  
   real slip[] = { 0.0, 0.0, 0.0};
   for (unsigned i = 0; i < 3; ++i) {
-    if (slipRates[i]->numberOfPieces > 0) {
-      slip[i] = computePwLFTimeIntegral(slipRates[i], i_fromTime, i_toTime);
+    if (slipRates[i].numberOfPieces > 0) {
+      slip[i] = computePwLFTimeIntegral(&slipRates[i], i_fromTime, i_toTime);
     }
   }
   

@@ -1874,9 +1874,9 @@ MODULE TypesDef
      TYPE(tInitialCondition)                :: IC
      TYPE(tAnalyse)                         :: ANALYSE
      TYPE(tUnstructOptionalFields)          :: OptionalFields
-     REAL                         , POINTER :: pvar(:,:)
-     REAL                         , POINTER :: cvar(:,:)
-     REAL                         , POINTER :: vvar(:,:)
+     REAL                         , POINTER :: pvar(:,:) => NULL()
+     REAL                         , POINTER :: cvar(:,:) => NULL()
+     REAL                         , POINTER :: vvar(:,:) => NULL()
      REAL                                   :: dtReference
      REAL                                   :: PeriodicDisp(4) 
   END TYPE tUnstructDomainDescript

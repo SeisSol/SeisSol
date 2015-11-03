@@ -254,7 +254,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                        m_pointSources->tensor[source],
                                                        m_pointSources->muA[source],
                                                        m_pointSources->lambdaA[source],
-                                                       &m_pointSources->slipRates[source],
+                                                       m_pointSources->slipRates[source],
                                                        m_fullUpdateTime,
                                                        m_fullUpdateTime + m_timeStepWidth,
                                                        dofUpdate );

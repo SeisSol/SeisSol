@@ -127,7 +127,7 @@ namespace seissol {
                                           real const faultBasis[9],
                                           real muA,
                                           real lambdaA,
-                                          PiecewiseLinearFunction1D const (*slipRates)[3],
+                                          PiecewiseLinearFunction1D const slipRates[3],
                                           double i_fromTime,
                                           double i_toTime,
                                           real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] );
