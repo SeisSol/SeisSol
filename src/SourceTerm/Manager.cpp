@@ -100,34 +100,28 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
     centres1[source][3] = 1.0;
   }
 
-#if defined(__AVX__)
-  __m256d zero = _mm256_set1_pd(0.0);
-#endif  
-  
-/// \todo Could use the code generator for the following
+/// @TODO Could use the code generator for the following
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(static)
+#endif
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
-#if defined(__AVX__)
+#if 0 //defined(__AVX__)
+      __m256d zero = _mm256_setzero_pd();
       __m256d planeDims[4];
       for (unsigned i = 0; i < 4; ++i) {
         planeDims[i] = _mm256_load_pd(&planeEquations[elem][i][0]);
       }
 #endif
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
-#endif
     for (unsigned source = 0; source < numSources; ++source) {
-      double inside;
-#if defined(__AVX__)
-      __m256d result = _mm256_set1_pd(0.0);
+      int l_notInside = 0;
+#if 0 //defined(__AVX__)
+      __m256d result = _mm256_setzero_pd();
       for (unsigned dim = 0; dim < 4; ++dim) {
         result = _mm256_add_pd(result, _mm256_mul_pd(planeDims[dim], _mm256_broadcast_sd(&centres1[source][dim])) );
       }
-      // >0 = NaN; <0 = 0
+      // >0 => (2^64)-1 ; <0 = 0
       __m256d inside4 = _mm256_cmp_pd(result, zero, _CMP_GE_OQ);
-      __m256d sumHalf = _mm256_hadd_pd(inside4, inside4);
-      __m128d sumHigh = _mm256_extractf128_pd(sumHalf, 1);
-      __m128d sum = _mm_add_pd(sumHigh, _mm256_castpd256_pd128(sumHalf));      
-      _mm_store_pd1(&inside, sum);
+      l_notInside = _mm256_movemask_pd(inside4);
 #else
       double result[4] = { 0.0, 0.0, 0.0, 0.0 };
       for (unsigned dim = 0; dim < 4; ++dim) {
@@ -136,14 +130,22 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
         }
       }
       for (unsigned face = 0; face < 4; ++face) {
-        result[face] = (result[face] >= 0) ? NAN : 0.0;
+        l_notInside += (result[face] >= 0.0) ? 1 : 0;
       }
-      inside = result[0] + result[1] + result[2] + result[3];
 #endif
-
-      if (!isnan(inside)) {
-        contained[source] = 1;
-        meshIds[source] = elem;
+      if (l_notInside == 0) {
+#ifdef _OPENMP
+        #pragma omp critical
+        {
+#endif
+          if (contained[source] != 0) {
+             logError() << "source with id " << source << " was already found in a different element!";
+          }
+          contained[source] = 1;
+          meshIds[source] = elem;
+#ifdef _OPENMP
+        }
+#endif
       }
     }
   }
