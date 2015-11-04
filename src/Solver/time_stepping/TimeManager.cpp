@@ -103,7 +103,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #endif
     struct CellLocalInformation   *l_interiorCellInformation = NULL;
     struct GlobalData             *l_globalData              = NULL;
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
     struct GlobalData             *l_globalDataCopies        = NULL;
 #endif
 #ifdef USE_MPI
@@ -120,7 +120,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #endif
                                      l_interiorCellInformation,
                                      l_globalData,
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                      l_globalDataCopies,
 #endif
 #ifdef USE_MPI
@@ -141,7 +141,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #endif
                                            l_interiorCellInformation,
                                            l_globalData,
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                            l_globalDataCopies,
 #endif
 #ifdef USE_MPI

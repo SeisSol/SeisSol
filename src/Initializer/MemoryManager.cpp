@@ -91,6 +91,9 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
 #define SPARSE_SWITCH
 #include <initialization/bind.h>
 #undef SPARSE_SWITCH
+
+  // allocate thread-local LTS integration buffers
+  allocateIntegrationBufferLTS();
   
 // if equations == viscoelastic
 // @TODO Remove ifdef and generalize initialization
@@ -114,8 +117,6 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     m_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + stiffness + 3] ];
   }
-  // @TODO handle LTS integrataion buffer
-  // missing
 
   // @TODO Integrate this step into the code generator
   for (unsigned transposedStiffness = 52; transposedStiffness < 55; ++transposedStiffness) {
@@ -125,18 +126,47 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
     }
   }
 
-  // @TODO handle LTS integrataion buffer
-  // missing
+  // set LTS integration buffer
+  m_globalData.integrationBufferLTS = m_integrationBufferLTS;
 #else
   // initialize global matrices
-#ifndef NUMBER_OF_GLOBALDATA_COPIES
+#ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   initializeGlobalMatrices( i_matrixReader, m_globalData );
 #else
+  unsigned int l_numberOfThreads = 1;
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    #pragma omp master
+    {
+      l_numberOfThreads = omp_get_num_threads();
+    }
+  }
+#endif
+  unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
+  unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
+  logInfo(0) << "Number of GlobalData copies: " << l_numberOfCopies;
+
+  m_globalDataCopies = new GlobalData[l_numberOfCopies]; 
+
   // initialize all copies
-  // @TODO add NUMA support to this loop
-  for ( unsigned int l_globalDataCopy = 0; l_globalDataCopy < NUMBER_OF_GLOBALDATA_COPIES; l_globalDataCopy++ ) {
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    if (omp_get_thread_num()%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) {
+      // @TODO check why initializeGlobalMatrices is not thread-safe
+      #pragma omp critical
+      {
+        //logInfo(0) << "current thread: " << omp_get_thread_num() << " init copy: " << omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY;
+        initializeGlobalMatrices( i_matrixReader, m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY] );
+      }
+    }
+  }
+#else    
+  for ( unsigned int l_globalDataCopy = 0; l_globalDataCopy < l_numberOfCopies; l_globalDataCopy++ ) {
     initializeGlobalMatrices( i_matrixReader, m_globalDataCopies[l_globalDataCopy] );
   }
+#endif
   // set master structure
   m_globalData = m_globalDataCopies[0];
 #endif
@@ -144,6 +174,11 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
 }
 
 seissol::initializers::MemoryManager::~MemoryManager() {
+  // free members
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
+  delete[] m_globalDataCopies;
+#endif
+
   // free memory of the memory allocate
   m_memoryAllocator.freeMemory();
 }
@@ -301,18 +336,10 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
 
   real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL );
 
-  // (thread-local) LTS integration buffers
-  int l_numberOfThreads = 1;
-#ifdef _OPENMP
-  #pragma omp parallel
-  {
-    #pragma omp master
-    {
-      l_numberOfThreads = omp_get_num_threads();
-    }
+  // init data fast
+  for( unsigned int l_init; l_init < l_offset[59]; l_init++) {
+    l_pointer[l_init] = static_cast<real>(0.0);
   }
-#endif
-  o_globalData.integrationBufferLTS  = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_TIMEDOFS ) ;
 
   /*
    * Set up pointers.
@@ -393,6 +420,28 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
   /*
    *  (thread-local) LTS integration buffers
    */
+  o_globalData.integrationBufferLTS = m_integrationBufferLTS;
+}
+
+void seissol::initializers::MemoryManager::allocateIntegrationBufferLTS() {
+  /*
+   *  (thread-local) LTS integration buffers, allocate
+   */
+  int l_numberOfThreads = 1;
+#ifdef _OPENMP
+  #pragma omp parallel
+  {
+    #pragma omp master
+    {
+      l_numberOfThreads = omp_get_num_threads();
+    }
+  }
+#endif
+  m_integrationBufferLTS = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_TIMEDOFS ) ;
+
+  /*
+   *  (thread-local) LTS integration buffers, initialize
+   */
 #ifdef _OPENMP
   #pragma omp parallel
   {
@@ -401,7 +450,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
     size_t l_threadOffset = 0;
 #endif
     for ( unsigned int l_dof = 0; l_dof < (4*NUMBER_OF_ALIGNED_DOFS); l_dof++ ) {
-      o_globalData.integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
+      m_integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
     }
 #ifdef _OPENMP
   }
@@ -1076,7 +1125,7 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
 #endif
                                                             struct CellLocalInformation   *&o_interiorCellInformation,
                                                             struct GlobalData             *&o_globalData,
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                                             struct GlobalData             *&o_globalDataCopies,
 #endif
 #ifdef USE_MPI
@@ -1090,7 +1139,7 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
 #endif
   o_interiorCellInformation =  m_interiorCellInformation[i_cluster];
   o_globalData              = &m_globalData;
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   o_globalDataCopies        =  m_globalDataCopies;
 #endif
 #ifdef USE_MPI

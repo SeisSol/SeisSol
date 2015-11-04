@@ -104,7 +104,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 #endif
                                                   struct CellLocalInformation   *i_interiorCellInformation,
                                                   struct GlobalData             *i_globalData,
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                                   struct GlobalData             *i_globalDataCopies,
 #endif
 #ifdef USE_MPI
@@ -123,7 +123,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_meshStructure(           i_meshStructure            ),
  // global data
  m_globalData(              i_globalData               ),
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
  // global data copies
  m_globalDataCopies(        i_globalDataCopies         ),
 #endif
@@ -150,7 +150,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 #endif
     assert( m_interiorCellInformation                  != NULL );
     assert( m_globalData                               != NULL );
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
     assert( m_globalDataCopies                         != NULL );
 #endif
 #ifdef USE_MPI
@@ -572,36 +572,41 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
                                                *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(m_globalData->integrationBufferLTS),
 #endif
                                                l_timeIntegrated );
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
+    GlobalData* l_globalData = &(m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY]);
+#else
+    GlobalData* l_globalData = m_globalData;
+#endif
 
 #ifdef ENABLE_MATRIX_PREFETCH
     // first face's prefetches
     int l_face = 1;
     l_faceNeighbors_prefetch[0] = i_faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[0] = m_globalData->fluxMatrices[4+(l_face*12)
+    l_fluxMatricies_prefetch[0] = l_globalData->fluxMatrices[4+(l_face*12)
                                                              +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
                                                              +(i_cellInformation[l_cell].faceRelations[l_face][1])];
     // second face's prefetches
     l_face = 2;
     l_faceNeighbors_prefetch[1] = i_faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[1] = m_globalData->fluxMatrices[4+(l_face*12)
+    l_fluxMatricies_prefetch[1] = l_globalData->fluxMatrices[4+(l_face*12)
                                                              +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
                                                              +(i_cellInformation[l_cell].faceRelations[l_face][1])];
     // third face's prefetches
     l_face = 3;
     l_faceNeighbors_prefetch[2] = i_faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[2] = m_globalData->fluxMatrices[4+(l_face*12)
+    l_fluxMatricies_prefetch[2] = l_globalData->fluxMatrices[4+(l_face*12)
                                                              +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
                                                              +(i_cellInformation[l_cell].faceRelations[l_face][1])];
     // fourth face's prefetches
     if (l_cell < (i_numberOfCells-1) ) {
       l_face = 0;
       l_faceNeighbors_prefetch[3] = i_faceNeighbors[l_cell+1][l_face];
-      l_fluxMatricies_prefetch[3] = m_globalData->fluxMatrices[4+(l_face*12)
+      l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(l_face*12)
                                                                +(i_cellInformation[l_cell+1].faceRelations[l_face][0]*3)
                                                                +(i_cellInformation[l_cell+1].faceRelations[l_face][1])];
     } else {
       l_faceNeighbors_prefetch[3] = i_faceNeighbors[l_cell][3];
-      l_fluxMatricies_prefetch[3] = m_globalData->fluxMatrices[4+(3*12)
+      l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(3*12)
                                                                +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
                                                                +(i_cellInformation[l_cell].faceRelations[l_face][1])];
     }
@@ -611,11 +616,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
     //       cannot generate a 0-id copy reference in the end as remainder handling
     m_boundaryKernel.computeNeighborsIntegral( i_cellInformation[l_cell].faceTypes,
                                                i_cellInformation[l_cell].faceRelations,
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
-                                               m_globalDataCopies[(omp_get_thread_num()/(omp_get_num_threads()/NUMBER_OF_GLOBALDATA_COPIES))%NUMBER_OF_GLOBALDATA_COPIES].fluxMatrices,
-#else
-                                               m_globalData->fluxMatrices,
-#endif
+                                               l_globalData->fluxMatrices,
                                                l_timeIntegrated,
                                                i_cellData->neighboringIntegration[l_cell].nAmNm1,
 #ifdef ENABLE_MATRIX_PREFETCH

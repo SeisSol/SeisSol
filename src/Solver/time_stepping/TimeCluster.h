@@ -130,11 +130,11 @@ private:
      */
      //! global data structures
     struct GlobalData *m_globalData;
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
-#if NUMBER_OF_GLOBALDATA_COPIES > 0
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
+#if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY > 0
     struct GlobalData *m_globalDataCopies;
 #else
-#error NUMBER_OF_GLOBALDATA_COPIES needs to be larger than 0 if defined
+#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY needs to be larger than 0 if defined
 #endif
 #endif
 
@@ -358,7 +358,7 @@ private:
 #endif
                  struct CellLocalInformation   *i_interiorCellInformation,
                  struct GlobalData             *i_globalData,
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                  struct GlobalData             *i_globalDataCopies,
 #endif
 #ifdef USE_MPI

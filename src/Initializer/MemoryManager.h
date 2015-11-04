@@ -181,13 +181,16 @@ class seissol::initializers::MemoryManager {
     /*
      * Cross-cluster
      */
+    //! thread local LTS integration buffer
+    real*                 m_integrationBufferLTS;
+
     //! global data
     struct GlobalData     m_globalData;
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
-#if NUMBER_OF_GLOBALDATA_COPIES > 0
-    struct GlobalData     m_globalDataCopies[NUMBER_OF_GLOBALDATA_COPIES];
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
+#if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY > 0
+    struct GlobalData     *m_globalDataCopies;
 #else
-#error NUMBER_OF_GLOBALDATA_COPIES needs to be larger than 0 if defined
+#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY needs to be larger than 0 if defined
 #endif
 #endif
 
@@ -231,6 +234,11 @@ class seissol::initializers::MemoryManager {
      **/
     void initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader,
                                    struct GlobalData        &o_globalData );
+
+    /**
+     * Allocate the thread local LTS integration buffer
+     **/
+    void allocateIntegrationBufferLTS();
 
     /**
      * Sets up the layers: Total number of ghost, copy and interior cells & cell information per layer.
@@ -366,7 +374,7 @@ class seissol::initializers::MemoryManager {
 #endif
                           struct CellLocalInformation   *&o_interiorCellInformation,
                           struct GlobalData             *&o_globalData,
-#ifdef NUMBER_OF_GLOBALDATA_COPIES
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                           struct GlobalData             *&o_globalDataCopies,
 #endif
 #ifdef USE_MPI
