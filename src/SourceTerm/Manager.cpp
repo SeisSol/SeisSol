@@ -145,13 +145,14 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
     for (unsigned source = 0; source < numSources; ++source) {
       int l_notInside = 0;
 #if 0 //defined(__AVX__)
-      __m256d result = _mm256_setzero_pd();
+      // Not working because <0 => 0 should actually be  <=0 => 0
+      /*__m256d result = _mm256_setzero_pd();
       for (unsigned dim = 0; dim < 4; ++dim) {
         result = _mm256_add_pd(result, _mm256_mul_pd(planeDims[dim], _mm256_broadcast_sd(&centres1[source][dim])) );
       }
       // >0 => (2^64)-1 ; <0 = 0
       __m256d inside4 = _mm256_cmp_pd(result, zero, _CMP_GE_OQ);
-      l_notInside = _mm256_movemask_pd(inside4);
+      l_notInside = _mm256_movemask_pd(inside4);*/
 #else
       double result[4] = { 0.0, 0.0, 0.0, 0.0 };
       for (unsigned dim = 0; dim < 4; ++dim) {
@@ -160,7 +161,7 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
         }
       }
       for (unsigned face = 0; face < 4; ++face) {
-        l_notInside += (result[face] >= 0.0) ? 1 : 0;
+        l_notInside += (result[face] > 0.0) ? 1 : 0;
       }
 #endif
       if (l_notInside == 0) {
@@ -168,9 +169,13 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
         #pragma omp critical
         {
 #endif
-          if (contained[source] != 0) {
+          /* It might actually happen that a source is found in two tetrahedrons
+           * if it lies on the boundary. In this case we arbitrarily assign
+           * it to the one with the higher meshId.
+           * @todo Check if this is a problem with the numerical scheme. */
+          /*if (contained[source] != 0) {
              logError() << "source with id " << source << " was already found in a different element!";
-          }
+          }*/
           contained[source] = 1;
           meshIds[source] = elem;
 #ifdef _OPENMP
