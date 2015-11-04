@@ -187,6 +187,9 @@ class seissol::initializers::MemoryManager {
     //! global data
     struct GlobalData     m_globalData;
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
+#ifndef _OPENMP
+#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY requires OpenMP to be enabled
+#endif
 #if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY > 0
     struct GlobalData     *m_globalDataCopies;
 #else

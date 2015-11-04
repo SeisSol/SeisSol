@@ -53,6 +53,13 @@
 #include <Initializer/time_stepping/LtsLayout.h>
 #include "TimeCluster.h"
 
+// some check for correct functionality
+#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
+#ifndef _OPENMP
+#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY requires OpenMP to be enabled
+#endif
+#endif
+
 namespace seissol {
   namespace time_stepping {
     class TimeManager;

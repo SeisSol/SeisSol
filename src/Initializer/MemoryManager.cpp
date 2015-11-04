@@ -86,7 +86,7 @@
 #define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
 #define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
 
-seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i_matrixReader ) {
+seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i_matrixReader ) : m_integrationBufferLTS(NULL) {
   // init the sparse switch
 #define SPARSE_SWITCH
 #include <initialization/bind.h>
@@ -133,16 +133,8 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
 #ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   initializeGlobalMatrices( i_matrixReader, m_globalData );
 #else
-  unsigned int l_numberOfThreads = 1;
-#ifdef _OPENMP
-  #pragma omp parallel
-  {
-    #pragma omp master
-    {
-      l_numberOfThreads = omp_get_num_threads();
-    }
-  }
-#endif
+  // determine the number of threads
+  unsigned int l_numberOfThreads = omp_get_max_threads();
   unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
   unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
   logInfo(0) << "Number of GlobalData copies: " << l_numberOfCopies;
@@ -150,21 +142,22 @@ seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i
   m_globalDataCopies = new GlobalData[l_numberOfCopies]; 
 
   // initialize all copies
-#ifdef _OPENMP
+#if 0 
+  // use serial initialization -> first touch places everything in the corresponding NUMA nodes
+  for ( unsigned int l_globalDataCopy = 0; l_globalDataCopy < l_numberOfCopies; l_globalDataCopy++ ) {
+    initializeGlobalMatrices( i_matrixReader, m_globalDataCopies[l_globalDataCopy] );
+  }
+#else
+  // initialize in parallel to obtain best possible NUMA placement
   #pragma omp parallel
   {
     if (omp_get_thread_num()%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) {
       // @TODO check why initializeGlobalMatrices is not thread-safe
       #pragma omp critical
       {
-        //logInfo(0) << "current thread: " << omp_get_thread_num() << " init copy: " << omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY;
         initializeGlobalMatrices( i_matrixReader, m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY] );
       }
     }
-  }
-#else    
-  for ( unsigned int l_globalDataCopy = 0; l_globalDataCopy < l_numberOfCopies; l_globalDataCopy++ ) {
-    initializeGlobalMatrices( i_matrixReader, m_globalDataCopies[l_globalDataCopy] );
   }
 #endif
   // set master structure
@@ -231,6 +224,13 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrix(          int 
 
 void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader,
                                                                      struct GlobalData        &o_globalData ) {
+  /*
+   * Test whether LTS integation buffer was allocated
+   **/
+  if ( m_integrationBufferLTS == NULL ) {
+    logError() << "MemoryManager: allocateIntegrationBufferLTS need called before initializeGlobalMatrices!"; 
+  }
+
   /*
    * read the global matrices
    */
@@ -429,13 +429,7 @@ void seissol::initializers::MemoryManager::allocateIntegrationBufferLTS() {
    */
   int l_numberOfThreads = 1;
 #ifdef _OPENMP
-  #pragma omp parallel
-  {
-    #pragma omp master
-    {
-      l_numberOfThreads = omp_get_num_threads();
-    }
-  }
+  l_numberOfThreads = omp_get_max_threads();
 #endif
   m_integrationBufferLTS = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_TIMEDOFS ) ;
 
