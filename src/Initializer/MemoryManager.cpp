@@ -336,8 +336,8 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
 
   real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL );
 
-  // init data fast
-  for( unsigned int l_init; l_init < l_offset[59]; l_init++) {
+  // init data fast to get contiguous physical memory, or at least increase the chances
+  for( unsigned int l_init = 0; l_init < l_offset[59]; l_init++) {
     l_pointer[l_init] = static_cast<real>(0.0);
   }
 
