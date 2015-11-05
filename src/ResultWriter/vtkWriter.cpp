@@ -168,7 +168,7 @@ vtkWriter::vtkWriter(int rank,int iteration, const char* basename, int binaryout
            m_bFloat64=true;
         }
 
-	for(int i=0;i<13;i++)
+	for(int i=0;i<15;i++)
            bMagnitudeWritten[i]=false;
 }
 
@@ -200,11 +200,11 @@ void vtkWriter::write_vertices(){
            if (m_bFloat64) {
 	      _out<<"<DataArray type='Float64' NumberOfComponents='3' format='append' offset='"<<m_offset<<"'/>"<<std::endl;
               m_offset = m_offset + sizeof(int) + 3*_vertex_counter*sizeof(double);
-              dArraySca = new double [14*_number_of_cells/3];
+              dArraySca = new double [15*_number_of_cells/3];
            } else {
 	      _out<<"<DataArray type='Float32' NumberOfComponents='3' format='append' offset='"<<m_offset<<"'/>"<<std::endl;
               m_offset = m_offset + sizeof(int) + 3*_vertex_counter*sizeof(float);
-              fArraySca = new float [14*_number_of_cells/3];
+              fArraySca = new float [15*_number_of_cells/3];
            }
         } else {
            _out<<"<DataArray type='Float64' NumberOfComponents='3' Format='ascii'>"<<std::endl;
@@ -230,6 +230,7 @@ void vtkWriter::start_cell_data(int var_id){
 	labels[11]="Sls";
 	labels[12]="Sld";
 	labels[13]="Vr";
+	labels[14]="ASl";
         if (m_bBinary) {
            bMagnitudeWritten[var_id-1]=true;
            m_iCurrent=0;
@@ -387,7 +388,7 @@ void vtkWriter::close(){
         // SR, SD, etc
         if (m_bFloat64) {
            iByteCount = _number_of_cells*sizeof(double)/3;
-	   for(int i=0;i<14;i++) {
+	   for(int i=0;i<15;i++) {
               if (bMagnitudeWritten[i]==true) {
                  _out.write((const char*) &iByteCount, sizeof(tByteCount));
                  double *dSubArray = dArraySca + i*_number_of_cells/3;
@@ -396,7 +397,7 @@ void vtkWriter::close(){
            }
         } else {
            iByteCount = _number_of_cells*sizeof(float)/3;
-	   for(int i=0;i<14;i++) {
+	   for(int i=0;i<15;i++) {
               if (bMagnitudeWritten[i]==true) {
                  _out.write((const char*) &iByteCount, sizeof(tByteCount));
                  float *fSubArray = fArraySca + i*_number_of_cells/3;

@@ -52,7 +52,7 @@ private:
 	int _vertex_counter;
         double* dArraySca;
         float* fArraySca;
-        bool bMagnitudeWritten[14];
+        bool bMagnitudeWritten[15];
         int m_offset;
         int m_iCurrent;
         int m_var_id;

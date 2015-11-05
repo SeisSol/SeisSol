@@ -649,7 +649,12 @@ CONTAINS
                 OutVars = OutVars + 1
                 DynRup_output%OutVal(iOutPoints,1,OutVars)  = Vr
               ENDIF
+              IF (DynRup_output%OutputMask(8).EQ.1) THEN
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%Slip(iFace,iBndGP)
+              ENDIF
           ENDIF
+
 
           ! Store output
           IF (DISC%DynRup%OutputPointType.NE.4) THEN

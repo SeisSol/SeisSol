@@ -1282,7 +1282,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: OutputMask(7)
+    INTEGER                    :: OutputMask(8)
     INTEGER                    :: printtimeinterval
     INTEGER                    :: refinement_strategy, refinement, BinaryOutput
     !------------------------------------------------------------------------
@@ -1296,6 +1296,7 @@ CONTAINS
     OutputMask(4) = 0
     OutputMask(6) = 0
     OutputMask(7) = 0
+    OutputMask(8) = 0
     refinement_strategy = 2
     refinement = 2
     BinaryOutput = 0 ! 0/ASCII 1/binary float 2/binary double
