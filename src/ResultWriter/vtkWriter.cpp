@@ -168,11 +168,15 @@ vtkWriter::vtkWriter(int rank,int iteration, const char* basename, int binaryout
            m_bFloat64=true;
         }
 
-	for(int i=0;i<15;i++)
+        m_nvar = 15;
+        bMagnitudeWritten = new bool [m_nvar];
+
+	for(int i=0;i<m_nvar;i++)
            bMagnitudeWritten[i]=false;
 }
 
 vtkWriter::~vtkWriter(){
+        delete[] bMagnitudeWritten;
         if (m_bBinary) {
            if (m_bFloat64) 
               delete[] dArraySca;
@@ -200,11 +204,11 @@ void vtkWriter::write_vertices(){
            if (m_bFloat64) {
 	      _out<<"<DataArray type='Float64' NumberOfComponents='3' format='append' offset='"<<m_offset<<"'/>"<<std::endl;
               m_offset = m_offset + sizeof(int) + 3*_vertex_counter*sizeof(double);
-              dArraySca = new double [15*_number_of_cells/3];
+              dArraySca = new double [m_nvar*_number_of_cells/3];
            } else {
 	      _out<<"<DataArray type='Float32' NumberOfComponents='3' format='append' offset='"<<m_offset<<"'/>"<<std::endl;
               m_offset = m_offset + sizeof(int) + 3*_vertex_counter*sizeof(float);
-              fArraySca = new float [15*_number_of_cells/3];
+              fArraySca = new float [m_nvar*_number_of_cells/3];
            }
         } else {
            _out<<"<DataArray type='Float64' NumberOfComponents='3' Format='ascii'>"<<std::endl;
@@ -215,7 +219,7 @@ void vtkWriter::write_vertices(){
 	_out<<"</Points>"<<std::endl;
 }
 void vtkWriter::start_cell_data(int var_id){
-	std::string labels [15];
+	std::string labels [m_nvar];
 	labels[0]="SRs";
 	labels[1]="SRd";
 	labels[2]="T_s";
@@ -388,7 +392,7 @@ void vtkWriter::close(){
         // SR, SD, etc
         if (m_bFloat64) {
            iByteCount = _number_of_cells*sizeof(double)/3;
-	   for(int i=0;i<15;i++) {
+	   for(int i=0;i<m_nvar;i++) {
               if (bMagnitudeWritten[i]==true) {
                  _out.write((const char*) &iByteCount, sizeof(tByteCount));
                  double *dSubArray = dArraySca + i*_number_of_cells/3;
@@ -397,7 +401,7 @@ void vtkWriter::close(){
            }
         } else {
            iByteCount = _number_of_cells*sizeof(float)/3;
-	   for(int i=0;i<15;i++) {
+	   for(int i=0;i<m_nvar;i++) {
               if (bMagnitudeWritten[i]==true) {
                  _out.write((const char*) &iByteCount, sizeof(tByteCount));
                  float *fSubArray = fArraySca + i*_number_of_cells/3;
