@@ -215,7 +215,7 @@ void vtkWriter::write_vertices(){
 	_out<<"</Points>"<<std::endl;
 }
 void vtkWriter::start_cell_data(int var_id){
-	std::string labels [14];
+	std::string labels [15];
 	labels[0]="SRs";
 	labels[1]="SRd";
 	labels[2]="T_s";

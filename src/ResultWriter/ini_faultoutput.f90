@@ -1211,9 +1211,11 @@ CONTAINS
        ENDIF
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(7).EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 14
+        k=k+1
        ENDIF
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(8).EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 15
+        k=k+1
        ENDIF
        !
        DISC%DynRup%DynRup_out_elementwise%CurrentPick(:)= 0.
