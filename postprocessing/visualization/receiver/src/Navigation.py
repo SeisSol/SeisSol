@@ -40,6 +40,8 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import os
+import scipy.signal
+import copy
 
 import Tecplot
 import Waveform
@@ -68,10 +70,33 @@ class Navigation(QWidget):
     buttonLayout.addWidget(openButton)
     buttonLayout.addWidget(refreshButton)
     buttonLayout.addStretch()
+    
+    enableLowpassLabel = QLabel('Lowpass', self)
+    self.enableLowpass = QCheckBox(self)
+    self.enableLowpass.stateChanged.connect(self.activeItemChanged)
+    lowpassOrderLabel = QLabel('Order', self)
+    self.lowpassOrder = QSpinBox(self)
+    self.lowpassOrder.setValue(8)
+    self.lowpassOrder.valueChanged.connect(self.activeItemChanged)
+    attenuationLabel = QLabel('Attenuation (dB)', self)
+    self.attenuation = QDoubleSpinBox(self)
+    self.attenuation.setValue(40.0)
+    self.attenuation.valueChanged.connect(self.activeItemChanged)
+    cutoffLabel = QLabel('Cutoff (Hz)', self)
+    self.cutoff = QDoubleSpinBox(self)
+    self.cutoff.setValue(3.0)
+    self.cutoff.valueChanged.connect(self.activeItemChanged)
+
+    filterLayout = QFormLayout()
+    filterLayout.addRow(enableLowpassLabel, self.enableLowpass)
+    filterLayout.addRow(lowpassOrderLabel, self.lowpassOrder)
+    filterLayout.addRow(attenuationLabel, self.attenuation)
+    filterLayout.addRow(cutoffLabel, self.cutoff)
 
     layout = QVBoxLayout(self)
     layout.addLayout(buttonLayout)
     layout.addWidget(self.receiverList)
+    layout.addLayout(filterLayout)
 
   def selectFolder(self):
     folder = QFileDialog.getExistingDirectory(self, 'Open directory', self.currentFolder, QFileDialog.ShowDirsOnly)
@@ -90,14 +115,25 @@ class Navigation(QWidget):
         item.setData(wf)
         self.model.appendRow(item)
     
-  def getActiveWaveforms(self):
+  def getActiveWaveforms(self):      
     waveforms = []
     for index in self.receiverList.selectedIndexes():
-      waveforms.append(self.model.itemFromIndex(index).data().toPyObject())
+      wf = self.model.itemFromIndex(index).data().toPyObject()
+      if self.enableLowpass.checkState() == Qt.Checked:
+        wf = copy.deepcopy(wf)
+        Fs = 1.0 / (wf.time[1] - wf.time[0])
+        fc = self.cutoff.value() * 2.0 / Fs
+        b, a = scipy.signal.cheby2(self.lowpassOrder.value(), self.attenuation.value(), fc)
+        for name in wf.names:
+          wf.waveforms[name] = scipy.signal.lfilter(b, a, wf.waveforms[name])
+      waveforms.append(wf)
     return waveforms
     
   def refreshFolder(self):
     self.readFolder(self.currentFolder)
+    self.activeItemChanged.emit()
+    
+  def lowpassChanged(self, status):
     self.activeItemChanged.emit()
       
     
