@@ -54,23 +54,6 @@ void readcubeold(int rank);
 void readdrboxold(int rank);
 }
 
-class MPIHelper : public CxxTest::GlobalFixture
-{
-public:
-	bool setUpWorld(void)
-	{
-		// TODO pass argc and argv
-		return (MPI_Init(0, 0) == MPI_SUCCESS);
-	}
-
-	bool tearDownWorld(void)
-	{
-		return (MPI_Finalize() == MPI_SUCCESS);
-	}
-};
-
-static MPIHelper mpiHelper;
-
 std::ostream& operator<<(std::ostream& o, const Fault& f)
 {
 	o << f.element << ' ' << f.side << ' ' << f.neighborElement << ' '  << f.neighborSide;
@@ -339,8 +322,8 @@ private:
 public:
 	void testGambitReader()
 	{
-		GambitReader meshReader0(0, "src/tests/Geometry/cube4.neu", "src/tests/Geometry/cube4.met.epart.2");
-		GambitReader meshReader1(1, "src/tests/Geometry/cube4.neu", "src/tests/Geometry/cube4.met.epart.2");
+		GambitReader meshReader0(0, SEISSOL_TESTS "Geometry/cube4.neu", SEISSOL_TESTS "Geometry/cube4.met.epart.2");
+		GambitReader meshReader1(1, SEISSOL_TESTS "Geometry/cube4.neu", SEISSOL_TESTS "Geometry/cube4.met.epart.2");
 
 		readcubeold(0);
 		testMeshReader0(meshReader0);
@@ -351,8 +334,8 @@ public:
 	void testNetcdfReader()
 	{
 #ifdef USE_NETCDF
-		NetcdfReader meshReader0(0, 2, "src/tests/Geometry/cube4.nc");
-		NetcdfReader meshReader1(1, 2, "src/tests/Geometry/cube4.nc");
+		NetcdfReader meshReader0(0, 2, SEISSOL_TESTS "Geometry/cube4.nc");
+		NetcdfReader meshReader1(1, 2, SEISSOL_TESTS "Geometry/cube4.nc");
 
 		readcubeold(0);
 		testMeshReader0(meshReader0);
@@ -363,7 +346,7 @@ public:
 
 	void testDynamicRupture()
 	{
-		GambitReader meshReader0(0, "src/tests/Geometry/scec.neu", "src/tests/Geometry/scec.met.epart.2");
+		GambitReader meshReader0(0, SEISSOL_TESTS "Geometry/scec.neu", SEISSOL_TESTS "Geometry/scec.met.epart.2");
 		//GambitReader meshReader1(1, "src/tests/Geometry/scec.neu", "src/tests/Geometry/scec.met.epart.2");
 
 		readdrboxold(0);

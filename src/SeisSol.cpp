@@ -48,6 +48,8 @@
 
 void seissol::SeisSol::init(int argc, char* argv[])
 {
+  m_timeManager.initializeMemoryLayout();
+  
 	m_mpi.init(argc, argv);
 
 	const int rank = m_mpi.rank();

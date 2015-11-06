@@ -86,7 +86,13 @@
 #define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
 #define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
 
-seissol::initializers::MemoryManager::MemoryManager( const seissol::XmlParser &i_matrixReader ) : m_integrationBufferLTS(NULL) {
+seissol::initializers::MemoryManager::MemoryManager()
+  : m_integrationBufferLTS(NULL)
+{
+}
+
+void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser &i_matrixReader )
+{
   // init the sparse switch
 #define SPARSE_SWITCH
 #include <initialization/bind.h>

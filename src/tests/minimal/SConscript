@@ -43,9 +43,8 @@ import os
 
 Import('env')
 
-if env['parallelization'] in ['mpi', 'hybrid'] and env['generatedKernels']:
-    # TODO enable test in serial code
-    # Tests
-    env.testSourceFiles.append(os.path.abspath('Minimal.t.h'))
+# TODO enable test in serial code
+# Tests
+env.mpiTestSourceFiles[3].append(os.path.abspath('Minimal.t.h'))
 
 Export('env')

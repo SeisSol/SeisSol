@@ -42,27 +42,9 @@
 #include "Geometry/GambitReader.h"
 //~ #include "Initializer/MeshDatabase.h"
 
-#define MESH_BASE_NAME "src/tests/minimal/mesh/sample"
+#define MESH_BASE_NAME SEISSOL_TESTS "minimal/mesh/sample"
 #define MESH_NAME MESH_BASE_NAME ".neu"
 #define PARTITION_NAME MESH_BASE_NAME ".met.epart.3"
-
-// This is done in Geometry tests
-//class MPIHelper : public CxxTest::GlobalFixture
-//{
-//public:
-//	bool setUpWorld(void)
-//	{
-//		// TODO pass argc and argv
-//		return (MPI_Init(0, 0) == MPI_SUCCESS);
-//	}
-//
-//	bool tearDownWorld(void)
-//	{
-//		return (MPI_Finalize() == MPI_SUCCESS);
-//	}
-//};
-//
-//static MPIHelper mpiHelper;
 
 class TestMinimal : public CxxTest::TestSuite
 {
