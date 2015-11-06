@@ -46,6 +46,9 @@
 
 class vtkWriter{
 private:
+  static int const NVar = 15;
+  static char const * const Labels[];
+
         bool _dirCreated;
 
 	int _number_of_cells;
@@ -53,7 +56,7 @@ private:
         double* dArraySca;
         float* fArraySca;
         int m_nvar;
-        bool* bMagnitudeWritten;
+  bool bMagnitudeWritten[NVar];
         int m_offset;
         int m_iCurrent;
         int m_var_id;
