@@ -251,11 +251,12 @@ domain%IO%MPIPickCleaningDone = 0
       logInfo0(*) '<--------------------------------------------------------->'
       logInfo0(*) '<     Start analyse_SeisSol ...                           >'
       logInfo0(*) '<--------------------------------------------------------->'
+      
+      logInfo0(*) time, timestep, domain%io%abortstatus
 
       CALL analyse_SeisSol(                            &
            time           =        time              , &
            timestep       =        timestep          , &
-           pvar           = domain%pvar              , &
            EQN            = domain%EQN               , &
            IC             = domain%IC                , &
            MESH           = domain%MESH              , &
