@@ -3,10 +3,10 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2012, SeisSol Group
+# Copyright (c) 2015, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -35,19 +35,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# @section DESCRIPTION
-# Definition of the source files.
-#
 
 import os
 
 Import('env')
 
-# TODO enable test in serial code
-# Tests
-env.mpiTestSourceFiles[3].append(os.path.abspath('MeshReader.t.h'))
-    
-# Additional files
-env.sourceFiles.append(env.Object('MeshReaderTestTools.f90'))
+#~ env.testSourceFiles.append(os.path.abspath('time_stepping/TimeManagerTestSuite.t.h'))
 
 Export('env')

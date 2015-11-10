@@ -608,7 +608,6 @@ elif env['compiler'] == 'gcc':
 
 # get the source files
 env.sourceFiles = []
-env.testSourceFiles = []
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
@@ -627,7 +626,7 @@ for sourceFile in env.sourceFiles:
 env.Program('#/'+env['programFile'], sourceFiles)
 
 # build unit tests
-if env['unitTests'] != 'none':
+if env['unitTests'] != 'none' and env['generatedKernels']:
   # Anything done here should only affect tests
   env = env.Clone()
     
@@ -637,19 +636,23 @@ if env['unitTests'] != 'none':
   # Continue testing if tests fail
   env['CXXTEST_SKIP_ERRORS'] = True
   
-  # Parallel tests?
-  if env['parallelization'] in ['mpi', 'hybrid']:
-      env['CXXTEST_COMMAND'] = 'mpiexec -np 3 %t'
+  # Replace main with MPI main
+  env['CXXTEST_OPTS'] = '--template=' + Dir('.').srcnode().abspath + '/src/tests/mpirunner.tpl'
       
   # Fail on error (as we can't see OK messages in the output)
   env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])
+  env.Append(CPPDEFINES={'SEISSOL_TESTS': '"\\"' + Dir('.').srcnode().abspath + '/src/tests/\\""'})
   
   # add cxxtest-tool
-  env.Tool('cxxtest', toolpath=[env['CXXTEST']+'/build_tools/SCons'])
+  env.Tool('cxxtest', toolpath=['build/scons/Tools'])
   
   # Get test source files
   env.sourceFiles = []
-  
+  env.testSourceFiles = []
+  env.mpiTestSourceFiles = dict()
+  for i in range(2, 5):
+    env.mpiTestSourceFiles[i] = []
+
   Export('env')
   SConscript('src/tests/SConscript', variant_dir='#/'+env['buildDir']+'/tests', src_dir='#/')
   Import('env')
@@ -661,6 +664,12 @@ if env['unitTests'] != 'none':
     sourceFiles.append(sourceFile[0])
 
   if env.testSourceFiles:
-    # build unit tests
-    env.CxxTest(target='#/'+env['buildDir']+'/tests/cxxtest_runner',
-                source=sourceFiles+env.testSourceFiles)
+    if env['parallelization'] in ['mpi', 'hybrid']:
+        env['CXXTEST_COMMAND'] = 'mpirun -np 1 %t'
+    env.CxxTest(target='#/'+env['buildDir']+'/tests/serial_test_suite', source=sourceFiles+env.testSourceFiles)
+
+  if env['parallelization'] in ['mpi', 'hybrid']:
+    for ranks, mpiTestSourceFiles in env.mpiTestSourceFiles.iteritems():
+      if mpiTestSourceFiles:
+        env['CXXTEST_COMMAND'] = 'mpirun -np {0} %t'.format(ranks)
+        env.CxxTest(target='#/'+env['buildDir']+'/tests/parallel_test_suite_{0}'.format(ranks), source=sourceFiles+mpiTestSourceFiles)

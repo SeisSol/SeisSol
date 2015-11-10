@@ -57,8 +57,6 @@ pthread_t g_commThread;
 #endif
 
 seissol::time_stepping::TimeManager::TimeManager():
-  m_xmlParser(            MATRIXXMLFILE   ),
-  m_memoryManager(        m_xmlParser     ),
   m_logUpdates(std::numeric_limits<unsigned int>::max())
 {
 }
@@ -68,6 +66,12 @@ seissol::time_stepping::TimeManager::~TimeManager() {
   for( unsigned l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
     delete m_clusters[l_cluster];
   }
+}
+
+void seissol::time_stepping::TimeManager::initializeMemoryLayout()
+{
+  XmlParser xmlParser(MATRIXXMLFILE);
+  m_memoryManager.initialize(xmlParser);
 }
 
 void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping          &i_timeStepping,

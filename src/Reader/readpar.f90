@@ -1282,7 +1282,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: OutputMask(7)
+    INTEGER                    :: OutputMask(8)
     INTEGER                    :: printtimeinterval
     INTEGER                    :: refinement_strategy, refinement, BinaryOutput
     !------------------------------------------------------------------------
@@ -1296,6 +1296,7 @@ CONTAINS
     OutputMask(4) = 0
     OutputMask(6) = 0
     OutputMask(7) = 0
+    OutputMask(8) = 0
     refinement_strategy = 2
     refinement = 2
     BinaryOutput = 0 ! 0/ASCII 1/binary float 2/binary double
@@ -1303,7 +1304,7 @@ CONTAINS
     READ(IO%UNIT%FileIn, nml = Elementwise)
     !
     DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
-    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:7) =  OutputMask(1:7)      ! read info of desired output 1/ yes, 0/ no
+    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:8) =  OutputMask(1:8)      ! read info of desired output 1/ yes, 0/ no
                                                                                      ! position: 1/ slip rate 2/ stress 3/ normal velocity
                                                                                      ! 4/ in case of rate and state output friction and state variable
                                                                                      ! 5/ background values 6/Slip 7/rupture speed

@@ -335,16 +335,21 @@ class seissol::initializers::MemoryManager {
 
   public:
     /**
-     * Constructor, which allocates memory for the global matrices and initializes them.
-     *
-     * @param i_matrixReader XML matrix reader.
+     * Constructor
      **/
-    MemoryManager( const seissol::XmlParser &i_matrixReader );
+    MemoryManager();
 
     /**
      * Destructor, which frees all allocated memory.
      **/
     ~MemoryManager();
+    
+    /**
+     * Initialization function, which allocates memory for the global matrices and initializes them.
+     *
+     * @param i_matrixReader XML matrix reader.
+     **/
+    void initialize( const seissol::XmlParser &i_matrixReader );
 
     /**
      * Set up the internal structure, allocate memory, set up the pointers and intializes the data to zero or NULL.

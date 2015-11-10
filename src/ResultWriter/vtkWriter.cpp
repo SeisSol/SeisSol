@@ -137,6 +137,10 @@ void close_vtk_writer_(long long* ref){
 #endif
 }
 
+char const * const vtkWriter::Labels[] = {
+  "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl"
+};
+
 vtkWriter::vtkWriter(int rank,int iteration, const char* basename, int binaryoutput)
 	: _dirCreated(false) {
 	if (!_dirCreated) {
@@ -168,7 +172,7 @@ vtkWriter::vtkWriter(int rank,int iteration, const char* basename, int binaryout
            m_bFloat64=true;
         }
 
-	for(int i=0;i<13;i++)
+	for(int i=0;i<NVar;i++)
            bMagnitudeWritten[i]=false;
 }
 
@@ -200,11 +204,11 @@ void vtkWriter::write_vertices(){
            if (m_bFloat64) {
 	      _out<<"<DataArray type='Float64' NumberOfComponents='3' format='append' offset='"<<m_offset<<"'/>"<<std::endl;
               m_offset = m_offset + sizeof(int) + 3*_vertex_counter*sizeof(double);
-              dArraySca = new double [14*_number_of_cells/3];
+              dArraySca = new double [NVar*_number_of_cells/3];
            } else {
 	      _out<<"<DataArray type='Float32' NumberOfComponents='3' format='append' offset='"<<m_offset<<"'/>"<<std::endl;
               m_offset = m_offset + sizeof(int) + 3*_vertex_counter*sizeof(float);
-              fArraySca = new float [14*_number_of_cells/3];
+              fArraySca = new float [NVar*_number_of_cells/3];
            }
         } else {
            _out<<"<DataArray type='Float64' NumberOfComponents='3' Format='ascii'>"<<std::endl;
@@ -215,34 +219,19 @@ void vtkWriter::write_vertices(){
 	_out<<"</Points>"<<std::endl;
 }
 void vtkWriter::start_cell_data(int var_id){
-	std::string labels [14];
-	labels[0]="SRs";
-	labels[1]="SRd";
-	labels[2]="T_s";
-	labels[3]="T_d";
-	labels[4]="P_n";
-	labels[5]="u_n";
-	labels[6]="Mud";
-	labels[7]="StV";
-	labels[8]="Ts0";
-	labels[9]="Td0";
-	labels[10]="Pn0";
-	labels[11]="Sls";
-	labels[12]="Sld";
-	labels[13]="Vr";
         if (m_bBinary) {
            bMagnitudeWritten[var_id-1]=true;
            m_iCurrent=0;
            m_var_id=var_id-1;
            if (m_bFloat64) {
-	      _out<<"<DataArray type='Float64' Name='"<<labels[var_id-1].c_str()<<"' format='append'  offset='"<<m_offset<<"'/>"<<std::endl;
+	      _out<<"<DataArray type='Float64' Name='"<< Labels[var_id-1] <<"' format='append'  offset='"<<m_offset<<"'/>"<<std::endl;
               m_offset = m_offset + (sizeof(int) + _number_of_cells*sizeof(double)/3);
            } else {
-	      _out<<"<DataArray type='Float32' Name='"<<labels[var_id-1].c_str()<<"' format='append'  offset='"<<m_offset<<"'/>"<<std::endl;
+	      _out<<"<DataArray type='Float32' Name='"<< Labels[var_id-1] <<"' format='append'  offset='"<<m_offset<<"'/>"<<std::endl;
               m_offset = m_offset + (sizeof(int) + _number_of_cells*sizeof(float)/3);
           }
         } else {
-          _out<<"<DataArray type='Float64' Name='"<<labels[var_id-1].c_str()<<"' Format='ascii'>"<<std::endl;
+          _out<<"<DataArray type='Float64' Name='"<< Labels[var_id-1] <<"' Format='ascii'>"<<std::endl;
         }
 }
 void vtkWriter::end_cell_data(){
@@ -387,7 +376,7 @@ void vtkWriter::close(){
         // SR, SD, etc
         if (m_bFloat64) {
            iByteCount = _number_of_cells*sizeof(double)/3;
-	   for(int i=0;i<14;i++) {
+	   for(int i=0;i<NVar;i++) {
               if (bMagnitudeWritten[i]==true) {
                  _out.write((const char*) &iByteCount, sizeof(tByteCount));
                  double *dSubArray = dArraySca + i*_number_of_cells/3;
@@ -396,7 +385,7 @@ void vtkWriter::close(){
            }
         } else {
            iByteCount = _number_of_cells*sizeof(float)/3;
-	   for(int i=0;i<14;i++) {
+	   for(int i=0;i<NVar;i++) {
               if (bMagnitudeWritten[i]==true) {
                  _out.write((const char*) &iByteCount, sizeof(tByteCount));
                  float *fSubArray = fArraySca + i*_number_of_cells/3;

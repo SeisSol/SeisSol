@@ -80,9 +80,6 @@ class seissol::time_stepping::TimeManager {
       }
     };
 
-    //! xml parser
-    XmlParser m_xmlParser;
-
     //! memory manager
     seissol::initializers::MemoryManager m_memoryManager;
 
@@ -151,6 +148,12 @@ class seissol::time_stepping::TimeManager {
      * Destruct the time manager.
      **/
     ~TimeManager();
+    
+    
+    /**
+     * Allocates all required buffers.
+     */
+    void initializeMemoryLayout();
 
     /**
      * Adds the time clusters to the time manager.

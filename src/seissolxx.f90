@@ -255,7 +255,6 @@ domain%IO%MPIPickCleaningDone = 0
       CALL analyse_SeisSol(                            &
            time           =        time              , &
            timestep       =        timestep          , &
-           pvar           = domain%pvar              , &
            EQN            = domain%EQN               , &
            IC             = domain%IC                , &
            MESH           = domain%MESH              , &

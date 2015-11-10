@@ -53,7 +53,7 @@
 #include <utils/logger.h>
 
 #include <Initializer/typedefs.hpp>
-#include "TimeManager.h"
+#include <Solver/time_stepping/TimeManager.h>
 #include <seissol_kernels/unit_tests/SimpleTimeIntegrator.hpp>
 #include <seissol_kernels/unit_tests/SimpleVolumeIntegrator.hpp>
 #include <seissol_kernels/unit_tests/SimpleBoundaryIntegrator.hpp>

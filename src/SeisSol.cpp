@@ -47,8 +47,12 @@
 #include "utils/args.h"
 
 void seissol::SeisSol::init(int argc, char* argv[])
-{
+{  
 	m_mpi.init(argc, argv);
+  
+#ifdef GENERATEDKERNELS
+  m_timeManager.initializeMemoryLayout();
+#endif
 
 	const int rank = m_mpi.rank();
 

@@ -52,7 +52,7 @@ MODULE analyse_SeisSol_mod
 
 CONTAINS
 
-  SUBROUTINE analyse_SeisSol(time,timestep,pvar,EQN,IC,MESH,DISC,BND,     &
+  SUBROUTINE analyse_SeisSol(time,timestep,EQN,IC,MESH,DISC,BND,     &
        SOURCE,IO,Analyse,OptionalFields,MPI)
     !--------------------------------------------------------------------------
     USE TypesDef
@@ -76,28 +76,10 @@ CONTAINS
     TYPE (tMPI)              :: MPI
     REAL                     :: time
     INTEGER                  :: timestep
-    REAL                     :: pvar( MESH%nElem,EQN%nVar )
-    ! local variables
-    REAL                     :: cvar(      MESH%nElem,EQN%nVar )
-    REAL                     :: pvar_init(MESH%nElem,EQN%nVar ) 
-    TYPE(tUnstructOptionalFields) :: Dummy
-    CHARACTER (LEN=100)      :: mshfile               ! auxiliary output mesh file
-    CHARACTER (LEN=100)      :: exactfile
-    CHARACTER (LEN=210)      :: pbc_file
-    CHARACTER(LEN=10)        :: ExTitleMask(9)        ! Variable names for output of exact solution
-    CHARACTER (LEN=4)        :: cmyrank
-    INTEGER                  :: ielem, i
-    REAL                     :: vector1(3)
-    REAL                     :: rhol,rhor,rho,ul,ur,u,pl,pr,p,al,ar,s,sqDiff(1:3)
-    REAL                     :: E_FieldVec(3),start_pos(3), tempValue1, tempValue2,tempValue3
-    REAL                     :: exactPos(3),numericalPos(3),diffPos(3),NbrOfParticle
-    REAL                     :: meanErrorSqx,meanErrorSqy,meanErrorSqz,meanErrorSq
-    CHARACTER(LEN=3)         :: varName
-    CHARACTER(LEN=610)       :: Name
-    CHARACTER (LEN=350)      :: Filename
+    TYPE (tUnstructOptionalFields) :: dummy
     !--------------------------------------------------------------------------
     INTENT(IN)               :: time,timestep
-    INTENT(INOUT)            :: IO,pvar,IC,EQN,DISC,MESH,OptionalFields
+    INTENT(INOUT)            :: IO,IC,EQN,DISC,MESH,OptionalFields
     !--------------------------------------------------------------------------
     !                                                                          !
     logInfo(*) '<--------------------------------------------------------->'
