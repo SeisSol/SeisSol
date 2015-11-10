@@ -44,6 +44,6 @@
 
 #include <SourceTerm/NRF.h>
 
-void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map);
+void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map, bool normalizeOnset = false);
 
 #endif

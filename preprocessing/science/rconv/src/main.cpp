@@ -50,11 +50,13 @@ int main(int argc, char** argv)
 	args.addOption("mcs", 'm', "Proj.4 string that describes the mesh coordinate system (e.g. \"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs\").");
   args.addOption("input", 'i', "Input file (.srf)");
   args.addOption("output", 'o', "Output file (.nrf)");
+  args.addOption("normalize-onset", 'n', "Subtract the minimum onset time from all onsets.", utils::Args::No, false);
 
 	if (args.parse(argc, argv) == utils::Args::Success) {
     std::string mcs = args.getArgument<std::string>("mcs");
     std::string in = args.getArgument<std::string>("input");
     std::string out = args.getArgument<std::string>("output");
+    bool normalizeOnset = args.isSet("normalize-onset");
     
     Map map(mcs);    
     std::cout << "Reading SRF..." << std::flush;
@@ -62,7 +64,7 @@ int main(int argc, char** argv)
     std::cout << "finished." << std::endl;
 
     std::cout << "Writing NRF..." << std::flush;
-    writeNRF(out.c_str(), srf, map);
+    writeNRF(out.c_str(), srf, map, normalizeOnset);
     std::cout << "finished." << std::endl;
     
 	} else {

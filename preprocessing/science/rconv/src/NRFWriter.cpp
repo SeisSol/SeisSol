@@ -57,7 +57,7 @@ void check_err(const int stat, const int line, const char *file) {
     }
 }
 
-void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map)
+void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map, bool normalizeOnset)
 {  
   unsigned numSources = sources.size();  
   double minTinit = std::numeric_limits<double>::max();
@@ -68,8 +68,12 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
     for (unsigned sr = 0; sr < 3; ++sr) {
       numSamples[sr] += source->slipRate[sr].size();
     }
-  }  
-  std::cout << "Minimal tinit: " << minTinit << " -> 0" << std::endl;
+  }
+  if (normalizeOnset) {
+    std::cout << "Minimal tinit: " << minTinit << " -> 0" << std::endl;
+  } else {
+    minTinit = 0.0;
+  }
   
   Offsets* offsets = new Offsets[numSources+1];
   memset(offsets, 0, (numSources+1) * sizeof(Offsets));
