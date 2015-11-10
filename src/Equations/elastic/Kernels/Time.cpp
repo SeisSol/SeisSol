@@ -233,7 +233,7 @@ void seissol::kernels::Time::integrateInTime( const real*        i_derivativesBu
                                                     real*        o_timeDerivatives ) {
 #if defined(DOUBLE_PRECISION)
 #if defined(__AVX512F__)
-  __m512d l_intrin_scalar = _mm512_broadcast_f64x4(_mm256_broadcast_sd(&i_scalar));
+  __m512d l_intrin_scalar = _mm512_broadcastsd_pd(_mm_load_sd(&i_scalar));
 #elif defined(__AVX__)
   __m256d l_intrin_scalar = _mm256_broadcast_sd(&i_scalar);
 #elif defined(__SSE3__)
@@ -245,7 +245,7 @@ void seissol::kernels::Time::integrateInTime( const real*        i_derivativesBu
 #endif
 #elif defined(SINGLE_PRECISION)
 #if defined(__AVX512F__)
-  __m512 l_intrin_scalar = _mm512_broadcast_f32x8(_mm256_broadcast_ss(&i_scalar));
+  __m512 l_intrin_scalar = _mm512_broadcastss_ps(_mm_load_ss(&i_scalar));
 #elif defined(__AVX__)
   __m256 l_intrin_scalar = _mm256_broadcast_ss(&i_scalar);
 #elif defined(__SSE3__)
@@ -445,7 +445,7 @@ void seissol::kernels::Time::initialize( const real         i_scalar,
 #if defined(__AVX512F__) || defined(__MIC__)
 #if defined(DOUBLE_PRECISION)
 #if defined(__AVX512F__)
-  __m512d l_intrin_scalar = _mm512_broadcast_f64x4(_mm256_broadcast_sd(&i_scalar));
+  __m512d l_intrin_scalar = _mm512_broadcastsd_pd(_mm_load_sd(&i_scalar));
 #endif
 #if defined(__MIC__)
   __m512d l_intrin_scalar = _mm512_extload_pd(&i_scalar, _MM_UPCONV_PD_NONE, _MM_BROADCAST_1X8, _MM_HINT_NONE);
@@ -461,7 +461,7 @@ void seissol::kernels::Time::initialize( const real         i_scalar,
   }
 #elif defined(SINGLE_PRECISION)
 #if defined(__AVX512F__)
-  __m512 l_intrin_scalar = _mm512_broadcast_f32x8(_mm256_broadcast_ss(&i_scalar));
+  __m512 l_intrin_scalar = _mm512_broadcastss_ps(_mm_load_ss(&i_scalar));
 #endif
 #if defined(__MIC__)
   __m512 l_intrin_scalar = _mm512_extload_ps(&i_scalar, _MM_UPCONV_PS_NONE, _MM_BROADCAST_1X16, _MM_HINT_NONE);
