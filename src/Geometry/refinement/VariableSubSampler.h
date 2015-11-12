@@ -1,15 +1,52 @@
+/**
+ * @file
+ * This file is part of SeisSol.
+ *
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ *
+ * @section LICENSE
+ * Copyright (c) 2015, SeisSol Group
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from this
+ *    software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @section DESCRIPTION
+ */
+
 #ifndef VARIABLE_SUBSAMPLER_H_
 #define VARIABLE_SUBSAMPLER_H_
-
-#ifdef _OPENMP
-#include "omp.h"
-#endif // _OPENMP
 
 #include <cassert>
 #include <algorithm>
 
+#include <glm/vec3.hpp>
+
 #include "Geometry/MeshReader.h"
-#include "Numerical_aux/BasicFunction.h"
+#include "Numerical_aux/BasisFunction.h"
 #include "RefinerUtils.h"
 
 namespace refinement
@@ -21,116 +58,86 @@ template<class T>
 class VariableSubsampler
 {
 private:
-    std::vector<BasicFunction::SampledBasicFunctions<T> > m_BasicFunctions;
+    std::vector<BasisFunction::SampledBasisFunctions<T> > m_BasisFunctions;
 
-    std::vector<Vec3D<T> > m_CenterPoints;
+    /** The original number of cells (without refinement) */
+    const unsigned int m_numCells;
 
     const unsigned int kSubCellsPerCell;
     const unsigned int kNumVariables;
     const unsigned int kNumAlignedDOF;
 
 
-    std::size_t getInVarOffset(unsigned int cell, unsigned int variable) const {
-        return cell*kNumVariables*kNumAlignedDOF + kNumAlignedDOF*variable;
+    std::size_t getInVarOffset(unsigned int cell, unsigned int variable,
+    		const unsigned int* cellMap) const
+    {
+        return (cellMap[cell]*kNumVariables + variable) * kNumAlignedDOF;
     }
-    std::size_t getOutVarOffset(unsigned cell, unsigned int subcell,
-            unsigned int variable, unsigned int selectedvars) const {
-        return selectedvars * (kSubCellsPerCell * cell + subcell) + variable;
+
+    std::size_t getOutVarOffset(unsigned cell, unsigned int subcell) const
+    {
+        return kSubCellsPerCell * cell + subcell;
     }
 
 public:
     VariableSubsampler(
+    		unsigned int numCells,
             const TetrahedronRefiner<T>& tetRefiner,
             unsigned int order,
             unsigned int numVariables,
             unsigned int numAlignedDOF
             );
 
-    void getSingle(const double* inData,  const unsigned int* cellMap,
-            int variable, std::size_t numCells, double* outData) const;
-
-    void getSelection(const double* inData, const unsigned int* cellMap,
-            const std::vector<bool>& selection, std::size_t numCells,
-            double* outData) const;
+    void get(const double* inData, const unsigned int* cellMap,
+            int variable, double* outData) const;
 };
 
 //------------------------------------------------------------------------------
 
 template<typename T>
 VariableSubsampler<T>::VariableSubsampler(
+		unsigned int numCells,
         const TetrahedronRefiner<T>& tetRefiner,
         unsigned int order,
         unsigned int numVariables,
-        unsigned int numAlignedDOF
-        ) : kSubCellsPerCell(tetRefiner.getDivisionCount()),
+        unsigned int numAlignedDOF)
+		: m_numCells(numCells),
+		  kSubCellsPerCell(tetRefiner.getDivisionCount()),
     kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF)
 {
     // Generate cell centerpoints in the reference or unit tetrahedron.
-    std::vector<Tetrahedron<T> > subCells(kSubCellsPerCell);
-    tetRefiner(Tetrahedron<T>::unitTetrahedron(), subCells.data());
-    m_CenterPoints.resize(kSubCellsPerCell);
-    for (unsigned int t = 0; t < kSubCellsPerCell; t++)
-        m_CenterPoints[t] = subCells[t].center();
+	Tetrahedron<T>* subCells = new Tetrahedron<T>[kSubCellsPerCell];
+	glm::tvec3<T>* additionalVertices = new glm::tvec3<T>[tetRefiner.additionalVerticesPerCell()];
+
+    tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0,
+    		subCells, additionalVertices);
 
     // Generate sampled basicfunctions
     for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
-        const Vec3D<T>& pnt = m_CenterPoints[i];
-        m_BasicFunctions.push_back(
-                BasicFunction::SampledBasicFunctions<T>::sampleAt(
+        const glm::tvec3<T> pnt = subCells[i].center();
+        m_BasisFunctions.push_back(
+                BasisFunction::SampledBasisFunctions<T>(
                     order, pnt.x, pnt.y, pnt.z));
     }
+
+    delete [] subCells;
+    delete [] additionalVertices;
 }
 
 //------------------------------------------------------------------------------
 
 template<typename T>
-void VariableSubsampler<T>::getSingle(const double* inData,  const unsigned int* cellMap,
-        int variable, std::size_t numCells, double* outData) const
+void VariableSubsampler<T>::get(const double* inData,  const unsigned int* cellMap,
+        int variable, double* outData) const
 {
-    std::vector<bool> selected(kNumVariables, false);
-    selected[variable] = true;
-    getSelection(inData, cellMap, selected, numCells, outData);
-}
-
-//------------------------------------------------------------------------------
-
-template<typename T>
-void VariableSubsampler<T>::getSelection(const double* inData, const unsigned int* cellMap,
-        const std::vector<bool>& selection, std::size_t numCells, double* outData) const
-{
-    using std::size_t;
-    // Enforce input assumptions
-    assert(kNumVariables <= 255); // We use char to compute prefix
-    assert(inData != NULL);
-    assert(outData != NULL);
-    assert(numCells > 0);
-    assert(selection.size() == kNumVariables);
-
-    // Calculate prefix sum of variables this denotes their position in the
-    // output
-    std::vector<char> prefix(kNumVariables);
-    char numSelVars = 0;
-    for (size_t i = 0; i < selection.size(); ++i) {
-        prefix[i] = numSelVars;
-        if (selection[i])
-            ++numSelVars;
-    }
-
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
 #endif
     // Iterate over original Cells
-    for (unsigned int c = 0; c < numCells; ++c) {
-        // Process variables in selection
-        for (unsigned int var = 0; var < kNumVariables; ++var) {
-            // Skip unselected variables
-            if (!selection[var]) continue;
-            for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
-                outData[getOutVarOffset(c, sc, prefix[var], numSelVars)] = 
-                m_BasicFunctions[sc].evalWithCoefs(
-                        &inData[getInVarOffset(c, var)]
-                        );
-            }
+    for (unsigned int c = 0; c < m_numCells; ++c) {
+        for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
+            outData[getOutVarOffset(c, sc)] =
+            		m_BasisFunctions[sc].evalWithCoefs(&inData[getInVarOffset(c, variable, cellMap)]);
         }
     }
 }

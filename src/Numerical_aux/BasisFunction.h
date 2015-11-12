@@ -121,7 +121,7 @@ public:
         BasisFunctionGenerator<T> gen(eta, zeta, xi);
 
         unsigned int i = 0;
-        for (unsigned int ord = 0; ord <= order; ord++)
+        for (unsigned int ord = 0; ord < order; ord++)
             for (unsigned int k = 0; k <= ord; k++)
                 for (unsigned int j = 0; j <= ord-k; j++)
                 	m_data[i++] = gen(ord-j-k, j, k);
@@ -137,7 +137,7 @@ public:
     template<class ConstIterator>
     T evalWithCoefs(ConstIterator iter) const
     {
-        return std::inner_product(m_data.begin(), m_data.end(), iter, 0);
+        return std::inner_product(m_data.begin(), m_data.end(), iter, static_cast<T>(0));
     }
 
     /**

@@ -1,9 +1,46 @@
+/**
+ * @file
+ * This file is part of SeisSol.
+ *
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ *
+ * @section LICENSE
+ * Copyright (c) 2015, SeisSol Group
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from this
+ *    software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @section DESCRIPTION
+ */
+
 #ifndef MESH_REFINER_H_
 #define MESH_REFINER_H_
 
-#ifdef _OPENMP
-#include "omp.h"
-#endif // _OPENMP
+#include <cstring>
 
 #include "Geometry/MeshReader.h"
 #include "RefinerUtils.h"
@@ -18,10 +55,12 @@ class MeshRefiner
 {
 private:
     // m_cells contains the indices of the cells
-    std::vector<unsigned int> m_cells;
-    std::vector<double> m_vertices;
+    unsigned int* m_cells;
+    T* m_vertices;
 
-    static const unsigned int kCoordsPerCell = 4 * 3;
+    size_t m_numSubCells;
+    size_t m_numVertices;
+
     static const unsigned int kIndicesPerCell = 4;
 
     const unsigned int kSubCellsPerCell;
@@ -29,6 +68,8 @@ private:
 public:
     MeshRefiner(const MeshReader& meshReader,
             const TetrahedronRefiner<T>& tetRefiner);
+
+    ~MeshRefiner();
 
     const unsigned int* getCellData() const;
     const T* getVertexData() const;
@@ -41,84 +82,121 @@ public:
 
 template<typename T>
 MeshRefiner<T>::MeshRefiner(
-        const MeshReader& meshReader,
-        const TetrahedronRefiner<T>& tetRefiner
-        ) : kSubCellsPerCell(tetRefiner.getDivisionCount())
+        	const MeshReader& meshReader,
+        	const TetrahedronRefiner<T>& tetRefiner)
+		: kSubCellsPerCell(tetRefiner.getDivisionCount())
+
 {
     using std::size_t;
 
+    const size_t kInVertexCount = meshReader.getVertices().size();
     const size_t kInCellCount = meshReader.getElements().size();
-    const size_t kSubCellCount = kInCellCount * kSubCellsPerCell;
+    m_numSubCells = kInCellCount * kSubCellsPerCell;
 
-    m_cells.resize(kSubCellCount * kIndicesPerCell);
-    m_vertices.resize(kSubCellCount * kCoordsPerCell);
+    const unsigned int additionalVertices = tetRefiner.additionalVerticesPerCell();
+    m_numVertices = kInVertexCount + kInCellCount * additionalVertices;
+
+    m_cells = new unsigned int[m_numSubCells * kIndicesPerCell];
+    m_vertices = new T[m_numVertices * 3];
 
     const std::vector<Vertex>& kVertices = meshReader.getVertices();
     const std::vector<Element>& kElements = meshReader.getElements();
 
+    // Copy original vertices
+#ifdef _OPENMP
+	#pragma omp parallel for
+#endif // _OPENMP
+    for (unsigned int i = 0; i < kInVertexCount; i++) {
+    	memcpy(&m_vertices[i*3], kVertices[i].coords, sizeof(double)*3);
+    }
+
+    // The pointer to the new vertices
+    T* newVertices = &m_vertices[kInVertexCount*3];
+
     // Start the actual cell-refinement
-    std::vector<Tetrahedron<T> > tetBuffer(kSubCellsPerCell);
 #ifdef _OPENMP
     #pragma omp parallel
     {
-        #pragma omp for schedule(static) firstprivate(tetBuffer) nowait
-#endif
+#endif // _OPENMPI
+    	glm::tvec3<T>* newVerticesTmp = new glm::tvec3<T>[additionalVertices];
+    	Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
+
+#ifdef _OPENMP
+        #pragma omp for schedule(static) nowait
+#endif // _OPENMP
         for (size_t c = 0; c < kInCellCount; ++c)
         {
-            const size_t kCellIndexInVertexMap = c * kSubCellsPerCell * kCoordsPerCell;
-
             // Build a Terahedron containing the coordinates of the vertices.
             Tetrahedron<T> inTet = Tetrahedron<T>(
                     kVertices[kElements[c].vertices[0]].coords,
                     kVertices[kElements[c].vertices[1]].coords,
                     kVertices[kElements[c].vertices[2]].coords,
-                    kVertices[kElements[c].vertices[3]].coords);
-            T* out = m_vertices.data() + kCellIndexInVertexMap;
-            tetRefiner(inTet, tetBuffer.data());
-            for (int i = 0; i < kSubCellsPerCell; ++i)
-                tetBuffer[i].dumpData(out);
+                    kVertices[kElements[c].vertices[3]].coords,
+					kElements[c].vertices[0],
+					kElements[c].vertices[1],
+					kElements[c].vertices[2],
+					kElements[c].vertices[3]);
+
+            // Generate the tets
+            tetRefiner.refine(inTet,
+            		kInVertexCount + c*additionalVertices,
+					newTetsTmp, newVerticesTmp);
+
+            // Copy new vertices
+            for (unsigned int i = 0; i < additionalVertices; i++) {
+            	memcpy(&newVertices[(c*additionalVertices + i) * 3],
+            			glm::value_ptr(newVerticesTmp[i]), sizeof(T)*3);
+            }
+
+            // Copy tets
+            for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
+            	m_cells[(c*kSubCellsPerCell + i) * 4] = newTetsTmp[i].i;
+            	m_cells[(c*kSubCellsPerCell + i) * 4 + 1] = newTetsTmp[i].j;
+            	m_cells[(c*kSubCellsPerCell + i) * 4 + 2] = newTetsTmp[i].k;
+            	m_cells[(c*kSubCellsPerCell + i) * 4 + 3] = newTetsTmp[i].l;
+            }
         }
 
-        // Set the vertex indices (vid) of each tetrahedron.
-        // Each tetrahedron has 4 indices and produces exactly 4 vertices.
-        // Bijectivity is given and the order is well known.
-#ifdef _OPENMP
-        #pragma omp for schedule(static)
-#endif
-        for (unsigned int vid  = 0; vid < m_cells.size(); ++vid) {
-            m_cells[vid] = vid*3;
-        }
+        delete [] newVerticesTmp;
+        delete [] newTetsTmp;
 #ifdef _OPENMP
     }
 #endif
 };
 
+template<typename T>
+MeshRefiner<T>::~MeshRefiner()
+{
+	delete [] m_cells;
+	delete [] m_vertices;
+}
+
 //------------------------------------------------------------------------------
 
 template<typename T>
 const unsigned int* MeshRefiner<T>::getCellData() const {
-    return m_cells.data();
+    return &m_cells[0];
 }
 
 //------------------------------------------------------------------------------
 
 template<typename T>
 const T* MeshRefiner<T>::getVertexData() const {
-    return m_vertices.data();
+    return &m_vertices[0];
 }
 
 //------------------------------------------------------------------------------
 
 template<typename T>
 std::size_t MeshRefiner<T>::getNumCells() const {
-    return m_cells.size() / 4;
+    return m_numSubCells;
 }
 
 //------------------------------------------------------------------------------
 
 template<typename T>
 std::size_t MeshRefiner<T>::getNumVertices() const {
-    return m_vertices.size() / 3;
+    return m_numVertices;
 }
 
 //------------------------------------------------------------------------------

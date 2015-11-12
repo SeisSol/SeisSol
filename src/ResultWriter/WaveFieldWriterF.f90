@@ -47,7 +47,7 @@ module WaveFieldWriter
     ! C functions
     interface
         subroutine wavefield_hdf_init(rank, outputPrefix, dofs, numVars, order, &
-                refinement, timestep) bind(C, name="wavefield_hdf_init")
+                numBasisFuncs, refinement, timestep) bind(C, name="wavefield_hdf_init")
             use, intrinsic :: iso_c_binding
 
             integer( kind=c_int ), value                       :: rank
@@ -55,6 +55,7 @@ module WaveFieldWriter
             real( kind=c_double ), dimension(*), intent(in)    :: dofs
             integer( kind=c_int ), value                       :: numVars
             integer( kind=c_int ), value                       :: order
+            integer( kind=c_int ), value                       :: numBasisFuncs
             integer( kind=c_int ), value                       :: refinement
             integer( kind=c_int ), value                       :: timestep
         end subroutine wavefield_hdf_init
@@ -86,6 +87,7 @@ contains
         call wavefield_hdf_init(mpi%myRank, trim(io%OutputFile) // c_null_char, &
             disc%galerkin%dgvar(:, :, :, 1), &
             eqn%nVarTotal, disc%spaceorder, &
+            disc%galerkin%nDegFr, &
             io%Refinement, timestep)
     end subroutine waveFieldWriterInit
 

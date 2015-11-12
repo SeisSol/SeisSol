@@ -512,7 +512,8 @@ void seissol::Interoperability::initializeIO(
               NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			  seissol::SeisSol::main.meshReader(),
 			  reinterpret_cast<const double*>(m_dofs), m_meshToCopyInterior,
-			  refinement, waveFieldTimeStep);
+			  refinement, waveFieldTimeStep,
+			  seissol::SeisSol::main.timeManager().getTimeTolerance());
 
 	  // I/O initialization is the last step that requires the mesh reader
 	  // (at least at the moment ...)

@@ -3165,10 +3165,10 @@ ALLOCATE( SpacePositionx(nDirac), &
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
-                                                Format, Interval, TimeInterval, printIntervalCriterion, &
+                                                Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, Refinement
+                                                checkPointInterval, checkPointFile, checkPointBackend
     !------------------------------------------------------------------------  
     !                                                                       
       logInfo(*) '<--------------------------------------------------------->'        
@@ -3180,6 +3180,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       iOutputMaskMaterial(:) =  0
       Rotation = 0
       Format = 1
+      Refinement = 0
       pickdt = 0.1
       pickDtType = 1
       nRecordPoints = 0
@@ -3189,7 +3190,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       FaultOutputFlag = 0
       checkPointInterval = 0
       checkPointBackend = 'none'
-      Refinement = 0
       !
       READ(IO%UNIT%FileIn, nml = Output)                                                            
       IO%OutputFile = OutputFile                                                   ! read output field file
@@ -3599,23 +3599,23 @@ ALLOCATE( SpacePositionx(nDirac), &
       SELECT CASE(Refinement)
          CASE(0)
 
-            logInfo(*) 'Refinement is disabled'
+            logInfo0(*) 'Refinement is disabled'
 
          CASE(1)
 
-             logInfo(*) 'Refinement strategy is Face Extraction :  4 subcells per cell'
+             logInfo0(*) 'Refinement strategy is Face Extraction :  4 subcells per cell'
 
          CASE(2)
 
-             logInfo(*) 'Refinement strategy is Equal Face Area : 8 subcells per cell'
+             logInfo0(*) 'Refinement strategy is Equal Face Area : 8 subcells per cell'
 
          CASE(3)
 
-             logInfo(*) 'Refinement strategy is Equal Face Area and Face Extraction : 32 subcells per cell'
+             logInfo0(*) 'Refinement strategy is Equal Face Area and Face Extraction : 32 subcells per cell'
 
          CASE DEFAULT
 
-             logError(*) 'This refinement strategy is N O T supported'
+             logError(*) 'Refinement strategy is N O T supported'
              STOP
 
       END SELECT

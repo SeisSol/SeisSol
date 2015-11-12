@@ -40,13 +40,10 @@
 #ifndef WAVE_FIELD_WRITER_H
 #define WAVE_FIELD_WRITER_H
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif // USE_MPI
+#include "Parallel/MPI.h"
 
 #include <string>
 #include <vector>
-#include <memory>
 
 #include "utils/logger.h"
 
@@ -66,17 +63,14 @@ private:
     /** True if wave field output is enabled */
     bool m_enabled;
 
-    /** The rank of the process */
-    int m_rank;
-
     /** The output prefix for the filename */
     std::string m_outputPrefix;
 
     /** The XMDF Writer used for the wave field */
-    std::auto_ptr<xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON> > m_waveFieldWriter;
+    xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_waveFieldWriter;
 
-    /** The variable subsampler for the refined mesh **/
-    std::auto_ptr<refinement::VariableSubsampler<double> > m_variableSubsampler;
+    /** The variable subsampler for the refined mesh */
+    refinement::VariableSubsampler<double>* m_variableSubsampler;
 
     /** Number of variables */
     unsigned int m_numVariables;
@@ -87,37 +81,28 @@ private:
     /** Mapping from the cell order to dofs order */
     const unsigned int* m_map;
 
+    /** Time of the last output (makes sure output is not written twice at the end */
+    double m_lastTimeStep;
+
+    /** The tolerance in the time for ignoring duplicate time steps */
+    double m_timeTolerance;
+
     /** Buffer required to extract the output data from the unknowns */
-    std::vector<double> m_outputBuffer;
+    double* m_outputBuffer;
 
-    /** Number of cells after refinement step **/
-    std::size_t m_refCellCount;
-
+    /** Flag indicated which variables should be written */
     std::vector<bool> m_output_flags;
-
-    /** Checks wether a refinement strategy is valid or not. **/
-    static bool isRefinementStartegyValid(int refinement) {
-        switch(refinement) {
-            case(0): // No refinement strategy
-                return true;
-            case(1): // Strategy "Divide by 4"
-                return true;
-            case(2): // Strategy "Divide by 8"
-                return true;
-            case(3): // Strategy "Divide by 32"
-                return true;
-            default:
-                return false;
-        }
-    }
 
 public:
     WaveFieldWriter()
-    : m_enabled(false), m_rank(0),
-    m_waveFieldWriter(NULL),
-    m_numVariables(0),
-    m_dofs(NULL), m_map(NULL),
-    m_refCellCount(0)
+     	 : m_enabled(false),
+		   m_waveFieldWriter(0L),
+		   m_variableSubsampler(0L),
+		   m_numVariables(0),
+		   m_dofs(0L), m_map(0L),
+		   m_lastTimeStep(-1),
+		   m_timeTolerance(0),
+		   m_outputBuffer(0L)
     {
     }
 
@@ -149,112 +134,113 @@ public:
      * Initialize the wave field ouput
      *
      * @param map The mapping from the cell order to dofs order
+     * @param timeTolerance The tolerance in the time for ignoring duplicate time steps
      */
     void init(int numVars, int order, int numAlignedDOF,
             const MeshReader &meshReader,
             const double* dofs, const unsigned int* map,
-            int refinement, int timestep)
+            int refinement, int timestep,
+			double timeTolerance)
     {
         if (!m_enabled)
             return;
 
+        const int rank = MPI::mpi.rank();
 
-#ifdef USE_MPI
-        MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
-#endif // USE_MPI
+		logInfo(rank) << "Initializing HDF5 wave field output.";
 
-        logInfo(m_rank) << "Initializing HDF5 wave field output.";
+		if (m_waveFieldWriter != 0L)
+			logError() << "Wave field writer already initialized";
 
-        if (m_waveFieldWriter.get() != NULL)
-            logError() << "Wave field writer already initialized";
+		m_numVariables = numVars;
 
-        m_numVariables = numVars;
+		if (numVars != 9)
+			logError()
+					<< "XDMF output supports currently only 9 variables. Number of variables specified:"
+					<< m_numVariables;
+		std::vector<const char*> variables(m_numVariables);
+		variables[0] = "sigma_xx";
+		variables[1] = "sigma_yy";
+		variables[2] = "sigma_zz";
+		variables[3] = "sigma_xy";
+		variables[4] = "sigma_yz";
+		variables[5] = "sigma_xz";
+		variables[6] = "u";
+		variables[7] = "v";
+		variables[8] = "w";
 
-        if (numVars != 9)
-            logError() << "XDMF output supports currently only 9 variables. Number of variables specified:" << m_numVariables;
-        std::vector<const char*> variables(m_numVariables);
-        variables[0] = "sigma_xx";
-        variables[1] = "sigma_yy";
-        variables[2] = "sigma_zz";
-        variables[3] = "sigma_xy";
-        variables[4] = "sigma_yz";
-        variables[5] = "sigma_xz";
-        variables[6] = "u";
-        variables[7] = "v";
-        variables[8] = "w";
+		// Currently all variables have to be chosen.
+		m_output_flags.resize(numVars);
+		std::fill(m_output_flags.begin(), m_output_flags.end(), true);
 
-        // Currently all variables have to be chosen.
-        m_output_flags.resize(numVars);
-        std::fill(m_output_flags.begin(), m_output_flags.end(), true);
+		// Setup the tetrahedron refinement strategy
+		refinement::TetrahedronRefiner<double>* tetRefiner = 0L;
+		switch (refinement) {
+		case 0:
+			logInfo(rank) << "Refinement is turned off.";
+			tetRefiner = new refinement::IdentityRefiner<double>();
+			break;
+		case 1:
+			logInfo(rank) << "Refinement Startegy is \"Divide by 4\"";
+			tetRefiner = new refinement::DivideTetrahedronBy4<double>();
+			break;
+		case 2:
+			logInfo(rank) << "Refinement Startegy is \"Divide by 8\"";
+			tetRefiner = new refinement::DivideTetrahedronBy8<double>();
+			break;
+		case 3:
+			logInfo(rank) << "Refinement Startegy is \"Divide by 32\"";
+			tetRefiner = new refinement::DivideTetrahedronBy32<double>();
+			break;
+		default:
+			logError() << "Refinement Strategy is invalid!" << std::endl
+					<< "Current value : " << refinement << std::endl
+					<< "Valid options are :" << std::endl << "0 - No Refinement"
+					<< std::endl << "1 - Refinement by 4" << std::endl
+					<< "2 - Refinement by 8" << std::endl
+					<< "3 - Refinement by 32";
+		}
 
-        m_waveFieldWriter.reset(new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
-                m_rank, m_outputPrefix.c_str(), variables, timestep));
-
-        if (!isRefinementStartegyValid(refinement)) {
-            logError()  << "Refinement Strategy is invalid!" << std::endl
-            << "Current value : " << refinement << std::endl
-            << "Valid options are :" << std::endl
-            << "0 - No Refinement" << std::endl
-            << "1 - Refinement by 4" << std::endl
-            << "2 - Refinement by 8" << std::endl
-            << "3 - Refinement by 32";
-        }
-
-        std::auto_ptr<refinement::TetrahedronRefiner<double> > tetRefiner(NULL);
-        switch(refinement) {
-            case(0):
-                logInfo(m_rank) << "Refinement is turned off.";
-                tetRefiner.reset(new refinement::IdentityRefiner<double>());
-                break;
-            case(1):
-                logInfo(m_rank) << "Refinement Startegy is \"Divide by 4\"";
-                tetRefiner.reset(new refinement::DivideTetrahedronBy4<double>());
-                break;
-            case(2):
-                logInfo(m_rank) << "Refinement Startegy is \"Divide by 8\"";
-                tetRefiner.reset(new refinement::DivideTetrahedronBy8<double>());
-                break;
-            case(3):
-                logInfo(m_rank) << "Refinement Startegy is \"Divide by 32\"";
-                tetRefiner.reset(new refinement::DivideTetrahedronBy32<double>());
-                break;
-        }
-
+		// Refine the mesh
         refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 
-        logInfo(m_rank) << "Refinement class initialized";
-        logInfo(m_rank) << "Cells : "
-        << meshReader.getElements().size() << " -refined-to-> "
-        << meshRefiner.getNumCells();
-        logInfo(m_rank) << "Vertices : "
-        << meshReader.getVertices().size()
-        << " -refined-to-> " 
-        << meshRefiner.getNumVertices();
+		logInfo(rank) << "Refinement class initialized";
+		logDebug() << "Cells : "
+				<< meshReader.getElements().size() << "refined-to ->"
+				<< meshRefiner.getNumCells();
+		logDebug() << "Vertices : "
+				<< meshReader.getVertices().size()
+				<< "refined-to ->"
+				<< meshRefiner.getNumVertices();
 
+        // Initialize the I/O handler and write the mesh
+		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
+				rank, m_outputPrefix.c_str(), variables, timestep);
         m_waveFieldWriter->init(
                 meshRefiner.getNumCells(), meshRefiner.getCellData(),
                 meshRefiner.getNumVertices(), meshRefiner.getVertexData(),
                 true);
 
-        // Save cellcount for later use
-        m_refCellCount = meshRefiner.getNumCells();
+        logInfo(rank) << "WaveFieldWriter initialized";
 
-        logInfo(m_rank) << "WaveFieldWriter initialized";
+        // Initialize the variable subsampler
+        m_variableSubsampler = new refinement::VariableSubsampler<double>(
+                    meshReader.getElements().size(),
+					*tetRefiner, order, numVars, numAlignedDOF);
 
-        m_variableSubsampler.reset(new refinement::VariableSubsampler<double>(
-                    *tetRefiner, order, numVars, numAlignedDOF
-                    ));
+        // Delete the tetRefiner since it is no longer required
+        delete tetRefiner;
 
-        logInfo(m_rank) << "VariableSubsampler initialized";
+        logInfo(rank) << "VariableSubsampler initialized";
 
         // Create output buffer
-        m_outputBuffer.resize(meshRefiner.getNumCells());
+        m_outputBuffer = new double[meshRefiner.getNumCells()];
 
         // Save dof/map pointer
         m_dofs = dofs;
         m_map = map;
 
-        logInfo(m_rank) << "Initializing HDF5 wave field output. Done.";
+        logInfo(rank) << "Initializing HDF5 wave field output. Done.";
     }
 
     /**
@@ -279,22 +265,32 @@ public:
         if (!m_enabled)
             return;
 
-        logInfo(m_rank) << "Writing wave field at time" << utils::nospace << time << '.';
+        const int rank = MPI::mpi.rank();
+
+        if (time <= m_lastTimeStep + m_timeTolerance) {
+        	// Ignore duplicate time steps. Might happen at the end of a simulation
+        	logInfo(rank) << "Ignoring duplicate time step at time " << time;
+        	return;
+        }
+
+        logInfo(rank) << "Writing wave field at time" << utils::nospace << time << '.';
 
         m_waveFieldWriter->addTimeStep(time);
 
         for (unsigned int i = 0; i < m_numVariables; i++) {
             if (!m_output_flags[i]) continue;
 
-            m_variableSubsampler->getSingle(m_dofs, m_map, i,
-                    m_refCellCount, m_outputBuffer.data());
+            m_variableSubsampler->get(m_dofs, m_map, i, m_outputBuffer);
 
-            m_waveFieldWriter->writeData(i, m_outputBuffer.data());
+            m_waveFieldWriter->writeData(i, m_outputBuffer);
         }
 
         m_waveFieldWriter->flush();
 
-        logInfo(m_rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
+        // Update last time step
+        m_lastTimeStep = time;
+
+        logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
     }
 
     /**
@@ -305,9 +301,12 @@ public:
         if (!m_enabled)
             return;
 
-        m_waveFieldWriter.reset();
-        m_variableSubsampler.reset();
-        std::vector<double>().swap(m_outputBuffer); // reset and clean memory
+		delete m_waveFieldWriter;
+		m_waveFieldWriter = 0L;
+		delete m_variableSubsampler;
+		m_variableSubsampler = 0L;
+		delete m_outputBuffer;
+		m_outputBuffer = 0L;
     }
 };
 

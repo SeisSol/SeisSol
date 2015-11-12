@@ -39,3 +39,4 @@
 
 #include "MPI.h"
 
+seissol::MPI seissol::MPI::mpi;

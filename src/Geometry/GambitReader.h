@@ -45,6 +45,8 @@
 #include <mpi.h>
 #endif
 
+#include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
@@ -189,7 +191,7 @@ private:
 #endif // PARALLEL
 		// Do not seek the mesh file, we should be at the correct position
 
-		int numPartitions = seissol::SeisSol::main.mpi().size();
+		int numPartitions = seissol::MPI::mpi.size();
 
 		m_elements.resize(m_g2lElements.size());
 		int k = 0;

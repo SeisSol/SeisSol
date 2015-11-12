@@ -65,10 +65,11 @@ typedef MPIDummy MPI;
  */
 class MPI : public MPIBasic
 {
-public:
+private:
 	MPI()
 	{ }
 
+public:
 	~MPI()
 	{ }
 
@@ -90,6 +91,10 @@ public:
 	{
 		MPI_Finalize();
 	}
+
+public:
+	/** The only instance of the class */
+	static MPI mpi;
 };
 
 #endif // USE_MPI
