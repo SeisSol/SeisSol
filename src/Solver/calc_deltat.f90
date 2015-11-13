@@ -207,7 +207,7 @@ CONTAINS
     INTEGER                               :: iElem, iNeighbor, iSide
     INTEGER                               :: idxNeighbors(MESH%GlobalElemType)
     REAL                                  :: rho, C(6,6)                                                 
-    REAL                                  :: dtmin(MESH%nElem)
+    REAL, allocatable, dimension(:)       :: dtmin
     !--------------------------------------------------------------------------
     INTENT(IN)                            :: EQN, MESH, IO
     INTENT(INOUT)                         :: OptionalFields
@@ -216,7 +216,7 @@ CONTAINS
     !                                                                         !
     ! Compute Velocities                       
     !                                                                         
-    !                                                                      
+    !
        DO iElem = 1, MESH%nElem
            OptionalFields%sound(iElem) = MAXVAL( DISC%Galerkin%MaxWaveSpeed(iElem,:) )
        ENDDO
@@ -255,6 +255,7 @@ CONTAINS
                              DISC%FixTimeStep                         )   !    dt_fix
     !
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
+      allocate( dtmin(MESH%nElem) )
       DISC%LocalDt(:) = OptionalFields%dt_convectiv(:)
       WHERE(DISC%LocalDt(:).GT.DISC%FixTimeStep)
         DISC%LocalDt(:) = DISC%FixTimeStep
@@ -281,8 +282,8 @@ CONTAINS
         IF(DISC%LocalTime(iElem)+DISC%LocalDt(iElem).GE.DISC%EndTime) THEN
             DISC%LocalDt(iElem) = DISC%EndTime - DISC%LocalTime(iElem)
         ENDIF
-      ENDDO
-      !
+      ENDDO      
+      deallocate( dtmin )
     ENDIF
     !                                                                      
     !                                                                         
