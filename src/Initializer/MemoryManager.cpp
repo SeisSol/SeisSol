@@ -81,10 +81,44 @@
 #include <omp.h>
 #endif
 
+#if CONVERGENCE_ORDER == 2
+#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_CONSTANT seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_DOFS     seissol::MemoryAllocator::HighBandwidth
+#elif CONVERGENCE_ORDER == 3
+#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_CONSTANT seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_DOFS     seissol::MemoryAllocator::HighBandwidth
+#elif CONVERGENCE_ORDER == 4
+#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_CONSTANT seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#elif CONVERGENCE_ORDER == 5
 #define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
 #define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
 #define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
 #define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#elif CONVERGENCE_ORDER == 6
+#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
+#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#elif CONVERGENCE_ORDER == 7
+#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
+#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#elif CONVERGENCE_ORDER == 8
+#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::Standard
+#define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
+#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#else
+#error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
+#endif
 
 seissol::initializers::MemoryManager::MemoryManager()
   : m_integrationBufferLTS(NULL)
@@ -437,7 +471,7 @@ void seissol::initializers::MemoryManager::allocateIntegrationBufferLTS() {
 #ifdef _OPENMP
   l_numberOfThreads = omp_get_max_threads();
 #endif
-  m_integrationBufferLTS = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_TIMEDOFS ) ;
+  m_integrationBufferLTS = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_GLOBAL ) ;
 
   /*
    *  (thread-local) LTS integration buffers, initialize
