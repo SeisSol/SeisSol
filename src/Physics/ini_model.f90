@@ -114,7 +114,7 @@ CONTAINS
     REAL                            :: xrf_max,xrf_min,yrf_max,yrf_min,zrf_max,zrf_min
     REAL                            :: posx_max,posx_min,posy_max,posy_min,posz_max,posz_min
     REAL                            :: pert_max, pert_min
-    REAL                            :: BaryDist(MESH%nElem)
+    REAL, allocatable, dimension(:) :: BaryDist
     REAL                            :: omega
     REAL                            :: circ
     REAL                            :: QPLocVal,QSLocVal
@@ -353,8 +353,10 @@ CONTAINS
       CASE(6)     !special case for Sismovalp 3D benchmark test
                   !layered bedrock with linear variation of material parameters
                   !sediment rock with depth dependent material parameters
-                                                                                    ! interpolated linearly
-         CALL calc_BaryDist(BaryDist,OptionalFields,EQN,MESH,IO)
+                  ! interpolated linearly
+        
+        allocate( BaryDist(MESH%nElem) )
+        CALL calc_BaryDist(BaryDist,OptionalFields,EQN,MESH,IO)
 
          DO iElem = 1, MESH%nElem
             
@@ -402,6 +404,7 @@ CONTAINS
             ENDIF
              
          ENDDO
+         deallocate( BaryDist )
 
       CASE(7)     !special case for Euroseistest benchmark I2b (volvi lake)
                   !layered bedrock with linear variation of material parameters
@@ -1071,7 +1074,6 @@ CONTAINS
     TYPE(tUnstructMesh)             :: MESH
     TYPE(tInputOutput)              :: IO
     TYPE(tUnstructOptionalFields)   :: OptionalFields
-    REAL                            :: BaryDist(MESH%nElem)
     INTEGER                         :: iObject
     INTEGER                         :: iBNDType
     !-------------------------------------------------------------------------!
@@ -1165,7 +1167,7 @@ CONTAINS
     TYPE(tUnstructMesh)             :: MESH
     TYPE(tInputOutput)              :: IO
     TYPE (tUnstructOptionalFields)  :: OptionalFields
-    REAL                            :: BaryDist(MESH%nElem)
+    REAL, allocatable, dimension(:) :: BaryDist
     INTEGER                         :: iObject
     INTEGER                         :: iBNDType
     !-------------------------------------------------------------------------!
@@ -1192,7 +1194,7 @@ CONTAINS
     REAL                            :: Vec1(EQN%DIMENSION), Vec2(EQN%DIMENSION), Normal(EQN%DIMENSION)
     ! ------------------------------------------------------------------------!
     INTENT(IN)    :: EQN, MESH, IO
-    INTENT(OUT)   :: BaryDist
+    INTENT(INOUT) :: BaryDist
     INTENT(INOUT) :: OptionalFields
     ! ------------------------------------------------------------------------!
     !
