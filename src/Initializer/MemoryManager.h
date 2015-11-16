@@ -93,7 +93,7 @@ namespace seissol {
 class seissol::initializers::MemoryManager {
   private: // explicit private for unit tests
     //! memory allocator
-    seissol::MemoryAllocator m_memoryAllocator;
+    seissol::memory::ManagedAllocator m_memoryAllocator;
 
     /**
      * Sparse switch: -1 if matrix is dense, nnz if sparse

@@ -104,11 +104,7 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
   
   memset(contained, 0, numSources * sizeof(short));
   
-  double (*planeEquations)[4][4];
-  int err = posix_memalign(reinterpret_cast<void**>(&planeEquations), ALIGNMENT, elements.size() * sizeof(double[4][4]));
-  if (err != 0) {
-    logError() << "Failed to allocate memory in findMeshIds().";
-  }
+  double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), ALIGNMENT));
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
     for (int face = 0; face < 4; ++face) {
       VrtxCoords n, p;
@@ -185,7 +181,7 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
     }
   }
   
-  free(planeEquations);
+  seissol::memory::free(planeEquations);
   delete[] centres1;
 }
 
