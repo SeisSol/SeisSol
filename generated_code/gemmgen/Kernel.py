@@ -80,6 +80,8 @@ class Kernel(object):
 class GeneratedKernel(Kernel):
   def __init__(self, kernel, db, architecture):
     self.gemmlist = list()
+    self.nonZeroFlops = 0
+    self.hardwareFlops = 0
     
     super(GeneratedKernel, self).__init__(kernel, db, architecture)
 
@@ -99,7 +101,9 @@ class GeneratedKernel(Kernel):
     # Find the actual implementation pattern, i.e. dense matrix -> dense pattern
     implementationPatterns = [DB.getImplementationPattern(fittedBlocks[i], equivalentSparsityPatterns[i]) for i in range(0, len(matrices))]
     # Determine the matrix multiplication order based on the implementation pattern
-    chainOrder = Sparse.sparseMatrixChainOrder(implementationPatterns)
+    chainOrder, dummy = Sparse.sparseMatrixChainOrder(implementationPatterns)
+    
+    self.nonZeroFlops += Sparse.calculateOptimalSparseFlops(equivalentSparsityPatterns)
 
     # convert matrix chain order to postfix
     stack = list()
@@ -227,6 +231,8 @@ class GeneratedKernel(Kernel):
         offsetB=offsetB,
         offsetC=offsetC        
       ))
+      self.hardwareFlops += 2 * gemm['M'] * gemm['N'] * gemm['K']
+    
 
 class ReferenceKernel(Kernel):
   def __init__(self, kernel, db, architecture):

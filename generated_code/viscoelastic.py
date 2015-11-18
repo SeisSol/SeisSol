@@ -68,9 +68,9 @@ db['timeIntegrated'] = DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, n
 db['timeDerivative0'] = DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities)
 riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfQuantities-9, numberOfQuantities), dtype=np.float64)]])
 db['AplusT'] = DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp)
-#~ db['Aplus'].fitBlocksToSparsityPattern()
+db['AplusT'].fitBlocksToSparsityPattern()
 db['AminusT'] = DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp)
-#~ db['Aminus'].fitBlocksToSparsityPattern()
+db['AminusT'].fitBlocksToSparsityPattern()
 
 mechMatrix = np.matlib.zeros((15, numberOfQuantities))
 mechMatrix[0:9,0:9] = np.matlib.identity(9)
@@ -81,8 +81,8 @@ tallMatrix[0:15,0:15] = db[clones['star'][0]].spp
 starMatrix = tallMatrix * mechMatrix
 for clone in clones['star']:
   db[clone] = DB.MatrixInfo(clone, starMatrix.shape[0], starMatrix.shape[1], starMatrix)
-  #~ db[clone].setBlocks([DB.MatrixBlock(0, 9, 0, 9), DB.MatrixBlock(0, 9, 9, numberOfQuantities)])
-  #~ db[clone].fitBlocksToSparsityPattern()
+  db[clone].setBlocks([DB.MatrixBlock(0, 9, 0, 9), DB.MatrixBlock(0, 9, 9, numberOfQuantities)])
+  db[clone].fitBlocksToSparsityPattern()
   
 source = np.matlib.zeros((numberOfQuantities, numberOfQuantities))
 for m in range(0, numberOfMechanisms):
@@ -90,21 +90,24 @@ for m in range(0, numberOfMechanisms):
   source[r,0:6] = db['YT'].spp
   source[r,r] = np.matlib.identity(6)
 db['source'] = DB.MatrixInfo('source', numberOfQuantities, numberOfQuantities, source)
-#~ db['source'].setBlocks([DB.MatrixBlock(9, numberOfQuantities, 0, 9), DB.MatrixBlock(9, numberOfQuantities, 9, numberOfQuantities)])
-#~ db['source'].fitBlocksToSparsityPattern()
+db['source'].setBlocks([DB.MatrixBlock(9, numberOfQuantities, 0, 9), DB.MatrixBlock(9, numberOfQuantities, 9, numberOfQuantities)])
+db['source'].fitBlocksToSparsityPattern()
   
 
 stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
+stiffnessBlocks = list()
 transposedStiffnessBlocks = list()
 for o in range(2, order+1):
   mb = Tools.alignedNumberOfBasisFunctions(o-1, architecture)
   col = Tools.numberOfBasisFunctions(o-1)
   nb = Tools.numberOfBasisFunctions(o)
+  stiffnessBlocks.append(DB.MatrixBlock(col, nb, 0, mb))
   transposedStiffnessBlocks.append(DB.MatrixBlock(0, mb, col, nb))
-for matrixName in stiffnessMatrices:
-  db[matrixName].fitBlocksToSparsityPattern()
-  db[matrixName + 'T'].setBlocks(transposedStiffnessBlocks)
-  db[matrixName + 'T'].fitBlocksToSparsityPattern()
+#~ for matrixName in stiffnessMatrices:
+  #~ db[matrixName].setBlocks(stiffnessBlocks)
+  #~ db[matrixName].fitBlocksToSparsityPattern()
+  #~ db[matrixName + 'T'].setBlocks(transposedStiffnessBlocks)
+  #~ db[matrixName + 'T'].fitBlocksToSparsityPattern()
 
 stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
 globalMatrixIdRules = [

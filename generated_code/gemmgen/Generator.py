@@ -139,16 +139,23 @@ class Generator:
   def generateKernels(self, outputDir, kernels):
     luts = dict()
     signatures = dict()
+    flops = dict()
     generatedKernels = list()
     gemmlist = list()
     for name, kernel in kernels:
       gk = Kernel.GeneratedKernel(kernel, self.db, self.architecture)
+      flop = (gk.nonZeroFlops, gk.hardwareFlops)
       funName, base, index = functionName(name)
       if index >= 0:
         if not luts.has_key(base):
           luts[base] = dict()
           signatures[base] = self.__gemmSignature(gk.involvedMatrices, writeNames=False)
-        luts[base].update({index: base})      
+        luts[base].update({index: base})        
+        if not flops.has_key(base):
+          flops[base] = dict()
+        flops[base].update({index: flop})
+      else:
+        flops[funName] = flop
       generatedKernels.append( (funName, gk) )
       gemmlist.extend(gk.gemmlist)
       
@@ -162,7 +169,7 @@ class Generator:
               header('void {}({});'.format(name, self.__gemmSignature(gk.involvedMatrices)))
             for key, value in luts.iteritems():
               maxkey = max(value.keys())
-              pointers = [value[i] + str(i) if value.has_key(i) else 'NULL' for i in range(0, maxkey+1)]
+              pointers = [value[i] + str(i) if value.has_key(i) else '0' for i in range(0, maxkey+1)]
               header('static void (*{}[])({}) = {{ {} }};'.format(key, signatures[key], ', '.join(pointers)))
             
     with Code.Cpp(outputDir + '/kernels.cpp') as cpp:
@@ -185,6 +192,21 @@ class Generator:
                     formatOffset(operation['nameB'], operation['offsetB']),
                     formatOffset(operation['nameC'], operation['offsetC'])
                   ))
+                  
+    with Code.Cpp(outputDir + '/flops.h') as header:
+      with header.HeaderGuard('FLOPS'):
+        with header.Namespace('seissol'):
+          with header.Namespace('flops'):
+            for key, value in flops.iteritems():
+              if isinstance(value, dict):
+                maxkey = max(value.keys())
+                nonZeroFlops = [str(value[i][0]) if value.has_key(i) else '0' for i in range(0, maxkey+1)]
+                header('unsigned const {}_nonZero[] = {{ {} }};'.format(key, ', '.join(nonZeroFlops)))
+                hardwareFlops = [str(value[i][1]) if value.has_key(i) else '0' for i in range(0, maxkey+1)]
+                header('unsigned const {}_hardware[] = {{ {} }};'.format(key, ', '.join(hardwareFlops)))
+              else:
+                header('unsigned const {}_nonZero = {};'.format(key, value[0]))
+                header('unsigned const {}_hardware = {};'.format(key, value[1]))
     
   def generateInitializer(self, outputDir):
     globalMatrixValues = dict()
