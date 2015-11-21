@@ -72,7 +72,12 @@ def equivalentMultiplicationPatterns(sparsityPatterns):
         sweepedPatterns[R-1][:,i] = 0.0
 
   return sweepedPatterns
-  
+
+
+def calculateOptimalSparseFlops(equivalentSparsityPatterns):
+  s, m = sparseMatrixChainOrder(equivalentSparsityPatterns)
+  return 2 * int(m[0, -1]) # additions and multiplications
+
   
 def sparseMatrixChainOrder(sparsityPatterns):
   p = list()
@@ -99,4 +104,4 @@ def sparseMatrixChainOrder(sparsityPatterns):
           product[np.abs(product) > 0] = 1.0
           products[i][j] = product
 
-  return s
+  return (s, m)

@@ -97,6 +97,7 @@ A(:,4) = 0.5*sqrt(s(:,1).^2+s(:,2).^2+s(:,3).^2);
 S = sum(A,2);
 %compute in-radius
 r_in = 3*V./S;
+
 tt = cputime-t;
 
 figure(1); plot(r_in); xlabel('Number of Tetrahedron'); ylabel('Insphere Radius')

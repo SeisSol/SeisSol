@@ -33,6 +33,7 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013, SeisSol Group
@@ -83,19 +84,13 @@
 #include <utils/logger.h>
 
 namespace seissol {
-  class MemoryAllocator;
-}
-
-/**
- * Allocates aligned memory for dynamic chunk sizes.
- **/
-class seissol::MemoryAllocator {
-  private:
-    typedef std::pair<unsigned, void*> Address; 
-    typedef std::vector<Address>       AddressVector;
-  
-    //! holds all memory addresses, which point to data arrays and have been returned by mallocs calling functions of the memory allocator.
-    AddressVector m_dataMemoryAddresses;
+  namespace memory {
+    enum Memkind {
+      Standard = 0,
+      HighBandwidth = 1
+    };
+    void* allocate(size_t i_size, size_t i_alignment, enum Memkind i_memkind = Standard);
+    void free(void* i_pointer, enum Memkind i_memkind = Standard);   
 
     /**
      * Prints the memory alignment of in terms of relative start and ends in bytes.
@@ -103,15 +98,28 @@ class seissol::MemoryAllocator {
      * @param i_memoryAlignment memory alignment.
      **/
     void printMemoryAlignment( std::vector< std::vector<unsigned long long> > i_memoryAlignment );
+    class ManagedAllocator;
+  }
+}
 
-  public:
-    enum Memkind {
-      Standard = 0,
-      HighBandwidth = 1
-    };
+/**
+ * Automatically frees allocated memory on destruction.
+ **/
+class seissol::memory::ManagedAllocator {
+  private:
+    typedef std::pair<enum Memkind, void*> Address; 
+    typedef std::vector<Address>       AddressVector;
   
-    MemoryAllocator();
-    ~MemoryAllocator();
+    //! holds all memory addresses, which point to data arrays and have been returned by mallocs calling functions of the memory allocator.
+    AddressVector m_dataMemoryAddresses;
+
+  public:  
+    ManagedAllocator() {}
+    
+    /**
+     * Frees all memory, which was allocated by functions of the ManagedAllocator.
+     **/
+    ~ManagedAllocator();
 
     /**
      * Allocates a single chunk of memory with the given size and alignment.
@@ -119,56 +127,8 @@ class seissol::MemoryAllocator {
      * @param  i_size size of the chunk in byte.
      * @param  i_alignment alignment of the memory chunk in byte.
      * @return pointer, which points to the aligned memory of the given size.
-     *
-     * @todo Allow this function to be called directly (update m_dataMemoryAddresses and free correctly)
      **/
-    inline void* allocateMemory( size_t i_size,
-                                 size_t i_alignment,
-                                 int    i_memkind = 0 )
-    {
-      void* l_ptrBuffer;
-      bool error = false;
-
-      /* handle zero allocation */
-      if ( i_size == 0 ) {
-        logWarning() << "allocation of size 0 requested, returning NULL; (alignment: " << i_alignment << ", memkind: " << i_memkind << ").";
-        l_ptrBuffer = NULL;
-        return l_ptrBuffer;
-      }
-
-#ifdef USE_MEMKIND
-      if( i_memkind == 0 ) {
-#endif
-        if (i_alignment % (sizeof(void*)) != 0) {
-          l_ptrBuffer = malloc( i_size );
-          error = (l_ptrBuffer == NULL);
-        } else {
-          error = (posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
-        }
-#ifdef USE_MEMKIND
-      } else {
-        if (i_alignment % (sizeof(void*)) != 0) {
-          l_ptrBuffer = hbw_malloc( i_size );
-          error = (l_ptrBuffer == NULL);
-        } else {
-          error = (hbw_posix_memalign( &l_ptrBuffer, i_alignment, i_size ) != 0);
-        } 
-      }
-#endif
-      
-      if (!error) {
-        m_dataMemoryAddresses.push_back( Address(i_memkind, l_ptrBuffer) );
-      } else {
-        logError() << "The malloc failed (bytes: " << i_size << ", alignment: " << i_alignment << ", memkind: " << i_memkind << ").";
-      }
-
-      return l_ptrBuffer;
-    }
-
-    /**
-     * Frees all memory, which was allocated by functions of the MemoryAllocator.
-     **/
-    void freeMemory();
+    void* allocateMemory( size_t i_size, size_t i_alignment, enum Memkind i_memkind = Standard );
 };
 
 #endif

@@ -38,37 +38,59 @@
 # @section DESCRIPTION
 #
 
-Import('env')
-
 import os
 
-def generate_code(target, source, env, for_signature):
-  return 'python {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --generator {}'.format(
-    source[0],
-    os.path.split(str(source[0]))[0],
-    os.path.split(str(target[0]))[0],
-    env['arch'],
-    env['order'],
-    env['numberOfMechanisms'],
-    env['libxsmmGenerator']
-  )
+#
+# set possible variables
+#
+vars = Variables()
 
-env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
-
-if env['equations'] == 'viscoelastic':
-  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'], ['viscoelastic.py', Glob('gemmgen/*.py')])
-  env.Append(CPPPATH='#/{}/'.format(env['buildDir']))
-
-  buildPath = '#/' + env['buildDir'] + '/'
-  cppFiles = filter(lambda t: str(t).endswith('.cpp'), generated)
-  for cpp in cppFiles:
-    obj = env.Object(cpp)
-    env.Depends(obj, generated)
-    env.sourceFiles.append(obj)
+vars.AddVariables(
+  PathVariable( 'buildDir', 'where to build the code', 'build', PathVariable.PathIsDirCreate ),
   
-  testFiles = filter(lambda t: str(t).endswith('.t.h'), generated)
-  for test in testFiles:
-    env.testSourceFiles.append(test.abspath)
+  EnumVariable( 'compileMode', 'mode of the compilation', 'release',
+                allowed_values=('debug', 'release')
+              )
+)
 
+# set environment
+env = Environment(variables=vars, CC=os.environ['CC'], CXX=os.environ['CXX'])
+env['ENV'] = os.environ
+
+# generate help text
+Help(vars.GenerateHelpText(env))
+  
+# handle unknown, maybe misspelled variables
+unknownVariables = vars.UnknownVariables()
+  
+# exit in the case of unknown variables
+if unknownVariables:
+  raise EnvironmentError("*** The following build variables are unknown: " + str(unknownVariables.keys()))
+
+
+#
+# precompiler, compiler and linker flags
+#
+env.Append(CXXFLAGS=['--std=c++11'])
+if env['compileMode'] == 'debug':
+  env.Append(CXXFLAGS=['-O0','-g'])
+elif env['compileMode'] == 'release':
+  env.Append(CPPDEFINES=['NDEBUG'])
+  env.Append(CXXFLAGS=['-O2'])
+
+# add pathname to the list of directories which are search for include
+env.Append(CPPPATH=['#/src', '#../../../submodules'])
+
+# build directory
+env['execDir'] = env['buildDir']+'/bin'
+env['buildDir'] = env['buildDir']
+
+# get the source files
+env.sourceFiles = []
 
 Export('env')
+SConscript('src/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
+Import('env')
+
+# build executable
+env.Program('#/'+env['execDir']+'/gmsh2gambit', env.sourceFiles)

@@ -1834,6 +1834,7 @@ MODULE TypesDef
      real, dimension(:), allocatable        :: dt_convectiv
 !     REAL                         , POINTER :: dt_viscos(:)                    ! aheineck @TODO not referenced in the code -> commented
      logical, dimension(:), allocatable     :: mask
+     real, dimension(:), allocatable        :: dtmin
      !< FaceAdjustment und
      !< Viscous Part
      REAL                         , POINTER :: pvar_n(:,:) => NULL()

@@ -98,6 +98,7 @@ CONTAINS
                OptionalFields%sound(       MESH%nElem)    , &                    ! Allocate
                OptionalFields%mask(        MESH%nElem)    , &                    ! Allocate
                OptionalFields%dt_convectiv(MESH%nElem)    , &                    ! Allocate
+               OptionalFields%dtmin       (MESH%nElem)    , &                    ! Allocate
                STAT = allocStat                             )                    ! Allocate
     !                                                                            !
     IF (allocstat .NE. 0 ) THEN                                                  ! Error Handler
@@ -127,6 +128,9 @@ CONTAINS
     IF (allocated(OptionalFields%mask)) THEN           !
         DEALLOCATE(OptionalFields%mask)                 ! Deallocate
     END IF
+    if (allocated(OptionalFields%dtmin)) then
+        deallocate(OptionalFields%dtmin)
+    end if
 ! aheineck, @TODO, not referecned in the code, commented                                              !
 !    IF (ASSOCIATED(OptionalFields%dt_viscos)) THEN      !
 !        DEALLOCATE(OptionalFields%dt_viscos)            ! Deallocate
@@ -206,8 +210,7 @@ CONTAINS
     REAL,POINTER                          :: MaterialVal(:,:)
     INTEGER                               :: iElem, iNeighbor, iSide
     INTEGER                               :: idxNeighbors(MESH%GlobalElemType)
-    REAL                                  :: rho, C(6,6)                                                 
-    REAL                                  :: dtmin(MESH%nElem)
+    REAL                                  :: rho, C(6,6)
     !--------------------------------------------------------------------------
     INTENT(IN)                            :: EQN, MESH, IO
     INTENT(INOUT)                         :: OptionalFields
@@ -216,7 +219,7 @@ CONTAINS
     !                                                                         !
     ! Compute Velocities                       
     !                                                                         
-    !                                                                      
+    !
        DO iElem = 1, MESH%nElem
            OptionalFields%sound(iElem) = MAXVAL( DISC%Galerkin%MaxWaveSpeed(iElem,:) )
        ENDDO
@@ -260,16 +263,16 @@ CONTAINS
         DISC%LocalDt(:) = DISC%FixTimeStep
       ENDWHERE
       DO iElem = 1, MESH%nElem
-        dtmin(iElem) = DISC%LocalDt(iElem)
+        OptionalFields%dtmin(iElem) = DISC%LocalDt(iElem)
         DO iSide = 1, MESH%LocalElemType(iElem)
             iNeighbor = MESH%ELEM%SideNeighbor(iSide,iElem)
             IF(iNeighbor.LE.MESH%nElem) THEN
-                dtmin(iElem) = MIN(dtmin(iElem), DISC%LocalDt(iNeighbor))
+                OptionalFields%dtmin(iElem) = MIN(OptionalFields%dtmin(iElem), DISC%LocalDt(iNeighbor))
             ENDIF
         ENDDO
       ENDDO
       DO iElem = 1, MESH%nElem
-        DISC%LocalDt(iElem) = dtmin(iElem)
+        DISC%LocalDt(iElem) = OptionalFields%dtmin(iElem)
       ENDDO
       !
       DO iElem = 1, MESH%nElem
@@ -282,7 +285,6 @@ CONTAINS
             DISC%LocalDt(iElem) = DISC%EndTime - DISC%LocalTime(iElem)
         ENDIF
       ENDDO
-      !
     ENDIF
     !                                                                      
     !                                                                         

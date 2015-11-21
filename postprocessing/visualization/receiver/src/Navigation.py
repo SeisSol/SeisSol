@@ -125,7 +125,7 @@ class Navigation(QWidget):
         fc = self.cutoff.value() * 2.0 / Fs
         b, a = scipy.signal.cheby2(self.lowpassOrder.value(), self.attenuation.value(), fc)
         for name in wf.names:
-          wf.waveforms[name] = scipy.signal.lfilter(b, a, wf.waveforms[name])
+          wf.waveforms[name] = scipy.signal.filtfilt(b, a, wf.waveforms[name])
       waveforms.append(wf)
     return waveforms
     

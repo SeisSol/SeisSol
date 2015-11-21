@@ -82,40 +82,40 @@
 #endif
 
 #if CONVERGENCE_ORDER == 2
-#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_CONSTANT seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_DOFS     seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
+#define MEMKIND_CONSTANT seissol::memory::HighBandwidth
+#define MEMKIND_DOFS     seissol::memory::HighBandwidth
 #elif CONVERGENCE_ORDER == 3
-#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_CONSTANT seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_DOFS     seissol::MemoryAllocator::HighBandwidth
+#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
+#define MEMKIND_CONSTANT seissol::memory::HighBandwidth
+#define MEMKIND_DOFS     seissol::memory::HighBandwidth
 #elif CONVERGENCE_ORDER == 4
-#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_CONSTANT seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
+#define MEMKIND_CONSTANT seissol::memory::HighBandwidth
+#define MEMKIND_DOFS     seissol::memory::Standard
 #elif CONVERGENCE_ORDER == 5
-#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
-#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
+#define MEMKIND_CONSTANT seissol::memory::Standard
+#define MEMKIND_DOFS     seissol::memory::Standard
 #elif CONVERGENCE_ORDER == 6
-#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
-#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
+#define MEMKIND_CONSTANT seissol::memory::Standard
+#define MEMKIND_DOFS     seissol::memory::Standard
 #elif CONVERGENCE_ORDER == 7
-#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
-#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
+#define MEMKIND_CONSTANT seissol::memory::Standard
+#define MEMKIND_DOFS     seissol::memory::Standard
 #elif CONVERGENCE_ORDER == 8
-#define MEMKIND_GLOBAL   seissol::MemoryAllocator::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::MemoryAllocator::Standard
-#define MEMKIND_CONSTANT seissol::MemoryAllocator::Standard
-#define MEMKIND_DOFS     seissol::MemoryAllocator::Standard
+#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
+#define MEMKIND_TIMEDOFS seissol::memory::Standard
+#define MEMKIND_CONSTANT seissol::memory::Standard
+#define MEMKIND_DOFS     seissol::memory::Standard
 #else
 #error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
 #endif
@@ -211,9 +211,6 @@ seissol::initializers::MemoryManager::~MemoryManager() {
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   delete[] m_globalDataCopies;
 #endif
-
-  // free memory of the memory allocate
-  m_memoryAllocator.freeMemory();
 }
 
 void seissol::initializers::MemoryManager::initializeGlobalMatrix(          int                        i_sparse,

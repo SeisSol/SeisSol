@@ -95,6 +95,9 @@ class Cpp:
 
   def Class(self, name):
     return Block(self, 'class ' + name, foot=';')
+
+  def Struct(self, name):
+    return Block(self, 'struct ' + name, foot=';')
     
   def HeaderGuard(self, name):
     return HeaderGuard(self, name)
