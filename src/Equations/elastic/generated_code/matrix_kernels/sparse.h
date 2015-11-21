@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-10-20 16:05:14.318327
+// @date 2015-11-21 13:21:20.786555
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -80,12 +80,6 @@
 #endif
 #ifdef DHSW
 #include <matrix_kernels/sparse_dhsw.h>
-#endif
-#ifdef SSKX
-#include <matrix_kernels/sparse_sskx.h>
-#endif
-#ifdef DSKX
-#include <matrix_kernels/sparse_dskx.h>
 #endif
 #ifdef SKNC
 #include <matrix_kernels/sparse_sknc.h>

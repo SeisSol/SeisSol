@@ -29,7 +29,7 @@
 // @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 // @author Alexander Heinecke (alexander.heinecke AT mytum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 // 
-// @date 2015-10-20 16:05:18.058386
+// @date 2015-11-21 13:21:24.101156
 // 
 // @section LICENSE
 // Copyright (c) 2012-2015, SeisSol Group
@@ -72,9 +72,6 @@
 #ifdef SHSW
 #include <initialization/bind_shsw.h>
 #endif
-#ifdef SSKX
-#include <initialization/bind_sskx.h>
-#endif
 #ifdef SKNC
 #include <initialization/bind_sknc.h>
 #endif
@@ -92,9 +89,6 @@
 #endif
 #ifdef DHSW
 #include <initialization/bind_dhsw.h>
-#endif
-#ifdef DSKX
-#include <initialization/bind_dskx.h>
 #endif
 #ifdef DKNC
 #include <initialization/bind_dknc.h>

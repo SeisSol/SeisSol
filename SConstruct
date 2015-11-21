@@ -182,7 +182,7 @@ vars.AddVariables(
   EnumVariable( 'arch',
                 'precision -- s for single- and d for double precision -- and architecture used. Warning: \'noarch\' calls the fall-back code and is outperformed by architecture-specific optimizations (if available) greatly.',
                 'dnoarch',
-                allowed_values=( 'snoarch', 'dnoarch', 'swsm', 'dwsm', 'ssnb', 'dsnb', 'sknc', 'dknc', 'shsw', 'dhsw', 'sskx', 'dskx', 'sknl', 'dknl' )
+                allowed_values=( 'snoarch', 'dnoarch', 'swsm', 'dwsm', 'ssnb', 'dsnb', 'sknc', 'dknc', 'shsw', 'dhsw', 'sknl', 'dknl' )
               ),
 
   EnumVariable( 'scalasca', 'instruments code with scalasca. \n \'default\': instruments only outer loops. \n'+\
@@ -373,18 +373,6 @@ elif env['arch'] in ['shsw', 'dhsw']:
                 CXXFLAGS  = ['-mavx2', '-mfma'],
                 F90FLAGS  = ['-mavx2', '-mfma'],
                 LINKFLAGS = ['-mavx2', '-mfma']  )
-elif env['arch'] in ['sskx', 'dskx']:
-  env['alignment'] = 64
-  if env['compiler'] == 'intel':
-    env.Append( CFLAGS    = ['-xCORE-AVX512', '-fma'],
-                CXXFLAGS  = ['-xCORE-AVX512', '-fma'],
-                F90FLAGS  = ['-xCORE-AVX512', '-fma'],
-                LINKFLAGS = ['-xCORE-AVX512', '-fma'] ) 
-  else:
-    env.Append( CFLAGS    = ['-mavx512f', '-mavx512cd', '-mfma'],
-                CXXFLAGS  = ['-mavx512f', '-mavx512cd', '-mfma'],
-                F90FLAGS  = ['-mavx512f', '-mavx512cd', '-mfma'],
-                LINKFLAGS = ['-mavx512f', '-mavx512cd', '-mfma']  )
 elif env['arch'] in ['sknc', 'dknc']:
   env['alignment'] = 64
   env.Append( CFLAGS    = ['-mmic', '-fma'],
