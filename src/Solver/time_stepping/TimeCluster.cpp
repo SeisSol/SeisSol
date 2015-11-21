@@ -579,6 +579,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
 #endif
 
 #ifdef ENABLE_MATRIX_PREFETCH
+#pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
     // first face's prefetches
     int l_face = 1;
     l_faceNeighbors_prefetch[0] = i_faceNeighbors[l_cell][l_face];
