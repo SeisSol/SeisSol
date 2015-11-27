@@ -3400,7 +3400,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          logError(*) 'Time step-wise output only with classic version'
          stop
 #else
-         logWarning(*) 'Time step-wise output is deprecated! Your parameter file is not compatible with GK version!'
+         logWarning0(*) 'Time step-wise output is deprecated! Your parameter file is not compatible with GK version!'
 #endif
       END IF                                                                   !
       IF (      IO%outInterval%printIntervalCriterion .EQ. 2 &                 !
@@ -3432,6 +3432,12 @@ ALLOCATE( SpacePositionx(nDirac), &
          SELECT CASE (IO%pickDtType)
          CASE (1)
          CASE (2)
+#ifdef GENERATEDKERNELS
+            logError(*) 'Time step-wise output only with classic version'
+            stop
+#else
+            logWarning0(*) 'Time step-wise output is deprecated! Your parameter file is not compatible with GK version!'
+#endif
          CASE DEFAULT
             logError(*) 'PickDtType must be 1 = pickdt or 2 = pickdt*dt'
             STOP
