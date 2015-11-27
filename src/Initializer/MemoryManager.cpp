@@ -152,7 +152,7 @@ void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser 
     m_globalData.fluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[flux] ];
   }
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    m_globalData.stiffnessMatricesTransposed[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + transposedStiffness] ];
+    m_globalData.stiffnessMatricesTransposed[transposedStiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + transposedStiffness] ];
   }
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     m_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + stiffness + 3] ];

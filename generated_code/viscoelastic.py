@@ -81,33 +81,48 @@ tallMatrix[0:15,0:15] = db[clones['star'][0]].spp
 starMatrix = tallMatrix * mechMatrix
 for clone in clones['star']:
   db[clone] = DB.MatrixInfo(clone, starMatrix.shape[0], starMatrix.shape[1], starMatrix)
-  db[clone].setBlocks([DB.MatrixBlock(0, 9, 0, 9), DB.MatrixBlock(0, 9, 9, numberOfQuantities)])
+  #~ db[clone].setBlocks([DB.MatrixBlock(0, 9, 0, 9), DB.MatrixBlock(0, 9, 9, numberOfQuantities)])
+  #~ db[clone].setBlocks([DB.MatrixBlock(0, 6, 6, 9), DB.MatrixBlock(6, 9, 0, numberOfQuantities)])
+  db[clone].setBlocks([DB.MatrixBlock(0, 6, 6, 9), DB.MatrixBlock(6, 9, 0, numberOfQuantities)])
   db[clone].fitBlocksToSparsityPattern()
-  
+
 source = np.matlib.zeros((numberOfQuantities, numberOfQuantities))
 for m in range(0, numberOfMechanisms):
   r = slice(9+6*m, 9+6*(m+1))
   source[r,0:6] = db['YT'].spp
   source[r,r] = np.matlib.identity(6)
 db['source'] = DB.MatrixInfo('source', numberOfQuantities, numberOfQuantities, source)
-db['source'].setBlocks([DB.MatrixBlock(9, numberOfQuantities, 0, 9), DB.MatrixBlock(9, numberOfQuantities, 9, numberOfQuantities)])
+db['source'].setBlocks([DB.MatrixBlock(9, numberOfQuantities, 0, 9), DB.MatrixBlock(9, numberOfQuantities, 9, numberOfQuantities, True)])
 db['source'].fitBlocksToSparsityPattern()
   
 
 stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
-stiffnessBlocks = list()
 transposedStiffnessBlocks = list()
 for o in range(2, order+1):
-  mb = Tools.alignedNumberOfBasisFunctions(o-1, architecture)
-  col = Tools.numberOfBasisFunctions(o-1)
-  nb = Tools.numberOfBasisFunctions(o)
-  stiffnessBlocks.append(DB.MatrixBlock(col, nb, 0, mb))
-  transposedStiffnessBlocks.append(DB.MatrixBlock(0, mb, col, nb))
-#~ for matrixName in stiffnessMatrices:
-  #~ db[matrixName].setBlocks(stiffnessBlocks)
-  #~ db[matrixName].fitBlocksToSparsityPattern()
-  #~ db[matrixName + 'T'].setBlocks(transposedStiffnessBlocks)
-  #~ db[matrixName + 'T'].fitBlocksToSparsityPattern()
+  stoprow = Tools.alignedNumberOfBasisFunctions(o-1, architecture)
+  startcol = Tools.numberOfBasisFunctions(o-1)
+  stopcol = Tools.numberOfBasisFunctions(o)
+  transposedStiffnessBlocks.append(DB.MatrixBlock(0, stoprow, startcol, stopcol))
+# merge first two blocks
+if len(transposedStiffnessBlocks) >= 2:
+  block1 = transposedStiffnessBlocks.pop(0)
+  block2 = transposedStiffnessBlocks.pop(0)
+  mergedBlock = DB.MatrixBlock( min(block1.startrow, block2.startrow),
+                                max(block1.stoprow, block2.stoprow),
+                                min(block1.startcol, block2.startcol),
+                                max(block1.stopcol, block2.stopcol) )
+  transposedStiffnessBlocks.insert(0, mergedBlock)
+
+stiffnessBlocks = [DB.MatrixBlock(block.startcol, block.stopcol, block.startrow, block.stoprow) for block in transposedStiffnessBlocks]
+#~ stiffnessBlocks = [ DB.MatrixBlock(0, 8, 0, 4),
+                    #~ DB.MatrixBlock(8, 20, 0, 10),
+                    #~ DB.MatrixBlock(20, 32, 0, 20),
+                    #~ DB.MatrixBlock(32, 56, 0, 35) ]
+for matrixName in stiffnessMatrices:
+  db[matrixName].setBlocks(stiffnessBlocks)
+  db[matrixName].fitBlocksToSparsityPattern()
+  db[matrixName + 'T'].setBlocks(transposedStiffnessBlocks)
+  db[matrixName + 'T'].fitBlocksToSparsityPattern()
 
 stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
 globalMatrixIdRules = [

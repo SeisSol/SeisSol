@@ -44,20 +44,13 @@ import sympy
 import copy
 import re
 
-def getImplementationPattern(fittedBlocks, pattern):
-  implementationPattern = copy.deepcopy(pattern)
-  for block in fittedBlocks:
-    implementationPattern[block.slice()] = 1.0
-  return implementationPattern
-
-class MatrixBlock:
-  def __init__(self, startrow, stoprow, startcol, stopcol):
+class MatrixBlock(object):
+  def __init__(self, startrow, stoprow, startcol, stopcol, sparse=False):
     self.startrow = startrow
     self.stoprow = stoprow
     self.startcol = startcol
     self.stopcol = stopcol
-    self.ld = -1
-    self.offset = -1
+    self.sparse = sparse
 
   def rows(self):
     return self.stoprow - self.startrow
@@ -65,11 +58,46 @@ class MatrixBlock:
   def cols(self):
     return self.stopcol - self.startcol
     
+  def rowSlice(self):
+    return slice(self.startrow, self.stoprow)
+    
+  def colSlice(self):
+    return slice(self.startcol, self.stopcol)
+    
   def slice(self):
-    return (slice(self.startrow, self.stoprow), slice(self.startcol, self.stopcol))
+    return (self.rowSlice(), self.colSlice())
 
   def __repr__(self):
-    return '{{slice: [{}:{},{}:{}], ld: {}, offset: {}}}'.format(self.startrow, self.stoprow, self.startcol, self.stopcol, self.ld, self.offset)
+    return '{{slice: [{}:{},{}:{}], sparse: {}}}'.format(self.startrow, self.stoprow, self.startcol, self.stopcol, self.sparse)
+
+class MemoryBlock(MatrixBlock):
+  def __init__(self, matrixBlock, sparsityPattern):
+    super(MemoryBlock, self).__init__(matrixBlock.startrow, matrixBlock.stoprow, matrixBlock.startcol, matrixBlock.stopcol, matrixBlock.sparse)
+    self.ld = 0
+    self.offset = -1
+    self.startpaddingrows = 0
+    self.nnz = -1
+    self.spp = sparsityPattern[self.slice()] if self.sparse else None
+    
+  def sparsityPattern(self, startcol, stopcol):
+    assert(self.spp != None and stopcol >= startcol and startcol >= self.startcol and stopcol <= self.stopcol)
+    return self.spp[0:self.rows(), startcol-self.startcol:stopcol-self.startcol]
+    
+  def calcOffset(self, startrow, startcol):
+    row = startrow - self.startrow
+    col = startcol - self.startcol
+    assert(row >= 0 and startrow < self.stoprow and col >= 0 and startcol < self.stopcol)
+    if self.sparse:
+      assert(self.spp != None and row == 0)
+      nnzSkip = int(np.sum(self.spp[0:self.rows(), 0:col]))
+      return self.offset + nnzSkip
+    return self.offset + row + self.ld * col
+  
+  def __repr__(self):
+    if self.sparse:
+      return '{{slice: [{}:{},{}:{}], nnz: {}, offset: {}}}'.format(self.startrow, self.stoprow, self.startcol, self.stopcol, self.nnz, self.offset)
+    return '{{slice: [{}:{},{}:{}], ld: {}, offset: {}, startpadding: {}}}'.format(self.startrow, self.stoprow, self.startcol, self.stopcol, self.ld, self.offset, self.startpaddingrows)
+      
 
 def findLargestNonzeroBlock(pattern):
   nnz = pattern.nonzero()
@@ -86,6 +114,7 @@ def patternFittedBlocks(blocks, pattern):
     bounds.stoprow += block.startrow
     bounds.startcol += block.startcol
     bounds.stopcol += block.startcol
+    bounds.sparse = block.sparse
     fittedBlocks.append(bounds)
   return fittedBlocks
   
@@ -166,37 +195,67 @@ class MatrixInfo:
 
   def generateMemoryLayout(self, architecture, alignStartrow=False):
     self.requiredReals = 0
-    if alignStartrow == True:
+    self.blocks = [MemoryBlock(block, self.spp) for block in self.blocks]
+    if alignStartrow:
       for block in self.blocks:
-        if architecture.checkAlignment(block.startrow) == False:
-          block.startrow = architecture.getAlignedIndex(block.startrow)
+        if not block.sparse and not architecture.checkAlignment(block.startrow):
+          alignedIndex = architecture.getAlignedIndex(block.startrow)
+          block.startpaddingrows = block.startrow - alignedIndex
+          block.startrow = alignedIndex
     for block in self.blocks:
-      block.ld = architecture.getAlignedDim(block.rows()) if self.leftMultiplication or not self.rightMultiplication else block.rows()
       block.offset = self.requiredReals
-      self.requiredReals += block.ld * block.cols()
+      alignedBlocks = self.leftMultiplication or not self.rightMultiplication
+      if block.sparse:
+        block.nnz = int(np.sum(self.spp[block.slice()]))
+        self.requiredReals += architecture.getAlignedDim(block.nnz) if alignedBlocks else block.nnz
+      else:
+        block.ld = architecture.getAlignedDim(block.rows()) if alignedBlocks else block.rows()
+        self.requiredReals += block.ld * block.cols()
     
   def flat(self, name):
     return MatrixInfo(name, self.rows, self.cols, sparsityPattern=self.spp)
     
   def getValuesAsStoredInMemory(self):
+    blockValues = ['0.'] * self.requiredReals
     if self.values != None:
-      values = list()
       for block in self.blocks:
-        blockValues = ['0.'] * (block.ld * block.cols())
-        for entry in self.values:
-          if entry[0] >= block.startrow and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
-            blockValues[(entry[0] - block.startrow) + (entry[1] - block.startcol) * block.ld] = entry[2]
-        values.extend(blockValues)
-      return values
+        if block.sparse:
+          counter = 0
+          for entry in self.values:
+            if entry[0] >= block.startrow and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
+              blockValues[block.offset + counter] = entry[2]
+              counter = counter + 1
+              if counter >= block.nnz:
+                break
+        else:
+          for entry in self.values:
+            if entry[0] >= block.startrow + block.startpaddingrows and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
+              blockValues[block.offset + (entry[0] - block.startrow) + (entry[1] - block.startcol) * block.ld] = entry[2]
+      return blockValues
     else:
       return None
-      
+
   def getIndexLUT(self):
     lut = [-1] * (self.rows * self.cols)
     for block in self.blocks:
+      counter = 0
       for col in range(block.startcol, block.stopcol):
-        for row in range(block.startrow, block.stoprow):
+        for row in range(block.startrow + block.startpaddingrows, block.stoprow):
           if self.spp[row, col] != 0.0:
-            lut[row + col * self.rows] = block.offset + row + col * block.ld
+            if block.sparse:
+              lut[row + col * self.rows] = block.offset + counter
+              counter += 1
+            else:
+              lut[row + col * self.rows] = block.offset + row - block.startrow + (col - block.startcol) * block.ld
     return lut
+
+  def getImplementationPattern(self, fittedBlocks, equivalentPattern):
+    implementationPattern = np.matlib.zeros(self.spp.shape, dtype=np.float64)
+    for i, block in enumerate(self.blocks):
+      if block.sparse:
+        slc = (block.rowSlice(), fittedBlocks[i].colSlice())
+        implementationPattern[slc] = self.spp[slc]
+      else:
+        implementationPattern[fittedBlocks[i].slice()] = 1.0
+    return implementationPattern
     

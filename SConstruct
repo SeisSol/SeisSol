@@ -596,6 +596,7 @@ elif env['compiler'] == 'gcc':
 
 # get the source files
 env.sourceFiles = []
+env.generatedTestSourceFiles = []
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
@@ -651,9 +652,14 @@ if env['unitTests'] != 'none' and env['generatedKernels']:
   for sourceFile in env.sourceFiles:
     sourceFiles.append(sourceFile[0])
 
+  if env.generatedTestSourceFiles:
+    if env['parallelization'] in ['mpi', 'hybrid']:
+      env['CXXTEST_COMMAND'] = 'mpirun -np 1 %t'
+    env.CxxTest(target='#/'+env['buildDir']+'/tests/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)
+
   if env.testSourceFiles:
     if env['parallelization'] in ['mpi', 'hybrid']:
-        env['CXXTEST_COMMAND'] = 'mpirun -np 1 %t'
+      env['CXXTEST_COMMAND'] = 'mpirun -np 1 %t'
     env.CxxTest(target='#/'+env['buildDir']+'/tests/serial_test_suite', source=sourceFiles+env.testSourceFiles)
 
   if env['parallelization'] in ['mpi', 'hybrid']:

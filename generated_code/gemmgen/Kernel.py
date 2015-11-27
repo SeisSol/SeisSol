@@ -39,6 +39,10 @@
 
 import DB
 import Sparse
+import MDS
+import itertools
+import operator
+import numpy
 
 class Operation:
   MEMSET = 1,
@@ -99,7 +103,7 @@ class GeneratedKernel(Kernel):
     # Fit the equivalent sparsity pattern tightly for each memory block
     fittedBlocks = [DB.patternFittedBlocks(matrix.blocks, equivalentSparsityPatterns[i]) for i, matrix in enumerate(matrices)]
     # Find the actual implementation pattern, i.e. dense matrix -> dense pattern
-    implementationPatterns = [DB.getImplementationPattern(fittedBlocks[i], equivalentSparsityPatterns[i]) for i in range(0, len(matrices))]
+    implementationPatterns = [matrix.getImplementationPattern(fittedBlocks[i], equivalentSparsityPatterns[i]) for i, matrix in enumerate(matrices)]
     # Determine the matrix multiplication order based on the implementation pattern
     chainOrder, dummy = Sparse.sparseMatrixChainOrder(implementationPatterns)
     
@@ -144,34 +148,22 @@ class GeneratedKernel(Kernel):
             self.temps.append(DB.MatrixInfo(self.tempBaseName + str(tempCounter)))
           result = self.temps.pop()
           resultRequiredReals = result.requiredReals
-          result = DB.MatrixInfo(result.name, op1.rows, op2.cols, sparsityPattern = op1.spp * op2.spp)
+          spp1 = implementationPatterns[nameToIndex[op1.name]] if nameToIndex.has_key(op1.name) else op1.spp
+          spp2 = implementationPatterns[nameToIndex[op2.name]] if nameToIndex.has_key(op2.name) else op2.spp
+          result = DB.MatrixInfo(result.name, op1.rows, op2.cols, sparsityPattern = spp1 * spp2)
           result.fitBlocksToSparsityPattern()
           result.generateMemoryLayout(self.arch, alignStartrow=True)
           resultName = result.name
           operands.append(result)
-          # check how many gemm-calls will be generated
-          gemmCallCount = 0
-          for i1, block1 in enumerate(blocks1):
-            for i2, block2 in enumerate(blocks2):
-              n1, n2 = self.__intersect(block1, block2)
-              if n2 > n1:
-                gemmCallCount += 1              
-          if gemmCallCount > 1:
-            beta = 1
-            self.operations.append(dict(
-              type=Operation.MEMSET,
-              pointer=resultName,
-              numberOfReals=result.requiredReals,
-              dataType=self.arch.typename
-            ))
-          else:
-            beta = 0
+          beta = 0
           result.requiredReals = max(resultRequiredReals, result.requiredReals)
         else:
           beta = 1
           result = self.kernel
           resultName = self.resultName
         
+        ops = []
+        writes = []
         # op1 and op2 may be partitioned in several blocks.
         # Here we split the blocks of op1 and op2 in sums, i.e.
         # op1 * op2 = (op11 + op12 + ... + op1m) * (op21 + op22 + ... + op2n)
@@ -185,7 +177,45 @@ class GeneratedKernel(Kernel):
           for i2, block2 in enumerate(blocks2):
             # op1k * op2l is only nonzero if the columns of op1k and
             # the rows of op2l intersect.
-            self.__gemm(op1.name, block1, op1.blocks[i1], op2.name, block2, op2.blocks[i2], resultName, result.blocks[0], beta)
+            self.__gemm(op1.name, block1, op1.blocks[i1], op2.name, block2, op2.blocks[i2], resultName, result.blocks[0], beta, ops, writes)
+        
+        # Reorder ops in order to find betas
+        if len(writes) > 1 and beta == 0:
+          targetCard = result.blocks[0].ld * result.blocks[0].cols()
+          mdsIn = MDS.maxDisjointSet(writes, targetCard)
+          mdsOut = list( set(range(len(writes))).difference(set(mdsIn)) )
+          order = mdsIn + mdsOut          
+          memsetInterval = set(range(targetCard))
+          for m in mdsIn:
+            memsetInterval.difference_update(set( [i + j*result.blocks[0].ld for i in range(writes[m].startrow, writes[m].stoprow) for j in range(writes[m].startcol, writes[m].stopcol)] ))
+          memsetInterval = list(memsetInterval)
+          ranges = []
+          for key, group in itertools.groupby(enumerate(memsetInterval), lambda(index, value): value - index):
+            group = map(operator.itemgetter(1), group)
+            start = group[0]
+            end = group[-1] if len(group) > 1 else start
+            self.operations.append(dict(
+              type=Operation.MEMSET,
+              pointer=resultName,
+              offset=start,
+              numberOfReals=1+end-start,
+              dataType=self.arch.typename
+            ))
+          for m in mdsOut:
+            ops[m]['gemm']['beta'] = 1
+          ops = [ops[o] for o in order]
+
+        for op in ops:
+          self.gemmlist.append(op['gemm'])
+          self.operations.append(op)
+          if op['gemm']['spp'] != None:
+            NNZ = int(numpy.sum(op['gemm']['spp']))
+            if op['gemm']['LDA'] < 1:
+              self.hardwareFlops += 2 * NNZ * op['gemm']['N']
+            else:
+              self.hardwareFlops += 2 * op['gemm']['M'] * NNZ
+          else:
+            self.hardwareFlops += 2 * op['gemm']['M'] * op['gemm']['N'] * op['gemm']['K']
             
         # if op is temporary
         if not nameToIndex.has_key(op1.name):
@@ -193,35 +223,63 @@ class GeneratedKernel(Kernel):
         if not nameToIndex.has_key(op2.name):
           self.temps.append(op2)
 
-  def __gemm(self, nameA, blockA, memoryBlockA, nameB, blockB, memoryBlockB, nameC, memoryBlockC, beta):
-    n1, n2 = self.__intersect(blockA, blockB)
-    if n2 > n1:
-      m1 = self.arch.getAlignedIndex(blockA.startrow)
-      m2 = m1 + self.arch.getAlignedDim(blockA.stoprow - m1)
-      offsetA = memoryBlockA.offset + (m1 - memoryBlockA.startrow) + memoryBlockA.ld * (n1 - memoryBlockA.startcol)
-      offsetB = memoryBlockB.offset + (n1 - memoryBlockB.startrow) + memoryBlockB.ld * (blockB.startcol - memoryBlockB.startcol)
-      offsetC = memoryBlockC.offset + (m1 - memoryBlockC.startrow) + memoryBlockC.ld * (blockB.startcol - memoryBlockC.startcol)
+  def __gemm(self, nameA, blockA, memoryBlockA, nameB, blockB, memoryBlockB, nameC, memoryBlockC, beta, ops, writes):
+    if memoryBlockA.sparse and memoryBlockB.sparse:
+      raise NotImplementedError('The generator does not support sparse * sparse multiplications.')
+
+    k1, k2 = self.__intersect(blockA, blockB)
+    if k2 > k1:
+      if memoryBlockA.sparse:
+        m1 = memoryBlockA.startrow
+        m2 = memoryBlockA.stopcol
+        sparsityPattern = memoryBlockA.sparsityPattern(k1, k2)
+        mmType = 'sparse'
+      elif memoryBlockB.sparse:
+        m1 = self.arch.getAlignedIndex(blockA.startrow)
+        m2 = m1 + self.arch.getAlignedDim(blockA.stoprow - m1)
+        k1 = memoryBlockB.startrow
+        k2 = memoryBlockB.stoprow
+        sparsityPattern = memoryBlockB.sparsityPattern(blockB.startcol, blockB.stopcol)
+        mmType = 'sparse'
+      else:
+        m1 = self.arch.getAlignedIndex(blockA.startrow)
+        m2 = m1 + self.arch.getAlignedDim(blockA.stoprow - m1)
+        sparsityPattern = None
+        mmType = 'dense'
+      
+      offsetA = memoryBlockA.calcOffset(m1, k1)
+      offsetB = memoryBlockB.calcOffset(k1, blockB.startcol)
+
+      M = m2-m1
+      N = blockB.cols()
+      K = k2-k1
+      offsetC = memoryBlockC.calcOffset(m1, blockB.startcol)
+
+      startrowC = m1 - memoryBlockC.startrow
+      startcolC = blockB.startcol - memoryBlockC.startcol
+      writes.append(DB.MatrixBlock(startrowC, startrowC + M, startcolC, startcolC + N))
+
       alignedA = self.arch.checkAlignment(offsetA)
       alignedC = self.arch.checkAlignment(offsetC)
       
-      if not alignedA or not alignedC:
+      if not memoryBlockA.sparse and (not alignedA or not alignedC):
         print('WARNING for {}*{}: Either A or C cannot be aligned.'.format(nameA, nameB))
     
       gemm = {
-        'type':         'dense',
-        'M':            m2-m1,
-        'N':            blockB.cols(),
-        'K':            n2-n1,
+        'type':         mmType,
+        'M':            M,
+        'N':            N,
+        'K':            K,
         'LDA':          memoryBlockA.ld,
         'LDB':          memoryBlockB.ld,
         'LDC':          memoryBlockC.ld,
         'alpha':        1,
         'beta':         beta,
         'alignedA':     int(alignedA),
-        'alignedC':     int(alignedC)
+        'alignedC':     int(alignedC),
+        'spp':          sparsityPattern
       }
-      self.gemmlist.append(gemm)
-      self.operations.append(dict(
+      ops.append(dict(
         type=Operation.GEMM,
         gemm=gemm,
         nameA=nameA,
@@ -231,7 +289,6 @@ class GeneratedKernel(Kernel):
         offsetB=offsetB,
         offsetC=offsetC        
       ))
-      self.hardwareFlops += 2 * gemm['M'] * gemm['N'] * gemm['K']
     
 
 class ReferenceKernel(Kernel):

@@ -42,14 +42,21 @@ import Kernel
 import os
 import itertools
 import re
+import tempfile
+import scipy.io
+import scipy.sparse
     
 def generateRoutineName(gemm):
-  return 'dgemm_m{}_n{}_k{}_ldA{}_ldB{}_ldC{}_beta{}_alignedA{}_alignedC{}_pfsigonly'.format(
+  name = 'sparse' if gemm['spp'] != None else 'gemm'
+  lda = 'Asparse' if gemm['LDA'] < 0 else 'ldA{}'.format(gemm['LDA'])
+  ldb = 'Bsparse' if gemm['LDB'] < 0 else 'ldB{}'.format(gemm['LDB'])
+  return '{}_m{}_n{}_k{}_{}_{}_ldC{}_beta{}_alignedA{}_alignedC{}_pfsigonly'.format(
+    name,
     gemm['M'],
     gemm['N'],
     gemm['K'],
-    gemm['LDA'],
-    gemm['LDB'],
+    lda,
+    ldb,
     gemm['LDC'],
     gemm['beta'],
     gemm['alignedA'],
@@ -90,19 +97,32 @@ class Generator:
       cpp('#ifndef NDEBUG')
       cpp('extern long long libxsmm_num_total_flops;')
       cpp('#endif')
+      cpp('#if defined( __SSE3__) || defined(__MIC__)')
+      cpp('#include <immintrin.h>')
+      cpp('#endif')
 
     with Code.Cpp(hFilename) as header:
       with header.HeaderGuard('GEMMS'):
-        uniquegemms = [a for a,b in itertools.groupby(sorted(gemmlist))]
-        for gemm in uniquegemms:
+        indexnamelist = [(i, generateRoutineName(gemm)) for i, gemm in enumerate(gemmlist)]
+        keyFunc = lambda x: x[1]
+        indexnamelist.sort(key=keyFunc)
+        uniqueindexnames = [group.next() for key, group in itertools.groupby(indexnamelist, key=keyFunc)]
+        for index, name in uniqueindexnames:
           header('void {name}({tn} const* A, {tn} const* B, {tn}* C, {tn} const* A_prefetch, {tn} const* B_prefetch, {tn} const* C_prefetch);'.format(
-            name=generateRoutineName(gemm),
+            name=name,
             tn=self.architecture.typename
           ))
-          os.system(self.__generateLibxsmmGeneratorCall(cppFilename, gemm))
-  
-  def __generateLibxsmmGeneratorCall(self, filename, gemm):
-    return '{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} pfsigonly {}P'.format(
+          spp = gemmlist[index]['spp']
+          if spp != None:
+            temp = tempfile.NamedTemporaryFile()
+            scipy.io.mmwrite(temp, scipy.sparse.coo_matrix(spp).asformat('csc'))
+            sppFile = temp.name
+          else:
+            sppFile = ''
+          os.system(self.__generateLibxsmmGeneratorCall(cppFilename, gemmlist[index], sppFile))
+
+  def __generateLibxsmmGeneratorCall(self, filename, gemm, sppFile):
+    return '{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} pfsigonly {}P {}'.format(
       self.libxsmmGenerator,
       gemm['type'],
       filename,
@@ -118,7 +138,8 @@ class Generator:
       gemm['alignedA'],
       gemm['alignedC'],
       self.architecture.name,
-      self.architecture.precision
+      self.architecture.precision,
+      sppFile
     )
     
   def __gemmSignature(self, names, writeNames=True):
@@ -184,7 +205,7 @@ class Generator:
                 cpp(self.__localArray(temp.name, temp.requiredReals))
               for operation in gk.operations:
                 if operation['type'] == Kernel.Operation.MEMSET:
-                  cpp.memset(operation['pointer'], operation['numberOfReals'], operation['dataType'])
+                  cpp.memset(operation['pointer'], operation['numberOfReals'], operation['dataType'], operation['offset'])
                 elif operation['type'] == Kernel.Operation.GEMM:
                   cpp('{}({}, {}, {}, NULL, NULL, NULL);'.format(
                     generateRoutineName(operation['gemm']),
@@ -258,11 +279,16 @@ class Generator:
               cpp.memset('denseMatrix', matrixInfo.rows * matrixInfo.cols, self.architecture.typename)
               for block in matrixInfo.blocks:
                 with cpp.For('unsigned col = {block.startcol}; col < {block.stopcol}; ++col'.format(block=block)):
-                  with cpp.For('unsigned row = {block.startrow}; row < {block.stoprow}; ++row'.format(block=block)):
-                    cpp('denseMatrix[col * {matrixInfo.rows} + row] = matrix[{block.offset} + (col - {block.startcol}) * {block.ld} + (row - {block.startrow})];'.format(
-                      matrixInfo=matrixInfo,
-                      block=block
-                    ))
+                  with cpp.For('unsigned row = {block.startrow} + {block.startpaddingrows}; row < {block.stoprow}; ++row'.format(block=block)):
+                    if block.sparse:
+                      cpp('unsigned idx = index(row, col);')
+                      with cpp.If('idx != -1'):
+                        cpp('denseMatrix[col * {matrixInfo.rows} + row] = matrix[idx];'.format(matrixInfo=matrixInfo))
+                    else:
+                      cpp('denseMatrix[col * {matrixInfo.rows} + row] = matrix[{block.offset} + (col - {block.startcol}) * {block.ld} + (row - {block.startrow})];'.format(
+                        matrixInfo=matrixInfo,
+                        block=block
+                      ))
             
             if matrixInfo.values != None:
               cpp('{} const {}::values[] = {{ {} }};'.format(
@@ -364,4 +390,4 @@ class Generator:
                   test('double diff = ref - result[col*{} + row];'.format(resultBlock.ld))
                   test('error += diff * diff;')
                   test('refNorm += ref * ref;')
-              test('TS_ASSERT_LESS_THAN(sqrt(error/refNorm), 1e-16);')
+              test('TS_ASSERT_LESS_THAN(sqrt(error/refNorm), 1e-15);')

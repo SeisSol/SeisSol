@@ -44,7 +44,8 @@ import matplotlib.pyplot as plt
 
 import math
 import Navigation
-
+import numpy
+import scipy.fftpack
 
 class View(QWidget):
 
@@ -55,9 +56,6 @@ class View(QWidget):
     self.canvas = FigureCanvas(self.figure)
     self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)    
     toolbar = NavigationToolbar(self.canvas, self)
-    plotLayout = QVBoxLayout()
-    plotLayout.addWidget(toolbar)
-    plotLayout.addWidget(self.canvas)
     
     self.navigationLayout = QHBoxLayout()
     
@@ -69,11 +67,26 @@ class View(QWidget):
     addIcon = QIcon.fromTheme('list-add')
     addNaviButton = QPushButton(addIcon, 'Add navigation', self)
     addNaviButton.clicked.connect(self.addNavigation)
+    
+    self.maxFreq = QDoubleSpinBox(self)
+    self.maxFreq.setValue(10.0)
+    self.maxFreq.setVisible(False)
+    spectrumIcon = QIcon.fromTheme('network-wireless')
+    self.spectrum = QPushButton(spectrumIcon, 'Spectrum', self)
+    self.spectrum.setCheckable(True)
+    self.spectrum.clicked.connect(self.plot)
+    self.spectrum.toggled.connect(self.maxFreq.setVisible)
+    self.maxFreq.valueChanged.connect(self.plot)
 
-    sideLayout = QVBoxLayout()
-    sideLayout.addWidget(addNaviButton)
-    sideLayout.addLayout(self.navigationLayout)
-    layout.addLayout(sideLayout)
+    toolLayout = QHBoxLayout()
+    toolLayout.addWidget(addNaviButton)
+    toolLayout.addWidget(self.spectrum)
+    toolLayout.addWidget(self.maxFreq)
+    toolLayout.addWidget(toolbar)
+    plotLayout = QVBoxLayout()
+    plotLayout.addLayout(toolLayout)
+    plotLayout.addWidget(self.canvas)
+    layout.addLayout(self.navigationLayout)
     layout.addLayout(plotLayout)
     
   def addNavigation(self):
@@ -107,8 +120,18 @@ class View(QWidget):
       for wf in waveforms:
         for name in wf.names:
           p = subplots[name]
-          p.plot(wf.time, wf.waveforms[name])
-          p.set_xlabel('t')
+          if self.spectrum.isChecked():
+            n = len(wf.waveforms[name])
+            dt = wf.time[1]-wf.time[0] # assume equally spaced samples
+            f = scipy.fftpack.fftfreq(n, dt)
+            W = dt * scipy.fftpack.fft(wf.waveforms[name])
+            maxFreqIndices = numpy.argwhere(f > self.maxFreq.value())
+            L = maxFreqIndices[0] if len(maxFreqIndices) > 0 else n/2
+            p.semilogy(f[1:L], numpy.absolute(W[1:L]))
+            p.set_xlabel('f [Hz]')
+          else:
+            p.plot(wf.time, wf.waveforms[name])
+            p.set_xlabel('t (s)')
           p.set_ylabel(name)
 
       self.figure.tight_layout()

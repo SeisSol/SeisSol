@@ -294,6 +294,14 @@ private:
 				m_elements[e->second].neighborRanks[s] = m_rank;
 				m_elements[e->second].boundaries[s] = boundaryCondition;
 
+        VrtxCoords x = { 0.0, 0.0, 0.0 };
+        for (unsigned v = 0; v < 3; ++v) {
+          for (unsigned c = 0; c < 3; ++c) {
+            x[c] += m_vertices[ MeshTools::FACE2NODES[s][v] ].coords[c];
+          }
+        }
+        std::cout << "Element " << e->second << ", face " << s << ", barycenter " << x[0] << " " << x[1] << " " << x[2] << std::endl;
+
 				m_mesh >> std::ws; // Skip rest of the line
 			} else {
 				// Not your element, ignore the boundary information

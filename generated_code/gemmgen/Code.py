@@ -113,5 +113,6 @@ class Cpp:
   def include(self, header):
     self.__call__('#include "{}"'.format(header))
     
-  def memset(self, name, numberOfValues, typename):
-    self.__call__('memset({}, 0, {} * sizeof({}));'.format(name, numberOfValues, typename))
+  def memset(self, name, numberOfValues, typename, offset=0):
+    pointer = '&{}[{}]'.format(name, offset) if offset != 0 else name
+    self.__call__('memset({}, 0, {} * sizeof({}));'.format(pointer, numberOfValues, typename))
