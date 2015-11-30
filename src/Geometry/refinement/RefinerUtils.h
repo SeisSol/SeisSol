@@ -91,9 +91,9 @@ struct Tetrahedron {
     {
         return Tetrahedron(
                 glm::tvec3<T>(0,0,0),
+                glm::tvec3<T>(0,0,1),
                 glm::tvec3<T>(1,0,0),
-                glm::tvec3<T>(0,1,0),
-                glm::tvec3<T>(0,0,1));
+                glm::tvec3<T>(0,1,0));
     }
 
     const glm::tvec3<T> center() const

@@ -29,6 +29,7 @@ com.apple.timemachine.supported
 # Build
 build/build_*
 build/SeisSol_*
+postprocessing/validation/XDMFCubeCheck/build
 
 # Python
 *.py[cod]

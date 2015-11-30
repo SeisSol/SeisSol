@@ -622,6 +622,11 @@ env.Program('#/'+env['programFile'], sourceFiles)
 if env['unitTests'] != 'none' and env['generatedKernels']:
   # Anything done here should only affect tests
   env = env.Clone()
+  
+  # Compile XDMF cube check
+  if env['hdf5']:
+      Export('env')
+      SConscript('postprocessing/validation/XDMFCubeCheck/SConscript', duplicate=0)
     
   # define location of cxxtest
   env['CXXTEST'] = 'submodules/cxxtest'
