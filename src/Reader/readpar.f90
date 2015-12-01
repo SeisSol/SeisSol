@@ -292,6 +292,7 @@ CONTAINS
 #if defined(GENERATEDKERNELS) && defined(USE_PLASTICITY)
     if (Plasticity .eq. 0) then
       logError(*) 'Plasticity is disabled, but this version was compiled with Plasticity.'
+      stop
     endif
 #endif
 
@@ -302,6 +303,7 @@ CONTAINS
     CASE(1)
 #if defined(GENERATEDKERNELS) && !defined(USE_PLASTICITY)
        logError(*) 'Plasticity is assumed, but this version was not compiled with Plasticity.'
+       stop
 #else
        logInfo(*) '(Drucker-Prager) plasticity assumed .'
 #endif
