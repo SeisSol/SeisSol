@@ -291,16 +291,20 @@ CONTAINS
     !
 #if defined(GENERATEDKERNELS) && defined(USE_PLASTICITY)
     if (Plasticity .eq. 0) then
-      logWarning(*) 'Plasticity is disabled, but this version was compiled with Plasticity. Setting Plasticity=1.'
-      Plasticity = 1
+      logError(*) 'Plasticity is disabled, but this version was compiled with Plasticity.'
     endif
 #endif
+
     SELECT CASE(Plasticity)
     CASE(0)
       logInfo(*) 'No plasticity assumed. '
       EQN%Plasticity = Plasticity                                                     !
     CASE(1)
+#if defined(GENERATEDKERNELS) && !defined(USE_PLASTICITY)
+       logError(*) 'Plasticity is assumed, but this version was not compiled with Plasticity.'
+#else
        logInfo(*) '(Drucker-Prager) plasticity assumed .'
+#endif
         EQN%Plasticity = Plasticity
         EQN%PlastCo = PlasticCo
         EQN%BulkFriction = BulkFriction
