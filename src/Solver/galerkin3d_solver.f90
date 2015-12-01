@@ -470,23 +470,9 @@ CONTAINS
                  !scalar value, integral over time of the accumulated plastic strain
                  DISC%Galerkin%accpstrain(iElem) = DISC%Galerkin%accpstrain(iElem)+ dt*sqrt(0.5*(dudt_pstrain(1)**2 + dudt_pstrain(2)**2 &
                                                    + dudt_pstrain(3)**2)+ dudt_pstrain(4)**2 + dudt_pstrain(5)**2 + dudt_pstrain(6)**2)
-
-#else
-! TODO (clustered lts): Add plasticity
-logError(*), "Galerkin3dsolver, missing implementation."
-                 !get the dofs for the gk version
-!                 CALL getSingleCellDegreesOfFreedom( i_simpleId         = c_loc( iElem ),\
-!                                                o_degreesOfFreedom = c_loc( DOFiElem_ptr ) )
-
-                 CALL Plasticity_3D(DOFiElem_ptr(:,1:6), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, iElem, EQN%mu, dudt_plastic, dudt_pstrain) 
-         
-                 DISC%Galerkin%pstrain(1:6,iElem) = DISC%Galerkin%pstrain(1:6,iElem) + dudt_pstrain(1:6)
-                 dudt_plastic = - dudt_plastic
-                 !write the change back to the dofs for the gk version
-!                 CALL addToSingleCellDegreesOfFreedom( i_simpleId         = c_loc( iElem ),\
-!                                                i_dofUpdate = c_loc( dudt_plastic ) )
 #endif
+!for the GK version the plasticity call is moved to Interoperability.cpp
+
           ENDDO
         ENDIF
 ! ==============================================================================
