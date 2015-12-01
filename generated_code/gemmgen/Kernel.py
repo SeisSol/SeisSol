@@ -208,7 +208,7 @@ class GeneratedKernel(Kernel):
         for op in ops:
           self.gemmlist.append(op['gemm'])
           self.operations.append(op)
-          if op['gemm']['spp'] != None:
+          if op['gemm']['spp'] is not None:
             NNZ = int(numpy.sum(op['gemm']['spp']))
             if op['gemm']['LDA'] < 1:
               self.hardwareFlops += 2 * NNZ * op['gemm']['N']

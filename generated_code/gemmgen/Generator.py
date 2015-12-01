@@ -47,7 +47,7 @@ import scipy.io
 import scipy.sparse
     
 def generateRoutineName(gemm):
-  name = 'sparse' if gemm['spp'] != None else 'gemm'
+  name = 'sparse' if gemm['spp'] is not None else 'gemm'
   lda = 'Asparse' if gemm['LDA'] < 0 else 'ldA{}'.format(gemm['LDA'])
   ldb = 'Bsparse' if gemm['LDB'] < 0 else 'ldB{}'.format(gemm['LDB'])
   return '{}_m{}_n{}_k{}_{}_{}_ldC{}_beta{}_alignedA{}_alignedC{}_pfsigonly'.format(
@@ -113,7 +113,7 @@ class Generator:
             tn=self.architecture.typename
           ))
           spp = gemmlist[index]['spp']
-          if spp != None:
+          if spp is not None:
             temp = tempfile.NamedTemporaryFile()
             scipy.io.mmwrite(temp, scipy.sparse.coo_matrix(spp).asformat('csc'))
             sppFile = temp.name

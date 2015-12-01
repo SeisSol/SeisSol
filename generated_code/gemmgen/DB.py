@@ -80,7 +80,7 @@ class MemoryBlock(MatrixBlock):
     self.spp = sparsityPattern[self.slice()] if self.sparse else None
     
   def sparsityPattern(self, startcol, stopcol):
-    assert(self.spp != None and stopcol >= startcol and startcol >= self.startcol and stopcol <= self.stopcol)
+    assert(self.spp is not None and stopcol >= startcol and startcol >= self.startcol and stopcol <= self.stopcol)
     return self.spp[0:self.rows(), startcol-self.startcol:stopcol-self.startcol]
     
   def calcOffset(self, startrow, startcol):
@@ -88,7 +88,7 @@ class MemoryBlock(MatrixBlock):
     col = startcol - self.startcol
     assert(row >= 0 and startrow < self.stoprow and col >= 0 and startcol < self.stopcol)
     if self.sparse:
-      assert(self.spp != None and row == 0)
+      assert(self.spp is not None and row == 0)
       nnzSkip = int(np.sum(self.spp[0:self.rows(), 0:col]))
       return self.offset + nnzSkip
     return self.offset + row + self.ld * col
@@ -100,11 +100,11 @@ class MemoryBlock(MatrixBlock):
       
 
 def findLargestNonzeroBlock(pattern):
-  nnz = pattern.nonzero()
-  if nnz[0].shape[0] == 0 or nnz[0].shape[1] == 0:
-    return MatrixBlock(0, 0, 0, 0)
-  else:
+  if numpy.count_nonzero(pattern) != 0:
+    nnz = pattern.nonzero()
     return MatrixBlock(nnz[0].min(), nnz[0].max()+1, nnz[1].min(), nnz[1].max()+1)
+  else:
+    return MatrixBlock(0, 0, 0, 0)
 
 def patternFittedBlocks(blocks, pattern):
   fittedBlocks = list()
