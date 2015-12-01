@@ -257,8 +257,8 @@ class Generator:
                 if matrixInfo.values != None:
                   header('extern {} const values[];'.format(self.architecture.typename))
                 else:
-                  with header.Function('static unsigned index(unsigned row, unsigned column)'):
-                    header('static unsigned const lut[] = {{ {} }};'.format(
+                  with header.Function('static int index(unsigned row, unsigned column)'):
+                    header('static int const lut[] = {{ {} }};'.format(
                       ', '.join(map(str, matrixInfo.getIndexLUT()))
                     ))
                     header('return lut[row + column*{}];'.format(matrixInfo.rows))

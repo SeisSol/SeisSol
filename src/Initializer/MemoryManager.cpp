@@ -127,10 +127,12 @@ seissol::initializers::MemoryManager::MemoryManager()
 
 void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser &i_matrixReader )
 {
+#ifndef REQUIRE_SOURCE_MATRIX
   // init the sparse switch
-#define SPARSE_SWITCH
-#include <initialization/bind.h>
-#undef SPARSE_SWITCH
+#   define SPARSE_SWITCH
+#   include <initialization/bind.h>
+#   undef SPARSE_SWITCH
+#endif
 
   // allocate thread-local LTS integration buffers
   allocateIntegrationBufferLTS();
@@ -213,6 +215,7 @@ seissol::initializers::MemoryManager::~MemoryManager() {
 #endif
 }
 
+#ifndef REQUIRE_SOURCE_MATRIX
 void seissol::initializers::MemoryManager::initializeGlobalMatrix(          int                        i_sparse,
                                                                    unsigned int                        i_leadingDimension,
                                                                    unsigned int                        i_numberOfColumns,
@@ -459,6 +462,7 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
    */
   o_globalData.integrationBufferLTS = m_integrationBufferLTS;
 }
+#endif
 
 void seissol::initializers::MemoryManager::allocateIntegrationBufferLTS() {
   /*
@@ -763,15 +767,17 @@ void seissol::initializers::MemoryManager::touchConstantData( unsigned int      
   for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
     // zero star matrices
     for( unsigned int l_starMatrix = 0; l_starMatrix < 3; l_starMatrix++ ) {
-      for( unsigned int l_entry = 0; l_entry < STAR_NNZ; l_entry++ ) {
+      for( unsigned int l_entry = 0; l_entry < seissol::model::AstarT::reals; l_entry++ ) {
         o_local[l_cell].starMatrices[l_starMatrix][l_entry] = (real) 0;
       }
     }
 
     // zero flux solvers
     for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-      for( unsigned int l_entry = 0; l_entry < NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES; l_entry++ ) {
+      for( unsigned int l_entry = 0; l_entry < seissol::model::AplusT::reals; l_entry++ ) {
         o_local[      l_cell].nApNm1[l_face][l_entry] = (real) 0;
+      }
+      for( unsigned int l_entry = 0; l_entry < seissol::model::AminusT::reals; l_entry++ ) {
         o_neighboring[l_cell].nAmNm1[l_face][l_entry] = (real) 0;
       }
     }

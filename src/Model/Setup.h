@@ -53,7 +53,7 @@ namespace seissol {
      **/
     void getTransposedCoefficientMatrix( Material const& i_material,
                                          unsigned        i_dim,
-                                         real            o_M[STAR_NNZ] );
+                                         real            o_M[seissol::model::AstarT::reals] );
 
     /**
      * Solves the Riemann problem at an interface. Note that this routine
@@ -63,8 +63,8 @@ namespace seissol {
                                      seissol::model::Material const&                        neighbor,
                                      enum ::faceType                                        type,
                                      //real const                                             Atransposed[STAR_NNZ],
-                                     MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal,
-                                     MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor );
+                                     DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal,
+                                     DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor );
 
     /**
      * Converts the fortran material array to the C++ material struct.
@@ -81,12 +81,12 @@ namespace seissol {
     void getFaceRotationMatrix( VrtxCoords const i_normal,
                                 VrtxCoords const i_tangent1,
                                 VrtxCoords const i_tangent2,
-                                MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
-                                MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv );
+                                DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
+                                DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv );
                                 
 #ifdef REQUIRE_SOURCE_MATRIX
     void setSourceMatrix( seissol::model::Material const& local,
-                          real*                           sourceMatrix );
+                          MatrixView                      sourceMatrix );
 #endif
   }
 }

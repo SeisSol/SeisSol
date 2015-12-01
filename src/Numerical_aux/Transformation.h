@@ -64,7 +64,7 @@ namespace seissol {
     void inverseTensor1RotationMatrix( VrtxCoords const i_normal,
                                        VrtxCoords const i_tangent1,
                                        VrtxCoords const i_tangent2,
-                                       MatrixView<3, 3> o_Tinv );
+                                       DenseMatrixView<3, 3> o_Tinv );
 
     /**
      * Returns a column-major matrix that rotates a first-order tensor
@@ -75,7 +75,7 @@ namespace seissol {
     void tensor1RotationMatrix( VrtxCoords const i_normal,
                                 VrtxCoords const i_tangent1,
                                 VrtxCoords const i_tangent2,
-                                MatrixView<3, 3> o_T );
+                                DenseMatrixView<3, 3> o_T );
 
     /**
      * Inverse of SymmetricTensor2RotationMatrix().
@@ -83,7 +83,7 @@ namespace seissol {
     void inverseSymmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                                 VrtxCoords const i_tangent1,
                                                 VrtxCoords const i_tangent2,
-                                                MatrixView<6, 6> o_Tinv );
+                                                DenseMatrixView<6, 6> o_Tinv );
     
     /**
      * Returns a column-major matrix that rotates a symmetric second-order
@@ -94,7 +94,7 @@ namespace seissol {
     void symmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                          VrtxCoords const i_tangent1,
                                          VrtxCoords const i_tangent2,
-                                         MatrixView<6, 6> o_Tinv );
+                                         DenseMatrixView<6, 6> o_Tinv );
   }
 }
 

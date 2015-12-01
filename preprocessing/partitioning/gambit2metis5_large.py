@@ -80,7 +80,8 @@ try:
         vertices=np.zeros((4, NUMNP))
         for v in range(NUMNP):
             line = f.readline()
-            vertices[:,v] = [int(line[0:10]),float(line[10:30]),float(line[30:50]),float(line[50:70])]
+            numbers = line.split()
+            vertices[:,v] = [int(numbers[0]),float(numbers[1]),float(numbers[2]),float(numbers[3])]
         print 'Vertices read'
         f.readline()
         f.readline()
@@ -95,7 +96,7 @@ try:
         elements = np.zeros((7, NELEM))
         for e in range(NELEM):
             line = f.readline()
-            elements[:,e] = [int(line[0:8]),int(line[8:11]),int(line[11:14]),int(line[14:23]),int(line[23:31]),int(line[31:39]),int(line[39:47])]
+            elements[:,e] = [int(num) for num in line.split()]
         print 'Read the elements'
         if elements[1][0] == 6:
             print 'Read all tetrahedrons successfully!'

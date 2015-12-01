@@ -42,7 +42,7 @@
 
 void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::ElasticMaterial const& i_material,
                                                             unsigned i_dim,
-                                                            MatrixView<9, 9> o_M )
+                                                            MatrixView o_M )
 {
   o_M.setZero();
 
@@ -91,8 +91,8 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
 
 void seissol::model::getTransposedElasticGodunovState( seissol::model::ElasticMaterial const& local,
                                                        seissol::model::ElasticMaterial const& neighbor,
-                                                       MatrixView<9, 9> QgodLocal,
-                                                       MatrixView<9, 9> QgodNeighbor )
+                                                       DenseMatrixView<9, 9> QgodLocal,
+                                                       DenseMatrixView<9, 9> QgodNeighbor )
 {
   QgodNeighbor.setZero();
   
@@ -131,7 +131,7 @@ void seissol::model::getTransposedElasticGodunovState( seissol::model::ElasticMa
 }
 
 void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                MatrixView<NUMBER_OF_QUANTITIES, 9> Fneighbor )
+                                                                DenseMatrixView<NUMBER_OF_QUANTITIES, 9> Fneighbor )
 {
   if (type == freeSurface) {
     // Gamma is a diagonal matrix

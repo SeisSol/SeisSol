@@ -91,10 +91,6 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-#if defined(__STDC__)
-#include <initialization/bind.h>
-#endif
-
 #if 0
 ! zero tolerance constant
 #endif

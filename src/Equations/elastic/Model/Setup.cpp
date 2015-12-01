@@ -49,12 +49,12 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
 {
   if (STAR_NNZ == 24) {
     real MdenseData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-    MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Mdense(MdenseData);
+    MatrixView Mdense(MdenseData, sizeof(MdenseData)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
     seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, Mdense);
     seissol::kernels::convertStarMatrix(Mdense.data, o_M);
   } else {
     assert(STAR_NNZ == NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES);
-    MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Mdense(o_M);
+    MatrixView Mdense(o_M, NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES, &colMjrIndex<NUMBER_OF_QUANTITIES>);
     seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, Mdense);
   }
 }
@@ -63,20 +63,20 @@ void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&
                                                  seissol::model::Material const&                        neighbor,
                                                  enum ::faceType                                        type,
                                                  //real const                                             Atransposed[STAR_NNZ],
-                                                 MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal,
-                                                 MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor )
+                                                 DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal,
+                                                 DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor )
 {
   real QgodNeighborData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
   real QgodLocalData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
   
-  MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> QgodNeighbor(QgodNeighborData);
-  MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> QgodLocal(QgodLocalData);
+  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> QgodNeighbor(QgodNeighborData);
+  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> QgodLocal(QgodLocalData);
   
   seissol::model::getTransposedElasticGodunovState(local, neighbor, QgodLocal, QgodNeighbor);
   
   // \todo Generate a kernel for this and use Atransposed instead of the following.
   real AtData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> At(AtData);
+  MatrixView At(AtData, sizeof(AtData)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
   seissol::model::getTransposedElasticCoefficientMatrix(local, 0, At);
   Flocal.setZero();
   Fneighbor.setZero();
@@ -107,8 +107,8 @@ void seissol::model::setMaterial( double* i_materialVal,
 void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
                                             VrtxCoords const i_tangent1,
                                             VrtxCoords const i_tangent2,
-                                            MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
-                                            MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv )
+                                            DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
+                                            DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv )
 {
   o_T.setZero();
   o_Tinv.setZero();

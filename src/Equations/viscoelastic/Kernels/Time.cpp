@@ -46,6 +46,7 @@ extern long long libxsmm_num_total_flops;
 #endif
 
 #include <generated_code/kernels.h>
+#include <generated_code/flops.h>
 
 #include <cstring>
 #include <cassert>
@@ -74,8 +75,8 @@ seissol::kernels::Time::Time() {
 void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
                                                 real** i_stiffnessMatrices,
                                           const real*  i_degreesOfFreedom,
-                                                real   i_starMatrices[3][STAR_NNZ],
-                                          const real   sourceMatrix[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES],
+                                                real   i_starMatrices[3][seissol::model::AstarT::reals],
+                                          const real   sourceMatrix[seissol::model::source::reals],
                                                 real*  o_timeIntegrated,
                                                 real*  o_timeDerivatives ) {
   /*
@@ -420,28 +421,12 @@ void seissol::kernels::Time::integrateInTime( const real*        i_derivativesBu
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
                                         unsigned int        &o_hardwareFlops ) {
   // reset flops
-  /*o_nonZeroFlops = 0; o_hardwareFlops =0;
-
-  // initialization
-  o_nonZeroFlops  += NUMBER_OF_DOFS;
-  o_hardwareFlops += NUMBER_OF_ALIGNED_DOFS;
-
-  // interate over derivatives
-  for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    // iterate over dimensions
-    for( unsigned int l_c = 0; l_c < 3; l_c++ ) {
-      o_nonZeroFlops  += m_nonZeroFlops[  (l_derivative-1)*4 + l_c ];
-      o_hardwareFlops += m_hardwareFlops[ (l_derivative-1)*4 + l_c ];
-
-      o_nonZeroFlops  += m_nonZeroFlops[  (l_derivative-1)*4 + 3   ];
-      o_hardwareFlops += m_hardwareFlops[ (l_derivative-1)*4 + 3   ];
-    }
-
-    // update of time integrated DOFs
-    o_nonZeroFlops  += seissol::kernels::getNumberOfBasisFunctions(        CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
-    o_hardwareFlops += seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
-  }*/
-
+  o_nonZeroFlops = 0; o_hardwareFlops = 0;
+  
+  for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; ++l_derivative ) {
+    o_nonZeroFlops  += seissol::flops::derivative_nonZero[l_derivative];
+    o_hardwareFlops += seissol::flops::derivative_hardware[l_derivative];
+  }
 }
 
 void seissol::kernels::Time::computeExtrapolation(       double i_expansionPoint,

@@ -95,6 +95,7 @@ class seissol::initializers::MemoryManager {
     //! memory allocator
     seissol::memory::ManagedAllocator m_memoryAllocator;
 
+    #ifndef REQUIRE_SOURCE_MATRIX
     /**
      * Sparse switch: -1 if matrix is dense, nnz if sparse
      *
@@ -109,6 +110,7 @@ class seissol::initializers::MemoryManager {
      *    59:    \f$ A^{star, c} \f$
      **/
     int m_sparseSwitch[60];
+    #endif
 
     //! LTS mesh structure
     struct MeshStructure *m_meshStructure;
@@ -210,6 +212,7 @@ class seissol::initializers::MemoryManager {
     //! cells per cluster
     struct Cells         *m_cells;
 
+#ifndef REQUIRE_SOURCE_MATRIX
     /**
      * Initializes a global matrix with the given values.
      *
@@ -237,6 +240,7 @@ class seissol::initializers::MemoryManager {
      **/
     void initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader,
                                    struct GlobalData        &o_globalData );
+#endif
 
     /**
      * Allocate the thread local LTS integration buffer

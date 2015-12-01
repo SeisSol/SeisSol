@@ -47,15 +47,15 @@ namespace seissol {
   namespace model {
     void getTransposedElasticCoefficientMatrix( ElasticMaterial const& i_material,
                                                 unsigned i_dim,
-                                                MatrixView<9, 9> o_M );
+                                                MatrixView o_M );
 
     void getTransposedElasticGodunovState( ElasticMaterial const& local,
                                            ElasticMaterial const& neighbor,
-                                           MatrixView<9, 9> QgodLocal,
-                                           MatrixView<9, 9> QgodNeighbor );
+                                           DenseMatrixView<9, 9> QgodLocal,
+                                           DenseMatrixView<9, 9> QgodNeighbor );
                                            
     void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    MatrixView<NUMBER_OF_QUANTITIES, 9> Fneighbor );
+                                                    DenseMatrixView<NUMBER_OF_QUANTITIES, 9> Fneighbor );
   }
 }
 

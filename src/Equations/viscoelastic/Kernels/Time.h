@@ -45,6 +45,7 @@
 #include <limits>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/common.hpp>
+#include <generated_code/init.h>
 
 namespace seissol {
   namespace kernels {
@@ -110,16 +111,6 @@ class seissol::kernels::Time {
      * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
      */
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-
-    /**
-     * Number of non-zero floating point operations performed by each matrix kernel.
-     **/
-    unsigned int m_nonZeroFlops[(CONVERGENCE_ORDER-1)*4];
-
-    /**
-     * Number of floating point operations in hardware performed by each matrix kernels
-     **/
-    unsigned int m_hardwareFlops[(CONVERGENCE_ORDER-1)*4];
 
     /**
      * Stream-Copy (no-read-before-write) the degress of freedom into the first position of the time derivatives buffer
@@ -365,8 +356,8 @@ class seissol::kernels::Time {
     void computeAder(       double i_timeStepWidth,
                             real** i_stiffnessMatrices,
                       const real*  i_degreesOfFreedom,
-                            real   i_starMatrices[3][STAR_NNZ],
-                      const real   sourceMatrix[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES],
+                            real   i_starMatrices[3][seissol::model::AstarT::reals],
+                      const real   sourceMatrix[seissol::model::source::reals],
                             real*  o_timeIntegrated,
                             real*  o_timeDerivatives = NULL );
 

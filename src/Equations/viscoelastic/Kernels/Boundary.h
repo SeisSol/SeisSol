@@ -42,6 +42,7 @@
 #define BOUNDARY_H_
 
 #include <Initializer/typedefs.hpp>
+#include <generated_code/init.h>
 
 namespace seissol {
   namespace kernels {
@@ -53,18 +54,6 @@ namespace seissol {
  * Boundary/Flux kernel, which computes the boundary integration.
  **/
 class seissol::kernels::Boundary {
-  // explicit private for unit tests
-  private:
-    /**
-     * Number of non-zero floating point operations performed by each matrix kernel.
-     **/
-    unsigned int m_nonZeroFlops[54];
-
-    /**
-     * Number of floating point operations in hardware performed by each matrix kernels
-     **/
-    unsigned int m_hardwareFlops[54];
-
   public:
     /**
      * Constructor, which initializes the boundary kernel.
@@ -99,7 +88,7 @@ class seissol::kernels::Boundary {
     void computeLocalIntegral( const enum faceType i_faceTypes[4],
                                      real         *i_fluxMatrices[52],
                                      real          i_timeIntegrated[    NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
-                                     real          i_fluxSolvers[4][    NUMBER_OF_QUANTITIES             *NUMBER_OF_QUANTITIES ],
+                                     real          i_fluxSolvers[4][    seissol::model::AplusT::reals ],
                                      real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] );
 
     /**
@@ -155,7 +144,7 @@ class seissol::kernels::Boundary {
                                    const int           i_neighboringIndices[4][2],
                                          real         *i_fluxMatrices[52],
                                          real         *i_timeIntegrated[4],
-                                         real          i_fluxSolvers[4][    NUMBER_OF_QUANTITIES             *NUMBER_OF_QUANTITIES ],
+                                         real          i_fluxSolvers[4][    seissol::model::AminusT::reals ],
 #ifdef ENABLE_MATRIX_PREFETCH
                                          real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
                                          real         *i_faceNeighbors_prefetch[4],

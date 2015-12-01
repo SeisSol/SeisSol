@@ -49,15 +49,15 @@ void setStarMatrix( real* i_AT,
                     real  i_grad[3],
                     real* o_starMatrix )
 {
-  for (unsigned idx = 0; idx < STAR_NNZ; ++idx) {
+  for (unsigned idx = 0; idx < seissol::model::AstarT::reals; ++idx) {
     o_starMatrix[idx] = i_grad[0] * i_AT[idx];
   }
   
-  for (unsigned idx = 0; idx < STAR_NNZ; ++idx) {
+  for (unsigned idx = 0; idx < seissol::model::BstarT::reals; ++idx) {
     o_starMatrix[idx] += i_grad[1] * i_BT[idx];
   }
   
-  for (unsigned idx = 0; idx < STAR_NNZ; ++idx) {
+  for (unsigned idx = 0; idx < seissol::model::CstarT::reals; ++idx) {
     o_starMatrix[idx] += i_grad[2] * i_CT[idx];
   }
 }
@@ -72,9 +72,9 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
   
-  real AT[STAR_NNZ];
-  real BT[STAR_NNZ];
-  real CT[STAR_NNZ];
+  real AT[seissol::model::AstarT::reals];
+  real BT[seissol::model::BstarT::reals];
+  real CT[seissol::model::CstarT::reals];
   real FlocalData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
   real FneighborData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
   real TData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
@@ -116,10 +116,10 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     double volume = MeshTools::volume(elements[meshId], vertices);
 
     for (unsigned side = 0; side < 4; ++side) {
-      MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal(FlocalData);
-      MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor(FneighborData);
-      MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> T(TData);
-      MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Tinv(TinvData);
+      DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal(FlocalData);
+      DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor(FneighborData);
+      DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> T(TData);
+      DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Tinv(TinvData);
 
       seissol::model::getTransposedRiemannSolver( io_cellData->material[cell].local,
                                                   io_cellData->material[cell].neighbor[side],
@@ -140,8 +140,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       // Calculate transposed T instead
       seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
       
-      MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> nApNm1(io_cellData->localIntegration[cell].nApNm1[side]);
-      MatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> nAmNm1(io_cellData->neighboringIntegration[cell].nAmNm1[side]);
+      MatrixView nApNm1(io_cellData->localIntegration[cell].nApNm1[side], seissol::model::AplusT::reals, seissol::model::AplusT::index);
+      MatrixView nAmNm1(io_cellData->neighboringIntegration[cell].nAmNm1[side], seissol::model::AminusT::reals, seissol::model::AminusT::index);
       
       nApNm1.setZero();
       nAmNm1.setZero();
@@ -153,7 +153,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       // \todo Generate a kernel for this
       // Calculates  Tinv^T * F * T^T
       for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES - NUMBER_OF_RELAXATION_MECHANISMS * 6; ++i) {
           for (unsigned k = 0; k < NUMBER_OF_QUANTITIES; ++k) {
             for (unsigned l = 0; l < NUMBER_OF_QUANTITIES; ++l) {
               nApNm1(i, j) += Tinv(k, i) * Flocal(k, l) * T(j, l);
@@ -166,7 +166,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       }
     }
 #ifdef REQUIRE_SOURCE_MATRIX
-    seissol::model::setSourceMatrix(io_cellData->material[cell].local, io_cellData->localIntegration[cell].sourceMatrix);
+    MatrixView sourceMatrix(io_cellData->localIntegration[cell].sourceMatrix, seissol::model::source::reals, seissol::model::source::index);
+    seissol::model::setSourceMatrix(io_cellData->material[cell].local, sourceMatrix);
 #endif
   }
 }

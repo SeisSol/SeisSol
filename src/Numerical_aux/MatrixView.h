@@ -41,17 +41,47 @@
 #define MATRIXVIEW_H_
 
 #include <Kernels/precision.hpp>
+#include <cassert>
+#include <cstring>
+
+template<int Stride>
+int colMjrIndex(unsigned row, unsigned col)
+{
+  return row + col * Stride;
+}
+
+class MatrixView {
+public:
+  explicit MatrixView(real* data, unsigned reals, int (*index)(unsigned, unsigned))
+    : data(data),
+      reals(reals),
+      index(index) {}
+  
+  void setZero() {
+    memset(data, 0, reals * sizeof(real));
+  }
+  
+  inline real& operator()(unsigned row, unsigned col) {
+    int idx = (*index)(row, col);
+    assert(idx != -1);
+    return data[idx];
+  }
+  
+  real* data;
+  unsigned reals;
+  int (*index)(unsigned, unsigned);
+};
 
 /**
- * MatrixView allows hassle-free handling of column-major matrix data
+ * DenseMatrixView allows hassle-free handling of column-major matrix data
  * arrays. The compiler should optimise most of the operations here,
  * however I would not trust it too much and I would not recommend
  * using this class in highly performance-critical parts of the code.
  */
 template<unsigned M, unsigned N>
-class MatrixView {
+class DenseMatrixView {
 public:
-  explicit MatrixView(real* data, unsigned stride = M)
+  explicit DenseMatrixView(real* data, unsigned stride = M)
     : data(data),
       stride(stride) {}
   
@@ -76,8 +106,8 @@ public:
   }
   
   template<unsigned Mb, unsigned Nb>
-  MatrixView<Mb, Nb> block(unsigned originI, unsigned originJ) {
-    return MatrixView<Mb, Nb>(&data[originJ * stride + originI], stride);
+  DenseMatrixView<Mb, Nb> block(unsigned originI, unsigned originJ) {
+    return DenseMatrixView<Mb, Nb>(&data[originJ * stride + originI], stride);
   }
   
   real* data;

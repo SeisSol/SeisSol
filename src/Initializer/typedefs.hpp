@@ -49,11 +49,7 @@
 #include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
 #include <Model/datastructures.hpp>
-
-// equations == viscoelastic
-#ifdef REQUIRE_SOURCE_MATRIX
 #include <generated_code/init.h>
-#endif
 
 #include <cstddef>
 
@@ -306,10 +302,10 @@ struct GlobalData {
 // data for the cell local integration
 struct LocalIntegrationData {
   // star matrices
-  real starMatrices[3][STAR_NNZ];
+  real starMatrices[3][seissol::model::AstarT::reals];
 
   // flux solver for element local contribution
-  real nApNm1[4][NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+  real nApNm1[4][seissol::model::AplusT::reals];
   
   // Matrix for source terms of the form E_pq Q_q
 #ifdef REQUIRE_SOURCE_MATRIX
@@ -320,7 +316,7 @@ struct LocalIntegrationData {
 // data for the neighboring boundary integration
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+  real nAmNm1[4][seissol::model::AminusT::reals];
 
 #ifdef USE_PLASTICITY
   // initial loading (stress tensor)

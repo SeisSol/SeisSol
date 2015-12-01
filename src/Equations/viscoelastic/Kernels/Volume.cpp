@@ -48,11 +48,12 @@
 #include <stdint.h>
 
 #include <generated_code/kernels.h>
+#include <generated_code/flops.h>
 
 void seissol::kernels::Volume::computeIntegral( real** i_stiffnessMatrices,
                                                 real*  i_timeIntegratedDegreesOfFreedom,
-                                                real   i_starMatrices[3][STAR_NNZ],
-                                                real   sourceMatrix[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES],
+                                                real   i_starMatrices[3][seissol::model::AstarT::reals],
+                                                real   sourceMatrix[seissol::model::source::reals],
                                                 real*  io_degreesOfFreedom ) {
   // assert alignments
   assert( ((uintptr_t)i_stiffnessMatrices[0])           % ALIGNMENT == 0 );
@@ -75,16 +76,8 @@ void seissol::kernels::Volume::computeIntegral( real** i_stiffnessMatrices,
 }
 
 void seissol::kernels::Volume::flopsIntegral( unsigned int &o_nonZeroFlops,
-                                              unsigned int &o_hardwareFlops ) {
-  // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops = 0;
-
-  // iterate over dimensions
-  for( unsigned int l_c = 0; l_c < 3; l_c++ ) {
-    o_nonZeroFlops  += m_nonZeroFlops[ l_c];
-    o_hardwareFlops += m_hardwareFlops[l_c];
-
-    o_nonZeroFlops  += m_nonZeroFlops[3];
-    o_hardwareFlops += m_hardwareFlops[3];
-  }
+                                              unsigned int &o_hardwareFlops )
+{
+  o_nonZeroFlops = seissol::flops::volume_nonZero;
+  o_hardwareFlops = seissol::flops::volume_hardware;
 }

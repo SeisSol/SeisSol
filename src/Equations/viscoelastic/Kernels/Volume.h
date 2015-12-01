@@ -44,6 +44,7 @@
 #include <Initializer/typedefs.hpp>
 #include <cassert>
 #include <Kernels/common.hpp>
+#include <generated_code/init.h>
 
 namespace seissol {
   namespace kernels {
@@ -55,18 +56,6 @@ namespace seissol {
  * Volume kernel, which computes the volume integration.
  **/
 class seissol::kernels::Volume {
-  // explicit private for unit tests
-  private:
-    /**
-     * Number of non-zero floating point operations performed by each matrix kernel.
-     **/
-    unsigned int m_nonZeroFlops[4];
-
-    /**
-     * Number of floating point operations in hardware performed by each matrix kernels
-     **/
-    unsigned int m_hardwareFlops[4];
-
   public:
     /**
      * Constructor, which initializes the volume kernel.
@@ -83,8 +72,8 @@ class seissol::kernels::Volume {
      **/
     void computeIntegral( real** i_stiffnessMatrices,
                           real*  i_timeIntegratedDegreesOfFreedom,
-                          real   i_starMatrices[3][STAR_NNZ],
-                          real   sourceMatrix[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES],
+                          real   i_starMatrices[3][seissol::model::AstarT::reals],
+                          real   sourceMatrix[seissol::model::source::reals],
                           real*  io_degreesOfFreedom );
 
     /**
