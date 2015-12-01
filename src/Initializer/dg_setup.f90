@@ -1024,7 +1024,7 @@ CONTAINS
       IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
           iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
           MPIIndex        = MESH%ELEM%MPINumber(iSide,iElem)
-          materialVal = BND%ObjMPI(iObject)%NeighborBackground(1:3,MPIIndex) ! rho,mu,lambda
+          materialVal = BND%ObjMPI(iObject)%NeighborBackground(1:EQN%nBackgroundVar,MPIIndex) ! rho,mu,lambda
       ELSE
           SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
           CASE(0)
