@@ -173,7 +173,7 @@ vars.AddVariables(
   EnumVariable( 'compiler',
                 'Select the compiler (default: intel)',
                 'intel',
-                allowed_values=('intel', 'gcc')),
+                allowed_values=('intel', 'gcc', 'cray_intel', 'cray_gcc')),
                 
   BoolVariable( 'useExecutionEnvironment',
                 'set variables set in the execution environment',
@@ -245,6 +245,10 @@ elif env['compiler'] == 'gcc':
     env['CC'] = 'gcc'
     env['CXX'] = 'g++'
     env['F90'] = 'gfortran'
+elif env['compiler'].startswith('cray_'):
+    env['CC'] = 'cc'
+    env['CXX'] = 'CC'
+    env['F90'] = 'ftn'
 else:
     assert(false)
     
@@ -254,6 +258,11 @@ if env['parallelization'] in ['mpi', 'hybrid']:
     
     # Do not include C++ MPI Bindings
     env.Append(CPPDEFINES=['OMPI_SKIP_MPICXX'])
+
+# Remove any special compiler configuration
+# Do this after the MPI tool is called, because the MPI Tool checks for special compilers
+if env['compiler'].startswith('cray'):
+    env['compiler'] = env['compiler'].replace('cray_', '')
 
 # Include preprocessor in all Fortran builds
 env['F90COM'] = env['F90PPCOM']

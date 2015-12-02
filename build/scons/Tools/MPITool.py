@@ -83,7 +83,9 @@ def generate(env, **kw):
     # Set default compilers
     # Use I_MPI_ROOT to detect special Intel MPI wrappers
     if not 'mpicc' in env:
-        if 'I_MPI_ROOT' in env['ENV']:
+        if env['compiler'].startswith('cray_'):
+            env['mpicc'] = 'cc'
+        elif 'I_MPI_ROOT' in env['ENV']:
             if env['compiler'] == 'intel':
                 env['mpicc'] = 'mpiicc'
             else:
@@ -91,7 +93,9 @@ def generate(env, **kw):
         else:
             env['mpicc'] = 'mpicc'
     if not 'mpicxx' in env:
-        if 'I_MPI_ROOT' in env['ENV']:
+        if env['compiler'].startswith('cray_'):
+            env['mpicxx'] = 'CC'
+        elif 'I_MPI_ROOT' in env['ENV']:
             if env['compiler'] == 'intel':
                 env['mpicxx'] = 'mpiicpc'
             else:
@@ -102,7 +106,9 @@ def generate(env, **kw):
             else:
                 env['mpicxx'] = 'mpiCC'
     if not 'mpif90' in env:
-        if 'I_MPI_ROOT' in env['ENV']:
+        if env['compiler'].startswith('cray_'):
+            env['mpif90'] = 'ftn'
+        elif 'I_MPI_ROOT' in env['ENV']:
             if env['compiler'] == 'intel':
                 env['mpif90'] = 'mpiifort'
             else:
