@@ -461,7 +461,7 @@ CONTAINS
 #ifndef GENERATEDKERNELS
 
                  CALL Plasticity_3D(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, iElem, EQN%mu, dudt_plastic, dudt_pstrain) 
+                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, dudt_plastic, dudt_pstrain)
                 
                  !update the dofs 
                  DISC%Galerkin%dgvar(:,1:6,iElem,1) = DISC%Galerkin%dgvar(:,1:6,iElem,1) - dudt_plastic(:,1:6)

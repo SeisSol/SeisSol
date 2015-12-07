@@ -184,7 +184,6 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_stresses,       l_stresses,       [NUMBER_OF_BASIS_FUNCTIONS,6]  )
       call c_f_pointer( o_plasticUpdate,  l_plasticUpdate,  [NUMBER_OF_BASIS_FUNCTIONS,6]  )
 
-      ! TODO: remove ielem
       call plasticity_3d( dgvar        = l_stresses, &
                           dofStress    = l_initialLoading, &
                           nDegFr       = NUMBER_OF_BASIS_FUNCTIONS, &
@@ -192,7 +191,6 @@ module f_ctof_bind_interoperability
                           tv           = l_domain%eqn%Tv, &
                           plastCo      = l_domain%eqn%PlastCo, &
                           dt           = l_timeStep, &
-                          iElem        = 0, &
                           mu           = l_domain%eqn%mu, &
                           dudt_plastic = l_plasticUpdate, &
                           dudt_pstrain = dudt_pstrain )

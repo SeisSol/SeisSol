@@ -58,19 +58,16 @@ MODULE Plasticity_mod
   CONTAINS
 
 !yldfac is only caluclated from the first DOF, and all DOF's are adjusted by the same coefficient
-  SUBROUTINE Plasticity_3D(dgvar, DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, iElem, mu, dudt_plastic, dudt_pstrain)  
+  SUBROUTINE Plasticity_3D(dgvar, DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu, dudt_plastic, dudt_pstrain)
     !-------------------------------------------------------------------------!
 
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     ! Argument list declaration
-    !TYPE(tEquations)         :: EQN
     TYPE(tDiscretization)    :: DISC
-    !TYPE(tUnstructMesh)      :: MESH
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
-    INTEGER     :: iElem, LocElemType                                         ! Element number                   !
     INTEGER     :: iSide                                                      ! Local element side number        !
     INTEGER     :: iDegFr                                                     ! Index of degree of freedom       !
     INTEGER     :: Bndcase                                                    ! case=1: element on the fault, case=0 element not on the fault
@@ -89,11 +86,10 @@ MODULE Plasticity_mod
     REAL        :: DOFStress(1:nDegFr,1:6)
     REAL        :: dgvar(1:nDegFr,1:6)
     REAL        :: dudt_plastic(1:nDegFr,1:6)
-    !REAL        :: dudt_pstrain(1:nDegFr,1:9)
     REAL        :: dudt_pstrain(1:6)
     integer     :: LocDegFr
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: dgvar, DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, iElem, mu
+    INTENT(IN)    :: dgvar, DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu
     INTENT(OUT)   :: dudt_plastic, dudt_pstrain
     !-------------------------------------------------------------------------!
 
@@ -150,7 +146,6 @@ MODULE Plasticity_mod
 
            !----Change of dofs----- 
            dudt_plastic(iDegFr,1:6) = dgvar(iDegFr,1:6) - (Stress(iDegFr,1:6) - DOFStress(iDegFr,1:6))
-           !dudt_pstrain(iDegFr,1:6) = ((1-yldfac)/mu)*devStress(iDegFr, 1:6) strain for DOF-wise calculation
 
        ENDDO
           dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6)
