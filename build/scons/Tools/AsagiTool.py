@@ -38,7 +38,6 @@
 # @section DESCRIPTION
 # Finds ASAGI and add inlcude pathes, libs and library pathes
 #
-from mx.Misc import Namespace
 
 asagi_prog_src = """
 #include <asagi.h>
