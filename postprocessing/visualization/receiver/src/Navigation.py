@@ -48,8 +48,9 @@ import Waveform
 
 class Navigation(QWidget):
   activeItemChanged = pyqtSignal(name='activeItemChanged')
+  close = pyqtSignal(QWidget, name='close')
 
-  def __init__(self, parent = None):
+  def __init__(self, noclose = False, parent = None):
     super(Navigation, self).__init__(parent)
     
     self.currentFolder = ''
@@ -60,6 +61,10 @@ class Navigation(QWidget):
     refreshIcon = QIcon.fromTheme('view-refresh')
     refreshButton = QPushButton(refreshIcon, '', self)
     refreshButton.clicked.connect(self.refreshFolder)
+    if not noclose:
+      closeIcon = QIcon.fromTheme('window-close')
+      closeButton = QPushButton(closeIcon, '', self)
+      closeButton.clicked.connect(self.emitClose)
     
     self.receiverList = QListView(self)
     self.model = QStandardItemModel()
@@ -69,6 +74,8 @@ class Navigation(QWidget):
     buttonLayout = QHBoxLayout()
     buttonLayout.addWidget(openButton)
     buttonLayout.addWidget(refreshButton)
+    if not noclose:
+      buttonLayout.addWidget(closeButton)
     buttonLayout.addStretch()
     
     enableLowpassLabel = QLabel('Lowpass', self)
@@ -133,9 +140,14 @@ class Navigation(QWidget):
     self.readFolder(self.currentFolder)
     self.activeItemChanged.emit()
     
-  def lowpassChanged(self, status):
-    self.activeItemChanged.emit()
-      
+  def numberOfRows(self):
+    return self.model.rowCount() 
+    
+  def selectWaveformAt(self, row):
+    self.receiverList.selectionModel().select(self.model.index(row, 0), QItemSelectionModel.ClearAndSelect)
+  
+  def emitClose(self):
+    self.close.emit(self)
     
 
 

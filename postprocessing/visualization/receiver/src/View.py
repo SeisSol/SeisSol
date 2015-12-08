@@ -46,6 +46,8 @@ import math
 import Navigation
 import numpy
 import scipy.fftpack
+import re
+import os.path
 
 class View(QWidget):
 
@@ -61,8 +63,7 @@ class View(QWidget):
     
     layout = QHBoxLayout(self)
     self.navigations = []
-    for i in range(0, 2):
-      self.addNavigation()
+    self.addNavigation(True)
     
     addIcon = QIcon.fromTheme('list-add')
     addNaviButton = QPushButton(addIcon, 'Add navigation', self)
@@ -77,11 +78,15 @@ class View(QWidget):
     self.spectrum.clicked.connect(self.plot)
     self.spectrum.toggled.connect(self.maxFreq.setVisible)
     self.maxFreq.valueChanged.connect(self.plot)
+    
+    saveAll = QPushButton(QIcon.fromTheme('document-save'), '', self)
+    saveAll.clicked.connect(self.savePlots)
 
     toolLayout = QHBoxLayout()
     toolLayout.addWidget(addNaviButton)
     toolLayout.addWidget(self.spectrum)
     toolLayout.addWidget(self.maxFreq)
+    toolLayout.addWidget(saveAll)
     toolLayout.addWidget(toolbar)
     plotLayout = QVBoxLayout()
     plotLayout.addLayout(toolLayout)
@@ -89,12 +94,19 @@ class View(QWidget):
     layout.addLayout(self.navigationLayout)
     layout.addLayout(plotLayout)
     
-  def addNavigation(self):
-    navigation = Navigation.Navigation(self)
+  def addNavigation(self, noclose = False):
+    navigation = Navigation.Navigation(noclose)
     navigation.activeItemChanged.connect(self.plot)
+    navigation.close.connect(self.closeNavigation)
     navigation.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
     self.navigationLayout.addWidget(navigation)
     self.navigations.append(navigation)
+    
+  def closeNavigation(self, widget):
+    self.navigations.remove(widget)
+    self.navigationLayout.removeWidget(widget)
+    widget.deleteLater()
+    self.plot()
 
   def plot(self):
     waveforms = []
@@ -127,7 +139,7 @@ class View(QWidget):
             W = dt * scipy.fftpack.fft(wf.waveforms[name])
             maxFreqIndices = numpy.argwhere(f > self.maxFreq.value())
             L = maxFreqIndices[0] if len(maxFreqIndices) > 0 else n/2
-            p.semilogy(f[1:L], numpy.absolute(W[1:L]))
+            p.loglog(f[1:L], numpy.absolute(W[1:L]))
             p.set_xlabel('f [Hz]')
           else:
             p.plot(wf.time, wf.waveforms[name])
@@ -136,3 +148,24 @@ class View(QWidget):
 
       self.figure.tight_layout()
     self.canvas.draw()
+  
+  def savePlots(self):
+    filetypes = self.canvas.get_supported_filetypes_grouped()
+    defaultFiletype = self.canvas.get_default_filetype()
+    filters = []
+    selectedFilter = ''
+    for name, extensions in sorted(filetypes.iteritems()):
+      filtr = '{0} ({1})'.format(name, ' '.join(['*.{0}'.format(ext) for ext in extensions]))
+      if defaultFiletype in extensions:
+        selectedFilter = filtr
+      filters.append(filtr)
+    fileName, filtr = QFileDialog.getSaveFileNameAndFilter(self, 'Choose a save location.', '', ';;'.join(filters), selectedFilter)
+    fileName = os.path.splitext(str(fileName))[0]
+    extension = re.search(r'\*(\.[a-zA-Z]+)', str(filtr)).group(1)
+    
+    maxRow = min([nav.numberOfRows() for nav in self.navigations])
+    for row in range(maxRow):
+      for nav in self.navigations:
+        nav.selectWaveformAt(row)
+      self.plot()
+      self.canvas.print_figure('{0}{1:03}{2}'.format(fileName, row+1, extension))
