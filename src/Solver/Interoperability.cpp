@@ -403,7 +403,7 @@ void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_init
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
     for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      m_cellData->neighboringIntegration[l_copyInteriorId].initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
+      m_cellData->plasticity[l_copyInteriorId].initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
     }
   }
 }
@@ -432,7 +432,8 @@ void seissol::Interoperability::synchronizeCellLocalData() {
       m_cellData->material[l_cell].neighbor[side] = m_cellData->material[sourceId].neighbor[side];
     }
 
-#ifdef USE_PLASTICITY
+//#ifdef USE_PLASTICITY
+#if 0
     // sync initial loading
     for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
       for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {

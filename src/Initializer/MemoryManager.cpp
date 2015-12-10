@@ -727,6 +727,9 @@ void seissol::initializers::MemoryManager::allocateConstantData() {
   LocalIntegrationData       *l_local       = (LocalIntegrationData*)       m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( LocalIntegrationData ),       1, MEMKIND_CONSTANT );
   NeighboringIntegrationData *l_neighboring = (NeighboringIntegrationData*) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( NeighboringIntegrationData ), 1, MEMKIND_CONSTANT );
   CellMaterialData           *material      = (CellMaterialData*)           m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( CellMaterialData ),           1, MEMKIND_CONSTANT );
+#ifdef USE_PLASTICITY
+  PlasticityData             *plasticity    = (PlasticityData*)             m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( PlasticityData ),             1, MEMKIND_CONSTANT );
+#endif // USE_PLASTICITY
 
   // store per-cluster locations of the data
 #ifdef USE_MPI
@@ -740,21 +743,37 @@ void seissol::initializers::MemoryManager::allocateConstantData() {
     m_copyCellData[l_cluster].localIntegration       = l_local;
     m_copyCellData[l_cluster].neighboringIntegration = l_neighboring;
     m_copyCellData[l_cluster].material = material;
+#ifdef USE_PLASTICITY
+    m_copyCellData[l_cluster].plasticity = plasticity;
+#else // USE_PLASTICITY
+    m_copyCellData[l_cluster].plasticity = 0L;
+#endif // USE_PLASTICITY
 #endif
     // jump over copy cells
     l_local       += m_meshStructure[l_cluster].numberOfCopyCells;
     l_neighboring += m_meshStructure[l_cluster].numberOfCopyCells;
     material      += m_meshStructure[l_cluster].numberOfCopyCells;
+#ifdef USE_PLASTICITY
+    plasticity    += m_meshStructure[l_cluster].numberOfCopyCells;
+#endif // USE_PLASTICITY
 
     // set interior cell data
     m_interiorCellData[l_cluster].localIntegration       = l_local;
     m_interiorCellData[l_cluster].neighboringIntegration = l_neighboring;
     m_interiorCellData[l_cluster].material               = material;
+#ifdef USE_PLASTICITY
+    m_interiorCellData[l_cluster].plasticity             = plasticity;
+#else // USE_PLASTICITY
+    m_interiorCellData[l_cluster].plasticity = 0L;
+#endif // USE_PLASTICITY
     
     // jump over interior
     l_local       += m_meshStructure[l_cluster].numberOfInteriorCells;
     l_neighboring += m_meshStructure[l_cluster].numberOfInteriorCells;
     material      += m_meshStructure[l_cluster].numberOfInteriorCells;
+#ifdef USE_PLASTICITY
+    plasticity    += m_meshStructure[l_cluster].numberOfInteriorCells;
+#endif // USE_PLASTICITY
   }
 }
 
@@ -851,6 +870,15 @@ void seissol::initializers::MemoryManager::allocateInternalState() {
                                                                                                      PAGESIZE_HEAP,
                                                                                                      MEMKIND_DOFS
                                                                                                    );
+
+#ifdef USE_PLASTICITY
+  // TODO pstrain is updated every time step but only used for output -> maybe useful candidate for high bandwidth memory
+  m_internalState.pstrain      = (real(*)[6]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof( real[6] ),
+		  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	 PAGESIZE_HEAP,
+																				 seissol::memory::Standard);
+#else // USE_PLASTICITY
+  m_internalState.pstrain = 0L;
+#endif // USE_PLASTICITY
 }
 
 void seissol::initializers::MemoryManager::initializeFaceNeighbors() {

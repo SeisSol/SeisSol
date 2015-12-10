@@ -630,7 +630,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
 
 #ifdef USE_PLASTICITY
   e_interoperability.computePlasticity(  m_timeStepWidth,
-                                         i_cellData->neighboringIntegration[l_cell].initialLoading,
+                                         i_cellData->plasticity[l_cell].initialLoading,
                                          io_dofs[l_cell] );
 #endif
 
