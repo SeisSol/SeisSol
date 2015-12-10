@@ -461,10 +461,9 @@ CONTAINS
 #ifndef GENERATEDKERNELS
 
                  CALL Plasticity_3D(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, dudt_plastic, dudt_pstrain)
+                                    DISC%Galerkin%nDegFr, &
+                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, dudt_pstrain)
                 
-                 !update the dofs 
-                 DISC%Galerkin%dgvar(:,1:6,iElem,1) = DISC%Galerkin%dgvar(:,1:6,iElem,1) - dudt_plastic(:,1:6)
                  !update the increase of plastic strain
                  DISC%Galerkin%pstrain(1:6,iElem) = DISC%Galerkin%pstrain(1:6,iElem) + dudt_pstrain(1:6)
                  !scalar value, integral over time of the accumulated plastic strain

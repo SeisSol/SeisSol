@@ -227,9 +227,9 @@ extern "C" {
 
   extern void f_interoperability_computePlasticity( void    *i_domain,
                                                     double  *i_timestep,
+													int    numberOfAlignedBasisFunctions,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double  *i_stresses,
-                                                    double  *o_plasticUpdate );
+                                                    double  *io_dofs );
 
 
   extern void f_interoperability_writeReceivers( void   *i_domain,
@@ -670,31 +670,12 @@ void seissol::Interoperability::computeDynamicRupture( double i_fullUpdateTime,
 void seissol::Interoperability::computePlasticity(  double i_timeStep,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
                                                     double *io_dofs ) {
-  // collect stresses
-  double l_stresses[6*NUMBER_OF_BASIS_FUNCTIONS];
-
-  for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
-    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      l_stresses[l_quantity * NUMBER_OF_BASIS_FUNCTIONS + l_basis] = io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basis];
-    }
-  }
-
-  // platic update
-  double l_plasticUpdate[6*NUMBER_OF_BASIS_FUNCTIONS];
-
   // call fortran routine
   f_interoperability_computePlasticity(  m_domain,
                                         &i_timeStep,
+										 NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
                                          i_initialLoading,
-                                         l_stresses,
-                                         l_plasticUpdate );
-
-  // update degrees of freedom
-  for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
-    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basis] -= l_plasticUpdate[l_quantity * NUMBER_OF_BASIS_FUNCTIONS + l_basis];
-    }
-  }
+                                         io_dofs );
 }
 #endif
 

@@ -58,7 +58,7 @@ MODULE Plasticity_mod
   CONTAINS
 
 !yldfac is only caluclated from the first DOF, and all DOF's are adjusted by the same coefficient
-  SUBROUTINE Plasticity_3D(dgvar, DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu, dudt_plastic, dudt_pstrain)
+  SUBROUTINE Plasticity_3D(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, PlastCo, dt, mu, dudt_pstrain)
     !-------------------------------------------------------------------------!
 
     !-------------------------------------------------------------------------!
@@ -72,6 +72,7 @@ MODULE Plasticity_mod
     INTEGER     :: iDegFr                                                     ! Index of degree of freedom       !
     INTEGER     :: Bndcase                                                    ! case=1: element on the fault, case=0 element not on the fault
     INTEGER     :: nDegFr
+    integer     :: nAlignedDegFr
 
     REAL        :: Stress(1:nDegFr,6)                                         !local stress variable for the yield criterion
     REAL        :: devStress(1:nDegFr,6)                                      !stress deviator for the yield criterion
@@ -84,20 +85,17 @@ MODULE Plasticity_mod
     REAL        :: secInv                                                     !secInv=second Invariant of deviatoric stress
     REAL        :: BulkFriction, Tv, PlastCo
     REAL        :: DOFStress(1:nDegFr,1:6)
-    REAL        :: dgvar(1:nDegFr,1:6)
-    REAL        :: dudt_plastic(1:nDegFr,1:6)
+    REAL        :: dgvar(1:nAlignedDegFr,1:6)
     REAL        :: dudt_pstrain(1:6)
-    integer     :: LocDegFr
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: dgvar, DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu
-    INTENT(OUT)   :: dudt_plastic, dudt_pstrain
+    INTENT(IN)    :: DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu
+    INTENT(INOUT) :: dgvar
+    INTENT(OUT)   :: dudt_pstrain
     !-------------------------------------------------------------------------!
 
-    dudt_plastic = 0.0
     dudt_pstrain = 0.0
 
 
-    LocDegFr = nDegFr
     angfric = ATAN(BulkFriction) !angle of friction
     relaxtime = dt/(Tv) !Tv=dx/V_s with dx=min(dx);  Tv smaller-> stronger plasticity
 
@@ -106,19 +104,19 @@ MODULE Plasticity_mod
 ! Stress tensor components: Initial sxx,syy,szz,sxy,sxz,syz -> need to be specified throughout the whole medium for every element 
 ! as material values in EQN%IniStress, are mapped to the basis functions in dg_setup
 
-    Stress(:,1:6)= dgvar(:,1:6)  + DOFStress(:,1:6)   !act.Stress + initial stress_xx
+    Stress(:,1:6)= dgvar(1:nDegFr,1:6)  + DOFStress(:,1:6)   !act.Stress + initial stress_xx
 
 ! ---[ Calculate trial yield stress ]---
 
     ! Mean stress
-    meanStress(1:LocDegFr) = (Stress(1:LocDegFr,1) + Stress(1:LocDegFr,2)+ Stress(1:LocDegFr,3) )/3
+    meanStress(1:nDegFr) = (Stress(1:nDegFr,1) + Stress(1:nDegFr,2)+ Stress(1:nDegFr,3) )*(1.0D0/3.0D0)
 
     ! Deviatoric stress
-    devStress(1:LocDegFr,1) = Stress(1:LocDegFr,1) - meanStress(1:LocDegFr)
-    devStress(1:LocDegFr,2) = Stress(1:LocDegFr,2) - meanStress(1:LocDegFr)
-    devStress(1:LocDegFr,3) = Stress(1:LocDegFr,3) - meanStress(1:LocDegFr)
+    devStress(1:nDegFr,1) = Stress(1:nDegFr,1) - meanStress(1:nDegFr)
+    devStress(1:nDegFr,2) = Stress(1:nDegFr,2) - meanStress(1:nDegFr)
+    devStress(1:nDegFr,3) = Stress(1:nDegFr,3) - meanStress(1:nDegFr)
 
-    devStress(1:LocDegFr,4:6) = Stress(1:LocDegFr,4:6)
+    devStress(1:nDegFr,4:6) = Stress(1:nDegFr,4:6)
 
     ! Second invariant of stress deviator
     secInv = 0.5*(devStress(1,1)**2+devStress(1,2)**2+devStress(1,3)**2)+devStress(1,4)**2+devStress(1,5)**2+devStress(1,6)**2 
@@ -136,7 +134,7 @@ MODULE Plasticity_mod
     IF (tau .GT. taulim) THEN !plastic behaviour, else: elastic and stress tensor=trial stress tensor
        yldfac = 1.0D0- (1.0D0 - taulim/tau)*(1.0D0 - EXP(-relaxtime)) !factor by Duan/Day
 
-       DO iDegFr=1,LocDegFr
+       DO iDegFr=1,nDegFr
 
            Stress(iDegFr,1) = devStress(iDegFr,1)*yldfac + meanStress(iDegFr)
            Stress(iDegFr,2) = devStress(iDegFr,2)*yldfac + meanStress(iDegFr)
@@ -144,8 +142,8 @@ MODULE Plasticity_mod
            Stress(iDegFr,4:6) = devStress(iDegFr,4:6)*yldfac
 
 
-           !----Change of dofs----- 
-           dudt_plastic(iDegFr,1:6) = dgvar(iDegFr,1:6) - (Stress(iDegFr,1:6) - DOFStress(iDegFr,1:6))
+           !----Change the dofs-----
+           dgvar(iDegFr,1:6) = Stress(iDegFr,1:6) - DOFStress(iDegFr,1:6)
 
        ENDDO
           dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6)
