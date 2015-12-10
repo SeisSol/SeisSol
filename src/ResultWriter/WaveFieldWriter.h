@@ -254,6 +254,7 @@ public:
 
         // Create output buffer
         m_outputBuffer = new double[meshRefiner.getNumCells()];
+        assert(meshRefiner.getNumCells() >= meshReader.getElements().size());
 
         //
         //  Low order I/O
@@ -263,26 +264,26 @@ public:
         	logInfo(rank) << "Initialize low order output";
 
         	// Refinement strategy (no refinement)
-        	refinement::IdentityRefiner<double> tetRefiner;
+        	refinement::IdentityRefiner<double> lowTetRefiner;
 
         	// Mesh refiner
-        	refinement::MeshRefiner<double> meshRefiner(meshReader, tetRefiner);
+        	refinement::MeshRefiner<double> lowMeshRefiner(meshReader, lowTetRefiner);
 
         	// Variables
-    		std::vector<const char*> variables(6);
-    		variables[0] = "ep_xx";
-    		variables[1] = "ep_yy";
-    		variables[2] = "ep_zz";
-    		variables[3] = "ep_xy";
-    		variables[4] = "ep_yz";
-    		variables[5] = "ep_xz";
+    		std::vector<const char*> lowVariables(6);
+    		lowVariables[0] = "ep_xx";
+    		lowVariables[1] = "ep_yy";
+    		lowVariables[2] = "ep_zz";
+    		lowVariables[3] = "ep_xy";
+    		lowVariables[4] = "ep_yz";
+    		lowVariables[5] = "ep_xz";
 
 			// Initialize the low order I/O handler
 			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
-					rank, (m_outputPrefix+"-low").c_str(), variables, timestep);
+					rank, (m_outputPrefix+"-low").c_str(), lowVariables, timestep);
         	m_lowWaveFieldWriter->init(
-        			meshRefiner.getNumCells(), meshRefiner.getCellData(),
-        			meshRefiner.getNumVertices(), meshRefiner.getVertexData(),
+        			lowMeshRefiner.getNumCells(), lowMeshRefiner.getCellData(),
+        			lowMeshRefiner.getNumVertices(), lowMeshRefiner.getVertexData(),
         			true);
 
         	logInfo(rank) << "Low order output initialized";
@@ -350,7 +351,7 @@ public:
 				#pragma omp parallel for schedule(static)
 #endif // _OPENMP
         		for (unsigned int j = 0; j < m_numCells; j++)
-        			m_outputBuffer[i] = m_pstrain[m_map[j] * 6 + i];  // = 5 for testing; how to get the right index?
+        			m_outputBuffer[j] = m_pstrain[m_map[j] * 6 + i];  // = 5 for testing; how to get the right index?
 
         		m_lowWaveFieldWriter->writeData(i, m_outputBuffer);
         	}

@@ -806,6 +806,7 @@ void seissol::initializers::MemoryManager::touchConstantData( unsigned int      
 void seissol::initializers::MemoryManager::initializeConstantData() {
   // iterate over clusters
   for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
+	  // TODO touch plasticity initial loading
 #ifdef USE_MPI
     touchConstantData( m_meshStructure[l_cluster].numberOfCopyCells,
                        m_copyCellData[l_cluster].localIntegration,
@@ -1128,7 +1129,7 @@ void seissol::initializers::MemoryManager::initializeCells() {
 
     // plasticity
 #ifdef USE_PLASTICITY
-    m_cells[l_cluster].pstrain = m_internalState.pstrain + l_totalOffset;
+    m_cells[l_cluster].pstrain = m_internalState.pstrain + l_copyInteriorOffset;
 #else // USE_PLASTICITY
     m_cells[l_cluster].pstrain = 0L;
 #endif //
@@ -1161,6 +1162,11 @@ void seissol::initializers::MemoryManager::initializeCells() {
       touchTime( m_meshStructure[l_cluster].numberOfInteriorCells,
                  m_cells[l_cluster].interiorBuffers,
                  m_cells[l_cluster].interiorDerivatives );
+
+#ifdef USE_PLASTICITY
+      touchPstrain( m_meshStructure[l_cluster].numberOfInteriorCells,
+    		  m_cells[l_cluster].pstrain );
+#endif // USE_PLASTICITY
   }
 }
 
