@@ -326,6 +326,15 @@ class seissol::initializers::MemoryManager {
                     real         **o_derivatives );
 
     /**
+     * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
+     *
+     * @param i_numberOfCells number of cells (split statically by the number of threads).
+     * @param o_pstrain dofs which are touched.
+     */
+    void touchPstrain(unsigned int   i_numberOfCells,
+                      real         (*o_pstrain)[6] );
+
+    /**
      * Initializes the cell data.
      **/
     void initializeCells();

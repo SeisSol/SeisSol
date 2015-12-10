@@ -229,7 +229,8 @@ extern "C" {
                                                     double  *i_timestep,
 													int    numberOfAlignedBasisFunctions,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double  *io_dofs );
+                                                    double  *io_dofs,
+													double  *io_pstrain );
 
 
   extern void f_interoperability_writeReceivers( void   *i_domain,
@@ -311,7 +312,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                    m_dofs,
                                                    m_buffers,
                                                    m_derivatives,
-                                                   m_faceNeighbors );
+                                                   m_faceNeighbors,
+												   m_pstrain );
 }
 
 #ifdef USE_NETCDF
@@ -435,6 +437,8 @@ void seissol::Interoperability::synchronizeCellLocalData() {
 #ifdef USE_PLASTICITY
     // sync initial loading
     for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
+    	// TODO use memcpy
+
       for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
         m_cellData->plasticity[l_cell].initialLoading[l_quantity][l_basis] = m_cellData->plasticity[sourceId].initialLoading[l_quantity][l_basis];
       }
@@ -511,7 +515,9 @@ void seissol::Interoperability::initializeIO(
 			  NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
               NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			  seissol::SeisSol::main.meshReader(),
-			  reinterpret_cast<const double*>(m_dofs), m_meshToCopyInterior,
+			  reinterpret_cast<const double*>(m_dofs),
+			  reinterpret_cast<const double*>(m_pstrain),
+			  m_meshToCopyInterior,
 			  refinement, waveFieldTimeStep,
 			  seissol::SeisSol::main.timeManager().getTimeTolerance());
 
@@ -671,13 +677,15 @@ void seissol::Interoperability::computeDynamicRupture( double i_fullUpdateTime,
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::computePlasticity(  double i_timeStep,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double *io_dofs ) {
+                                                    double *io_dofs,
+													double *io_pstrain ) {
   // call fortran routine
   f_interoperability_computePlasticity(  m_domain,
                                         &i_timeStep,
 										 NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
                                          i_initialLoading,
-                                         io_dofs );
+                                         io_dofs,
+										 io_pstrain );
 }
 #endif
 

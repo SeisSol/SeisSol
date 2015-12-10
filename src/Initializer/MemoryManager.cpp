@@ -1064,6 +1064,20 @@ void seissol::initializers::MemoryManager::touchTime( unsigned int   i_numberOfC
   }
 }
 
+void seissol::initializers::MemoryManager::touchPstrain(unsigned int   i_numberOfCells,
+                                                      	real         (*o_pstrain)[6] )
+{
+#ifdef _OPENMP
+  #pragma omp parallel for
+#endif
+  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
+    for( unsigned int l_dof = 0; l_dof < 6; l_dof++ ) {
+      // zero pstrain output
+      o_pstrain[l_cell][l_dof]  = (real) 0;
+    }
+  }
+}
+
 void seissol::initializers::MemoryManager::initializeCells() {
   /*
    * Pointers to dofs
@@ -1111,6 +1125,13 @@ void seissol::initializers::MemoryManager::initializeCells() {
     m_cells[l_cluster].interiorBuffers       = m_internalState.buffers       + l_totalOffset;
     m_cells[l_cluster].interiorDerivatives   = m_internalState.derivatives   + l_totalOffset;
     m_cells[l_cluster].interiorFaceNeighbors = m_internalState.faceNeighbors + l_copyInteriorOffset;
+
+    // plasticity
+#ifdef USE_PLASTICITY
+    m_cells[l_cluster].pstrain = m_internalState.pstrain + l_totalOffset;
+#else // USE_PLASTICITY
+    m_cells[l_cluster].pstrain = 0L;
+#endif //
 
     // jump of over interior
     l_totalOffset        += m_meshStructure[l_cluster].numberOfInteriorCells;

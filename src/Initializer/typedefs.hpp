@@ -468,6 +468,9 @@ struct Cells {
    * Pointers to the either the time buffers or time derivatives of the face neighbors in the interior.
    */
   real *(*interiorFaceNeighbors)[4];
+
+  // plastic strain
+  real (*pstrain)[6];
 };
 
 /** A piecewise linear function.

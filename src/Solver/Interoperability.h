@@ -120,6 +120,9 @@ class seissol::Interoperability {
     //! raw pointers to face neighbors: covering all clusters and layers.
     real *(*m_faceNeighbors)[4];
 
+    //! Plasticity strain output
+    real (*m_pstrain)[6];
+
  public:
    /**
     * Constructor.
@@ -361,7 +364,8 @@ class seissol::Interoperability {
 #ifdef USE_PLASTICITY
    void computePlasticity( double   i_timeStep,
                            double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                           double  *io_dofs );
+                           double  *io_dofs,
+						   double  *io_pstrain );
 #endif
 
    /**

@@ -544,7 +544,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
                                                                          CellLocalInformation   *i_cellInformation,
                                                                          CellData               *i_cellData,
                                                                          real                 *(*i_faceNeighbors)[4],
-                                                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS] ) {
+                                                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
+																		 real                  (*io_pstrain)[6] ) {
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   real *l_timeIntegrated[4];
@@ -631,7 +632,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
 #ifdef USE_PLASTICITY
   e_interoperability.computePlasticity(  m_timeStepWidth,
                                          i_cellData->plasticity[l_cell].initialLoading,
-                                         io_dofs[l_cell] );
+                                         io_dofs[l_cell],
+										 io_pstrain[l_cell] );
 #endif
 
 #ifndef NDEBUG
@@ -781,7 +783,8 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
                                  m_copyCellInformation,
                                  m_copyCellData,
                                  m_cells->copyFaceNeighbors,
-                                 m_cells->copyDofs );
+                                 m_cells->copyDofs,
+								 m_cells->pstrain);
 
 #ifndef USE_COMM_THREAD
   // continue with communication
@@ -819,7 +822,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
                                  m_interiorCellInformation,
                                  m_interiorCellData,
                                  m_cells->interiorFaceNeighbors,
-                                 m_cells->interiorDofs );
+                                 m_cells->interiorDofs,
+								 m_cells->pstrain );
 
   // compute dynamic rupture, update simulation time and statistics
   if( !m_updatable.neighboringCopy ) {

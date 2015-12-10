@@ -53,7 +53,7 @@ extern "C"
 {
 
 void wavefield_hdf_init(int rank, const char* outputPrefix,
-		const double* dofs,
+		const double* dofs, const double* pstrain,
 		int numVars, int order, int numBasisFuncs,
         int refinement,  int timestep)
 {
@@ -70,7 +70,7 @@ void wavefield_hdf_init(int rank, const char* outputPrefix,
 		cellMap[i] = i;
 
 	seissol::SeisSol::main.waveFieldWriter().init(numVars, order, numBasisFuncs,
-			meshReader,	dofs, cellMap, refinement, timestep, 0);
+			meshReader,	dofs, pstrain, cellMap, refinement, timestep, 0);
 
 	// I/O is currently the last initialization that requires the mesh reader
 	seissol::SeisSol::main.freeMeshReader();

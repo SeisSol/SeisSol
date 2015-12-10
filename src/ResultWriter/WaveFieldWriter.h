@@ -69,14 +69,23 @@ private:
     /** The XMDF Writer used for the wave field */
     xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_waveFieldWriter;
 
+    /** The XDMF Writer for low order data */
+    xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_lowWaveFieldWriter;
+
     /** The variable subsampler for the refined mesh */
     refinement::VariableSubsampler<double>* m_variableSubsampler;
+
+    /** Original number of cells */
+    unsigned int m_numCells;
 
     /** Number of variables */
     unsigned int m_numVariables;
 
     /** Pointer to the degrees of freedom */
     const double* m_dofs;
+
+	/** Pointer to the plastic strain */
+	const double* m_pstrain;
 
     /** Mapping from the cell order to dofs order */
     const unsigned int* m_map;
@@ -96,10 +105,12 @@ private:
 public:
     WaveFieldWriter()
      	 : m_enabled(false),
-		   m_waveFieldWriter(0L),
+		   m_waveFieldWriter(0L), m_lowWaveFieldWriter(0L),
 		   m_variableSubsampler(0L),
+		   m_numCells(0),
 		   m_numVariables(0),
-		   m_dofs(0L), m_map(0L),
+		   m_dofs(0L), m_pstrain(0L),
+		   m_map(0L),
 		   m_lastTimeStep(-1),
 		   m_timeTolerance(0),
 		   m_outputBuffer(0L)
@@ -138,7 +149,8 @@ public:
      */
     void init(int numVars, int order, int numAlignedDOF,
             const MeshReader &meshReader,
-            const double* dofs, const unsigned int* map,
+            const double* dofs,  const double* pstrain,
+			const unsigned int* map,
             int refinement, int timestep,
 			double timeTolerance)
     {
@@ -151,6 +163,13 @@ public:
 
 		if (m_waveFieldWriter != 0L)
 			logError() << "Wave field writer already initialized";
+
+		// Get the original number of cells (currently required for pstrain output)
+		m_numCells = meshReader.getElements().size();
+
+		//
+		// High order I/O
+		//
 
 		m_numVariables = numVars;
 
@@ -236,8 +255,42 @@ public:
         // Create output buffer
         m_outputBuffer = new double[meshRefiner.getNumCells()];
 
-        // Save dof/map pointer
+        //
+        //  Low order I/O
+        //
+
+        if (pstrain) {
+        	logInfo(rank) << "Initialize low order output";
+
+        	// Refinement strategy (no refinement)
+        	refinement::IdentityRefiner<double> tetRefiner;
+
+        	// Mesh refiner
+        	refinement::MeshRefiner<double> meshRefiner(meshReader, tetRefiner);
+
+        	// Variables
+    		std::vector<const char*> variables(6);
+    		variables[0] = "ep_xx";
+    		variables[1] = "ep_yy";
+    		variables[2] = "ep_zz";
+    		variables[3] = "ep_xy";
+    		variables[4] = "ep_yz";
+    		variables[5] = "ep_xz";
+
+			// Initialize the low order I/O handler
+			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
+					rank, (m_outputPrefix+"-low").c_str(), variables, timestep);
+        	m_lowWaveFieldWriter->init(
+        			meshRefiner.getNumCells(), meshRefiner.getCellData(),
+        			meshRefiner.getNumVertices(), meshRefiner.getVertexData(),
+        			true);
+
+        	logInfo(rank) << "Low order output initialized";
+        }
+
+        	// Save dof/map pointer
         m_dofs = dofs;
+        m_pstrain = pstrain;
         m_map = map;
 
         logInfo(rank) << "Initializing HDF5 wave field output. Done.";
@@ -275,6 +328,7 @@ public:
 
         logInfo(rank) << "Writing wave field at time" << utils::nospace << time << '.';
 
+        // High order output
         m_waveFieldWriter->addTimeStep(time);
 
         for (unsigned int i = 0; i < m_numVariables; i++) {
@@ -286,6 +340,23 @@ public:
         }
 
         m_waveFieldWriter->flush();
+
+        // Low order output
+        if (m_pstrain) {
+        	m_lowWaveFieldWriter->addTimeStep(time);
+
+        	for (unsigned int i = 0; i < 6; i++) {
+#ifdef _OPENMP
+				#pragma omp parallel for schedule(static)
+#endif // _OPENMP
+        		for (unsigned int j = 0; j < m_numCells; j++)
+        			m_outputBuffer[i] = m_pstrain[m_map[j] * 6 + i];  // = 5 for testing; how to get the right index?
+
+        		m_lowWaveFieldWriter->writeData(i, m_outputBuffer);
+        	}
+
+        	m_lowWaveFieldWriter->flush();
+        }
 
         // Update last time step
         m_lastTimeStep = time;
@@ -303,6 +374,8 @@ public:
 
 		delete m_waveFieldWriter;
 		m_waveFieldWriter = 0L;
+		delete m_lowWaveFieldWriter;
+		m_lowWaveFieldWriter = 0L;
 		delete m_variableSubsampler;
 		m_variableSubsampler = 0L;
 		delete m_outputBuffer;

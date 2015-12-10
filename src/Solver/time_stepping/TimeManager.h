@@ -199,7 +199,8 @@ class seissol::time_stepping::TimeManager {
                      real                         (*&o_dofs)[NUMBER_OF_ALIGNED_DOFS],
                      real                         **&o_buffers,
                      real                         **&o_derivatives,
-                     real                        *(*&o_faceNeighbors)[4] ) {
+                     real                        *(*&o_faceNeighbors)[4],
+					 real                         (*&o_pstrain)[6] ) {
       // get meta-data from memory manager
       struct MeshStructure         *l_meshStructure           = NULL;
 #ifdef USE_MPI
@@ -245,6 +246,7 @@ class seissol::time_stepping::TimeManager {
       o_derivatives   = l_cells->interiorDerivatives;
       o_faceNeighbors = l_cells->interiorFaceNeighbors;
 #endif
+      o_pstrain       = l_cells->pstrain;
     }
 
     /**
