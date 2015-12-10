@@ -432,12 +432,11 @@ void seissol::Interoperability::synchronizeCellLocalData() {
       m_cellData->material[l_cell].neighbor[side] = m_cellData->material[sourceId].neighbor[side];
     }
 
-//#ifdef USE_PLASTICITY
-#if 0
+#ifdef USE_PLASTICITY
     // sync initial loading
     for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
       for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-        m_cellData->neighboringIntegration[l_cell].initialLoading[l_quantity][l_basis] = m_cellData->neighboringIntegration[sourceId].initialLoading[l_quantity][l_basis];
+        m_cellData->plasticity[l_cell].initialLoading[l_quantity][l_basis] = m_cellData->plasticity[sourceId].initialLoading[l_quantity][l_basis];
       }
     }
 #endif
