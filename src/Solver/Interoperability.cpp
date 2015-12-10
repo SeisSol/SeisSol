@@ -153,9 +153,9 @@ extern "C" {
 
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP) {
+		  int numSides, int numBndGP, int refinement) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			  numSides, numBndGP);
+			  numSides, numBndGP, refinement);
   }
 
   void c_interoperability_addToDofs( int    i_meshId,
@@ -490,7 +490,7 @@ void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval
 void seissol::Interoperability::initializeIO(
 		  double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP)
+		  int numSides, int numBndGP, int refinement)
 {
 	  // Initialize checkpointing
 	  double currentTime;
@@ -508,10 +508,12 @@ void seissol::Interoperability::initializeIO(
 
 	  // Initialize wave field output
 	  seissol::SeisSol::main.waveFieldWriter().init(
-			  NUMBER_OF_QUANTITIES, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+			  NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
+              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			  seissol::SeisSol::main.meshReader(),
 			  reinterpret_cast<const double*>(m_dofs), m_meshToCopyInterior,
-			  waveFieldTimeStep);
+			  refinement, waveFieldTimeStep,
+			  seissol::SeisSol::main.timeManager().getTimeTolerance());
 
 	  // I/O initialization is the last step that requires the mesh reader
 	  // (at least at the moment ...)

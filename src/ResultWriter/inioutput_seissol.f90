@@ -182,7 +182,7 @@ CONTAINS
 
 
 #ifdef GENERATEDKERNELS
-    call c_interoperability_initializeIO(           &
+    call c_interoperability_initializeIO(    &
         i_mu        = disc%DynRup%mu,        &
         i_slipRate1 = disc%DynRup%slipRate1, &
         i_slipRate2 = disc%DynRup%slipRate2, &
@@ -192,7 +192,8 @@ CONTAINS
         i_state     = disc%DynRup%stateVar,  &
         i_strength  = disc%DynRup%strength,  &
         i_numSides  = mesh%fault%nSide,      &
-        i_numBndGP  = disc%galerkin%nBndGP   )
+        i_numBndGP  = disc%galerkin%nBndGP,  &
+        i_refinement= io%Refinement)
 #else
     if (IO%Format .eq. 6) then
         call waveFieldWriterInit(0, disc, eqn, io, mesh, mpi)

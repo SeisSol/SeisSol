@@ -526,6 +526,10 @@ env.Append( CPPPATH=['#/submodules'] )
 # Library pathes
 env.Tool('DirTool', fortran=True, toolpath=['build/scons/Tools'])
 
+# GLM
+env.Append(CPPPATH=['#/submodules/glm'])
+env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
+
 # HDF5
 if env['hdf5']:
     env.Tool('Hdf5Tool', required=(not helpMode), toolpath=['build/scons/Tools'])
@@ -627,6 +631,11 @@ env.Program('#/'+env['programFile'], sourceFiles)
 if env['unitTests'] != 'none' and env['generatedKernels']:
   # Anything done here should only affect tests
   env = env.Clone()
+  
+  # Compile XDMF cube check
+  if env['hdf5']:
+      Export('env')
+      SConscript('postprocessing/validation/XDMFCubeCheck/SConscript', duplicate=0)
     
   # define location of cxxtest
   env['CXXTEST'] = 'submodules/cxxtest'

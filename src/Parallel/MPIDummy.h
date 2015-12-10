@@ -51,10 +51,11 @@ namespace seissol
  */
 class MPIDummy : public MPIBasic
 {
-public:
+private:
 	MPIDummy()
 	{ }
 
+public:
 	~MPIDummy()
 	{ }
 
@@ -72,6 +73,9 @@ public:
 	{
 	}
 
+public:
+	/** The only instance of the class */
+	static MPIDummy mpi;
 };
 
 }

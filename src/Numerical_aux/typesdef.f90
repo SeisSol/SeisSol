@@ -1444,6 +1444,7 @@ MODULE TypesDef
 #endif
 
      type(tCheckPoint)                      :: checkpoint                       !< Checkpointing configuration
+     INTEGER                                :: Refinement
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------

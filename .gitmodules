@@ -10,3 +10,6 @@
 [submodule "submodules/utils"]
 	path = submodules/utils
 	url = https://github.com/TUM-I5/utils.git
+[submodule "submodules/glm"]
+	path = submodules/glm
+	url = https://github.com/g-truc/glm.git

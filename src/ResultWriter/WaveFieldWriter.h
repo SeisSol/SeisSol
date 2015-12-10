@@ -40,9 +40,7 @@
 #ifndef WAVE_FIELD_WRITER_H
 #define WAVE_FIELD_WRITER_H
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif // USE_MPI
+#include "Parallel/MPI.h"
 
 #include <string>
 #include <vector>
@@ -52,8 +50,9 @@
 #include "xdmfwriter/XdmfWriter.h"
 
 #include "Geometry/MeshReader.h"
-#include "Geometry/refinement/TetsNone.h"
-#include "Geometry/refinement/Tets8.h"
+#include "Geometry/refinement/RefinerUtils.h"
+#include "Geometry/refinement/MeshRefiner.h"
+#include "Geometry/refinement/VariableSubSampler.h"
 
 namespace seissol
 {
@@ -61,86 +60,94 @@ namespace seissol
 class WaveFieldWriter
 {
 private:
-	/** True if wave field output is enabled */
-	bool m_enabled;
+    /** True if wave field output is enabled */
+    bool m_enabled;
 
-	/** The rank of the process */
-	int m_rank;
+    /** The output prefix for the filename */
+    std::string m_outputPrefix;
 
-	/** The output prefix for the filename */
-	std::string m_outputPrefix;
+    /** The XMDF Writer used for the wave field */
+    xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_waveFieldWriter;
 
-	/** The XMDF Writer used for the wave field */
-	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_waveFieldWriter;
+    /** The variable subsampler for the refined mesh */
+    refinement::VariableSubsampler<double>* m_variableSubsampler;
 
-	/** Number of variables */
-	unsigned int m_numVariables;
+    /** Number of variables */
+    unsigned int m_numVariables;
 
-	/** Tet refinement strategy */
-	refinement::Refinement* m_tetRefinement;
+    /** Pointer to the degrees of freedom */
+    const double* m_dofs;
 
-	/** Pointer to the degrees of freedom */
-	const double* m_dofs;
+    /** Mapping from the cell order to dofs order */
+    const unsigned int* m_map;
 
-	/** Mapping from the cell order to dofs order */
-	const unsigned int* m_map;
+    /** Time of the last output (makes sure output is not written twice at the end */
+    double m_lastTimeStep;
 
-	/** Buffer required to extract the output data from the unknowns */
-	double *m_outputBuffer;
+    /** The tolerance in the time for ignoring duplicate time steps */
+    double m_timeTolerance;
+
+    /** Buffer required to extract the output data from the unknowns */
+    double* m_outputBuffer;
+
+    /** Flag indicated which variables should be written */
+    std::vector<bool> m_output_flags;
 
 public:
-	WaveFieldWriter()
-		: m_enabled(false), m_rank(0),
-		  m_waveFieldWriter(0L),
-		  m_numVariables(0),
-		  m_tetRefinement(0L),
-		  m_dofs(0L), m_map(0L),
-		  m_outputBuffer(0L)
-	{
-	}
+    WaveFieldWriter()
+     	 : m_enabled(false),
+		   m_waveFieldWriter(0L),
+		   m_variableSubsampler(0L),
+		   m_numVariables(0),
+		   m_dofs(0L), m_map(0L),
+		   m_lastTimeStep(-1),
+		   m_timeTolerance(0),
+		   m_outputBuffer(0L)
+    {
+    }
 
-	/**
-	 * Activate the wave field output
-	 */
-	void enable()
-	{
-		m_enabled = true;
-	}
+    /**
+     * Activate the wave field output
+     */
+    void enable()
+    {
+        m_enabled = true;
+    }
 
-	/**
-	 * @return True if wave field output is enabled, false otherwise
-	 */
-	bool isEnabled() const
-	{
-		return m_enabled;
-	}
+    /**
+     * @return True if wave field output is enabled, false otherwise
+     */
+    bool isEnabled() const
+    {
+        return m_enabled;
+    }
 
-	/**
-	 * Set the output prefix for the filename
-	 */
-	void setFilename(const char* outputPrefix)
-	{
-		m_outputPrefix = outputPrefix;
-	}
+    /**
+     * Set the output prefix for the filename
+     */
+    void setFilename(const char* outputPrefix)
+    {
+        m_outputPrefix = outputPrefix;
+    }
 
-	/**
-	 * Initialize the wave field ouput
-	 *
-	 * @param map The mapping from the cell order to dofs order
-	 */
-	void init(int numVars, int numBasisFuncs,
-			const MeshReader &meshReader,
-			const double* dofs, const unsigned int* map,
-			int timestep)
-	{
-		if (!m_enabled)
-			return;
+    /**
+     * Initialize the wave field ouput
+     *
+     * @param map The mapping from the cell order to dofs order
+     * @param timeTolerance The tolerance in the time for ignoring duplicate time steps
+     */
+    void init(int numVars, int order, int numAlignedDOF,
+            const MeshReader &meshReader,
+            const double* dofs, const unsigned int* map,
+            int refinement, int timestep,
+			double timeTolerance)
+    {
+        if (!m_enabled)
+            return;
 
-#ifdef USE_MPI
-		MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
-#endif // USE_MPI
+        const int rank = MPI::mpi.rank();
 
-		logInfo(m_rank) << "Initializing HDF5 wave field output.";
+		logInfo(rank) << "Initializing HDF5 wave field output.";
 
 		if (m_waveFieldWriter != 0L)
 			logError() << "Wave field writer already initialized";
@@ -148,7 +155,9 @@ public:
 		m_numVariables = numVars;
 
 		if (numVars != 9)
-			logError() << "XDMF output supports currently only 9 variables. Number of variables specified:" << m_numVariables;
+			logError()
+					<< "XDMF output supports currently only 9 variables. Number of variables specified:"
+					<< m_numVariables;
 		std::vector<const char*> variables(m_numVariables);
 		variables[0] = "sigma_xx";
 		variables[1] = "sigma_yy";
@@ -160,78 +169,145 @@ public:
 		variables[7] = "v";
 		variables[8] = "w";
 
-		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
-				m_rank, m_outputPrefix.c_str(), variables, timestep);
+		// Currently all variables have to be chosen.
+		m_output_flags.resize(numVars);
+		std::fill(m_output_flags.begin(), m_output_flags.end(), true);
 
-		m_tetRefinement = new refinement::TetsNone(meshReader,
-				numVars, numBasisFuncs);
-
-		// TODO option to disable the vertex filter
-		m_waveFieldWriter->init(m_tetRefinement->nCells(), m_tetRefinement->cells(),
-				m_tetRefinement->nVertices(), m_tetRefinement->vertices(), true);
-
-		// Create output buffer
-		m_outputBuffer = new double[m_tetRefinement->nCells()];
-
-		// Save dof/map pointer
-		m_dofs = dofs;
-		m_map = map;
-
-		logInfo(m_rank) << "Initializing HDF5 wave field output. Done.";
-	}
-
-	/**
-	 * @return The current time step of the wave field output
-	 */
-	unsigned int timestep() const
-	{
-		if (!m_enabled)
-			return 0;
-
-		return m_waveFieldWriter->timestep();
-	}
-
-	/**
-	 * Write a time step
-	 */
-	void write(double time)
-	{
-		EPIK_TRACER("WaveFieldWriter_write");
-		SCOREP_USER_REGION("WaveFieldWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION);
-
-		if (!m_enabled)
-			return;
-
-		logInfo(m_rank) << "Writing wave field at time" << utils::nospace << time << '.';
-
-		m_waveFieldWriter->addTimeStep(time);
-
-		for (unsigned int i = 0; i < m_numVariables; i++) {
-			m_tetRefinement->get(m_dofs, m_map, i, m_outputBuffer);
-
-			m_waveFieldWriter->writeData(i, m_outputBuffer);
+		// Setup the tetrahedron refinement strategy
+		refinement::TetrahedronRefiner<double>* tetRefiner = 0L;
+		switch (refinement) {
+		case 0:
+			logInfo(rank) << "Refinement is turned off.";
+			tetRefiner = new refinement::IdentityRefiner<double>();
+			break;
+		case 1:
+			logInfo(rank) << "Refinement Startegy is \"Divide by 4\"";
+			tetRefiner = new refinement::DivideTetrahedronBy4<double>();
+			break;
+		case 2:
+			logInfo(rank) << "Refinement Startegy is \"Divide by 8\"";
+			tetRefiner = new refinement::DivideTetrahedronBy8<double>();
+			break;
+		case 3:
+			logInfo(rank) << "Refinement Startegy is \"Divide by 32\"";
+			tetRefiner = new refinement::DivideTetrahedronBy32<double>();
+			break;
+		default:
+			logError() << "Refinement Strategy is invalid!" << std::endl
+					<< "Current value : " << refinement << std::endl
+					<< "Valid options are :" << std::endl << "0 - No Refinement"
+					<< std::endl << "1 - Refinement by 4" << std::endl
+					<< "2 - Refinement by 8" << std::endl
+					<< "3 - Refinement by 32";
 		}
 
-		m_waveFieldWriter->flush();
+		// Refine the mesh
+        refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 
-		logInfo(m_rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
-	}
+		logInfo(rank) << "Refinement class initialized";
+		logDebug() << "Cells : "
+				<< meshReader.getElements().size() << "refined-to ->"
+				<< meshRefiner.getNumCells();
+		logDebug() << "Vertices : "
+				<< meshReader.getVertices().size()
+				<< "refined-to ->"
+				<< meshRefiner.getNumVertices();
 
-	/**
-	 * Close wave field writer and free resources
-	 */
-	void close()
-	{
-		if (!m_enabled)
-			return;
+        // Initialize the I/O handler and write the mesh
+		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
+				rank, m_outputPrefix.c_str(), variables, timestep);
+        m_waveFieldWriter->init(
+                meshRefiner.getNumCells(), meshRefiner.getCellData(),
+                meshRefiner.getNumVertices(), meshRefiner.getVertexData(),
+                true);
+
+        logInfo(rank) << "WaveFieldWriter initialized";
+
+        // Initialize the variable subsampler
+        m_variableSubsampler = new refinement::VariableSubsampler<double>(
+                    meshReader.getElements().size(),
+					*tetRefiner, order, numVars, numAlignedDOF);
+
+        // Delete the tetRefiner since it is no longer required
+        delete tetRefiner;
+
+        logInfo(rank) << "VariableSubsampler initialized";
+
+        // Create output buffer
+        m_outputBuffer = new double[meshRefiner.getNumCells()];
+
+        // Save dof/map pointer
+        m_dofs = dofs;
+        m_map = map;
+
+        logInfo(rank) << "Initializing HDF5 wave field output. Done.";
+    }
+
+    /**
+     * @return The current time step of the wave field output
+     */
+    unsigned int timestep() const
+    {
+        if (!m_enabled)
+            return 0;
+
+        return m_waveFieldWriter->timestep();
+    }
+
+    /**
+     * Write a time step
+     */
+    void write(double time)
+    {
+        EPIK_TRACER("WaveFieldWriter_write");
+        SCOREP_USER_REGION("WaveFieldWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+        if (!m_enabled)
+            return;
+
+        const int rank = MPI::mpi.rank();
+
+        if (time <= m_lastTimeStep + m_timeTolerance) {
+        	// Ignore duplicate time steps. Might happen at the end of a simulation
+        	logInfo(rank) << "Ignoring duplicate time step at time " << time;
+        	return;
+        }
+
+        logInfo(rank) << "Writing wave field at time" << utils::nospace << time << '.';
+
+        m_waveFieldWriter->addTimeStep(time);
+
+        for (unsigned int i = 0; i < m_numVariables; i++) {
+            if (!m_output_flags[i]) continue;
+
+            m_variableSubsampler->get(m_dofs, m_map, i, m_outputBuffer);
+
+            m_waveFieldWriter->writeData(i, m_outputBuffer);
+        }
+
+        m_waveFieldWriter->flush();
+
+        // Update last time step
+        m_lastTimeStep = time;
+
+        logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
+    }
+
+    /**
+     * Close wave field writer and free resources
+     */
+    void close()
+    {
+        if (!m_enabled)
+            return;
 
 		delete m_waveFieldWriter;
 		m_waveFieldWriter = 0L;
-		delete m_tetRefinement;
-		m_tetRefinement = 0L;
+		delete m_variableSubsampler;
+		m_variableSubsampler = 0L;
 		delete m_outputBuffer;
 		m_outputBuffer = 0L;
-	}
+    }
 };
 
 }

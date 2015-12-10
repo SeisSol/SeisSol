@@ -38,6 +38,8 @@
  * Main C++ SeisSol file
  */
 
+#include "Parallel/MPI.h"
+
 #include "SeisSol.h"
 
 #ifdef _OPENMP
@@ -47,14 +49,14 @@
 #include "utils/args.h"
 
 void seissol::SeisSol::init(int argc, char* argv[])
-{  
-	m_mpi.init(argc, argv);
+{
+	MPI::mpi.init(argc, argv);
   
 #ifdef GENERATEDKERNELS
-  m_timeManager.initializeMemoryLayout();
+	m_timeManager.initializeMemoryLayout();
 #endif
 
-	const int rank = m_mpi.rank();
+	const int rank = MPI::mpi.rank();
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
@@ -85,7 +87,7 @@ void seissol::SeisSol::init(int argc, char* argv[])
   switch (args.parse(argc, argv)) {
   case utils::Args::Help:
   case utils::Args::Error:
-	  m_mpi.finalize();
+	  MPI::mpi.finalize();
 	  exit(1);
 	  break;
   case utils::Args::Success:
@@ -97,9 +99,9 @@ void seissol::SeisSol::init(int argc, char* argv[])
 
 void seissol::SeisSol::finalize()
 {
-	const int rank = m_mpi.rank();
+	const int rank = MPI::mpi.rank();
 
-	m_mpi.finalize();
+	MPI::mpi.finalize();
 
 	logInfo(rank) << "SeisSol done. Goodbye.";
 }

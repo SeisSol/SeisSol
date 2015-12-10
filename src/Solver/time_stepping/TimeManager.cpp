@@ -38,9 +38,10 @@
  * @section DESCRIPTION
  * Time Step width management in SeisSol.
  **/
-#include "TimeManager.h"
 
-#include "SeisSol.h"
+#include "Parallel/MPI.h"
+
+#include "TimeManager.h"
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
 
@@ -401,7 +402,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
         m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates % 100 == 0 ) {
       m_logUpdates = m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates;
 
-      int rank = SeisSol::main.mpi().rank();
+      const int rank = MPI::mpi.rank();
 
       logInfo(rank) << "#max-updates since sync: " << m_logUpdates
                          << " @ "                  << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
