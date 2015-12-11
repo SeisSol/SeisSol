@@ -1118,6 +1118,13 @@ void seissol::initializers::MemoryManager::initializeCells() {
     m_cells[l_cluster].copyFaceNeighbors     = m_internalState.faceNeighbors + l_copyInteriorOffset;
 #endif // USE_MPI
 
+    // plasticity
+#ifdef USE_PLASTICITY
+    m_cells[l_cluster].pstrain = m_internalState.pstrain + l_copyInteriorOffset;
+#else // USE_PLASTICITY
+    m_cells[l_cluster].pstrain = 0L;
+#endif //
+
     // jump over copy layer
     l_totalOffset        += m_meshStructure[l_cluster].numberOfCopyCells;
     l_copyInteriorOffset += m_meshStructure[l_cluster].numberOfCopyCells;
@@ -1126,13 +1133,6 @@ void seissol::initializers::MemoryManager::initializeCells() {
     m_cells[l_cluster].interiorBuffers       = m_internalState.buffers       + l_totalOffset;
     m_cells[l_cluster].interiorDerivatives   = m_internalState.derivatives   + l_totalOffset;
     m_cells[l_cluster].interiorFaceNeighbors = m_internalState.faceNeighbors + l_copyInteriorOffset;
-
-    // plasticity
-#ifdef USE_PLASTICITY
-    m_cells[l_cluster].pstrain = m_internalState.pstrain + l_copyInteriorOffset;
-#else // USE_PLASTICITY
-    m_cells[l_cluster].pstrain = 0L;
-#endif //
 
     // jump of over interior
     l_totalOffset        += m_meshStructure[l_cluster].numberOfInteriorCells;
