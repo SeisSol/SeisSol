@@ -48,6 +48,7 @@
 #include "utils/env.h"
 
 #include "Checkpoint/CheckPoint.h"
+#include "Checkpoint/MPIInfo.h"
 #include "Initializer/preProcessorMacros.fpp"
 
 namespace seissol
@@ -103,9 +104,11 @@ public:
 	{
 		seissol::checkpoint::CheckPoint::initLate();
 
+		MPIInfo info;
+
 		for (unsigned int i = 0; i < 2; i++) {
 			checkMPIErr(MPI_File_open(comm(), const_cast<char*>(dataFile(i).c_str()),
-					MPI_MODE_WRONLY | MPI_MODE_CREATE, MPI_INFO_NULL, &m_mpiFiles[i]));
+					MPI_MODE_WRONLY | MPI_MODE_CREATE, info.get(), &m_mpiFiles[i]));
 
 			// Sync file (required for performance measure)
 			// TODO preallocate file first
