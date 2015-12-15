@@ -50,7 +50,9 @@
 
 #include "H5ErrHandler.h"
 #include "Checkpoint/CheckPoint.h"
+#ifdef USE_MPI
 #include "Checkpoint/MPIInfo.h"
+#endif // USE_MPI
 #include "Initializer/preProcessorMacros.fpp"
 
 namespace seissol
