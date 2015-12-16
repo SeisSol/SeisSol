@@ -784,7 +784,7 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
                                  m_copyCellData,
                                  m_cells->copyFaceNeighbors,
                                  m_cells->copyDofs,
-								 m_cells->pstrain);
+								 m_cells->copyPstrain);
 
 #ifndef USE_COMM_THREAD
   // continue with communication
@@ -823,7 +823,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
                                  m_interiorCellData,
                                  m_cells->interiorFaceNeighbors,
                                  m_cells->interiorDofs,
-								 m_cells->pstrain );
+								 m_cells->interiorPstrain );
 
   // compute dynamic rupture, update simulation time and statistics
   if( !m_updatable.neighboringCopy ) {

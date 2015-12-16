@@ -239,14 +239,15 @@ class seissol::time_stepping::TimeManager {
       o_buffers       = l_cells->copyBuffers-l_meshStructure[0].numberOfGhostCells;
       o_derivatives   = l_cells->copyDerivatives-l_meshStructure[0].numberOfGhostCells;
       o_faceNeighbors = l_cells->copyFaceNeighbors;
+      o_pstrain       = l_cells->copyPstrain;
 #else
       o_cellData      = l_interiorCellData;
       o_dofs          = l_cells->interiorDofs;
       o_buffers       = l_cells->interiorBuffers;
       o_derivatives   = l_cells->interiorDerivatives;
       o_faceNeighbors = l_cells->interiorFaceNeighbors;
+      o_pstrain       = l_cells->interiorPstrain;
 #endif
-      o_pstrain       = l_cells->pstrain;
     }
 
     /**

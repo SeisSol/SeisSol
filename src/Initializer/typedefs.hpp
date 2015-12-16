@@ -447,6 +447,9 @@ struct Cells {
    * Pointers to the either the time buffers or time derivatives of the face neighbors in the copy layer.
    */
   real *(*copyFaceNeighbors)[4];
+
+  /** Pointer to copy layer plastic strain */
+  real (*copyPstrain)[6];
 #endif
 
   /*
@@ -469,8 +472,8 @@ struct Cells {
    */
   real *(*interiorFaceNeighbors)[4];
 
-  // plastic strain
-  real (*pstrain)[6];
+  /** Pointer to interior plastic strain */
+  real (*interiorPstrain)[6];
 };
 
 /** A piecewise linear function.
