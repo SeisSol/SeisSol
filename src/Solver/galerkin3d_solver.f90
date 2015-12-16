@@ -129,7 +129,6 @@ CONTAINS
                                                EQN%nVar                     ) ! Auxilliary update dof
     REAL                           :: dudt_plastic(DISC%Galerkin%nDegFr,    &
                                                 EQN%nVar                    ) ! Auxilliary update dof for plastic calculations
-    REAL                           :: dudt_pstrain(1:6                      ) ! Auxilliary update for the plastic strain
     REAL                           :: auxvar(DISC%Galerkin%nDegFr,          & !
                                              EQN%nVar,                      & !
                                              DISC%Galerkin%nDegFrMat        ) ! Auxilliary variable
@@ -459,16 +458,11 @@ CONTAINS
         IF(EQN%Plasticity.EQ.1) THEN
                 DO iElem = 1, nElem !for every element
 #ifndef GENERATEDKERNELS
-
+                 !updated the dofs and the plastic strain
                  CALL Plasticity_3D(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
                                     DISC%Galerkin%nDegFr, &
-                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, dudt_pstrain)
-                
-                 !update the increase of plastic strain
-                 DISC%Galerkin%pstrain(1:6,iElem) = DISC%Galerkin%pstrain(1:6,iElem) + dudt_pstrain(1:6)
-                 !scalar value, integral over time of the accumulated plastic strain
-                 DISC%Galerkin%accpstrain(iElem) = DISC%Galerkin%accpstrain(iElem)+ dt*sqrt(0.5*(dudt_pstrain(1)**2 + dudt_pstrain(2)**2 &
-                                                   + dudt_pstrain(3)**2)+ dudt_pstrain(4)**2 + dudt_pstrain(5)**2 + dudt_pstrain(6)**2)
+                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, DISC%Galerkin%pstrain(1:6,iElem) )
+
 #endif
 !for the GK version the plasticity call is moved to Interoperability.cpp
 

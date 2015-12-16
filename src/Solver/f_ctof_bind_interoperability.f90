@@ -193,7 +193,7 @@ module f_ctof_bind_interoperability
                           plastCo      = l_domain%eqn%PlastCo, &
                           dt           = l_timeStep, &
                           mu           = l_domain%eqn%mu, &
-                          dudt_pstrain = l_pstrain )
+                          pstrain = l_pstrain )
     end subroutine
 
     subroutine f_interoperability_writeReceivers( i_domain, i_fullUpdateTime, i_timeStepWidth, i_receiverTime, i_numberOfReceivers, i_receiverIds ) bind (c, name='f_interoperability_writeReceivers')

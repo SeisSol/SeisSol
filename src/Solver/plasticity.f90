@@ -58,7 +58,7 @@ MODULE Plasticity_mod
   CONTAINS
 
 !yldfac is only caluclated from the first DOF, and all DOF's are adjusted by the same coefficient
-  SUBROUTINE Plasticity_3D(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, PlastCo, dt, mu, dudt_pstrain)
+  SUBROUTINE Plasticity_3D(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, PlastCo, dt, mu, pstrain)
     !-------------------------------------------------------------------------!
 
     !-------------------------------------------------------------------------!
@@ -87,10 +87,10 @@ MODULE Plasticity_mod
     REAL        :: DOFStress(1:nDegFr,1:6)
     REAL        :: dgvar(1:nAlignedDegFr,1:6)
     REAL        :: dudt_pstrain(1:6)
+    REAL        :: pstrain(1:6)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu
-    INTENT(INOUT) :: dgvar
-    INTENT(OUT)   :: dudt_pstrain
+    INTENT(INOUT) :: dgvar, pstrain
     !-------------------------------------------------------------------------!
 
     dudt_pstrain = 0.0
@@ -147,6 +147,7 @@ MODULE Plasticity_mod
 
        ENDDO
           dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6)
+          pstrain(1:6) = pstrain + dudt_pstrain
         
     ENDIF !yield criterion check
 
