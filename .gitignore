@@ -29,6 +29,8 @@ com.apple.timemachine.supported
 # Build
 build/build_*
 build/SeisSol_*
+preprocessing/meshing/cube_c/build
+preprocessing/science/asagiconv/build
 
 # Python
 *.py[cod]
