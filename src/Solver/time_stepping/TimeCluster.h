@@ -284,7 +284,7 @@ private:
                                         CellData               *i_cellData,
                                         real                 *(*i_faceNeighbors)[4],
                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
-										real                  (*io_pstrain)[6] );
+										real                  (*io_pstrain)[7] );
 
   public:
     //! flags identifiying if the respective part is allowed to be updated

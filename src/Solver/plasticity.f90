@@ -87,7 +87,7 @@ MODULE Plasticity_mod
     REAL        :: DOFStress(1:nDegFr,1:6)
     REAL        :: dgvar(1:nAlignedDegFr,1:6)
     REAL        :: dudt_pstrain(1:6)
-    REAL        :: pstrain(1:6)
+    REAL        :: pstrain(1:7)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu
     INTENT(INOUT) :: dgvar, pstrain
@@ -146,10 +146,15 @@ MODULE Plasticity_mod
            dgvar(iDegFr,1:6) = Stress(iDegFr,1:6) - DOFStress(iDegFr,1:6)
 
        ENDDO
-          dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6)
-          pstrain(1:6) = pstrain + dudt_pstrain
+          dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6) !only the first dof is considered
+
         
     ENDIF !yield criterion check
+
+    !update plastic strain
+    pstrain(1:6) = pstrain(1:6) + dudt_pstrain !plastic strain tensor
+    pstrain(7) = pstrain(7)+ dt*sqrt(0.5*(dudt_pstrain(1)**2 + dudt_pstrain(2)**2 &
+                                                   + dudt_pstrain(3)**2)+ dudt_pstrain(4)**2 + dudt_pstrain(5)**2 + dudt_pstrain(6)**2)
 
  END SUBROUTINE Plasticity_3D
 

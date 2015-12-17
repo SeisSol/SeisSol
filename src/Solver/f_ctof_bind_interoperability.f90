@@ -182,7 +182,7 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_timeStep,       l_timeStep                                       )
       call c_f_pointer( i_initialLoading, l_initialLoading, [NUMBER_OF_BASIS_FUNCTIONS,6]  )
       call c_f_pointer( io_dofs,       l_dofs,       [i_numberOfAlignedBasisFunctions,6]   )
-      call c_f_pointer( io_pstrain,    l_pstrain,    [6]                                   )
+      call c_f_pointer( io_pstrain,    l_pstrain,    [7]                                   )
 
       call plasticity_3d( dgvar        = l_dofs, &
                           dofStress    = l_initialLoading, &

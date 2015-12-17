@@ -874,7 +874,7 @@ void seissol::initializers::MemoryManager::allocateInternalState() {
 
 #ifdef USE_PLASTICITY
   // TODO pstrain is updated every time step but only used for output -> maybe useful candidate for high bandwidth memory
-  m_internalState.pstrain      = (real(*)[6]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof( real[6] ),
+  m_internalState.pstrain      = (real(*)[7]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof( real[7] ),
 		  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	 PAGESIZE_HEAP,
 																				 seissol::memory::Standard);
 #else // USE_PLASTICITY
@@ -1066,13 +1066,13 @@ void seissol::initializers::MemoryManager::touchTime( unsigned int   i_numberOfC
 }
 
 void seissol::initializers::MemoryManager::touchPstrain(unsigned int   i_numberOfCells,
-                                                      	real         (*o_pstrain)[6] )
+                                                      	real         (*o_pstrain)[7] )
 {
 #ifdef _OPENMP
   #pragma omp parallel for
 #endif
   for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
-    for( unsigned int l_dof = 0; l_dof < 6; l_dof++ ) {
+    for( unsigned int l_dof = 0; l_dof < 7; l_dof++ ) {
       // zero pstrain output
       o_pstrain[l_cell][l_dof]  = (real) 0;
     }
@@ -1084,7 +1084,7 @@ void seissol::initializers::MemoryManager::initializeCells() {
    * Pointers to dofs
    */
   real (*l_dofsPointer)[NUMBER_OF_ALIGNED_DOFS] = m_internalState.dofs;
-  real (*pstrainPointer)[6] = m_internalState.pstrain;
+  real (*pstrainPointer)[7] = m_internalState.pstrain;
 
   for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
 #ifdef USE_MPI

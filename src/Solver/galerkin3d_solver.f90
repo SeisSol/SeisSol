@@ -461,7 +461,7 @@ CONTAINS
                  !updated the dofs and the plastic strain
                  CALL Plasticity_3D(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
                                     DISC%Galerkin%nDegFr, &
-                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, DISC%Galerkin%pstrain(1:6,iElem) )
+                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, DISC%Galerkin%pstrain(1:7,iElem) )
 
 #endif
 !for the GK version the plasticity call is moved to Interoperability.cpp

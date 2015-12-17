@@ -298,14 +298,14 @@ CONTAINS
 
     SELECT CASE(Plasticity)
     CASE(0)
-      logInfo(*) 'No plasticity assumed. '
+      logInfo0(*) 'No plasticity assumed. '
       EQN%Plasticity = Plasticity                                                     !
     CASE(1)
 #if defined(GENERATEDKERNELS) && !defined(USE_PLASTICITY)
        logError(*) 'Plasticity is assumed, but this version was not compiled with Plasticity.'
        stop
 #else
-       logInfo(*) '(Drucker-Prager) plasticity assumed .'
+       logInfo0(*) '(Drucker-Prager) plasticity assumed .'
 #endif
         EQN%Plasticity = Plasticity
         EQN%PlastCo = PlasticCo

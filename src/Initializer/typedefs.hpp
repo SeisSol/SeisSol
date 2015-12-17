@@ -420,7 +420,7 @@ struct InternalState {
   real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
 
   // plastic strain
-  real (*pstrain)[6];
+  real (*pstrain)[7];
 };
 
 /**
@@ -449,7 +449,7 @@ struct Cells {
   real *(*copyFaceNeighbors)[4];
 
   /** Pointer to copy layer plastic strain */
-  real (*copyPstrain)[6];
+  real (*copyPstrain)[7];
 #endif
 
   /*
@@ -473,7 +473,7 @@ struct Cells {
   real *(*interiorFaceNeighbors)[4];
 
   /** Pointer to interior plastic strain */
-  real (*interiorPstrain)[6];
+  real (*interiorPstrain)[7];
 };
 
 /** A piecewise linear function.

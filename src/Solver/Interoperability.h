@@ -121,7 +121,7 @@ class seissol::Interoperability {
     real *(*m_faceNeighbors)[4];
 
     //! Plasticity strain output
-    real (*m_pstrain)[6];
+    real (*m_pstrain)[7];
 
  public:
    /**

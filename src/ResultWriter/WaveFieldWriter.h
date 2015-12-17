@@ -270,13 +270,14 @@ public:
         	refinement::MeshRefiner<double> lowMeshRefiner(meshReader, lowTetRefiner);
 
         	// Variables
-    		std::vector<const char*> lowVariables(6);
+    		std::vector<const char*> lowVariables(7);
     		lowVariables[0] = "ep_xx";
     		lowVariables[1] = "ep_yy";
     		lowVariables[2] = "ep_zz";
     		lowVariables[3] = "ep_xy";
     		lowVariables[4] = "ep_yz";
     		lowVariables[5] = "ep_xz";
+    		lowVariables[6] = "eta";
 
 			// Initialize the low order I/O handler
 			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
@@ -346,12 +347,12 @@ public:
         if (m_pstrain) {
         	m_lowWaveFieldWriter->addTimeStep(time);
 
-        	for (unsigned int i = 0; i < 6; i++) {
+        	for (unsigned int i = 0; i < 7; i++) {
 #ifdef _OPENMP
 				#pragma omp parallel for schedule(static)
 #endif // _OPENMP
         		for (unsigned int j = 0; j < m_numCells; j++)
-        			m_outputBuffer[j] = m_pstrain[m_map[j] * 6 + i];  // = 5 for testing; how to get the right index?
+        			m_outputBuffer[j] = m_pstrain[m_map[j] * 7 + i];  // = 5 for testing; how to get the right index?
 
         		m_lowWaveFieldWriter->writeData(i, m_outputBuffer);
         	}

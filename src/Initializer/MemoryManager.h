@@ -332,7 +332,7 @@ class seissol::initializers::MemoryManager {
      * @param o_pstrain dofs which are touched.
      */
     void touchPstrain(unsigned int   i_numberOfCells,
-                      real         (*o_pstrain)[6] );
+                      real         (*o_pstrain)[7] );
 
     /**
      * Initializes the cell data.
