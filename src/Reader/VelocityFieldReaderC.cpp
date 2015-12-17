@@ -150,7 +150,7 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	EPIK_USER_START(r_asagi_init);
 	SCOREP_USER_REGION_BEGIN(r_asagi_init, "asagi_init", SCOREP_USER_REGION_TYPE_COMMON);
 
-	asagi::Grid* grid = asagi::Grid::create(asagi::Grid::DOUBLE);
+	asagi::Grid* grid = asagi::Grid::create();
 
 	int totalThreads = getTotalThreads();
 
@@ -197,6 +197,8 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	grid->setParam("BLOCK_SIZE_2", blockSize);
 
 	grid->setParam("CACHE_SIZE", utils::Env::get("SEISSOL_ASAGI_CACHE_SIZE", "128"));
+
+	grid->setParam("VARIABLE", "data");
 
 	// Read the data
 	SCOREP_RECORDING_OFF();
