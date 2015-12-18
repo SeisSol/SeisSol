@@ -47,9 +47,9 @@ import scipy.io
 import scipy.sparse
     
 def generateRoutineName(gemm):
-  name = 'sparse' if gemm['spp'] is not None else 'gemm'
-  lda = 'Asparse' if gemm['LDA'] < 0 else 'ldA{}'.format(gemm['LDA'])
-  ldb = 'Bsparse' if gemm['LDB'] < 0 else 'ldB{}'.format(gemm['LDB'])
+  name = 'sparse_' + gemm['spMtxName'] if gemm['spp'] is not None else 'gemm'
+  lda = 'Asparse' if gemm['LDA'] <= 0 else 'ldA{}'.format(gemm['LDA'])
+  ldb = 'Bsparse' if gemm['LDB'] <= 0 else 'ldB{}'.format(gemm['LDB'])
   return '{}_m{}_n{}_k{}_{}_{}_ldC{}_beta{}_alignedA{}_alignedC{}_pfsigonly'.format(
     name,
     gemm['M'],
@@ -241,6 +241,16 @@ class Generator:
     for i in range(0, maxGlobalMatrixId+1):
       offset = self.db[globalMatrixValues[i]].requiredReals if globalMatrixValues.has_key(i) else 0
       globalMatrixOffsets.append(globalMatrixOffsets[-1] + offset)
+      
+    with Code.Cpp(outputDir + '/sizes.h') as header:
+      with header.HeaderGuard('SIZES'):
+        with header.Namespace('seissol'):
+          with header.Namespace('model'):
+            for matrixInfo in self.db.itervalues():
+              with header.Namespace(matrixInfo.name):
+                header('unsigned const rows = {};'.format(matrixInfo.rows))
+                header('unsigned const cols = {};'.format(matrixInfo.rows))
+                header('unsigned const reals = {};'.format(matrixInfo.requiredReals))                
     
     hFilename = 'init.h'
     with Code.Cpp(outputDir + '/' + hFilename) as header:
@@ -250,13 +260,8 @@ class Generator:
           with header.Namespace('model'):
             for matrixInfo in self.db.itervalues():
               with header.Namespace(matrixInfo.name):
-                header('unsigned const rows = {};'.format(matrixInfo.rows))
-                header('unsigned const cols = {};'.format(matrixInfo.rows))
-                header('unsigned const reals = {};'.format(matrixInfo.requiredReals))
-                header('void convertToDense({typename} const* matrix, {typename}* denseMatrix);'.format(typename=self.architecture.typename))
-                if matrixInfo.values != None:
-                  header('extern {} const values[];'.format(self.architecture.typename))
-                else:
+                if matrixInfo.values == None:
+                  header('void convertToDense({typename} const* matrix, {typename}* denseMatrix);'.format(typename=self.architecture.typename))
                   with header.Function('static int index(unsigned row, unsigned column)'):
                     header('static int const lut[] = {{ {} }};'.format(
                       ', '.join(map(str, matrixInfo.getIndexLUT()))
@@ -264,6 +269,14 @@ class Generator:
                     header('return lut[row + column*{}];'.format(matrixInfo.rows))
                   with header.Function('static void setZero({}* data)'.format(self.architecture.typename)):
                     header.memset('data', matrixInfo.requiredReals, self.architecture.typename)
+                else:
+                  header('extern {} const values[];'.format(self.architecture.typename))
+                  with header.Function('static void convertToDense({typename}* denseMatrix)'.format(typename=self.architecture.typename)):
+                    header('static {} const denseValues[] = {{ {} }};'.format(
+                      self.architecture.typename,
+                      ', '.join(matrixInfo.getValuesDense())
+                    ))
+                    header('memcpy(denseMatrix, denseValues, {reals} * sizeof({typename}));'.format(reals=matrixInfo.rows*matrixInfo.cols, typename=self.architecture.typename))
                   
             header('extern {} const*const globalMatrixValues[];'.format(self.architecture.typename))
             header('extern unsigned const globalMatrixOffsets[];')
@@ -275,22 +288,22 @@ class Generator:
       with cpp.Namespace('seissol'):
         with cpp.Namespace('model'):
           for matrixInfo in self.db.itervalues():
-            with cpp.Function('void {namespace}::convertToDense({typename} const* matrix, {typename}* denseMatrix)'.format(namespace=matrixInfo.name, typename=self.architecture.typename)):
-              cpp.memset('denseMatrix', matrixInfo.rows * matrixInfo.cols, self.architecture.typename)
-              for block in matrixInfo.blocks:
-                with cpp.For('unsigned col = {block.startcol}; col < {block.stopcol}; ++col'.format(block=block)):
-                  with cpp.For('unsigned row = {block.startrow} + {block.startpaddingrows}; row < {block.stoprow}; ++row'.format(block=block)):
-                    if block.sparse:
-                      cpp('unsigned idx = index(row, col);')
-                      with cpp.If('idx != -1'):
-                        cpp('denseMatrix[col * {matrixInfo.rows} + row] = matrix[idx];'.format(matrixInfo=matrixInfo))
-                    else:
-                      cpp('denseMatrix[col * {matrixInfo.rows} + row] = matrix[{block.offset} + (col - {block.startcol}) * {block.ld} + (row - {block.startrow})];'.format(
-                        matrixInfo=matrixInfo,
-                        block=block
-                      ))
-            
-            if matrixInfo.values != None:
+            if matrixInfo.values == None:
+              with cpp.Function('void {namespace}::convertToDense({typename} const* matrix, {typename}* denseMatrix)'.format(namespace=matrixInfo.name, typename=self.architecture.typename)):
+                cpp.memset('denseMatrix', matrixInfo.rows * matrixInfo.cols, self.architecture.typename)
+                for block in matrixInfo.blocks:
+                  with cpp.For('unsigned col = {block.startcol}; col < {block.stopcol}; ++col'.format(block=block)):
+                    with cpp.For('unsigned row = {block.startrow} + {block.startpaddingrows}; row < {block.stoprow}; ++row'.format(block=block)):
+                      if block.sparse:
+                        cpp('unsigned idx = index(row, col);')
+                        with cpp.If('idx != -1'):
+                          cpp('denseMatrix[col * {matrixInfo.rows} + row] = matrix[idx];'.format(matrixInfo=matrixInfo))
+                      else:
+                        cpp('denseMatrix[col * {matrixInfo.rows} + row] = matrix[{block.offset} + (col - {block.startcol}) * {block.ld} + (row - {block.startrow})];'.format(
+                          matrixInfo=matrixInfo,
+                          block=block
+                        ))            
+            else:
               cpp('{} const {}::values[] = {{ {} }};'.format(
                 self.architecture.typename,
                 matrixInfo.name,
@@ -336,7 +349,10 @@ class Generator:
                   if self.db.has_key(matrix):
                     matrixInfo = self.db[matrix]
                     test(self.__localArray(matrix + '_dense', matrixInfo.rows * matrixInfo.cols, aligned=False))
-                    test('seissol::model::{name}::convertToDense({name}, {name}_dense);'.format(name=matrix))
+                    if matrixInfo.values == None:
+                      test('seissol::model::{name}::convertToDense({name}, {name}_dense);'.format(name=matrix))
+                    else:
+                      test('seissol::model::{name}::convertToDense({name}_dense);'.format(name=matrix))
                 for temp in rk.temps:
                   test(self.__localArray(temp.name, temp.rows * temp.cols, aligned=False))
                 for operation in rk.operations:

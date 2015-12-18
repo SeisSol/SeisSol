@@ -76,7 +76,7 @@ def __parseMatrix(node, clones):
   else:
     dbUpdate[name] = DB.MatrixInfo(name, rows, columns, spp, values)
   
-  return dbUpdate  
+  return dbUpdate
 
 def parseMatrixFile(xmlFile, clones):
   tree = lxml.etree.parse(xmlFile)
@@ -91,6 +91,45 @@ def parseMatrixFile(xmlFile, clones):
       __complain(child)
   
   return matrices
+  
+def memoryLayoutFromFile(xmlFile, db, clones):
+  tree = lxml.etree.parse(xmlFile)
+  root = tree.getroot()
+  strtobool = ['yes', 'true', '1']
+  nofits = dict()
+  for matrix in root:
+    if matrix.tag == 'matrix':
+      name = matrix.get('name')
+      nofit = matrix.get('nofit', '').lower() in strtobool
+      sparse = matrix.get('sparse', '').lower() in strtobool
+      if clones.has_key(name) or db.has_key(name):
+        blocks = []
+        for block in matrix:
+          if block.tag == 'block':
+            startrow = int(block.get('startrow'))
+            stoprow = int(block.get('stoprow'))
+            startcol = int(block.get('startcol'))
+            stopcol = int(block.get('stopcol'))
+            blksparse = (block.get('sparse') == None and sparse) or block.get('sparse', '').lower() in strtobool
+            blocks.append(DB.MatrixBlock(startrow, stoprow, startcol, stopcol, blksparse))
+          else:
+            __complain(block)
+        names = clones[name] if clones.has_key(name) else [name]
+        for n in names:
+          nofits[n] = nofit
+          if len(blocks) == 0:
+            db[n].setSingleBlock(sparse)
+          else:
+            db[n].setBlocks(blocks)
+          if not nofit:
+            db[n].fitBlocksToSparsityPattern()
+      else:
+        raise ValueError('Unrecognized matrix name ' + name)
+    else:
+      __complain(matrix)
+  for name, matrix in db.iteritems():
+    if not nofits.has_key(name) or nofits[name] == False:
+      matrix.fitBlocksToSparsityPattern()
   
 def numberOfBasisFunctions(order):
   return order * (order + 1) * (order + 2) / 6

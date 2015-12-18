@@ -150,14 +150,14 @@ void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser 
       (seissol::model::globalMatrixOffsets[matrix+1] - seissol::model::globalMatrixOffsets[matrix]) * sizeof(real)
     );
   }
-  for (unsigned flux = 0; flux < 52; ++flux) {
-    m_globalData.fluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[flux] ];
-  }
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    m_globalData.stiffnessMatricesTransposed[transposedStiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + transposedStiffness] ];
+    m_globalData.stiffnessMatricesTransposed[transposedStiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
   }
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    m_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[52 + stiffness + 3] ];
+    m_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[3 + stiffness] ];
+  }
+  for (unsigned flux = 0; flux < 52; ++flux) {
+    m_globalData.fluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + flux] ];
   }
 
   // @TODO Integrate this step into the code generator

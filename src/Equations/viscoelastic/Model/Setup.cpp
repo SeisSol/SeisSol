@@ -43,6 +43,7 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 
+#include <generated_code/sizes.h>
 #include <generated_code/init.h>
 
 using namespace seissol::model::source;

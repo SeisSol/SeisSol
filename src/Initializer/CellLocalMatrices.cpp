@@ -42,6 +42,7 @@
 #include <Numerical_aux/Transformation.h>
 #include <Model/Setup.h>
 #include <Geometry/MeshTools.h>
+#include <generated_code/init.h>
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,

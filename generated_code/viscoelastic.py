@@ -49,6 +49,7 @@ cmdLineParser.add_argument('--arch')
 cmdLineParser.add_argument('--order')
 cmdLineParser.add_argument('--numberOfMechanisms')
 cmdLineParser.add_argument('--generator')
+cmdLineParser.add_argument('--memLayout')
 cmdLineArgs = cmdLineParser.parse_args()
 
 architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
@@ -62,15 +63,14 @@ clones = {
   'star': [ 'AstarT', 'BstarT', 'CstarT' ]
 }
 
+# Load matrices
 db = Tools.parseMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOfBasisFunctions), clones)
 db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArgs.matricesDir), clones))
-db['timeIntegrated'] = DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities)
-db['timeDerivative0'] = DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities)
+
+# Determine sparsity patterns that depend on the number of mechanisms
 riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfQuantities-9, numberOfQuantities), dtype=np.float64)]])
 db['AplusT'] = DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp)
-db['AplusT'].fitBlocksToSparsityPattern()
 db['AminusT'] = DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp)
-db['AminusT'].fitBlocksToSparsityPattern()
 
 mechMatrix = np.matlib.zeros((15, numberOfQuantities))
 mechMatrix[0:9,0:9] = np.matlib.identity(9)
@@ -81,10 +81,6 @@ tallMatrix[0:15,0:15] = db[clones['star'][0]].spp
 starMatrix = tallMatrix * mechMatrix
 for clone in clones['star']:
   db[clone] = DB.MatrixInfo(clone, starMatrix.shape[0], starMatrix.shape[1], starMatrix)
-  #~ db[clone].setBlocks([DB.MatrixBlock(0, 9, 0, 9), DB.MatrixBlock(0, 9, 9, numberOfQuantities)])
-  #~ db[clone].setBlocks([DB.MatrixBlock(0, 6, 6, 9), DB.MatrixBlock(6, 9, 0, numberOfQuantities)])
-  db[clone].setBlocks([DB.MatrixBlock(0, 6, 6, 9), DB.MatrixBlock(6, 9, 0, numberOfQuantities)])
-  db[clone].fitBlocksToSparsityPattern()
 
 source = np.matlib.zeros((numberOfQuantities, numberOfQuantities))
 for m in range(0, numberOfMechanisms):
@@ -92,48 +88,25 @@ for m in range(0, numberOfMechanisms):
   source[r,0:6] = db['YT'].spp
   source[r,r] = np.matlib.identity(6)
 db['source'] = DB.MatrixInfo('source', numberOfQuantities, numberOfQuantities, source)
-db['source'].setBlocks([DB.MatrixBlock(9, numberOfQuantities, 0, 9), DB.MatrixBlock(9, numberOfQuantities, 9, numberOfQuantities, True)])
-db['source'].fitBlocksToSparsityPattern()
-  
 
-stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
-transposedStiffnessBlocks = list()
-for o in range(2, order+1):
-  stoprow = Tools.alignedNumberOfBasisFunctions(o-1, architecture)
-  startcol = Tools.numberOfBasisFunctions(o-1)
-  stopcol = Tools.numberOfBasisFunctions(o)
-  transposedStiffnessBlocks.append(DB.MatrixBlock(0, stoprow, startcol, stopcol))
-# merge first two blocks
-if len(transposedStiffnessBlocks) >= 2:
-  block1 = transposedStiffnessBlocks.pop(0)
-  block2 = transposedStiffnessBlocks.pop(0)
-  mergedBlock = DB.MatrixBlock( min(block1.startrow, block2.startrow),
-                                max(block1.stoprow, block2.stoprow),
-                                min(block1.startcol, block2.startcol),
-                                max(block1.stopcol, block2.stopcol) )
-  transposedStiffnessBlocks.insert(0, mergedBlock)
+# Load sparse-, dense-, block-dense-config
+Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
-stiffnessBlocks = [DB.MatrixBlock(block.startcol, block.stopcol, block.startrow, block.stoprow) for block in transposedStiffnessBlocks]
-#~ stiffnessBlocks = [ DB.MatrixBlock(0, 8, 0, 4),
-                    #~ DB.MatrixBlock(8, 20, 0, 10),
-                    #~ DB.MatrixBlock(20, 32, 0, 20),
-                    #~ DB.MatrixBlock(32, 56, 0, 35) ]
-for matrixName in stiffnessMatrices:
-  db[matrixName].setBlocks(stiffnessBlocks)
-  db[matrixName].fitBlocksToSparsityPattern()
-  db[matrixName + 'T'].setBlocks(transposedStiffnessBlocks)
-  db[matrixName + 'T'].fitBlocksToSparsityPattern()
-
+# Set rules for the global matrix memory order
 stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
 globalMatrixIdRules = [
-  (r'^fM(\d{1})$', lambda x: int(x[0])-1),
-  (r'^fP(\d{1})(\d{1})(\d{1})$', lambda x: 4 + (int(x[0])-1)*12 + (int(x[1])-1)*3 + (int(x[2])-1)),
-  (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: 52 + stiffnessOrder[x[0]]),
-  (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 55 + stiffnessOrder[x[0]])
+  (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: stiffnessOrder[x[0]]),
+  (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 3 + stiffnessOrder[x[0]]),  
+  (r'^fM(\d{1})$', lambda x: 6 + int(x[0])-1),
+  (r'^fP(\d{1})(\d{1})(\d{1})$', lambda x: 10 + (int(x[0])-1)*12 + (int(x[1])-1)*3 + (int(x[2])-1))
 ]
 DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
 
+# Kernels
 kernels = list()
+
+db['timeIntegrated'] = DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities)
+db['timeDerivative0'] = DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities)
 
 volume = db['timeIntegrated'] * db['source'] \
        + db['kXiDivM'] * db['timeIntegrated'] * db['AstarT'] \
@@ -163,5 +136,5 @@ for i in range(1, order):
   db[newD] = derivative.flat(newD)
   db[newD].fitBlocksToSparsityPattern()
 
+# Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)
-

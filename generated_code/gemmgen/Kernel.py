@@ -178,16 +178,16 @@ class GeneratedKernel(Kernel):
             # op1k * op2l is only nonzero if the columns of op1k and
             # the rows of op2l intersect.
             self.__gemm(op1.name, block1, op1.blocks[i1], op2.name, block2, op2.blocks[i2], resultName, result.blocks[0], beta, ops, writes)
-        
+
         # Reorder ops in order to find betas
-        if len(writes) > 1 and beta == 0:
+        if len(writes) > 0 and beta == 0:
           targetCard = result.blocks[0].ld * result.blocks[0].cols()
           mdsIn = MDS.maxDisjointSet(writes, targetCard)
           mdsOut = list( set(range(len(writes))).difference(set(mdsIn)) )
           order = mdsIn + mdsOut          
           memsetInterval = set(range(targetCard))
           for m in mdsIn:
-            memsetInterval.difference_update(set( [i + j*result.blocks[0].ld for i in range(writes[m].startrow, writes[m].stoprow) for j in range(writes[m].startcol, writes[m].stopcol)] ))
+            memsetInterval.difference_update(set( [i + j*result.blocks[0].ld for j in range(writes[m].startcol, writes[m].stopcol) for i in range(writes[m].startrow, writes[m].stoprow)] ))
           memsetInterval = list(memsetInterval)
           ranges = []
           for key, group in itertools.groupby(enumerate(memsetInterval), lambda(index, value): value - index):
@@ -231,9 +231,10 @@ class GeneratedKernel(Kernel):
     if k2 > k1:
       if memoryBlockA.sparse:
         m1 = memoryBlockA.startrow
-        m2 = memoryBlockA.stopcol
+        m2 = memoryBlockA.stoprow
         sparsityPattern = memoryBlockA.sparsityPattern(k1, k2)
         mmType = 'sparse'
+        spMtxName = nameA
       elif memoryBlockB.sparse:
         m1 = self.arch.getAlignedIndex(blockA.startrow)
         m2 = m1 + self.arch.getAlignedDim(blockA.stoprow - m1)
@@ -241,11 +242,13 @@ class GeneratedKernel(Kernel):
         k2 = memoryBlockB.stoprow
         sparsityPattern = memoryBlockB.sparsityPattern(blockB.startcol, blockB.stopcol)
         mmType = 'sparse'
+        spMtxName = nameB
       else:
         m1 = self.arch.getAlignedIndex(blockA.startrow)
         m2 = m1 + self.arch.getAlignedDim(blockA.stoprow - m1)
         sparsityPattern = None
         mmType = 'dense'
+        spMtxName = ''
       
       offsetA = memoryBlockA.calcOffset(m1, k1)
       offsetB = memoryBlockB.calcOffset(k1, blockB.startcol)
@@ -277,7 +280,8 @@ class GeneratedKernel(Kernel):
         'beta':         beta,
         'alignedA':     int(alignedA),
         'alignedC':     int(alignedC),
-        'spp':          sparsityPattern
+        'spp':          sparsityPattern,
+        'spMtxName':    spMtxName
       }
       ops.append(dict(
         type=Operation.GEMM,

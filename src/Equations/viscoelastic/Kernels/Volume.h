@@ -44,7 +44,7 @@
 #include <Initializer/typedefs.hpp>
 #include <cassert>
 #include <Kernels/common.hpp>
-#include <generated_code/init.h>
+#include <generated_code/sizes.h>
 
 namespace seissol {
   namespace kernels {

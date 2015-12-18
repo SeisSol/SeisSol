@@ -49,7 +49,7 @@
 #include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
 #include <Model/datastructures.hpp>
-#include <generated_code/init.h>
+#include <generated_code/sizes.h>
 
 #include <cstddef>
 

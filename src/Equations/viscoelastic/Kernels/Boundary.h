@@ -42,7 +42,7 @@
 #define BOUNDARY_H_
 
 #include <Initializer/typedefs.hpp>
-#include <generated_code/init.h>
+#include <generated_code/sizes.h>
 
 namespace seissol {
   namespace kernels {
