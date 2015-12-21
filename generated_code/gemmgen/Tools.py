@@ -41,7 +41,6 @@ import lxml.etree
 import DB
 import Expr
 import Generator
-import sympy
 
 def __complain(child):
   raise ValueError('Unknown tag ' + child.tag)
@@ -148,7 +147,7 @@ def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
   print('\nKernels')
   print('-------')
   for name, kernel in kernels:
-    print(u'{}: {}'.format(name, sympy.pretty(kernel.symbol)))
+    print(u'{}: {}'.format(name, kernel.symbol))
 
   print('\nMemory layout')
   print('-------------')

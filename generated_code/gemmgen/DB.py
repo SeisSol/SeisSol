@@ -40,7 +40,6 @@
 import numpy as np
 import numpy.matlib
 import scipy.sparse
-import sympy
 import copy
 import re
 
@@ -133,7 +132,7 @@ class MatrixInfo:
     self.requiredReals = -1
     self.leftMultiplication = False
     self.rightMultiplication = False
-    self.symbol = sympy.MatrixSymbol(name, self.rows, self.cols)
+    self.symbol = [ [self.name] ]
     self.globalMatrixId = -1
     
     self.setSingleBlock()
@@ -158,13 +157,18 @@ class MatrixInfo:
   def __mul__(self, other):
     spp = self.spp * other.spp
     result = MatrixInfo('{}*{}'.format(self.name, other.name), self.rows, other.cols, spp)
-    result.symbol = self.symbol * other.symbol
+    if len(self.symbol) == 1 and len(other.symbol) == 1:
+      result.symbol = copy.deepcopy(self.symbol)
+      result.symbol[0].extend(other.symbol[0])
+    else:
+      raise ValueError('Expressions like (a*b + c)*d are not possible')
     return result
     
   def __add__(self, other):
     spp = self.spp + other.spp
     result = MatrixInfo('{}+{}'.format(self.name, other.name), self.rows, self.cols, spp)
-    result.symbol = self.symbol + other.symbol
+    result.symbol = copy.deepcopy(self.symbol)
+    result.symbol.extend(other.symbol)
     return result
     
   def setSingleBlock(self, sparse=False):    

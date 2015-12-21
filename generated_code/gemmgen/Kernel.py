@@ -58,25 +58,14 @@ class Kernel(object):
     self.tempBaseName = 'temporaryResult'
     self.resultName = 'result'
     self.kernel = kernel
-    
-    self.__traverseExprTree(kernel.symbol)
+
+    for mul in kernel.symbol:
+      self.gemms([self.db[name] for name in mul])
 
     self.temps.sort(key=lambda temp: temp.name)
+    self.involvedMatrices = set([name for mul in kernel.symbol for name in mul])
     self.involvedMatrices = sorted(list(self.involvedMatrices))
     self.involvedMatrices.append(self.resultName)
-    
-  def __traverseExprTree(self, expr):
-    if expr.is_MatAdd:
-      for arg in expr.args:
-          self.__traverseExprTree(arg)
-    elif expr.is_MatMul:
-      matrices = list()
-      for symbol in expr.args:
-        matrices.append(self.db[symbol.name])
-        self.involvedMatrices.update([symbol.name])
-      self.gemms(matrices)
-    else:
-      raise ValueError('Unexpected subexpression {}.'.format(expr))
       
   def gemms(self, matrices):
     raise NotImplementedError()

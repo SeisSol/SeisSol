@@ -108,10 +108,10 @@ kernels = list()
 db['timeIntegrated'] = DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities)
 db['timeDerivative0'] = DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities)
 
-volume = db['timeIntegrated'] * db['source'] \
-       + db['kXiDivM'] * db['timeIntegrated'] * db['AstarT'] \
+volume = db['kXiDivM'] * db['timeIntegrated'] * db['AstarT'] \
        + db['kEtaDivM'] * db['timeIntegrated'] * db['BstarT'] \
-       + db['kZetaDivM'] * db['timeIntegrated'] * db['CstarT']
+       + db['kZetaDivM'] * db['timeIntegrated'] * db['CstarT'] \
+       + db['timeIntegrated'] * db['source']
 kernels.append(('volume', volume))
 
 for i in range(0, 4):

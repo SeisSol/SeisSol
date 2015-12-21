@@ -37,32 +37,12 @@
 # @section DESCRIPTION
 #
 
-import sympy
-
-def checkExprTree(expr):
-  valid = True
-  if expr.is_MatAdd:
-    for arg in expr.args:
-      valid &= checkExprTree(arg)
-  elif expr.is_MatMul:
-    for arg in expr.args:
-      valid &= isinstance(arg, sympy.MatrixSymbol)
-  else:
-    valid = False
-  return valid
-
 def analyseLeftAndRightMultiplication(db, expr):
-  if expr.is_MatAdd:
-    for arg in expr.args:
-      analyseLeftAndRightMultiplication(db, arg)
-  elif expr.is_MatMul:
-    if len(expr.args) > 1:
-      for arg in expr.args[0:-1]:
-        db[arg.name].leftMultiplication = True
-      db[expr.args[-1].name].rightMultiplication = True
+  for mul in expr:
+    for name in mul[0:-1]:
+      db[name].leftMultiplication = True
+    db[ mul[-1] ].rightMultiplication = True
 
 def analyseKernels(db, kernels):
   for name, kernel in kernels:
-    if checkExprTree(kernel.symbol) is False:
-      raise ValueError('The {} kernel is not given in the canonical form \sum_{i=1}^s \prod_{j=1}^p(i) M_{ij}, where s >= 1 and p(i) >= 2 ({}).'.format(name, kernel.symbol))
     analyseLeftAndRightMultiplication(db, kernel.symbol)
