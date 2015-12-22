@@ -161,7 +161,7 @@ void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser 
   }
 
   // @TODO Integrate this step into the code generator
-  for (unsigned transposedStiffness = 52; transposedStiffness < 55; ++transposedStiffness) {
+  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     real* matrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
     for (unsigned i = 0; i < seissol::model::globalMatrixOffsets[transposedStiffness+1]-seissol::model::globalMatrixOffsets[transposedStiffness]; ++i) {
       matrix[i] *= -1.0;

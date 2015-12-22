@@ -97,6 +97,8 @@ vars.AddVariables(
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
 
   ( 'libxsmmGenerator', 'Path to code generator from libxsmm (needs to be set if equations=viscoelastic).' ),
+  
+  ( 'memLayout', 'Path to memory layout file (needs to be set if equations=viscoelastic).' ),
 
   ( 'programName', 'name of the executable', 'none' ),
 
