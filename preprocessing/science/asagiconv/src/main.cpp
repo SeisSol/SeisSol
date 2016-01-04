@@ -76,6 +76,15 @@ static unsigned int compute1Dindex(const glm::uvec3 &index,
 	return ((index.z * size.y) + index.y) * size.x + index.x;
 }
 
+static unsigned int computeOutIndex(unsigned int index, unsigned int variable,
+		const glm::uvec3 &size, bool paraview)
+{
+	if (paraview)
+		return index + variable*size.x*size.y*size.z;
+
+	return index*3 + variable;
+}
+
 int main(int argc, char* argv[])
 {
 	// Parse command line arguments
@@ -85,6 +94,7 @@ int main(int argc, char* argv[])
 	args.addOption("extend-z", 0, "Extend the grid in z direction to this value by duplication the top plane\n"
 			"\tUse \"auto\" to automatically find the value",
 			utils::Args::Required, false);
+	args.addOption("paraview", 'p', "Viewable by Paraview", utils::Args::No, false);
 	args.addAdditionalOption("input", "Input file");
 	args.addAdditionalOption("output", "netCDF output file", false);
 
@@ -262,21 +272,32 @@ int main(int argc, char* argv[])
 	checkNcError(nc_put_var_float(ncFile, ncZ, z));
 	delete [] z;
 
+	// Viewable by Paraview?
+	bool paraview = args.getArgument("paraview", false);
 
 	// Create variables
-	int ncRho, ncMu, ncLambda;
-	checkNcError(nc_def_var(ncFile, "rho", NC_FLOAT, 3, ncDims, &ncRho));
-	checkNcError(nc_def_var(ncFile, "mu", NC_FLOAT, 3, ncDims, &ncMu));
-	checkNcError(nc_def_var(ncFile, "lambda", NC_FLOAT, 3, ncDims, &ncLambda));
+	int ncData, ncRho, ncMu, ncLambda;
+	if (paraview) {
+		checkNcError(nc_def_var(ncFile, "rho", NC_FLOAT, 3, ncDims, &ncRho));
+		checkNcError(nc_def_var(ncFile, "mu", NC_FLOAT, 3, ncDims, &ncMu));
+		checkNcError(nc_def_var(ncFile, "lambda", NC_FLOAT, 3, ncDims, &ncLambda));
+	} else {
+		// Create compound type
+		int ncType;
+		checkNcError(nc_def_compound(ncFile, 3*sizeof(float), "material", &ncType));
+		checkNcError(nc_insert_compound(ncFile, ncType, "rho", 0, NC_FLOAT));
+		checkNcError(nc_insert_compound(ncFile, ncType, "mu", sizeof(float), NC_FLOAT));
+		checkNcError(nc_insert_compound(ncFile, ncType, "lambda", 2*sizeof(float), NC_FLOAT));
+
+		checkNcError(nc_def_var(ncFile, "data", ncType, 3, ncDims, &ncData));
+	}
 
 	// Save variables
-	const int ncVarIds[3] = {ncRho, ncMu, ncLambda};
 	const float * const data[3] = {rho, mu, lambda};
 
-	float* outputData = new float[outputSize.x*outputSize.y*outputSize.z];
+	float* outputData = new float[3*outputSize.x*outputSize.y*outputSize.z];
+	memset(outputData, 0, 3*outputSize.x*outputSize.y*outputSize.z*sizeof(float));
 	for (int i = 0; i < 3; i++) {
-		memset(outputData, 0, outputSize.x*outputSize.y*outputSize.z*sizeof(float));
-
 		for (unsigned int j = 0; j < lines; j++) {
 			glm::uvec3 index = computeIndex(vertices[j], minVert, avgDist);
 
@@ -288,6 +309,8 @@ int main(int argc, char* argv[])
 			unsigned int pos = compute1Dindex(index, outputSize);
 			assert(pos < outputSize.x*outputSize.y*outputSize.z);
 
+			pos = computeOutIndex(pos, i, outputSize, paraview);
+
 			if (outputData[pos] != 0) {
 				logInfo() << "Value at" << utils::nospace
 						<< "[" << index.x << ", " << index.y << ", " << index.z << "] already set";
@@ -296,14 +319,26 @@ int main(int argc, char* argv[])
 			outputData[pos] = data[i][j];
 		}
 
+		// Fill extend
 		for (unsigned int j = size.z; j < outputSize.z; j++) {
 			for (unsigned int k = 0; k < outputSize.x*outputSize.y; k++) {
-				outputData[j*outputSize.x*outputSize.y + k]
-						   = outputData[(size.z-1)*outputSize.x*outputSize.y + k];
+				unsigned int posRead = computeOutIndex((size.z-1)*outputSize.x*outputSize.y + k,
+						i, outputSize, paraview);
+				unsigned int posWrite = computeOutIndex(j*outputSize.x*outputSize.y + k,
+						i, outputSize, paraview);
+
+				outputData[posWrite] = outputData[posRead];
 			}
 		}
 
-		checkNcError(nc_put_var_float(ncFile, ncVarIds[i], outputData));
+	}
+
+	if (paraview) {
+		checkNcError(nc_put_var_float(ncFile, ncRho, &outputData[0]));
+		checkNcError(nc_put_var_float(ncFile, ncMu, &outputData[outputSize.x*outputSize.y*outputSize.z]));
+		checkNcError(nc_put_var_float(ncFile, ncLambda, &outputData[2*outputSize.x*outputSize.y*outputSize.z]));
+	} else {
+		checkNcError(nc_put_var(ncFile, ncData, outputData));
 	}
 
 	delete [] outputData;
