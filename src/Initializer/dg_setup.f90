@@ -2589,11 +2589,10 @@ CONTAINS
     !
 
     IF(EQN%Plasticity.EQ.1) THEN
-      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(6, MESH%nElem), DISC%Galerkin%accpstrain(MESH%nElem))
+      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem))
 !#ifdef GENERATEDKERNELS
                DISC%Galerkin%DOFStress = 0.
                DISC%Galerkin%pstrain = 0.
-               DISC%Galerkin%accpstrain = 0.
 !#endif
     ENDIF
 

@@ -46,15 +46,18 @@ module WaveFieldWriter
 
     ! C functions
     interface
-        subroutine wavefield_hdf_init(rank, outputPrefix, dofs, numVars, numBasisFuncs, &
-                timestep) bind(C, name="wavefield_hdf_init")
+        subroutine wavefield_hdf_init(rank, outputPrefix, dofs, pstrain, numVars, order, &
+                numBasisFuncs, refinement, timestep) bind(C, name="wavefield_hdf_init")
             use, intrinsic :: iso_c_binding
 
             integer( kind=c_int ), value                       :: rank
             character( kind=c_char ), dimension(*), intent(in) :: outputPrefix
             real( kind=c_double ), dimension(*), intent(in)    :: dofs
+            real( kind=c_double ), dimension(*), intent(in)    :: pstrain
             integer( kind=c_int ), value                       :: numVars
+            integer( kind=c_int ), value                       :: order
             integer( kind=c_int ), value                       :: numBasisFuncs
+            integer( kind=c_int ), value                       :: refinement
             integer( kind=c_int ), value                       :: timestep
         end subroutine wavefield_hdf_init
 
@@ -83,9 +86,10 @@ contains
         type (tMPI)            :: mpi
 
         call wavefield_hdf_init(mpi%myRank, trim(io%OutputFile) // c_null_char, &
-            disc%galerkin%dgvar(:, :, :, 1), &
-            eqn%nVarTotal, disc%Galerkin%nDegFr, &
-            timestep)
+            disc%galerkin%dgvar(:, :, :, 1), disc%galerkin%pstrain(:,:), &
+            eqn%nVarTotal, disc%spaceorder, &
+            disc%galerkin%nDegFr, &
+            io%Refinement, timestep)
     end subroutine waveFieldWriterInit
 
     subroutine waveFieldWriterWriteStep(time, disc, mesh, mpi)

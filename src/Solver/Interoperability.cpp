@@ -153,9 +153,9 @@ extern "C" {
 
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP) {
+		  int numSides, int numBndGP, int refinement) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			  numSides, numBndGP);
+			  numSides, numBndGP, refinement);
   }
 
   void c_interoperability_addToDofs( int    i_meshId,
@@ -227,9 +227,10 @@ extern "C" {
 
   extern void f_interoperability_computePlasticity( void    *i_domain,
                                                     double  *i_timestep,
+													int    numberOfAlignedBasisFunctions,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double  *i_stresses,
-                                                    double  *o_plasticUpdate );
+                                                    double  *io_dofs,
+													double  *io_pstrain );
 
 
   extern void f_interoperability_writeReceivers( void   *i_domain,
@@ -311,7 +312,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                    m_dofs,
                                                    m_buffers,
                                                    m_derivatives,
-                                                   m_faceNeighbors );
+                                                   m_faceNeighbors,
+												   m_pstrain );
 }
 
 #ifdef USE_NETCDF
@@ -403,7 +405,7 @@ void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_init
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
     for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      m_cellData->neighboringIntegration[l_copyInteriorId].initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
+      m_cellData->plasticity[l_copyInteriorId].initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
     }
   }
 }
@@ -435,8 +437,10 @@ void seissol::Interoperability::synchronizeCellLocalData() {
 #ifdef USE_PLASTICITY
     // sync initial loading
     for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
+    	// TODO use memcpy
+
       for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-        m_cellData->neighboringIntegration[l_cell].initialLoading[l_quantity][l_basis] = m_cellData->neighboringIntegration[sourceId].initialLoading[l_quantity][l_basis];
+        m_cellData->plasticity[l_cell].initialLoading[l_quantity][l_basis] = m_cellData->plasticity[sourceId].initialLoading[l_quantity][l_basis];
       }
     }
 #endif
@@ -490,7 +494,7 @@ void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval
 void seissol::Interoperability::initializeIO(
 		  double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP)
+		  int numSides, int numBndGP, int refinement)
 {
 	  // Initialize checkpointing
 	  double currentTime;
@@ -508,10 +512,14 @@ void seissol::Interoperability::initializeIO(
 
 	  // Initialize wave field output
 	  seissol::SeisSol::main.waveFieldWriter().init(
-			  NUMBER_OF_QUANTITIES, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+			  NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
+              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			  seissol::SeisSol::main.meshReader(),
-			  reinterpret_cast<const double*>(m_dofs), m_meshToCopyInterior,
-			  waveFieldTimeStep);
+			  reinterpret_cast<const double*>(m_dofs),
+			  reinterpret_cast<const double*>(m_pstrain),
+			  m_meshToCopyInterior,
+			  refinement, waveFieldTimeStep,
+			  seissol::SeisSol::main.timeManager().getTimeTolerance());
 
 	  // I/O initialization is the last step that requires the mesh reader
 	  // (at least at the moment ...)
@@ -669,32 +677,15 @@ void seissol::Interoperability::computeDynamicRupture( double i_fullUpdateTime,
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::computePlasticity(  double i_timeStep,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                                                    double *io_dofs ) {
-  // collect stresses
-  double l_stresses[6*NUMBER_OF_BASIS_FUNCTIONS];
-
-  for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
-    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      l_stresses[l_quantity * NUMBER_OF_BASIS_FUNCTIONS + l_basis] = io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basis];
-    }
-  }
-
-  // platic update
-  double l_plasticUpdate[6*NUMBER_OF_BASIS_FUNCTIONS];
-
+                                                    double *io_dofs,
+													double *io_pstrain ) {
   // call fortran routine
   f_interoperability_computePlasticity(  m_domain,
                                         &i_timeStep,
+										 NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
                                          i_initialLoading,
-                                         l_stresses,
-                                         l_plasticUpdate );
-
-  // update degrees of freedom
-  for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
-    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      io_dofs[l_quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basis] -= l_plasticUpdate[l_quantity * NUMBER_OF_BASIS_FUNCTIONS + l_basis];
-    }
-  }
+                                         io_dofs,
+										 io_pstrain );
 }
 #endif
 

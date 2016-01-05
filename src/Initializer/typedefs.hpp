@@ -317,17 +317,18 @@ struct LocalIntegrationData {
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::model::AminusT::reals];
-
-#ifdef USE_PLASTICITY
-  // initial loading (stress tensor)
-  real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
-#endif
 };
 
 // material constants per cell
 struct CellMaterialData {
   seissol::model::Material local;
   seissol::model::Material neighbor[4];
+};
+
+// plasticity information per cell
+struct PlasticityData {
+  // initial loading (stress tensor)
+  real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
 };
 
 /**
@@ -340,6 +341,8 @@ struct CellData {
   struct NeighboringIntegrationData *neighboringIntegration;
   // local and neighbor material data
   CellMaterialData                  *material;
+  // Plasticity
+  PlasticityData                    *plasticity;
 };
 
 /**
@@ -416,6 +419,8 @@ struct InternalState {
    */
   real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
 
+  // plastic strain
+  real (*pstrain)[7];
 };
 
 /**
@@ -442,6 +447,9 @@ struct Cells {
    * Pointers to the either the time buffers or time derivatives of the face neighbors in the copy layer.
    */
   real *(*copyFaceNeighbors)[4];
+
+  /** Pointer to copy layer plastic strain */
+  real (*copyPstrain)[7];
 #endif
 
   /*
@@ -463,6 +471,9 @@ struct Cells {
    * Pointers to the either the time buffers or time derivatives of the face neighbors in the interior.
    */
   real *(*interiorFaceNeighbors)[4];
+
+  /** Pointer to interior plastic strain */
+  real (*interiorPstrain)[7];
 };
 
 /** A piecewise linear function.

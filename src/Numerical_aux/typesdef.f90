@@ -427,7 +427,6 @@ MODULE TypesDef
 ! never used    REAL, POINTER     :: dgvar_ane(:,:,:,:)          !< Data-array for expansion (Anel.)
     REAL, POINTER         :: DOFStress(:,:,:) => NULL() !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: pstrain(:,:) => NULL()     !< plastic strain
-    REAL, POINTER         :: accpstrain(:) => NULL()    !< accumulated plastic strain
 #ifdef GENERATEDKERNELS
 !    integer              :: nSourceTermElems !< number of elemens having a source term
 !    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
@@ -1444,6 +1443,7 @@ MODULE TypesDef
 #endif
 
      type(tCheckPoint)                      :: checkpoint                       !< Checkpointing configuration
+     INTEGER                                :: Refinement
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------

@@ -41,8 +41,6 @@
 #ifndef SEISSOL_H
 #define SEISSOL_H
 
-#include "Parallel/MPI.h"
-
 #include <string>
 
 #ifdef GENERATEDKERNELS
@@ -70,8 +68,6 @@ namespace seissol
 class SeisSol
 {
 private:
-	MPI m_mpi;
-
 	/** The name of the parameter file */
 	std::string m_parameterFile;
 
@@ -125,11 +121,6 @@ public:
 	 * Finalize SeisSol
 	 */
 	void finalize();
-
-	const MPI& mpi() const
-	{
-		return m_mpi;
-	}
 
 	const char* parameterFile() const
 	{

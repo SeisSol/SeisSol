@@ -104,7 +104,7 @@ CONTAINS
     INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE
     INTENT(INOUT)                   :: EQN,IO, usMESH
     !--------------------------------------------------------------------------
-    PARAMETER(actual_version_of_readpar = 19)
+    PARAMETER(actual_version_of_readpar = 20)
     !--------------------------------------------------------------------------
     !                                                                        !        
     IO%Mesh_is_structured       = .FALSE.                                    ! PostProcessing in default position
@@ -298,14 +298,14 @@ CONTAINS
 
     SELECT CASE(Plasticity)
     CASE(0)
-      logInfo(*) 'No plasticity assumed. '
+      logInfo0(*) 'No plasticity assumed. '
       EQN%Plasticity = Plasticity                                                     !
     CASE(1)
 #if defined(GENERATEDKERNELS) && !defined(USE_PLASTICITY)
        logError(*) 'Plasticity is assumed, but this version was not compiled with Plasticity.'
        stop
 #else
-       logInfo(*) '(Drucker-Prager) plasticity assumed .'
+       logInfo0(*) '(Drucker-Prager) plasticity assumed .'
 #endif
         EQN%Plasticity = Plasticity
         EQN%PlastCo = PlasticCo
@@ -3166,12 +3166,12 @@ ALLOCATE( SpacePositionx(nDirac), &
       !------------------------------------------------------------------------
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
-                                          iOutputMaskMaterial(1:3), nRecordPoints
+                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement
       REAL                             :: TimeInterval, pickdt, Interval, checkPointInterval
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
-                                                Format, Interval, TimeInterval, printIntervalCriterion, &
+                                                Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
                                                 checkPointInterval, checkPointFile, checkPointBackend
@@ -3186,6 +3186,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       iOutputMaskMaterial(:) =  0
       Rotation = 0
       Format = 1
+      Refinement = 0
       pickdt = 0.1
       pickDtType = 1
       nRecordPoints = 0
@@ -3599,6 +3600,31 @@ ALLOCATE( SpacePositionx(nDirac), &
         stop
       endif
 #endif
+      
+      IO%Refinement = Refinement
+      SELECT CASE(Refinement)
+         CASE(0)
+
+            logInfo0(*) 'Refinement is disabled'
+
+         CASE(1)
+
+             logInfo0(*) 'Refinement strategy is Face Extraction :  4 subcells per cell'
+
+         CASE(2)
+
+             logInfo0(*) 'Refinement strategy is Equal Face Area : 8 subcells per cell'
+
+         CASE(3)
+
+             logInfo0(*) 'Refinement strategy is Equal Face Area and Face Extraction : 32 subcells per cell'
+
+         CASE DEFAULT
+
+             logError(*) 'Refinement strategy is N O T supported'
+             STOP
+
+      END SELECT
 
       select case (io%checkpoint%backend)
         case ("posix")

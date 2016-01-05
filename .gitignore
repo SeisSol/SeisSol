@@ -31,6 +31,7 @@ build/build_*
 build/SeisSol_*
 preprocessing/meshing/cube_c/build
 preprocessing/science/asagiconv/build
+postprocessing/validation/XDMFCubeCheck/build
 
 # Python
 *.py[cod]

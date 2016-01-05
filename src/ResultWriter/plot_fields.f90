@@ -147,7 +147,7 @@ CONTAINS
              optionalFields%fieldMask( 16)%ptr => disc%galerkin%pstrain(4,:)
              optionalFields%fieldMask( 17)%ptr => disc%galerkin%pstrain(5,:)
              optionalFields%fieldMask( 18)%ptr => disc%galerkin%pstrain(6,:)
-             optionalFields%fieldMask( 19)%ptr => disc%galerkin%accpstrain(:)
+             optionalFields%fieldMask( 19)%ptr => disc%galerkin%pstrain(7,:)
 
             EndLink = 19
           ENDIF

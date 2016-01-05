@@ -120,6 +120,9 @@ class seissol::Interoperability {
     //! raw pointers to face neighbors: covering all clusters and layers.
     real *(*m_faceNeighbors)[4];
 
+    //! Plasticity strain output
+    real (*m_pstrain)[7];
+
  public:
    /**
     * Constructor.
@@ -252,7 +255,7 @@ class seissol::Interoperability {
 
    void initializeIO(double* mu, double* slipRate1, double* slipRate2,
 			  double* slip, double* slip1, double* slip2, double* state, double* strength,
-			  int numSides, int numBndGP);
+			  int numSides, int numBndGP, int refinement);
 
    /**
     * Get the current dynamic rupture time step
@@ -361,7 +364,8 @@ class seissol::Interoperability {
 #ifdef USE_PLASTICITY
    void computePlasticity( double   i_timeStep,
                            double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
-                           double  *io_dofs );
+                           double  *io_dofs,
+						   double  *io_pstrain );
 #endif
 
    /**
