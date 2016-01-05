@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)
+!! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2010, SeisSol Group
+!! Copyright (c) 2010-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -218,11 +219,6 @@ CONTAINS
 
   SUBROUTINE plot_fields(fileop, time, timestep, EQN, DISC, MESH, IO, BND, OptionalFields, MPI)
     !--------------------------------------------------------------------------
-#ifdef HDF
-   ! USE hdf5_output_mod,    ONLY : write_hdf_node_data, write_hd_output
-    USE hd_output_mod
-#endif
-    !--------------------------------------------------------------------------
     IMPLICIT NONE     
     !--------------------------------------------------------------------------
     ! argument list declaration
@@ -279,12 +275,8 @@ CONTAINS
          !                                              !
     case(5)
        ! Data in XDMF format (requires HDF5)
-#ifdef HDF
-       CALL write_hd_data(OptionalFields, MESH, IO, timestep, EQN, DISC, MPI)
-#else
-       logError(*) 'This version does not support HDF5'
+       logError(*) 'Output format 5 (legacy HDF5) is no longer supported'
        stop
-#endif
          !                                              !
     CASE DEFAULT                                        ! Error Handler
        logError(*)                        & ! Error Handler

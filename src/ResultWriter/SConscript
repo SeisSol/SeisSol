@@ -4,9 +4,10 @@
 # This file is part of SeisSol.
 #
 # @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+# @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 #
 # @section LICENSE
-# Copyright (c) 2012-2014, SeisSol Group
+# Copyright (c) 2012-2016, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -55,7 +56,6 @@ try:
                    'printthistimestep.f90',
                    'output_rupturefront.f90',
                    'magnitude_output.f90',
-                   'hd_output.f90',
                    'hdf_output_utils.f90',
                    'hdf_faultoutput.f90',
                    'common_fault_receiver.f90',

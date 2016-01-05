@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Michael Dumbser (michael.dumbser AT unitn.it, https://www5.unitn.it/People/it/Web/Persona/PER0029602#INFO)
+!! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2007-2014, SeisSol Group
+!! Copyright (c) 2007-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -74,7 +75,6 @@ CONTAINS
 #endif
 #ifdef HDF
     USE HDF5
-    USE hd_output_mod,         ONLY : init 
 #endif
     use jacobiNormal_mod
 #ifdef GENERATEDKERNELS
@@ -246,7 +246,6 @@ CONTAINS
     END SELECT
 
 #ifdef PARALLEL 
-
     ! nothing done for hybrids yet
     if (IO%meshgenerator .ne. 'Gambit3D-fast' .and. IO%meshgenerator .ne. 'Netcdf') then
         CALL MPIExtractMesh( EQN   = EQN,  &                                       !
@@ -256,13 +255,8 @@ CONTAINS
                              IO    = IO,   &                                       !
                              MPI   = MPI   )                                       !
     endif
+#endif
 
-#ifdef HDF
-    if (IO%Format .eq. 5) then
-        CALL init(IO, MPI, MESH, DISC)
-    endif
-#endif
-#endif
     ! End mesh reading/computing section
     EPIK_USER_END(r_read_compute_mesh)
     SCOREP_USER_REGION_END( r_read_compute_mesh )

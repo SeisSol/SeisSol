@@ -6,7 +6,7 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2008-2015, SeisSol Group
+!! Copyright (c) 2008-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -1324,20 +1324,6 @@ MODULE TypesDef
      INTEGER                                :: mpi_grp                          !< mpi group of receiver output processes
      INTEGER                                :: mpi_comm                         !< mpi communicator of receiver output processes
   END TYPE
-
-
-  !< HDF5 wavefield output variable
-  TYPE thd_output
-     INTEGER                                :: elem_n                           !< local number of elements
-     INTEGER                                :: elem_offset                      !< offset at which to write
-     INTEGER                                :: elem_total                       !< global number of elements
-     INTEGER                                :: node_n                           !< local number of nodes
-     INTEGER                                :: node_offset                      !< offset at which to write
-     INTEGER                                :: node_total                       !< global number ofa nodes
-     INTEGER                                :: refinement = 0                   !< 0 is old output style(at nodes), 1 and above is at  barycenters with consecutive subdivisions
-     INTEGER                                :: points_n                         !< How many output points per each tetrahedron will be outputted (used for refinemente > 0)
-     TYPE(tUnstructPoint)         , POINTER :: RecPoint(:)                      !< DR pickpoint location
-  END TYPE thd_output
 #endif
   !
   !< Data type for Input and Output (variable name : IO)
@@ -1438,7 +1424,6 @@ MODULE TypesDef
 !     LOGICAL                                :: MetisWeights                     !< Run Seissol to compute METIS weights only
      INTEGER                                :: FaultOutputFlag                  !< Flag if fault output is required or not (1 or 0)
 #ifdef HDF
-     TYPE(thd_output)             , POINTER :: hd_out
      TYPE(thd_receiver)           , POINTER :: hd_rec
 #endif
 
