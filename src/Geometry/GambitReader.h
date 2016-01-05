@@ -292,7 +292,8 @@ private:
 				if (boundaryCondition != 3)
 					// We still need to find the neighboring element
 					// for DR boundaries
-					m_elements[e->second].neighbors[s] = 0; // 0: at least a valid value for periodic boundaries
+					//m_elements[e->second].neighbors[s] = 0; // 0: at least a valid value for periodic boundaries
+					m_elements[e->second].neighbors[s] = m_elements.size();
 				m_elements[e->second].neighborRanks[s] = m_rank;
 				m_elements[e->second].boundaries[s] = boundaryCondition;
 

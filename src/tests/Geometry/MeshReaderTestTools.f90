@@ -55,6 +55,7 @@ contains
 
         integer, intent(in), value :: rank
 
+        ! TODO Use SEISSOL_TESTS
         domain%IO%MeshFile = 'src/tests/Geometry/cube4.neu'
         domain%IO%MetisFile = 'src/tests/Geometry/cube4.met'
 

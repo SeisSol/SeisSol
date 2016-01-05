@@ -35,7 +35,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <mpi.h>
+#include "Parallel/MPI.h"
 
 #include <cxxtest/TestSuite.h>
 
@@ -322,25 +322,26 @@ private:
 public:
 	void testGambitReader()
 	{
-		GambitReader meshReader0(0, SEISSOL_TESTS "Geometry/cube4.neu", SEISSOL_TESTS "Geometry/cube4.met.epart.2");
-		GambitReader meshReader1(1, SEISSOL_TESTS "Geometry/cube4.neu", SEISSOL_TESTS "Geometry/cube4.met.epart.2");
+		GambitReader meshReader(seissol::MPI::mpi.rank(),
+				SEISSOL_TESTS "Geometry/cube4.neu", SEISSOL_TESTS "Geometry/cube4.met.epart.2");
 
-		readcubeold(0);
-		testMeshReader0(meshReader0);
-		readcubeold(1);
-		testMeshReader1(meshReader1);
+		readcubeold(seissol::MPI::mpi.rank());
+		if (seissol::MPI::mpi.rank() == 0)
+			testMeshReader0(meshReader);
+		else
+			testMeshReader1(meshReader);
 	}
 
 	void testNetcdfReader()
 	{
 #ifdef USE_NETCDF
-		NetcdfReader meshReader0(0, 2, SEISSOL_TESTS "Geometry/cube4.nc");
-		NetcdfReader meshReader1(1, 2, SEISSOL_TESTS "Geometry/cube4.nc");
+		NetcdfReader meshReader(seissol::MPI::mpi.rank(), 2, SEISSOL_TESTS "Geometry/cube4.nc");
 
-		readcubeold(0);
-		testMeshReader0(meshReader0);
-		readcubeold(1);
-		testMeshReader1(meshReader1);
+		readcubeold(seissol::MPI::mpi.rank());
+		if (seissol::MPI::mpi.rank() == 0)
+			testMeshReader0(meshReader);
+		else
+			testMeshReader1(meshReader);
 #endif // USE_NETCDF
 	}
 
