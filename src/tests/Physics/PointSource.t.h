@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -119,9 +120,6 @@ public:
     TS_ASSERT_EQUALS(l_pwlf.numberOfPieces, 3);
     TS_ASSERT_EQUALS(l_pwlf.onsetTime, l_onsetTime);
     TS_ASSERT_EQUALS(l_pwlf.samplingInterval, l_samplingInterval);
-    
-    delete[] l_pwlf.slopes;
-    delete[] l_pwlf.intercepts;
   }
   
   void testComputePwLFTimeIntegral()
@@ -159,10 +157,6 @@ public:
       + 0.5*60.0*(1.15*1.15 - 1.10*1.10) - 67.0*0.05
       + 0.5*10.0*(1.20*1.20 - 1.15*1.15) -  9.5*0.05,
       2e-14);
-    
-    
-    delete[] l_pwlf.slopes;
-    delete[] l_pwlf.intercepts;
   }
   
   void addPointSourceToDOFs()
