@@ -489,10 +489,10 @@ if( env['plasticity'] ):
 if env['generatedKernels']:
   env.Append(CPPDEFINES=['GENERATEDKERNELS', 'CLUSTERED_LTS'])
 
-# set pre compiler flags and link flags for commuincation thread
+# set pre compiler flags commuincation thread
+# pthread is linked after the other libraries
 if env['commThread']:
   env.Append(CPPDEFINES=['USE_COMM_THREAD'])
-  env.Append(LINKFLAGS=['-lpthread'] )
  
 # Default log level for rank 0 is same as logLevel
 if env['logLevel0'] == 'none':
@@ -552,6 +552,11 @@ if env['sionlib']:
   env.Tool('SionTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), toolpath=['build/scons/Tools'])
 else:
   env['sionlib'] = False
+
+# pthread has to be appended after other libraries
+# this only appears whe compiling with scalasca and hdf5/netcdf
+if env['commThread']:
+  env.Append(LINKFLAGS=['-lpthread'] )
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
