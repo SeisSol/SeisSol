@@ -112,12 +112,6 @@ def generate(env, **kw):
             else:
                 conf.Finish()
                 return
- 
-    # This workaround is required on Cray to work around some linker issues
-    # With scalasca + communication thread + HDF5/netCDF
-    # TODO If somebody has a better solution, please do not hesitate to change this
-    origLinkFlags = env['LINKFLAGS']
-    env.Prepend(LINKFLAGS=['-Wl,--start-group'])
         
     ret = [conf.CheckLibWithHeader('hdf5_hl', 'hdf5.h', 'c'), conf.CheckLib('hdf5')]
     if not all(ret):
@@ -125,7 +119,6 @@ def generate(env, **kw):
             print 'Could not find HDF5 or zlib!'
             env.Exit(1)
         else:
-            env.Replace(LINKFLAGS=origLinkFlags)
             conf.Finish()
             return
         
@@ -138,7 +131,6 @@ def generate(env, **kw):
                 print 'Could not find zlib!'
                 env.Exit(1)
             else:
-                env.Replace(LINKFLAGS=origLinkFlags)
                 conf.Finish()
                 return
  
@@ -153,7 +145,6 @@ def generate(env, **kw):
                 print 'Could not find all HDF5 dependencies!'
                 env.Exit(1)
             else:
-                env.Replace(LINKFLAGS=origLinkFlags)
                 conf.Finish()            
                 return
     
@@ -166,7 +157,6 @@ def generate(env, **kw):
                                     'H5Eget_auto_vers=2',
                                     'H5Eset_auto_vers=2'])
             
-    env.Replace(LINKFLAGS=origLinkFlags)
     conf.Finish()
 
 def exists(env):

@@ -86,19 +86,12 @@ def generate(env, **kw):
         required = kw['required']
     else:
         required = False
-
-    # This workaround is required on Cray to work around some linker issues
-    # With scalasca + communication thread + HDF5/netCDF
-    # TODO If somebody has a better solution, please do not hesitate to change this
-    origLinkFlags = env['LINKFLAGS']
-    env.Prepend(LINKFLAGS=['-Wl,--start-group'])
         
     if not conf.CheckLibWithHeader('netcdf', header, 'c'):
         if required:
             print 'Could not find netCDF!'
             env.Exit(1)
         else:
-            env.Replace(LINKFLAGS=origLinkFlags)
             conf.Finish()
             return
         
@@ -112,7 +105,6 @@ def generate(env, **kw):
                 print 'Could not find HDF5 or zlib!'
                 env.Exit(1)
             else:
-                env.Replace(LINKFLAGS=origLinkFlags)
                 conf.Finish()
                 return
 
@@ -127,11 +119,9 @@ def generate(env, **kw):
                 print 'Could not find all netCDF dependencies!'
                 env.Exit(1)
             else:
-                env.Replace(LINKFLAGS=origLinkFlags)
                 conf.Finish()
                 return
             
-    env.Replace(LINKFLAGS=origLinkFlags)
     conf.Finish()
 
 def exists(env):

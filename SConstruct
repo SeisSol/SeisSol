@@ -265,6 +265,10 @@ if env['parallelization'] in ['mpi', 'hybrid']:
     # Do not include C++ MPI Bindings
     env.Append(CPPDEFINES=['OMPI_SKIP_MPICXX'])
 
+# Use dynamic linking on cray, which solves some issues with Scalasca
+if env['compiler'].startswith('cray_'):
+    env.Append(LINKFLAGS=['-dynamic'])
+
 # Remove any special compiler configuration
 # Do this after the MPI tool is called, because the MPI Tool checks for special compilers
 if env['compiler'].startswith('cray'):
