@@ -122,17 +122,9 @@ the generatedKernels=no switch, however this result in roughly 6X less performan
 III. Running SeisSol
 ================================================================
 
-1. mkdir -p launch_SeisSol
-2. cp -r Maple/ launch_SeisSol/
-3. cp build/SeisSol* launch_SeisSol/
-4. cp preprocessing/matrices/*.xml launch_SeisSol/
-5. echo $PWD/launch_SeisSol/Maple/ > launch_SeisSol/DGPATH
-6. copy your input files (meshes, parameter file, etc.) to launch_SeisSol
-6a. you can copy our small example, if you don't have own meshes right now:
-    cp -r examples/small_example/* launch_SeisSol/
-7. cd launch_SeisSol
-8. run SeisSol version of interest
-8a. To run the example: ./SeisSol_release_.... PARAMETER.PAR 
+1. Follow the instructions on: https://github.com/SeisSol/SeisSol/wiki/Configuration
+2. run SeisSol version of interest
+2a. To run the example: ./SeisSol_release_.... PARAMETER.PAR 
 
 !!!!
 Further information regarding meshing and parameter files etc. can be found
