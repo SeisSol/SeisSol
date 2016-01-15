@@ -545,6 +545,9 @@ CONTAINS
   CASE(60,61) ! special case of 1D landers example
       !
       logInfo0(*) 'Material property zones are defined by SeisSol. '
+  CASE(33) ! special case of TPV33, T Ulrich 14.01.2016
+      !
+      logInfo0(*) 'Material property zones are defined by SeisSol. '
   CASE(99,100) ! special case of 1D layered medium, imposed without meshed layers
       !
       logInfo0(*) 'Material property zones are defined by SeisSol. '
@@ -1561,7 +1564,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,50,60,61,62,70,100,101,103)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,33,50,60,61,62,70,100,101,103)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0

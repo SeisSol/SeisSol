@@ -160,6 +160,9 @@ MODULE ini_model_DR_mod
    CASE(16,17)
        !  SCEC TPV16/17 with heterogeneous initial stress field
        CALL background_TPV1617(EQN,MESH,IO,DISC,BND)
+   CASE(33)
+       !  SCEC TPV3132 test case : strike slip rupture in layered medium
+       CALL background_TPV33 (DISC,EQN,MESH,BND)
     CASE(50)
        ! Tohoku 1
        CALL background_TOH1(DISC,EQN,MESH)
@@ -1692,6 +1695,138 @@ MODULE ini_model_DR_mod
   
   END SUBROUTINE background_TPV1617 !  SCEC TPV16/17 with heterogeneous initial stress field     
    
+  !> SCEC TPV33 test case : strike slip rupture in wave guide zone
+  !> T. ULRICH 01.2016
+  !<
+  SUBROUTINE background_TPV33 (DISC,EQN,MESH,BND)
+  !-------------------------------------------------------------------------!
+  USE DGBasis_mod
+  !-------------------------------------------------------------------------!
+  IMPLICIT NONE
+  !-------------------------------------------------------------------------!
+  TYPE(tDiscretization), target  :: DISC
+  TYPE(tEquations)               :: EQN
+  TYPE(tUnstructMesh)            :: MESH
+  TYPE (tBoundary)               :: BND
+  !-------------------------------------------------------------------------!
+  ! Local variable declaration
+  LOGICAL                        :: FoundLayer
+  INTEGER                        :: i,j
+  INTEGER                        :: iSide,iElem,iBndGP
+  INTEGER                        :: iLocalNeighborSide,iNeighbor
+  INTEGER                        :: MPIIndex, iObject
+  INTEGER                        :: iLayer
+  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
+  REAL                           :: x, z, zb
+  REAL                           :: chi,tau
+  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
+  REAL                           :: mu, Rx, Rz, Rt
+  REAL                           :: xHypo, zHypo, r
+  REAL, parameter :: PI = 4 * atan (1.0d0)
+  !-------------------------------------------------------------------------! 
+  INTENT(IN)    :: MESH, BND 
+  INTENT(INOUT) :: DISC,EQN
+  !-------------------------------------------------------------------------! 
+  ! TPV29
+  ! stress is assigned to each Gaussian node
+  ! depth dependent stress function (gravity)
+  ! NOTE: z negative is depth, free surface is at z=0
+  logError(*) 'initialization Gauss wise'
+  ! Loop over every mesh element
+  DO i = 1, MESH%Fault%nSide
+       
+      ! switch for rupture front output: RF
+      IF (DISC%DynRup%RF_output_on == 1) THEN
+          ! rupture front output just for + side elements!
+          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
+      ENDIF
+      
+      ! element ID    
+      iElem = MESH%Fault%Face(i,1,1)
+      iSide = MESH%Fault%Face(i,2,1)  
+      
+      EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
+      EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
+      EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
+      EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
+      EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
+      EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
+            
+      ! ini frictional parameters
+      !EQN%IniStateVar(i,:) =  EQN%RS_sv0
+                
+      ! Gauss node coordinate definition and stress assignment
+      ! get vertices of complete tet
+      IF (MESH%Fault%Face(i,1,1) == 0) THEN
+          ! iElem is in the neighbor domain
+          ! The neighbor element belongs to a different MPI domain
+          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
+          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
+          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+          !
+          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+      ELSE
+          !
+          ! get vertices
+          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+      ENDIF
+          !zb = SUM(zV(1:4))/4.0D0      
+
+      DO iBndGP = 1,DISC%Galerkin%nBndGP
+          !
+          ! Transformation of boundary GP's into XYZ coordinate system
+          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
+          CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
+      
+          z = zGP  
+          x = xGP
+          IF (xGP.LT.-9800D0) THEN
+             Rx = (-xGp - 9800D0)/10e3
+          ELSEIF (xGP.GT.1100D0) THEN
+             Rx = (xGp - 1100D0)/10e3
+          ELSE
+             Rx = 0.
+          ENDIF
+          IF (zGP.LT.-8000D0) THEN
+             Rz = (-zGp - 8000D0)/10e3
+          ELSEIF (zGP.GT.-2300D0) THEN
+             Rz = (zGp + 2300D0)/10e3
+          ELSE
+             Rz = 0.
+          ENDIF
+          Rt = min(1D0,dsqrt(Rx**2+Rz**2))
+
+          EQN%IniBulk_xx(i,iBndGP)  = -60d6
+          EQN%IniBulk_yy(i,iBndGP)  = -60d6
+          EQN%IniBulk_zz(i,iBndGP)  =  0d0
+          EQN%IniShearXY(i,iBndGP)  =  30e6*(1d0-Rt)
+          EQN%IniShearXZ(i,iBndGP)  =  0D0
+          EQN%IniShearYZ(i,iBndGP)  =  0d0
+
+          xHypo = -6D3
+          zHypo = -6D3
+          ! distance to hypocenter (approx plane fault)
+          r = sqrt( ((x-xHypo)*(x-xHypo))+((z-zHypo)*(z-zHypo)))
+          
+          IF (r.LE.550D0) THEN
+             EQN%IniShearXY(i,iBndGP)  =  EQN%IniShearXY(i,iBndGP)+3.150d6
+          ELSEIF (r.LE.800D0) THEN
+             EQN%IniShearXY(i,iBndGP)  =  EQN%IniShearXY(i,iBndGP)+1.575d6*(1d0+dcos(PI*(r-550d0)/250d0))
+          ENDIF
+                
+      ENDDO ! iBndGP
+                
+  ENDDO !    MESH%Fault%nSide   
+                
+  END SUBROUTINE background_TPV33       
+
   !> Tohoku1 backround stress model
   !<
   SUBROUTINE background_TOH1(DISC,EQN,MESH)
