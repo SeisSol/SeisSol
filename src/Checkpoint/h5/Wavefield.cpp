@@ -37,13 +37,17 @@
  * @section DESCRIPTION
  */
 
-#include "Wavefield.h"
-
 #include <cassert>
 
 #include "utils/env.h"
 #include "utils/mathutils.h"
 #include "utils/stringutils.h"
+
+#include "Wavefield.h"
+
+#ifdef USE_MPI
+#include "Checkpoint/MPIInfo.h"
+#endif // USE_MPI
 
 bool seissol::checkpoint::h5::Wavefield::init(real* dofs, unsigned int numDofs)
 {
@@ -276,7 +280,8 @@ hid_t seissol::checkpoint::h5::Wavefield::initFile(int odd, const char* filename
 		if (align > 0)
 			checkH5Err(H5Pset_alignment(h5plist, 1, align));
 #ifdef USE_MPI
-		checkH5Err(H5Pset_fapl_mpio(h5plist, MPI_COMM_WORLD, MPI_INFO_NULL));
+		MPIInfo info;
+		checkH5Err(H5Pset_fapl_mpio(h5plist, MPI_COMM_WORLD, info.get()));
 #endif // USE_MPI
 
 		h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);
