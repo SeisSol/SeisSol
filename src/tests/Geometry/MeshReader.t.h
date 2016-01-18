@@ -150,7 +150,7 @@ private:
 				if (isSameVertex(verticesNew[i].coords, &verticesXY[j*3])) {
 					TS_ASSERT_EQUALS(verticesNew[i].elements.size(), vrtxnelements[j]);
 
-					for (int k = 0; k < verticesNew[i].elements.size(); k++) {
+					for (unsigned int k = 0; k < verticesNew[i].elements.size(); k++) {
 						TS_ASSERT_EQUALS(verticesNew[i].elements[k], vrtxelements[j+k*nVertices]-1);
 					}
 				}
@@ -260,9 +260,8 @@ private:
 
 			TS_ASSERT_EQUALS(faultNew.size(), size);
 
-			int reordered = 0;
-			for (int i = 0; i < faultNew.size(); i++) {
-				int j;
+			for (unsigned int i = 0; i < faultNew.size(); i++) {
+				unsigned int j;
 				for (j = 0; j < faultNew.size(); j++) {
 					if (faultNew[i].element == faultface[j]-1 && faultNew[i].neighborElement == faultface[j + size*2]-1) {
 						//TS_ASSERT_EQUALS(faultNew[i].element, faultface[i]-1);
