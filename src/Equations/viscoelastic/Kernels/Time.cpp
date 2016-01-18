@@ -429,43 +429,6 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   }
 }
 
-void seissol::kernels::Time::computeExtrapolation(       double i_expansionPoint,
-                                                         double i_evaluationPoint,
-                                                   const real*  i_timeDerivatives,
-                                                         real*  o_timeEvaluated ) {
-  /*
-   * assert valid input.
-   */
-  // assert alignments
-  assert( ((uintptr_t)i_timeDerivatives) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeEvaluated)   % ALIGNMENT == 0 );
-
-  // assert that non-backward evaluation in time
-  assert( i_evaluationPoint >= i_expansionPoint );
-
-  /*
-   * compute extrapolation.
-   */
-  // copy DOFs (scalar==1)
-  memcpy( o_timeEvaluated, i_timeDerivatives, NUMBER_OF_ALIGNED_DOFS*sizeof(real) );
-
-  // initialize scalars in the taylor series expansion (1st derivative)
-  real l_deltaT = i_evaluationPoint - i_expansionPoint;
-  real l_scalar = 1.0;
- 
-  // evaluate taylor series expansion at evvaluation point
-  for( unsigned int l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    l_scalar *= l_deltaT;
-    l_scalar /= (real) l_derivative;
-
-    integrateInTime( i_timeDerivatives,
-                     l_scalar,
-                     l_derivative,
-                     o_timeEvaluated,
-                     NULL );
-  }
-}
-
 void seissol::kernels::Time::computeIntegral(       double i_expansionPoint,
                                                     double i_integrationStart,
                                                     double i_integrationEnd,
