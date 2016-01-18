@@ -85,7 +85,7 @@ for clone in clones['star']:
 source = np.matlib.zeros((numberOfQuantities, numberOfQuantities))
 for m in range(0, numberOfMechanisms):
   r = slice(9+6*m, 9+6*(m+1))
-  source[r,0:6] = db['YT'].spp
+  source[r,0:6] = db['ET'].spp
   source[r,r] = np.matlib.identity(6)
 db['source'] = DB.MatrixInfo('source', numberOfQuantities, numberOfQuantities, source)
 

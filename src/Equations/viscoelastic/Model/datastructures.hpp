@@ -54,6 +54,7 @@ namespace seissol {
        **/
       real theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
     };
+    struct TimeIntegrationData {};
   }
 }
 

@@ -43,6 +43,10 @@ import scipy.sparse
 import copy
 import re
 
+class DB(dict):  
+  def insert(self, matrixInfo):
+    self.__setitem__(matrixInfo.name, matrixInfo)
+
 class MatrixBlock(object):
   def __init__(self, startrow, stoprow, startcol, stopcol, sparse=False):
     self.startrow = startrow

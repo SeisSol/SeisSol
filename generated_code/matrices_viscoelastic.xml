@@ -34,7 +34,7 @@
       <entry column="15" row="7"/>
       <entry column="15" row="9"/>
     </matrix>
-    <matrix name="YT" rows="6" columns="6">
+    <matrix name="ET" rows="6" columns="6">
       <entry column="1" row="1"/>
       <entry column="1" row="2"/>
       <entry column="1" row="3"/>

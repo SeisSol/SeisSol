@@ -143,58 +143,33 @@ class seissol::kernels::Time {
     void computeIntegral(       double i_expansionPoint,
                                 double i_integrationStart,
                                 double i_integrationEnd,
+                                GlobalData const*,
+                                seissol::model::TimeIntegrationData const*,
                           const real*  i_timeDerivatives,
                                 real   o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] );
-
+                           
+        
     /**
-     * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time derivatives.
-     *   Evaluation depends on bit 0-3  of the LTS setup.
-     *   0 -> copy buffer; 1 -> integrate via time derivatives
-     *     Example:
-
-     *     [     4 unused     | copy or int bits  ]
-     *     [ -    -    -    - |  0    1    1    0 ]
-     *     [ 7    6    5    4 |  3    2    1    0 ]
+     * Convert compressed and memory aligned time derivatives to a full (including zeros) unaligned format.
      *
-     *   0 - 0: time integrated DOFs of cell 0 are copied from the buffer.
-     *   1 - 1: DOFs of cell 1 are integrated in time via time derivatives.
-     *   2 - 1: DOFs of cell 2 are integrated in time via time derivaitves.
-     *   3 - 0: time itnegrated DOFs of cell 3 are copied from the buffer.
-     *
-     * @param i_ltsSetup bitmask for the LTS setup.
-     * @param i_faceTypes face types of the neighboring cells.
-     * @param i_currentTime current time of the cell [0] and it's four neighbors [1], [2], [3] and [4].
-     * @param i_timeStepWidth time step width of the cell.
-     * @param i_timeDofs pointers to time integrated buffers or time derivatives of the four neighboring cells.
-     * @param i_integrationBuffer memory where the time integration goes if derived from derivatives. Ensure thread safety!
-     * @param o_timeIntegrated pointers to the time integrated DOFs of the four neighboring cells (either local integration buffer or integration buffer of input).
+     * @param i_compressedDerivatives derivatives in compressed, aligned format.
+     * @param o_fullDerivatives derivatives in full, unaligned format.
      **/
-    void computeIntegrals( unsigned short      i_ltsSetup,
-                           const enum faceType i_faceTypes[4],
-                           const double        i_currentTime[5],
-                           double              i_timeStepWidth,
-                           real * const        i_timeDofs[4],
-                           real                o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
-                           real *              o_timeIntegrated[4] );
-
-    /**
-     * Special case of the computeIntergals function, which assumes a common "current time" for all face neighbors which provide derivatives.
-     *
-     * @param i_ltsSetup bitmask for the LTS setup.
-     * @param i_faceTypes face types of the neighboring cells.
-     * @param i_timeStepStart start time of the current cell with respect to the common point zero: Time of the larger time step width prediction of the face neighbors.
-     * @param i_timeStepWidth time step width of the cell.
-     * @param i_timeDofs pointers to time integrated buffers or time derivatives of the four neighboring cells.
-     * @param i_integrationBuffer memory where the time integration goes if derived from derivatives. Ensure thread safety!
-     * @param o_timeIntegrated pointers to the time integrated DOFs of the four neighboring cells (either local integration buffer or integration buffer of input).
-     **/
-    void computeIntegrals( unsigned short      i_ltsSetup,
-                           const enum faceType i_faceTypes[4],
-                           const double        i_timeStepStart,
-                           const double        i_timeStepWidth,
-                           real * const        i_timeDofs[4],
-                           real                o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
-                           real *              o_timeIntegrated[4] );
+    template<typename real_from, typename real_to>
+    static void convertAlignedCompressedTimeDerivatives( const real_from *i_compressedDerivatives,
+                                                               real_to    o_fullDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] )
+    {
+        for (unsigned order = 0; order < CONVERGENCE_ORDER; ++order) {
+          seissol::kernels::copySubMatrix( &i_compressedDerivatives[order * NUMBER_OF_ALIGNED_DOFS],
+                                           NUMBER_OF_BASIS_FUNCTIONS,
+                                           NUMBER_OF_QUANTITIES,
+                                           NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+                                           o_fullDerivatives[order],
+                                           NUMBER_OF_BASIS_FUNCTIONS,
+                                           NUMBER_OF_QUANTITIES,
+                                           NUMBER_OF_BASIS_FUNCTIONS );
+        }
+    }
 };
 
 #endif

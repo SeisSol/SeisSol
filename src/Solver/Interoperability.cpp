@@ -551,22 +551,8 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
                             l_timeIntegrated,
                             l_timeDerivatives );
 
-// We cannot use derivative compression with a source matrix
-#ifdef REQUIRE_SOURCE_MATRIX
-  for (unsigned order = 0; order < CONVERGENCE_ORDER; ++order) {
-    seissol::kernels::copySubMatrix( &l_timeDerivatives[order * NUMBER_OF_ALIGNED_DOFS],
-                                     NUMBER_OF_BASIS_FUNCTIONS,
-                                     NUMBER_OF_QUANTITIES,
-                                     NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                                     o_timeDerivatives[order],
-                                     NUMBER_OF_BASIS_FUNCTIONS,
-                                     NUMBER_OF_QUANTITIES,
-                                     NUMBER_OF_BASIS_FUNCTIONS );
-  }
-#else
-  seissol::kernels::convertAlignedCompressedTimeDerivatives( l_timeDerivatives,
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives,
                                                              o_timeDerivatives );
-#endif
 }
 
 void seissol::Interoperability::getFaceDerInt( int    i_meshId,
@@ -578,13 +564,17 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
                                                double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
   // assert that the cell provides derivatives
   assert( (m_cellInformation[ m_meshToLts[ (i_meshId)-1 ] ].ltsSetup >> 9)%2 == 1 );
+  
+  unsigned localCell = m_meshToLts[ (i_meshId)-1 ];
+  unsigned neighborCell = m_meshToCopyInterior[ (i_meshId)-1 ];
+  unsigned face = i_localFaceId-1;
 
   // get cells derivatives
-  seissol::kernels::convertAlignedCompressedTimeDerivatives( m_derivatives[ m_meshToLts[ (i_meshId)-1 ] ],
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( m_derivatives[localCell],
                                                              o_timeDerivativesCell );
 
   // get neighbors derivatives
-  seissol::kernels::convertAlignedCompressedTimeDerivatives( m_faceNeighbors[ m_meshToCopyInterior[ (i_meshId)-1 ] ][ (i_localFaceId)-1 ],
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( m_faceNeighbors[neighborCell][face],
                                                              o_timeDerivativesNeighbor );
 
   real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
@@ -593,7 +583,9 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
   m_timeKernel.computeIntegral( 0,
                                 0,
                                 i_timeStepWidth,
-                                m_derivatives[ m_meshToLts[ (i_meshId)-1 ] ],
+                                m_globalData,
+                                &m_cellData->localIntegration[localCell].timeIntegration,
+                                m_derivatives[localCell],
                                 l_timeIntegrated );
 
   seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedCell );
@@ -602,8 +594,10 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
 
   m_timeKernel.computeIntegral( 0,
                                 0,
-                                i_timeStepWidth,
-                                m_faceNeighbors[ m_meshToCopyInterior[ (i_meshId)-1 ] ][ (i_localFaceId)-1 ],
+                                i_timeStepWidth,                                
+                                m_globalData,
+                                &m_cellData->neighboringIntegration[neighborCell].timeIntegration[face],
+                                m_faceNeighbors[neighborCell][face],
                                 l_timeIntegrated );
 
   seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedNeighbor );

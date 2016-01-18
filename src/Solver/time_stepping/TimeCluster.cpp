@@ -75,6 +75,7 @@
 #include "TimeCluster.h"
 #include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
+#include <Kernels/TimeCommon.h>
 
 #ifndef NDEBUG
 extern long long g_SeisSolNonZeroFlopsLocal;
@@ -562,17 +563,20 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
 #endif
 #endif
   for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
-    m_timeKernel.computeIntegrals(             i_cellInformation[l_cell].ltsSetup,
-                                               i_cellInformation[l_cell].faceTypes,
-                                               m_subTimeStart,
-                                               m_timeStepWidth,
-                                               i_faceNeighbors[l_cell],
+    seissol::kernels::TimeCommon::computeIntegrals( m_timeKernel,
+                                                    i_cellInformation[l_cell].ltsSetup,
+                                                    i_cellInformation[l_cell].faceTypes,
+                                                    m_subTimeStart,
+                                                    m_timeStepWidth,
+                                                    m_globalData,
+                                                    i_cellData->neighboringIntegration[l_cell].timeIntegration,
+                                                    i_faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                               *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
+                                                    *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
 #else
-                                               *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(m_globalData->integrationBufferLTS),
+                                                    *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(m_globalData->integrationBufferLTS),
 #endif
-                                               l_timeIntegrated );
+                                                    l_timeIntegrated );
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
     GlobalData* l_globalData = &(m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY]);
 #else

@@ -569,11 +569,14 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 
 }
 
-void seissol::kernels::Time::computeIntegral(       double i_expansionPoint,
-                                                    double i_integrationStart,
-                                                    double i_integrationEnd,
-                                              const real*  i_timeDerivatives,
-                                                    real   o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] ) {
+void seissol::kernels::Time::computeIntegral( double                            i_expansionPoint,
+                                              double                            i_integrationStart,
+                                              double                            i_integrationEnd,
+                                              GlobalData const*,
+                                              seissol::model::TimeIntegrationData const*,
+                                              const real*                       i_timeDerivatives,
+                                              real                              o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] )
+{
   /*
    * assert alignments.
    */
@@ -615,77 +618,4 @@ void seissol::kernels::Time::computeIntegral(       double i_expansionPoint,
                      o_timeIntegrated,
                      NULL );
   }
-}
-
-void seissol::kernels::Time::computeIntegrals( unsigned short      i_ltsSetup,
-                                               const enum faceType i_faceTypes[4],
-                                               const double        i_currentTime[5],
-                                               double              i_timeStepWidth,
-                                               real  *const        i_timeDofs[4],
-                                               real                o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
-                                               real  *             o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] ) {
-  /*
-   * assert valid input.
-   */
-  // only lower 10 bits are used for lts encoding
-  assert (i_ltsSetup < 2048 );
-
-#ifndef NDEBUG
-  // alignment of the time derivatives/integrated dofs and the buffer
-  for( int l_dofeighbor = 0; l_dofeighbor < 4; l_dofeighbor++ ) {
-    assert( ((uintptr_t)i_timeDofs[l_dofeighbor])          % ALIGNMENT == 0 );
-    assert( ((uintptr_t)o_integrationBuffer[l_dofeighbor]) % ALIGNMENT == 0 );
-  }
-#endif
-
-  /*
-   * set/compute time integrated DOFs.
-   */
-  for( unsigned int l_dofeighbor = 0; l_dofeighbor < 4; l_dofeighbor++ ) {
-    // collect information only in the case that neighboring element contributions are required
-    if( i_faceTypes[l_dofeighbor] != outflow && i_faceTypes[l_dofeighbor] != dynamicRupture ) {
-      // check if the time integration is already done (-> copy pointer)
-      if( (i_ltsSetup >> l_dofeighbor ) % 2 == 0 ) {
-        o_timeIntegrated[l_dofeighbor] = i_timeDofs[l_dofeighbor];
-      }
-      // integrate the DOFs in time via the derivatives and set pointer to local buffer
-      else {
-        seissol::kernels::Time::computeIntegral(  i_currentTime[    l_dofeighbor+1],
-                                                  i_currentTime[    0           ],
-                                                  i_currentTime[    0           ] + i_timeStepWidth,
-                                                  i_timeDofs[       l_dofeighbor],
-                                                  o_integrationBuffer[ l_dofeighbor]                  );
-
-        o_timeIntegrated[l_dofeighbor] = o_integrationBuffer[ l_dofeighbor];
-      }
-    }
-  }
-}
-
-void seissol::kernels::Time::computeIntegrals( unsigned short      i_ltsSetup,
-                                               const enum faceType i_faceTypes[4],
-                                               const double        i_timeStepStart,
-                                               const double        i_timeStepWidth,
-                                               real * const        i_timeDofs[4],
-                                               real                o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
-                                               real *              o_timeIntegrated[4] ) {
-  double l_startTimes[5];
-  l_startTimes[0] = i_timeStepStart;
-  l_startTimes[1] = l_startTimes[2] = l_startTimes[3] = l_startTimes[4] = 0;
-
-  // adjust start times for GTS on derivatives
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-    if( (i_ltsSetup >> (l_face + 4) ) % 2 ) {
-      l_startTimes[l_face+1] = i_timeStepStart;
-    }
-  }
-
-  // call the more general assembly
-  computeIntegrals( i_ltsSetup,
-                    i_faceTypes,
-                    l_startTimes,
-                    i_timeStepWidth,
-                    i_timeDofs,
-                    o_integrationBuffer,
-                    o_timeIntegrated );
 }

@@ -311,12 +311,14 @@ struct LocalIntegrationData {
 #ifdef REQUIRE_SOURCE_MATRIX
   real sourceMatrix[seissol::model::source::reals];
 #endif
+  seissol::model::TimeIntegrationData timeIntegration;
 };
 
 // data for the neighboring boundary integration
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::model::AminusT::reals];
+  seissol::model::TimeIntegrationData timeIntegration[4];
 };
 
 // material constants per cell

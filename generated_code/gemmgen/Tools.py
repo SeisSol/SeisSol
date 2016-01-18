@@ -68,7 +68,7 @@ def __parseMatrix(node, clones):
     spp = None
     values = None
 
-  dbUpdate = dict()
+  dbUpdate = DB.DB()
   if clones.has_key(name):
     for clone in clones[name]:
       dbUpdate[clone] = DB.MatrixInfo(clone, rows, columns, spp, values)
@@ -81,7 +81,7 @@ def parseMatrixFile(xmlFile, clones):
   tree = lxml.etree.parse(xmlFile)
   root = tree.getroot()
   
-  matrices = dict()
+  matrices = DB.DB()
   
   for child in root:
     if child.tag == 'matrix':

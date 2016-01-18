@@ -249,8 +249,10 @@ class Generator:
             for matrixInfo in self.db.itervalues():
               with header.Namespace(matrixInfo.name):
                 header('unsigned const rows = {};'.format(matrixInfo.rows))
-                header('unsigned const cols = {};'.format(matrixInfo.rows))
-                header('unsigned const reals = {};'.format(matrixInfo.requiredReals))                
+                header('unsigned const cols = {};'.format(matrixInfo.cols))
+                header('unsigned const reals = {};'.format(matrixInfo.requiredReals))
+                if len(matrixInfo.blocks) == 1 and matrixInfo.blocks[0].ld > 0:
+                  header('unsigned const ld = {};'.format(matrixInfo.blocks[0].ld))
     
     hFilename = 'init.h'
     with Code.Cpp(outputDir + '/' + hFilename) as header:
