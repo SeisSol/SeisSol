@@ -13,3 +13,6 @@
 [submodule "submodules/glm"]
 	path = submodules/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "submodules/async"]
+	path = submodules/async
+	url = https://github.com/TUM-I5/ASYNC.git

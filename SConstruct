@@ -130,6 +130,10 @@ vars.AddVariables(
 
   BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
 
+  EnumVariable( 'asyncio', 'use ASYNC library for I/O operations', 'none',
+                allowed_values=('none', 'thread', 'mpi')
+                ),
+
   EnumVariable( 'unitTests', 'builds additional unit tests',
                 'none',
                 allowed_values=('none', 'fast', 'all') ),
@@ -244,6 +248,14 @@ if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['par
 
 if not env.has_key('memLayout'):
   env['memLayout'] = memlayout.guessMemoryLayout(env)
+
+# check ASYCN
+if env['asyncio'] == 'thread':
+    if not env['parallelization'] in ['openmp', 'hybrid']:
+        ConfigurationError("*** Asynchronous thread I/O requires OpenMP")
+elif env['asyncio'] == 'mpi':
+    if not env['parallelization'] in ['hybrid', 'mpi']:
+        ConfigurationError("*** Asynchronous MPI I/O requires MPI")
 
 #
 # preprocessor, compiler and linker
@@ -520,6 +532,15 @@ if env['sionlib']:
   env.Tool('SionTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']))
 else:
   env['sionlib'] = False
+
+# ASYNC I/O
+if env['asyncio'] in ['thread', 'mpi']:
+    env.Append(CPPPATH['#/submodules/async'])
+    if env['asyncio'] == 'thread':
+        env.Append(CPPDEFINES=['USE_ASYNC_THREAD'])
+        env.Append(LINKFLAGS=['-lpthread'] )
+    elif env['asyncio'] == 'mpi':
+        env.Append(CPPDEFINES=['USE_ASYNC_MPI'])
 
 # ASAGI
 if env['asagi']:
