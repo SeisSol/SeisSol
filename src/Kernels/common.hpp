@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2014, SeisSol Group
@@ -53,7 +54,7 @@ namespace seissol {
      * @param i_convergenceOrder convergence order.
      * @return number of basis funcitons.
      **/
-    static unsigned int getNumberOfBasisFunctions( unsigned int i_convergenceOrder = CONVERGENCE_ORDER ) {
+    inline unsigned int getNumberOfBasisFunctions( unsigned int i_convergenceOrder = CONVERGENCE_ORDER ) {
       return i_convergenceOrder*(i_convergenceOrder+1)*(i_convergenceOrder+2)/6;
     }
 
@@ -63,16 +64,10 @@ namespace seissol {
      * @param i_alignment alignment in bytes.
      * @return aligned number of reals.
      **/
-    static unsigned int getNumberOfAlignedReals( unsigned int i_numberOfReals,
+    inline unsigned int getNumberOfAlignedReals( unsigned int i_numberOfReals,
                                                  unsigned int i_alignment = ALIGNMENT ) {
-
-      unsigned int l_nonZeroBytes = i_numberOfReals * sizeof(real);
-
-      // compute corresponding aligned # of basis functions
-      unsigned int l_alignedBytes = l_nonZeroBytes + (i_alignment-(l_nonZeroBytes % i_alignment))%i_alignment;
-      assert( l_alignedBytes % sizeof(real) == 0 );
-
-      return l_alignedBytes / sizeof( real );
+      unsigned int const alignment = i_alignment / sizeof(real);
+      return i_numberOfReals + (alignment-(i_numberOfReals % alignment))%alignment;
     }
 
     /**
@@ -82,10 +77,9 @@ namespace seissol {
      * @param i_alignment alignment in bytes.
      * @return aligned number of basis functions.
      **/
-    static unsigned int getNumberOfAlignedBasisFunctions( unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
-                                                          unsigned int i_alignment        = ALIGNMENT ) {
+    inline unsigned int getNumberOfAlignedBasisFunctions( unsigned int i_convergenceOrder = CONVERGENCE_ORDER,
+                                                   unsigned int i_alignment        = ALIGNMENT ) {
       unsigned int l_numberOfBasisFunctions = getNumberOfBasisFunctions( i_convergenceOrder);
-
       return getNumberOfAlignedReals( l_numberOfBasisFunctions );
     }
 
@@ -96,7 +90,7 @@ namespace seissol {
      * @param o_unalignedDofs unaligned degrees of freedom.
      **/
     template<typename real_from, typename real_to>
-    static void convertAlignedDofs( const real_from i_alignedDofs[   NUMBER_OF_ALIGNED_DOFS],
+    void convertAlignedDofs( const real_from i_alignedDofs[   NUMBER_OF_ALIGNED_DOFS],
                                           real_to   o_unalignedDofs[ NUMBER_OF_DOFS] ) {
       for( unsigned int l_quantity = 0; l_quantity < NUMBER_OF_QUANTITIES; l_quantity++ ) {
         for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
@@ -113,7 +107,7 @@ namespace seissol {
      * @param o_alignedDofs aligned degrees of freedom (zero paddin in the basis functions / columns).
      **/
     template<typename real_from, typename real_to>
-    static void convertUnalignedDofs( const real_from i_unalignedDofs[ NUMBER_OF_DOFS ],
+    void convertUnalignedDofs( const real_from i_unalignedDofs[ NUMBER_OF_DOFS ],
                                             real_to   o_alignedDofs[   NUMBER_OF_ALIGNED_DOFS ] ) {
       for( unsigned int l_quantity = 0; l_quantity < NUMBER_OF_QUANTITIES; l_quantity++ ) {
         for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
@@ -129,7 +123,7 @@ namespace seissol {
      * @param o_alignedDofs aligned degrees of freedom.
      **/
     template<typename real_from, typename real_to>
-    static void addToAlignedDofs( const real_from i_unalignedUpdate[ NUMBER_OF_DOFS ],
+    void addToAlignedDofs( const real_from i_unalignedUpdate[ NUMBER_OF_DOFS ],
                                         real_to   o_alignedDofs[     NUMBER_OF_ALIGNED_DOFS ] ) {
       for( unsigned int l_quantity = 0; l_quantity < NUMBER_OF_QUANTITIES; l_quantity++ ) {
         for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
@@ -152,7 +146,7 @@ namespace seissol {
      * @param i_bLeadingDimension leading dimension of B.
      */
     template<typename real_from, typename real_to>
-    static void copySubMatrix( const real_from    *i_A,
+    void copySubMatrix( const real_from    *i_A,
                                const unsigned int  i_aNumberOfRows,
                                const unsigned int  i_aNumberOfColumns,
                                const unsigned int  i_aLeadingDimension,
@@ -183,7 +177,7 @@ namespace seissol {
      * @param o_compressedStarMatrix compressed star matrix.
      **/
     template<typename real_from, typename real_to>
-    static void convertStarMatrix( const real_from *i_fullStarMatrix,
+    void convertStarMatrix( const real_from *i_fullStarMatrix,
                                          real_to   *o_compressedStarMatrix ) {
       o_compressedStarMatrix[ 0] = i_fullStarMatrix[0*9 + 6];
       o_compressedStarMatrix[ 1] = i_fullStarMatrix[0*9 + 7];
