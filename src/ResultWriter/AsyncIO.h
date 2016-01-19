@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,110 +24,56 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * MPI Wrapper
+ * Asynchronous I/O
  */
 
-#ifndef MPI_H
-#define MPI_H
+#ifndef ASYNCIO_H
+#define ASYNCIO_H
 
-#ifndef USE_MPI
-#include "Parallel/MPIDummy.h"
-#else // USE_MPI
+#include "utils/env.h"
 
-#include <mpi.h>
+#ifdef USE_ASYNC_MPI
+#include "async/AsyncMPI.h"
+#endif // USE_ASYNC_MPI
 
-#include "Parallel/MPIBasic.h"
-
-#endif // USE_MPI
+#include "Parallel/MPI.h"
 
 namespace seissol
 {
 
-#ifndef USE_MPI
-typedef MPIDummy MPI;
-#else // USE_MPI
+namespace io
+{
 
-/**
- * MPI handling.
- *
- * Make sure only one instance of this class exists!
- */
-class MPI : public MPIBasic
+class AsyncIO
 {
 private:
-	MPI_Comm m_comm;
-
-private:
-	MPI()
-		: m_comm(MPI_COMM_NULL)
-	{ }
+#ifdef USE_ASYNC_MPI
+	async::AsyncMPIScheduler m_scheduler;
+#endif // USE_ASYNC_MPI
 
 public:
-	~MPI()
-	{ }
-
-	/**
-	 * Initialize MPI
-	 */
-	void init(int &argc, char** &argv)
+	void init()
 	{
-#if defined(USE_COMM_THREAD) || defined(USE_ASAGI)
-		int provided;
-		MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
-#else // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
-		MPI_Init(&argc, &argv);
-#endif // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
-
-		setComm(MPI_COMM_WORLD);
+#ifdef USE_ASYNC_MPI
+		unsigned int groupSize = utils::Env::get("SEISSOL_ASYNC_GROUP_SIZE", 64);
+		m_scheduler.setCommunicator(seissol::MPI::mpi.comm(), groupSize);
+#endif // USE_ASYNC_MPI
 	}
-
-	void setComm(MPI_Comm comm)
-	{
-		m_comm = comm;
-
-		MPI_Comm_rank(comm, &m_rank);
-		MPI_Comm_size(comm, &m_size);
-	}
-
-	/**
-	 * @return The main communicator for the application
-	 */
-	MPI_Comm comm() const
-	{
-		return m_comm;
-	}
-
-	void barrier(MPI_Comm comm) const
-	{
-		MPI_Barrier(comm);
-	}
-
-	/**
-	 * Finalize MPI
-	 */
-	void finalize()
-	{
-		MPI_Finalize();
-	}
-
-public:
-	/** The only instance of the class */
-	static MPI mpi;
 };
-
-#endif // USE_MPI
 
 }
 
-#endif // MPI_H
+}
+
+#endif // ASYNCIO_H

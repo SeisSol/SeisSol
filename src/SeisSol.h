@@ -5,19 +5,19 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2015, SeisSol Group
+ * Copyright (c) 2014-2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -43,6 +43,8 @@
 
 #include <string>
 
+#include "utils/logger.h"
+
 #ifdef GENERATEDKERNELS
 #include "Solver/time_stepping/TimeManager.h"
 #include "Solver/Simulator.h"
@@ -51,9 +53,8 @@
 #include "SourceTerm/Manager.h"
 #endif // GENERATEDKERNELS
 
+#include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
-
-#include "utils/logger.h"
 
 #define SEISSOL_VERSION_STRING "SVN Mainline"
 
@@ -78,8 +79,8 @@ private:
 	 * initializers
 	 */
 	initializers::time_stepping::LtsLayout m_ltsLayout;
-  
-  initializers::MemoryManager m_memoryManager;
+
+	initializers::MemoryManager m_memoryManager;
 
 	//! time manager
 	time_stepping::TimeManager  m_timeManager;
@@ -89,13 +90,16 @@ private:
 
 	/** Check pointing module */
 	checkpoint::Manager m_checkPointManager;
-  
-  /** Source term module */
-  sourceterm::Manager m_sourceTermManager;
+
+	/** Source term module */
+	sourceterm::Manager m_sourceTermManager;
 #endif // GENERATEDKERNELS
 
+	/** Async I/O handler */
+	io::AsyncIO m_asyncIO;
+
 	/** Wavefield output module */
-	seissol::WaveFieldWriter m_waveFieldWriter;
+	WaveFieldWriter m_waveFieldWriter;
 
 private:
 	/**
@@ -131,7 +135,7 @@ public:
 
 #ifdef GENERATEDKERNELS
 	initializers::time_stepping::LtsLayout& getLtsLayout(){ return m_ltsLayout; }
-  
+
 	initializers::MemoryManager& getMemoryManager() {
     return m_memoryManager;
   }
@@ -147,12 +151,18 @@ public:
 	{
 		return m_checkPointManager;
 	}
-  
-  sourceterm::Manager& sourceTermManager()
-  {
-    return m_sourceTermManager;
-  }
+
+	sourceterm::Manager& sourceTermManager()
+	{
+		return m_sourceTermManager;
+	}
 #endif // GENERATEDKERNELS
+
+	io::AsyncIO& asyncIO()
+	{
+		return m_asyncIO;
+	}
+
 	/**
 	 * Get the wave field writer module
 	 */

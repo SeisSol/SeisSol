@@ -63,7 +63,7 @@ extern "C"
 void fault_create_comm(int dr)
 {
 #ifdef USE_MPI
-	MPI_Comm_split(MPI_COMM_WORLD, (dr ? 0 : MPI_UNDEFINED), 0, &comm);
+	MPI_Comm_split(seissol::MPI::mpi.comm(), (dr ? 0 : MPI_UNDEFINED), 0, &comm);
 #endif // USE_MPI
 }
 

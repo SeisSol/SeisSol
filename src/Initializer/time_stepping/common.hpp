@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +41,8 @@
 
 #ifndef COMMON_HPP
 #define COMMON_HPP
+
+#include "Parallel/MPI.h"
 
 #include <set>
 
@@ -267,7 +270,7 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
                  MPI_UNSIGNED_SHORT,                                            // data type
                  io_meshStructure[l_cluster].neighboringClusters[l_region][0],  // destination
                  io_meshStructure[l_cluster].sendIdentifiers[l_region],         // message tag
-                 MPI_COMM_WORLD,                                                // communicator
+                 seissol::MPI::mpi.comm(),                                      // communicator
                  io_meshStructure[l_cluster].sendRequests+l_region );           // mpi request
 
       l_copyRegionOffset += io_meshStructure[l_cluster].numberOfCopyRegionCells[l_region];
@@ -277,7 +280,7 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
                  MPI_UNSIGNED_SHORT,                                             // data type
                  io_meshStructure[l_cluster].neighboringClusters[l_region][0],   // source
                  io_meshStructure[l_cluster].receiveIdentifiers[l_region],       // message tag
-                 MPI_COMM_WORLD,                                                 // communicator
+                 seissol::MPI::mpi.comm(),                                       // communicator
                  io_meshStructure[l_cluster].receiveRequests+l_region );         // mpi request
 
       l_ghostRegionOffset += io_meshStructure[l_cluster].numberOfGhostRegionCells[l_region];

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,8 @@
 #ifdef USE_NETCDF
 
 #include "Parallel/MPI.h"
+
+#include "MeshReader.h"
 
 #include <cassert>
 #include <cstring>
@@ -453,7 +455,7 @@ public:
 
 		// Get maximum number of neighbors (required to get collective MPI-IO right)
 		int maxNeighbors = bndSize;
-		//MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+		//MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm());
 		int* bndElemLocalIds = new int[bndElemSize];
 
 		EPIK_USER_REG(r_read_boundaries, "read_boundaries");

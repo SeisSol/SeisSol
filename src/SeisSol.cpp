@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2015, SeisSol Group
+ * Copyright (c) 2014-2016, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,8 @@ void seissol::SeisSol::init(int argc, char* argv[])
 {
 	MPI::mpi.init(argc, argv);
   
+	// TODO is there a reason to have this here?
+	// If not please move it to the end if this function
 #ifdef GENERATEDKERNELS
 	m_memoryManager.initialize();
 #endif
@@ -60,7 +62,7 @@ void seissol::SeisSol::init(int argc, char* argv[])
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012-2015, SeisSol Group";
+  logInfo(rank) << "Copyright (c) 2012-2016, SeisSol Group";
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__
 #ifdef GENERATEDKERNELS
                 << "(generated kernels)"
@@ -93,6 +95,9 @@ void seissol::SeisSol::init(int argc, char* argv[])
   case utils::Args::Success:
 	  break;
   }
+
+  // Initialize the ASYNC I/O library
+  m_asyncIO.init();
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
 }

@@ -33,9 +33,10 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,6 +68,8 @@
  * @section DESCRIPTION
  **/
 
+#include "Parallel/MPI.h"
+
 #include "Manager.h"
 #include "NRFReader.h"
 #include "PointSource.h"
@@ -74,10 +77,6 @@
 #include <Solver/Interoperability.h>
 #include <utils/logger.h>
 #include <cstring>
-
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
 
 #if defined(__AVX__)
 #include <immintrin.h>
@@ -188,13 +187,11 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
 #ifdef USE_MPI
 void seissol::sourceterm::cleanDoubles(short* contained, unsigned numSources)
 {
-  int myrank;
-  int size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  int myrank = seissol::MPI::mpi.rank();
+  int size = seissol::MPI::mpi.size();
 
   short* globalContained = new short[size * numSources];
-  MPI_Allgather(contained, numSources, MPI_SHORT, globalContained, numSources, MPI_SHORT, MPI_COMM_WORLD);
+  MPI_Allgather(contained, numSources, MPI_SHORT, globalContained, numSources, MPI_SHORT, seissol::MPI::mpi.comm());
 
   unsigned cleaned = 0;
   for (unsigned source = 0; source < numSources; ++source) {
@@ -347,13 +344,8 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
 {
   freeSources();
 
-  int rank;
-#ifdef USE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-#else
-  rank = 0;
-#endif
-
+  int rank = seissol::MPI::mpi.rank();
+  
   logInfo(rank) << "<--------------------------------------------------------->";
   logInfo(rank) << "<                      Point sources                      >";
   logInfo(rank) << "<--------------------------------------------------------->";
@@ -449,12 +441,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
 {
   freeSources();
 
-  int rank;
-#ifdef USE_MPI
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-#else
-  rank = 0;
-#endif
+  int rank = seissol::MPI::mpi.rank();
 
   logInfo(rank) << "<--------------------------------------------------------->";
   logInfo(rank) << "<                      Point sources                      >";

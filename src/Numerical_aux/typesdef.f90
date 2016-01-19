@@ -999,6 +999,7 @@ MODULE TypesDef
   !<
   !<--- MPI variables ------------------------------------------------------------------------------------------------------------------!
   TYPE tMPI
+     integer                                :: commWorld                        !< The comm world communicator
      INTEGER                                :: myrank                           !< My own processor number
      INTEGER                                :: nCPU                             !< Total number of CPUs
      !<                                                                         !<

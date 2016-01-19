@@ -580,7 +580,7 @@ else:
 env['buildDir'] = '%s/build_%s' %(env['buildDir'], program_suffix)
 
 # set sub directories (important for scons tree)
-buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
+buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Parallel', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
 
 for buildDir in range(len(buildDirectories)):
   buildDirectories[buildDir] = '#/'+env['buildDir'] + '/' + buildDirectories[buildDir]

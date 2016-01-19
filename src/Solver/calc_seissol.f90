@@ -2,8 +2,10 @@
 !! @file
 !! This file is part of SeisSol.
 !!
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+!!
 !! @section LICENSE
-!! Copyright (c) 2007-2015, SeisSol Group
+!! Copyright (c) 2007-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -191,7 +193,7 @@ CONTAINS
 
 #ifdef PARALLEL
     ! Sync all processes for a concurrent start
-    CALL MPI_BARRIER(MPI_COMM_WORLD,iErr)
+    CALL MPI_BARRIER(MPI%commWorld,iErr)
 #endif
     DISC%StartCPUTime = dwalltime()
 
@@ -244,7 +246,7 @@ CONTAINS
 #ifdef PARALLEL
      IF(MPI%nCPU.GT.1) THEN
         ! get the minimum allowed time step width over all ranks (unstructured grid, so dt may differ in domains)
-        CALL MPI_ALLREDUCE(OptionalFields%dt(1),MPIdt,1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI_COMM_WORLD,iErr) 
+        CALL MPI_ALLREDUCE(OptionalFields%dt(1),MPIdt,1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI%commWorld,iErr)
         OptionalFields%dt(:) = MPIdt
         !
      ENDIF
@@ -404,7 +406,7 @@ CONTAINS
          MPITime = time
 #ifdef PARALLEL
          IF(MPI%nCPU.GT.1) THEN
-            CALL MPI_ALLREDUCE(time,MPItime,1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI_COMM_WORLD,iErr) 
+            CALL MPI_ALLREDUCE(time,MPItime,1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI%commWorld,iErr)
          ENDIF
 #endif
        ENDIF
@@ -483,7 +485,7 @@ CONTAINS
 
 #ifdef PARALLEL
     !Ensure that all processes are done with their calculation
-    CALL MPI_BARRIER(MPI_COMM_WORLD,iErr)
+    CALL MPI_BARRIER(MPI%commWorld,iErr)
 #endif
     DISC%StopCPUTime = dwalltime()
 

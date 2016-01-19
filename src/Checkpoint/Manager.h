@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,9 +41,7 @@
 #ifndef CHECKPOINT_MANAGER_H
 #define CHECKPOINT_MANAGER_H
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif // USE_MPI
+#include "Parallel/MPI.h"
 
 #include "Wavefield.h"
 #include "Fault.h"
@@ -168,7 +166,7 @@ public:
 
 		// Make sure all rank think the same about the existing checkpoint
 #ifdef USE_MPI
-		MPI_Allreduce(MPI_IN_PLACE, &exists, 1, MPI_INT, MPI_LAND, MPI_COMM_WORLD);
+		MPI_Allreduce(MPI_IN_PLACE, &exists, 1, MPI_INT, MPI_LAND, seissol::MPI::mpi.comm());
 #endif // USE_MPI
 
 		// Load checkpoint?

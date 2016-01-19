@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,8 @@
 
 #ifndef CHECKPOINT_WAVEFIELD_H
 #define CHECKPOINT_WAVEFIELD_H
+
+#include "Parallel/MPI.h"
 
 #include "utils/env.h"
 #include "utils/logger.h"
@@ -94,7 +96,7 @@ public:
 	{
 #ifdef USE_MPI
 		// Setup rank, partitions, ...
-		setComm(MPI_COMM_WORLD);
+		setComm(seissol::MPI::mpi.comm());
 #endif // USE_MPI
 
 		logInfo(rank()) << "Initializing check pointing";
@@ -127,7 +129,7 @@ public:
 		m_iterations = (numDofs + m_dofsPerIteration - 1) / m_dofsPerIteration;
 		m_totalIterations = m_iterations;
 #ifdef USE_MPI
-		MPI_Allreduce(MPI_IN_PLACE, &m_totalIterations, 1, MPI_UNSIGNED, MPI_MAX, MPI_COMM_WORLD);
+		MPI_Allreduce(MPI_IN_PLACE, &m_totalIterations, 1, MPI_UNSIGNED, MPI_MAX, seissol::MPI::mpi.comm());
 #endif // USE_MPI
 
 		return false;

@@ -33,9 +33,10 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  * 
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2016, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -68,6 +69,8 @@
  * LTS cluster in SeisSol.
  **/
 
+#include "Parallel/MPI.h"
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -82,6 +85,7 @@ extern long long g_SeisSolHardwareFlopsLocal;
 extern long long g_SeisSolNonZeroFlopsNeighbor;
 extern long long g_SeisSolHardwareFlopsNeighbor;
 
+#include <cassert>
 #include <cstring>
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
@@ -276,7 +280,7 @@ void seissol::time_stepping::TimeCluster::receiveGhostLayer(){
                    MPI_C_REAL,                                               // datatype of each receive buffer element
                    m_meshStructure->neighboringClusters[l_region][0],      // rank of source
                    timeData+m_meshStructure->receiveIdentifiers[l_region], // message tag
-                   MPI_COMM_WORLD,                                         // communicator
+                   seissol::MPI::mpi.comm(),                               // communicator
                    m_meshStructure->receiveRequests + l_region             // communication request
                );
 
@@ -300,7 +304,7 @@ void seissol::time_stepping::TimeCluster::sendCopyLayer(){
                    MPI_C_REAL,                                            // datatype of each send buffer element
                    m_meshStructure->neighboringClusters[l_region][0],   // rank of destination
                    timeData+m_meshStructure->sendIdentifiers[l_region], // message tag
-                   MPI_COMM_WORLD,                                      // communicator
+                   seissol::MPI::mpi.comm(),                            // communicator
                    m_meshStructure->sendRequests + l_region             // communication request
                );
 

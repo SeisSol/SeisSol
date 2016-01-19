@@ -37,6 +37,8 @@
  * @section DESCRIPTION
  */
 
+#include "Parallel/MPI.h"
+
 #include "Wavefield.h"
 
 #include <cassert>
@@ -276,7 +278,7 @@ hid_t seissol::checkpoint::h5::Wavefield::initFile(int odd, const char* filename
 		if (align > 0)
 			checkH5Err(H5Pset_alignment(h5plist, 1, align));
 #ifdef USE_MPI
-		checkH5Err(H5Pset_fapl_mpio(h5plist, MPI_COMM_WORLD, MPI_INFO_NULL));
+		checkH5Err(H5Pset_fapl_mpio(h5plist, seissol::MPI::mpi.comm(), MPI_INFO_NULL));
 #endif // USE_MPI
 
 		h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);

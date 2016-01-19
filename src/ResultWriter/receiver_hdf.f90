@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Stefan Wenk (wenk AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/wenk)
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2013, SeisSol Group
+!! Copyright (c) 2013-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -139,7 +140,7 @@ CONTAINS
     !
     ! distribute information if a rank contains a receiver
     ALLOCATE( all_rec(0:MPI%nCPU-1))
-    CALL MPI_ALLGATHER(any_rec, 1, MPI_INTEGER, all_rec, 1, MPI_INTEGER, MPI_COMM_WORLD, MPI%iErr)
+    CALL MPI_ALLGATHER(any_rec, 1, MPI_INTEGER, all_rec, 1, MPI_INTEGER, MPI%commWorld, MPI%iErr)
     !
     ! count number of ranks with receivers and gather mpirank
     nranks = COUNT(all_rec.EQ.1)
@@ -154,11 +155,11 @@ CONTAINS
     !
     ! generate new mpi communicator for all processes with receivers
     ! find group of mpi comm world communicator
-    CALL MPI_COMM_GROUP(MPI_COMM_WORLD, world_grp, MPI%iErr)
+    CALL MPI_COMM_GROUP(MPI%commWorld, world_grp, MPI%iErr)
     ! put selected ranks (with receivers) of global group in a new subgroup
     CALL MPI_GROUP_INCL(world_grp, nranks, rec_ranks, rec_grp, MPI%iErr)
     ! create communicator for new subgroup
-    CALL MPI_COMM_CREATE(MPI_COMM_WORLD, rec_grp, rec_comm, MPI%iErr)
+    CALL MPI_COMM_CREATE(MPI%commWorld, rec_grp, rec_comm, MPI%iErr)
     ! deallocate
     DEALLOCATE(all_rec)
 #endif
@@ -704,7 +705,7 @@ CONTAINS
 
         !Collect PGM data from all CPUs in a common array MPI%PGMarray
         CALL MPI_GATHER(IO%PGM,IO%nPGMRecordPoint,MPI%MPI_AUTO_REAL,MPI%PGMarray(:,:),IO%nPGMRecordPoint, &
-                        MPI%MPI_AUTO_REAL,0,MPI_COMM_WORLD,iErr)
+                        MPI%MPI_AUTO_REAL,0,MPI%commWorld,iErr)
 
         !CPU 0 is outputting the collected PGM data
         IF(MPI%myrank.EQ.0)THEN

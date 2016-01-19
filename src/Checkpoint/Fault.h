@@ -41,9 +41,7 @@
 #ifndef CHECKPOINT_FAULT_H
 #define CHECKPOINT_FAULT_H
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif // USE_MPI
+#include "Parallel/MPI.h"
 
 #include <cassert>
 #include <string>
@@ -89,17 +87,14 @@ public:
 			double* state, double* strength,
 			unsigned int numSides, unsigned int numBndGP)
 	{
-		int rank = 0;
-#ifdef USE_MPI
-		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-#endif // USE_MPI
+		const int rank = seissol::MPI::mpi.rank();
 
 		logInfo(rank) << "Initializing fault check pointing";
 
 #ifdef USE_MPI
 		// Get the communicator (must be called by all ranks)
 		MPI_Comm comm;
-		MPI_Comm_split(MPI_COMM_WORLD, (numSides == 0 ? MPI_UNDEFINED : 0), rank, &comm);
+		MPI_Comm_split(seissol::MPI::mpi.comm(), (numSides == 0 ? MPI_UNDEFINED : 0), rank, &comm);
 #endif // USE_MPI
 
 		if (numSides == 0)

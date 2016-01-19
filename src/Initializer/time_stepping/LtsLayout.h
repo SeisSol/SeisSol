@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,9 +63,6 @@ namespace seissol {
  **/
 class seissol::initializers::time_stepping::LtsLayout {
   //private:
-    //! local rank
-    int m_rank;
-
     //! used clustering strategy
     enum TimeClustering m_clusteringStrategy;
 

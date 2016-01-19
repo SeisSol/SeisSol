@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Stefan Wenk (wenk AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/wenk)
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2013, SeisSol Group
+!! Copyright (c) 2013-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -179,7 +180,7 @@ CONTAINS
 
         CALL MPI_ALLGATHER(MPI_receiver_Index,     IO%ntotalRecordPoint,MPI_INTEGER, &
                            MPI_receiver_Element,   IO%ntotalRecordPoint,MPI_INTEGER, &
-                           MPI_COMM_WORLD, MPI%iErr                                          )
+                           MPI%commWorld, MPI%iErr                                          )
 
         DO iPick = 1, IO%ntotalRecordPoint
           ! stop execution if one receiver is outside the domain
