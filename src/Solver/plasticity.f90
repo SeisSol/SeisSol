@@ -134,25 +134,24 @@ MODULE Plasticity_mod
     IF (tau .GT. taulim) THEN !plastic behaviour, else: elastic and stress tensor=trial stress tensor
        yldfac = 1.0D0- (1.0D0 - taulim/tau)*(1.0D0 - EXP(-relaxtime)) !factor by Duan/Day
 
-       DO iDegFr=1,nDegFr
 
-           Stress(iDegFr,1) = devStress(iDegFr,1)*yldfac + meanStress(iDegFr)
-           Stress(iDegFr,2) = devStress(iDegFr,2)*yldfac + meanStress(iDegFr)
-           Stress(iDegFr,3) = devStress(iDegFr,3)*yldfac + meanStress(iDegFr)
-           Stress(iDegFr,4:6) = devStress(iDegFr,4:6)*yldfac
+       Stress(1:nDegFr,1) = devStress(1:nDegFr,1)*yldfac + meanStress(1:nDegFr)
+       Stress(1:nDegFr,2) = devStress(1:nDegFr,2)*yldfac + meanStress(1:nDegFr)
+       Stress(1:nDegFr,3) = devStress(1:nDegFr,3)*yldfac + meanStress(1:nDegFr)
+       Stress(1:nDegFr,4:6) = devStress(1:nDegFr,4:6)*yldfac
 
 
-           !----Change the dofs-----
-           dgvar(iDegFr,1:6) = Stress(iDegFr,1:6) - DOFStress(iDegFr,1:6)
+       !----Change the dofs-----
+       dgvar(1:nDegFr,1:6) = Stress(1:nDegFr,1:6) - DOFStress(1:nDegFr,1:6)
 
-       ENDDO
-          dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6) !only the first dof is considered
+       dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6) !only the first dof is considered for plastic strain tensor
 
         
     ENDIF !yield criterion check
 
     !update plastic strain
     pstrain(1:6) = pstrain(1:6) + dudt_pstrain !plastic strain tensor
+    !accumulated plastic strain
     pstrain(7) = pstrain(7)+ dt*sqrt(0.5*(dudt_pstrain(1)**2 + dudt_pstrain(2)**2 &
                                                    + dudt_pstrain(3)**2)+ dudt_pstrain(4)**2 + dudt_pstrain(5)**2 + dudt_pstrain(6)**2)
 
