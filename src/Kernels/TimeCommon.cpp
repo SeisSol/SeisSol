@@ -39,6 +39,7 @@
  **/
 
 #include "TimeCommon.h"
+#include <stdint.h>
 
 void seissol::kernels::TimeCommon::computeIntegrals(  Time&                             i_time,
                                                       unsigned short                    i_ltsSetup,
