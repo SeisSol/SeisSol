@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
@@ -35,49 +36,37 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Volume kernel of SeisSol.
+ * Local kernel of SeisSol.
  **/
 
-#include "Volume.h"
+#ifndef KERNELS_LOCAL_H_
+#define KERNELS_LOCAL_H_
 
-#ifndef NDEBUG
-#pragma message "compiling volume kernel with assertions"
+#include <Initializer/typedefs.hpp>
+#include <cassert>
+#include <Kernels/common.hpp>
+#include <generated_code/sizes.h>
+
+namespace seissol {
+  namespace kernels {
+    class Local;
+  }
+}
+
+class seissol::kernels::Local {
+  public:
+    Local() {}
+
+    void computeIntegral( enum faceType const         i_faceTypes[4],
+                          GlobalData const*           global,
+                          LocalIntegrationData const* local,
+                          real*                       i_timeIntegratedDegreesOfFreedom,
+                          real*                       io_degreesOfFreedom );
+
+    void flopsIntegral( enum faceType const i_faceTypes[4],
+                        unsigned int        &o_nonZeroFlops,
+                        unsigned int        &o_hardwareFlops );
+};
+
 #endif
 
-#include <cassert>
-#include <stdint.h>
-
-#include <generated_code/kernels.h>
-#include <generated_code/flops.h>
-
-void seissol::kernels::Volume::computeIntegral( real** i_stiffnessMatrices,
-                                                real*  i_timeIntegratedDegreesOfFreedom,
-                                                real   i_starMatrices[3][seissol::model::AstarT::reals],
-                                                real   sourceMatrix[seissol::model::source::reals],
-                                                real*  io_degreesOfFreedom ) {
-  // assert alignments
-  assert( ((uintptr_t)i_stiffnessMatrices[0])           % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_stiffnessMatrices[1])           % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_stiffnessMatrices[2])           % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)io_degreesOfFreedom)              % ALIGNMENT == 0 );
-  
-  seissol::generatedKernels::volume(
-    i_starMatrices[0],
-    i_starMatrices[1],
-    i_starMatrices[2],
-    i_stiffnessMatrices[1],
-    i_stiffnessMatrices[0],
-    i_stiffnessMatrices[2],
-    sourceMatrix,
-    i_timeIntegratedDegreesOfFreedom,
-    io_degreesOfFreedom
-  );
-}
-
-void seissol::kernels::Volume::flopsIntegral( unsigned int &o_nonZeroFlops,
-                                              unsigned int &o_hardwareFlops )
-{
-  o_nonZeroFlops = seissol::flops::volume_nonZero;
-  o_hardwareFlops = seissol::flops::volume_hardware;
-}

@@ -138,8 +138,8 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
     m_clusters.push_back( new TimeCluster( l_cluster,
                                            m_timeStepping.clusterIds[l_cluster],
                                            m_timeKernel,
-                                           m_volumeKernel,
-                                           m_boundaryKernel,
+                                           m_localKernel,
+                                           m_neighborKernel,
                                            l_meshStructure,
 #ifdef USE_MPI
                                            l_copyCellInformation,

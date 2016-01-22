@@ -79,9 +79,16 @@
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/typedefs.hpp>
 #include <utils/logger.h>
+
 #include <Kernels/Time.h>
+
+#ifdef REQUIRE_SOURCE_MATRIX
+#include <Kernels/Local.h>
+#include <Kernels/Neighbor.h>
+#else
 #include <Kernels/Volume.h>
 #include <Kernels/Boundary.h>
+#endif
 
 // some check for correct functionality
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
@@ -121,11 +128,11 @@ private:
     //! time kernel
     kernels::Time     &m_timeKernel;
 
-    //! volume kernel
-    kernels::Volume   &m_volumeKernel;
+    //! local kernel
+    kernels::Local   &m_localKernel;
 
-    //! boundary kernel
-    kernels::Boundary &m_boundaryKernel;
+    //! neighbor kernel
+    kernels::Neighbor &m_neighborKernel;
 
     /*
      * mesh structure
@@ -358,8 +365,8 @@ private:
     TimeCluster( unsigned int                   i_clusterId,
                  unsigned int                   i_globalClusterId,
                  kernels::Time                 &i_timeKernel,
-                 kernels::Volume               &i_volumeKernel,
-                 kernels::Boundary             &i_boundaryKernel,
+                 kernels::Local                &i_localKernel,
+                 kernels::Neighbor             &i_neighborKernel,
                  struct MeshStructure          *i_meshStructure,
 #ifdef USE_MPI
                  struct CellLocalInformation   *i_copyCellInformation,

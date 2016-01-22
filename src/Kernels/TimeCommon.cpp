@@ -46,8 +46,6 @@ void seissol::kernels::TimeCommon::computeIntegrals(  Time&                     
                                                       const enum faceType               i_faceTypes[4],
                                                       const double                      i_currentTime[5],
                                                       double                            i_timeStepWidth,
-                                                      GlobalData const*                 global,
-                                                      seissol::model::TimeIntegrationData const         neighbor[4],
                                                       real * const                      i_timeDofs[4],
                                                       real                              o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
                                                       real *                            o_timeIntegrated[4] )
@@ -81,8 +79,6 @@ void seissol::kernels::TimeCommon::computeIntegrals(  Time&                     
         i_time.computeIntegral( i_currentTime[    l_dofeighbor+1],
                                 i_currentTime[    0           ],
                                 i_currentTime[    0           ] + i_timeStepWidth,
-                                global,
-                                &neighbor[l_dofeighbor],
                                 i_timeDofs[       l_dofeighbor],
                                 o_integrationBuffer[ l_dofeighbor] );
 
@@ -96,9 +92,7 @@ void seissol::kernels::TimeCommon::computeIntegrals(  Time&                     
                                                       unsigned short                    i_ltsSetup,
                                                       const enum faceType               i_faceTypes[4],
                                                       const double                      i_timeStepStart,
-                                                      const double                      i_timeStepWidth,                              
-                                                      GlobalData const*                 global,
-                                                      seissol::model::TimeIntegrationData const         neighbor[4],
+                                                      const double                      i_timeStepWidth,
                                                       real * const                      i_timeDofs[4],
                                                       real                              o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
                                                       real *                            o_timeIntegrated[4] )
@@ -120,8 +114,6 @@ void seissol::kernels::TimeCommon::computeIntegrals(  Time&                     
                     i_faceTypes,
                     l_startTimes,
                     i_timeStepWidth,
-                    global,
-                    neighbor,
                     i_timeDofs,
                     o_integrationBuffer,
                     o_timeIntegrated );

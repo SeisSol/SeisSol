@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
@@ -35,11 +36,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Volume kernel of SeisSol.
+ * Local kernel of SeisSol.
  **/
 
-#ifndef VOLUME_H_
-#define VOLUME_H_
+#ifndef KERNELS_LOCAL_H_
+#define KERNELS_LOCAL_H_
 
 #include <Initializer/typedefs.hpp>
 #include <cassert>
@@ -48,41 +49,23 @@
 
 namespace seissol {
   namespace kernels {
-    class Volume;
+    class Local;
   }
 }
 
-/**
- * Volume kernel, which computes the volume integration.
- **/
-class seissol::kernels::Volume {
+class seissol::kernels::Local {
   public:
-    /**
-     * Constructor, which initializes the volume kernel.
-     **/
-    Volume() {}
+    Local() {}
 
-    /**
-     * Computes the volume integral from previously computed time integrated degrees of freedom.
-     *
-     * @param i_stiffnessMatrices stiffness matrices, 0: \f$ K^\xi \f$, 1: \f$ K^\eta\f$, 2: \f K^\zeta \f$.
-     * @param i_timeIntegratedDegreesOfFreedom time integrated degrees of freedom.
-     * @param i_starMatrices star matrices, 0: \f$ A^*_k \f$, 1: \f$ B^*_k \f$, 2: \f$ C^*_k \f$.
-     * @param io_degreesOfFreedom degrees of freedom.
-     **/
-    void computeIntegral( real** i_stiffnessMatrices,
-                          real*  i_timeIntegratedDegreesOfFreedom,
-                          real   i_starMatrices[3][seissol::model::AstarT::reals],
-                          real   sourceMatrix[seissol::model::source::reals],
-                          real*  io_degreesOfFreedom );
+    void computeIntegral( enum faceType const         i_faceTypes[4],
+                          GlobalData const*           global,
+                          LocalIntegrationData const* local,
+                          real*                       i_timeIntegratedDegreesOfFreedom,
+                          real*                       io_degreesOfFreedom );
 
-    /**
-     * Derives the number of non-zero and hardware floating point operation in the volume integration.
-     * @param o_nonZeroFlops number of performed non zero floating point operations.
-     * @param o_hardwareFlops number of performed floating point operations in hardware.
-     **/
-    void flopsIntegral( unsigned int &o_nonZeroFlops,
-                        unsigned int &o_hardwareFlops );
+    void flopsIntegral( enum faceType const i_faceTypes[4],
+                        unsigned int        &o_nonZeroFlops,
+                        unsigned int        &o_hardwareFlops );
 };
 
 #endif

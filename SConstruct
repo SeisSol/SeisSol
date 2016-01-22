@@ -84,7 +84,7 @@ vars.AddVariables(
   EnumVariable( 'equations',
                 'system of PDEs that will be solved',
                 'elastic',
-                allowed_values=('elastic', 'viscoelastic')
+                allowed_values=('elastic', 'viscoelastic', 'viscoelastic2')
               ),
   
 
@@ -243,6 +243,12 @@ if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['par
 #
 # preprocessor, compiler and linker
 #
+
+numberOfQuantities = {
+  'elastic' : 9,
+  'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6
+}
+numberOfQuantities['viscoelastic2'] = numberOfQuantities['viscoelastic']
 
 # Basic compiler setting
 if env['compiler'] == 'intel':
@@ -463,8 +469,6 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
 
 # set precompiler mode for the number of quantities and basis functions
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
-
-numberOfQuantities = { 'elastic' : 9, 'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6 }
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
 # set number of temporal integration points for dynamic ruputure boundary conditions

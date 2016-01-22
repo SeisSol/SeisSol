@@ -97,8 +97,8 @@ extern seissol::Interoperability e_interoperability;
 seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
                                                   unsigned int                   i_globalClusterId,
                                                   kernels::Time                 &i_timeKernel,
-                                                  kernels::Volume               &i_volumeKernel,
-                                                  kernels::Boundary             &i_boundaryKernel,
+                                                  kernels::Local                &i_localKernel,
+                                                  kernels::Neighbor             &i_neighborKernel,
                                                   struct MeshStructure          *i_meshStructure,
 #ifdef USE_MPI
                                                   struct CellLocalInformation   *i_copyCellInformation,
@@ -118,8 +118,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_globalClusterId(         i_globalClusterId          ),
  // kernels
  m_timeKernel(              i_timeKernel               ),
- m_volumeKernel(            i_volumeKernel             ),
- m_boundaryKernel(          i_boundaryKernel           ),
+ m_localKernel(             i_localKernel              ),
+ m_neighborKernel(          i_neighborKernel           ),
  // mesh structure
  m_meshStructure(           i_meshStructure            ),
  // global data
@@ -460,25 +460,32 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
       l_bufferPointer = l_integrationBuffer;
     }
 
+#ifdef REQUIRE_SOURCE_MATRIX
+  m_timeKernel.computeAder( m_timeStepWidth,
+                            m_globalData,
+                            &i_cellData->localIntegration[l_cell],
+                            io_dofs[l_cell],
+                            l_bufferPointer,
+                            io_derivatives[l_cell] );
+  m_localKernel.computeIntegral( i_cellInformation[l_cell].faceTypes,
+                                 m_globalData,
+                                 &i_cellData->localIntegration[l_cell],
+                                 l_bufferPointer,
+                                 io_dofs[l_cell] );
+#else
     m_timeKernel.computeAder(              m_timeStepWidth,
                                            m_globalData->stiffnessMatricesTransposed,
                                            io_dofs[l_cell],
                                            i_cellData->localIntegration[l_cell].starMatrices,
-#ifdef REQUIRE_SOURCE_MATRIX
-                                           i_cellData->localIntegration[l_cell].sourceMatrix,
-#endif
                                            l_bufferPointer,
                                            io_derivatives[l_cell] );
 
-    m_volumeKernel.computeIntegral(        m_globalData->stiffnessMatrices,
+    m_localKernel.computeIntegral(         m_globalData->stiffnessMatrices,
                                            l_bufferPointer,
                                            i_cellData->localIntegration[l_cell].starMatrices,
-#ifdef REQUIRE_SOURCE_MATRIX
-                                           i_cellData->localIntegration[l_cell].sourceMatrix,
-#endif
                                            io_dofs[l_cell] );
 
-    m_boundaryKernel.computeLocalIntegral( i_cellInformation[l_cell].faceTypes,
+    m_neighborKernel.computeLocalIntegral( i_cellInformation[l_cell].faceTypes,
                                            m_globalData->fluxMatrices,
                                            l_bufferPointer,
                                            i_cellData->localIntegration[l_cell].nApNm1,
@@ -488,7 +495,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
                                            io_dofs[l_cell+1] );
 #else
                                            io_dofs[l_cell] );
-#endif
+#endif // ENABLE_STREAM_MATRIX_PREFETCH
+#endif // REQUIRE_SOURCE_MATRIX
 
 #ifndef NDEBUG
     unsigned int l_tempHardwareFlops = 0;
@@ -568,8 +576,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
                                                     i_cellInformation[l_cell].faceTypes,
                                                     m_subTimeStart,
                                                     m_timeStepWidth,
-                                                    m_globalData,
-                                                    i_cellData->neighboringIntegration[l_cell].timeIntegration,
                                                     i_faceNeighbors[l_cell],
 #ifdef _OPENMP
                                                     *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
@@ -618,9 +624,17 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
     }
 #endif
 
+#ifdef REQUIRE_SOURCE_MATRIX
+    m_neighborKernel.computeNeighborsIntegral( i_cellInformation[l_cell].faceTypes,
+                                               i_cellInformation[l_cell].faceRelations,
+                                               l_globalData,
+                                               &i_cellData->neighboringIntegration[l_cell],
+                                               l_timeIntegrated,
+                                               io_dofs[l_cell] );
+#else
     // @TODO in case of multiple global data copies, choose a distribution which
     //       cannot generate a 0-id copy reference in the end as remainder handling
-    m_boundaryKernel.computeNeighborsIntegral( i_cellInformation[l_cell].faceTypes,
+    m_neighborKernel.computeNeighborsIntegral( i_cellInformation[l_cell].faceTypes,
                                                i_cellInformation[l_cell].faceRelations,
                                                l_globalData->fluxMatrices,
                                                l_timeIntegrated,
@@ -631,7 +645,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
                                                l_fluxMatricies_prefetch );
 #else
                                                io_dofs[l_cell] );
-#endif
+#endif // ENABLE_MATRIX_PREFETCH
+#endif // REQUIRE_SOURCE_MATRIX
 
 #ifdef USE_PLASTICITY
   e_interoperability.computePlasticity(  m_timeStepWidth,

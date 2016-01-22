@@ -572,8 +572,6 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 void seissol::kernels::Time::computeIntegral( double                            i_expansionPoint,
                                               double                            i_integrationStart,
                                               double                            i_integrationEnd,
-                                              GlobalData const*,
-                                              seissol::model::TimeIntegrationData const*,
                                               const real*                       i_timeDerivatives,
                                               real                              o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] )
 {

@@ -76,6 +76,7 @@
 namespace seissol {
   namespace kernels {
     class Boundary;
+    typedef Boundary Neighbor;
   }
 }
 

@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -115,13 +116,12 @@ class seissol::kernels::Time {
      * @param i_timeIntegrated time integrated DOFs.
      * @param o_timeDerivatives (optional) time derivatives of the degrees of freedom in compressed format. If NULL only time integrated DOFs are returned.
      **/
-    void computeAder(       double i_timeStepWidth,
-                            real** i_stiffnessMatrices,
-                      const real*  i_degreesOfFreedom,
-                            real   i_starMatrices[3][seissol::model::AstarT::reals],
-                      const real   sourceMatrix[seissol::model::source::reals],
-                            real*  o_timeIntegrated,
-                            real*  o_timeDerivatives = NULL );
+    void computeAder( double                i_timeStepWidth,
+                      GlobalData*           global,
+                      LocalIntegrationData* local,
+                      real const*           i_degreesOfFreedom,
+                      real*                 o_timeIntegrated,
+                      real*                 o_timeDerivatives = NULL );
 
     /**
      * Derives the number of non-zero and hardware floating point operation in the ADER procedure.
@@ -143,8 +143,6 @@ class seissol::kernels::Time {
     void computeIntegral(       double i_expansionPoint,
                                 double i_integrationStart,
                                 double i_integrationEnd,
-                                GlobalData const*,
-                                seissol::model::TimeIntegrationData const*,
                           const real*  i_timeDerivatives,
                                 real   o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] );
                            

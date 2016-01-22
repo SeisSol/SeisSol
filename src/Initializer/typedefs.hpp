@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -306,19 +307,18 @@ struct LocalIntegrationData {
 
   // flux solver for element local contribution
   real nApNm1[4][seissol::model::AplusT::reals];
-  
-  // Matrix for source terms of the form E_pq Q_q
-#ifdef REQUIRE_SOURCE_MATRIX
-  real sourceMatrix[seissol::model::source::reals];
-#endif
-  seissol::model::TimeIntegrationData timeIntegration;
+
+  // equation-specific data
+  seissol::model::LocalData specific;
 };
 
 // data for the neighboring boundary integration
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   real nAmNm1[4][seissol::model::AminusT::reals];
-  seissol::model::TimeIntegrationData timeIntegration[4];
+
+  // equation-specific data
+  seissol::model::NeighborData specific;
 };
 
 // material constants per cell

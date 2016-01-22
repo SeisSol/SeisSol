@@ -272,8 +272,6 @@ class seissol::kernels::Time {
     void computeIntegral( double                            i_expansionPoint,
                           double                            i_integrationStart,
                           double                            i_integrationEnd,
-                          GlobalData const*,
-                          seissol::model::TimeIntegrationData const*,
                           const real*                       i_timeDerivatives,
                           real                              o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] );
                           

@@ -541,18 +541,23 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
   real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
   real l_timeDerivatives[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(ALIGNMENT)));
 
+#ifdef REQUIRE_SOURCE_MATRIX
+  m_timeKernel.computeAder( 0,
+                            m_globalData,
+                            &m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ],
+                            m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
+                            l_timeIntegrated,
+                            l_timeDerivatives );
+#else
   m_timeKernel.computeAder( 0,
                             m_globalData->stiffnessMatricesTransposed,
                             m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
                             m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ].starMatrices,
-#ifdef REQUIRE_SOURCE_MATRIX
-                            m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ].sourceMatrix,
-#endif
                             l_timeIntegrated,
                             l_timeDerivatives );
+#endif
 
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives,
-                                                             o_timeDerivatives );
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );
 }
 
 void seissol::Interoperability::getFaceDerInt( int    i_meshId,
@@ -583,8 +588,6 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
   m_timeKernel.computeIntegral( 0,
                                 0,
                                 i_timeStepWidth,
-                                m_globalData,
-                                &m_cellData->localIntegration[localCell].timeIntegration,
                                 m_derivatives[localCell],
                                 l_timeIntegrated );
 
@@ -594,9 +597,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
 
   m_timeKernel.computeIntegral( 0,
                                 0,
-                                i_timeStepWidth,                                
-                                m_globalData,
-                                &m_cellData->neighboringIntegration[neighborCell].timeIntegration[face],
+                                i_timeStepWidth,
                                 m_faceNeighbors[neighborCell][face],
                                 l_timeIntegrated );
 

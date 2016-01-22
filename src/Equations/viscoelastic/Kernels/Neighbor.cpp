@@ -35,10 +35,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Boundary kernel of SeisSol.
+ * Neighbor kernel of SeisSol.
  **/
 
-#include "Boundary.h"
+#include "Neighbor.h"
 
 #ifndef NDEBUG
 #pragma message "compiling boundary kernel with assertions"
@@ -51,78 +51,16 @@
 #include <stdint.h>
 #include <cstddef>
 
-void seissol::kernels::Boundary::computeLocalIntegral( const enum faceType i_faceTypes[4],
-                                                             real         *i_fluxMatrices[52],
-                                                             real          i_timeIntegrated[    NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
-                                                             real          i_fluxSolvers[4][    seissol::model::AplusT::reals ],
-                                                             real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] ) {
-  /*
-   * assert valid input
-   */
+void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
+                                                            int const                         i_neighboringIndices[4][2],
+                                                            GlobalData const*                 global,
+                                                            NeighboringIntegrationData const* neighbor,
+                                                            real*                             i_timeIntegrated[4],
+                                                            real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] ) {
 #ifndef NDEBUG
   // alignment of the flux matrices
   for( int l_matrix = 0; l_matrix < 52; l_matrix++ ) {
-    assert( ((uintptr_t)i_fluxMatrices[l_matrix]) % ALIGNMENT == 0 );
-  }
-#endif
-  // alignment of the time integrated dofs
-  assert( ((uintptr_t)i_timeIntegrated) % ALIGNMENT == 0 );
-
-  // alignment of the degrees of freedom
-  assert( ((uintptr_t)io_degreesOfFreedom) % ALIGNMENT == 0 );
-
-  /*
-   * compute cell local contribution of the boundary integral.
-   */
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-    // no element local contribution in the case of dynamic rupture boundary conditions
-    if( i_faceTypes[l_face] != dynamicRupture ) {
-      seissol::generatedKernels::localFlux[l_face](
-        i_fluxSolvers[l_face],
-        i_fluxMatrices[l_face],
-        i_timeIntegrated,
-        io_degreesOfFreedom
-      );
-    }
-  }
-}
-
-void seissol::kernels::Boundary::flopsLocalIntegral( const enum faceType  i_faceTypes[4],
-                                                     unsigned int        &o_nonZeroFlops,
-                                                     unsigned int        &o_hardwareFlops ) {
-  // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops = 0;
-
-  // iterate over faces
-  for( unsigned int l_face = 0; l_face < 4; ++l_face ) {
-    // no element local contribution in the case of dynamic rupture boundary conditions
-    if( i_faceTypes[l_face] != dynamicRupture ) {
-      o_nonZeroFlops  += seissol::flops::localFlux_nonZero[l_face];
-      o_hardwareFlops += seissol::flops::localFlux_hardware[l_face];
-    }
-  }
-}
-
-void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i_faceTypes[4],
-                                                           const int           i_neighboringIndices[4][2],
-                                                                 real         *i_fluxMatrices[52],
-                                                                 real         *i_timeIntegrated[4],
-                                                                 real          i_fluxSolvers[4][    seissol::model::AminusT::reals ],
-#ifdef ENABLE_MATRIX_PREFETCH
-                                                                 real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ],
-                                                                 real         *i_faceNeighbors_prefetch[4],
-                                                                 real         *i_fluxMatricies_prefetch[4] ) {
-#else
-                                                                 real          io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] ) {
-#endif
-
-  /*
-   * assert valid input
-   */
-#ifndef NDEBUG
-  // alignment of the flux matrices
-  for( int l_matrix = 0; l_matrix < 52; l_matrix++ ) {
-    assert( ((uintptr_t)i_fluxMatrices[l_matrix]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->fluxMatrices[l_matrix]) % ALIGNMENT == 0 );
   }
 
   // alignment of the time integrated dofs
@@ -154,15 +92,15 @@ void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i
         assert( l_id < 48 );
         
         seissol::generatedKernels::neighboringFlux[l_id](
-          i_fluxSolvers[l_face],
-          i_fluxMatrices[4 + l_id],
+          neighbor->nAmNm1[l_face],
+          global->fluxMatrices[4 + l_id],
           i_timeIntegrated[l_face],
           io_degreesOfFreedom
         );
       } else { // fall back to local matrices in case of free surface boundary conditions
         seissol::generatedKernels::localFlux[l_face](
-          i_fluxSolvers[l_face],
-          i_fluxMatrices[l_face],
+          neighbor->nAmNm1[l_face],
+          global->fluxMatrices[l_face],
           i_timeIntegrated[l_face],
           io_degreesOfFreedom
         );
@@ -171,7 +109,7 @@ void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i
   }
 }
 
-void seissol::kernels::Boundary::flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
+void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                                          const int            i_neighboringIndices[4][2],
                                                          unsigned int        &o_nonZeroFlops,
                                                          unsigned int        &o_hardwareFlops ) {

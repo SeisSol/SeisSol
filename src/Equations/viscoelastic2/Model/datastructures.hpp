@@ -41,12 +41,27 @@
 #define MODEL_DATASTRUCTURES_H_
 
 #include <Model/common_datastructures.hpp>
+#include <generated_code/sizes.h>
 
 namespace seissol {
   namespace model {
-    struct Material : public ElasticMaterial {};
-    struct LocalData {};
-    struct NeighborData {};
+    struct Material : public ElasticMaterial {
+      //! Relaxation frequencies
+      real omega[NUMBER_OF_RELAXATION_MECHANISMS];
+      /** Entries of the source matrix (E)
+       * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
+       * theta[1] = -lambda * Y_lambda
+       * theta[2] = -2.0 * mu * Y_mu
+       **/
+      real theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
+    };
+    struct LocalData {
+      real ET[seissol::model::ET::reals * NUMBER_OF_RELAXATION_MECHANISMS];
+      real omega[NUMBER_OF_RELAXATION_MECHANISMS];
+    };
+    struct NeighborData {
+      real omega[NUMBER_OF_RELAXATION_MECHANISMS];
+    };
   }
 }
 

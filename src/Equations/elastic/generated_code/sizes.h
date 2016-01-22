@@ -6,9 +6,13 @@
 namespace seissol {
   namespace model {
     namespace AminusT {
+      unsigned const rows = NUMBER_OF_QUANTITIES;
+      unsigned const cols = NUMBER_OF_QUANTITIES;
       unsigned const reals = NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES;
     }
     namespace AplusT {
+      unsigned const rows = NUMBER_OF_QUANTITIES;
+      unsigned const cols = NUMBER_OF_QUANTITIES;
       unsigned const reals = NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES;
     }
     namespace AstarT {

@@ -73,13 +73,17 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
   
+  assert(seissol::model::AplusT::rows == seissol::model::AminusT::rows);
+  assert(seissol::model::AplusT::cols == seissol::model::AminusT::cols);
+  assert(seissol::model::AplusT::rows == seissol::model::AplusT::cols);
+  
   real AT[seissol::model::AstarT::reals];
   real BT[seissol::model::BstarT::reals];
   real CT[seissol::model::CstarT::reals];
-  real FlocalData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  real FneighborData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  real TData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  real TinvData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  real FlocalData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
+  real FneighborData[seissol::model::AminusT::rows * seissol::model::AminusT::cols];
+  real TData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
+  real TinvData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
 
 #ifdef _OPENMP
   #pragma omp parallel for private(AT, BT, CT, FlocalData, FneighborData, TData, TinvData) schedule(static)
@@ -117,10 +121,10 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     double volume = MeshTools::volume(elements[meshId], vertices);
 
     for (unsigned side = 0; side < 4; ++side) {
-      DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal(FlocalData);
-      DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor(FneighborData);
-      DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> T(TData);
-      DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Tinv(TinvData);
+      DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> Flocal(FlocalData);
+      DenseMatrixView<seissol::model::AminusT::rows, seissol::model::AminusT::cols> Fneighbor(FneighborData);
+      DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> T(TData);
+      DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> Tinv(TinvData);
 
       seissol::model::getTransposedRiemannSolver( io_cellData->material[cell].local,
                                                   io_cellData->material[cell].neighbor[side],
@@ -153,10 +157,10 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       
       // \todo Generate a kernel for this
       // Calculates  Tinv^T * F * T^T
-      for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES - NUMBER_OF_RELAXATION_MECHANISMS * 6; ++i) {
-          for (unsigned k = 0; k < NUMBER_OF_QUANTITIES; ++k) {
-            for (unsigned l = 0; l < NUMBER_OF_QUANTITIES; ++l) {
+      for (unsigned j = 0; j < seissol::model::AplusT::cols; ++j) {
+        for (unsigned i = 0; i < 9; ++i) {
+          for (unsigned k = 0; k < seissol::model::AplusT::rows; ++k) {
+            for (unsigned l = 0; l < seissol::model::AplusT::cols; ++l) {
               nApNm1(i, j) += Tinv(k, i) * Flocal(k, l) * T(j, l);
               nAmNm1(i, j) += Tinv(k, i) * Fneighbor(k, l) * T(j, l);
             }
@@ -166,9 +170,12 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         }
       }
     }
-#ifdef REQUIRE_SOURCE_MATRIX
-    MatrixView sourceMatrix(io_cellData->localIntegration[cell].sourceMatrix, seissol::model::source::reals, seissol::model::source::index);
-    seissol::model::setSourceMatrix(io_cellData->material[cell].local, sourceMatrix);
-#endif
+
+    seissol::model::initializeSpecificLocalData(  io_cellData->material[cell].local,
+                                                  &io_cellData->localIntegration[cell].specific );
+
+    seissol::model::initializeSpecificNeighborData( io_cellData->material[cell].local,
+                                                    io_cellData->material[cell].neighbor,
+                                                    &io_cellData->neighboringIntegration[cell].specific );
   }
 }

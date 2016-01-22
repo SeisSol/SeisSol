@@ -41,6 +41,7 @@
 #define MODEL_DATASTRUCTURES_H_
 
 #include <Model/common_datastructures.hpp>
+#include <generated_code/sizes.h>
 
 namespace seissol {
   namespace model {
@@ -54,7 +55,10 @@ namespace seissol {
        **/
       real theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
     };
-    struct TimeIntegrationData {};
+    struct LocalData {
+      real sourceMatrix[seissol::model::source::reals];
+    };
+    struct NeighborData {};
   }
 }
 

@@ -63,8 +63,8 @@ namespace seissol {
                                      seissol::model::Material const&                        neighbor,
                                      enum ::faceType                                        type,
                                      //real const                                             Atransposed[STAR_NNZ],
-                                     DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal,
-                                     DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor );
+                                     DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> Flocal,
+                                     DenseMatrixView<seissol::model::AminusT::rows, seissol::model::AminusT::cols> Fneighbor );
 
     /**
      * Converts the fortran material array to the C++ material struct.
@@ -81,13 +81,23 @@ namespace seissol {
     void getFaceRotationMatrix( VrtxCoords const i_normal,
                                 VrtxCoords const i_tangent1,
                                 VrtxCoords const i_tangent2,
-                                DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
-                                DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv );
-                                
-#ifdef REQUIRE_SOURCE_MATRIX
-    void setSourceMatrix( seissol::model::Material const& local,
-                          MatrixView                      sourceMatrix );
-#endif
+                                DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> o_T,
+                                DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> o_Tinv );
+
+    /**
+     * Initializes equation specific data for local integration.
+     * LocalData has to be specified in datastructures.hpp.
+     */
+    void initializeSpecificLocalData( seissol::model::Material const& material,
+                                      seissol::model::LocalData* localData );
+
+    /**
+     * Initializes equation specific data for neighbor integration.
+     * NeighborData has to be specified in datastructures.hpp.
+     */
+    void initializeSpecificNeighborData(  seissol::model::Material const& localMaterial,
+                                          seissol::model::Material const (&neighborMaterials)[4],
+                                          seissol::model::NeighborData* neighborData );
   }
 }
 

@@ -46,30 +46,28 @@
 #include <generated_code/sizes.h>
 #include <generated_code/init.h>
 
-void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
-                                                 unsigned        i_dim,
-                                                 unsigned        mech,
+void getTransposedViscoelasticCoefficientMatrix( unsigned        i_dim,
                                                  MatrixView      o_M )
 {
-  unsigned col = 9 + mech * 6;
+  unsigned const col = 9;
   switch (i_dim)
   {
     case 0:
-      o_M(6, col)     = -i_omega;
-      o_M(7, col + 3) = -0.5 * i_omega;
-      o_M(8, col + 5) = -0.5 * i_omega;
+      o_M(6, col)     = -1.0;
+      o_M(7, col + 3) = -0.5;
+      o_M(8, col + 5) = -0.5;
       break;
       
     case 1:
-      o_M(7, col + 1) = -i_omega;
-      o_M(6, col + 3) = -0.5 * i_omega;
-      o_M(8, col + 4) = -0.5 * i_omega;
+      o_M(7, col + 1) = -1.0;
+      o_M(6, col + 3) = -0.5;
+      o_M(8, col + 4) = -0.5;
       break;
       
     case 2:
-      o_M(8, col + 2) = -i_omega;
-      o_M(7, col + 4) = -0.5 * i_omega;
-      o_M(6, col + 5) = -0.5 * i_omega;
+      o_M(8, col + 2) = -1.0;
+      o_M(7, col + 4) = -0.5;
+      o_M(6, col + 5) = -0.5;
       break;
   }
 }
@@ -83,20 +81,15 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
 
   seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, M);
   
-  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    getTransposedViscoelasticCoefficientMatrix( i_material.omega[mech],
-                                                i_dim,
-                                                mech,
-                                                M );
-  }
+  getTransposedViscoelasticCoefficientMatrix( i_dim, M );
 }
 
 void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&                        local,
                                                  seissol::model::Material const&                        neighbor,
                                                  enum faceType                                          type,
                                                  //real const                                             Atransposed[STAR_NNZ],
-                                                 DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal,
-                                                 DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor )
+                                                 DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> Flocal,
+                                                 DenseMatrixView<seissol::model::AminusT::rows, seissol::model::AminusT::cols> Fneighbor )
 {
   real QgodNeighborData[9 * 9];
   real QgodLocalData[9 * 9];
@@ -121,15 +114,13 @@ void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&
     }
   }
   
-  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    getTransposedViscoelasticCoefficientMatrix(local.omega[mech], 0, mech, At);
-    for (unsigned j = 0; j < 6; ++j) {
-      unsigned col =  9 + mech * 6 + j;
-      for (unsigned i = 0; i < 9; ++i) {
-        for (unsigned k = 0; k < 9; ++k) {
-          Flocal(i,col) += QgodLocal(i,k) * At(k,col);
-          Fneighbor(i,col) += QgodNeighbor(i,k) * At(k,col);
-        }
+  getTransposedViscoelasticCoefficientMatrix(0, At);
+  for (unsigned j = 0; j < 6; ++j) {
+    unsigned col =  9 + j;
+    for (unsigned i = 0; i < 9; ++i) {
+      for (unsigned k = 0; k < 9; ++k) {
+        Flocal(i,col) += QgodLocal(i,k) * At(k,col);
+        Fneighbor(i,col) += QgodNeighbor(i,k) * At(k,col);
       }
     }
   }
@@ -159,8 +150,8 @@ void seissol::model::setMaterial( double* i_materialVal,
 void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
                                             VrtxCoords const i_tangent1,
                                             VrtxCoords const i_tangent2,
-                                            DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
-                                            DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv )
+                                            DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> o_T,
+                                            DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> o_Tinv )
 {
   o_T.setZero();
   o_Tinv.setZero();
@@ -171,50 +162,43 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<3,3>(6, 6));
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<3,3>(6, 6));
   
-  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    unsigned origin = 9 + mech * 6;
-    seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<6,6>(origin, origin));
-    seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<6,6>(origin, origin));
-  }
+  unsigned origin = 9;
+  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<6,6>(origin, origin));
+  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<6,6>(origin, origin));
 }
 
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const& material,
                                                   seissol::model::LocalData* localData )
 {
-  MatrixView sourceMatrix(localData->sourceMatrix, seissol::model::source::reals, seissol::model::source::index);
-  sourceMatrix.setZero();
-
-  //       | E_1^T |
-  // E^T = |  ...  |
-  //       | E_L^T |
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    unsigned offset = 9 + mech * 6;
+    MatrixView ET(&localData->ET[mech * seissol::model::ET::reals], seissol::model::ET::reals, seissol::model::ET::index);
+    ET.setZero();
     real const* theta = material.theta[mech];
-    sourceMatrix(offset,     0) = theta[0];
-    sourceMatrix(offset + 1, 0) = theta[1];
-    sourceMatrix(offset + 2, 0) = theta[1];
-    sourceMatrix(offset,     1) = theta[1];
-    sourceMatrix(offset + 1, 1) = theta[0];
-    sourceMatrix(offset + 2, 1) = theta[1];  
-    sourceMatrix(offset,     2) = theta[1];
-    sourceMatrix(offset + 1, 2) = theta[1];
-    sourceMatrix(offset + 2, 2) = theta[0];  
-    sourceMatrix(offset + 3, 3) = theta[2];
-    sourceMatrix(offset + 4, 4) = theta[2];
-    sourceMatrix(offset + 5, 5) = theta[2];    
+    ET(0, 0) = theta[0];
+    ET(1, 0) = theta[1];
+    ET(2, 0) = theta[1];
+    ET(0, 1) = theta[1];
+    ET(1, 1) = theta[0];
+    ET(2, 1) = theta[1];  
+    ET(0, 2) = theta[1];
+    ET(1, 2) = theta[1];
+    ET(2, 2) = theta[0];  
+    ET(3, 3) = theta[2];
+    ET(4, 4) = theta[2];
+    ET(5, 5) = theta[2];
   }
   
-  // E' = diag(-omega_1 I, ..., -omega_L I)
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    for (unsigned i = 0; i < 6; ++i) {
-      unsigned idx = 9 + 6*mech + i;
-      sourceMatrix(idx, idx) = -material.omega[mech];
-    }
+    localData->omega[mech] = material.omega[mech];
   }
 }
 
-void seissol::model::initializeSpecificNeighborData(  seissol::model::Material const&,
+void seissol::model::initializeSpecificNeighborData(  seissol::model::Material const& localMaterial,
                                                       seissol::model::Material const (&)[4],
-                                                      seissol::model::NeighborData* )
+                                                      seissol::model::NeighborData* neighborData )
 {
+  // We only need the local omegas
+  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+    neighborData->omega[mech] = localMaterial.omega[mech];
+  }
 }

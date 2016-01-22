@@ -86,11 +86,11 @@ class seissol::time_stepping::TimeManager {
     //! time kernel
     kernels::Time     m_timeKernel;
 
-    //! volume kernel
-    kernels::Volume   m_volumeKernel;
+    //! local kernel
+    kernels::Local   m_localKernel;
 
-    //! boundary kernel
-    kernels::Boundary m_boundaryKernel;
+    //! neighbor kernel
+    kernels::Neighbor m_neighborKernel;
 
     //! last #updates of log
     unsigned int m_logUpdates;

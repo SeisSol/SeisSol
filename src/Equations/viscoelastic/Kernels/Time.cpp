@@ -72,20 +72,19 @@ seissol::kernels::Time::Time() {
   // end todo
 }
 
-void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
-                                                real** i_stiffnessMatrices,
-                                          const real*  i_degreesOfFreedom,
-                                                real   i_starMatrices[3][seissol::model::AstarT::reals],
-                                          const real   sourceMatrix[seissol::model::source::reals],
-                                                real*  o_timeIntegrated,
-                                                real*  o_timeDerivatives ) {
+void seissol::kernels::Time::computeAder( double                i_timeStepWidth,
+                                          GlobalData*           global,
+                                          LocalIntegrationData* local,
+                                          real const*           i_degreesOfFreedom,
+                                          real*                 o_timeIntegrated,
+                                          real*                 o_timeDerivatives ) {
   /*
    * assert alignments.
    */
   assert( ((uintptr_t)i_degreesOfFreedom)     % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_stiffnessMatrices[0]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_stiffnessMatrices[1]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_stiffnessMatrices[2]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[0]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[1]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[2]) % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
@@ -126,13 +125,13 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
     real const* lastDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative-1];
     real* currentDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative];
     seissol::generatedKernels::derivative[l_derivative](
-      i_starMatrices[0],
-      i_starMatrices[1],
-      i_starMatrices[2],
-      i_stiffnessMatrices[1],
-      i_stiffnessMatrices[0],
-      i_stiffnessMatrices[2],
-      sourceMatrix,
+      local->starMatrices[0],
+      local->starMatrices[1],
+      local->starMatrices[2],
+      global->stiffnessMatricesTransposed[1],
+      global->stiffnessMatricesTransposed[0],
+      global->stiffnessMatricesTransposed[2],
+      local->specific.sourceMatrix,
       lastDerivative,
       currentDerivative
     );
@@ -431,9 +430,7 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 
 void seissol::kernels::Time::computeIntegral(       double i_expansionPoint,
                                                     double i_integrationStart,
-                                                    double i_integrationEnd,                                                    
-                                                    GlobalData const*,
-                                                    seissol::model::TimeIntegrationData const*,
+                                                    double i_integrationEnd,
                                               const real*  i_timeDerivatives,
                                                     real   o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] ) {
   /*

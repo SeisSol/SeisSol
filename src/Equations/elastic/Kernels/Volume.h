@@ -48,6 +48,7 @@
 namespace seissol {
   namespace kernels {
     class Volume;
+    typedef Volume Local;
   }
 }
 

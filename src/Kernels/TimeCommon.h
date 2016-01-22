@@ -76,8 +76,6 @@ namespace seissol {
                               const enum faceType               i_faceTypes[4],
                               const double                      i_currentTime[5],
                               double                            i_timeStepWidth,
-                              GlobalData const*                 global,
-                              seissol::model::TimeIntegrationData const         neighbor[4],
                               real * const                      i_timeDofs[4],
                               real                              o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
                               real *                            o_timeIntegrated[4] );
@@ -97,9 +95,7 @@ namespace seissol {
                               unsigned short                    i_ltsSetup,
                               const enum faceType               i_faceTypes[4],
                               const double                      i_timeStepStart,
-                              const double                      i_timeStepWidth,                              
-                              GlobalData const*                 global,
-                              seissol::model::TimeIntegrationData const         neighbor[4],
+                              const double                      i_timeStepWidth,
                               real * const                      i_timeDofs[4],
                               real                              o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
                               real *                            o_timeIntegrated[4] );
