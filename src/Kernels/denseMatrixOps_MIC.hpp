@@ -38,6 +38,8 @@
  * Common kernel-level functions
  **/
 
+#include <Kernels/precision.hpp>
+
 #if defined(DOUBLE_PRECISION)
 
 #define DMO_INCREMENT 8
@@ -56,4 +58,6 @@
 #define DMO_XYMST(S, X, Y, Z) __m512 x = _mm512_load_ps(X); __m512 y = _mm512_load_ps(Y); _mm512_store_ps(Z, _mm512_mul_ps(S, _mm256_sub_ps(x, y)));
 #define DMO_XYMSTZP(S, X, Y, Z) __m512 x = _mm512_load_ps(X); __m512 y = _mm512_load_ps(Y); _mm512_store_ps(Z, _mm512_fmadd_ps(S, _mm512_sub_ps(x, y), _mm512_load_ps(Z)));
 
+#else
+#error no precision was defined
 #endif
