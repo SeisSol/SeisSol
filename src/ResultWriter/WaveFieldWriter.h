@@ -236,67 +236,73 @@ public:
         // Initialize the I/O handler and write the mesh
 		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 				rank, m_outputPrefix.c_str(), variables, timestep);
-        m_waveFieldWriter->init(
-                meshRefiner.getNumCells(), meshRefiner.getCellData(),
-                meshRefiner.getNumVertices(), meshRefiner.getVertexData(),
-                true);
+#ifdef USE_MPI
+		m_waveFieldWriter->setComm(MPI::mpi.comm());
+#endif // USE_MPI
+		m_waveFieldWriter->init(
+				meshRefiner.getNumCells(), meshRefiner.getCellData(),
+				meshRefiner.getNumVertices(), meshRefiner.getVertexData(),
+				true);
 
-        logInfo(rank) << "WaveFieldWriter initialized";
+		logInfo(rank) << "WaveFieldWriter initialized";
 
-        // Initialize the variable subsampler
-        m_variableSubsampler = new refinement::VariableSubsampler<double>(
-                    meshReader.getElements().size(),
-					*tetRefiner, order, numVars, numAlignedDOF);
+		// Initialize the variable subsampler
+		m_variableSubsampler = new refinement::VariableSubsampler<double>(
+				meshReader.getElements().size(),
+				*tetRefiner, order, numVars, numAlignedDOF);
 
-        // Delete the tetRefiner since it is no longer required
-        delete tetRefiner;
+		// Delete the tetRefiner since it is no longer required
+		delete tetRefiner;
 
-        logInfo(rank) << "VariableSubsampler initialized";
+		logInfo(rank) << "VariableSubsampler initialized";
 
-        // Create output buffer
-        m_outputBuffer = new double[meshRefiner.getNumCells()];
-        assert(meshRefiner.getNumCells() >= meshReader.getElements().size());
+		// Create output buffer
+		m_outputBuffer = new double[meshRefiner.getNumCells()];
+		assert(meshRefiner.getNumCells() >= meshReader.getElements().size());
 
-        //
-        //  Low order I/O
-        //
+		//
+		//  Low order I/O
+		//
 
-        if (pstrain) {
-        	logInfo(rank) << "Initialize low order output";
+		if (pstrain) {
+			logInfo(rank) << "Initialize low order output";
 
-        	// Refinement strategy (no refinement)
-        	refinement::IdentityRefiner<double> lowTetRefiner;
+			// Refinement strategy (no refinement)
+			refinement::IdentityRefiner<double> lowTetRefiner;
 
-        	// Mesh refiner
-        	refinement::MeshRefiner<double> lowMeshRefiner(meshReader, lowTetRefiner);
+			// Mesh refiner
+			refinement::MeshRefiner<double> lowMeshRefiner(meshReader, lowTetRefiner);
 
-        	// Variables
-    		std::vector<const char*> lowVariables(7);
-    		lowVariables[0] = "ep_xx";
-    		lowVariables[1] = "ep_yy";
-    		lowVariables[2] = "ep_zz";
-    		lowVariables[3] = "ep_xy";
-    		lowVariables[4] = "ep_yz";
-    		lowVariables[5] = "ep_xz";
-    		lowVariables[6] = "eta";
+			// Variables
+			std::vector<const char*> lowVariables(7);
+			lowVariables[0] = "ep_xx";
+			lowVariables[1] = "ep_yy";
+			lowVariables[2] = "ep_zz";
+			lowVariables[3] = "ep_xy";
+			lowVariables[4] = "ep_yz";
+			lowVariables[5] = "ep_xz";
+			lowVariables[6] = "eta";
 
 			// Initialize the low order I/O handler
 			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 					rank, (m_outputPrefix+"-low").c_str(), lowVariables, timestep);
-        	m_lowWaveFieldWriter->init(
-        			lowMeshRefiner.getNumCells(), lowMeshRefiner.getCellData(),
-        			lowMeshRefiner.getNumVertices(), lowMeshRefiner.getVertexData(),
-        			true);
+#ifdef USE_MPI
+			m_lowWaveFieldWriter->setComm(MPI::mpi.comm());
+#endif // USE_MPI
+			m_lowWaveFieldWriter->init(
+					lowMeshRefiner.getNumCells(), lowMeshRefiner.getCellData(),
+					lowMeshRefiner.getNumVertices(), lowMeshRefiner.getVertexData(),
+					true);
 
-        	logInfo(rank) << "Low order output initialized";
-        }
+			logInfo(rank) << "Low order output initialized";
+		}
 
-        	// Save dof/map pointer
-        m_dofs = dofs;
-        m_pstrain = pstrain;
-        m_map = map;
+		// Save dof/map pointer
+		m_dofs = dofs;
+		m_pstrain = pstrain;
+		m_map = map;
 
-        logInfo(rank) << "Initializing HDF5 wave field output. Done.";
+		logInfo(rank) << "Initializing HDF5 wave field output. Done.";
     }
 
     /**
