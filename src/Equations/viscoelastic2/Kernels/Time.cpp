@@ -52,22 +52,7 @@ extern long long libxsmm_num_total_flops;
 
 #include <cstring>
 #include <cassert>
-
-seissol::kernels::Time::Time() {
-  // compute the aligned number of basis functions and offsets of the derivatives
-  m_derivativesOffsets[0] = 0;
-  m_derivativesOffsets[1] = NUMBER_OF_ALIGNED_DOFS; // Store full dofs for the 0-th derivative
-  for( int l_order = 0; l_order < CONVERGENCE_ORDER; l_order++ ) {
-    //~ m_numberOfAlignedBasisFunctions[l_order] = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - l_order, ALIGNMENT );
-    m_numberOfAlignedBasisFunctions[l_order] = NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
-
-    if( l_order > 1 ) {
-      //~ m_derivativesOffsets[l_order]  =  m_numberOfAlignedBasisFunctions[l_order-1] * NUMBER_OF_REDUCED_QUANTITIES; // Store reduced dofs for the i-th derivative (i > 0)
-      m_derivativesOffsets[l_order]  =  NUMBER_OF_ALIGNED_DOFS;
-      m_derivativesOffsets[l_order] +=  m_derivativesOffsets[l_order-1];
-    }
-  }
-}
+#include <stdint.h>
 
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
                                           GlobalData const*           global,
@@ -102,12 +87,17 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   }
   for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof++ ) {
     l_derivativesBuffer[l_dof] = 0.0;
+  }  
+
+  // stream out frist derivative (order 0)
+  if ( o_timeDerivatives != NULL ) {
+    streamstore(NUMBER_OF_ALIGNED_DOFS, i_degreesOfFreedom, o_timeDerivatives);
   }
 
   // compute all derivatives and contributions to the time integrated DOFs
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    real const* lastDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative-1];
-    real* currentDerivative = l_derivativesBuffer+m_derivativesOffsets[l_derivative];
+    real const* lastDerivative = l_derivativesBuffer + (l_derivative-1) * NUMBER_OF_ALIGNED_DOFS;
+    real* currentDerivative = l_derivativesBuffer + l_derivative * NUMBER_OF_ALIGNED_DOFS;
     seissol::generatedKernels::derivative(
       local->starMatrices[0],
       local->starMatrices[1],
@@ -139,13 +129,19 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
 
     l_scalar *= i_timeStepWidth / real(l_derivative+1);
     
+    real* derivativesStore = NULL;
+    if (o_timeDerivatives != NULL) {
+      derivativesStore = o_timeDerivatives + l_derivative * NUMBER_OF_ALIGNED_DOFS;
+    }
+
     SXtYp(  l_scalar,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
             NUMBER_OF_QUANTITIES,
             currentDerivative,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
             o_timeIntegrated,
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
+            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+            derivativesStore );
   }
 }
 
@@ -154,9 +150,24 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   // reset flops
   o_nonZeroFlops = 0; o_hardwareFlops = 0;
   
+  // initialization
+  o_nonZeroFlops += NUMBER_OF_DOFS;
+  o_hardwareFlops += NUMBER_OF_ALIGNED_DOFS;
+  
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; ++l_derivative ) {
-    //~ o_nonZeroFlops  += seissol::flops::derivative_nonZero[l_derivative];
-    //~ o_hardwareFlops += seissol::flops::derivative_hardware[l_derivative];
+    o_nonZeroFlops  += seissol::flops::derivative_nonZero;
+    o_hardwareFlops += seissol::flops::derivative_hardware;
+    
+    o_nonZeroFlops  += NUMBER_OF_RELAXATION_MECHANISMS * seissol::flops::source_nonZero;
+    o_hardwareFlops += NUMBER_OF_RELAXATION_MECHANISMS * seissol::flops::source_hardware;
+    
+    // XYmSt
+    o_nonZeroFlops  += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2;
+    o_hardwareFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2;
+
+    // update of time integrated DOFs
+    o_nonZeroFlops  += NUMBER_OF_DOFS * 2;
+    o_hardwareFlops += NUMBER_OF_ALIGNED_DOFS * 2;
   }
 }
 
@@ -197,7 +208,7 @@ void seissol::kernels::Time::computeIntegral( double                            
     SXtYp(  l_scalar,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
             NUMBER_OF_QUANTITIES,
-            i_timeDerivatives + m_derivativesOffsets[l_derivative],
+            i_timeDerivatives + l_derivative * NUMBER_OF_ALIGNED_DOFS,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
             o_timeIntegrated,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );

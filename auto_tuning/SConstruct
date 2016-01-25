@@ -1,0 +1,159 @@
+#! /usr/bin/python
+##
+# @file
+# This file is part of SeisSol.
+#
+# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+#
+# @section LICENSE
+# Copyright (c) 2015, SeisSol Group
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# 1. Redistributions of source code must retain the above copyright notice,
+#    this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+# 
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from this
+#    software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+# @section DESCRIPTION
+#
+
+import os
+import arch
+
+#
+# set possible variables
+#
+vars = Variables()
+
+vars.AddVariables(
+  PathVariable( 'buildVariablesFile', 'location of the python file, which contains the build variables', None, PathVariable.PathIsFile )
+)
+env = Environment(variables=vars)
+if 'buildVariablesFile' in env:
+  vars = Variables(env['buildVariablesFile'])
+
+vars.AddVariables(
+  PathVariable( 'buildDir', 'where to build the code', 'build', PathVariable.PathIsDirCreate ),
+  
+  EnumVariable( 'compileMode', 'mode of the compilation', 'release',
+                allowed_values=('debug', 'release')),
+  
+  EnumVariable( 'compiler', 'Select the compiler (default: intel)', 'intel',
+                allowed_values=('intel', 'gcc')),
+  
+  EnumVariable( 'equations', 'equations to use', 'viscoelastic',
+                allowed_values=('viscoelastic', 'viscoelastic2')),
+
+  EnumVariable( 'order', 'convergence order of the ADER-DG method', 'none',
+                  allowed_values=('none', '2', '3', '4', '5', '6', '7', '8')),
+
+  EnumVariable( 'arch', 'Architecture.', 'dnoarch',
+                allowed_values=arch.getArchitectures()),
+
+  ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
+
+  PathVariable( 'memLayout', 'memory layout xml file', '', PathVariable.PathIsFile),
+  PathVariable( 'libxsmmGenerator', 'Path to code generator from libxsmm.', '', PathVariable.PathIsFile),
+)
+
+# set environment
+env = Environment(variables=vars)
+env['ENV'] = os.environ
+
+if env['compiler'] == 'intel':
+    env['CC'] = 'icc'
+    env['CXX'] = 'icpc'
+elif env['compiler'] == 'gcc':
+    env['CC'] = 'gcc'
+    env['CXX'] = 'g++'
+
+# generate help text
+Help(vars.GenerateHelpText(env))
+  
+# handle unknown, maybe misspelled variables
+unknownVariables = vars.UnknownVariables()
+if 'buildVariablesFile' in unknownVariables:
+  unknownVariables.pop('buildVariablesFile')
+  
+# exit in the case of unknown variables
+if unknownVariables:
+  raise EnvironmentError("*** The following build variables are unknown: " + str(unknownVariables.keys()))
+
+
+#
+# precompiler, compiler and linker flags
+#
+archFlags = arch.getFlags(env['arch'], env['compiler'])
+env.Append( CFLAGS    = archFlags,
+            CXXFLAGS  = archFlags,
+            F90FLAGS  = archFlags,
+            LINKFLAGS = archFlags )
+env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['arch'].upper()])
+
+flags = ['-fopenmp']
+if env['compileMode'] == 'debug':
+  flags.extend(['-O0', '-g'])
+else:
+  flags.extend(['-O2'])
+  env.Append(CPPDEFINES=['NDEBUG'])
+
+env.Append( CFLAGS    = flags,
+            CXXFLAGS  = flags,
+            LINKFLAGS = flags )
+
+env.Append(CPPDEFINES=[ 'GENERATEDKERNELS',
+                        'CONVERGENCE_ORDER=' + str(env['order']),
+                        'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms']),
+                        'NUMBER_OF_QUANTITIES=' + str(9 + 6*env['numberOfMechanisms']),
+                        'EQUATIONS_' + env['equations'].upper() ])
+
+# add pathname to the list of directories which are search for include
+env.Append(CPPPATH=['#../src', '#../submodules', '#../src/Equations/' + env['equations'], '#../src/Equations/' + env['equations'] + '/generated_code'])
+
+# build directory
+env['execDir'] = env['buildDir']+'/bin'
+
+# get the source files
+env.sourceFiles = []
+env.generatedTestSourceFiles = []
+
+Export('env')
+SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
+SConscript('proxy/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
+Import('env')
+
+# build executable
+env.Program('#/'+env['execDir']+'/seissol_proxy', env.sourceFiles)
+
+# Anything done here should only affect tests
+env = env.Clone()
+env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])
+env.Tool('cxxtest')
+sourceFiles = []
+for sourceFile in env.sourceFiles:
+  sourceFiles.append(sourceFile[0])
+sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles)
+
+if env.generatedTestSourceFiles:
+  env.CxxTest(target='#/'+env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)

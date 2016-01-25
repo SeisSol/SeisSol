@@ -134,4 +134,19 @@ void seissol::kernels::Local::flopsIntegral(  enum faceType const i_faceTypes[4]
       o_hardwareFlops += seissol::flops::localFlux_hardware[face];
     }
   }
+  
+  /* Flops from SXtYp:
+   * Y = 1.0 * X + Y == 1 nonzero flop, 2 hardware flops
+   */
+  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES;
+  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2;
+
+  o_nonZeroFlops += seissol::flops::source_nonZero * NUMBER_OF_RELAXATION_MECHANISMS;
+  o_hardwareFlops += seissol::flops::source_hardware * NUMBER_OF_RELAXATION_MECHANISMS;
+  
+  /* Flops from XYmStZp:
+   * Z = (X-Y) * scalar + Z == 3 nonzero and hardware flops
+   */   
+  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 3;
+  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 3;
 }

@@ -336,6 +336,8 @@ class Generator:
         test.includeSys('Initializer/preProcessorMacros.fpp')
         test.include('init.h')
         test.include('kernels.h')
+        with test.Ifndef('NDEBUG'):
+          test('long long libxsmm_num_total_flops = 0;')
         with test.Namespace('seissol'):
           with test.Namespace('unit_test'):
             with test.Function('void gemm(unsigned m, unsigned n, unsigned k, {tn}* A, {tn}* B, {tn} beta, {tn}* C)'.format(tn=self.architecture.typename)):

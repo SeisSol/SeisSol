@@ -70,6 +70,8 @@
  **/
 #include "MemoryAllocator.h"
 
+#include <utils/logger.h>
+
 void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind i_memkind)
 {
     void* l_ptrBuffer;

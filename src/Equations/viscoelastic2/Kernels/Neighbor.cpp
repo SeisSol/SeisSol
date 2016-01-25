@@ -158,4 +158,11 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_
       }
     }
   }
+  
+  /* Flops from SXtYp:
+   * Y = 1.0 * X + Y == 1 nonzero flop, 2 hardware flops
+   * Y = omega * X * Y == 2 nonzero and hardware flops
+   */
+  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * (1 + 2 * NUMBER_OF_RELAXATION_MECHANISMS);
+  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2 * (1 + NUMBER_OF_RELAXATION_MECHANISMS);
 }

@@ -374,8 +374,7 @@ env.Append( CFLAGS    = archFlags,
             CXXFLAGS  = archFlags,
             F90FLAGS  = archFlags,
             LINKFLAGS = archFlags )
-env.Append( CPPDEFINES=[  'ALIGNMENT=' + str(arch.getAlignment(env['arch'])),
-                          env['arch'].upper() ])
+env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['arch'].upper()])
   
 #
 # Compile mode settings

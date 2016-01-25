@@ -73,7 +73,7 @@ namespace seissol {
                              real const* X,
                              real* Y )
     {
-      assert(numberOfReals % DMO_INCREMENT);
+      assert(numberOfReals % DMO_INCREMENT == 0);
       
       for (unsigned i = 0; i < numberOfReals; i += DMO_INCREMENT) {
         DMO_STREAM(&X[i], &Y[i])
@@ -102,7 +102,7 @@ namespace seissol {
                         unsigned LDY,
                         real* XStore = NULL )
     {
-      assert(rows % DMO_INCREMENT);
+      assert(rows % DMO_INCREMENT == 0);
       
       DMO_BROADCAST(&scalar, intrin_scalar)
       
@@ -150,7 +150,7 @@ namespace seissol {
                         real* Z,
                         unsigned LDZ )
   {
-      assert(rows % DMO_INCREMENT);
+      assert(rows % DMO_INCREMENT == 0);
       
       DMO_BROADCAST(&scalar, intrin_scalar)
       
@@ -188,7 +188,7 @@ namespace seissol {
                           real* Z,
                           unsigned LDZ )
     {
-      assert(rows % DMO_INCREMENT);
+      assert(rows % DMO_INCREMENT == 0);
       
       DMO_BROADCAST(&scalar, intrin_scalar)
       

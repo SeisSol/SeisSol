@@ -81,15 +81,13 @@
 #include <hbwmalloc.h>
 #endif
 
-#include <utils/logger.h>
-
 namespace seissol {
   namespace memory {
     enum Memkind {
       Standard = 0,
       HighBandwidth = 1
     };
-    void* allocate(size_t i_size, size_t i_alignment, enum Memkind i_memkind = Standard);
+    void* allocate(size_t i_size, size_t i_alignment = 1, enum Memkind i_memkind = Standard);
     void free(void* i_pointer, enum Memkind i_memkind = Standard);   
 
     /**
@@ -128,7 +126,7 @@ class seissol::memory::ManagedAllocator {
      * @param  i_alignment alignment of the memory chunk in byte.
      * @return pointer, which points to the aligned memory of the given size.
      **/
-    void* allocateMemory( size_t i_size, size_t i_alignment, enum Memkind i_memkind = Standard );
+    void* allocateMemory( size_t i_size, size_t i_alignment = 1, enum Memkind i_memkind = Standard );
 };
 
 #endif

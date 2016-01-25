@@ -55,26 +55,11 @@ namespace seissol {
 }
 
 class seissol::kernels::Time {
-  private:
-    //! aligned number of basis functions in decreasing order.
-    unsigned int m_numberOfAlignedBasisFunctions[CONVERGENCE_ORDER];
-
-    /*
-     *! Offsets of the derivatives.
-     *
-     * * Offset counting starts at the zeroth derivative with o_derivativesOffset[0]=0; increasing derivatives follow:
-     *   1st derivative: o_derivativesOffset[1]
-     *   2nd derivative: o_derivativesOffset[2]
-     *   ...
-     * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
-     */
-    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-
   public:
     /**
      * Constructor, which initializes the time kernel.
      **/
-    Time();
+    Time() {}
 
     void computeAder( double                      i_timeStepWidth,
                       GlobalData const*           global,
@@ -96,7 +81,16 @@ class seissol::kernels::Time {
     static void convertAlignedCompressedTimeDerivatives( const real_from *i_compressedDerivatives,
                                                                real_to    o_fullDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] )
     {
-      //! \todo fill in
+        for (unsigned order = 0; order < CONVERGENCE_ORDER; ++order) {
+          seissol::kernels::copySubMatrix( &i_compressedDerivatives[order * NUMBER_OF_ALIGNED_DOFS],
+                                           NUMBER_OF_BASIS_FUNCTIONS,
+                                           NUMBER_OF_QUANTITIES,
+                                           NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+                                           o_fullDerivatives[order],
+                                           NUMBER_OF_BASIS_FUNCTIONS,
+                                           NUMBER_OF_QUANTITIES,
+                                           NUMBER_OF_BASIS_FUNCTIONS );
+        }
     }
 };
 
