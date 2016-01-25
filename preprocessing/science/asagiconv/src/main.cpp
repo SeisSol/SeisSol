@@ -188,6 +188,8 @@ int main(int argc, char* argv[])
 	args.addOption("query-proj-geo", 0, "Query coordinates are geographic locations (Default: Yes)",
 			utils::Args::Required, false);
 	args.addOption("paraview", 'p', "Viewable by Paraview", utils::Args::No, false);
+	args.addOption("chunk-size", 'c', "Chunk size for the netCDF file",
+			utils::Args::Required, false);
 	args.addAdditionalOption("output", "netCDF output file");
 
 	// Parse/check command line arguments
@@ -328,7 +330,16 @@ int main(int argc, char* argv[])
 		checkNcOError(nc_insert_compound(ncFile, ncType, "lambda", 2*sizeof(float), NC_FLOAT));
 
 		checkNcOError(nc_def_var(ncFile, "data", ncType, 3, ncDims, &ncData));
+
+		if (args.isSet("chunk-size")) {
+			unsigned int chunkSize = args.getArgument<unsigned int>("chunk-size");
+
+			size_t chunks[3] = {chunkSize, chunkSize, chunkSize};
+			checkNcOError(nc_def_var_chunking(ncFile, ncData, NC_CHUNKED, chunks));
+		}
 	}
+
+	checkNcOError(nc_enddef(ncFile));
 
 	// Fill dimension variables
 	float* x = new float[gridSize.x];
@@ -383,12 +394,14 @@ int main(int argc, char* argv[])
 					data[i*3 + 1] = mu;
 					data[i*3 + 2] = lambda;
 				}
-
+			} else {
+				if (z == 0)
+					logError() << "Invalid value in deepest level.";
 			}
 		}
 
 		size_t start[3] = {z, 0, 0};
-		size_t count[3] = {1, gridSize.y, gridSize.z};
+		size_t count[3] = {1, gridSize.y, gridSize.x};
 
 		if (paraview) {
 			checkNcOError(nc_put_vara_float(ncFile, ncRho, start, count, data));
