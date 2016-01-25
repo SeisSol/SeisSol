@@ -512,7 +512,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
 #endif
     g_SeisSolHardwareFlopsLocal += (long long)l_tempHardwareFlops;
     
-    m_volumeKernel.flopsIntegral(        l_tempNonZeroFlops,
+    m_localKernel.flopsIntegral(        l_tempNonZeroFlops,
                                          l_tempHardwareFlops);
 #ifdef _OPENMP
     #pragma omp atomic
@@ -523,7 +523,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
 #endif
     g_SeisSolHardwareFlopsLocal += (long long)l_tempHardwareFlops;
 
-    m_boundaryKernel.flopsLocalIntegral( i_cellInformation[l_cell].faceTypes, 
+    m_neighborKernel.flopsLocalIntegral( i_cellInformation[l_cell].faceTypes, 
                                          l_tempNonZeroFlops,
                                          l_tempHardwareFlops);
 #ifdef _OPENMP
@@ -658,7 +658,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
 #ifndef NDEBUG
     unsigned int l_tempHardwareFlops = 0;
     unsigned int l_tempNonZeroFlops = 0;
-    m_boundaryKernel.flopsNeighborsIntegral( i_cellInformation[l_cell].faceTypes,
+    m_neighborKernel.flopsNeighborsIntegral( i_cellInformation[l_cell].faceTypes,
                                              i_cellInformation[l_cell].faceRelations,
                                              l_tempNonZeroFlops,
                                              l_tempHardwareFlops);
