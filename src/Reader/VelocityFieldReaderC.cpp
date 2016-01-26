@@ -57,7 +57,8 @@
 #include "glm/vector_relational.hpp"
 #include "glm/gtc/round.hpp"
 
-#include "SeisSol.h"
+#include "Parallel/MPI.h"
+#include "Monitoring/instrumentation.fpp"
 
 enum MPI_Mode
 {
@@ -88,7 +89,7 @@ static int getTotalThreads()
  */
 static MPI_Mode getMPIMode(int totalThreads)
 {
-	const int rank = seissol::SeisSol::main.mpi().rank();
+	const int rank = seissol::MPI::mpi.rank();
 
 #ifdef USE_MPI
 	const char* mpiModeName = utils::Env::get("SEISSOL_ASAGI_MPI_MODE", "WINDOWS");
@@ -137,17 +138,13 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
         double defaultRho, double defaultMu, double defaultLambda, double* materialValues)
 {
 #ifdef USE_ASAGI
-	EPIK_TRACER("read_velocity_field");
 	SCOREP_USER_REGION("read_velocity_field", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	const seissol::MPI& mpi = seissol::SeisSol::main.mpi();
-	const int rank = mpi.rank();
+	const int rank = seissol::MPI::mpi.rank();
 
 	logInfo(rank) << "Initializing velocity field.";
 
-	EPIK_USER_REG(r_asagi_init, "asagi_init");
 	SCOREP_USER_REGION_DEFINE(r_asagi_init);
-	EPIK_USER_START(r_asagi_init);
 	SCOREP_USER_REGION_BEGIN(r_asagi_init, "asagi_init", SCOREP_USER_REGION_TYPE_COMMON);
 
 	asagi::Grid* grid = asagi::Grid::create();
@@ -158,7 +155,7 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	MPI_Mode mpiMode = getMPIMode(totalThreads);
 #ifdef USE_MPI
 	if (mpiMode != MPI_OFF) {
-		grid->setComm(mpi.comm());
+		grid->setComm(seissol::MPI::mpi.comm());
 
 		if (mpiMode == MPI_COMM_THREAD) {
 			// WARNING: This assumes that if we use the communication thread,
@@ -210,7 +207,6 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	}
 	SCOREP_RECORDING_ON();
 
-	EPIK_USER_END(r_asagi_init);
 	SCOREP_USER_REGION_END(r_asagi_init);
 
 	// Grid dimensions
@@ -218,9 +214,7 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	const glm::dvec3 max(grid->getMax(0), grid->getMax(1), grid->getMax(2));
 	const glm::dvec3 delta(grid->getDelta(0), grid->getDelta(1), grid->getDelta(2));
 
-	EPIK_USER_REG(r_asagi_read, "asagi_read");
 	SCOREP_USER_REGION_DEFINE(r_asagi_read);
-	EPIK_USER_START(r_asagi_read);
 	SCOREP_USER_REGION_BEGIN(r_asagi_read, "asagi_read", SCOREP_USER_REGION_TYPE_COMMON);
 
 	// Initialize the values in SeisSol
@@ -286,11 +280,10 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	}
 	SCOREP_RECORDING_ON();
 
-	EPIK_USER_END(r_asagi_read);
 	SCOREP_USER_REGION_END(r_asagi_read);
 
 	// Cleanup
-	mpi.barrier(mpi.comm());
+	seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 
 	delete grid;
 

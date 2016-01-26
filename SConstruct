@@ -522,7 +522,7 @@ if env['asagi']:
     if env['scalasca'] in ['default', 'kernels']:
         ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
     
-    env.Tool('AsagiTool', required=(not helpMode), toolpath=['build/scons/Tools'])
+    env.Tool('AsagiTool', required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
 
 # add pathname to the list of directories wich are search for include
