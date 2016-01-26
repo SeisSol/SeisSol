@@ -574,7 +574,7 @@ for sourceFile in env.sourceFiles:
 env.Program('#/'+env['programFile'], sourceFiles)
 
 # build unit tests
-if env['unitTests'] != 'none' and env['generatedKernels']:
+if env['unitTests'] != 'none':
   # Anything done here should only affect tests
   env = env.Clone()
   

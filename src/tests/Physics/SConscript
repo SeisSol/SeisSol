@@ -40,6 +40,7 @@ import os
 
 Import('env')
 
-env.testSourceFiles.append(os.path.abspath('PointSource.t.h'))
+if env['generatedKernels']:
+  env.testSourceFiles.append(os.path.abspath('PointSource.t.h'))
 
 Export('env')
