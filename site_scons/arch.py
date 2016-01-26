@@ -85,7 +85,7 @@ def getFlags(architecture, compiler):
     else:
       flags = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4']
   else:
-    flags = dict()
+    flags = []
   
   # enable interproc. opts for small cores
   if cpu in ['knc', 'knl']:
