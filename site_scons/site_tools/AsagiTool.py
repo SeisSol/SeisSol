@@ -6,7 +6,7 @@
 # @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 #
 # @section LICENSE
-# Copyright (c) 2015, SeisSol Group
+# Copyright (c) 2016, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -77,6 +77,9 @@ def generate(env, **kw):
         # Use parallel as default, since ASAGI makes not too much
         # sense in serial code 
         parallel = True
+        
+    if not parallel:
+        env.Append(CPPDEFINES=['ASAGI_NOMPI'])
         
     lib = 'asagi' if parallel else 'asagi_nompi'
         
