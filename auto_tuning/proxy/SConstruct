@@ -129,7 +129,7 @@ env.Append(CPPDEFINES=[ 'GENERATEDKERNELS',
                         'EQUATIONS_' + env['equations'].upper() ])
 
 # add pathname to the list of directories which are search for include
-env.Append(CPPPATH=['#../src', '#../submodules', '#../src/Equations/' + env['equations'], '#../src/Equations/' + env['equations'] + '/generated_code'])
+env.Append(CPPPATH=['#../../src', '#../../submodules', '#../../src/Equations/' + env['equations'], '#../../src/Equations/' + env['equations'] + '/generated_code'])
 
 # build directory
 env['execDir'] = env['buildDir']+'/bin'
@@ -140,7 +140,7 @@ env.generatedTestSourceFiles = []
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
-SConscript('proxy/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
+SConscript('src/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
 Import('env')
 
 # build executable
