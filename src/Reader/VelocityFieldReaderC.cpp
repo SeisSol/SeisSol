@@ -60,6 +60,8 @@
 #include "Parallel/MPI.h"
 #include "Monitoring/instrumentation.fpp"
 
+typedef double vertex_t[3];
+
 enum MPI_Mode
 {
 	MPI_OFF, MPI_WINDOWS, MPI_COMM_THREAD
@@ -134,7 +136,7 @@ extern "C"
  *  instrumentation off for some parts. This can only be done with Scalasca 2.x.
  *  Therefore, ASAGI cannot run with Scalasca 1.x.
  */
-void read_velocity_field(const char* file, int numElements, const double* baryCenters[3],
+void read_velocity_field(const char* file, int numElements, const vertex_t* baryCenters,
         double defaultRho, double defaultMu, double defaultLambda, double* materialValues)
 {
 #ifdef USE_ASAGI
@@ -198,14 +200,16 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	grid->setParam("VARIABLE", "data");
 
 	// Read the data
-	SCOREP_RECORDING_OFF();
+	//SCOREP_RECORDING_OFF();
+#ifdef _OPENMP
 	#pragma omp parallel num_threads(asagiThreads)
+#endif // _OPENMP
 	{
 		asagi::Grid::Error err = grid->open(file);
 		if (err != asagi::Grid::SUCCESS)
 			logError() << "Could not open ASAGI grid:" << err;
 	}
-	SCOREP_RECORDING_ON();
+	//SCOREP_RECORDING_ON();
 
 	SCOREP_USER_REGION_END(r_asagi_init);
 
@@ -218,24 +222,38 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	SCOREP_USER_REGION_BEGIN(r_asagi_read, "asagi_read", SCOREP_USER_REGION_TYPE_COMMON);
 
 	// Initialize the values in SeisSol
+	unsigned long outside = 0;
+
 	SCOREP_RECORDING_OFF();
-	#pragma omp parallel for num_threads(asagiThreads)
+#ifdef _OPENMP
+	#pragma omp parallel for num_threads(asagiThreads) reduction(+: outside)
+#endif // _OPENMP
 	for (int i = 0; i < numElements; i++) {
 		const glm::dvec3 baryCenter(baryCenters[i][0], baryCenters[i][1], baryCenters[i][2]);
 
-		if (glm::any(glm::lessThan(baryCenter, min))
-			|| glm::any(glm::greaterThan(baryCenter, max))) {
+		// Compute the surrounding coordinates
+		glm::dvec3 shiftedBary = baryCenter - min;
+		glm::dvec3 lowCoord = glm::floorMultiple(shiftedBary, delta) + min;
+		glm::dvec3 highCoord = glm::ceilMultiple(shiftedBary, delta) + min;
+
+		// Fix low/high if they are outside of the domain (but the bary center is inside)
+		if (glm::all(glm::greaterThanEqual(baryCenter, min))
+			&& glm::any(glm::lessThan(lowCoord, min)))
+			lowCoord = glm::max(lowCoord, min);
+		if (glm::all(glm::lessThanEqual(baryCenter, max))
+			&& glm::any(glm::greaterThan(highCoord, max)))
+			highCoord = glm::min(highCoord, max);
+
+		if (glm::any(glm::lessThan(lowCoord, min))
+			|| glm::any(glm::greaterThan(highCoord, max))) {
 			// Outside the ASAGI domain
 
 			materialValues[i] = defaultRho;
 			materialValues[i+numElements] = defaultMu;
 			materialValues[i+2*numElements] = defaultLambda;
-		} else {
-			// Compute the surrounding coordinates
-			glm::dvec3 shiftedBary = baryCenter - min;
-			glm::dvec3 lowCoord = glm::floorMultiple(shiftedBary, delta) + min;
-			glm::dvec3 highCoord = glm::ceilMultiple(shiftedBary, delta) + min;
 
+			outside++;
+		} else {
 			// Get all 8 material values
 			float material[8][3];
 			double coord[3];
@@ -280,18 +298,27 @@ void read_velocity_field(const char* file, int numElements, const double* baryCe
 	}
 	SCOREP_RECORDING_ON();
 
+#ifdef USE_MPI
+	if (rank == 0)
+		MPI_Reduce(MPI_IN_PLACE, &outside, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
+	else
+		MPI_Reduce(&outside, 0L, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
+#endif // USE_MPI
+	if (outside > 0)
+		logWarning(rank) << "Found" << outside << "cells of the given velocity field.";
+
 	SCOREP_USER_REGION_END(r_asagi_read);
 
 	// Cleanup
-	seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
-
 	delete grid;
 
+#ifdef USE_MPI
 	if (mpiMode == MPI_COMM_THREAD) {
 		SCOREP_RECORDING_OFF();
 		asagi::Grid::stopCommThread();
 		SCOREP_RECORDING_ON();
 	}
+#endif // USE_MPI
 
 	logInfo(rank) << "Initializing velocity field. Done.";
 
