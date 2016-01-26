@@ -125,7 +125,7 @@ env.Append( CFLAGS    = flags,
 env.Append(CPPDEFINES=[ 'GENERATEDKERNELS',
                         'CONVERGENCE_ORDER=' + str(env['order']),
                         'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms']),
-                        'NUMBER_OF_QUANTITIES=' + str(9 + 6*env['numberOfMechanisms']),
+                        'NUMBER_OF_QUANTITIES=' + str(9 + 6*int(env['numberOfMechanisms'])),
                         'EQUATIONS_' + env['equations'].upper() ])
 
 # add pathname to the list of directories which are search for include
@@ -139,12 +139,12 @@ env.sourceFiles = []
 env.generatedTestSourceFiles = []
 
 Export('env')
-SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
-SConscript('src/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
+SConscript('generated_code/SConscript', variant_dir=env['buildDir'], src_dir='#/', duplicate=0)
+SConscript('src/SConscript', variant_dir=env['buildDir'], src_dir='#/', duplicate=0)
 Import('env')
 
 # build executable
-env.Program('#/'+env['execDir']+'/seissol_proxy', env.sourceFiles)
+env.Program(env['execDir']+'/seissol_proxy', env.sourceFiles)
 
 # Anything done here should only affect tests
 env = env.Clone()
@@ -156,4 +156,4 @@ for sourceFile in env.sourceFiles:
 sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles)
 
 if env.generatedTestSourceFiles:
-  env.CxxTest(target='#/'+env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)
+  env.CxxTest(target=env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)
