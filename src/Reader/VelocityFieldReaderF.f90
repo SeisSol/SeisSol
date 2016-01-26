@@ -69,7 +69,7 @@ contains
         type (tUnstructMesh), intent(in) :: mesh
         real, intent(out)                :: materialValues(mesh%nElem, 3)
 
-        call read_velocity_field(eqn%MaterialFileName, mesh%nElem, mesh%elem%xyBary, &
+        call read_velocity_field(trim(eqn%MaterialFileName) // c_null_char, mesh%nElem, mesh%elem%xyBary, &
             eqn%rho0, eqn%mu, eqn%lambda, materialValues)
     end subroutine readVelocityField
 end module
