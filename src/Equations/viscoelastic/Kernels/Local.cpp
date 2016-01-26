@@ -107,3 +107,21 @@ void seissol::kernels::Local::flopsIntegral(  enum faceType const i_faceTypes[4]
     }
   }
 }
+
+unsigned seissol::kernels::Local::bytesIntegral()
+{
+  unsigned reals = 0;
+
+  // star matrices load, source matrix load
+  reals += seissol::model::AstarT::reals
+           + seissol::model::BstarT::reals
+           + seissol::model::CstarT::reals
+           + seissol::model::source::reals;
+  // flux solvers
+  reals += 4 * seissol::model::AplusT::reals;
+
+  // DOFs write
+  reals += NUMBER_OF_ALIGNED_DOFS;
+  
+  return reals * sizeof(real);
+}

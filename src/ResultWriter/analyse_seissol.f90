@@ -60,6 +60,9 @@ CONTAINS
     USE dg_setup_mod
     USE ini_OptionalFields_mod
     USE COMMON_operators_mod
+#ifdef GENERATEDKERNELS
+    use monitoring
+#endif
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
@@ -83,11 +86,16 @@ CONTAINS
     !--------------------------------------------------------------------------
     !                                                                          !
     logInfo(*) '<--------------------------------------------------------->'
+#ifdef GENERATEDKERNELS
+    logInfo(*) 'Wall time:   ', DISC%LoopCPUTime
+    call printFlops()
+#else
     logInfo(*) 'CPU-Time:    ', DISC%LoopCPUTime
     logInfo(*) 'CPU-TimeInt: ', DISC%Galerkin%Cpu_TimeInt, ' n: ', DISC%Galerkin%nCpu_TimeInt
     logInfo(*) 'CPU-Volume:  ', DISC%Galerkin%Cpu_Volume, ' n: ', DISC%Galerkin%nCpu_Volume
     logInfo(*) 'CPU-Source:  ', DISC%Galerkin%Cpu_Source, ' n: ', DISC%Galerkin%nCpu_Source
     logInfo(*) 'CPU-Flux:    ', DISC%Galerkin%Cpu_Flux, ' n: ', DISC%Galerkin%nCpu_Flux
+#endif
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) 'h1 = ', MESH%MaxSQRTVolume                      !
     logInfo(*) 'h2 = ', MESH%MaxCircle                          !

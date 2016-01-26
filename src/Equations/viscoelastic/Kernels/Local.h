@@ -66,6 +66,8 @@ class seissol::kernels::Local {
     void flopsIntegral( enum faceType const i_faceTypes[4],
                         unsigned int        &o_nonZeroFlops,
                         unsigned int        &o_hardwareFlops );
+                        
+    unsigned bytesIntegral();
 };
 
 #endif

@@ -138,3 +138,15 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_
     }
   }
 }
+
+unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
+{
+  unsigned reals = 0;
+
+  // 4 * tElasticDOFS load, DOFs load, DOFs write
+  reals += 4 * NUMBER_OF_ALIGNED_ELASTIC_DOFS + 2 * NUMBER_OF_ALIGNED_DOFS;
+  // flux solvers load
+  reals += 4 * seissol::model::AminusT::reals;
+  
+  return reals * sizeof(real);
+}

@@ -66,6 +66,8 @@ class seissol::kernels::Neighbor {
                                  const int            i_neighboringIndices[4][2],
                                  unsigned int        &o_nonZeroFlops,
                                  unsigned int        &o_hardwareFlops );
+                                 
+    unsigned bytesNeighborsIntegral();
 };
 
 #endif

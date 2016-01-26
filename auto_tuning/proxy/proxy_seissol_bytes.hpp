@@ -25,105 +25,27 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-double bytes_ader(unsigned int i_timesteps) {
-  double d_elems = (double)m_cells->numberOfCells;
-  double d_timesteps = (double)i_timesteps;
-  double bytes = 0;
-
-  // DOFs load and tDOFs write
-#ifdef __USE_DERS
-  bytes += CONVERGENCE_ORDER * (double)sizeof(real) * 1.0 * (double)seissol::kernels::getNumberOfAlignedBasisFunctions( o ) * 9.0;
-#endif
-  bytes += (double)sizeof(real) * 3.0 * (double)seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER ) * (double)NUMBER_OF_QUANTITIES;
-
-  // star
-  bytes += (double)sizeof(real) * 3.0 * (double) seissol::model::AstarT::reals;
-
-  bytes *= d_elems;
-  bytes *= d_timesteps;
-
-  return bytes;
-}
-
-double bytes_vol(unsigned int i_timesteps) {
-  double d_elems = (double)m_cells->numberOfCells;
-  double d_timesteps = (double)i_timesteps;
-  double bytes = 0;
-
-  // tDOFs load, DOFs write
-  bytes += (double)sizeof(real) * 3.0 * (double)seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER ) * (double)NUMBER_OF_QUANTITIES;
-  // star
-  bytes += (double)sizeof(real) * 3.0 * (double) seissol::model::AstarT::reals;
-
-  bytes *= d_elems;
-  bytes *= d_timesteps;
-
-  return bytes;
-}
-
-double bytes_bndlocal(unsigned int i_timesteps) {
-  double d_elems = (double)m_cells->numberOfCells;
-  double d_timesteps = (double)i_timesteps;
-  double bytes = 0;
-
-  // tDOFs load, DOFs write
-  bytes += (double)sizeof(real) * 3.0 * (double)seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER ) * 9.0;
-  // flux
-  bytes += (double)sizeof(real) * 4.0 * (double)seissol::model::AplusT::reals;
-
-  bytes *= d_elems;
-  bytes *= d_timesteps;
-
-  return bytes;
-}
-
 double bytes_local(unsigned int i_timesteps) {
-  double d_elems = (double)m_cells->numberOfCells;
-  double d_timesteps = (double)i_timesteps;
-  double bytes = 0;
-
-  // DOFs load, tDOFs sum of ader, vol, boundary
-  bytes += (double)sizeof(real) * 3.0 * (double)seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER ) * (double)NUMBER_OF_QUANTITIES;
-  // star
-  bytes += (double)sizeof(real) * 3.0 * (double)seissol::model::AstarT::reals;
-  // flux solver
-  bytes += (double)sizeof(real) * 4.0 * (double)seissol::model::AplusT::reals;
-
-  bytes *= d_elems;
-  bytes *= d_timesteps;
-
-  return bytes;
+  double bytes = static_cast<double>(m_timeKernel.bytesAder() + m_localKernel.bytesIntegral());
+  double elems = static_cast<double>(m_cells->numberOfCells);
+  double timesteps = static_cast<double>(i_timesteps);
+  
+  return elems * timesteps * bytes;
 }
 
-double bytes_bndneigh(unsigned int i_timesteps) {
-  double d_elems = (double)m_cells->numberOfCells;
-  double d_timesteps = (double)i_timesteps;
-  double bytes = 0;
-
-  // 4 tDOFs/DERs load, DOFs write
-#ifdef __USE_DERS
-  bytes += (double)sizeof(real) * 2.0 * (double)seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER ) * (double)NUMBER_OF_QUANTITIES;
-  // load neighbors' DERs
-  for (int o  = CONVERGENCE_ORDER; o > 0; o--) {
-    bytes += (double)sizeof(real) * 4.0 * (double)seissol::kernels::getNumberOfAlignedBasisFunctions( o ) * (double)NUMBER_OF_QUANTITIES;
-  }
-#else
-  bytes += (double)sizeof(real) * 6.0 * (double)seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER ) * (double)NUMBER_OF_QUANTITIES;
-#endif
-  // flux
-  bytes += (double)sizeof(real) * 4.0 * (double)seissol::model::AplusT::reals;
-
-  bytes *= d_elems;
-  bytes *= d_timesteps;
-
-  return bytes;
+double bytes_neigh(unsigned int i_timesteps) {
+  double bytes = static_cast<double>(m_neighborKernel.bytesNeighborsIntegral());
+  double elems = static_cast<double>(m_cells->numberOfCells);
+  double timesteps = static_cast<double>(i_timesteps);
+  
+  return elems * timesteps * bytes;
 }
 
 double bytes_all(unsigned int i_timesteps) {
-  return (bytes_local(i_timesteps) + bytes_bndneigh(i_timesteps));
+  return bytes_local(i_timesteps) + bytes_neigh(i_timesteps);
 }
 
-double dummy(unsigned) {
+double noestimate(unsigned) {
   return 0.0;
 }
 

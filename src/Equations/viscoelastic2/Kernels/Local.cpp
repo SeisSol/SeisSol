@@ -138,8 +138,8 @@ void seissol::kernels::Local::flopsIntegral(  enum faceType const i_faceTypes[4]
   /* Flops from SXtYp:
    * Y = 1.0 * X + Y == 1 nonzero flop, 2 hardware flops
    */
-  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES;
-  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2;
+  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_ELASTIC_QUANTITIES;
+  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_ELASTIC_QUANTITIES * 2;
 
   o_nonZeroFlops += seissol::flops::source_nonZero * NUMBER_OF_RELAXATION_MECHANISMS;
   o_hardwareFlops += seissol::flops::source_hardware * NUMBER_OF_RELAXATION_MECHANISMS;
@@ -147,6 +147,24 @@ void seissol::kernels::Local::flopsIntegral(  enum faceType const i_faceTypes[4]
   /* Flops from XYmStZp:
    * Z = (X-Y) * scalar + Z == 3 nonzero and hardware flops
    */   
-  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 3;
-  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 3;
+  o_nonZeroFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 3;
+  o_hardwareFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 3;
+}
+
+unsigned seissol::kernels::Local::bytesIntegral()
+{
+  unsigned reals = 0;
+
+  // star matrices load, source matrix load
+  reals += seissol::model::AstarT::reals
+           + seissol::model::BstarT::reals
+           + seissol::model::CstarT::reals
+           + NUMBER_OF_RELAXATION_MECHANISMS * seissol::model::ET::reals;
+  // flux solvers
+  reals += 4 * seissol::model::AplusT::reals;
+
+  // DOFs write
+  reals += NUMBER_OF_ALIGNED_DOFS;
+  
+  return reals * sizeof(real);
 }

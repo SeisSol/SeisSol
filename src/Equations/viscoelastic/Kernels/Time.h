@@ -89,6 +89,8 @@ class seissol::kernels::Time {
      **/
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
+                    
+    unsigned bytesAder();
 
     /**
      * Computes the time integrated degrees of freedom from previously computed time derivatives.

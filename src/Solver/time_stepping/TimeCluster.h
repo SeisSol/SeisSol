@@ -194,6 +194,17 @@ private:
 
     //! true if dynamic rupture faces are present
     bool m_dynamicRuptureFaces;
+    
+    enum ComputePart {
+      LocalCopy = 0,
+      LocalInterior,
+      NeighborCopy,
+      NeighborInterior,
+      NUM_COMPUTE_PARTS
+    };
+    
+    long long m_flops_nonZero[NUM_COMPUTE_PARTS];
+    long long m_flops_hardware[NUM_COMPUTE_PARTS];
 
 #ifdef USE_MPI
     /**
@@ -292,6 +303,17 @@ private:
                                         real                 *(*i_faceNeighbors)[4],
                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
 										real                  (*io_pstrain)[7] );
+
+    void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
+                                        CellLocalInformation const* cellInformation,
+                                        long long&                  nonZeroFlops,
+                                        long long&                  hardwareFlops  );
+
+    void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
+                                          CellLocalInformation const* cellInformation,
+                                          long long&                  nonZeroFlops,
+                                          long long&                  hardwareFlops);
+    void computeFlops();
 
   public:
     //! flags identifiying if the respective part is allowed to be updated

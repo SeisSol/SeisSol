@@ -87,7 +87,13 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   }
   for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof++ ) {
     l_derivativesBuffer[l_dof] = 0.0;
-  }  
+  }
+#ifndef NDEBUG
+#ifdef _OPENMP
+#pragma omp atomic
+#endif
+  libxsmm_num_total_flops += NUMBER_OF_ALIGNED_DOFS;
+#endif
 
   // stream out frist derivative (order 0)
   if ( o_timeDerivatives != NULL ) {
@@ -169,6 +175,23 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
     o_nonZeroFlops  += NUMBER_OF_DOFS * 2;
     o_hardwareFlops += NUMBER_OF_ALIGNED_DOFS * 2;
   }
+}
+
+unsigned seissol::kernels::Time::bytesAder()
+{
+  unsigned reals = 0;
+  
+  // DOFs load, tDOFs load, tDOFs write
+  reals += 3 * NUMBER_OF_ALIGNED_DOFS;
+  // star matrices, source matrix
+  reals += seissol::model::AstarT::reals
+           + seissol::model::BstarT::reals
+           + seissol::model::CstarT::reals
+           + NUMBER_OF_RELAXATION_MECHANISMS * seissol::model::ET::reals;
+           
+  /// \todo incorporate derivatives
+
+  return reals * sizeof(real);
 }
 
 void seissol::kernels::Time::computeIntegral( double                                      i_expansionPoint,

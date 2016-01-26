@@ -241,19 +241,19 @@ int main(int argc, char* argv[]) {
   double (*bytes_fun)(unsigned);
   if (s_part.compare("all") == 0) {
     flop_fun = &flops_all_actual;
-    bytes_fun = &dummy;
+    bytes_fun = &bytes_all;
   } else if (s_part.compare("local") == 0) {
     flop_fun = &flops_local_actual;
-    bytes_fun = &dummy;
+    bytes_fun = &bytes_local;
   } else if (s_part.compare("neigh") == 0) {
     flop_fun = &flops_neigh_actual;
-    bytes_fun = &dummy;
+    bytes_fun = &bytes_neigh;
   } else if (s_part.compare("ader") == 0) {
     flop_fun = &flops_ader_actual;
-    bytes_fun = &dummy;
+    bytes_fun = &noestimate;
   } else {
     flop_fun = &flops_localWithoutAder_actual;
-    bytes_fun = &dummy;
+    bytes_fun = &noestimate;
   }
   
   seissol_flops actual_flops = (*flop_fun)(i_timesteps);
