@@ -51,6 +51,7 @@ cmdLineParser.add_argument('--arch', required=True)
 cmdLineParser.add_argument('--workingDir', required=True)
 cmdLineParser.add_argument('--nelem', default=10000, type=int)
 cmdLineParser.add_argument('--ntimesteps', default=100, type=int)
+cmdLineParser.add_argument('--build', action='store_true')
 args = cmdLineParser.parse_args()
 
 # Generate working directory
@@ -88,10 +89,10 @@ options = {
   'arch':               args.arch,
   'compileMode':        'release'
 }
-Proxy.buildAndRun(options, args.nelem, args.ntimesteps)
+Proxy.buildAndRun(options, args.nelem, args.ntimesteps, run=not args.build)
+if not args.build:
+  # Analysis
+  matrices = Analysis.analyse()
 
-# Analysis
-matrices = Analysis.analyse()
-
-# Generate best memory layout
-MemoryLayout.generateLayoutFile(matrices, memoryLayouts)
+  # Generate best memory layout
+  MemoryLayout.generateLayoutFile(matrices, memoryLayouts)

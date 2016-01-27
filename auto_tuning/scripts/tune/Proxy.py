@@ -49,7 +49,7 @@ def _run(cmd):
   if os.system(cmd) != 0:
     raise Exception('Last system command failed.')
 
-def buildAndRun(proxyOptions, nElem, nTimesteps):
+def buildAndRun(proxyOptions, nElem, nTimesteps, run=True):
   layoutDir = MemoryLayout.OutputDir
   buildDir = os.path.abspath(BuildDir)
   outputDir = os.path.abspath(OutputDir)
@@ -71,8 +71,9 @@ def buildAndRun(proxyOptions, nElem, nTimesteps):
     tests = '{}/bin/generated_kernels_test_suite > {}/{}.test'.format(configBuildDir, outputDir, configName)
     proxy = '{}/bin/seissol_proxy {} {} all > {}/{}.run'.format(configBuildDir, nElem, nTimesteps, outputDir, configName)
     _run(build)
-    _run(tests)
-    _run(proxy)
+    if run:
+      _run(tests)
+      _run(proxy)
   
   os.chdir(cwd)
 

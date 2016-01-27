@@ -149,6 +149,7 @@ env.Program(env['execDir']+'/seissol_proxy', env.sourceFiles)
 # Anything done here should only affect tests
 env = env.Clone()
 env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])
+env['CXXTEST'] = '../../submodules/cxxtest'
 env.Tool('cxxtest')
 sourceFiles = []
 for sourceFile in env.sourceFiles:
