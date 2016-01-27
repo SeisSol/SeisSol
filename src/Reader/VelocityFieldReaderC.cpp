@@ -69,7 +69,7 @@ enum MPI_Mode
 
 enum NUMACache_Mode
 {
-	NUMA_OFF, NUMA_ON
+	NUMA_OFF, NUMA_ON, NUMA_CACHE
 };
 
 static int getTotalThreads()
@@ -113,7 +113,7 @@ static MPI_Mode getMPIMode(int totalThreads)
 	return MPI_OFF;
 }
 
-static NUMACache_Mode getNUMACacheMode()
+static NUMACache_Mode getNUMAMode()
 {
 	const char* numaModeName = utils::Env::get("SEISSOL_ASAGI_NUMA_MODE", "ON");
 
@@ -121,6 +121,8 @@ static NUMACache_Mode getNUMACacheMode()
 		return NUMA_ON;
 	if (strcmp(numaModeName, "OFF") == 0)
 		return NUMA_OFF;
+	if (strcmp(numaModeName, "CACHE") == 0)
+		return NUMA_CACHE;
 
 	logError() << "Unknown NUMA mode:" << numaModeName;
 	return NUMA_OFF;
@@ -186,8 +188,20 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 
 	grid->setThreads(asagiThreads);
 
-	if (getNUMACacheMode() == NUMA_ON)
-		grid->setParam("NUMA_CACHE", "ON");
+	switch (getNUMAMode()) {
+	case NUMA_ON:
+		grid->setParam("NUMA_COMMUNICATION", "ON");
+		break;
+	case NUMA_OFF:
+		grid->setParam("NUMA_COMMUNICATION", "OFF");
+		break;
+	case NUMA_CACHE:
+		grid->setParam("NUMA_COMMUNICATION", "CACHE");
+		break;
+	}
+
+	// Set vertex centered grid
+	grid->setParam("VALUE_POSITION", "VERTEX_CENTERED");
 
 	// Set additional parameters
 	const char* blockSize = utils::Env::get("SEISSOL_ASAGI_BLOCK_SIZE", "64");
@@ -237,12 +251,13 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 		glm::dvec3 highCoord = glm::ceilMultiple(shiftedBary, delta) + min;
 
 		// Fix low/high if they are outside of the domain (but the bary center is inside)
-		if (glm::all(glm::greaterThanEqual(baryCenter, min))
-			&& glm::any(glm::lessThan(lowCoord, min)))
-			lowCoord = glm::max(lowCoord, min);
-		if (glm::all(glm::lessThanEqual(baryCenter, max))
-			&& glm::any(glm::greaterThan(highCoord, max)))
-			highCoord = glm::min(highCoord, max);
+		// -> Should not be necessary if we use vertex centered grid
+//		if (glm::all(glm::greaterThanEqual(baryCenter, min))
+//			&& glm::any(glm::lessThan(lowCoord, min)))
+//			lowCoord = glm::max(lowCoord, min);
+//		if (glm::all(glm::lessThanEqual(baryCenter, max))
+//			&& glm::any(glm::greaterThan(highCoord, max)))
+//			highCoord = glm::min(highCoord, max);
 
 		if (glm::any(glm::lessThan(lowCoord, min))
 			|| glm::any(glm::greaterThan(highCoord, max))) {
