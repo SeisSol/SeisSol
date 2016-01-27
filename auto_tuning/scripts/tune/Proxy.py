@@ -73,4 +73,6 @@ def buildAndRun(proxyOptions, nElem, nTimesteps):
     _run(build)
     _run(tests)
     _run(proxy)
+  
+  os.chdir(cwd)
 

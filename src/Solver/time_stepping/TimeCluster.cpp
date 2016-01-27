@@ -866,20 +866,24 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(  unsi
 
 void seissol::time_stepping::TimeCluster::computeFlops()
 {
+#ifdef USE_MPI
   computeLocalIntegrationFlops( m_meshStructure->numberOfCopyCells,
                                 m_copyCellInformation,
                                 m_flops_nonZero[LocalCopy],
                                 m_flops_hardware[LocalCopy] );
+#endif
 
   computeLocalIntegrationFlops( m_meshStructure->numberOfInteriorCells,
                                 m_interiorCellInformation,
                                 m_flops_nonZero[LocalInterior],
                                 m_flops_hardware[LocalInterior] );
 
+#ifdef USE_MPI
   computeNeighborIntegrationFlops(  m_meshStructure->numberOfCopyCells,
                                     m_copyCellInformation,
                                     m_flops_nonZero[NeighborCopy],
                                     m_flops_hardware[NeighborCopy] );
+#endif
 
   computeNeighborIntegrationFlops(  m_meshStructure->numberOfInteriorCells,
                                     m_interiorCellInformation,

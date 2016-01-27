@@ -69,8 +69,8 @@ def getFlags(architecture, compiler):
   cpu = getCpu(architecture)
   
   if cpu == 'wsm':
-    flags = ['-msse3']    
-  if cpu == 'snb':
+    flags = ['-msse3']
+  elif cpu == 'snb':
     flags =  ['-mavx']
   elif cpu == 'hsw':
     if compiler == 'intel':

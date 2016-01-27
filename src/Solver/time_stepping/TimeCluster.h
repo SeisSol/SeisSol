@@ -196,10 +196,12 @@ private:
     bool m_dynamicRuptureFaces;
     
     enum ComputePart {
-      LocalCopy = 0,
-      LocalInterior,
-      NeighborCopy,
+      LocalInterior = 0,
       NeighborInterior,
+#ifdef USE_MPI
+      LocalCopy,
+      NeighborCopy,
+#endif
       NUM_COMPUTE_PARTS
     };
     

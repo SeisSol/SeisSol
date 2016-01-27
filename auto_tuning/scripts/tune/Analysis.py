@@ -54,11 +54,10 @@ def analyse():
   times = dict()
   timePattern = re.compile(r'^time\D+([0-9\.]+)', re.MULTILINE)
   for resultFile in os.listdir(Proxy.OutputDir):
-    result, extension = os.path.splitext(resultFile)
+    matrix, extension = os.path.splitext(resultFile)
     if extension == '.run':
       content = open(os.path.join(Proxy.OutputDir, resultFile), 'r').read()
       time = timePattern.search(content).group(1)
-      matrix = result.split('_')[-1]
       if matrix == 'dense':
         denseTime = time
       else:
