@@ -62,15 +62,26 @@ def writeConfig(fileName, config):
   xml = etree.ElementTree(root)
   with open(fileName, 'w') as f:
     xml.write(f, pretty_print=True)
-    
-def getViscoelasticMemoryLayouts(order, numberOfMechanisms, arch):  
-  Q = 9 + 6 * numberOfMechanisms
-  B = Tools.numberOfBasisFunctions(order)
+
+def generateTuningLayoutFiles(configs):
+  prefix = OutputDir + '/'
+  writeConfig(prefix + 'dense.xml', {})
+
+  for name, layouts in configs.iteritems():
+    for idx, layout in enumerate(layouts):
+      writeConfig('{}{}{}.xml'.format(prefix, name, idx), { name: layout })
+
+def generateLayoutFile(matrices, configs):
+  selection = dict()
+  for name, idx in matrices:
+    selection[name] = configs[name][idx]
+  writeConfig('tuned_layout.xml', selection)
+
+
+def getGlobalMatrices(order, arch):
   architecture = Arch.getArchitectureByIdentifier(arch)
 
   configs = {
-    'star': [ True, [(0, 6, 6, 9), (6, 9, 0, Q)], [(0, 6, 6, 9), (6, 9, 0, 6), (6, 9, 9, Q)] ],
-    'source': [ True, [(9, Q, 0, 9), (9, Q, 9, Q, True)] ],
     'kXiDivM': [ True ],
     'kEtaDivM': [ True ],
     'kZetaDivM': [ True ],
@@ -87,7 +98,6 @@ def getViscoelasticMemoryLayouts(order, numberOfMechanisms, arch):
     'fP222': [ True ]
   }
 
-  # Determine block dense stiffness layout
   stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
   transposedStiffnessBlocks = list()
   for o in range(2, order+1):
@@ -116,21 +126,26 @@ def getViscoelasticMemoryLayouts(order, numberOfMechanisms, arch):
     configs[matrix].append(stiffnessBlocks)
     configs[matrix].append(noMemsetStiffnessBlocks)
     configs[matrix + 'T'].append(transposedStiffnessBlocks)
+    
+  return configs
+  
+def getStarMatrices(Q):
+  return { 'star': [ True, [(0, 6, 6, 9), (6, 9, 0, Q)], [(0, 6, 6, 9), (6, 9, 0, 6), (6, 9, 9, Q)] ] }
+    
+def getViscoelasticMemoryLayouts(order, numberOfMechanisms, arch):  
+  Q = 9 + 6 * numberOfMechanisms
+  
+  configs = getGlobalMatrices(order, arch)
+  configs.update( getStarMatrices(Q) )
+  configs.update( { 'source': [ True, [(9, Q, 0, 9), (9, Q, 9, Q, True)] ] } )
   
   return configs
-
-def generateTuningLayoutFiles(configs):
-  prefix = OutputDir + '/'
-  writeConfig(prefix + 'dense.xml', {})
-
-  for name, layouts in configs.iteritems():
-    for idx, layout in enumerate(layouts):
-      writeConfig('{}{}{}.xml'.format(prefix, name, idx), { name: layout })
-
-def generateLayoutFile(matrices, configs):
-  selection = dict()
-  for name, idx in matrices:
-    selection[name] = configs[name][idx]
-  writeConfig('tuned_layout.xml', selection)
+  
+def getViscoelastic2MemoryLayouts(order, arch):  
+  configs = getGlobalMatrices(order, arch)
+  configs.update( getStarMatrices(15) )
+  configs.update( { 'ET': [ True ] } )
+  
+  return configs
   
   

@@ -45,7 +45,7 @@ from tune import MemoryLayout, Proxy, Analysis
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--equations', required=True)
 cmdLineParser.add_argument('--order', required=True, type=int)
-cmdLineParser.add_argument('--numberOfMechanisms', required=True, type=int)
+cmdLineParser.add_argument('--numberOfMechanisms', type=int)
 cmdLineParser.add_argument('--libxsmmGenerator', required=True)
 cmdLineParser.add_argument('--arch', required=True)
 cmdLineParser.add_argument('--workingDir', required=True)
@@ -74,6 +74,8 @@ tryMkdir(Proxy.OutputDir)
 # Generate memory layouts
 if args.equations == 'viscoelastic':
   memoryLayouts = MemoryLayout.getViscoelasticMemoryLayouts(args.order, args.numberOfMechanisms, args.arch)
+elif args.equations == 'viscoelastic2':
+  memoryLayouts = MemoryLayout.getViscoelastic2MemoryLayouts(args.order, args.arch)
 
 MemoryLayout.generateTuningLayoutFiles(memoryLayouts)
   
