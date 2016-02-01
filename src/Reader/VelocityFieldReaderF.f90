@@ -67,7 +67,7 @@ contains
 
         type (tEquations), intent(in)    :: eqn
         type (tUnstructMesh), intent(in) :: mesh
-        real, intent(out)                :: materialValues(mesh%nElem, 3)
+        real, intent(inout)              :: materialValues(mesh%nElem, 3)
 
         call read_velocity_field(trim(eqn%MaterialFileName) // c_null_char, mesh%nElem, mesh%elem%xyBary, &
             eqn%rho0, eqn%mu, eqn%lambda, materialValues)

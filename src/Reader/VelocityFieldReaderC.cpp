@@ -151,7 +151,7 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 	SCOREP_USER_REGION_DEFINE(r_asagi_init);
 	SCOREP_USER_REGION_BEGIN(r_asagi_init, "asagi_init", SCOREP_USER_REGION_TYPE_COMMON);
 
-	asagi::Grid* grid = asagi::Grid::create();
+	asagi::Grid* grid = asagi::Grid::createArray();
 
 	int totalThreads = getTotalThreads();
 
@@ -164,9 +164,9 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 		if (mpiMode == MPI_COMM_THREAD) {
 			// WARNING: This assumes that if we use the communication thread,
 			// only one process per rank is started!
-			SCOREP_RECORDING_OFF();
+			//SCOREP_RECORDING_OFF();
 			asagi::Grid::startCommThread();
-			SCOREP_RECORDING_ON();
+			//SCOREP_RECORDING_ON();
 
 			grid->setParam("MPI_COMMUNICATION", "THREAD");
 		}
@@ -225,6 +225,9 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 	}
 	//SCOREP_RECORDING_ON();
 
+	if (grid->getVarSize() != 3*sizeof(float))
+		logError() << "Invalid variable size in material file";
+
 	SCOREP_USER_REGION_END(r_asagi_init);
 
 	// Grid dimensions
@@ -238,7 +241,7 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 	// Initialize the values in SeisSol
 	unsigned long outside = 0;
 
-	SCOREP_RECORDING_OFF();
+	//SCOREP_RECORDING_OFF();
 #ifdef _OPENMP
 	#pragma omp parallel for num_threads(asagiThreads) reduction(+: outside)
 #endif // _OPENMP
@@ -311,7 +314,7 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 			materialValues[i+2*numElements] = interpolMaterial[2];
 		}
 	}
-	SCOREP_RECORDING_ON();
+	//SCOREP_RECORDING_ON();
 
 #ifdef USE_MPI
 	if (rank == 0)
@@ -329,9 +332,9 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 
 #ifdef USE_MPI
 	if (mpiMode == MPI_COMM_THREAD) {
-		SCOREP_RECORDING_OFF();
+		//SCOREP_RECORDING_OFF();
 		asagi::Grid::stopCommThread();
-		SCOREP_RECORDING_ON();
+		//SCOREP_RECORDING_ON();
 	}
 #endif // USE_MPI
 
