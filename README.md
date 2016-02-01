@@ -1,5 +1,7 @@
 This is a development version of SeisSol.
 
+**SeisSol is still under heavy development and comes without any guaranteed funcitonality. At the moment we can only provide very limited support for general users. Please contact [Alice Gabriel](http://www.geophysik.uni-muenchen.de/Members/gabriel) if you are interested in a close collaboration.**
+
 ================================================================
 I. Folder Structure
 ================================================================
@@ -49,22 +51,23 @@ A. Inital Adjustments to .bashrc
 --------------------------------
 
 1. add following lines to your .bashrc (vi ~/.bashrc), which should be on the NAS
-<code>
-# These are the versions we validated against
-source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
 
-# User specific aliases and functions
-export PATH=$HOME/bin:$PATH
-export LD_LIBRARY_PATH=$HOME/lib:$HOME/lib64:$LD_LIBRARY_PATH
-export EDITOR=vi
-export SCONS_LIB_DIR=$HOME/lib64/scons-2.2.0/
-</code>
+    ```
+    # These are the versions we validated against
+    source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
+
+    # User specific aliases and functions
+    export PATH=$HOME/bin:$PATH
+    export LD_LIBRARY_PATH=$HOME/lib:$HOME/lib64:$LD_LIBRARY_PATH
+    export EDITOR=vi
+    export SCONS_LIB_DIR=$HOME/lib64/scons-2.2.0/
+    ```
 
 
 B. Installing SCons
 -------------------
 
-(0. wget http://prdownloads.sourceforge.net/scons/scons-2.2.0.tar.gz)
+0. (wget http://prdownloads.sourceforge.net/scons/scons-2.2.0.tar.gz)
 1. tar -xaf scons-2.2.0.tar.gz
 2. cd scons-2.2.0
 3. python setup.py install --prefix=$HOME
@@ -74,7 +77,7 @@ B. Installing SCons
 C. Installing HDF5
 ------------------
 
-(0. wget http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.11/src/hdf5-1.8.11.tar.bz2)
+0. (wget http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8.11/src/hdf5-1.8.11.tar.bz2)
 1. tar -xaf hdf5-1.8.11.tar.bz2
 2. cd hdf5-1.8.11 
 3. CC=mpiicc FC=mpiifort ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran
@@ -89,7 +92,7 @@ C. Installing HDF5
 D. Installing netCDF
 --------------------
 
-(0. wget https://www.unidata.ucar.edu/downloads/netcdf/ftp/netcdf-4.3.0.tar.gz)
+0. (wget https://www.unidata.ucar.edu/downloads/netcdf/ftp/netcdf-4.3.0.tar.gz)
 1. tar -xaf netcdf-4.3.0.tar.gz
 2. cd netcdf-4.3.0
 3. CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpiicc ./configure --enable-shared=no --prefix=$HOME
@@ -104,7 +107,7 @@ D. Installing netCDF
 E. Compiling SeisSol
 --------------------
 
-1. scons -f SConstruct_generatedKernels buildVariablesFile=build/options/supermuc_mac_cluster.py compileMode=release arch=$ARCH numberOfTemporalIntegrationPoints=1 order=$ORDER generatedKernels=yes netcdf=yes netcdfDir=$HOME hdf5Dir=$HOME -j 32 
+1. scons buildVariablesFile=build/options/supermuc_mac_cluster.py compileMode=release arch=$ARCH numberOfTemporalIntegrationPoints=1 order=$ORDER generatedKernels=yes netcdf=yes netcdfDir=$HOME hdf5Dir=$HOME -j 32 
 
 with:
 ORDER convergence order you want to use
@@ -112,7 +115,7 @@ ARCH target architecture
 
 NOTE: SCons will try to detect the correct MPI wrappers. If this fails, you can overwrite the detected wrappers with the variables "mpicc", "mpicxx" and "mpif90".
 
-you can run scons -f SConstruct_generatedKernels -h to get some help on options
+you can run `scons -h` to get some help on options
 
 Please note, this builds the generated kernel version of SeisSols. For SeisSol classic, please add 
 the generatedKernels=no switch, however this result in roughly 6X less performance, but probably greater physics support.
