@@ -74,6 +74,7 @@ enum NUMACache_Mode
 	NUMA_OFF, NUMA_ON, NUMA_CACHE
 };
 
+#ifdef USE_ASAGI
 static int getTotalThreads()
 {
 	int totalThreads = 1;
@@ -129,6 +130,7 @@ static NUMACache_Mode getNUMAMode()
 	logError() << "Unknown NUMA mode:" << numaModeName;
 	return NUMA_OFF;
 }
+#endif // USE_ASAGI
 
 extern "C"
 {
