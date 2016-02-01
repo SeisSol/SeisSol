@@ -107,6 +107,8 @@ public:
   
   template<unsigned Mb, unsigned Nb>
   DenseMatrixView<Mb, Nb> block(unsigned originI, unsigned originJ) {
+    assert(originI + Mb <= M && originJ + Nb <= N);
+
     return DenseMatrixView<Mb, Nb>(&data[originJ * stride + originI], stride);
   }
   

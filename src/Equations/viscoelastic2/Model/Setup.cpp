@@ -125,7 +125,7 @@ void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&
     }
   }
   
-  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<NUMBER_OF_QUANTITIES, 9>(0, 0));
+  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<seissol::model::AminusT::rows, 9>(0, 0));
 }
 
 void seissol::model::setMaterial( double* i_materialVal,

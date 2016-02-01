@@ -51,8 +51,14 @@ cmdLineParser.add_argument('--arch', required=True)
 cmdLineParser.add_argument('--workingDir', required=True)
 cmdLineParser.add_argument('--nelem', default=10000, type=int)
 cmdLineParser.add_argument('--ntimesteps', default=100, type=int)
-cmdLineParser.add_argument('--build', action='store_true')
+cmdLineParser.add_argument('--ncompileJobs', default=4, type=int)
+cmdLineParser.add_argument('action', choices=['build', 'run', 'analyse', 'all'])
 args = cmdLineParser.parse_args()
+
+build = args.action == 'build' or args.action == 'all'
+run = args.action == 'run' or args.action == 'all'
+analyse = args.action == 'analyse' or args.action == 'all'
+
 
 # Generate working directory
 try:
@@ -72,13 +78,14 @@ tryMkdir(MemoryLayout.OutputDir)
 tryMkdir(Proxy.BuildDir)
 tryMkdir(Proxy.OutputDir)
 
-# Generate memory layouts
-if args.equations == 'viscoelastic':
-  memoryLayouts = MemoryLayout.getViscoelasticMemoryLayouts(args.order, args.numberOfMechanisms, args.arch)
-elif args.equations == 'viscoelastic2':
-  memoryLayouts = MemoryLayout.getViscoelastic2MemoryLayouts(args.order, args.arch)
+if build:
+  # Generate memory layouts
+  if args.equations == 'viscoelastic':
+    memoryLayouts = MemoryLayout.getViscoelasticMemoryLayouts(args.order, args.numberOfMechanisms, args.arch)
+  elif args.equations == 'viscoelastic2':
+    memoryLayouts = MemoryLayout.getViscoelastic2MemoryLayouts(args.order, args.arch)
 
-MemoryLayout.generateTuningLayoutFiles(memoryLayouts)
+  MemoryLayout.generateTuningLayoutFiles(memoryLayouts)
   
 # Build versions, run tests and proxy
 options = {
@@ -87,10 +94,12 @@ options = {
   'numberOfMechanisms': args.numberOfMechanisms,
   'libxsmmGenerator':   args.libxsmmGenerator,
   'arch':               args.arch,
-  'compileMode':        'release'
+  'compileMode':        'release',
+  '--jobs':             args.ncompileJobs
 }
-Proxy.buildAndRun(options, args.nelem, args.ntimesteps, run=not args.build)
-if not args.build:
+Proxy.buildOrRun(options, args.nelem, args.ntimesteps, build=build, run=run)
+
+if analyse:
   # Analysis
   matrices = Analysis.analyse()
 

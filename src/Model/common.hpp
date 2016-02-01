@@ -55,7 +55,7 @@ namespace seissol {
                                            DenseMatrixView<9, 9> QgodNeighbor );
                                            
     void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    DenseMatrixView<NUMBER_OF_QUANTITIES, 9> Fneighbor );
+                                                    DenseMatrixView<seissol::model::AminusT::rows, 9> Fneighbor );
   }
 }
 

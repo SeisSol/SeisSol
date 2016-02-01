@@ -85,13 +85,16 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
     reducedDofs
   );
   
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-    seissol::generatedKernels::localFlux[l_face](
-      local->nApNm1[l_face],
-      global->fluxMatrices[l_face],
-      i_timeIntegratedDegreesOfFreedom,
-      reducedDofs
-    );
+  for( unsigned int face = 0; face < 4; face++ ) {
+    // no element local contribution in the case of dynamic rupture boundary conditions
+    if( i_faceTypes[face] != dynamicRupture ) {
+      seissol::generatedKernels::localFlux[face](
+        local->nApNm1[face],
+        global->fluxMatrices[face],
+        i_timeIntegratedDegreesOfFreedom,
+        reducedDofs
+      );
+    }
   }
   
   SXtYp(  1.0,

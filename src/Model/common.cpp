@@ -131,7 +131,7 @@ void seissol::model::getTransposedElasticGodunovState( seissol::model::ElasticMa
 }
 
 void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                DenseMatrixView<NUMBER_OF_QUANTITIES, 9> Fneighbor )
+                                                                DenseMatrixView<seissol::model::AminusT::rows, 9> Fneighbor )
 {
   if (type == freeSurface) {
     // Gamma is a diagonal matrix
