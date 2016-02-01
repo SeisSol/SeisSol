@@ -61,6 +61,8 @@
 
 #include <cassert>
 
+extern long long libxsmm_num_total_flops;
+
 namespace seissol {
   namespace kernels {
     /** Stores X in Y with non-temporal hint.
@@ -124,6 +126,14 @@ namespace seissol {
           }
         }
       }
+            
+#ifndef NDEBUG
+      long long temp_flops = rows * columns * 2;
+#ifdef _OPENMP
+#pragma omp atomic
+#endif
+      libxsmm_num_total_flops += temp_flops;
+#endif
     }
     
     /**
@@ -161,7 +171,15 @@ namespace seissol {
         for (unsigned row = 0; row < rows; row += DMO_INCREMENT) {
           DMO_XYMST(intrin_scalar, &X[xOffset + row], &Y[yOffset + row], &Z[zOffset + row])
         }
-      }      
+      }
+
+#ifndef NDEBUG
+      long long temp_flops = rows * columns * 2;
+#ifdef _OPENMP
+#pragma omp atomic
+#endif
+      libxsmm_num_total_flops += temp_flops;
+#endif
     }
     
     /**
@@ -199,7 +217,15 @@ namespace seissol {
         for (unsigned row = 0; row < rows; row += DMO_INCREMENT) {
           DMO_XYMSTZP(intrin_scalar, &X[xOffset + row], &Y[yOffset + row], &Z[zOffset + row])
         }
-      }      
+      }
+
+#ifndef NDEBUG
+      long long temp_flops = rows * columns * 3;
+#ifdef _OPENMP
+#pragma omp atomic
+#endif
+      libxsmm_num_total_flops += temp_flops;
+#endif
     }
   }
 }

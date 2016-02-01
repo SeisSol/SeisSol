@@ -47,6 +47,7 @@
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
 #include <Model/Setup.h>
+#include <Monitoring/FlopCounter.hpp>
 
 seissol::Interoperability e_interoperability;
 
@@ -541,6 +542,7 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
   real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
   real l_timeDerivatives[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(ALIGNMENT)));
 
+  unsigned nonZeroFlops, hardwareFlops;
 #ifdef REQUIRE_SOURCE_MATRIX
   m_timeKernel.computeAder( 0,
                             m_globalData,
@@ -556,6 +558,9 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
                             l_timeIntegrated,
                             l_timeDerivatives );
 #endif
+  m_timeKernel.flopsAder(nonZeroFlops, hardwareFlops);
+  g_SeisSolNonZeroFlopsOther += nonZeroFlops;
+  g_SeisSolHardwareFlopsOther += hardwareFlops;
 
   seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );
 }

@@ -39,6 +39,12 @@
 
 #include <SourceTerm/PointSource.h>
 
+#if defined(DOUBLE_PRECISION)
+#define EPSILON 1e-16
+#elif defined(SINGLE_PRECISION)
+#define EPSILON 1e-8
+#endif
+
 namespace seissol {
   namespace unit_test {
     class PointSourceTestSuite;
@@ -66,12 +72,12 @@ public:
     seissol::sourceterm::transformMomentTensor(l_localMomentTensorXY, strike, dip, rake, l_momentTensor);
     
     // Compare to hand-computed reference solution
-    TS_ASSERT_DELTA(l_momentTensor[0], -5.0*sqrt(3.0)/32.0, 1e-15);
-    TS_ASSERT_DELTA(l_momentTensor[1], -7.0*sqrt(3.0)/32.0, 1e-15);
-    TS_ASSERT_DELTA(l_momentTensor[2], 3.0*sqrt(3.0)/8.0, 1e-15);
-    TS_ASSERT_DELTA(l_momentTensor[3], 19.0/32.0, 1e-15);
-    TS_ASSERT_DELTA(l_momentTensor[4], -9.0/16.0, 1e-15);
-    TS_ASSERT_DELTA(l_momentTensor[5], -sqrt(3.0)/16.0, 1e-15);
+    TS_ASSERT_DELTA(l_momentTensor[0], -5.0*sqrt(3.0)/32.0, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[1], -7.0*sqrt(3.0)/32.0, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[2], 3.0*sqrt(3.0)/8.0, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[3], 19.0/32.0, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[4], -9.0/16.0, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[5], -sqrt(3.0)/16.0, 100 * EPSILON);
     TS_ASSERT_EQUALS(l_momentTensor[6], 0.0);
     TS_ASSERT_EQUALS(l_momentTensor[7], 0.0);
     TS_ASSERT_EQUALS(l_momentTensor[8], 0.0);
@@ -91,12 +97,12 @@ public:
     seissol::sourceterm::transformMomentTensor(l_localMomentTensorXZ, strike, dip, rake, l_momentTensor);
     
     // Compare to hand-computed reference solution
-    TS_ASSERT_DELTA(l_momentTensor[0], -0.415053502680640, 1e-14);
-    TS_ASSERT_DELTA(l_momentTensor[1], 0.648994284092410, 1e-14);
-    TS_ASSERT_DELTA(l_momentTensor[2], 3.061692966762920, 1e-14);
-    TS_ASSERT_DELTA(l_momentTensor[3], 1.909053142737053, 1e-14);
-    TS_ASSERT_DELTA(l_momentTensor[4], 0.677535767462651, 1e-14);
-    TS_ASSERT_DELTA(l_momentTensor[5], -1.029826812214912, 1e-14);
+    TS_ASSERT_DELTA(l_momentTensor[0], -0.415053502680640, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[1], 0.648994284092410, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[2], 3.061692966762920, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[3], 1.909053142737053, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[4], 0.677535767462651, 100 * EPSILON);
+    TS_ASSERT_DELTA(l_momentTensor[5], -1.029826812214912, 100 * EPSILON);
     TS_ASSERT_EQUALS(l_momentTensor[6], 0.0);
     TS_ASSERT_EQUALS(l_momentTensor[7], 0.0);
     TS_ASSERT_EQUALS(l_momentTensor[8], 0.0);
@@ -139,16 +145,16 @@ public:
     seissol::sourceterm::samplesToPiecewiseLinearFunction1D(l_samples, l_numberOfSamples, l_onsetTime, l_samplingInterval, &l_pwlf);
     
     // integrate f(t) from -2 to 1.05 (only first term)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, -2.0, 1.05), 0.5*40.0*(1.05*1.05 - 1.0) - 39*0.05, 1e-14);
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, -2.0, 1.05), 0.5*40.0*(1.05*1.05 - 1.0) - 39*0.05, 200 * EPSILON);
     
     // integrate f(t) from 1.04 to 1.06 (over boundary)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.04, 1.06), 0.5*40.0*(1.05*1.05 - 1.04*1.04) - 39*0.01 - 0.5*80*(1.06*1.06 - 1.05*1.05) + 87*0.01, 1e-14);
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.04, 1.06), 0.5*40.0*(1.05*1.05 - 1.04*1.04) - 39*0.01 - 0.5*80*(1.06*1.06 - 1.05*1.05) + 87*0.01, 600 * EPSILON);
     
     // integrate f(t) from 1.10 to 1.10 (on boundary)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.1, 1.1), 0.0, 1e-14);
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.1, 1.1), 0.0, 200 * EPSILON);
     
     // integrate f(t) from 1.19 to 100 (only last term)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.19, 100.0), 0.5*10.0*(1.2*1.2 - 1.19*1.19) - 9.5*0.01, 1e-14);
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.19, 100.0), 0.5*10.0*(1.2*1.2 - 1.19*1.19) - 9.5*0.01, 200 * EPSILON);
     
     // integrate f(t) from -100 to 100 (integral over whole support)
     TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, -100.0, 100.0),
@@ -156,7 +162,7 @@ public:
       - 0.5*80.0*(1.10*1.10 - 1.05*1.05) + 87.0*0.05
       + 0.5*60.0*(1.15*1.15 - 1.10*1.10) - 67.0*0.05
       + 0.5*10.0*(1.20*1.20 - 1.15*1.15) -  9.5*0.05,
-      2e-14);
+      800 * EPSILON);
   }
   
   void addPointSourceToDOFs()

@@ -159,10 +159,26 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_
     }
   }
   
-  /* Flops from SXtYp:
-   * Y = 1.0 * X + Y == 1 nonzero flop, 2 hardware flops
-   * Y = omega * X * Y == 2 nonzero and hardware flops
+  /* Y = 1.0 * X + Y == 1 nonzero flop, 2 hardware flops
    */
-  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * (1 + 2 * NUMBER_OF_RELAXATION_MECHANISMS);
-  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2 * (1 + NUMBER_OF_RELAXATION_MECHANISMS);
+  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_ELASTIC_QUANTITIES;
+  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_ELASTIC_QUANTITIES * 2;
+
+  /* Y = omega * X * Y == 2 nonzero and hardware flops
+   */
+  o_nonZeroFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2;
+  o_hardwareFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2;
+}
+
+
+unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
+{
+  unsigned reals = 0;
+
+  // 4 * tElasticDOFS load, DOFs load, DOFs write
+  reals += 4 * NUMBER_OF_ALIGNED_ELASTIC_DOFS + 2 * NUMBER_OF_ALIGNED_DOFS;
+  // flux solvers load
+  reals += 4 * seissol::model::AminusT::reals;
+  
+  return reals * sizeof(real);
 }

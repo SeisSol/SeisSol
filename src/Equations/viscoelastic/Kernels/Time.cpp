@@ -158,6 +158,23 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   }
 }
 
+unsigned seissol::kernels::Time::bytesAder()
+{
+  unsigned reals = 0;
+  
+  // DOFs load, tDOFs load, tDOFs write
+  reals += 3 * NUMBER_OF_ALIGNED_DOFS;
+  // star matrices, source matrix
+  reals += seissol::model::AstarT::reals
+           + seissol::model::BstarT::reals
+           + seissol::model::CstarT::reals
+           + seissol::model::source::reals;
+           
+  /// \todo incorporate derivatives
+
+  return reals * sizeof(real);
+}
+
 void seissol::kernels::Time::computeIntegral(       double i_expansionPoint,
                                                     double i_integrationStart,
                                                     double i_integrationEnd,

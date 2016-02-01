@@ -71,6 +71,8 @@ class seissol::kernels::Time {
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
 
+    unsigned bytesAder();
+
     void computeIntegral( double                                      i_expansionPoint,
                           double                                      i_integrationStart,
                           double                                      i_integrationEnd,

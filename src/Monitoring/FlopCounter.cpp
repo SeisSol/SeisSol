@@ -37,7 +37,6 @@
  * @section DESCRIPTION
  * Counts the floating point operations in SeisSol.
  **/
-#ifndef NDEBUG
 
 #ifdef USE_MPI
 #include <mpi.h>
@@ -45,38 +44,45 @@
 
 #include "FlopCounter.hpp"
 
-  // Define the FLOP counter.
-  long long libxsmm_num_total_flops = 0;
+#include <utils/logger.h>
 
-  long long g_SeisSolNonZeroFlopsLocal = 0;
-  long long g_SeisSolHardwareFlopsLocal = 0;
-  long long g_SeisSolNonZeroFlopsNeighbor = 0;
-  long long g_SeisSolHardwareFlopsNeighbor = 0;
+// Define the FLOP counter.
+long long libxsmm_num_total_flops = 0;
 
-  // prevent name mangling
-  extern "C" {
+long long g_SeisSolNonZeroFlopsLocal = 0;
+long long g_SeisSolHardwareFlopsLocal = 0;
+long long g_SeisSolNonZeroFlopsNeighbor = 0;
+long long g_SeisSolHardwareFlopsNeighbor = 0;
+long long g_SeisSolNonZeroFlopsOther = 0;
+long long g_SeisSolHardwareFlopsOther = 0;
+
+// prevent name mangling
+extern "C" {
     /**
      * Prints the measured FLOPS.
      */
-    void printFlops() {
+  void printFlops() {
 #ifdef USE_MPI
-      MPI_Allreduce(MPI_IN_PLACE, &libxsmm_num_total_flops, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-      MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolNonZeroFlopsLocal, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-      MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolHardwareFlopsLocal, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-      MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolNonZeroFlopsNeighbor, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-      MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolHardwareFlopsNeighbor, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-      int rank;
-      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Allreduce(MPI_IN_PLACE, &libxsmm_num_total_flops, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolNonZeroFlopsLocal, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolHardwareFlopsLocal, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolNonZeroFlopsNeighbor, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolHardwareFlopsNeighbor, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolNonZeroFlopsOther, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolHardwareFlopsOther, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #else
-      int rank = 0;
+    int rank = 0;
 #endif
-      logInfo(rank) << "Total   measured HW-GFLOP: " << ((double)libxsmm_num_total_flops)/1e9;
-      logInfo(rank) << "Total calculated HW-GFLOP: " << ((double)(g_SeisSolHardwareFlopsLocal+g_SeisSolHardwareFlopsNeighbor))/1e9;
-      logInfo(rank) << "Total calculated NZ-GFLOP: " << ((double)(g_SeisSolNonZeroFlopsLocal+g_SeisSolNonZeroFlopsNeighbor))/1e9;
-      logInfo(rank) << "Local calculated HW-GFLOP: " << ((double)g_SeisSolHardwareFlopsLocal)/1e9;
-      logInfo(rank) << "Local calculated NZ-GFLOP: " << ((double)g_SeisSolNonZeroFlopsLocal)/1e9;
-      logInfo(rank) << "Neigh calculated HW-GFLOP: " << ((double)g_SeisSolHardwareFlopsNeighbor)/1e9;
-      logInfo(rank) << "Neigh calculated NZ-GFLOP: " << ((double)g_SeisSolNonZeroFlopsNeighbor)/1e9;
-    }
+    logInfo(rank) << "Total   measured HW-GFLOP: " << ((double)libxsmm_num_total_flops)/1e9;
+    logInfo(rank) << "Total calculated HW-GFLOP: " << ((double)(g_SeisSolHardwareFlopsLocal+g_SeisSolHardwareFlopsNeighbor+g_SeisSolHardwareFlopsOther))/1e9;
+    logInfo(rank) << "Total calculated NZ-GFLOP: " << ((double)(g_SeisSolNonZeroFlopsLocal+g_SeisSolNonZeroFlopsNeighbor+g_SeisSolNonZeroFlopsOther))/1e9;
+    logInfo(rank) << "Local calculated HW-GFLOP: " << ((double)g_SeisSolHardwareFlopsLocal)/1e9;
+    logInfo(rank) << "Local calculated NZ-GFLOP: " << ((double)g_SeisSolNonZeroFlopsLocal)/1e9;
+    logInfo(rank) << "Neigh calculated HW-GFLOP: " << ((double)g_SeisSolHardwareFlopsNeighbor)/1e9;
+    logInfo(rank) << "Neigh calculated NZ-GFLOP: " << ((double)g_SeisSolNonZeroFlopsNeighbor)/1e9;
+    logInfo(rank) << "Other calculated HW-GFLOP: " << ((double)g_SeisSolHardwareFlopsOther)/1e9;
+    logInfo(rank) << "Other calculated NZ-GFLOP: " << ((double)g_SeisSolNonZeroFlopsOther)/1e9;
   }
-#endif
+}
