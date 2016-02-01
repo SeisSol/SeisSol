@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,7 @@
 
 #include "Parallel/MPI.h"
 #include "Monitoring/instrumentation.fpp"
+#include "Monitoring/Stopwatch.h"
 
 typedef double vertex_t[3];
 
@@ -148,6 +149,10 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 #ifdef USE_ASAGI
 	SCOREP_USER_REGION("read_velocity_field", SCOREP_USER_REGION_TYPE_FUNCTION);
 
+	// Use manual timing since Score-P does not work
+	Stopwatch stopwatch;
+	stopwatch.start();
+
 	const int rank = seissol::MPI::mpi.rank();
 
 	logInfo(rank) << "Initializing velocity field.";
@@ -233,7 +238,8 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 	if (grid->getVarSize() != 3*sizeof(float))
 		logError() << "Invalid variable size in material file";
 
-	logInfo(rank) << "Velocity field opened.";
+	double time = stopwatch.stop();
+	logInfo(rank) << "Velocity field opened in" << time << "sec.";
 
 	SCOREP_USER_REGION_END(r_asagi_init);
 
@@ -244,6 +250,8 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 
 	SCOREP_USER_REGION_DEFINE(r_asagi_read);
 	SCOREP_USER_REGION_BEGIN(r_asagi_read, "asagi_read", SCOREP_USER_REGION_TYPE_COMMON);
+
+	stopwatch.start();
 
 	// Initialize the values in SeisSol
 	unsigned long outside = 0;
@@ -331,6 +339,9 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 #endif // USE_MPI
 	if (outside > 0)
 		logWarning(rank) << "Found" << outside << "cells of the given velocity field.";
+
+	time = stopwatch.stop();
+	logInfo(rank) << "Velocity field initialized in" << time << "sec.";
 
 	SCOREP_USER_REGION_END(r_asagi_read);
 
