@@ -42,6 +42,8 @@
 #include <mpi.h>
 #endif // USE_MPI
 
+#include <string>
+
 #ifdef USE_ASAGI
 #include <asagi.h>
 #endif // USE_ASAGI
@@ -204,12 +206,13 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 	grid->setParam("VALUE_POSITION", "VERTEX_CENTERED");
 
 	// Set additional parameters
-	const char* blockSize = utils::Env::get("SEISSOL_ASAGI_BLOCK_SIZE", "64");
-	grid->setParam("BLOCK_SIZE_0", blockSize);
-	grid->setParam("BLOCK_SIZE_1", blockSize);
-	grid->setParam("BLOCK_SIZE_2", blockSize);
+	std::string blockSize = utils::Env::get("SEISSOL_ASAGI_BLOCK_SIZE", "64");
+	grid->setParam("BLOCK_SIZE_0", blockSize.c_str());
+	grid->setParam("BLOCK_SIZE_1", blockSize.c_str());
+	grid->setParam("BLOCK_SIZE_2", blockSize.c_str());
 
-	grid->setParam("CACHE_SIZE", utils::Env::get("SEISSOL_ASAGI_CACHE_SIZE", "128"));
+	std::string cacheSize = utils::Env::get("SEISSOL_ASAGI_CACHE_SIZE", "128");
+	grid->setParam("CACHE_SIZE", cacheSize.c_str());
 
 	grid->setParam("VARIABLE", "data");
 
@@ -227,6 +230,8 @@ void read_velocity_field(const char* file, int numElements, const vertex_t* bary
 
 	if (grid->getVarSize() != 3*sizeof(float))
 		logError() << "Invalid variable size in material file";
+
+	logInfo(rank) << "Velocity field opened.";
 
 	SCOREP_USER_REGION_END(r_asagi_init);
 
