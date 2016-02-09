@@ -78,7 +78,7 @@ def getFlags(architecture, compiler):
     else:
       flags = ['-mavx2', '-mfma']
   elif cpu == 'knc':
-    flags == ['-mmic', '-fma']
+    flags = ['-mmic', '-fma']
   elif cpu == 'knl':
     if compiler == 'intel':
       flags = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4']
