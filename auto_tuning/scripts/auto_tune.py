@@ -78,13 +78,14 @@ tryMkdir(MemoryLayout.OutputDir)
 tryMkdir(Proxy.BuildDir)
 tryMkdir(Proxy.OutputDir)
 
-if build:
+if build or analyse:
   # Generate memory layouts
   if args.equations == 'viscoelastic':
     memoryLayouts = MemoryLayout.getViscoelasticMemoryLayouts(args.order, args.numberOfMechanisms, args.arch)
   elif args.equations == 'viscoelastic2':
     memoryLayouts = MemoryLayout.getViscoelastic2MemoryLayouts(args.order, args.arch)
 
+if build:
   MemoryLayout.generateTuningLayoutFiles(memoryLayouts)
   
 # Build versions, run tests and proxy

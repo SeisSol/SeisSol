@@ -65,7 +65,7 @@ def writeConfig(fileName, config):
 
 def generateTuningLayoutFiles(configs):
   prefix = OutputDir + '/'
-  writeConfig(prefix + 'dense.xml', {})
+  writeConfig(prefix + 'dense0.xml', {})
 
   for name, layouts in configs.iteritems():
     for idx, layout in enumerate(layouts):

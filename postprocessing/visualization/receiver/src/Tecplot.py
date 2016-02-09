@@ -38,9 +38,12 @@
 #
 
 import Waveform
+import re
 
 def read(fileName):
   data = []
+  coordinates = [float('nan')] * 3
+  coordComment = re.compile('#\s*x(\d)\s+([0-9\.eE\+\-]+)')
   variables = ''
   f = open(fileName)
   for row in f:
@@ -48,9 +51,14 @@ def read(fileName):
     if not row[0].isalpha() and not row[0] == '#':
       values = row.split()
       data.append([float(numeric_string) for numeric_string in values])
+    elif row[0] == '#':
+      match = coordComment.match(row)
+      if match:
+        coordinates[int(match.group(1))-1] = float(match.group(2))
+      
     elif row.startswith('VARIABLES'):
       row = row.split('=')
       variables = row[1].replace('"', '').split(',')
       variables = [v.strip() for v in variables]
   f.close()
-  return Waveform.Waveform(variables, data)
+  return Waveform.Waveform(variables, data, coordinates)

@@ -41,39 +41,46 @@
 import Proxy
 import os
 import re
+import statistics
 
-def writeTimes(denseTime, times):
+def writeTimes(times):
   with open('times.txt', 'w') as f:
-    f.write('dense {}\n'.format(denseTime))
+    f.write('{:16} {:10} {:10}\n'.format('Name', 'Mean', 'Std. dev.'))
     for name, value in sorted(times.iteritems()):
       for idx, time in sorted(value.iteritems()):
-        f.write('{}{} {}\n'.format(name, idx, time))
+        f.write('{:16} {:0<10.4} {:0<10.4}\n'.format(name + str(idx), statistics.mean(time), statistics.stdev(time)))
 
 def analyse():
-  denseTime = float('nan')
   times = dict()
   timePattern = re.compile(r'^time\D+([0-9\.]+)', re.MULTILINE)
   for resultFile in os.listdir(Proxy.OutputDir):
-    matrix, extension = os.path.splitext(resultFile)
+    resultFileName, extension = os.path.splitext(resultFile)
     if extension == '.run':
+      matrix = resultFileName.split('_')[0]
       content = open(os.path.join(Proxy.OutputDir, resultFile), 'r').read()
-      time = timePattern.search(content).group(1)
-      if matrix == 'dense':
-        denseTime = time
-      else:
+      timeSearch = timePattern.search(content)
+      if timeSearch:
+        time = float(timeSearch.group(1))
         matrixBase = matrix[:-1]
-        matrixVariant = matrix[-1]
+        matrixVariant = int(matrix[-1])
         if not times.has_key(matrixBase):
           times[matrixBase] = dict()
-        times[matrixBase][matrixVariant] = time
+        if not times[matrixBase].has_key(matrixVariant):
+          times[matrixBase][matrixVariant] = list()
+        times[matrixBase][matrixVariant].append(time)
+      else:
+        print('Warning: Invalid result file {}.'.format(resultFileName))
         
-  writeTimes(denseTime, times)
+  writeTimes(times)
   
   matrices = list()
-  for key, value in times.iteritems():
-    minTimeKey = min(value, key=value.get)
-    if value[minTimeKey] < denseTime:
-      matrices.append((key, int(minTimeKey)))
+  dense = times.pop('dense').pop(0)
+  denseTime = statistics.mean(dense)
+  for key, variants in times.iteritems():
+    matrixTimes = {variant: statistics.mean(timeSeries) for variant, timeSeries in variants.iteritems()}
+    minTimeKey = min(matrixTimes, key=matrixTimes.get)
+    if matrixTimes[minTimeKey] < denseTime:
+      matrices.append((key, minTimeKey))
       
   return matrices
   

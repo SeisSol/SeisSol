@@ -40,6 +40,9 @@
 
 import MemoryLayout
 import os
+import time
+import random
+import string
 
 BuildDir = 'builds'
 OutputDir = 'results'
@@ -71,7 +74,9 @@ def buildOrRun(proxyOptions, nElem, nTimesteps, build=True, run=True):
                     configName ) )
       _run( '{}/bin/generated_kernels_test_suite > {}/{}.test'.format(configBuildDir, outputDir, configName) )
     if run:
-      _run('{}/bin/seissol_proxy {} {} all > {}/{}.run'.format(configBuildDir, nElem, nTimesteps, outputDir, configName) )
+      # Create a random string in order to prevent file name collision
+      outputName = '{}_{}_{}'.format(configName, time.strftime('%Y-%m-%d-%H-%M-%S'), ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(5)))
+      _run('{}/bin/seissol_proxy {} {} all > {}/{}.run'.format(configBuildDir, nElem, nTimesteps, outputDir, outputName) )
   
   os.chdir(cwd)
 

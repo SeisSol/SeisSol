@@ -87,7 +87,7 @@ CONTAINS
     !                                                                          !
     logInfo(*) '<--------------------------------------------------------->'
 #ifdef GENERATEDKERNELS
-    logInfo(*) 'Wall time:   ', DISC%LoopCPUTime
+    logInfo0(*) 'Wall time:   ', DISC%LoopCPUTime
     call printFlops()
 #else
     logInfo(*) 'CPU-Time:    ', DISC%LoopCPUTime

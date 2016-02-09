@@ -81,12 +81,31 @@ class View(QWidget):
     
     saveAll = QPushButton(QIcon.fromTheme('document-save'), '', self)
     saveAll.clicked.connect(self.savePlots)
+    
+    self.epicenterX = QDoubleSpinBox(self)
+    self.epicenterX.setValue(0.0)
+    self.epicenterX.setMaximum(float('inf'))
+    self.epicenterX.setVisible(False)
+    self.epicenterX.valueChanged.connect(self.plot)
+    self.epicenterY = QDoubleSpinBox(self)
+    self.epicenterY.setValue(0.0)
+    self.epicenterY.setMaximum(float('inf'))
+    self.epicenterY.setVisible(False)
+    self.epicenterY.valueChanged.connect(self.plot)
+    self.rotate = QPushButton('Rotate', self)
+    self.rotate.setCheckable(True)
+    self.rotate.clicked.connect(self.plot)
+    self.rotate.toggled.connect(self.epicenterX.setVisible)
+    self.rotate.toggled.connect(self.epicenterY.setVisible)
 
     toolLayout = QHBoxLayout()
     toolLayout.addWidget(addNaviButton)
     toolLayout.addWidget(self.spectrum)
     toolLayout.addWidget(self.maxFreq)
     toolLayout.addWidget(saveAll)
+    toolLayout.addWidget(self.rotate)
+    toolLayout.addWidget(self.epicenterX)
+    toolLayout.addWidget(self.epicenterY)
     toolLayout.addWidget(toolbar)
     plotLayout = QVBoxLayout()
     plotLayout.addLayout(toolLayout)
@@ -142,7 +161,16 @@ class View(QWidget):
             p.loglog(f[1:L], numpy.absolute(W[1:L]))
             p.set_xlabel('f [Hz]')
           else:
-            p.plot(wf.time, wf.waveforms[name])
+            twf = wf.waveforms[name]
+            if self.rotate.isChecked():
+              epicenter = numpy.array([self.epicenterX.value(), self.epicenterY.value(), 0.0])
+              radial = wf.coordinates - epicenter
+              phi = math.acos(radial[0] / numpy.linalg.norm(radial))
+              if name == 'u':
+                twf = math.cos(phi) * wf.waveforms['u'] + math.sin(phi) * wf.waveforms['v']
+              elif name == 'v':                
+                twf = -math.sin(phi) * wf.waveforms['u'] + math.cos(phi) * wf.waveforms['v']
+            p.plot(wf.time, twf)
             p.set_xlabel('t (s)')
           p.set_ylabel(name)
 
