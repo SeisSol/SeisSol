@@ -85,7 +85,9 @@ except KeyError:
                     'pvdWriter.cpp' ]
     
 writerFiles += [ 'WaveFieldWriterC.cpp',
-                 'WaveFieldWriterF.f90' ]
+                 'WaveFieldWriterF.f90',
+                 'FaultWriterC.cpp',
+                 'FaultWriterF.f90' ]
 
 for i in writerFiles:
   env.sourceFiles.append(env.Object(i))

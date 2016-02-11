@@ -3383,6 +3383,7 @@ CONTAINS
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
+    use FaultWriter
     use, intrinsic :: iso_c_binding
 
     !-------------------------------------------------------------------!
@@ -3435,6 +3436,7 @@ CONTAINS
     REAL, POINTER :: S_inc(:)
     REAL, ALLOCATABLE :: chi_vector(:), tau_vector(:)
     REAL    :: S_tmp, chi, tau, phi1, phi2
+    integer :: hasDR
     INTEGER :: iNeighbor, iNeighborSide, NeigBndGP, l, iFault, iDegFr, iP, iBndGP, iPlusElem
     !
     !-------------------------------------------------------------------------!
@@ -3622,6 +3624,12 @@ CONTAINS
     !
     ! Initialize fault rupture output
     ! only in case Dynamic rupture is turned on, and for + elements assigned to the fault
+    if (EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) then
+        hasDr = 1
+    else
+        hasDr = 0
+    endif
+    call fault_create_comm(hasDr)
     IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
         ! Case 3
         ! output at certain positions specified in the *.dyn file

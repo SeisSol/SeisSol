@@ -929,6 +929,7 @@ CONTAINS
       !-------------------------------------------------------------------------!
       USE JacobiNormal_mod
       USE vtk
+      use FaultWriter
       use, intrinsic :: iso_c_binding
       !-------------------------------------------------------------------------!
       IMPLICIT NONE
@@ -1006,6 +1007,7 @@ CONTAINS
         CALL write_vertices_vtk_writer(plotter)
 	CALL plot_cells_vtk_writer(plotter)
         !
+        call writeFault(time)
         DO j=1,SIZE(DISC%DynRup%DynRup_out_elementwise%TmpState,3)
     	  CALL start_cell_data_vtk_writer(plotter,DISC%DynRup%DynRup_out_elementwise%OutputLabel(j))
           !
@@ -1017,6 +1019,8 @@ CONTAINS
          ENDDO ! nDR_pick
          !
          CALL end_cell_data_vtk_writer(plotter)
+
+         call writeFaultData(j, DISC%DynRup%DynRup_out_elementwise%TmpState(:,:,j))
         ENDDO !OutVars
         !
         DO iOutPoints = 1,DISC%DynRup%DynRup_out_elementwise%nDR_pick

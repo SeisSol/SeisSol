@@ -71,6 +71,7 @@ CONTAINS
     USE faultoutput_mod
     USE Plasticity_mod
     USE pvd
+    use FaultWriter
 
 #ifdef GENERATEDKERNELS
     use f_ftoc_bind_interoperability
@@ -241,6 +242,7 @@ CONTAINS
                 logInfo(*) 'fault-output.pvd closed'
            END IF
        ENDIF
+       call closeFaultOutput()
     ENDIF
     !
     EPIK_USER_END(r_dr)
