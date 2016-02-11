@@ -47,6 +47,7 @@
 #include "xdmfwriter/XdmfWriter.h"
 #include "FaultWriterC.h"
 
+#ifdef USE_HDF
 static xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>* xdmfWriter = 0L;
 
 static char const * const labels[] = {
@@ -56,6 +57,7 @@ static char const * const labels[] = {
 #ifdef USE_MPI
 static MPI_Comm comm = MPI_COMM_NULL;
 #endif // USE_MPI
+#endif // USE_HDF
 
 extern "C"
 {
