@@ -43,6 +43,13 @@ import os
 import re
 import math
 
+def median(values):
+  n = len(values)
+  x = sorted(values)
+  if n%2 == 0:
+    return 0.5 * (x[n/2-1] + x[n/2])
+  return x[n/2]
+
 def mean(values):
   n = float(len(values))
   return sum(values) / n
@@ -59,10 +66,10 @@ def stdev(values):
 
 def writeTimes(times):
   with open('times.txt', 'w') as f:
-    f.write('{:16} {:10} {:10}\n'.format('Name', 'Mean', 'Std. dev.'))
+    f.write('{:16} {:10} {:10} {:10}\n'.format('Name', 'Median', 'Mean', 'Std. dev.'))
     for name, value in sorted(times.iteritems()):
       for idx, time in sorted(value.iteritems()):
-        f.write('{:16} {:0<10.4} {:0<10.4}\n'.format(name + str(idx), mean(time), stdev(time)))
+        f.write('{:16} {:0<10.4} {:0<10.4} {:0<10.4}\n'.format(name + str(idx), median(time), mean(time), stdev(time)))
 
 def analyse():
   times = dict()
@@ -89,9 +96,9 @@ def analyse():
   
   matrices = list()
   dense = times.pop('dense').pop(0)
-  denseTime = mean(dense)
+  denseTime = median(dense)
   for key, variants in times.iteritems():
-    matrixTimes = {variant: mean(timeSeries) for variant, timeSeries in variants.iteritems()}
+    matrixTimes = {variant: median(timeSeries) for variant, timeSeries in variants.iteritems()}
     minTimeKey = min(matrixTimes, key=matrixTimes.get)
     if matrixTimes[minTimeKey] < denseTime:
       matrices.append((key, minTimeKey))
