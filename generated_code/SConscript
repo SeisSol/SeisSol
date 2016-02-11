@@ -45,7 +45,7 @@ import os
 def generate_code(target, source, env, for_signature):
   return 'python {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --generator {} --memLayout {}'.format(
     source[0],
-    os.path.split(str(source[0]))[0],
+    os.path.join(os.path.split(str(source[0]))[0], 'matrices'),
     os.path.split(str(target[0]))[0],
     env['arch'],
     env['order'],
