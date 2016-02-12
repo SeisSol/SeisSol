@@ -53,11 +53,11 @@ static xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>* xdmfWriter = 0L;
 static char const * const labels[] = {
   "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl"
 };
+#endif // USE_HDF
 
 #ifdef USE_MPI
 static MPI_Comm comm = MPI_COMM_NULL;
 #endif // USE_MPI
-#endif // USE_HDF
 
 extern "C"
 {
