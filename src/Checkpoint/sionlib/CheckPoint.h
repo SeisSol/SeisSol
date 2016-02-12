@@ -132,7 +132,10 @@ namespace seissol
 	}
 		
 	void flushCheckpoint() {	
-	  checkErr(fflush(m_fptr[odd()]));
+		SCOREP_USER_REGION_DEFINE(r_flush);
+		SCOREP_USER_REGION_BEGIN(r_flush, "checkpoint_flush", SCOREP_USER_REGION_TYPE_COMMON);
+		checkErr(fflush(m_fptr[odd()]));
+		SCOREP_USER_REGION_END(r_flush);
 	}
 	
 	/** Open a check point file, @return The file handle */

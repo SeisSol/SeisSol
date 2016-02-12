@@ -77,6 +77,10 @@ void seissol::checkpoint::sionlib::Fault::load(int &timestepFault) {
 
 void seissol::checkpoint::sionlib::Fault::write(int timestepFault) {  
 #ifdef USE_SIONLIB
+
+  EPIK_TRACER("CheckPointFault_write");
+  SCOREP_USER_REGION("CheckPointFault_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+
   if (numSides() == 0)
     return;
   int globalrank,numFiles;
@@ -87,11 +91,22 @@ void seissol::checkpoint::sionlib::Fault::write(int timestepFault) {
   m_gComm = comm(); m_lComm = m_gComm;
   globalrank = rank(); numFiles = 0; 
   setpos();
+
+  SCOREP_USER_REGION_DEFINE(r_write_header);
+  SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_fault_header", SCOREP_USER_REGION_TYPE_COMMON);
+
   checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
   checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault),1,m_files[odd()]));
+
+  SCOREP_USER_REGION_END(r_write_header);
+
+  SCOREP_USER_REGION_DEFINE(r_write_fault);
+  SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);
   for (int i = 0; i < NUM_VARIABLES; i++){
     checkErr(sion_fwrite(data(i),sizeof(real),this->numSides()*this->numBndGP(),m_files[odd()]));
   }
+  SCOREP_USER_REGION_END(r_write_fault);
+
   flushCheckpoint(); 
   //  finalizeCheckpoint();  
 #endif
