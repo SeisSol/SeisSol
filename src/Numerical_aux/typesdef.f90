@@ -901,6 +901,7 @@ MODULE TypesDef
      REAL                                   :: ZHypo                            !< z-coordinate of the forced rupture circle
      REAL                                   :: R_crit                           !< radius for the forced rupture nucleation patch
      REAL                                   :: t_0                              !< forced rupture decay time
+     REAL                                   :: Vs_nucl                          !< Vs at nucleation (used only by time-forced rupture nucleation)
      REAL, ALLOCATABLE                      :: BndBF_GP_Tet(:,:,:)              !< Basis functions of '-' element at fault surface with matching GP (nDegFr,nBndGP,nSide)
      REAL, ALLOCATABLE                      :: FluxInt(:,:,:)                   !< corresponding flux integration matrix (nDegFr,nDegFr,nSide))
      REAL, ALLOCATABLE                      :: RS_srW_array(:,:)                !< velocity weakening scale, array of spatial dependency
