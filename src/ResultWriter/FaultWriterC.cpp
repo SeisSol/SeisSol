@@ -161,4 +161,15 @@ void fault_hdf_write_data(int id, const double* data)
 #endif // USE_HDF
 }
 
+void fault_hdf_flush()
+{
+#ifdef USE_HDF
+	if (xdmfWriter) {
+		xdmfWriter->flush();
+	}
+#else // USE_HDF
+    logError() << "This version does not support XDMF output";
+#endif // USE_HDF
+}
+
 }

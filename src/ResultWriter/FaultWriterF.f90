@@ -81,6 +81,9 @@ module FaultWriter
             integer, value                      :: id
             real( kind=c_double ), dimension(*) :: data
         end subroutine fault_hdf_write_data
+
+        subroutine fault_hdf_flush() bind(C, name="fault_hdf_flush")
+        end subroutine fault_hdf_flush
     end interface
 
 contains
@@ -139,6 +142,12 @@ contains
 
         call fault_hdf_write_data(id-1, data)
     end subroutine writeFaultData
+
+    subroutine flushFault()
+        implicit none
+
+        call fault_hdf_flush()
+    end subroutine flushFault
 
     subroutine closeFaultOutput()
         implicit none

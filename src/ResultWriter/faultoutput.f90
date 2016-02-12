@@ -1022,6 +1022,7 @@ CONTAINS
 
          call writeFaultData(j, DISC%DynRup%DynRup_out_elementwise%TmpState(:,:,j))
         ENDDO !OutVars
+        call flushFault()
         !
         DO iOutPoints = 1,DISC%DynRup%DynRup_out_elementwise%nDR_pick
     	   DISC%DynRup%DynRup_out_elementwise%CurrentPick(iOutPoints) = 0
