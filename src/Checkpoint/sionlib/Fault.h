@@ -80,6 +80,7 @@ namespace seissol
 	 */
 	void load(int &timestepFault);
 	void write(int timestepFault);	
+	void writeinit();
 	void close() {
 	  if (numSides() == 0)
 	    return; 

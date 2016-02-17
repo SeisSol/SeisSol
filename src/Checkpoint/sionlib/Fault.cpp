@@ -40,8 +40,9 @@
 #include "Fault.h"
 #include "Kernels/precision.hpp"
 
-bool seissol::checkpoint::sionlib::Fault::init(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1,
-					       double* slip2, double* state, double* strength,
+bool seissol::checkpoint::sionlib::Fault::init(double* mu, double* slipRate1, double* slipRate2,
+					       double* slip, double* slip1,double* slip2,
+					       double* state, double* strength,
 					       unsigned int numSides, unsigned int numBndGP){
 #ifdef USE_SIONLIB
   seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength, numSides, numBndGP);
@@ -52,26 +53,66 @@ bool seissol::checkpoint::sionlib::Fault::init(double* mu, double* slipRate1, do
   return exists();
 }
 
+void seissol::checkpoint::sionlib::Fault::writeinit(){
+#ifdef USE_SIONLIB
+  int globalrank,numFiles;
+  char *newfname=NULL;
+  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE",-1);  
+  unsigned long lidentifier;
+  int timestepFault;
+  
+  m_gComm = comm(); m_lComm = m_gComm; //m_iogroup.get_newcomm();
+  //m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
+  globalrank = rank(); numFiles = -1;
+  lidentifier = identifier();timestepFault=0;  
+  for (unsigned int i = 0; i < 2; i++) {
+    logInfo(rank())<<"writeinit: connect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group()<<"|lcomm:"<<m_lComm;
+    m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
+				  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
+    fgetpos(m_fptr[i],&m_chunkpos);//get position of datachunk for subsequent writes
+    checkErr(m_files[i]);
+    checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
+    checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault),1,m_files[odd()]));    
+    if (numSides() > 0){
+      for (int j = 0; j < NUM_VARIABLES; j++){
+	checkErr(sion_fwrite(data(j),sizeof(real),this->numSides()*this->numBndGP(),m_files[odd()]));
+      }
+    }
+    ::close(m_files[i]);
+  }
+  for (unsigned int i = 0; i < 2; i++) {
+    logInfo(rank())<<"writeinit: reconnect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group()<<"|lcomm:"<<m_lComm;
+    m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
+				  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
+  }
+#endif
+}
+
 void seissol::checkpoint::sionlib::Fault::load(int &timestepFault) {
 #ifdef USE_SIONLIB
   if (numSides() == 0)
     return;  
+  logInfo(rank()) << "Loading fault checkpoint";
   seissol::checkpoint::CheckPoint::load();
-  int file; FILE *file_ptr; char fname[1023], *newfname=NULL;
+  int file; FILE *file_ptr; char *newfname=NULL;
   int globalrank,numFiles;  unsigned long lidentifier;  
-  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
-  m_gComm = comm(); m_lComm = m_gComm;	
-  globalrank  = rank(); numFiles = 0;
+  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE",-1);
+  m_gComm = comm(); m_lComm = m_gComm; //m_iogroup.get_newcomm();
+  //m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
+  globalrank  = rank(); numFiles = -1;
   file = sion_paropen_mpi(const_cast<char*>(linkFile().c_str()), "br", &numFiles, m_gComm, &m_lComm,
 			  &m_chunksize, &fsblksize, &globalrank, &file_ptr, &newfname);
   checkErr(file);
   checkErr(sion_fread(&lidentifier, sizeof(unsigned long),1,file));
   checkErr(sion_fread(&timestepFault, sizeof(timestepFault),1,file));
-  for (int i = 0; i < NUM_VARIABLES; i++)
-    checkErr(sion_fread(data(i),sizeof(real),this->numSides()*this->numBndGP(),file));
+  if (numSides() > 0){
+    for (int i = 0; i < NUM_VARIABLES; i++)
+      checkErr(sion_fread(data(i),sizeof(real),this->numSides()*this->numBndGP(),file));
+  }
   if (ferror (file_ptr))
     logWarning(rank())<<"Error reading fault data SIONlib-checkpoint\n";
   checkErr(sion_parclose_mpi(file));
+  logInfo(rank()) << "Loading fault SIONlib-checkpoint done";
 #endif
 }
 
@@ -83,13 +124,9 @@ void seissol::checkpoint::sionlib::Fault::write(int timestepFault) {
 
   if (numSides() == 0)
     return;
-  int globalrank,numFiles;
-  char fname[1023], *newfname=NULL; 
-  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
+  logInfo(rank()) << "Writing fault check point.";
   unsigned long lidentifier;
   lidentifier = identifier();
-  m_gComm = comm(); m_lComm = m_gComm;
-  globalrank = rank(); numFiles = 0; 
   setpos();
 
   SCOREP_USER_REGION_DEFINE(r_write_header);
@@ -97,17 +134,19 @@ void seissol::checkpoint::sionlib::Fault::write(int timestepFault) {
 
   checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
   checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault),1,m_files[odd()]));
-
+  
   SCOREP_USER_REGION_END(r_write_header);
 
-  SCOREP_USER_REGION_DEFINE(r_write_fault);
-  SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);
-  for (int i = 0; i < NUM_VARIABLES; i++){
-    checkErr(sion_fwrite(data(i),sizeof(real),this->numSides()*this->numBndGP(),m_files[odd()]));
+  if (numSides() > 0){
+    SCOREP_USER_REGION_DEFINE(r_write_fault);
+    SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);
+    for (int i = 0; i < NUM_VARIABLES; i++){
+      checkErr(sion_fwrite(data(i),sizeof(real),this->numSides()*this->numBndGP(),m_files[odd()]));
+    }
+    SCOREP_USER_REGION_END(r_write_fault);
   }
-  SCOREP_USER_REGION_END(r_write_fault);
-
   flushCheckpoint(); 
   //  finalizeCheckpoint();  
+  logInfo(rank()) << "Writing fault checkpoint. Done.";
 #endif
 }
