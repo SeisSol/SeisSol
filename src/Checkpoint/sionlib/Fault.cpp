@@ -61,7 +61,7 @@ void seissol::checkpoint::sionlib::Fault::writeinit(){
   unsigned long lidentifier;
   int timestepFault;
   
-  m_gComm = comm(); m_lComm = m_gComm; //m_iogroup.get_newcomm();
+  m_gComm = comm(); m_lComm = m_gComm;
   //m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
   globalrank = rank(); numFiles = -1;
   lidentifier = identifier();timestepFault=0;  
@@ -97,7 +97,7 @@ void seissol::checkpoint::sionlib::Fault::load(int &timestepFault) {
   int file; FILE *file_ptr; char *newfname=NULL;
   int globalrank,numFiles;  unsigned long lidentifier;  
   sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE",-1);
-  m_gComm = comm(); m_lComm = m_gComm; //m_iogroup.get_newcomm();
+  m_gComm = comm(); m_lComm = m_gComm;
   //m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
   globalrank  = rank(); numFiles = -1;
   file = sion_paropen_mpi(const_cast<char*>(linkFile().c_str()), "br", &numFiles, m_gComm, &m_lComm,
