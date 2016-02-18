@@ -66,7 +66,7 @@ void seissol::checkpoint::sionlib::Fault::writeinit(){
   globalrank = rank(); numFiles = -1;
   lidentifier = identifier();timestepFault=0;  
   for (unsigned int i = 0; i < 2; i++) {
-    logInfo(rank())<<"writeinit: connect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group()<<"|lcomm:"<<m_lComm;
+    logInfo(rank())<<"writeinit: connect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group();
     m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
 				  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
     fgetpos(m_fptr[i],&m_chunkpos);//get position of datachunk for subsequent writes
@@ -81,7 +81,7 @@ void seissol::checkpoint::sionlib::Fault::writeinit(){
     close_file(m_files[i]);
   }
   for (unsigned int i = 0; i < 2; i++) {
-    logInfo(rank())<<"writeinit: reconnect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group()<<"|lcomm:"<<m_lComm;
+    logInfo(rank())<<"writeinit: reconnect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group();
     m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
 				  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
   }
