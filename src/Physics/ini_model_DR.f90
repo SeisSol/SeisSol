@@ -388,8 +388,12 @@ MODULE ini_model_DR_mod
        DISC%DynRup%Mu_S(:,:) = DISC%DynRup%Mu_S_ini
        DISC%DynRup%Mu_D(:,:) = DISC%DynRup%Mu_D_ini
        EQN%IniMu(:,:)        =  DISC%DynRup%Mu_S_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
+       
+       Vs = DISC%DynRup%Vs_nucl
+       IF (abs(Vs).LE.1d-6) THEN
+          Vs = SQRT(EQN%mu/EQN%rho0)
+       ENDIF
 
-       Vs = SQRT(EQN%mu/EQN%rho0)
        r_crit = DISC%DynRup%R_crit
        hypox = DISC%DynRup%XHypo
        hypoy = DISC%DynRup%YHypo
