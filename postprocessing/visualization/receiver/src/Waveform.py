@@ -50,7 +50,5 @@ class Waveform:
       else:
         self.waveforms[ names[i] ] = data[:,i]
     
-    names.remove('Time')
-    self.names = names
     self.coordinates = numpy.array(coordinates)
 
