@@ -49,7 +49,6 @@ MODULE ini_faultoutput_mod
   !---------------------------------------------------------------------------!
   USE TypesDef
   USE COMMON_operators_mod
-  USE pvd
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
   PRIVATE

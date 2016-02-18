@@ -3674,10 +3674,6 @@ CONTAINS
     ! but only in cases dynamic rupture is turned on and output is set to 4 or 5
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
      logInfo(*) "Initialize fault-output.pvd file to wrap fault output data"
-     IF (MPI%myrank.eq.0) THEN
-            CALL create_pvd_writer(IO%meta_plotter, trim(IO%OutputFile) // c_null_char)
-            CALL open_pvd_writer(IO%meta_plotter)
-     ENDIF
      ! MPI_GATHER
      CALL create_meta(DISC,MPI,DISC%DynRup%DynRup_out_elementwise%nDR_pick)
     ENDIF

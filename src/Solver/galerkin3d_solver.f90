@@ -224,24 +224,6 @@ CONTAINS
     ! add timestep to pvd writer in case fault output was written
     IF (MPI%myrank.EQ.0.AND.(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5)) THEN
  	   ! fault output iterations, including iteration 1 and last timestep
-       IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
-         (min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0) &
-         !.or. (DISC%iterationstep .EQ. 0) & ! uncomment to print setup at time 0 for intial stresses
-         ) THEN
-           !
-           DO i=1,size(DISC%DynRup%DynRup_out_elementwise%elements_per_rank)
-            IF(DISC%DynRup%DynRup_out_elementwise%elements_per_rank(i).GT.0) THEN
-                 rank_int=i-1
-                 CALL addtimestep_pvd_writer(IO%meta_plotter,time,rank_int,DISC%iterationstep)
-            ENDIF
-           ENDDO
-           ! destroy pvd file after last time step
-           IF ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LT.(dt*1.005d0)) THEN
-                CALL close_pvd_writer(IO%meta_plotter)
-                CALL destroy_pvd_writer(IO%meta_plotter)
-                logInfo(*) 'fault-output.pvd closed'
-           END IF
-       ENDIF
        call closeFaultOutput()
     ENDIF
     !
