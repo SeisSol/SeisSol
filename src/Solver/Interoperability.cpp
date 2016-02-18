@@ -536,7 +536,7 @@ void seissol::Interoperability::getDynamicRuptureTimeStep(int &o_timeStep)
 void seissol::Interoperability::addToDofs( int      i_meshId,
                                            double*  i_update,
                                            int      numberOfQuantities ) {
-  seissol::kernels::addToAlignedDofs( i_update, m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ], numberOfQuantities );
+  seissol::kernels::addToAlignedDofs( i_update, m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ], static_cast<unsigned>(numberOfQuantities) );
 }
 
 void seissol::Interoperability::getTimeDerivatives( int    i_meshId,

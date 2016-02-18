@@ -125,7 +125,7 @@ namespace seissol {
     template<typename real_from, typename real_to>
     void addToAlignedDofs(  real_from const*  i_unalignedUpdate,
                             real_to*          o_alignedDofs,
-                            int               numberOfQuantities ) {
+                            unsigned          numberOfQuantities ) {
       for( unsigned int l_quantity = 0; l_quantity < numberOfQuantities; l_quantity++ ) {
         for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
           o_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction] += i_unalignedUpdate[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction];
