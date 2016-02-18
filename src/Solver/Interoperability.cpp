@@ -159,9 +159,10 @@ extern "C" {
 			  numSides, numBndGP, refinement);
   }
 
-  void c_interoperability_addToDofs( int    i_meshId,
-                                     double i_update[NUMBER_OF_DOFS] ) {
-    e_interoperability.addToDofs( i_meshId, i_update );
+  void c_interoperability_addToDofs( int      i_meshId,
+                                     double*  i_update,
+                                     int      numberOfQuantities ) {
+    e_interoperability.addToDofs( i_meshId, i_update, numberOfQuantities );
   }
 
   void c_interoperability_getTimeDerivatives( int    i_meshId,
@@ -532,9 +533,10 @@ void seissol::Interoperability::getDynamicRuptureTimeStep(int &o_timeStep)
 	f_interoperability_getDynamicRuptureTimeStep(m_domain, &o_timeStep);
 }
 
-void seissol::Interoperability::addToDofs( int    i_meshId,
-                                           double i_update[NUMBER_OF_DOFS] ) {
-  seissol::kernels::addToAlignedDofs( i_update, m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ] );
+void seissol::Interoperability::addToDofs( int      i_meshId,
+                                           double*  i_update,
+                                           int      numberOfQuantities ) {
+  seissol::kernels::addToAlignedDofs( i_update, m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ], numberOfQuantities );
 }
 
 void seissol::Interoperability::getTimeDerivatives( int    i_meshId,

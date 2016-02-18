@@ -48,6 +48,7 @@ import commands
 
 # import helpers
 import arch
+import memlayout
 
 # print the welcome message
 print '********************************************'
@@ -98,8 +99,6 @@ vars.AddVariables(
               ),
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
-
-  ( 'libxsmmGenerator', 'Path to code generator from libxsmm (needs to be set if equations=viscoelastic).' ),
   
   ( 'memLayout', 'Path to memory layout file (needs to be set if equations=viscoelastic).' ),
 
@@ -231,8 +230,6 @@ if env['order'] == 'none':
 if env['equations'] == 'viscoelastic':
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
-  if not os.path.exists(os.path.expanduser(env['libxsmmGenerator'])):
-    ConfigurationError("*** Path to libxsmm code generator not set.")
   
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
@@ -240,6 +237,9 @@ if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
   
 if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['parallelization'] == 'hybrid' ):
   ConfigurationError("*** Classic version does not support hybrid parallelization")
+  
+if not env.has_key('memLayout'):
+  env['memLayout'] = memlayout.guessMemoryLayout(env)
 
 #
 # preprocessor, compiler and linker
@@ -482,6 +482,9 @@ env.Append( CPPPATH=['#/submodules'] )
 #
 # add libraries
 #
+
+# Libxsmm
+env.Tool('LibxsmmTool', required=env['equations'].startswith('viscoelastic'))
 
 # Library pathes
 env.Tool('DirTool', fortran=True)

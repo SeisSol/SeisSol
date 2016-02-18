@@ -190,11 +190,12 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), value                    :: i_refinement
     end subroutine
 
-    subroutine c_interoperability_addToDofs( i_meshId, i_update ) bind( C, name='c_interoperability_addToDofs' )
+    subroutine c_interoperability_addToDofs( i_meshId, i_update, numberOfQuantities ) bind( C, name='c_interoperability_addToDofs' )
       use iso_c_binding
       implicit none
       integer(kind=c_int), value                    :: i_meshId
       real(kind=c_double), dimension(*), intent(in) :: i_update
+      integer(kind=c_int), value                    :: numberOfQuantities
     end subroutine
 
     subroutine c_interoperability_getTimeDerivatives( i_meshId, o_timeDerivatives ) bind( C, name='c_interoperability_getTimeDerivatives' )

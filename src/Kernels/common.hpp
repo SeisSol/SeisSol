@@ -123,9 +123,10 @@ namespace seissol {
      * @param o_alignedDofs aligned degrees of freedom.
      **/
     template<typename real_from, typename real_to>
-    void addToAlignedDofs( const real_from i_unalignedUpdate[ NUMBER_OF_DOFS ],
-                                        real_to   o_alignedDofs[     NUMBER_OF_ALIGNED_DOFS ] ) {
-      for( unsigned int l_quantity = 0; l_quantity < NUMBER_OF_QUANTITIES; l_quantity++ ) {
+    void addToAlignedDofs(  real_from const*  i_unalignedUpdate,
+                            real_to*          o_alignedDofs,
+                            int               numberOfQuantities ) {
+      for( unsigned int l_quantity = 0; l_quantity < numberOfQuantities; l_quantity++ ) {
         for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
           o_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction] += i_unalignedUpdate[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction];
         }

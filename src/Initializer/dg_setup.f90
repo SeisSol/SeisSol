@@ -2724,8 +2724,9 @@ CONTAINS
 
 #ifdef GENERATEDKERNELS
         ! write the update back
-        call c_interoperability_addToDofs(  i_meshId  = iElem, \
-                                            i_update  = l_dofsUpdate )
+        call c_interoperability_addToDofs(  i_meshId           = iElem, \
+                                            i_update           = l_dofsUpdate, \
+                                            numberOfQuantities = eqn%nVarTotal )
 
 #ifdef USE_PLASTICITY
         ! initialize loading in C

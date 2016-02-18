@@ -576,8 +576,9 @@ MODULE Friction_mod
     ENDDO
 #else
     do iFace=1,DISC%DynRup%nDRElems
-      call c_interoperability_addToDofs( i_meshId  = DISC%DynRup%indicesOfDRElems(iFace), \
-                                         i_update  = DISC%DynRup%DRupdates(1:DISC%Galerkin%nDegFr,1:EQN%nVar,iFace) )
+      call c_interoperability_addToDofs( i_meshId           = DISC%DynRup%indicesOfDRElems(iFace), \
+                                         i_update           = DISC%DynRup%DRupdates(1:DISC%Galerkin%nDegFr,1:EQN%nVar,iFace), \
+                                         numberOfQuantities = EQN%nVar )
     enddo
 #endif
 

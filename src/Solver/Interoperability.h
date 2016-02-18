@@ -270,8 +270,9 @@ class seissol::Interoperability {
     * @param i_mesh mesh id of the cell, Fortran notation is assumed - starting at 1 instead of 0.
     * @param i_update update which is applied.
     **/
-   void addToDofs( int    i_meshId,
-                   double i_update[NUMBER_OF_DOFS] );
+   void addToDofs( int      i_meshId,
+                   double*  i_update,
+                   int      numberOfQuantities );
 
    /**
     * Writes the receivers.

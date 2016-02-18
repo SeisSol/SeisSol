@@ -73,8 +73,7 @@ vars.AddVariables(
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
 
-  PathVariable( 'memLayout', 'memory layout xml file', '', PathVariable.PathIsFile),
-  PathVariable( 'libxsmmGenerator', 'Path to code generator from libxsmm.', '', PathVariable.PathIsFile),
+  PathVariable( 'memLayout', 'memory layout xml file', '', PathVariable.PathIsFile)
 )
 
 # set environment
@@ -100,6 +99,12 @@ if 'buildVariablesFile' in unknownVariables:
 if unknownVariables:
   raise EnvironmentError("*** The following build variables are unknown: " + str(unknownVariables.keys()))
 
+#
+# Libraries
+#
+
+# Libxsmm
+env.Tool('LibxsmmTool', required=True)
 
 #
 # precompiler, compiler and linker flags
