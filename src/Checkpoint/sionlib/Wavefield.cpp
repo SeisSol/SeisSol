@@ -60,22 +60,19 @@ void seissol::checkpoint::sionlib::Wavefield::writeinit(){
   globalrank = rank(); numFiles = -1;
   
   for (unsigned int i = 0; i < 2; i++) {
-    logInfo(rank())<<"writeinit: connect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group()<<"|lcomm:"<<m_lComm;
+    logInfo(rank())<<"writeinit: connect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group();
     m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
 				  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
     fgetpos(m_fptr[i],&m_chunkpos);
     checkErr(m_files[i]);
-    checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
-    checkErr(sion_fwrite(&time, sizeof(time),1,m_files[odd()]));
-    checkErr(sion_fwrite(&timestepWaveField, sizeof(timestepWaveField),1,m_files[odd()]));
-    checkErr(sion_fwrite(dofs(),sizeof(real), numDofs(),m_files[odd()]));  
-    ::close(m_files[i]);
-    m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
-				  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
-    checkErr(m_files[i]);
+    checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[i]));
+    checkErr(sion_fwrite(&time, sizeof(time),1,m_files[i]));
+    checkErr(sion_fwrite(&timestepWaveField, sizeof(timestepWaveField),1,m_files[i]));
+    checkErr(sion_fwrite(dofs(),sizeof(real), numDofs(),m_files[i]));  
+    close_file(m_files[i]);
   }
   for (unsigned int i = 0; i < 2; i++) {
-    logInfo(rank())<<"writeinit: reconnect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group()<<"|lcomm:"<<m_lComm;
+    logInfo(rank())<<"writeinit: reconnect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group();
     m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
 				  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
   }

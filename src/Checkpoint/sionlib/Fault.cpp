@@ -71,14 +71,14 @@ void seissol::checkpoint::sionlib::Fault::writeinit(){
 				  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
     fgetpos(m_fptr[i],&m_chunkpos);//get position of datachunk for subsequent writes
     checkErr(m_files[i]);
-    checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
-    checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault),1,m_files[odd()]));    
+    checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[i]));
+    checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault),1,m_files[i]));    
     if (numSides() > 0){
       for (int j = 0; j < NUM_VARIABLES; j++){
-	checkErr(sion_fwrite(data(j),sizeof(real),this->numSides()*this->numBndGP(),m_files[odd()]));
+	checkErr(sion_fwrite(data(j),sizeof(real),this->numSides()*this->numBndGP(),m_files[i]));
       }
     }
-    ::close(m_files[i]);
+    close_file(m_files[i]);
   }
   for (unsigned int i = 0; i < 2; i++) {
     logInfo(rank())<<"writeinit: reconnect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group()<<"|lcomm:"<<m_lComm;

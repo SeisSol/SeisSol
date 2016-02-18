@@ -106,7 +106,7 @@ public:
       catch(...){group=1;cout<<"SEISSOL_CHECKPOINT_SION_GROUP:fallback"<<endl;}}
 #ifdef USE_MPI
     MPI_Comm_split(MPI_COMM_WORLD,group,key,&newcomm);
-    logInfo(rank)<<"comm:"<<MPI_COMM_WORLD<<"|newcomm:"<<newcomm<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles;
+    logInfo(rank)<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles;
 #endif //USE_MPI
   }
   int get_group()  {return group  ;}
@@ -150,7 +150,8 @@ namespace seissol{
       public:
 
 	CheckPoint(unsigned long identifier)
-	  : m_identifier(identifier), m_iogroup(){}	
+	  : m_identifier(identifier), m_iogroup(),
+	    m_flush(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_FLUSH",0)){}	
 	virtual ~CheckPoint() {}
 	
 	void setFilename(const char* filename) {initFilename(filename, 0L);}
@@ -188,7 +189,7 @@ namespace seissol{
 	}
 	
       protected:
-
+		    
 	int         m_files[2];
 #ifdef USE_MPI // Make sure all processes see the folders
 	MPI_Comm    m_gComm, m_lComm;
@@ -197,7 +198,8 @@ namespace seissol{
 	sion_int64  m_chunksize;
 	fpos_t      m_chunkpos;
 	SionIOGroup m_iogroup;
-
+	int         m_flush;
+		    
 	bool exists() {
 	  if (!seissol::checkpoint::CheckPoint::exists())
 	    return false;
@@ -209,13 +211,17 @@ namespace seissol{
 	  return hasCheckpoint;
 	}
 		
-	void flushCheckpoint() {	
-	        SCOREP_USER_REGION_DEFINE(r_flush);
-		SCOREP_USER_REGION_BEGIN(r_flush, "checkpoint_flush", SCOREP_USER_REGION_TYPE_COMMON);
-		checkErr(fflush(m_fptr[odd()]));
-		SCOREP_USER_REGION_END(r_flush);
-		logInfo(rank())<<"flush_Checkpoint()";
-	}
+	void flushCheckpoint() {
+	    SCOREP_USER_REGION_DEFINE(r_flush);
+	    SCOREP_USER_REGION_BEGIN(r_flush, "checkpoint_flush", SCOREP_USER_REGION_TYPE_COMMON);
+	    if(m_flush==0){
+	      checkErr(sion_flush(m_files[odd()]));	      
+	    }else{
+	      checkErr(fflush(m_fptr[odd()]));
+	    }
+	    SCOREP_USER_REGION_END(r_flush);
+	    logInfo(rank())<<"flush_Checkpoint()";
+	  }
 	
 	void open_all() {	  
 	  for (unsigned int i = 0; i < 2; i++) {
@@ -231,7 +237,7 @@ namespace seissol{
 	  char fname[1023], *newfname=NULL;
 	  globalrank = rank(); numFiles = -1; m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
 	  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE",-1);
-	  logInfo(rank())<<":: open:file:"<<linkFile().c_str()<<"|group:"<<m_iogroup.get_group()<<"|lcomm:"<<m_lComm;
+	  logInfo(rank())<<":: open:file:"<<linkFile().c_str()<<"|group:"<<m_iogroup.get_group();
 	  fh = sion_paropen_mpi(const_cast<char*>(linkFile().c_str()), "br", &numFiles, m_gComm, &m_lComm,
 	  			&m_chunksize, &fsblksize, &globalrank, &fptr, &newfname);
 #endif
