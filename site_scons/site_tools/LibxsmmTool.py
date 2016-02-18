@@ -55,7 +55,7 @@ def generate(env, **kw):
     conf.AddTest('CheckProg', CheckProg)
     required = kw['required'] if 'required' in kw else False
     
-    generator = conf.CheckProg('libxsmm_generator')
+    generator = conf.CheckProg('libxsmm_gemm_generator')
     if not generator and required:
       print('Could not find libxsmm generator.')
       env.Exit(1)
