@@ -70,7 +70,6 @@ CONTAINS
     USE Friction_mod
     USE faultoutput_mod
     USE Plasticity_mod
-    USE pvd
     use FaultWriter
 
 #ifdef GENERATEDKERNELS
@@ -221,10 +220,11 @@ CONTAINS
        ! friction evaluation
        CALL Friction(EQN, DISC, MESH, MPI, IO, OptionalFields, BND, time, dt)
     ENDIF
-    ! add timestep to pvd writer in case fault output was written
-    IF (MPI%myrank.EQ.0.AND.(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5)) THEN
- 	   ! fault output iterations, including iteration 1 and last timestep
-       call closeFaultOutput()
+    IF (DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
+        ! close fault output
+        IF ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LT.(dt*1.005d0)) THEN
+            call closeFaultOutput()
+        ENDIF
     ENDIF
     !
     EPIK_USER_END(r_dr)
