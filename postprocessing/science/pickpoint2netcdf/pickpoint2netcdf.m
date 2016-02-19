@@ -54,6 +54,7 @@ dirname    = input('      Sepcify the directory containing the pickpoint files '
 firstPoint = input('      Specify the index of the first interesting pickpoint ');
 nPoints    = input('      Specify the number of interesting pickpoints         ');
 filename   = input('      Sepcify the output filename ', 's');
+writeonsampleevery = 1;
 
 % Get all files in the directory
 files = dir(dirname);
@@ -107,7 +108,6 @@ for num = 1:nPoints
     valuesLinear(:,num) = data(:,zIndex);
       
 end
-
 clearvars data kk tmp
 
 % Generate ycoords, xcoords and values from location and valuesLinear
@@ -156,7 +156,7 @@ nccreate(filename,'x','Dimensions',{'x',length(xcoords)},'Datatype','single')
 ncwrite(filename,'x',xcoords)
 nccreate(filename,'y','Dimensions',{'y',length(ycoords)},'Datatype','single')
 ncwrite(filename,'y',ycoords)
-nccreate(filename,'time','Dimensions',{'time',length(time)},'Datatype','single')
+nccreate(filename,'time','Dimensions',{'time',length(time/writeonsampleevery)},'Datatype','single')
 ncwriteatt(filename,'time','units','seconds since initial rapture')
 ncwrite(filename,'time',time)
 
@@ -172,8 +172,8 @@ for t = 2:length(time)
     
     % Integrating values
     displ = reshape(values(t-1,:,:)+values(t,:,:),[length(ycoords) length(xcoords)]) * 0.5 * (time(2)-time(1)) + displOld;
-
-    ncwrite(filename,'z',permute(displ,[2 1]),[1 1 t])
-    
+    if mod(t,writeonsampleevery)==0
+       ncwrite(filename,'z',permute(displ,[2 1]),[1 1 t])
+    end
     displOld = displ;
 end

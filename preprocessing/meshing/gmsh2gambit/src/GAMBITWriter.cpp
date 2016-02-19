@@ -75,9 +75,9 @@ void writeNEU(char const* filename, GMSH const& msh)
   // Elements
   fprintf(file, "      ELEMENTS/CELLS 2.0.0\n");
   for (unsigned tetra = 0; tetra < msh.numTetras; ++tetra) {
-    fprintf(file, "%8d %2d %2d", tetra+1, 6, 4);
+    fprintf(file, "%8d %2d %2d ", tetra+1, 6, 4);
     for (unsigned n = 0; n < 4; ++n) {
-      fprintf(file, "%9d", msh.tetras[tetra].nodes[n]+1);
+      fprintf(file, "%8d", msh.tetras[tetra].nodes[n]+1);
     }
     fprintf(file, "\n");
   }

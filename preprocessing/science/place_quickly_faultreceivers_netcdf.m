@@ -233,7 +233,7 @@ choice='y';
 
 if choice=='y'
     fid_out  = fopen([filename0 ,'_faultreceivers.dat'],'w');
-    fprintf(fid_out,'%20.12f%20.12f%20.12f\n',receivers');
+    fprintf(fid_out,'%20.12f %20.12f %20.12f\n',receivers');
     %fprintf(fid_out,'%.20e %.20e %.20e\n',receivers');
     fclose(fid_out);
     disp('    Receiver coordinates saved!');
