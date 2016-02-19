@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013, SeisSol Group
@@ -62,27 +63,37 @@ extern "C" {
      * Prints the measured FLOPS.
      */
   void printFlops() {
-#ifdef USE_MPI
-    MPI_Allreduce(MPI_IN_PLACE, &libxsmm_num_total_flops, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolNonZeroFlopsLocal, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolHardwareFlopsLocal, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolNonZeroFlopsNeighbor, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolHardwareFlopsNeighbor, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolNonZeroFlopsOther, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &g_SeisSolHardwareFlopsOther, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
     int rank;
+    long long totalLibxsmmFlops;
+    long long totalNonZeroFlops;
+    long long totalHardwareFlops;
+    long long maxHardwareFlops;
+    
+    long long nonZeroFlops = g_SeisSolNonZeroFlopsLocal + g_SeisSolNonZeroFlopsNeighbor + g_SeisSolNonZeroFlopsOther;
+    long long hardwareFlops = g_SeisSolHardwareFlopsLocal + g_SeisSolHardwareFlopsNeighbor + g_SeisSolHardwareFlopsOther;
+    
+#ifdef USE_MPI
+    MPI_Reduce(&libxsmm_num_total_flops, &totalLibxsmmFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&nonZeroFlops, &totalNonZeroFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&hardwareFlops, &totalHardwareFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&hardwareFlops, &maxHardwareFlops, 1, MPI_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+
+    int size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+  
+    double loadImbalance = maxHardwareFlops - ((double) totalHardwareFlops) / size;
+    logInfo(rank) << "Load imbalance:            " << loadImbalance;
+    logInfo(rank) << "Relative load imbalance:   " << loadImbalance / maxHardwareFlops * 100.0 << "%";
 #else
-    int rank = 0;
+    rank = 0;
+    totalLibxsmmFlops = libxsmm_num_total_flops;
+    totalNonZeroFlops = nonZeroFlops;
+    totalHardwareFlops = hardwareFlops;
 #endif
-    logInfo(rank) << "Total   measured HW-GFLOP: " << ((double)libxsmm_num_total_flops)/1e9;
-    logInfo(rank) << "Total calculated HW-GFLOP: " << ((double)(g_SeisSolHardwareFlopsLocal+g_SeisSolHardwareFlopsNeighbor+g_SeisSolHardwareFlopsOther))/1e9;
-    logInfo(rank) << "Total calculated NZ-GFLOP: " << ((double)(g_SeisSolNonZeroFlopsLocal+g_SeisSolNonZeroFlopsNeighbor+g_SeisSolNonZeroFlopsOther))/1e9;
-    logInfo(rank) << "Local calculated HW-GFLOP: " << ((double)g_SeisSolHardwareFlopsLocal)/1e9;
-    logInfo(rank) << "Local calculated NZ-GFLOP: " << ((double)g_SeisSolNonZeroFlopsLocal)/1e9;
-    logInfo(rank) << "Neigh calculated HW-GFLOP: " << ((double)g_SeisSolHardwareFlopsNeighbor)/1e9;
-    logInfo(rank) << "Neigh calculated NZ-GFLOP: " << ((double)g_SeisSolNonZeroFlopsNeighbor)/1e9;
-    logInfo(rank) << "Other calculated HW-GFLOP: " << ((double)g_SeisSolHardwareFlopsOther)/1e9;
-    logInfo(rank) << "Other calculated NZ-GFLOP: " << ((double)g_SeisSolNonZeroFlopsOther)/1e9;
+
+    logInfo(rank) << "Total   measured HW-GFLOP: " << ((double)totalLibxsmmFlops)/1e9;
+    logInfo(rank) << "Total calculated HW-GFLOP: " << ((double)totalHardwareFlops)/1e9;
+    logInfo(rank) << "Total calculated NZ-GFLOP: " << ((double)totalNonZeroFlops)/1e9;
   }
 }
