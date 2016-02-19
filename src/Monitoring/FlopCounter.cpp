@@ -67,12 +67,13 @@ extern "C" {
     long long totalLibxsmmFlops;
     long long totalNonZeroFlops;
     long long totalHardwareFlops;
-    long long maxHardwareFlops;
     
     long long nonZeroFlops = g_SeisSolNonZeroFlopsLocal + g_SeisSolNonZeroFlopsNeighbor + g_SeisSolNonZeroFlopsOther;
     long long hardwareFlops = g_SeisSolHardwareFlopsLocal + g_SeisSolHardwareFlopsNeighbor + g_SeisSolHardwareFlopsOther;
     
 #ifdef USE_MPI
+    long long maxHardwareFlops;
+
     MPI_Reduce(&libxsmm_num_total_flops, &totalLibxsmmFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&nonZeroFlops, &totalNonZeroFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&hardwareFlops, &totalHardwareFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
