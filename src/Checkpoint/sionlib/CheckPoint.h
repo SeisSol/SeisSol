@@ -80,17 +80,19 @@ protected:
   int numfiles;
   
 public: 
-
-  SionIOGroup(void){
+  
+  SionIOGroup(void) : group(1),key(0),numfiles(1) {}
+  SionIOGroup(MPI_Comm aComm){
     string val,substr,subn;
     int rank,size;
+    
     try{
       val = string(getenv("SEISSOL_CHECKPOINT_SION_NUM_FILES"));
       numfiles = atoi(val.c_str());
       rank=0;size=1;
 #ifdef USE_MPI
-      MPI_Comm_rank(MPI_COMM_WORLD,&rank);
-      MPI_Comm_size(MPI_COMM_WORLD,&size);
+      MPI_Comm_rank(aComm,&rank);
+      MPI_Comm_size(aComm,&size);
 #endif //USE_MPI
       group = (rank/(size/numfiles))+1;
     } 
@@ -105,7 +107,7 @@ public:
 	}else{group = atoi(val.c_str());}}
       catch(...){group=1;cout<<"SEISSOL_CHECKPOINT_SION_GROUP:fallback"<<endl;}}
 #ifdef USE_MPI
-    MPI_Comm_split(MPI_COMM_WORLD,group,key,&newcomm);
+    MPI_Comm_split(aComm,group,key,&newcomm);
     logInfo(rank)<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles;
 #endif //USE_MPI
   }
@@ -117,6 +119,7 @@ public:
 
 private:
 
+  
   void set_group(string substr,string subn){int n;
     try{  n = atoi(subn.c_str());
       group = get_from_substr(hostname(),substr,n);}
@@ -150,9 +153,10 @@ namespace seissol{
       public:
 
 	CheckPoint(unsigned long identifier)
-	  : m_identifier(identifier), m_iogroup(),
-	    m_flush(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_FLUSH",0)){}	
+	  : m_identifier(identifier),m_flush(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_FLUSH",0)){}	
+	
 	virtual ~CheckPoint() {}
+	//~CheckPoint();
 	
 	void setFilename(const char* filename) {initFilename(filename, 0L);}
 	

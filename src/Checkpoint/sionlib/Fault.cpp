@@ -46,9 +46,10 @@ bool seissol::checkpoint::sionlib::Fault::init(double* mu, double* slipRate1, do
 					       unsigned int numSides, unsigned int numBndGP){
 #ifdef USE_SIONLIB
   seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength, numSides, numBndGP);
+  set_chunksize(this->numSides()*this->numBndGP()*sizeof(real) + sizeof(int) + sizeof(unsigned long));
   if (numSides == 0)
     return true;
-  set_chunksize(this->numSides()*this->numBndGP()*sizeof(real) + sizeof(int) + sizeof(unsigned long));
+  m_iogroup = SionIOGroup(comm());
 #endif
   return exists();
 }
@@ -61,10 +62,9 @@ void seissol::checkpoint::sionlib::Fault::writeinit(){
   unsigned long lidentifier;
   int timestepFault;
   
-  m_gComm = comm(); m_lComm = m_gComm;
-  //m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
+  m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
   globalrank = rank(); numFiles = -1;
-  lidentifier = identifier();timestepFault=0;  
+  lidentifier = identifier();timestepFault=0;
   for (unsigned int i = 0; i < 2; i++) {
     logInfo(rank())<<"writeinit: connect to file:"<<dataFile(i).c_str()<<"|group:"<<m_iogroup.get_group();
     m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
@@ -97,8 +97,7 @@ void seissol::checkpoint::sionlib::Fault::load(int &timestepFault) {
   int file; FILE *file_ptr; char *newfname=NULL;
   int globalrank,numFiles;  unsigned long lidentifier;  
   sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE",-1);
-  m_gComm = comm(); m_lComm = m_gComm;
-  //m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
+  m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
   globalrank  = rank(); numFiles = -1;
   file = sion_paropen_mpi(const_cast<char*>(linkFile().c_str()), "br", &numFiles, m_gComm, &m_lComm,
 			  &m_chunksize, &fsblksize, &globalrank, &file_ptr, &newfname);

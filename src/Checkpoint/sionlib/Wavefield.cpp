@@ -44,6 +44,7 @@ bool seissol::checkpoint::sionlib::Wavefield::init(real* dofs, unsigned int numD
   seissol::checkpoint::Wavefield::init(dofs, numDofs);
 #ifdef USE_SIONLIB
   set_chunksize(this->numDofs()*sizeof(double)+sizeof(double)+sizeof(int)+sizeof(unsigned long));
+  m_iogroup = SionIOGroup(comm());
 #endif
   return exists();
 }
