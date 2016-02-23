@@ -56,13 +56,13 @@ namespace seissol
       public:
 	Wavefield()
 	  : CheckPoint(0x7A56F)
-	{
-	  
+	{	  
 	}	
 	bool init(real* dofs, unsigned int numDofs);
 	void load(double &time, int &timestepWavefield);
 	void write(double time, int timestepWaveField);	
 	void writeinit();	
+	string which(){return string("sion.wave");};
       };      
     }
   }

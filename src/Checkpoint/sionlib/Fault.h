@@ -81,12 +81,13 @@ namespace seissol
 	void load(int &timestepFault);
 	void write(int timestepFault);	
 	void writeinit();
+	string which(){return string("sion.fault");};
 	void close() {
-	  if (numSides() == 0)
+	if (numSides() == 0)
 	    return; 
 	  CheckPoint::close();
 	}
-      }; 
+      };
     } 
   }  
 }

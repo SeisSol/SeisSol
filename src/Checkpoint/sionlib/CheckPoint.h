@@ -63,7 +63,8 @@
 #include "utils/env.h"
 #include "Checkpoint/CheckPoint.h"
 #include "Initializer/preProcessorMacros.fpp"
-
+#include <iostream>
+#include <math.h>
 using namespace std;
 
 class SionIOGroup {
@@ -94,9 +95,11 @@ public:
       MPI_Comm_rank(aComm,&rank);
       MPI_Comm_size(aComm,&size);
 #endif //USE_MPI
-      group = (rank/(size/numfiles))+1;
+      if(size<numfiles){numfiles=size;}
+      group = (rank/ceil((double)size/(double)numfiles))+1;
     } 
     catch(...){
+      cout<<"SEISSOL_CHECKPOINT_SION_NUM_FILES-based grouping failed"<<endl;
       try{
 	val = string(getenv("SEISSOL_CHECKPOINT_SION_GROUP"));
 	if (val==string("HOSTNAME")){
@@ -108,7 +111,8 @@ public:
       catch(...){group=1;cout<<"SEISSOL_CHECKPOINT_SION_GROUP:fallback"<<endl;}}
 #ifdef USE_MPI
     MPI_Comm_split(aComm,group,key,&newcomm);
-    logInfo(rank)<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles;
+    //logInfo(rank)<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles;
+    cout<<rank<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles<<endl;
 #endif //USE_MPI
   }
   int get_group()  {return group  ;}
@@ -156,7 +160,8 @@ namespace seissol{
 	  : m_identifier(identifier),m_flush(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_FLUSH",0)){}	
 	
 	virtual ~CheckPoint() {}
-	//~CheckPoint();
+
+	virtual string which(){return string("sion");}
 	
 	void setFilename(const char* filename) {initFilename(filename, 0L);}
 	
@@ -178,7 +183,7 @@ namespace seissol{
 #endif
 	}
 	virtual void writeinit(){}
-	
+
 	/** close single checkpoint file */
 	void close_file(int fh){
 	  checkErr(sion_parclose_mpi(fh));
@@ -248,10 +253,10 @@ namespace seissol{
 	  if (fh < 0){logWarning() << "checkpoint::sionlib::Open():Could not open checkpoint file";}
 	  return fh;
 	}
+			
+	string linkFile(){return std::string(seissol::checkpoint::CheckPoint::linkFile())+ "/cp."+which();}
 		
-	string linkFile(){return std::string(seissol::checkpoint::CheckPoint::linkFile())+ "/checkpoint";}
-		
-	string dataFile(int odd) {return seissol::checkpoint::CheckPoint::dataFile(odd) + "/checkpoint";}	
+	string dataFile(int odd) {return seissol::checkpoint::CheckPoint::dataFile(odd) + "/cp."+which();}
 	  /** @return The current file handle */
 	int file() const {
 	  return m_files[odd()];
