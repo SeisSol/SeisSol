@@ -49,7 +49,6 @@ MODULE ini_faultoutput_mod
   !---------------------------------------------------------------------------!
   USE TypesDef
   USE COMMON_operators_mod
-  USE pvd
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
   PRIVATE
@@ -755,7 +754,7 @@ CONTAINS
      REAL           :: local_element_x(MESH%GlobalElemType),local_element_y(MESH%GlobalElemType),local_element_z(MESH%GlobalElemType)
      REAL           :: local_global_element_x(MESH%GlobalElemType),local_global_element_y(MESH%GlobalElemType),local_global_element_z(MESH%GlobalElemType)
      INTEGER, VALUE :: refinement
-     INTEGER        :: local_index
+     INTEGER        :: local_index, j
      INTEGER, VALUE :: SubElem
      !-------------------------------------------------------------------------!
      !
@@ -769,6 +768,11 @@ CONTAINS
         LocalRecPoint(iFault)%X = (xp(1)+xp(2)+xp(3))/3.0
         LocalRecPoint(iFault)%Y = (yp(1)+yp(2)+yp(3))/3.0
         LocalRecPoint(iFault)%Z = (zp(1)+zp(2)+zp(3))/3.0
+        DO j=1,3
+            LocalRecPoint(iFault)%coordx(j)=xp(j)
+            LocalRecPoint(iFault)%coordy(j)=yp(j)
+            LocalRecPoint(iFault)%coordz(j)=zp(j)
+        END DO
         local_index=iFault+1
         RETURN
      ELSE
@@ -995,6 +999,7 @@ CONTAINS
   SUBROUTINE ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
    USE DGBasis_mod
    USE create_fault_rotationmatrix_mod
+   use FaultWriter
     !--------------------------------------------------------------------------!
     IMPLICIT NONE
     !--------------------------------------------------------------------------!
@@ -1115,6 +1120,8 @@ CONTAINS
        DISC%DynRup%DynRup_out_elementwise%DR_pick_output = .FALSE.
        DISC%DynRup%DynRup_out_elementwise%nDR_pick = 0
        DISC%DynRup%DynRup_out_elementwise%nOutPoints = 0
+
+       ALLOCATE( DISC%DynRup%DynRup_out_elementwise%RecPoint(0) )
        RETURN
     ELSE
        logInfo(*) 'Pick fault output at ',in,' points in this MPI domain.'
@@ -1249,6 +1256,10 @@ CONTAINS
          DISC%DynRup%DynRup_Constants(iOutPoints)%td0 = tmp_mat(6)
        END DO
    ENDIF
+
+   call initFaultOutput(DISC%DynRup%DynRup_out_elementwise%RecPoint, &
+        DISC%DynRup%DynRup_out_elementwise%OutputMask, &
+        IO%OutputFile)
   !
   END SUBROUTINE ini_fault_subsampled
 !

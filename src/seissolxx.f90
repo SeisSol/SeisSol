@@ -49,7 +49,6 @@ module SeisSol
   USE close_SeisSol_mod
   USE inioutput_SeisSol_mod
   USE TypesDef
-  USE pvd
   USE COMMON_operators_mod, ONLY: OpenFile
 
   use iso_c_binding

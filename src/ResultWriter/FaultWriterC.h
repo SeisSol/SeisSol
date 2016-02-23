@@ -2,22 +2,22 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Atanas Atanasov (atanasoa AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Atanas_Atanasov)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2013, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -33,31 +33,18 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @section DESCRIPTION
  */
 
-#ifndef PVD_WRITER_H_
-#define PVD_WRITER_H_
+#ifndef FAULTWRITERC_H
+#define FAULTWRITERC_H
 
-#include <string>
-#include <stdio.h>
-#include <fstream>
+extern "C"
+{
 
-class PVDWriter{
-private:
-	std::string _baseName;
-	std::string _fileName;
-	std::ofstream _out;
-	static const std::string HEADER;
-public:
-	PVDWriter(const char* basename);
-	~PVDWriter();
+void fault_hdf_close();
 
-	/**
-	 *
-	 */
-	void addTimestep(double timestep,int rank,int iteration);
-	void open();
-	void close();
-};
+}
 
-#endif /* PVD_WRITER_H_ */
+#endif // FAULTWRITERC_H

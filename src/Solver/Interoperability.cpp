@@ -48,6 +48,7 @@
 #include <Initializer/CellLocalMatrices.h>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
+#include "ResultWriter/FaultWriterC.h"
 
 seissol::Interoperability e_interoperability;
 
@@ -646,6 +647,7 @@ void seissol::Interoperability::finalizeIO()
 {
 	seissol::SeisSol::main.waveFieldWriter().close();
 	seissol::SeisSol::main.checkPointManager().close();
+	fault_hdf_close();
 }
 
 void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,

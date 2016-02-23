@@ -127,29 +127,7 @@ module f_ctof_bind_interoperability
 
       call friction(l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%optionalFields, l_domain%bnd, l_time, l_timeStepWidth)
 
-      ! TODO: refactor
-      SCOREP_USER_REGION_BEGIN( r_dr_output, "fault_output", SCOREP_USER_REGION_TYPE_COMMON )
-      if( l_domain%mpi%myrank==0 .and. (l_domain%disc%dynRup%outputPointType==4 .or. l_domain%disc%dynRup%outputPointType==5) ) then
-        ! fault output iterations, including iteration 1 and last timestep
-        if ( mod(l_domain%disc%iterationstep-1, l_domain%disc%dynRup%dynRup_out_elementwise%printtimeinterval)==0 .or. &
-             (l_domain%disc%endTime-l_time) .le. (l_timeStepWidth*1.005d0) ) then
-          do i=1,size(l_domain%disc%dynRup%dynRup_out_elementwise%elements_per_rank)
-            if( l_domain%disc%dynRup%dynRup_out_elementwise%elements_per_rank(i).gt.0 ) then
-              rank_int=i-1
-              call addtimestep_pvd_writer( l_domain%io%meta_plotter, l_time, rank_int, l_domain%disc%iterationstep )
-            endif
-          enddo
-          ! destroy pvd file after last time step
-          if( (l_domain%disc%endTime-l_time) .le. (l_timeStepWidth*1.005d0) ) then
-            call close_pvd_writer(l_domain%io%meta_plotter)
-            call destroy_pvd_writer(l_domain%io%meta_plotter)
-            logInfo(*) 'fault-output.pvd closed'
-          endif
-        endif
-      endif
-
       l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
-      SCOREP_USER_REGION_END( r_dr_output )
 
       SCOREP_USER_REGION_END( r_dr )
     end subroutine

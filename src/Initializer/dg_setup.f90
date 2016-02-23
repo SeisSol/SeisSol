@@ -3384,6 +3384,7 @@ CONTAINS
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
+    use FaultWriter
     use, intrinsic :: iso_c_binding
 
     !-------------------------------------------------------------------!
@@ -3436,6 +3437,7 @@ CONTAINS
     REAL, POINTER :: S_inc(:)
     REAL, ALLOCATABLE :: chi_vector(:), tau_vector(:)
     REAL    :: S_tmp, chi, tau, phi1, phi2
+    integer :: hasDR
     INTEGER :: iNeighbor, iNeighborSide, NeigBndGP, l, iFault, iDegFr, iP, iBndGP, iPlusElem
     !
     !-------------------------------------------------------------------------!
@@ -3623,6 +3625,12 @@ CONTAINS
     !
     ! Initialize fault rupture output
     ! only in case Dynamic rupture is turned on, and for + elements assigned to the fault
+    if (EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) then
+        hasDr = 1
+    else
+        hasDr = 0
+    endif
+    call fault_create_comm(hasDr)
     IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
         ! Case 3
         ! output at certain positions specified in the *.dyn file
@@ -3667,10 +3675,6 @@ CONTAINS
     ! but only in cases dynamic rupture is turned on and output is set to 4 or 5
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
      logInfo(*) "Initialize fault-output.pvd file to wrap fault output data"
-     IF (MPI%myrank.eq.0) THEN
-            CALL create_pvd_writer(IO%meta_plotter, trim(IO%OutputFile) // c_null_char)
-            CALL open_pvd_writer(IO%meta_plotter)
-     ENDIF
      ! MPI_GATHER
      CALL create_meta(DISC,MPI,DISC%DynRup%DynRup_out_elementwise%nDR_pick)
     ENDIF
