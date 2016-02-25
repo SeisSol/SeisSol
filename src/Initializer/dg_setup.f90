@@ -1965,14 +1965,14 @@ CONTAINS
         DISC%DynRup%FluxInt = 0.0D0
         !
 #if __INTEL_COMPILER == 1600
-#if __INTEL_COMPILER_UPDATE > 1
-#ifdef OMP
-        !$omp parallel private(iFace, iElem, iSide, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, xV, yV, zV, x_host, y_host, z_host, iBndGP, chi, tau, xi, eta, zeta, xGP, yGP, zGP, iDegFr, iDegFr2, phi_iDegFr, phi_iDegFr2) shared( mesh, disc, eqn, bnd) default( none )
-        !$omp do schedule(static)
-#else
-        logWarning(*) 'Intel Compiler 16.0.0 or 16.0.1 were used to compile SeisSol, DR setup is not parallized'
-#endif
-#endif
+!#if __INTEL_COMPILER_UPDATE > 1
+!#ifdef OMP
+!        !$omp parallel private(iFace, iElem, iSide, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, xV, yV, zV, x_host, y_host, z_host, iBndGP, chi, tau, xi, eta, zeta, xGP, yGP, zGP, iDegFr, iDegFr2, phi_iDegFr, phi_iDegFr2) shared( mesh, disc, eqn, bnd) default( none )
+!        !$omp do schedule(static)
+!#else
+        logWarning(*) 'Intel Compiler 16.x were used to compile SeisSol, DR setup is not parallized'
+!#endif
+!#endif
 #else
 #ifdef OMP
         !$omp parallel private(iFace, iElem, iSide, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, xV, yV, zV, x_host, y_host, z_host, iBndGP, chi, tau, xi, eta, zeta, xGP, yGP, zGP, iDegFr, iDegFr2, phi_iDegFr, phi_iDegFr2) shared( mesh, disc, eqn, bnd) default( none )
@@ -2068,11 +2068,11 @@ CONTAINS
             !
         ENDDO ! iFace
 #if __INTEL_COMPILER == 1600
-#if __INTEL_COMPILER_UPDATE > 1
-#ifdef OMP
-        !$omp end parallel
-#endif
-#endif
+!#if __INTEL_COMPILER_UPDATE > 1
+!#ifdef OMP
+!        !$omp end parallel
+!#endif
+!#endif
 #else
 #ifdef OMP
         !$omp end parallel
