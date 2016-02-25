@@ -1728,7 +1728,9 @@ CONTAINS
            DISC%DynRup%OutputPointType = OutputPointType
 
            !
-           IF(DISC%DynRup%OutputPointType.EQ.3) THEN
+           if (DISC%DynRup%OutputPointType .eq. 0) then
+                logInfo0(*) 'Disabling fault output'
+           elseif(DISC%DynRup%OutputPointType.EQ.3) THEN
                 ! in case of OutputPointType 3, read in receiver locations:
                 ! DISC%DynRup%DynRup_out_atPickpoint%nOutPoints is for option 3 the number of pickpoints
                 call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,CalledFromStructCode)
