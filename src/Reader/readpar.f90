@@ -1290,12 +1290,12 @@ CONTAINS
     ! localVariables
     INTEGER                    :: OutputMask(8)
     INTEGER                    :: printtimeinterval
-    INTEGER                    :: refinement_strategy, refinement, BinaryOutput
+    INTEGER                    :: refinement_strategy, refinement
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IO, DISC
     INTENT(INOUT)              :: BND
     NAMELIST                   /Elementwise/ printtimeinterval, OutputMask, refinement_strategy, &
-                                                refinement, BinaryOutput
+                                                refinement
     !Setting default values
     printtimeinterval = 2
     OutputMask(:) = 1
@@ -1305,7 +1305,6 @@ CONTAINS
     OutputMask(8) = 0
     refinement_strategy = 2
     refinement = 2
-    BinaryOutput = 0 ! 0/ASCII 1/binary float 2/binary double
     !
     READ(IO%UNIT%FileIn, nml = Elementwise)
     !
@@ -1315,17 +1314,10 @@ CONTAINS
                                                                                      ! 4/ in case of rate and state output friction and state variable
                                                                                      ! 5/ background values 6/Slip 7/rupture speed
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
-    DISC%DynRup%DynRup_out_elementwise%BinaryOutput = BinaryOutput             
 
     IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. & 
        DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1) THEN
         logError(*) 'Undefined refinement strategy for fault output!'
-        STOP
-    ENDIF
-    IF (DISC%DynRup%DynRup_out_elementwise%BinaryOutput.LT.0 .OR. & 
-       DISC%DynRup%DynRup_out_elementwise%BinaryOutput.GT.2) THEN
-        logError(*) 'Unkown value for BinaryOutput!'
-        logError(*) '(0: ASCII 1:binary float 2:binary double)'
         STOP
     ENDIF
 

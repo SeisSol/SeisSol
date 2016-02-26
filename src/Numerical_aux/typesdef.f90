@@ -877,7 +877,6 @@ MODULE TypesDef
      REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
      REAL                                   :: p0
      integer                                :: refinement
-     integer                                :: BinaryOutput
      integer,pointer                        :: elements_per_rank(:)
      integer                                :: refinement_strategy
   END TYPE tDynRup_output
