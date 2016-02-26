@@ -140,7 +140,7 @@ CONTAINS
             ENDIF
          ELSE
             IF ((DISC%iterationstep.EQ.1).OR. ((DISC%iterationstep.GE.2) .AND. &
-            ((MOD(time,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LT.0.5*dt).OR. &
+            ((MOD(time,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LE.0.5*dt).OR. &
             ((ceiling(time/DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec)*DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec-time).LT.0.5*dt).OR. &
             ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))))) THEN
                CONTINUE
@@ -173,7 +173,7 @@ CONTAINS
             ENDIF
          ELSE
             IF ((DISC%iterationstep.EQ.1).OR. ((DISC%iterationstep.GE.2) .AND. &
-            ((MOD(time,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LT.0.5*dt).OR. &
+            ((MOD(time,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LE.0.5*dt).OR. &
             ((ceiling(time/DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec)*DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec-time).LT.0.5*dt).OR. &
             ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))))) THEN
                isOnElementwise=.TRUE.
