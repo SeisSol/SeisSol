@@ -400,15 +400,15 @@ int main(int argc, char* argv[])
 
 	int *elemNeighbors = new int[numElemPerPart[3]*4];
 	const int TET_NEIGHBORS[2][5*4] = {
-			{-numCubesPerPart[1]*numCubesPerPart[0]*5+2, -numCubesPerPart[0]*5, -4, 4,
-					4, -numCubesPerPart[1]*numCubesPerPart[0]*5+3, 5, numCubesPerPart[0]*5+1,
-					4, 7, -numCubesPerPart[0]*5+3, numCubesPerPart[1]*numCubesPerPart[0]*5+1,
-					-2, numCubesPerPart[0]*5+2, 4, numCubesPerPart[1]*numCubesPerPart[0]*5,
+			{-static_cast<int>(numCubesPerPart[1]*numCubesPerPart[0])*5+2, -static_cast<int>(numCubesPerPart[0])*5, -4, 4,
+					4, -static_cast<int>(numCubesPerPart[1]*numCubesPerPart[0])*5+3, 5, static_cast<int>(numCubesPerPart[0])*5+1,
+					4, 7, -static_cast<int>(numCubesPerPart[0])*5+3, static_cast<int>(numCubesPerPart[1]*numCubesPerPart[0])*5+1,
+					-2, static_cast<int>(numCubesPerPart[0])*5+2, 4, static_cast<int>(numCubesPerPart[1]*numCubesPerPart[0])*5,
 					0, 1, 2, 3},
-			{-4, -numCubesPerPart[1]*numCubesPerPart[0]*5+3, 4, numCubesPerPart[0]*5,
-					4, -numCubesPerPart[1]*numCubesPerPart[0]*5+2, -numCubesPerPart[0]*5+1, 5,
-					4, -numCubesPerPart[0]*5+3, -3, numCubesPerPart[1]*numCubesPerPart[0]*5,
-					8, 4, numCubesPerPart[0]*5+2, numCubesPerPart[1]*numCubesPerPart[0]*5+1,
+			{-4, -static_cast<int>(numCubesPerPart[1]*numCubesPerPart[0])*5+3, 4, static_cast<int>(numCubesPerPart[0])*5,
+					4, -static_cast<int>(numCubesPerPart[1]*numCubesPerPart[0])*5+2, -static_cast<int>(numCubesPerPart[0])*5+1, 5,
+					4, -static_cast<int>(numCubesPerPart[0])*5+3, -3, static_cast<int>(numCubesPerPart[1]*numCubesPerPart[0])*5,
+					8, 4, static_cast<int>(numCubesPerPart[0])*5+2, static_cast<int>(numCubesPerPart[1]*numCubesPerPart[0])*5+1,
 					0, 1, 2, 3}
 	};
 
@@ -1021,7 +1021,7 @@ int main(int argc, char* argv[])
 			for (unsigned int x = 0; x < numPartitions[0]; x++) {
 				memset(elemMPIIndices, 0, sizeof(int)*numElemPerPart[3]*4);
 
-				int bndSize = 0;
+				unsigned int bndSize = 0;
 
 				if ((boundary == 6 && numPartitions[2] > 1) || z != 0) {
 					int nextMPIIndex = 0;
@@ -1042,8 +1042,8 @@ int main(int argc, char* argv[])
 						}
 					}
 
-					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0};
-					size_t count[3] = {1, 1, nextMPIIndex};
+					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0u};
+					size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemSize, start, &nextMPIIndex));
 					int rank = (((z-1+numPartitions[2])%numPartitions[2])*numPartitions[1] + y)*numPartitions[0] + x;
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemRank, start, &rank));
@@ -1070,8 +1070,8 @@ int main(int argc, char* argv[])
 						}
 					}
 
-					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0};
-					size_t count[3] = {1, 1, nextMPIIndex};
+					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0u};
+					size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemSize, start, &nextMPIIndex));
 					int rank = (z*numPartitions[1] + (y-1+numPartitions[1])%numPartitions[1])*numPartitions[0] + x;
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemRank, start, &rank));
@@ -1098,8 +1098,8 @@ int main(int argc, char* argv[])
 						}
 					}
 
-					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0};
-					size_t count[3] = {1, 1, nextMPIIndex};
+					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0u};
+					size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemSize, start, &nextMPIIndex));
 					int rank = (z*numPartitions[1] + y)*numPartitions[0] + (x-1+numPartitions[0])%numPartitions[0];
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemRank, start, &rank));
@@ -1127,7 +1127,7 @@ int main(int argc, char* argv[])
 					}
 
 					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0};
-					size_t count[3] = {1, 1, nextMPIIndex};
+					size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemSize, start, &nextMPIIndex));
 					int rank = (z*numPartitions[1] + y)*numPartitions[0] + (x+1)%numPartitions[0];
 					rank = (rank + numPartitions[3]) % numPartitions[3];
@@ -1156,7 +1156,7 @@ int main(int argc, char* argv[])
 					}
 
 					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0};
-					size_t count[3] = {1, 1, nextMPIIndex};
+					size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemSize, start, &nextMPIIndex));
 					int rank = (z*numPartitions[1] + (y+1)%numPartitions[1])*numPartitions[0] + x;
 					rank = (rank + numPartitions[3]) % numPartitions[3];
@@ -1184,8 +1184,8 @@ int main(int argc, char* argv[])
 						}
 					}
 
-					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0};
-					size_t count[3] = {1, 1, nextMPIIndex};
+					size_t start[3] = {(z*numPartitions[1] + y)*numPartitions[0] + x, bndSize, 0u};
+					size_t count[3] = {1, 1, static_cast<unsigned int>(nextMPIIndex)};
 					checkNcError(nc_put_var1_int(ncFile, ncVarBndElemSize, start, &nextMPIIndex));
 					int rank = (((z+1)%numPartitions[2])*numPartitions[1] + y)*numPartitions[0] + x;
 					rank = (rank + numPartitions[3]) % numPartitions[3];
@@ -1199,13 +1199,23 @@ int main(int argc, char* argv[])
 				size_t count[3] = {1, numElemPerPart[3], 4};
 				checkNcError(nc_put_vara_int(ncFile, ncVarElemMPIIndices, start, count, elemMPIIndices));
 
-				checkNcError(nc_put_var1_int(ncFile, ncVarBndSize, &start[0], &bndSize));
+				checkNcError(nc_put_var1_uint(ncFile, ncVarBndSize, &start[0], &bndSize));
 				writes_done++; loadBar(writes_done, netcdf_writes);
 			}
 		}
 	}
 	delete [] elemMPIIndices;
 	delete [] bndLocalIds;
+
+	// Set material zone to 1
+	int *elemGroup = new int[numElemPerPart[3]];
+	std::fill(elemGroup, elemGroup + numElemPerPart[3], 1);
+	for (unsigned int x = 0; x < numPartitions[3]; x++) {
+		size_t start[2] = {x, 0};
+		size_t count[2] = {1, numElemPerPart[3]};
+		checkNcError(nc_put_vara_int(ncFile, ncVarElemGroup, start, count, elemGroup));
+	}
+	delete[] elemGroup;
 
 	// Vertices
 	std::map<int, Vertex> uniqueVertices;
@@ -1254,14 +1264,6 @@ int main(int argc, char* argv[])
 	}
 
 	delete [] vrtxCoords;
-  
-  // Set material zone to 1
-  int *elemGroup = new int[numPartitions[3] * numElemPerPart[3]];
-	std::fill(elemGroup, elemGroup + numPartitions[3] * numElemPerPart[3], 1);
-  size_t start[2] = { 0, 0 };
-  size_t count[2] = { numPartitions[3], numElemPerPart[3] };
-	checkNcError(nc_put_vara_int(ncFile, ncVarElemGroup, start, count, elemGroup));
-	delete[] elemGroup;
 
 	checkNcError(nc_close(ncFile));
 
