@@ -2783,6 +2783,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
     CHARACTER(LEN=45)          :: Name
+    LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: MESH,BND,SOURCE,IO
     INTENT(IN)                 :: IC
@@ -2849,6 +2850,13 @@ ALLOCATE( SpacePositionx(nDirac), &
           endif
 
           IO%MeshFile=Name(1:35)
+
+          inquire( file=IO%MeshFile , exist=file_exits )
+          if ( .NOT.file_exits ) then
+             logError(*) 'mesh file ',IO%MeshFile,'does not exists'
+             STOP
+          endif
+
           !
           logInfo(*) 'Mesh is READ from file      ',    IO%MeshFile
           !

@@ -51,7 +51,7 @@ disp(' '),disp(' ')
 
 clear, close all;
 dirname    = input('      Sepcify the directory containing the pickpoint files ', 's');
-firstPoint = input('      Specify the index of the first interesting pickpoint ');
+firstPoint = input('      Specify the index of the first interesting pickpoint (0)');
 nPoints    = input('      Specify the number of interesting pickpoints         ');
 filename   = input('      Sepcify the output filename ', 's');
 writeonsampleevery = 1;

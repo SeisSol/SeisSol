@@ -178,7 +178,7 @@ if nPartition~=1
     disp('This script currently only works with 1 partition!')
     return
 end
-ngroups = max(element_group_new)+1;
+ngroups = max(element_group_new);
 
 fid_out = fopen('/export/data/ulrich/sym_mesh.neu', 'w');
 fprintf(fid_out,'%s','        CONTROL INFO 1.2.1');
@@ -220,7 +220,7 @@ fprintf(fid_out,'%11.0f%',elements_new);
 fprintf(fid_out,'%s',' MATERIAL:          2 NFLAGS:          1');
 fprintf(fid_out,'\n%s','                           fluid');
 fprintf(fid_out,'\n%s','       0');
-fprintf(fid_out,'\n%8.0f%8.0f%8.0f%8.0f%8.0f%8.0f%8.0f%8.0f%8.0f%8.0f',(1:1:elements_new));
+fprintf(fid_out,'\n%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f',(1:1:elements_new));
 fprintf(fid_out,'\n%s\n','ENDOFSECTION');
 disp('done writing groups');
 
