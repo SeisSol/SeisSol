@@ -129,47 +129,51 @@ void fault_hdf_init(const int* cells, const double* vertices,
 
 void fault_hdf_close()
 {
-#ifdef USE_HDF
 	if (xdmfWriter) {
+#ifdef USE_HDF
 		xdmfWriter->close();
 		delete xdmfWriter;
-	}
 #else // USE_HDF
-    logError() << "This version does not support XDMF output";
+		// Should never happen
+		logError() << "This version does not support XDMF output";
 #endif // USE_HDF
+	}
 }
 
 void fault_hdf_write(double time)
 {
-#ifdef USE_HDF
 	if (xdmfWriter) {
+#ifdef USE_HDF
 		xdmfWriter->addTimeStep(time);
-	}
 #else // USE_HDF
-    logError() << "This version does not support XDMF output";
+		// Should never happen
+		logError() << "This version does not support XDMF output";
 #endif // USE_HDF
+	}
 }
 
 void fault_hdf_write_data(int id, const double* data)
 {
-#ifdef USE_HDF
 	if (xdmfWriter) {
+#ifdef USE_HDF
 		xdmfWriter->writeData(id, data);
-	}
 #else // USE_HDF
-    logError() << "This version does not support XDMF output";
+		// Should never happen
+		logError() << "This version does not support XDMF output";
 #endif // USE_HDF
+	}
 }
 
 void fault_hdf_flush()
 {
-#ifdef USE_HDF
 	if (xdmfWriter) {
+#ifdef USE_HDF
 		xdmfWriter->flush();
-	}
 #else // USE_HDF
-    logError() << "This version does not support XDMF output";
+		// Should never happen
+		logError() << "This version does not support XDMF output";
 #endif // USE_HDF
+	}
 }
 
 }
