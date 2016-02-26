@@ -129,51 +129,39 @@ void fault_hdf_init(const int* cells, const double* vertices,
 
 void fault_hdf_close()
 {
-	if (xdmfWriter) {
 #ifdef USE_HDF
+	if (xdmfWriter) {
 		xdmfWriter->close();
 		delete xdmfWriter;
-#else // USE_HDF
-		// Should never happen
-		logError() << "This version does not support XDMF output";
-#endif // USE_HDF
 	}
+#endif // USE_HDF
 }
 
 void fault_hdf_write(double time)
 {
-	if (xdmfWriter) {
 #ifdef USE_HDF
+	if (xdmfWriter) {
 		xdmfWriter->addTimeStep(time);
-#else // USE_HDF
-		// Should never happen
-		logError() << "This version does not support XDMF output";
-#endif // USE_HDF
 	}
+#endif // USE_HDF
 }
 
 void fault_hdf_write_data(int id, const double* data)
 {
-	if (xdmfWriter) {
 #ifdef USE_HDF
+	if (xdmfWriter) {
 		xdmfWriter->writeData(id, data);
-#else // USE_HDF
-		// Should never happen
-		logError() << "This version does not support XDMF output";
-#endif // USE_HDF
 	}
+#endif // USE_HDF
 }
 
 void fault_hdf_flush()
 {
-	if (xdmfWriter) {
 #ifdef USE_HDF
+	if (xdmfWriter) {
 		xdmfWriter->flush();
-#else // USE_HDF
-		// Should never happen
-		logError() << "This version does not support XDMF output";
-#endif // USE_HDF
 	}
+#endif // USE_HDF
 }
 
 }
