@@ -129,13 +129,26 @@ CONTAINS
        !Fault Element Output
        CASE(4)
          ! fault output iterations, including iteration 1 and last timestep
-         IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
-         ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))) THEN
-            CONTINUE
-!         ELSEIF(DISC%iterationstep .EQ. 0 ) THEN  ! uncomment to print setup at time 0 for intial stresses
-!            CONTINUE
-         ELSE  ! all timesteps without fault output
-            RETURN
+         IF (DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion.EQ.1) THEN
+            IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
+            ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))) THEN
+               CONTINUE
+!            ELSEIF(DISC%iterationstep .EQ. 0 ) THEN  ! uncomment to print setup at time 0 for intial stresses
+!               CONTINUE
+            ELSE  ! all timesteps without fault output
+               RETURN
+            ENDIF
+         ELSE
+            IF ((DISC%iterationstep.NE.0).AND. &
+            ((MOD(time,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LT.dt).OR. &
+            (MOD(time+DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LT.dt).OR. &
+            ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0)))) THEN
+               CONTINUE
+!            ELSEIF(DISC%iterationstep .EQ. 0 ) THEN  ! uncomment to print setup at time 0 for intial stresses
+!               CONTINUE
+            ELSE  ! all timesteps without fault output
+               RETURN
+            ENDIF
          ENDIF
          ! DR output at each element
          CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
@@ -153,10 +166,20 @@ CONTAINS
             isOnPickpoint = .TRUE.
          ENDIF
          ! check time for fault plane output 
-         IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0 &
-         .OR. (min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0) ) THEN
-            isOnElementwise=.TRUE.
-		 ENDIF
+         IF (DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion.EQ.1) THEN
+            IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
+            ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))) THEN
+               isOnElementwise=.TRUE.
+            ENDIF
+         ELSE
+            IF ((DISC%iterationstep.NE.0).AND. &
+            ((MOD(time,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LT.dt).OR. &
+            (MOD(time+DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LT.dt).OR. &
+            ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0)))) THEN
+               isOnElementwise=.TRUE.
+            ENDIF
+         ENDIF
+
          ! print always first timestep
          IF(DISC%iterationstep .EQ. 1) THEN
            isOnPickpoint = .TRUE.
