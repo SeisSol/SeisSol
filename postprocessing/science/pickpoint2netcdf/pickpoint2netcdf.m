@@ -55,6 +55,8 @@ firstPoint = input('      Specify the index of the first interesting pickpoint (
 nPoints    = input('      Specify the number of interesting pickpoints         ');
 filename   = input('      Sepcify the output filename ', 's');
 writeonsampleevery = 1;
+%if alldir=3, x and y displacements are also written
+alldir = false;     
 
 % Get all files in the directory
 files = dir(dirname);
@@ -80,6 +82,10 @@ for num = 1:nPoints
     vars(end) = regexprep(vars(end), '"\s*', '', 'once');
     timeIndex = find(strcmp(vars, 'Time'));
     zIndex = find(strcmp(vars, 'w'));
+    if alldir
+        xIndex = find(strcmp(vars, 'u'));
+        yIndex = find(strcmp(vars, 'v'));
+    end
     
     % Read the coordinate of the pickpoint
     fscanf(fid,'%c',[6,1]);
@@ -105,8 +111,13 @@ for num = 1:nPoints
     fprintf('Samples in seismogram nr. %i\t:   %i\n', num,size(data,1));
     
     time = data(:,timeIndex)';
-    valuesLinear(:,num) = data(:,zIndex);
-      
+    if alldir
+        valuesLinear(:,num,1) = data(:,xIndex);
+        valuesLinear(:,num,2) = data(:,yIndex);
+        valuesLinear(:,num,3) = data(:,zIndex);
+    else
+        valuesLinear(:,num) = data(:,zIndex);
+    end
 end
 clearvars data kk tmp
 
@@ -116,8 +127,9 @@ xcoords = NaN(size(unique(location(2,:))));
 ynext = 1;
 xnext = 1;
 values = NaN(length(time), length(ycoords), length(xcoords));
-for num = 1:size(location, 2)
-    
+
+%First loop for setting xcoords and ycoords
+for num = 1:size(location, 2)    
     % Find the indices of the x and y coordinate
     % Generate new indices of not found
     y = find(ycoords == location(1,num));
@@ -131,19 +143,39 @@ for num = 1:size(location, 2)
         xcoords(xnext) = location(2,num);
         x = xnext;
         xnext = xnext + 1;
-    end
-    
-    values(:,y,x) = valuesLinear(:,num);
-    
+    end    
 end
+if ~issorted(ycoords) || ~issorted(xcoords)
+    disp('Warning: Pickpoint files are not sorted by x and y coordinates')
+    disp('attempting to Reorder')
+end
+
+xcoords = sort(xcoords);
+ycoords = sort(ycoords);
+if  size(xcoords,2)*size(ycoords,2) ~= size(location, 2)
+    disp('size(xcoords,2)*size(ycoords,2) ~= number of receivers')
+    return
+end
+
+
+for num = 1:size(location, 2)
+    
+    % Find the indices of the x and y coordinate
+    y = find(ycoords == location(1,num));
+    x = find(xcoords == location(2,num));
+    if alldir
+       values(:,y,x,1:3) = valuesLinear(:,num,1:3);
+    else
+       values(:,y,x) = valuesLinear(:,num);
+    end
+end
+
+
+
 
 clearvars valuesLinear
 
-if ~issorted(ycoords) || ~issorted(xcoords)
-    disp('Error: Pickpoint files are not sorted by x and y coordinates')
-    disp('Reordering is not supported')
-    return
-end
+
 
 disp(' '),  disp('     Finished conversion!'), disp(' ')
 
@@ -156,24 +188,47 @@ nccreate(filename,'x','Dimensions',{'x',length(xcoords)},'Datatype','single')
 ncwrite(filename,'x',xcoords)
 nccreate(filename,'y','Dimensions',{'y',length(ycoords)},'Datatype','single')
 ncwrite(filename,'y',ycoords)
-nccreate(filename,'time','Dimensions',{'time',length(time/writeonsampleevery)},'Datatype','single')
+nccreate(filename,'time','Dimensions',{'time',floor(length(time)/writeonsampleevery)},'Datatype','single')
 ncwriteatt(filename,'time','units','seconds since initial rapture')
-ncwrite(filename,'time',time)
+timewritten = cat(2,time(1), time(1+writeonsampleevery:writeonsampleevery:writeonsampleevery*floor(length(time)/writeonsampleevery)));
+ncwrite(filename,'time',timewritten)
 
 ncwriteatt(filename,'/','Conventions','COARDS')
 ncwriteatt(filename,'/','Created','Using SeisSol and pickpoint2netcdf converter')
 
-nccreate(filename,'z','Dimensions',{'x', 'y', 'time'},'Datatype','single')
+if alldir
+    nccreate(filename,'dx','Dimensions',{'x', 'y', 'time'},'Datatype','single')
+    nccreate(filename,'dy','Dimensions',{'x', 'y', 'time'},'Datatype','single')
+    nccreate(filename,'dz','Dimensions',{'x', 'y', 'time'},'Datatype','single')
+    displOld = zeros(length(ycoords), length(xcoords),3);
+    ncwrite(filename,'dx',permute(displOld(:,:,1),[2 1]),[1 1 1])
+    ncwrite(filename,'dy',permute(displOld(:,:,2),[2 1]),[1 1 1])
+    ncwrite(filename,'dz',permute(displOld(:,:,3),[2 1]),[1 1 1])
+else        
+    nccreate(filename,'dz','Dimensions',{'x', 'y', 'time'},'Datatype','single')
+    displOld = zeros(length(ycoords), length(xcoords));
+    ncwrite(filename,'dz',permute(displOld,[2 1]),[1 1 1])
+end
 
-displOld = zeros(length(ycoords), length(xcoords));
-ncwrite(filename,'z',permute(displOld,[2 1]),[1 1 1])
+
 for t = 2:length(time)
-    fprintf('Writing timestep:   %i\n', t);
-    
     % Integrating values
-    displ = reshape(values(t-1,:,:)+values(t,:,:),[length(ycoords) length(xcoords)]) * 0.5 * (time(2)-time(1)) + displOld;
+    if alldir
+        displ = reshape(values(t-1,:,:,:)+values(t,:,:,:),[length(ycoords) length(xcoords) 3]) * 0.5 * (time(2)-time(1)) + displOld; 
+    else
+        displ = reshape(values(t-1,:,:)+values(t,:,:),[length(ycoords) length(xcoords)]) * 0.5 * (time(2)-time(1)) + displOld;   
+    end
     if mod(t,writeonsampleevery)==0
-       ncwrite(filename,'z',permute(displ,[2 1]),[1 1 t])
+        fprintf('Writing timestep:   %i\n', t);
+        if alldir
+           ncwrite(filename,'dx',permute(displ(:,:,1),[2 1]),[1 1 t/writeonsampleevery])
+           ncwrite(filename,'dy',permute(displ(:,:,2),[2 1]),[1 1 t/writeonsampleevery])
+           ncwrite(filename,'dz',permute(displ(:,:,3),[2 1]),[1 1 t/writeonsampleevery])
+        else
+           ncwrite(filename,'dz',permute(displ,[2 1]),[1 1 t/writeonsampleevery])    
+        end
+        
+
     end
     displOld = displ;
 end
