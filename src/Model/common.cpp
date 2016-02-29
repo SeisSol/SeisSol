@@ -131,14 +131,14 @@ void seissol::model::getTransposedElasticGodunovState( seissol::model::ElasticMa
 }
 
 void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                DenseMatrixView<seissol::model::AminusT::rows, 9> Fneighbor )
+                                                                DenseMatrixView<9, seissol::model::AminusT::cols> Fneighbor )
 {
   if (type == freeSurface) {
     // Gamma is a diagonal matrix
     real Gamma[] = { -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0 };
     // Gamma^T * Fneighbor
-    for (unsigned j = 0; j < 9; ++j) {
-      for (unsigned i = 0; i < Fneighbor.rows(); ++i) {
+    for (unsigned j = 0; j < Fneighbor.cols(); ++j) {
+      for (unsigned i = 0; i < 9; ++i) {
         Fneighbor(i,j) *= Gamma[i];
       }
     }
