@@ -191,7 +191,7 @@ class Generator:
             for key, value in luts.iteritems():
               maxkey = max(value.keys())
               pointers = [value[i] + str(i) if value.has_key(i) else '0' for i in range(0, maxkey+1)]
-              header('static void (*{}[])({}) = {{ {} }};'.format(key, signatures[key], ', '.join(pointers)))
+              header('static void (* const {}[])({}) = {{ {} }};'.format(key, signatures[key], ', '.join(pointers)))
             
     with Code.Cpp(outputDir + '/kernels.cpp') as cpp:
       cpp.includeSys('cstring')
@@ -264,16 +264,16 @@ class Generator:
               with header.Namespace(matrixInfo.name):
                 if matrixInfo.values == None:
                   header('void convertToDense({typename} const* matrix, {typename}* denseMatrix);'.format(typename=self.architecture.typename))
-                  with header.Function('static int index(unsigned row, unsigned column)'):
+                  with header.Function('static inline int index(unsigned row, unsigned column)'):
                     header('static int const lut[] = {{ {} }};'.format(
                       ', '.join(map(str, matrixInfo.getIndexLUT()))
                     ))
                     header('return lut[row + column*{}];'.format(matrixInfo.rows))
-                  with header.Function('static void setZero({}* data)'.format(self.architecture.typename)):
+                  with header.Function('static inline void setZero({}* data)'.format(self.architecture.typename)):
                     header.memset('data', matrixInfo.requiredReals, self.architecture.typename)
                 else:
                   header('extern {} const values[];'.format(self.architecture.typename))
-                  with header.Function('static void convertToDense({typename}* denseMatrix)'.format(typename=self.architecture.typename)):
+                  with header.Function('static inline void convertToDense({typename}* denseMatrix)'.format(typename=self.architecture.typename)):
                     header('static {} const denseValues[] = {{ {} }};'.format(
                       self.architecture.typename,
                       ', '.join(matrixInfo.getValuesDense())
