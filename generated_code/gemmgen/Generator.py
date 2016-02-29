@@ -297,7 +297,7 @@ class Generator:
                   with cpp.For('unsigned col = {block.startcol}; col < {block.stopcol}; ++col'.format(block=block)):
                     with cpp.For('unsigned row = {block.startrow} + {block.startpaddingrows}; row < {block.stoprow}; ++row'.format(block=block)):
                       if block.sparse:
-                        cpp('unsigned idx = index(row, col);')
+                        cpp('int idx = index(row, col);')
                         with cpp.If('idx != -1'):
                           cpp('denseMatrix[col * {matrixInfo.rows} + row] = matrix[idx];'.format(matrixInfo=matrixInfo))
                       else:
