@@ -55,7 +55,7 @@
 #define DMO_BROADCAST(IN, OUT) __m128 OUT = _mm_load_ss(IN); OUT = _mm_shuffle_ps(OUT, OUT, 0x00);
 #define DMO_STREAM(IN, OUT) _mm_stream_ps(OUT, _mm_load_ps(IN));
 #define DMO_SXTYP(S, X, Y) __m128 x = _mm_load_ps(X); _mm_store_ps(Y, _mm_add_ps(_mm_mul_ps(S, x), _mm_load_ps(Y)));
-#define DMO_XYMST(S, X, Y, Z) __m128 x = _mm_load_ps(X); __m128 y = _mm_load_ps(Y); _mm_store_ps(Z, _mm_mul_ps(S, _mm_sub_pd(x, y)));
+#define DMO_XYMST(S, X, Y, Z) __m128 x = _mm_load_ps(X); __m128 y = _mm_load_ps(Y); _mm_store_ps(Z, _mm_mul_ps(S, _mm_sub_ps(x, y)));
 #define DMO_XYMSTZP(S, X, Y, Z) __m128 x = _mm_load_ps(X); __m128 y = _mm_load_ps(Y); _mm_store_ps(Z, _mm_add_ps(_mm_mul_ps(S, _mm_sub_ps(x, y)), _mm_load_ps(Z)));
 
 #else
