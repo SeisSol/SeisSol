@@ -116,36 +116,76 @@ void seissol::checkpoint::sionlib::Fault::load(int &timestepFault) {
 }
 
 void seissol::checkpoint::sionlib::Fault::write(int timestepFault) {  
+  SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 #ifdef USE_SIONLIB
-
-  EPIK_TRACER("CheckPointFault_write");
-  SCOREP_USER_REGION("CheckPointFault_write", SCOREP_USER_REGION_TYPE_FUNCTION);
-
   if (numSides() == 0)
     return;
   logInfo(rank()) << "Writing fault check point.";
-  unsigned long lidentifier;
-  lidentifier = identifier();
-  setpos();
-
-  SCOREP_USER_REGION_DEFINE(r_write_header);
-  SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_fault_header", SCOREP_USER_REGION_TYPE_COMMON);
-
-  checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
-  checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault),1,m_files[odd()]));
-  
-  SCOREP_USER_REGION_END(r_write_header);
-
-  if (numSides() > 0){
+  if (m_method == 0){
+    open_write_close(timestepFault);
+  }else{
+    EPIK_TRACER("CheckPointFault_write");
+    SCOREP_USER_REGION("CheckPointFault_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+    
+    unsigned long lidentifier;
+    lidentifier = identifier();
+    setpos();
+    
+    SCOREP_USER_REGION_DEFINE(r_write_header);
+    SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_fault_header", SCOREP_USER_REGION_TYPE_COMMON);
+    
+    checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
+    checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault),1,m_files[odd()]));
+    
+    SCOREP_USER_REGION_END(r_write_header);
+    
     SCOREP_USER_REGION_DEFINE(r_write_fault);
     SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);
-    for (int i = 0; i < NUM_VARIABLES; i++){
-      checkErr(sion_fwrite(data(i),sizeof(real),this->numSides()*this->numBndGP(),m_files[odd()]));
+    if (numSides() > 0){
+      for (int i = 0; i < NUM_VARIABLES; i++){
+	checkErr(sion_fwrite(data(i),sizeof(real),this->numSides()*this->numBndGP(),m_files[odd()]));
+      }
     }
     SCOREP_USER_REGION_END(r_write_fault);
+    flushCheckpoint(); 
+    //  finalizeCheckpoint();  
   }
-  flushCheckpoint(); 
-  //  finalizeCheckpoint();  
-  logInfo(rank()) << "Writing fault checkpoint. Done.";
+  logInfo(rank()) << "Writing fault check point. Done.";
+#endif
+}
+
+void seissol::checkpoint::sionlib::Fault::open_write_close(int timestepFault){
+#ifdef USE_SIONLIB
+  int globalrank,numFiles;
+  char *newfname=NULL;
+  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE",-1);  
+  unsigned long lidentifier;
+  lidentifier = identifier();
+  m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
+  globalrank = rank(); numFiles = -1;
+  
+  //logInfo(rank())<<"opening file for write:"<<dataFile(odd()).c_str();
+  m_files[odd()] = sion_paropen_mpi(const_cast<char*>(dataFile(odd()).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
+				    &m_chunksize, &fsblksize, &globalrank, &m_fptr[odd()], &newfname);
+  checkErr(m_files[odd()]);
+  //logInfo(rank())<<"opened file for write:"<<linkFile().c_str();
+  
+  SCOREP_USER_REGION_DEFINE(r_write_header);
+  SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_fault_header", SCOREP_USER_REGION_TYPE_COMMON);
+  checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
+  checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault),1,m_files[odd()]));    
+  SCOREP_USER_REGION_END(r_write_header);
+  
+  SCOREP_USER_REGION_DEFINE(r_write_fault);
+  SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);  
+  //  if (numSides() > 0){
+  for (int j = 0; j < NUM_VARIABLES; j++){
+    checkErr(sion_fwrite(data(odd()),sizeof(real),this->numSides()*this->numBndGP(),m_files[odd()]));
+  }
+  //}
+  SCOREP_USER_REGION_END(r_write_fault);
+
+  checkErr(sion_parclose_mpi(m_files[odd()]));
+  //logInfo(rank())<<"closed file for write:"<<dataFile(odd()).c_str();
 #endif
 }
