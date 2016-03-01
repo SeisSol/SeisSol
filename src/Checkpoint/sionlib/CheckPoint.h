@@ -112,7 +112,7 @@ public:
 #ifdef USE_MPI
     MPI_Comm_split(aComm,group,key,&newcomm);
     //logInfo(rank)<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles;
-    cout<<rank<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles<<endl;
+    //cout<<rank<<"|group:"<<group<<"|key:"<<key<<"|numfiles:"<<numfiles<<endl;
 #endif //USE_MPI
   }
   int get_group()  {return group  ;}
@@ -122,7 +122,6 @@ public:
   int get_key()    {return key    ;}  
 
 private:
-
   
   void set_group(string substr,string subn){int n;
     try{  n = atoi(subn.c_str());
@@ -157,7 +156,10 @@ namespace seissol{
       public:
 
 	CheckPoint(unsigned long identifier)
-	  : m_identifier(identifier),m_flush(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_FLUSH",0)){}	
+	  : m_identifier(identifier),
+	    m_flush(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_FLUSH",0)),
+	    m_method(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_METHOD",0))
+	{}	
 	
 	virtual ~CheckPoint() {}
 
@@ -179,7 +181,7 @@ namespace seissol{
 #ifdef USE_MPI // Make sure all processes see the folders
 	  MPI_Barrier(comm());
 #endif // USE_MPI	  
-	  writeinit();
+	  if (m_method == 1){writeinit();}
 #endif
 	}
 	virtual void writeinit(){}
@@ -187,14 +189,15 @@ namespace seissol{
 	/** close single checkpoint file */
 	void close_file(int fh){
 	  checkErr(sion_parclose_mpi(fh));
-	  logInfo(rank())<<"close_file()";
+	  //logInfo(rank())<<"close_file()";
 	}
-	/** close checkpoint */
+	/** close checkpoint files*/
 	void close(){
+	  //logInfo(rank())<<"close()";
+	  if(m_method==0){return;}
 	  for (unsigned int i = 0; i < 2; i++){
 	    checkErr(sion_parclose_mpi(m_files[i]));
 	  }
-	  logInfo(rank())<<"close()";
 	}
 	
       protected:
@@ -203,12 +206,13 @@ namespace seissol{
 #ifdef USE_MPI // Make sure all processes see the folders
 	MPI_Comm    m_gComm, m_lComm;
 #endif //USE_MPI // Make sure all processes see the folders
-	FILE       *m_fptr[2];
+ 	FILE       *m_fptr[2];
 	sion_int64  m_chunksize;
 	fpos_t      m_chunkpos;
 	SionIOGroup m_iogroup;
 	int         m_flush;
-		    
+	int         m_method;
+
 	bool exists() {
 	  if (!seissol::checkpoint::CheckPoint::exists())
 	    return false;

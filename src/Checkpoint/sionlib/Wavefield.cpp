@@ -106,37 +106,72 @@ void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWa
 }
 
 void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWaveField) {
-#ifdef USE_SIONLIB
-
   SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
-  logInfo(rank()) << "Writing check point.";
+#ifdef USE_SIONLIB
+  logInfo(rank()) << "Writing check point.";  
+  if (m_method == 0){
+    open_write_close(time,timestepWaveField);
+  }else{
+    int globalrank,numFiles;
+    char fname[1023], *newfname=NULL;
+    sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE",-1);  
+    unsigned long lidentifier;
+    //m_gComm = comm(); m_lComm = m_gComm;
+    globalrank = rank(); numFiles = -1;
+    lidentifier = identifier();
+    setpos();
+    
+    SCOREP_USER_REGION_DEFINE(r_write_header);
+    SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
+    
+    checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
+    checkErr(sion_fwrite(&time, sizeof(time),1,m_files[odd()]));
+    checkErr(sion_fwrite(&timestepWaveField, sizeof(timestepWaveField),1,m_files[odd()]));
+    
+    SCOREP_USER_REGION_END(r_write_header);
+    SCOREP_USER_REGION_DEFINE(r_write_wavefield);
+    SCOREP_USER_REGION_BEGIN(r_write_wavefield, "checkpoint_write_wavefield", SCOREP_USER_REGION_TYPE_COMMON);
+    
+    checkErr(sion_fwrite(dofs(),sizeof(real), numDofs(),m_files[odd()]));  
+    
+    SCOREP_USER_REGION_END(r_write_wavefield);
+    
+    flushCheckpoint();
+  }
+  //  finalizeCheckpoint();  
+  logInfo(rank()) << "Writing check point. Done.";  
+#endif
+}
 
+void seissol::checkpoint::sionlib::Wavefield::open_write_close(double time, int timestepWaveField){
+#ifdef USE_SIONLIB
   int globalrank,numFiles;
   char fname[1023], *newfname=NULL;
   sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE",-1);  
   unsigned long lidentifier;
-  //m_gComm = comm(); m_lComm = m_gComm;
-  globalrank = rank(); numFiles = -1;
-  lidentifier = identifier();
-  setpos();
-
+  m_gComm = comm(); m_lComm = m_iogroup.get_newcomm();
+  globalrank = rank(); numFiles = -1;  
+  //open the file: -------------------
+  //logInfo(rank())<<"opening file for write:"<<dataFile(odd()).c_str();
+  m_files[odd()] = sion_paropen_mpi(const_cast<char*>(dataFile(odd()).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
+				    &m_chunksize, &fsblksize, &globalrank, &m_fptr[odd()], &newfname);
+  checkErr(m_files[odd()]);
+  //logInfo(rank())<<"opened file for write:"<<linkFile().c_str();
+  //write the header: -------------------
   SCOREP_USER_REGION_DEFINE(r_write_header);
   SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
-
   checkErr(sion_fwrite(&lidentifier, sizeof(unsigned long),1,m_files[odd()]));
   checkErr(sion_fwrite(&time, sizeof(time),1,m_files[odd()]));
   checkErr(sion_fwrite(&timestepWaveField, sizeof(timestepWaveField),1,m_files[odd()]));
-
-  SCOREP_USER_REGION_END(r_write_header);
+  SCOREP_USER_REGION_END(r_write_header);  
+  //write the wavefield: -------------------
   SCOREP_USER_REGION_DEFINE(r_write_wavefield);
   SCOREP_USER_REGION_BEGIN(r_write_wavefield, "checkpoint_write_wavefield", SCOREP_USER_REGION_TYPE_COMMON);
-
-  checkErr(sion_fwrite(dofs(),sizeof(real), numDofs(),m_files[odd()]));  
-
+  checkErr(sion_fwrite(dofs(),sizeof(real), numDofs(),m_files[odd()]));
   SCOREP_USER_REGION_END(r_write_wavefield);
 
-  flushCheckpoint();
-  //  finalizeCheckpoint();  
-  logInfo(rank()) << "Writing check point. Done.";
+  checkErr(sion_parclose_mpi(m_files[odd()]));
+  //logInfo(rank())<<"closed file for write:"<<dataFile(odd()).c_str();
+  
 #endif
 }

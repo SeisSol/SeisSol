@@ -81,9 +81,10 @@ namespace seissol
 	void load(int &timestepFault);
 	void write(int timestepFault);	
 	void writeinit();
+	void open_write_close(int timestepFault);	
 	string which(){return string("sion.fault");};
 	void close() {
-	if (numSides() == 0)
+	  if (numSides() == 0)
 	    return; 
 	  CheckPoint::close();
 	}
