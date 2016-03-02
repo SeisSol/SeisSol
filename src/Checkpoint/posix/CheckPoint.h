@@ -96,7 +96,7 @@ public:
 		seissol::checkpoint::CheckPoint::initLate();
 
 		// Create the folder
-		if (rank() == 0 or local_storage()) {
+		if (rank() == 0) {
 			for (int i = 0; i < 2; i++) {
 				int ret = mkdir(seissol::checkpoint::CheckPoint::dataFile(i).c_str(),
 						S_IRWXU | S_IRWXG | S_IRWXO);
