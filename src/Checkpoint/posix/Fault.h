@@ -42,6 +42,7 @@
 
 #include "CheckPoint.h"
 #include "Checkpoint/Fault.h"
+#include <string>
 
 namespace seissol
 {
@@ -85,6 +86,8 @@ public:
 	void load(int &timestepFault);
 
 	void write(int timestepFault);
+
+	string which(){return string("posix.fault");}
 
 	void close()
 	{

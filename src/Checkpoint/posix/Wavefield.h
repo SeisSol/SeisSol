@@ -42,6 +42,8 @@
 
 #include "CheckPoint.h"
 #include "Checkpoint/Wavefield.h"
+#include <string>
+using namespace std;
 
 namespace seissol
 {
@@ -65,6 +67,8 @@ public:
 	void load(double &time, int &timestepWavefield);
 
 	void write(double time, int timestepWaveField);
+
+	string which(){return string("posix.wave");}
 };
 
 }
