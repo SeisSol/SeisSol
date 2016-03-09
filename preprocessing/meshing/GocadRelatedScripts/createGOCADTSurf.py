@@ -51,13 +51,13 @@ for i, lat in enumerate(lats):
    	for i0 in range(np0-1):
            triangles.append([ p0[i0],p0[i0+1],p1[i0] ])
            triangles.append([ p0[i0+1],p1[i0+1],p1[i0] ])
-   	for i0 in range(np0, np1-1):
+   	for i0 in range(np0-1, np1-1):
            triangles.append([ p0[np0-1],p1[i0+1],p1[i0] ])
    else:
    	for i1 in range(np1-1):
            triangles.append([ p1[i1],p1[i1+1],p0[i1] ])
            triangles.append([ p1[i1+1],p0[i1+1],p0[i1] ])
-   	for i0 in range(np0, np1-1):
+   	for i0 in range(np1-1, np0-1):
            triangles.append([ p1[np1-1],p0[i1+1],p0[i1] ])
 
 
