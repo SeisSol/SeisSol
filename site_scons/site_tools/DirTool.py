@@ -55,6 +55,7 @@ def generate(env, **kw):
     # Collect all pathes here, otherwise we change the directory during iteration
     incPathes = []
     libPathes = []
+    pkgPathes = []
     
     for var in env.Dictionary():
         if var.endswith('Dir') and var != 'Dir':
@@ -62,12 +63,18 @@ def generate(env, **kw):
             
             incPath = os.path.join(value, 'include')
             libPath = os.path.join(value, 'lib')
+            pkgPath = [os.path.join(value, 'lib', 'pkgconfig'),
+                       os.path.join(value, 'share', 'pkgconfig')]
             
             if os.path.exists(incPath):
                 incPathes.append(incPath)
                 
             if os.path.exists(libPath):
                 libPathes.append(libPath)
+                
+            for p in pkgPath:
+                if os.path.exists(p):
+                    pkgPathes.append(p)
                     
     env.AppendUnique(CPPPATH=incPathes)
     if fortran:
@@ -75,6 +82,8 @@ def generate(env, **kw):
     env.AppendUnique(LIBPATH=libPathes)
     if rpath:
         env.AppendUnique(RPATH=libPathes)
+        
+    env.AppendENVPath('PKG_CONFIG_PATH', pkgPathes)
 
 def exists(env):
     return True

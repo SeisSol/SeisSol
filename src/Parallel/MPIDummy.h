@@ -67,13 +67,27 @@ public:
 	}
 
 	/**
+	 * @return Dummy communicator
+	 */
+	int comm() const
+	{
+		return 0;
+	}
+
+	/**
+	 * Does nothing
+	 */
+	void barrier(int comm) const
+	{
+	}
+
+	/**
 	 * Does nothing
 	 */
 	void finalize()
 	{
 	}
 
-public:
 	/** The only instance of the class */
 	static MPIDummy mpi;
 };

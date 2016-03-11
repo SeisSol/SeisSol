@@ -44,7 +44,9 @@ Import('env')
 readerFiles = [ 'read_backgroundstress.f90',
                 'readpar.f90',
                 'readparC.cpp',
-                'faultinput.f90' ]
+                'faultinput.f90',
+                'VelocityFieldReaderF.f90',
+                'VelocityFieldReaderC.cpp' ]
 
 for i in readerFiles:
   env.sourceFiles.append(env.Object(i))

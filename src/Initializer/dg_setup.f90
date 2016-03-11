@@ -469,10 +469,14 @@ CONTAINS
                    disc,           &
                    io                )
 
-#ifdef PERIODIC_LTS_SCALING
     ! get gts time step width
     l_gts = minval( optionalFields%dt_convectiv(:) )
+    if (l_gts .le. 0.0) then
+      logError(*) 'Invalid timestep width'
+      stop
+    endif
 
+#ifdef PERIODIC_LTS_SCALING
     ! compute total load per half-sapce
     !         _____________________
     !        /         /     /    /|
