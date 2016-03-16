@@ -116,7 +116,7 @@ void seissol::checkpoint::sionlib::Fault::load(int &timestepFault) {
 }
 
 void seissol::checkpoint::sionlib::Fault::write(int timestepFault) {  
-  SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+  SCOREP_USER_REGION("CheckPointFault_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 #ifdef USE_SIONLIB
   if (numSides() == 0)
     return;
@@ -124,8 +124,6 @@ void seissol::checkpoint::sionlib::Fault::write(int timestepFault) {
   if (m_method == 0){
     open_write_close(timestepFault);
   }else{
-    EPIK_TRACER("CheckPointFault_write");
-    SCOREP_USER_REGION("CheckPointFault_write", SCOREP_USER_REGION_TYPE_FUNCTION);
     
     unsigned long lidentifier;
     lidentifier = identifier();
