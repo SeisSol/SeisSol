@@ -56,7 +56,8 @@
 
 #include "Checkpoint/CheckPoint.h"
 #include "Initializer/preProcessorMacros.fpp"
-
+#include <string>
+using namespace std;
 namespace seissol
 {
 
@@ -82,6 +83,8 @@ public:
 	}
 
 	virtual ~CheckPoint() {}
+
+	virtual string which(){return string("posix");}
 
 	void setFilename(const char* filename)
 	{
@@ -177,18 +180,18 @@ protected:
 		return fh;
 	}
 
-	std::string linkFile() const
+	std::string linkFile() //const
 	{
 		std::string file = std::string(seissol::checkpoint::CheckPoint::linkFile())
-				+ "/checkpoint." + utils::StringUtils::toString(rank());
+		  + "/cp." + which()+ "."+utils::StringUtils::toString(rank());
 
 		return file;
 	}
 
-	std::string dataFile(int odd) const
+	std::string dataFile(int odd) //const
 	{
 		return seissol::checkpoint::CheckPoint::dataFile(odd)
-				+ "/checkpoint." + utils::StringUtils::toString(rank());
+		  + "/cp." +which()+ "."+utils::StringUtils::toString(rank());
 	}
 
 	/**
