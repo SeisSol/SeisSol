@@ -82,12 +82,15 @@ public:
 	 */
 	void init(int &argc, char** &argv)
 	{
-#if defined(USE_COMM_THREAD) || defined(USE_ASAGI)
+#if defined(USE_COMM_THREAD) || defined(USE_ASAGI) \
+	|| defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
 		int provided;
 		MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
-#else // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
+#else // defined(USE_COMM_THREAD) || defined(USE_ASAGI) \
+	// || defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
 		MPI_Init(&argc, &argv);
-#endif // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
+#endif // defined(USE_COMM_THREAD) || defined(USE_ASAGI) \
+	// || defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
 
 		setComm(MPI_COMM_WORLD);
 	}

@@ -72,6 +72,9 @@ private:
 	/** The name of the parameter file */
 	std::string m_parameterFile;
 
+	/** Async I/O handler (needs to be initialize before other I/O modules) */
+	io::AsyncIO m_asyncIO;
+
 	MeshReader* m_meshReader;
 
 #ifdef GENERATEDKERNELS
@@ -94,9 +97,6 @@ private:
 	/** Source term module */
 	sourceterm::Manager m_sourceTermManager;
 #endif // GENERATEDKERNELS
-
-	/** Async I/O handler */
-	io::AsyncIO m_asyncIO;
 
 	/** Wavefield output module */
 	WaveFieldWriter m_waveFieldWriter;
@@ -121,7 +121,7 @@ public:
 	/**
 	 * Initialize C++ part of the program
 	 */
-	void init(int argc, char* argv[]);
+	bool init(int argc, char* argv[]);
 
 	/**
 	 * Finalize SeisSol

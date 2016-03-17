@@ -534,8 +534,8 @@ else:
   env['sionlib'] = False
 
 # ASYNC I/O
+env.Append(CPPPATH=['#/submodules/async'])
 if env['asyncio'] in ['thread', 'mpi']:
-    env.Append(CPPPATH['#/submodules/async'])
     if env['asyncio'] == 'thread':
         env.Append(CPPDEFINES=['USE_ASYNC_THREAD'])
         env.Append(LINKFLAGS=['-lpthread'] )

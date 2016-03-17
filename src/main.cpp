@@ -49,10 +49,11 @@ int main(int argc, char* argv[])
 	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 	// Initialize SeisSol
-	seissol::SeisSol::main.init(argc, argv);
+	bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
 
 	// Initialize Fortan Part and run SeisSol
-	fortran_main();
+	if (runSeisSol)
+		fortran_main();
 
 	// Finalize SeisSol
 	seissol::SeisSol::main.finalize();

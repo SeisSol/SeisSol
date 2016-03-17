@@ -48,7 +48,7 @@
 
 #include "utils/args.h"
 
-void seissol::SeisSol::init(int argc, char* argv[])
+bool seissol::SeisSol::init(int argc, char* argv[])
 {
 	MPI::mpi.init(argc, argv);
   
@@ -97,9 +97,12 @@ void seissol::SeisSol::init(int argc, char* argv[])
   }
 
   // Initialize the ASYNC I/O library
-  m_asyncIO.init();
+  if (!m_asyncIO.init())
+	  return false;
 
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+
+  return true;
 }
 
 void seissol::SeisSol::finalize()

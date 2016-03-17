@@ -41,13 +41,14 @@
 #ifndef ASYNCIO_H
 #define ASYNCIO_H
 
-#include "utils/env.h"
-
-#ifdef USE_ASYNC_MPI
-#include "async/AsyncMPI.h"
-#endif // USE_ASYNC_MPI
-
 #include "Parallel/MPI.h"
+
+#include <algorithm>
+
+#include "utils/env.h"
+#include "utils/logger.h"
+
+#include "async/Dispatcher.h"
 
 namespace seissol
 {
@@ -55,20 +56,30 @@ namespace seissol
 namespace io
 {
 
-class AsyncIO
+class AsyncIO : private async::Dispatcher
 {
-private:
-#ifdef USE_ASYNC_MPI
-	async::AsyncMPIScheduler m_scheduler;
-#endif // USE_ASYNC_MPI
-
 public:
-	void init()
+	/**
+	 * @return False if this rank is an MPI executor that does not contribute to the
+	 *  computation.
+	 */
+	bool init()
 	{
 #ifdef USE_ASYNC_MPI
-		unsigned int groupSize = utils::Env::get("SEISSOL_ASYNC_GROUP_SIZE", 64);
-		m_scheduler.setCommunicator(seissol::MPI::mpi.comm(), groupSize);
+		// Initialize the scheduler
+		unsigned int groupSize = std::min(utils::Env::get("SEISSOL_ASYNC_GROUP_SIZE", 64),
+				seissol::MPI::mpi.size());
+		logInfo(seissol::MPI::mpi.rank()) << "Setting ASYNC MPI I/O group size to" << groupSize;
+		setGroupSize(groupSize);
 #endif // USE_ASYNC_MPI
+
+		async::Dispatcher::init();
+
+#ifdef USE_ASYNC_MPI
+		seissol::MPI::mpi.setComm(scheduler().commWorld());
+#endif // USE_ASYNC_MPI
+
+		return dispatch();
 	}
 };
 
