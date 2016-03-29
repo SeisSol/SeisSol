@@ -158,12 +158,16 @@ for iPartition=1:nPartition
        
    end
    element_size_new(iPartition) = currentNewElement;
-
    %create New groups
-   element_group_new(1:element_size(iPartition),iPartition) = element_group_new(1:element_size(iPartition),iPartition);
+   element_group_new(1:element_size(iPartition),iPartition) = element_group(1:element_size(iPartition),iPartition);
    for ielem=1:element_size(iPartition)
        if Elem_Old2New(ielem) ~= ielem
            element_group_new(Elem_Old2New(ielem),iPartition) = element_group(ielem,iPartition);
+%            if element_group(ielem,iPartition)==3
+%                element_group_new(Elem_Old2New(ielem),iPartition)=1;
+%            else
+%               element_group_new(Elem_Old2New(ielem),iPartition) = element_group(ielem,iPartition);
+%            end
        end
    end
 end
@@ -178,7 +182,10 @@ if nPartition~=1
     disp('This script currently only works with 1 partition!')
     return
 end
-ngroups = max(element_group_new);
+
+listgroup = unique(element_group_new);
+%there is no group 0
+ngroups = size(listgroup,1)-ismember(0,listgroup);
 
 fid_out = fopen('/export/data/ulrich/sym_mesh.neu', 'w');
 fprintf(fid_out,'%s','        CONTROL INFO 1.2.1');
@@ -212,17 +219,26 @@ for i=1:elements_new
     fprintf(fid_out,'\n%8.0f%3.0f%3.0f%9.0f%8.0f%8.0f%8.0f',i, 6,4, element_vertices_new(1:4,i,1)+1);
 end
 disp('done writing elements');
-
 fprintf(fid_out,'\n%s','ENDOFSECTION');
-fprintf(fid_out,'\n%s','       ELEMENT GROUP 2.0.0');
-fprintf(fid_out,'\n%s','GROUP:          1 ELEMENTS:');
-fprintf(fid_out,'%11.0f%',elements_new);
-fprintf(fid_out,'%s',' MATERIAL:          2 NFLAGS:          1');
-fprintf(fid_out,'\n%s','                           fluid');
-fprintf(fid_out,'\n%s','       0');
-fprintf(fid_out,'\n%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f',(1:1:elements_new));
-fprintf(fid_out,'\n%s\n','ENDOFSECTION');
-disp('done writing groups');
+
+fprintf(fid_out,'\n');
+for i=1:size(listgroup,1)
+    if listgroup(i)==0
+        continue
+    end
+    indexes = find(element_group_new==listgroup(i));
+    n_elem_group = size(indexes,1);
+    fprintf(fid_out,'       ELEMENT GROUP 2.0.0');
+    fprintf(fid_out,'\n%s%d%s','GROUP:         ',listgroup(i),' ELEMENTS:');
+    fprintf(fid_out,'%11.0f%',n_elem_group);
+    fprintf(fid_out,'%s',' MATERIAL:          2 NFLAGS:          1');
+    fprintf(fid_out,'\n%s%d','Material group ',listgroup(i));
+    fprintf(fid_out,'\n%s','       0');
+    fprintf(fid_out,'\n%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f%10.0f',indexes);
+    fprintf(fid_out,'\n%s\n','ENDOFSECTION');
+    disp(sprintf('%s %d %s %d','done writing groups', listgroup(i), 'elements :',n_elem_group));
+end
+disp('done writing all groups');
 
 
 %GAMBIT convention
