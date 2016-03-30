@@ -280,14 +280,16 @@ void seissol::WaveFieldWriter::execInit(const WaveFieldInitParam &param)
 #endif // USE_ASYNC_MPI
 	m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 			rank, outputPrefix, variables, param.timestep);
-#ifdef USE_MPI
-	m_waveFieldWriter->setComm(seissol::MPI::mpi.comm());
-#endif // USE_MPI
-#ifdef USE_ASYNC_MPI
 
-	size_t numCells = bufferSize(CELLS);
+#ifdef USE_MPI
+	MPI_Comm_dup(seissol::MPI::mpi.comm(), &m_comm);
+	m_waveFieldWriter->setComm(m_comm);
+#endif // USE_MPI
+
+#ifdef USE_ASYNC_MPI
+	size_t numCells = bufferSize(CELLS) / (4*sizeof(unsigned int));
 	const unsigned int* cells = static_cast<const unsigned int*>(buffer(CELLS));
-	size_t numVertices = bufferSize(VERTICES);
+	size_t numVertices = bufferSize(VERTICES) / (3*sizeof(double));
 	const double* vertices = static_cast<const double*>(buffer(VERTICES));
 #else // USE_ASYNC_MPI
 	size_t numCells = param.numCells;
@@ -333,7 +335,7 @@ void seissol::WaveFieldWriter::execInit(const WaveFieldInitParam &param)
 		logInfo(rank) << "Low order output initialized";
 
 #ifdef USE_MPI
-		m_lowWaveFieldWriter->setComm(seissol::MPI::mpi.comm());
+		m_lowWaveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
 
 		m_lowWaveFieldWriter->init(numCells, cells, numVertices, vertices, true);

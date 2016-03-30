@@ -116,6 +116,11 @@ private:
 	/** True if wave field output is enabled */
 	bool m_enabled;
 
+#ifdef USE_MPI
+	/** The communicator for this output (a duplicate of MPI_COMM_WORLD) */
+	MPI_Comm m_comm;
+#endif // USE_MPI
+
 	/** The output prefix for the filename */
 	std::string m_outputPrefix;
 
@@ -161,6 +166,7 @@ private:
 public:
     WaveFieldWriter()
      	 : m_enabled(false),
+		   m_comm(MPI_COMM_NULL),
 		   m_waveFieldWriter(0L), m_lowWaveFieldWriter(0L),
 		   m_variableSubsampler(0L),
 		   m_numCells(0), m_numLowCells(0),
@@ -370,6 +376,11 @@ public:
 	{
 		if (!m_enabled)
 			return;
+
+		if (m_comm != MPI_COMM_NULL) {
+			MPI_Comm_free(&m_comm);
+			m_comm = MPI_COMM_NULL;
+		}
 
 		delete m_waveFieldWriter;
 		m_waveFieldWriter = 0L;
