@@ -68,10 +68,10 @@ void seissol::WaveFieldWriter::init(int numVars, int order, int numAlignedDOF,
 		//
 		// High order I/O
 		//
-		if (numVars != 9)
+		if (numVars != MAX_VARIABLES)
 			logError()
-					<< "XDMF output supports currently only 9 variables. Number of variables specified:"
-					<< numVars;
+					<< "XDMF output supports currently only" << MAX_VARIABLES
+					<< "variables. Number of variables specified:" << numVars;
 		m_numVariables = numVars;
 
 		// Currently all variables have to be chosen.
@@ -139,7 +139,7 @@ void seissol::WaveFieldWriter::init(int numVars, int order, int numAlignedDOF,
 		addBuffer(0);
 #endif // USE_ASYNC_MPI
 
-		for (int i = VARIABLE0; i <= VARIABLE8; i++) {
+		for (int i = 0; i < MAX_VARIABLES; i++) {
 #if defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
 			if (m_outputFlags[i])
 				addBuffer(m_numCells * sizeof(double));
@@ -178,7 +178,7 @@ void seissol::WaveFieldWriter::init(int numVars, int order, int numAlignedDOF,
 			addBuffer(0);
 #endif // USE_ASYNC_MPI
 
-			for (int i = LOWVARIABLE0; i <= LOWVARIABLE6; i++) {
+			for (int i = 0; i < MAX_LOWVARIABLES; i++) {
 #if defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
 				addBuffer(m_numLowCells * sizeof(double));
 #else // defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
@@ -189,7 +189,7 @@ void seissol::WaveFieldWriter::init(int numVars, int order, int numAlignedDOF,
 			// Create empty buffers (mesh + data)
 			addBuffer(0);
 			addBuffer(0);
-			for (int i = LOWVARIABLE0; i <= LOWVARIABLE6; i++)
+			for (int i = 0; i <= MAX_LOWVARIABLES; i++)
 				addBuffer(0);
 		}
 
@@ -308,17 +308,17 @@ void seissol::WaveFieldWriter::execInit(const WaveFieldInitParam &param)
 	numVertices = bufferSize(LOWVERTICES);
 	vertices = static_cast<const double*>(buffer(LOWVERTICES));
 #else // USE_ASYNC_MPI
-	numCells = param.numCells;
-	cells = param.cells;
-	numVertices = param.numVertices;
-	vertices = param.vertices;
+	numCells = param.numLowCells;
+	cells = param.lowCells;
+	numVertices = param.numLowVertices;
+	vertices = param.lowVertices;
 #endif // USE_ASYNC_MPI
 
 	if (numCells > 0) {
 		// Pstrain enabled
 
 		// Variables
-		std::vector<const char*> lowVariables(7);
+		std::vector<const char*> lowVariables(MAX_LOWVARIABLES);
 		lowVariables[0] = "ep_xx";
 		lowVariables[1] = "ep_yy";
 		lowVariables[2] = "ep_zz";

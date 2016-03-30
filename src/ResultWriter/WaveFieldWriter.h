@@ -110,6 +110,9 @@ private:
 		BUFFERTAG_MAX = LOWVARIABLE6
 	};
 
+	const static unsigned int MAX_VARIABLES = VARIABLE8 - VARIABLE0 + 1;
+	const static unsigned int MAX_LOWVARIABLES = LOWVARIABLE6 - LOWVARIABLE0 + 1;
+
 	/** True if wave field output is enabled */
 	bool m_enabled;
 
@@ -287,7 +290,7 @@ public:
 			m_lowWaveFieldWriter->addTimeStep(time);
 #endif // !(defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD))
 
-			for (unsigned int i = 0; i < 7; i++) {
+			for (unsigned int i = 0; i < MAX_LOWVARIABLES; i++) {
 #ifdef _OPENMP
 				#pragma omp parallel for schedule(static)
 #endif // _OPENMP
