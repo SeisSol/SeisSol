@@ -492,10 +492,6 @@ env.Tool('LibxsmmTool', required=env['equations'].startswith('viscoelastic'))
 env.Tool('DirTool', fortran=True)
 
 # GLM
-env.Append(CPPPATH=['#/submodules/glm'])
-env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
-
-# GLM
 # Workaround for wrong C++11 detection
 env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
 
