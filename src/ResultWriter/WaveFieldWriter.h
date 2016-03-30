@@ -53,6 +53,7 @@
 #include "Geometry/refinement/RefinerUtils.h"
 #include "Geometry/refinement/MeshRefiner.h"
 #include "Geometry/refinement/VariableSubSampler.h"
+#include "Monitoring/instrumentation.fpp"
 
 namespace seissol
 {
