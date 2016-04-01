@@ -70,6 +70,7 @@ CONTAINS
       
       !-------------------------------------------------------------------------!
       USE JacobiNormal_mod
+      USE magnitude_output_mod
       !-------------------------------------------------------------------------!
       IMPLICIT NONE
       !-------------------------------------------------------------------------!
@@ -96,7 +97,22 @@ CONTAINS
       ! Here, because the complete updated dgvar value of the (MPI-)Neighbor is needed
       ! Note that this causes a dt timeshift in the DR output routines
       !
-      ! 
+      !
+      IF (DISC%DynRup%moment_rate_output_on) THEN
+         IF ( MOD(DISC%iterationstep-1,DISC%DynRup%moment_rate_printtimeinterval).EQ.0 &
+         .OR. (DISC%EndTime-time).LE.(dt*1.005d0) ) THEN
+            IF (DISC%iterationstep.EQ.0) RETURN ! not the iteration 0
+            CONTINUE
+         ! print always first timestep
+         ELSEIF(DISC%iterationstep .EQ. 1) THEN
+            CONTINUE
+         ELSE
+            RETURN
+         ENDIF
+         CALL moment_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
+      ENDIF
+
+
       SELECT CASE(DISC%DynRup%OutputPointType)
        ! For historical reasons fault output DISC%DynRup%OutputPointType= 3 or 4 or 5
        ! Case 0 means no fault output

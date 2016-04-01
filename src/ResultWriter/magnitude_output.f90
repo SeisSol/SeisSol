@@ -54,9 +54,11 @@ MODULE magnitude_output_mod
   PRIVATE
   !---------------------------------------------------------------------------!
   PUBLIC  :: magnitude_output
+  PUBLIC  :: moment_rate_output
   !---------------------------------------------------------------------------!
   INTERFACE magnitude_output
      MODULE PROCEDURE magnitude_output
+     MODULE PROCEDURE moment_rate_output
   END INTERFACE
 
 CONTAINS
@@ -144,5 +146,96 @@ CONTAINS
     CLOSE( UNIT_Mag )
 
   END SUBROUTINE magnitude_output
+
+  SUBROUTINE moment_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
+    !< routine outputs the moment magnitude rate for each MPI domain that contains a subfault
+    !-------------------------------------------------------------------------!
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------!
+    ! Argument list declaration
+    TYPE(tDiscretization), target   :: DISC                                              !
+    TYPE(tUnstructMesh)             :: MESH
+    TYPE(tMPI)                      :: MPI
+    TYPE(tInputOutput)              :: IO
+    !-------------------------------------------------------------------------!
+    ! Local variable declaration                                              !
+    INTEGER                         :: iElem,iSide,nSide,iFace,iBndGP
+    INTEGER                         :: stat, UNIT_MAG
+    REAL                            :: MomentRate,averageSR,time
+    REAL                            :: MaterialVal(:,:)
+    LOGICAL                         :: exist
+    CHARACTER (LEN=5)               :: cmyrank
+    CHARACTER (len=200)             :: MAG_FILE
+    !-------------------------------------------------------------------------!
+    INTENT(IN)    :: DISC, MESH, MPI, IO
+    !-------------------------------------------------------------------------!
+
+    ! generate unique name out of MPI rank
+    IF (MESH%FAULT%nSide.EQ.0) THEN
+       RETURN
+    ENDIF
+
+#ifdef PARALLEL
+    ! pure MPI case
+    WRITE(cmyrank,'(I5.5)') MPI%myrank                           ! myrank -> cmyrank
+    WRITE(MAG_FILE, '(a,a5,a5,a4)') TRIM(IO%OutputFile),'-M_t-',TRIM(cmyrank),'.dat'
+    UNIT_MAG = 399875+MPI%myrank
+#else
+    WRITE(MAG_FILE, '(a,a4,a4)') TRIM(IO%OutputFile),'-M_t','.dat'
+    UNIT_MAG = 399875
+#endif
+    !
+    INQUIRE(FILE = MAG_FILE, EXIST = exist)
+    IF(exist) THEN
+        ! If file exists, then append data
+        OPEN(UNIT     = UNIT_MAG                                          , & !
+             FILE     = MAG_FILE                                          , & !
+             FORM     = 'FORMATTED'                                      , & !
+             STATUS   = 'OLD'                                            , & !
+             POSITION = 'APPEND'                                         , & !
+             RECL     = 80000                                            , & !
+             IOSTAT   = stat                                               ) !
+        IF(stat.NE.0) THEN                                              !
+           logError(*) 'cannot open ',MAG_FILE         !
+           logError(*) 'Error status: ', stat                !
+           STOP                                                          !
+        ENDIF
+    ELSE
+        ! open file
+        OPEN(UNIT   = UNIT_MAG                                            , & !
+             FILE     = MAG_FILE                                          , & !
+             FORM     = 'FORMATTED'                                      , & !
+             STATUS   = 'NEW'                                            , & !
+             RECL     = 80000                                            , & !
+             IOSTAT   = stat                                               ) !
+        IF(stat.NE.0) THEN                                              !
+           logError(*) 'cannot open ',MAG_FILE         !
+           logError(*) 'Error status: ', stat                !
+           STOP                                                          !
+        ENDIF
+        WRITE(UNIT_MAG,*) '#time MomentRate'
+        !
+    ENDIF
+    !
+    ! Compute output
+    MomentRate = 0.0D0
+    nSide = MESH%FAULT%nSide
+    DO iFace = 1,nSide
+       iElem = MESH%Fault%Face(iFace,1,1)          ! Remark:
+       iSide = MESH%Fault%Face(iFace,2,1)          ! iElem denotes "+" side
+       averageSR = 0d0
+       DO iBndGP=1,DISC%Galerkin%nBndGP
+          averageSR = averageSR + sqrt(DISC%DynRup%SlipRate1(iFace,iBndGP)**2+DISC%DynRup%SlipRate2(iFace,iBndGP)**2)/DISC%Galerkin%nBndGP
+       ENDDO
+       ! magnitude = scalar seismic moment = slip per element * element face * shear modulus
+       MomentRate = MomentRate + averageSR*DISC%Galerkin%geoSurfaces(iSide,iElem)*MaterialVal(iElem,2)
+    ENDDO
+    !
+    ! Write output
+    WRITE(UNIT_MAG,*) time, MomentRate
+
+    CLOSE( UNIT_Mag )
+
+  END SUBROUTINE moment_rate_output
 
 END MODULE magnitude_output_mod

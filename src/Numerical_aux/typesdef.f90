@@ -952,6 +952,8 @@ MODULE TypesDef
      LOGICAL, ALLOCATABLE                   :: RF(:,:)                          !< rupture front output for this GP: true or false
      ! Magnitude output
      INTEGER                                :: magnitude_output_on              !< magnitude output on = 1, off = 0
+     INTEGER                                :: moment_rate_output_on            !< moment rate output on = 1, off = 0
+     INTEGER                                :: moment_rate_printtimeinterval    !< moment rate print time interval
      LOGICAL, ALLOCATABLE                   :: magnitude_out(:)                 !< magnitude output: true or false
      REAL, ALLOCATABLE                      :: averaged_Slip(:)                 !< slip averaged per element (length all + elements in this domain)
      ! declarate output types
