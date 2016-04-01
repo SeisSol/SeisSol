@@ -48,11 +48,15 @@ filelist = glob.glob(args.prefix+'-M_t*')
 print '%d files found' %len(filelist)
 
 Mt_conc = np.loadtxt(filelist[0], skiprows=1)
+ndt0 = np.shape(Mt_conc)[0]
 
 for fid in filelist[1:]:
    Mt = np.loadtxt(fid, skiprows=1)
-   Mt_conc[:,1] = Mt_conc[:,1] + Mt[:,1]
+   ndt = np.shape(Mt)[0]
+   ndt0 = min(ndt ,ndt0) 
+   Mt_conc[0:ndt0,1] = Mt_conc[0:ndt0,1] + Mt[0:ndt0,1]
 
+Mt_conc = Mt_conc[0:ndt0,:]
 print 'Moment rate:'
 print Mt_conc
 
