@@ -1801,7 +1801,7 @@ MODULE ini_model_DR_mod
           ELSE
              Rz = 0.
           ENDIF
-          Rt = min(1D0,dsqrt(Rx**2+Rz**2))
+          Rt = min(1D0,sqrt(Rx**2+Rz**2))
 
           EQN%IniBulk_xx(i,iBndGP)  = -60d6
           EQN%IniBulk_yy(i,iBndGP)  = -60d6
