@@ -6,7 +6,7 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2010-2015, SeisSol Group
+!! Copyright (c) 2010-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -3284,12 +3284,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          stop
 #endif
       case(6)
-#ifdef USE_HDF
-         logInfo0(*) 'Output data are in XDMF format (new implemantation)'
-#else
-         logError(*) 'This version does not support HDF5'
-         stop
-#endif
+         logInfo0(*) 'Output data is in XDMF format (new implemantation)'
       case(10)
          logInfo0(*) 'Output data is disabled'
       CASE DEFAULT

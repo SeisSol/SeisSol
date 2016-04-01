@@ -56,11 +56,4 @@ for sourceDir in sourceDirectories:
   SConscript(sourceDir+'/SConscript', variant_dir='#/'+env['buildDir']+'/'+sourceDir, duplicate=0)
   Import('env')
 
-if env['parallelization'] in ['hybrid', 'mpi']:
-  Export('env')
-  SConscript('xdmfwriter/SConscript', variant_dir='#/'+env['buildDir']+'/xdmfwriter', duplicate=0)
-  Import('env')
-  env.sourceFiles.append(env.XdmfWriterSourceFiles)
-
-
 Export('env')
