@@ -99,7 +99,7 @@ private:
 #endif // GENERATEDKERNELS
 
 	/** Wavefield output module */
-	WaveFieldWriter m_waveFieldWriter;
+	writer::WaveFieldWriter m_waveFieldWriter;
 
 private:
 	/**
@@ -166,7 +166,7 @@ public:
 	/**
 	 * Get the wave field writer module
 	 */
-	WaveFieldWriter& waveFieldWriter()
+	writer::WaveFieldWriter& waveFieldWriter()
 	{
 		return m_waveFieldWriter;
 	}

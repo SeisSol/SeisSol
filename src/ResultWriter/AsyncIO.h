@@ -56,7 +56,7 @@ namespace seissol
 namespace io
 {
 
-class AsyncIO : private async::Dispatcher
+class AsyncIO : public async::Dispatcher
 {
 public:
 	/**

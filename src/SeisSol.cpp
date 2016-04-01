@@ -109,6 +109,9 @@ void seissol::SeisSol::finalize()
 {
 	const int rank = MPI::mpi.rank();
 
+	// Cleanup ASYNC I/O library
+	m_asyncIO.finalize();
+
 	MPI::mpi.finalize();
 
 	logInfo(rank) << "SeisSol done. Goodbye.";

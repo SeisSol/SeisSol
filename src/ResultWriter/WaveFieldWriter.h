@@ -42,6 +42,8 @@
 
 #include "Parallel/MPI.h"
 
+#include <algorithm>
+#include <cassert>
 #include <string>
 #include <vector>
 
@@ -57,11 +59,45 @@
 namespace seissol
 {
 
+namespace writer
+{
+
+/** Buffer tags for asynchronous IO */
+enum BufferTags {
+	OUTPUT_PREFIX,
+	CELLS,
+	VERTICES,
+	VARIABLE0,
+	VARIABLE1,
+	VARIABLE2,
+	VARIABLE3,
+	VARIABLE4,
+	VARIABLE5,
+	VARIABLE6,
+	VARIABLE7,
+	VARIABLE8,
+	LOWCELLS,
+	LOWVERTICES,
+	LOWVARIABLE0,
+	LOWVARIABLE1,
+	LOWVARIABLE2,
+	LOWVARIABLE3,
+	LOWVARIABLE4,
+	LOWVARIABLE5,
+	LOWVARIABLE6,
+	BUFFERTAG_MAX = LOWVARIABLE6
+};
+
+const static unsigned int MAX_VARIABLES = VARIABLE8 - VARIABLE0 + 1;
+const static unsigned int MAX_LOWVARIABLES = LOWVARIABLE6 - LOWVARIABLE0 + 1;
+
 struct WaveFieldInitParam
 {
 	int timestep;
 	unsigned int numVars;
-#ifndef USE_ASYNC_MPI
+#ifdef USE_ASYNC_MPI
+	int bufferIds[BUFFERTAG_MAX];
+#else // USE_ASYNC_MPI
 	// Refined mesh structure
 	size_t numCells;
 	const unsigned int* cells;
@@ -83,36 +119,6 @@ struct WaveFieldParam
 
 class WaveFieldWriter : private async::Module<WaveFieldWriter, WaveFieldInitParam, WaveFieldParam>
 {
-private:
-	/** Buffer tags for asynchronous IO */
-	enum BufferTags {
-		OUTPUT_PREFIX,
-		CELLS,
-		VERTICES,
-		VARIABLE0,
-		VARIABLE1,
-		VARIABLE2,
-		VARIABLE3,
-		VARIABLE4,
-		VARIABLE5,
-		VARIABLE6,
-		VARIABLE7,
-		VARIABLE8,
-		LOWCELLS,
-		LOWVERTICES,
-		LOWVARIABLE0,
-		LOWVARIABLE1,
-		LOWVARIABLE2,
-		LOWVARIABLE3,
-		LOWVARIABLE4,
-		LOWVARIABLE5,
-		LOWVARIABLE6,
-		BUFFERTAG_MAX = LOWVARIABLE6
-	};
-
-	const static unsigned int MAX_VARIABLES = VARIABLE8 - VARIABLE0 + 1;
-	const static unsigned int MAX_LOWVARIABLES = LOWVARIABLE6 - LOWVARIABLE0 + 1;
-
 	/** True if wave field output is enabled */
 	bool m_enabled;
 
@@ -120,6 +126,9 @@ private:
 	/** The communicator for this output (a duplicate of MPI_COMM_WORLD) */
 	MPI_Comm m_comm;
 #endif // USE_MPI
+
+	/** List of all buffer ids */
+	int m_bufferIds[BUFFERTAG_MAX];
 
 	/** The output prefix for the filename */
 	std::string m_outputPrefix;
@@ -164,19 +173,20 @@ private:
 	std::vector<bool> m_outputFlags;
 
 public:
-    WaveFieldWriter()
-     	 : m_enabled(false),
-		   m_comm(MPI_COMM_NULL),
-		   m_waveFieldWriter(0L), m_lowWaveFieldWriter(0L),
-		   m_variableSubsampler(0L),
-		   m_numCells(0), m_numLowCells(0),
-		   m_numVariables(0),
-		   m_dofs(0L), m_pstrain(0L),
-		   m_map(0L),
-		   m_lastTimeStep(-1),
-		   m_timeTolerance(0),
-		   m_outputBuffer(0L)
+	WaveFieldWriter()
+		: m_enabled(false),
+		  m_comm(MPI_COMM_NULL),
+		  m_waveFieldWriter(0L), m_lowWaveFieldWriter(0L),
+		  m_variableSubsampler(0L),
+		  m_numCells(0), m_numLowCells(0),
+		  m_numVariables(0),
+		  m_dofs(0L), m_pstrain(0L),
+		  m_map(0L),
+		  m_lastTimeStep(-1),
+		  m_timeTolerance(0),
+		  m_outputBuffer(0L)
 	{
+		std::fill(m_bufferIds, m_bufferIds+BUFFERTAG_MAX, -1);
 	}
 
 	/**
@@ -208,8 +218,6 @@ public:
 	 */
 	void setUp()
 	{
-		for (int i = 0; i <= BUFFERTAG_MAX; i++)
-			addBuffer(0);
 		setExecutor(*this);
 	}
 
@@ -281,7 +289,8 @@ public:
 			m_variableSubsampler->get(m_dofs, m_map, i, m_outputBuffer);
 
 #if defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
-			fillBuffer(VARIABLE0+i, m_outputBuffer, m_numCells*sizeof(double));
+			assert(m_bufferIds[VARIABLE0+i] >= 0);
+			fillBuffer(m_bufferIds[VARIABLE0+i], m_outputBuffer, m_numCells*sizeof(double));
 #else // defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
 			m_waveFieldWriter->writeData(i, m_outputBuffer);
 #endif // defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
@@ -304,7 +313,8 @@ public:
 					m_outputBuffer[j] = m_pstrain[m_map[j] * 7 + i];
 
 #if defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
-				fillBuffer(LOWVARIABLE0+i, m_outputBuffer, m_numLowCells*sizeof(double));
+				assert(m_bufferIds[LOWVARIABLE0+i] >= 0);
+				fillBuffer(m_bufferIds[LOWVARIABLE0+i], m_outputBuffer, m_numLowCells*sizeof(double));
 #else // defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
 				m_lowWaveFieldWriter->writeData(i, m_outputBuffer);
 #endif // defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
@@ -333,9 +343,11 @@ public:
 		m_waveFieldWriter->addTimeStep(param.time);
 
 		for (unsigned int i = 0; i < m_numVariables; i++) {
-			if (bufferSize(VARIABLE0+i) > 0)
+			if (m_bufferIds[VARIABLE0+i] >= 0) {
+				assert(bufferSize(m_bufferIds[VARIABLE0+i]) > 0);
 				m_waveFieldWriter->writeData(i,
-						static_cast<const double*>(buffer(VARIABLE0+i)));
+						static_cast<const double*>(buffer(m_bufferIds[VARIABLE0+i])));
+			}
 		}
 
 		m_waveFieldWriter->flush();
@@ -345,9 +357,11 @@ public:
 			m_lowWaveFieldWriter->addTimeStep(param.time);
 
 			for (unsigned int i = 0; i < 7; i++) {
-				if (bufferSize(LOWVARIABLE0+i) > 0)
+				if (m_bufferIds[LOWVARIABLE0+i] >= 0) {
+					assert(bufferSize(m_bufferIds[LOWVARIABLE0+i]) > 0);
 					m_lowWaveFieldWriter->writeData(i,
-							static_cast<const double*>(buffer(LOWVARIABLE0+i)));
+							static_cast<const double*>(buffer(m_bufferIds[LOWVARIABLE0+i])));
+				}
 			}
 
 			m_lowWaveFieldWriter->flush();
@@ -388,6 +402,8 @@ public:
 		m_lowWaveFieldWriter = 0L;
 	}
 };
+
+}
 
 }
 
