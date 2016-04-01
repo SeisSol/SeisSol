@@ -50,7 +50,7 @@
 static xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>* xdmfWriter = 0L;
 
 static char const * const labels[] = {
-  "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl"
+  "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl","PSR"
 };
 
 #ifdef USE_MPI
@@ -111,6 +111,8 @@ void fault_hdf_init(const int* cells, const double* vertices,
 			variables.push_back(labels[13]);
 		if (outputMask[7])
 			variables.push_back(labels[14]);
+		if (outputMask[8])
+			variables.push_back(labels[15]);
 
 		xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>(rank,
 				outputName.c_str(), variables, 0);
