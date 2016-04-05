@@ -137,7 +137,7 @@ CONTAINS
 
     REAL                           :: CpuTime_ini                             ! Eval cpu time
     REAL                           :: CpuTime_end                             ! Eval cpu time
-
+    REAL                           :: KineticEnergy_tmp                       ! kinetic energy
     INTEGER                        :: i
     INTEGER                        :: LocnVar                                 !
     INTEGER                        :: LocnPoly                                !
@@ -431,6 +431,10 @@ CONTAINS
             ENDDO
         ENDDO
         !
+        !Calculate the kinetic energy
+        KineticEnergy_tmp = 0.0
+        KineticEnergy_tmp = EQN%Rho0*(DISC%Galerkin%dgvar(1,7, iElem,1)**2 + DISC%Galerkin%dgvar(1,8, iElem, 1)**2 + DISC%Galerkin%dgvar(1,9, iELem, 1)**2)
+        EQN%Energy(1,iElem) = 0.5*KineticEnergy_tmp*MESH%Elem%Volume(iElem)
     ENDDO ! iElem
 #endif
 
@@ -443,9 +447,10 @@ CONTAINS
                 DO iElem = 1, nElem !for every element
 #ifndef GENERATEDKERNELS
                  !updated the dofs and the plastic strain
-                 CALL Plasticity_3D(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
+                 CALL Plasticity_3D(DISC, DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
                                     DISC%Galerkin%nDegFr, &
-                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, DISC%Galerkin%pstrain(1:7,iElem) )
+                                    EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,  DISC%Galerkin%plasticParameters(1:3,iElem), &
+                                    EQN%Energy(2:3,iElem),DISC%Galerkin%pstrain(1:7,iElem) )
 
 #endif
 !for the GK version the plasticity call is moved to Interoperability.cpp

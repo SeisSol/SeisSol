@@ -135,6 +135,16 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
   
+
+  interface c_interoperability_setPlasticParameters
+    subroutine c_interoperability_setPlasticParameters( i_meshId, i_plasticParameters ) bind( C, name='c_interoperability_setPlasticParameters' )
+      use iso_c_binding, only: c_ptr
+      implicit none
+      type(c_ptr), value :: i_meshId
+      type(c_ptr), value :: i_plasticParameters
+    end subroutine
+  end interface
+
   interface c_interoperability_initializeCellLocalMatrices
     subroutine c_interoperability_initializeCellLocalMatrices() bind( C, name='c_interoperability_initializeCellLocalMatrices' )
     end subroutine

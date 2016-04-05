@@ -200,6 +200,7 @@ class seissol::time_stepping::TimeManager {
                      real                         **&o_buffers,
                      real                         **&o_derivatives,
                      real                        *(*&o_faceNeighbors)[4],
+					 real                         (*&o_Energy)[3],
 					 real                         (*&o_pstrain)[7] ) {
       // get meta-data from memory manager
       struct MeshStructure         *l_meshStructure           = NULL;
@@ -239,6 +240,7 @@ class seissol::time_stepping::TimeManager {
       o_buffers       = l_cells->copyBuffers-l_meshStructure[0].numberOfGhostCells;
       o_derivatives   = l_cells->copyDerivatives-l_meshStructure[0].numberOfGhostCells;
       o_faceNeighbors = l_cells->copyFaceNeighbors;
+      o_Energy = l_cells->copyEnergy;
       o_pstrain       = l_cells->copyPstrain;
 #else
       o_cellData      = l_interiorCellData;
@@ -246,6 +248,7 @@ class seissol::time_stepping::TimeManager {
       o_buffers       = l_cells->interiorBuffers;
       o_derivatives   = l_cells->interiorDerivatives;
       o_faceNeighbors = l_cells->interiorFaceNeighbors;
+      o_Energy = l_cells->interiorEnergy;
       o_pstrain       = l_cells->interiorPstrain;
 #endif
     }

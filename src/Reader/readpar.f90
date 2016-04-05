@@ -289,6 +289,7 @@ CONTAINS
       STOP
     END SELECT
     !
+
 #if defined(GENERATEDKERNELS) && defined(USE_PLASTICITY)
     if (Plasticity .eq. 0) then
       logError(*) 'Plasticity is disabled, but this version was compiled with Plasticity.'
@@ -306,11 +307,13 @@ CONTAINS
        stop
 #else
        logInfo0(*) '(Drucker-Prager) plasticity assumed .'
+
 #endif
         EQN%Plasticity = Plasticity
         EQN%PlastCo = PlasticCo
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
+        logInfo0(*) 'Plastic relaxation Tv is set to: '
         !read additional values
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
@@ -1465,7 +1468,7 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, &
-                                              OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, read_fault_file
+                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
                                               Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1475,7 +1478,7 @@ CONTAINS
                                               RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0
+                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, energy_rate_printtimeinterval
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
                                                 Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1509,7 +1512,7 @@ CONTAINS
     XRef = 0
     YRef = 0
     ZRef = 0
-    GPwise = 1
+    GPwise = 1 !1=GPwise and 0=elementwise
     inst_healing = 0
     Rupspeed = 0
     Mu_D_ini = 1.0
@@ -1575,6 +1578,13 @@ CONTAINS
              EQN%YRef = YRef
              EQN%ZRef = ZRef
              DISC%DynRup%cohesion_0 = cohesion_0
+             EQN%GPwise = GPwise
+             IF (EQN%GPwise .EQ.1) THEN
+                 logInfo0(*) 'GPwise initialization. '
+             ELSE
+                 logInfo0(*) 'elementwise initialization. '
+             ENDIF
+
            CASE(16,17)
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise
@@ -1701,6 +1711,7 @@ CONTAINS
            ! moment rate and frictional energy rate output on=1, off=0
            DISC%DynRup%energy_rate_output_on = energy_rate_output_on
            DISC%DynRup%energy_rate_printtimeinterval = energy_rate_printtimeinterval
+           !
            !
            DISC%DynRup%OutputPointType = OutputPointType
 
@@ -3155,15 +3166,15 @@ ALLOCATE( SpacePositionx(nDirac), &
       !------------------------------------------------------------------------
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
-                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement
-      REAL                             :: TimeInterval, pickdt, Interval, checkPointInterval
+                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on
+      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
-                                                checkPointInterval, checkPointFile, checkPointBackend
+                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy
     !------------------------------------------------------------------------  
     !                                                                       
       logInfo(*) '<--------------------------------------------------------->'        
@@ -3179,6 +3190,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       pickdt = 0.1
       pickDtType = 1
       nRecordPoints = 0
+      energy_output_on = 0
+      pickdt_energy = 1.0
 !      RFileName = 'RecordPoints'
       pickDtType = 1
       PGMFlag = 0
@@ -3434,7 +3447,13 @@ ALLOCATE( SpacePositionx(nDirac), &
             STOP
          ENDSELECT
 
-
+       ! energy output on = 1, off =0
+       IO%energy_output_on = energy_output_on
+       !own timestep for energy output but output-type is the same as for receivers
+       !default type is 1 (time interval-wise)
+       !default time interval = 0.1
+       IO%pickdt_energy = pickdt_energy
+       logInfo0(*) 'current energy dt is', IO%pickdt_energy
 
      IO%nRecordPoint = nRecordPoints  ! number of points to pick temporal signal
      logInfo(*) 'Number of Record Points = ', IO%nRecordPoint

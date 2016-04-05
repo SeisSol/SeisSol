@@ -420,13 +420,14 @@ MODULE TypesDef
     !   Reference: Intel® Fortran Compiler XE 13.0 User and Reference Guides
     !              "Because its elements do not need to be contiguous in memory, a Fortran pointer target or assumed-shape array cannot be passed to C.
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
-    real*8, allocatable   :: dgvar(:,:,:,:)            !< storage of all unknowns (solution).
+    real*8, allocatable   :: dgvar(:,:,:,:)                     !< storage of all unknowns (solution).
 #else
-    REAL, POINTER         :: dgvar(:,:,:,:)  => NULL() !< Data-array for expansion
+    REAL, POINTER         :: dgvar(:,:,:,:)  => NULL()          !< Data-array for expansion
 #endif
-! never used    REAL, POINTER     :: dgvar_ane(:,:,:,:)          !< Data-array for expansion (Anel.)
-    REAL, POINTER         :: DOFStress(:,:,:) => NULL() !< DOF's for the initial stress loading for the plastic calculations
-    REAL, POINTER         :: pstrain(:,:) => NULL()     !< plastic strain
+    REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
+    REAL, POINTER         :: plasticParameters(:,:) => NULL()
+    REAL, POINTER         :: pstrain(:,:) => NULL()             !< plastic strain
+    REAL, POINTER         :: Strain_matrix(:,:) => NULL()         !< transformation matrix for converting stresses to strains
 #ifdef GENERATEDKERNELS
 !    integer              :: nSourceTermElems !< number of elemens having a source term
 !    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
@@ -435,14 +436,13 @@ MODULE TypesDef
     REAL, POINTER     :: DGwork(:,:,:) => NULL()     !< Work array for DG method
 #endif
     REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
-! never used    REAL, POINTER     :: AneWork(:,:,:,:)            !< As above, but for ane. variables
     real              :: totcputime
     REAL, POINTER     :: OutFlow(:,:,:,:) => NULL()  !< Outflowing flux for backpropagation
     !< Geometry
     REAL, POINTER     :: geoNormals(:,:,:) => NULL() !< Side normal vectors
     REAL, POINTER     :: geoTangent1(:,:,:) => NULL()!< Vector 1 in the side plane
     REAL, POINTER     :: geoTangent2(:,:,:) => NULL()!< Vector 2 in the side plane
-    REAL, POINTER     :: geoSurfaces(:,:) => NULL()  !< Cell side lengths in 2D
+    REAL, POINTER     :: geoSurfaces(:,:) => NULL()  !< Triangle surface in 2D for fault
     !< Other variables related to the DG - Method
     REAL, ALLOCATABLE :: cPoly(:,:,:,:)              !< Coeff. of base polynomials
     REAL, ALLOCATABLE :: cPoly_Tri(:,:,:,:)          !< Coeff. of base polynomials
@@ -958,6 +958,7 @@ MODULE TypesDef
      INTEGER                                :: energy_rate_printtimeinterval    !< fault energy rate print time interval
      LOGICAL, ALLOCATABLE                   :: magnitude_out(:)                 !< magnitude output: true or false
      REAL, ALLOCATABLE                      :: averaged_Slip(:)                 !< slip averaged per element (length all + elements in this domain)
+     !energy output
      ! declarate output types
      LOGICAL                                :: DR_output                        !< Dynamic Rupture output just for domains with "+" elements
      INTEGER                                :: OutputPointType                  !< Type of output (3: at certain pickpoint positions, 4: at every element , 5: option 3 + 4)
@@ -1174,6 +1175,7 @@ MODULE TypesDef
      INTEGER                                :: Anelasticity                     !< (0) = elastic, (1) = anelastic
      INTEGER                                :: Poroelasticity                   !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
      INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic 
+     REAL, POINTER                          :: Energy(:,:)=> NULL()
      REAL                                   :: PlastCo                          !< Cohesion for the Drucker-Prager plasticity
      REAL                                   :: BulkFriction                     !< Bulk friction for the Drucker-Prager plasticity
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
@@ -1404,8 +1406,11 @@ MODULE TypesDef
      REAL                                   :: k,k0,k1,k2,k3,k4                 !< for RD-Schemes
      REAL                                   :: a,b                              !<
      REAL                                   :: picktime                         !< Time for next pickpointing
+     REAL                                   :: picktime_energy
      REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
+     REAL                                   :: pickdt_energy                    !< Time increment for energy time series
+     INTEGER                                :: energy_output_on
      integer                                :: pickDtType                       !< Meaning of pickdt: 1 = time, 2 = timestep(s)
      INTEGER                                :: PickLarge                        !< 0 = IO at each time level, 1 = IO every some number of levels
      INTEGER                      , POINTER :: CurrentPick(:)                   !< Current storage time level

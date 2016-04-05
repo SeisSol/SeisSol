@@ -129,6 +129,11 @@ extern "C" {
                                             double *i_initialLoading ) {
     e_interoperability.setInitialLoading( i_meshId, i_initialLoading );
   }
+
+ void c_interoperability_setPlasticParameters( int    *i_meshId,
+                                               double *i_plasticParameters ) {
+    e_interoperability.setPlasticParameters( i_meshId, i_plasticParameters );
+  }
 #endif
   
   void c_interoperability_initializeCellLocalMatrices() {
@@ -231,8 +236,10 @@ extern "C" {
   extern void f_interoperability_computePlasticity( void    *i_domain,
                                                     double  *i_timestep,
 													int    numberOfAlignedBasisFunctions,
+													double  *i_plasticParameters,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
                                                     double  *io_dofs,
+													double  *io_Energy,
 													double  *io_pstrain );
 
 
@@ -316,6 +323,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                    m_buffers,
                                                    m_derivatives,
                                                    m_faceNeighbors,
+												   m_Energy,
 												   m_pstrain );
 }
 
@@ -412,6 +420,14 @@ void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_init
     }
   }
 }
+//synchronize element dependent plasticity parameters
+void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {\
+  unsigned int l_copyInteriorId = m_meshToCopyInterior[(*i_meshId) - 1];
+
+  for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
+      m_cellData->plasticity[l_copyInteriorId].plasticParameters[l_para] = i_plasticParameters[l_para];
+
+}}
 #endif
 
 void seissol::Interoperability::initializeCellLocalMatrices()
@@ -446,6 +462,13 @@ void seissol::Interoperability::synchronizeCellLocalData() {
         m_cellData->plasticity[l_cell].initialLoading[l_quantity][l_basis] = m_cellData->plasticity[sourceId].initialLoading[l_quantity][l_basis];
       }
     }
+
+    // sync plasticity parameters
+    	// TODO use memcpy
+    for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
+        m_cellData->plasticity[l_cell].plasticParameters[l_para] = m_cellData->plasticity[sourceId].plasticParameters[l_para];
+    }
+
 #endif
 
   }
@@ -680,15 +703,19 @@ void seissol::Interoperability::computeDynamicRupture( double i_fullUpdateTime,
 
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::computePlasticity(  double i_timeStep,
+		                                            double *i_plasticParameters,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
                                                     double *io_dofs,
+													double *io_Energy,
 													double *io_pstrain ) {
   // call fortran routine
   f_interoperability_computePlasticity(  m_domain,
                                         &i_timeStep,
 										 NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+										 i_plasticParameters,
                                          i_initialLoading,
                                          io_dofs,
+										 io_Energy,
 										 io_pstrain );
 }
 #endif

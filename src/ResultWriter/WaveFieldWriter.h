@@ -353,7 +353,7 @@ public:
 				#pragma omp parallel for schedule(static)
 #endif // _OPENMP
         		for (unsigned int j = 0; j < m_numCells; j++)
-        			m_outputBuffer[j] = m_pstrain[m_map[j] * 7 + i];  // = 5 for testing; how to get the right index?
+        			m_outputBuffer[j] = m_pstrain[m_map[j] * 7 + i];
 
         		m_lowWaveFieldWriter->writeData(i, m_outputBuffer);
         	}
