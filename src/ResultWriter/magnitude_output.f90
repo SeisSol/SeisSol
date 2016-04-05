@@ -54,11 +54,11 @@ MODULE magnitude_output_mod
   PRIVATE
   !---------------------------------------------------------------------------!
   PUBLIC  :: magnitude_output
-  PUBLIC  :: moment_rate_output
+  PUBLIC  :: energy_rate_output
   !---------------------------------------------------------------------------!
   INTERFACE magnitude_output
      MODULE PROCEDURE magnitude_output
-     MODULE PROCEDURE moment_rate_output
+     MODULE PROCEDURE energy_rate_output
   END INTERFACE
 
 CONTAINS
@@ -147,7 +147,7 @@ CONTAINS
 
   END SUBROUTINE magnitude_output
 
-  SUBROUTINE moment_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
+  SUBROUTINE energy_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
     !< routine outputs the moment magnitude rate for each MPI domain that contains a subfault
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -161,7 +161,9 @@ CONTAINS
     ! Local variable declaration                                              !
     INTEGER                         :: iElem,iSide,nSide,iFace,iBndGP
     INTEGER                         :: stat, UNIT_MAG
-    REAL                            :: MomentRate,averageSR,time
+    REAL                            :: MomentRate,averageSR
+    REAL                            :: FrictionalEnRate,averageFER
+    REAL                            :: time
     REAL                            :: MaterialVal(:,:)
     LOGICAL                         :: exist
     CHARACTER (LEN=5)               :: cmyrank
@@ -178,10 +180,10 @@ CONTAINS
 #ifdef PARALLEL
     ! pure MPI case
     WRITE(cmyrank,'(I5.5)') MPI%myrank                           ! myrank -> cmyrank
-    WRITE(MAG_FILE, '(a,a5,a5,a4)') TRIM(IO%OutputFile),'-M_t-',TRIM(cmyrank),'.dat'
+    WRITE(MAG_FILE, '(a,a7,a5,a4)') TRIM(IO%OutputFile),'-EnF_t-',TRIM(cmyrank),'.dat'
     UNIT_MAG = 399875+MPI%myrank
 #else
-    WRITE(MAG_FILE, '(a,a4,a4)') TRIM(IO%OutputFile),'-M_t','.dat'
+    WRITE(MAG_FILE, '(a,a6,a4)') TRIM(IO%OutputFile),'-EnF_t','.dat'
     UNIT_MAG = 399875
 #endif
     !
@@ -213,29 +215,36 @@ CONTAINS
            logError(*) 'Error status: ', stat                !
            STOP                                                          !
         ENDIF
-        WRITE(UNIT_MAG,*) '#time MomentRate'
+        WRITE(UNIT_MAG,*) '#time MomentRate FrictionalEnergyRate'
         !
     ENDIF
     !
     ! Compute output
     MomentRate = 0.0D0
+
     nSide = MESH%FAULT%nSide
     DO iFace = 1,nSide
        iElem = MESH%Fault%Face(iFace,1,1)          ! Remark:
        iSide = MESH%Fault%Face(iFace,2,1)          ! iElem denotes "+" side
        averageSR = 0d0
+       averageFER = 0d0
        DO iBndGP=1,DISC%Galerkin%nBndGP
           averageSR = averageSR + sqrt(DISC%DynRup%SlipRate1(iFace,iBndGP)**2+DISC%DynRup%SlipRate2(iFace,iBndGP)**2)/DISC%Galerkin%nBndGP
+          !frictional energy, based on the formula by Xu et al. 2012, p. 1333
+          averageFER = averageFER + (DISC%DynRup%TracXY(iFace,iBndGP)*DISC%DynRup%SlipRate1(iFace,iBndGP)&
+                      +DISC%DynRup%TracXZ(iFace,iBndGP)*DISC%DynRup%SlipRate2(iFace,iBndGP))/DISC%Galerkin%nBndGP
        ENDDO
        ! magnitude = scalar seismic moment = slip per element * element face * shear modulus
        MomentRate = MomentRate + averageSR*DISC%Galerkin%geoSurfaces(iSide,iElem)*MaterialVal(iElem,2)
+       ! frictional energy, integrate over each element
+       FrictionalEnRate = FrictionalEnRate + averageFER*DISC%Galerkin%geoSurfaces(iSide,iElem)
     ENDDO
     !
     ! Write output
-    WRITE(UNIT_MAG,*) time, MomentRate
+    WRITE(UNIT_MAG,*) time, MomentRate, FrictionalEnRate
 
     CLOSE( UNIT_Mag )
 
-  END SUBROUTINE moment_rate_output
+  END SUBROUTINE energy_rate_output
 
 END MODULE magnitude_output_mod

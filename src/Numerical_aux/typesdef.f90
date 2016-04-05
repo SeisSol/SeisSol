@@ -889,7 +889,9 @@ MODULE TypesDef
      REAL, POINTER                          :: Slip2(:,:) => NULL()                      !< Slip at given fault node along loc dir 2
      REAL, POINTER                          :: SlipRate1(:,:) => NULL()                  !< Slip Rate at given fault node
      REAL, POINTER                          :: SlipRate2(:,:) => NULL()                  !< Slip Rate at given fault node
-     REAL, POINTER                          :: PeakSR(:,:) => NULL()                  !< Slip Rate at given fault node
+     REAL, POINTER                          :: PeakSR(:,:) => NULL()                     !< Slip Rate at given fault node
+     REAL, POINTER                          :: TracXZ(:,:) => NULL()                     !< Traction at given fault node
+     REAL, POINTER                          :: TracXY(:,:) => NULL()                     !< Traction at given fault node
      REAL, POINTER                          :: Mu(:,:) => NULL()                         !< Current friction coefficient at given fault node
      REAL, POINTER                          :: Mu_S(:,:) => NULL()                       !< Static friction coefficient at given fault node
      REAL, POINTER                          :: Mu_D(:,:) => NULL()                       !< Dynamic friction coefficient at given fault node
@@ -952,8 +954,8 @@ MODULE TypesDef
      LOGICAL, ALLOCATABLE                   :: RF(:,:)                          !< rupture front output for this GP: true or false
      ! Magnitude output
      INTEGER                                :: magnitude_output_on              !< magnitude output on = 1, off = 0
-     INTEGER                                :: moment_rate_output_on            !< moment rate output on = 1, off = 0
-     INTEGER                                :: moment_rate_printtimeinterval    !< moment rate print time interval
+     INTEGER                                :: energy_rate_output_on            !< fault energy rate output on = 1, off = 0 (currently moment rate and frictional energy rate)
+     INTEGER                                :: energy_rate_printtimeinterval    !< fault energy rate print time interval
      LOGICAL, ALLOCATABLE                   :: magnitude_out(:)                 !< magnitude output: true or false
      REAL, ALLOCATABLE                      :: averaged_Slip(:)                 !< slip averaged per element (length all + elements in this domain)
      ! declarate output types

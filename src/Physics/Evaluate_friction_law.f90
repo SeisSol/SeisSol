@@ -380,8 +380,11 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
+     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
+     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
+     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
+
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 
@@ -551,8 +554,10 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
+     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
+     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
+     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
      DISC%DynRup%Strength(iFace,iBndGP)  = Strength_exp
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -637,8 +642,8 @@ MODULE Eval_friction_law_mod
      LocMu_D   = DISC%DynRup%Mu_D(iFace,iBndGP)
      LocD_C    = DISC%DynRup%D_C(iFace,iBndGP)
      LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
-     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
-     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
+     LocSlip1  = DISC%DynRup%Slip1(iFace,iBndGP)
+     LocSlip2  = DISC%DynRup%Slip2(iFace,iBndGP)
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
@@ -735,8 +740,11 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
+     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
+     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
+     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
+
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 
@@ -950,9 +958,12 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
+     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
+     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
+     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
+
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
   END SUBROUTINE rate_and_state
@@ -1147,8 +1158,10 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
+     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
+     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
+     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -1447,8 +1460,10 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
+     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
+     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
+     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -1754,8 +1769,10 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
+     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
+     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
+     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
   !
  ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP

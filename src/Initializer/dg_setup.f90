@@ -1105,6 +1105,8 @@ CONTAINS
       ALLOCATE(DISC%DynRup%Slip(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%Slip1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%Slip2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%TracXY(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%TracXZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%PeakSR(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
@@ -1112,11 +1114,13 @@ CONTAINS
       DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
       DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
       DISC%DynRup%Slip          = 0.0D0
-      DISC%DynRup%Slip1          = 0.0D0
-      DISC%DynRup%Slip2          = 0.0D0
+      DISC%DynRup%Slip1         = 0.0D0
+      DISC%DynRup%Slip2         = 0.0D0
+      DISC%DynRup%TracXY        = 0.0D0
+      DISC%DynRup%TracXZ        = 0.0D0
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
       DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
-      DISC%DynRup%PeakSR          = 0.0D0
+      DISC%DynRup%PeakSR        = 0.0D0
 
     else
         ! Allocate dummy arrays to avoid debug errors

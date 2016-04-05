@@ -98,8 +98,8 @@ CONTAINS
       ! Note that this causes a dt timeshift in the DR output routines
       !
       !
-      IF (DISC%DynRup%moment_rate_output_on.EQ.1) THEN
-         IF ( MOD(DISC%iterationstep-1,DISC%DynRup%moment_rate_printtimeinterval).EQ.0 &
+      IF (DISC%DynRup%energy_rate_output_on.EQ.1) THEN
+         IF ( MOD(DISC%iterationstep-1,DISC%DynRup%energy_rate_printtimeinterval).EQ.0 &
          .OR. (DISC%EndTime-time).LE.(dt*1.005d0) ) THEN
             IF (DISC%iterationstep.EQ.0) RETURN ! not the iteration 0
             CONTINUE
@@ -109,7 +109,7 @@ CONTAINS
          ELSE
             RETURN
          ENDIF
-         CALL moment_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
+         CALL energy_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
       ENDIF
 
 
