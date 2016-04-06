@@ -154,8 +154,8 @@ MODULE Plasticity_mod
 
        !----Change the dofs-----
        dgvar(1:nDegFr,1:6) = Stress(1:nDegFr,1:6) - DOFStress(1:nDegFr,1:6)
-       !mu or 2*mu?
-       dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6) !only the first dof is considered for plastic strain tensor
+       !dividing by 2*mu due to tensor convention
+       dudt_pstrain(1:6) = ((1-yldfac)/2*mu)*devStress(1, 1:6) !only the first dof is considered for plastic strain tensor
 
         
     ENDIF !yield criterion check

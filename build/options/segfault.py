@@ -46,8 +46,7 @@ parallelization             = 'mpi'
 generatedKernels            = 'yes'
 measureNodeLevelPerformance = 'none'
 useExecutionEnvironment     = 'yes'
-order = 3
-plasticity                  = 'no'
+
 # machine dependent options
 cppCompiler          = 'mpiCC.openmpi'
 fortranCompiler      = 'mpif90.openmpi'
