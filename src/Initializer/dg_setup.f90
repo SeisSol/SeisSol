@@ -2640,9 +2640,9 @@ CONTAINS
         DISC%Galerkin%Strain_Matrix(1,1) = Einv
         DISC%Galerkin%Strain_Matrix(2,2) = Einv
         DISC%Galerkin%Strain_Matrix(3,3) = Einv
-        DISC%Galerkin%Strain_Matrix(4,4) = 1/2*EQN%mu
-        DISC%Galerkin%Strain_Matrix(5,5) = 1/2*EQN%mu
-        DISC%Galerkin%Strain_Matrix(6,6) = 1/2*EQN%mu
+        DISC%Galerkin%Strain_Matrix(4,4) = 1/(2*EQN%mu)
+        DISC%Galerkin%Strain_Matrix(5,5) = 1/(2*EQN%mu)
+        DISC%Galerkin%Strain_Matrix(6,6) = 1/(2*EQN%mu)
 
         DISC%Galerkin%Strain_Matrix(1,2) = -v*Einv
         DISC%Galerkin%Strain_Matrix(1,3) = -v*Einv

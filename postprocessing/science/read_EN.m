@@ -56,18 +56,32 @@ disp(' '),disp(' ')
 
 clear, close all;
 
+plast = input('Simulation with plasticity? 1=yes, 0=no ');
+
+if plast==0
+    nvar = 2; %time kineticEnergy
+elseif plast ==1
+    nvar = 4; %time kinetic Energy plasticEnergy estrainEnergy
+end
+    
 % read in data
 liste=dir('*-EN*');
 files = {liste.name};
 ntotal = numel(files);
-disp(['Found ',num2str(ntotal),' -EN- files.']),disp(' ')
-ndt = input('Insert number of timesteps ');
-nvar = 4; %currently 4 variables in output files
+disp(['Found ',num2str(ntotal),' -EN- files.']),disp(' ');
+
+
+fid   = fopen(files{1},'r');
+fgets(fid);
+data_tmp = fscanf(fid,'%g',[nvar,inf] );
+fclose(fid);
+%number of timesteps
+[tmp ndt] = size(data_tmp);
 
 energy_total = zeros(nvar-1,ndt);
 
 %structure of -EN-files
-%1=time; 2=kinetic; 3=plastic; 4=elastic strain
+%1=time; 2=kinetic; (3=plastic; 4=elastic strain)
 
 for k=1:ntotal
     % read files
@@ -83,31 +97,41 @@ for k=1:ntotal
 end
 
 dt = time(2)-time(1);
-acc_energy = zeros(1,ndt);
 
-%integral over time to get the total plastic energy change
-for i=2:ndt
-    acc_energy(i)= acc_energy(i-1) + dt*energy_total(2,i);
+if plast==1
+    acc_energy = zeros(1,ndt);
+    %integral over time to get the total plastic energy change
+    for i=2:ndt
+        acc_energy(i)= acc_energy(i-1) + dt*energy_total(2,i);
+    end
 end
 
 
 %plotting section
-subplot(4,1,1)
-plot(time,energy_total(2,:));
-title('dissipated plastic energy change');
-xlabel('time')
 
-subplot(4,1,2)
-plot(time,acc_energy);
-title('dissipated plastic energy');
-xlabel('time')
+if plast==1
+    
+    subplot(4,1,1)
+    plot(time,energy_total(1,:));
+    title('kinetic energy');
+    
+    subplot(4,1,2)
+    plot(time,energy_total(2,:));
+    title('dissipated plastic energy change');
+    xlabel('time')
 
-subplot(4,1,3)
-plot(time,energy_total(1,:));
-title('kinetic energy');
+    subplot(4,1,3)
+    plot(time,acc_energy);
+    title('dissipated plastic energy');
+    xlabel('time')
 
-
-subplot(4,1,4)
-plot(time,energy_total(3,:));
-title('elastic strain energy');
-xlabel('time')
+    subplot(4,1,4)
+    plot(time,energy_total(3,:));
+    title('elastic strain energy');
+    xlabel('time')
+    
+elseif plast==0
+    plot(time,energy_total(1,:));
+    title('kinetic energy');
+    
+end
