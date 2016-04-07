@@ -91,6 +91,7 @@ CONTAINS
       !-------------------------------------------------------------------------!
       isOnPickpoint = .FALSE.
       isOnElementwise = .FALSE.
+
       !-------------------------------------------------------------------------!
       !
       ! Calculate Fault Output of the previous timestep
@@ -99,17 +100,10 @@ CONTAINS
       !
       !
       IF (DISC%DynRup%energy_rate_output_on.EQ.1) THEN
-         IF ( MOD(DISC%iterationstep-1,DISC%DynRup%energy_rate_printtimeinterval).EQ.0 &
+         IF ( MOD(DISC%iterationstep,DISC%DynRup%energy_rate_printtimeinterval).EQ.0 &
          .OR. (DISC%EndTime-time).LE.(dt*1.005d0) ) THEN
-            IF (DISC%iterationstep.EQ.0) RETURN ! not the iteration 0
-            CONTINUE
-         ! print always first timestep
-         ELSEIF(DISC%iterationstep .EQ. 1) THEN
-            CONTINUE
-         ELSE
-            RETURN
+            CALL energy_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
          ENDIF
-         CALL energy_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
       ENDIF
 
 
