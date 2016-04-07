@@ -221,6 +221,7 @@ CONTAINS
     !
     ! Compute output
     MomentRate = 0.0D0
+    FrictionalEnRate = 0.0D0
 
     nSide = MESH%FAULT%nSide
     DO iFace = 1,nSide

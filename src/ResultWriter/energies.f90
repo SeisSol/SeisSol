@@ -112,8 +112,6 @@ CONTAINS
         localpicktime = IO%picktime_energy !current picktime
 #endif
 
-    kinetic_energy = 0.0
-    plast_energy = 0.0
 
     !only output at specific timesteps/times
     DO WHILE( (localpicktime.GE.time).AND.(localpicktime.LE.time+dt+1e-10).AND.(localpicktime.LE.DISC%EndTime+1e-10) )
@@ -178,6 +176,10 @@ CONTAINS
     ! Compute output
     ! sum over each element in the mpi domain
     nElem = MESH%nELEM
+    kinetic_energy = 0.0
+    plast_energy = 0.0
+    estrain_energy = 0.0
+
     DO iElem = 1,nElem
            kinetic_energy = kinetic_energy + EQN%Energy(1,iElem)
            plast_energy = plast_energy + EQN%Energy(2,iElem)

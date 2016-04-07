@@ -433,8 +433,16 @@ CONTAINS
         !
         !Calculate the kinetic energy
         KineticEnergy_tmp = 0.0
-        KineticEnergy_tmp = EQN%Rho0*(DISC%Galerkin%dgvar(1,7, iElem,1)**2 + DISC%Galerkin%dgvar(1,8, iElem, 1)**2 + DISC%Galerkin%dgvar(1,9, iELem, 1)**2)
-        EQN%Energy(1,iElem) = 0.5*KineticEnergy_tmp*MESH%Elem%Volume(iElem)
+        !using onyl the average of an element to calculate the energy
+        !KineticEnergy_tmp = EQN%Rho0*(DISC%Galerkin%dgvar(1,7, iElem,1)**2 + DISC%Galerkin%dgvar(1,8, iElem, 1)**2 + DISC%Galerkin%dgvar(1,9, iELem, 1)**2)
+        !using a dofs for calculating the energy
+        DO iDegFr=1,LocnDegFr
+           KineticEnergy_tmp = KineticEnergy_tmp + &
+                               EQN%Rho0*MassMatrix_ptr(iDegFr,iDegFr)*(DISC%Galerkin%dgvar(iDegFr,7, iElem,1)**2 + &
+                               DISC%Galerkin%dgvar(iDegFr,8, iElem, 1)**2 + DISC%Galerkin%dgvar(iDegFr,9, iELem, 1)**2)
+        ENDDO
+
+        EQN%Energy(1,iElem) = 0.5*KineticEnergy_tmp*6.0d0*MESH%Elem%Volume(iElem) !|J|=6*V  transformation from reference element
     ENDDO ! iElem
 #endif
 
@@ -444,10 +452,16 @@ CONTAINS
 ! OFF-FAULT PLASTICITY 
 ! ==============================================================================
         IF(EQN%Plasticity.EQ.1) THEN
+
+
                 DO iElem = 1, nElem !for every element
 #ifndef GENERATEDKERNELS
-                 !updated the dofs and the plastic strain
-                 CALL Plasticity_3D(DISC, DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
+                !TODO: move to initialization routine
+                DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
+                DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
+                DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
+                !updated the dofs and the plastic strain
+                CALL Plasticity_3D(DISC, DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
                                     DISC%Galerkin%nDegFr, &
                                     EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,  DISC%Galerkin%plasticParameters(1:3,iElem), &
                                     EQN%Energy(2:3,iElem),DISC%Galerkin%pstrain(1:7,iElem) )

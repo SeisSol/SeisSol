@@ -2628,11 +2628,6 @@ CONTAINS
         DISC%Galerkin%PlasticParameters = 0.
         DISC%Galerkin%Strain_Matrix = 0.
 
-        !Initialize plastic parameters
-        DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
-        DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
-        DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
-
         !Initialize the stress-strain relation matrix (mu and lambda should be element dependent)
         Einv = (EQN%lambda+EQN%mu)/(EQN%mu*(3*EQN%lambda+2*EQN%mu))!Inv of the Young's modulus
         v = EQN%lambda/(2*(EQN%lambda+EQN%mu)) !Poisson's ratio
