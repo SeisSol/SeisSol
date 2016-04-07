@@ -68,9 +68,6 @@ CONTAINS
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
-#ifdef PARALLEL
-  INCLUDE 'mpif.h'
-#endif
     ! Argument list declaration
     TYPE(tDiscretization), target   :: DISC                                              !
     TYPE(tUnstructMesh)             :: MESH
@@ -81,7 +78,6 @@ CONTAINS
     INTEGER                         :: iElem,iSide,nSide,iFace
     INTEGER                         :: stat, UNIT_MAG
     REAL                            :: magnitude
-    REAL                            :: magnitude0
     REAL                            :: MaterialVal(:,:)
     LOGICAL                         :: exist
     CHARACTER (LEN=5)               :: cmyrank
@@ -92,17 +88,15 @@ CONTAINS
 
     ! generate unique name out of MPI rank
 #ifdef PARALLEL
-    if (MPI%myrank .eq. 0) then
-#endif
+    ! pure MPI case
+    WRITE(cmyrank,'(I5.5)') MPI%myrank                           ! myrank -> cmyrank
+    WRITE(MAG_FILE, '(a,a5,a5,a4)') TRIM(IO%OutputFile),'-MAG-',TRIM(cmyrank),'.dat'
+    UNIT_MAG = 299875+MPI%myrank
+#else
     WRITE(MAG_FILE, '(a,a4,a4)') TRIM(IO%OutputFile),'-MAG','.dat'
     UNIT_MAG = 299875
-#ifdef PARALLEL
-    endif
 #endif
     !
-#ifdef PARALLEL
-    if (MPI%myrank .eq. 0) then
-#endif
     INQUIRE(FILE = MAG_FILE, EXIST = exist)
     IF(exist) THEN
         ! If file exists, then append data
@@ -133,9 +127,6 @@ CONTAINS
         ENDIF
         !
     ENDIF
-#ifdef PARALLEL
-    endif
-#endif
     !
     ! Compute output
     magnitude = 0.0D0
@@ -148,20 +139,11 @@ CONTAINS
            magnitude = magnitude + DISC%DynRup%averaged_Slip(iFace)*DISC%Galerkin%geoSurfaces(iSide,iElem)*MaterialVal(iElem,2)
        ENDIF
     ENDDO
-
-#ifdef PARALLEL
-    CALL MPI_REDUCE(magnitude, magnitude0, 1,MPI%MPI_AUTO_REAL,MPI_SUM,0,MPI_COMM_WORLD,MPI%iErr)    
-    magnitude = magnitude0
-    if (MPI%myrank .eq. 0) then
-#endif
     !
     ! Write output
     WRITE(UNIT_MAG,*) magnitude
-    CLOSE( UNIT_Mag )
 
-#ifdef PARALLEL
-    endif
-#endif
+    CLOSE( UNIT_Mag )
 
   END SUBROUTINE magnitude_output
 
@@ -170,9 +152,6 @@ CONTAINS
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
-#ifdef PARALLEL
-  INCLUDE 'mpif.h'
-#endif
     ! Argument list declaration
     TYPE(tDiscretization), target   :: DISC                                              !
     TYPE(tUnstructMesh)             :: MESH
@@ -186,8 +165,6 @@ CONTAINS
     REAL                            :: FrictionalEnRate,averageFER
     REAL                            :: time
     REAL                            :: MaterialVal(:,:)
-    REAL,dimension(2)               :: procVals
-    REAL,dimension(2)               :: proc0Vals
     LOGICAL                         :: exist
     CHARACTER (LEN=5)               :: cmyrank
     CHARACTER (len=200)             :: MAG_FILE
@@ -196,20 +173,20 @@ CONTAINS
     !-------------------------------------------------------------------------!
 
     ! generate unique name out of MPI rank
+    IF (MESH%FAULT%nSide.EQ.0) THEN
+       RETURN
+    ENDIF
 
 #ifdef PARALLEL
-    if (MPI%myrank .eq. 0) then
-#endif
+    ! pure MPI case
+    WRITE(cmyrank,'(I5.5)') MPI%myrank                           ! myrank -> cmyrank
+    WRITE(MAG_FILE, '(a,a7,a5,a4)') TRIM(IO%OutputFile),'-EnF_t-',TRIM(cmyrank),'.dat'
+    UNIT_MAG = 399875+MPI%myrank
+#else
     WRITE(MAG_FILE, '(a,a6,a4)') TRIM(IO%OutputFile),'-EnF_t','.dat'
     UNIT_MAG = 399875
-#ifdef PARALLEL
-    endif
 #endif
-
     !
-#ifdef PARALLEL
-    if (MPI%myrank .eq. 0) then
-#endif
     INQUIRE(FILE = MAG_FILE, EXIST = exist)
     IF(exist) THEN
         ! If file exists, then append data
@@ -241,9 +218,6 @@ CONTAINS
         WRITE(UNIT_MAG,*) '#time MomentRate FrictionalEnergyRate'
         !
     ENDIF
-#ifdef PARALLEL
-    endif
-#endif
     !
     ! Compute output
     MomentRate = 0.0D0
@@ -265,19 +239,11 @@ CONTAINS
        ! frictional energy, integrate over each element
        FrictionalEnRate = FrictionalEnRate + averageFER*DISC%Galerkin%geoSurfaces(iSide,iElem)
     ENDDO
-
-#ifdef PARALLEL
-          procVals(1)=MomentRate
-          procVals(2)=FrictionalEnRate
-          CALL MPI_REDUCE(procVals, proc0Vals, 2,MPI%MPI_AUTO_REAL,MPI_SUM,0,MPI_COMM_WORLD,MPI%iErr)    
-          if (MPI%myrank .eq. 0) then
-             WRITE(UNIT_MAG,*) time, proc0Vals(1),proc0Vals(2)
-             CLOSE( UNIT_Mag )
-          endif
-#else
+    !
+    ! Write output
     WRITE(UNIT_MAG,*) time, MomentRate, FrictionalEnRate
+
     CLOSE( UNIT_Mag )
-#endif
 
   END SUBROUTINE energy_rate_output
 
