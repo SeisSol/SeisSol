@@ -134,6 +134,9 @@ CONTAINS
     DO iFace = 1,nSide
        iElem = MESH%Fault%Face(iFace,1,1)          ! Remark:
        iSide = MESH%Fault%Face(iFace,2,1)          ! iElem denotes "+" side
+       IF (iElem.EQ.0) THEN
+          cycle
+       ENDIF
        IF (DISC%DynRup%magnitude_out(iFace)) THEN
            ! magnitude = scalar seismic moment = slip per element * element face * shear modulus
            magnitude = magnitude + DISC%DynRup%averaged_Slip(iFace)*DISC%Galerkin%geoSurfaces(iSide,iElem)*MaterialVal(iElem,2)
@@ -229,6 +232,9 @@ CONTAINS
        iSide = MESH%Fault%Face(iFace,2,1)          ! iElem denotes "+" side
        averageSR = 0d0
        averageFER = 0d0
+       IF (iElem.EQ.0) THEN
+          cycle
+       ENDIF
        DO iBndGP=1,DISC%Galerkin%nBndGP
           averageSR = averageSR + sqrt(DISC%DynRup%SlipRate1(iFace,iBndGP)**2+DISC%DynRup%SlipRate2(iFace,iBndGP)**2)/DISC%Galerkin%nBndGP
           !frictional energy, based on the formula by Xu et al. 2012, p. 1333
