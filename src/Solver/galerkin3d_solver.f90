@@ -456,10 +456,6 @@ CONTAINS
 
                 DO iElem = 1, nElem !for every element
 #ifndef GENERATEDKERNELS
-                !TODO: move to initialization routine
-                DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
-                DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
-                DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
                 !updated the dofs and the plastic strain
                 CALL Plasticity_3D(DISC, DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
                                     DISC%Galerkin%nDegFr, &

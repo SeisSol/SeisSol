@@ -55,6 +55,7 @@ for fid in filelist[1:]:
    ndt = np.shape(En)[0]
    ndt0 = min(ndt ,ndt0) 
    En_conc[0:ndt0,1] = En_conc[0:ndt0,1] + En[0:ndt0,1]
+   En_conc[0:ndt0,2] = En_conc[0:ndt0,2] + En[0:ndt0,2]
 
 En_conc = En_conc[0:ndt0,:]
 print 'Moment rate:'
@@ -73,7 +74,7 @@ FricEn_total = np.trapz(En_conc[:,2], x=En_conc[:,0])
 print 'Frictional energy release: %f ' % (FricEn_total)
 
 FricEn = np.zeros(ndt0)
-dt = En_conc[1,0]-En_conc[2,0]
+dt = En_conc[2,0]-En_conc[1,0]
 for idt in range(ndt0):
     FricEn[idt] = FricEn[idt-1] + dt*En_conc[idt,2]
 

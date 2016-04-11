@@ -57,13 +57,14 @@ disp(' '),disp(' ')
 clear, close all;
 
 plast = input('Simulation with plasticity? 1=yes, 0=no ');
+pltOption = input('Plot all energies in one plot? 1=yes, 0=no ');
 
 if plast==0
     nvar = 2; %time kineticEnergy
 elseif plast ==1
     nvar = 4; %time kinetic Energy plasticEnergy estrainEnergy
 end
-    
+ 
 % read in data
 liste=dir('*-EN*');
 files = {liste.name};
@@ -78,6 +79,8 @@ fclose(fid);
 %number of timesteps
 [tmp ndt] = size(data_tmp);
 
+%
+disp(['Found ', num2str(ndt), ' timesteps.']);
 energy_total = zeros(nvar-1,ndt);
 
 %structure of -EN-files
@@ -96,7 +99,7 @@ for k=1:ntotal
     clear data_tmp
 end
 
-dt = time(2)-time(1);
+dt = time(4)-time(3);
 
 if plast==1
     acc_energy = zeros(1,ndt);
@@ -106,14 +109,24 @@ if plast==1
     end
 end
 
-
 %plotting section
 
 if plast==1
-    
+   if pltOption==1 %all values in one plot
+
+    plot(time,energy_total(1,:)); hold on;
+    plot(time,acc_energy);
+    plot(time,energy_total(3,:));
+    xlabel('time');
+    legend('kinetic', 'plastic','elastic strain', 'Location', 'northwest');
+    title('Energies')
+
+   elseif pltOption==0 %all values seperately
+
     subplot(4,1,1)
     plot(time,energy_total(1,:));
     title('kinetic energy');
+    xlabel('time')
     
     subplot(4,1,2)
     plot(time,energy_total(2,:));
@@ -129,9 +142,11 @@ if plast==1
     plot(time,energy_total(3,:));
     title('elastic strain energy');
     xlabel('time')
+   end
     
 elseif plast==0
     plot(time,energy_total(1,:));
     title('kinetic energy');
-    
+    xlabel('time')
 end
+

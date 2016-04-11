@@ -2748,6 +2748,8 @@ CONTAINS
                 DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
 #endif
               ENDDO
+
+
             ENDIF
     ENDDO !iIntGP
 
@@ -2788,6 +2790,13 @@ CONTAINS
                                                    i_plasticParameters = c_loc( l_plasticParameters ) )
 #endif
 
+#else
+        IF(EQN%Plasticity.EQ.1) THEN
+          ! initialize plastic parameters in classic version
+          DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
+          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
+          DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
+        ENDIF
 #endif
 
 

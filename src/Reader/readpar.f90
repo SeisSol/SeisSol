@@ -3449,11 +3449,20 @@ ALLOCATE( SpacePositionx(nDirac), &
 
        ! energy output on = 1, off =0
        IO%energy_output_on = energy_output_on
+
+
+       IF(IO%energy_output_on .EQ. 1) THEN
+#ifdef GENERATEDKERNELS
+            logWarning0(*) 'Energy output currently only working with classic version. Turning it off.'
+            IO%energy_output_on = 0
+#else
        !own timestep for energy output but output-type is the same as for receivers
        !default type is 1 (time interval-wise)
        !default time interval = 0.1
        IO%pickdt_energy = pickdt_energy
        logInfo0(*) 'current energy dt is', IO%pickdt_energy
+#endif
+       ENDIF
 
      IO%nRecordPoint = nRecordPoints  ! number of points to pick temporal signal
      logInfo(*) 'Number of Record Points = ', IO%nRecordPoint
