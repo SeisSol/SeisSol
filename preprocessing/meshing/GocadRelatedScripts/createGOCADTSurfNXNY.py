@@ -62,6 +62,14 @@ if args.NXNY=='':
             NY = nvertex/NX
             break
       print ((NX,NY))
+   elif dataxyz[1,0]==dataxyz[0,0]:
+      #we can try to get NY
+      for i in range(1,nvertex):
+         if dataxyz[i,0]!=dataxyz[i-1,0]:
+            NX = i
+            NY = nvertex/NX
+            break
+      print ((NX,NY))
    else:
       print "unable to guess NX and NY"
       exit()
