@@ -42,109 +42,109 @@
 #include <Initializer/preProcessorMacros.fpp>
 
 module SeisSol
-  !----------------------------------------------------------------------------
-  USE ini_SeisSol_mod
-  USE calc_SeisSol_mod
-  USE analyse_SeisSol_mod
-  USE close_SeisSol_mod
-  USE inioutput_SeisSol_mod
-  USE TypesDef
-  USE COMMON_operators_mod, ONLY: OpenFile
+!----------------------------------------------------------------------------
+USE ini_SeisSol_mod
+USE calc_SeisSol_mod
+USE analyse_SeisSol_mod
+USE close_SeisSol_mod
+USE inioutput_SeisSol_mod
+USE TypesDef
+USE COMMON_operators_mod, ONLY: OpenFile
 
-  use iso_c_binding
+use iso_c_binding
 #ifdef GENERATEDKERNELS
-  use f_ftoc_bind_interoperability
+use f_ftoc_bind_interoperability
 #endif
-  !----------------------------------------------------------------------------
-  IMPLICIT NONE
+!----------------------------------------------------------------------------
+IMPLICIT NONE
 
 contains
-  subroutine main() bind(c, name='fortran_main')
-  !----------------------------------------------------------------------------
+subroutine main() bind(c, name='fortran_main')
+!----------------------------------------------------------------------------
 #ifdef PARALLEL
-  INCLUDE 'mpif.h'
+INCLUDE 'mpif.h'
 #endif
-  !----------------------------------------------------------------------------
-  REAL                                   :: time
-  INTEGER                                :: timestep
-  TYPE (tUnstructDomainDescript), target :: domain
-  CHARACTER(LEN=600)                     :: name
-  INTEGER                                :: iTry
-  LOGICAL                                :: fexist
-  !----------------------------------------------------------------------------
+!----------------------------------------------------------------------------
+REAL                                   :: time
+INTEGER                                :: timestep
+TYPE (tUnstructDomainDescript), target :: domain
+CHARACTER(LEN=600)                     :: name
+INTEGER                                :: iTry
+LOGICAL                                :: fexist
+!----------------------------------------------------------------------------
 
-  domain%IO%AbortStatus = 2
+domain%IO%AbortStatus = 2
 
-  CALL CPU_TIME(domain%IO%WallStart)
+CALL CPU_TIME(domain%IO%WallStart)
 
-  ! Set line size for stdout and stderr (removes auto newlines)
-  ! This does no longer work with C++ main() and produces errors with gfortran
+! Set line size for stdout and stderr (removes auto newlines)
+! This does no longer work with C++ main() and produces errors with gfortran
 #ifdef __INTEL_COMPILER
-  open(FORTRAN_STDOUT, recl=FORTRAN_LINE_SIZE)
-  open(FORTRAN_STDERR, recl=FORTRAN_LINE_SIZE)
+open(FORTRAN_STDOUT, recl=FORTRAN_LINE_SIZE)
+open(FORTRAN_STDERR, recl=FORTRAN_LINE_SIZE)
 #endif
 
 #ifdef PARALLEL
-  ! Initialize MPI 
+! Initialize MPI 
 
-   CALL MPI_COMM_RANK(MPI_COMM_WORLD, domain%MPI%myrank, domain%MPI%iErr)
-   CALL MPI_COMM_SIZE(MPI_COMM_WORLD, domain%MPI%nCPU,   domain%MPI%iErr)
+CALL MPI_COMM_RANK(MPI_COMM_WORLD, domain%MPI%myrank, domain%MPI%iErr)
+CALL MPI_COMM_SIZE(MPI_COMM_WORLD, domain%MPI%nCPU,   domain%MPI%iErr)
 
-   ! Set global variable for the rank, required by the logger
-   myrank = domain%MPI%myrank
+! Set global variable for the rank, required by the logger
+myrank = domain%MPI%myrank
 
-   WRITE(name,'(a,i5.5,a)') 'StdOut',domain%MPI%myrank,'.txt'
+WRITE(name,'(a,i5.5,a)') 'StdOut',domain%MPI%myrank,'.txt'
 
-   logInfo0(*) '<--------------------------------------------------------->'
-   logInfo0(*) '<                SeisSol MPI initialization               >'
-   logInfo0(*) '<--------------------------------------------------------->'
-   logInfo(*) ' MPI Communication Initialized. '
-   logInfo(*) ' I am processor ', domain%MPI%myrank, ' of ', domain%MPI%nCPU, ' total CPUs.'
-   ! Initialize MPI_AUTO_REAL
-   domain%MPI%real_kind     = KIND(domain%MPI%real_kindtest)
-   domain%MPI%integer_kind  = KIND(domain%MPI%integer_kindtest)
-   SELECT CASE(domain%MPI%real_kind)
-   CASE(4)
-     logInfo0(*) 'Single precision used for real.'
-     logInfo0(*) 'Setting MPI_AUTODOUBLE to MPI_REAL'
-     domain%MPI%MPI_AUTO_REAL = MPI_REAL
-   CASE(8)
-     logInfo0(*) ' Double precision used for real.'
-     logInfo0(*) ' Setting MPI_AUTODOUBLE to MPI_DOUBLE_PRECISION'
-     domain%MPI%MPI_AUTO_REAL = MPI_DOUBLE_PRECISION
-   CASE DEFAULT
-     logError(*) 'Unknown kind ', domain%MPI%real_kind
-     STOP
-   END SELECT
-   logInfo0(*) ' MPI_AUTO_REAL feature initialized. '
-   domain%MPI%MPI_AUTO_INTEGER = 0
-   !  
-   logInfo0(*) ' MPI initialization done. '
-   logInfo0('(a)') ' <--------------------------------------------------------->'
-   WRITE(domain%IO%ErrorFile,'(a,i5.5,a)') 'IRREGULARITIES.', domain%MPI%myrank, '.log'    ! Name der Datei in die Fehler geschrieben werden
+logInfo0(*) '<--------------------------------------------------------->'
+logInfo0(*) '<                SeisSol MPI initialization               >'
+logInfo0(*) '<--------------------------------------------------------->'
+logInfo(*) ' MPI Communication Initialized. '
+logInfo(*) ' I am processor ', domain%MPI%myrank, ' of ', domain%MPI%nCPU, ' total CPUs.'
+! Initialize MPI_AUTO_REAL
+domain%MPI%real_kind     = KIND(domain%MPI%real_kindtest)
+domain%MPI%integer_kind  = KIND(domain%MPI%integer_kindtest)
+SELECT CASE(domain%MPI%real_kind)
+CASE(4)
+logInfo0(*) 'Single precision used for real.'
+logInfo0(*) 'Setting MPI_AUTODOUBLE to MPI_REAL'
+domain%MPI%MPI_AUTO_REAL = MPI_REAL
+CASE(8)
+logInfo0(*) ' Double precision used for real.'
+logInfo0(*) ' Setting MPI_AUTODOUBLE to MPI_DOUBLE_PRECISION'
+domain%MPI%MPI_AUTO_REAL = MPI_DOUBLE_PRECISION
+CASE DEFAULT
+logError(*) 'Unknown kind ', domain%MPI%real_kind
+STOP
+END SELECT
+logInfo0(*) ' MPI_AUTO_REAL feature initialized. '
+domain%MPI%MPI_AUTO_INTEGER = 0
+!  
+logInfo0(*) ' MPI initialization done. '
+logInfo0('(a)') ' <--------------------------------------------------------->'
+WRITE(domain%IO%ErrorFile,'(a,i5.5,a)') 'IRREGULARITIES.', domain%MPI%myrank, '.log'    ! Name der Datei in die Fehler geschrieben werden
 #else
-  domain%IO%ErrorFile                    = 'IRREGULARITIES.log'         ! Name der Datei in die Fehler geschrieben werden
-  myrank = 0
+domain%IO%ErrorFile                    = 'IRREGULARITIES.log'         ! Name der Datei in die Fehler geschrieben werden
+myrank = 0
 #endif
 
-  domain%programTitle                    ='SeisSol'                     ! Name des Programms
-  domain%IO%Path                         = ''                           ! Standardmaessig liegen alle Dateien im lokalen Verzeichnis
-  domain%IO%OutInterval%PlotNrGiven      = .FALSE.                      ! PlotNumbers are created by SeisSol
+domain%programTitle                    ='SeisSol'                     ! Name des Programms
+domain%IO%Path                         = ''                           ! Standardmaessig liegen alle Dateien im lokalen Verzeichnis
+domain%IO%OutInterval%PlotNrGiven      = .FALSE.                      ! PlotNumbers are created by SeisSol
 
-  domain%IO%UNIT%FileIn                  = 104
-  domain%IO%UNIT%FileOut                 = 105
+domain%IO%UNIT%FileIn                  = 104
+domain%IO%UNIT%FileOut                 = 105
 !  domain%IO%UNIT%PMLtest                 = 108
-  domain%IO%UNIT%other01                 = 110
-  domain%IO%UNIT%other02                 = 111
-  domain%IO%UNIT%other03                 = 112
-  domain%IO%UNIT%other04                 = 113
-  domain%IO%UNIT%other05                 = 114
-  domain%IO%UNIT%FileIn_Fault            = 115                          ! Input file for fault parameters
-  domain%IO%UNIT%FileOut_Tet             = 118
-  domain%IO%UNIT%FileOut_Hex             = 119
-  domain%IO%UNIT%receiverStart           = 120                          ! Ab hier koennen Unitnumbers fuer receiver
-  !                                                                     ! vergeben werden
-  domain%IO%UNIT%maxThisDom              = 19999                        ! Obere Grenze fuer Unitnumber fuer receiver
+domain%IO%UNIT%other01                 = 110
+domain%IO%UNIT%other02                 = 111
+domain%IO%UNIT%other03                 = 112
+domain%IO%UNIT%other04                 = 113
+domain%IO%UNIT%other05                 = 114
+domain%IO%UNIT%FileIn_Fault            = 115                          ! Input file for fault parameters
+domain%IO%UNIT%FileOut_Tet             = 118
+domain%IO%UNIT%FileOut_Hex             = 119
+domain%IO%UNIT%receiverStart           = 120                          ! Ab hier koennen Unitnumbers fuer receiver
+!                                                                     ! vergeben werden
+domain%IO%UNIT%maxThisDom              = 69999                        ! Obere Grenze fuer Unitnumber fuer receiver
 
   if (domain%MPI%myrank .eq. 0) then
     WRITE(*,*) 'INFORMATION: The assumed unit number is', FORTRAN_STDOUT, 'for stdout and', FORTRAN_STDERR, 'for stderr.'
