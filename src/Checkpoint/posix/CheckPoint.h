@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,8 +83,6 @@ public:
 	}
 
 	virtual ~CheckPoint() {}
-
-	virtual string which(){return string("posix");}
 
 	void setFilename(const char* filename)
 	{
@@ -180,18 +178,16 @@ protected:
 		return fh;
 	}
 
-	std::string linkFile() //const
+	const std::string linkFile() const
 	{
-		std::string file = std::string(seissol::checkpoint::CheckPoint::linkFile())
-		  + "/cp." + which()+ "."+utils::StringUtils::toString(rank());
-
-		return file;
+		return std::string(seissol::checkpoint::CheckPoint::linkFile())
+		  + "/" + fname() + "." + utils::StringUtils::toString(rank());
 	}
 
-	std::string dataFile(int odd) //const
+	const std::string dataFile(int odd) const
 	{
 		return seissol::checkpoint::CheckPoint::dataFile(odd)
-		  + "/cp." +which()+ "."+utils::StringUtils::toString(rank());
+		  + "/" + fname() + "." + utils::StringUtils::toString(rank());
 	}
 
 	/**

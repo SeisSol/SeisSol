@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,7 +58,8 @@
 #ifdef USE_SIONLIB
 #include "sionlib/Fault.h"
 #include "sionlib/Wavefield.h"
-#endif
+#endif // USE_SIONLIB
+
 namespace seissol
 {
 
@@ -124,9 +125,7 @@ public:
 			m_fault = new sionlib::Fault();
 			break;
 #else //USE_SIONLIB
-			m_waveField = new posix::Wavefield();
-			m_fault = new posix::Fault();
-			logError() << "sionlib checkpoint backend unsupported - using posix instead";
+			logError() << "SIONlib checkpoint backend unsupported";
 			break;
 #endif //USE_SIONLIB
 		default:

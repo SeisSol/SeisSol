@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +42,7 @@
 #include <cstddef>
 
 #include "Wavefield.h"
+#include "Monitoring/instrumentation.fpp"
 
 bool seissol::checkpoint::mpio::Wavefield::init(real* dofs, unsigned int numDofs)
 {
