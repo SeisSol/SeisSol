@@ -326,6 +326,10 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
 												   m_pstrain );
 
   m_ltsTree = seissol::SeisSol::main.timeManager().getLtsTree();
+  m_ltsLut.createLuts(  m_ltsTree,
+                        m_ltsToMesh,
+                        m_numberOfLtsCells,
+                        m_numberOfMeshCells );
 }
 
 #ifdef USE_NETCDF
@@ -397,15 +401,14 @@ void seissol::Interoperability::enableDynamicRupture() {
 
 void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_materialVal, int i_numMaterialVals)
 {
-  unsigned int copyInteriorId = m_meshToCopyInterior[i_meshId - 1];
   int side = i_side - 1;
   seissol::model::Material* material;
   
   if (side < 0) {
-    material = &m_ltsTree->var<LTS::Material>()[copyInteriorId].local;
+    material = &m_ltsLut.lookup<LTS::Material>(i_meshId - 1).local;
   } else {
     assert(side < 4);
-    material = &m_ltsTree->var<LTS::Material>()[copyInteriorId].neighbor[side];
+    material = &m_ltsLut.lookup<LTS::Material>(i_meshId - 1).neighbor[side];
   }
   
   seissol::model::setMaterial(i_materialVal, i_numMaterialVals, material);

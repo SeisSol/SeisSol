@@ -48,6 +48,7 @@
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Lut.hpp>
 
 namespace seissol {
   class Interoperability;
@@ -125,7 +126,10 @@ class seissol::Interoperability {
     //! Plasticity strain output
     real (*m_pstrain)[7];
     
-    seissol::initializers::LTSTree<LTS>* m_ltsTree;
+    seissol::initializers::LTSTree<LTS>*  m_ltsTree;
+
+    //! Lookup table relating mesh to cells
+    seissol::initializers::Lut<LTS>       m_ltsLut;
 
  public:
    /**
