@@ -5,7 +5,7 @@
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -35,29 +35,60 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Setup of SeisSol's cell local matrices.
  **/
-
-#ifndef CELLLOCALMATRICES_H_
-#define CELLLOCALMATRICES_H_
+ 
+#ifndef INITIALIZER_LTS_H_
+#define INITIALIZER_LTS_H_
 
 #include <Initializer/typedefs.hpp>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/typelist.hpp>
+#include <Initializer/MemoryAllocator.h>
 
-namespace seissol {
-  namespace initializers {
-      /**
-      * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
-      **/
-     void initializeCellLocalMatrices( MeshReader const&      i_meshReader,
-                                       unsigned*              i_copyInteriorToMesh,
-                                       unsigned*              i_meshToLts,
-                                       unsigned               i_numberOfCopyInteriorCells,
-                                       CellLocalInformation*  i_cellInformation,
-                                       LTSTree<LTS>*          io_ltsTree );
-  }
-}
+struct LTS {
+  enum Layers {
+    Ghost = 0,
+    Copy,
+    Interior,
+    NUM_LAYERS
+  };
+
+  enum Variables {
+    Dofs = 0,
+    Buffers,
+    Derivatives,
+    FaceNeighbors,
+    LocalIntegration,
+    NeighboringIntegration,
+    Material,
+    Plasticity,
+    Energy,
+    PStrain,
+    NUM_VARIABLES
+  };
+  
+  typedef make_typelist<  real[NUMBER_OF_ALIGNED_DOFS],   // Dofs
+                          real*,                          // Buffers
+                          real*,                          // Derivatives
+                          real*[4],                       // FaceNeighbors
+                          LocalIntegrationData,           // LocalIntegration
+                          NeighboringIntegrationData,     // NeighboringIntegration
+                          CellMaterialData,               // Material
+                          PlasticityData,                 // Plasticity
+                          real[3],                        // Energy
+                          real[7]                         // PStrain
+                       >::result Types;
+  
+  static bool const Available[][NUM_LAYERS];
+  static size_t const VarAlignment[];
+  static enum seissol::memory::Memkind const VarMemkind[];
+
+  enum Buckets {
+    buffersDerivatives = 0,
+    NUM_BUCKETS
+  };
+  
+  static size_t const BucketAlignment[];
+  static enum seissol::memory::Memkind const BucketMemkind[];
+};
 
 #endif

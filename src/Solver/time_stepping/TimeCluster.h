@@ -79,6 +79,8 @@
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/typedefs.hpp>
 #include <utils/logger.h>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/LTSTree.hpp>
 
 #include <Kernels/Time.h>
 
@@ -155,6 +157,8 @@ private:
     /*
      * element data and mpi queues
      */
+     seissol::initializers::TimeCluster<LTS>* m_clusterData;
+     
 #ifdef USE_MPI
     //! cell local information in the copy layer
     struct CellLocalInformation *m_copyCellInformation;
@@ -168,14 +172,6 @@ private:
 
     //! cell local information in the interior
     struct CellLocalInformation *m_interiorCellInformation;
-
-#ifdef USE_MPI
-    //! cell local data in the copy layer
-    struct CellData *m_copyCellData;
-#endif
-
-    //! cell local data in the interior
-    struct CellData *m_interiorCellData;
 
     //! degrees of freedom, time buffers, time derivatives
     struct Cells *m_cells;
@@ -282,7 +278,7 @@ private:
      **/
     void computeLocalIntegration( unsigned int           i_numberOfCells,
                                   CellLocalInformation  *i_cellInformation,
-                                  CellData              *i_cellData,
+                                  seissol::initializers::Layer<LTS>&  i_layerData,
                                   real                 **io_buffers,
                                   real                 **io_derivatives,
                                   real                 (*io_dofs)[NUMBER_OF_ALIGNED_DOFS] );
@@ -301,7 +297,7 @@ private:
      **/
     void computeNeighboringIntegration( unsigned int            i_numberOfCells,
                                         CellLocalInformation   *i_cellInformation,
-                                        CellData               *i_cellData,
+                                        seissol::initializers::Layer<LTS>&  i_layerData,
                                         real                 *(*i_faceNeighbors)[4],
                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
 										real                   (*io_Energy)[3],
@@ -401,10 +397,7 @@ private:
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                  struct GlobalData             *i_globalDataCopies,
 #endif
-#ifdef USE_MPI
-                 struct CellData               *i_copyCellData,
-#endif
-                 struct CellData               *i_interiorCellData,
+                 seissol::initializers::TimeCluster<LTS>* i_clusterData,
                  struct Cells                  *i_cells );
 
     /**

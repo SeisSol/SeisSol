@@ -111,10 +111,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
     struct GlobalData             *l_globalDataCopies        = NULL;
 #endif
-#ifdef USE_MPI
-    struct CellData               *l_copyCellData            = NULL;
-#endif
-    struct CellData               *l_interiorCellData        = NULL;
     struct Cells                  *l_cells                   = NULL;
 
     // get memory layout of this cluster
@@ -128,10 +124,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                      l_globalDataCopies,
 #endif
-#ifdef USE_MPI
-                                     l_copyCellData,
-#endif
-                                     l_interiorCellData,
                                      l_cells );
 
     // add this time cluster
@@ -149,10 +141,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                            l_globalDataCopies,
 #endif
-#ifdef USE_MPI
-                                           l_copyCellData,
-#endif
-                                           l_interiorCellData,
+                                           &getLtsTree()->child(l_cluster),
                                            l_cells ) );
   }
 }

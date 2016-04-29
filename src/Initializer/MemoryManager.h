@@ -81,6 +81,9 @@
 #include "XmlParser.hpp"
 #include "MemoryAllocator.h"
 
+#include <Initializer/LTS.h>
+#include <Initializer/tree/LTSTree.hpp>
+
 namespace seissol {
   namespace initializers {
     class MemoryManager;
@@ -199,18 +202,13 @@ class seissol::initializers::MemoryManager {
 #endif
 #endif
 
-#ifdef USE_MPI
-    struct CellData      *m_copyCellData;
-#endif
-
-    //! cell data per cluster
-    struct CellData      *m_interiorCellData;
-
-    //! internal state
-    struct InternalState  m_internalState;
-
     //! cells per cluster
     struct Cells         *m_cells;
+    
+    //! Memory organisation tree
+    LTSTree<LTS>          m_ltsTree;
+    
+    
 
 #ifndef REQUIRE_SOURCE_MATRIX
     /**
@@ -265,40 +263,15 @@ class seissol::initializers::MemoryManager {
     void deriveLayerLayouts();
 
     /**
-     * Allocates memory for the constant data.
-     **/
-    void allocateConstantData();
-
-    /**
-     * Touches / zeros the constant data using OMP's first touch policy.
-     *
-     * @param i_numberOfCells number of cells (split statically by the number of threads).
-     * @param o_local local data to initialize.
-     * @param o_neighboring neighboring data to initialize.
-     **/
-    void touchConstantData( unsigned int                i_numberOfCells,
-                            LocalIntegrationData*       o_local,
-                            NeighboringIntegrationData* o_neighboring );
-
-    /**
-     * Initializes the constant data.
-     **/
-    void initializeConstantData();
-
-    /**
-     * Allocates memory for the internal state
-     **/
-    void allocateInternalState();
-
-    /**
      * Initializes the face neighbor pointers of the internal state.
      **/
-    void initializeFaceNeighbors();
+    void initializeFaceNeighbors( unsigned    cluster,
+                                  Layer<LTS>& layer);
 
     /**
      * Initializes the pointers of the internal state.
      **/
-    void initializeInternalState();
+    void initializeBuffersDerivatives();
 
     /**
      * Allocates the cells.
@@ -392,9 +365,7 @@ class seissol::initializers::MemoryManager {
      * @param o_copyCellInformation cell information in the copy layer.
      * @param o_interiorCellInformation cell information in the interior.
      * @param o_globalData global data.
-     * @oaram o_globalDataCopies several copies of global data
-     * @param o_copyCellData cell data of the copy layer.
-     * @param o_interiorCellData cell data in the interior.
+     * @param o_globalDataCopies several copies of global data
      * @param o_cells cells.
      **/
     void getMemoryLayout( unsigned int                    i_cluster,
@@ -407,11 +378,11 @@ class seissol::initializers::MemoryManager {
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                           struct GlobalData             *&o_globalDataCopies,
 #endif
-#ifdef USE_MPI
-                          struct CellData               *&o_copyCellData,
-#endif
-                          struct CellData               *&o_interiorCellData,
                           struct Cells                  *&o_cells );
+                          
+    inline LTSTree<LTS>* getLtsTree() {
+      return &m_ltsTree;
+    }
 };
 
 #endif

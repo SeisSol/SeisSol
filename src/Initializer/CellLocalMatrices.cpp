@@ -68,7 +68,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
                                                          unsigned*              i_meshToLts,
                                                          unsigned               i_numberOfCopyInteriorCells,
                                                          CellLocalInformation*  i_cellInformation,
-                                                         CellData*              io_cellData )
+                                                         LTSTree<LTS>*          io_ltsTree )
 {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
@@ -111,12 +111,12 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     
     seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
 
-    seissol::model::getTransposedCoefficientMatrix( io_cellData->material[cell].local, 0, AT );
-    seissol::model::getTransposedCoefficientMatrix( io_cellData->material[cell].local, 1, BT );
-    seissol::model::getTransposedCoefficientMatrix( io_cellData->material[cell].local, 2, CT );
-    setStarMatrix(AT, BT, CT, gradXi, io_cellData->localIntegration[cell].starMatrices[0]);
-    setStarMatrix(AT, BT, CT, gradEta, io_cellData->localIntegration[cell].starMatrices[1]);
-    setStarMatrix(AT, BT, CT, gradZeta, io_cellData->localIntegration[cell].starMatrices[2]);
+    seissol::model::getTransposedCoefficientMatrix( io_ltsTree->var<LTS::Material>()[cell].local, 0, AT );
+    seissol::model::getTransposedCoefficientMatrix( io_ltsTree->var<LTS::Material>()[cell].local, 1, BT );
+    seissol::model::getTransposedCoefficientMatrix( io_ltsTree->var<LTS::Material>()[cell].local, 2, CT );
+    setStarMatrix(AT, BT, CT, gradXi, io_ltsTree->var<LTS::LocalIntegration>()[cell].starMatrices[0]);
+    setStarMatrix(AT, BT, CT, gradEta, io_ltsTree->var<LTS::LocalIntegration>()[cell].starMatrices[1]);
+    setStarMatrix(AT, BT, CT, gradZeta, io_ltsTree->var<LTS::LocalIntegration>()[cell].starMatrices[2]);
     
     double volume = MeshTools::volume(elements[meshId], vertices);
 
@@ -126,8 +126,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> T(TData);
       DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> Tinv(TinvData);
 
-      seissol::model::getTransposedRiemannSolver( io_cellData->material[cell].local,
-                                                  io_cellData->material[cell].neighbor[side],
+      seissol::model::getTransposedRiemannSolver( io_ltsTree->var<LTS::Material>()[cell].local,
+                                                  io_ltsTree->var<LTS::Material>()[cell].neighbor[side],
                                                   i_cellInformation[ltsCell].faceTypes[side],
                                                   //AT,
                                                   Flocal,
@@ -145,8 +145,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       // Calculate transposed T instead
       seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
       
-      MatrixView nApNm1(io_cellData->localIntegration[cell].nApNm1[side], seissol::model::AplusT::reals, seissol::model::AplusT::index);
-      MatrixView nAmNm1(io_cellData->neighboringIntegration[cell].nAmNm1[side], seissol::model::AminusT::reals, seissol::model::AminusT::index);
+      MatrixView nApNm1(io_ltsTree->var<LTS::LocalIntegration>()[cell].nApNm1[side], seissol::model::AplusT::reals, seissol::model::AplusT::index);
+      MatrixView nAmNm1(io_ltsTree->var<LTS::NeighboringIntegration>()[cell].nAmNm1[side], seissol::model::AminusT::reals, seissol::model::AminusT::index);
       
       nApNm1.setZero();
       nAmNm1.setZero();
@@ -171,11 +171,11 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       }
     }
 
-    seissol::model::initializeSpecificLocalData(  io_cellData->material[cell].local,
-                                                  &io_cellData->localIntegration[cell].specific );
+    seissol::model::initializeSpecificLocalData(  io_ltsTree->var<LTS::Material>()[cell].local,
+                                                  &io_ltsTree->var<LTS::LocalIntegration>()[cell].specific );
 
-    seissol::model::initializeSpecificNeighborData( io_cellData->material[cell].local,
-                                                    io_cellData->material[cell].neighbor,
-                                                    &io_cellData->neighboringIntegration[cell].specific );
+    seissol::model::initializeSpecificNeighborData( io_ltsTree->var<LTS::Material>()[cell].local,
+                                                    io_ltsTree->var<LTS::Material>()[cell].neighbor,
+                                                    &io_ltsTree->var<LTS::NeighboringIntegration>()[cell].specific );
   }
 }

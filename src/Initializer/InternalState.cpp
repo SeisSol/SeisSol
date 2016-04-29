@@ -43,8 +43,7 @@
 #include <cstddef>
 #include <cassert>
 
-void seissol::initializers::InternalState::deriveLayerLayout(       enum Layer                    i_layer,
-                                                                    unsigned int                  i_numberOfClusters,
+void seissol::initializers::InternalState::deriveLayerLayout(       unsigned int                  i_numberOfClusters,
                                                                     unsigned int                 *i_numberOfRegions,
                                                                     unsigned int                **i_numberOfRegionCells,
                                                               const struct CellLocalInformation  *i_cellLocalInformation,
@@ -93,8 +92,7 @@ void seissol::initializers::InternalState::deriveInteriorLayout(       unsigned 
   }
 
   // interior is a special case with a single layer
-  deriveLayerLayout(  interior,
-                      i_numberOfClusters,
+  deriveLayerLayout(  i_numberOfClusters,
                       l_numberOfRegions,
                       l_numberOfRegionCells,
                       i_cellLocalInformation,
@@ -111,8 +109,7 @@ void seissol::initializers::InternalState::deriveInteriorLayout(       unsigned 
   delete[] l_numberOfRegionCells;
 }
 
-void seissol::initializers::InternalState::setUpLayerPointers(       enum Layer                   i_layer,
-                                                                     unsigned int                 i_numberOfRegions,
+void seissol::initializers::InternalState::setUpLayerPointers(       unsigned int                 i_numberOfRegions,
                                                                const unsigned int                *i_numberOfRegionCells,
                                                                const struct CellLocalInformation *i_cellLocalInformation,
                                                                const unsigned int                *i_numberOfBuffers,
@@ -174,8 +171,7 @@ void seissol::initializers::InternalState::setUpInteriorPointers(       unsigned
                                                                         real                        **o_buffers,
                                                                         real                        **o_derivatives ) {
   // interior is a special layered case with a single region
-  setUpLayerPointers(  interior,
-                       1,
+  setUpLayerPointers(  1,
                       &i_numberOfInteriorCells,
                        i_cellLocalInformation,
                       &i_numberOfBuffers,

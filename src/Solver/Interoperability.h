@@ -46,6 +46,8 @@
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
 #include <SourceTerm/NRF.h>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/LTSTree.hpp>
 
 namespace seissol {
   class Interoperability;
@@ -105,9 +107,6 @@ class seissol::Interoperability {
     //! global data
     struct GlobalData *m_globalData;
 
-    //! raw cell data: covering copy&interior of all clusters
-    struct CellData *m_cellData;
-
     //! raw DOFs: covering copy&interior of all clusters
     real (*m_dofs)[NUMBER_OF_ALIGNED_DOFS];
 
@@ -125,6 +124,8 @@ class seissol::Interoperability {
 
     //! Plasticity strain output
     real (*m_pstrain)[7];
+    
+    seissol::initializers::LTSTree<LTS>* m_ltsTree;
 
  public:
    /**

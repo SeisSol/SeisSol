@@ -54,12 +54,6 @@
 
 #include <cstddef>
 
-enum Layer {
-  ghost,
-  copy,
-  interior
-};
-
 enum mpiTag {
   localIntegrationData = 0,
   neighboringIntegrationData = 1,
@@ -347,87 +341,6 @@ struct CellData {
   CellMaterialData                  *material;
   // Plasticity
   PlasticityData                    *plasticity;
-};
-
-/**
- * Internal state of the wave propagation component.
- *
- * Splits into:
- *
- *  * ghostLayer:    time buffers and/or derivatives of neighboring ranks required for cell updates in the computational domain.
- *                   stride-1 memory access per rank is enforced.
- *
- *  * copyLayer:     time buffers and/or derivatives required for updates on neighboring ranks and in this ranks computational domain.
- *                   stride-1 memory access for communication is enforced, this includes duplicated cells if the information is required for more than one neighbor.
- *
- *  * interiorTime:  time buffers and/or derivatives required for updates in the computational domain only.
- *
- *  * buffers /      pointers for every cells, ordering: 1) layer (ghost, copy, interior) 2) time cluster.
- *    derivatives
- *    face neighbors
- *
- *  * dofs:          modal degrees of freedom for all cells in the computational domain (copy + interior).
- *
- **/
-struct InternalState {
-#ifdef USE_MPI
-  /*
-   * Ghost layer: Buffers and derivatives
-   */
-  real (*ghostLayer);
-
-  /*
-   * Copy layer: Buffers and derivatives
-   */
-  real (*copyLayer);
-#endif
-
-  /*
-   * Time Interior: Buffers and derivatives
-   */
-  real (*interiorTime);
-
-  /*
-   * Pointers to time buffers (or NULL if not present).
-   *   One pointer per cell (including duplicate cells in the copy layer).
-   *   Covers ghost layer, copy layer and interior.
-   *   Sorting analogue to mesh (cross-cluster cell ids are valid):
-   *     1) Time cluster id
-   *     2) Layer: Ghost, copy, interior
-   */
-  real **buffers;
-
-  /*
-   * Pointers to time derivatives (or NULL if not present).
-   *   One pointer per cell (including duplicate cells in the copy layer).
-   *   Covers ghost layer, copy layer and interior.
-   *   Sorting analogue to mesh (cross-cluster cell ids are valid):
-   *     1) Time cluster id
-   *     2) Layer: Ghost, copy, interior
-   */
-  real **derivatives;
-
-  /*
-   * Pointers to the either the time buffers or time derivatives of the face neighbors.
-   *   One pointer per cell (including duplicates in the copy layer).
-   *   Covers copy layer and interior (excludes pointers for the ghost layer).
-   *   Sorting analogue to mesh:
-   *     1) Time cluster id
-   *     2) Layer: Copy, interior
-   */
-  real *(*faceNeighbors)[4];
-
-  /*
-   * Regular degrees of freedoom in copy and interior: modal coefficients.
-   *   Covers copy layer and interior (excludes ghost layer).
-   */
-  real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
-
-  // energy variable
-  real (*Energy)[3];
-
-  // plastic strain
-  real (*pstrain)[7];
 };
 
 /**
