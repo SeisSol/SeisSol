@@ -573,7 +573,7 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
 #ifdef REQUIRE_SOURCE_MATRIX
   m_timeKernel.computeAder( 0,
                             m_globalData,
-                            &m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ],
+                            &m_ltsTree->var<LTS::LocalIntegration>()[ m_meshToCopyInterior[ (i_meshId)-1] ],
                             m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
                             l_timeIntegrated,
                             l_timeDerivatives );

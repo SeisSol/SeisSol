@@ -201,9 +201,6 @@ class seissol::initializers::MemoryManager {
 #error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY needs to be larger than 0 if defined
 #endif
 #endif
-
-    //! cells per cluster
-    struct Cells         *m_cells;
     
     //! Memory organisation tree
     LTSTree<LTS>          m_ltsTree;
@@ -274,52 +271,11 @@ class seissol::initializers::MemoryManager {
     void initializeBuffersDerivatives();
 
     /**
-     * Allocates the cells.
-     **/
-    void allocateCells();
-
-    /**
-     * Touches / zeros the DOFs using OMP's first touch policy.
-     *
-     * @param i_numberOfCells number of cells (split statically by the number of threads).
-     * @param o_dofs dofs which are touched.
-     **/
-    void touchDofs( unsigned int   i_numberOfCells,
-                    real         (*o_dofs)[NUMBER_OF_ALIGNED_DOFS] );
-
-    /**
      * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
      *
-     * @param i_numberOfCells number of cells which are touched.
-     * @param o_buffers buffers which are touched.
-     * @param o_derivatives derivatives which are touched. 
+     * @param layer which is touched.
      **/
-    void touchTime( unsigned int   i_numberOfCells,
-                    real         **o_buffers,
-                    real         **o_derivatives );
-
-    /**
-     * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
-     *
-     * @param i_numberOfCells number of cells (split statically by the number of threads).
-     * @param o_pstrain dofs which are touched.
-     */
-    void touchPstrain(unsigned int   i_numberOfCells,
-                      real         (*o_pstrain)[7] );
-
-    /**
-      * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
-      *
-      * @param i_numberOfCells number of cells (split statically by the number of threads).
-      * @param o_Energy cell value which are touched.
-      */
-     void touchEnergy(unsigned int   i_numberOfCells,
-                            real         (*o_Energy)[3] );
-
-    /**
-     * Initializes the cell data.
-     **/
-    void initializeCells();
+    void touchBuffersDerivatives( Layer<LTS>& layer );
 
 #ifdef USE_MPI
     /**
@@ -374,11 +330,11 @@ class seissol::initializers::MemoryManager {
                           struct CellLocalInformation   *&o_copyCellInformation,
 #endif
                           struct CellLocalInformation   *&o_interiorCellInformation,
-                          struct GlobalData             *&o_globalData,
+                          struct GlobalData             *&o_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                          struct GlobalData             *&o_globalDataCopies,
+                          struct GlobalData             *&o_globalDataCopies
 #endif
-                          struct Cells                  *&o_cells );
+                        );
                           
     inline LTSTree<LTS>* getLtsTree() {
       return &m_ltsTree;

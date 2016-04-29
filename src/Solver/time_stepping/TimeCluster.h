@@ -156,9 +156,7 @@ private:
 
     /*
      * element data and mpi queues
-     */
-     seissol::initializers::TimeCluster<LTS>* m_clusterData;
-     
+     */     
 #ifdef USE_MPI
     //! cell local information in the copy layer
     struct CellLocalInformation *m_copyCellInformation;
@@ -172,9 +170,8 @@ private:
 
     //! cell local information in the interior
     struct CellLocalInformation *m_interiorCellInformation;
-
-    //! degrees of freedom, time buffers, time derivatives
-    struct Cells *m_cells;
+    
+    seissol::initializers::TimeCluster<LTS>* m_clusterData;
 
     //! receivers
     std::vector< int > m_receivers;
@@ -278,10 +275,7 @@ private:
      **/
     void computeLocalIntegration( unsigned int           i_numberOfCells,
                                   CellLocalInformation  *i_cellInformation,
-                                  seissol::initializers::Layer<LTS>&  i_layerData,
-                                  real                 **io_buffers,
-                                  real                 **io_derivatives,
-                                  real                 (*io_dofs)[NUMBER_OF_ALIGNED_DOFS] );
+                                  seissol::initializers::Layer<LTS>&  i_layerData );
 
     /**
      * Computes the contribution of the neighboring cells to the boundary integral.
@@ -297,11 +291,7 @@ private:
      **/
     void computeNeighboringIntegration( unsigned int            i_numberOfCells,
                                         CellLocalInformation   *i_cellInformation,
-                                        seissol::initializers::Layer<LTS>&  i_layerData,
-                                        real                 *(*i_faceNeighbors)[4],
-                                        real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
-										real                   (*io_Energy)[3],
-										real                  (*io_pstrain)[7] );
+                                        seissol::initializers::Layer<LTS>&  i_layerData );
 
     void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
                                         CellLocalInformation const* cellInformation,
@@ -397,8 +387,7 @@ private:
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                  struct GlobalData             *i_globalDataCopies,
 #endif
-                 seissol::initializers::TimeCluster<LTS>* i_clusterData,
-                 struct Cells                  *i_cells );
+                 seissol::initializers::TimeCluster<LTS>* i_clusterData );
 
     /**
      * Destructor of a LTS cluster.

@@ -343,65 +343,6 @@ struct CellData {
   PlasticityData                    *plasticity;
 };
 
-/**
- * Structure of the cells.
- **/
-struct Cells {
-#ifdef USE_MPI
-  /*
-   * Regular degrees of freedom in the copy layer: modal coefficients.
-   */
-  real (*copyDofs)[NUMBER_OF_ALIGNED_DOFS];
-
-  /*
-   * Pointers to time buffers in the copy layer (or NULL if not used).
-   */
-  real **copyBuffers;
-
-  /*
-   * Pointers to derivatives int the copy layer (or NULL if not used).
-   */
-  real **copyDerivatives;
-
-  /*
-   * Pointers to the either the time buffers or time derivatives of the face neighbors in the copy layer.
-   */
-  real *(*copyFaceNeighbors)[4];
-
-  /** Pointer to copy layer energy */
-    real (*copyEnergy)[3];
-
-  /** Pointer to copy layer plastic strain */
-  real (*copyPstrain)[7];
-#endif
-
-  /*
-   * Regular degrees of freedom in the interior: modal coefficients.
-   */
-  real (*interiorDofs)[NUMBER_OF_ALIGNED_DOFS];
-
-  /*
-   * Pointers to time buffers in the interior (or NULL if not used).
-   */
-  real **interiorBuffers;
-
-  /*
-   * Pointers to derivatives int the interior (or NULL if not used).
-   */
-  real **interiorDerivatives;
-
-  /*
-   * Pointers to the either the time buffers or time derivatives of the face neighbors in the interior.
-   */
-  real *(*interiorFaceNeighbors)[4];
-
-  /** Pointer to energy variable*/
-    real (*interiorEnergy)[3];
-
-  /** Pointer to interior plastic strain */
-  real (*interiorPstrain)[7];
-};
-
 /** A piecewise linear function.
  * 
  *  Say t \in I_j, then

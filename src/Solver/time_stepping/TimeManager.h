@@ -206,7 +206,6 @@ class seissol::time_stepping::TimeManager {
       struct CellLocalInformation  *l_copyCellInformation     = NULL;
 #endif
       struct CellLocalInformation  *l_interiorCellInformation = NULL;
-      struct Cells                 *l_cells                   = NULL;
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
       struct GlobalData            *l_globalDataCopies        = NULL;
 #endif
@@ -217,28 +216,20 @@ class seissol::time_stepping::TimeManager {
                                       l_copyCellInformation,
 #endif
                                        l_interiorCellInformation,
-                                      o_globalData,
+                                      o_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                      l_globalDataCopies,
+                                      l_globalDataCopies
 #endif
-                                       l_cells );
-
-    // get raw data
-#ifdef USE_MPI
-      o_dofs          = l_cells->copyDofs;
-      o_buffers       = l_cells->copyBuffers-l_meshStructure[0].numberOfGhostCells;
-      o_derivatives   = l_cells->copyDerivatives-l_meshStructure[0].numberOfGhostCells;
-      o_faceNeighbors = l_cells->copyFaceNeighbors;
-      o_Energy = l_cells->copyEnergy;
-      o_pstrain       = l_cells->copyPstrain;
-#else
-      o_dofs          = l_cells->interiorDofs;
-      o_buffers       = l_cells->interiorBuffers;
-      o_derivatives   = l_cells->interiorDerivatives;
-      o_faceNeighbors = l_cells->interiorFaceNeighbors;
-      o_Energy = l_cells->interiorEnergy;
-      o_pstrain       = l_cells->interiorPstrain;
-#endif
+                                      );
+                                      
+      seissol::initializers::LTSTree<LTS>* ltsTree = m_memoryManager.getLtsTree();
+      
+      o_dofs          = ltsTree->var<LTS::Dofs>();
+      o_buffers       = ltsTree->var<LTS::Buffers>();
+      o_derivatives   = ltsTree->var<LTS::Derivatives>();
+      o_faceNeighbors = ltsTree->var<LTS::FaceNeighbors>();
+      o_Energy        = ltsTree->var<LTS::Energy>();
+      o_pstrain       = ltsTree->var<LTS::PStrain>();
     }
     
     /// Pass through ltsTree from MemoryManager
