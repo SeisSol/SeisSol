@@ -733,8 +733,8 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
   
   // iterate over clusters
   
-  real** buffers = layer.var(m_lts.buffers);
-  real** derivatives = layer.var(m_lts.derivatives);
+  real** buffers = m_ltsTree.var(m_lts.buffers);          // faceNeighborIds are ltsIds and not layer-local
+  real** derivatives = m_ltsTree.var(m_lts.derivatives);  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
     
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {

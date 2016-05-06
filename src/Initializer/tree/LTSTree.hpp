@@ -72,11 +72,8 @@ public:
   
   void fixate() {
     setPostOrderPointers();
-    unsigned ltsIdStart = 0;
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->allocatePointerArrays(varInfo.size(), bucketInfo.size());
-      it->setLtsIdStart(ltsIdStart);
-      ltsIdStart += it->getNumberOfCells();
     }
   }
   
@@ -124,9 +121,12 @@ public:
     std::vector<size_t> variableSizes(varInfo.size(), 0);
     std::vector<size_t> bucketSizes(bucketInfo.size(), 0);
     
+    unsigned ltsIdStart = 0;
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->addVariableSizes(varInfo, variableSizes);
       it->addBucketSizes(bucketSizes);
+      it->setLtsIdStart(ltsIdStart);
+      ltsIdStart += it->getNumberOfCells();
     }
 
     for (unsigned var = 0; var < varInfo.size(); ++var) {
