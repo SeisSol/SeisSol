@@ -222,19 +222,25 @@ class seissol::time_stepping::TimeManager {
 #endif
                                       );
                                       
-      seissol::initializers::LTSTree<LTS>* ltsTree = m_memoryManager.getLtsTree();
+      seissol::initializers::LTSTree* ltsTree = getLtsTree();
+      seissol::initializers::LTS* lts = getLts();
       
-      o_dofs          = ltsTree->var<LTS::Dofs>();
-      o_buffers       = ltsTree->var<LTS::Buffers>();
-      o_derivatives   = ltsTree->var<LTS::Derivatives>();
-      o_faceNeighbors = ltsTree->var<LTS::FaceNeighbors>();
-      o_Energy        = ltsTree->var<LTS::Energy>();
-      o_pstrain       = ltsTree->var<LTS::PStrain>();
+      o_dofs          = ltsTree->var(lts->dofs);
+      o_buffers       = ltsTree->var(lts->buffers);
+      o_derivatives   = ltsTree->var(lts->derivatives);
+      o_faceNeighbors = ltsTree->var(lts->faceNeighbors);
+      o_Energy        = ltsTree->var(lts->energy);
+      o_pstrain       = ltsTree->var(lts->pstrain);
     }
     
     /// Pass through ltsTree from MemoryManager
-    inline seissol::initializers::LTSTree<LTS>* getLtsTree() {
+    inline seissol::initializers::LTSTree* getLtsTree() {
       return m_memoryManager.getLtsTree();
+    }
+    
+    /// Pass through lts from MemoryManager
+    inline seissol::initializers::LTS* getLts() {
+      return m_memoryManager.getLts();
     }
 
     /**

@@ -195,6 +195,8 @@ void seissol::initializers::time_stepping::LtsLayout::derivePlainGhost() {
   MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
                l_requests,                       // array of requests
                MPI_STATUS_IGNORE );              // mpi status
+               
+  delete[] l_requests;
 #endif // USE_MPI
 
   // free memory

@@ -203,7 +203,8 @@ class seissol::initializers::MemoryManager {
 #endif
     
     //! Memory organisation tree
-    LTSTree<LTS>          m_ltsTree;
+    LTSTree               m_ltsTree;
+    LTS                   m_lts;
     
     
 
@@ -263,7 +264,7 @@ class seissol::initializers::MemoryManager {
      * Initializes the face neighbor pointers of the internal state.
      **/
     void initializeFaceNeighbors( unsigned    cluster,
-                                  Layer<LTS>& layer);
+                                  Layer& layer);
 
     /**
      * Initializes the pointers of the internal state.
@@ -275,7 +276,7 @@ class seissol::initializers::MemoryManager {
      *
      * @param layer which is touched.
      **/
-    void touchBuffersDerivatives( Layer<LTS>& layer );
+    void touchBuffersDerivatives( Layer& layer );
 
 #ifdef USE_MPI
     /**
@@ -336,8 +337,12 @@ class seissol::initializers::MemoryManager {
 #endif
                         );
                           
-    inline LTSTree<LTS>* getLtsTree() {
+    inline LTSTree* getLtsTree() {
       return &m_ltsTree;
+    }
+                          
+    inline LTS* getLts() {
+      return &m_lts;
     }
 };
 

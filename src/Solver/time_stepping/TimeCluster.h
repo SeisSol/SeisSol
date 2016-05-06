@@ -171,7 +171,8 @@ private:
     //! cell local information in the interior
     struct CellLocalInformation *m_interiorCellInformation;
     
-    seissol::initializers::TimeCluster<LTS>* m_clusterData;
+    seissol::initializers::TimeCluster* m_clusterData;
+    seissol::initializers::LTS*         m_lts;
 
     //! receivers
     std::vector< int > m_receivers;
@@ -275,7 +276,7 @@ private:
      **/
     void computeLocalIntegration( unsigned int           i_numberOfCells,
                                   CellLocalInformation  *i_cellInformation,
-                                  seissol::initializers::Layer<LTS>&  i_layerData );
+                                  seissol::initializers::Layer&  i_layerData );
 
     /**
      * Computes the contribution of the neighboring cells to the boundary integral.
@@ -291,7 +292,7 @@ private:
      **/
     void computeNeighboringIntegration( unsigned int            i_numberOfCells,
                                         CellLocalInformation   *i_cellInformation,
-                                        seissol::initializers::Layer<LTS>&  i_layerData );
+                                        seissol::initializers::Layer&  i_layerData );
 
     void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
                                         CellLocalInformation const* cellInformation,
@@ -387,7 +388,8 @@ private:
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                  struct GlobalData             *i_globalDataCopies,
 #endif
-                 seissol::initializers::TimeCluster<LTS>* i_clusterData );
+                 seissol::initializers::TimeCluster* i_clusterData,
+                 seissol::initializers::LTS*         i_lts );
 
     /**
      * Destructor of a LTS cluster.

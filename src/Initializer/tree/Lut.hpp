@@ -41,104 +41,79 @@
 #ifndef INITIALIZER_TREE_LUT_HPP_
 #define INITIALIZER_TREE_LUT_HPP_
 
-#include "foreach.hpp"
 #include "LTSTree.hpp"
 
 #include <Initializer/MemoryAllocator.h>
 
 namespace seissol {
   namespace initializers {
-    template<typename Spec>
-    class Lut {
-    private:
-      unsigned*                         m_ltsToMesh;
-      unsigned*                         m_meshToCell[1 << Spec::NUM_LAYERS];
-      LTSTree<Spec>*                    m_ltsTree;
-      seissol::memory::ManagedAllocator m_allocator;
-      
-      typedef BoolToType<true> ContinueRecursion;
-      typedef BoolToType<false>  TerminateRecursion;
-      template<unsigned INDEX, unsigned LAYER>
-      static unsigned calcLutNumber(ContinueRecursion) {
-        return (Spec::Available[INDEX][LAYER] << LAYER) | calcLutNumber<INDEX, LAYER+1>(BoolToType<LAYER+1 < Spec::NUM_LAYERS>());
-      };
-      
-      template<unsigned INDEX, unsigned LAYER>
-      static unsigned calcLutNumber(TerminateRecursion) {
-        return 0;
-      };
-
-      template<unsigned INDEX>
-      static unsigned lutNumber() {
-        return calcLutNumber<INDEX, 0>(BoolToType<0 < Spec::NUM_LAYERS>());
-      }
-      
-      /// \todo Could be generalized to work with any tree
-      template<unsigned INDEX>
-      struct createLutForIndex {
-        void operator()(  Lut<Spec>*            self,
-                          unsigned              numberOfMeshIds  ) const {
-          unsigned const lut = lutNumber<INDEX>();
-          if (self->m_meshToCell[lut] == NULL) {
-            unsigned startLtsId = 0;
-            unsigned offset = 0;
-            self->m_meshToCell[lut] = static_cast<unsigned*>(self->m_allocator.allocateMemory(numberOfMeshIds * sizeof(unsigned)));
-            std::fill(self->m_meshToCell[lut], self->m_meshToCell[lut] + numberOfMeshIds, std::numeric_limits<unsigned>::max());
-            
-            // Every time cluster
-            for (unsigned tc = 0; tc < self->m_ltsTree->numChildren(); ++tc) {
-              TimeCluster<Spec> const& cluster = self->m_ltsTree->child(tc);
-              // Every layer
-              for (unsigned l = 0; l < cluster.numChildren(); ++l) {
-                Layer<Spec> const& layer = cluster.child(l);
-                // If data is saved on layer
-                if (Spec::Available[INDEX][l]) {
-                  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {      
-                    unsigned meshId = self->m_ltsToMesh[startLtsId + cell];
-                    if (meshId != std::numeric_limits<unsigned>::max()) {
-                      self->m_meshToCell[lut][meshId] = offset + cell;
-                    }
-                  }
-                  offset += layer.getNumberOfCells();
-                }
-                startLtsId += layer.getNumberOfCells();
-              }
-            }
-          }
-        }
-      };
-
-    public:
-      Lut() : m_ltsToMesh(NULL), m_ltsTree(NULL) {
-        for (unsigned i = 0; i < (1 << Spec::NUM_LAYERS); ++i) {
-          m_meshToCell[i] = NULL;
-        }
-      }
-      
-      /// \todo Could be generalized to work with any tree
-      void createLuts(  LTSTree<Spec>*  ltsTree,
-                        unsigned*       ltsToMesh,
-                        unsigned        numberOfCells,
-                        unsigned        numberOfMeshIds ) {
-        assert(numberOfCells == ltstree->getNumberOfCells());
-
-        m_ltsToMesh = static_cast<unsigned*>(m_allocator.allocateMemory(numberOfCells * sizeof(unsigned)));
-        std::copy(ltsToMesh, ltsToMesh + numberOfCells, m_ltsToMesh);
-        m_ltsTree = ltsTree;
-        ForEachClassMethod<createLutForIndex, Spec::NUM_VARIABLES>(this, numberOfMeshIds);
-      }
-      
-      inline unsigned meshId(unsigned ltsId) const {
-        return m_ltsToMesh[ltsId];
-      }
-      
-      template<unsigned INDEX>
-      typename get_type<typename Spec::Types, INDEX>::type& lookup(unsigned meshId) {
-        unsigned offset = m_meshToCell[lutNumber<INDEX>()][meshId];
-        return m_ltsTree->template var<INDEX>()[offset];
-      }
-    };
+    class Lut;
   }
 }
+
+class seissol::initializers::Lut {
+private:
+  unsigned*                         m_ltsToMesh;
+  unsigned*                         m_meshToCell[1 << NUMBER_OF_LAYERS];
+  LTSTree*                          m_ltsTree;
+  seissol::memory::ManagedAllocator m_allocator;
+
+public:
+  Lut() : m_ltsToMesh(NULL), m_ltsTree(NULL) {
+    for (unsigned i = 0; i < (1 << NUMBER_OF_LAYERS); ++i) {
+      m_meshToCell[i] = NULL;
+    }
+  }
+
+  void createLuts(  LTSTree*        ltsTree,
+                    unsigned*       ltsToMesh,
+                    unsigned        numberOfCells,
+                    unsigned        numberOfMeshIds ) {
+    assert(numberOfCells == ltsTree->getNumberOfCells());
+
+    m_ltsToMesh = static_cast<unsigned*>(m_allocator.allocateMemory(numberOfCells * sizeof(unsigned)));
+    std::copy(ltsToMesh, ltsToMesh + numberOfCells, m_ltsToMesh);
+    m_ltsTree = ltsTree;
+    
+    for (unsigned var = 0; var < m_ltsTree->getNumberOfVariables(); ++var) {
+      LayerMask mask = m_ltsTree->info(var).mask;
+      unsigned*& meshToCell = m_meshToCell[mask.to_ulong()];
+      if (meshToCell == NULL) {
+        unsigned startLtsId = 0;
+        unsigned offset = 0;
+        meshToCell = static_cast<unsigned*>(m_allocator.allocateMemory(numberOfMeshIds * sizeof(unsigned)));
+        std::fill(meshToCell, meshToCell + numberOfMeshIds, std::numeric_limits<unsigned>::max());
+        
+        for (LTSTree::leaf_iterator it = m_ltsTree->beginLeaf(); it != m_ltsTree->endLeaf(); ++it) {
+          if (!it->isMasked(mask)) {
+            for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {      
+              unsigned meshId = m_ltsToMesh[startLtsId + cell];
+              if (meshId != std::numeric_limits<unsigned>::max()) {
+                meshToCell[meshId] = offset + cell;
+              }
+            }
+            offset += it->getNumberOfCells();
+          }
+          startLtsId += it->getNumberOfCells();
+        }
+      }
+    }
+  }
+  
+  inline unsigned meshId(unsigned ltsId) const {
+    return m_ltsToMesh[ltsId];
+  }
+  
+  template<typename T>
+  unsigned* getMeshToCellLut(Variable<T>& handle) {
+    return m_meshToCell[ m_ltsTree->info(handle.index).mask.to_ulong() ];
+  }
+  
+  template<typename T>
+  T& lookup(Variable<T>& handle, unsigned meshId) {
+    unsigned offset = getMeshToCellLut(handle)[meshId];
+    return m_ltsTree->var(handle)[offset];
+  }
+};
 
 #endif

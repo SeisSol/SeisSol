@@ -126,10 +126,11 @@ class seissol::Interoperability {
     //! Plasticity strain output
     real (*m_pstrain)[7];
     
-    seissol::initializers::LTSTree<LTS>*  m_ltsTree;
+    seissol::initializers::LTSTree*   m_ltsTree;
+    seissol::initializers::LTS*       m_lts;
 
     //! Lookup table relating mesh to cells
-    seissol::initializers::Lut<LTS>       m_ltsLut;
+    seissol::initializers::Lut        m_ltsLut;
 
  public:
    /**

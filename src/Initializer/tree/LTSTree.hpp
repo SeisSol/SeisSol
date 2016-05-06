@@ -41,182 +41,172 @@
 #ifndef INITIALIZER_TREE_LTSTREE_HPP_
 #define INITIALIZER_TREE_LTSTREE_HPP_
 
-#include "typelist.hpp"
-#include "foreach.hpp"
 #include "Node.hpp"
+#include "Layer.hpp"
+#include "TimeCluster.hpp"
 
 #include <Initializer/MemoryAllocator.h>
 
-#include <cstring>
-
 namespace seissol {
   namespace initializers {
-    template<typename Spec>
-    class Layer {
-    private:
-      unsigned m_layer;
-      unsigned m_numberOfCells;
-      void* m_vars[Spec::NUM_VARIABLES];
-      void* m_buckets[Spec::NUM_BUCKETS];
-      size_t m_bucketSizes[Spec::NUM_BUCKETS];
-
-    public:
-      Layer() : m_layer(-1), m_numberOfCells(0) {    
-        for (unsigned bucket = 0; bucket < Spec::NUM_BUCKETS; ++bucket) {
-          m_bucketSizes[bucket] = 0;
-        }
-      }
-
-      template<unsigned INDEX>
-      typename get_type<typename Spec::Types, INDEX>::type* var() {
-        return static_cast<typename get_type<typename Spec::Types, INDEX>::type*>(m_vars[INDEX]);
-      }
-
-      inline unsigned getLayerType() const {
-        return m_layer;
-      }      
-
-      inline void setLayerType(unsigned layerType) {
-        m_layer = layerType;
-      }
-      
-      inline unsigned getNumberOfCells() const {
-        return m_numberOfCells;
-      }
-      
-      inline void setNumberOfCells(unsigned numberOfCells) {
-        m_numberOfCells = numberOfCells;
-      }
-      
-      inline void* bucket(unsigned index) {
-        return m_buckets[index];
-      }
-      
-      inline void setBucketSize(unsigned index, size_t size) {
-        m_bucketSizes[index] = size;
-      }
-      
-      void addBytes(size_t varBytes[Spec::NUM_VARIABLES], size_t bucketBytes[Spec::NUM_BUCKETS]) {
-        ForEachClassMethod<addBytesForIndex, Spec::NUM_VARIABLES>(this, varBytes);
-        for (unsigned bucket = 0; bucket < Spec::NUM_BUCKETS; ++bucket) {
-          bucketBytes[bucket] += m_bucketSizes[bucket];
-        }
-      }
-
-      template<unsigned INDEX>
-      struct addBytesForIndex {
-        void operator()(Layer<Spec>* self, size_t varBytes[Spec::NUM_VARIABLES]) const {
-          if (Spec::Available[INDEX][self->m_layer]) {
-            varBytes[INDEX] += sizeof(typename get_type<typename Spec::Types, INDEX>::type) * self->m_numberOfCells;
-          }
-        }
-      };
-      
-      void setMemoryRegions(void* vars[Spec::NUM_VARIABLES], void* buckets[Spec::NUM_BUCKETS]) {
-        ForEachClassMethod<setMemoryRegionForIndex, Spec::NUM_VARIABLES>(this, vars);
-        for (unsigned b = 0; b < Spec::NUM_BUCKETS; ++b) {
-          m_buckets[b] = (m_bucketSizes[b] != 0) ? buckets[b] : NULL;
-        }
-      }
-      
-      template<unsigned INDEX>
-      struct setMemoryRegionForIndex {
-        void operator()(Layer<Spec>* self, void* vars[Spec::NUM_VARIABLES]) const {
-          self->m_vars[INDEX] = (Spec::Available[INDEX][self->m_layer]) ? vars[INDEX] : NULL;
-        }
-      };
-      
-      void touch() {
-        ForEachClassMethod<touchForIndex, Spec::NUM_VARIABLES>(this);
-      }
-      
-      template<unsigned INDEX>
-      struct touchForIndex {
-        void operator()(Layer<Spec>* self) const {
-          if (Spec::Available[INDEX][self->m_layer]) {
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-            for (unsigned cell = 0; cell < self->m_numberOfCells; ++cell) {
-              memset(self->var<INDEX>() + cell, 0, sizeof(typename get_type<typename Spec::Types, INDEX>::type));
-            }
-          }
-        }
-      };
-    };
-
-    template<typename Spec>
-    class TimeCluster : public Node<Layer<Spec>, Spec::NUM_LAYERS, Spec::NUM_VARIABLES, Spec::NUM_BUCKETS> {
-    public: 
-      TimeCluster() {
-        this->m_children[0].setLayerType(Spec::Ghost);
-        this->m_children[1].setLayerType(Spec::Copy);
-        this->m_children[2].setLayerType(Spec::Interior);
-      }
-    };
-
-    template<typename Spec>
-    class LTSTree : public Node<TimeCluster<Spec>, 0, Spec::NUM_VARIABLES, Spec::NUM_BUCKETS> {
-    private:
-      void* m_vars[Spec::NUM_VARIABLES];
-      void* m_buckets[Spec::NUM_BUCKETS];
-      unsigned m_numberOfClusters;
-      seissol::memory::ManagedAllocator m_allocator;
-
-    public:
-      LTSTree() {
-        for (unsigned i = 0; i < Spec::NUM_VARIABLES; ++i) {
-          m_vars[i] = NULL;
-        }
-        for (unsigned i = 0; i < Spec::NUM_BUCKETS; ++i) {
-          m_buckets[i] = NULL;
-        }
-      }
-      
-      /// \todo remove and replace by a proper concept
-      template<unsigned INDEX>
-      typename get_type<typename Spec::Types, INDEX>::type* var() {
-        return static_cast<typename get_type<typename Spec::Types, INDEX>::type*>(m_vars[INDEX]);
-      }
-      
-      inline void setNumberOfTimeClusters(unsigned numberOfTimeClusters) {
-        this->m_children.allocate(numberOfTimeClusters);
-      }
-      
-      void printRequiredMemory() {
-        size_t varBytes[Spec::NUM_VARIABLES] = {0};
-        size_t bucketBytes[Spec::NUM_BUCKETS] = {0};
-        addBytes(varBytes, bucketBytes);
-        
-        size_t total = 0;
-        for (unsigned i = 0; i < Spec::NUM_VARIABLES; ++i) {
-          std::cout << "Var " << i << ": " << varBytes[i] << std::endl;
-          total += varBytes[i];
-        }
-        
-        for (unsigned i = 0; i < Spec::NUM_BUCKETS; ++i) {
-          std::cout << "Bucket " << i << ": " << bucketBytes[i] << std::endl;
-          total += bucketBytes[i];
-        }
-        
-        std::cout << total / 1073741824.0 << " GiB" << std::endl;
-      }
-      
-      void allocateMemory() {
-        size_t varBytes[Spec::NUM_VARIABLES] = {0};
-        size_t bucketBytes[Spec::NUM_BUCKETS] = {0};
-        addBytes(varBytes, bucketBytes);
-        for (unsigned i = 0; i < Spec::NUM_VARIABLES; ++i) {
-          m_vars[i] = m_allocator.allocateMemory(varBytes[i], Spec::VarAlignment[i], Spec::VarMemkind[i]);
-        }
-        for (unsigned i = 0; i < Spec::NUM_BUCKETS; ++i) {
-          m_buckets[i] = m_allocator.allocateMemory(bucketBytes[i], Spec::BucketAlignment[i], Spec::BucketMemkind[i]);
-        }
-            
-        setMemoryRegions(m_vars, m_buckets);
-      }
-    };
+    class LTSTree;
   }
 }
+
+class seissol::initializers::LTSTree : public seissol::initializers::Node {
+private:
+  void** m_vars;
+  void** m_buckets;
+  std::vector<MemoryInfo> varInfo;
+  std::vector<MemoryInfo> bucketInfo;
+  seissol::memory::ManagedAllocator m_allocator;
+
+public:
+  LTSTree() : m_vars(NULL), m_buckets(NULL) {}
+  
+  ~LTSTree() { delete[] m_vars; delete[] m_buckets; }
+  
+  void setNumberOfTimeClusters(unsigned numberOfTimeCluster) {
+    setChildren<TimeCluster>(numberOfTimeCluster);
+  }
+  
+  void fixate() {
+    setPostOrderPointers();
+    unsigned ltsIdStart = 0;
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      it->allocatePointerArrays(varInfo.size(), bucketInfo.size());
+      it->setLtsIdStart(ltsIdStart);
+      ltsIdStart += it->getNumberOfCells();
+    }
+  }
+  
+  inline TimeCluster& child(unsigned index) {
+    return *static_cast<TimeCluster*>(m_children[index]);
+  }
+  
+  /// \todo remove?
+  template<typename T>
+  T* var(Variable<T> const& handle) {
+    assert(m_vars != NULL/* && m_vars[handle.index] != NULL*/);
+    return static_cast<T*>(m_vars[handle.index]);
+  }
+
+  MemoryInfo const& info(unsigned index) const {
+    return varInfo[index];
+  }
+  
+  inline unsigned getNumberOfVariables() const {
+    return varInfo.size();
+  }
+  
+  template<typename T>
+  void addVar(Variable<T>& handle, LayerMask mask, size_t alignment, seissol::memory::Memkind memkind) {
+    handle.index = varInfo.size();
+    MemoryInfo m;
+    m.bytes = sizeof(T);
+    m.alignment = alignment;
+    m.mask = mask;
+    m.memkind = memkind;
+    varInfo.push_back(m);
+  }
+  
+  void addBucket(Bucket& handle, size_t alignment, seissol::memory::Memkind memkind) {
+    handle.index = bucketInfo.size();
+    MemoryInfo m;
+    m.alignment = alignment;
+    m.memkind = memkind;
+    bucketInfo.push_back(m);
+  }
+  
+  void allocateMemory() {
+    m_vars = new void*[varInfo.size()];
+    m_buckets = new void*[bucketInfo.size()];
+    std::vector<size_t> variableSizes(varInfo.size(), 0);
+    std::vector<size_t> bucketSizes(bucketInfo.size(), 0);
+    
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      it->addVariableSizes(varInfo, variableSizes);
+      it->addBucketSizes(bucketSizes);
+    }
+
+    for (unsigned var = 0; var < varInfo.size(); ++var) {
+      m_vars[var] = m_allocator.allocateMemory(variableSizes[var], varInfo[var].alignment, varInfo[var].memkind);
+    }
+    for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
+      m_buckets[bucket] = m_allocator.allocateMemory(bucketSizes[bucket], bucketInfo[bucket].alignment, bucketInfo[bucket].memkind);
+    }
+    
+    std::fill(variableSizes.begin(), variableSizes.end(), 0);
+    std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      it->setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
+      it->addVariableSizes(varInfo, variableSizes);
+      it->setMemoryRegionsForBuckets(m_buckets, bucketSizes);
+      it->addBucketSizes(bucketSizes);
+    }
+  }
+  
+  void touch() {
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      it->touch(varInfo);
+    }
+  }
+  
+  unsigned getNumberOfCells() {
+    unsigned numCells = 0;
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      numCells += it->getNumberOfCells();
+    }
+    return numCells;
+  }
+  
+  class leaf_iterator : public iterator {
+    friend class LTSTree;
+
+  private:
+    LayerMask m_layerMask;
+    
+    inline void nextLeaf() {
+      do {
+        m_node = m_node->m_next;
+      } while (m_node != NULL && !m_node->isLeaf());
+    }
+
+    // m_node must point to a leaf or NULL
+    inline void skipMaskedLayer() {
+      while (m_node != NULL && operator*().isMasked(m_layerMask)) {
+        nextLeaf();
+      }
+    }
+
+  public:
+    leaf_iterator() : iterator() {}
+    leaf_iterator(iterator const& it, LayerMask layerMask) : iterator(it), m_layerMask(layerMask) {}
+
+    inline iterator& operator++() {
+      nextLeaf();
+      skipMaskedLayer();
+      return *this;
+    }
+    
+    inline Layer& operator*() {
+      return *static_cast<Layer*>(m_node);
+    }
+    
+    inline Layer* operator->() {
+      return static_cast<Layer*>(m_node);
+    }
+  };
+
+  inline leaf_iterator beginLeaf(LayerMask layerMask = LayerMask()) {
+    leaf_iterator it = leaf_iterator(begin(), layerMask);
+    it.skipMaskedLayer();
+    return it;
+  }
+  
+  inline leaf_iterator endLeaf() {
+    return leaf_iterator();
+  }
+};
 
 #endif

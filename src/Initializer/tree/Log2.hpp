@@ -35,47 +35,26 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Typelists. See Andrei Alexandrescu -- Modern C++ Design.
  **/
 
-#ifndef INITIALIZER_TREE_TYPELIST_HPP_
-#define INITIALIZER_TREE_TYPELIST_HPP_ 
+#ifndef INITIALIZER_TREE_LOG2_HPP_
+#define INITIALIZER_TREE_LOG2_HPP_
 
-struct null_type {};
-
-template<typename T, typename U>
-struct typelist {
-  typedef T type;
-  typedef U next_type;
+namespace seissol {
+  namespace initializers {
+    template<unsigned N> struct Log2;
+  };
 };
 
-template<typename T, int INDEX>
-struct get_type {
-  typedef typename get_type<typename T::next_type, INDEX-1>::type type;
+template<unsigned N>
+struct seissol::initializers::Log2 {
+  static unsigned const Result = 1 + Log2<(N >> 1)>::Result;
 };
 
-template<typename T>
-struct get_type<T, 0> {
-  typedef typename T::type type;
-};
-
-template<
-  typename T1 = null_type, typename T2 = null_type, typename T3 = null_type,
-  typename T4 = null_type, typename T5 = null_type, typename T6 = null_type,
-  typename T7 = null_type, typename T8 = null_type, typename T9 = null_type,
-  typename T10 = null_type, typename T11 = null_type, typename T12 = null_type,
-  typename T13 = null_type, typename T14 = null_type, typename T15 = null_type
->
-class make_typelist {
-private:
-  typedef typename make_typelist<T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>::result tail;
-public:
-  typedef typelist<T1, tail> result;
-};
 template<>
-class make_typelist<> {
-public:
-  typedef null_type result;
+struct seissol::initializers::Log2<1> {
+  static unsigned const Result = 0;
 };
+
 
 #endif

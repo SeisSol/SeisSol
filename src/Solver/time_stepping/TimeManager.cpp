@@ -140,7 +140,9 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                            l_globalDataCopies,
 #endif
-                                           &getLtsTree()->child(l_cluster)) );
+                                           &getLtsTree()->child(l_cluster),
+                                           getLts() )
+                        );
   }
 }
 

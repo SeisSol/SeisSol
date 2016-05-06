@@ -41,54 +41,46 @@
 #define INITIALIZER_LTS_H_
 
 #include <Initializer/typedefs.hpp>
-#include <Initializer/tree/typelist.hpp>
-#include <Initializer/MemoryAllocator.h>
+#include <Initializer/tree/LTSTree.hpp>
 
-struct LTS {
-  enum Layers {
-    Ghost = 0,
-    Copy,
-    Interior,
-    NUM_LAYERS
-  };
+namespace seissol {
+  namespace initializers {
+    struct LTS;
+  }
+}
 
-  enum Variables {
-    Dofs = 0,
-    Buffers,
-    Derivatives,
-    FaceNeighbors,
-    LocalIntegration,
-    NeighboringIntegration,
-    Material,
-    Plasticity,
-    Energy,
-    PStrain,
-    NUM_VARIABLES
-  };
+struct seissol::initializers::LTS {
+  Variable<real[NUMBER_OF_ALIGNED_DOFS]>  dofs;
+  Variable<real*>                         buffers;
+  Variable<real*>                         derivatives;
+  Variable<real*[4]>                      faceNeighbors;
+  Variable<LocalIntegrationData>          localIntegration;
+  Variable<NeighboringIntegrationData>    neighboringIntegration;
+  Variable<CellMaterialData>              material;
+  Variable<PlasticityData>                plasticity;
+  Variable<real[3]>                       energy;
+  Variable<real[7]>                       pstrain;
+  Bucket                                  buffersDerivatives;
   
-  typedef make_typelist<  real[NUMBER_OF_ALIGNED_DOFS],   // Dofs
-                          real*,                          // Buffers
-                          real*,                          // Derivatives
-                          real*[4],                       // FaceNeighbors
-                          LocalIntegrationData,           // LocalIntegration
-                          NeighboringIntegrationData,     // NeighboringIntegration
-                          CellMaterialData,               // Material
-                          PlasticityData,                 // Plasticity
-                          real[3],                        // Energy
-                          real[7]                         // PStrain
-                       >::result Types;
-  
-  static bool const Available[][NUM_LAYERS];
-  static size_t const VarAlignment[];
-  static enum seissol::memory::Memkind const VarMemkind[];
-
-  enum Buckets {
-    buffersDerivatives = 0,
-    NUM_BUCKETS
-  };
-  
-  static size_t const BucketAlignment[];
-  static enum seissol::memory::Memkind const BucketMemkind[];
+  /// \todo Memkind
+  void addTo(LTSTree& tree) {
+#ifdef USE_PLASTICITY
+    LayerMask plasticityMask = LayerMask(Ghost);
+#else
+    LayerMask plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+#endif
+    tree.addVar(                    dofs, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
+    tree.addVar(                 buffers,      LayerMask(),                 1,      seissol::memory::Standard );
+    tree.addVar(             derivatives,      LayerMask(),                 1,      seissol::memory::Standard );
+    tree.addVar(           faceNeighbors, LayerMask(Ghost),                 1,      seissol::memory::Standard );
+    tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      seissol::memory::Standard );
+    tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      seissol::memory::Standard );
+    tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
+    tree.addVar(              plasticity,   plasticityMask,                 1,      seissol::memory::Standard );
+    tree.addVar(                  energy,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
+    tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
+    
+    tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      seissol::memory::Standard );
+  }
 };
-
 #endif

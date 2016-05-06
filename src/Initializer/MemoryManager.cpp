@@ -667,8 +667,8 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
    * ghost layer
    */
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
-    TimeCluster<LTS>& cluster = m_ltsTree.child(tc);
-    real* ghostStart = static_cast<real*>(cluster.child(LTS::Ghost).bucket(LTS::buffersDerivatives));
+    TimeCluster& cluster = m_ltsTree.child(tc);
+    real* ghostStart = static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives));
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       // set pointer to ghost region
       m_meshStructure[tc].ghostRegions[l_region] = ghostStart;
@@ -688,9 +688,11 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
 
   /*
    * copy layer
-   */
+   */   
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
-    Layer<LTS>& copy = m_ltsTree.child(tc).child(LTS::Copy);
+    Layer& copy = m_ltsTree.child(tc).child<Copy>();
+    real** buffers = copy.var(m_lts.buffers);
+    real** derivatives = copy.var(m_lts.derivatives);
     // copy region offset
     unsigned int l_offset = 0;
 
@@ -704,10 +706,10 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
 
       // set pointer to copy region start
       if( l_numberOfBuffers > 0 ) {
-        m_meshStructure[tc].copyRegions[l_region] = copy.var<LTS::Buffers>()[l_numberOfDerivatives + l_offset];
+        m_meshStructure[tc].copyRegions[l_region] = buffers[l_numberOfDerivatives + l_offset];
       }
       else {
-        m_meshStructure[tc].copyRegions[l_region] = copy.var<LTS::Derivatives>()[l_offset];
+        m_meshStructure[tc].copyRegions[l_region] = derivatives[l_offset];
       }
 
       // assert the pointer is set
@@ -725,42 +727,46 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
 #endif
 
 void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    cluster,
-                                                                    Layer<LTS>& layer )
+                                                                    Layer&      layer )
 {
-  assert(layer.getLayerType() == LTS::Copy || layer.getLayerType() == LTS::Interior);
+  assert(layer.getLayerType() == Copy || layer.getLayerType() == Interior);
   
   // iterate over clusters
+  
+  real** buffers = layer.var(m_lts.buffers);
+  real** derivatives = layer.var(m_lts.derivatives);
+  real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
     
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    CellLocalInformation* cellInformation = (layer.getLayerType() == LTS::Copy) ? m_copyCellInformation[cluster] + cell : m_interiorCellInformation[cluster] + cell;
+    CellLocalInformation* cellInformation = (layer.getLayerType() == Copy) ? m_copyCellInformation[cluster] + cell : m_interiorCellInformation[cluster] + cell;
     for (unsigned face = 0; face < 4; ++face) {
       if (  cellInformation->faceTypes[face] == regular
          || cellInformation->faceTypes[face] == periodic
          || cellInformation->faceTypes[face] == dynamicRupture ) {
         // neighboring cell provides derivatives
         if( (cellInformation->ltsSetup >> face) % 2 ) {
-          layer.var<LTS::FaceNeighbors>()[cell][face] = m_ltsTree.var<LTS::Derivatives>()[ cellInformation->faceNeighborIds[face] ];
+          faceNeighbors[cell][face] = derivatives[ cellInformation->faceNeighborIds[face] ];
         }
         // neighboring cell provides a time buffer
         else {
-          layer.var<LTS::FaceNeighbors>()[cell][face] = m_ltsTree.var<LTS::Buffers>()[ cellInformation->faceNeighborIds[face] ];
+          faceNeighbors[cell][face] = buffers[ cellInformation->faceNeighborIds[face] ];
         }
-        assert( layer.var<LTS::FaceNeighbors>()[cell][face] != NULL );
+        assert( faceNeighbors[cell][face] != NULL );
       }
       // free surface boundary
       else if( cellInformation->faceTypes[face] == freeSurface ) {
         if( (cellInformation->ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
-          layer.var<LTS::FaceNeighbors>()[cell][face] = layer.var<LTS::Buffers>()[cell];
+          faceNeighbors[cell][face] = buffers[cell];
         }
         else { // free surface on derivatives
-          layer.var<LTS::FaceNeighbors>()[cell][face] = layer.var<LTS::Derivatives>()[cell];
+          faceNeighbors[cell][face] = derivatives[cell];
         }
-        assert( layer.var<LTS::FaceNeighbors>()[cell][face] != NULL );
+        assert( faceNeighbors[cell][face] != NULL );
       }
       // absorbing
       else if( cellInformation->faceTypes[face] == outflow ) {
         // NULL pointer; absorbing: data is not used
-        assert( layer.var<LTS::FaceNeighbors>()[cell][face] = NULL );
+        assert( faceNeighbors[cell][face] = NULL );
       }
       else {
         // assert all cases are covered
@@ -773,7 +779,7 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
   // initialize the pointers of the internal state
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
-    TimeCluster<LTS>& cluster = m_ltsTree.child(tc);
+    TimeCluster& cluster = m_ltsTree.child(tc);
 #ifdef USE_MPI
     /*
      * ghost layer
@@ -783,9 +789,9 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
                                        m_ghostCellInformation[tc],
                                        m_numberOfGhostRegionBuffers[tc],
                                        m_numberOfGhostRegionDerivatives[tc],
-                                       static_cast<real*>(cluster.child(LTS::Ghost).bucket(LTS::buffersDerivatives)),
-                                       cluster.child(LTS::Ghost).var<LTS::Buffers>(),
-                                       cluster.child(LTS::Ghost).var<LTS::Derivatives>() );
+                                       static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives)),
+                                       cluster.child<Ghost>().var(m_lts.buffers),
+                                       cluster.child<Ghost>().var(m_lts.derivatives) );
 
     /*
      * Copy layer
@@ -795,9 +801,9 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
                                        m_copyCellInformation[tc],
                                        m_numberOfCopyRegionBuffers[tc],
                                        m_numberOfCopyRegionDerivatives[tc],
-                                       static_cast<real*>(cluster.child(LTS::Copy).bucket(LTS::buffersDerivatives)),
-                                       cluster.child(LTS::Copy).var<LTS::Buffers>(),
-                                       cluster.child(LTS::Copy).var<LTS::Derivatives>() );
+                                       static_cast<real*>(cluster.child<Copy>().bucket(m_lts.buffersDerivatives)),
+                                       cluster.child<Copy>().var(m_lts.buffers),
+                                       cluster.child<Copy>().var(m_lts.derivatives) );
 #endif
 
     /*
@@ -807,19 +813,21 @@ void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
                                           m_interiorCellInformation[tc],
                                           m_numberOfInteriorBuffers[tc],
                                           m_numberOfInteriorDerivatives[tc],
-                                          static_cast<real*>(cluster.child(LTS::Interior).bucket(LTS::buffersDerivatives)),
-                                          cluster.child(LTS::Interior).var<LTS::Buffers>(),
-                                          cluster.child(LTS::Interior).var<LTS::Derivatives>()  );
+                                          static_cast<real*>(cluster.child<Interior>().bucket(m_lts.buffersDerivatives)),
+                                          cluster.child<Interior>().var(m_lts.buffers),
+                                          cluster.child<Interior>().var(m_lts.derivatives)  );
   }
 }
 
-void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer<LTS>& layer ) {
+void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer ) {
+  real** buffers = layer.var(m_lts.buffers);
+  real** derivatives = layer.var(m_lts.derivatives);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     // touch buffers
-    real* buffer = layer.var<LTS::Buffers>()[cell];
+    real* buffer = buffers[cell];
     if (buffer != NULL) {
       for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DOFS; ++dof) {
           // zero time integration buffers
@@ -828,7 +836,7 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer<LTS>& 
     }
 
     // touch derivatives
-    real* derivative = layer.var<LTS::Derivatives>()[cell];
+    real* derivative = derivatives[cell];
     if (derivative != NULL) {
       for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DERS; ++dof ) {
         derivative[dof] = (real) 0;
@@ -853,13 +861,19 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeSt
   // derive the layouts of the layers
   deriveLayerLayouts();
   
-  // Set number of cells and bucket sizes in ltstree
+  // Setup tree variables
+  m_lts.addTo(m_ltsTree);
   m_ltsTree.setNumberOfTimeClusters(m_numberOfClusters);
+
+  /// From this point, the tree layout, variables, and buckets cannot be changed anymore
+  m_ltsTree.fixate();
+  
+  // Set number of cells and bucket sizes in ltstree
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
-    TimeCluster<LTS>& cluster = m_ltsTree.child(tc);
-    cluster.child(LTS::Ghost).setNumberOfCells(i_meshStructure[tc].numberOfGhostCells);
-    cluster.child(LTS::Copy).setNumberOfCells(i_meshStructure[tc].numberOfCopyCells);
-    cluster.child(LTS::Interior).setNumberOfCells(i_meshStructure[tc].numberOfInteriorCells);
+    TimeCluster& cluster = m_ltsTree.child(tc);
+    cluster.child<Ghost>().setNumberOfCells(i_meshStructure[tc].numberOfGhostCells);
+    cluster.child<Copy>().setNumberOfCells(i_meshStructure[tc].numberOfCopyCells);
+    cluster.child<Interior>().setNumberOfCells(i_meshStructure[tc].numberOfInteriorCells);
     
     size_t l_ghostSize = 0;
     size_t l_copySize = 0;
@@ -876,9 +890,9 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeSt
     l_interiorSize += sizeof(real) * NUMBER_OF_ALIGNED_DOFS * m_numberOfInteriorBuffers[tc];
     l_interiorSize += sizeof(real) * NUMBER_OF_ALIGNED_DERS * m_numberOfInteriorDerivatives[tc];
     
-    cluster.child(LTS::Ghost).setBucketSize(LTS::buffersDerivatives, l_ghostSize);
-    cluster.child(LTS::Copy).setBucketSize(LTS::buffersDerivatives, l_copySize);
-    cluster.child(LTS::Interior).setBucketSize(LTS::buffersDerivatives, l_interiorSize);
+    cluster.child<Ghost>().setBucketSize(m_lts.buffersDerivatives, l_ghostSize);
+    cluster.child<Copy>().setBucketSize(m_lts.buffersDerivatives, l_copySize);
+    cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
   
   m_ltsTree.allocateMemory();
@@ -889,16 +903,13 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeSt
 
   // initialize face neighbors
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
-    TimeCluster<LTS>& cluster = m_ltsTree.child(tc);
-    initializeFaceNeighbors(tc, cluster.child(LTS::Copy));
-    initializeFaceNeighbors(tc, cluster.child(LTS::Interior));
+    TimeCluster& cluster = m_ltsTree.child(tc);
+    initializeFaceNeighbors(tc, cluster.child<Copy>());
+    initializeFaceNeighbors(tc, cluster.child<Interior>());
   }
 
-  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
-    TimeCluster<LTS>& cluster = m_ltsTree.child(tc);
-    for (unsigned l = 0; l < cluster.numChildren(); ++l) {
-      touchBuffersDerivatives(cluster.child(l));
-    }
+  for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
+    touchBuffersDerivatives(*it);
   }
 
 #ifdef USE_MPI
