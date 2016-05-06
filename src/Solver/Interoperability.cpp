@@ -447,7 +447,10 @@ void seissol::Interoperability::initializeCellLocalMatrices()
 
 void seissol::Interoperability::synchronizeCellLocalData() {
   CellMaterialData* materials = m_ltsTree->var(m_lts->material);
+#ifdef USE_PLASTICITY
   PlasticityData* plasticity = m_ltsTree->var(m_lts->plasticity);
+#endif
+
   // iterate over the mesh and set all redundant data
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)

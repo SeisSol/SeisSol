@@ -511,8 +511,10 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
   real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
   real*                     (*faceNeighbors)[4]             = i_layerData.var(m_lts->faceNeighbors);
   NeighboringIntegrationData* neighboringIntegration        = i_layerData.var(m_lts->neighboringIntegration);
+#ifdef USE_PLASTICITY
   real                      (*energy)[3]                    = i_layerData.var(m_lts->energy);
   real                      (*pstrain)[7]                   = i_layerData.var(m_lts->pstrain);
+#endif
 
   real *l_timeIntegrated[4];
 #ifdef ENABLE_MATRIX_PREFETCH

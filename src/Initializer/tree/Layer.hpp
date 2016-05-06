@@ -90,7 +90,7 @@ private:
   size_t* m_bucketSizes;
 
 public:
-  Layer() : m_numberOfCells(0), m_ltsIdStart(std::numeric_limits<unsigned>::max()), m_vars(NULL), m_buckets(NULL), m_bucketSizes(NULL) {}
+  Layer() : m_ltsIdStart(std::numeric_limits<unsigned>::max()), m_numberOfCells(0), m_vars(NULL), m_buckets(NULL), m_bucketSizes(NULL) {}
   ~Layer() { delete[] m_vars; delete[] m_buckets; delete[] m_bucketSizes; }
   
   template<typename T>

@@ -42,18 +42,16 @@
 
 namespace seissol {
   namespace initializers {
-    template<unsigned N> struct Log2;
+    template<unsigned N>
+    struct Log2 {
+      static unsigned const Result = 1 + Log2<(N >> 1)>::Result;
+    };
+
+    template<>
+    struct Log2<1> {
+      static unsigned const Result = 0;
+    };
   };
-};
-
-template<unsigned N>
-struct seissol::initializers::Log2 {
-  static unsigned const Result = 1 + Log2<(N >> 1)>::Result;
-};
-
-template<>
-struct seissol::initializers::Log2<1> {
-  static unsigned const Result = 0;
 };
 
 
