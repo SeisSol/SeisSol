@@ -69,7 +69,7 @@ def writeTimes(times):
     f.write('{:16} {:10} {:10} {:10}\n'.format('Name', 'Median', 'Mean', 'Std. dev.'))
     for name, value in sorted(times.iteritems()):
       for idx, time in sorted(value.iteritems()):
-        f.write('{:16} {:0<10.4} {:0<10.4} {:0<10.4}\n'.format(name + str(idx), median(time), mean(time), stdev(time)))
+        f.write('{:16} {:>10f} {:>10f} {:>10f}\n'.format(name + str(idx), median(time), mean(time), stdev(time)))
 
 def analyse():
   times = dict()
@@ -97,12 +97,15 @@ def analyse():
   matrices = list()
   dense = times.pop('dense').pop(0)
   denseTime = median(dense)
+  timeSaveVsDense = 0.
   for key, variants in times.iteritems():
     matrixTimes = {variant: median(timeSeries) for variant, timeSeries in variants.iteritems()}
     minTimeKey = min(matrixTimes, key=matrixTimes.get)
     if matrixTimes[minTimeKey] < denseTime:
       matrices.append((key, minTimeKey))
+      timeSaveVsDense += denseTime - matrixTimes[minTimeKey]
       
+  print('Estimated tuned time: {}'.format(denseTime - timeSaveVsDense))
   return matrices
   
 

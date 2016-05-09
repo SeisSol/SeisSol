@@ -46,7 +46,6 @@ cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--equations', required=True)
 cmdLineParser.add_argument('--order', required=True, type=int)
 cmdLineParser.add_argument('--numberOfMechanisms', type=int)
-cmdLineParser.add_argument('--libxsmmGenerator', required=True)
 cmdLineParser.add_argument('--arch', required=True)
 cmdLineParser.add_argument('--workingDir', required=True)
 cmdLineParser.add_argument('--nelem', default=10000, type=int)
@@ -93,7 +92,6 @@ options = {
   'equations':          args.equations,
   'order':              args.order,
   'numberOfMechanisms': args.numberOfMechanisms,
-  'libxsmmGenerator':   args.libxsmmGenerator,
   'arch':               args.arch,
   'compileMode':        'release',
   '--jobs':             args.ncompileJobs
