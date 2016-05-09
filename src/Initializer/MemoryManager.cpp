@@ -756,10 +756,10 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
       // free surface boundary
       else if( cellInformation->faceTypes[face] == freeSurface ) {
         if( (cellInformation->ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
-          faceNeighbors[cell][face] = buffers[cell];
+          faceNeighbors[cell][face] = buffers[layer.getLtsIdStart() + cell];
         }
         else { // free surface on derivatives
-          faceNeighbors[cell][face] = derivatives[cell];
+          faceNeighbors[cell][face] = derivatives[layer.getLtsIdStart() + cell];
         }
         assert( faceNeighbors[cell][face] != NULL );
       }
