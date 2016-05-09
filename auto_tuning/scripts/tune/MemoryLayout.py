@@ -119,7 +119,7 @@ def getGlobalMatrices(order, arch):
   noMemsetStiffnessBlocks = list()
   for i, block in enumerate(stiffnessBlocks):
     startrow = noMemsetStiffnessBlocks[i-1][1] if i > 0 else block[0]
-    stoprow = architecture.getAlignedIndex(block[1])
+    stoprow = architecture.getAlignedIndex(block[1]) if i != len(stiffnessBlocks)-1 else block[1]
     noMemsetStiffnessBlocks.append( (startrow, stoprow, block[2], block[3]) )
 
   for matrix in stiffnessMatrices:
