@@ -766,7 +766,7 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
       // absorbing
       else if( cellInformation->faceTypes[face] == outflow ) {
         // NULL pointer; absorbing: data is not used
-        assert( faceNeighbors[cell][face] = NULL );
+        faceNeighbors[cell][face] = NULL;
       }
       else {
         // assert all cases are covered
