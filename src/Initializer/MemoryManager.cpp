@@ -729,7 +729,11 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
 void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    cluster,
                                                                     Layer&      layer )
 {
+#ifdef USE_MPI
   assert(layer.getLayerType() == Copy || layer.getLayerType() == Interior);
+#else
+  assert(layer.getLayerType() == Interior);
+#endif
   
   // iterate over clusters
   
@@ -738,7 +742,11 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
   real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
     
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+#ifdef USE_MPI
     CellLocalInformation* cellInformation = (layer.getLayerType() == Copy) ? m_copyCellInformation[cluster] + cell : m_interiorCellInformation[cluster] + cell;
+#else
+    CellLocalInformation* cellInformation = m_interiorCellInformation[cluster] + cell;
+#endif
     for (unsigned face = 0; face < 4; ++face) {
       if (  cellInformation->faceTypes[face] == regular
          || cellInformation->faceTypes[face] == periodic
@@ -904,7 +912,9 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeSt
   // initialize face neighbors
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
+#ifdef USE_MPI
     initializeFaceNeighbors(tc, cluster.child<Copy>());
+#endif
     initializeFaceNeighbors(tc, cluster.child<Interior>());
   }
 
