@@ -35,7 +35,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Tree for managing lts data.
+ * Handles mapping between mesh and cells.
  **/
  
 #ifndef INITIALIZER_TREE_LUT_HPP_
@@ -47,9 +47,35 @@
 
 namespace seissol {
   namespace initializers {
+    struct DuplicatedCells;
     class Lut;
   }
 }
+
+struct seissol::initializers::DuplicatedCells {
+  unsigned*  meshIds;
+  unsigned (*duplicates)[4]; // contains lts ids
+  unsigned   numberOfDuplicates;
+  
+  unsigned findDuplicateId(unsigned meshId) const {
+    // interval [left, right)
+    unsigned left = 0;
+    unsigned right = numberOfDuplicates;
+    while (left < right) {
+      unsigned middle = (left+right) / 2;
+      if (meshId > meshIds[middle]) {
+        left = middle + 1;
+      } else if (meshId < meshIds[middle]) {
+        right = middle;
+      } else {
+        return middle;
+      }
+    }
+    return std::numeric_limits<unsigned>::max();
+  }
+  
+  DuplicatedCells() : meshIds(NULL), duplicates(NULL) {}
+};
 
 class seissol::initializers::Lut {
 private:
@@ -59,6 +85,8 @@ private:
   seissol::memory::ManagedAllocator m_allocator;
 
 public:
+  DuplicatedCells                   duplicatedCells;
+  
   Lut() : m_ltsToMesh(NULL), m_ltsTree(NULL) {
     for (unsigned i = 0; i < (1 << NUMBER_OF_LAYERS); ++i) {
       m_meshToCell[i] = NULL;
@@ -68,49 +96,19 @@ public:
   void createLuts(  LTSTree*        ltsTree,
                     unsigned*       ltsToMesh,
                     unsigned        numberOfCells,
-                    unsigned        numberOfMeshIds ) {
-    assert(numberOfCells == ltsTree->getNumberOfCells());
-
-    m_ltsToMesh = static_cast<unsigned*>(m_allocator.allocateMemory(numberOfCells * sizeof(unsigned)));
-    std::copy(ltsToMesh, ltsToMesh + numberOfCells, m_ltsToMesh);
-    m_ltsTree = ltsTree;
-    
-    for (unsigned var = 0; var < m_ltsTree->getNumberOfVariables(); ++var) {
-      LayerMask mask = m_ltsTree->info(var).mask;
-      unsigned*& meshToCell = m_meshToCell[mask.to_ulong()];
-      if (meshToCell == NULL) {
-        unsigned startLtsId = 0;
-        unsigned offset = 0;
-        meshToCell = static_cast<unsigned*>(m_allocator.allocateMemory(numberOfMeshIds * sizeof(unsigned)));
-        std::fill(meshToCell, meshToCell + numberOfMeshIds, std::numeric_limits<unsigned>::max());
-        
-        for (LTSTree::leaf_iterator it = m_ltsTree->beginLeaf(); it != m_ltsTree->endLeaf(); ++it) {
-          if (!it->isMasked(mask)) {
-            for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {      
-              unsigned meshId = m_ltsToMesh[startLtsId + cell];
-              if (meshId != std::numeric_limits<unsigned>::max()) {
-                meshToCell[meshId] = offset + cell;
-              }
-            }
-            offset += it->getNumberOfCells();
-          }
-          startLtsId += it->getNumberOfCells();
-        }
-      }
-    }
-  }
+                    unsigned        numberOfMeshIds );
   
   inline unsigned meshId(unsigned ltsId) const {
     return m_ltsToMesh[ltsId];
   }
   
   template<typename T>
-  unsigned* getMeshToCellLut(Variable<T>& handle) {
+  unsigned* getMeshToCellLut(Variable<T> const& handle) {
     return m_meshToCell[ m_ltsTree->info(handle.index).mask.to_ulong() ];
   }
   
   template<typename T>
-  T& lookup(Variable<T>& handle, unsigned meshId) {
+  T& lookup(Variable<T> const& handle, unsigned meshId) {
     unsigned offset = getMeshToCellLut(handle)[meshId];
     return m_ltsTree->var(handle)[offset];
   }

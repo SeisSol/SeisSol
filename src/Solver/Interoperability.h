@@ -244,6 +244,8 @@ class seissol::Interoperability {
     **/
    void initializeCellLocalMatrices();
 
+   template<typename T>
+   void synchronize(seissol::initializers::Variable<T> const& handle);
 
    /**
     * Synchronizes the cell local material data.

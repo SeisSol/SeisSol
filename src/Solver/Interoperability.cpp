@@ -445,61 +445,38 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                       &m_ltsLut );
 }
 
-void seissol::Interoperability::synchronizeCellLocalData() {
-  CellMaterialData* materials = m_ltsTree->var(m_lts->material);
-#ifdef USE_PLASTICITY
-  PlasticityData* plasticity = m_ltsTree->var(m_lts->plasticity);
-#endif
-
-  // iterate over the mesh and set all redundant data
+template<typename T>
+void seissol::Interoperability::synchronize(seissol::initializers::Variable<T> const& handle)
+{  
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < m_numberOfCopyInteriorCells; l_cell++ ) {
-    unsigned sourceId = m_meshToCopyInterior[m_copyInteriorToMesh[l_cell]];
-    materials[l_cell].local = materials[sourceId].local;
-    for (unsigned side = 0; side < 4; ++side) {
-      materials[l_cell].neighbor[side] = materials[sourceId].neighbor[side];
-    }
+  for (unsigned dupId = 0; dupId < m_ltsLut.duplicatedCells.numberOfDuplicates; ++dupId) {
+    unsigned* duplicates = &m_ltsLut.duplicatedCells.duplicates[dupId][0];
+    seissol::initializers::Layer* layer = m_ltsTree->findLayer(duplicates[0]);
+    assert(layer != NULL);
+    if (layer->var(handle) != NULL) { // Ensure that Variable saves data on this layer
+      T& ref = m_ltsLut.lookup(handle, m_ltsLut.duplicatedCells.meshIds[dupId]);
 
-#ifdef USE_PLASTICITY
-    // sync initial loading
-    for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
-    	// TODO use memcpy
-
-      for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-        plasticity[l_cell].initialLoading[l_quantity][l_basis] = plasticity[sourceId].initialLoading[l_quantity][l_basis];
+      for (unsigned dup = 0; dup < 4 && duplicates[dup] != std::numeric_limits<unsigned>::max(); ++dup) {
+        assert(duplicates[dup] >= layer->getLtsIdStart() && duplicates[dup] < layer->getLtsIdStart() + layer->getNumberOfCells());
+      
+        T& var = layer->var(handle)[duplicates[dup] - layer->getLtsIdStart()];
+        memcpy(&var, &ref, sizeof(T));
       }
     }
-
-    // sync plasticity parameters
-    	// TODO use memcpy
-    for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
-        plasticity[l_cell].plasticParameters[l_para] = plasticity[sourceId].plasticParameters[l_para];
-    }
-
-#endif
-
   }
 }
 
-void seissol::Interoperability::synchronizeCopyLayerDofs() {
-  unsigned int l_offset = 0;
-
-  for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
-    // sync DOFs
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
+void seissol::Interoperability::synchronizeCellLocalData() {
+  synchronize(m_lts->material);
+#ifdef USE_PLASTICITY
+  synchronize(m_lts->plasticity);
 #endif
-    for( unsigned int l_cell = 0; l_cell < m_meshStructure[l_cluster].numberOfCopyCells; l_cell++ ) {
-      for( int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
-        m_dofs[l_cell+l_offset][l_dof] = m_dofs[ m_meshToCopyInterior[m_copyInteriorToMesh[l_cell+l_offset]] ][l_dof];
-      }
-    }
+}
 
-    // update offset
-    l_offset += m_meshStructure[l_cluster].numberOfCopyCells + m_meshStructure[l_cluster].numberOfInteriorCells;
-  }
+void seissol::Interoperability::synchronizeCopyLayerDofs() {
+  synchronize(m_lts->dofs);
 }
 
 void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename ) {

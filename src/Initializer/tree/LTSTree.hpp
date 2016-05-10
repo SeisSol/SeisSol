@@ -160,6 +160,15 @@ public:
     return numCells;
   }
   
+  Layer* findLayer(unsigned ltsId) {    
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      if (it->getLtsIdStart() <= ltsId && ltsId < it->getLtsIdStart() + it->getNumberOfCells()) {
+        return &(*it);
+      }
+    }
+    return NULL;
+  }
+  
   class leaf_iterator : public iterator {
     friend class LTSTree;
 
