@@ -558,15 +558,15 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
 #ifdef REQUIRE_SOURCE_MATRIX
   m_timeKernel.computeAder( 0,
                             m_globalData,
-                            &m_ltsTree->var(m_lts->localIntegration)[ m_meshToCopyInterior[ (i_meshId)-1] ],
-                            m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
+                            &m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1),
+                            m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
                             l_timeIntegrated,
                             l_timeDerivatives );
 #else
   m_timeKernel.computeAder( 0,
                             m_globalData->stiffnessMatricesTransposed,
-                            m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
-                            m_ltsTree->var(m_lts->localIntegration)[ m_meshToCopyInterior[ (i_meshId)-1] ].starMatrices,
+                            m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
+                            m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1).starMatrices,
                             l_timeIntegrated,
                             l_timeDerivatives );
 #endif
