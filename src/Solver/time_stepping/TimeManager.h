@@ -189,17 +189,8 @@ class seissol::time_stepping::TimeManager {
      * Gets the raw data of the time manager.
      *
      * @param o_globalData global data, this is just the master data structure in case of multiple copies
-     * @param o_dofs degrees of freedom.
-     * @param o_buffers time buffers.
-     * @param o_derivatives time derivatives.
      **/
-    void getRawData( struct GlobalData             *&o_globalData,
-                     real                         (*&o_dofs)[NUMBER_OF_ALIGNED_DOFS],
-                     real                         **&o_buffers,
-                     real                         **&o_derivatives,
-                     real                        *(*&o_faceNeighbors)[4],
-					 real                         (*&o_Energy)[3],
-					 real                         (*&o_pstrain)[7] ) {
+    void getGlobalData( struct GlobalData*& o_globalData ) {
       // get meta-data from memory manager
       struct MeshStructure         *l_meshStructure           = NULL;
 #ifdef USE_MPI
@@ -221,16 +212,6 @@ class seissol::time_stepping::TimeManager {
                                       l_globalDataCopies
 #endif
                                       );
-                                      
-      seissol::initializers::LTSTree* ltsTree = getLtsTree();
-      seissol::initializers::LTS* lts = getLts();
-      
-      o_dofs          = ltsTree->var(lts->dofs);
-      o_buffers       = ltsTree->var(lts->buffers);
-      o_derivatives   = ltsTree->var(lts->derivatives);
-      o_faceNeighbors = ltsTree->var(lts->faceNeighbors);
-      o_Energy        = ltsTree->var(lts->energy);
-      o_pstrain       = ltsTree->var(lts->pstrain);
     }
     
     /// Pass through ltsTree from MemoryManager

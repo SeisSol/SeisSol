@@ -1103,8 +1103,7 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( unsign
                                                                           unsigned int         *&o_meshToLts,
                                                                           unsigned int         *&o_meshToCopyInterior,
                                                                           unsigned int        (*&o_meshToClusters)[2],
-                                                                          unsigned int         *&o_ltsToMesh,
-                                                                          unsigned int         *&o_copyInteriorToMesh ) {
+                                                                          unsigned int         *&o_ltsToMesh ) {
   // total sizes of the communication layers covering all clusters
   unsigned int l_totalGhostLayerSize, l_totalCopyLayerSize, l_totalInteriorSize;
   l_totalGhostLayerSize = l_totalCopyLayerSize = l_totalInteriorSize = 0;
@@ -1170,7 +1169,6 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( unsign
   o_meshToCopyInterior   = new unsigned int[ o_numberOfMeshCells ];
   o_meshToClusters       = ( unsigned int (*)[2] ) malloc( o_numberOfMeshCells * sizeof(unsigned int[2]) );
   o_ltsToMesh            = new unsigned int[ o_numberOfLtsCells ];
-  o_copyInteriorToMesh   = new unsigned int[ o_numberOfCopyInteriorCells ];
 
   // current lts cell
   unsigned int l_ltsCell = 0;
@@ -1217,7 +1215,6 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( unsign
         o_meshToLts[l_meshId]                    = l_ltsCell;
         o_meshToCopyInterior[l_meshId]           = l_copyInteriorCell;
         o_ltsToMesh[l_ltsCell]                   = l_meshId;
-        o_copyInteriorToMesh[l_copyInteriorCell] = l_meshId;
         o_meshToClusters[l_meshId][0]            = l_cluster;
         o_meshToClusters[l_meshId][1]            = l_clusterCell;
 
@@ -1320,7 +1317,6 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( unsign
       o_meshToLts[l_meshId]                    = l_ltsCell;
       o_meshToCopyInterior[l_meshId]           = l_copyInteriorCell;
       o_ltsToMesh[l_ltsCell]                   = l_meshId;
-      o_copyInteriorToMesh[l_copyInteriorCell] = l_meshId;
       o_meshToClusters[l_meshId][0]            = l_cluster;
       o_meshToClusters[l_meshId][1]            = l_clusterCell;
 

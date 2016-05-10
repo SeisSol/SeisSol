@@ -500,8 +500,7 @@ class seissol::initializers::time_stepping::LtsLayout {
                              unsigned int         *&o_meshToLts,
                              unsigned int         *&o_meshToCopyInterior,
                              unsigned int        (*&o_meshToClusters)[2],
-                             unsigned int         *&o_ltsToMesh,
-                             unsigned int         *&o_copyInteriorToMesh );
+                             unsigned int         *&o_ltsToMesh );
 
     /**
      * Get the per cluster mesh structure.

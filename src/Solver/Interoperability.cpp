@@ -301,8 +301,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                             m_meshToLts,
                                                             m_meshToCopyInterior,
                                                             m_meshToClusters,
-                                                            m_ltsToMesh,
-                                                            m_copyInteriorToMesh );
+                                                            m_ltsToMesh );
 
   // get the mesh structure
   seissol::SeisSol::main.getLtsLayout().getMeshStructure( m_meshStructure );
@@ -317,13 +316,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                     m_meshToClusters );
 
   // get backward coupling
-  seissol::SeisSol::main.timeManager().getRawData( m_globalData,
-                                                   m_dofs,
-                                                   m_buffers,
-                                                   m_derivatives,
-                                                   m_faceNeighbors,
-												   m_Energy,
-												   m_pstrain );
+  seissol::SeisSol::main.timeManager().getGlobalData( m_globalData );
 
   m_ltsTree = seissol::SeisSol::main.timeManager().getLtsTree();
   m_lts = seissol::SeisSol::main.timeManager().getLts();
@@ -411,22 +404,22 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {\
-  unsigned int l_copyInteriorId = m_meshToCopyInterior[(*i_meshId) - 1];
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
     for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      m_cellData->plasticity[l_copyInteriorId].initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
+      plasticity.initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
     }
   }
 }
 //synchronize element dependent plasticity parameters
 void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {\
-  unsigned int l_copyInteriorId = m_meshToCopyInterior[(*i_meshId) - 1];
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
 
   for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
-      m_cellData->plasticity[l_copyInteriorId].plasticParameters[l_para] = i_plasticParameters[l_para];
-
-}}
+      plasticity.plasticParameters[l_para] = i_plasticParameters[l_para];
+  }
+}
 #endif
 
 void seissol::Interoperability::initializeCellLocalMatrices()
@@ -507,7 +500,7 @@ void seissol::Interoperability::initializeIO(
 	  double currentTime;
 	  int waveFieldTimeStep = 0;
 	  int faultTimeStep;
-	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_dofs),
+	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
 				  m_numberOfCopyInteriorCells * NUMBER_OF_ALIGNED_DOFS,
 				  mu, slipRate1, slipRate2, slip, slip1, slip2,
 				  state, strength, numSides, numBndGP,
@@ -522,8 +515,8 @@ void seissol::Interoperability::initializeIO(
 			  NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
               NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			  seissol::SeisSol::main.meshReader(),
-			  reinterpret_cast<const double*>(m_dofs),
-			  reinterpret_cast<const double*>(m_pstrain),
+			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
+			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
 			  m_meshToCopyInterior,
 			  refinement, waveFieldTimeStep,
 			  seissol::SeisSol::main.timeManager().getTimeTolerance());
@@ -541,7 +534,7 @@ void seissol::Interoperability::getDynamicRuptureTimeStep(int &o_timeStep)
 void seissol::Interoperability::addToDofs( int      i_meshId,
                                            double*  i_update,
                                            int      numberOfQuantities ) {
-  seissol::kernels::addToAlignedDofs( i_update, m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ], static_cast<unsigned>(numberOfQuantities) );
+  seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numberOfQuantities) );
 }
 
 void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
@@ -582,17 +575,17 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
   // assert that the cell provides derivatives
   assert( (m_cellInformation[ m_meshToLts[ (i_meshId)-1 ] ].ltsSetup >> 9)%2 == 1 );
   
-  unsigned localCell = m_meshToLts[ (i_meshId)-1 ];
-  unsigned neighborCell = m_meshToCopyInterior[ (i_meshId)-1 ];
+  real*&    derivatives       = m_ltsLut.lookup(m_lts->derivatives, i_meshId-1);
+  real*   (&faceNeighbors)[4] = m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1);
   unsigned face = i_localFaceId-1;
 
   // get cells derivatives
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( m_derivatives[localCell],
-                                                             o_timeDerivativesCell );
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives(  derivatives,
+                                                                    o_timeDerivativesCell );
 
   // get neighbors derivatives
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( m_faceNeighbors[neighborCell][face],
-                                                             o_timeDerivativesNeighbor );
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives(  faceNeighbors[face],
+                                                                    o_timeDerivativesNeighbor );
 
   real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
 
@@ -600,7 +593,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
   m_timeKernel.computeIntegral( 0,
                                 0,
                                 i_timeStepWidth,
-                                m_derivatives[localCell],
+                                derivatives,
                                 l_timeIntegrated );
 
   seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedCell );
@@ -610,7 +603,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
   m_timeKernel.computeIntegral( 0,
                                 0,
                                 i_timeStepWidth,
-                                m_faceNeighbors[neighborCell][face],
+                                faceNeighbors[face],
                                 l_timeIntegrated );
 
   seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedNeighbor );
@@ -618,9 +611,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
 
 void seissol::Interoperability::getDofs( int    i_meshId,
                                          double o_dofs[NUMBER_OF_DOFS] ) {
-  unsigned int l_cellId = m_meshToCopyInterior[ (i_meshId)-1 ];
-
-  seissol::kernels::convertAlignedDofs( m_dofs[l_cellId], o_dofs );
+  seissol::kernels::convertAlignedDofs( m_ltsLut.lookup(m_lts->dofs, i_meshId-1), o_dofs );
 }
 
 void seissol::Interoperability::getDofsFromDerivatives( int    i_meshId,
@@ -629,7 +620,7 @@ void seissol::Interoperability::getDofsFromDerivatives( int    i_meshId,
   assert( (m_cellInformation[ m_meshToLts[ (i_meshId)-1 ] ].ltsSetup >> 9)%2 == 1 );
 
   // get DOFs from 0th derivatives
-  seissol::kernels::convertAlignedDofs( m_derivatives[ m_meshToLts[ (i_meshId)-1 ] ], o_dofs );
+  seissol::kernels::convertAlignedDofs( m_ltsLut.lookup(m_lts->derivatives, i_meshId-1), o_dofs );
 }
 
 void seissol::Interoperability::getNeighborDofsFromDerivatives( int    i_meshId,
@@ -637,7 +628,7 @@ void seissol::Interoperability::getNeighborDofsFromDerivatives( int    i_meshId,
                                                                 double  o_dofs[NUMBER_OF_DOFS] ) {
 
   // get DOFs from 0th neighbors derivatives
-  seissol::kernels::convertAlignedDofs(  m_faceNeighbors[ m_meshToCopyInterior[ (i_meshId)-1 ] ][ (i_localFaceId)-1 ],
+  seissol::kernels::convertAlignedDofs(  m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1)[ i_localFaceId-1 ],
                                          o_dofs );
 }
 

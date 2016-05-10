@@ -96,9 +96,6 @@ class seissol::Interoperability {
     //! mapping from lts layout to mesh
     unsigned int *m_ltsToMesh;
 
-    //! mapping from copy-interior id to mesh
-    unsigned int *m_copyInteriorToMesh;
-
     //! cluster-local mesh structure
     struct MeshStructure *m_meshStructure;
 
@@ -107,24 +104,6 @@ class seissol::Interoperability {
 
     //! global data
     struct GlobalData *m_globalData;
-
-    //! raw DOFs: covering copy&interior of all clusters
-    real (*m_dofs)[NUMBER_OF_ALIGNED_DOFS];
-
-    //! raw pointers to derivatives: covering all clusters and layers
-    real **m_derivatives;
-
-    //! raw pointers to buffers: covering all clusters and layers
-    real **m_buffers;
-
-    //! raw pointers to face neighbors: covering all clusters and layers.
-    real *(*m_faceNeighbors)[4];
-
-    //! energy variable
-    real (*m_Energy)[3];
-
-    //! Plasticity strain output
-    real (*m_pstrain)[7];
     
     seissol::initializers::LTSTree*   m_ltsTree;
     seissol::initializers::LTS*       m_lts;
