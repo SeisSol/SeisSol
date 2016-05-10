@@ -339,12 +339,9 @@ void seissol::Interoperability::setupNRFPointSources( char const* fileName )
   SeisSol::main.sourceTermManager().loadSourcesFromNRF(
     fileName,
     seissol::SeisSol::main.meshReader(),
-    m_ltsTree->var(m_lts->material),
-    m_meshToClusters,
-    m_meshToCopyInterior,
-    m_copyInteriorToMesh,
-    m_meshStructure,
-    m_timeStepping.numberOfLocalClusters,
+    m_ltsTree,
+    m_lts,
+    &m_ltsLut,
     seissol::SeisSol::main.timeManager()
   );
 }
@@ -375,12 +372,9 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
     numberOfSamples,
     timeHistories,
     seissol::SeisSol::main.meshReader(),
-    m_ltsTree->var(m_lts->material),
-    m_meshToClusters,
-    m_meshToCopyInterior,
-    m_copyInteriorToMesh,
-    m_meshStructure,
-    m_timeStepping.numberOfLocalClusters,
+    m_ltsTree,
+    m_lts,
+    &m_ltsLut,
     seissol::SeisSol::main.timeManager()
   );
 }
@@ -451,14 +445,15 @@ void seissol::Interoperability::synchronize(seissol::initializers::Variable<T> c
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned dupId = 0; dupId < m_ltsLut.duplicatedCells.numberOfDuplicates; ++dupId) {
-    unsigned* duplicates = &m_ltsLut.duplicatedCells.duplicates[dupId][0];
+  for (unsigned dupId = 0; dupId < m_ltsLut.numberOfDuplicatedMeshIds; ++dupId) {
+    unsigned meshId = m_ltsLut.duplicatedMeshIds[dupId];
+    unsigned (&duplicates)[seissol::initializers::Lut::MaxDuplicates] = m_ltsLut.ltsIds(meshId);
     seissol::initializers::Layer* layer = m_ltsTree->findLayer(duplicates[0]);
     assert(layer != NULL);
     if (layer->var(handle) != NULL) { // Ensure that Variable saves data on this layer
-      T& ref = m_ltsLut.lookup(handle, m_ltsLut.duplicatedCells.meshIds[dupId]);
+      T& ref = m_ltsLut.lookup(handle, meshId);
 
-      for (unsigned dup = 0; dup < 4 && duplicates[dup] != std::numeric_limits<unsigned>::max(); ++dup) {
+      for ( unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && duplicates[dup] != std::numeric_limits<unsigned>::max(); ++dup ) {
         assert(duplicates[dup] >= layer->getLtsIdStart() && duplicates[dup] < layer->getLtsIdStart() + layer->getNumberOfCells());
       
         T& var = layer->var(handle)[duplicates[dup] - layer->getLtsIdStart()];

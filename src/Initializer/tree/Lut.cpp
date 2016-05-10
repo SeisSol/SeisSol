@@ -39,6 +39,24 @@
 
 #include "Lut.hpp"
 
+seissol::initializers::Lut::Lut()
+  : m_ltsToMesh(NULL), m_meshToLts(NULL), m_ltsTree(NULL), duplicatedMeshIds(NULL), numberOfDuplicatedMeshIds(0)
+{
+  for (unsigned i = 0; i < (1 << NUMBER_OF_LAYERS); ++i) {
+    m_meshToCell[i] = NULL;
+  }
+}
+
+seissol::initializers::Lut::~Lut()
+{
+  delete[] duplicatedMeshIds;
+  for (unsigned i = 0; i < (1 << NUMBER_OF_LAYERS); ++i) {
+    delete[] m_meshToCell[i];
+  }
+  delete[] m_meshToLts;
+  delete[] m_ltsToMesh;
+}
+
 void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
                                               unsigned*       ltsToMesh,
                                               unsigned        numberOfCells,
@@ -46,7 +64,7 @@ void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
 {
   assert(numberOfCells == ltsTree->getNumberOfCells());
 
-  m_ltsToMesh = static_cast<unsigned*>(m_allocator.allocateMemory(numberOfCells * sizeof(unsigned)));
+  m_ltsToMesh = new unsigned[numberOfCells];
   std::copy(ltsToMesh, ltsToMesh + numberOfCells, m_ltsToMesh);
   m_ltsTree = ltsTree;
   
@@ -56,7 +74,7 @@ void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
     unsigned*& meshToCell = m_meshToCell[mask.to_ulong()];
     if (meshToCell == NULL) {
       unsigned offset = 0;
-      meshToCell = static_cast<unsigned*>(m_allocator.allocateMemory(numberOfMeshIds * sizeof(unsigned)));
+      meshToCell = new unsigned[numberOfMeshIds];
       std::fill(meshToCell, meshToCell + numberOfMeshIds, std::numeric_limits<unsigned>::max());
       
       for (LTSTree::leaf_iterator it = m_ltsTree->beginLeaf(); it != m_ltsTree->endLeaf(); ++it) {
@@ -74,42 +92,39 @@ void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
   }
   
   // duplicates     
-  unsigned (*rawDuplicates)[4]  = new unsigned[numberOfMeshIds][4];
-  unsigned*  numDuplicates      = new unsigned[numberOfMeshIds];
+  m_meshToLts               = new unsigned[numberOfMeshIds][MaxDuplicates];
+  for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
+    for (unsigned dup = 0; dup < MaxDuplicates; ++dup) {
+      m_meshToLts[meshId][dup] = std::numeric_limits<unsigned>::max();
+    }    
+  }
+
+  unsigned*  numDuplicates  = new unsigned[numberOfMeshIds];
   memset(numDuplicates, 0, numberOfMeshIds * sizeof(unsigned));
 
   for (unsigned ltsId = 0; ltsId < numberOfCells; ++ltsId) {
     unsigned meshId = m_ltsToMesh[ltsId];
     if (meshId != std::numeric_limits<unsigned>::max()) {
-      assert( numDuplicates[meshId] < 4);
-      rawDuplicates[meshId][ numDuplicates[meshId]++ ] = ltsId;
+      assert( numDuplicates[meshId] < MaxDuplicates);
+      m_meshToLts[meshId][ numDuplicates[meshId]++ ] = ltsId;
     }
   }
   
-  duplicatedCells.numberOfDuplicates = 0;
+  numberOfDuplicatedMeshIds = 0;
   for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
     if (numDuplicates[meshId] > 1) {
-      ++duplicatedCells.numberOfDuplicates;
+      ++numberOfDuplicatedMeshIds;
     }
   }
   
-  duplicatedCells.meshIds = static_cast<unsigned*>(m_allocator.allocateMemory(duplicatedCells.numberOfDuplicates * sizeof(unsigned)));
-  duplicatedCells.duplicates = static_cast<unsigned(*)[4]>(m_allocator.allocateMemory(duplicatedCells.numberOfDuplicates * sizeof(unsigned[4])));
+  duplicatedMeshIds = new unsigned[numberOfDuplicatedMeshIds];
   
   unsigned dupId = 0;
   for (unsigned meshId = 0; meshId < numberOfMeshIds; ++meshId) {
     if (numDuplicates[meshId] > 1) {
-      duplicatedCells.meshIds[dupId] = meshId;
-      for (unsigned i = 0; i < numDuplicates[meshId]; ++i) {
-        duplicatedCells.duplicates[dupId][i] = rawDuplicates[meshId][i];
-      }
-      for (unsigned i = numDuplicates[meshId]; i < 4; ++i) {
-        duplicatedCells.duplicates[dupId][i] = std::numeric_limits<unsigned>::max();
-      }
-      ++dupId;
+      duplicatedMeshIds[dupId++] = meshId;
     }
   }
   
-  delete[] rawDuplicates;
   delete[] numDuplicates;
 }

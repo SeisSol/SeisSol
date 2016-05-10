@@ -43,55 +43,28 @@
 
 #include "LTSTree.hpp"
 
-#include <Initializer/MemoryAllocator.h>
-
 namespace seissol {
   namespace initializers {
-    struct DuplicatedCells;
     class Lut;
   }
 }
 
-struct seissol::initializers::DuplicatedCells {
-  unsigned*  meshIds;
-  unsigned (*duplicates)[4]; // contains lts ids
-  unsigned   numberOfDuplicates;
-  
-  unsigned findDuplicateId(unsigned meshId) const {
-    // interval [left, right)
-    unsigned left = 0;
-    unsigned right = numberOfDuplicates;
-    while (left < right) {
-      unsigned middle = (left+right) / 2;
-      if (meshId > meshIds[middle]) {
-        left = middle + 1;
-      } else if (meshId < meshIds[middle]) {
-        right = middle;
-      } else {
-        return middle;
-      }
-    }
-    return std::numeric_limits<unsigned>::max();
-  }
-  
-  DuplicatedCells() : meshIds(NULL), duplicates(NULL) {}
-};
-
 class seissol::initializers::Lut {
+public:
+  static unsigned const             MaxDuplicates = 4;
+
 private:
   unsigned*                         m_ltsToMesh;
+  unsigned                        (*m_meshToLts)[MaxDuplicates];
   unsigned*                         m_meshToCell[1 << NUMBER_OF_LAYERS];
   LTSTree*                          m_ltsTree;
-  seissol::memory::ManagedAllocator m_allocator;
 
 public:
-  DuplicatedCells                   duplicatedCells;
+  unsigned*                         duplicatedMeshIds;
+  unsigned                          numberOfDuplicatedMeshIds;
   
-  Lut() : m_ltsToMesh(NULL), m_ltsTree(NULL) {
-    for (unsigned i = 0; i < (1 << NUMBER_OF_LAYERS); ++i) {
-      m_meshToCell[i] = NULL;
-    }
-  }
+  Lut();  
+  ~Lut();
 
   void createLuts(  LTSTree*        ltsTree,
                     unsigned*       ltsToMesh,
@@ -102,13 +75,17 @@ public:
     return m_ltsToMesh[ltsId];
   }
   
+  inline unsigned (&ltsIds(unsigned meshId) const)[MaxDuplicates] {
+    return m_meshToLts[meshId];
+  }
+  
   template<typename T>
-  unsigned* getMeshToCellLut(Variable<T> const& handle) {
+  unsigned const* getMeshToCellLut(Variable<T> const& handle) const {
     return m_meshToCell[ m_ltsTree->info(handle.index).mask.to_ulong() ];
   }
   
   template<typename T>
-  T& lookup(Variable<T> const& handle, unsigned meshId) {
+  T& lookup(Variable<T> const& handle, unsigned meshId) const {
     unsigned offset = getMeshToCellLut(handle)[meshId];
     return m_ltsTree->var(handle)[offset];
   }

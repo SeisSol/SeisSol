@@ -81,6 +81,10 @@ public:
     return *static_cast<TimeCluster*>(m_children[index]);
   }
   
+  inline TimeCluster const& child(unsigned index) const {
+    return *static_cast<TimeCluster*>(m_children[index]);
+  }
+  
   /// \todo remove?
   template<typename T>
   T* var(Variable<T> const& handle) {
@@ -158,6 +162,16 @@ public:
       numCells += it->getNumberOfCells();
     }
     return numCells;
+  }
+  
+  inline unsigned findTimeClusterId(unsigned ltsId) const {
+    int tc = 0;
+    for (; tc < numChildren()-1; ++tc) {
+      if (child(tc).getLtsIdStart() <= ltsId && ltsId < child(tc+1).getLtsIdStart()) {
+        break;
+      }
+    }
+    return tc;
   }
   
   Layer* findLayer(unsigned ltsId) {    

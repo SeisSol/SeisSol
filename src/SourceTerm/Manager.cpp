@@ -267,122 +267,78 @@ void seissol::sourceterm::Manager::freeSources()
   sources = NULL;
 }
 
-void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*               meshIds,
-                                                              unsigned                      numberOfSources,
-                                                              unsigned const              (*meshToClusters)[2],
-                                                              unsigned const*               meshToCopyInterior,
-                                                              unsigned const*               copyInteriorToMesh,
-                                                              MeshStructure const*          meshStructure,
-                                                              unsigned                      numberOfClusters )
+void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*                 meshIds,
+                                                              unsigned                        numberOfSources,
+                                                              seissol::initializers::LTSTree* ltsTree,
+                                                              seissol::initializers::LTS*     lts,
+                                                              seissol::initializers::Lut*     ltsLut )
 {
-  cmps = new ClusterMapping[numberOfClusters];
-  for (unsigned cluster = 0; cluster < numberOfClusters; ++cluster) {
-    cmps[cluster].sources           = new unsigned[numberOfSources];
-    cmps[cluster].numberOfSources   = 0;
-    cmps[cluster].cellToSources     = NULL;
-    cmps[cluster].numberOfMappings  = 0;
+  std::vector<std::vector<unsigned> > clusterToPointSources(ltsTree->numChildren());
+  std::vector<unsigned> clusterToNumberOfMappings(ltsTree->numChildren(), 0);
+  
+  for (unsigned source = 0; source < numberOfSources; ++source) {
+    unsigned meshId = meshIds[source];
+    unsigned (&ltsIds)[seissol::initializers::Lut::MaxDuplicates] = ltsLut->ltsIds(meshId);
+    unsigned cluster = ltsTree->findTimeClusterId(ltsIds[0]);
+    clusterToPointSources[cluster].push_back(source);
+    for (unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && ltsIds[dup] != std::numeric_limits<unsigned>::max(); ++dup) {
+      assert(cluster == ltsTree->findTimeClusterId(ltsIds[dup]));
+      ++clusterToNumberOfMappings[cluster];
+    }
   }
   
-  unsigned* sortedPointSourceIndex = new unsigned[numberOfSources];
-  for (unsigned source = 0; source < numberOfSources; ++source) {
-    sortedPointSourceIndex[source] = source;
-  }
-  std::sort(sortedPointSourceIndex, sortedPointSourceIndex + numberOfSources, index_sort_by_value<unsigned>(meshIds));
-  
-  // Distribute sources to clusters
-  for (unsigned source = 0; source < numberOfSources; ++source) {
-    unsigned sortedSource = sortedPointSourceIndex[source];
-    unsigned meshId = meshIds[sortedSource];
-    unsigned cluster = meshToClusters[meshId][0];
-    cmps[cluster].sources[ cmps[cluster].numberOfSources++ ] = sortedSource;
-  }  
-  delete[] sortedPointSourceIndex;
-
-  // Find cell mappings
-  unsigned clusterOffset = 0;
-  for (unsigned cluster = 0; cluster < numberOfClusters; ++cluster) {
-    ClusterMapping& cm = cmps[cluster];
-    // Find the cell offsets for a point source. As a cell has 4 neighbors,
-    // the cell might exist up to 4 times in the copy layer.
-    CellToPointSourcesMapping* cellToPointSources = new CellToPointSourcesMapping[4 * cm.numberOfSources + 1];
-
-    int mapping = -1;
-    unsigned lastMeshId = std::numeric_limits<unsigned>::max();
-    // add only the interior layer offsets
-    for (unsigned clusterSource = 0; clusterSource < cm.numberOfSources; ++clusterSource) {
-      unsigned source = cm.sources[clusterSource];
-      unsigned meshId = meshIds[source];
-      unsigned cell = meshToClusters[meshId][1];
-      // If we have a interior cell
-      if (cell >= meshStructure[cluster].numberOfCopyCells) {
-        if (lastMeshId == meshId) {
-          assert(clusterSource <= cellToPointSources[mapping].pointSourcesOffset + cellToPointSources[mapping].numberOfPointSources);
-          ++cellToPointSources[mapping].numberOfPointSources;
-        } else {
-          lastMeshId = meshId;
-          ++mapping;
-          cellToPointSources[mapping].copyInteriorOffset = cell;
-          cellToPointSources[mapping].pointSourcesOffset = clusterSource;
-          cellToPointSources[mapping].numberOfPointSources = 1;
-        }
-      }
+  cmps = new ClusterMapping[ltsTree->numChildren()];
+  for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
+    cmps[cluster].sources           = new unsigned[ clusterToPointSources[cluster].size() ];
+    cmps[cluster].numberOfSources   = clusterToPointSources[cluster].size();
+    cmps[cluster].cellToSources     = new CellToPointSourcesMapping[ clusterToNumberOfMappings[cluster] ];
+    cmps[cluster].numberOfMappings  = clusterToNumberOfMappings[cluster];
+    
+    for (unsigned source = 0; source < clusterToPointSources[cluster].size(); ++source) {
+      cmps[cluster].sources[source] = clusterToPointSources[cluster][source];
     }
+    std::sort(cmps[cluster].sources, cmps[cluster].sources + cmps[cluster].numberOfSources, index_sort_by_value<unsigned>(meshIds));
     
-    // add the copy layer offsets
-    for (unsigned cell = 0; cell < meshStructure[cluster].numberOfCopyCells; ++cell) {
-      unsigned cellMeshId = copyInteriorToMesh[cell + clusterOffset];
-      assert(mapping < 4 * static_cast<int>(cm.numberOfSources));
-      ++mapping;
-      cellToPointSources[mapping].numberOfPointSources = 0;
-      cellToPointSources[mapping].copyInteriorOffset = cell;
-    
-      for (unsigned clusterSource = 0; clusterSource < cm.numberOfSources; ++clusterSource) {
-        unsigned source = cm.sources[clusterSource];
-        unsigned meshId = meshIds[source];
-        if (meshId == cellMeshId) {
-          if (cellToPointSources[mapping].numberOfPointSources == 0) {
-            cellToPointSources[mapping].pointSourcesOffset = clusterSource;
-          }
-          assert(clusterSource <= cellToPointSources[mapping].pointSourcesOffset + cellToPointSources[mapping].numberOfPointSources);
-          ++cellToPointSources[mapping].numberOfPointSources;
-        }
+    unsigned clusterSource = 0;
+    unsigned mapping = 0;
+    while (clusterSource < cmps[cluster].numberOfSources) {
+      unsigned meshId = meshIds[ cmps[cluster].sources[clusterSource] ];
+      unsigned next = clusterSource + 1;
+      while (meshIds[next] == meshId && next < cmps[cluster].numberOfSources) {
+        ++next;
       }
-        
-      if (cellToPointSources[mapping].numberOfPointSources == 0) {
-        --mapping;
-      }
+      
+      unsigned (&ltsIds)[seissol::initializers::Lut::MaxDuplicates] = ltsLut->ltsIds(meshId);
+      for (unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && ltsIds[dup] != std::numeric_limits<unsigned>::max(); ++dup) {
+        seissol::initializers::Layer* layer = ltsTree->findLayer(ltsIds[dup]);
+        assert(layer != NULL && layer->var(lts->dofs) != NULL);
+        cmps[cluster].cellToSources[mapping].dofs = &layer->var(lts->dofs)[ltsIds[dup] - layer->getLtsIdStart()];
+        cmps[cluster].cellToSources[mapping].pointSourcesOffset = clusterSource;
+        cmps[cluster].cellToSources[mapping].numberOfPointSources = next - clusterSource;
+      }      
+      
+      clusterSource = next;
     }
-    
-    cm.numberOfMappings = mapping+1;
-    
-    cm.cellToSources = new CellToPointSourcesMapping[ cm.numberOfMappings ];
-    for (unsigned mapping = 0; mapping < cm.numberOfMappings; ++mapping) {
-      cm.cellToSources[mapping] = cellToPointSources[mapping];
-    }    
-    delete[] cellToPointSources;
-    clusterOffset += meshStructure[cluster].numberOfCopyCells + meshStructure[cluster].numberOfInteriorCells;
+    assert(mapping == cmps[cluster].numberOfMappings);
   }
 }
 
-void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                 momentTensor,
-                                                        int                           numberOfSources,
-                                                        double const*                 centres,
-                                                        double const*                 strikes,
-                                                        double const*                 dips,
-                                                        double const*                 rakes,
-                                                        double const*                 onsets,
-                                                        double const*                 areas,
-                                                        double                        timestep,
-                                                        int                           numberOfSamples,
-                                                        double const*                 timeHistories,
-                                                        MeshReader const&             mesh,
-                                                        CellMaterialData const*       materials,
-                                                        unsigned const              (*meshToClusters)[2],
-                                                        unsigned const*               meshToCopyInterior,
-                                                        unsigned const*               copyInteriorToMesh,
-                                                        MeshStructure const*          meshStructure,
-                                                        unsigned                      numberOfClusters,
-                                                        time_stepping::TimeManager&   timeManager)
+void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                   momentTensor,
+                                                        int                             numberOfSources,
+                                                        double const*                   centres,
+                                                        double const*                   strikes,
+                                                        double const*                   dips,
+                                                        double const*                   rakes,
+                                                        double const*                   onsets,
+                                                        double const*                   areas,
+                                                        double                          timestep,
+                                                        int                             numberOfSamples,
+                                                        double const*                   timeHistories,
+                                                        MeshReader const&               mesh,
+                                                        seissol::initializers::LTSTree* ltsTree,
+                                                        seissol::initializers::LTS*     lts,
+                                                        seissol::initializers::Lut*     ltsLut,
+                                                        time_stepping::TimeManager&     timeManager )
 {
   freeSources();
   
@@ -426,15 +382,15 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   delete[] contained;
 
   logInfo(rank) << "Mapping point sources to LTS cells...";
-  mapPointSourcesToClusters(meshIds, numSources, meshToClusters, meshToCopyInterior, copyInteriorToMesh, meshStructure, numberOfClusters);
+  mapPointSourcesToClusters(meshIds, numSources, ltsTree, lts, ltsLut);
   
   real localMomentTensor[3][3];
   for (unsigned i = 0; i < 9; ++i) {
     *(&localMomentTensor[0][0] + i) = momentTensor[i];
   }
   
-  sources = new PointSources[numberOfClusters];
-  for (unsigned cluster = 0; cluster < numberOfClusters; ++cluster) {
+  sources = new PointSources[ltsTree->numChildren()];
+  for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     sources[cluster].mode                  = PointSources::FSRM;
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
     /// \todo allocate aligned or remove ALIGNED_
@@ -473,18 +429,17 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   delete[] centres3;
   
   timeManager.setPointSourcesForClusters(cmps, sources);
+  
+  logInfo(rank) << ".. finished point source initialization.";
 }
 
 #ifdef USE_NETCDF
-void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*                   fileName,
-                                                       MeshReader const&             mesh,
-                                                       CellMaterialData const*       materials,
-                                                       unsigned const              (*meshToClusters)[2],
-                                                       unsigned const*               meshToCopyInterior,
-                                                       unsigned const*               copyInteriorToMesh,
-                                                       MeshStructure const*          meshStructure,
-                                                       unsigned                      numberOfClusters,
-                                                       time_stepping::TimeManager&   timeManager )
+void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*                     fileName,
+                                                        MeshReader const&               mesh,
+                                                        seissol::initializers::LTSTree* ltsTree,
+                                                        seissol::initializers::LTS*     lts,
+                                                        seissol::initializers::Lut*     ltsLut,
+                                                        time_stepping::TimeManager&     timeManager )
 {
   freeSources();
   
@@ -524,10 +479,10 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
   delete[] contained;
 
   logInfo(rank) << "Mapping point sources to LTS cells...";
-  mapPointSourcesToClusters(meshIds, numSources, meshToClusters, meshToCopyInterior, copyInteriorToMesh, meshStructure, numberOfClusters);
+  mapPointSourcesToClusters(meshIds, numSources, ltsTree, lts, ltsLut);
   
-  sources = new PointSources[numberOfClusters];
-  for (unsigned cluster = 0; cluster < numberOfClusters; ++cluster) {
+  sources = new PointSources[ltsTree->numChildren()];
+  for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     sources[cluster].mode                  = PointSources::NRF;
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
     /// \todo allocate aligned or remove ALIGNED_
@@ -546,7 +501,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
                                           nrf.sroffsets[nrfIndex],
                                           nrf.sroffsets[nrfIndex+1],
                                           nrf.sliprates,
-                                          materials[ meshToCopyInterior[ meshIds[sourceIndex] ] ].local,
+                                          ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
                                           sources[cluster],
                                           clusterSource );
     }
@@ -555,5 +510,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
   delete[] meshIds;
   
   timeManager.setPointSourcesForClusters(cmps, sources);
+  
+  logInfo(rank) << ".. finished point source initialization.";
 }
 #endif

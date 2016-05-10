@@ -229,9 +229,6 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
-      real dofUpdate[NUMBER_OF_ALIGNED_DOFS];
-      memset(dofUpdate, 0, NUMBER_OF_ALIGNED_DOFS * sizeof(real));
-
       unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
       unsigned endSource = m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
       if (m_pointSources->mode == sourceterm::PointSources::NRF) {
@@ -243,7 +240,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                        m_pointSources->slipRates[source],
                                                        m_fullUpdateTime,
                                                        m_fullUpdateTime + m_timeStepWidth,
-                                                       dofUpdate );
+                                                       *m_cellToPointSources[mapping].dofs );
         }
       } else {
         for (unsigned source = startSource; source < endSource; ++source) {
@@ -252,22 +249,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                         &m_pointSources->slipRates[source][0],
                                                         m_fullUpdateTime,
                                                         m_fullUpdateTime + m_timeStepWidth,
-                                                        dofUpdate );
+                                                        *m_cellToPointSources[mapping].dofs );
         }
-      }
-      
-      unsigned offset = m_cellToPointSources[mapping].copyInteriorOffset;
-#ifdef USE_MPI
-      real (&cellDofs)[NUMBER_OF_ALIGNED_DOFS] = m_clusterData->child<Copy>().var(m_lts->dofs)[offset];
-#else
-      real (&cellDofs)[NUMBER_OF_ALIGNED_DOFS] = m_clusterData->child<Interior>().var(m_lts->dofs)[offset];
-#endif
-      for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DOFS; ++dof) {
-#ifdef USE_MPI
-        cellDofs[dof] += dofUpdate[dof];
-#else
-        cellDofs[dof] += dofUpdate[dof];
-#endif
       }
     }
   }
