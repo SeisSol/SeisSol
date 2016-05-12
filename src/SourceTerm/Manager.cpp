@@ -278,11 +278,9 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
   
   for (unsigned source = 0; source < numberOfSources; ++source) {
     unsigned meshId = meshIds[source];
-    unsigned (&ltsIds)[seissol::initializers::Lut::MaxDuplicates] = ltsLut->ltsIds(meshId);
-    unsigned cluster = ltsTree->findTimeClusterId(ltsIds[0]);
+    unsigned cluster = ltsLut->cluster(meshId);
     clusterToPointSources[cluster].push_back(source);
-    for (unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && ltsIds[dup] != std::numeric_limits<unsigned>::max(); ++dup) {
-      assert(cluster == ltsTree->findTimeClusterId(ltsIds[dup]));
+    for (unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && ltsLut->ltsId(lts->dofs.mask, meshId, dup) != std::numeric_limits<unsigned>::max(); ++dup) {
       ++clusterToNumberOfMappings[cluster];
     }
   }
@@ -308,13 +306,11 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
         ++next;
       }
       
-      unsigned (&ltsIds)[seissol::initializers::Lut::MaxDuplicates] = ltsLut->ltsIds(meshId);
-      for (unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && ltsIds[dup] != std::numeric_limits<unsigned>::max(); ++dup) {
-        seissol::initializers::Layer* layer = ltsTree->findLayer(ltsIds[dup]);
-        assert(layer != NULL && layer->var(lts->dofs) != NULL);
-        cmps[cluster].cellToSources[mapping].dofs = &layer->var(lts->dofs)[ltsIds[dup] - layer->getLtsIdStart()];
+      for (unsigned ltsId, dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && (ltsId = ltsLut->ltsId(lts->dofs.mask, meshId, dup)) != std::numeric_limits<unsigned>::max(); ++dup) {
+        cmps[cluster].cellToSources[mapping].dofs = &ltsTree->var(lts->dofs)[ltsId];
         cmps[cluster].cellToSources[mapping].pointSourcesOffset = clusterSource;
         cmps[cluster].cellToSources[mapping].numberOfPointSources = next - clusterSource;
+        ++mapping;
       }      
       
       clusterSource = next;

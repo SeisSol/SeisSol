@@ -84,6 +84,15 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
   real TData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
   real TinvData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
 
+  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
+  
+  assert(LayerMask(Ghost) == i_lts->material.mask);
+  assert(LayerMask(Ghost) == i_lts->localIntegration.mask);
+  assert(LayerMask(Ghost) == i_lts->neighboringIntegration.mask);
+  
+  assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->localIntegration.mask));
+  assert(ltsToMesh      == i_ltsLut->getLtsToMeshLut(i_lts->neighboringIntegration.mask));
+  
   for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
     CellMaterialData*           material                = it->var(i_lts->material);
     LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
@@ -94,7 +103,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
       unsigned ltsId = it->getLtsIdStart() + cell;
-      unsigned meshId = i_ltsLut->meshId(ltsId);
+      unsigned meshId = ltsToMesh[cell];
       
       real x[4];
       real y[4];
@@ -180,5 +189,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
                                                       material[cell].neighbor,
                                                       &neighboringIntegration[cell].specific );
     }
+    
+    ltsToMesh += it->getNumberOfCells();
   }
 }

@@ -51,9 +51,10 @@ namespace seissol {
 }
 
 class seissol::initializers::Node {
-public:
+protected:
   Node** m_children;
   unsigned m_numChildren;
+  Node* m_next;
   
   void setPostOrderPointers(Node* previous = NULL) {
     for (unsigned child = 0; child < m_numChildren; ++child) {
@@ -66,7 +67,6 @@ public:
   }
 
 public:
-  Node* m_next;
   Node() : m_children(NULL), m_numChildren(0), m_next(NULL) {}
   ~Node() {
     for (unsigned child = 0; child < m_numChildren; ++child) {
@@ -134,7 +134,9 @@ public:
   }
   
   inline iterator end() {
-    return iterator();
+    // The current node is the last one in a post-order traversal.
+    // Hence, end() points to the node after the last one.
+    return iterator(this->m_next);
   }
 };
 

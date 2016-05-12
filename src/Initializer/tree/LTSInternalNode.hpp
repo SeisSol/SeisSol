@@ -35,36 +35,78 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
+ * Tree for managing lts data.
  **/
+ 
+#ifndef INITIALIZER_TREE_LTSINTERNALNODE_HPP_
+#define INITIALIZER_TREE_LTSINTERNALNODE_HPP_
 
-#ifndef INITIALIZER_TREE_TIMECLUSTER_HPP_
-#define INITIALIZER_TREE_TIMECLUSTER_HPP_
-
-#include "LTSInternalNode.hpp"
-#include "Log2.hpp"
+#include "Node.hpp"
+#include "Layer.hpp"
 
 namespace seissol {
   namespace initializers {
-    class TimeCluster;
+    class LTSInternalNode;
   }
 }
 
-class seissol::initializers::TimeCluster : public seissol::initializers::LTSInternalNode {
-public:
-  TimeCluster() {
-    setChildren<Layer>(3);
-    child<Ghost>().setLayerType(Ghost);
-    child<Copy>().setLayerType(Copy);
-    child<Interior>().setLayerType(Interior);
+class seissol::initializers::LTSInternalNode : public seissol::initializers::Node {
+public:  
+  class leaf_iterator : public iterator {
+    friend class LTSInternalNode;
+
+  private:
+    LayerMask m_layerMask;
+    iterator  m_end;
+    
+    inline void nextLeaf() {
+      do {
+        iterator::operator++();
+      } while (*this != m_end && !m_node->isLeaf());
+    }
+
+    // m_node must point to a leaf or NULL
+    inline void skipMaskedLayer() {
+      while (*this != m_end && operator*().isMasked(m_layerMask)) {
+        nextLeaf();
+      }
+    }
+
+  public:
+    leaf_iterator(iterator const& end) : iterator(end) {}
+    leaf_iterator(iterator const& begin, iterator const& end, LayerMask layerMask) : iterator(begin), m_end(end), m_layerMask(layerMask) {}
+
+    inline leaf_iterator& operator++() {
+      nextLeaf();
+      skipMaskedLayer();
+      return *this;
+    }
+    
+    inline Layer& operator*() {
+      return *static_cast<Layer*>(m_node);
+    }
+    
+    inline Layer* operator->() {
+      return static_cast<Layer*>(m_node);
+    }
+  };
+
+  inline leaf_iterator beginLeaf(LayerMask layerMask = LayerMask()) {
+    leaf_iterator it = leaf_iterator(begin(), end(), layerMask);
+    it.skipMaskedLayer();
+    return it;
   }
   
-  template<enum LayerType LAYER>
-  inline Layer& child() {
-    return *static_cast<Layer*>(m_children[ Log2<LAYER>::Result ]);
+  inline leaf_iterator endLeaf() {
+    return leaf_iterator(end());
   }
-  
-  inline unsigned getLtsIdStart() const {
-    return static_cast<Layer*>(m_children[0])->getLtsIdStart();
+
+  unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) {
+    unsigned numCells = 0;
+    for (LTSInternalNode::leaf_iterator it = beginLeaf(layerMask); it != endLeaf(); ++it) {
+      numCells += it->getNumberOfCells();
+    }
+    return numCells;
   }
 };
 

@@ -67,6 +67,7 @@ namespace seissol {
 template<typename T>
 struct seissol::initializers::Variable {
   unsigned index;
+  LayerMask mask;
 };
 
 struct seissol::initializers::Bucket {

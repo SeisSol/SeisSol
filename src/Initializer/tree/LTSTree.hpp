@@ -41,8 +41,7 @@
 #ifndef INITIALIZER_TREE_LTSTREE_HPP_
 #define INITIALIZER_TREE_LTSTREE_HPP_
 
-#include "Node.hpp"
-#include "Layer.hpp"
+#include "LTSInternalNode.hpp"
 #include "TimeCluster.hpp"
 
 #include <Initializer/MemoryAllocator.h>
@@ -53,7 +52,7 @@ namespace seissol {
   }
 }
 
-class seissol::initializers::LTSTree : public seissol::initializers::Node {
+class seissol::initializers::LTSTree : public seissol::initializers::LTSInternalNode {
 private:
   void** m_vars;
   void** m_buckets;
@@ -84,8 +83,7 @@ public:
   inline TimeCluster const& child(unsigned index) const {
     return *static_cast<TimeCluster*>(m_children[index]);
   }
-  
-  /// \todo remove?
+
   template<typename T>
   T* var(Variable<T> const& handle) {
     assert(m_vars != NULL/* && m_vars[handle.index] != NULL*/);
@@ -103,6 +101,7 @@ public:
   template<typename T>
   void addVar(Variable<T>& handle, LayerMask mask, size_t alignment, seissol::memory::Memkind memkind) {
     handle.index = varInfo.size();
+    handle.mask = mask;
     MemoryInfo m;
     m.bytes = sizeof(T);
     m.alignment = alignment;
@@ -154,81 +153,6 @@ public:
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->touch(varInfo);
     }
-  }
-  
-  unsigned getNumberOfCells() {
-    unsigned numCells = 0;
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
-      numCells += it->getNumberOfCells();
-    }
-    return numCells;
-  }
-  
-  inline unsigned findTimeClusterId(unsigned ltsId) const {
-    int tc = 0;
-    for (; tc < numChildren()-1; ++tc) {
-      if (child(tc).getLtsIdStart() <= ltsId && ltsId < child(tc+1).getLtsIdStart()) {
-        break;
-      }
-    }
-    return tc;
-  }
-  
-  Layer* findLayer(unsigned ltsId) {    
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
-      if (it->getLtsIdStart() <= ltsId && ltsId < it->getLtsIdStart() + it->getNumberOfCells()) {
-        return &(*it);
-      }
-    }
-    return NULL;
-  }
-  
-  class leaf_iterator : public iterator {
-    friend class LTSTree;
-
-  private:
-    LayerMask m_layerMask;
-    
-    inline void nextLeaf() {
-      do {
-        m_node = m_node->m_next;
-      } while (m_node != NULL && !m_node->isLeaf());
-    }
-
-    // m_node must point to a leaf or NULL
-    inline void skipMaskedLayer() {
-      while (m_node != NULL && operator*().isMasked(m_layerMask)) {
-        nextLeaf();
-      }
-    }
-
-  public:
-    leaf_iterator() : iterator() {}
-    leaf_iterator(iterator const& it, LayerMask layerMask) : iterator(it), m_layerMask(layerMask) {}
-
-    inline iterator& operator++() {
-      nextLeaf();
-      skipMaskedLayer();
-      return *this;
-    }
-    
-    inline Layer& operator*() {
-      return *static_cast<Layer*>(m_node);
-    }
-    
-    inline Layer* operator->() {
-      return static_cast<Layer*>(m_node);
-    }
-  };
-
-  inline leaf_iterator beginLeaf(LayerMask layerMask = LayerMask()) {
-    leaf_iterator it = leaf_iterator(begin(), layerMask);
-    it.skipMaskedLayer();
-    return it;
-  }
-  
-  inline leaf_iterator endLeaf() {
-    return leaf_iterator();
   }
 };
 
