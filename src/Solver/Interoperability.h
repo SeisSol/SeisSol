@@ -103,7 +103,7 @@ class seissol::Interoperability {
     struct TimeStepping m_timeStepping;
 
     //! global data
-    struct GlobalData *m_globalData;
+    struct GlobalData const* m_globalData;
     
     seissol::initializers::LTSTree*   m_ltsTree;
     seissol::initializers::LTS*       m_lts;

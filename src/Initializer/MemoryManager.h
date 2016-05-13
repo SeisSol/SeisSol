@@ -301,18 +301,32 @@ class seissol::initializers::MemoryManager {
      *
      * @param i_matrixReader XML matrix reader.
      **/
-    void initialize( const seissol::XmlParser &i_matrixReader );
+    void initialize();
+    
+    
+    /**
+     * Sets the number of cells in each leaf of the lts tree, fixates the variables, and allocates memory.
+     * Afterwards the tree cannot be changed anymore.
+     *
+     * @param i_meshStructrue mesh structure.
+     **/
+    void fixateLtsTree( struct TimeStepping&        i_timeStepping,
+                        struct MeshStructure*       i_meshStructure );
 
     /**
-     * Set up the internal structure, allocate memory, set up the pointers and intializes the data to zero or NULL.
+     * Set up the internal structure.
      *
      * @param i_timeStepping time stepping.
-     * @param i_meshStructrue mesh structure.
      * @param io_cellLocalInformation cells local information.
      **/
-    void initializeMemoryLayout( struct TimeStepping         &i_timeStepping,
-                                 struct MeshStructure        *i_meshStructure,
-                                 struct CellLocalInformation *io_cellLocalInformation );
+    void initializeMemoryLayout( struct CellLocalInformation *io_cellLocalInformation );
+
+    /**
+     * Gets the global data.
+     **/
+    struct GlobalData const* getGlobalData() const {
+      return &m_globalData;
+    }
 
     /**
      * Gets the memory layout of a time cluster.

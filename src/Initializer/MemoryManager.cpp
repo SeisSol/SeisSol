@@ -75,6 +75,8 @@
 // if equations == viscoelastic
 #ifdef REQUIRE_SOURCE_MATRIX
 #include <generated_code/init.h>
+#else
+#define MATRIXXMLFILE "matrices_" STR(NUMBER_OF_BASIS_FUNCTIONS) ".xml"
 #endif
 
 #ifdef _OPENMP
@@ -125,7 +127,7 @@ seissol::initializers::MemoryManager::MemoryManager()
 {
 }
 
-void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser &i_matrixReader )
+void seissol::initializers::MemoryManager::initialize()
 {
 #ifndef REQUIRE_SOURCE_MATRIX
   // init the sparse switch
@@ -171,6 +173,9 @@ void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser 
   // set LTS integration buffer
   m_globalData.integrationBufferLTS = m_integrationBufferLTS;
 #else
+
+  XmlParser i_matrixReader(MATRIXXMLFILE);
+
   // initialize global matrices
 #ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   initializeGlobalMatrices( i_matrixReader, m_globalData );
@@ -853,21 +858,12 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
   }
 }
 
-void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeStepping         &i_timeStepping,
-                                                                   struct MeshStructure        *i_meshStructure,
-                                                                   struct CellLocalInformation *io_cellLocalInformation ) {
+void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
+                                                          struct MeshStructure*       i_meshStructure )
+{
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
   m_numberOfClusters = i_timeStepping.numberOfLocalClusters;
-
-  // correct LTS-information in the ghost layer
-  correctGhostRegionSetups( io_cellLocalInformation );
-
-  // set up the layers
-  setUpLayers( io_cellLocalInformation );
-
-  // derive the layouts of the layers
-  deriveLayerLayouts();
   
   // Setup tree variables
   m_lts.addTo(m_ltsTree);
@@ -882,7 +878,26 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeSt
     cluster.child<Ghost>().setNumberOfCells(i_meshStructure[tc].numberOfGhostCells);
     cluster.child<Copy>().setNumberOfCells(i_meshStructure[tc].numberOfCopyCells);
     cluster.child<Interior>().setNumberOfCells(i_meshStructure[tc].numberOfInteriorCells);
-    
+  }
+
+  m_ltsTree.allocateVariables();
+  m_ltsTree.touchVariables();
+}
+
+void seissol::initializers::MemoryManager::initializeMemoryLayout( struct CellLocalInformation *io_cellLocalInformation )
+{
+  // correct LTS-information in the ghost layer
+  correctGhostRegionSetups( io_cellLocalInformation );
+
+  // set up the layers
+  setUpLayers( io_cellLocalInformation );
+
+  // derive the layouts of the layers
+  deriveLayerLayouts();
+
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_ltsTree.child(tc);
+
     size_t l_ghostSize = 0;
     size_t l_copySize = 0;
     size_t l_interiorSize = 0;
@@ -903,8 +918,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeSt
     cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
   
-  m_ltsTree.allocateMemory();
-  m_ltsTree.touch();
+  m_ltsTree.allocateBuckets();
 
   // initialize the internal state
   initializeBuffersDerivatives();

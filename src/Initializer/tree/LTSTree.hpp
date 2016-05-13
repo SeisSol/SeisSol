@@ -118,16 +118,13 @@ public:
     bucketInfo.push_back(m);
   }
   
-  void allocateMemory() {
+  void allocateVariables() {
     m_vars = new void*[varInfo.size()];
-    m_buckets = new void*[bucketInfo.size()];
     std::vector<size_t> variableSizes(varInfo.size(), 0);
-    std::vector<size_t> bucketSizes(bucketInfo.size(), 0);
     
     unsigned ltsIdStart = 0;
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->addVariableSizes(varInfo, variableSizes);
-      it->addBucketSizes(bucketSizes);
       it->setLtsIdStart(ltsIdStart);
       ltsIdStart += it->getNumberOfCells();
     }
@@ -135,23 +132,36 @@ public:
     for (unsigned var = 0; var < varInfo.size(); ++var) {
       m_vars[var] = m_allocator.allocateMemory(variableSizes[var], varInfo[var].alignment, varInfo[var].memkind);
     }
+    
+    std::fill(variableSizes.begin(), variableSizes.end(), 0);
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      it->setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
+      it->addVariableSizes(varInfo, variableSizes);
+    }
+  }
+  
+  void allocateBuckets() {
+    m_buckets = new void*[bucketInfo.size()];
+    std::vector<size_t> bucketSizes(bucketInfo.size(), 0);
+    
+    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
+      it->addBucketSizes(bucketSizes);
+    }
+    
     for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
       m_buckets[bucket] = m_allocator.allocateMemory(bucketSizes[bucket], bucketInfo[bucket].alignment, bucketInfo[bucket].memkind);
     }
     
-    std::fill(variableSizes.begin(), variableSizes.end(), 0);
     std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
-    for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
-      it->addVariableSizes(varInfo, variableSizes);
+      for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->setMemoryRegionsForBuckets(m_buckets, bucketSizes);
       it->addBucketSizes(bucketSizes);
     }
   }
   
-  void touch() {
+  void touchVariables() {
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
-      it->touch(varInfo);
+      it->touchVariables(varInfo);
     }
   }
 };

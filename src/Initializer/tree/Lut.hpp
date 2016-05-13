@@ -100,7 +100,7 @@ public:
     return maskedLuts[mask.to_ulong()].ltsToMesh[ltsId];
   }  
   
-  unsigned* getLtsToMeshLut(LayerMask mask) const {
+  inline unsigned* getLtsToMeshLut(LayerMask mask) const {
     return maskedLuts[mask.to_ulong()].ltsToMesh;
   }
   
@@ -123,6 +123,10 @@ public:
   
   inline unsigned cluster(unsigned meshId) const {
     return m_meshToClusters[meshId];
+  }
+  
+  inline unsigned* getMeshToClusterLut() const {
+    return m_meshToClusters;
   }
   
   template<typename T>

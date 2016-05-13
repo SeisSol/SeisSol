@@ -80,9 +80,6 @@ class seissol::time_stepping::TimeManager {
       }
     };
 
-    //! memory manager
-    seissol::initializers::MemoryManager m_memoryManager;
-
     //! time kernel
     kernels::Time     m_timeKernel;
 
@@ -99,7 +96,7 @@ class seissol::time_stepping::TimeManager {
     TimeStepping m_timeStepping;
 
     //! mapping: mesh to clusters
-    unsigned int (*m_meshToClusters)[2];
+    unsigned int *m_meshToClusters;
 
     //! all LTS clusters, which are under control of this time manager
     std::vector< TimeCluster* > m_clusters;
@@ -148,25 +145,19 @@ class seissol::time_stepping::TimeManager {
      * Destruct the time manager.
      **/
     ~TimeManager();
-    
-    
-    /**
-     * Allocates all required buffers.
-     */
-    void initializeMemoryLayout();
 
     /**
      * Adds the time clusters to the time manager.
      *
      * @param i_timeStepping time stepping scheme.
      * @param i_meshStructure mesh structure.
-     * @param io_cellLocalInformation cell local information.
+     * @param i_memoryManager memory manager.
      * @param i_meshToClusters mapping from the mesh to the clusters.
      **/
-    void addClusters( struct TimeStepping          &i_timeStepping,
-                      struct MeshStructure         *i_meshStructure,
-                      struct CellLocalInformation  *io_cellLocalInformation,
-                      unsigned int                (*i_meshToClusters)[2]  );
+    void addClusters( struct TimeStepping&               i_timeStepping,
+                      struct MeshStructure*              i_meshStructure,
+                      initializers::MemoryManager&       i_memoryManager,
+                      unsigned*                          i_meshToClusters  );
 
     /**
      * Starts the communication thread.
@@ -184,45 +175,6 @@ class seissol::time_stepping::TimeManager {
      * Advance in time until all clusters reach the next synchronization time.
      **/
     void advanceInTime( const double &i_synchronizationTime );
-
-    /**
-     * Gets the raw data of the time manager.
-     *
-     * @param o_globalData global data, this is just the master data structure in case of multiple copies
-     **/
-    void getGlobalData( struct GlobalData*& o_globalData ) {
-      // get meta-data from memory manager
-      struct MeshStructure         *l_meshStructure           = NULL;
-#ifdef USE_MPI
-      struct CellLocalInformation  *l_copyCellInformation     = NULL;
-#endif
-      struct CellLocalInformation  *l_interiorCellInformation = NULL;
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-      struct GlobalData            *l_globalDataCopies        = NULL;
-#endif
-
-      m_memoryManager.getMemoryLayout( 0,
-                                       l_meshStructure,
-#ifdef USE_MPI
-                                      l_copyCellInformation,
-#endif
-                                       l_interiorCellInformation,
-                                      o_globalData
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                      l_globalDataCopies
-#endif
-                                      );
-    }
-    
-    /// Pass through ltsTree from MemoryManager
-    inline seissol::initializers::LTSTree* getLtsTree() {
-      return m_memoryManager.getLtsTree();
-    }
-    
-    /// Pass through lts from MemoryManager
-    inline seissol::initializers::LTS* getLts() {
-      return m_memoryManager.getLts();
-    }
 
     /**
      * Gets the time tolerance of the time manager (1E-5 of the CFL time step width).

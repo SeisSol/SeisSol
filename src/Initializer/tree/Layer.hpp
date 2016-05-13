@@ -179,7 +179,7 @@ public:
     }
   }
   
-  void touch(std::vector<MemoryInfo> const& vars) {
+  void touchVariables(std::vector<MemoryInfo> const& vars) {
     for (unsigned var = 0; var < vars.size(); ++var) {
       if (!isMasked(vars[var].mask)) {
 #ifdef _OPENMP

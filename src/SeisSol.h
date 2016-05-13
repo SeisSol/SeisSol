@@ -77,13 +77,15 @@ private:
 	/*
 	 * initializers
 	 */
-	seissol::initializers::time_stepping::LtsLayout m_ltsLayout;
+	initializers::time_stepping::LtsLayout m_ltsLayout;
+  
+  initializers::MemoryManager m_memoryManager;
 
 	//! time manager
-	seissol::time_stepping::TimeManager  m_timeManager;
+	time_stepping::TimeManager  m_timeManager;
 
 	//! simulator
-	seissol::Simulator m_simulator;
+	Simulator m_simulator;
 
 	/** Check pointing module */
 	checkpoint::Manager m_checkPointManager;
@@ -129,6 +131,10 @@ public:
 
 #ifdef GENERATEDKERNELS
 	initializers::time_stepping::LtsLayout& getLtsLayout(){ return m_ltsLayout; }
+  
+	initializers::MemoryManager& getMemoryManager() {
+    return m_memoryManager;
+  }
 
 	time_stepping::TimeManager& timeManager()
 	{

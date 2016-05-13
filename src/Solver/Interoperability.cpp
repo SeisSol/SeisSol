@@ -46,6 +46,7 @@
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
+#include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
 #include "ResultWriter/FaultWriterC.h"
@@ -308,22 +309,33 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
 
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
+  
+  seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
+                                                            m_meshStructure );
+  
+  // derive lts setups
+  seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
+                                                         m_meshStructure,
+                                                         m_cellInformation );
 
-  // add clusters
-  seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
-                                                    m_meshStructure,
-                                                    m_cellInformation,
-                                                    m_meshToClusters );
+  // initialize memory layout
+  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout( m_cellInformation );
 
-  // get backward coupling
-  seissol::SeisSol::main.timeManager().getGlobalData( m_globalData );
-
-  m_ltsTree = seissol::SeisSol::main.timeManager().getLtsTree();
-  m_lts = seissol::SeisSol::main.timeManager().getLts();
+  m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
+  m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
   m_ltsLut.createLuts(  m_ltsTree,
                         m_ltsToMesh,
                         m_numberOfLtsCells,
                         m_numberOfMeshCells );
+
+  // add clusters
+  seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
+                                                    m_meshStructure,
+                                                    seissol::SeisSol::main.getMemoryManager(),
+                                                    m_ltsLut.getMeshToClusterLut() );
+
+  // get backward coupling
+  m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
 }
 
 #ifdef USE_NETCDF
@@ -496,7 +508,7 @@ void seissol::Interoperability::initializeIO(
 	  int waveFieldTimeStep = 0;
 	  int faultTimeStep;
 	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
-				  m_numberOfCopyInteriorCells * NUMBER_OF_ALIGNED_DOFS,
+				  m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
 				  mu, slipRate1, slipRate2, slip, slip1, slip2,
 				  state, strength, numSides, numBndGP,
 				  currentTime, waveFieldTimeStep, faultTimeStep);
@@ -512,7 +524,7 @@ void seissol::Interoperability::initializeIO(
 			  seissol::SeisSol::main.meshReader(),
 			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
 			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
-			  m_meshToCopyInterior,
+			  m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
 			  refinement, waveFieldTimeStep,
 			  seissol::SeisSol::main.timeManager().getTimeTolerance());
 

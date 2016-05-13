@@ -43,9 +43,6 @@
 
 #include "TimeManager.h"
 #include <Initializer/preProcessorMacros.fpp>
-#include <Initializer/time_stepping/common.hpp>
-
-#define MATRIXXMLFILE "matrices_" STR(NUMBER_OF_BASIS_FUNCTIONS) ".xml"
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <sys/sysinfo.h>
@@ -69,21 +66,14 @@ seissol::time_stepping::TimeManager::~TimeManager() {
   }
 }
 
-void seissol::time_stepping::TimeManager::initializeMemoryLayout()
-{
-  XmlParser xmlParser(MATRIXXMLFILE);
-  m_memoryManager.initialize(xmlParser);
-}
-
-void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping          &i_timeStepping,
-                                                       struct MeshStructure         *i_meshStructure,
-                                                       struct CellLocalInformation  *io_cellLocalInformation,
-                                                       unsigned int                (*i_meshToClusters)[2]  ) {
+void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&               i_timeStepping,
+                                                       struct MeshStructure*              i_meshStructure,
+                                                       initializers::MemoryManager&       i_memoryManager,
+                                                       unsigned int*                      i_meshToClusters  ) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
 
   // assert non-zero pointers
   assert( i_meshStructure         != NULL );
-  assert( io_cellLocalInformation != NULL );
   assert( i_meshToClusters        != NULL );
 
   // store the time stepping
@@ -91,14 +81,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 
   // store mesh to clusters mapping
   m_meshToClusters = i_meshToClusters;
-
-  // derive lts setups
-  seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
-                                                         i_meshStructure,
-                                                         io_cellLocalInformation );
-
-  // initialize memory layout
-  m_memoryManager.initializeMemoryLayout( m_timeStepping, i_meshStructure, io_cellLocalInformation );
 
   // iterate over local time clusters
   for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
@@ -113,7 +95,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #endif
 
     // get memory layout of this cluster
-    m_memoryManager.getMemoryLayout( l_cluster,
+    i_memoryManager.getMemoryLayout( l_cluster,
                                      l_meshStructure,
 #ifdef USE_MPI
                                      l_copyCellInformation,
@@ -140,8 +122,8 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping      
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                            l_globalDataCopies,
 #endif
-                                           &getLtsTree()->child(l_cluster),
-                                           getLts() )
+                                           &i_memoryManager.getLtsTree()->child(l_cluster),
+                                           i_memoryManager.getLts() )
                         );
   }
 }
@@ -415,7 +397,7 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters( sourceterm
 void seissol::time_stepping::TimeManager::addReceiver( unsigned int i_receiverId,
                                                        unsigned int i_meshId ) {
   // get cluster id (Fotran-formatting expected)
-  unsigned int l_cluster = m_meshToClusters[i_meshId-1][0];
+  unsigned int l_cluster = m_meshToClusters[i_meshId-1];
 
   // add to the cluster
   m_clusters[l_cluster]->addReceiver( i_receiverId, i_meshId );
