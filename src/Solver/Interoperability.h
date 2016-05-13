@@ -72,30 +72,6 @@ class seissol::Interoperability {
     /*
      * Brain dump of SeisSol's C parts.
      */
-    //! number of cells in the mesh
-    unsigned int m_numberOfMeshCells;
-
-    //! number of LTS cells
-    unsigned int m_numberOfLtsCells;
-
-    //! number of copy interior cells
-    unsigned int m_numberOfCopyInteriorCells;
-
-    //! cluster-local interior cell information
-    struct CellLocalInformation *m_cellInformation;
-
-    //! mapping from mesh to lts layout
-    unsigned int *m_meshToLts;
-
-    //! mapping from mesh to lts layout without ghost layers
-    unsigned int *m_meshToCopyInterior;
-
-    //! mapping from mesh to clusters
-    unsigned int (*m_meshToClusters)[2];
-
-    //! mapping from lts layout to mesh
-    unsigned int *m_ltsToMesh;
-
     //! cluster-local mesh structure
     struct MeshStructure *m_meshStructure;
 
@@ -103,7 +79,7 @@ class seissol::Interoperability {
     struct TimeStepping m_timeStepping;
 
     //! global data
-    struct GlobalData const* m_globalData;
+    struct GlobalData* m_globalData;
     
     seissol::initializers::LTSTree*   m_ltsTree;
     seissol::initializers::LTS*       m_lts;

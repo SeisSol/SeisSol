@@ -158,19 +158,12 @@ private:
      * element data and mpi queues
      */     
 #ifdef USE_MPI
-    //! cell local information in the copy layer
-    struct CellLocalInformation *m_copyCellInformation;
-
     //! pending copy region sends
     std::list< MPI_Request* > m_sendQueue;
 
     //! pending ghost region receives
     std::list< MPI_Request* > m_receiveQueue;
-#endif
-
-    //! cell local information in the interior
-    struct CellLocalInformation *m_interiorCellInformation;
-    
+#endif    
     seissol::initializers::TimeCluster* m_clusterData;
     seissol::initializers::LTS*         m_lts;
 
@@ -274,9 +267,7 @@ private:
      * @param io_derivatives time derivatives.
      * @param io_dofs degrees of freedom.
      **/
-    void computeLocalIntegration( unsigned int           i_numberOfCells,
-                                  CellLocalInformation  *i_cellInformation,
-                                  seissol::initializers::Layer&  i_layerData );
+    void computeLocalIntegration( seissol::initializers::Layer&  i_layerData );
 
     /**
      * Computes the contribution of the neighboring cells to the boundary integral.
@@ -290,9 +281,7 @@ private:
      * @param i_faceNeighbors pointers to neighboring time buffers or derivatives.
      * @param io_dofs degrees of freedom.
      **/
-    void computeNeighboringIntegration( unsigned int            i_numberOfCells,
-                                        CellLocalInformation   *i_cellInformation,
-                                        seissol::initializers::Layer&  i_layerData );
+    void computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData );
 
     void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
                                         CellLocalInformation const* cellInformation,
@@ -380,10 +369,6 @@ private:
                  kernels::Local                &i_localKernel,
                  kernels::Neighbor             &i_neighborKernel,
                  struct MeshStructure          *i_meshStructure,
-#ifdef USE_MPI
-                 struct CellLocalInformation   *i_copyCellInformation,
-#endif
-                 struct CellLocalInformation   *i_interiorCellInformation,
                  struct GlobalData             *i_globalData,
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                  struct GlobalData             *i_globalDataCopies,

@@ -68,10 +68,14 @@ template<typename T>
 struct seissol::initializers::Variable {
   unsigned index;
   LayerMask mask;
+  
+  Variable() : index(std::numeric_limits<unsigned>::max()) {}
 };
 
 struct seissol::initializers::Bucket {
   unsigned index;
+
+  Bucket() : index(std::numeric_limits<unsigned>::max()) {}
 };
 
 struct seissol::initializers::MemoryInfo {
@@ -84,23 +88,24 @@ struct seissol::initializers::MemoryInfo {
 class seissol::initializers::Layer : public seissol::initializers::Node {
 private:
   enum LayerType m_layerType;
-  unsigned m_ltsIdStart;
   unsigned m_numberOfCells;
   void** m_vars;
   void** m_buckets;
   size_t* m_bucketSizes;
 
 public:
-  Layer() : m_ltsIdStart(std::numeric_limits<unsigned>::max()), m_numberOfCells(0), m_vars(NULL), m_buckets(NULL), m_bucketSizes(NULL) {}
+  Layer() : m_numberOfCells(0), m_vars(NULL), m_buckets(NULL), m_bucketSizes(NULL) {}
   ~Layer() { delete[] m_vars; delete[] m_buckets; delete[] m_bucketSizes; }
   
   template<typename T>
   T* var(Variable<T> const& handle) {
+    assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_vars != NULL/* && m_vars[handle.index] != NULL*/);
     return static_cast<T*>(m_vars[handle.index]);
   }
 
   void* bucket(Bucket const& handle) {
+    assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_buckets != NULL && m_buckets[handle.index] != NULL);
     return m_buckets[handle.index];
   }
@@ -116,14 +121,6 @@ public:
   
   inline enum LayerType getLayerType() const {
     return m_layerType;
-  }
-
-  inline unsigned getLtsIdStart() const {
-    return m_ltsIdStart;
-  }
-  
-  inline void setLtsIdStart(unsigned ltsIdStart) {
-    m_ltsIdStart = ltsIdStart;
   }
   
   inline unsigned getNumberOfCells() const {

@@ -63,8 +63,7 @@ void setStarMatrix( real* i_AT,
   }
 }
 
-void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      i_meshReader,
-                                                         CellLocalInformation*  i_cellInformation,                                                         
+void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      i_meshReader,                                                    
                                                          LTSTree*               io_ltsTree,
                                                          LTS*                   i_lts,
                                                          Lut*                   i_ltsLut )
@@ -97,12 +96,12 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     CellMaterialData*           material                = it->var(i_lts->material);
     LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
     NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
+    CellLocalInformation*       cellInformation         = it->var(i_lts->cellInformation);
     
 #ifdef _OPENMP
   #pragma omp parallel for private(AT, BT, CT, FlocalData, FneighborData, TData, TinvData) schedule(static)
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
-      unsigned ltsId = it->getLtsIdStart() + cell;
       unsigned meshId = ltsToMesh[cell];
       
       real x[4];
@@ -139,7 +138,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 
         seissol::model::getTransposedRiemannSolver( material[cell].local,
                                                     material[cell].neighbor[side],
-                                                    i_cellInformation[ltsId].faceTypes[side],
+                                                    cellInformation[cell].faceTypes[side],
                                                     //AT,
                                                     Flocal,
                                                     Fneighbor );

@@ -294,16 +294,6 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
     seissol::SeisSol::main.getLtsLayout().deriveLayout( multiRate, i_clustering );
   }
 
-  // get cell information & mappings
-  seissol::SeisSol::main.getLtsLayout().getCellInformation( m_numberOfMeshCells,
-                                                            m_numberOfLtsCells,
-                                                            m_numberOfCopyInteriorCells,
-                                                            m_cellInformation,
-                                                            m_meshToLts,
-                                                            m_meshToCopyInterior,
-                                                            m_meshToClusters,
-                                                            m_ltsToMesh );
-
   // get the mesh structure
   seissol::SeisSol::main.getLtsLayout().getMeshStructure( m_meshStructure );
 
@@ -312,21 +302,30 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
   
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
                                                             m_meshStructure );
+
+  m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
+  m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
+  
+  unsigned* ltsToMesh;
+  unsigned numberOfMeshCells;
+  // get cell information & mappings
+  seissol::SeisSol::main.getLtsLayout().getCellInformation( m_ltsTree->var(m_lts->cellInformation),
+                                                            ltsToMesh,
+                                                            numberOfMeshCells );
+
+  m_ltsLut.createLuts(  m_ltsTree,
+                        ltsToMesh,
+                        numberOfMeshCells );
+                        
+  delete[] ltsToMesh;
   
   // derive lts setups
   seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
                                                          m_meshStructure,
-                                                         m_cellInformation );
+                                                         m_ltsTree->var(m_lts->cellInformation) );
 
   // initialize memory layout
-  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout( m_cellInformation );
-
-  m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
-  m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
-  m_ltsLut.createLuts(  m_ltsTree,
-                        m_ltsToMesh,
-                        m_numberOfLtsCells,
-                        m_numberOfMeshCells );
+  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout();
 
   // add clusters
   seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
@@ -438,7 +437,6 @@ void seissol::Interoperability::initializeCellLocalMatrices()
 {
   // \todo Move this to some common initialization place
   seissol::initializers::initializeCellLocalMatrices( seissol::SeisSol::main.meshReader(),
-                                                      m_cellInformation,
                                                       m_ltsTree,
                                                       m_lts,
                                                       &m_ltsLut );
@@ -580,7 +578,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
                                                double o_timeIntegratedCell[NUMBER_OF_DOFS],
                                                double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
   // assert that the cell provides derivatives
-  assert( (m_cellInformation[ m_meshToLts[ (i_meshId)-1 ] ].ltsSetup >> 9)%2 == 1 );
+  assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
   
   real*&    derivatives       = m_ltsLut.lookup(m_lts->derivatives, i_meshId-1);
   real*   (&faceNeighbors)[4] = m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1);
@@ -624,7 +622,7 @@ void seissol::Interoperability::getDofs( int    i_meshId,
 void seissol::Interoperability::getDofsFromDerivatives( int    i_meshId,
                                                         double o_dofs[NUMBER_OF_DOFS] ) {
   // assert that the cell provides derivatives
-  assert( (m_cellInformation[ m_meshToLts[ (i_meshId)-1 ] ].ltsSetup >> 9)%2 == 1 );
+  assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
 
   // get DOFs from 0th derivatives
   seissol::kernels::convertAlignedDofs( m_ltsLut.lookup(m_lts->derivatives, i_meshId-1), o_dofs );

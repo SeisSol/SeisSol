@@ -86,6 +86,7 @@ public:
 
   template<typename T>
   T* var(Variable<T> const& handle) {
+    assert(handle.index != std::numeric_limits<unsigned>::max());
     assert(m_vars != NULL/* && m_vars[handle.index] != NULL*/);
     return static_cast<T*>(m_vars[handle.index]);
   }
@@ -121,12 +122,9 @@ public:
   void allocateVariables() {
     m_vars = new void*[varInfo.size()];
     std::vector<size_t> variableSizes(varInfo.size(), 0);
-    
-    unsigned ltsIdStart = 0;
+
     for (LTSTree::leaf_iterator it = beginLeaf(); it != endLeaf(); ++it) {
       it->addVariableSizes(varInfo, variableSizes);
-      it->setLtsIdStart(ltsIdStart);
-      ltsIdStart += it->getNumberOfCells();
     }
 
     for (unsigned var = 0; var < varInfo.size(); ++var) {

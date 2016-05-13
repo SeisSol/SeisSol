@@ -56,8 +56,8 @@ public:
     friend class LTSInternalNode;
 
   private:
-    LayerMask m_layerMask;
     iterator  m_end;
+    LayerMask m_layerMask;
     
     inline void nextLeaf() {
       do {

@@ -125,10 +125,9 @@ seissol::initializers::Lut::~Lut()
 
 void seissol::initializers::Lut::createLuts(  LTSTree*        ltsTree,
                                               unsigned*       ltsToMesh,
-                                              unsigned        numberOfCells,
                                               unsigned        numberOfMeshIds )
 {
-  assert(numberOfCells == ltsTree->getNumberOfCells());
+  unsigned numberOfCells = ltsTree->getNumberOfCells();
 
   m_ltsTree = ltsTree;
 

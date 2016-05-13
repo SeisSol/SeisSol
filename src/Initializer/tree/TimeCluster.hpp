@@ -62,10 +62,6 @@ public:
   inline Layer& child() {
     return *static_cast<Layer*>(m_children[ Log2<LAYER>::Result ]);
   }
-  
-  inline unsigned getLtsIdStart() const {
-    return static_cast<Layer*>(m_children[0])->getLtsIdStart();
-  }
 };
 
 #endif

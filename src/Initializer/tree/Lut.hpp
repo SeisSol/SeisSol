@@ -93,7 +93,6 @@ public:
 
   void createLuts(  LTSTree*        ltsTree,
                     unsigned*       ltsToMesh,
-                    unsigned        numberOfCells,
                     unsigned        numberOfMeshIds );
   
   inline unsigned meshId(LayerMask mask, unsigned ltsId) const {

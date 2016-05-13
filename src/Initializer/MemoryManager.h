@@ -118,21 +118,6 @@ class seissol::initializers::MemoryManager {
     //! LTS mesh structure
     struct MeshStructure *m_meshStructure;
 
-    //! number of time stepping clusters
-    unsigned int m_numberOfClusters;
-
-    //! total number of cells in all layers and clusters.
-    unsigned int m_totalNumberOfCells;
-
-    //! total number of interior cells across all clusters.
-    unsigned int m_totalNumberOfInteriorCells;
-
-    //! total number of ghost cells across all clusters.
-    unsigned int m_totalNumberOfGhostCells;
-
-    //! total number of copy cells across all clusters
-    unsigned int m_totalNumberOfCopyCells;
-
     /*
      * Interior
      */
@@ -141,9 +126,6 @@ class seissol::initializers::MemoryManager {
 
     //! number of derivatives in the interior per cluster
     unsigned int *m_numberOfInteriorDerivatives;
-
-    //! interior information
-    CellLocalInformation **m_interiorCellInformation;
 
 #ifdef USE_MPI
     /*
@@ -161,9 +143,6 @@ class seissol::initializers::MemoryManager {
     //! number of derivatives in the ghost regions per cluster
     unsigned int **m_numberOfGhostRegionDerivatives;
 
-    //! ghost information
-    CellLocalInformation **m_ghostCellInformation;
-
     /*
      * Copy Layer
      */
@@ -178,9 +157,6 @@ class seissol::initializers::MemoryManager {
 
     //! number of derivatives in the copy regionsper cluster
     unsigned int **m_numberOfCopyRegionDerivatives;
-
-    //! copy information
-    CellLocalInformation **m_copyCellInformation;
 #endif
 
     /*
@@ -244,16 +220,9 @@ class seissol::initializers::MemoryManager {
     void allocateIntegrationBufferLTS();
 
     /**
-     * Sets up the layers: Total number of ghost, copy and interior cells & cell information per layer.
-     **/
-    void setUpLayers( struct CellLocalInformation* i_cellLocalInformation );
-
-    /**
      * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
-     *
-     * @param io_cellLocalInformation cell local information.
      **/
-    void correctGhostRegionSetups( struct CellLocalInformation *io_cellLocalInformation ); 
+    void correctGhostRegionSetups(); 
 
     /**
      * Derives the layouts -- number of buffers and derivatives -- of the layers.
@@ -319,12 +288,12 @@ class seissol::initializers::MemoryManager {
      * @param i_timeStepping time stepping.
      * @param io_cellLocalInformation cells local information.
      **/
-    void initializeMemoryLayout( struct CellLocalInformation *io_cellLocalInformation );
+    void initializeMemoryLayout();
 
     /**
      * Gets the global data.
      **/
-    struct GlobalData const* getGlobalData() const {
+    struct GlobalData* getGlobalData() {
       return &m_globalData;
     }
 
@@ -333,18 +302,11 @@ class seissol::initializers::MemoryManager {
      *
      * @param i_cluster local id of the time cluster.
      * @param o_meshStructure mesh structure.
-     * @param o_copyCellInformation cell information in the copy layer.
-     * @param o_interiorCellInformation cell information in the interior.
      * @param o_globalData global data.
      * @param o_globalDataCopies several copies of global data
-     * @param o_cells cells.
      **/
     void getMemoryLayout( unsigned int                    i_cluster,
                           struct MeshStructure          *&o_meshStructure,
-#ifdef USE_MPI
-                          struct CellLocalInformation   *&o_copyCellInformation,
-#endif
-                          struct CellLocalInformation   *&o_interiorCellInformation,
                           struct GlobalData             *&o_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                           struct GlobalData             *&o_globalDataCopies

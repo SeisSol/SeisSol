@@ -85,10 +85,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
   // iterate over local time clusters
   for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
     struct MeshStructure          *l_meshStructure           = NULL;
-#ifdef USE_MPI
-    struct CellLocalInformation   *l_copyCellInformation     = NULL;
-#endif
-    struct CellLocalInformation   *l_interiorCellInformation = NULL;
     struct GlobalData             *l_globalData              = NULL;
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
     struct GlobalData             *l_globalDataCopies        = NULL;
@@ -97,10 +93,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
     // get memory layout of this cluster
     i_memoryManager.getMemoryLayout( l_cluster,
                                      l_meshStructure,
-#ifdef USE_MPI
-                                     l_copyCellInformation,
-#endif
-                                     l_interiorCellInformation,
                                      l_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                      l_globalDataCopies
@@ -114,10 +106,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            m_localKernel,
                                            m_neighborKernel,
                                            l_meshStructure,
-#ifdef USE_MPI
-                                           l_copyCellInformation,
-#endif
-                                           l_interiorCellInformation,
                                            l_globalData,
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                            l_globalDataCopies,
