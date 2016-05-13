@@ -45,8 +45,6 @@
 #include <Initializer/preProcessorMacros.fpp>
 #include <Initializer/time_stepping/common.hpp>
 
-#define MATRIXXMLFILE "matrices_" STR(NUMBER_OF_BASIS_FUNCTIONS) ".xml"
-
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <sys/sysinfo.h>
 #include <sched.h>
@@ -71,8 +69,7 @@ seissol::time_stepping::TimeManager::~TimeManager() {
 
 void seissol::time_stepping::TimeManager::initializeMemoryLayout()
 {
-  XmlParser xmlParser(MATRIXXMLFILE);
-  m_memoryManager.initialize(xmlParser);
+  m_memoryManager.initialize();
 }
 
 void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping          &i_timeStepping,

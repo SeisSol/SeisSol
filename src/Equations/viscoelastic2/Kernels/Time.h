@@ -78,21 +78,31 @@ class seissol::kernels::Time {
                           double                                      i_integrationEnd,
                           real const*                                 i_timeDerivatives,
                           real                                        o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] );
-
+    
+    /**
+     * Convert compressed and memory aligned time derivatives to a full (including zeros) unaligned format.
+     *
+     * @param i_compressedDerivatives derivatives in compressed, aligned format.
+     * @param o_fullDerivatives derivatives in full, unaligned format.
+     **/
     template<typename real_from, typename real_to>
     static void convertAlignedCompressedTimeDerivatives( const real_from *i_compressedDerivatives,
                                                                real_to    o_fullDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] )
     {
-        for (unsigned order = 0; order < CONVERGENCE_ORDER; ++order) {
-          seissol::kernels::copySubMatrix( &i_compressedDerivatives[order * NUMBER_OF_ALIGNED_DOFS],
-                                           NUMBER_OF_BASIS_FUNCTIONS,
-                                           NUMBER_OF_QUANTITIES,
-                                           NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                                           o_fullDerivatives[order],
-                                           NUMBER_OF_BASIS_FUNCTIONS,
-                                           NUMBER_OF_QUANTITIES,
-                                           NUMBER_OF_BASIS_FUNCTIONS );
-        }
+      unsigned int l_firstEntry = 0;
+
+      for( unsigned int l_order = 0; l_order < CONVERGENCE_ORDER; l_order++ ) {
+        copySubMatrix( &i_compressedDerivatives[l_firstEntry],
+                        getNumberOfBasisFunctions( CONVERGENCE_ORDER-l_order ),
+                        NUMBER_OF_QUANTITIES,
+                        getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER-l_order ),
+                        o_fullDerivatives[l_order],
+                        NUMBER_OF_BASIS_FUNCTIONS,
+                        NUMBER_OF_QUANTITIES,
+                        NUMBER_OF_BASIS_FUNCTIONS );
+
+        l_firstEntry += getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER-l_order ) * NUMBER_OF_QUANTITIES;
+      }
     }
 };
 

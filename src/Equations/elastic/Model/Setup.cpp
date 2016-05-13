@@ -43,28 +43,23 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 
+#include <generated_code/sizes.h>
+#include <generated_code/init.h>
+
 void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
                                                      unsigned        i_dim,
-                                                     real            o_M[STAR_NNZ] )
+                                                     real            o_M[seissol::model::AstarT::reals] )
 {
-  if (STAR_NNZ == 24) {
-    real MdenseData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-    MatrixView Mdense(MdenseData, sizeof(MdenseData)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
-    seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, Mdense);
-    seissol::kernels::convertStarMatrix(Mdense.data, o_M);
-  } else {
-    assert(STAR_NNZ == NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES);
-    MatrixView Mdense(o_M, NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES, &colMjrIndex<NUMBER_OF_QUANTITIES>);
-    seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, Mdense);
-  }
+  MatrixView M(o_M, seissol::model::AstarT::reals, seissol::model::AstarT::index);
+  seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, M);
 }
 
 void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&                        local,
                                                  seissol::model::Material const&                        neighbor,
                                                  enum ::faceType                                        type,
                                                  //real const                                             Atransposed[STAR_NNZ],
-                                                 DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal,
-                                                 DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor )
+                                                 DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> Flocal,
+                                                 DenseMatrixView<seissol::model::AminusT::rows, seissol::model::AminusT::cols> Fneighbor )
 {
   real QgodNeighborData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
   real QgodLocalData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
@@ -89,7 +84,7 @@ void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&
     }
   }
   
-  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<9, NUMBER_OF_QUANTITIES>(0, 0));
+  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<9, seissol::model::AminusT::cols>(0, 0));
 }
 
 void seissol::model::setMaterial( double* i_materialVal,
@@ -107,8 +102,8 @@ void seissol::model::setMaterial( double* i_materialVal,
 void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
                                             VrtxCoords const i_tangent1,
                                             VrtxCoords const i_tangent2,
-                                            DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
-                                            DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv )
+                                            DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> o_T,
+                                            DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> o_Tinv )
 {
   o_T.setZero();
   o_Tinv.setZero();

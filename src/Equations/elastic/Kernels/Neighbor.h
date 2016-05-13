@@ -35,7 +35,7 @@
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2014, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,93 +65,40 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Time kernel of SeisSol.
+ * Boundary kernel of SeisSol.
  **/
 
-#ifndef TIME_H_
-#define TIME_H_
+#ifndef BOUNDARY_H_
+#define BOUNDARY_H_
 
-#include <cassert>
-#include <limits>
 #include <Initializer/typedefs.hpp>
-#include <Kernels/common.hpp>
+
+#include <Initializer/typedefs.hpp>
 #include <generated_code/sizes.h>
 
 namespace seissol {
   namespace kernels {
-    class Time;
+    class Neighbor;
   }
 }
 
-class seissol::kernels::Time {
-  private:
-    //! aligned number of basis functions in decreasing order.
-    unsigned int m_numberOfAlignedBasisFunctions[CONVERGENCE_ORDER];
-
-    /*
-     *! Offsets of the derivatives.
-     *
-     * * Offset counting starts at the zeroth derivative with o_derivativesOffset[0]=0; increasing derivatives follow:
-     *   1st derivative: o_derivativesOffset[1]
-     *   2nd derivative: o_derivativesOffset[2]
-     *   ...
-     * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
-     */
-    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-    
-    void streamstoreFirstDerivative(  const real* i_degreesOfFreedom,
-                                      real* o_derivativesBuffer );
-                                      
-    void integrateInTime( const real*        i_derivativesBuffer,
-                          real         i_scalar,
-                          unsigned int i_derivative,
-                          real*        o_timeIntegrated,
-                          real*        o_timeDerivatives );
-    
-    void initialize( const real         i_scalar,
-                     const real*        i_degreesOfFreedom,
-                     real*        o_timeIntegrated,
-                     real*        o_derivativesBuffer );
+class seissol::kernels::Neighbor {
   public:
-    /**
-     * Constructor, which initializes the time kernel.
-     **/
-    Time();
+    Neighbor() {}
 
-    void computeAder( double                      i_timeStepWidth,
-                      GlobalData const*           global,
-                      LocalIntegrationData const* local,
-                      real const*                 i_degreesOfFreedom,
-                      real*                       o_timeIntegrated,
-                      real*                       o_timeDerivatives = NULL );
+    void computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
+                                    int const                         i_neighboringIndices[4][2],
+                                    GlobalData const*                 global,
+                                    NeighboringIntegrationData const* neighbor,
+                                    real*                             i_timeIntegrated[4],
+                                    real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] );
 
-    void flopsAder( unsigned int &o_nonZeroFlops,
-                    unsigned int &o_hardwareFlops );
-
-    unsigned bytesAder();
-
-    void computeIntegral( double                                      i_expansionPoint,
-                          double                                      i_integrationStart,
-                          double                                      i_integrationEnd,
-                          real const*                                 i_timeDerivatives,
-                          real                                        o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] );
-
-    template<typename real_from, typename real_to>
-    static void convertAlignedCompressedTimeDerivatives( const real_from *i_compressedDerivatives,
-                                                               real_to    o_fullDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] )
-    {
-        for (unsigned order = 0; order < CONVERGENCE_ORDER; ++order) {
-          seissol::kernels::copySubMatrix( &i_compressedDerivatives[order * NUMBER_OF_ALIGNED_DOFS],
-                                           NUMBER_OF_BASIS_FUNCTIONS,
-                                           NUMBER_OF_QUANTITIES,
-                                           NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                                           o_fullDerivatives[order],
-                                           NUMBER_OF_BASIS_FUNCTIONS,
-                                           NUMBER_OF_QUANTITIES,
-                                           NUMBER_OF_BASIS_FUNCTIONS );
-        }
-    }
+    void flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
+                                 const int            i_neighboringIndices[4][2],
+                                 unsigned int        &o_nonZeroFlops,
+                                 unsigned int        &o_hardwareFlops );
+                                 
+    unsigned bytesNeighborsIntegral();
 };
 
 #endif
-

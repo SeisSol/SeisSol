@@ -1,3 +1,33 @@
+/******************************************************************************
+** Copyright (c) 2014-2015, Intel Corporation                                **
+** All rights reserved.                                                      **
+**                                                                           **
+** Redistribution and use in source and binary forms, with or without        **
+** modification, are permitted provided that the following conditions        **
+** are met:                                                                  **
+** 1. Redistributions of source code must retain the above copyright         **
+**    notice, this list of conditions and the following disclaimer.          **
+** 2. Redistributions in binary form must reproduce the above copyright      **
+**    notice, this list of conditions and the following disclaimer in the    **
+**    documentation and/or other materials provided with the distribution.   **
+** 3. Neither the name of the copyright holder nor the names of its          **
+**    contributors may be used to endorse or promote products derived        **
+**    from this software without specific prior written permission.          **
+**                                                                           **
+** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
+** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
+** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
+** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
+** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
+** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
+** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
+** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
+** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
+** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
+** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
+******************************************************************************/
+/* Alexander Heinecke (Intel Corp.)
+******************************************************************************/
 /**
  * @file
  * This file is part of SeisSol.
@@ -36,7 +66,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Neighbor kernel of SeisSol.
+ * Boundary kernel of SeisSol.
  **/
 
 #include "Neighbor.h"
@@ -45,7 +75,6 @@
 #pragma message "compiling boundary kernel with assertions"
 #endif
 
-#include <Kernels/denseMatrixOps.hpp>
 #include <generated_code/kernels.h>
 #include <generated_code/flops.h>
 
@@ -77,9 +106,6 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
 
   // alignment of the degrees of freedom
   assert( ((uintptr_t)io_degreesOfFreedom) % ALIGNMENT == 0 );
-  
-  real reducedDofs[NUMBER_OF_ALIGNED_REDUCED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-  memset(reducedDofs, 0, NUMBER_OF_ALIGNED_REDUCED_DOFS * sizeof(real));
 
   // iterate over faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
@@ -99,35 +125,17 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
           neighbor->nAmNm1[l_face],
           global->fluxMatrices[4 + l_id],
           i_timeIntegrated[l_face],
-          reducedDofs
+          io_degreesOfFreedom
         );
       } else { // fall back to local matrices in case of free surface boundary conditions
         seissol::generatedKernels::localFlux[l_face](
           neighbor->nAmNm1[l_face],
           global->fluxMatrices[l_face],
           i_timeIntegrated[l_face],
-          reducedDofs
+          io_degreesOfFreedom
         );
       }
     }
-  }
-  
-  SXtYp(  1.0,
-          NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-          NUMBER_OF_ELASTIC_QUANTITIES,
-          reducedDofs,
-          NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-          io_degreesOfFreedom,
-          NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
-  
-  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    SXtYp(  neighbor->specific.omega[mech],
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-            NUMBER_OF_MECHANISM_QUANTITIES,
-            &reducedDofs[NUMBER_OF_ALIGNED_ELASTIC_DOFS],
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-            &io_degreesOfFreedom[NUMBER_OF_ALIGNED_ELASTIC_DOFS + mech * NUMBER_OF_ALIGNED_MECHANISM_DOFS],
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
   }
 }
 
@@ -159,16 +167,6 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_
       }
     }
   }
-  
-  /* Y = 1.0 * X + Y == 1 nonzero flop, 2 hardware flops
-   */
-  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_ELASTIC_QUANTITIES;
-  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_ELASTIC_QUANTITIES * 2;
-
-  /* Y = omega * X * Y == 2 nonzero and hardware flops
-   */
-  o_nonZeroFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2;
-  o_hardwareFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 2;
 }
 
 
@@ -177,7 +175,7 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   unsigned reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
-  reals += 4 * NUMBER_OF_ALIGNED_ELASTIC_DOFS + 2 * NUMBER_OF_ALIGNED_DOFS;
+  reals += 6 * NUMBER_OF_ALIGNED_DOFS;
   // flux solvers load
   reals += 4 * seissol::model::AminusT::reals;
   

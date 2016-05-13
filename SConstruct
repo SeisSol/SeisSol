@@ -486,7 +486,7 @@ env.Append( CPPPATH=['#/submodules', '#/submodules/glm'] )
 #
 
 # Libxsmm
-env.Tool('LibxsmmTool', required=env['equations'].startswith('viscoelastic'))
+env.Tool('LibxsmmTool', required=True)
 
 # Library pathes
 env.Tool('DirTool', fortran=True)

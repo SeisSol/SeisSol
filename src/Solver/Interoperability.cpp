@@ -569,21 +569,14 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
   real l_timeDerivatives[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(ALIGNMENT)));
 
   unsigned nonZeroFlops, hardwareFlops;
-#ifdef REQUIRE_SOURCE_MATRIX
+
   m_timeKernel.computeAder( 0,
                             m_globalData,
                             &m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ],
                             m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
                             l_timeIntegrated,
                             l_timeDerivatives );
-#else
-  m_timeKernel.computeAder( 0,
-                            m_globalData->stiffnessMatricesTransposed,
-                            m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
-                            m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ].starMatrices,
-                            l_timeIntegrated,
-                            l_timeDerivatives );
-#endif
+
   m_timeKernel.flopsAder(nonZeroFlops, hardwareFlops);
   g_SeisSolNonZeroFlopsOther += nonZeroFlops;
   g_SeisSolHardwareFlopsOther += hardwareFlops;

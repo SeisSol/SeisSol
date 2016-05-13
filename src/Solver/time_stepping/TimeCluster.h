@@ -82,13 +82,8 @@
 
 #include <Kernels/Time.h>
 
-#ifdef REQUIRE_SOURCE_MATRIX
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
-#else
-#include <Kernels/Volume.h>
-#include <Kernels/Boundary.h>
-#endif
 
 // some check for correct functionality
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY

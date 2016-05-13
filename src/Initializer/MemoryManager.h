@@ -95,23 +95,6 @@ class seissol::initializers::MemoryManager {
     //! memory allocator
     seissol::memory::ManagedAllocator m_memoryAllocator;
 
-    #ifndef REQUIRE_SOURCE_MATRIX
-    /**
-     * Sparse switch: -1 if matrix is dense, nnz if sparse
-     *
-     *    0-3:   \f$ M^{-1} F^{-, i}        \f$
-     *    4:     \f$ M^{-1} F^+{+, 1, 1, 1} \f$
-     *    5:     \f$ M^{-1} F^+{+, 1, 1, 2} \f$
-     *    [..]
-     *    51:    \f$ M^{-1} F^+{+, 4, 4, 3} \f$
-     *    53-55: \f$ M^{-1} K_{\xi_c}       \f$
-     *    56-58: \f$ M^{-1} (K_{\xi_c})^T   \f$
-     *    52:    \f$ N_{k,i} A_k^+ N_{k,i}^{-1}\f$ or \f$ N_{k,i} A_{k(i)}^- N_{k,i}^{-1 \f$
-     *    59:    \f$ A^{star, c} \f$
-     **/
-    int m_sparseSwitch[60];
-    #endif
-
     //! LTS mesh structure
     struct MeshStructure *m_meshStructure;
 
@@ -212,35 +195,10 @@ class seissol::initializers::MemoryManager {
     //! cells per cluster
     struct Cells         *m_cells;
 
-#ifndef REQUIRE_SOURCE_MATRIX
-    /**
-     * Initializes a global matrix with the given values.
-     *
-     * @param i_sparse true if sparse, false if dense.
-     * @param i_leadingDimension leading dimension.
-     * @param i_numberOfColumns number of columns.
-     * @param i_rows rows in sparse coordinate format.
-     * @param i_columns columns in sparse coordinate format.
-     * @param i_values values in sparse coordinate format.
-     * @param o_matrix global matrix, which values are set.
-     **/
-    void initializeGlobalMatrix(       int                        i_sparse,
-                                       unsigned int               i_leadingDimension,
-                                       unsigned int               i_numberOfColumns,
-                                 const std::vector<unsigned int> &i_rows,
-                                 const std::vector<unsigned int> &i_columns,
-                                 const std::vector<double>       &i_values,
-                                       real*                      o_matrix );
-
     /**
      * Allocates memory for the global matrices and initializes it.
-     *
-     * @param i_matrixReader XML matrix reader.
-     * @param o_globalData global matrices data structure that should be uniquely initialized
      **/
-    void initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader,
-                                   struct GlobalData        &o_globalData );
-#endif
+    void initializeGlobalData( struct GlobalData &o_globalData );
 
     /**
      * Allocate the thread local LTS integration buffer
@@ -368,10 +326,8 @@ class seissol::initializers::MemoryManager {
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
-     *
-     * @param i_matrixReader XML matrix reader.
      **/
-    void initialize( const seissol::XmlParser &i_matrixReader );
+    void initialize();
 
     /**
      * Set up the internal structure, allocate memory, set up the pointers and intializes the data to zero or NULL.
