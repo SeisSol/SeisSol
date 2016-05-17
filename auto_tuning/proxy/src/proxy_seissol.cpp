@@ -122,13 +122,8 @@ double derive_cycles_from_time(double time) {
 
 #include <Kernels/TimeCommon.h>
 #include <Kernels/Time.h>
-#ifdef REQUIRE_SOURCE_MATRIX
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
-#else
-#include <Kernels/Volume.h>
-#include <Kernels/Boundary.h>
-#endif
 
 #include <omp.h>
 

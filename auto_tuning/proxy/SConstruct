@@ -62,8 +62,8 @@ vars.AddVariables(
   EnumVariable( 'compiler', 'Select the compiler (default: intel)', 'intel',
                 allowed_values=('intel', 'gcc')),
   
-  EnumVariable( 'equations', 'equations to use', 'viscoelastic',
-                allowed_values=('viscoelastic', 'viscoelastic2')),
+  EnumVariable( 'equations', 'equations to use', 'viscoelastic2',
+                allowed_values=('elastic', 'viscoelastic', 'viscoelastic2')),
 
   EnumVariable( 'order', 'convergence order of the ADER-DG method', 'none',
                   allowed_values=('none', '2', '3', '4', '5', '6', '7', '8')),
