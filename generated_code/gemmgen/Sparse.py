@@ -98,7 +98,7 @@ def sparseMatrixChainOrder(sparsityPatterns):
       for k in range(i, j):
         product = products[i][k]*products[k+1][j]
         q = m[i,k] + m[k+1,j] + np.sum(product)
-        if q < m[i,j]:
+        if q <= m[i,j]:
           m[i,j] = q
           s[i,j] = k
           product[np.abs(product) > 0] = 1.0

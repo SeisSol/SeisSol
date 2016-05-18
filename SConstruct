@@ -229,7 +229,7 @@ if unknownVariables:
 if env['order'] == 'none':
   ConfigurationError("*** Convergence order not set.")
   
-if env['equations'] == 'viscoelastic':
+if env['equations'].startswith('viscoelastic'):
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
   
