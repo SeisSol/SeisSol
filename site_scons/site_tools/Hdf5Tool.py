@@ -3,10 +3,10 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
+# @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 #
 # @section LICENSE
-# Copyright (c) 2014, SeisSol Group
+# Copyright (c) 2014-2016, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -39,21 +39,53 @@
 # Finds HDF5 and add inlcude pathes, libs and library pathes
 #
 
+import SCons.SConf
+
 hdf5_fortran_prog_src = """
 program HDF5_Test
     use hdf5
 end program HDF5_Test
 """
 
-hdf5_prog_src_serial = """
-#include <hdf5.h>
+def CheckProg(context, prog_name):
+    """
+    This function is from the latest version of SCons to support
+    older SCons version.
+    Configure check for a specific program.
+    Check whether program prog_name exists in path.  If it is found,
+    returns the path for it, otherwise returns None.
+    """
 
-int main() {
-    H5open();
-    
-    return 0;
-}
-"""
+    context.Message("Checking whether %s program exists..." % prog_name)
+    path = context.env.WhereIs(prog_name)
+    context.Result(bool(path))
+
+    return path
+
+def CheckLibWithHeader(context, libs, header, language,
+                       call = None, extra_libs = None, autoadd = 1):
+     """
+     This function is from SCons but extended with additional flags, e.g.
+     the extra_libs.
+     Another (more sophisticated) test for a library.
+     Checks, if library and header is available for language (may be 'C'
+     or 'CXX'). Call maybe be a valid expression _with_ a trailing ';'.
+     As in CheckLib, we support library=None, to test if the call compiles
+     without extra link flags.
+     """
+     prog_prefix, dummy = \
+                  SCons.SConf.createIncludesFromHeaders(header, 0)
+     if libs == []:
+         libs = [None]
+
+     if not SCons.Util.is_List(libs):
+         libs = [libs]
+
+     res = SCons.Conftest.CheckLib(context, libs, None, prog_prefix,
+             call = call, language = language, extra_libs = extra_libs,
+             autoadd = autoadd)
+     context.did_show_result = 1
+     return not res
 
 def CheckHDF5FortranInclude(context):
     context.Message("Checking for Fortran HDF5 module... ")
@@ -62,35 +94,43 @@ def CheckHDF5FortranInclude(context):
     
     return ret
 
-def CheckHDF5Linking(context, message):
-    context.Message(message+"... ")
-    # TODO serial/parallel switch
-    ret = context.TryLink(hdf5_prog_src_serial, '.c')
-    context.Result(ret)
-    
-    return ret
-
-def CheckV18API(context):
+def CheckV18API(context, h5cc):
     context.Message('Checking for HDF5 v18 API... ')
-    ret = context.TryAction('h5cc -showconfig | fgrep v18')[0]
+    ret = context.TryAction(h5cc + ' -showconfig | fgrep v18')[0]
     context.Result(ret)
     
     return ret
 
-def generate(env, **kw):
-    conf = env.Configure(custom_tests = {'CheckHDF5FortranInclude' : CheckHDF5FortranInclude,
-                                         'CheckHDF5Linking' : CheckHDF5Linking,
+def generate(env, required = False, fortran = False, **kw):
+    if env.GetOption('help') or env.GetOption('clean'):
+        return
+
+    conf = env.Configure(custom_tests = {'CheckProg': CheckProg,
+                                         'CheckLibWithHeader': CheckLibWithHeader,
+                                         'CheckHDF5FortranInclude' : CheckHDF5FortranInclude,
                                          'CheckV18API' : CheckV18API})
     
-    if 'required' in kw:
-        required = kw['required']
-    else:
-        required = False
-        
-    if 'fortran' in kw:
-        fortran = kw['fortran']
-    else:
-        fortran = False
+    # Find h5cc or h5pcc
+    h5cc = conf.CheckProg('h5cc')
+    if not h5cc:
+        h5cc = conf.CheckProg('h5pcc')
+    if not h5cc:
+        if required:
+            print 'Could not find h5cc or h5pcc. Make sure the path to the HDF5 library is correct!'
+            env.Exit(1)
+        else:
+            conf.Finish()
+            return
+
+    # Parse the output from the h5cc compiler wrapper
+    def parse_func(env, cmd):
+        # remove the compiler
+        cmd = cmd.partition(' ')[2]
+        return env.ParseFlags(cmd)
+    flags = env.ParseConfig([h5cc, '-show', '-shlib'], parse_func)
+
+    # Add the lib path
+    env.AppendUnique(LIBPATH=flags['LIBPATH'])
     
     if fortran:
         # Fortran module file
@@ -113,43 +153,17 @@ def generate(env, **kw):
                 conf.Finish()
                 return
         
-    ret = [conf.CheckLibWithHeader('hdf5_hl', 'hdf5.h', 'c'), conf.CheckLib('hdf5')]
-    if not all(ret):
+    ret = conf.CheckLibWithHeader(flags['LIBS'][0], 'hdf5.h', 'c', extra_libs=flags['LIBS'][1:])
+    if not ret:
         if required:
-            print 'Could not find HDF5 or zlib!'
+            print 'Could not find the HDF5 library!'
             env.Exit(1)
         else:
             conf.Finish()
             return
         
-    ret = conf.CheckHDF5Linking("Checking whether shared HDF5 library is used")
-    if not ret:
-        # Static library, link zlib as well
-        ret = conf.CheckLib('z')
-        if not ret:
-            if required:
-                print 'Could not find zlib!'
-                env.Exit(1)
-            else:
-                conf.Finish()
-                return
- 
-        # Try to find all additional libraries
-        conf.CheckLib('curl')
-        conf.CheckLib('gpfs')
-        conf.CheckLib('dl')
- 
-        ret = conf.CheckHDF5Linking("Checking whether all HDF5 dependencies are found")
-        if not ret:
-            if required:
-                print 'Could not find all HDF5 dependencies!'
-                env.Exit(1)
-            else:
-                conf.Finish()            
-                return
-    
     # Check API Mapping
-    if not conf.CheckV18API():
+    if not conf.CheckV18API(h5cc):
         # TODO We might need to extent this list
         conf.env.Append(CPPDEFINES=['H5Dcreate_vers=2',
                                     'H5Dopen_vers=2',
