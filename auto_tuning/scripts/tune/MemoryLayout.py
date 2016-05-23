@@ -101,7 +101,7 @@ def getGlobalMatrices(order, arch):
   stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
   transposedStiffnessBlocks = list()
   for o in range(2, order+1):
-    stoprow = Tools.alignedNumberOfBasisFunctions(o-1, architecture)
+    stoprow = Tools.numberOfBasisFunctions(o-1)
     startcol = Tools.numberOfBasisFunctions(o-1)
     stopcol = Tools.numberOfBasisFunctions(o)
     transposedStiffnessBlocks.append((0, stoprow, startcol, stopcol))
