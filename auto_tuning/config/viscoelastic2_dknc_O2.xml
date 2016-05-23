@@ -1,0 +1,13 @@
+<memory_layouts>
+  <matrix name="kXiDivMT">
+    <block sparse="False" startcol="1" startrow="0" stopcol="4" stoprow="1"/>
+  </matrix>
+  <matrix name="ET" sparse="True"/>
+  <matrix name="fP211" sparse="True"/>
+  <matrix name="kEtaDivMT" sparse="True"/>
+  <matrix name="star">
+    <block sparse="False" startcol="6" startrow="0" stopcol="9" stoprow="6"/>
+    <block sparse="False" startcol="0" startrow="6" stopcol="6" stoprow="9"/>
+    <block sparse="False" startcol="9" startrow="6" stopcol="15" stoprow="9"/>
+  </matrix>
+</memory_layouts>
