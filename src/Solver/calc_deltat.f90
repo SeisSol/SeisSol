@@ -254,14 +254,15 @@ CONTAINS
                                      ( 2.*DISC%Galerkin%nPoly+1       )         
    ENDIF                                                  
     !
-    OptionalFields%dt(:)= MIN(MINVAL(OptionalFields%dt_convectiv(:)),  &   !    Minimum konvektiv
-                             DISC%FixTimeStep                         )   !    dt_fix
+
+    ! set to min(dt_convectiv,fixtimestep) for each element
+    WHERE(OptionalFields%dt_convectiv(:).GT.DISC%FixTimeStep)
+        OptionalFields%dt_convectiv(:) = DISC%FixTimeStep
+    END WHERE
+
     !
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
       DISC%LocalDt(:) = OptionalFields%dt_convectiv(:)
-      WHERE(DISC%LocalDt(:).GT.DISC%FixTimeStep)
-        DISC%LocalDt(:) = DISC%FixTimeStep
-      ENDWHERE
       DO iElem = 1, MESH%nElem
         OptionalFields%dtmin(iElem) = DISC%LocalDt(iElem)
         DO iSide = 1, MESH%LocalElemType(iElem)

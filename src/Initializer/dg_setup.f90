@@ -514,8 +514,7 @@ CONTAINS
 
     ! propagate the time step width to time manager
     do iElem = 1, mesh%nElem
-      !l_timeStepWidth = optionalFields%dt_convectiv(iElem)
-      l_timeStepWidth = optionalFields%dt(iElem)
+      l_timeStepWidth = optionalFields%dt_convectiv(iElem)
 
 #ifdef PERIODIC_LTS_SCALING
       ! perform the scaling of the time step width
