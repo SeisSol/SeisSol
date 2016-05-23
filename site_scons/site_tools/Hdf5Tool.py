@@ -101,7 +101,7 @@ def CheckV18API(context, h5cc):
     
     return ret
 
-def generate(env, required = False, fortran = False, **kw):
+def generate(env, required = False, parallel = False, fortran = False, **kw):
     if env.GetOption('help') or env.GetOption('clean'):
         return
 
@@ -111,9 +111,14 @@ def generate(env, required = False, fortran = False, **kw):
                                          'CheckV18API' : CheckV18API})
     
     # Find h5cc or h5pcc
-    h5cc = conf.CheckProg('h5cc')
-    if not h5cc:
-        h5cc = conf.CheckProg('h5pcc')
+    h5ccs = ['h5cc', 'h5pcc']
+    if parallel:
+        h5ccs[0], h5ccs[1] = h5ccs[1], h5ccs[0]
+    for h5cc in h5ccs:
+        h5cc = conf.CheckProg(h5cc)
+        if h5cc:
+             break
+
     if not h5cc:
         if required:
             print 'Could not find h5cc or h5pcc. Make sure the path to the HDF5 library is correct!'

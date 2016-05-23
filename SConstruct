@@ -497,7 +497,7 @@ env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
 
 # HDF5
 if env['hdf5']:
-    env.Tool('Hdf5Tool', required=(not helpMode))
+    env.Tool('Hdf5Tool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
     env.Append(CPPDEFINES=['USE_HDF'])
 
 # memkind
