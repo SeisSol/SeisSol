@@ -578,8 +578,9 @@ MODULE Friction_mod
     ENDDO
 #else
     do iFace=1,DISC%DynRup%nDRElems
+      dudt(:,:) = DISC%DynRup%DRupdates(:,:,iFace) ! Avoid array temporary warning
       call c_interoperability_addToDofs( i_meshId           = DISC%DynRup%indicesOfDRElems(iFace), \
-                                         i_update           = DISC%DynRup%DRupdates(1:DISC%Galerkin%nDegFr,1:EQN%nVar,iFace), \
+                                         i_update           = dudt, \
                                          numberOfQuantities = EQN%nVar )
     enddo
 #endif
