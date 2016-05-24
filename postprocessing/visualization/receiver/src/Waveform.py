@@ -52,3 +52,12 @@ class Waveform:
     
     self.coordinates = numpy.array(coordinates)
 
+  def subtract(self, other):
+    newTime = numpy.union1d(self.time, other.time)
+    self.waveforms = { key: value for key,value in self.waveforms.items() if other.waveforms.has_key(key) }
+    for name, wf in self.waveforms.iteritems():
+      wf0 = numpy.interp(newTime, other.time, other.waveforms[name])
+      wf1 = numpy.interp(newTime, self.time, self.waveforms[name])
+      self.waveforms[name] = wf1 - wf0
+    self.time = newTime
+    
