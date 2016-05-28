@@ -469,10 +469,14 @@ CONTAINS
                    disc,           &
                    io                )
 
-#ifdef PERIODIC_LTS_SCALING
     ! get gts time step width
     l_gts = minval( optionalFields%dt_convectiv(:) )
+    if (l_gts .le. 0.0) then
+      logError(*) 'Invalid timestep width'
+      stop
+    endif
 
+#ifdef PERIODIC_LTS_SCALING
     ! compute total load per half-sapce
     !         _____________________
     !        /         /     /    /|
@@ -547,6 +551,7 @@ CONTAINS
     ! Allocation of arrays
     ALLOCATE(                                                                                   &
          DISC%Galerkin%dgvar( DISC%Galerkin%nDegFr,EQN%nVarTotal,MESH%nElem,DISC%Galerkin%nRK), &
+
 #ifndef GENERATEDKERNELS
          DISC%Galerkin%DGwork(DISC%Galerkin%nDegFrRec,nDGWorkVar,MESH%nElem),                   &
 #endif
@@ -956,7 +961,7 @@ CONTAINS
     ! Setup faced-based DR update datascrutured needed for OMP Parallelization in fricition.f90
     IF (DISC%DynRup%nDRElems.NE.0) THEN
       ! allocate the memory for the offload datastructures
-      allocate( DISC%DynRup%DRupdates(DISC%Galerkin%nDegFrRec,EQN%nVarTotal, DISC%DynRup%nDRElems) )
+      allocate( DISC%DynRup%DRupdates(DISC%Galerkin%nDegFrRec,EQN%nVar, DISC%DynRup%nDRElems) )
       allocate( DISC%DynRup%indicesOfDRElems( DISC%DynRup%nDRElems ) )
       allocate( DISC%DynRup%DRupdatesPosition( mesh%fault%nSide, 2 ) )
 
@@ -1101,16 +1106,22 @@ CONTAINS
       ALLOCATE(DISC%DynRup%Slip(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%Slip1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%Slip2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%TracXY(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%TracXZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%PeakSR(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       !
       DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
       DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
       DISC%DynRup%Slip          = 0.0D0
-      DISC%DynRup%Slip1          = 0.0D0
-      DISC%DynRup%Slip2          = 0.0D0
+      DISC%DynRup%Slip1         = 0.0D0
+      DISC%DynRup%Slip2         = 0.0D0
+      DISC%DynRup%TracXY        = 0.0D0
+      DISC%DynRup%TracXZ        = 0.0D0
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
       DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
+      DISC%DynRup%PeakSR        = 0.0D0
 
     else
         ! Allocate dummy arrays to avoid debug errors
@@ -1121,6 +1132,7 @@ CONTAINS
             DISC%DynRup%Slip2(0,0),          &
             DISC%DynRup%Mu(0,0),             &
             DISC%DynRup%StateVar(0,0),       &
+            DISC%DynRup%PeakSR(0,0),       &
             DISC%DynRup%Strength(0,0))
     ENDIF
     !
@@ -2579,6 +2591,7 @@ CONTAINS
     REAL    :: iniGP_Ane(EQN%nAneFuncperMech*EQN%nMechanisms)                 ! Initial anelastic state vector at Gausspoint
     REAL    :: iniGP_Plast(6)                                                 ! Initial stress loading for plastic calculations
     REAL    :: phi                                                            ! Value of the base function at GP      !
+    REAL    :: Einv, v                                                        ! Inverse of Young's modulus, Poisson ratio v
     !
     REAL, POINTER :: IntGaussP(:,:)     =>NULL()
     REAL, POINTER :: IntGaussW(:)       =>NULL()
@@ -2588,6 +2601,7 @@ CONTAINS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 ) 
+    real    :: l_plasticParameters(3)
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2600,13 +2614,36 @@ CONTAINS
     DISC%Galerkin%dgvar  = 0.
 #endif
     !
+    ALLOCATE(EQN%Energy(3,1:MESH%nElem))
+    EQN%Energy = 0.
+
 
     IF(EQN%Plasticity.EQ.1) THEN
-      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem))
-!#ifdef GENERATEDKERNELS
-               DISC%Galerkin%DOFStress = 0.
-               DISC%Galerkin%pstrain = 0.
-!#endif
+      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem),&
+               DISC%Galerkin%PlasticParameters(3,1:MESH%nElem), DISC%Galerkin%Strain_Matrix(6,6))
+        !Initialization
+        DISC%Galerkin%DOFStress = 0.
+        DISC%Galerkin%pstrain = 0.
+        DISC%Galerkin%PlasticParameters = 0.
+        DISC%Galerkin%Strain_Matrix = 0.
+
+        !Initialize the stress-strain relation matrix (mu and lambda should be element dependent)
+        Einv = (EQN%lambda+EQN%mu)/(EQN%mu*(3*EQN%lambda+2*EQN%mu))!Inv of the Young's modulus
+        v = EQN%lambda/(2*(EQN%lambda+EQN%mu)) !Poisson's ratio
+
+        DISC%Galerkin%Strain_Matrix(1,1) = Einv
+        DISC%Galerkin%Strain_Matrix(2,2) = Einv
+        DISC%Galerkin%Strain_Matrix(3,3) = Einv
+        DISC%Galerkin%Strain_Matrix(4,4) = 1/(2*EQN%mu)
+        DISC%Galerkin%Strain_Matrix(5,5) = 1/(2*EQN%mu)
+        DISC%Galerkin%Strain_Matrix(6,6) = 1/(2*EQN%mu)
+
+        DISC%Galerkin%Strain_Matrix(1,2) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(1,3) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(2,1) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(2,3) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(3,1) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(3,2) = -v*Einv
     ENDIF
 
     logInfo0(*) 'DG initial condition projection... '
@@ -2616,12 +2653,13 @@ CONTAINS
     nDegFr = DISC%Galerkin%nDegFr
 
 #ifdef GENERATEDKERNELS
-    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, iniGp, iniGp_ane, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix, l_dofsUpdate,l_initialLoading,iniGP_plast)
+    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, iniGp, iniGp_ane, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix, l_dofsUpdate,l_initialLoading,l_plasticParameters, iniGP_plast)
 #endif
     DO iElem = 1,MESH%nElem
 #ifdef GENERATEDKERNELS
         l_dofsUpdate = 0
         l_initialLoading=0
+        l_plasticParameters=0
 #endif
 
         x = 0.; y = 0.; z = 0.;
@@ -2697,43 +2735,38 @@ CONTAINS
                 ENDDO
             ENDIF
 
-            IF(EQN%Plasticity.EQ.1) THEN  
-#ifdef GENERATEDKERNELS
-              iniGP_plast(:) = eqn%iniStress(1:6,iElem)
-              do iDegFr = 1, nDegFr
-                phi = IntGPBaseFunc(iDegFr,iIntGP)
-                l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
-              enddo
-#else
-              ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
+            IF(EQN%Plasticity.EQ.1) THEN
+            ! L2 projection of initial stress loading for the plastic calculations onto the DOFs, only for the low order case
               iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
               DO iDegFr = 1, nDegFr
-                phi = IntGPBaseFunc(iDegFr,iIntGP)
+                 phi = IntGPBaseFunc(iDegFr,iIntGP)
+#ifdef GENERATEDKERNELS
+                 l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+#else
                 DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) = &
                 DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+#endif
               ENDDO
-#endif
-           ENDIF
-        ENDDO
 
-        DO iDegFr = 1, nDegFr
-#ifdef GENERATEDKERNELS
-            l_dofsUpdate(iDegFr, :) = l_dofsUpdate( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-#else
-            DISC%Galerkin%dgvar(iDegFr,:,iElem,1) = DISC%Galerkin%dgvar(iDegFr,:,iElem,1) / MassMatrix(iDegFr,iDegFr)
-#endif
-        ENDDO
 
-        if(eqn%plasticity .eq. 1) then
-          do iDegFr = 1, nDegFr
-            ! multiply by inverse mass matrix
+            ENDIF
+    ENDDO !iIntGP
+
+            DO iDegFr = 1, nDegFr
 #ifdef GENERATEDKERNELS
-            l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+               l_dofsUpdate(iDegFr, :) = l_dofsUpdate( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+               IF(EQN%Plasticity.EQ.1) THEN
+                  l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+               ENDIF
 #else
-            DISC%Galerkin%DOFStress(iDegFr,:,iElem) = DISC%Galerkin%DOFStress(iDegFr,:,iElem)/ MassMatrix(iDegFr, iDegFr)
+               DISC%Galerkin%dgvar(iDegFr,:,iElem,1) = DISC%Galerkin%dgvar(iDegFr,:,iElem,1) / MassMatrix(iDegFr,iDegFr)
+               IF(EQN%Plasticity.EQ.1) THEN
+                  DISC%Galerkin%DOFStress(iDegFr,:,iElem) = DISC%Galerkin%DOFStress(iDegFr,:,iElem)/ MassMatrix(iDegFr, iDegFr)
+               ENDIF
 #endif
-          enddo
-        endif
+            ENDDO
+
+
 
 #ifdef GENERATEDKERNELS
         ! write the update back
@@ -2742,17 +2775,35 @@ CONTAINS
                                             numberOfQuantities = eqn%nVarTotal )
 
 #ifdef USE_PLASTICITY
+        ! initialize the element dependent plastic parameters
+        l_plasticParameters(1) = MESH%Elem%Volume(iElem)
+        l_plasticParameters(2) = EQN%PlastCo !currently constant, soon element-dependent
+        l_plasticParameters(3) = EQN%Rho0    !density
+
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
                                                    i_initialLoading = c_loc( l_initialLoading ) )
+
+        !initialize parameters in C
+        call c_interoperability_setPlasticParameters( i_meshId         = c_loc( iElem), \
+                                                   i_plasticParameters = c_loc( l_plasticParameters ) )
 #endif
 
+#else
+        IF(EQN%Plasticity.EQ.1) THEN
+          ! initialize plastic parameters in classic version
+          DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
+          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
+          DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
+        ENDIF
 #endif
+
 
         NULLIFY(intGaussP)
         NULLIFY(intGaussW)
         NULLIFY(IntGPBaseFunc)
         NULLIFY(MassMatrix)
+
 
     ENDDO ! iElem
 

@@ -47,13 +47,11 @@
 #include "xdmfwriter/XdmfWriter.h"
 #include "FaultWriterC.h"
 
-#ifdef USE_HDF
 static xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>* xdmfWriter = 0L;
 
 static char const * const labels[] = {
-  "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl"
+  "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl","PSR"
 };
-#endif // USE_HDF
 
 #ifdef USE_MPI
 static MPI_Comm comm = MPI_COMM_NULL;
@@ -73,7 +71,6 @@ void fault_hdf_init(const int* cells, const double* vertices,
 		int nCells, int nVertices,
 		int* outputMask, const char* outputPrefix)
 {
-#ifdef USE_HDF
 	if (nCells > 0) {
 		int rank = 0;
 #ifdef USE_MPI
@@ -114,6 +111,8 @@ void fault_hdf_init(const int* cells, const double* vertices,
 			variables.push_back(labels[13]);
 		if (outputMask[7])
 			variables.push_back(labels[14]);
+		if (outputMask[8])
+			variables.push_back(labels[15]);
 
 		xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>(rank,
 				outputName.c_str(), variables, 0);
@@ -122,46 +121,35 @@ void fault_hdf_init(const int* cells, const double* vertices,
 #endif // USE_MPI
 		xdmfWriter->init(nCells, reinterpret_cast<const unsigned int*>(cells), nVertices, vertices, false);
 	}
-#else // USE_HDF
-    logError() << "This version does not support XDMF output";
-#endif // USE_HDF
 }
 
 void fault_hdf_close()
 {
-#ifdef USE_HDF
 	if (xdmfWriter) {
 		xdmfWriter->close();
 		delete xdmfWriter;
 	}
-#endif // USE_HDF
 }
 
 void fault_hdf_write(double time)
 {
-#ifdef USE_HDF
 	if (xdmfWriter) {
 		xdmfWriter->addTimeStep(time);
 	}
-#endif // USE_HDF
 }
 
 void fault_hdf_write_data(int id, const double* data)
 {
-#ifdef USE_HDF
 	if (xdmfWriter) {
 		xdmfWriter->writeData(id, data);
 	}
-#endif // USE_HDF
 }
 
 void fault_hdf_flush()
 {
-#ifdef USE_HDF
 	if (xdmfWriter) {
 		xdmfWriter->flush();
 	}
-#endif // USE_HDF
 }
 
 }

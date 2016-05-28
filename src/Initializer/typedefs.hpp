@@ -331,6 +331,8 @@ struct CellMaterialData {
 struct PlasticityData {
   // initial loading (stress tensor)
   real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
+  // cell dependent plastic parameters
+  real plasticParameters[3];
 };
 
 /**
@@ -421,6 +423,9 @@ struct InternalState {
    */
   real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
 
+  // energy variable
+  real (*Energy)[3];
+
   // plastic strain
   real (*pstrain)[7];
 };
@@ -450,6 +455,9 @@ struct Cells {
    */
   real *(*copyFaceNeighbors)[4];
 
+  /** Pointer to copy layer energy */
+    real (*copyEnergy)[3];
+
   /** Pointer to copy layer plastic strain */
   real (*copyPstrain)[7];
 #endif
@@ -473,6 +481,9 @@ struct Cells {
    * Pointers to the either the time buffers or time derivatives of the face neighbors in the interior.
    */
   real *(*interiorFaceNeighbors)[4];
+
+  /** Pointer to energy variable*/
+    real (*interiorEnergy)[3];
 
   /** Pointer to interior plastic strain */
   real (*interiorPstrain)[7];

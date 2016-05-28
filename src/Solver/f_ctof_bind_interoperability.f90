@@ -133,7 +133,7 @@ module f_ctof_bind_interoperability
     end subroutine
 
     subroutine f_interoperability_computePlasticity( i_domain, i_timeStep, &
-            i_numberOfAlignedBasisFunctions, i_initialLoading, io_dofs, io_pstrain ) bind( c, name='f_interoperability_computePlasticity')
+            i_numberOfAlignedBasisFunctions, i_plasticParameters, i_initialLoading, io_dofs, io_Energy, io_pstrain ) bind( c, name='f_interoperability_computePlasticity')
       use iso_c_binding
       use typesDef
       use plasticity_mod
@@ -146,11 +146,17 @@ module f_ctof_bind_interoperability
 
       integer(kind=c_int), value             :: i_numberOfAlignedBasisFunctions
 
+      type(c_ptr), value                     :: i_plasticParameters
+      real*8, pointer                        :: l_plasticParameters(:)
+
       type(c_ptr), value                     :: i_initialLoading
       real*8, pointer                        :: l_initialLoading(:,:)
 
       type(c_ptr), value                     :: io_dofs
       real*8, pointer                        :: l_dofs(:,:)
+
+      type(c_ptr), value                     :: io_Energy
+      real*8, pointer                        :: l_Energy(:)
 
       type(c_ptr), value                     :: io_pstrain
       real*8, pointer                        :: l_pstrain(:)
@@ -158,20 +164,27 @@ module f_ctof_bind_interoperability
       ! convert c to fotran pointers
       call c_f_pointer( i_domain,         l_domain                                         )
       call c_f_pointer( i_timeStep,       l_timeStep                                       )
+      call c_f_pointer( i_plasticParameters, l_plasticParameters, [3]                      )
       call c_f_pointer( i_initialLoading, l_initialLoading, [NUMBER_OF_BASIS_FUNCTIONS,6]  )
-      call c_f_pointer( io_dofs,       l_dofs,       [i_numberOfAlignedBasisFunctions,6]   )
-      call c_f_pointer( io_pstrain,    l_pstrain,    [7]                                   )
+      call c_f_pointer( io_dofs,          l_dofs,       [i_numberOfAlignedBasisFunctions,9])
+      call c_f_pointer( io_Energy,        l_Energy, [3]                             )
+      call c_f_pointer( io_pstrain,       l_pstrain,    [7]                                )
 
-      call plasticity_3d( dgvar        = l_dofs, &
+      call plasticity_3d( disc         = l_domain%disc, &
+                          dgvar        = l_dofs, &
                           dofStress    = l_initialLoading, &
                           nDegFr       = NUMBER_OF_BASIS_FUNCTIONS, &
                           nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
                           bulkFriction = l_domain%eqn%BulkFriction, &
                           tv           = l_domain%eqn%Tv, &
-                          plastCo      = l_domain%eqn%PlastCo, &
                           dt           = l_timeStep, &
                           mu           = l_domain%eqn%mu, &
-                          pstrain = l_pstrain )
+                          lambda       = l_domain%eqn%lambda, &
+                          parameters   = l_plasticParameters ,&
+                          Energy       = l_Energy,&
+                          pstrain      = l_pstrain )
+
+
     end subroutine
 
     subroutine f_interoperability_writeReceivers( i_domain, i_fullUpdateTime, i_timeStepWidth, i_receiverTime, i_numberOfReceivers, i_receiverIds ) bind (c, name='f_interoperability_writeReceivers')

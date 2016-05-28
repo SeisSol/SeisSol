@@ -168,6 +168,11 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
+  char* hostname = getenv("HOSTNAME");
+  if (hostname != NULL) {
+    printf("Running on %s.\n", hostname);
+  }
+
   printf("Allocating fake data...\n");
   i_cells = init_data_structures(i_cells);
   printf("...done\n\n");

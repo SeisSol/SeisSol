@@ -46,16 +46,17 @@ cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--equations', required=True)
 cmdLineParser.add_argument('--order', required=True, type=int)
 cmdLineParser.add_argument('--numberOfMechanisms', type=int)
-cmdLineParser.add_argument('--libxsmmGenerator', required=True)
 cmdLineParser.add_argument('--arch', required=True)
 cmdLineParser.add_argument('--workingDir', required=True)
 cmdLineParser.add_argument('--nelem', default=10000, type=int)
 cmdLineParser.add_argument('--ntimesteps', default=100, type=int)
 cmdLineParser.add_argument('--ncompileJobs', default=4, type=int)
-cmdLineParser.add_argument('action', choices=['build', 'run', 'analyse', 'all'])
+cmdLineParser.add_argument('--host', default='')
+cmdLineParser.add_argument('action', choices=['build', 'test', 'run', 'analyse', 'all'])
 args = cmdLineParser.parse_args()
 
 build = args.action == 'build' or args.action == 'all'
+test = args.action == 'test' or args.action == 'all'
 run = args.action == 'run' or args.action == 'all'
 analyse = args.action == 'analyse' or args.action == 'all'
 
@@ -93,12 +94,11 @@ options = {
   'equations':          args.equations,
   'order':              args.order,
   'numberOfMechanisms': args.numberOfMechanisms,
-  'libxsmmGenerator':   args.libxsmmGenerator,
   'arch':               args.arch,
   'compileMode':        'release',
   '--jobs':             args.ncompileJobs
 }
-Proxy.buildOrRun(options, args.nelem, args.ntimesteps, build=build, run=run)
+Proxy.buildOrRun(options, args.nelem, args.ntimesteps, build=build, test=test, run=run, host=args.host)
 
 if analyse:
   # Analysis

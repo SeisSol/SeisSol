@@ -877,8 +877,14 @@ void seissol::initializers::MemoryManager::allocateInternalState() {
   m_internalState.pstrain      = (real(*)[7]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof( real[7] ),
 		  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	 PAGESIZE_HEAP,
 																				 seissol::memory::Standard);
+
+  m_internalState.Energy = (real(*)[3]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof(real[3]),
+	  	  	  	  	  	  	  	                                               PAGESIZE_HEAP,
+			                                                                   seissol::memory::Standard);
+
 #else // USE_PLASTICITY
   m_internalState.pstrain = 0L;
+  m_internalState.Energy = 0L;
 #endif // USE_PLASTICITY
 }
 
@@ -1079,38 +1085,59 @@ void seissol::initializers::MemoryManager::touchPstrain(unsigned int   i_numberO
   }
 }
 
+void seissol::initializers::MemoryManager::touchEnergy(unsigned int   i_numberOfCells,
+                                                       real  (*o_Energy)[3] )
+{
+#ifdef _OPENMP
+  #pragma omp parallel for
+#endif
+  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
+	  for( unsigned int l_var = 0; l_var < 2; l_var++ ) {
+      // zero plastic energy output
+      o_Energy[l_cell][l_var] = (real) 0;
+  }
+ }
+}
+
 void seissol::initializers::MemoryManager::initializeCells() {
   /*
    * Pointers to dofs
    */
   real (*l_dofsPointer)[NUMBER_OF_ALIGNED_DOFS] = m_internalState.dofs;
   real (*pstrainPointer)[7] = m_internalState.pstrain;
+  real (*EnergyPointer)[3] = m_internalState.Energy;
 
   for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
 #ifdef USE_MPI
     m_cells[l_cluster].copyDofs      = l_dofsPointer;
 #ifdef USE_PLASTICITY
     m_cells[l_cluster].copyPstrain   = pstrainPointer;
+    m_cells[l_cluster].copyEnergy   = EnergyPointer;
 #else // USE_PLASTICITY
     m_cells[l_cluster].copyPstrain   = 0L;
+    m_cells[l_cluster].copyEnergy   = 0L;
 #endif // USE_PLASTICITY
 #endif // USE_MPI
 
     // jump over copy layer
     l_dofsPointer += m_meshStructure[l_cluster].numberOfCopyCells;
     pstrainPointer += m_meshStructure[l_cluster].numberOfCopyCells;
+    EnergyPointer += m_meshStructure[l_cluster].numberOfCopyCells;
 
     // set interior dofs
     m_cells[l_cluster].interiorDofs = l_dofsPointer;
 #ifdef USE_PLASTICITY
     m_cells[l_cluster].interiorPstrain   = pstrainPointer;
+    m_cells[l_cluster].interiorEnergy   = EnergyPointer;
 #else // USE_PLASTICITY
     m_cells[l_cluster].interiorPstrain   = 0L;
+    m_cells[l_cluster].interiorEnergy   = 0L;
 #endif // USE_PLASTICITY
 
     // jump over interior
     l_dofsPointer += m_meshStructure[l_cluster].numberOfInteriorCells;
     pstrainPointer += m_meshStructure[l_cluster].numberOfInteriorCells;
+    EnergyPointer += m_meshStructure[l_cluster].numberOfInteriorCells;
   }
 
   /*
@@ -1162,6 +1189,8 @@ void seissol::initializers::MemoryManager::initializeCells() {
 #ifdef USE_PLASTICITY
       touchPstrain( m_meshStructure[l_cluster].numberOfCopyCells,
     		  m_cells[l_cluster].copyPstrain );
+      touchEnergy( m_meshStructure[l_cluster].numberOfCopyCells,
+    		  m_cells[l_cluster].copyEnergy );
 #endif // USE_PLASTICITY
 #endif
 
@@ -1176,6 +1205,8 @@ void seissol::initializers::MemoryManager::initializeCells() {
 #ifdef USE_PLASTICITY
       touchPstrain( m_meshStructure[l_cluster].numberOfInteriorCells,
     		  m_cells[l_cluster].interiorPstrain );
+      touchEnergy( m_meshStructure[l_cluster].numberOfInteriorCells,
+    		  m_cells[l_cluster].interiorEnergy );
 #endif // USE_PLASTICITY
 
   }

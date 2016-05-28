@@ -8,7 +8,7 @@
 # @author Alexander Heinecke (heinecke AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Alexander_Heinecke,_M.Sc.,_M.Sc._with_honors)
 #
 # @section LICENSE
-# Copyright (c) 2012-2015, SeisSol Group
+# Copyright (c) 2012-2016, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -54,7 +54,7 @@ import memlayout
 print '********************************************'
 print '** Welcome to the build script of SeisSol **'
 print '********************************************'
-print 'Copyright (c) 2012-2015, SeisSol Group'
+print 'Copyright (c) 2012-2016, SeisSol Group'
 
 # Check if we the user wants to show help only
 if '-h' in sys.argv or '--help' in sys.argv:
@@ -123,6 +123,8 @@ vars.AddVariables(
   BoolVariable( 'netcdf', 'use netcdf library for mesh input', False ),
   
   BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
+
+  BoolVariable( 'asagi', 'use asagi for material input', False ),
   
   BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
   
@@ -477,7 +479,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/glm'] )
 
 #
 # add libraries
@@ -490,12 +492,12 @@ env.Tool('LibxsmmTool', required=env['equations'].startswith('viscoelastic'))
 env.Tool('DirTool', fortran=True)
 
 # GLM
-env.Append(CPPPATH=['#/submodules/glm'])
+# Workaround for wrong C++11 detection
 env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
 
 # HDF5
 if env['hdf5']:
-    env.Tool('Hdf5Tool', required=(not helpMode))
+    env.Tool('Hdf5Tool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
     env.Append(CPPDEFINES=['USE_HDF'])
 
 # memkind
@@ -513,6 +515,14 @@ if env['sionlib']:
   env.Tool('SionTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']))
 else:
   env['sionlib'] = False
+
+# ASAGI
+if env['asagi']:
+    if env['scalasca'] in ['default', 'kernels']:
+        ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
+    
+    env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
+    env.Append(CPPDEFINES=['USE_ASAGI'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])

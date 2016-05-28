@@ -63,6 +63,7 @@ CONTAINS
     USE receiver_hdf_mod
 #else
     USE receiver_mod
+    USE energies_output_mod
 #endif
     USE data_output_mod
     USE ini_SeisSol_mod
@@ -141,6 +142,7 @@ CONTAINS
     ! For the first iteration, set printtime to time    !
     DISC%printtime = time+IO%outInterval%TimeInterval   !
     IO%picktime  = time
+    IO%picktime_energy = time
     !                                                   !
     logInfo(*) separator                                !
     !                                                   !
@@ -248,7 +250,7 @@ CONTAINS
      ENDIF
 #endif
 
-       ! write receiver output
+       ! write receiver and energy output
      if(DISC%Galerkin%DGMethod.ne.3) then
 #ifdef HDF
           CALL receiver_hdf(                     &
@@ -268,6 +270,18 @@ CONTAINS
                IO        = IO                   ,&
                time_op   = time                 ,&
                dt_op     = OptionalFields%dt(1)  )
+
+           ! write energy output (time series)
+        IF (IO%energy_output_on .EQ. 1) THEN
+           CALL energies_output(                 &
+               DISC      = DISC                 ,&
+               EQN       = EQN                  ,&
+               MESH      = MESH                 ,&
+               MPI       = MPI                  ,&
+               IO        = IO                   ,&
+               time_op   = time                 ,&
+               dt_op     = OptionalFields%dt(1)  )
+        ENDIF
 #endif
      endif
 
@@ -454,6 +468,7 @@ CONTAINS
        !  
     ENDDO ! end of time marching    !
 #endif
+!no generated kernel
 
     !---------------------------------------------------!
     !---------------- STOP TIME LOOP -------------------!

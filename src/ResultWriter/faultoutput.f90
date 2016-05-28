@@ -70,6 +70,7 @@ CONTAINS
       
       !-------------------------------------------------------------------------!
       USE JacobiNormal_mod
+      USE magnitude_output_mod
       !-------------------------------------------------------------------------!
       IMPLICIT NONE
       !-------------------------------------------------------------------------!
@@ -90,13 +91,22 @@ CONTAINS
       !-------------------------------------------------------------------------!
       isOnPickpoint = .FALSE.
       isOnElementwise = .FALSE.
+
       !-------------------------------------------------------------------------!
       !
       ! Calculate Fault Output of the previous timestep
       ! Here, because the complete updated dgvar value of the (MPI-)Neighbor is needed
       ! Note that this causes a dt timeshift in the DR output routines
       !
-      ! 
+      !
+      IF (DISC%DynRup%energy_rate_output_on.EQ.1) THEN
+         IF ( MOD(DISC%iterationstep,DISC%DynRup%energy_rate_printtimeinterval).EQ.0 &
+         .OR. (DISC%EndTime-time).LE.(dt*1.005d0) ) THEN
+            CALL energy_rate_output(MaterialVal,time,DISC,MESH,MPI,IO)
+         ENDIF
+      ENDIF
+
+
       SELECT CASE(DISC%DynRup%OutputPointType)
        ! For historical reasons fault output DISC%DynRup%OutputPointType= 3 or 4 or 5
        ! Case 0 means no fault output
@@ -391,8 +401,8 @@ CONTAINS
           ! Rotate DoF
           CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),EQN)
           DO iDegFr=1,LocDegFr
-            V1(iDegFr,:)=MATMUL(iT(:,:),dofiElem_ptr(iDegFr,:))
-            V2(iDegFr,:)=MATMUL(iT(:,:),DOFiNeigh_ptr(iDegFr,:))
+            V1(iDegFr,:)=MATMUL(iT(:,:),dofiElem_ptr(iDegFr,1:EQN%nVar))
+            V2(iDegFr,:)=MATMUL(iT(:,:),DOFiNeigh_ptr(iDegFr,1:EQN%nVar))
           ENDDO
           !
           ! load nearest boundary GP: iBndGP
@@ -676,6 +686,10 @@ CONTAINS
               IF (DynRup_output%OutputMask(8).EQ.1) THEN
                   OutVars = OutVars + 1
                   DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%Slip(iFace,iBndGP)
+              ENDIF
+              IF (DynRup_output%OutputMask(9).EQ.1) THEN
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%PeakSR(iFace,iBndGP)
               ENDIF
           ENDIF
 

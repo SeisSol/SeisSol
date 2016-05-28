@@ -47,12 +47,13 @@ import string
 BuildDir = 'builds'
 OutputDir = 'results'
 
-def _run(cmd):
-  print(cmd)
-  if os.system(cmd) != 0:
+def _run(cmd, host=''):
+  syscmd = 'ssh {} "{}"'.format(host, cmd) if host else cmd
+  print(syscmd)
+  if os.system(syscmd) != 0:
     raise Exception('Last system command failed.')
 
-def buildOrRun(proxyOptions, nElem, nTimesteps, build=True, run=True):
+def buildOrRun(proxyOptions, nElem, nTimesteps, build=True, test=True, run=True, host=''):
   layoutDir = MemoryLayout.OutputDir
   buildDir = os.path.abspath(BuildDir)
   outputDir = os.path.abspath(OutputDir)
@@ -71,12 +72,13 @@ def buildOrRun(proxyOptions, nElem, nTimesteps, build=True, run=True):
                     configFile,
                     configBuildDir,
                     outputDir,
-                    configName ) )
-      _run( '{}/bin/generated_kernels_test_suite > {}/{}.test'.format(configBuildDir, outputDir, configName) )
+                    configName ), host)
+    if test:
+      _run( '{}/bin/generated_kernels_test_suite > {}/{}.test'.format(configBuildDir, outputDir, configName), host)
     if run:
       # Create a random string in order to prevent file name collision
       outputName = '{}_{}_{}'.format(configName, time.strftime('%Y-%m-%d-%H-%M-%S'), ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(5)))
-      _run('{}/bin/seissol_proxy {} {} all > {}/{}.run'.format(configBuildDir, nElem, nTimesteps, outputDir, outputName) )
+      _run('{}/bin/seissol_proxy {} {} all > {}/{}.run'.format(configBuildDir, nElem, nTimesteps, outputDir, outputName), host)
   
   os.chdir(cwd)
 

@@ -58,7 +58,7 @@ MODULE Plasticity_mod
   CONTAINS
 
 !yldfac is only caluclated from the first DOF, and all DOF's are adjusted by the same coefficient
-  SUBROUTINE Plasticity_3D(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, PlastCo, dt, mu, pstrain)
+  SUBROUTINE Plasticity_3D(DISC, dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, dt, mu, lambda, parameters, Energy, pstrain)
     !-------------------------------------------------------------------------!
 
     !-------------------------------------------------------------------------!
@@ -68,29 +68,33 @@ MODULE Plasticity_mod
     TYPE(tDiscretization)    :: DISC
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
-    INTEGER     :: iSide                                                      ! Local element side number        !
     INTEGER     :: iDegFr                                                     ! Index of degree of freedom       !
-    INTEGER     :: Bndcase                                                    ! case=1: element on the fault, case=0 element not on the fault
     INTEGER     :: nDegFr
     integer     :: nAlignedDegFr
 
     REAL        :: Stress(1:nDegFr,6)                                         !local stress variable for the yield criterion
+    REAL        :: Strain_ini(1:6)                                            !local initial strain variable for elastic strain energy
+    REAL        :: Strain_total(1:6)                                          !local strain variable for elastic strain energy
     REAL        :: devStress(1:nDegFr,6)                                      !stress deviator for the yield criterion
     REAL        :: meanStress(1:nDegFr)                                       !mean stress
     REAL        :: angfric, yldfac                                            !Angle of friction, yield factor
     REAL        :: dt, relaxtime                                              !relaxation time for the yield factor  
-    REAL        :: mu                                                         ! Lame parameter mu
-    REAL        :: LocnVar                                          !
+    REAL        :: mu, lambda                                                 !Lame parameters mu and lambda
     REAL        :: tau,taulim                                                 !tau= potential flow function, taulim= drucker-Prager yield stress.
     REAL        :: secInv                                                     !secInv=second Invariant of deviatoric stress
-    REAL        :: BulkFriction, Tv, PlastCo
+    REAL        :: BulkFriction, Tv
     REAL        :: DOFStress(1:nDegFr,1:6)
     REAL        :: dgvar(1:nAlignedDegFr,1:6)
     REAL        :: dudt_pstrain(1:6)
     REAL        :: pstrain(1:7)
+    REAL        :: estrain(1:6), estrain_ini(1:6)                             !total elastic strain
+    REAL        :: PlasticEnergy_tmp, EstrainEnergy_tmp
+    REAL        :: Energy(1:2)
+    REAL        :: parameters(1:3)
+    REAL         :: I1,I1_0,I2,I2_0
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu
-    INTENT(INOUT) :: dgvar, pstrain
+    INTENT(IN)    :: DISC, DOFStress, nDegFr, BulkFriction, Tv, dt, mu, lambda, parameters
+    INTENT(INOUT) :: dgvar, pstrain, Energy
     !-------------------------------------------------------------------------!
 
     dudt_pstrain = 0.0
@@ -105,6 +109,13 @@ MODULE Plasticity_mod
 ! as material values in EQN%IniStress, are mapped to the basis functions in dg_setup
 
     Stress(:,1:6)= dgvar(1:nDegFr,1:6)  + DOFStress(:,1:6)   !act.Stress + initial stress_xx
+
+    !Calculate the total strain from the elastic stress-strain relation
+    Strain_total(1:6) = MATMUL(DISC%Galerkin%Strain_matrix, Stress(1,1:6))
+
+    !Calculate initial strain loading from initial stress loading (elementwise) -> move that outside the routine and calculate beforhand
+    Strain_ini(1:6) = MATMUL(DISC%Galerkin%Strain_matrix, DOFStress(1,1:6))
+
 
 ! ---[ Calculate trial yield stress ]---
 
@@ -125,7 +136,7 @@ MODULE Plasticity_mod
     tau= SQRT(secInv)
 
     ! Yield stress   
-    taulim = PlastCo*COS(angfric) - meanStress(1)*SIN(angfric)! minus before sinus is for compressional stress=negative.
+    taulim = parameters(2)*COS(angfric) - meanStress(1)*SIN(angfric)! minus before sinus is for compressional stress=negative.
     taulim = MAX(0.0, taulim)
 
 
@@ -143,8 +154,8 @@ MODULE Plasticity_mod
 
        !----Change the dofs-----
        dgvar(1:nDegFr,1:6) = Stress(1:nDegFr,1:6) - DOFStress(1:nDegFr,1:6)
-
-       dudt_pstrain(1:6) = ((1-yldfac)/mu)*devStress(1, 1:6) !only the first dof is considered for plastic strain tensor
+       !dividing by 2*mu due to tensor convention
+       dudt_pstrain(1:6) = ((1-yldfac)/(2*mu))*devStress(1, 1:6) !only the first dof is considered for plastic strain tensor
 
         
     ENDIF !yield criterion check
@@ -154,6 +165,27 @@ MODULE Plasticity_mod
     !accumulated plastic strain
     pstrain(7) = pstrain(7)+ dt*sqrt(0.5*(dudt_pstrain(1)**2 + dudt_pstrain(2)**2 &
                                                    + dudt_pstrain(3)**2)+ dudt_pstrain(4)**2 + dudt_pstrain(5)**2 + dudt_pstrain(6)**2)
+
+    !calculate energies
+    PlasticEnergy_tmp = Stress(1,1)*dudt_pstrain(1) + Stress(1,2)*dudt_pstrain(2) + Stress(1,3)*dudt_pstrain(3) + 2.0*Stress(1,4)*dudt_pstrain(4) &
+                      + 2.0*Stress(1,5)*dudt_pstrain(5) + 2.0*Stress(1,6)*dudt_pstrain(6)
+
+    estrain(1:6) = Strain_total(1:6) - dudt_pstrain(1:6) !total elastic strain, if no plastic yielding -> elastic strain = total strain
+    estrain_ini(1:6) = Strain_ini(1:6)
+
+    !first and second invariants of the total elastic strain
+    I1 = estrain(1) + estrain(2) + estrain(3)
+    I2 = estrain(1)**2 + estrain(2)**2 + estrain(3)**2 + 2.0*estrain(4)**2 + 2.0*estrain(5)**2 + 2.0*estrain(6)**2
+    !first and second invariants of the initial strain loading
+    I1_0 = estrain_ini(1) + estrain_ini(2) + estrain_ini(3)
+    I2_0 = estrain_ini(1)**2 + estrain_ini(2)**2 + estrain_ini(3)**2 + 2.0*estrain_ini(4)**2 + 2.0*estrain_ini(5)**2 + 2.0*estrain_ini(6)**2
+    !Elastic strain energy
+    !subtracted from the initial elastic strain
+    EstrainEnergy_tmp = 0.5*lambda*(I1_0**2-I1**2) + mu*(I2_0-I2)
+
+    Energy(1) = PlasticEnergy_tmp*parameters(1) !multiplied by volume to get integral over element
+    Energy(2) = EstrainEnergy_tmp*parameters(1)
+
 
  END SUBROUTINE Plasticity_3D
 

@@ -12,7 +12,10 @@ latmax=15
 
 if projectlatlon:
    import mpl_toolkits.basemap.pyproj as pyproj
-   UTM46N=pyproj.Proj("+init=EPSG:32646")
+   lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
+   sProj = "+init=%s" %"EPSG:32646"
+   myproj=pyproj.Proj(sProj)
+   #myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
    print("using pyproj to project the coordinates...Please check that the projection used corresponds with your lat/lon range") 
 
 #export cordinates from GMT
@@ -56,8 +59,9 @@ fout.write('0 0 0\n')
 for vert in vertices:
    if projectlatlon:
       latlon=[float(v) for v in vert[0:2]]
-      xy=UTM46N(latlon[0],latlon[1])
-      fout.write('%e %e 0.\n' %tuple(xy))
+      xyz = pyproj.transform(lla, myproj,latlon[0],latlon[1],0, radians=False)
+      #fout.write('%e %e %e\n' %tuple(xyz))
+      fout.write('%e %e 0.\n' %(xyz[0],xyz[2]))
    else:
       fout.write('%s %s 0.\n' %tuple(vert[0:2]))
 

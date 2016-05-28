@@ -120,6 +120,9 @@ class seissol::Interoperability {
     //! raw pointers to face neighbors: covering all clusters and layers.
     real *(*m_faceNeighbors)[4];
 
+    //! energy variable
+    real (*m_Energy)[3];
+
     //! Plasticity strain output
     real (*m_pstrain)[7];
 
@@ -209,7 +212,7 @@ class seissol::Interoperability {
                      int    i_numMaterialVals );
 
    /**
-    * Sets the intial loading for a cell (plasticity).
+    * Sets the initial loading for a cell (plasticity).
     *
     * @param i_meshId mesh id.
     * @param i_initialLoading initial loading (stress tensor).
@@ -219,6 +222,17 @@ class seissol::Interoperability {
                            double *i_initialLoading );
 #endif
    
+   /**
+    * Sets the parameters for a cell (plasticity).
+    *
+    * @param i_meshId mesh id.
+    * @param i_plasticParameters cell dependent plastic Parameters (volume, cohesion...).
+    **/
+#ifdef USE_PLASTICITY
+   void setPlasticParameters( int    *i_meshId,
+                              double *i_plasticParameters );
+#endif
+
    /**
     * \todo Move this somewhere else when we have a C++ main loop.
     **/
@@ -356,16 +370,20 @@ class seissol::Interoperability {
                                double i_timeStepWidth );
 
    /**
-    * Computes platisticity.
+    * Computes plasticity.
     *
     * @param i_timeStep time step of the previous update.
+    * @param i_plasticParameters cell dependent plasticity parameters
     * @param i_initialLoading initial loading of the associated cell.
     * @param io_dofs degrees of freedom (including alignment).
+    * @param io_pstrain plastic strain tensor
     **/
 #ifdef USE_PLASTICITY
    void computePlasticity( double   i_timeStep,
+		                   double  *i_plasticParameters,
                            double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
                            double  *io_dofs,
+						   double  *io_Energy,
 						   double  *io_pstrain );
 #endif
 

@@ -78,10 +78,28 @@ public:
 	 */
 	void init(int &argc, char** &argv)
 	{
+#if defined(USE_COMM_THREAD) || defined(USE_ASAGI)
+		int provided;
+		MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+#else // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
 		MPI_Init(&argc, &argv);
+#endif // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
 
 		MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
 		MPI_Comm_size(MPI_COMM_WORLD, &m_size);
+	}
+
+	/**
+	 * @return The main communicator for the application
+	 */
+	MPI_Comm comm() const
+	{
+		return MPI_COMM_WORLD;
+	}
+
+	void barrier(MPI_Comm comm) const
+	{
+		MPI_Barrier(comm);
 	}
 
 	/**
