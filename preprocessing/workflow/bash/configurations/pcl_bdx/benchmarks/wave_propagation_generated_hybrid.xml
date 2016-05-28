@@ -6,7 +6,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "LOH1_small"
     clustered_lts       = "1"
   />
@@ -17,7 +17,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "LOH1_small"
     clustered_lts       = "2"
   />
@@ -28,7 +28,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "LOH1_small"
     clustered_lts       = "3"
   />
@@ -39,7 +39,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "LOH1_small"
     clustered_lts       = "2"
   />
@@ -50,7 +50,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "loh4"
     clustered_lts       = "1"
   />
@@ -61,7 +61,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "loh4"
     clustered_lts       = "2"
   />
@@ -72,7 +72,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "loh4"
     clustered_lts       = "3"
   />
@@ -83,7 +83,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "loh4"
     clustered_lts       = "2"
   />

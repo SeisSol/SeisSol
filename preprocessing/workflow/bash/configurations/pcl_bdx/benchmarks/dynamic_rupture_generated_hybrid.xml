@@ -6,7 +6,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "landers466e3Rgns"
     clustered_lts       = "1"
   />
@@ -17,7 +17,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "scec1617_test"
     clustered_lts       = "1"
   />
@@ -28,7 +28,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "scec1617_test"
     clustered_lts       = "1"
   />
@@ -39,7 +39,7 @@
     ranks_per_node      = "1"
     threads_per_rank    = "88"
     thread_binding      = "compact"
-    queue               = "bdx"
+    queue               = "bdxtrb"
     mesh_base_name      = "scec1617_test"
     clustered_lts       = "1"
   />
