@@ -119,7 +119,7 @@ void fault_hdf_init(const int* cells, const double* vertices,
 #ifdef USE_MPI
 		xdmfWriter->setComm(comm);
 #endif // USE_MPI
-		xdmfWriter->init(nCells, reinterpret_cast<const unsigned int*>(cells), nVertices, vertices, false);
+		xdmfWriter->init(nCells, reinterpret_cast<const unsigned int*>(cells), nVertices, vertices, true);
 	}
 }
 
