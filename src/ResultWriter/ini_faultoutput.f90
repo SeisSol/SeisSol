@@ -1231,7 +1231,7 @@ CONTAINS
         k=k+1
        ENDIF
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(10).EQ.1) THEN
-        DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 16
+        DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 17
         k=k+1
        ENDIF
        !
