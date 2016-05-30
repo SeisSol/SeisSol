@@ -277,7 +277,8 @@ CONTAINS
     REAL    :: cos1, sin1, scalarprod
     REAL, PARAMETER    :: ZERO = 0.0D0
     ! Parameters used for calculating Vr
-    INTEGER :: nDegFr2d, jBndGP
+    LOGICAL :: compute_Vr
+    INTEGER :: nDegFr2d, jBndGP, i1, j1
     REAL    :: chi, tau, phiT, phi2T(2),Slowness, dt_dchi, dt_dtau, Vr
     REAL    :: dt_dx1, dt_dy1
     REAL    :: xV(4), yV(4), zV(4)
@@ -598,6 +599,38 @@ CONTAINS
                 ! Calculation of rupture velocity from rupture time array
                 ! using the 2d basis functions and their derivatives
 
+                ! To compute accurately dt/dxi, all rupture_time have to be defined on the element
+                compute_VR = .TRUE.
+                DO jBndGP = 1,DISC%Galerkin%nBndGP
+                   IF (DISC%DynRup%rupture_time(iFace,jBndGP).EQ.0) THEN
+                      compute_VR = .FALSE.
+                      Vr = 0d0
+                   ENDIF
+                ENDDO
+
+                IF (compute_VR.EQ..TRUE.) THEN
+
+                ! The rupture velocity is based on the gradient of the rupture time
+                ! The gradient is not expected to be accurate for the side gauss points
+                !! We consider then the next internal gauss point if the closest gauss point is external
+                i1 = int((iBndGP-1)/(DISC%Galerkin%nPoly + 2))+1
+                j1 = modulo((iBndGP-1),(DISC%Galerkin%nPoly + 2))+1
+                IF (i1.EQ.1) THEN
+                   i1=i1+1
+                ELSE IF (i1.EQ.(DISC%Galerkin%nPoly + 2)) THEN
+                   i1=i1-1
+                ENDIF
+                IF (j1.EQ.1) THEN
+                   j1=j1+1
+                ELSE IF (j1.EQ.(DISC%Galerkin%nPoly + 2)) THEN
+                   j1=j1-1
+                ENDIF
+                iBndGP = (i1-1)*(DISC%Galerkin%nPoly + 2)+j1
+
+                !Uncomment for a selecting only the central GP
+                !i1  = int((DISC%Galerkin%nPoly + 2 -1)/2)+1
+                !iBndGP = (i1-1)*(DISC%Galerkin%nPoly + 2)+i1
+
                 !project rupture_time onto the basis functions
                 nDegFr2d = (DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2)/2
                 !projection of the rupture time on the basis functions
@@ -679,9 +712,12 @@ CONTAINS
                   Vr=1d0/Slowness
                 ENDIF
                 DEALLOCATE(projected_RT)
+                iBndGP = DynRup_output%OutInt(iOutPoints,1)
+                ENDIF
 
                 OutVars = OutVars + 1
                 DynRup_output%OutVal(iOutPoints,1,OutVars)  = Vr
+
               ENDIF
               IF (DynRup_output%OutputMask(8).EQ.1) THEN
                   OutVars = OutVars + 1
