@@ -47,6 +47,8 @@ bool seissol::checkpoint::sionlib::Wavefield::init(real* dofs, unsigned int numD
 
 	seissol::checkpoint::Wavefield::init(dofs, numDofs);
 
+	logInfo(rank()) << "Using SIONlib mode" << writeMode() << "for writing checkpoints";
+
 	return exists();
 }
 

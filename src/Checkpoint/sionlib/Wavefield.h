@@ -59,9 +59,7 @@ class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefie
 public:
 	Wavefield()
 		: CheckPoint(0x7A389)
-	{
-		logInfo(rank()) << "Using SIONlib mode" << writeMode() << "for writing checkpoints";
-	}
+	{}
 
 	bool init(real* dofs, unsigned int numDofs);
 
