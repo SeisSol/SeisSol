@@ -116,7 +116,7 @@ MODULE Friction_mod
     REAL        :: NormalVect_t(3)                                            ! Normal vector components         !
     REAL        :: T(EQN%nVar,EQN%nVar)                                       ! Transformation matrix            !
     REAL        :: iT(EQN%nVar,EQN%nVar)                                      ! inverse Transformation matrix    !
-    REAL        :: dudt(DISC%Galerkin%nDegFr,EQN%nVar+EQN%nAneFuncperMech)    ! Time derivative of degs. freedom !
+    REAL        :: dudt(DISC%Galerkin%nDegFr,EQN%nVar)                        ! Time derivative of degs. freedom !
     REAL        :: w_speed(EQN%nNonZeroEV),w_speed_neig(EQN%nNonZeroEV)
     REAL        :: godunov_state(DISC%Galerkin%nDegFr,EQN%nVar)               ! Auxilliary variable              !
     REAL        :: auxMatrix(EQN%nVar,EQN%nVar)                               ! Auxilliary matrix                !
@@ -124,8 +124,8 @@ MODULE Friction_mod
     REAL        :: TaylorDOF(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly)  ! time - taylorseries for DOF
     REAL        :: Taylor1(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly)
     REAL        :: Taylor2(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly)
-    REAL        :: BndVar1(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly)
-    REAL        :: BndVar2(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly)    
+    REAL        :: BndVar1(DISC%Galerkin%nDegFr,EQN%nVar,0:DISC%Galerkin%nPoly)
+    REAL        :: BndVar2(DISC%Galerkin%nDegFr,EQN%nVar,0:DISC%Galerkin%nPoly)    
     REAL        :: NorStressGP(1:DISC%Galerkin%nBndGP,1:DISC%Galerkin%nTimeGP)
     REAL        :: TractionGP_XY(1:DISC%Galerkin%nBndGP,1:DISC%Galerkin%nTimeGP)
     REAL        :: TractionGP_XZ(1:DISC%Galerkin%nBndGP,1:DISC%Galerkin%nTimeGP)
@@ -138,8 +138,8 @@ MODULE Friction_mod
     REAL        :: UVelDOF(DISC%Galerkin%nDegFr),UVel_NgbDOF(DISC%Galerkin%nDegFr)
     REAL        :: rho, rho_neig, mu, mu_neig, lambda, lambda_neig, rho_minus
     REAL        :: geoSurface
-    REAL        :: TimeIntDof_iElem(DISC%Galerkin%nDegFr,EQN%nVar)            ! Time integrated dof
-    REAL        :: TimeIntDof_iNeigh(DISC%Galerkin%nDegFr,EQN%nVar)           ! Time integrated dof
+    REAL        :: TimeIntDof_iElem(DISC%Galerkin%nDegFr,EQN%nVarTotal)            ! Time integrated dof
+    REAL        :: TimeIntDof_iNeigh(DISC%Galerkin%nDegFr,EQN%nVarTotal)           ! Time integrated dof
     REAL        :: FluxInt(DISC%Galerkin%nDegFr,DISC%Galerkin%nDegFr)         ! auxilary variable to store Flux Integration
     REAL        :: phi_array(DISC%Galerkin%nDegFr,DISC%Galerkin%nBndGP)
     !
@@ -439,8 +439,8 @@ MODULE Friction_mod
 #endif
        ! rotation of the quantities to face-aligned coordinate system
        do iPoly=0, LocPoly
-           bndVar1( :, :, iPoly) = matmul( taylor1( :, :, iPoly), mesh%fault%forwardRotation( :, :, iFace) )
-           bndVar2( :, :, iPoly) = matmul( taylor2( :, :, iPoly), mesh%fault%forwardRotation( :, :, iFace) )
+           bndVar1( :, :, iPoly) = matmul( taylor1( :, 1:EQN%nVar, iPoly), mesh%fault%forwardRotation( :, :, iFace) )
+           bndVar2( :, :, iPoly) = matmul( taylor2( :, 1:EQN%nVar, iPoly), mesh%fault%forwardRotation( :, :, iFace) )
        enddo
 
        !
@@ -499,7 +499,8 @@ MODULE Friction_mod
                                  iT             = mesh%fault%forwardRotation( :, :, iFace), &
                                  w_speed        = w_speed(1:2), &
                                  rho            = rho, &
-                                 disc           = disc )
+                                 disc           = disc, &                                 
+                                 EQN            = EQN )
 
          ! multiplication by face normal jacobian, inverse trafo-determinant and back rotation from face aligned to x-y-z coordinate system
          dudt(:,:) = matmul( godunov_state(:, :), mesh%fault%fluxSolver(:, :, 1, iFace) )
@@ -539,7 +540,8 @@ MODULE Friction_mod
                                  iT             = mesh%fault%forwardRotation( :, :, iFace), &
                                  w_speed        = w_speed_neig(1:2), &
                                  rho            = rho_minus, &
-                                 disc           = disc )
+                                 disc           = disc, &
+                                 EQN            = EQN )
 
          ! multiplication by face normal jacobian, inverse trafo-determinant and back rotation from face aligned to x-y-z coordinate system
          dudt(:,:) = matmul( godunov_state(:, :), mesh%fault%fluxSolver(:, :, 2, iFace) )
@@ -576,8 +578,9 @@ MODULE Friction_mod
     ENDDO
 #else
     do iFace=1,DISC%DynRup%nDRElems
+      dudt(:,:) = DISC%DynRup%DRupdates(:,:,iFace) ! Avoid array temporary warning
       call c_interoperability_addToDofs( i_meshId           = DISC%DynRup%indicesOfDRElems(iFace), \
-                                         i_update           = DISC%DynRup%DRupdates(1:DISC%Galerkin%nDegFr,1:EQN%nVar,iFace), \
+                                         i_update           = dudt, \
                                          numberOfQuantities = EQN%nVar )
     enddo
 #endif
@@ -609,8 +612,8 @@ MODULE Friction_mod
     REAL        :: UVelGP(DISC%Galerkin%nBndGP,DISC%Galerkin%nTimeGP)
     REAL        :: XYStressGP(DISC%Galerkin%nBndGP,DISC%Galerkin%nTimeGP)
     REAL        :: XZStressGP(DISC%Galerkin%nBndGP,DISC%Galerkin%nTimeGP)
-    REAL        :: BndVar1(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly)
-    REAL        :: BndVar2(DISC%Galerkin%nDegFr,EQN%nVarTotal,0:DISC%Galerkin%nPoly)
+    REAL        :: BndVar1(DISC%Galerkin%nDegFr,EQN%nVar,0:DISC%Galerkin%nPoly)
+    REAL        :: BndVar2(DISC%Galerkin%nDegFr,EQN%nVar,0:DISC%Galerkin%nPoly)
     REAL        :: LocNorStress, LocXYStress, LocXZStress, LocUVel
     REAL        :: rho,rho_neig,w_speed(2),w_speed_neig(2)
     REAL        :: phi1,phi2
@@ -745,16 +748,18 @@ MODULE Friction_mod
                   TimeIntDof,Trac_XY_DOF,Trac_XZ_DOF,NorStressDOF,UVelDOF,  & ! IN:  degrees of freedom
                   FluxInt,                                                  & ! IN:  Flux integration
                   geoSurface, iT,w_speed,rho,                               & ! IN:  geoSurface, Trafo, material properties
-                  DISC                                                      ) ! IN:  global variables
+                  DISC,                                                     & ! IN:  global variables
+                  EQN                                                       ) ! IN:  global variables
 
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tDiscretization)          :: DISC                                    !< DISC global variable
+    TYPE(tEquations)               :: EQN
     !-------------------------------------------------------------------------!
     ! Local variable declaration
     REAL        :: godunov_state(DISC%Galerkin%nDegFr,9)                      !< Godunov state
-    REAL        :: TimeIntDof(DISC%Galerkin%nDegFr,9)                         !< Time integrated dof
+    REAL        :: TimeIntDof(DISC%Galerkin%nDegFr,EQN%nVarTotal)             !< Time integrated dof
     REAL        :: Trac_XY_DOF(:)                                             !< Time integrated dof
     REAL        :: Trac_XZ_DOF(:)                                             !< Time integrated dof
     REAL        :: NorStressDOF(:)                                            !< Time integrated dof
@@ -767,7 +772,7 @@ MODULE Friction_mod
     REAL        :: LocVarDOF(DISC%Galerkin%nDegFr,9)
     INTEGER     :: m,iDegFr,LocDegFr,iVar
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: DISC,TimeIntDof,FluxInt
+    INTENT(IN)    :: DISC,EQN,TimeIntDof,FluxInt
     INTENT(IN)    :: Trac_XY_DOF,Trac_XZ_DOF,NorStressDOF,UVelDOF 
     INTENT(IN)    :: geoSurface,rho,w_speed,iT
     INTENT(OUT)   :: godunov_state
@@ -777,7 +782,7 @@ MODULE Friction_mod
     !
 
     ! rotate time integrated DOFs from xyz- to fault-aligned coordinate system
-    locVarDof = matmul( timeIntdof(:,:), iT )
+    locVarDof = matmul( timeIntdof(:,1:EQN%nVar), iT )
 
     ! multiply flux matrix F^{-,i} with sub-matrix of time integrated dofs:
     !           _                 _

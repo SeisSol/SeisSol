@@ -401,8 +401,8 @@ CONTAINS
           ! Rotate DoF
           CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),EQN)
           DO iDegFr=1,LocDegFr
-            V1(iDegFr,:)=MATMUL(iT(:,:),dofiElem_ptr(iDegFr,:))
-            V2(iDegFr,:)=MATMUL(iT(:,:),DOFiNeigh_ptr(iDegFr,:))
+            V1(iDegFr,:)=MATMUL(iT(:,:),dofiElem_ptr(iDegFr,1:EQN%nVar))
+            V2(iDegFr,:)=MATMUL(iT(:,:),DOFiNeigh_ptr(iDegFr,1:EQN%nVar))
           ENDDO
           !
           ! load nearest boundary GP: iBndGP

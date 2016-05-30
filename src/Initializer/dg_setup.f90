@@ -961,7 +961,7 @@ CONTAINS
     ! Setup faced-based DR update datascrutured needed for OMP Parallelization in fricition.f90
     IF (DISC%DynRup%nDRElems.NE.0) THEN
       ! allocate the memory for the offload datastructures
-      allocate( DISC%DynRup%DRupdates(DISC%Galerkin%nDegFrRec,EQN%nVarTotal, DISC%DynRup%nDRElems) )
+      allocate( DISC%DynRup%DRupdates(DISC%Galerkin%nDegFrRec,EQN%nVar, DISC%DynRup%nDRElems) )
       allocate( DISC%DynRup%indicesOfDRElems( DISC%DynRup%nDRElems ) )
       allocate( DISC%DynRup%DRupdatesPosition( mesh%fault%nSide, 2 ) )
 
