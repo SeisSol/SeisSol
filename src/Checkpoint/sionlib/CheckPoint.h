@@ -75,7 +75,7 @@ private:
 	const unsigned long m_identifier;
 
 	/** Number of files that should be used */
-	const int m_numFiles;
+	int m_numFiles;
 
 	/** (File system) Block size, -1 for auto */
 	const sion_int32 m_blockSize;
@@ -183,6 +183,14 @@ protected:
 
 	bool exists()
 	{
+		// Set the number of sion lib files
+		// Needs to be done after initialization of the communicator but
+		// before opening any files
+		if (m_numFiles > partitions()) {
+			logWarning(rank()) << "Reducing the number of SIONlib files for checkpointing to" << partitions();
+			m_numFiles = partitions();
+		}
+
 		if (!seissol::checkpoint::CheckPoint::exists())
 			return false;
 
