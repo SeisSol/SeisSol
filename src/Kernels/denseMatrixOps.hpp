@@ -110,19 +110,20 @@ namespace seissol {
       
       if (XStore == NULL) {
         for (unsigned int column = 0; column < columns; ++column) {
-          unsigned xOffset = column * LDX;
-          unsigned yOffset = column * LDY;
+          real const* xCol = &X[column * LDX];
+          real* yCol = &Y[column * LDY];
           for (unsigned row = 0; row < rows; row += DMO_INCREMENT) {
-            DMO_SXTYP(intrin_scalar, &X[xOffset + row], &Y[yOffset + row])
+            DMO_SXTYP(intrin_scalar, xCol+row, yCol+row)
           }
         }
       } else {
         for (unsigned int column = 0; column < columns; ++column) {
-          unsigned xOffset = column * LDX;
-          unsigned yOffset = column * LDY;
+          real const* xCol = &X[column * LDX];
+          real* yCol = &Y[column * LDY];
+          real* xColStore = &XStore[column * LDX];
           for (unsigned row = 0; row < rows; row += DMO_INCREMENT) {
-            DMO_SXTYP(intrin_scalar, &X[xOffset + row], &Y[yOffset + row])
-            DMO_STREAM(&X[xOffset + row], &XStore[xOffset + row]);
+            DMO_SXTYP(intrin_scalar, xCol+row, yCol+row)
+            DMO_STREAM(xCol+row, xColStore+row);
           }
         }
       }
@@ -165,11 +166,11 @@ namespace seissol {
       DMO_BROADCAST(&scalar, intrin_scalar)
       
       for (unsigned int column = 0; column < columns; ++column) {
-        unsigned xOffset = column * LDX;
-        unsigned yOffset = column * LDY;
-        unsigned zOffset = column * LDZ;
+        real const* xCol = &X[column * LDX];
+        real const* yCol = &Y[column * LDY];
+        real* zCol = &Z[column * LDZ];
         for (unsigned row = 0; row < rows; row += DMO_INCREMENT) {
-          DMO_XYMST(intrin_scalar, &X[xOffset + row], &Y[yOffset + row], &Z[zOffset + row])
+          DMO_XYMST(intrin_scalar, xCol+row, yCol+row, zCol+row)
         }
       }
 
@@ -211,11 +212,11 @@ namespace seissol {
       DMO_BROADCAST(&scalar, intrin_scalar)
       
       for (unsigned int column = 0; column < columns; ++column) {
-        unsigned xOffset = column * LDX;
-        unsigned yOffset = column * LDY;
-        unsigned zOffset = column * LDZ;
+        real const* xCol = &X[column * LDX];
+        real const* yCol = &Y[column * LDY];
+        real* zCol = &Z[column * LDZ];
         for (unsigned row = 0; row < rows; row += DMO_INCREMENT) {
-          DMO_XYMSTZP(intrin_scalar, &X[xOffset + row], &Y[yOffset + row], &Z[zOffset + row])
+          DMO_XYMSTZP(intrin_scalar, xCol+row, yCol+row, zCol+row)
         }
       }
 
