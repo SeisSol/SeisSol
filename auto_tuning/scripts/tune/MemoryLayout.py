@@ -81,22 +81,32 @@ def generateLayoutFile(matrices, configs):
 def getGlobalMatrices(order, arch):
   architecture = Arch.getArchitectureByIdentifier(arch)
 
-  configs = {
-    'kXiDivM': [ True ],
-    'kEtaDivM': [ True ],
-    'kZetaDivM': [ True ],
-    'kXiDivMT': [ True ],
-    'kEtaDivMT': [ True ],
-    'kZetaDivMT': [ True ],
-    'fM1': [ True ],
-    'fM2': [ True ],
-    'fP111': [ True ],
-    'fP112': [ True ],
-    'fP113': [ True ],
-    'fP121': [ True ],
-    'fP211': [ True ],
-    'fP222': [ True ]
-  }
+  if architecture.name == 'knc':
+    configs = {
+      'kXiDivM': [],
+      'kEtaDivM': [],
+      'kZetaDivM': [],
+      'kXiDivMT': [],
+      'kEtaDivMT': [],
+      'kZetaDivMT': []
+    }
+  else:
+    configs = {
+      'kXiDivM': [ True ],
+      'kEtaDivM': [ True ],
+      'kZetaDivM': [ True ],
+      'kXiDivMT': [ True ],
+      'kEtaDivMT': [ True ],
+      'kZetaDivMT': [ True ],
+      'fM1': [ True ],
+      'fM2': [ True ],
+      'fP111': [ True ],
+      'fP112': [ True ],
+      'fP113': [ True ],
+      'fP121': [ True ],
+      'fP211': [ True ],
+      'fP222': [ True ]
+    }
 
   stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
   transposedStiffnessBlocks = list()

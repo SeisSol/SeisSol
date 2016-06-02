@@ -115,7 +115,7 @@ class Generator:
           spp = gemmlist[index]['spp']
           if spp is not None:
             temp = tempfile.NamedTemporaryFile()
-            scipy.io.mmwrite(temp, scipy.sparse.coo_matrix(spp).asformat('csc'))
+            scipy.io.mmwrite(temp, scipy.sparse.coo_matrix(spp).asformat('csc'), symmetry='general')
             sppFile = temp.name
           else:
             sppFile = ''
