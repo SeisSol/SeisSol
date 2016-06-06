@@ -1514,7 +1514,7 @@ MODULE Eval_friction_law_mod
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
-    REAL        :: SV0, tmp, tmp2, SRtest, NR, dNR
+    REAL        :: SV0, tmp, tmp2, tmp3, SRtest, NR, dNR
     REAL        :: LocSV
     REAL        :: RS_f0,RS_a,RS_b,RS_sl0,RS_sr0
     REAL        :: RS_fw,RS_srW,flv,fss,SVss
@@ -1672,7 +1672,7 @@ MODULE Eval_friction_law_mod
          SV0=LocSV    ! Careful, the SV must always be corrected using SV0 and not LocSV!
          !
          ! The following process is adapted from that described by Kaneko et al. (2008)
-         nSRupdates = 5
+         nSRupdates = 30
          nSVupdates = 2
          !
          LocSR      = SQRT(LocSR1**2 + LocSR2**2)
@@ -1701,15 +1701,17 @@ MODULE Eval_friction_law_mod
              !  where mu = a * arcsinh[ V/(2*V0) * exp(SV/a) ]
              SRtest=LocSR  ! We use as first guess the SR value of the previous time step
              !
+             tmp          = 0.5D0/RS_sr0* EXP(LocSV/RS_a)
              DO i=1,nSRupdates  !This loop corrects SR values
                  ! for convenience
-                 tmp          = 0.5D0/RS_sr0* EXP(LocSV/RS_a)
                  tmp2         = tmp*SRtest != X in ASINH(X) for mu calculation
                  NR           = -(1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig) * &
                      (ABS(P)*RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))-ShTest)-SRtest
                  dNR          = -(1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig) * &
                      (ABS(P)*RS_a/SQRT(1+tmp2**2)*tmp) -1.0
-                 SRtest = SRtest-NR/dNR
+                 tmp3 = NR/dNR
+                 SRtest = max(1e-12,SRtest-tmp3)
+                 IF (abs(tmp3)<1d-8) EXIT
              ENDDO
              !
              ! 3. update theta, now using V=(Vnew+Vold)/2
