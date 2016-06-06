@@ -1684,10 +1684,10 @@ MODULE Eval_friction_law_mod
              !1. update SV using Vold from the previous time step
              !   exact integration assuming constant V in this iteration
              !   low-velocity steady state friction coefficient
-             flv = RS_f0 *(RS_b-RS_a)* LOG(LocSR/RS_sr0)
+             flv = RS_f0 - (RS_b-RS_a)* LOG(LocSR/RS_sr0)
              !   steady state friction coefficient
              fss = RS_fw + (flv - RS_fw)/(1.0D0+(LocSR/RS_srW)**8)**(1.0D0/8.0D0)
-             ! steady-state state variabel with SINH(X)=(EXP(X)-EXP(-X))/2
+             ! steady-state state variable with SINH(X)=(EXP(X)-EXP(-X))/2
              SVss = RS_a * LOG(2.0D0*RS_sr0/LocSR * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
              !
              LocSV=SVss*(1.0-EXP(-LocSR*time_inc/RS_sl0))+EXP(-LocSR*time_inc/RS_sl0)*SV0
@@ -1722,7 +1722,7 @@ MODULE Eval_friction_law_mod
          !
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         flv = RS_f0 *(RS_b-RS_a)* LOG(tmp/RS_sr0)
+         flv = RS_f0 -(RS_b-RS_a)* LOG(tmp/RS_sr0)
          fss = RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8)**(1.0D0/8.0D0)
          SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
          LocSV=Svss*(1.0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0

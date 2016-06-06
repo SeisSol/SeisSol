@@ -3280,12 +3280,30 @@ MODULE ini_model_DR_mod
               .OR.((xGP.LT.-15000.0D0).AND.(xGP.GT.-18000.0D0)) &
               .OR.((zGP.LT.-15000.0D0).AND.(zGP.GT.-18000.0D0))) THEN
               ! TANH(X)=(1-EXP(-2X))/(1+EXP(-2X))
-              tmp = 3000.0D0/(ABS(xGP)-15000.0D0-3000.0D0)+3000.0D0/(ABS(xGP)-15000.0D0)
-              ! x
-              Boxx = 0.5D0*(1.0D0+((1.0D0-EXP(-2.0D0*tmp))/(1.0D0+EXP(-2.0D0*tmp))))
-              ! z
-              tmp = 3000.0D0/(ABS(zGP)-3000.0D0)+3000.0D0/ABS(zGP)
-              Boxz = 0.5D0*(1.0D0+((1.0D0-EXP(-2.0D0*tmp))/(1.0D0+EXP(-2.0D0*tmp))))
+              IF (abs(xGP).GT.15000.0D0) THEN
+                 tmp = 3000.0D0/(ABS(xGP)-18000.0D0)+3000.0D0/(ABS(xGP)-15000.0D0)
+                 tmp = EXP(-2.0D0*tmp)
+                 if ((tmp-1).EQ.tmp) THEN
+                    Boxx = 0d0
+                 ELSE
+                    ! x
+                    Boxx = 0.5D0*(1.0D0+((1.0D0-tmp)/(1.0D0+tmp)))
+                 ENDIF
+              ELSE
+                 Boxx =1d0
+              ENDIF
+              IF (abs(zGP).GT.15000.0D0) THEN
+                 ! z
+                 tmp = 3000.0D0/(ABS(zGP)-18000.0D0)+3000.0D0/(ABS(zGP)-15000d0)
+                 tmp = EXP(-2.0D0*tmp)
+                 if ((tmp-1).EQ.tmp) THEN
+                    Boxz = 0d0
+                 ELSE
+                    Boxz = 0.5D0*(1.0D0+((1.0D0-tmp)/(1.0D0+tmp)))
+                 ENDIF
+              ELSE
+                 Boxz =1d0
+              ENDIF
               ! smooth boxcar
               DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+0.01D0*(1.0D0-(Boxx*Boxz))
               DISC%DynRup%RS_srW_array(i,iBndGP)=DISC%DynRup%RS_srW+0.9D0*(1.0D0-(Boxx*Boxz))
@@ -3302,6 +3320,7 @@ MODULE ini_model_DR_mod
               !
           ENDIF
           ! resulting changes in SV_ini
+          !Done in friction_RSF103
           EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%ShearXY_0/EQN%Bulk_yy_0-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(i,iBndGP)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
       ! Nucleation in Evaluate friction special case  
       ENDDO ! iBndGP
