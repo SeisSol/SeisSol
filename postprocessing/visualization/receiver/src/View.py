@@ -3,9 +3,10 @@
 # This file is part of SeisSol.
 #
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 #
 # @section LICENSE
-# Copyright (c) 2015, SeisSol Group
+# Copyright (c) 2015-2016, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -39,11 +40,15 @@
 
 from PyQt4.QtGui import *
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
+try:
+	from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+except ImportError:
+	from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
 import matplotlib.pyplot as plt
 
 import Navigation
 import Filters
+import Watchdog
 import re
 import math
 import numpy
@@ -54,6 +59,9 @@ class View(QWidget):
 
   def __init__(self, parent = None):
     super(View, self).__init__(parent)
+    
+    self.__watchdog = Watchdog.Watchdog()
+    self.__watchdog.fileChanged.connect(self.refreshAll)
 
     self.figure = plt.figure()
     self.canvas = FigureCanvas(self.figure)
@@ -92,6 +100,10 @@ class View(QWidget):
     self.diff.clicked.connect(self.spectrum.setHidden)
     self.spectrum.toggled.connect(self.diff.setHidden)
     
+    autoRefresh = QPushButton(QIcon.fromTheme('view-refresh'), 'Auto', self)
+    autoRefresh.setCheckable(True)
+    autoRefresh.clicked.connect(self.__watchdog.toggle)
+    
     saveAll = QPushButton(QIcon.fromTheme('document-save'), '', self)
     saveAll.clicked.connect(self.savePlots)
 
@@ -100,6 +112,7 @@ class View(QWidget):
     toolLayout.addWidget(self.diff)
     toolLayout.addWidget(self.spectrum)
     toolLayout.addWidget(self.maxFreq)
+    toolLayout.addWidget(autoRefresh)
     toolLayout.addWidget(saveAll)
     toolLayout.addWidget(toolbar)
     plotLayout = QVBoxLayout()
@@ -112,16 +125,25 @@ class View(QWidget):
   def addNavigation(self, noclose = False):
     navigation = Navigation.Navigation(noclose)
     navigation.activeItemChanged.connect(self.plot)
+    navigation.folderChanged.connect(self.navigationFolderChanged)
     navigation.close.connect(self.closeNavigation)
     navigation.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
     self.navigationLayout.addWidget(navigation)
     self.navigations.append(navigation)
+
+  def navigationFolderChanged(self, oldFolder, newFolder):
+    self.__watchdog.removeFolder(oldFolder)
+    self.__watchdog.addFolder(newFolder)
     
   def closeNavigation(self, widget):
     self.navigations.remove(widget)
     self.navigationLayout.removeWidget(widget)
     widget.deleteLater()
     self.plot()
+    
+  def refreshAll(self):
+    for navigation in self.navigations:
+        navigation.refreshFolder()
 
   def plot(self):
     wfc = [wf for nav in self.navigations for wf in nav.getActiveWaveforms()]
