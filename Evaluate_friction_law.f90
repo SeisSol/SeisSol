@@ -1708,6 +1708,7 @@ MODULE Eval_friction_law_mod
          nSVupdates = 2
          !
          LocSR      = SQRT(LocSR1**2 + LocSR2**2)
+         LocSR = max(1d-16,LocSR)
          !
          tmp = LocSR
          invZ = (1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig)
@@ -1744,9 +1745,7 @@ MODULE Eval_friction_law_mod
                  dNR          = -invZ * &
                      (ABS(P)*RS_a/SQRT(1d0+tmp2**2)*tmp) -1.0
                  tmp3 = NR/dNR
-                  if (ABS(SRtest).LT.1d-12) THEN
-                     SRtest=SIGN(1d-12,SRtest)
-                  ENDIF
+                 SRtest = max(1d-16,ABS(SRtest - tmp3))
                  IF (abs(tmp3)<1d-10) EXIT
              ENDDO
              !
