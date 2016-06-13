@@ -3,23 +3,38 @@
 #Read a coastline file from GMT
 #Create a vtk file from that input
 #aim: diplaying the coastline with the simulation results for instance
-projectlatlon = True
-lonmin=90
-lonmax=100
-latmin=-5
-latmax=15
-###
 
-if projectlatlon:
+# parsing python arguments
+import argparse
+import os
+parser = argparse.ArgumentParser(description='create surface from a structured grid of nodes')
+parser.add_argument('--lon', nargs=2, metavar=(('lonmin'),('lonmax')), default = (''), help='lonmin: minimum longitude, lonmax: maximum longitude')
+parser.add_argument('--lat', nargs=2, metavar=(('latmin'),('latmax')), default = (''), help='latmin: minimum latitude, lonmax: maximum latitude')
+parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='name of the projection (ex EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
+args = parser.parse_args()
+
+if args.proj!='':
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
-   sProj = "+init=%s" %"EPSG:32646"
+   sProj = "+init=%s" %args.proj[0]
    myproj=pyproj.Proj(sProj)
-   #myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
    print("using pyproj to project the coordinates...Please check that the projection used corresponds with your lat/lon range") 
 
+if args.lon=='':
+   print "no longitude range specified"
+   exit()
+else:
+   lonmin = float(args.lon[0])
+   lonmax = float(args.lon[1])
+
+if args.lat=='':
+   print "no longitude range specified"
+   exit()
+else:
+   latmin = float(args.lat[0])
+   latmax = float(args.lat[1])
+
 #export cordinates from GMT
-import os
 command = "module load gmt;gmt pscoast -R%f/%f/%f/%f -Di -M -W > coastline.dat" %(lonmin, lonmax, latmin, latmax)
 os.system(command)
 
@@ -57,11 +72,11 @@ fout.write('POINTS      %d float\n' %(len(vertices)+1))
 #dummy point for avoiding changing numbering scheme
 fout.write('0 0 0\n')
 for vert in vertices:
-   if projectlatlon:
+   if args.proj!='':
       latlon=[float(v) for v in vert[0:2]]
       xyz = pyproj.transform(lla, myproj,latlon[0],latlon[1],0, radians=False)
-      #fout.write('%e %e %e\n' %tuple(xyz))
-      fout.write('%e %e 0.\n' %(xyz[0],xyz[2]))
+      fout.write('%e %e %e\n' %tuple(xyz))
+      #fout.write('%e %e 0.\n' %(xyz[0],xyz[2]))
    else:
       fout.write('%s %s 0.\n' %tuple(vert[0:2]))
 
