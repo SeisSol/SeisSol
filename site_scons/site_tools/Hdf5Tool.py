@@ -40,6 +40,7 @@
 #
 
 import SCons.SConf
+import utils.compiler
 
 hdf5_fortran_prog_src = """
 program HDF5_Test
@@ -131,6 +132,8 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
     def parse_func(env, cmd):
         # remove the compiler
         cmd = cmd.partition(' ')[2]
+	# remove unknown arguments
+	cmd = utils.compiler.removeUnknownOptions(cmd)
         return env.ParseFlags(cmd)
     flags = env.ParseConfig([h5cc, '-show', '-shlib'], parse_func)
 
