@@ -107,6 +107,7 @@ class Navigation(QWidget):
       if currentIndex.row() >= 0 and len(files) > currentIndex.row():
         newIndex = self.model.index(currentIndex.row(), currentIndex.column())
         self.receiverList.setCurrentIndex(newIndex)
+        self.activeItemChanged.emit()
     
   def getActiveWaveforms(self):      
     waveforms = []
@@ -117,7 +118,8 @@ class Navigation(QWidget):
     
   def refreshFolder(self):
     self.readFolder(self.currentFolder)
-    self.activeItemChanged.emit()
+    if not self.receiverList.selectionModel().hasSelection():
+      self.activeItemChanged.emit()
     
   def numberOfRows(self):
     return self.model.rowCount() 
