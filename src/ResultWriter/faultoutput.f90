@@ -163,7 +163,7 @@ CONTAINS
          ! DR output at each element
          CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
          CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
-         logInfo(*) 'Faultoutput successfully written to .vtu files at time', time
+         logInfo(*) 'Faultoutput successfully written', time
          ! remember that fault output was written here
          isOnElementwise=.TRUE.
        ! combines option 3 and 4: output at individual stations and at complete fault
