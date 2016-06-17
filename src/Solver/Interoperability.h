@@ -4,21 +4,21 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * 
+ *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -131,7 +131,7 @@ class seissol::Interoperability {
     * Constructor.
     **/
    Interoperability();
-   
+
    ~Interoperability();
 
    /**
@@ -160,15 +160,15 @@ class seissol::Interoperability {
     *   1:  Global time stepping
     *   2+: Fixed rate between clusters
     *
-    * @param i_clustering clustering strategy 
+    * @param i_clustering clustering strategy
     **/
    void initializeClusteredLts( int i_clustering );
 
-#ifdef USE_NETCDF
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
    void setupNRFPointSources( char const* fileName );
 #endif
-   
+
    //! \todo Documentation
    void setupFSRMPointSources( double const* momentTensor,
                                int           numberOfSources,
@@ -202,7 +202,7 @@ class seissol::Interoperability {
     * Enables dynamic rupture.
     **/
    void enableDynamicRupture();
-   
+
    /**
     * Set material parameters for cell
     **/
@@ -221,7 +221,7 @@ class seissol::Interoperability {
    void setInitialLoading( int    *i_meshId,
                            double *i_initialLoading );
 #endif
-   
+
    /**
     * Sets the parameters for a cell (plasticity).
     *
@@ -390,7 +390,7 @@ class seissol::Interoperability {
    /**
     * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
     * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
-    * 
+    *
     * @param x x coordinate
     * @param y y coordinate
     * @param z z coordinate

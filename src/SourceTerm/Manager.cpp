@@ -37,17 +37,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -66,7 +66,7 @@
  *
  * @section DESCRIPTION
  **/
- 
+
 #include "Manager.h"
 #include "NRFReader.h"
 #include "PointSource.h"
@@ -101,23 +101,23 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
 {
   std::vector<Vertex> const& vertices = mesh.getVertices();
   std::vector<Element> const& elements = mesh.getElements();
-  
+
   memset(contained, 0, numSources * sizeof(short));
-  
+
   double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), ALIGNMENT));
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
     for (int face = 0; face < 4; ++face) {
       VrtxCoords n, p;
       MeshTools::pointOnPlane(elements[elem], face, vertices, p);
       MeshTools::normal(elements[elem], face, vertices, n);
-      
+
       for (unsigned i = 0; i < 3; ++i) {
         planeEquations[elem][i][face] = n[i];
       }
       planeEquations[elem][3][face] = - MeshTools::dot(n, p);
     }
   }
-  
+
   double (*centres1)[4] = new double[numSources][4];
   for (unsigned source = 0; source < numSources; ++source) {
     centres1[source][0] = centres[source].x;
@@ -180,7 +180,7 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
       }
     }
   }
-  
+
   seissol::memory::free(planeEquations);
   delete[] centres1;
 }
@@ -195,7 +195,7 @@ void seissol::sourceterm::cleanDoubles(short* contained, unsigned numSources)
 
   short* globalContained = new short[size * numSources];
   MPI_Allgather(contained, numSources, MPI_SHORT, globalContained, numSources, MPI_SHORT, MPI_COMM_WORLD);
-  
+
   unsigned cleaned = 0;
   for (unsigned source = 0; source < numSources; ++source) {
     if (contained[source] == 1) {
@@ -208,11 +208,11 @@ void seissol::sourceterm::cleanDoubles(short* contained, unsigned numSources)
       }
     }
   }
-  
+
   if (cleaned > 0) {
     logInfo(myrank) << "Cleaned " << cleaned << " double occurring sources on rank " << myrank << ".";
   }
-  
+
   delete[] globalContained;
 }
 #endif
@@ -232,7 +232,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Vector3 const&    
                                                    centre.z,
                                                    element,
                                                    pointSources.mInvJInvPhisAtSources[index] );
-  
+
   real* faultBasis = pointSources.tensor[index];
   faultBasis[0] = subfault.tan1.x;
   faultBasis[1] = subfault.tan1.y;
@@ -243,11 +243,11 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( Vector3 const&    
   faultBasis[6] = subfault.normal.x;
   faultBasis[7] = subfault.normal.y;
   faultBasis[8] = subfault.normal.z;
-  
-  double mu = (subfault.mu == 0.0) ? material.mu : subfault.mu;  
+
+  double mu = (subfault.mu == 0.0) ? material.mu : subfault.mu;
   pointSources.muA[index] = mu * subfault.area;
   pointSources.lambdaA[index] = material.lambda * subfault.area;
-  
+
   for (unsigned sr = 0; sr < 3; ++sr) {
     unsigned numSamples = nextOffsets[sr] - offsets[sr];
     double const* samples = (numSamples > 0) ? &sliprates[sr][ offsets[sr] ] : NULL;
@@ -282,20 +282,20 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
     cmps[cluster].cellToSources     = NULL;
     cmps[cluster].numberOfMappings  = 0;
   }
-  
+
   unsigned* sortedPointSourceIndex = new unsigned[numberOfSources];
   for (unsigned source = 0; source < numberOfSources; ++source) {
     sortedPointSourceIndex[source] = source;
   }
   std::sort(sortedPointSourceIndex, sortedPointSourceIndex + numberOfSources, index_sort_by_value<unsigned>(meshIds));
-  
+
   // Distribute sources to clusters
   for (unsigned source = 0; source < numberOfSources; ++source) {
     unsigned sortedSource = sortedPointSourceIndex[source];
     unsigned meshId = meshIds[sortedSource];
     unsigned cluster = meshToClusters[meshId][0];
     cmps[cluster].sources[ cmps[cluster].numberOfSources++ ] = sortedSource;
-  }  
+  }
   delete[] sortedPointSourceIndex;
 
   // Find cell mappings
@@ -327,7 +327,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
         }
       }
     }
-    
+
     // add the copy layer offsets
     for (unsigned cell = 0; cell < meshStructure[cluster].numberOfCopyCells; ++cell) {
       unsigned cellMeshId = copyInteriorToMesh[cell + clusterOffset];
@@ -335,7 +335,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
       ++mapping;
       cellToPointSources[mapping].numberOfPointSources = 0;
       cellToPointSources[mapping].copyInteriorOffset = cell;
-    
+
       for (unsigned clusterSource = 0; clusterSource < cm.numberOfSources; ++clusterSource) {
         unsigned source = cm.sources[clusterSource];
         unsigned meshId = meshIds[source];
@@ -347,18 +347,18 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
           ++cellToPointSources[mapping].numberOfPointSources;
         }
       }
-        
+
       if (cellToPointSources[mapping].numberOfPointSources == 0) {
         --mapping;
       }
     }
-    
+
     cm.numberOfMappings = mapping+1;
-    
+
     cm.cellToSources = new CellToPointSourcesMapping[ cm.numberOfMappings ];
     for (unsigned mapping = 0; mapping < cm.numberOfMappings; ++mapping) {
       cm.cellToSources[mapping] = cellToPointSources[mapping];
-    }    
+    }
     delete[] cellToPointSources;
     clusterOffset += meshStructure[cluster].numberOfCopyCells + meshStructure[cluster].numberOfInteriorCells;
   }
@@ -385,14 +385,14 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
                                                         time_stepping::TimeManager&   timeManager)
 {
   freeSources();
-  
+
   int rank;
 #ifdef USE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #else
   rank = 0;
 #endif
-  
+
   logInfo(rank) << "<--------------------------------------------------------->";
   logInfo(rank) << "<                      Point sources                      >";
   logInfo(rank) << "<--------------------------------------------------------->";
@@ -400,15 +400,15 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   short* contained = new short[numberOfSources];
   unsigned* meshIds = new unsigned[numberOfSources];
   Vector3* centres3 = new Vector3[numberOfSources];
-  
+
   for (int source = 0; source < numberOfSources; ++source) {
     centres3[source].x = centres[3*source];
     centres3[source].y = centres[3*source + 1];
     centres3[source].z = centres[3*source + 2];
   }
-  
+
   logInfo(rank) << "Finding meshIds for point sources...";
-  
+
   findMeshIds(centres3, mesh, numberOfSources, contained, meshIds);
 
 #ifdef USE_MPI
@@ -427,12 +427,12 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
 
   logInfo(rank) << "Mapping point sources to LTS cells...";
   mapPointSourcesToClusters(meshIds, numSources, meshToClusters, meshToCopyInterior, copyInteriorToMesh, meshStructure, numberOfClusters);
-  
+
   real localMomentTensor[3][3];
   for (unsigned i = 0; i < 9; ++i) {
     *(&localMomentTensor[0][0] + i) = momentTensor[i];
   }
-  
+
   sources = new PointSources[numberOfClusters];
   for (unsigned cluster = 0; cluster < numberOfClusters; ++cluster) {
     sources[cluster].mode                  = PointSources::FSRM;
@@ -445,7 +445,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
       unsigned fsrmIndex = originalIndex[sourceIndex];
-      
+
       e_interoperability.computeMInvJInvPhisAtSources( centres3[fsrmIndex].x,
                                                        centres3[fsrmIndex].y,
                                                        centres3[fsrmIndex].z,
@@ -460,7 +460,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       for (unsigned i = 0; i < 9; ++i) {
         sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
       }
-      
+
       samplesToPiecewiseLinearFunction1D( &timeHistories[fsrmIndex * numberOfSamples],
                                           numberOfSamples,
                                           onsets[fsrmIndex],
@@ -471,11 +471,12 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   delete[] originalIndex;
   delete[] meshIds;
   delete[] centres3;
-  
+
   timeManager.setPointSourcesForClusters(cmps, sources);
 }
 
-#ifdef USE_NETCDF
+// TODO Add support for passive netCDF
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*                   fileName,
                                                        MeshReader const&             mesh,
                                                        CellMaterialData const*       materials,
@@ -487,7 +488,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
                                                        time_stepping::TimeManager&   timeManager )
 {
   freeSources();
-  
+
   int rank;
 #ifdef USE_MPI
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -498,14 +499,14 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
   logInfo(rank) << "<--------------------------------------------------------->";
   logInfo(rank) << "<                      Point sources                      >";
   logInfo(rank) << "<--------------------------------------------------------->";
-  
+
   logInfo(rank) << "Reading" << fileName;
   NRF nrf;
   readNRF(fileName, nrf);
-  
+
   short* contained = new short[nrf.source];
   unsigned* meshIds = new unsigned[nrf.source];
-  
+
   logInfo(rank) << "Finding meshIds for point sources...";
   findMeshIds(nrf.centres, mesh, nrf.source, contained, meshIds);
 
@@ -525,7 +526,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
 
   logInfo(rank) << "Mapping point sources to LTS cells...";
   mapPointSourcesToClusters(meshIds, numSources, meshToClusters, meshToCopyInterior, copyInteriorToMesh, meshStructure, numberOfClusters);
-  
+
   sources = new PointSources[numberOfClusters];
   for (unsigned cluster = 0; cluster < numberOfClusters; ++cluster) {
     sources[cluster].mode                  = PointSources::NRF;
@@ -553,7 +554,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF( char const*              
   }
   delete[] originalIndex;
   delete[] meshIds;
-  
+
   timeManager.setPointSourcesForClusters(cmps, sources);
 }
-#endif
+#endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)

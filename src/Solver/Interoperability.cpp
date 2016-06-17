@@ -4,21 +4,21 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * 
+ *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -70,14 +70,14 @@ extern "C" {
   void c_interoperability_initializeClusteredLts( int i_clustering ) {
     e_interoperability.initializeClusteredLts( i_clustering );
   }
-  
+
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
-#ifdef USE_NETCDF
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
     e_interoperability.setupNRFPointSources(nrfFileName);
 #endif
   }
-  
+
   void c_interoperability_setupFSRMPointSources( double*  momentTensor,
                                                  int      numberOfSources,
                                                  double*  centres,
@@ -90,7 +90,7 @@ extern "C" {
                                                  int      numberOfSamples,
                                                  double*  timeHistories )
   {
-    e_interoperability.setupFSRMPointSources( momentTensor, 
+    e_interoperability.setupFSRMPointSources( momentTensor,
                                               numberOfSources,
                                               centres,
                                               strikes,
@@ -116,7 +116,7 @@ extern "C" {
   void c_interoperability_enableDynamicRupture() {
     e_interoperability.enableDynamicRupture();
   }
-  
+
   void c_interoperability_setMaterial( int    i_meshId,
                                        int    i_side,
                                        double* i_materialVal,
@@ -135,7 +135,7 @@ extern "C" {
     e_interoperability.setPlasticParameters( i_meshId, i_plasticParameters );
   }
 #endif
-  
+
   void c_interoperability_initializeCellLocalMatrices() {
     e_interoperability.initializeCellLocalMatrices();
   }
@@ -247,9 +247,9 @@ extern "C" {
                                                  double *i_fullUpdateTime,
                                                  double *i_timeStepWidth,
                                                  double *i_receiverTime,
-                                                 int    *i_numberOfReceivers, 
+                                                 int    *i_numberOfReceivers,
                                                  int    *i_receiverIds );
-                                                 
+
   extern void f_interoperability_computeMInvJInvPhisAtSources( void*    i_domain,
                                                                double   i_x,
                                                                double   i_y,
@@ -327,7 +327,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
 												   m_pstrain );
 }
 
-#ifdef USE_NETCDF
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 void seissol::Interoperability::setupNRFPointSources( char const* fileName )
 {
   SeisSol::main.sourceTermManager().loadSourcesFromNRF(
@@ -357,7 +357,7 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
                                                        double const* timeHistories )
 {
   SeisSol::main.sourceTermManager().loadSourcesFromFSRM(
-    momentTensor, 
+    momentTensor,
     numberOfSources,
     centres,
     strikes,
@@ -399,14 +399,14 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
   unsigned int copyInteriorId = m_meshToCopyInterior[i_meshId - 1];
   int side = i_side - 1;
   seissol::model::Material* material;
-  
+
   if (side < 0) {
     material = &m_cellData->material[copyInteriorId].local;
   } else {
     assert(side < 4);
     material = &m_cellData->material[copyInteriorId].neighbor[side];
   }
-  
+
   seissol::model::setMaterial(i_materialVal, i_numMaterialVals, material);
 }
 
@@ -600,7 +600,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
                                                double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
   // assert that the cell provides derivatives
   assert( (m_cellInformation[ m_meshToLts[ (i_meshId)-1 ] ].ltsSetup >> 9)%2 == 1 );
-  
+
   unsigned localCell = m_meshToLts[ (i_meshId)-1 ];
   unsigned neighborCell = m_meshToCopyInterior[ (i_meshId)-1 ];
   unsigned face = i_localFaceId-1;
@@ -690,7 +690,7 @@ void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,
                                     &i_fullUpdateTime,
                                     &i_timeStepWidth,
                                     &i_receiverTime,
-                                    &l_numberOfReceivers, 
+                                    &l_numberOfReceivers,
                                      l_receiverIds );
 }
 
@@ -723,10 +723,10 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
 void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS])
 {
   double f_mInvJInvPhisAtSources[NUMBER_OF_BASIS_FUNCTIONS];
-  
+
   int elem = static_cast<int>(element);
   f_interoperability_computeMInvJInvPhisAtSources(m_domain, x, y, z, elem, f_mInvJInvPhisAtSources);
-  
+
   memset(mInvJInvPhisAtSources, 0, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * sizeof(real));
   for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
     mInvJInvPhisAtSources[bf] = f_mInvJInvPhisAtSources[bf];

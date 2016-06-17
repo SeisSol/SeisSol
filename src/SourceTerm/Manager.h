@@ -7,17 +7,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -48,7 +48,7 @@
 #include <inttypes.h>
 
 namespace seissol {
-  namespace sourceterm {    
+  namespace sourceterm {
     /** Finds the tetrahedrons that contain the point sources acting at centres.
      *  In "contained" we save if the point source is contained in the mesh.
      *  We use short here as bool and MPI has a smell of trouble (see cleanDoubles).
@@ -75,17 +75,17 @@ namespace seissol {
   }
 }
 
-class seissol::sourceterm::Manager {  
+class seissol::sourceterm::Manager {
 private:
   ClusterMapping* cmps;
   PointSources* sources;
-  
+
   void freeSources();
 
 public:
   Manager() : cmps(NULL), sources(NULL) {}
   ~Manager() { freeSources(); }
-  
+
   void mapPointSourcesToClusters( unsigned const*               meshIds,
                                   unsigned                      numberOfSources,
                                   unsigned const              (*meshToClusters)[2],
@@ -93,7 +93,7 @@ public:
                                   unsigned const*               copyInteriorToMesh,
                                   MeshStructure const*          meshStructure,
                                   unsigned                      numberOfClusters );
-  
+
   /// \todo Throw this out
   void loadSourcesFromFSRM( double const*                 momentTensor,
                             int                           numberOfSources,
@@ -115,7 +115,7 @@ public:
                             unsigned                      numberOfClusters,
                             time_stepping::TimeManager&   timeManager);
 
-#ifdef USE_NETCDF
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
   void loadSourcesFromNRF( char const*                   fileName,
                            MeshReader const&             mesh,
                            CellMaterialData const*       materials,

@@ -10,21 +10,21 @@
 # @section LICENSE
 # Copyright (c) 2012-2016, SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -61,14 +61,14 @@ if '-h' in sys.argv or '--help' in sys.argv:
   helpMode = True
 else:
   helpMode = False
-  
+
 def ConfigurationError(msg):
     """Print the error message and exit. Continue only
     if the user wants to show the help message"""
-    
+
     if not helpMode:
         print msg
-        Exit(1) 
+        Exit(1)
 
 #
 # set possible variables
@@ -90,7 +90,7 @@ vars.AddVariables(
                 'elastic',
                 allowed_values=('elastic', 'viscoelastic', 'viscoelastic2')
               ),
-  
+
 
   EnumVariable( 'order',
                 'convergence order of the ADER-DG method',
@@ -99,13 +99,13 @@ vars.AddVariables(
               ),
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
-  
+
   ( 'memLayout', 'Path to memory layout file (needs to be set if equations=viscoelastic).' ),
 
   ( 'programName', 'name of the executable', 'none' ),
 
   PathVariable( 'buildDir', 'where to build the code', 'build', PathVariable.PathIsDirCreate ),
-  
+
   EnumVariable( 'compileMode', 'mode of the compilation', 'release',
                 allowed_values=('debug', 'release', 'relWithDebInfo')
               ),
@@ -115,19 +115,21 @@ vars.AddVariables(
               ),
 
   BoolVariable( 'generatedKernels', 'use generated kernels', False ),
-  
+
   BoolVariable( 'vecReport', 'print verbose vectorization report when using Intel Compiler suite', False ),
-  
+
   BoolVariable( 'hdf5', 'use hdf5 library for data output', False ),
-  
-  EnumVariable( 'netcdf', 'use netcdf library for mesh input', 'no',allowed_values=('yes','no','coprocessor') ),
-  
+
+  EnumVariable( 'netcdf', 'use netcdf library for mesh input',
+	        'no',
+	        allowed_values=('yes', 'no', 'passive') ),
+
   BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
 
   BoolVariable( 'asagi', 'use asagi for material input', False ),
-  
+
   BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
-  
+
   EnumVariable( 'unitTests', 'builds additional unit tests',
                 'none',
                 allowed_values=('none', 'fast', 'all') ),
@@ -137,7 +139,7 @@ vars.AddVariables(
                 'info',
                 allowed_values=('debug', 'info', 'warning', 'error')
               ),
-                
+
   EnumVariable( 'logLevel0',
                 'logging level for rank 0. Default is same as logLevel',
                 'none',
@@ -161,17 +163,17 @@ vars.AddVariables(
                 'memkind installation directory',
                 None,
                 PathVariable.PathAccept ),
-                  
+
   PathVariable( 'netcdfDir',
                 'NetCDF installation directory',
                 None,
                 PathVariable.PathAccept ),
-                  
+
   PathVariable( 'hdf5Dir',
                 'HDF5 installation directory',
                 None,
                 PathVariable.PathAccept ),
-                  
+
   PathVariable( 'zlibDir',
                 'zlib installation directory',
                 None,
@@ -181,12 +183,12 @@ vars.AddVariables(
                 'sionlib installation directory',
                 None,
                 PathVariable.PathAccept ),
-                  
+
   EnumVariable( 'compiler',
                 'Select the compiler (default: intel)',
                 'intel',
                 allowed_values=('intel', 'gcc', 'cray_intel', 'cray_gcc')),
-                
+
   BoolVariable( 'useExecutionEnvironment',
                 'set variables set in the execution environment',
                 True ),
@@ -225,21 +227,21 @@ if 'buildVariablesFile' in unknownVariables:
 # exit in the case of unknown variables
 if unknownVariables:
   ConfigurationError("*** The following build variables are unknown: " + str(unknownVariables.keys()))
-  
+
 if env['order'] == 'none':
   ConfigurationError("*** Convergence order not set.")
-  
+
 if env['equations'] == 'viscoelastic':
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
-  
+
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
   print "*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available."
-  
+
 if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['parallelization'] == 'hybrid' ):
   ConfigurationError("*** Classic version does not support hybrid parallelization")
-  
+
 if not env.has_key('memLayout'):
   env['memLayout'] = memlayout.guessMemoryLayout(env)
 
@@ -268,11 +270,11 @@ elif env['compiler'].startswith('cray_'):
     env['F90'] = 'ftn'
 else:
     assert(false)
-    
+
 # Parallel compiler required?
 if env['parallelization'] in ['mpi', 'hybrid']:
     env.Tool('MPITool')
-    
+
     # Do not include C++ MPI Bindings
     env.Append(CPPDEFINES=['OMPI_SKIP_MPICXX'])
 
@@ -321,11 +323,11 @@ if env['scalasca'] in ['default_2.x', 'kernels_2.x']:
     env[mode] = 'scorep' + l_scorepArguments + ' --thread=none ' + env[mode]
   for mode in ['CC', 'CXX', 'LINK']:
     env[mode] = 'scorep' + l_scorepCxxArguments + env[mode]
-    
+
 # kernel instrumentation with scalasca
 if env['scalasca'] == 'kernels_2.x':
   env.Append(CPPDEFINES=['INSTRUMENT_KERNELS'])
-    
+
 #
 # Common settings
 #
@@ -350,16 +352,16 @@ env.Append(F90FLAGS=['-cpp'])
 # Use complete line
 if env['compiler'] == 'gcc':
     env.Append(F90FLAGS=['-ffree-line-length-none'])
-  
+
 # enforce 8 byte precision for reals (required in SeisSol) and compile time boundary check
 if env['compiler'] == 'intel':
     env.Append(F90FLAGS=['-r8', '-WB'])
 elif env['compiler'] == 'gcc':
     env.Append(F90FLAGS=['-fdefault-real-8'])
-    
+
 # Align structs and arrays
 if env['compiler'] == 'intel':
-    # TODO Check if Fortran alignment is still necessary in the latest version 
+    # TODO Check if Fortran alignment is still necessary in the latest version
     env.Append(F90LFAGS=['-align', '-align', 'array64byte'])
 
 # Add  Linker-flags  for cross-compiling
@@ -367,7 +369,7 @@ if env['compiler'] == 'intel':
     env.Append(LINKFLAGS=['-nofor-main', '-cxxlib']) #Add -ldmalloc for ddt
 elif env['compiler'] == 'gcc':
     env.Append(LIBS=['stdc++'])
-    
+
 #
 # Architecture dependent settings
 #
@@ -377,7 +379,7 @@ env.Append( CFLAGS    = archFlags,
             F90FLAGS  = archFlags,
             LINKFLAGS = archFlags )
 env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['arch'].upper()])
-  
+
 #
 # Compile mode settings
 #
@@ -408,11 +410,11 @@ if env['compileMode'] in ['debug', 'relWithDebInfo']:
 if env['compileMode'] in ['relWithDebInfo', 'release']:
     env.Append(CPPDEFINES = ['NDEBUG'])
     env.Append(F90FLAGS = ['-O2'],
-               CFLAGS   = ['-O2'], 
+               CFLAGS   = ['-O2'],
                CXXFLAGS = ['-O2'])
     if env['compiler'] == 'intel':
         env.Append(F90FLAGS = ['-fno-alias'])
-    
+
 #
 # Basic preprocessor defines
 #
@@ -428,7 +430,6 @@ if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
 # add parallel flag for mpi
 if env['parallelization'] in ['mpi', 'hybrid']:
     # TODO rename PARALLEL to USE_MPI in the code
-    print "USE_MPI"
     env.Append(CPPDEFINES=['PARALLEL', 'USE_MPI'])
 
 # add OpenMP flags
@@ -450,7 +451,7 @@ if env['generatedKernels']:
 if env['commThread']:
   env.Append(CPPDEFINES=['USE_COMM_THREAD'])
   env.Append(LINKFLAGS=['-lpthread'] )
- 
+
 # Default log level for rank 0 is same as logLevel
 if env['logLevel0'] == 'none':
   env['logLevel0'] = env['logLevel']
@@ -466,7 +467,7 @@ elif env['logLevel'] == 'error':
   env.Append(CPPDEFINES=['LOGLEVEL=0'])
 else:
   assert(false)
-  
+
 # set level of logger for rank 0 and C++
 if env['logLevel0'] == 'debug':
   env.Append(CPPDEFINES=['LOGLEVEL0=3', 'LOG_LEVEL=3'])
@@ -498,7 +499,7 @@ env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
 
 # HDF5
 if env['hdf5']:
-    env.Tool('Hdf5Tool', required=(not helpMode))
+    env.Tool('Hdf5Tool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
     env.Append(CPPDEFINES=['USE_HDF'])
 
 # memkind
@@ -508,11 +509,10 @@ if env['memkind']:
 
 # netCDF
 if env['netcdf'] == 'yes':
-  print "use netcdf"
-  env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
-  env.Append(CPPDEFINES=['USE_NETCDF'])
-elif env['netcdf'] == 'coprocessor':
-  env.Append(CPPDEFINES=['USE_NETCDF','NETCDF_COPROCESSOR'])
+    env.Tool('NetcdfTool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+    env.Append(CPPDEFINES=['USE_NETCDF'])
+elif env['netcdf'] == 'passive':
+    env.Append(CPPDEFINES=['USE_NETCDF', 'NETCDF_PASSIVE'])
 
 # sionlib still need to create a Tool for autoconfiguration
 if env['sionlib']:
@@ -524,7 +524,7 @@ else:
 if env['asagi']:
     if env['scalasca'] in ['default', 'kernels']:
         ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
-    
+
     env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
 
@@ -594,28 +594,28 @@ env.Program('#/'+env['programFile'], sourceFiles)
 if env['unitTests'] != 'none':
   # Anything done here should only affect tests
   env = env.Clone()
-  
+
   # Compile XDMF cube check
   if env['hdf5']:
       Export('env')
       SConscript('postprocessing/validation/XDMFCubeCheck/SConscript', duplicate=0)
-    
+
   # define location of cxxtest
   env['CXXTEST'] = 'submodules/cxxtest'
-  
+
   # Continue testing if tests fail
   env['CXXTEST_SKIP_ERRORS'] = True
-  
+
   # Replace main with MPI main
   env['CXXTEST_OPTS'] = '--template=' + Dir('.').srcnode().abspath + '/src/tests/mpirunner.tpl'
-      
+
   # Fail on error (as we can't see OK messages in the output)
   env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])
   env.Append(CPPDEFINES={'SEISSOL_TESTS': '"\\"' + Dir('.').srcnode().abspath + '/src/tests/\\""'})
-  
+
   # add cxxtest-tool
   env.Tool('cxxtest')
-  
+
   # Get test source files
   env.sourceFiles = []
   env.testSourceFiles = []
