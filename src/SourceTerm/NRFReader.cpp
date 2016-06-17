@@ -39,17 +39,24 @@
 
 #include "NRFReader.h"
 #include <utils/logger.h>
+
+#ifndef NETCDF_COPROCESSOR
 #include <netcdf.h>
+#endif
+
 #include <cassert>
 
 void check_err(const int stat, const int line, const char *file) {
+#ifndef NETCDF_COPROCESSOR
   if (stat != NC_NOERR) {
     logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
   }
+#endif
 }
 
 void seissol::sourceterm::readNRF(char const* filename, NRF& nrf)
 {
+ #ifndef NETCDF_COPROCESSOR
   int ncid;
   int stat;
   
@@ -155,4 +162,5 @@ void seissol::sourceterm::readNRF(char const* filename, NRF& nrf)
   /* close nrf */
   stat = nc_close(ncid);
   check_err(stat,__LINE__,__FILE__);
+#endif
 }

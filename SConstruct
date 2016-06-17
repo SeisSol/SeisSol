@@ -120,7 +120,7 @@ vars.AddVariables(
   
   BoolVariable( 'hdf5', 'use hdf5 library for data output', False ),
   
-  BoolVariable( 'netcdf', 'use netcdf library for mesh input', False ),
+  EnumVariable( 'netcdf', 'use netcdf library for mesh input', 'no',allowed_values=('yes','no','coprocessor') ),
   
   BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
 
@@ -428,6 +428,7 @@ if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
 # add parallel flag for mpi
 if env['parallelization'] in ['mpi', 'hybrid']:
     # TODO rename PARALLEL to USE_MPI in the code
+    print "USE_MPI"
     env.Append(CPPDEFINES=['PARALLEL', 'USE_MPI'])
 
 # add OpenMP flags
@@ -497,7 +498,7 @@ env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
 
 # HDF5
 if env['hdf5']:
-    env.Tool('Hdf5Tool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+    env.Tool('Hdf5Tool', required=(not helpMode))
     env.Append(CPPDEFINES=['USE_HDF'])
 
 # memkind
@@ -506,10 +507,13 @@ if env['memkind']:
   env.Append(CPPDEFINES=['USE_MEMKIND'])
 
 # netCDF
-if env['netcdf']:
-    env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
-    env.Append(CPPDEFINES=['USE_NETCDF'])
-    
+if env['netcdf'] == 'yes':
+  print "use netcdf"
+  env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
+  env.Append(CPPDEFINES=['USE_NETCDF'])
+elif env['netcdf'] == 'coprocessor':
+  env.Append(CPPDEFINES=['USE_NETCDF','NETCDF_COPROCESSOR'])
+
 # sionlib still need to create a Tool for autoconfiguration
 if env['sionlib']:
   env.Tool('SionTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']))
