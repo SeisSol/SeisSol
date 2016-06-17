@@ -44,7 +44,8 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
 
-void seissol::writer::WaveFieldWriter::init(int numVars, int order, int numAlignedDOF,
+void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
+		int order, int numAlignedDOF,
 		const MeshReader &meshReader,
 		const double* dofs,  const double* pstrain,
 		const unsigned int* map,
@@ -72,7 +73,7 @@ void seissol::writer::WaveFieldWriter::init(int numVars, int order, int numAlign
 	//
 	// High order I/O
 	//
-	if (numVars != MAX_VARIABLES)
+	if (static_cast<unsigned int>(numVars) != MAX_VARIABLES)
 		logError()
 				<< "XDMF output supports currently only" << MAX_VARIABLES
 				<< "variables. Number of variables specified:" << numVars;

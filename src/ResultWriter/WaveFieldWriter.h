@@ -175,7 +175,9 @@ class WaveFieldWriter : private async::Module<WaveFieldWriter, WaveFieldInitPara
 public:
 	WaveFieldWriter()
 		: m_enabled(false),
+#ifdef USE_MPI
 		  m_comm(MPI_COMM_NULL),
+#endif // USE_MPI
 		  m_waveFieldWriter(0L), m_lowWaveFieldWriter(0L),
 		  m_variableSubsampler(0L),
 		  m_numCells(0), m_numLowCells(0),
@@ -227,7 +229,7 @@ public:
 	 * @param map The mapping from the cell order to dofs order
 	 * @param timeTolerance The tolerance in the time for ignoring duplicate time steps
 	 */
-	void init(int numVars, int order, int numAlignedDOF,
+	void init(unsigned int numVars, int order, int numAlignedDOF,
 			const MeshReader &meshReader,
 			const double* dofs,  const double* pstrain,
 			const unsigned int* map,
@@ -391,10 +393,12 @@ public:
 		if (!m_enabled)
 			return;
 
+#ifdef USE_MPI
 		if (m_comm != MPI_COMM_NULL) {
 			MPI_Comm_free(&m_comm);
 			m_comm = MPI_COMM_NULL;
 		}
+#endif // USE_MPI
 
 		delete m_waveFieldWriter;
 		m_waveFieldWriter = 0L;
