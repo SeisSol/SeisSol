@@ -698,6 +698,76 @@ CONTAINS
         ENDDO
       ENDIF !Plasticity
       !
+      CASE(62)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
+              ! the thickness of the layer, added more layers in depth
+
+         ! Layer                   depth    rho     mu          lambda
+         BedrockVelModel(1,:) = (/ -300.0, 2349.3, 0.5868e10, 1.1728e10/) ! not correctly averaged value to respect the low velocities somehow
+         BedrockVelModel(2,:) = (/ -1000.0, 2592.9, 1.3885e10, 1.8817e10/)
+         BedrockVelModel(3,:) = (/ -3000.0, 2700.0, 2.1168e10, 2.7891e10/)
+         BedrockVelModel(4,:) = (/ -5000.0, 2750.0, 2.9948e10, 3.9105e10/)
+         BedrockVelModel(5,:) = (/ -6000.0, 2800.0, 3.3327e10, 3.7534e10/)
+         BedrockVelModel(6,:) = (/ -11000.0, 2825.0, 3.6612e10, 3.3625e10/)
+         BedrockVelModel(7,:) = (/ -16000.0, 2850.0, 3.7969e10, 3.7898e10/)
+         BedrockVelModel(8,:) = (/ -21000.0, 2900.0, 3.9701e10, 4.5015e10/)
+         BedrockVelModel(9,:) = (/ -31000.0, 2950.0, 4.2598e10, 5.1212e10/)
+         BedrockVelModel(10,:) = (/ -50000.0, 3200.0, 6.4800e10, 6.5088e10/)
+         !
+         IF (EQN%Plasticity.EQ.1) THEN !initialize stress loading in the volume for plasticity
+            ALLOCATE(EQN%IniStress(6,MESH%nElem))
+               EQN%IniStress(:,:)=0.0D0
+         ENDIF !Plasticity
+
+         DO iElem = 1, MESH%nElem
+             z = MESH%ELEM%xyBary(3,iElem)
+             IF (z.GT.BedrockVelModel(1,1)) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
+             ELSEIF ((z.LT.BedrockVelModel(1,1)).AND.(z.GE.BedrockVelModel(2,1))) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
+             ELSEIF ((z.LT.BedrockVelModel(2,1)).AND.(z.GE.BedrockVelModel(3,1))) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
+             ELSEIF ((z.LT.BedrockVelModel(3,1)).AND.(z.GE.BedrockVelModel(4,1))) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
+             ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
+             ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
+             ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
+             ELSEIF ((z.LT.BedrockVelModel(7,1)).AND.(z.GE.BedrockVelModel(8,1))) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(8,2:4)
+             ELSEIF ((z.LT.BedrockVelModel(8,1)).AND.(z.GE.BedrockVelModel(9,1))) THEN
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(9,2:4)
+             ELSE
+                 MaterialVal(iElem,1:3) =   BedrockVelModel(10,2:4)
+             ENDIF
+
+             !Plasticity initializations
+             IF (EQN%Plasticity.EQ.1) THEN
+
+                !stress tensor for the whole domain
+                IF (z.LT. 1500.0D0) THEN
+                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(z-2000.0D0))/1000.0D0
+                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(z-2000.0D0))/1000.0D0
+                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(z-2000.0D0))/1000.0D0
+                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(z-2000.0D0))/1000.0D0
+                    EQN%IniStress(5,iElem)  =  0.0D0
+                    EQN%IniStress(6,iElem)  =  0.0D0
+                ELSE ! constant stress tensor for everything higher than 1500m
+                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(-500.0D0))/1000.0D0
+                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(-500.0D0))/1000.0D0
+                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(-500.0D0))/1000.0D0
+                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(-500.0D0))/1000.0D0
+                    EQN%IniStress(5,iElem)  =  0.0D0
+                    EQN%IniStress(6,iElem)  =  0.0D0
+                ENDIF   !
+
+                ! depth dependent plastic cohesion
+                EQN%PlastCo(iElem) = MaterialVal(iElem,2)/10000.0D0
+            ENDIF !Plasticity
+
+
+       ENDDO
 
 
       CASE(99) ! special case of 1D layered medium, imposed without meshed layers

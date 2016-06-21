@@ -545,7 +545,7 @@ CONTAINS
         logInfo(*) '| ERROR: These material types are only used for plastic calculations.'
       ENDIF
       !
-  CASE(60,61) ! special case of 1D landers example
+  CASE(60,61,62) ! special case of 1D landers example
       !
       logInfo0(*) 'Material property zones are defined by SeisSol. '
   CASE(33) ! special case of TPV33, T Ulrich 14.01.2016

@@ -2217,11 +2217,16 @@ MODULE ini_model_DR_mod
           ! N11 , grad2:
           !
           ! highest fault point is appr at z=1390m, offset 2000 is obtained by testing to shift the gradient up
-          !
-          EQN%IniBulk_xx(i,iBndGP)  =  -10.6723e6*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniBulk_yy(i,iBndGP)  =  -29.3277e6*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniBulk_zz(i,iBndGP)  =  -20.0000e6*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniShearXY(i,iBndGP)  =   -3.7687e6*(abs(z-2000.0D0))/1000.0D0
+          ! original setup
+          !EQN%IniBulk_xx(i,iBndGP)  =  -10.6723e6*(abs(z-2000.0D0))/1000.0D0
+          !EQN%IniBulk_yy(i,iBndGP)  =  -29.3277e6*(abs(z-2000.0D0))/1000.0D0
+          !EQN%IniBulk_zz(i,iBndGP)  =  -20.0000e6*(abs(z-2000.0D0))/1000.0D0
+          !EQN%IniShearXY(i,iBndGP)  =   -3.7687e6*(abs(z-2000.0D0))/1000.0D0
+          !can now be changed from the input
+          EQN%IniBulk_xx(i,iBndGP)  =  EQN%Bulk_xx_0*(abs(z-2000.0D0))/1000.0D0
+          EQN%IniBulk_yy(i,iBndGP)  =  EQN%Bulk_yy_0*(abs(z-2000.0D0))/1000.0D0
+          EQN%IniBulk_zz(i,iBndGP)  =  EQN%Bulk_zz_0*(abs(z-2000.0D0))/1000.0D0
+          EQN%IniShearXY(i,iBndGP)  =  EQN%ShearXY_0 *(abs(z-2000.0D0))/1000.0D0
           EQN%IniShearYZ(i,iBndGP)  =  EQN%ShearYZ_0
           EQN%IniShearXZ(i,iBndGP)  =  EQN%ShearXZ_0
           EQN%IniStateVar(i,iBndGP) =  EQN%RS_sv0
@@ -2247,8 +2252,15 @@ MODULE ini_model_DR_mod
 
               DISC%DynRup%D_C(i,iBndGP) =  2.0D0
           ENDIF
+
           ! set cohesion
-          DISC%DynRup%cohesion(i,iBndGP) = -2.0e6
+          ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
+          IF (z.GT.-DISC%DynRup%cohesion_depth) THEN
+              DISC%DynRup%cohesion(i,iBndGP) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
+          ELSE
+              DISC%DynRup%cohesion(i,iBndGP) = DISC%DynRup%cohesion_0
+          ENDIF
+
       
       ENDDO ! iBndGP
                 
