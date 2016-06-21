@@ -123,7 +123,7 @@ CONTAINS
     REAL                            :: w_freq(EQN%nMechanisms)
     REAL                            :: material(1:3), MaterialVal_k
     REAL                            :: ZoneIns, ZoneTrans, xG, yG, X2, LocX(3), LocY(3), tmp
-    REAL                            :: BedrockVelModel(7,4)
+    REAL                            :: BedrockVelModel(10,4)
     INTEGER                         :: eType
     INTEGER         :: nTens3GP
     REAL,POINTER    :: Tens3GaussP(:,:)
@@ -165,6 +165,12 @@ CONTAINS
     EQN%LocAnelastic(:) = 0
     ALLOCATE ( EQN%LocPoroelastic(MESH%nElem) )               ! Don't use poroelasticity by default
     EQN%LocPoroelastic(:) = 0
+
+    IF (EQN%Plasticity .NE. 0) THEN
+        ALLOCATE ( EQN%PlastCo(MESH%nElem) )
+        EQN%PlastCo(:) = EQN%PlastCo_0 !assign constant value from parameter file
+        !add element-dependent assignement for special lintypes in the following
+    ENDIF
 
       SELECT CASE(EQN%LinType)
       CASE(0)
@@ -692,6 +698,8 @@ CONTAINS
         ENDDO
       ENDIF !Plasticity
       !
+
+
       CASE(99) ! special case of 1D layered medium, imposed without meshed layers
       ! Northridge regional 1D velocity structure for sediments sites after Wald et al. 1996
          !
