@@ -897,7 +897,9 @@ MODULE TypesDef
      REAL, POINTER                          :: Mu_D(:,:) => NULL()                       !< Dynamic friction coefficient at given fault node
      REAL, POINTER                          :: StateVar(:,:) => NULL()                   !< State variable used at Rate-and-state friction laws
      REAL, POINTER                          :: cohesion(:,:) => NULL()                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
-     REAL                                   :: cohesion_0                       !< Default cohesion value
+     REAL                                   :: cohesion_0                                !< Default cohesion value
+     REAL                                   :: cohesion_max                              !< maximum added cohesion for linear increasing cohesion
+     REAL                                   :: cohesion_depth                            !< depth at which cohesion is increased
      REAL, POINTER                          :: forced_rupture_time(:,:) => NULL()        !< forced rupture time at given fault node
      REAL, POINTER                          :: rupture_time(:,:) => NULL()               !< rupture time at given fault node> used for VR ouput calculation
      REAL                                   :: XHypo                            !< x-coordinate of the forced rupture patch
@@ -1176,7 +1178,8 @@ MODULE TypesDef
      INTEGER                                :: Poroelasticity                   !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
      INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic 
      REAL, POINTER                          :: Energy(:,:)=> NULL()
-     REAL                                   :: PlastCo                          !< Cohesion for the Drucker-Prager plasticity
+     REAL                                   :: PlastCo_0                        !< Cohesion for the Drucker-Prager plasticity, initial constant value
+     REAL, POINTER                          :: PlastCo(:)                       !< Cohesion for the Drucker-Prager plasticity, depth-dependent
      REAL                                   :: BulkFriction                     !< Bulk friction for the Drucker-Prager plasticity
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
      REAL, POINTER                          :: IniStress(:,:)                   !< Initial stress (loading) for the whole domain, only used for plastic calculations

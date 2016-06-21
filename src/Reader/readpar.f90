@@ -310,7 +310,7 @@ CONTAINS
 
 #endif
         EQN%Plasticity = Plasticity
-        EQN%PlastCo = PlasticCo
+        EQN%PlastCo_0 = PlasticCo
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
         logInfo0(*) 'Plastic relaxation Tv is set to: '
@@ -1479,7 +1479,7 @@ CONTAINS
                                               RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, energy_rate_printtimeinterval
+                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, cohesion_max, cohesion_depth, energy_rate_printtimeinterval
 
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
@@ -1492,7 +1492,8 @@ CONTAINS
                                                 NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, &
-                                                OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, read_fault_file
+                                                OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
+                                                cohesion_max, cohesion_depth, read_fault_file
     !------------------------------------------------------------------------                                                                                   
     
     ! Setting default values
@@ -1551,6 +1552,9 @@ CONTAINS
     NucRS_sv0 = 0
     r_s = 0
     cohesion_0 = 0
+    cohesion_max = 0
+    cohesion_depth = 0
+
     read_fault_file = 0
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
@@ -1580,6 +1584,9 @@ CONTAINS
              EQN%YRef = YRef
              EQN%ZRef = ZRef
              DISC%DynRup%cohesion_0 = cohesion_0
+             DISC%DynRup%cohesion_max = cohesion_max
+             DISC%DynRup%cohesion_depth = cohesion_depth
+
              EQN%GPwise = GPwise
              IF (EQN%GPwise .EQ.1) THEN
                  logInfo0(*) 'GPwise initialization. '

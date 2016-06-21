@@ -2777,7 +2777,7 @@ CONTAINS
 #ifdef USE_PLASTICITY
         ! initialize the element dependent plastic parameters
         l_plasticParameters(1) = MESH%Elem%Volume(iElem)
-        l_plasticParameters(2) = EQN%PlastCo !currently constant, soon element-dependent
+        l_plasticParameters(2) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
         l_plasticParameters(3) = EQN%Rho0    !density
 
         ! initialize loading in C
@@ -2793,7 +2793,7 @@ CONTAINS
         IF(EQN%Plasticity.EQ.1) THEN
           ! initialize plastic parameters in classic version
           DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
-          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
+          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
           DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
         ENDIF
 #endif
