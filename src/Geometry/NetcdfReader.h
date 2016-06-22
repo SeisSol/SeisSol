@@ -71,8 +71,10 @@ public:
 	{
 		// Open nc file
 		int ncFile;
+		int masterRank;
+		unsigned int groupSize = 1;
 #ifdef USE_MPI
-		unsigned int groupSize = utils::Env::get<unsigned int>("SEISSOL_NETCDF_GROUP_SIZE", 1);
+		groupSize = utils::Env::get<unsigned int>("SEISSOL_NETCDF_GROUP_SIZE", 1);
 		if (nProcs % groupSize != 0)
 			logError() << "#Processes must be a multiple of the group size" << groupSize;
 
@@ -81,7 +83,7 @@ public:
 		MPI_Comm_split(seissol::MPI::mpi.comm(), rank % groupSize == 0 ? 1 : MPI_UNDEFINED,
 			rank, &commMaster);
 
-		int masterRank = -1;
+		masterRank = -1;
 
 		if (commMaster != MPI_COMM_NULL) {
 #ifdef NETCDF_PASSIVE
