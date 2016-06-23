@@ -120,6 +120,9 @@ class seissol::initializers::time_stepping::MultiRate {
       // derive global minimum and maximum time step widths
       MPI_Allreduce( &l_minimumTimeStepWidth, &o_minimumTimeStepWidth, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
       MPI_Allreduce( &l_maximumTimeStepWidth, &o_maximumTimeStepWidth, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+#else
+      o_minimumTimeStepWidth = l_minimumTimeStepWidth;
+      o_maximumTimeStepWidth = l_maximumTimeStepWidth;
 #endif
     }
 
