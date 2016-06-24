@@ -508,8 +508,10 @@ void seissol::initializers::MemoryManager::deriveLayerLayouts() {
 
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
+#ifdef USE_MPI
     CellLocalInformation* ghostCellInformation    = cluster.child<Ghost>().var(m_lts.cellInformation);
     CellLocalInformation* copyCellInformation     = cluster.child<Copy>().var(m_lts.cellInformation);
+#endif
     CellLocalInformation* interiorCellInformation = cluster.child<Interior>().var(m_lts.cellInformation);
 #ifdef USE_MPI
     m_numberOfGhostBuffers[             tc] = 0;
