@@ -64,12 +64,12 @@ private:
   struct LutsForMask {
     /** ltsToMesh[ltsId] returns a meshId given a ltsId. */
     unsigned* ltsToMesh;
-    /** meshToLts[meshId][0] always returns a valid ltsId.
-     * meshToLts[meshId][1..3] might be invalid (== std::numeric_limits<unsigned>::max())
+    /** meshToLts[0][meshId] always returns a valid ltsId.
+     * meshToLts[1..3][meshId] might be invalid (== std::numeric_limits<unsigned>::max())
      * and contains the ltsIds of duplicated cells.
      */
     unsigned* meshToLts[MaxDuplicates];
-    /** Contains meshIds where any of meshToLts[meshId][1..3] is valid. */
+    /** Contains meshIds where any of meshToLts[1..3][meshId] is valid. */
     unsigned* duplicatedMeshIds;
     /** Size of duplicatedMeshIds. */
     unsigned  numberOfDuplicatedMeshIds;

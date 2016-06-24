@@ -274,23 +274,32 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
                                                               seissol::initializers::Lut*     ltsLut )
 {
   std::vector<std::vector<unsigned> > clusterToPointSources(ltsTree->numChildren());
-  std::vector<unsigned> clusterToNumberOfMappings(ltsTree->numChildren(), 0);
+  std::vector<std::vector<unsigned> > clusterToMeshIds(ltsTree->numChildren());
   
   for (unsigned source = 0; source < numberOfSources; ++source) {
     unsigned meshId = meshIds[source];
     unsigned cluster = ltsLut->cluster(meshId);
     clusterToPointSources[cluster].push_back(source);
-    for (unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && ltsLut->ltsId(lts->dofs.mask, meshId, dup) != std::numeric_limits<unsigned>::max(); ++dup) {
-      ++clusterToNumberOfMappings[cluster];
-    }
+    clusterToMeshIds[cluster].push_back(meshId);
   }
   
   cmps = new ClusterMapping[ltsTree->numChildren()];
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
+    // Determine number of mappings by counting unique mesh Ids
+    std::sort(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
+    std::vector<unsigned>::iterator last = std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
+    unsigned numberOfMappings = 0;
+    for (std::vector<unsigned>::iterator it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
+      unsigned meshId = *it;
+      for (unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && ltsLut->ltsId(lts->dofs.mask, meshId, dup) != std::numeric_limits<unsigned>::max(); ++dup) {
+        ++numberOfMappings;
+      } 
+    }
+    
     cmps[cluster].sources           = new unsigned[ clusterToPointSources[cluster].size() ];
     cmps[cluster].numberOfSources   = clusterToPointSources[cluster].size();
-    cmps[cluster].cellToSources     = new CellToPointSourcesMapping[ clusterToNumberOfMappings[cluster] ];
-    cmps[cluster].numberOfMappings  = clusterToNumberOfMappings[cluster];
+    cmps[cluster].cellToSources     = new CellToPointSourcesMapping[ numberOfMappings ];
+    cmps[cluster].numberOfMappings  = numberOfMappings;
     
     for (unsigned source = 0; source < clusterToPointSources[cluster].size(); ++source) {
       cmps[cluster].sources[source] = clusterToPointSources[cluster][source];
@@ -302,7 +311,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
     while (clusterSource < cmps[cluster].numberOfSources) {
       unsigned meshId = meshIds[ cmps[cluster].sources[clusterSource] ];
       unsigned next = clusterSource + 1;
-      while (meshIds[next] == meshId && next < cmps[cluster].numberOfSources) {
+      while (meshIds[ cmps[cluster].sources[next] ] == meshId && next < cmps[cluster].numberOfSources) {
         ++next;
       }
       
