@@ -75,49 +75,12 @@
 // if equations == viscoelastic
 #ifdef REQUIRE_SOURCE_MATRIX
 #include <generated_code/init.h>
+#else
+#define MATRIXXMLFILE "matrices_" STR(NUMBER_OF_BASIS_FUNCTIONS) ".xml"
 #endif
 
 #ifdef _OPENMP
 #include <omp.h>
-#endif
-
-#if CONVERGENCE_ORDER == 2
-#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#define MEMKIND_CONSTANT seissol::memory::HighBandwidth
-#define MEMKIND_DOFS     seissol::memory::HighBandwidth
-#elif CONVERGENCE_ORDER == 3
-#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#define MEMKIND_CONSTANT seissol::memory::HighBandwidth
-#define MEMKIND_DOFS     seissol::memory::HighBandwidth
-#elif CONVERGENCE_ORDER == 4
-#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#define MEMKIND_CONSTANT seissol::memory::HighBandwidth
-#define MEMKIND_DOFS     seissol::memory::Standard
-#elif CONVERGENCE_ORDER == 5
-#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#define MEMKIND_CONSTANT seissol::memory::Standard
-#define MEMKIND_DOFS     seissol::memory::Standard
-#elif CONVERGENCE_ORDER == 6
-#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#define MEMKIND_CONSTANT seissol::memory::Standard
-#define MEMKIND_DOFS     seissol::memory::Standard
-#elif CONVERGENCE_ORDER == 7
-#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#define MEMKIND_CONSTANT seissol::memory::Standard
-#define MEMKIND_DOFS     seissol::memory::Standard
-#elif CONVERGENCE_ORDER == 8
-#define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#define MEMKIND_TIMEDOFS seissol::memory::Standard
-#define MEMKIND_CONSTANT seissol::memory::Standard
-#define MEMKIND_DOFS     seissol::memory::Standard
-#else
-#error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
 #endif
 
 seissol::initializers::MemoryManager::MemoryManager()
@@ -125,7 +88,7 @@ seissol::initializers::MemoryManager::MemoryManager()
 {
 }
 
-void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser &i_matrixReader )
+void seissol::initializers::MemoryManager::initialize()
 {
 #ifndef REQUIRE_SOURCE_MATRIX
   // init the sparse switch
@@ -171,6 +134,9 @@ void seissol::initializers::MemoryManager::initialize( const seissol::XmlParser 
   // set LTS integration buffer
   m_globalData.integrationBufferLTS = m_integrationBufferLTS;
 #else
+
+  XmlParser i_matrixReader(MATRIXXMLFILE);
+
   // initialize global matrices
 #ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   initializeGlobalMatrices( i_matrixReader, m_globalData );
@@ -492,163 +458,126 @@ void seissol::initializers::MemoryManager::allocateIntegrationBufferLTS() {
 #endif
 }
 
-void seissol::initializers::MemoryManager::setUpLayers( struct CellLocalInformation *i_cellLocalInformation ) {
-  // set total numbers
-  m_totalNumberOfGhostCells    = 0;
-  m_totalNumberOfCopyCells     = 0;
-  m_totalNumberOfInteriorCells = 0;
-
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-    m_totalNumberOfGhostCells    += m_meshStructure[l_cluster].numberOfGhostCells;
-    m_totalNumberOfCopyCells     += m_meshStructure[l_cluster].numberOfCopyCells;
-    m_totalNumberOfInteriorCells += m_meshStructure[l_cluster].numberOfInteriorCells;
-  }
-
-  m_totalNumberOfCells = m_totalNumberOfGhostCells + m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells;
-
-  // set up cell information pointers
-#ifdef USE_MPI
-  m_ghostCellInformation    = (CellLocalInformation**) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( CellLocalInformation*), 1 );
-  m_copyCellInformation     = (CellLocalInformation**) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( CellLocalInformation*), 1 );
-#endif // USE_MPI
-  m_interiorCellInformation = (CellLocalInformation**) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( CellLocalInformation*), 1 );
-
-  unsigned int l_offset = 0;
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-#ifdef USE_MPI
-    // set up ghost
-    m_ghostCellInformation[l_cluster] = i_cellLocalInformation + l_offset;
-    l_offset += m_meshStructure[l_cluster].numberOfGhostCells;
-
-    // set up copy
-    m_copyCellInformation[l_cluster]  = i_cellLocalInformation + l_offset;
-    l_offset += m_meshStructure[l_cluster].numberOfCopyCells;
-#endif // USE_MPI
-
-    // set up interior
-    m_interiorCellInformation[l_cluster] = i_cellLocalInformation + l_offset;
-    l_offset += m_meshStructure[l_cluster].numberOfInteriorCells;
-  }
-}
-
-void seissol::initializers::MemoryManager::correctGhostRegionSetups( struct CellLocalInformation *io_cellLocalInformation ) {
-  unsigned int l_offset = 0;
-
-  // iterate over time clusters
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-    // iterate over ghost region
-    for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
+void seissol::initializers::MemoryManager::correctGhostRegionSetups()
+{
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    Layer& ghost = m_ltsTree.child(tc).child<Ghost>();
+    CellLocalInformation* cellInformation = ghost.var(m_lts.cellInformation);
+    
+    unsigned int l_offset = 0;
+    for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       // iterate over ghost cells
-      for( unsigned int l_cell = 0; l_cell < m_meshStructure[l_cluster].numberOfGhostRegionCells[l_region]; l_cell++ ) {
-        if( l_cell < m_meshStructure[l_cluster].numberOfGhostRegionDerivatives[l_region] ) {
+      for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfGhostRegionCells[l_region]; l_cell++ ) {
+        if( l_cell < m_meshStructure[tc].numberOfGhostRegionDerivatives[l_region] ) {
           // assert the cell provides derivatives
-          assert( (io_cellLocalInformation[l_offset+l_cell].ltsSetup >> 9)%2 );
+          assert( (cellInformation[l_offset+l_cell].ltsSetup >> 9)%2 );
 
           // reset possible buffers
-          io_cellLocalInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 8 ) );
-          io_cellLocalInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 10) );
-        }
-        else {
+          cellInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 8 ) );
+          cellInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 10) );
+        } else {
           // assert the cell provides buffers
-          assert( (io_cellLocalInformation[l_offset+l_cell].ltsSetup >> 8)%2 );
+          assert( (cellInformation[l_offset+l_cell].ltsSetup >> 8)%2 );
 
           // reset possible derivatives
-          io_cellLocalInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 9 ) );
+          cellInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 9 ) );
         }
       }
       // update offset with ghost region size
-      l_offset +=  m_meshStructure[l_cluster].numberOfGhostRegionCells[l_region];
+      l_offset +=  m_meshStructure[tc].numberOfGhostRegionCells[l_region];
     }
-
-    // jump over copy and interior cells
-    l_offset += m_meshStructure[l_cluster].numberOfCopyCells;
-    l_offset += m_meshStructure[l_cluster].numberOfInteriorCells;
   }
 }
 
 void seissol::initializers::MemoryManager::deriveLayerLayouts() {
   // initialize memory
 #ifdef USE_MPI
-  m_numberOfGhostBuffers           = (unsigned int*)  m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int  ), 1 );
-  m_numberOfGhostRegionBuffers     = (unsigned int**) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int* ), 1 );
-  m_numberOfGhostDerivatives       = (unsigned int*)  m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int  ), 1 );
-  m_numberOfGhostRegionDerivatives = (unsigned int**) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int* ), 1 );
+  m_numberOfGhostBuffers           = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
+  m_numberOfGhostRegionBuffers     = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
+  m_numberOfGhostDerivatives       = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
+  m_numberOfGhostRegionDerivatives = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
 
-  m_numberOfCopyBuffers            = (unsigned int*)  m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int  ), 1 );
-  m_numberOfCopyRegionBuffers      = (unsigned int**) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int* ), 1 );
-  m_numberOfCopyDerivatives        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int  ), 1 );
-  m_numberOfCopyRegionDerivatives  = (unsigned int**) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int* ), 1 );
+  m_numberOfCopyBuffers            = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
+  m_numberOfCopyRegionBuffers      = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
+  m_numberOfCopyDerivatives        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
+  m_numberOfCopyRegionDerivatives  = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
 #endif // USE_MPI
 
-  m_numberOfInteriorBuffers        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int  ), 1 );
-  m_numberOfInteriorDerivatives    = (unsigned int*)  m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( unsigned int  ), 1 );
+  m_numberOfInteriorBuffers        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
+  m_numberOfInteriorDerivatives    = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
 
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_ltsTree.child(tc);
 #ifdef USE_MPI
-    m_numberOfGhostBuffers[             l_cluster] = 0;
-    m_numberOfGhostRegionBuffers[       l_cluster] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[l_cluster].numberOfRegions * sizeof( unsigned int ), 1 );
-    m_numberOfGhostDerivatives[         l_cluster] = 0;
-    m_numberOfGhostRegionDerivatives[   l_cluster] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[l_cluster].numberOfRegions * sizeof( unsigned int ), 1 );
+    CellLocalInformation* ghostCellInformation    = cluster.child<Ghost>().var(m_lts.cellInformation);
+    CellLocalInformation* copyCellInformation     = cluster.child<Copy>().var(m_lts.cellInformation);
+#endif
+    CellLocalInformation* interiorCellInformation = cluster.child<Interior>().var(m_lts.cellInformation);
+#ifdef USE_MPI
+    m_numberOfGhostBuffers[             tc] = 0;
+    m_numberOfGhostRegionBuffers[       tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
+    m_numberOfGhostDerivatives[         tc] = 0;
+    m_numberOfGhostRegionDerivatives[   tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
 
-    m_numberOfCopyBuffers[              l_cluster] = 0;
-    m_numberOfCopyRegionBuffers[        l_cluster] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[l_cluster].numberOfRegions * sizeof( unsigned int ), 1 );
-    m_numberOfCopyDerivatives[          l_cluster] = 0;
-    m_numberOfCopyRegionDerivatives[    l_cluster] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[l_cluster].numberOfRegions * sizeof( unsigned int ), 1 );
+    m_numberOfCopyBuffers[              tc] = 0;
+    m_numberOfCopyRegionBuffers[        tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
+    m_numberOfCopyDerivatives[          tc] = 0;
+    m_numberOfCopyRegionDerivatives[    tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
 #endif // USE_MPI
 
-    m_numberOfInteriorBuffers[          l_cluster]       = 0;
-    m_numberOfInteriorDerivatives[      l_cluster]       = 0;
+    m_numberOfInteriorBuffers[          tc]       = 0;
+    m_numberOfInteriorDerivatives[      tc]       = 0;
 
 #ifdef USE_MPI
     unsigned int l_ghostOffset = 0;
     unsigned int l_copyOffset  = 0;
-    for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
-      m_numberOfGhostRegionBuffers[     l_cluster][l_region] = 0;
-      m_numberOfGhostRegionDerivatives[ l_cluster][l_region] = 0;
+    for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
+      m_numberOfGhostRegionBuffers[     tc][l_region] = 0;
+      m_numberOfGhostRegionDerivatives[ tc][l_region] = 0;
 
-      m_numberOfCopyRegionBuffers[      l_cluster][l_region] = 0;
-      m_numberOfCopyRegionDerivatives[  l_cluster][l_region] = 0;
+      m_numberOfCopyRegionBuffers[      tc][l_region] = 0;
+      m_numberOfCopyRegionDerivatives[  tc][l_region] = 0;
 
       // iterate over all cells of this clusters ghost layer
-      for( unsigned int l_cell = 0; l_cell < m_meshStructure[l_cluster].numberOfGhostRegionCells[l_region]; l_cell++ ) {
+      for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfGhostRegionCells[l_region]; l_cell++ ) {
         // ensure that either buffers or derivatives are used; not both!
-        bool l_buffer      = ( m_ghostCellInformation[l_cluster][l_cell+l_ghostOffset].ltsSetup >> 8 ) % 2;
-        bool l_derivatives = ( m_ghostCellInformation[l_cluster][l_cell+l_ghostOffset].ltsSetup >> 9 ) % 2;
+        bool l_buffer      = ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup >> 8 ) % 2;
+        bool l_derivatives = ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup >> 9 ) % 2;
 
         if( (l_buffer && l_derivatives) || ( l_buffer || l_derivatives ) == false ) logError() << "invalid ghost lts setup" << l_buffer << l_derivatives;
 
         // check if this cell requires a buffer and/or derivatives
-        if( ( m_ghostCellInformation[l_cluster][l_cell+l_ghostOffset].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfGhostRegionBuffers[    l_cluster][l_region]++;
-        if( ( m_ghostCellInformation[l_cluster][l_cell+l_ghostOffset].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfGhostRegionDerivatives[l_cluster][l_region]++;
+        if( ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfGhostRegionBuffers[    tc][l_region]++;
+        if( ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfGhostRegionDerivatives[tc][l_region]++;
       }
-      l_ghostOffset += m_meshStructure[l_cluster].numberOfGhostRegionCells[l_region];
+      l_ghostOffset += m_meshStructure[tc].numberOfGhostRegionCells[l_region];
 
       // iterate over all cells of this clusters copy layer
-      for( unsigned int l_cell = 0; l_cell < m_meshStructure[l_cluster].numberOfCopyRegionCells[l_region]; l_cell++ ) {
+      for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfCopyRegionCells[l_region]; l_cell++ ) {
         // assert that buffers or derivatives are requested
-        assert( ( ( m_copyCellInformation[l_cluster][l_cell+l_copyOffset].ltsSetup >> 8 ) % 2 ||
-                  ( m_copyCellInformation[l_cluster][l_cell+l_copyOffset].ltsSetup >> 9 ) % 2 )
+        assert( ( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup >> 8 ) % 2 ||
+                  ( copyCellInformation[l_cell+l_copyOffset].ltsSetup >> 9 ) % 2 )
                 == true );
 
         // check if this cell requires a buffer and/or derivatives
-        if( ( m_copyCellInformation[l_cluster][l_cell+l_copyOffset].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfCopyRegionBuffers[    l_cluster][l_region]++;
-        if( ( m_copyCellInformation[l_cluster][l_cell+l_copyOffset].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfCopyRegionDerivatives[l_cluster][l_region]++;
+        if( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfCopyRegionBuffers[    tc][l_region]++;
+        if( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfCopyRegionDerivatives[tc][l_region]++;
       }
-      l_copyOffset += m_meshStructure[l_cluster].numberOfCopyRegionCells[l_region];
+      l_copyOffset += m_meshStructure[tc].numberOfCopyRegionCells[l_region];
 
       // update number of buffers and derivatives in the ghost and copy layer
-      m_numberOfGhostBuffers[     l_cluster ]  += m_numberOfGhostRegionBuffers[     l_cluster][l_region];
-      m_numberOfGhostDerivatives[ l_cluster ]  += m_numberOfGhostRegionDerivatives[ l_cluster][l_region];
-      m_numberOfCopyBuffers[      l_cluster ]  += m_numberOfCopyRegionBuffers[      l_cluster][l_region];
-      m_numberOfCopyDerivatives[  l_cluster ]  += m_numberOfCopyRegionDerivatives[  l_cluster][l_region];
+      m_numberOfGhostBuffers[     tc ]  += m_numberOfGhostRegionBuffers[     tc][l_region];
+      m_numberOfGhostDerivatives[ tc ]  += m_numberOfGhostRegionDerivatives[ tc][l_region];
+      m_numberOfCopyBuffers[      tc ]  += m_numberOfCopyRegionBuffers[      tc][l_region];
+      m_numberOfCopyDerivatives[  tc ]  += m_numberOfCopyRegionDerivatives[  tc][l_region];
     }
 #endif // USE_MPI
 
     // iterate over all cells of this clusters interior
-    for( unsigned int l_cell = 0; l_cell < m_meshStructure[l_cluster].numberOfInteriorCells; l_cell++ ) {
+    for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfInteriorCells; l_cell++ ) {
       // check if this cell requires a buffer and/or derivatives
-      if( ( m_interiorCellInformation[l_cluster][l_cell].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfInteriorBuffers[    l_cluster]++;
-      if( ( m_interiorCellInformation[l_cluster][l_cell].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfInteriorDerivatives[l_cluster]++;
+      if( ( interiorCellInformation[l_cell].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfInteriorBuffers[    tc]++;
+      if( ( interiorCellInformation[l_cell].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfInteriorDerivatives[tc]++;
     }
   }
 }
@@ -656,7 +585,7 @@ void seissol::initializers::MemoryManager::deriveLayerLayouts() {
 #ifdef USE_MPI
 void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
   // reset mpi requests
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
+  for( unsigned int l_cluster = 0; l_cluster < m_ltsTree.numChildren(); l_cluster++ ) {
     for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
       m_meshStructure[l_cluster].sendRequests[l_region] = MPI_REQUEST_NULL;
       m_meshStructure[l_cluster].receiveRequests[l_region] = MPI_REQUEST_NULL;
@@ -666,585 +595,262 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
   /*
    * ghost layer
    */
-  real *l_ghostStart = m_internalState.ghostLayer;
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-    for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_ltsTree.child(tc);
+    real* ghostStart = static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives));
+    for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       // set pointer to ghost region
-      m_meshStructure[l_cluster].ghostRegions[l_region] = l_ghostStart;
+      m_meshStructure[tc].ghostRegions[l_region] = ghostStart;
 
       // derive the ghost region size
-      unsigned int l_numberOfDerivatives = m_meshStructure[l_cluster].numberOfGhostRegionDerivatives[l_region];
-      unsigned int l_numberOfBuffers     = m_meshStructure[l_cluster].numberOfGhostRegionCells[l_region] - l_numberOfDerivatives;
+      unsigned int l_numberOfDerivatives = m_meshStructure[tc].numberOfGhostRegionDerivatives[l_region];
+      unsigned int l_numberOfBuffers     = m_meshStructure[tc].numberOfGhostRegionCells[l_region] - l_numberOfDerivatives;
 
       // set size
-      m_meshStructure[l_cluster].ghostRegionSizes[l_region] = NUMBER_OF_ALIGNED_DOFS * l_numberOfBuffers +
-                                                              NUMBER_OF_ALIGNED_DERS * l_numberOfDerivatives;
+      m_meshStructure[tc].ghostRegionSizes[l_region] = NUMBER_OF_ALIGNED_DOFS * l_numberOfBuffers +
+                                                       NUMBER_OF_ALIGNED_DERS * l_numberOfDerivatives;
 
       // update the pointer
-      l_ghostStart += m_meshStructure[l_cluster].ghostRegionSizes[l_region];
+      ghostStart += m_meshStructure[tc].ghostRegionSizes[l_region];
     }
   }
 
   /*
    * copy layer
-   */
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
+   */   
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    Layer& copy = m_ltsTree.child(tc).child<Copy>();
+    real** buffers = copy.var(m_lts.buffers);
+    real** derivatives = copy.var(m_lts.derivatives);
     // copy region offset
     unsigned int l_offset = 0;
 
-    for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
+    for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       // derive the communication size
-      unsigned int l_numberOfDerivatives = m_meshStructure[l_cluster].numberOfCommunicatedCopyRegionDerivatives[l_region];
-      unsigned int l_numberOfBuffers     = m_meshStructure[l_cluster].numberOfCopyRegionCells[l_region] - l_numberOfDerivatives;
+      unsigned int l_numberOfDerivatives = m_meshStructure[tc].numberOfCommunicatedCopyRegionDerivatives[l_region];
+      unsigned int l_numberOfBuffers     = m_meshStructure[tc].numberOfCopyRegionCells[l_region] - l_numberOfDerivatives;
 
       // assert number of communicated buffers fits into total number of buffers
-      assert( m_numberOfCopyRegionBuffers[l_cluster][l_region] >= l_numberOfBuffers );
+      assert( m_numberOfCopyRegionBuffers[tc][l_region] >= l_numberOfBuffers );
 
       // set pointer to copy region start
       if( l_numberOfBuffers > 0 ) {
-        m_meshStructure[l_cluster].copyRegions[l_region] = m_cells[l_cluster].copyBuffers[l_numberOfDerivatives+l_offset];
+        m_meshStructure[tc].copyRegions[l_region] = buffers[l_numberOfDerivatives + l_offset];
       }
       else {
-        m_meshStructure[l_cluster].copyRegions[l_region] = m_cells[l_cluster].copyDerivatives[l_offset];
+        m_meshStructure[tc].copyRegions[l_region] = derivatives[l_offset];
       }
 
       // assert the pointer is set
-      assert( m_meshStructure[l_cluster].copyRegions[l_region] != NULL );
+      assert( m_meshStructure[tc].copyRegions[l_region] != NULL );
 
       // set size
-      m_meshStructure[l_cluster].copyRegionSizes[l_region] = NUMBER_OF_ALIGNED_DOFS * l_numberOfBuffers +
-                                                             NUMBER_OF_ALIGNED_DERS * l_numberOfDerivatives;
+      m_meshStructure[tc].copyRegionSizes[l_region] = NUMBER_OF_ALIGNED_DOFS * l_numberOfBuffers +
+                                                      NUMBER_OF_ALIGNED_DERS * l_numberOfDerivatives;
 
       // jump over region
-      l_offset += m_meshStructure[l_cluster].numberOfCopyRegionCells[l_region];
+      l_offset += m_meshStructure[tc].numberOfCopyRegionCells[l_region];
     }
   }
 }
 #endif
 
-void seissol::initializers::MemoryManager::allocateConstantData() {
-  // allocate cell local data
-  LocalIntegrationData       *l_local       = (LocalIntegrationData*)       m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( LocalIntegrationData ),       1, MEMKIND_CONSTANT );
-  NeighboringIntegrationData *l_neighboring = (NeighboringIntegrationData*) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( NeighboringIntegrationData ), 1, MEMKIND_CONSTANT );
-  CellMaterialData           *material      = (CellMaterialData*)           m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( CellMaterialData ),           1, MEMKIND_CONSTANT );
-#ifdef USE_PLASTICITY
-  PlasticityData             *plasticity    = (PlasticityData*)             m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( PlasticityData ),             1, MEMKIND_CONSTANT );
-#endif // USE_PLASTICITY
-
-  // store per-cluster locations of the data
+void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    cluster,
+                                                                    Layer&      layer )
+{
 #ifdef USE_MPI
-  m_copyCellData     = (struct CellData*) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( struct CellData ), 1, MEMKIND_CONSTANT );
+  assert(layer.getLayerType() == Copy || layer.getLayerType() == Interior);
+#else
+  assert(layer.getLayerType() == Interior);
 #endif
-  m_interiorCellData = (struct CellData*) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( struct CellData ), 1, MEMKIND_CONSTANT );
-
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-#ifdef USE_MPI
-    // set copy cell data
-    m_copyCellData[l_cluster].localIntegration       = l_local;
-    m_copyCellData[l_cluster].neighboringIntegration = l_neighboring;
-    m_copyCellData[l_cluster].material = material;
-#ifdef USE_PLASTICITY
-    m_copyCellData[l_cluster].plasticity = plasticity;
-#else // USE_PLASTICITY
-    m_copyCellData[l_cluster].plasticity = 0L;
-#endif // USE_PLASTICITY
-#endif
-    // jump over copy cells
-    l_local       += m_meshStructure[l_cluster].numberOfCopyCells;
-    l_neighboring += m_meshStructure[l_cluster].numberOfCopyCells;
-    material      += m_meshStructure[l_cluster].numberOfCopyCells;
-#ifdef USE_PLASTICITY
-    plasticity    += m_meshStructure[l_cluster].numberOfCopyCells;
-#endif // USE_PLASTICITY
-
-    // set interior cell data
-    m_interiorCellData[l_cluster].localIntegration       = l_local;
-    m_interiorCellData[l_cluster].neighboringIntegration = l_neighboring;
-    m_interiorCellData[l_cluster].material               = material;
-#ifdef USE_PLASTICITY
-    m_interiorCellData[l_cluster].plasticity             = plasticity;
-#else // USE_PLASTICITY
-    m_interiorCellData[l_cluster].plasticity = 0L;
-#endif // USE_PLASTICITY
+  
+  // iterate over clusters
+  
+  real** buffers = m_ltsTree.var(m_lts.buffers);          // faceNeighborIds are ltsIds and not layer-local
+  real** derivatives = m_ltsTree.var(m_lts.derivatives);  // faceNeighborIds are ltsIds and not layer-local
+  real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
+  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
     
-    // jump over interior
-    l_local       += m_meshStructure[l_cluster].numberOfInteriorCells;
-    l_neighboring += m_meshStructure[l_cluster].numberOfInteriorCells;
-    material      += m_meshStructure[l_cluster].numberOfInteriorCells;
-#ifdef USE_PLASTICITY
-    plasticity    += m_meshStructure[l_cluster].numberOfInteriorCells;
-#endif // USE_PLASTICITY
-  }
-}
-
-void seissol::initializers::MemoryManager::touchConstantData( unsigned int                i_numberOfCells,
-                                                              LocalIntegrationData*       o_local,
-                                                              NeighboringIntegrationData* o_neighboring ) {
-#ifdef _OPENMP
-  #pragma omp parallel for
-#endif
-  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
-    // zero star matrices
-    for( unsigned int l_starMatrix = 0; l_starMatrix < 3; l_starMatrix++ ) {
-      for( unsigned int l_entry = 0; l_entry < seissol::model::AstarT::reals; l_entry++ ) {
-        o_local[l_cell].starMatrices[l_starMatrix][l_entry] = (real) 0;
+  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    for (unsigned face = 0; face < 4; ++face) {
+      if (  cellInformation[cell].faceTypes[face] == regular
+         || cellInformation[cell].faceTypes[face] == periodic
+         || cellInformation[cell].faceTypes[face] == dynamicRupture ) {
+        // neighboring cell provides derivatives
+        if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
+          faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
+        }
+        // neighboring cell provides a time buffer
+        else {
+          faceNeighbors[cell][face] = buffers[ cellInformation[cell].faceNeighborIds[face] ];
+        }
+        assert( faceNeighbors[cell][face] != NULL );
       }
-    }
-
-    // zero flux solvers
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-      for( unsigned int l_entry = 0; l_entry < seissol::model::AplusT::reals; l_entry++ ) {
-        o_local[      l_cell].nApNm1[l_face][l_entry] = (real) 0;
+      // free surface boundary
+      else if( cellInformation[cell].faceTypes[face] == freeSurface ) {
+        if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
+          faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
+        }
+        else { // free surface on derivatives
+          faceNeighbors[cell][face] = layer.var(m_lts.derivatives)[cell];
+        }
+        assert( faceNeighbors[cell][face] != NULL );
       }
-      for( unsigned int l_entry = 0; l_entry < seissol::model::AminusT::reals; l_entry++ ) {
-        o_neighboring[l_cell].nAmNm1[l_face][l_entry] = (real) 0;
-      }
-    }
-  }
-}
-
-void seissol::initializers::MemoryManager::initializeConstantData() {
-  // iterate over clusters
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-	  // TODO touch plasticity initial loading
-#ifdef USE_MPI
-    touchConstantData( m_meshStructure[l_cluster].numberOfCopyCells,
-                       m_copyCellData[l_cluster].localIntegration,
-                       m_copyCellData[l_cluster].neighboringIntegration );
-#endif
-    touchConstantData( m_meshStructure[l_cluster].numberOfInteriorCells,
-                       m_interiorCellData[l_cluster].localIntegration,
-                       m_interiorCellData[l_cluster].neighboringIntegration );
-
-  }
-}
-
-
-void seissol::initializers::MemoryManager::allocateInternalState() {
-  // derive sizes
-#ifdef USE_MPI
-  unsigned int l_ghostSize    = 0;
-  unsigned int l_copySize     = 0;
-#endif // USE_MPI
-  unsigned int l_interiorSize = 0;
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-
-#ifdef USE_MPI
-    for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
-      l_ghostSize    += NUMBER_OF_ALIGNED_DOFS * m_numberOfGhostRegionBuffers[l_cluster][l_region];
-      l_ghostSize    += NUMBER_OF_ALIGNED_DERS * m_numberOfGhostRegionDerivatives[l_cluster][l_region];
-
-      l_copySize     += NUMBER_OF_ALIGNED_DOFS * m_numberOfCopyRegionBuffers[l_cluster][l_region];
-      l_copySize     += NUMBER_OF_ALIGNED_DERS * m_numberOfCopyRegionDerivatives[l_cluster][l_region];
-    }
-#endif // USE_MPI
-
-    l_interiorSize += NUMBER_OF_ALIGNED_DOFS * m_numberOfInteriorBuffers[l_cluster];
-    l_interiorSize += NUMBER_OF_ALIGNED_DERS * m_numberOfInteriorDerivatives[l_cluster];
-  }
-
-#ifdef USE_MPI
-  m_internalState.ghostLayer   = (real*) m_memoryAllocator.allocateMemory( l_ghostSize    * sizeof( real ),
-                                                                           PAGESIZE_HEAP,
-                                                                           MEMKIND_TIMEDOFS                );
-
-  m_internalState.copyLayer    = (real*) m_memoryAllocator.allocateMemory( l_copySize     * sizeof( real ),
-                                                                           PAGESIZE_HEAP,
-                                                                           MEMKIND_TIMEDOFS                );
-#endif // USE_MPI
-
-  m_internalState.interiorTime = (real*) m_memoryAllocator.allocateMemory( l_interiorSize * sizeof( real ),
-                                                                           PAGESIZE_HEAP,
-                                                                           MEMKIND_TIMEDOFS                );
-
-  /*
-   * buffers / derivatives / face neighbors
-   */
-  m_internalState.buffers       = (real**)      m_memoryAllocator.allocateMemory( m_totalNumberOfCells * sizeof( real*    ), 1, MEMKIND_TIMEDOFS );
-  m_internalState.derivatives   = (real**)      m_memoryAllocator.allocateMemory( m_totalNumberOfCells * sizeof( real*    ), 1, MEMKIND_TIMEDOFS );
-  m_internalState.faceNeighbors = (real*(*)[4]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells) * sizeof( real*[4] ), 1, MEMKIND_TIMEDOFS );
-
-  /*
-   * dofs
-   */
-  m_internalState.dofs         = (real(*)[NUMBER_OF_ALIGNED_DOFS]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof( real[NUMBER_OF_ALIGNED_DOFS] ),
-                                                                                                     PAGESIZE_HEAP,
-                                                                                                     MEMKIND_DOFS
-                                                                                                   );
-
-#ifdef USE_PLASTICITY
-  // TODO pstrain is updated every time step but only used for output -> maybe useful candidate for high bandwidth memory
-  m_internalState.pstrain      = (real(*)[7]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof( real[7] ),
-		  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	 PAGESIZE_HEAP,
-																				 seissol::memory::Standard);
-
-  m_internalState.Energy = (real(*)[3]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof(real[3]),
-	  	  	  	  	  	  	  	                                               PAGESIZE_HEAP,
-			                                                                   seissol::memory::Standard);
-
-#else // USE_PLASTICITY
-  m_internalState.pstrain = 0L;
-  m_internalState.Energy = 0L;
-#endif // USE_PLASTICITY
-}
-
-void seissol::initializers::MemoryManager::initializeFaceNeighbors() {
-  unsigned int l_cell = 0;
-  unsigned int l_ghostOffset = 0;
-
-  // iterate over clusters
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-    l_ghostOffset += m_meshStructure[l_cluster].numberOfGhostCells;
-
-    // iterate over copy layer and interior
-    for( unsigned int l_clusterCell = 0; l_clusterCell < m_meshStructure[l_cluster].numberOfCopyCells + m_meshStructure[l_cluster].numberOfInteriorCells; l_clusterCell++ ) {
-      // get cell information for the current cell
-      CellLocalInformation *l_cellInformation = 0L; // TODO check if NULL pointer is correct in serial version
-
-      if( l_clusterCell < m_meshStructure[l_cluster].numberOfCopyCells ) {
-#ifdef USE_MPI
-        l_cellInformation = m_copyCellInformation[l_cluster] + l_clusterCell;
-#endif // USE_MPI
+      // absorbing
+      else if( cellInformation[cell].faceTypes[face] == outflow ) {
+        // NULL pointer; absorbing: data is not used
+        faceNeighbors[cell][face] = NULL;
       }
       else {
-        l_cellInformation = m_interiorCellInformation[l_cluster] + l_clusterCell - m_meshStructure[l_cluster].numberOfCopyCells;
+        // assert all cases are covered
+        assert( false );
       }
-
-      // set up pointers to face neighbors.
-      for( int l_face = 0; l_face < 4; l_face++ ) {
-        // default case: face neighbor is a regular element
-        if( l_cellInformation->faceTypes[l_face] == regular
-         || l_cellInformation->faceTypes[l_face] == periodic
-         || l_cellInformation->faceTypes[l_face] == dynamicRupture ) {
-          // neighboring cell provides derivatives
-          if( (l_cellInformation->ltsSetup >> l_face) % 2 ) {
-            m_internalState.faceNeighbors[l_cell][l_face] = m_internalState.derivatives[ l_cellInformation->faceNeighborIds[l_face] ];
-          }
-          // neighboring cell provides a time buffer
-          else {
-            m_internalState.faceNeighbors[l_cell][l_face] = m_internalState.buffers[ l_cellInformation->faceNeighborIds[l_face] ];
-          }
-          assert( m_internalState.faceNeighbors[l_cell][l_face] != NULL );
-        }
-        // free surface boundary
-        else if( l_cellInformation->faceTypes[l_face] == freeSurface ) {
-          if( (l_cellInformation->ltsSetup >> l_face) % 2 == 0 ) { // free surface on buffers
-            m_internalState.faceNeighbors[l_cell][l_face] = m_internalState.buffers[l_cell+l_ghostOffset];
-          }
-          else { // free surface on derivatives
-            m_internalState.faceNeighbors[l_cell][l_face] = m_internalState.derivatives[l_cell+l_ghostOffset];
-          }
-          assert( m_internalState.faceNeighbors[l_cell][l_face] != NULL );
-        }
-        // absorbing
-        else if( l_cellInformation->faceTypes[l_face] == outflow ) {
-          // NULL pointer; absorbing: data is not used
-          m_internalState.faceNeighbors[l_cell][l_face] = NULL;
-        }
-        else {
-          // assert all cases are covered
-          assert( false );
-        }
-      }
-      l_cell++;
     }
   }
 }
 
-void seissol::initializers::MemoryManager::initializeInternalState() {
-  // offset in cells
-  unsigned int l_offset = 0;
-
-  // pointers to the clusters
-#ifdef USE_MPI
-  real *l_ghostPointer    = m_internalState.ghostLayer;
-  real *l_copyPointer     = m_internalState.copyLayer;
-#endif
-  real *l_interiorPointer = m_internalState.interiorTime;
-
+void seissol::initializers::MemoryManager::initializeBuffersDerivatives() {
   // initialize the pointers of the internal state
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_ltsTree.child(tc);
 #ifdef USE_MPI
     /*
      * ghost layer
      */
-    InternalState::setUpLayerPointers( ghost,
-                                       m_meshStructure[l_cluster].numberOfRegions,
-                                       m_meshStructure[l_cluster].numberOfGhostRegionCells,
-                                       m_ghostCellInformation[l_cluster],
-                                       m_numberOfGhostRegionBuffers[l_cluster],
-                                       m_numberOfGhostRegionDerivatives[l_cluster],
-                                       l_ghostPointer,
-                                       m_internalState.buffers     + l_offset,
-                                       m_internalState.derivatives + l_offset );
-
-    // update the offset
-    l_offset  += m_meshStructure[l_cluster].numberOfGhostCells;
-
-    // update the ghost pointer
-    l_ghostPointer += NUMBER_OF_ALIGNED_DOFS * m_numberOfGhostBuffers[     l_cluster ];
-    l_ghostPointer += NUMBER_OF_ALIGNED_DERS * m_numberOfGhostDerivatives[ l_cluster ];
+    InternalState::setUpLayerPointers( m_meshStructure[tc].numberOfRegions,
+                                       m_meshStructure[tc].numberOfGhostRegionCells,
+                                       cluster.child<Ghost>().var(m_lts.cellInformation),
+                                       m_numberOfGhostRegionBuffers[tc],
+                                       m_numberOfGhostRegionDerivatives[tc],
+                                       static_cast<real*>(cluster.child<Ghost>().bucket(m_lts.buffersDerivatives)),
+                                       cluster.child<Ghost>().var(m_lts.buffers),
+                                       cluster.child<Ghost>().var(m_lts.derivatives) );
 
     /*
      * Copy layer
      */
-    InternalState::setUpLayerPointers( copy,
-                                       m_meshStructure[l_cluster].numberOfRegions,
-                                       m_meshStructure[l_cluster].numberOfCopyRegionCells,
-                                       m_copyCellInformation[l_cluster],
-                                       m_numberOfCopyRegionBuffers[l_cluster],
-                                       m_numberOfCopyRegionDerivatives[l_cluster],
-                                       l_copyPointer,
-                                       m_internalState.buffers     + l_offset,
-                                       m_internalState.derivatives + l_offset );
-
-    // update the offset
-    l_offset += m_meshStructure[l_cluster].numberOfCopyCells;
-
-    // update the copy pointer
-    l_copyPointer += NUMBER_OF_ALIGNED_DOFS * m_numberOfCopyBuffers[    l_cluster];
-    l_copyPointer += NUMBER_OF_ALIGNED_DERS * m_numberOfCopyDerivatives[l_cluster];
+    InternalState::setUpLayerPointers( m_meshStructure[tc].numberOfRegions,
+                                       m_meshStructure[tc].numberOfCopyRegionCells,
+                                       cluster.child<Copy>().var(m_lts.cellInformation),
+                                       m_numberOfCopyRegionBuffers[tc],
+                                       m_numberOfCopyRegionDerivatives[tc],
+                                       static_cast<real*>(cluster.child<Copy>().bucket(m_lts.buffersDerivatives)),
+                                       cluster.child<Copy>().var(m_lts.buffers),
+                                       cluster.child<Copy>().var(m_lts.derivatives) );
 #endif
 
     /*
      * Interior
      */
-    InternalState::setUpInteriorPointers( m_meshStructure[l_cluster].numberOfInteriorCells,
-                                          m_interiorCellInformation[l_cluster],
-                                          m_numberOfInteriorBuffers[l_cluster],
-                                          m_numberOfInteriorDerivatives[l_cluster],
-                                          l_interiorPointer,
-                                          m_internalState.buffers     + l_offset,
-                                          m_internalState.derivatives + l_offset  );
-
-    // update the offset
-    l_offset          += m_meshStructure[l_cluster].numberOfInteriorCells;
-
-    // update the cluster pointer
-    l_interiorPointer += NUMBER_OF_ALIGNED_DOFS * m_numberOfInteriorBuffers[l_cluster];
-    l_interiorPointer += NUMBER_OF_ALIGNED_DERS * m_numberOfInteriorDerivatives[l_cluster];
-  }
-
-  // initialize face neighbors
-  initializeFaceNeighbors();
-}
-
-void seissol::initializers::MemoryManager::allocateCells() {
-  // allocate cells struct per time cluster
-  m_cells = (Cells*) m_memoryAllocator.allocateMemory( m_numberOfClusters * sizeof( Cells ), 1 );
-}
-
-void seissol::initializers::MemoryManager::touchDofs( unsigned int   i_numberOfCells,
-                                                      real         (*o_dofs)[NUMBER_OF_ALIGNED_DOFS]  ) {
-#ifdef _OPENMP
-  #pragma omp parallel for
-#endif
-  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
-    for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
-      // zero dofs
-      o_dofs[l_cell][l_dof]  = (real) 0;
-    }
+    InternalState::setUpInteriorPointers( m_meshStructure[tc].numberOfInteriorCells,
+                                          cluster.child<Interior>().var(m_lts.cellInformation),
+                                          m_numberOfInteriorBuffers[tc],
+                                          m_numberOfInteriorDerivatives[tc],
+                                          static_cast<real*>(cluster.child<Interior>().bucket(m_lts.buffersDerivatives)),
+                                          cluster.child<Interior>().var(m_lts.buffers),
+                                          cluster.child<Interior>().var(m_lts.derivatives)  );
   }
 }
 
-void seissol::initializers::MemoryManager::touchTime( unsigned int   i_numberOfCells,
-                                                      real         **o_buffers,
-                                                      real         **o_derivatives ) {
+void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer ) {
+  real** buffers = layer.var(m_lts.buffers);
+  real** derivatives = layer.var(m_lts.derivatives);
 #ifdef _OPENMP
-  #pragma omp parallel for
+  #pragma omp parallel for schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
+  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     // touch buffers
-    if( o_buffers[l_cell] != NULL ) {
-      for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
+    real* buffer = buffers[cell];
+    if (buffer != NULL) {
+      for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DOFS; ++dof) {
           // zero time integration buffers
-          o_buffers[l_cell][l_dof] = (real) 0;
+          buffer[dof] = (real) 0;
       }
     }
 
     // touch derivatives
-    if( o_derivatives[l_cell] != NULL ) {
-      for( unsigned int l_derivative = 0; l_derivative < NUMBER_OF_ALIGNED_DERS; l_derivative++ ) {
-        o_derivatives[l_cell][l_derivative] = (real) 0;
+    real* derivative = derivatives[cell];
+    if (derivative != NULL) {
+      for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DERS; ++dof ) {
+        derivative[dof] = (real) 0;
       }
     }
   }
 }
 
-void seissol::initializers::MemoryManager::touchPstrain(unsigned int   i_numberOfCells,
-                                                      	real         (*o_pstrain)[7] )
+void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
+                                                          struct MeshStructure*       i_meshStructure )
 {
-#ifdef _OPENMP
-  #pragma omp parallel for
-#endif
-  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
-    for( unsigned int l_dof = 0; l_dof < 7; l_dof++ ) {
-      // zero pstrain output
-      o_pstrain[l_cell][l_dof]  = (real) 0;
-    }
-  }
-}
-
-void seissol::initializers::MemoryManager::touchEnergy(unsigned int   i_numberOfCells,
-                                                       real  (*o_Energy)[3] )
-{
-#ifdef _OPENMP
-  #pragma omp parallel for
-#endif
-  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
-	  for( unsigned int l_var = 0; l_var < 2; l_var++ ) {
-      // zero plastic energy output
-      o_Energy[l_cell][l_var] = (real) 0;
-  }
- }
-}
-
-void seissol::initializers::MemoryManager::initializeCells() {
-  /*
-   * Pointers to dofs
-   */
-  real (*l_dofsPointer)[NUMBER_OF_ALIGNED_DOFS] = m_internalState.dofs;
-  real (*pstrainPointer)[7] = m_internalState.pstrain;
-  real (*EnergyPointer)[3] = m_internalState.Energy;
-
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-#ifdef USE_MPI
-    m_cells[l_cluster].copyDofs      = l_dofsPointer;
-#ifdef USE_PLASTICITY
-    m_cells[l_cluster].copyPstrain   = pstrainPointer;
-    m_cells[l_cluster].copyEnergy   = EnergyPointer;
-#else // USE_PLASTICITY
-    m_cells[l_cluster].copyPstrain   = 0L;
-    m_cells[l_cluster].copyEnergy   = 0L;
-#endif // USE_PLASTICITY
-#endif // USE_MPI
-
-    // jump over copy layer
-    l_dofsPointer += m_meshStructure[l_cluster].numberOfCopyCells;
-    pstrainPointer += m_meshStructure[l_cluster].numberOfCopyCells;
-    EnergyPointer += m_meshStructure[l_cluster].numberOfCopyCells;
-
-    // set interior dofs
-    m_cells[l_cluster].interiorDofs = l_dofsPointer;
-#ifdef USE_PLASTICITY
-    m_cells[l_cluster].interiorPstrain   = pstrainPointer;
-    m_cells[l_cluster].interiorEnergy   = EnergyPointer;
-#else // USE_PLASTICITY
-    m_cells[l_cluster].interiorPstrain   = 0L;
-    m_cells[l_cluster].interiorEnergy   = 0L;
-#endif // USE_PLASTICITY
-
-    // jump over interior
-    l_dofsPointer += m_meshStructure[l_cluster].numberOfInteriorCells;
-    pstrainPointer += m_meshStructure[l_cluster].numberOfInteriorCells;
-    EnergyPointer += m_meshStructure[l_cluster].numberOfInteriorCells;
-  }
-
-  /*
-   * Time and face pointers
-   */
-  // offset in cells
-  unsigned int l_totalOffset = 0;
-  unsigned int l_copyInteriorOffset = 0;
-
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-    // jump over ghost layer
-    l_totalOffset += m_meshStructure[l_cluster].numberOfGhostCells;
-
-#ifdef USE_MPI
-    // set copy layer
-    m_cells[l_cluster].copyBuffers           = m_internalState.buffers       + l_totalOffset;
-    m_cells[l_cluster].copyDerivatives       = m_internalState.derivatives   + l_totalOffset;
-    m_cells[l_cluster].copyFaceNeighbors     = m_internalState.faceNeighbors + l_copyInteriorOffset;
-#endif // USE_MPI
-
-    // jump over copy layer
-    l_totalOffset        += m_meshStructure[l_cluster].numberOfCopyCells;
-    l_copyInteriorOffset += m_meshStructure[l_cluster].numberOfCopyCells;
-
-    // set interior
-    m_cells[l_cluster].interiorBuffers       = m_internalState.buffers       + l_totalOffset;
-    m_cells[l_cluster].interiorDerivatives   = m_internalState.derivatives   + l_totalOffset;
-    m_cells[l_cluster].interiorFaceNeighbors = m_internalState.faceNeighbors + l_copyInteriorOffset;
-
-    // jump of over interior
-    l_totalOffset        += m_meshStructure[l_cluster].numberOfInteriorCells;
-    l_copyInteriorOffset += m_meshStructure[l_cluster].numberOfInteriorCells;
-  }
-
-  /*
-   * Touch memory
-   */
-  for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
-#ifdef USE_MPI
-      // initialize copy dofs
-      touchDofs( m_meshStructure[l_cluster].numberOfCopyCells,
-                 m_cells[l_cluster].copyDofs );
-
-      // initialize copy buffers / derivatives
-      touchTime( m_meshStructure[l_cluster].numberOfCopyCells,
-                 m_cells[l_cluster].copyBuffers,
-                 m_cells[l_cluster].copyDerivatives );
-
-#ifdef USE_PLASTICITY
-      touchPstrain( m_meshStructure[l_cluster].numberOfCopyCells,
-    		  m_cells[l_cluster].copyPstrain );
-      touchEnergy( m_meshStructure[l_cluster].numberOfCopyCells,
-    		  m_cells[l_cluster].copyEnergy );
-#endif // USE_PLASTICITY
-#endif
-
-      // initialize interior dofs
-      touchDofs( m_meshStructure[l_cluster].numberOfInteriorCells,
-                 m_cells[l_cluster].interiorDofs );
-
-      // initialize interior buffers / derivatives
-      touchTime( m_meshStructure[l_cluster].numberOfInteriorCells,
-                 m_cells[l_cluster].interiorBuffers,
-                 m_cells[l_cluster].interiorDerivatives );
-#ifdef USE_PLASTICITY
-      touchPstrain( m_meshStructure[l_cluster].numberOfInteriorCells,
-    		  m_cells[l_cluster].interiorPstrain );
-      touchEnergy( m_meshStructure[l_cluster].numberOfInteriorCells,
-    		  m_cells[l_cluster].interiorEnergy );
-#endif // USE_PLASTICITY
-
-  }
-}
-
-void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeStepping         &i_timeStepping,
-                                                                   struct MeshStructure        *i_meshStructure,
-                                                                   struct CellLocalInformation *io_cellLocalInformation ) {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
-  m_numberOfClusters = i_timeStepping.numberOfLocalClusters;
+  
+  // Setup tree variables
+  m_lts.addTo(m_ltsTree);
+  m_ltsTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
 
+  /// From this point, the tree layout, variables, and buckets cannot be changed anymore
+  m_ltsTree.fixate();
+  
+  // Set number of cells and bucket sizes in ltstree
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_ltsTree.child(tc);
+    cluster.child<Ghost>().setNumberOfCells(i_meshStructure[tc].numberOfGhostCells);
+    cluster.child<Copy>().setNumberOfCells(i_meshStructure[tc].numberOfCopyCells);
+    cluster.child<Interior>().setNumberOfCells(i_meshStructure[tc].numberOfInteriorCells);
+  }
+
+  m_ltsTree.allocateVariables();
+  m_ltsTree.touchVariables();
+}
+
+void seissol::initializers::MemoryManager::initializeMemoryLayout()
+{
   // correct LTS-information in the ghost layer
-  correctGhostRegionSetups( io_cellLocalInformation );
-
-  // set up the layers
-  setUpLayers( io_cellLocalInformation );
+  correctGhostRegionSetups();
 
   // derive the layouts of the layers
   deriveLayerLayouts();
 
-  // allocate memory for the constant data
-  allocateConstantData();
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_ltsTree.child(tc);
 
-  // initialize the contant data
-  initializeConstantData();
+    size_t l_ghostSize = 0;
+    size_t l_copySize = 0;
+    size_t l_interiorSize = 0;
+#ifdef USE_MPI
+    for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
+      l_ghostSize    += sizeof(real) * NUMBER_OF_ALIGNED_DOFS * m_numberOfGhostRegionBuffers[tc][l_region];
+      l_ghostSize    += sizeof(real) * NUMBER_OF_ALIGNED_DERS * m_numberOfGhostRegionDerivatives[tc][l_region];
 
-  // allocate the internal state
-  allocateInternalState();
+      l_copySize     += sizeof(real) * NUMBER_OF_ALIGNED_DOFS * m_numberOfCopyRegionBuffers[tc][l_region];
+      l_copySize     += sizeof(real) * NUMBER_OF_ALIGNED_DERS * m_numberOfCopyRegionDerivatives[tc][l_region];
+    }
+#endif // USE_MPI
+    l_interiorSize += sizeof(real) * NUMBER_OF_ALIGNED_DOFS * m_numberOfInteriorBuffers[tc];
+    l_interiorSize += sizeof(real) * NUMBER_OF_ALIGNED_DERS * m_numberOfInteriorDerivatives[tc];
+    
+    cluster.child<Ghost>().setBucketSize(m_lts.buffersDerivatives, l_ghostSize);
+    cluster.child<Copy>().setBucketSize(m_lts.buffersDerivatives, l_copySize);
+    cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
+  }
+  
+  m_ltsTree.allocateBuckets();
 
   // initialize the internal state
-  initializeInternalState();
+  initializeBuffersDerivatives();
 
-  // allocate the cells
-  allocateCells();
+  // initialize face neighbors
+  for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_ltsTree.child(tc);
+#ifdef USE_MPI
+    initializeFaceNeighbors(tc, cluster.child<Copy>());
+#endif
+    initializeFaceNeighbors(tc, cluster.child<Interior>());
+  }
 
-  // initialize the cells
-  initializeCells();
+  for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
+    touchBuffersDerivatives(*it);
+  }
 
 #ifdef USE_MPI
   // initialize the communication structure
@@ -1254,31 +860,14 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout( struct TimeSt
 
 void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,
                                                             struct MeshStructure          *&o_meshStructure,
-#ifdef USE_MPI
-                                                            struct CellLocalInformation   *&o_copyCellInformation,
-#endif
-                                                            struct CellLocalInformation   *&o_interiorCellInformation,
-                                                            struct GlobalData             *&o_globalData,
+                                                            struct GlobalData             *&o_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                                            struct GlobalData             *&o_globalDataCopies,
+                                                            struct GlobalData             *&o_globalDataCopies
 #endif
-#ifdef USE_MPI
-                                                            struct CellData               *&o_copyCellData,
-#endif
-                                                            struct CellData               *&o_interiorCellData,
-                                                            struct Cells                  *&o_cells ) {
+                                                          ) {
   o_meshStructure           =  m_meshStructure + i_cluster;
-#ifdef USE_MPI
-  o_copyCellInformation     =  m_copyCellInformation[i_cluster];
-#endif
-  o_interiorCellInformation =  m_interiorCellInformation[i_cluster];
   o_globalData              = &m_globalData;
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   o_globalDataCopies        =  m_globalDataCopies;
 #endif
-#ifdef USE_MPI
-  o_copyCellData            =  m_copyCellData     + i_cluster;
-#endif
-  o_interiorCellData        =  m_interiorCellData + i_cluster;
-  o_cells                   = &m_cells[i_cluster];
 }

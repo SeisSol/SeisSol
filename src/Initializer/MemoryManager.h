@@ -81,6 +81,9 @@
 #include "XmlParser.hpp"
 #include "MemoryAllocator.h"
 
+#include <Initializer/LTS.h>
+#include <Initializer/tree/LTSTree.hpp>
+
 namespace seissol {
   namespace initializers {
     class MemoryManager;
@@ -115,21 +118,6 @@ class seissol::initializers::MemoryManager {
     //! LTS mesh structure
     struct MeshStructure *m_meshStructure;
 
-    //! number of time stepping clusters
-    unsigned int m_numberOfClusters;
-
-    //! total number of cells in all layers and clusters.
-    unsigned int m_totalNumberOfCells;
-
-    //! total number of interior cells across all clusters.
-    unsigned int m_totalNumberOfInteriorCells;
-
-    //! total number of ghost cells across all clusters.
-    unsigned int m_totalNumberOfGhostCells;
-
-    //! total number of copy cells across all clusters
-    unsigned int m_totalNumberOfCopyCells;
-
     /*
      * Interior
      */
@@ -138,9 +126,6 @@ class seissol::initializers::MemoryManager {
 
     //! number of derivatives in the interior per cluster
     unsigned int *m_numberOfInteriorDerivatives;
-
-    //! interior information
-    CellLocalInformation **m_interiorCellInformation;
 
 #ifdef USE_MPI
     /*
@@ -158,9 +143,6 @@ class seissol::initializers::MemoryManager {
     //! number of derivatives in the ghost regions per cluster
     unsigned int **m_numberOfGhostRegionDerivatives;
 
-    //! ghost information
-    CellLocalInformation **m_ghostCellInformation;
-
     /*
      * Copy Layer
      */
@@ -175,9 +157,6 @@ class seissol::initializers::MemoryManager {
 
     //! number of derivatives in the copy regionsper cluster
     unsigned int **m_numberOfCopyRegionDerivatives;
-
-    //! copy information
-    CellLocalInformation **m_copyCellInformation;
 #endif
 
     /*
@@ -198,19 +177,12 @@ class seissol::initializers::MemoryManager {
 #error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY needs to be larger than 0 if defined
 #endif
 #endif
-
-#ifdef USE_MPI
-    struct CellData      *m_copyCellData;
-#endif
-
-    //! cell data per cluster
-    struct CellData      *m_interiorCellData;
-
-    //! internal state
-    struct InternalState  m_internalState;
-
-    //! cells per cluster
-    struct Cells         *m_cells;
+    
+    //! Memory organisation tree
+    LTSTree               m_ltsTree;
+    LTS                   m_lts;
+    
+    
 
 #ifndef REQUIRE_SOURCE_MATRIX
     /**
@@ -248,16 +220,9 @@ class seissol::initializers::MemoryManager {
     void allocateIntegrationBufferLTS();
 
     /**
-     * Sets up the layers: Total number of ghost, copy and interior cells & cell information per layer.
-     **/
-    void setUpLayers( struct CellLocalInformation* i_cellLocalInformation );
-
-    /**
      * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
-     *
-     * @param io_cellLocalInformation cell local information.
      **/
-    void correctGhostRegionSetups( struct CellLocalInformation *io_cellLocalInformation ); 
+    void correctGhostRegionSetups(); 
 
     /**
      * Derives the layouts -- number of buffers and derivatives -- of the layers.
@@ -265,88 +230,22 @@ class seissol::initializers::MemoryManager {
     void deriveLayerLayouts();
 
     /**
-     * Allocates memory for the constant data.
-     **/
-    void allocateConstantData();
-
-    /**
-     * Touches / zeros the constant data using OMP's first touch policy.
-     *
-     * @param i_numberOfCells number of cells (split statically by the number of threads).
-     * @param o_local local data to initialize.
-     * @param o_neighboring neighboring data to initialize.
-     **/
-    void touchConstantData( unsigned int                i_numberOfCells,
-                            LocalIntegrationData*       o_local,
-                            NeighboringIntegrationData* o_neighboring );
-
-    /**
-     * Initializes the constant data.
-     **/
-    void initializeConstantData();
-
-    /**
-     * Allocates memory for the internal state
-     **/
-    void allocateInternalState();
-
-    /**
      * Initializes the face neighbor pointers of the internal state.
      **/
-    void initializeFaceNeighbors();
+    void initializeFaceNeighbors( unsigned    cluster,
+                                  Layer& layer);
 
     /**
      * Initializes the pointers of the internal state.
      **/
-    void initializeInternalState();
-
-    /**
-     * Allocates the cells.
-     **/
-    void allocateCells();
-
-    /**
-     * Touches / zeros the DOFs using OMP's first touch policy.
-     *
-     * @param i_numberOfCells number of cells (split statically by the number of threads).
-     * @param o_dofs dofs which are touched.
-     **/
-    void touchDofs( unsigned int   i_numberOfCells,
-                    real         (*o_dofs)[NUMBER_OF_ALIGNED_DOFS] );
+    void initializeBuffersDerivatives();
 
     /**
      * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
      *
-     * @param i_numberOfCells number of cells which are touched.
-     * @param o_buffers buffers which are touched.
-     * @param o_derivatives derivatives which are touched. 
+     * @param layer which is touched.
      **/
-    void touchTime( unsigned int   i_numberOfCells,
-                    real         **o_buffers,
-                    real         **o_derivatives );
-
-    /**
-     * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
-     *
-     * @param i_numberOfCells number of cells (split statically by the number of threads).
-     * @param o_pstrain dofs which are touched.
-     */
-    void touchPstrain(unsigned int   i_numberOfCells,
-                      real         (*o_pstrain)[7] );
-
-    /**
-      * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
-      *
-      * @param i_numberOfCells number of cells (split statically by the number of threads).
-      * @param o_Energy cell value which are touched.
-      */
-     void touchEnergy(unsigned int   i_numberOfCells,
-                            real         (*o_Energy)[3] );
-
-    /**
-     * Initializes the cell data.
-     **/
-    void initializeCells();
+    void touchBuffersDerivatives( Layer& layer );
 
 #ifdef USE_MPI
     /**
@@ -371,47 +270,56 @@ class seissol::initializers::MemoryManager {
      *
      * @param i_matrixReader XML matrix reader.
      **/
-    void initialize( const seissol::XmlParser &i_matrixReader );
+    void initialize();
+    
+    
+    /**
+     * Sets the number of cells in each leaf of the lts tree, fixates the variables, and allocates memory.
+     * Afterwards the tree cannot be changed anymore.
+     *
+     * @param i_meshStructrue mesh structure.
+     **/
+    void fixateLtsTree( struct TimeStepping&        i_timeStepping,
+                        struct MeshStructure*       i_meshStructure );
 
     /**
-     * Set up the internal structure, allocate memory, set up the pointers and intializes the data to zero or NULL.
+     * Set up the internal structure.
      *
      * @param i_timeStepping time stepping.
-     * @param i_meshStructrue mesh structure.
      * @param io_cellLocalInformation cells local information.
      **/
-    void initializeMemoryLayout( struct TimeStepping         &i_timeStepping,
-                                 struct MeshStructure        *i_meshStructure,
-                                 struct CellLocalInformation *io_cellLocalInformation );
+    void initializeMemoryLayout();
+
+    /**
+     * Gets the global data.
+     **/
+    struct GlobalData* getGlobalData() {
+      return &m_globalData;
+    }
 
     /**
      * Gets the memory layout of a time cluster.
      *
      * @param i_cluster local id of the time cluster.
      * @param o_meshStructure mesh structure.
-     * @param o_copyCellInformation cell information in the copy layer.
-     * @param o_interiorCellInformation cell information in the interior.
      * @param o_globalData global data.
-     * @oaram o_globalDataCopies several copies of global data
-     * @param o_copyCellData cell data of the copy layer.
-     * @param o_interiorCellData cell data in the interior.
-     * @param o_cells cells.
+     * @param o_globalDataCopies several copies of global data
      **/
     void getMemoryLayout( unsigned int                    i_cluster,
                           struct MeshStructure          *&o_meshStructure,
-#ifdef USE_MPI
-                          struct CellLocalInformation   *&o_copyCellInformation,
-#endif
-                          struct CellLocalInformation   *&o_interiorCellInformation,
-                          struct GlobalData             *&o_globalData,
+                          struct GlobalData             *&o_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                          struct GlobalData             *&o_globalDataCopies,
+                          struct GlobalData             *&o_globalDataCopies
 #endif
-#ifdef USE_MPI
-                          struct CellData               *&o_copyCellData,
-#endif
-                          struct CellData               *&o_interiorCellData,
-                          struct Cells                  *&o_cells );
+                        );
+                          
+    inline LTSTree* getLtsTree() {
+      return &m_ltsTree;
+    }
+                          
+    inline LTS* getLts() {
+      return &m_lts;
+    }
 };
 
 #endif

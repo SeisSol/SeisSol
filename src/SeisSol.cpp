@@ -53,7 +53,7 @@ void seissol::SeisSol::init(int argc, char* argv[])
 	MPI::mpi.init(argc, argv);
   
 #ifdef GENERATEDKERNELS
-	m_timeManager.initializeMemoryLayout();
+	m_memoryManager.initialize();
 #endif
 
 	const int rank = MPI::mpi.rank();

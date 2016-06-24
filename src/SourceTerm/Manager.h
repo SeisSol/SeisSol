@@ -43,6 +43,7 @@
 #include "typedefs.hpp"
 #include "NRF.h"
 
+#include <Initializer/tree/Lut.hpp>
 #include <Solver/time_stepping/TimeManager.h>
 #include <Geometry/MeshReader.h>
 #include <inttypes.h>
@@ -85,46 +86,38 @@ private:
 public:
   Manager() : cmps(NULL), sources(NULL) {}
   ~Manager() { freeSources(); }
-
-  void mapPointSourcesToClusters( unsigned const*               meshIds,
-                                  unsigned                      numberOfSources,
-                                  unsigned const              (*meshToClusters)[2],
-                                  unsigned const*               meshToCopyInterior,
-                                  unsigned const*               copyInteriorToMesh,
-                                  MeshStructure const*          meshStructure,
-                                  unsigned                      numberOfClusters );
+  
+  void mapPointSourcesToClusters( unsigned const*                 meshIds,
+                                  unsigned                        numberOfSources,
+                                  seissol::initializers::LTSTree* ltsTree,
+                                  seissol::initializers::LTS*     lts,
+                                  seissol::initializers::Lut*     ltsLut );
 
   /// \todo Throw this out
-  void loadSourcesFromFSRM( double const*                 momentTensor,
-                            int                           numberOfSources,
-                            double const*                 centres,
-                            double const*                 strikes,
-                            double const*                 dips,
-                            double const*                 rakes,
-                            double const*                 onsets,
-                            double const*                 areas,
-                            double                        timestep,
-                            int                           numberOfSamples,
-                            double const*                 timeHistories,
-                            MeshReader const&             mesh,
-                            CellMaterialData const*       materials,
-                            unsigned const              (*meshToClusters)[2],
-                            unsigned const*               meshToCopyInterior,
-                            unsigned const*               copyInteriorToMesh,
-                            MeshStructure const*          meshStructure,
-                            unsigned                      numberOfClusters,
-                            time_stepping::TimeManager&   timeManager);
+  void loadSourcesFromFSRM( double const*                   momentTensor,
+                            int                             numberOfSources,
+                            double const*                   centres,
+                            double const*                   strikes,
+                            double const*                   dips,
+                            double const*                   rakes,
+                            double const*                   onsets,
+                            double const*                   areas,
+                            double                          timestep,
+                            int                             numberOfSamples,
+                            double const*                   timeHistories,
+                            MeshReader const&               mesh,
+                            seissol::initializers::LTSTree* ltsTree,
+                            seissol::initializers::LTS*     lts,
+                            seissol::initializers::Lut*     ltsLut,
+                            time_stepping::TimeManager&     timeManager);
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-  void loadSourcesFromNRF( char const*                   fileName,
-                           MeshReader const&             mesh,
-                           CellMaterialData const*       materials,
-                           unsigned const              (*meshToClusters)[2],
-                           unsigned const*               meshToCopyInterior,
-                           unsigned const*               copyInteriorToMesh,
-                           MeshStructure const*          meshStructure,
-                           unsigned                      numberOfClusters,
-                           time_stepping::TimeManager&   timeManager );
+  void loadSourcesFromNRF(  char const*                     fileName,
+                            MeshReader const&               mesh,
+                            seissol::initializers::LTSTree* ltsTree,
+                            seissol::initializers::LTS*     lts,
+                            seissol::initializers::Lut*     ltsLut,
+                            time_stepping::TimeManager&     timeManager );
 #endif
 };
 

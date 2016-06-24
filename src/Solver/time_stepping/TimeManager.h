@@ -80,9 +80,6 @@ class seissol::time_stepping::TimeManager {
       }
     };
 
-    //! memory manager
-    seissol::initializers::MemoryManager m_memoryManager;
-
     //! time kernel
     kernels::Time     m_timeKernel;
 
@@ -99,7 +96,7 @@ class seissol::time_stepping::TimeManager {
     TimeStepping m_timeStepping;
 
     //! mapping: mesh to clusters
-    unsigned int (*m_meshToClusters)[2];
+    unsigned int *m_meshToClusters;
 
     //! all LTS clusters, which are under control of this time manager
     std::vector< TimeCluster* > m_clusters;
@@ -148,25 +145,19 @@ class seissol::time_stepping::TimeManager {
      * Destruct the time manager.
      **/
     ~TimeManager();
-    
-    
-    /**
-     * Allocates all required buffers.
-     */
-    void initializeMemoryLayout();
 
     /**
      * Adds the time clusters to the time manager.
      *
      * @param i_timeStepping time stepping scheme.
      * @param i_meshStructure mesh structure.
-     * @param io_cellLocalInformation cell local information.
+     * @param i_memoryManager memory manager.
      * @param i_meshToClusters mapping from the mesh to the clusters.
      **/
-    void addClusters( struct TimeStepping          &i_timeStepping,
-                      struct MeshStructure         *i_meshStructure,
-                      struct CellLocalInformation  *io_cellLocalInformation,
-                      unsigned int                (*i_meshToClusters)[2]  );
+    void addClusters( struct TimeStepping&               i_timeStepping,
+                      struct MeshStructure*              i_meshStructure,
+                      initializers::MemoryManager&       i_memoryManager,
+                      unsigned*                          i_meshToClusters  );
 
     /**
      * Starts the communication thread.
@@ -184,74 +175,6 @@ class seissol::time_stepping::TimeManager {
      * Advance in time until all clusters reach the next synchronization time.
      **/
     void advanceInTime( const double &i_synchronizationTime );
-
-    /**
-     * Gets the raw data of the time manager.
-     *
-     * @param o_globalData global data, this is just the master data structure in case of multiple copies
-     * @param o_cellData cell local data.
-     * @param o_dofs degrees of freedom.
-     * @param o_buffers time buffers.
-     * @param o_derivatives time derivatives.
-     **/
-    void getRawData( struct GlobalData             *&o_globalData,
-                     struct CellData               *&o_cellData,
-                     real                         (*&o_dofs)[NUMBER_OF_ALIGNED_DOFS],
-                     real                         **&o_buffers,
-                     real                         **&o_derivatives,
-                     real                        *(*&o_faceNeighbors)[4],
-					 real                         (*&o_Energy)[3],
-					 real                         (*&o_pstrain)[7] ) {
-      // get meta-data from memory manager
-      struct MeshStructure         *l_meshStructure           = NULL;
-#ifdef USE_MPI
-      struct CellLocalInformation  *l_copyCellInformation     = NULL;
-#endif
-      struct CellLocalInformation  *l_interiorCellInformation = NULL;
-#ifdef USE_MPI
-      struct CellData              *l_copyCellData            = NULL;
-#endif
-      struct CellData              *l_interiorCellData        = NULL;
-      struct Cells                 *l_cells                   = NULL;
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-      struct GlobalData            *l_globalDataCopies        = NULL;
-#endif
-
-      m_memoryManager.getMemoryLayout( 0,
-                                       l_meshStructure,
-#ifdef USE_MPI
-                                      l_copyCellInformation,
-#endif
-                                       l_interiorCellInformation,
-                                      o_globalData,
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                      l_globalDataCopies,
-#endif
-#ifdef USE_MPI
-                                       l_copyCellData,
-#endif
-                                       l_interiorCellData,
-                                       l_cells );
-
-    // get raw data
-#ifdef USE_MPI
-      o_cellData      = l_copyCellData;
-      o_dofs          = l_cells->copyDofs;
-      o_buffers       = l_cells->copyBuffers-l_meshStructure[0].numberOfGhostCells;
-      o_derivatives   = l_cells->copyDerivatives-l_meshStructure[0].numberOfGhostCells;
-      o_faceNeighbors = l_cells->copyFaceNeighbors;
-      o_Energy = l_cells->copyEnergy;
-      o_pstrain       = l_cells->copyPstrain;
-#else
-      o_cellData      = l_interiorCellData;
-      o_dofs          = l_cells->interiorDofs;
-      o_buffers       = l_cells->interiorBuffers;
-      o_derivatives   = l_cells->interiorDerivatives;
-      o_faceNeighbors = l_cells->interiorFaceNeighbors;
-      o_Energy = l_cells->interiorEnergy;
-      o_pstrain       = l_cells->interiorPstrain;
-#endif
-    }
 
     /**
      * Gets the time tolerance of the time manager (1E-5 of the CFL time step width).

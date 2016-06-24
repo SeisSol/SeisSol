@@ -46,6 +46,9 @@
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
 #include <SourceTerm/NRF.h>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Lut.hpp>
 
 namespace seissol {
   class Interoperability;
@@ -69,33 +72,6 @@ class seissol::Interoperability {
     /*
      * Brain dump of SeisSol's C parts.
      */
-    //! number of cells in the mesh
-    unsigned int m_numberOfMeshCells;
-
-    //! number of LTS cells
-    unsigned int m_numberOfLtsCells;
-
-    //! number of copy interior cells
-    unsigned int m_numberOfCopyInteriorCells;
-
-    //! cluster-local interior cell information
-    struct CellLocalInformation *m_cellInformation;
-
-    //! mapping from mesh to lts layout
-    unsigned int *m_meshToLts;
-
-    //! mapping from mesh to lts layout without ghost layers
-    unsigned int *m_meshToCopyInterior;
-
-    //! mapping from mesh to clusters
-    unsigned int (*m_meshToClusters)[2];
-
-    //! mapping from lts layout to mesh
-    unsigned int *m_ltsToMesh;
-
-    //! mapping from copy-interior id to mesh
-    unsigned int *m_copyInteriorToMesh;
-
     //! cluster-local mesh structure
     struct MeshStructure *m_meshStructure;
 
@@ -103,28 +79,13 @@ class seissol::Interoperability {
     struct TimeStepping m_timeStepping;
 
     //! global data
-    struct GlobalData *m_globalData;
+    struct GlobalData* m_globalData;
+    
+    seissol::initializers::LTSTree*   m_ltsTree;
+    seissol::initializers::LTS*       m_lts;
 
-    //! raw cell data: covering copy&interior of all clusters
-    struct CellData *m_cellData;
-
-    //! raw DOFs: covering copy&interior of all clusters
-    real (*m_dofs)[NUMBER_OF_ALIGNED_DOFS];
-
-    //! raw pointers to derivatives: covering all clusters and layers
-    real **m_derivatives;
-
-    //! raw pointers to buffers: covering all clusters and layers
-    real **m_buffers;
-
-    //! raw pointers to face neighbors: covering all clusters and layers.
-    real *(*m_faceNeighbors)[4];
-
-    //! energy variable
-    real (*m_Energy)[3];
-
-    //! Plasticity strain output
-    real (*m_pstrain)[7];
+    //! Lookup table relating mesh to cells
+    seissol::initializers::Lut        m_ltsLut;
 
  public:
    /**
@@ -238,6 +199,8 @@ class seissol::Interoperability {
     **/
    void initializeCellLocalMatrices();
 
+   template<typename T>
+   void synchronize(seissol::initializers::Variable<T> const& handle);
 
    /**
     * Synchronizes the cell local material data.

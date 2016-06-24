@@ -94,8 +94,8 @@ namespace seissol {
     };
 
     struct CellToPointSourcesMapping {
-      //! Cluster-local offset of the cell in the DOF buffer
-      unsigned copyInteriorOffset;
+      //! Pointer to DOFs
+      real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
       //! First point source that has an effect on the cell
       unsigned pointSourcesOffset;
       /** The point sources buffer is ordered by cells, hence the point sources
@@ -104,6 +104,8 @@ namespace seissol {
        * in the point sources buffer.
        **/
       unsigned numberOfPointSources;
+      
+      CellToPointSourcesMapping() : dofs(NULL), pointSourcesOffset(0), numberOfPointSources(0) {}
     };
     
     struct ClusterMapping {

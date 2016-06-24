@@ -46,6 +46,7 @@
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
+#include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
 #include "ResultWriter/FaultWriterC.h"
@@ -262,7 +263,7 @@ extern "C" {
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_domain(NULL) // reset domain pointer
+  m_domain(NULL), m_ltsTree(NULL), m_lts(NULL) // reset domain pointer
 {
 }
 
@@ -293,38 +294,47 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
     seissol::SeisSol::main.getLtsLayout().deriveLayout( multiRate, i_clustering );
   }
 
-  // get cell information & mappings
-  seissol::SeisSol::main.getLtsLayout().getCellInformation( m_numberOfMeshCells,
-                                                            m_numberOfLtsCells,
-                                                            m_numberOfCopyInteriorCells,
-                                                            m_cellInformation,
-                                                            m_meshToLts,
-                                                            m_meshToCopyInterior,
-                                                            m_meshToClusters,
-                                                            m_ltsToMesh,
-                                                            m_copyInteriorToMesh );
-
   // get the mesh structure
   seissol::SeisSol::main.getLtsLayout().getMeshStructure( m_meshStructure );
 
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
+  
+  seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
+                                                            m_meshStructure );
+
+  m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
+  m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
+  
+  unsigned* ltsToMesh;
+  unsigned numberOfMeshCells;
+  // get cell information & mappings
+  seissol::SeisSol::main.getLtsLayout().getCellInformation( m_ltsTree->var(m_lts->cellInformation),
+                                                            ltsToMesh,
+                                                            numberOfMeshCells );
+
+  m_ltsLut.createLuts(  m_ltsTree,
+                        ltsToMesh,
+                        numberOfMeshCells );
+                        
+  delete[] ltsToMesh;
+  
+  // derive lts setups
+  seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
+                                                         m_meshStructure,
+                                                         m_ltsTree->var(m_lts->cellInformation) );
+
+  // initialize memory layout
+  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout();
 
   // add clusters
   seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
                                                     m_meshStructure,
-                                                    m_cellInformation,
-                                                    m_meshToClusters );
+                                                    seissol::SeisSol::main.getMemoryManager(),
+                                                    m_ltsLut.getMeshToClusterLut() );
 
   // get backward coupling
-  seissol::SeisSol::main.timeManager().getRawData( m_globalData,
-                                                   m_cellData,
-                                                   m_dofs,
-                                                   m_buffers,
-                                                   m_derivatives,
-                                                   m_faceNeighbors,
-												   m_Energy,
-												   m_pstrain );
+  m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
 }
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -333,12 +343,9 @@ void seissol::Interoperability::setupNRFPointSources( char const* fileName )
   SeisSol::main.sourceTermManager().loadSourcesFromNRF(
     fileName,
     seissol::SeisSol::main.meshReader(),
-    m_cellData->material,
-    m_meshToClusters,
-    m_meshToCopyInterior,
-    m_copyInteriorToMesh,
-    m_meshStructure,
-    m_timeStepping.numberOfLocalClusters,
+    m_ltsTree,
+    m_lts,
+    &m_ltsLut,
     seissol::SeisSol::main.timeManager()
   );
 }
@@ -369,12 +376,9 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
     numberOfSamples,
     timeHistories,
     seissol::SeisSol::main.meshReader(),
-    m_cellData->material,
-    m_meshToClusters,
-    m_meshToCopyInterior,
-    m_copyInteriorToMesh,
-    m_meshStructure,
-    m_timeStepping.numberOfLocalClusters,
+    m_ltsTree,
+    m_lts,
+    &m_ltsLut,
     seissol::SeisSol::main.timeManager()
   );
 }
@@ -396,15 +400,14 @@ void seissol::Interoperability::enableDynamicRupture() {
 
 void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_materialVal, int i_numMaterialVals)
 {
-  unsigned int copyInteriorId = m_meshToCopyInterior[i_meshId - 1];
   int side = i_side - 1;
   seissol::model::Material* material;
 
   if (side < 0) {
-    material = &m_cellData->material[copyInteriorId].local;
+    material = &m_ltsLut.lookup(m_lts->material, i_meshId - 1).local;
   } else {
     assert(side < 4);
-    material = &m_cellData->material[copyInteriorId].neighbor[side];
+    material = &m_ltsLut.lookup(m_lts->material, i_meshId - 1).neighbor[side];
   }
 
   seissol::model::setMaterial(i_materialVal, i_numMaterialVals, material);
@@ -412,85 +415,61 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {\
-  unsigned int l_copyInteriorId = m_meshToCopyInterior[(*i_meshId) - 1];
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
     for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      m_cellData->plasticity[l_copyInteriorId].initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
+      plasticity.initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
     }
   }
 }
 //synchronize element dependent plasticity parameters
 void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {\
-  unsigned int l_copyInteriorId = m_meshToCopyInterior[(*i_meshId) - 1];
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
 
   for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
-      m_cellData->plasticity[l_copyInteriorId].plasticParameters[l_para] = i_plasticParameters[l_para];
-
-}}
+      plasticity.plasticParameters[l_para] = i_plasticParameters[l_para];
+  }
+}
 #endif
 
 void seissol::Interoperability::initializeCellLocalMatrices()
 {
   // \todo Move this to some common initialization place
   seissol::initializers::initializeCellLocalMatrices( seissol::SeisSol::main.meshReader(),
-                                                      m_copyInteriorToMesh,
-                                                      m_meshToLts,
-                                                      m_numberOfCopyInteriorCells,
-                                                      m_cellInformation,
-                                                      m_cellData );
+                                                      m_ltsTree,
+                                                      m_lts,
+                                                      &m_ltsLut );
+}
+
+template<typename T>
+void seissol::Interoperability::synchronize(seissol::initializers::Variable<T> const& handle)
+{
+  unsigned *const (&meshToLts)[seissol::initializers::Lut::MaxDuplicates] = m_ltsLut.getMeshToLtsLut(handle.mask);
+  unsigned* duplicatedMeshIds = m_ltsLut.getDuplicatedMeshIds(handle.mask);
+  unsigned numberOfDuplicatedMeshIds = m_ltsLut.getNumberOfDuplicatedMeshIds(handle.mask);
+  T* var = m_ltsTree->var(handle);
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static)
+#endif
+  for (unsigned dupMeshId = 0; dupMeshId < numberOfDuplicatedMeshIds; ++dupMeshId) {
+    unsigned meshId = duplicatedMeshIds[dupMeshId];
+    T* ref = &var[ meshToLts[0][meshId] ];
+    for (unsigned dup = 1; dup < seissol::initializers::Lut::MaxDuplicates && meshToLts[dup][meshId] != std::numeric_limits<unsigned>::max(); ++dup) {
+      memcpy(&var[ meshToLts[dup][meshId] ], ref, sizeof(T));
+    }
+  }
 }
 
 void seissol::Interoperability::synchronizeCellLocalData() {
-  // iterate over the mesh and set all redundant data
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-  for( unsigned int l_cell = 0; l_cell < m_numberOfCopyInteriorCells; l_cell++ ) {
-    unsigned sourceId = m_meshToCopyInterior[m_copyInteriorToMesh[l_cell]];
-    m_cellData->material[l_cell].local = m_cellData->material[sourceId].local;
-    for (unsigned side = 0; side < 4; ++side) {
-      m_cellData->material[l_cell].neighbor[side] = m_cellData->material[sourceId].neighbor[side];
-    }
-
+  synchronize(m_lts->material);
 #ifdef USE_PLASTICITY
-    // sync initial loading
-    for( unsigned int l_quantity = 0; l_quantity < 6; l_quantity++ ) {
-    	// TODO use memcpy
-
-      for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-        m_cellData->plasticity[l_cell].initialLoading[l_quantity][l_basis] = m_cellData->plasticity[sourceId].initialLoading[l_quantity][l_basis];
-      }
-    }
-
-    // sync plasticity parameters
-    	// TODO use memcpy
-    for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
-        m_cellData->plasticity[l_cell].plasticParameters[l_para] = m_cellData->plasticity[sourceId].plasticParameters[l_para];
-    }
-
+  synchronize(m_lts->plasticity);
 #endif
-
-  }
 }
 
 void seissol::Interoperability::synchronizeCopyLayerDofs() {
-  unsigned int l_offset = 0;
-
-  for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
-    // sync DOFs
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-    for( unsigned int l_cell = 0; l_cell < m_meshStructure[l_cluster].numberOfCopyCells; l_cell++ ) {
-      for( int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
-        m_dofs[l_cell+l_offset][l_dof] = m_dofs[ m_meshToCopyInterior[m_copyInteriorToMesh[l_cell+l_offset]] ][l_dof];
-      }
-    }
-
-    // update offset
-    l_offset += m_meshStructure[l_cluster].numberOfCopyCells + m_meshStructure[l_cluster].numberOfInteriorCells;
-  }
+  synchronize(m_lts->dofs);
 }
 
 void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename ) {
@@ -526,8 +505,8 @@ void seissol::Interoperability::initializeIO(
 	  double currentTime;
 	  int waveFieldTimeStep = 0;
 	  int faultTimeStep;
-	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_dofs),
-				  m_numberOfCopyInteriorCells * NUMBER_OF_ALIGNED_DOFS,
+	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
+				  m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
 				  mu, slipRate1, slipRate2, slip, slip1, slip2,
 				  state, strength, numSides, numBndGP,
 				  currentTime, waveFieldTimeStep, faultTimeStep);
@@ -541,9 +520,9 @@ void seissol::Interoperability::initializeIO(
 			  NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
               NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			  seissol::SeisSol::main.meshReader(),
-			  reinterpret_cast<const double*>(m_dofs),
-			  reinterpret_cast<const double*>(m_pstrain),
-			  m_meshToCopyInterior,
+			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
+			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+			  m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
 			  refinement, waveFieldTimeStep,
 			  seissol::SeisSol::main.timeManager().getTimeTolerance());
 
@@ -560,7 +539,7 @@ void seissol::Interoperability::getDynamicRuptureTimeStep(int &o_timeStep)
 void seissol::Interoperability::addToDofs( int      i_meshId,
                                            double*  i_update,
                                            int      numberOfQuantities ) {
-  seissol::kernels::addToAlignedDofs( i_update, m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ], static_cast<unsigned>(numberOfQuantities) );
+  seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numberOfQuantities) );
 }
 
 void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
@@ -572,15 +551,15 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
 #ifdef REQUIRE_SOURCE_MATRIX
   m_timeKernel.computeAder( 0,
                             m_globalData,
-                            &m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ],
-                            m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
+                            &m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1),
+                            m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
                             l_timeIntegrated,
                             l_timeDerivatives );
 #else
   m_timeKernel.computeAder( 0,
                             m_globalData->stiffnessMatricesTransposed,
-                            m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
-                            m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ].starMatrices,
+                            m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
+                            m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1).starMatrices,
                             l_timeIntegrated,
                             l_timeDerivatives );
 #endif
@@ -599,19 +578,20 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
                                                double o_timeIntegratedCell[NUMBER_OF_DOFS],
                                                double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
   // assert that the cell provides derivatives
-  assert( (m_cellInformation[ m_meshToLts[ (i_meshId)-1 ] ].ltsSetup >> 9)%2 == 1 );
+  assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
+  
+  real*&    derivatives       = m_ltsLut.lookup(m_lts->derivatives, i_meshId-1);
+  real*   (&faceNeighbors)[4] = m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1);
 
-  unsigned localCell = m_meshToLts[ (i_meshId)-1 ];
-  unsigned neighborCell = m_meshToCopyInterior[ (i_meshId)-1 ];
   unsigned face = i_localFaceId-1;
 
   // get cells derivatives
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( m_derivatives[localCell],
-                                                             o_timeDerivativesCell );
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives(  derivatives,
+                                                                    o_timeDerivativesCell );
 
   // get neighbors derivatives
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( m_faceNeighbors[neighborCell][face],
-                                                             o_timeDerivativesNeighbor );
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives(  faceNeighbors[face],
+                                                                    o_timeDerivativesNeighbor );
 
   real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
 
@@ -619,7 +599,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
   m_timeKernel.computeIntegral( 0,
                                 0,
                                 i_timeStepWidth,
-                                m_derivatives[localCell],
+                                derivatives,
                                 l_timeIntegrated );
 
   seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedCell );
@@ -629,7 +609,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
   m_timeKernel.computeIntegral( 0,
                                 0,
                                 i_timeStepWidth,
-                                m_faceNeighbors[neighborCell][face],
+                                faceNeighbors[face],
                                 l_timeIntegrated );
 
   seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedNeighbor );
@@ -637,18 +617,16 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
 
 void seissol::Interoperability::getDofs( int    i_meshId,
                                          double o_dofs[NUMBER_OF_DOFS] ) {
-  unsigned int l_cellId = m_meshToCopyInterior[ (i_meshId)-1 ];
-
-  seissol::kernels::convertAlignedDofs( m_dofs[l_cellId], o_dofs );
+  seissol::kernels::convertAlignedDofs( m_ltsLut.lookup(m_lts->dofs, i_meshId-1), o_dofs );
 }
 
 void seissol::Interoperability::getDofsFromDerivatives( int    i_meshId,
                                                         double o_dofs[NUMBER_OF_DOFS] ) {
   // assert that the cell provides derivatives
-  assert( (m_cellInformation[ m_meshToLts[ (i_meshId)-1 ] ].ltsSetup >> 9)%2 == 1 );
+  assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
 
   // get DOFs from 0th derivatives
-  seissol::kernels::convertAlignedDofs( m_derivatives[ m_meshToLts[ (i_meshId)-1 ] ], o_dofs );
+  seissol::kernels::convertAlignedDofs( m_ltsLut.lookup(m_lts->derivatives, i_meshId-1), o_dofs );
 }
 
 void seissol::Interoperability::getNeighborDofsFromDerivatives( int    i_meshId,
@@ -656,7 +634,7 @@ void seissol::Interoperability::getNeighborDofsFromDerivatives( int    i_meshId,
                                                                 double  o_dofs[NUMBER_OF_DOFS] ) {
 
   // get DOFs from 0th neighbors derivatives
-  seissol::kernels::convertAlignedDofs(  m_faceNeighbors[ m_meshToCopyInterior[ (i_meshId)-1 ] ][ (i_localFaceId)-1 ],
+  seissol::kernels::convertAlignedDofs(  m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1)[ i_localFaceId-1 ],
                                          o_dofs );
 }
 

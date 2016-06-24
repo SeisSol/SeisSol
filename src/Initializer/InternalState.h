@@ -60,7 +60,6 @@ class seissol::initializers::InternalState {
     /**
      * Derives the layout of either the ghost or copy layer or interior.
      *
-     * @param i_layer switch between ghost, copy or interior layout.
      * @param i_numberOfCluster number of time stepping clusters.
      * @param i_numberOfRegions number of communication regions per cluster.
      * @param i_numberOfRegionCells number of cells in the communication regions.
@@ -68,8 +67,7 @@ class seissol::initializers::InternalState {
      * @param o_numberOfBuffers number of cells with time buffers per cluster and region.
      * @param o_numberOfDerivatives number of cells with derivatives per cluster and region.
      **/
-    static void deriveLayerLayout(        enum Layer                    i_layer,
-                                          unsigned int                  i_numberOfClusters,
+    static void deriveLayerLayout(        unsigned int                  i_numberOfClusters,
                                           unsigned int                 *i_numberOfRegions,
                                           unsigned int                **i_numberOfRegionCells,
                                     const struct CellLocalInformation  *i_cellLocalInformation,
@@ -94,7 +92,6 @@ class seissol::initializers::InternalState {
     /**
      * Sets up the pointers to time buffers/derivatives of the ghost or copy layer or interior.
      *
-     * @param i_layer switch between ghost, copy or interior layout.
      * @param i_numberOfRegions number of communication regions.
      * @param i_numberOfRegionCells number of cells in the regions.
      * @param i_cellLocalInformation cell local information (points to first cell in the layer).
@@ -104,8 +101,7 @@ class seissol::initializers::InternalState {
      * @param o_buffers pointers will be set to time buffers (first pointer belongs to first region cell); set to NULL if no buffer exists.
      * @param o_derivatives pointers will be set to time derivatives (first pointer belongs to first region cell); set to NULL if no derivative exists.
      **/
-    static void setUpLayerPointers(       enum Layer                   i_layer,
-                                          unsigned int                 i_numberOfRegions,
+    static void setUpLayerPointers(       unsigned int                 i_numberOfRegions,
                                     const unsigned int                *i_numberOfRegionCells,
                                     const struct CellLocalInformation *i_cellLocalInformation,
                                     const unsigned int                *i_numberOfBuffers,

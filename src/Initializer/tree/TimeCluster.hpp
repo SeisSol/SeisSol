@@ -5,7 +5,7 @@
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -35,28 +35,33 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Setup of SeisSol's cell local matrices.
  **/
 
-#ifndef CELLLOCALMATRICES_H_
-#define CELLLOCALMATRICES_H_
+#ifndef INITIALIZER_TREE_TIMECLUSTER_HPP_
+#define INITIALIZER_TREE_TIMECLUSTER_HPP_
 
-#include <Initializer/typedefs.hpp>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/tree/LTSTree.hpp>
+#include "LTSInternalNode.hpp"
+#include "Log2.hpp"
 
 namespace seissol {
   namespace initializers {
-      /**
-      * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
-      **/
-     void initializeCellLocalMatrices( MeshReader const&      i_meshReader,                                                    
-                                       LTSTree*               io_ltsTree,
-                                       LTS*                   i_lts,
-                                       Lut*                   i_ltsLut );
+    class TimeCluster;
   }
 }
+
+class seissol::initializers::TimeCluster : public seissol::initializers::LTSInternalNode {
+public:
+  TimeCluster() {
+    setChildren<Layer>(3);
+    child<Ghost>().setLayerType(Ghost);
+    child<Copy>().setLayerType(Copy);
+    child<Interior>().setLayerType(Interior);
+  }
+  
+  template<enum LayerType LAYER>
+  inline Layer& child() {
+    return *static_cast<Layer*>(m_children[ Log2<LAYER>::Result ]);
+  }
+};
 
 #endif

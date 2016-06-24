@@ -483,25 +483,13 @@ class seissol::initializers::time_stepping::LtsLayout {
      *  3) neighboring rank (ghost and copy), neighboring cluster (ghost and copy).
      *  4) cell id in the mesh (reordering for communicatio possible).
      *
-     * @param o_numberOfMeshCells number of cells in the mesh.
-     * @param o_numberOfLtsCells number of cells in the derived LTS scheme.
-     * @param o_numberOfCopyInteriorCells number of cells in the copy layers and interiors.
-     * @param o_cellLocalInformation set to: cell local information of all computational cells.
-     * @param o_meshToLts mapping from the mesh id to the global (accross all cluster and layers) lts id.
-     * @param o_meshToCopyInterior mapping from the mesh to global (all clusters and copy&interior -> DOFs) lts id.
-     * @param o_meshToClusters mapping: mesh id to cluster id [0] and cluster-local cell id [1] (copy&interior)
+     * @param io_cellLocalInformation set to: cell local information of all computational cells.
      * @param o_ltsToMesh mapping from the global (accross all clusters and layers) lts id to the mesh id.
-     * @param o_copyInteriorToMesh mapping for the copy-interior id to the mesh.
+     * @param o_numberOfMeshCells number of cells in the mesh.
      **/
-    void getCellInformation( unsigned int          &o_numberOfMeshCells,
-                             unsigned int          &o_numberOfLtsCells,
-                             unsigned int          &o_numberOfCopyInteriorCells,
-                             CellLocalInformation *&o_cellLocalInformation,
-                             unsigned int         *&o_meshToLts,
-                             unsigned int         *&o_meshToCopyInterior,
-                             unsigned int        (*&o_meshToClusters)[2],
+    void getCellInformation( CellLocalInformation* io_cellLocalInformation,
                              unsigned int         *&o_ltsToMesh,
-                             unsigned int         *&o_copyInteriorToMesh );
+                             unsigned int          &o_numberOfMeshCells );
 
     /**
      * Get the per cluster mesh structure.
