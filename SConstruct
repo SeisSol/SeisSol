@@ -278,9 +278,10 @@ if env['parallelization'] in ['mpi', 'hybrid']:
     # Do not include C++ MPI Bindings
     env.Append(CPPDEFINES=['OMPI_SKIP_MPICXX'])
 
-# Remove any special compiler configuration
+# Use dynamic linking on Cray and remove any special compiler configuration
 # Do this after the MPI tool is called, because the MPI Tool checks for special compilers
 if env['compiler'].startswith('cray'):
+    env.Append(LINKFLAGS=['-dynamic'])
     env['compiler'] = env['compiler'].replace('cray_', '')
 
 # Include preprocessor in all Fortran builds
