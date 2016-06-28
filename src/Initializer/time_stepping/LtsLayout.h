@@ -70,6 +70,9 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! cells in the local domain
     std::vector<Element> m_cells;
+    
+    //! fault in the local domain
+    std::vector<Fault> m_fault;
 
     //! time step widths of the cells (cfl)
     double       *m_cellTimeStepWidths;
@@ -235,6 +238,11 @@ class seissol::initializers::time_stepping::LtsLayout {
      * Synchronizes the cluster ids of the cells in the plain ghost layer.
      **/
     void synchronizePlainGhostClusterIds();
+    
+    /**
+     * Enforces the same time step for all cells with dynamic rupture faces.
+     */
+    void enforceDynamicRuptureGTS();
 
     /**
      * Enforces a maximum cluster difference between all cells.

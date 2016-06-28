@@ -74,6 +74,9 @@ void seissol::initializers::time_stepping::LtsLayout::setMesh( const MeshReader 
   for( unsigned int l_cell = 0; l_cell < i_mesh.getElements().size(); l_cell++ ) {
     m_cells.push_back( i_mesh.getElements()[l_cell] );
   }
+  for( unsigned int fault = 0; fault < i_mesh.getFault().size(); ++fault ) {
+    m_fault.push_back( i_mesh.getFault()[fault] );
+  }
 
 #ifdef USE_MPI
   MPI_Comm_rank( MPI_COMM_WORLD, &m_rank );
@@ -426,6 +429,25 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClust
 
   delete[] l_requests;
 #endif // USE_MPI
+}
+
+// This does not work yet as normalization might change the minimum time step
+// However, fixing to 0 (i.e. minimum time step) should do.
+void seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
+  /*unsigned minClusterId = std::numeric_limits<unsigned>::max();
+  unsigned globalMinClusterId;
+  for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
+    minClusterId = std::min(minClusterId, m_cellClusterIds[fault->element]);
+  }
+#ifdef USE_MPI
+  MPI_Allreduce(&minClusterId, &globalMinClusterId, 1, MPI_UNSIGNED, MPI_MIN, MPI_COMM_WORLD);
+#else
+  globalMinClusterId = minClusterId;
+#endif*/
+  for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
+    //~ m_cellClusterIds[fault->element] = globalMinClusterId;
+    m_cellClusterIds[fault->element] = 0;
+  }
 }
 
 unsigned int seissol::initializers::time_stepping::LtsLayout::enforceMaximumDifference( unsigned int i_difference ) {
@@ -1051,6 +1073,10 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
 
   // normalize mpi indices
   normalizeMpiIndices();
+  
+  if (m_fault.size() > 0) {
+    enforceDynamicRuptureGTS();
+  }
 
   // normalize clustering
   normalizeClustering();

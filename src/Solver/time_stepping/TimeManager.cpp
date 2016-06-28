@@ -408,7 +408,7 @@ void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
 }
 
 void seissol::time_stepping::TimeManager::enableDynamicRupture() {
-  if( m_clusters.size() > 1 ) logError() << "Dynamic rupture is not supported for clustered LTS; aborting";
+  // if( m_clusters.size() > 1 ) logError() << "Dynamic rupture is not supported for clustered LTS; aborting";
 
   m_clusters[0]->enableDynamicRupture();
 }
