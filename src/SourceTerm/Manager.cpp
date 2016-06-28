@@ -311,7 +311,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
     while (clusterSource < cmps[cluster].numberOfSources) {
       unsigned meshId = meshIds[ cmps[cluster].sources[clusterSource] ];
       unsigned next = clusterSource + 1;
-      while (meshIds[ cmps[cluster].sources[next] ] == meshId && next < cmps[cluster].numberOfSources) {
+      while (next < cmps[cluster].numberOfSources && meshIds[ cmps[cluster].sources[next] ] == meshId) {
         ++next;
       }
       
