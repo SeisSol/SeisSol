@@ -395,7 +395,7 @@ void seissol::Interoperability::setReceiverSampling( double i_receiverSampling )
 }
 
 void seissol::Interoperability::enableDynamicRupture() {
-  seissol::SeisSol::main.timeManager().enableDynamicRupture();
+  seissol::SeisSol::main.timeManager().enableDynamicRupture( seissol::SeisSol::main.getLtsLayout().getDynamicRuptureCluster() );
 }
 
 void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_materialVal, int i_numMaterialVals)

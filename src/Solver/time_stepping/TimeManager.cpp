@@ -407,10 +407,12 @@ void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
   }
 }
 
-void seissol::time_stepping::TimeManager::enableDynamicRupture() {
+void seissol::time_stepping::TimeManager::enableDynamicRupture(unsigned dynamicRuptureCluster) {
   // if( m_clusters.size() > 1 ) logError() << "Dynamic rupture is not supported for clustered LTS; aborting";
 
-  m_clusters[0]->enableDynamicRupture();
+  assert( dynamicRuptureCluster < m_clusters.size() );
+  logInfo(MPI::mpi.rank()) << "Dynamic rupture has timestep" << (1 << dynamicRuptureCluster) << "* dt.";
+  m_clusters[dynamicRuptureCluster]->enableDynamicRupture();
 }
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)

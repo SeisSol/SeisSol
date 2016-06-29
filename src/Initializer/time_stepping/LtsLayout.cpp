@@ -53,6 +53,7 @@ seissol::initializers::time_stepping::LtsLayout::LtsLayout():
  m_cellClusterIds(           NULL ),
  m_globalTimeStepWidths(     NULL ),
  m_globalTimeStepRates(      NULL ),
+ m_dynamicRuptureCluster(std::numeric_limits<unsigned>::max()), // invalid cluster
  m_plainCopyRegions(         NULL ),
  m_numberOfPlainGhostCells(  NULL ),
  m_plainGhostCellClusterIds( NULL ) {}
@@ -433,27 +434,34 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClust
 
 // This does not work yet as normalization might change the minimum time step
 // However, fixing to 0 (i.e. minimum time step) should do.
-void seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
-  /*unsigned minClusterId = std::numeric_limits<unsigned>::max();
-  unsigned globalMinClusterId;
-  for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
-    minClusterId = std::min(minClusterId, m_cellClusterIds[fault->element]);
+unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
+  unsigned reductions = 0;
+  
+  if (m_fault.size() > 0) {
+    unsigned minClusterId = std::numeric_limits<unsigned>::max();
+    unsigned globalMinClusterId;
+    for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
+      minClusterId = std::min(minClusterId, m_cellClusterIds[fault->element]);
+    }
+  #ifdef USE_MPI
+    MPI_Allreduce(&minClusterId, &globalMinClusterId, 1, MPI_UNSIGNED, MPI_MIN, MPI_COMM_WORLD);
+  #else
+    globalMinClusterId = minClusterId;
+  #endif
+    for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
+      if (m_cellClusterIds[fault->element] > globalMinClusterId) {
+        m_cellClusterIds[fault->element] = globalMinClusterId;
+        ++reductions;
+      }
+    }
+    
+    m_dynamicRuptureCluster = globalMinClusterId;
   }
-#ifdef USE_MPI
-  MPI_Allreduce(&minClusterId, &globalMinClusterId, 1, MPI_UNSIGNED, MPI_MIN, MPI_COMM_WORLD);
-#else
-  globalMinClusterId = minClusterId;
-#endif*/
-  for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
-    //~ m_cellClusterIds[fault->element] = globalMinClusterId;
-    m_cellClusterIds[fault->element] = 0;
-  }
+  
+  return reductions;
 }
 
-unsigned int seissol::initializers::time_stepping::LtsLayout::enforceMaximumDifference( unsigned int i_difference ) {
-  // get up-to-date cluster ids of the ghost layer before starting
-  synchronizePlainGhostClusterIds();
- 
+unsigned int seissol::initializers::time_stepping::LtsLayout::enforceMaximumDifference( unsigned int i_difference ) { 
   // number of reductions per iteration
   unsigned int l_numberOfReductions      = 1;
 
@@ -524,14 +532,21 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
 
   // enforce requirements until mesh is valid
   unsigned int l_maximumDifference      = 0;
+  unsigned int l_dynamicRupture         = 0;
   unsigned int l_singleBuffer           = 0;
   unsigned int l_totalMaximumDifference = 0;
+  unsigned int l_totalDynamicRupture    = 0;
   unsigned int l_totalSingleBuffer      = 0;
 
   int l_globalContinue = 1;
 
   // continue until all ranks converged to a normalized mesh
   while( l_globalContinue ) {
+    // get up-to-date cluster ids of the ghost layer before starting
+    synchronizePlainGhostClusterIds();
+    
+    l_dynamicRupture = enforceDynamicRuptureGTS();
+  
     // enforce maximum difference of cluster ids 
     if( m_clusteringStrategy == single ) {
       l_maximumDifference = enforceMaximumDifference( 0 );
@@ -545,10 +560,11 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
     l_singleBuffer = enforceSingleBuffer();
 
     l_totalMaximumDifference += l_maximumDifference;
+    l_totalDynamicRupture    += l_dynamicRupture;
     l_totalSingleBuffer      += l_singleBuffer;
 
     // check if this rank requires another iteration
-    int l_localContinue = l_maximumDifference + l_singleBuffer;
+    int l_localContinue = l_maximumDifference + l_dynamicRupture + l_singleBuffer;
 
 #ifdef USE_MPI
     // continue if any rank is required to continue
@@ -1073,10 +1089,6 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
 
   // normalize mpi indices
   normalizeMpiIndices();
-  
-  if (m_fault.size() > 0) {
-    enforceDynamicRuptureGTS();
-  }
 
   // normalize clustering
   normalizeClustering();

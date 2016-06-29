@@ -88,6 +88,8 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! time step rates of all clusters
     unsigned int *m_globalTimeStepRates;
+    
+    unsigned int  m_dynamicRuptureCluster;
 
     //! mpi tags used for communication
     enum mpiTag {
@@ -242,7 +244,7 @@ class seissol::initializers::time_stepping::LtsLayout {
     /**
      * Enforces the same time step for all cells with dynamic rupture faces.
      */
-    void enforceDynamicRuptureGTS();
+    unsigned enforceDynamicRuptureGTS();
 
     /**
      * Enforces a maximum cluster difference between all cells.
@@ -505,6 +507,13 @@ class seissol::initializers::time_stepping::LtsLayout {
      * @param mesh structure.
      **/
     void getMeshStructure( MeshStructure *&o_meshStructure );
+    
+    /**
+     * All dynamic rupture faces reside in this cluster.
+     */
+    unsigned getDynamicRuptureCluster() const {
+      return m_dynamicRuptureCluster;
+    }
 };
 
 #endif

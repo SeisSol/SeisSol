@@ -201,7 +201,7 @@ class seissol::time_stepping::TimeManager {
     /**
      * Enables dynamic rupture call-backs.
      **/
-    void enableDynamicRupture();
+    void enableDynamicRupture(unsigned dynamicRuptureCluster);
 
     /**
      * Sets the sampling of the receivers.
