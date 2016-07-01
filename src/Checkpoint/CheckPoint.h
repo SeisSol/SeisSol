@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -264,6 +264,14 @@ protected:
 	std::string dataFile(int odd) const
 	{
 		return m_dir + utils::Path(m_files[odd]);
+	}
+
+	/**
+	 * @return The name for files if the back-end uses directories
+	 */
+	virtual const char* fname() const
+	{
+		return "cp";
 	}
 
 	int rank() const

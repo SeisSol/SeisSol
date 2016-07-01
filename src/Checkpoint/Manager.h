@@ -56,7 +56,8 @@
 #ifdef USE_SIONLIB
 #include "sionlib/Fault.h"
 #include "sionlib/Wavefield.h"
-#endif
+#endif // USE_SIONLIB
+
 namespace seissol
 {
 
@@ -122,9 +123,7 @@ public:
 			m_fault = new sionlib::Fault();
 			break;
 #else //USE_SIONLIB
-			m_waveField = new posix::Wavefield();
-			m_fault = new posix::Fault();
-			logError() << "sionlib checkpoint backend unsupported - using posix instead";
+			logError() << "SIONlib checkpoint backend unsupported";
 			break;
 #endif //USE_SIONLIB
 		default:

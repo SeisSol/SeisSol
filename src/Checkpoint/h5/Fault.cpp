@@ -39,6 +39,10 @@
 
 #include "Fault.h"
 
+#ifdef USE_MPI
+#include "Checkpoint/MPIInfo.h"
+#endif // USE_MPI
+
 bool seissol::checkpoint::h5::Fault::init(
 		double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
 		double* state, double* strength,
@@ -231,7 +235,8 @@ hid_t seissol::checkpoint::h5::Fault::initFile(int odd, const char* filename)
 		checkH5Err(h5plist);
 		checkH5Err(H5Pset_libver_bounds(h5plist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #ifdef USE_MPI
-		checkH5Err(H5Pset_fapl_mpio(h5plist, comm(), MPI_INFO_NULL));
+		MPIInfo info;
+		checkH5Err(H5Pset_fapl_mpio(h5plist, comm(), info.get()));
 #endif // USE_MPI
 
 		h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);

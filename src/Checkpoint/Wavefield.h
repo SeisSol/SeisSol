@@ -111,7 +111,7 @@ public:
 #ifdef USE_MPI
 		// More sure the local part is a multiple of the block size
 		// This is important for all but the last rank
-		unsigned int blockSize = utils::Env::get<unsigned int>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 1);
+		int blockSize = utils::Env::get<int>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 1);
 		if (blockSize > 1 && rank() != partitions()-1) {
 			if (blockSize % sizeof(real) != 0)
 				logError() << "The block size for checkpointing must be a multiple of the size of the basic data type.";

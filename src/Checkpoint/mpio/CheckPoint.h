@@ -223,8 +223,10 @@ protected:
 	{
 		MPI_File fh;
 
+		MPIInfo info;
+
 		int result = MPI_File_open(comm(), const_cast<char*>(linkFile()),
-				MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+				MPI_MODE_RDONLY, info.get(), &fh);
 		if (result != 0) {
 			logWarning() << "Could not open checkpoint file";
 			return MPI_FILE_NULL;

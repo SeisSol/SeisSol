@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -157,6 +157,11 @@ protected:
 			file += "-fault";
 
 		CheckPoint::initFilename(file.c_str(), extension);
+	}
+
+	virtual const char* fname() const
+	{
+		return "cp-f";
 	}
 
 	double* data(unsigned int var)

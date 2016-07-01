@@ -460,10 +460,10 @@ if( env['plasticity'] ):
 if env['generatedKernels']:
   env.Append(CPPDEFINES=['GENERATEDKERNELS', 'CLUSTERED_LTS'])
 
-# set pre compiler flags and link flags for commuincation thread
+# set pre compiler flags commuincation thread
+# pthread is linked after the other libraries
 if env['commThread']:
   env.Append(CPPDEFINES=['USE_COMM_THREAD'])
-  env.Append(LINKFLAGS=['-lpthread'] )
 
 # Default log level for rank 0 is same as logLevel
 if env['logLevel0'] == 'none':
@@ -533,6 +533,14 @@ if env['sionlib']:
 else:
   env['sionlib'] = False
 
+# ASAGI
+if env['asagi']:
+    if env['scalasca'] in ['default', 'kernels']:
+        ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
+
+    env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
+    env.Append(CPPDEFINES=['USE_ASAGI'])
+
 # ASYNC I/O
 env.Append(CPPPATH=['#/submodules/async'])
 if env['asyncio'] in ['thread', 'mpi']:
@@ -542,13 +550,10 @@ if env['asyncio'] in ['thread', 'mpi']:
     elif env['asyncio'] == 'mpi':
         env.Append(CPPDEFINES=['USE_ASYNC_MPI'])
 
-# ASAGI
-if env['asagi']:
-    if env['scalasca'] in ['default', 'kernels']:
-        ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
-
-    env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
-    env.Append(CPPDEFINES=['USE_ASAGI'])
+# pthread has to be appended after other libraries
+# this only appears when compiling with scalasca and hdf5/netcdf
+if env['commThread']:
+  env.Append(LINKFLAGS=['-lpthread'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])

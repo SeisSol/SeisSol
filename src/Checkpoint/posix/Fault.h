@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,13 +54,6 @@ namespace posix
 
 class Fault : public CheckPoint, virtual public seissol::checkpoint::Fault
 {
-private:
-	/** Struct describing the  header information in the file */
-	struct Header {
-		unsigned long identifier;
-		int timestepFault;
-	};
-
 public:
 	Fault()
 		: CheckPoint(0x7A127)
