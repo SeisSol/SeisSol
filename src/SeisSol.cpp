@@ -7,17 +7,17 @@
  * @section LICENSE
  * Copyright (c) 2014-2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -51,7 +51,7 @@
 bool seissol::SeisSol::init(int argc, char* argv[])
 {
 	MPI::mpi.init(argc, argv);
-  
+
 	// TODO is there a reason to have this here?
 	// If not please move it to the end if this function
 #ifdef GENERATEDKERNELS
@@ -107,10 +107,10 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 void seissol::SeisSol::finalize()
 {
-	const int rank = MPI::mpi.rank();
-
 	// Cleanup ASYNC I/O library
 	m_asyncIO.finalize();
+
+	const int rank = MPI::mpi.rank();
 
 	MPI::mpi.finalize();
 

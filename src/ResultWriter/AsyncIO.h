@@ -81,6 +81,17 @@ public:
 
 		return dispatch();
 	}
+
+	void finalize()
+	{
+		// Call parent class
+		async::Dispatcher::finalize();
+
+#ifdef USE_ASYNC_MPI
+		// Reset the MPI communicator
+		seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
+#endif // USE_ASYNC_MPI
+	}
 };
 
 }
