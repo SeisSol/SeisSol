@@ -116,6 +116,7 @@ void fault_hdf_init(const int* cells, const double* vertices,
 		if (outputMask[9])
 			variables.push_back(labels[16]);
 
+		// TODO get the timestep from the checkpoint
 		xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>(rank,
 				outputName.c_str(), variables, 0);
 #ifdef USE_MPI

@@ -96,7 +96,7 @@ struct WaveFieldInitParam
 	int timestep;
 	unsigned int numVars;
 #ifdef USE_ASYNC_MPI
-	int bufferIds[BUFFERTAG_MAX];
+	int bufferIds[BUFFERTAG_MAX+1];
 #else // USE_ASYNC_MPI
 	// Refined mesh structure
 	size_t numCells;
@@ -128,7 +128,7 @@ class WaveFieldWriter : private async::Module<WaveFieldWriter, WaveFieldInitPara
 #endif // USE_MPI
 
 	/** List of all buffer ids */
-	int m_bufferIds[BUFFERTAG_MAX];
+	int m_bufferIds[BUFFERTAG_MAX+1];
 
 	/** The output prefix for the filename */
 	std::string m_outputPrefix;
@@ -188,7 +188,7 @@ public:
 		  m_timeTolerance(0),
 		  m_outputBuffer(0L)
 	{
-		std::fill(m_bufferIds, m_bufferIds+BUFFERTAG_MAX, -1);
+		std::fill(m_bufferIds, m_bufferIds+BUFFERTAG_MAX+1, -1);
 	}
 
 	/**
@@ -386,7 +386,7 @@ public:
 		m_variableSubsampler = 0L;
 		delete m_outputBuffer;
 		m_outputBuffer = 0L;
-    }
+	}
 
 	void tearDown()
 	{
