@@ -64,7 +64,7 @@ protected:
 
 private:
 	/** Pointers to fault data */
-	double* m_data[NUM_VARIABLES];
+	const double* m_data[NUM_VARIABLES];
 
 	/** Number of dynamic rupture sides on this rank */
 	unsigned int m_numSides;
@@ -82,10 +82,8 @@ public:
 	/**
 	 * @return True of a valid checkpoint is available
 	 */
-	virtual bool init(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-
-			double* state, double* strength,
-			unsigned int numSides, unsigned int numBndGP)
+	virtual bool init(unsigned int numSides, unsigned int numBndGP,
+			unsigned int groupSize = 1)
 	{
 		const int rank = seissol::MPI::mpi.rank();
 
@@ -104,15 +102,9 @@ public:
 		setComm(comm);
 #endif // USE_MPI
 
-		// Save data pointers
-		m_data[0] = mu;
-		m_data[1] = slipRate1;
-		m_data[2] = slipRate2;
-		m_data[3] = slip;
-		m_data[4] = slip1;
-		m_data[5] = slip2;
-		m_data[6] = state;
-		m_data[7] = strength;
+		// Compute sum and offset for this group
+		setGroupSumOffset(numSides, groupSize);
+
 		m_numSides = numSides;
 		m_numBndGP = numBndGP;
 
@@ -123,7 +115,29 @@ public:
 	 * @param[out] timestepFault Time step of the fault writer in the checkpoint
 	 *  (if the fault writer was active)
 	 */
-	virtual void load(int &timestepFault) = 0;
+	virtual void load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
+		double* slip, double* slip1, double* slip2, double* state, double* strength) = 0;
+
+	/**
+	 * @copydoc CheckPoint::initLate
+	 */
+	virtual void initLate(const double* mu, const double* slipRate1, const double* slipRate2,
+		const double* slip, const double* slip1, const double* slip2, const double* state, const double* strength)
+	{
+		if (numSides() == 0)
+			return;
+
+		m_data[0] = mu;
+		m_data[1] = slipRate1;
+		m_data[2] = slipRate2;
+		m_data[3] = slip;
+		m_data[4] = slip1;
+		m_data[5] = slip2;
+		m_data[6] = state;
+		m_data[7] = strength;
+
+		createFiles();
+	}
 
 	/**
 	 * Prepare writing a checkpoint
@@ -164,10 +178,18 @@ protected:
 		return "cp-f";
 	}
 
-	double* data(unsigned int var)
+	void setData(const double* mu, const double* slipRate1, const double* slipRate2,
+			const double* slip, const double* slip1, const double* slip2,
+			const double* state, const double* strength)
 	{
-		assert(var < NUM_VARIABLES);
-		return m_data[var];
+		m_data[0] = mu;
+		m_data[1] = slipRate1;
+		m_data[2] = slipRate2;
+		m_data[3] = slip;
+		m_data[4] = slip1;
+		m_data[5] = slip2;
+		m_data[6] = state;
+		m_data[7] = strength;
 	}
 
 	const double* data(unsigned int var) const

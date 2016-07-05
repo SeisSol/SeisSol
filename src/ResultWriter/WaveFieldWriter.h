@@ -160,11 +160,14 @@ class WaveFieldWriter : private async::Module<WaveFieldWriter, WaveFieldInitPara
 	/** Mapping from the cell order to dofs order */
 	const unsigned int* m_map;
 
-	/** Time of the last output (makes sure output is not written twice at the end */
+	/** Time of the last output (makes sure output is not written twice at the end) */
 	double m_lastTimeStep;
 
 	/** The tolerance in the time for ignoring duplicate time steps */
 	double m_timeTolerance;
+
+	/** The current output time step */
+	unsigned int m_timestep;
 
 	/** Buffer required to extract the output data from the unknowns */
 	double* m_outputBuffer;
@@ -186,6 +189,7 @@ public:
 		  m_map(0L),
 		  m_lastTimeStep(-1),
 		  m_timeTolerance(0),
+		  m_timestep(0),
 		  m_outputBuffer(0L)
 	{
 		std::fill(m_bufferIds, m_bufferIds+BUFFERTAG_MAX+1, -1);
@@ -246,10 +250,7 @@ public:
 	 */
 	unsigned int timestep() const
 	{
-		if (!m_enabled)
-			return 0;
-
-		return m_waveFieldWriter->timestep();
+		return m_timestep;
 	}
 
 	/**
@@ -335,6 +336,7 @@ public:
 
 		// Update last time step
 		m_lastTimeStep = time;
+		m_timestep++;
 
 		logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
 	}

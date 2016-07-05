@@ -81,9 +81,9 @@ public:
 	{
 	}
 
-	bool init(real* dofs, unsigned int numDofs);
+	bool init(unsigned int numDofs, unsigned int groupSize = 1);
 
-	void load(double &time, int &timestepWavefield);
+	void load(double& time, int& timestepWaveField, real* dofs);
 
 	void write(double time, int timestepWaveField);
 

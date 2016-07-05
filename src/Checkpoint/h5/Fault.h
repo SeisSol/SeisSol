@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2015, SeisSol Group
+ * Copyright (c) 2014-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -96,23 +96,15 @@ public:
 		: m_h5fSpaceData(-1)
 	{}
 
-	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-			double* state, double* strength,
-			unsigned int numSides, unsigned int numBndGP);
-
-	void initLate()
-	{
-		if (numSides() == 0)
-			return;
-
-		CheckPoint::initLate();
-	}
+	bool init(unsigned int numSides, unsigned int numBndGP,
+		unsigned int groupSize = 1);
 
 	/**
 	 * @param[out] timestepFault Time step of the fault writer in the checkpoint
 	 *  (if the fault writer was active)
 	 */
-	void load(int &timestepFault);
+	void load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
+		double* slip, double* slip1, double* slip2, double* state, double* strength);
 
 	void write(int timestepFault);
 

@@ -43,13 +43,10 @@
 
 #include "FaultAsync.h"
 
-bool seissol::checkpoint::mpio::FaultAsync::init(
-		double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-		double* state, double* strength,
-		unsigned int numSides, unsigned int numBndGP)
+bool seissol::checkpoint::mpio::FaultAsync::init(unsigned int numSides, unsigned int numBndGP,
+		unsigned int groupSize)
 {
-	bool exists = Fault::init(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			numSides, numBndGP);
+	bool exists = Fault::init(numSides, numBndGP, groupSize);
 
 	if (numSides != 0)
 		m_dataCopy = new double[NUM_VARIABLES * numSides * numBndGP];

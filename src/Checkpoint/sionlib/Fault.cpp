@@ -41,14 +41,17 @@
 #include "Fault.h"
 #include "Kernels/precision.hpp"
 
-bool seissol::checkpoint::sionlib::Fault::init(
-		double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-		double* state, double* strength,
-		unsigned int numSides, unsigned int numBndGP)
+bool seissol::checkpoint::sionlib::Fault::init(unsigned int numSides, unsigned int numBndGP,
+		unsigned int groupSize)
 {
+	if (groupSize != 1)
+		// TODO To read the sionlib file, we must use the same number of processes
+		// (otherwise it gets very complicated).
+		logError() << "The SIONlib backend does not support asynchronous MPI mode yet.";
+
 	setChunkElementCount(numSides * numBndGP);
 
-	seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength, numSides, numBndGP);
+	seissol::checkpoint::Fault::init(numSides, numBndGP, groupSize);
 
 	if (numSides == 0)
 		return true;
@@ -56,14 +59,15 @@ bool seissol::checkpoint::sionlib::Fault::init(
 	return exists();
 }
 
-void seissol::checkpoint::sionlib::Fault::load(int &timestepFault)
+void seissol::checkpoint::sionlib::Fault::load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
+	double* slip, double* slip1, double* slip2, double* state, double* strength)
 {
 	if (numSides() == 0)
 		return;
 
 	logInfo(rank()) << "Loading fault checkpoint";
 
-	seissol::checkpoint::CheckPoint::load();
+	seissol::checkpoint::CheckPoint::setLoaded();
 
 	int file = open(linkFile(), readMode());
 	checkErr(file);
@@ -75,9 +79,11 @@ void seissol::checkpoint::sionlib::Fault::load(int &timestepFault)
 	// Read header
 	checkErr(sion_coll_fread(&timestepFault, sizeof(timestepFault), 1, file), 1);
 
+	double* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
+
 	// Read data
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
-		checkErr(sion_coll_fread(data(i), sizeof(real), numSides()*numBndGP(), file),
+		checkErr(sion_coll_fread(data[i], sizeof(real), numSides()*numBndGP(), file),
 				numSides()*numBndGP());
 
 	// Close the file

@@ -134,10 +134,10 @@ public:
 
 		MPI_Comm_rank(MPI_COMM_WORLD, &m_processIdentifier);
 	}
-	
+
 	virtual ~CheckPoint()
 	{}
-	
+
 	void setFilename(const char* filename)
 	{
 		initFilename(filename, 0L);
@@ -148,25 +148,6 @@ public:
 			m_dataFile[i] = seissol::checkpoint::CheckPoint::dataFile(i)
 				+ "/" + fname() + ".scp";
 	}
-	
-	void initLate()
-	{
-		seissol::checkpoint::CheckPoint::initLate();
-
-		// Create the folder
-		if (rank() == 0) {
-			for (int i = 0; i < 2; i++) {
-				int ret = mkdir(seissol::checkpoint::CheckPoint::dataFile(i).c_str(),
-						S_IRWXU|S_IRWXG|S_IRWXO);
-				if (ret < 0 && errno != EEXIST)
-					checkErr(ret);
-			}
-		}
-
-#ifdef USE_MPI // Make sure all processes see the folders
-		MPI_Barrier(comm());
-#endif // USE_MPI
-	}
 
 	/**
 	 * Does nothing (all files are already closed)
@@ -174,7 +155,7 @@ public:
 	void close()
 	{
 	}
-	
+
 protected:
 	void setChunkElementCount(unsigned int count)
 	{
@@ -210,6 +191,25 @@ protected:
 		return hasCheckpoint;
 	}
 
+	void createFiles()
+	{
+		createFiles();
+
+		// Create the folder
+		if (rank() == 0) {
+			for (int i = 0; i < 2; i++) {
+				int ret = mkdir(seissol::checkpoint::CheckPoint::dataFile(i).c_str(),
+						S_IRWXU|S_IRWXG|S_IRWXO);
+				if (ret < 0 && errno != EEXIST)
+					checkErr(ret);
+			}
+		}
+
+#ifdef USE_MPI // Make sure all processes see the folders
+		MPI_Barrier(comm());
+#endif // USE_MPI
+	}
+
 	/**
 	 * @return The read mode used in SIONlib
 	 */
@@ -242,7 +242,7 @@ protected:
 		return sion_paropen_mpi(file.c_str(), mode.c_str(), &numFiles, comm(), &localComm,
 				&chunksize, &fsblksize, &gRank, 0L, 0L);
 	}
-		
+
 	void finalizeCheckpoint(int file)
 	{
 		SCOREP_USER_REGION_DEFINE(r_flush);

@@ -80,6 +80,7 @@ public:
 	CheckPoint(unsigned long identifier)
 		: m_identifier(identifier)
 	{
+		m_files[0] = m_files[1] = -1;
 	}
 
 	virtual ~CheckPoint() {}
@@ -89,42 +90,12 @@ public:
 		initFilename(filename, 0L);
 	}
 
-	void initLate()
-	{
-		seissol::checkpoint::CheckPoint::initLate();
-
-		// Create the folder
-		if (rank() == 0) {
-			for (int i = 0; i < 2; i++) {
-				int ret = mkdir(seissol::checkpoint::CheckPoint::dataFile(i).c_str(),
-						S_IRWXU | S_IRWXG | S_IRWXO);
-				if (ret < 0 && errno != EEXIST)
-					checkErr(ret);
-			}
-		}
-
-#ifdef USE_MPI
-		// Make sure all processes see the folders
-		MPI_Barrier(comm());
-#endif // USE_MPI
-
-		for (unsigned int i = 0; i < 2; i++) {
-			m_files[i] = open64(dataFile(i).c_str(), O_WRONLY | O_CREAT,
-					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-			checkErr(m_files[i]);
-
-			checkErr(write(m_files[i], &m_identifier, sizeof(m_identifier)));
-
-			// Sync file (required for performance measure)
-			// TODO preallocate file first
-			checkErr(fsync(m_files[i]));
-		}
-	}
-
 	void close()
 	{
-		for (unsigned int i = 0; i < 2; i++)
-			checkErr(::close(m_files[i]));
+		if (m_files[0] >= 0) {
+			for (unsigned int i = 0; i < 2; i++)
+				checkErr(::close(m_files[i]));
+		}
 	}
 
 protected:
@@ -181,13 +152,13 @@ protected:
 	const std::string linkFile() const
 	{
 		return std::string(seissol::checkpoint::CheckPoint::linkFile())
-		  + "/" + fname() + "." + utils::StringUtils::toString(rank());
+		  + "/" + fname() + "." + utils::StringUtils::toString(rank() / groupSize());
 	}
 
 	const std::string dataFile(int odd) const
 	{
 		return seissol::checkpoint::CheckPoint::dataFile(odd)
-		  + "/" + fname() + "." + utils::StringUtils::toString(rank());
+		  + "/" + fname() + "." + utils::StringUtils::toString(rank() / groupSize());
 	}
 
 	/**
@@ -204,6 +175,39 @@ protected:
 	unsigned long identifier() const
 	{
 		return m_identifier;
+	}
+
+protected:
+	void createFiles()
+	{
+		seissol::checkpoint::CheckPoint::createFiles();
+
+		// Create the folder
+		if (rank() == 0) {
+			for (int i = 0; i < 2; i++) {
+				int ret = mkdir(seissol::checkpoint::CheckPoint::dataFile(i).c_str(),
+						S_IRWXU | S_IRWXG | S_IRWXO);
+				if (ret < 0 && errno != EEXIST)
+					checkErr(ret);
+			}
+		}
+
+#ifdef USE_MPI
+		// Make sure all processes see the folders
+		MPI_Barrier(comm());
+#endif // USE_MPI
+
+		for (unsigned int i = 0; i < 2; i++) {
+			m_files[i] = open64(dataFile(i).c_str(), O_WRONLY | O_CREAT,
+					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+			checkErr(m_files[i]);
+
+			checkErr(write(m_files[i], &m_identifier, sizeof(m_identifier)));
+
+			// Sync file (required for performance measure)
+			// TODO preallocate file first
+			checkErr(fsync(m_files[i]));
+		}
 	}
 
 private:

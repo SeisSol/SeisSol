@@ -61,22 +61,15 @@ public:
 		: CheckPoint(0xA1315)
 	{}
 
-	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, 
-		  double* slip2, double* state, double* strength,
-		  unsigned int numSides, unsigned int numBndGP);
-	
-	void initLate()
-	{
-		if (numSides() == 0)
-			return;
+	bool init(unsigned int numSides, unsigned int numBndGP,
+		unsigned int groupSize = 1);
 
-		CheckPoint::initLate();
-	}
 	/**
 	 * @param[out] timestepFault Time step of the fault writer in the checkpoint
 	 *  (if the fault writer was active)
 	 */
-	void load(int &timestepFault);
+	void load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
+		double* slip, double* slip1, double* slip2, double* state, double* strength);
 
 	void write(int timestepFault);
 

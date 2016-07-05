@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,12 +55,13 @@ public:
 	 * @return Always false (never finds a valid checkpoint)
 	 */
 	bool init(double*, double*, double*, double*, double*, double*,
-			unsigned int, unsigned int)
+			unsigned int, unsigned int, unsigned int = 1)
 	{
 		return false;
 	}
 
-	void load(int&) {}
+	void load(int&, double*, double*, double*, double*, double*, double*, double*, double*)
+	{}
 
 	void write(int) {}
 };

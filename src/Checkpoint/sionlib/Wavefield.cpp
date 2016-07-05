@@ -40,23 +40,27 @@
 
 #include "Wavefield.h"
 
-
-bool seissol::checkpoint::sionlib::Wavefield::init(real* dofs, unsigned int numDofs)
+bool seissol::checkpoint::sionlib::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
 {
+	if (groupSize != 1)
+		// TODO To read the sionlib file, we must use the same number of processes
+		// (otherwise it gets very complicated).
+		logError() << "The SIONlib backend does not support asynchronous MPI mode yet.";
+
 	setChunkElementCount(numDofs);
 
-	seissol::checkpoint::Wavefield::init(dofs, numDofs);
+	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 
 	logInfo(rank()) << "Using SIONlib mode" << writeMode() << "for writing checkpoints";
 
 	return exists();
 }
 
-void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWaveField)
+void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWaveField, real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
-	seissol::checkpoint::CheckPoint::load();
+	seissol::checkpoint::CheckPoint::setLoaded();
 
 	int file = open(linkFile(), readMode());
 	checkErr(file);
@@ -70,7 +74,7 @@ void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWa
 	checkErr(sion_coll_fread(&timestepWaveField, sizeof(timestepWaveField), 1, file), 1);
 
 	// Read dofs
-	checkErr(sion_fread(dofs(), sizeof(double), numDofs(), file), numDofs());
+	checkErr(sion_fread(dofs, sizeof(double), numDofs(), file), numDofs());
 
 	// Close the file
 	sionClose(file);

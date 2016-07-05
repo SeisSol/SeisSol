@@ -39,18 +39,18 @@
 
 #include "Wavefield.h"
 
-bool seissol::checkpoint::posix::Wavefield::init(real* dofs, unsigned int numDofs)
+bool seissol::checkpoint::posix::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
 {
-	seissol::checkpoint::Wavefield::init(dofs, numDofs);
+	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 
 	return exists();
 }
 
-void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWaveField)
+void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWaveField, real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
-	seissol::checkpoint::CheckPoint::load();
+	seissol::checkpoint::CheckPoint::setLoaded();
 
 	int file = open();
 	checkErr(file);
@@ -63,8 +63,11 @@ void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWave
 	checkErr(read(file, &timestepWaveField, sizeof(timestepWaveField)),
 			sizeof(timestepWaveField));
 
+	// Skip other processes before this in the group
+	checkErr(lseek64(file, groupOffset() * sizeof(real), SEEK_CUR));
+
 	// Convert to char* to do pointer arithmetic
-	char* buffer = reinterpret_cast<char*>(dofs());
+	char* buffer = reinterpret_cast<char*>(dofs);
 	unsigned long left = numDofs()*sizeof(real);
 
 	// Read dofs

@@ -41,13 +41,10 @@
 
 #include "Kernels/precision.hpp"
 
-bool seissol::checkpoint::posix::Fault::init(
-		double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-		double* state, double* strength,
-		unsigned int numSides, unsigned int numBndGP)
+bool seissol::checkpoint::posix::Fault::init(unsigned int numSides, unsigned int numBndGP,
+		unsigned int groupSize)
 {
-	seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			numSides, numBndGP);
+	seissol::checkpoint::Fault::init(numSides, numBndGP, groupSize);
 
 	if (numSides == 0)
 		return true;
@@ -55,14 +52,15 @@ bool seissol::checkpoint::posix::Fault::init(
 	return exists();
 }
 
-void seissol::checkpoint::posix::Fault::load(int &timestepFault)
+void seissol::checkpoint::posix::Fault::load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
+	double* slip, double* slip1, double* slip2, double* state, double* strength)
 {
 	if (numSides() == 0)
 		return;
 
 	logInfo(rank()) << "Loading fault checkpoint";
 
-	seissol::checkpoint::CheckPoint::load();
+	seissol::checkpoint::CheckPoint::setLoaded();
 
 	int file = open();
 	checkErr(file);
@@ -71,11 +69,21 @@ void seissol::checkpoint::posix::Fault::load(int &timestepFault)
 	checkErr(lseek64(file, sizeof(unsigned long), SEEK_SET));
 
 	// Read header
-	checkErr(read(file, &timestepFault, sizeof(timestepFault)),	sizeof(timestepFault));
+	checkErr(read(file, &timestepFault, sizeof(timestepFault)), sizeof(timestepFault));
+
+	double* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
 
 	// Read data
-	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
-		checkErr(read(file, data(i), numSides() * numBndGP() * sizeof(real)));
+	for (unsigned int i = 0; i < NUM_VARIABLES; i++) {
+		// Skip other processes before this in the group
+		checkErr(lseek64(file, groupOffset() * numBndGP() * sizeof(real), SEEK_CUR));
+
+		checkErr(read(file, data[i], numSides() * numBndGP() * sizeof(real)));
+
+		// Skip other processes after this in the group
+		checkErr(lseek64(file, (numGroupElems() - numSides() - groupOffset()) * numBndGP() * sizeof(real),
+			SEEK_CUR));
+	}
 
 	// Close the file
 	checkErr(::close(file));

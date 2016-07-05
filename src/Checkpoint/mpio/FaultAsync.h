@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,9 +76,8 @@ public:
 	{
 	}
 
-	bool init(double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-			double* state, double* strength,
-			unsigned int numSides, unsigned int numBndGP);
+	bool init(unsigned int numSides, unsigned int numBndGP,
+		unsigned int groupSize = 1);
 
 	void writePrepare(int timestepFault);
 

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,14 +41,10 @@
 
 #include "Fault.h"
 
-bool seissol::checkpoint::mpio::Fault::init(
-		double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
-
-		double* state, double* strength,
-		unsigned int numSides, unsigned int numBndGP)
+bool seissol::checkpoint::mpio::Fault::init(unsigned int numSides, unsigned int numBndGP,
+		unsigned int groupSize)
 {
-	seissol::checkpoint::Fault::init(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			numSides, numBndGP);
+	seissol::checkpoint::Fault::init(numSides, numBndGP, groupSize);
 
 	if (numSides == 0)
 		return true;
@@ -70,14 +66,15 @@ bool seissol::checkpoint::mpio::Fault::init(
 	return exists();
 }
 
-void seissol::checkpoint::mpio::Fault::load(int &timestepFault)
+void seissol::checkpoint::mpio::Fault::load(int &timestepFault, double* mu, double* slipRate1, double* slipRate2,
+	double* slip, double* slip1, double* slip2, double* state, double* strength)
 {
 	if (numSides() == 0)
 		return;
 
 	logInfo(rank()) << "Loading fault checkpoint";
 
-	seissol::checkpoint::CheckPoint::load();
+	seissol::checkpoint::CheckPoint::setLoaded();
 
 	MPI_File file = open();
 	if (file == MPI_FILE_NULL)
@@ -93,10 +90,12 @@ void seissol::checkpoint::mpio::Fault::load(int &timestepFault)
 	MPI_Bcast(&header, 1, headerType(), 0, comm());
 	timestepFault = header.timestepFault;
 
+	double* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
+
 	// Read data
 	checkMPIErr(setDataView(file));
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
-		checkMPIErr(MPI_File_read_all(file, data(i), numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
+		checkMPIErr(MPI_File_read_all(file, data[i], numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
 
 	// Close the file
 	checkMPIErr(MPI_File_close(&file));
@@ -124,7 +123,7 @@ void seissol::checkpoint::mpio::Fault::write(int timestepFault)
 	checkMPIErr(setDataView(file()));
 
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
-		checkMPIErr(MPI_File_write_all(file(), data(i), numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
+		checkMPIErr(MPI_File_write_all(file(), const_cast<double*>(data(i)), numSides() * numBndGP(), MPI_DOUBLE, MPI_STATUS_IGNORE));
 
 	EPIK_USER_END(r_write_fault);
 	SCOREP_USER_REGION_END(r_write_fault);

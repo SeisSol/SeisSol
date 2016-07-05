@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,7 +76,7 @@ public:
 	{
 	}
 
-	bool init(real* dofs, unsigned int numDofs);
+	bool init(unsigned int numDofs, unsigned int groupSize = 1);
 
 	void writePrepare(double time, int timestepWaveField);
 

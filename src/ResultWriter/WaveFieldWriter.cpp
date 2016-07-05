@@ -184,6 +184,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	m_pstrain = pstrain;
 	m_map = map;
 
+	m_timestep = timestep;
+
 #ifdef USE_ASYNC_MPI
 	// Fill the mesh buffers
 	fillBuffer(OUTPUT_PREFIX, m_outputPrefix.c_str(), m_outputPrefix.size()+1);
