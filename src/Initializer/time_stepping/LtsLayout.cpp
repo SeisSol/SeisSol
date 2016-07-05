@@ -4,6 +4,7 @@
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015-2016, SeisSol Group
@@ -71,11 +72,13 @@ seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
 
 void seissol::initializers::time_stepping::LtsLayout::setMesh( const MeshReader &i_mesh ) {
   // TODO: remove the copy by a pointer once the mesh stays constant
-  for( unsigned int l_cell = 0; l_cell < i_mesh.getElements().size(); l_cell++ ) {
-    m_cells.push_back( i_mesh.getElements()[l_cell] );
+  std::vector<Element> const& elements = i_mesh.getElements();
+  for( unsigned int l_cell = 0; l_cell < elements.size(); l_cell++ ) {
+    m_cells.push_back( elements[l_cell] );
   }
-  for( unsigned int fault = 0; fault < i_mesh.getFault().size(); ++fault ) {
-    m_fault.push_back( i_mesh.getFault()[fault] );
+  std::vector<Fault> const& fault = i_mesh.getFault();
+  for( unsigned int i = 0; i < fault.size(); ++i ) {
+    m_fault.push_back( fault[i] );
   }
 
   m_cellTimeStepWidths = new double[       m_cells.size() ];
@@ -429,16 +432,17 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClust
 #endif // USE_MPI
 }
 
-// This does not work yet as normalization might change the minimum time step
-// However, fixing to 0 (i.e. minimum time step) should do.
 unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
   unsigned reductions = 0;
-
+  
   if (m_fault.size() > 0) {
     unsigned minClusterId = std::numeric_limits<unsigned>::max();
     unsigned globalMinClusterId;
     for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
       minClusterId = std::min(minClusterId, m_cellClusterIds[fault->element]);
+      if (fault->neighborElement >= 0) {
+        minClusterId = std::min(minClusterId, m_cellClusterIds[fault->neighborElement]);
+      }
     }
   #ifdef USE_MPI
     MPI_Allreduce(&minClusterId, &globalMinClusterId, 1, MPI_UNSIGNED, MPI_MIN, seissol::MPI::mpi.comm());
@@ -450,11 +454,15 @@ unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureG
         m_cellClusterIds[fault->element] = globalMinClusterId;
         ++reductions;
       }
+      if (fault->neighborElement >= 0 && m_cellClusterIds[fault->neighborElement] > globalMinClusterId) {
+        m_cellClusterIds[fault->neighborElement] = globalMinClusterId;
+        ++reductions;
+      }
     }
-
+    
     m_dynamicRuptureCluster = globalMinClusterId;
   }
-
+  
   return reductions;
 }
 
