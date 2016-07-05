@@ -48,6 +48,7 @@
 #include <cstring>
 #include <errno.h>
 #include <fcntl.h>
+#include <string>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -56,8 +57,7 @@
 
 #include "Checkpoint/CheckPoint.h"
 #include "Initializer/preProcessorMacros.fpp"
-#include <string>
-using namespace std;
+
 namespace seissol
 {
 
