@@ -435,33 +435,31 @@ void seissol::initializers::time_stepping::LtsLayout::synchronizePlainGhostClust
 unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
   unsigned reductions = 0;
   
-  if (m_fault.size() > 0) {
-    unsigned minClusterId = std::numeric_limits<unsigned>::max();
-    unsigned globalMinClusterId;
-    for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
-      minClusterId = std::min(minClusterId, m_cellClusterIds[fault->element]);
-      if (fault->neighborElement >= 0) {
-        minClusterId = std::min(minClusterId, m_cellClusterIds[fault->neighborElement]);
-      }
+  unsigned minClusterId = std::numeric_limits<unsigned>::max();
+  unsigned globalMinClusterId;
+  for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
+    minClusterId = std::min(minClusterId, m_cellClusterIds[fault->element]);
+    if (fault->neighborElement >= 0) {
+      minClusterId = std::min(minClusterId, m_cellClusterIds[fault->neighborElement]);
     }
-  #ifdef USE_MPI
-    MPI_Allreduce(&minClusterId, &globalMinClusterId, 1, MPI_UNSIGNED, MPI_MIN, seissol::MPI::mpi.comm());
-  #else
-    globalMinClusterId = minClusterId;
-  #endif
-    for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
-      if (m_cellClusterIds[fault->element] > globalMinClusterId) {
-        m_cellClusterIds[fault->element] = globalMinClusterId;
-        ++reductions;
-      }
-      if (fault->neighborElement >= 0 && m_cellClusterIds[fault->neighborElement] > globalMinClusterId) {
-        m_cellClusterIds[fault->neighborElement] = globalMinClusterId;
-        ++reductions;
-      }
-    }
-    
-    m_dynamicRuptureCluster = globalMinClusterId;
   }
+#ifdef USE_MPI
+  MPI_Allreduce(&minClusterId, &globalMinClusterId, 1, MPI_UNSIGNED, MPI_MIN, seissol::MPI::mpi.comm());
+#else
+  globalMinClusterId = minClusterId;
+#endif
+  for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
+    if (m_cellClusterIds[fault->element] > globalMinClusterId) {
+      m_cellClusterIds[fault->element] = globalMinClusterId;
+      ++reductions;
+    }
+    if (fault->neighborElement >= 0 && m_cellClusterIds[fault->neighborElement] > globalMinClusterId) {
+      m_cellClusterIds[fault->neighborElement] = globalMinClusterId;
+      ++reductions;
+    }
+  }
+  
+  m_dynamicRuptureCluster = globalMinClusterId;
   
   return reductions;
 }
