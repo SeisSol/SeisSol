@@ -101,8 +101,8 @@ void seissol::checkpoint::sionlib::Fault::write(int timestepFault)
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_fault_header", SCOREP_USER_REGION_TYPE_COMMON);
 
 	unsigned long id = identifier();
-	checkErr(sion_fwrite(&id, sizeof(id), 1, file), 1);
-	checkErr(sion_fwrite(&timestepFault, sizeof(timestepFault), 1, file), 1);
+	checkErr(sion_coll_fwrite(&id, sizeof(id), 1, file), 1);
+	checkErr(sion_coll_fwrite(&timestepFault, sizeof(timestepFault), 1, file), 1);
 
 	SCOREP_USER_REGION_END(r_write_header);
 
@@ -111,7 +111,7 @@ void seissol::checkpoint::sionlib::Fault::write(int timestepFault)
 	SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);
 
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
-	    checkErr(sion_fwrite(data(i), sizeof(real), numSides() * numBndGP(), file),
+	    checkErr(sion_coll_fwrite(data(i), sizeof(real), numSides() * numBndGP(), file),
 	    		numSides() * numBndGP());
 
 	SCOREP_USER_REGION_END(r_write_fault);

@@ -70,7 +70,7 @@ void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWa
 	checkErr(sion_coll_fread(&timestepWaveField, sizeof(timestepWaveField), 1, file), 1);
 
 	// Read dofs
-	checkErr(sion_fread(dofs(), sizeof(double), numDofs(), file), numDofs());
+	checkErr(sion_coll_fread(dofs(), sizeof(double), numDofs(), file), numDofs());
 
 	// Close the file
 	sionClose(file);
@@ -90,9 +90,9 @@ void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWav
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
 
 	unsigned long id = identifier();
-	checkErr(sion_fwrite(&id, sizeof(id), 1, file), 1);
-	checkErr(sion_fwrite(&time, sizeof(time), 1, file), 1);
-	checkErr(sion_fwrite(&timestepWaveField, sizeof(timestepWaveField), 1, file), 1);
+	checkErr(sion_coll_fwrite(&id, sizeof(id), 1, file), 1);
+	checkErr(sion_coll_fwrite(&time, sizeof(time), 1, file), 1);
+	checkErr(sion_coll_fwrite(&timestepWaveField, sizeof(timestepWaveField), 1, file), 1);
 
 	SCOREP_USER_REGION_END(r_write_header);
 
@@ -100,7 +100,7 @@ void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWav
 	SCOREP_USER_REGION_DEFINE(r_write_wavefield);
 	SCOREP_USER_REGION_BEGIN(r_write_wavefield, "checkpoint_write_wavefield", SCOREP_USER_REGION_TYPE_COMMON);
 
-	checkErr(sion_fwrite(dofs(), sizeof(real), numDofs(), file), numDofs());
+	checkErr(sion_coll_fwrite(dofs(), sizeof(real), numDofs(), file), numDofs());
 
 	SCOREP_USER_REGION_END(r_write_wavefield);
 
