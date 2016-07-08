@@ -1519,7 +1519,7 @@ MODULE Eval_friction_law_mod
     REAL        :: RS_f0,RS_a,RS_b,RS_sl0,RS_sr0
     REAL        :: RS_fw,RS_srW,flv,fss,SVss
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
-    REAL        :: Rnuc, Tnuc, radius, Gnuc, Fnuc, invZ
+    REAL        :: Rnuc, Tnuc, radius, Gnuc, Fnuc, invZ, AlmostZero
     LOGICAL     :: nodewise=.FALSE.
     REAL        :: xp(MESH%GlobalElemType), yp(MESH%GlobalElemType), zp(MESH%GlobalElemType)
     INTEGER     :: VertexSide(4,3)
@@ -1542,6 +1542,9 @@ MODULE Eval_friction_law_mod
     !initialize time and space dependent nucleation
     Rnuc=3000.0D0
     Tnuc=1.0D0
+    !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
+    !as a consequence, the SR is affected the AlmostZero value when too small
+    AlmostZero = 10d-19
     !
     IF (time.LE.Tnuc) THEN
     IF (time.GT.0.0D0) THEN
@@ -1617,8 +1620,8 @@ MODULE Eval_friction_law_mod
                 Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
             ELSE
                 Gnuc=0.0D0
-                    ENDIF
-                    EQN%IniShearXY(iFace,:)=EQN%ShearXY_0+45.0e6*Fnuc*Gnuc
+            ENDIF
+            EQN%IniShearXY(iFace,:)=EQN%ShearXY_0+45.0e6*Fnuc*Gnuc
             ENDIF ! Rnuc
     ENDIF ! nodewise
     ENDIF ! Tnuc
@@ -1676,10 +1679,10 @@ MODULE Eval_friction_law_mod
          nSVupdates = 2
          !
          LocSR      = SQRT(LocSR1**2 + LocSR2**2)
-         LocSR = max(1d-16,LocSR)
+         LocSR = max(AlmostZero,LocSR)
          !
          tmp = LocSR
-         invZ = (1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig)
+         invZ = (1.0d0/w_speed(2)/rho+1.0d0/w_speed_neig(2)/rho_neig)
 
          DO j=1,nSVupdates   !This loop corrects SV values
              !
@@ -1692,7 +1695,8 @@ MODULE Eval_friction_law_mod
              ! steady-state state variable with SINH(X)=(EXP(X)-EXP(-X))/2
              SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
              !
-             LocSV=SVss*(1.0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+             LocSV=SVss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+
              !2. solve for Vnew , applying the Newton-Raphson algorithm as in Case 3 and 4
              !   but with different mu evolution
              ! SR fulfills g(SR)=f(SR), NR=f-g and dNR = d(NR)/d(SR)
@@ -1704,21 +1708,22 @@ MODULE Eval_friction_law_mod
              SRtest=LocSR  ! We use as first guess the SR value of the previous time step
              !
              tmp          = 0.5D0/RS_sr0* EXP(LocSV/RS_a)
-             
+
              DO i=1,nSRupdates  !This loop corrects SR values
                  ! for convenience
                  tmp2         = tmp*SRtest != X in ASINH(X) for mu calculation
                  NR           = -invZ * &
                      (ABS(P)*RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))-ShTest)-SRtest
+                 ! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
+                 IF (abs(NR)<5d-15) EXIT
                  dNR          = -invZ * &
                      (ABS(P)*RS_a/SQRT(1d0+tmp2**2)*tmp) -1.0
                  tmp3 = NR/dNR
-                 SRtest = max(1d-12,ABS(SRtest - tmp3))
-                 IF (abs(tmp3)<1d-10) EXIT
+                 SRtest = max(AlmostZero,ABS(SRtest - tmp3))
              ENDDO
              !
              ! 3. update theta, now using V=(Vnew+Vold)/2
-             tmp=0.5*(LocSR+ABS(SRtest))  ! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
+             tmp=0.5d0*(LocSR+ABS(SRtest))  ! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
              !
              ! 4. solve again for Vnew
              LocSR=ABS(SRtest)
@@ -1730,11 +1735,12 @@ MODULE Eval_friction_law_mod
          flv = RS_f0 -(RS_b-RS_a)* LOG(tmp/RS_sr0)
          fss = RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8)**(1.0D0/8.0D0)
          SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
-         LocSV=Svss*(1.0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+         LocSV=Svss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
          !Mu from LocSR
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
          ! update stress change
+
          LocTracXY = -((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXZ = -((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXY = LocTracXY - Stress(4,iBndGP)
@@ -1747,8 +1753,15 @@ MODULE Eval_friction_law_mod
          LocSR1     = -invZ*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
          LocSR2     = -invZ*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
 
-       LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
-       LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
+         !TU 07.07.16: correct LocSR1_2 to avoid numerical errors
+         tmp = sqrt(LocSR1**2+LocSR2**2)
+         if( tmp.NE.0d0) THEN
+            LocSR1 = LocSR*LocSR1/tmp
+            LocSR2 = LocSR*LocSR2/tmp
+         ENDIF
+
+         LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
+         LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
          !LocSR1     = SignSR1*ABS(LocSR1)
          !LocSR2     = SignSR2*ABS(LocSR2)
          !
