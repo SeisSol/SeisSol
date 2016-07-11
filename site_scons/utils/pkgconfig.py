@@ -54,7 +54,7 @@ def CheckPkgconfig(context, lib, opt):
 		global __pkgconfig
 		flags = context.env.ParseConfig([__pkgconfig, '--silence-errors'] + opt + [lib], parse_func)
 	except OSError:
-		flags = None
+		flags = False
 
 	context.Result(flags)
 	return flags
