@@ -52,6 +52,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include "utils/env.h"
 #include "utils/logger.h"
 #include "utils/stringutils.h"
 
@@ -197,8 +198,14 @@ protected:
 		MPI_Barrier(comm());
 #endif // USE_MPI
 
+		int oflags = O_WRONLY | O_CREAT;
+		if (utils::Env::get<int>("SEISSOL_CHECKPOINT_DIRECT", 0)) {
+			oflags |= O_DIRECT;
+			logInfo(rank()) << "Using direct I/O for checkpointing";
+		}
+
 		for (unsigned int i = 0; i < 2; i++) {
-			m_files[i] = open64(dataFile(i).c_str(), O_WRONLY | O_CREAT,
+			m_files[i] = open64(dataFile(i).c_str(), oflags,
 					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 			checkErr(m_files[i]);
 
