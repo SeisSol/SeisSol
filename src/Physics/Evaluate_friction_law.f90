@@ -1519,7 +1519,8 @@ MODULE Eval_friction_law_mod
     REAL        :: RS_f0,RS_a,RS_b,RS_sl0,RS_sr0
     REAL        :: RS_fw,RS_srW,flv,fss,SVss
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
-    REAL        :: Rnuc, Tnuc, radius, Gnuc, Fnuc, invZ, AlmostZero
+    REAL        :: Rnuc, Tnuc, radius, Gnuc, Fnuc, invZ, AlmostZero, aTolF
+    LOGICAL     :: has_converged
     LOGICAL     :: nodewise=.FALSE.
     REAL        :: xp(MESH%GlobalElemType), yp(MESH%GlobalElemType), zp(MESH%GlobalElemType)
     INTEGER     :: VertexSide(4,3)
@@ -1544,8 +1545,18 @@ MODULE Eval_friction_law_mod
     Tnuc=1.0D0
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
-    AlmostZero = 10d-19
+    AlmostZero = 1d-25
     !
+    !PARAMETERS of THE optimisation loops
+    !absolute tolerance on the function to be optimzed
+    ! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
+    !aTolF = 5e-15
+    aTolF = 1e-8
+    ! Number of iteration in the loops
+    nSRupdates = 60
+    nSVupdates = 2
+
+
     IF (time.LE.Tnuc) THEN
     IF (time.GT.0.0D0) THEN
         Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
@@ -1675,8 +1686,6 @@ MODULE Eval_friction_law_mod
          SV0=LocSV    ! Careful, the SV must always be corrected using SV0 and not LocSV!
          !
          ! The following process is adapted from that described by Kaneko et al. (2008)
-         nSRupdates = 50
-         nSVupdates = 2
          !
          LocSR      = SQRT(LocSR1**2 + LocSR2**2)
          LocSR = max(AlmostZero,LocSR)
@@ -1708,16 +1717,17 @@ MODULE Eval_friction_law_mod
              SRtest=LocSR  ! We use as first guess the SR value of the previous time step
              !
              tmp          = 0.5D0/RS_sr0* EXP(LocSV/RS_a)
+             has_converged = .FALSE.
 
              DO i=1,nSRupdates  !This loop corrects SR values
                  ! for convenience
                  tmp2         = tmp*SRtest != X in ASINH(X) for mu calculation
-                 NR           = -invZ * &
-                     (ABS(P)*RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))-ShTest)-SRtest
-                 ! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
-                 IF (abs(NR)<5d-15) EXIT
-                 dNR          = -invZ * &
-                     (ABS(P)*RS_a/SQRT(1d0+tmp2**2)*tmp) -1.0
+                 NR           = -invZ * (ABS(P)*RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))-ShTest)-SRtest
+                 IF (abs(NR)<atolF) THEN
+                    has_converged = .TRUE.
+                    EXIT
+                 ENDIF
+                 dNR          = -invZ * (ABS(P)*RS_a/SQRT(1d0+tmp2**2)*tmp) -1.0
                  tmp3 = NR/dNR
                  SRtest = max(AlmostZero,ABS(SRtest - tmp3))
              ENDDO
@@ -1729,6 +1739,9 @@ MODULE Eval_friction_law_mod
              LocSR=ABS(SRtest)
              !
          ENDDO !  j=1,nSVupdates   !This loop corrects SV values
+         if (.NOT.has_converged) THEN
+            logError(*) 'nonConvergence RS Newton', time, i, j, abs(NR),SRtest,LocSR,iFace,iBndGP
+         ENDIF
          !
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
