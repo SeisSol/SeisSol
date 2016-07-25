@@ -99,9 +99,8 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	EPIK_USER_START(r_write_header);
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	checkErr(::write(file(), &time, sizeof(time)), sizeof(time));
-	checkErr(::write(file(), &timestepWaveField, sizeof(timestepWaveField)),
-			sizeof(timestepWaveField));
+	checkErr(writeAligned(file(), time), sizeof(time));
+	checkErr(writeAligned(file(), timestepWaveField), sizeof(timestepWaveField));
 
 	EPIK_USER_END(r_write_header);
 	SCOREP_USER_REGION_END(r_write_header);

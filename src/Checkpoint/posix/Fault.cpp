@@ -108,7 +108,7 @@ void seissol::checkpoint::posix::Fault::write(int timestepFault)
 	EPIK_USER_START(r_write_header);
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_fault_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	checkErr(::write(file(), &timestepFault, sizeof(timestepFault)), sizeof(timestepFault));
+	checkErr(writeAligned(file(), timestepFault), sizeof(timestepFault));
 
 	EPIK_USER_END(r_write_header);
 	SCOREP_USER_REGION_END(r_write_header);

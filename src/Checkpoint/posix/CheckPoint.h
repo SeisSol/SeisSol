@@ -77,14 +77,21 @@ private:
 	/** Identifiers of the files */
 	int m_files[2];
 
+	/** Buffer to write aligned data */
+	void* m_alignBuffer;
+
 public:
 	CheckPoint(unsigned long identifier)
-		: m_identifier(identifier)
+		: m_identifier(identifier),
+		  m_alignBuffer(0L)
 	{
 		m_files[0] = m_files[1] = -1;
 	}
 
-	virtual ~CheckPoint() {}
+	virtual ~CheckPoint()
+	{
+		free(m_alignBuffer);
+	}
 
 	void setFilename(const char* filename)
 	{
@@ -202,6 +209,15 @@ protected:
 		if (utils::Env::get<int>("SEISSOL_CHECKPOINT_DIRECT", 0)) {
 			oflags |= O_DIRECT;
 			logInfo(rank()) << "Using direct I/O for checkpointing";
+
+			// FIXME this is a workaround, for POSIX it is probably better to
+			// create a new with is written by rank 0 and contains the header information
+			// instead of writing the header from each process
+			size_t align = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_DIRECT_ALIGN", 0);
+			if (align) {
+				if (posix_memalign(&m_alignBuffer, align, std::max(sizeof(double), sizeof(unsigned int))) != 0)
+					logError() << "Could not allocate buffer for alignment";
+			}
 		}
 
 		for (unsigned int i = 0; i < 2; i++) {
@@ -209,12 +225,26 @@ protected:
 					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 			checkErr(m_files[i]);
 
-			checkErr(write(m_files[i], &m_identifier, sizeof(m_identifier)));
+			checkErr(writeAligned(m_files[i], m_identifier), sizeof(m_identifier));
 
 			// Sync file (required for performance measure)
 			// TODO preallocate file first
 			checkErr(fsync(m_files[i]));
 		}
+	}
+
+	/**
+	 * Write a value to file using ligned memory locations (if enabled)
+	 */
+	template<typename T>
+	ssize_t writeAligned(int file, T value)
+	{
+		if (m_alignBuffer) {
+			*static_cast<T*>(m_alignBuffer) = value;
+			return write(file, m_alignBuffer, sizeof(T));
+		}
+
+		return write(file, &value, sizeof(T));
 	}
 
 private:
