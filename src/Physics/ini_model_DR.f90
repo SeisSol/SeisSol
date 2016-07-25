@@ -3209,6 +3209,9 @@ MODULE ini_model_DR_mod
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
   REAL                           :: iniSlipRate, tmp, Boxx, Boxz
+  REAL                           :: xLeStartTapering, xRiStartTapering, xLeStopTapering, xRiStopTapering, xtaperingWidth
+  REAL                           :: zStartTapering, zStopTapering, ztaperingWidth
+  REAL                           :: RS_a_inc,RS_srW_inc
   !-------------------------------------------------------------------------! 
   INTENT(IN)    :: MESH, BND 
   INTENT(INOUT) :: DISC,EQN
@@ -3226,6 +3229,20 @@ MODULE ini_model_DR_mod
 
   ALLOCATE(  DISC%DynRup%RS_a_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
   ALLOCATE(  DISC%DynRup%RS_srW_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
+
+  xLeStartTapering = -15d3
+  xRiStartTapering =  15d3
+  zStartTapering = -15d3
+  xtaperingWidth = 3d3
+  ztaperingWidth = 3d3
+  RS_a_inc = 0.01d0
+  RS_srW_inc = 0.9d0
+
+  xLeStopTapering = xLeStartTapering - xtaperingWidth
+  xRiStopTapering = xRiStartTapering + xtaperingWidth
+  zStopTapering = zStartTapering - ztaperingWidth
+
+
 
   ! cohesion 0MPa          
   DISC%DynRup%cohesion = 0.0
@@ -3288,12 +3305,25 @@ MODULE ini_model_DR_mod
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
           ! friction law changes in a
           ! smoothed Boxcar function in transition region (3km)
-          IF ( ((xGP.GT.15000.0D0).AND.(xGP.LT.18000.0D0))      &
-              .OR.((xGP.LT.-15000.0D0).AND.(xGP.GT.-18000.0D0)) &
-              .OR.((zGP.LT.-15000.0D0).AND.(zGP.GT.-18000.0D0))) THEN
+          IF ( ((xGP.GT.xRiStartTapering).AND.(xGP.LT.xRiStopTapering))      &
+              .OR.((xGP.LT.xLeStartTapering).AND.(xGP.GT.xLeStopTapering)) &
+              .OR.((zGP.LT.zStartTapering).AND.(zGP.GT.zStopTapering))) THEN
               ! TANH(X)=(1-EXP(-2X))/(1+EXP(-2X))
-              IF (abs(xGP).GT.15000.0D0) THEN
-                 tmp = 3000.0D0/(ABS(xGP)-18000.0D0)+3000.0D0/(ABS(xGP)-15000.0D0)
+
+              ! x left tapering
+              IF (xGP.LT.xLeStartTapering) THEN
+                 tmp = xtaperingWidth/(ABS(xGP)-ABS(xLeStopTapering))+xtaperingWidth/(ABS(xGP)-ABS(xLeStartTapering))
+                 tmp = EXP(-2.0D0*tmp)
+                 if ((tmp-1).EQ.tmp) THEN
+                    Boxx = 0d0
+                 ELSE
+                    ! x
+                    Boxx = 0.5D0*(1.0D0+((1.0D0-tmp)/(1.0D0+tmp)))
+                 ENDIF
+              ELSE
+              ! x right tapering
+              IF (xGP.GT.xRiStartTapering) THEN
+                 tmp = xtaperingWidth/(ABS(xGP)-ABS(xRiStopTapering))+xtaperingWidth/(ABS(xGP)-ABS(xRiStartTapering))
                  tmp = EXP(-2.0D0*tmp)
                  if ((tmp-1).EQ.tmp) THEN
                     Boxx = 0d0
@@ -3304,9 +3334,11 @@ MODULE ini_model_DR_mod
               ELSE
                  Boxx =1d0
               ENDIF
-              IF (abs(zGP).GT.15000.0D0) THEN
+              ENDIF
+
+              IF (zGP.LT.zStartTapering) THEN
                  ! z
-                 tmp = 3000.0D0/(ABS(zGP)-18000.0D0)+3000.0D0/(ABS(zGP)-15000d0)
+                 tmp = ztaperingWidth/(ABS(zGP)-ABS(zStopTapering))+ztaperingWidth/(ABS(zGP)-ABS(zStartTapering))
                  tmp = EXP(-2.0D0*tmp)
                  if ((tmp-1).EQ.tmp) THEN
                     Boxz = 0d0
@@ -3317,13 +3349,13 @@ MODULE ini_model_DR_mod
                  Boxz =1d0
               ENDIF
               ! smooth boxcar
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+0.01D0*(1.0D0-(Boxx*Boxz))
-              DISC%DynRup%RS_srW_array(i,iBndGP)=DISC%DynRup%RS_srW+0.9D0*(1.0D0-(Boxx*Boxz))
-          ELSEIF ((xGP.GE.18000.0D0) .OR. (xGP.LE.-18000.0D0)        &
-              .OR. (zGP.LE.-18000.0D0)) THEN
+              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+RS_a_inc*(1.0D0-(Boxx*Boxz))
+              DISC%DynRup%RS_srW_array(i,iBndGP)=DISC%DynRup%RS_srW+RS_srW_inc*(1.0D0-(Boxx*Boxz))
+          ELSEIF ((xGP.GE.xRiStopTapering) .OR. (xGP.LE.xLeStopTapering)        &
+              .OR. (zGP.LE.zStopTapering)) THEN
               ! velocity strengthening in exterior region (3km)
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+0.01D0
-              DISC%DynRup%RS_srW_array(i,iBndGP) = DISC%DynRup%RS_srW+0.9D0
+              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+RS_a_inc
+              DISC%DynRup%RS_srW_array(i,iBndGP) = DISC%DynRup%RS_srW+RS_srW_inc
               !
           ELSE
               ! velocity-weakening in interior fault region (30 km * 15 km)
@@ -3331,10 +3363,8 @@ MODULE ini_model_DR_mod
               DISC%DynRup%RS_srW_array(i,iBndGP) = DISC%DynRup%RS_srW
               !
           ENDIF
-          ! resulting changes in SV_ini
-          !Done in friction_RSF103
-          EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%ShearXY_0/EQN%Bulk_yy_0-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(i,iBndGP)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
-      ! Nucleation in Evaluate friction special case  
+          ! resulting changes in SV_ini done in friction_RSF103
+          ! Nucleation in Evaluate friction special case
       ENDDO ! iBndGP
                           
   ENDDO !    MESH%Fault%nSide   

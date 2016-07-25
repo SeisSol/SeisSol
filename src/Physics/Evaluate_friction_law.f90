@@ -1519,7 +1519,9 @@ MODULE Eval_friction_law_mod
     REAL        :: RS_f0,RS_a,RS_b,RS_sl0,RS_sr0
     REAL        :: RS_fw,RS_srW,flv,fss,SVss
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
+    REAL        :: hypox, hypoy, hypoz
     REAL        :: Rnuc, Tnuc, radius, Gnuc, Fnuc, invZ, AlmostZero, aTolF
+    REAL        :: prevtime,dt
     LOGICAL     :: has_converged
     LOGICAL     :: nodewise=.FALSE.
     REAL        :: xp(MESH%GlobalElemType), yp(MESH%GlobalElemType), zp(MESH%GlobalElemType)
@@ -1541,8 +1543,12 @@ MODULE Eval_friction_law_mod
 
     !Apply time dependent nucleation at global time step not sub time steps for simplicity
     !initialize time and space dependent nucleation
-    Rnuc=3000.0D0
-    Tnuc=1.0D0
+    Rnuc = DISC%DynRup%R_crit
+    Tnuc = DISC%DynRup%t_0
+    hypox = DISC%DynRup%XHypo
+    hypoy = DISC%DynRup%YHypo
+    hypoz = DISC%DynRup%ZHypo
+
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
     AlmostZero = 1d-25
@@ -1556,10 +1562,14 @@ MODULE Eval_friction_law_mod
     nSRupdates = 60
     nSVupdates = 2
 
-
+    dt = DISC%Galerkin%TimeGaussP(nTimeGP) + DeltaT(1)
     IF (time.LE.Tnuc) THEN
     IF (time.GT.0.0D0) THEN
         Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
+        prevtime = time - dt
+        IF (prevtime.GT.0.0D0) THEN
+        Gnuc= Gnuc - EXP((prevtime-Tnuc)**2/(prevtime*(prevtime-2.0D0*Tnuc)))
+        ENDIF
     ELSE
         Gnuc=0.0D0
     ENDIF
@@ -1595,11 +1605,16 @@ MODULE Eval_friction_law_mod
                 CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
                 !
                 !radial distance to hypocenter
-                radius=SQRT(xGP**2+(zGP+7500.0D0)**2)
+                radius=SQRT((xGP-hypox)**2+(yGP-hypoy)**2+(zGP-hypoz)**2)
                 ! Inside nucleation patch add shear stress perturbation of 45 MPa along strike
                 IF (radius.LT.Rnuc) THEN
                     Fnuc=EXP(radius**2/(radius**2-Rnuc**2))
-                    EQN%IniShearXY(iFace,iBndGP)=EQN%ShearXY_0+45.0e6*Fnuc*Gnuc
+                    EQN%IniBulk_xx(iFace,iBndGP)=EQN%IniBulk_xx(iFace,iBndGP)+DISC%DynRup%NucBulk_xx_0*Fnuc*Gnuc
+                    EQN%IniBulk_yy(iFace,iBndGP)=EQN%IniBulk_yy(iFace,iBndGP)+DISC%DynRup%NucBulk_yy_0*Fnuc*Gnuc
+                    EQN%IniBulk_zz(iFace,iBndGP)=EQN%IniBulk_zz(iFace,iBndGP)+DISC%DynRup%NucBulk_zz_0*Fnuc*Gnuc
+                    EQN%IniShearXY(iFace,iBndGP)=EQN%IniShearXY(iFace,iBndGP)+DISC%DynRup%NucShearXY_0*Fnuc*Gnuc
+                    EQN%IniShearXZ(iFace,iBndGP)=EQN%IniShearXZ(iFace,iBndGP)+DISC%DynRup%NucShearXZ_0*Fnuc*Gnuc
+                    EQN%IniShearYZ(iFace,iBndGP)=EQN%IniShearYZ(iFace,iBndGP)+DISC%DynRup%NucShearYZ_0*Fnuc*Gnuc
                 ENDIF ! Rnuc
                 !
             ENDDO ! iBndGP
@@ -1623,16 +1638,16 @@ MODULE Eval_friction_law_mod
                 ENDDO
             ENDIF
             !max radial distance to hypocenter
-            radius=SQRT( (MAXVAL(xp(1:3)))**2 + ((MAXVAL(zp(1:3))+7500.0D0))**2 )
+            radius=SQRT((MAXVAL(xp(1:3))-hypox)**2+(MAXVAL(yp(1:3))-hypoy)**2+(MAXVAL(zp(1:3))-hypoz)**2)
                     ! Inside nucleation patch add shear stress perturbation of 45 MPa along strike
         IF (radius.LT.Rnuc) THEN
             Fnuc=EXP(radius**2/(radius**2-Rnuc**2))
-            IF (time.GT.0.0D0) THEN
-                Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
-            ELSE
-                Gnuc=0.0D0
-            ENDIF
-            EQN%IniShearXY(iFace,:)=EQN%ShearXY_0+45.0e6*Fnuc*Gnuc
+            EQN%IniBulk_xx(iFace,:)=EQN%IniBulk_xx(iFace,:)+DISC%DynRup%NucBulk_xx_0*Fnuc*Gnuc
+            EQN%IniBulk_yy(iFace,:)=EQN%IniBulk_yy(iFace,:)+DISC%DynRup%NucBulk_yy_0*Fnuc*Gnuc
+            EQN%IniBulk_zz(iFace,:)=EQN%IniBulk_zz(iFace,:)+DISC%DynRup%NucBulk_zz_0*Fnuc*Gnuc
+            EQN%IniShearXY(iFace,:)=EQN%IniShearXY(iFace,:)+DISC%DynRup%NucShearXY_0*Fnuc*Gnuc
+            EQN%IniShearXZ(iFace,:)=EQN%IniShearXZ(iFace,:)+DISC%DynRup%NucShearXZ_0*Fnuc*Gnuc
+            EQN%IniShearYZ(iFace,:)=EQN%IniShearYZ(iFace,:)+DISC%DynRup%NucShearYZ_0*Fnuc*Gnuc
             ENDIF ! Rnuc
     ENDIF ! nodewise
     ENDIF ! Tnuc

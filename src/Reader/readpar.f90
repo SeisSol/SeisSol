@@ -1663,6 +1663,17 @@ CONTAINS
              DISC%DynRup%RS_srW = RS_srW  ! Vw, weakening sliding velocity
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
+             DISC%DynRup%XHypo  = XHypo
+             DISC%DynRup%YHypo  = YHypo
+             DISC%DynRup%ZHypo  = ZHypo
+             DISC%DynRup%R_crit   = R_crit    ! radius of the nucleation patch
+             DISC%DynRup%t_0      = t_0       ! forced rupture decay time
+             DISC%DynRup%NucBulk_xx_0 = NucBulk_xx_0
+             DISC%DynRup%NucBulk_yy_0 = NucBulk_yy_0
+             DISC%DynRup%NucBulk_zz_0 = NucBulk_zz_0
+             DISC%DynRup%NucShearXY_0 = NucShearXY_0
+             DISC%DynRup%NucShearYZ_0 = NucShearYZ_0
+             DISC%DynRup%NucShearXZ_0 = NucShearXZ_0
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
              STOP
