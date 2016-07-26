@@ -55,13 +55,11 @@ void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWave
 	int file = open();
 	checkErr(file);
 
-	// Skip identifier
-	checkErr(lseek64(file, sizeof(unsigned long), SEEK_SET));
-
 	// Read header
-	checkErr(read(file, &time, sizeof(time)), sizeof(time));
-	checkErr(read(file, &timestepWaveField, sizeof(timestepWaveField)),
-			sizeof(timestepWaveField));
+	WavefieldHeader header;
+	readHeader(file, header);
+	time = header.time;
+	timestepWaveField = header.timestepWaveField;
 
 	// Skip other processes before this in the group
 	checkErr(lseek64(file, groupOffset() * sizeof(real), SEEK_CUR));
@@ -90,8 +88,8 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 
 	logInfo(rank()) << "Writing check point.";
 
-	// Skip identifier
-	checkErr(lseek64(file(), sizeof(unsigned long), SEEK_SET));
+	// Start at the beginning
+	checkErr(lseek64(file(), 0, SEEK_SET));
 
 	// Write the header
 	EPIK_USER_REG(r_write_header, "checkpoint_write_header");
@@ -99,8 +97,10 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	EPIK_USER_START(r_write_header);
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	checkErr(writeAligned(file(), time), sizeof(time));
-	checkErr(writeAligned(file(), timestepWaveField), sizeof(timestepWaveField));
+	WavefieldHeader header;
+	header.time = time;
+	header.timestepWaveField = timestepWaveField;
+	writeHeader(file(), header);
 
 	EPIK_USER_END(r_write_header);
 	SCOREP_USER_REGION_END(r_write_header);

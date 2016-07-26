@@ -52,11 +52,20 @@ namespace checkpoint
 namespace posix
 {
 
+/**
+ * Header info (excluding the id) for wave field checkpoints
+ */
+struct WavefieldHeader
+{
+	double time;
+	int timestepWaveField;
+};
+
 class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
 {
 public:
 	Wavefield()
-		: CheckPoint(0x7A56F)
+		: CheckPoint(0x7A56F, sizeof(WavefieldHeader))
 	{
 	}
 

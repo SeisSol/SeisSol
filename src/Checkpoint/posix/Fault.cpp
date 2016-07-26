@@ -65,11 +65,8 @@ void seissol::checkpoint::posix::Fault::load(int &timestepFault, double* mu, dou
 	int file = open();
 	checkErr(file);
 
-	// Skip identifier
-	checkErr(lseek64(file, sizeof(unsigned long), SEEK_SET));
-
 	// Read header
-	checkErr(read(file, &timestepFault, sizeof(timestepFault)), sizeof(timestepFault));
+	readHeader(file, timestepFault);
 
 	double* data[NUM_VARIABLES] = {mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength};
 
@@ -99,8 +96,8 @@ void seissol::checkpoint::posix::Fault::write(int timestepFault)
 
 	logInfo(rank()) << "Writing fault check point.";
 
-	// Skip identifier
-	checkErr(lseek64(file(), sizeof(unsigned long), SEEK_SET));
+	// Start at the beginning
+	checkErr(lseek64(file(), 0, SEEK_SET));
 
 	// Write the header
 	EPIK_USER_REG(r_write_header, "checkpoint_write_fault_header");
@@ -108,7 +105,7 @@ void seissol::checkpoint::posix::Fault::write(int timestepFault)
 	EPIK_USER_START(r_write_header);
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_fault_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	checkErr(writeAligned(file(), timestepFault), sizeof(timestepFault));
+	writeHeader(file(), timestepFault)
 
 	EPIK_USER_END(r_write_header);
 	SCOREP_USER_REGION_END(r_write_header);

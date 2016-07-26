@@ -56,7 +56,7 @@ class Fault : public CheckPoint, virtual public seissol::checkpoint::Fault
 {
 public:
 	Fault()
-		: CheckPoint(0x7A127)
+		: CheckPoint(0x7A127, sizeof(int))
 	{}
 
 	bool init(unsigned int numSides, unsigned int numBndGP,

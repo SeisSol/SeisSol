@@ -45,6 +45,7 @@
 #include <mpi.h>
 #endif // USE_MPI
 
+#include <cassert>
 #include <cstring>
 #include <errno.h>
 #include <fcntl.h>
@@ -77,20 +78,36 @@ private:
 	/** Identifiers of the files */
 	int m_files[2];
 
-	/** Buffer to write aligned data */
-	void* m_alignBuffer;
+	/** The size of the header */
+	size_t m_headerSize;
+
+	/** Buffer to write header data */
+	void* m_header;
 
 public:
-	CheckPoint(unsigned long identifier)
-		: m_identifier(identifier),
-		  m_alignBuffer(0L)
+	CheckPoint(unsigned long identifier, size_t headerSize)
+		: m_identifier(identifier)
 	{
 		m_files[0] = m_files[1] = -1;
+
+		headerSize += sizeof(unsigned long); // Require additional space for the identifier
+		size_t align = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_POSIX_ALIGN", 0);
+		if (align) {
+			headerSize = (headerSize + align - 1) / align;
+			headerSize *= align;
+
+			if (posix_memalign(&m_header, align, headerSize) != 0)
+				logError() << "Could not allocate buffer for alignment";
+		} else {
+			m_header = malloc(headerSize);
+		}
+
+		m_headerSize = headerSize;
 	}
 
 	virtual ~CheckPoint()
 	{
-		free(m_alignBuffer);
+		free(m_header);
 	}
 
 	void setFilename(const char* filename)
@@ -209,23 +226,12 @@ protected:
 		if (utils::Env::get<int>("SEISSOL_CHECKPOINT_DIRECT", 0)) {
 			oflags |= O_DIRECT;
 			logInfo(rank()) << "Using direct I/O for checkpointing";
-
-			// FIXME this is a workaround, for POSIX it is probably better to
-			// create a new with is written by rank 0 and contains the header information
-			// instead of writing the header from each process
-			size_t align = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_DIRECT_ALIGN", 0);
-			if (align) {
-				if (posix_memalign(&m_alignBuffer, align, std::max(sizeof(double), sizeof(unsigned int))) != 0)
-					logError() << "Could not allocate buffer for alignment";
-			}
 		}
 
 		for (unsigned int i = 0; i < 2; i++) {
 			m_files[i] = open64(dataFile(i).c_str(), oflags,
 					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 			checkErr(m_files[i]);
-
-			checkErr(writeAligned(m_files[i], m_identifier), sizeof(m_identifier));
 
 			// Sync file (required for performance measure)
 			// TODO preallocate file first
@@ -234,17 +240,33 @@ protected:
 	}
 
 	/**
-	 * Write a value to file using ligned memory locations (if enabled)
+	 * Read the header info from the file
 	 */
 	template<typename T>
-	ssize_t writeAligned(int file, T value)
+	void readHeader(int file, T &header)
 	{
-		if (m_alignBuffer) {
-			*static_cast<T*>(m_alignBuffer) = value;
-			return write(file, m_alignBuffer, sizeof(T));
-		}
+		assert(sizeof(T)+sizeof(unsigned long) <= m_headerSize);
 
-		return write(file, &value, sizeof(T));
+		checkErr(read(file, m_header, m_headerSize), m_headerSize);
+
+		T* headStart = reinterpret_cast<T*>(static_cast<unsigned long*>(m_header)+1);
+		header = *headStart;
+	}
+
+	/**
+	 * Write the header info to the file
+	 */
+	template<typename T>
+	void writeHeader(int file, const T &header)
+	{
+		assert(sizeof(T)+sizeof(unsigned long) <= m_headerSize);
+
+		*static_cast<unsigned long*>(m_header) = m_identifier;
+
+		T* headStart = reinterpret_cast<T*>(static_cast<unsigned long*>(m_header)+1);
+		*headStart = header;
+
+		checkErr(write(file, m_header, m_headerSize), m_headerSize);
 	}
 
 private:
@@ -261,7 +283,7 @@ private:
 		}
 
 		if (id != identifier()) {
-			logWarning() << "Checkpoint identifier does match";
+			logWarning() << "Checkpoint identifier does match" << id << identifier();
 			return false;
 		}
 
