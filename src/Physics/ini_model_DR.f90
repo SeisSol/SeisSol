@@ -3312,7 +3312,7 @@ MODULE ini_model_DR_mod
 
               ! x left tapering
               IF (xGP.LT.xLeStartTapering) THEN
-                 tmp = xtaperingWidth/(ABS(xGP)-ABS(xLeStopTapering))+xtaperingWidth/(ABS(xGP)-ABS(xLeStartTapering))
+                 tmp = -xtaperingWidth/ABS(xGP-xLeStopTapering)+xtaperingWidth/ABS(xGP-xLeStartTapering)
                  tmp = EXP(-2.0D0*tmp)
                  if ((tmp-1).EQ.tmp) THEN
                     Boxx = 0d0
@@ -3323,7 +3323,7 @@ MODULE ini_model_DR_mod
               ELSE
               ! x right tapering
               IF (xGP.GT.xRiStartTapering) THEN
-                 tmp = xtaperingWidth/(ABS(xGP)-ABS(xRiStopTapering))+xtaperingWidth/(ABS(xGP)-ABS(xRiStartTapering))
+                 tmp = -xtaperingWidth/ABS(xGP-xRiStopTapering)+xtaperingWidth/ABS(xGP-xRiStartTapering)
                  tmp = EXP(-2.0D0*tmp)
                  if ((tmp-1).EQ.tmp) THEN
                     Boxx = 0d0
@@ -3338,7 +3338,7 @@ MODULE ini_model_DR_mod
 
               IF (zGP.LT.zStartTapering) THEN
                  ! z
-                 tmp = ztaperingWidth/(ABS(zGP)-ABS(zStopTapering))+ztaperingWidth/(ABS(zGP)-ABS(zStartTapering))
+                 tmp = -ztaperingWidth/ABS(zGP-zStopTapering)+ztaperingWidth/ABS(zGP-zStartTapering)
                  tmp = EXP(-2.0D0*tmp)
                  if ((tmp-1).EQ.tmp) THEN
                     Boxz = 0d0
