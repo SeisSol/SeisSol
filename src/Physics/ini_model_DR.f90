@@ -4078,6 +4078,7 @@ MODULE ini_model_DR_mod
   SUBROUTINE friction_RSF103(DISC,EQN,MESH,BND)
   !-------------------------------------------------------------------------!
   USE DGBasis_mod
+  USE JacobiNormal_mod
   !-------------------------------------------------------------------------!
   IMPLICIT NONE
   !-------------------------------------------------------------------------!
@@ -4095,6 +4096,13 @@ MODULE ini_model_DR_mod
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
   REAL                           :: iniSlipRate, tmp
+  REAL                           :: Stress(6,1:DISC%Galerkin%nBndGP)
+  REAL                           :: NormalVect_n(3)                                            ! Normal vector components         !
+  REAL                           :: NormalVect_s(3)                                            ! Normal vector components         !
+  REAL                           :: NormalVect_t(3)                                            ! Normal vector components         !
+  REAL                           :: T(EQN%nVar,EQN%nVar)                                       ! Transformation matrix            !
+  REAL                           :: iT(EQN%nVar,EQN%nVar)                                      ! inverse Transformation matrix    !
+
   !-------------------------------------------------------------------------! 
   INTENT(IN)    :: MESH,BND
   INTENT(INOUT) :: DISC,EQN
@@ -4131,6 +4139,27 @@ MODULE ini_model_DR_mod
           zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
       ENDIF
       !
+
+      !Background stress rotation to face's reference system
+      !
+      Stress(1,:)=EQN%IniBulk_xx(i,:)
+      Stress(2,:)=EQN%IniBulk_yy(i,:)
+      Stress(3,:)=EQN%IniBulk_zz(i,:)
+      Stress(4,:)=EQN%IniShearXY(i,:)
+      Stress(5,:)=EQN%IniShearYZ(i,:)
+      Stress(6,:)=EQN%IniShearXZ(i,:)
+
+      ! Local side's normal vector from "+" side = iElem
+      NormalVect_n = MESH%Fault%geoNormals(1:3,i)
+      NormalVect_s = MESH%Fault%geoTangent1(1:3,i)
+      NormalVect_t = MESH%Fault%geoTangent2(1:3,i)
+      !
+      CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),EQN)
+
+      DO iBndGP=1, DISC%Galerkin%nBndGP
+         Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))
+      ENDDO
+
       DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
           !
           ! Transformation of boundary GP's into XYZ coordinate system
@@ -4139,7 +4168,8 @@ MODULE ini_model_DR_mod
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
           ! SINH(X)=(EXP(X)-EXP(-X))/2
-          tmp = ABS(EQN%IniShearXY(i,iBndGP)/(DISC%DynRup%RS_a_array(i,iBndGP)*EQN%IniBulk_yy(i,iBndGP)))
+          !tmp = ABS(EQN%IniShearXY(i,iBndGP)/(DISC%DynRup%RS_a_array(i,iBndGP)*EQN%IniBulk_yy(i,iBndGP)))
+          tmp = ABS(SQRT(Stress(4,iBndGP)**2+Stress(6,iBndGP)**2)/(DISC%DynRup%RS_a_array(i,iBndGP)*Stress(1,iBndGP)))
           EQN%IniStateVar(i,iBndGP)=DISC%DynRup%RS_a_array(i,iBndGP)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
           tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(i,iBndGP)/ DISC%DynRup%RS_a_array(i,iBndGP))
