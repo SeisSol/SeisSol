@@ -114,6 +114,11 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	// Convert to char* to do pointer arithmetic
 	const char* buffer = reinterpret_cast<const char*>(dofs());
 	unsigned long left = numDofs()*sizeof(real);
+	if (alignment()) {
+		left = (left + alignment() - 1) / alignment();
+		left *= alignment();
+	}
+
 	while (left > 0) {
 		unsigned long written = ::write(file(), buffer, left);
 		if (written <= 0)

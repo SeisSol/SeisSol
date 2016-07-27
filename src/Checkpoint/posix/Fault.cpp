@@ -116,8 +116,14 @@ void seissol::checkpoint::posix::Fault::write(int timestepFault)
 	EPIK_USER_START(r_write_wavefield);
 	SCOREP_USER_REGION_BEGIN(r_write_fault, "checkpoint_write_fault", SCOREP_USER_REGION_TYPE_COMMON);
 
+	unsigned long size = numSides() * numBndGP() * sizeof(real);
+	if (alignment()) {
+		size = (size + alignment() - 1) / alignment();
+		size *= alignment();
+	}
+
 	for (unsigned int i = 0; i < NUM_VARIABLES; i++)
-		checkErr(::write(file(), data(i), numSides() * numBndGP() * sizeof(real)));
+		checkErr(::write(file(), data(i), size));
 
 	EPIK_USER_END(r_write_fault);
 	SCOREP_USER_REGION_END(r_write_fault);

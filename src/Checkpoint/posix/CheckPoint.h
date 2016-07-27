@@ -78,6 +78,9 @@ private:
 	/** Identifiers of the files */
 	int m_files[2];
 
+	/** Alignment used for all writes */
+	size_t m_alignment;
+
 	/** The size of the header */
 	size_t m_headerSize;
 
@@ -91,12 +94,12 @@ public:
 		m_files[0] = m_files[1] = -1;
 
 		headerSize += sizeof(unsigned long); // Require additional space for the identifier
-		size_t align = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_POSIX_ALIGN", 0);
-		if (align) {
-			headerSize = (headerSize + align - 1) / align;
-			headerSize *= align;
+		m_alignment = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_POSIX_ALIGN", 0);
+		if (m_alignment) {
+			headerSize = (headerSize + m_alignment - 1) / m_alignment;
+			headerSize *= m_alignment;
 
-			if (posix_memalign(&m_header, align, headerSize) != 0)
+			if (posix_memalign(&m_header, m_alignment, headerSize) != 0)
 				logError() << "Could not allocate buffer for alignment";
 		} else {
 			m_header = malloc(headerSize);
@@ -200,6 +203,14 @@ protected:
 	unsigned long identifier() const
 	{
 		return m_identifier;
+	}
+
+	/**
+	 * @return The alignment used for writes
+	 */
+	size_t alignment() const
+	{
+		return m_alignment;
 	}
 
 protected:
