@@ -50,6 +50,11 @@ disp('     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
 disp(' '),disp(' ')
 
 clear, close all;
+workingdir   = input('     workingdir in which are the RF files     :   ','s');
+if strcmp(workingdir,'')
+    workingdir='.'
+end
+
 savedata     = input('     Save data to file? (1=yes, 0=no)         :   ');
 if (savedata == 1)
   format     = input('     Data format? (1=.dat, 2=.mat)            :   ');
@@ -63,12 +68,16 @@ end;
 disp(' '),  disp('     Read data...' )
 
 % read in data
-liste=dir('*-RF-*');
+Ssearch = sprintf('%s/%s',workingdir,'*-RF-*');
+liste=dir(Ssearch);
+
 files = {liste.name};
 istart=1;
 for k=1:numel(files)
     % read files
-    fid = fopen(files{k},'r');
+    sfilename = sprintf('%s/%s',workingdir,files{k});
+    fid = fopen(sfilename,'r');
+
     maxnumberlines = fscanf(fid,'%g',[1,1]);
     data_tmp(:,:) = fscanf(fid,'%g',[4,maxnumberlines]);
     fclose(fid);
