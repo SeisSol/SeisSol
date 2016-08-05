@@ -45,6 +45,7 @@ import re
 import tempfile
 import scipy.io
 import scipy.sparse
+import inspect
     
 def generateRoutineName(gemm):
   name = 'sparse_' + gemm['spMtxName'] if gemm['spp'] is not None else 'gemm'
@@ -115,7 +116,11 @@ class Generator:
           spp = gemmlist[index]['spp']
           if spp is not None:
             temp = tempfile.NamedTemporaryFile()
-            scipy.io.mmwrite(temp, scipy.sparse.coo_matrix(spp).asformat('csc'), symmetry='general')
+            # symmetry was introduced in scipy 0.17.0
+            if 'symmetry' in inspect.getargspec(scipy.io.mmwrite).args:
+              scipy.io.mmwrite(temp, scipy.sparse.coo_matrix(spp).asformat('csc'), symmetry='general')
+            else:
+              scipy.io.mmwrite(temp, scipy.sparse.coo_matrix(spp).asformat('csc'))
             sppFile = temp.name
           else:
             sppFile = ''
