@@ -13,11 +13,16 @@ import scipy.ndimage as ndimage
 
 #####Parameters###########
 
-cplotfile="ParRF10-25-RF-concat.dat"
-# Size of regular grid
+cplotfile="ParRF100-600-RF-concat.dat"
+# Size of regular grid (in m)
 dx, dz = 40., 40.
+#GDmethod = 'cubic'
+GDmethod = 'linear'
 #use Gaussian Filter?
 useGaussianFilter = True
+#Show a few percentiles of the Vr distribution for helping
+#setting p1 and p2
+ShowTailVrDistribution = False
 #min max percentiles of V for plotting (eliminate artefacts)
 p1, p2=1, 99
 #plot Vr=f(x) and Vr=f(y)
@@ -28,7 +33,6 @@ zm,zp = -20e3, 0
 ##########################
 
 #Read Cplot file
-#xyt = np.loadtxt(cplotfile, skiprows=20)
 xyt = np.loadtxt(cplotfile,  skiprows=1)
 print('done reading %s' %cplotfile)
 x = xyt[:,0]
@@ -43,8 +47,8 @@ Zi = np.arange(min(z), max(z), dz)
 xi, zi = np.meshgrid(Xi, Zi)
 
 # Interpolate using delaunay triangularization 
-ti = griddata((x,z), t, (xi, zi), method='cubic', fill_value = 1e20)
-yi = griddata((x,z), z, (xi, zi), method='cubic', fill_value = 0.)
+ti = griddata((x,z), t, (xi, zi), method=GDmethod, fill_value = 1e20)
+yi = griddata((x,z), y, (xi, zi), method=GDmethod, fill_value = 0.)
 
 
 if useGaussianFilter:
@@ -72,14 +76,15 @@ V=1./ slowness
 #V[where_are_null] = np.nan
 
 #Show a few percentiles for helping setting up p1 and p2
-for i in range(1,20):
-   V1=np.percentile(V, i)
-   print("percentile %d: %f" %(i,V1))
+if ShowTailVrDistribution:
+   for i in range(1,20):
+     V1=np.percentile(V, i)
+     print("percentile %d: %f" %(i,V1))
 
-print(" ")
-for i in range(99,70,-1):
-   V1=np.percentile(V, i)
-   print("percentile %d: %f" %(i,V1))
+   print(" ")
+   for i in range(99,70,-1):
+     V1=np.percentile(V, i)
+     print("percentile %d: %f" %(i,V1))
 
 V1=np.percentile(V, p1)
 V50=np.percentile(V, 50)
@@ -99,14 +104,14 @@ cmap.set_bad('w',1.)
 plt.pcolormesh(xi,zi,V)
 #Eliminate Vr artefacts (at rupture rim)
 plt.pcolormesh(xi,zi,masked_array,cmap=cmap)
-plt.clim(V1,V2)
-#plt.clim(0,5400)
+#plt.clim(V1,V2)
+plt.clim(0,5400)
 plt.colorbar()
 
 CS = plt.contour(Xi, Zi, ti,range(1,21),colors='k')
 plt.clabel(CS, fontsize=9, inline=1, fmt='%d')
 plt.xlim(xm,xp)
-plt.ylim(zm,zp)
+plt.ylim(zm-2e3,zp+2e3)
 plt.axis('equal')
 
 plt.show()
