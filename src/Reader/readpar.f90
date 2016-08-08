@@ -561,6 +561,9 @@ CONTAINS
       logInfo0(*) 'No material property zones are defined. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       !
+  CASE(122,1221,1222,1223,1224) ! SUMATRA T Ulrich 16.02.2016
+      !
+      logInfo(*) 'Material property zones are defined by SeisSol. '
   CASE DEFAULT
          logError(*) 'Wrong linearization type.'
       STOP
@@ -1572,7 +1575,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,70,100,101,103)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,70,100,101,103,119,120,1201,1202,121)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
