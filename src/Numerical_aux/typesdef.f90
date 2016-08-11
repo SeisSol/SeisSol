@@ -915,7 +915,7 @@ MODULE TypesDef
      REAL                                   :: RS_sl0                           !< Reference slip
      REAL                                   :: RS_f0                            !< Reference friction coefficient
      REAL                                   :: RS_a                             !< RS constitutive parameter "a"
-     REAL, POINTER                          :: RS_a_array(:,:) => NULL()                 !< Spatial dependent RS constitutive parameter "a"
+     REAL, ALLOCATABLE                      :: RS_a_array(:,:)                  !< Spatial dependent RS constitutive parameter "a"
      REAL                                   :: RS_b                             !< RS constitutive parameter "b"
      REAL                                   :: RS_iniSlipRate1                  !< initial slip rate for rate and state friction
      REAL                                   :: RS_iniSlipRate2                  !< initial slip rate for rate and state friction

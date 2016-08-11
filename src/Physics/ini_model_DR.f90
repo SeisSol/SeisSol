@@ -4092,6 +4092,7 @@ MODULE ini_model_DR_mod
   INTEGER                        :: iSide,iElem,iBndGP
   INTEGER                        :: iLocalNeighborSide,iNeighbor
   INTEGER                        :: MPIIndex, iObject
+  INTEGER                        :: allocstat            ! Allocation status return int.   !
   REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
@@ -4111,7 +4112,27 @@ MODULE ini_model_DR_mod
   EQN%IniSlipRate1 = DISC%DynRup%RS_iniSlipRate1
   EQN%IniSlipRate2 = DISC%DynRup%RS_iniSlipRate2
   iniSlipRate = SQRT(EQN%IniSlipRate1**2 + EQN%IniSlipRate2**2)
-            
+
+  IF(.NOT.ALLOCATED(DISC%DynRup%RS_a_array)) THEN
+     logWarning(*) 'RS_a_array not allocated before call of friction_RSF103. Allocating now.'
+     ALLOCATE(DISC%DynRup%RS_a_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP),STAT=allocstat)
+     IF (allocStat .NE. 0) THEN
+        logError(*) 'friction_RSF103: could not allocate all variables!'
+        STOP
+     END IF
+     DISC%DynRup%RS_a_array(:,:) = DISC%DynRup%RS_a
+  ENDIF
+  IF(.NOT.ALLOCATED(DISC%DynRup%RS_srW_array)) THEN
+     logWarning(*) 'RS_srW_array not allocated before call of friction_RSF103. Allocating now.'
+     ALLOCATE(DISC%DynRup%RS_srW_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP),STAT=allocstat)
+     IF (allocStat .NE. 0) THEN
+        logError(*) 'friction_RSF103: could not allocate all variables!'
+        STOP
+     END IF
+     DISC%DynRup%RS_srW_array(:,:) = DISC%DynRup%RS_srW
+  ENDIF
+
+
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
        
