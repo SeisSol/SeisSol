@@ -1551,7 +1551,7 @@ MODULE Eval_friction_law_mod
 
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
-    AlmostZero = 1d-25
+    AlmostZero = 1d-45
     !
     !PARAMETERS of THE optimisation loops
     !absolute tolerance on the function to be optimzed
