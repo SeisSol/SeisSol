@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,11 @@ typedef MPIDummy MPI;
 class MPI : public MPIBasic
 {
 private:
+	MPI_Comm m_comm;
+
+private:
 	MPI()
+		: m_comm(MPI_COMM_NULL)
 	{ }
 
 public:
@@ -78,15 +82,25 @@ public:
 	 */
 	void init(int &argc, char** &argv)
 	{
-#if defined(USE_COMM_THREAD) || defined(USE_ASAGI)
+#if defined(USE_COMM_THREAD) || defined(USE_ASAGI) \
+	|| defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
 		int provided;
 		MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
 #else // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
+	// || defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
 		MPI_Init(&argc, &argv);
 #endif // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
+	// || defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
 
-		MPI_Comm_rank(MPI_COMM_WORLD, &m_rank);
-		MPI_Comm_size(MPI_COMM_WORLD, &m_size);
+		setComm(MPI_COMM_WORLD);
+	}
+
+	void setComm(MPI_Comm comm)
+	{
+		m_comm = comm;
+
+		MPI_Comm_rank(comm, &m_rank);
+		MPI_Comm_size(comm, &m_size);
 	}
 
 	/**
@@ -94,7 +108,7 @@ public:
 	 */
 	MPI_Comm comm() const
 	{
-		return MPI_COMM_WORLD;
+		return m_comm;
 	}
 
 	void barrier(MPI_Comm comm) const

@@ -3,9 +3,10 @@
 # This file is part of SeisSol.
 #
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 #
 # @section LICENSE
-# Copyright (c) 2015, SeisSol Group
+# Copyright (c) 2015-2016, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -47,6 +48,7 @@ import Waveform
 
 class Navigation(QWidget):
   activeItemChanged = pyqtSignal(name='activeItemChanged')
+  folderChanged = pyqtSignal(str, str, name='folderChanged')
   close = pyqtSignal(QWidget, name='close')
 
   def __init__(self, noclose = False, parent = None):
@@ -84,12 +86,16 @@ class Navigation(QWidget):
   def selectFolder(self):
     folder = QFileDialog.getExistingDirectory(self, 'Open directory', self.currentFolder, QFileDialog.ShowDirsOnly)
     if not folder.isEmpty():
-      self.currentFolder = str(folder)
-      self.readFolder(self.currentFolder)
+      folder = str(folder)
+      self.readFolder(folder)
+      self.folderChanged.emit(self.currentFolder, folder)
+      self.currentFolder = folder
       
   def readFolder(self, folder):
     if len(folder) != 0:
+      currentIndex = self.receiverList.currentIndex()
       self.model.clear()
+      
       files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
       files.sort()
       for f in files:
@@ -97,6 +103,11 @@ class Navigation(QWidget):
         item = QStandardItem(f)
         item.setData(wf)
         self.model.appendRow(item)
+        
+      if currentIndex.row() >= 0 and len(files) > currentIndex.row():
+        newIndex = self.model.index(currentIndex.row(), currentIndex.column())
+        self.receiverList.setCurrentIndex(newIndex)
+        self.activeItemChanged.emit()
     
   def getActiveWaveforms(self):      
     waveforms = []
@@ -107,7 +118,8 @@ class Navigation(QWidget):
     
   def refreshFolder(self):
     self.readFolder(self.currentFolder)
-    self.activeItemChanged.emit()
+    if not self.receiverList.selectionModel().hasSelection():
+      self.activeItemChanged.emit()
     
   def numberOfRows(self):
     return self.model.rowCount() 
@@ -116,6 +128,7 @@ class Navigation(QWidget):
     self.receiverList.selectionModel().select(self.model.index(row, 0), QItemSelectionModel.ClearAndSelect)
   
   def emitClose(self):
+    self.folderChanged.emit(self.currentFolder, '')
     self.close.emit(self)
     
 

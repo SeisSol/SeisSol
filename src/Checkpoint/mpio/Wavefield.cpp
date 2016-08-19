@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,10 +42,11 @@
 #include <cstddef>
 
 #include "Wavefield.h"
+#include "Monitoring/instrumentation.fpp"
 
-bool seissol::checkpoint::mpio::Wavefield::init(real* dofs, unsigned int numDofs)
+bool seissol::checkpoint::mpio::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
 {
-	seissol::checkpoint::Wavefield::init(dofs, numDofs);
+	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 
 	// Create the header data type
 	MPI_Datatype headerType;
@@ -62,11 +63,11 @@ bool seissol::checkpoint::mpio::Wavefield::init(real* dofs, unsigned int numDofs
 	return exists();
 }
 
-void seissol::checkpoint::mpio::Wavefield::load(double &time, int &timestepWaveField)
+void seissol::checkpoint::mpio::Wavefield::load(double &time, int &timestepWaveField, real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
-	seissol::checkpoint::CheckPoint::load();
+	seissol::checkpoint::CheckPoint::setLoaded();
 
 	MPI_File file = open();
 	if (file == MPI_FILE_NULL)
@@ -85,7 +86,7 @@ void seissol::checkpoint::mpio::Wavefield::load(double &time, int &timestepWaveF
 
 	// Read dofs
 	checkMPIErr(setDataView(file));
-	checkMPIErr(MPI_File_read_all(file, dofs(), numDofs(), MPI_DOUBLE, MPI_STATUS_IGNORE));
+	checkMPIErr(MPI_File_read_all(file, dofs, numDofs(), MPI_DOUBLE, MPI_STATUS_IGNORE));
 
 	// Close the file
 	checkMPIErr(MPI_File_close(&file));
@@ -109,7 +110,7 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 
 	checkMPIErr(setDataView(file()));
 
-	checkMPIErr(MPI_File_write_all(file(), dofs(), numDofs(), MPI_DOUBLE, MPI_STATUS_IGNORE));
+	checkMPIErr(MPI_File_write_all(file(), const_cast<real*>(dofs()), numDofs(), MPI_DOUBLE, MPI_STATUS_IGNORE));
 
 	EPIK_USER_END(r_write_wavefield);
 	SCOREP_USER_REGION_END(r_write_wavefield);

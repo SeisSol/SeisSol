@@ -72,6 +72,9 @@ private:
 	/** Identifiers of the files */
 	MPI_File m_mpiFiles[2];
 
+	/** True of the checkpoint files are opened */
+	bool m_open;
+
 	/** Number of bytes reserved for the header */
 	unsigned long m_headerSize;
 
@@ -88,6 +91,7 @@ public:
 	CheckPoint(unsigned long identifier, unsigned int elemSize)
 		: m_identifier(identifier),
 		  m_elemSize(elemSize),
+		  m_open(false),
 		  m_headerSize(0), m_headerType(MPI_DATATYPE_NULL),
 		  m_fileHeaderType(MPI_DATATYPE_NULL), m_fileDataType(MPI_DATATYPE_NULL)
 	{
@@ -100,26 +104,14 @@ public:
 		initFilename(filename, "scp");
 	}
 
-	void initLate()
-	{
-		seissol::checkpoint::CheckPoint::initLate();
-
-		MPIInfo info;
-
-		for (unsigned int i = 0; i < 2; i++) {
-			checkMPIErr(MPI_File_open(comm(), const_cast<char*>(dataFile(i).c_str()),
-					MPI_MODE_WRONLY | MPI_MODE_CREATE, info.get(), &m_mpiFiles[i]));
-
-			// Sync file (required for performance measure)
-			// TODO preallocate file first
-			checkMPIErr(MPI_File_sync(m_mpiFiles[i]));
-		}
-	}
-
 	void close()
 	{
-		for (unsigned int i = 0; i < 2; i++)
-			MPI_File_close(&m_mpiFiles[i]);
+		if (m_open) {
+			for (unsigned int i = 0; i < 2; i++)
+				MPI_File_close(&m_mpiFiles[i]);
+			m_open = false;
+		}
+
 		MPI_Type_free(&m_headerType);
 		MPI_Type_free(&m_fileDataType);
 		if (rank() == 0)
@@ -171,7 +163,7 @@ protected:
 		MPI_Type_commit(&m_fileDataType);
 
 		MPI_Type_free(&elemType);
-		
+
 		// Create the header file type
 		if (rank() == 0) {
 			MPI_Type_contiguous(headerSize, MPI_BYTE, &m_fileHeaderType);
@@ -195,6 +187,24 @@ protected:
 		MPI_File_close(&file);
 
 		return hasCheckpoint;
+	}
+
+	void createFiles()
+	{
+		seissol::checkpoint::CheckPoint::createFiles();
+
+		MPIInfo info;
+
+		for (unsigned int i = 0; i < 2; i++) {
+			checkMPIErr(MPI_File_open(comm(), const_cast<char*>(dataFile(i).c_str()),
+					MPI_MODE_WRONLY | MPI_MODE_CREATE, info.get(), &m_mpiFiles[i]));
+
+			// Sync file (required for performance measure)
+			// TODO preallocate file first
+			checkMPIErr(MPI_File_sync(m_mpiFiles[i]));
+		}
+
+		m_open = true;
 	}
 
 	/**
@@ -223,8 +233,10 @@ protected:
 	{
 		MPI_File fh;
 
+		MPIInfo info;
+
 		int result = MPI_File_open(comm(), const_cast<char*>(linkFile()),
-				MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+				MPI_MODE_RDONLY, info.get(), &fh);
 		if (result != 0) {
 			logWarning() << "Could not open checkpoint file";
 			return MPI_FILE_NULL;

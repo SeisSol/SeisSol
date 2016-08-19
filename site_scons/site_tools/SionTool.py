@@ -84,7 +84,7 @@ def generate(env, **kw):
                 if re.match("-L",item):
                     conf.env.Append(LINKFLAGS=[item])
                 if re.match("-l",item):
-                    conf.env.Append(LIBS=item[2:])
+                    conf.env.Append(LIBS=[item[2:]])
                     
             out=commands.getstatusoutput(sionconfig + ' --cxx --mpi --cflags --64')[1].split()
             for item in out:

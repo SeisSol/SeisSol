@@ -2,8 +2,10 @@
 !! @file
 !! This file is part of SeisSol.
 !!
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+!!
 !! @section LICENSE
-!! Copyright (c) 2008-2014, SeisSol Group
+!! Copyright (c) 2008-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -127,9 +129,9 @@ CONTAINS
       iCPU = BND%ObjMPI(iDomain)%CPU
 
       ! Initialize persistant MPI requests
-      call MPI_SEND_INIT(send_message_gts(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+      call MPI_SEND_INIT(send_message_gts(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
                      send_request_gts(iDomain), iErr)
-      call MPI_RECV_INIT(recv_message_gts(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+      call MPI_RECV_INIT(recv_message_gts(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
                      recv_request_gts(iDomain), iErr)
 
       ! Count total number of boundary elements
@@ -493,7 +495,7 @@ CONTAINS
       ENDIF ! (EQN%DR.EQ.1)
       !
       ! Post a send request to neighbor CPU
-      CALL MPI_ISEND(send_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+      CALL MPI_ISEND(send_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
                      send_request(iDomain), iErr)
     ENDDO
 
@@ -518,7 +520,7 @@ CONTAINS
       ! Number of neighbor CPU
       iCPU = BND%ObjMPI(iDomain)%CPU
       ! Post a receive request from neighbor CPU
-      CALL MPI_IRECV(recv_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+      CALL MPI_IRECV(recv_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
                      recv_request(iDomain), iErr)
     ENDDO
 
@@ -673,7 +675,7 @@ CONTAINS
             send_imessage(iDomain)%Content(counter) = UpdateElement
           ENDDO
           ! Post a send request to neighbor CPU
-          CALL MPI_ISEND(send_imessage(iDomain)%Content, MsgLength, MPI_INTEGER, iCPU, 1, MPI_COMM_WORLD, &
+          CALL MPI_ISEND(send_imessage(iDomain)%Content, MsgLength, MPI_INTEGER, iCPU, 1, MPI%commWorld, &
                          send_request(iDomain), iErr)
         ENDDO
 
@@ -684,7 +686,7 @@ CONTAINS
           ! Number of neighbor CPU
           iCPU = BND%ObjMPI(iDomain)%CPU
           ! Post a receive request from neighbor CPU
-          CALL MPI_IRECV(recv_imessage(iDomain)%Content, MsgLength, MPI_INTEGER, iCPU, 1, MPI_COMM_WORLD, &
+          CALL MPI_IRECV(recv_imessage(iDomain)%Content, MsgLength, MPI_INTEGER, iCPU, 1, MPI%commWorld, &
                          recv_request(iDomain), iErr)
         ENDDO
 
@@ -883,7 +885,7 @@ CONTAINS
             ENDDO ! iSide
         ENDDO
         ! Post a send request to neighbor CPU
-        CALL MPI_ISEND(send_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+        CALL MPI_ISEND(send_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
                      send_request(iDomain), iErr)
         !
     ENDDO ! iDomain
@@ -902,7 +904,7 @@ CONTAINS
         ! Number of neighbor CPU
         iCPU = BND%ObjMPI(iDomain)%CPU
         ! Post a receive request from neighbor CPU
-        CALL MPI_IRECV(recv_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+        CALL MPI_IRECV(recv_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
                        recv_request(iDomain), iErr)
     ENDDO ! iDomain
 
@@ -1128,14 +1130,14 @@ CONTAINS
       ENDDO
       ! Post a send request to neighbor CPU (INTEGER VALUES ONLY: nNonZeros + NonZeroIndex1 + NonZeroIndex2)
       CALL MPI_ISEND(send_imessage(iDomain)%Content, MsgLengthInt,  MPI_INTEGER,   iCPU, 1, &
-		MPI_COMM_WORLD,send_request(iDomain), iErr)
+		MPI%commWorld,send_request(iDomain), iErr)
       !
     ENDDO
 
     DO iDomain = 1, BND%NoMPIDomains
       iCPU = BND%ObjMPI(iDomain)%CPU
       MsgLengthInt   = BND%ObjMPI(iDomain)%nElem *(DISC%Galerkin%InvSyst_MaxnNonZeros * 2 + DISC%Galerkin%nDegFrST*EQN%nVarTotal)
-      CALL MPI_IRECV(recv_imessage(iDomain)%Content, MsgLengthInt, MPI_INTEGER, iCPU, 1, MPI_COMM_WORLD, &
+      CALL MPI_IRECV(recv_imessage(iDomain)%Content, MsgLengthInt, MPI_INTEGER, iCPU, 1, MPI%commWorld, &
 		recv_request(iDomain), iErr)
     ENDDO
 
@@ -1147,13 +1149,13 @@ CONTAINS
       iCPU = BND%ObjMPI(iDomain)%CPU
       MsgLengthReal  = BND%ObjMPI(iDomain)%nElem * DISC%Galerkin%InvSyst_MaxnNonZeros
       CALL MPI_ISEND(send_message(iDomain)%Content,  MsgLengthReal,  MPI%MPI_AUTO_REAL, iCPU, 1, &
-		MPI_COMM_WORLD,send_request(iDomain), iErr)
+		MPI%commWorld,send_request(iDomain), iErr)
     ENDDO
 
     DO iDomain = 1, BND%NoMPIDomains
       iCPU = BND%ObjMPI(iDomain)%CPU
       MsgLengthReal  = BND%ObjMPI(iDomain)%nElem * DISC%Galerkin%InvSyst_MaxnNonZeros
-      CALL MPI_IRECV(recv_message(iDomain)%Content, MsgLengthReal, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+      CALL MPI_IRECV(recv_message(iDomain)%Content, MsgLengthReal, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
 		recv_request(iDomain), iErr)
     ENDDO
 
@@ -1326,7 +1328,7 @@ CONTAINS
         ENDDO
       ENDDO
       ! Post a send request to neighbor CPU
-      CALL MPI_ISEND(send_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+      CALL MPI_ISEND(send_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
                      send_request(iDomain), iErr)
     ENDDO
 
@@ -1339,7 +1341,7 @@ CONTAINS
       ! Number of neighbor CPU
       iCPU = BND%ObjMPI(iDomain)%CPU
       ! Post a receive request from neighbor CPU
-      CALL MPI_IRECV(recv_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI_COMM_WORLD, &
+      CALL MPI_IRECV(recv_message(iDomain)%Content, MsgLength, MPI%MPI_AUTO_REAL, iCPU, 1, MPI%commWorld, &
                      recv_request(iDomain), iErr)
     ENDDO
 

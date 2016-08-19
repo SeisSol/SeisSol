@@ -2,10 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014, SeisSol Group
+ * Copyright (c) 2014-2016, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -38,9 +38,7 @@
 #ifndef PARALLEL_ISTREAM_H
 #define PARALLEL_ISTREAM_H
 
-#ifdef PARALLEL
-#include <mpi.h>
-#endif // PARALLEL
+#include "Parallel/MPI.h"
 
 #include "utils/logger.h"
 
@@ -66,12 +64,12 @@ public:
 
 	void open(const char* filename)
 	{
-#ifdef PARALLEL
-		int rank;
-		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+#ifdef USE_MPI
+		MPI_Comm comm = seissol::MPI::mpi.comm();
+		const int rank = seissol::MPI::mpi.rank();
 
 		if (rank == 0) {
-#endif // PARALLEL
+#endif // USE_MPI
 
 			// Open the file and set the buffer
 			// This only done on rank 0 when running in parallel
@@ -87,21 +85,21 @@ public:
 
 			rdbuf()->pubsetbuf(&m_buffer[0], m_buffer.size());
 
-#ifdef PARALLEL
+#ifdef USE_MPI
 			// Broadcast the size and the content of the file
 			unsigned long size = m_buffer.size();
-			MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
-			MPI_Bcast(&m_buffer[0], size, MPI_WCHAR, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG, 0, comm);
+			MPI_Bcast(&m_buffer[0], size, MPI_WCHAR, 0, comm);
 		} else {
 			unsigned long size;
-			MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG, 0, comm);
 
 			m_buffer.resize(size);
-			MPI_Bcast(&m_buffer[0], size, MPI_WCHAR, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&m_buffer[0], size, MPI_WCHAR, 0, comm);
 
 			rdbuf()->pubsetbuf(&m_buffer[0], size);
 		}
-#endif // PARALLEL
+#endif // USE_MPI
 	}
 };
 

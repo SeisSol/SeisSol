@@ -43,18 +43,19 @@
 
 #include <Initializer/typedefs.hpp>
 #include <Geometry/MeshReader.h>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/Lut.hpp>
+#include <Initializer/tree/LTSTree.hpp>
 
 namespace seissol {
   namespace initializers {
       /**
       * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
       **/
-     void initializeCellLocalMatrices( MeshReader const&      i_meshReader,
-                                       unsigned*              i_copyInteriorToMesh,
-                                       unsigned*              i_meshToLts,
-                                       unsigned               i_numberOfCopyInteriorCells,
-                                       CellLocalInformation*  i_cellInformation,
-                                       CellData*              o_cellData );
+     void initializeCellLocalMatrices( MeshReader const&      i_meshReader,                                                    
+                                       LTSTree*               io_ltsTree,
+                                       LTS*                   i_lts,
+                                       Lut*                   i_ltsLut );
   }
 }
 

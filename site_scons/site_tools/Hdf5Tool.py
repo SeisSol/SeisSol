@@ -3,10 +3,10 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
+# @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 #
 # @section LICENSE
-# Copyright (c) 2014, SeisSol Group
+# Copyright (c) 2014-2016, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -39,20 +39,14 @@
 # Finds HDF5 and add inlcude pathes, libs and library pathes
 #
 
+import utils.checks
+import utils.compiler
+import utils.pkgconfig
+
 hdf5_fortran_prog_src = """
 program HDF5_Test
     use hdf5
 end program HDF5_Test
-"""
-
-hdf5_prog_src_serial = """
-#include <hdf5.h>
-
-int main() {
-    H5open();
-    
-    return 0;
-}
 """
 
 def CheckHDF5FortranInclude(context):
@@ -62,35 +56,64 @@ def CheckHDF5FortranInclude(context):
     
     return ret
 
-def CheckHDF5Linking(context, message):
-    context.Message(message+"... ")
-    # TODO serial/parallel switch
-    ret = context.TryLink(hdf5_prog_src_serial, '.c')
-    context.Result(ret)
-    
-    return ret
-
-def CheckV18API(context):
+def CheckV18API(context, h5cc):
     context.Message('Checking for HDF5 v18 API... ')
-    ret = context.TryAction('h5cc -showconfig | fgrep v18')[0]
+    if h5cc:
+        ret = context.TryAction(h5cc + ' -showconfig | fgrep v18')[0]
+    else:
+        # FIXME currently assuming the default if the h5cc does not exist
+        ret = True
     context.Result(ret)
     
     return ret
 
-def generate(env, **kw):
-    conf = env.Configure(custom_tests = {'CheckHDF5FortranInclude' : CheckHDF5FortranInclude,
-                                         'CheckHDF5Linking' : CheckHDF5Linking,
+def generate(env, required = False, parallel = False, fortran = False, **kw):
+    if env.GetOption('help') or env.GetOption('clean'):
+        return
+
+    conf = env.Configure(custom_tests = {'CheckProg': utils.checks.CheckProg,
+                                         'CheckLibWithHeader': utils.checks.CheckLibWithHeader,
+                                         'CheckHDF5FortranInclude' : CheckHDF5FortranInclude,
                                          'CheckV18API' : CheckV18API})
     
-    if 'required' in kw:
-        required = kw['required']
+    # Find h5cc or h5pcc
+    h5ccs = ['h5cc', 'h5pcc']
+    if parallel:
+        h5ccs[0], h5ccs[1] = h5ccs[1], h5ccs[0]
+    for h5cc in h5ccs:
+        h5cc = conf.CheckProg(h5cc)
+        if h5cc:
+            break
+
+    if h5cc:
+        # Parse the output from the h5cc compiler wrapper
+        def parse_func(env, cmd):
+            # remove the compiler
+            cmd = cmd.partition(' ')[2]
+            # remove unknown arguments
+            cmd = utils.compiler.removeUnknownOptions(cmd)
+            return env.ParseFlags(cmd)
+        flags = env.ParseConfig([h5cc, '-show', '-shlib'], parse_func)
     else:
-        required = False
-        
-    if 'fortran' in kw:
-        fortran = kw['fortran']
-    else:
-        fortran = False
+        # Try pkg-config
+        hdf5s = ['hdf5_hl', 'hdf5_hl_parallel']
+        if parallel:
+            hdf5s[0], hdf5s[1] = hdf5s[1], hdf5s[0]
+        for hdf5 in hdf5s:
+            flags = utils.pkgconfig.parse(conf, env, hdf5)
+            if flags:
+                break
+
+	if not flags:
+            if required:
+                print 'Could not find h5cc or h5pcc. Make sure the path to the HDF5 library is correct!'
+                env.Exit(1)
+            else:
+                conf.Finish()
+                return
+
+    # Add the lib path
+    env.AppendUnique(LIBPATH=flags['LIBPATH'])
     
     if fortran:
         # Fortran module file
@@ -113,43 +136,17 @@ def generate(env, **kw):
                 conf.Finish()
                 return
         
-    ret = [conf.CheckLibWithHeader('hdf5_hl', 'hdf5.h', 'c'), conf.CheckLib('hdf5')]
-    if not all(ret):
+    ret = conf.CheckLibWithHeader(flags['LIBS'][0], 'hdf5.h', 'c', extra_libs=flags['LIBS'][1:])
+    if not ret:
         if required:
-            print 'Could not find HDF5 or zlib!'
+            print 'Could not find the HDF5 library!'
             env.Exit(1)
         else:
             conf.Finish()
             return
         
-    ret = conf.CheckHDF5Linking("Checking whether shared HDF5 library is used")
-    if not ret:
-        # Static library, link zlib as well
-        ret = conf.CheckLib('z')
-        if not ret:
-            if required:
-                print 'Could not find zlib!'
-                env.Exit(1)
-            else:
-                conf.Finish()
-                return
- 
-        # Try to find all additional libraries
-        conf.CheckLib('curl')
-        conf.CheckLib('gpfs')
-        conf.CheckLib('dl')
- 
-        ret = conf.CheckHDF5Linking("Checking whether all HDF5 dependencies are found")
-        if not ret:
-            if required:
-                print 'Could not find all HDF5 dependencies!'
-                env.Exit(1)
-            else:
-                conf.Finish()            
-                return
-    
     # Check API Mapping
-    if not conf.CheckV18API():
+    if not conf.CheckV18API(h5cc):
         # TODO We might need to extent this list
         conf.env.Append(CPPDEFINES=['H5Dcreate_vers=2',
                                     'H5Dopen_vers=2',

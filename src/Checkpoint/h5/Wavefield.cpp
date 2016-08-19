@@ -37,7 +37,7 @@
  * @section DESCRIPTION
  */
 
-#include "Wavefield.h"
+#include "Parallel/MPI.h"
 
 #include <cassert>
 
@@ -45,9 +45,15 @@
 #include "utils/mathutils.h"
 #include "utils/stringutils.h"
 
-bool seissol::checkpoint::h5::Wavefield::init(real* dofs, unsigned int numDofs)
+#include "Wavefield.h"
+
+#ifdef USE_MPI
+#include "Checkpoint/MPIInfo.h"
+#endif // USE_MPI
+
+bool seissol::checkpoint::h5::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
 {
-	seissol::checkpoint::Wavefield::init(dofs, numDofs);
+	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 
 	// Data space for the file
 	hsize_t fileSize = numTotalElems();
@@ -59,11 +65,11 @@ bool seissol::checkpoint::h5::Wavefield::init(real* dofs, unsigned int numDofs)
 	return exists();
 }
 
-void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefield)
+void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefield, real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
-	seissol::checkpoint::CheckPoint::load();
+	seissol::checkpoint::CheckPoint::setLoaded();
 
 	hid_t h5file = open(linkFile());
 	checkH5Err(h5file);
@@ -96,7 +102,7 @@ void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefie
 		checkH5Err(H5Sselect_hyperslab(h5fSpace, H5S_SELECT_SET, &fStart, 0L, &count, 0L));
 
 		checkH5Err(H5Dread(h5data, H5T_NATIVE_DOUBLE, h5memSpace, h5fSpace,
-				h5XferList(), &dofs()[offset]));
+				h5XferList(), &dofs[offset]));
 
 		// We are finished in less iterations, read data twice
 		// so everybody needs the same number of iterations
@@ -114,7 +120,7 @@ void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefie
 	checkH5Err(H5Sselect_all(h5memSpace));
 	checkH5Err(H5Sselect_hyperslab(h5fSpace, H5S_SELECT_SET, &fStart, 0L, &count, 0L));
 	checkH5Err(H5Dread(h5data, H5T_NATIVE_DOUBLE, h5memSpace, h5fSpace,
-			h5XferList(), &dofs()[offset]));
+			h5XferList(), &dofs[offset]));
 	checkH5Err(H5Sclose(h5memSpace));
 
 	checkH5Err(H5Sclose(h5fSpace));
@@ -160,7 +166,7 @@ void seissol::checkpoint::h5::Wavefield::write(double time, int waveFieldTimeSte
 		checkH5Err(H5Sselect_hyperslab(m_h5fSpaceData, H5S_SELECT_SET, &fStart, 0L, &count, 0L));
 
 		checkH5Err(H5Dwrite(m_h5data[odd()], H5T_NATIVE_DOUBLE, h5memSpace, m_h5fSpaceData,
-				h5XferList(), &dofs()[offset]));
+				h5XferList(), &const_cast<real*>(dofs())[offset]));
 
 		// We are finished in less iterations, read data twice
 		// so everybody needs the same number of iterations
@@ -276,7 +282,8 @@ hid_t seissol::checkpoint::h5::Wavefield::initFile(int odd, const char* filename
 		if (align > 0)
 			checkH5Err(H5Pset_alignment(h5plist, 1, align));
 #ifdef USE_MPI
-		checkH5Err(H5Pset_fapl_mpio(h5plist, MPI_COMM_WORLD, MPI_INFO_NULL));
+		MPIInfo info;
+		checkH5Err(H5Pset_fapl_mpio(h5plist, seissol::MPI::mpi.comm(), info.get()));
 #endif // USE_MPI
 
 		h5file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, h5plist);

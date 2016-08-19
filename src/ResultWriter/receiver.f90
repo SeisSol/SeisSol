@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Martin Kaeser (martin.kaeser AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/kaeser)
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2010, SeisSol Group
+!! Copyright (c) 2010-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -105,7 +106,6 @@ CONTAINS
     !--------------------------------------------------------------------------
     PARAMETER (nContinuousOutputRecordPoints = 50)
     !--------------------------------------------------------------------------
-    INTENT(IN)               :: MESH, DISC, SOURCE
     INTENT(INOUT)            :: IO
     !--------------------------------------------------------------------------
     !
@@ -413,7 +413,7 @@ CONTAINS
         !ENDIF
 
         !Collect PGM data from all CPUs in a common array MPI%PGMarray
-        CALL MPI_GATHER(IO%PGM,IO%nPGMRecordPoint,MPI%MPI_AUTO_REAL,MPI%PGMarray(:,:),IO%nPGMRecordPoint,MPI%MPI_AUTO_REAL,0,MPI_COMM_WORLD,iErr)
+        CALL MPI_GATHER(IO%PGM,IO%nPGMRecordPoint,MPI%MPI_AUTO_REAL,MPI%PGMarray(:,:),IO%nPGMRecordPoint,MPI%MPI_AUTO_REAL,0,MPI%commWorld,iErr)
         
         !CPU 0 is outputting the collected PGM data
         IF(MPI%myrank.EQ.0)THEN

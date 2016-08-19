@@ -33,9 +33,10 @@
  * This file is part of SeisSol.
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  * 
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2016, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -68,6 +69,8 @@
  * LTS cluster in SeisSol.
  **/
 
+#include "Parallel/MPI.h"
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -82,6 +85,7 @@ extern long long g_SeisSolHardwareFlopsLocal;
 extern long long g_SeisSolNonZeroFlopsNeighbor;
 extern long long g_SeisSolHardwareFlopsNeighbor;
 
+#include <cassert>
 #include <cstring>
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
@@ -98,19 +102,12 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   kernels::Local                &i_localKernel,
                                                   kernels::Neighbor             &i_neighborKernel,
                                                   struct MeshStructure          *i_meshStructure,
-#ifdef USE_MPI
-                                                  struct CellLocalInformation   *i_copyCellInformation,
-#endif
-                                                  struct CellLocalInformation   *i_interiorCellInformation,
                                                   struct GlobalData             *i_globalData,
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
                                                   struct GlobalData             *i_globalDataCopies,
 #endif
-#ifdef USE_MPI
-                                                  struct CellData               *i_copyCellData,
-#endif
-                                                  struct CellData               *i_interiorCellData,
-                                                  struct Cells                  *i_cells ):
+                                                  seissol::initializers::TimeCluster* i_clusterData,
+                                                  seissol::initializers::LTS*         i_lts  ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -126,41 +123,20 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  // global data copies
  m_globalDataCopies(        i_globalDataCopies         ),
 #endif
- // cell info
-#ifdef USE_MPI
- m_copyCellInformation(     i_copyCellInformation      ),
-#endif
- m_interiorCellInformation( i_interiorCellInformation  ),
- // cell data
-#ifdef USE_MPI
- m_copyCellData(            i_copyCellData             ),
-#endif
- m_interiorCellData(        i_interiorCellData         ),
+ m_clusterData(             i_clusterData              ),
+ m_lts(                     i_lts                      ),
  // cells
- m_cells(                   i_cells                    ),
  m_cellToPointSources(      NULL                       ),
  m_numberOfCellToPointSourcesMappings(0                ),
  m_pointSources(            NULL                       )
 {
     // assert all pointers are valid
     assert( m_meshStructure                            != NULL );
-#ifdef USE_MPI
-    assert( m_copyCellInformation                      != NULL );
-#endif
-    assert( m_interiorCellInformation                  != NULL );
     assert( m_globalData                               != NULL );
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
     assert( m_globalDataCopies                         != NULL );
 #endif
-#ifdef USE_MPI
-    assert( m_copyCellData                             != NULL );
-    assert( m_copyCellData->localIntegration           != NULL );
-    assert( m_copyCellData->neighboringIntegration     != NULL );
-#endif
-    assert( m_interiorCellData                         != NULL );
-    assert( m_interiorCellData->localIntegration       != NULL );
-    assert( m_interiorCellData->neighboringIntegration != NULL );
-    assert( m_cells                                    != NULL );
+    assert( m_clusterData                              != NULL );
 
   // default: no updates are allowed
   m_updatable.localCopy           = false;
@@ -244,9 +220,6 @@ void seissol::time_stepping::TimeCluster::computeSources() {
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
-      real dofUpdate[NUMBER_OF_ALIGNED_DOFS];
-      memset(dofUpdate, 0, NUMBER_OF_ALIGNED_DOFS * sizeof(real));
-
       unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
       unsigned endSource = m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
       if (m_pointSources->mode == sourceterm::PointSources::NRF) {
@@ -258,7 +231,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                        m_pointSources->slipRates[source],
                                                        m_fullUpdateTime,
                                                        m_fullUpdateTime + m_timeStepWidth,
-                                                       dofUpdate );
+                                                       *m_cellToPointSources[mapping].dofs );
         }
       } else {
         for (unsigned source = startSource; source < endSource; ++source) {
@@ -267,17 +240,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                         &m_pointSources->slipRates[source][0],
                                                         m_fullUpdateTime,
                                                         m_fullUpdateTime + m_timeStepWidth,
-                                                        dofUpdate );
+                                                        *m_cellToPointSources[mapping].dofs );
         }
-      }
-      
-      unsigned offset = m_cellToPointSources[mapping].copyInteriorOffset;
-      for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DOFS; ++dof) {
-#ifdef USE_MPI
-        m_cells->copyDofs[offset][dof] += dofUpdate[dof];
-#else
-        m_cells->interiorDofs[offset][dof] += dofUpdate[dof];
-#endif
       }
     }
   }
@@ -316,7 +280,7 @@ void seissol::time_stepping::TimeCluster::receiveGhostLayer(){
                    MPI_C_REAL,                                               // datatype of each receive buffer element
                    m_meshStructure->neighboringClusters[l_region][0],      // rank of source
                    timeData+m_meshStructure->receiveIdentifiers[l_region], // message tag
-                   MPI_COMM_WORLD,                                         // communicator
+                   seissol::MPI::mpi.comm(),                               // communicator
                    m_meshStructure->receiveRequests + l_region             // communication request
                );
 
@@ -340,7 +304,7 @@ void seissol::time_stepping::TimeCluster::sendCopyLayer(){
                    MPI_C_REAL,                                            // datatype of each send buffer element
                    m_meshStructure->neighboringClusters[l_region][0],   // rank of destination
                    timeData+m_meshStructure->sendIdentifiers[l_region], // message tag
-                   MPI_COMM_WORLD,                                      // communicator
+                   seissol::MPI::mpi.comm(),                            // communicator
                    m_meshStructure->sendRequests + l_region             // communication request
                );
 
@@ -425,12 +389,7 @@ void seissol::time_stepping::TimeCluster::waitForInits() {
 
 #endif
 
-void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int           i_numberOfCells,
-                                                                   CellLocalInformation  *i_cellInformation,
-                                                                   CellData              *i_cellData,
-                                                                   real                 **io_buffers,
-                                                                   real                 **io_derivatives,
-                                                                   real                 (*io_dofs)[NUMBER_OF_ALIGNED_DOFS] ) {
+void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData ) {
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   // local integration buffer
@@ -438,22 +397,28 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
 
   // pointer for the call of the ADER-function
   real *l_bufferPointer;
+  
+  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
+  real**                buffers                       = i_layerData.var(m_lts->buffers);
+  real**                derivatives                   = i_layerData.var(m_lts->derivatives);
+  LocalIntegrationData* localIntegration              = i_layerData.var(m_lts->localIntegration);
+  CellLocalInformation* cellInformation               = i_layerData.var(m_lts->cellInformation);
 
 #ifdef _OPENMP
   #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer) schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
+  for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
     // overwrite cell buffer
     // TODO: Integrate this step into the kernel
 
-    bool l_buffersProvided = (i_cellInformation[l_cell].ltsSetup >> 8)%2 == 1; // buffers are provided
-    bool l_resetBuffers = l_buffersProvided && ( (i_cellInformation[l_cell].ltsSetup >> 10) %2 == 0 || m_resetLtsBuffers ); // they should be reset
+    bool l_buffersProvided = (cellInformation[l_cell].ltsSetup >> 8)%2 == 1; // buffers are provided
+    bool l_resetBuffers = l_buffersProvided && ( (cellInformation[l_cell].ltsSetup >> 10) %2 == 0 || m_resetLtsBuffers ); // they should be reset
 
     if( l_resetBuffers ) {
       // assert presence of the buffer
-      assert( io_buffers[l_cell] != NULL );
+      assert( buffers[l_cell] != NULL );
 
-      l_bufferPointer = io_buffers[l_cell];
+      l_bufferPointer = buffers[l_cell];
     }
     // work on local buffer
     else {
@@ -462,37 +427,41 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( unsigned int 
 
     m_timeKernel.computeAder( m_timeStepWidth,
                               m_globalData,
-                              &i_cellData->localIntegration[l_cell],
-                              io_dofs[l_cell],
+                              &localIntegration[l_cell],
+                              dofs[l_cell],
                               l_bufferPointer,
-                              io_derivatives[l_cell] );
-    m_localKernel.computeIntegral( i_cellInformation[l_cell].faceTypes,
+                              derivatives[l_cell] );
+    m_localKernel.computeIntegral( cellInformation[l_cell].faceTypes,
                                    m_globalData,
-                                   &i_cellData->localIntegration[l_cell],
+                                   &localIntegration[l_cell],
                                    l_bufferPointer,
-                                   io_dofs[l_cell] );
+                                   dofs[l_cell] );
 
     // update lts buffers if required
     // TODO: Integrate this step into the kernel
     if( !l_resetBuffers && l_buffersProvided ) {
       // assert presence of the buffer
-      assert( io_buffers[l_cell] != NULL );
+      assert( buffers[l_cell] != NULL );
 
       for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
-        io_buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
+        buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
       }
     }
   }
 }
 
-void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigned int            i_numberOfCells,
-                                                                         CellLocalInformation   *i_cellInformation,
-                                                                         CellData               *i_cellData,
-                                                                         real                 *(*i_faceNeighbors)[4],
-                                                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
-																		 real                  (*io_Energy)[3],
-																		 real                  (*io_pstrain)[7] ) {
+void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+  
+  real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
+  real*                     (*faceNeighbors)[4]             = i_layerData.var(m_lts->faceNeighbors);
+  NeighboringIntegrationData* neighboringIntegration        = i_layerData.var(m_lts->neighboringIntegration);
+  CellLocalInformation*       cellInformation               = i_layerData.var(m_lts->cellInformation);
+#ifdef USE_PLASTICITY
+  PlasticityData*             plasticity                    = i_layerData.var(m_lts->plasticity);
+  real                      (*energy)[3]                    = i_layerData.var(m_lts->energy);
+  real                      (*pstrain)[7]                   = i_layerData.var(m_lts->pstrain);
+#endif
 
   real *l_timeIntegrated[4];
 #ifdef ENABLE_MATRIX_PREFETCH
@@ -507,13 +476,13 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
   #pragma omp parallel for schedule(static) private(l_timeIntegrated)
 #endif
 #endif
-  for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
+  for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
     seissol::kernels::TimeCommon::computeIntegrals( m_timeKernel,
-                                                    i_cellInformation[l_cell].ltsSetup,
-                                                    i_cellInformation[l_cell].faceTypes,
+                                                    cellInformation[l_cell].ltsSetup,
+                                                    cellInformation[l_cell].faceTypes,
                                                     m_subTimeStart,
                                                     m_timeStepWidth,
-                                                    i_faceNeighbors[l_cell],
+                                                    faceNeighbors[l_cell],
 #ifdef _OPENMP
                                                     *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
 #else
@@ -530,51 +499,51 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
     // first face's prefetches
     int l_face = 1;
-    l_faceNeighbors_prefetch[0] = i_faceNeighbors[l_cell][l_face];
+    l_faceNeighbors_prefetch[0] = faceNeighbors[l_cell][l_face];
     l_fluxMatricies_prefetch[0] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(i_cellInformation[l_cell].faceRelations[l_face][1])];
+                                                             +(cellInformation[l_cell].faceRelations[l_face][0]*3)
+                                                             +(cellInformation[l_cell].faceRelations[l_face][1])];
     // second face's prefetches
     l_face = 2;
-    l_faceNeighbors_prefetch[1] = i_faceNeighbors[l_cell][l_face];
+    l_faceNeighbors_prefetch[1] = faceNeighbors[l_cell][l_face];
     l_fluxMatricies_prefetch[1] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(i_cellInformation[l_cell].faceRelations[l_face][1])];
+                                                             +(cellInformation[l_cell].faceRelations[l_face][0]*3)
+                                                             +(cellInformation[l_cell].faceRelations[l_face][1])];
     // third face's prefetches
     l_face = 3;
-    l_faceNeighbors_prefetch[2] = i_faceNeighbors[l_cell][l_face];
+    l_faceNeighbors_prefetch[2] = faceNeighbors[l_cell][l_face];
     l_fluxMatricies_prefetch[2] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(i_cellInformation[l_cell].faceRelations[l_face][1])];
+                                                             +(cellInformation[l_cell].faceRelations[l_face][0]*3)
+                                                             +(cellInformation[l_cell].faceRelations[l_face][1])];
     // fourth face's prefetches
     if (l_cell < (i_numberOfCells-1) ) {
       l_face = 0;
-      l_faceNeighbors_prefetch[3] = i_faceNeighbors[l_cell+1][l_face];
+      l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell+1][l_face];
       l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                               +(i_cellInformation[l_cell+1].faceRelations[l_face][0]*3)
-                                                               +(i_cellInformation[l_cell+1].faceRelations[l_face][1])];
+                                                               +(cellInformation[l_cell+1].faceRelations[l_face][0]*3)
+                                                               +(cellInformation[l_cell+1].faceRelations[l_face][1])];
     } else {
-      l_faceNeighbors_prefetch[3] = i_faceNeighbors[l_cell][3];
+      l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
       l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(3*12)
-                                                               +(i_cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                               +(i_cellInformation[l_cell].faceRelations[l_face][1])];
+                                                               +(cellInformation[l_cell].faceRelations[l_face][0]*3)
+                                                               +(cellInformation[l_cell].faceRelations[l_face][1])];
     }
 #endif
 
-    m_neighborKernel.computeNeighborsIntegral( i_cellInformation[l_cell].faceTypes,
-                                               i_cellInformation[l_cell].faceRelations,
+    m_neighborKernel.computeNeighborsIntegral( cellInformation[l_cell].faceTypes,
+                                               cellInformation[l_cell].faceRelations,
                                                l_globalData,
-                                               &i_cellData->neighboringIntegration[l_cell],
+                                               &neighboringIntegration[l_cell],
                                                l_timeIntegrated,
-                                               io_dofs[l_cell] );
+                                               dofs[l_cell] );
 
 #ifdef USE_PLASTICITY
   e_interoperability.computePlasticity(  m_timeStepWidth,
-		                                 i_cellData->plasticity[l_cell].plasticParameters,
-                                         i_cellData->plasticity[l_cell].initialLoading,
-                                         io_dofs[l_cell],
-										 io_Energy[l_cell],
-										 io_pstrain[l_cell] );
+                                         plasticity[l_cell].plasticParameters,
+                                         plasticity[l_cell].initialLoading,
+                                         dofs[l_cell],
+                                         energy[l_cell],
+                                         pstrain[l_cell] );
 #endif
   }
 }
@@ -604,12 +573,7 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
   if( m_updatable.localInterior ) writeReceivers();
 
   // integrate copy layer locally
-  computeLocalIntegration( m_meshStructure->numberOfCopyCells,
-                           m_copyCellInformation,
-                           m_copyCellData,
-                           m_cells->copyBuffers,
-                           m_cells->copyDerivatives,
-                           m_cells->copyDofs );
+  computeLocalIntegration( m_clusterData->child<Copy>() );
                            
   g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[LocalCopy];
   g_SeisSolHardwareFlopsLocal += m_flops_hardware[LocalCopy];
@@ -662,12 +626,7 @@ void seissol::time_stepping::TimeCluster::computeLocalInterior(){
 #endif
 
   // integrate interior cells locally
-  computeLocalIntegration( m_meshStructure->numberOfInteriorCells,
-                           m_interiorCellInformation,
-                           m_interiorCellData,
-                           m_cells->interiorBuffers,
-                           m_cells->interiorDerivatives,
-                           m_cells->interiorDofs );
+  computeLocalIntegration( m_clusterData->child<Interior>() );
 
   g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[LocalInterior];
   g_SeisSolHardwareFlopsLocal += m_flops_hardware[LocalInterior];
@@ -709,13 +668,7 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
   testForCopyLayerSends();
 #endif
 
-  computeNeighboringIntegration( m_meshStructure->numberOfCopyCells,
-                                 m_copyCellInformation,
-                                 m_copyCellData,
-                                 m_cells->copyFaceNeighbors,
-                                 m_cells->copyDofs,
-								 m_cells->copyEnergy,
-								 m_cells->copyPstrain);
+  computeNeighboringIntegration( m_clusterData->child<Copy>() );
 
   g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[NeighborCopy];
   g_SeisSolHardwareFlopsNeighbor += m_flops_hardware[NeighborCopy];
@@ -752,13 +705,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
   }
 
   // Update all cells in the interior with the neighboring boundary contribution.
-  computeNeighboringIntegration( m_meshStructure->numberOfInteriorCells,
-                                 m_interiorCellInformation,
-                                 m_interiorCellData,
-                                 m_cells->interiorFaceNeighbors,
-                                 m_cells->interiorDofs,
-								 m_cells->interiorEnergy,
-								 m_cells->interiorPstrain );
+  computeNeighboringIntegration( m_clusterData->child<Interior>() );
 
   g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[NeighborInterior];
   g_SeisSolHardwareFlopsNeighbor += m_flops_hardware[NeighborInterior];
@@ -821,25 +768,25 @@ void seissol::time_stepping::TimeCluster::computeFlops()
 {
 #ifdef USE_MPI
   computeLocalIntegrationFlops( m_meshStructure->numberOfCopyCells,
-                                m_copyCellInformation,
+                                m_clusterData->child<Copy>().var(m_lts->cellInformation),
                                 m_flops_nonZero[LocalCopy],
                                 m_flops_hardware[LocalCopy] );
 #endif
 
   computeLocalIntegrationFlops( m_meshStructure->numberOfInteriorCells,
-                                m_interiorCellInformation,
+                                m_clusterData->child<Interior>().var(m_lts->cellInformation),
                                 m_flops_nonZero[LocalInterior],
                                 m_flops_hardware[LocalInterior] );
 
 #ifdef USE_MPI
   computeNeighborIntegrationFlops(  m_meshStructure->numberOfCopyCells,
-                                    m_copyCellInformation,
+                                    m_clusterData->child<Copy>().var(m_lts->cellInformation),
                                     m_flops_nonZero[NeighborCopy],
                                     m_flops_hardware[NeighborCopy] );
 #endif
 
   computeNeighborIntegrationFlops(  m_meshStructure->numberOfInteriorCells,
-                                    m_interiorCellInformation,
+                                    m_clusterData->child<Interior>().var(m_lts->cellInformation),
                                     m_flops_nonZero[NeighborInterior],
                                     m_flops_hardware[NeighborInterior] );
 }

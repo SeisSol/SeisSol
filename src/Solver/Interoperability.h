@@ -4,21 +4,21 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * 
+ *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -46,6 +46,9 @@
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
 #include <SourceTerm/NRF.h>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/tree/Lut.hpp>
 
 namespace seissol {
   class Interoperability;
@@ -69,33 +72,6 @@ class seissol::Interoperability {
     /*
      * Brain dump of SeisSol's C parts.
      */
-    //! number of cells in the mesh
-    unsigned int m_numberOfMeshCells;
-
-    //! number of LTS cells
-    unsigned int m_numberOfLtsCells;
-
-    //! number of copy interior cells
-    unsigned int m_numberOfCopyInteriorCells;
-
-    //! cluster-local interior cell information
-    struct CellLocalInformation *m_cellInformation;
-
-    //! mapping from mesh to lts layout
-    unsigned int *m_meshToLts;
-
-    //! mapping from mesh to lts layout without ghost layers
-    unsigned int *m_meshToCopyInterior;
-
-    //! mapping from mesh to clusters
-    unsigned int (*m_meshToClusters)[2];
-
-    //! mapping from lts layout to mesh
-    unsigned int *m_ltsToMesh;
-
-    //! mapping from copy-interior id to mesh
-    unsigned int *m_copyInteriorToMesh;
-
     //! cluster-local mesh structure
     struct MeshStructure *m_meshStructure;
 
@@ -103,35 +79,20 @@ class seissol::Interoperability {
     struct TimeStepping m_timeStepping;
 
     //! global data
-    struct GlobalData *m_globalData;
+    struct GlobalData* m_globalData;
+    
+    seissol::initializers::LTSTree*   m_ltsTree;
+    seissol::initializers::LTS*       m_lts;
 
-    //! raw cell data: covering copy&interior of all clusters
-    struct CellData *m_cellData;
-
-    //! raw DOFs: covering copy&interior of all clusters
-    real (*m_dofs)[NUMBER_OF_ALIGNED_DOFS];
-
-    //! raw pointers to derivatives: covering all clusters and layers
-    real **m_derivatives;
-
-    //! raw pointers to buffers: covering all clusters and layers
-    real **m_buffers;
-
-    //! raw pointers to face neighbors: covering all clusters and layers.
-    real *(*m_faceNeighbors)[4];
-
-    //! energy variable
-    real (*m_Energy)[3];
-
-    //! Plasticity strain output
-    real (*m_pstrain)[7];
+    //! Lookup table relating mesh to cells
+    seissol::initializers::Lut        m_ltsLut;
 
  public:
    /**
     * Constructor.
     **/
    Interoperability();
-   
+
    ~Interoperability();
 
    /**
@@ -160,15 +121,15 @@ class seissol::Interoperability {
     *   1:  Global time stepping
     *   2+: Fixed rate between clusters
     *
-    * @param i_clustering clustering strategy 
+    * @param i_clustering clustering strategy
     **/
    void initializeClusteredLts( int i_clustering );
 
-#ifdef USE_NETCDF
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
    void setupNRFPointSources( char const* fileName );
 #endif
-   
+
    //! \todo Documentation
    void setupFSRMPointSources( double const* momentTensor,
                                int           numberOfSources,
@@ -202,7 +163,7 @@ class seissol::Interoperability {
     * Enables dynamic rupture.
     **/
    void enableDynamicRupture();
-   
+
    /**
     * Set material parameters for cell
     **/
@@ -221,7 +182,7 @@ class seissol::Interoperability {
    void setInitialLoading( int    *i_meshId,
                            double *i_initialLoading );
 #endif
-   
+
    /**
     * Sets the parameters for a cell (plasticity).
     *
@@ -238,6 +199,8 @@ class seissol::Interoperability {
     **/
    void initializeCellLocalMatrices();
 
+   template<typename T>
+   void synchronize(seissol::initializers::Variable<T> const& handle);
 
    /**
     * Synchronizes the cell local material data.
@@ -390,7 +353,7 @@ class seissol::Interoperability {
    /**
     * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
     * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
-    * 
+    *
     * @param x x coordinate
     * @param y y coordinate
     * @param z z coordinate

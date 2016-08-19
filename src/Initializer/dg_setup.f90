@@ -3,9 +3,10 @@
 !! This file is part of SeisSol.
 !!
 !! @author Verena Hermann (hermann AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/hermann)
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2009-2014, SeisSol Group
+!! Copyright (c) 2009-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -514,8 +515,7 @@ CONTAINS
 
     ! propagate the time step width to time manager
     do iElem = 1, mesh%nElem
-      !l_timeStepWidth = optionalFields%dt_convectiv(iElem)
-      l_timeStepWidth = optionalFields%dt(iElem)
+      l_timeStepWidth = optionalFields%dt_convectiv(iElem)
 
 #ifdef PERIODIC_LTS_SCALING
       ! perform the scaling of the time step width
@@ -597,7 +597,7 @@ CONTAINS
            ALLOCATE(  MPI_Dirac_Element(SOURCE%Dirac%nDirac,0:MPI%nCPU-1) )
              CALL MPI_ALLGATHER(SOURCE%Dirac%Element,SOURCE%Dirac%nDirac,MPI_INTEGER, &
                                 MPI_Dirac_Element,   SOURCE%Dirac%nDirac,MPI_INTEGER, &
-                                MPI_COMM_WORLD, iError                                )
+                                MPI%commWorld, iError                                )
            !
            DO iDirac = 1, SOURCE%Dirac%nDirac
               IF(SOURCE%Dirac%Element(iDirac).NE.-1) THEN
@@ -638,7 +638,7 @@ CONTAINS
            ALLOCATE(  MPI_Dirac_Element(SOURCE%Ricker%nRicker,0:MPI%nCPU-1) )
              CALL MPI_ALLGATHER(SOURCE%Ricker%Element,SOURCE%Ricker%nRicker,MPI_INTEGER, &
                                 MPI_Dirac_Element,    SOURCE%Ricker%nRicker,MPI_INTEGER, &
-                                MPI_COMM_WORLD, iError                                          )
+                                MPI%commWorld, iError                                          )
            !
            DO iDirac = 1, SOURCE%Ricker%nRicker
               IF(SOURCE%Ricker%Element(iDirac).NE.-1) THEN
@@ -679,7 +679,7 @@ CONTAINS
            ALLOCATE(  MPI_Dirac_Element(SOURCE%Ricker%nRicker,0:MPI%nCPU-1) )
              CALL MPI_ALLGATHER(SOURCE%RP%Element,SOURCE%Ricker%nRicker,MPI_INTEGER, &
                                 MPI_Dirac_Element,    SOURCE%Ricker%nRicker,MPI_INTEGER, &
-                                MPI_COMM_WORLD, iError                                          )
+                                MPI%commWorld, iError                                          )
            !
            DO iDirac = 1, SOURCE%Ricker%nRicker
               IF(SOURCE%RP%Element(iDirac).NE.-1) THEN
@@ -864,7 +864,7 @@ CONTAINS
            MPI_Dirac_Element = -1
              CALL MPI_ALLGATHER(SOURCE%RP%Element, SOURCE%RP%nSbfs(1),MPI_INTEGER, &
                                 MPI_Dirac_Element, SOURCE%RP%nSbfs(1),MPI_INTEGER, &
-                                MPI_COMM_WORLD, iError                                             )
+                                MPI%commWorld, iError                                             )
            !
            DO iDirac = 1, SOURCE%RP%nSbfs(1)
               IF(SOURCE%RP%Element(iDirac).NE.-1) THEN
@@ -916,7 +916,7 @@ CONTAINS
            MPI_Dirac_Element = -1
              CALL MPI_ALLGATHER(SOURCE%RP%Element, SOURCE%RP%nSbfs(1),MPI_INTEGER, &
                                 MPI_Dirac_Element, SOURCE%RP%nSbfs(1),MPI_INTEGER, &
-                                MPI_COMM_WORLD, iError                                             )
+                                MPI%commWorld, iError                                             )
            !
            DO iDirac = 1, SOURCE%RP%nSbfs(1)
               IF(SOURCE%RP%Element(iDirac).NE.-1) THEN
@@ -962,7 +962,7 @@ CONTAINS
     ! Setup faced-based DR update datascrutured needed for OMP Parallelization in fricition.f90
     IF (DISC%DynRup%nDRElems.NE.0) THEN
       ! allocate the memory for the offload datastructures
-      allocate( DISC%DynRup%DRupdates(DISC%Galerkin%nDegFrRec,EQN%nVarTotal, DISC%DynRup%nDRElems) )
+      allocate( DISC%DynRup%DRupdates(DISC%Galerkin%nDegFrRec,EQN%nVar, DISC%DynRup%nDRElems) )
       allocate( DISC%DynRup%indicesOfDRElems( DISC%DynRup%nDRElems ) )
       allocate( DISC%DynRup%DRupdatesPosition( mesh%fault%nSide, 2 ) )
 
@@ -2778,7 +2778,7 @@ CONTAINS
 #ifdef USE_PLASTICITY
         ! initialize the element dependent plastic parameters
         l_plasticParameters(1) = MESH%Elem%Volume(iElem)
-        l_plasticParameters(2) = EQN%PlastCo !currently constant, soon element-dependent
+        l_plasticParameters(2) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
         l_plasticParameters(3) = EQN%Rho0    !density
 
         ! initialize loading in C
@@ -2794,7 +2794,7 @@ CONTAINS
         IF(EQN%Plasticity.EQ.1) THEN
           ! initialize plastic parameters in classic version
           DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
-          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
+          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
           DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
         ENDIF
 #endif
@@ -3789,8 +3789,8 @@ CONTAINS
             min_h = MINVAL( MESH%ELEM%Volume(:), MASK = MESH%ELEM%Reference(0,:).EQ.iZone )
             max_h = MAXVAL( MESH%ELEM%Volume(:), MASK = MESH%ELEM%Reference(0,:).EQ.iZone )
 #ifdef PARALLEL
-            CALL MPI_ALLREDUCE(min_h,zone_minh(iZone),1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI_COMM_WORLD,iErr)
-            CALL MPI_ALLREDUCE(max_h,zone_maxh(iZone),1,MPI%MPI_AUTO_REAL,MPI_MAX,MPI_COMM_WORLD,iErr)
+            CALL MPI_ALLREDUCE(min_h,zone_minh(iZone),1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI%commWorld,iErr)
+            CALL MPI_ALLREDUCE(max_h,zone_maxh(iZone),1,MPI%MPI_AUTO_REAL,MPI_MAX,MPI%commWorld,iErr)
 #else
             zone_minh(iZone) = min_h
             zone_maxh(iZone) = max_h
@@ -3802,8 +3802,8 @@ CONTAINS
         min_h = MINVAL( MESH%ELEM%MinDistBarySide(:) )
         max_h = MAXVAL( MESH%ELEM%MinDistBarySide(:) )
 #ifdef PARALLEL
-        CALL MPI_ALLREDUCE(min_h,MESH%min_h,1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI_COMM_WORLD,iErr)
-        CALL MPI_ALLREDUCE(max_h,MESH%max_h,1,MPI%MPI_AUTO_REAL,MPI_MAX,MPI_COMM_WORLD,iErr)
+        CALL MPI_ALLREDUCE(min_h,MESH%min_h,1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI%commWorld,iErr)
+        CALL MPI_ALLREDUCE(max_h,MESH%max_h,1,MPI%MPI_AUTO_REAL,MPI_MAX,MPI%commWorld,iErr)
 #else
         MESH%min_h = min_h
         MESH%max_h = max_h
@@ -4514,11 +4514,11 @@ CONTAINS
                                        LInfElement(iVar), MESH%ELEM%xyBary(:,LInfElement(iVar))
           logInfo(*) '======================================'
 #ifdef PARALLEL
-          CALL MPI_REDUCE(L1norm(iVar),  MPIL1norm(iVar),  1,MPI%MPI_AUTO_REAL,MPI_SUM,0,MPI_COMM_WORLD,iErr)
+          CALL MPI_REDUCE(L1norm(iVar),  MPIL1norm(iVar),  1,MPI%MPI_AUTO_REAL,MPI_SUM,0,MPI%commWorld,iErr)
           L2norm(iVar) = L2norm(iVar)**2
-          CALL MPI_REDUCE(L2norm(iVar),  MPIL2norm(iVar),  1,MPI%MPI_AUTO_REAL,MPI_SUM,0,MPI_COMM_WORLD,iErr)
+          CALL MPI_REDUCE(L2norm(iVar),  MPIL2norm(iVar),  1,MPI%MPI_AUTO_REAL,MPI_SUM,0,MPI%commWorld,iErr)
           MPIL2norm(iVar) = SQRT(MPIL2norm(iVar))
-          CALL MPI_REDUCE(Linfnorm(iVar),MPILinfnorm(iVar),1,MPI%MPI_AUTO_REAL,MPI_MAX,0,MPI_COMM_WORLD,iErr)
+          CALL MPI_REDUCE(Linfnorm(iVar),MPILinfnorm(iVar),1,MPI%MPI_AUTO_REAL,MPI_MAX,0,MPI%commWorld,iErr)
           logInfo0(*) 'MPI Error analysis of variable ', varName
           logInfo0(*) '======================================'
           logInfo0(*) 'MPI L1_norm   : ', MPIL1norm(iVar)
@@ -4532,7 +4532,7 @@ CONTAINS
     h1 = MAXVAL(MESH%ELEM%Volume(:)**(1./3.))
     logInfo(*) 'h1 (3D) =  ', h1
 #ifdef PARALLEL
-          CALL MPI_REDUCE(h1,       MPI_h1,         1,MPI%MPI_AUTO_REAL,MPI_MAX,0,MPI_COMM_WORLD,iErr)
+          CALL MPI_REDUCE(h1,       MPI_h1,         1,MPI%MPI_AUTO_REAL,MPI_MAX,0,MPI%commWorld,iErr)
           logInfo(*) 'h1 (3D,MPI) =  ', MPI_h1
 #endif
     !                                                                            !

@@ -5,19 +5,19 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2015, SeisSol Group
+ * Copyright (c) 2014-2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -48,19 +48,21 @@
 
 #include "utils/args.h"
 
-void seissol::SeisSol::init(int argc, char* argv[])
+bool seissol::SeisSol::init(int argc, char* argv[])
 {
 	MPI::mpi.init(argc, argv);
-  
+
+	// TODO is there a reason to have this here?
+	// If not please move it to the end if this function
 #ifdef GENERATEDKERNELS
-	m_timeManager.initializeMemoryLayout();
+	m_memoryManager.initialize();
 #endif
 
 	const int rank = MPI::mpi.rank();
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012-2015, SeisSol Group";
+  logInfo(rank) << "Copyright (c) 2012-2016, SeisSol Group";
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__
 #ifdef GENERATEDKERNELS
                 << "(generated kernels)"
@@ -94,11 +96,20 @@ void seissol::SeisSol::init(int argc, char* argv[])
 	  break;
   }
 
+  // Initialize the ASYNC I/O library
+  if (!m_asyncIO.init())
+	  return false;
+
   m_parameterFile = args.getAdditionalArgument("file", "PARAMETER.par");
+
+  return true;
 }
 
 void seissol::SeisSol::finalize()
 {
+	// Cleanup ASYNC I/O library
+	m_asyncIO.finalize();
+
 	const int rank = MPI::mpi.rank();
 
 	MPI::mpi.finalize();

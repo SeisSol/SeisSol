@@ -1514,12 +1514,15 @@ MODULE Eval_friction_law_mod
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
-    REAL        :: SV0, tmp, tmp2, SRtest, NR, dNR
+    REAL        :: SV0, tmp, tmp2, tmp3, SRtest, NR, dNR
     REAL        :: LocSV
     REAL        :: RS_f0,RS_a,RS_b,RS_sl0,RS_sr0
     REAL        :: RS_fw,RS_srW,flv,fss,SVss
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
-    REAL        :: Rnuc, Tnuc, radius, Gnuc, Fnuc
+    REAL        :: hypox, hypoy, hypoz
+    REAL        :: Rnuc, Tnuc, radius, Gnuc, Fnuc, invZ, AlmostZero, aTolF
+    REAL        :: prevtime,dt
+    LOGICAL     :: has_converged
     LOGICAL     :: nodewise=.FALSE.
     REAL        :: xp(MESH%GlobalElemType), yp(MESH%GlobalElemType), zp(MESH%GlobalElemType)
     INTEGER     :: VertexSide(4,3)
@@ -1540,10 +1543,36 @@ MODULE Eval_friction_law_mod
 
     !Apply time dependent nucleation at global time step not sub time steps for simplicity
     !initialize time and space dependent nucleation
-    Rnuc=3000.0D0
-    Tnuc=1.0D0
+    Rnuc = DISC%DynRup%R_crit
+    Tnuc = DISC%DynRup%t_0
+    hypox = DISC%DynRup%XHypo
+    hypoy = DISC%DynRup%YHypo
+    hypoz = DISC%DynRup%ZHypo
+
+    !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
+    !as a consequence, the SR is affected the AlmostZero value when too small
+    AlmostZero = 1d-45
     !
+    !PARAMETERS of THE optimisation loops
+    !absolute tolerance on the function to be optimzed
+    ! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
+    !aTolF = 5e-15
+    aTolF = 1e-8
+    ! Number of iteration in the loops
+    nSRupdates = 60
+    nSVupdates = 2
+
+    dt = DISC%Galerkin%TimeGaussP(nTimeGP) + DeltaT(1)
     IF (time.LE.Tnuc) THEN
+    IF (time.GT.0.0D0) THEN
+        Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
+        prevtime = time - dt
+        IF (prevtime.GT.0.0D0) THEN
+        Gnuc= Gnuc - EXP((prevtime-Tnuc)**2/(prevtime*(prevtime-2.0D0*Tnuc)))
+        ENDIF
+    ELSE
+        Gnuc=0.0D0
+    ENDIF
     IF (nodewise) THEN
      !
          ! Gauss node coordinate definition and stress assignment
@@ -1576,16 +1605,16 @@ MODULE Eval_friction_law_mod
                 CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
                 !
                 !radial distance to hypocenter
-                radius=SQRT(xGP**2+(zGP+7500.0D0)**2)
+                radius=SQRT((xGP-hypox)**2+(yGP-hypoy)**2+(zGP-hypoz)**2)
                 ! Inside nucleation patch add shear stress perturbation of 45 MPa along strike
                 IF (radius.LT.Rnuc) THEN
                     Fnuc=EXP(radius**2/(radius**2-Rnuc**2))
-                    IF (time.GT.0.0D0) THEN
-                        Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
-                    ELSE
-                        Gnuc=0.0D0
-                    ENDIF
-                    EQN%IniShearXY(iFace,iBndGP)=EQN%ShearXY_0+45.0e6*Fnuc*Gnuc
+                    EQN%IniBulk_xx(iFace,iBndGP)=EQN%IniBulk_xx(iFace,iBndGP)+DISC%DynRup%NucBulk_xx_0*Fnuc*Gnuc
+                    EQN%IniBulk_yy(iFace,iBndGP)=EQN%IniBulk_yy(iFace,iBndGP)+DISC%DynRup%NucBulk_yy_0*Fnuc*Gnuc
+                    EQN%IniBulk_zz(iFace,iBndGP)=EQN%IniBulk_zz(iFace,iBndGP)+DISC%DynRup%NucBulk_zz_0*Fnuc*Gnuc
+                    EQN%IniShearXY(iFace,iBndGP)=EQN%IniShearXY(iFace,iBndGP)+DISC%DynRup%NucShearXY_0*Fnuc*Gnuc
+                    EQN%IniShearXZ(iFace,iBndGP)=EQN%IniShearXZ(iFace,iBndGP)+DISC%DynRup%NucShearXZ_0*Fnuc*Gnuc
+                    EQN%IniShearYZ(iFace,iBndGP)=EQN%IniShearYZ(iFace,iBndGP)+DISC%DynRup%NucShearYZ_0*Fnuc*Gnuc
                 ENDIF ! Rnuc
                 !
             ENDDO ! iBndGP
@@ -1609,16 +1638,16 @@ MODULE Eval_friction_law_mod
                 ENDDO
             ENDIF
             !max radial distance to hypocenter
-            radius=SQRT( (MAXVAL(xp(1:3)))**2 + ((MAXVAL(zp(1:3))+7500.0D0))**2 )
+            radius=SQRT((MAXVAL(xp(1:3))-hypox)**2+(MAXVAL(yp(1:3))-hypoy)**2+(MAXVAL(zp(1:3))-hypoz)**2)
                     ! Inside nucleation patch add shear stress perturbation of 45 MPa along strike
         IF (radius.LT.Rnuc) THEN
             Fnuc=EXP(radius**2/(radius**2-Rnuc**2))
-            IF (time.GT.0.0D0) THEN
-                Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
-            ELSE
-                Gnuc=0.0D0
-                    ENDIF
-                    EQN%IniShearXY(iFace,:)=EQN%ShearXY_0+45.0e6*Fnuc*Gnuc
+            EQN%IniBulk_xx(iFace,:)=EQN%IniBulk_xx(iFace,:)+DISC%DynRup%NucBulk_xx_0*Fnuc*Gnuc
+            EQN%IniBulk_yy(iFace,:)=EQN%IniBulk_yy(iFace,:)+DISC%DynRup%NucBulk_yy_0*Fnuc*Gnuc
+            EQN%IniBulk_zz(iFace,:)=EQN%IniBulk_zz(iFace,:)+DISC%DynRup%NucBulk_zz_0*Fnuc*Gnuc
+            EQN%IniShearXY(iFace,:)=EQN%IniShearXY(iFace,:)+DISC%DynRup%NucShearXY_0*Fnuc*Gnuc
+            EQN%IniShearXZ(iFace,:)=EQN%IniShearXZ(iFace,:)+DISC%DynRup%NucShearXZ_0*Fnuc*Gnuc
+            EQN%IniShearYZ(iFace,:)=EQN%IniShearYZ(iFace,:)+DISC%DynRup%NucShearYZ_0*Fnuc*Gnuc
             ENDIF ! Rnuc
     ENDIF ! nodewise
     ENDIF ! Tnuc
@@ -1672,25 +1701,26 @@ MODULE Eval_friction_law_mod
          SV0=LocSV    ! Careful, the SV must always be corrected using SV0 and not LocSV!
          !
          ! The following process is adapted from that described by Kaneko et al. (2008)
-         nSRupdates = 5
-         nSVupdates = 2
          !
          LocSR      = SQRT(LocSR1**2 + LocSR2**2)
+         LocSR = max(AlmostZero,LocSR)
          !
+         tmp = LocSR
+         invZ = (1.0d0/w_speed(2)/rho+1.0d0/w_speed_neig(2)/rho_neig)
+
          DO j=1,nSVupdates   !This loop corrects SV values
-             !
-             LocSR=ABS(LocSR)
              !
              !1. update SV using Vold from the previous time step
              !   exact integration assuming constant V in this iteration
              !   low-velocity steady state friction coefficient
-             flv = RS_f0 *(RS_b-RS_a)* LOG(LocSR/RS_sr0)
+             flv = RS_f0 - (RS_b-RS_a)* LOG(tmp/RS_sr0)
              !   steady state friction coefficient
-             fss = RS_fw + (flv - RS_fw)/(1.0D0+(LocSR/RS_srW)**8)**(1.0D0/8.0D0)
-             ! steady-state state variabel with SINH(X)=(EXP(X)-EXP(-X))/2
-             SVss = RS_a * LOG(2.0D0*RS_sr0/LocSR * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
+             fss = RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8d0)**(1.0D0/8.0D0)
+             ! steady-state state variable with SINH(X)=(EXP(X)-EXP(-X))/2
+             SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
              !
-             LocSV=SVss*(1.0-EXP(-LocSR*time_inc/RS_sl0))+EXP(-LocSR*time_inc/RS_sl0)*SV0
+             LocSV=SVss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+
              !2. solve for Vnew , applying the Newton-Raphson algorithm as in Case 3 and 4
              !   but with different mu evolution
              ! SR fulfills g(SR)=f(SR), NR=f-g and dNR = d(NR)/d(SR)
@@ -1701,35 +1731,44 @@ MODULE Eval_friction_law_mod
              !  where mu = a * arcsinh[ V/(2*V0) * exp(SV/a) ]
              SRtest=LocSR  ! We use as first guess the SR value of the previous time step
              !
+             tmp          = 0.5D0/RS_sr0* EXP(LocSV/RS_a)
+             has_converged = .FALSE.
+
              DO i=1,nSRupdates  !This loop corrects SR values
                  ! for convenience
-                 tmp          = 0.5D0/RS_sr0* EXP(LocSV/RS_a)
                  tmp2         = tmp*SRtest != X in ASINH(X) for mu calculation
-                 NR           = -(1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig) * &
-                     (ABS(P)*RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))-ShTest)-SRtest
-                 dNR          = -(1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig) * &
-                     (ABS(P)*RS_a/SQRT(1+tmp2**2)*tmp) -1.0
-                 SRtest = SRtest-NR/dNR
+                 NR           = -invZ * (ABS(P)*RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))-ShTest)-SRtest
+                 IF (abs(NR)<atolF) THEN
+                    has_converged = .TRUE.
+                    EXIT
+                 ENDIF
+                 dNR          = -invZ * (ABS(P)*RS_a/SQRT(1d0+tmp2**2)*tmp) -1.0
+                 tmp3 = NR/dNR
+                 SRtest = max(AlmostZero,ABS(SRtest - tmp3))
              ENDDO
              !
              ! 3. update theta, now using V=(Vnew+Vold)/2
-             tmp=0.5*(LocSR+ABS(SRtest))  ! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
+             tmp=0.5d0*(LocSR+ABS(SRtest))  ! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
              !
              ! 4. solve again for Vnew
              LocSR=ABS(SRtest)
              !
          ENDDO !  j=1,nSVupdates   !This loop corrects SV values
+         if (.NOT.has_converged) THEN
+            logError(*) 'nonConvergence RS Newton', time, i, j, abs(NR),SRtest,LocSR,iFace,iBndGP
+         ENDIF
          !
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         flv = RS_f0 *(RS_b-RS_a)* LOG(tmp/RS_sr0)
+         flv = RS_f0 -(RS_b-RS_a)* LOG(tmp/RS_sr0)
          fss = RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8)**(1.0D0/8.0D0)
          SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
-         LocSV=Svss*(1.0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+         LocSV=Svss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
          !Mu from LocSR
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
          ! update stress change
+
          LocTracXY = -((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXZ = -((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXY = LocTracXY - Stress(4,iBndGP)
@@ -1739,11 +1778,18 @@ MODULE Eval_friction_law_mod
          LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
          !
          !Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-         LocSR1     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
-         LocSR2     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
+         LocSR1     = -invZ*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
+         LocSR2     = -invZ*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
 
-       LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
-       LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
+         !TU 07.07.16: correct LocSR1_2 to avoid numerical errors
+         tmp = sqrt(LocSR1**2+LocSR2**2)
+         if( tmp.NE.0d0) THEN
+            LocSR1 = LocSR*LocSR1/tmp
+            LocSR2 = LocSR*LocSR2/tmp
+         ENDIF
+
+         LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
+         LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
          !LocSR1     = SignSR1*ABS(LocSR1)
          !LocSR2     = SignSR2*ABS(LocSR2)
          !

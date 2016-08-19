@@ -13,6 +13,7 @@ The SeisSol core group is:
  * Passone, Luca - KAUST
  * Pelties, Christian - LMU
  * Rettenberger, Sebastian - TUM
+ * Uphoff, Carsten - TUM
  * Wenk, Stefan - LMU
 
 The SeisSol group appreciates the work of following contributors:

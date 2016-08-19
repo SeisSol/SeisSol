@@ -1,12 +1,12 @@
-//-*-c++-*-
 /**
  * @file
  * This file is part of SeisSol.
  *
  * @author Gilbert Brietzke (gilbert.brietzke AT lrz.de, http://www.lrz.de)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,23 +47,32 @@
 
 namespace seissol
 {
-  namespace checkpoint
-  {
-    namespace sionlib
-    {
-      class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
-      {
-      public:
+
+namespace checkpoint
+{
+
+namespace sionlib
+{
+
+class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
+{
+public:
 	Wavefield()
-	  : CheckPoint(0x7A56F)
-	{
-	}	
-	bool init(real* dofs, unsigned int numDofs);
-	void load(double &time, int &timestepWavefield);
-	void write(double time, int timestepWaveField);	
-      };      
-    }
-  }
+		: CheckPoint(0x7A389)
+	{}
+
+	bool init(unsigned int numDofs, unsigned int groupSize = 1);
+
+	void load(double &time, int &timestepWavefield, real* dofs);
+
+	void write(double time, int timestepWaveField);
+
+};
+
+}
+
+}
+
 }
 
 #endif // CHECKPOINT_SIONLIB_WAVEFIELD_H

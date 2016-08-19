@@ -2,10 +2,10 @@
 !! @file
 !! This file is part of SeisSol.
 !!
-!! @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
+!! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2013-2015, SeisSol Group
+!! Copyright (c) 2013-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -236,7 +236,7 @@ contains
         ! Recv/Send local vertices
         do i=1,m_bnd%NoMPIDomains
             allocate(recv_messages(i)%content(m_bnd%ObjMPI(i)%nElem*4*3))
-            call mpi_irecv(recv_messages(i)%content, m_bnd%ObjMPI(i)%nElem*4*3, m_mpi%MPI_AUTO_REAL, m_bnd%ObjMPI(i)%CPU, 1, MPI_COMM_WORLD, recv_requests(i), iErr)
+            call mpi_irecv(recv_messages(i)%content, m_bnd%ObjMPI(i)%nElem*4*3, m_mpi%MPI_AUTO_REAL, m_bnd%ObjMPI(i)%CPU, 1, m_mpi%commWorld, recv_requests(i), iErr)
 
             allocate(send_messages(i)%content(m_bnd%ObjMPI(i)%nElem*4*3))
 
@@ -246,7 +246,7 @@ contains
                     send_messages(i)%content(((j-1)*4+k-1)*3+1:((j-1)*4+k-1)*3+3) = m_mesh%VRTX%xyNode(1:3,m_mesh%ELEM%Vertex(k,iElem))
                 enddo
             enddo
-            call mpi_isend(send_messages(i)%content, m_bnd%ObjMPI(i)%nElem*4*3, m_mpi%MPI_AUTO_REAL, m_bnd%ObjMPI(i)%CPU, 1, MPI_COMM_WORLD, send_requests(i), iErr)
+            call mpi_isend(send_messages(i)%content, m_bnd%ObjMPI(i)%nElem*4*3, m_mpi%MPI_AUTO_REAL, m_bnd%ObjMPI(i)%CPU, 1, m_mpi%commWorld, send_requests(i), iErr)
         enddo
 
         ! exchange data

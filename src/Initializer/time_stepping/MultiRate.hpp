@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,9 +39,7 @@
  * Multi-rate scheme.
  **/
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
+#include "Parallel/MPI.h"
 
 #include "common.hpp"
 #include <limits>
@@ -112,14 +111,17 @@ class seissol::initializers::time_stepping::MultiRate {
         l_minimumTimeStepWidth = std::min( l_minimumTimeStepWidth, i_cellTimeStepWidths[l_cell] );
         l_maximumTimeStepWidth = std::max( l_maximumTimeStepWidth, i_cellTimeStepWidths[l_cell] );
       }
-      
+
       assert(l_minimumTimeStepWidth != std::numeric_limits<double>::max());
       assert(l_maximumTimeStepWidth != std::numeric_limits<double>::min());
 
 #ifdef USE_MPI
       // derive global minimum and maximum time step widths
-      MPI_Allreduce( &l_minimumTimeStepWidth, &o_minimumTimeStepWidth, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD );
-      MPI_Allreduce( &l_maximumTimeStepWidth, &o_maximumTimeStepWidth, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD );
+      MPI_Allreduce( &l_minimumTimeStepWidth, &o_minimumTimeStepWidth, 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm() );
+      MPI_Allreduce( &l_maximumTimeStepWidth, &o_maximumTimeStepWidth, 1, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm() );
+#else
+      o_minimumTimeStepWidth = l_minimumTimeStepWidth;
+      o_maximumTimeStepWidth = l_maximumTimeStepWidth;
 #endif
     }
 
@@ -145,7 +147,7 @@ class seissol::initializers::time_stepping::MultiRate {
         getMultiRateInfo( io_cellLocalInformation[l_cell].timeStepWidth,
                           i_minimumTimeStepWidth,
                           i_multiRate,
-                          l_clusterTimeStepWidth, 
+                          l_clusterTimeStepWidth,
                           io_cellLocalInformation[l_cell].clusterId );
       }
     }
@@ -174,7 +176,7 @@ class seissol::initializers::time_stepping::MultiRate {
         getMultiRateInfo( i_cellTimeStepWidths[l_cell],
                           i_minimumTimeStepWidth,
                           i_multiRate,
-                          l_clusterTimeStepWidth, 
+                          l_clusterTimeStepWidth,
                           o_cellClusterIds[l_cell] );
       }
     }
@@ -218,7 +220,7 @@ class seissol::initializers::time_stepping::MultiRate {
          o_timeStepRates[l_cluster] = i_multiRate; // constant time step rate for the rest
        }
      }
-                                 
+
 
   public:
     /**

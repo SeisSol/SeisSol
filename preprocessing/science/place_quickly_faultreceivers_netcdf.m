@@ -132,7 +132,9 @@ for iPartition=1:nPartition
 
    if plotmesh == 'y'
        %figure; hold on
-       trimesh(tri,X(:,1),X(:,2),X(:,3),X(:,3));
+       PartitionColor = ones(size(X(:,3))) * iPartition;
+       trimesh(tri,X(:,1),X(:,2),X(:,3),PartitionColor);
+       %trimesh(tri,X(:,1),X(:,2),X(:,3),X(:,3));
        axis equal,xlabel('x'),ylabel('y'),zlabel('z')
    end
 
@@ -207,8 +209,10 @@ for iPartition=1:nPartition
    end
 
    % clean double receiver positions (due to double counted fault sides)
-   receivers_part = [xplot,yplot,zplot];
-   receivers = vertcat(receivers,receivers_part);
+   if size(xplot)>0
+       receivers_part = [xplot,yplot,zplot];
+       receivers = vertcat(receivers,receivers_part);
+   end
 end
 [tmp,uniquecol]=unique(receivers(:,1:2:end),'rows');
 receivers=receivers(uniquecol,:);
@@ -219,6 +223,7 @@ disp(sprintf(' %d/%d receiver(s) could be located on the fault', size(receivers,
 if plotmarker == 'y'
     plot3(receivers(:,1),receivers(:,2),receivers(:,3),'r*','MarkerSize',8)
     axis tight
+    view([180 0])
 end
 
 %disp('    Receiver coordinates at fault:'); disp(' ')

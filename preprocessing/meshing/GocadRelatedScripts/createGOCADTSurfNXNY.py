@@ -23,6 +23,7 @@ parser.add_argument('--subsample', nargs=1, metavar=('onesample_every'), default
 parser.add_argument('--objectname', nargs=1, metavar=('objectname'), default = (''), help='name of the surface in gocad')
 parser.add_argument('--hole', nargs=4, metavar=(('x0'),('x1'),('y0'),('y1')), default = (''), help='create a hole in surface defined by x0<=x<=x1 and y0<=y<=y1')
 parser.add_argument('--crop', nargs=4, metavar=(('x0'),('x1'),('y0'),('y1')), default = (''), help='select only surfaces in x0<=x<=x1 and y0<=y<=y1')
+parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='name of the projection (ex EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
 args = parser.parse_args()
 
 if args.objectname == '':
@@ -58,6 +59,14 @@ if args.NXNY=='':
       #we can try to get NX
       for i in range(1,nvertex):
          if dataxyz[i,1]!=dataxyz[i-1,1]:
+            NX = i
+            NY = nvertex/NX
+            break
+      print ((NX,NY))
+   elif dataxyz[1,0]==dataxyz[0,0]:
+      #we can try to get NY
+      for i in range(1,nvertex):
+         if dataxyz[i,0]!=dataxyz[i-1,0]:
             NX = i
             NY = nvertex/NX
             break
@@ -106,12 +115,30 @@ for j in range(NY-1):
          triangles.append([i+j*NX,i+1+j*NX,i+1+(j+1)*NX])
          triangles.append([i+j*NX,i+(j+1)*NX,i+1+(j+1)*NX])
 
+if args.proj!='':
+   print "Projecting the nodes coordinates"
+   import mpl_toolkits.basemap.pyproj as pyproj
+   lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
+   if args.proj[0]!='geocent':
+      sProj = "+init=%s" %args.proj[0]
+      myproj=pyproj.Proj(sProj)
+   else:
+      myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
+else:
+   print "no projection carried out"
+
+
+
 fout = open(args.output_file,'w')
 ### WRITE THE GOCAD TS FILE
 fout.write("GOCAD TSURF 1\nHEADER {\nname:"+args.objectname+"\n}\nTRIANGLES\n")
 for j in range(0,NY):
     for i in range(0,NX):
-       fout.write("VRTX %d %f %f %f\n" %(i+j*NX+1, dataxyz[i,j,0], dataxyz[i,j,1], dataxyz[i,j,2]))
+        if args.proj!='':
+            xyz = pyproj.transform(lla, myproj, dataxyz[i,j,0],dataxyz[i,j,1], dataxyz[i,j,2], radians=False)
+            fout.write('VRTX '+str(i+j*NX+1)+' %.10e %.10e %.10e\n' %tuple(xyz))
+        else:
+            fout.write("VRTX %d %f %f %f\n" %(i+j*NX+1, dataxyz[i,j,0], dataxyz[i,j,1], dataxyz[i,j,2]))
 for tr in triangles:
    fout.write("TRGL %d %d %d\n" %(tr[0],tr[1],tr[2]))
 fout.write("END")

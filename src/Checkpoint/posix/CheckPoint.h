@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,12 +45,15 @@
 #include <mpi.h>
 #endif // USE_MPI
 
+#include <cassert>
 #include <cstring>
 #include <errno.h>
 #include <fcntl.h>
+#include <string>
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include "utils/env.h"
 #include "utils/logger.h"
 #include "utils/stringutils.h"
 
@@ -75,55 +78,52 @@ private:
 	/** Identifiers of the files */
 	int m_files[2];
 
+	/** Alignment used for all writes */
+	size_t m_alignment;
+
+	/** The size of the header */
+	size_t m_headerSize;
+
+	/** Buffer to write header data */
+	void* m_header;
+
 public:
-	CheckPoint(unsigned long identifier)
+	CheckPoint(unsigned long identifier, size_t headerSize)
 		: m_identifier(identifier)
 	{
+		m_files[0] = m_files[1] = -1;
+
+		headerSize += sizeof(unsigned long); // Require additional space for the identifier
+		m_alignment = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_POSIX_ALIGN", 0);
+		if (m_alignment) {
+			headerSize = (headerSize + m_alignment - 1) / m_alignment;
+			headerSize *= m_alignment;
+
+			if (posix_memalign(&m_header, m_alignment, headerSize) != 0)
+				logError() << "Could not allocate buffer for alignment";
+		} else {
+			m_header = malloc(headerSize);
+		}
+
+		m_headerSize = headerSize;
 	}
 
-	virtual ~CheckPoint() {}
+	virtual ~CheckPoint()
+	{
+		free(m_header);
+	}
 
 	void setFilename(const char* filename)
 	{
 		initFilename(filename, 0L);
 	}
 
-	void initLate()
-	{
-		seissol::checkpoint::CheckPoint::initLate();
-
-		// Create the folder
-		if (rank() == 0) {
-			for (int i = 0; i < 2; i++) {
-				int ret = mkdir(seissol::checkpoint::CheckPoint::dataFile(i).c_str(),
-						S_IRWXU | S_IRWXG | S_IRWXO);
-				if (ret < 0 && errno != EEXIST)
-					checkErr(ret);
-			}
-		}
-
-#ifdef USE_MPI
-		// Make sure all processes see the folders
-		MPI_Barrier(comm());
-#endif // USE_MPI
-
-		for (unsigned int i = 0; i < 2; i++) {
-			m_files[i] = open64(dataFile(i).c_str(), O_WRONLY | O_CREAT,
-					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-			checkErr(m_files[i]);
-
-			checkErr(write(m_files[i], &m_identifier, sizeof(m_identifier)));
-
-			// Sync file (required for performance measure)
-			// TODO preallocate file first
-			checkErr(fsync(m_files[i]));
-		}
-	}
-
 	void close()
 	{
-		for (unsigned int i = 0; i < 2; i++)
-			checkErr(::close(m_files[i]));
+		if (m_files[0] >= 0) {
+			for (unsigned int i = 0; i < 2; i++)
+				checkErr(::close(m_files[i]));
+		}
 	}
 
 protected:
@@ -177,18 +177,16 @@ protected:
 		return fh;
 	}
 
-	std::string linkFile() const
+	const std::string linkFile() const
 	{
-		std::string file = std::string(seissol::checkpoint::CheckPoint::linkFile())
-				+ "/checkpoint." + utils::StringUtils::toString(rank());
-
-		return file;
+		return std::string(seissol::checkpoint::CheckPoint::linkFile())
+		  + "/" + fname() + "." + utils::StringUtils::toString(rank() / groupSize());
 	}
 
-	std::string dataFile(int odd) const
+	const std::string dataFile(int odd) const
 	{
 		return seissol::checkpoint::CheckPoint::dataFile(odd)
-				+ "/checkpoint." + utils::StringUtils::toString(rank());
+		  + "/" + fname() + "." + utils::StringUtils::toString(rank() / groupSize());
 	}
 
 	/**
@@ -207,6 +205,81 @@ protected:
 		return m_identifier;
 	}
 
+	/**
+	 * @return The alignment used for writes
+	 */
+	size_t alignment() const
+	{
+		return m_alignment;
+	}
+
+protected:
+	void createFiles()
+	{
+		seissol::checkpoint::CheckPoint::createFiles();
+
+		// Create the folder
+		if (rank() == 0) {
+			for (int i = 0; i < 2; i++) {
+				int ret = mkdir(seissol::checkpoint::CheckPoint::dataFile(i).c_str(),
+						S_IRWXU | S_IRWXG | S_IRWXO);
+				if (ret < 0 && errno != EEXIST)
+					checkErr(ret);
+			}
+		}
+
+#ifdef USE_MPI
+		// Make sure all processes see the folders
+		MPI_Barrier(comm());
+#endif // USE_MPI
+
+		int oflags = O_WRONLY | O_CREAT;
+		if (utils::Env::get<int>("SEISSOL_CHECKPOINT_DIRECT", 0)) {
+			oflags |= O_DIRECT;
+			logInfo(rank()) << "Using direct I/O for checkpointing";
+		}
+
+		for (unsigned int i = 0; i < 2; i++) {
+			m_files[i] = open64(dataFile(i).c_str(), oflags,
+					S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+			checkErr(m_files[i]);
+
+			// Sync file (required for performance measure)
+			// TODO preallocate file first
+			checkErr(fsync(m_files[i]));
+		}
+	}
+
+	/**
+	 * Read the header info from the file
+	 */
+	template<typename T>
+	void readHeader(int file, T &header)
+	{
+		assert(sizeof(T)+sizeof(unsigned long) <= m_headerSize);
+
+		checkErr(read(file, m_header, m_headerSize), m_headerSize);
+
+		T* headStart = reinterpret_cast<T*>(static_cast<unsigned long*>(m_header)+1);
+		header = *headStart;
+	}
+
+	/**
+	 * Write the header info to the file
+	 */
+	template<typename T>
+	void writeHeader(int file, const T &header)
+	{
+		assert(sizeof(T)+sizeof(unsigned long) <= m_headerSize);
+
+		*static_cast<unsigned long*>(m_header) = m_identifier;
+
+		T* headStart = reinterpret_cast<T*>(static_cast<unsigned long*>(m_header)+1);
+		*headStart = header;
+
+		checkErr(write(file, m_header, m_headerSize), m_headerSize);
+	}
+
 private:
 	/**
 	 * Validate an existing check point file
@@ -221,7 +294,7 @@ private:
 		}
 
 		if (id != identifier()) {
-			logWarning() << "Checkpoint identifier does match";
+			logWarning() << "Checkpoint identifier does match" << id << identifier();
 			return false;
 		}
 

@@ -77,6 +77,7 @@ public:
 	CheckPoint()
 		: m_h5XferList(-1)
 	{
+		m_h5files[0] = m_h5files[1] = -1;
 	}
 
 	virtual ~CheckPoint() {}
@@ -86,23 +87,12 @@ public:
 		initFilename(filename, "h5");
 	}
 
-	void initLate()
-	{
-		// Backup checkpoints from last run
-		seissol::checkpoint::CheckPoint::initLate();
-
-		for (unsigned int i = 0; i < 2; i++) {
-			m_h5files[i] = initFile(i, dataFile(i).c_str());
-
-			// Sync file (required for performance measure)
-			checkH5Err(H5Fflush(m_h5files[i], H5F_SCOPE_GLOBAL));
-		}
-	}
-
 	void close()
 	{
-		for (unsigned int i = 0; i < 2; i++)
-			checkH5Err(H5Fclose(m_h5files[i]));
+		if (m_h5files[0] >= 0) {
+			for (unsigned int i = 0; i < 2; i++)
+				checkH5Err(H5Fclose(m_h5files[i]));
+		}
 
 		checkH5Err(H5Pclose(m_h5XferList));
 	}
@@ -138,6 +128,19 @@ protected:
 		checkH5Err(H5Fclose(h5file));
 
 		return hasCheckpoint;
+	}
+
+	void createFiles()
+	{
+		// Backup checkpoints from last run
+		seissol::checkpoint::CheckPoint::createFiles();
+
+		for (unsigned int i = 0; i < 2; i++) {
+			m_h5files[i] = initFile(i, dataFile(i).c_str());
+
+			// Sync file (required for performance measure)
+			checkH5Err(H5Fflush(m_h5files[i], H5F_SCOPE_GLOBAL));
+		}
 	}
 
 	/**

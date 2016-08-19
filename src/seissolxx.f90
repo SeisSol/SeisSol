@@ -6,7 +6,7 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2010-2015, SeisSol Group
+!! Copyright (c) 2010-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -42,16 +42,17 @@
 #include <Initializer/preProcessorMacros.fpp>
 
 module SeisSol
-!----------------------------------------------------------------------------
-USE ini_SeisSol_mod
-USE calc_SeisSol_mod
-USE analyse_SeisSol_mod
-USE close_SeisSol_mod
-USE inioutput_SeisSol_mod
-USE TypesDef
-USE COMMON_operators_mod, ONLY: OpenFile
+  !----------------------------------------------------------------------------
+  use parallel_mpi
+  USE ini_SeisSol_mod
+  USE calc_SeisSol_mod
+  USE analyse_SeisSol_mod
+  USE close_SeisSol_mod
+  USE inioutput_SeisSol_mod
+  USE TypesDef
+  USE COMMON_operators_mod, ONLY: OpenFile
 
-use iso_c_binding
+  use iso_c_binding
 #ifdef GENERATEDKERNELS
 use f_ftoc_bind_interoperability
 #endif
@@ -85,43 +86,44 @@ open(FORTRAN_STDERR, recl=FORTRAN_LINE_SIZE)
 #endif
 
 #ifdef PARALLEL
-! Initialize MPI 
+   ! Initialize MPI
+   domain%MPI%commWorld = getCommWorld()
 
-CALL MPI_COMM_RANK(MPI_COMM_WORLD, domain%MPI%myrank, domain%MPI%iErr)
-CALL MPI_COMM_SIZE(MPI_COMM_WORLD, domain%MPI%nCPU,   domain%MPI%iErr)
+   CALL MPI_COMM_RANK(domain%MPI%commWorld, domain%MPI%myrank, domain%MPI%iErr)
+   CALL MPI_COMM_SIZE(domain%MPI%commWorld, domain%MPI%nCPU,   domain%MPI%iErr)
 
-! Set global variable for the rank, required by the logger
-myrank = domain%MPI%myrank
+   ! Set global variable for the rank, required by the logger
+   myrank = domain%MPI%myrank
 
-WRITE(name,'(a,i5.5,a)') 'StdOut',domain%MPI%myrank,'.txt'
+   WRITE(name,'(a,i5.5,a)') 'StdOut',domain%MPI%myrank,'.txt'
 
-logInfo0(*) '<--------------------------------------------------------->'
-logInfo0(*) '<                SeisSol MPI initialization               >'
-logInfo0(*) '<--------------------------------------------------------->'
-logInfo(*) ' MPI Communication Initialized. '
-logInfo(*) ' I am processor ', domain%MPI%myrank, ' of ', domain%MPI%nCPU, ' total CPUs.'
-! Initialize MPI_AUTO_REAL
-domain%MPI%real_kind     = KIND(domain%MPI%real_kindtest)
-domain%MPI%integer_kind  = KIND(domain%MPI%integer_kindtest)
-SELECT CASE(domain%MPI%real_kind)
-CASE(4)
-logInfo0(*) 'Single precision used for real.'
-logInfo0(*) 'Setting MPI_AUTODOUBLE to MPI_REAL'
-domain%MPI%MPI_AUTO_REAL = MPI_REAL
-CASE(8)
-logInfo0(*) ' Double precision used for real.'
-logInfo0(*) ' Setting MPI_AUTODOUBLE to MPI_DOUBLE_PRECISION'
-domain%MPI%MPI_AUTO_REAL = MPI_DOUBLE_PRECISION
-CASE DEFAULT
-logError(*) 'Unknown kind ', domain%MPI%real_kind
-STOP
-END SELECT
-logInfo0(*) ' MPI_AUTO_REAL feature initialized. '
-domain%MPI%MPI_AUTO_INTEGER = 0
-!  
-logInfo0(*) ' MPI initialization done. '
-logInfo0('(a)') ' <--------------------------------------------------------->'
-WRITE(domain%IO%ErrorFile,'(a,i5.5,a)') 'IRREGULARITIES.', domain%MPI%myrank, '.log'    ! Name der Datei in die Fehler geschrieben werden
+   logInfo0(*) '<--------------------------------------------------------->'
+   logInfo0(*) '<                SeisSol MPI initialization               >'
+   logInfo0(*) '<--------------------------------------------------------->'
+   logInfo(*) ' MPI Communication Initialized. '
+   logInfo(*) ' I am processor ', domain%MPI%myrank, ' of ', domain%MPI%nCPU, ' total CPUs.'
+   ! Initialize MPI_AUTO_REAL
+   domain%MPI%real_kind     = KIND(domain%MPI%real_kindtest)
+   domain%MPI%integer_kind  = KIND(domain%MPI%integer_kindtest)
+   SELECT CASE(domain%MPI%real_kind)
+   CASE(4)
+     logInfo0(*) 'Single precision used for real.'
+     logInfo0(*) 'Setting MPI_AUTODOUBLE to MPI_REAL'
+     domain%MPI%MPI_AUTO_REAL = MPI_REAL
+   CASE(8)
+     logInfo0(*) ' Double precision used for real.'
+     logInfo0(*) ' Setting MPI_AUTODOUBLE to MPI_DOUBLE_PRECISION'
+     domain%MPI%MPI_AUTO_REAL = MPI_DOUBLE_PRECISION
+   CASE DEFAULT
+     logError(*) 'Unknown kind ', domain%MPI%real_kind
+     STOP
+   END SELECT
+   logInfo0(*) ' MPI_AUTO_REAL feature initialized. '
+   domain%MPI%MPI_AUTO_INTEGER = 0
+   !  
+   logInfo0(*) ' MPI initialization done. '
+   logInfo0('(a)') ' <--------------------------------------------------------->'
+   WRITE(domain%IO%ErrorFile,'(a,i5.5,a)') 'IRREGULARITIES.', domain%MPI%myrank, '.log'    ! Name der Datei in die Fehler geschrieben werden
 #else
 domain%IO%ErrorFile                    = 'IRREGULARITIES.log'         ! Name der Datei in die Fehler geschrieben werden
 myrank = 0
@@ -268,7 +270,7 @@ domain%IO%MPIPickCleaningDone = 0
    ENDIF
 
 #ifdef PARALLEL
-   CALL MPI_BARRIER(MPI_COMM_WORLD,domain%MPI%iErr)
+   CALL MPI_BARRIER(domain%MPI%commWorld,domain%MPI%iErr)
 #endif
 
   logInfo0(*) '<--------------------------------------------------------->'  !
@@ -291,7 +293,7 @@ domain%IO%MPIPickCleaningDone = 0
 #ifdef PARALLEL
   ! Finalize MPI 
 
-   CALL MPI_BARRIER(MPI_COMM_WORLD,domain%MPI%iErr)
+   CALL MPI_BARRIER(domain%MPI%commWorld,domain%MPI%iErr)
 #endif
   end subroutine main
 

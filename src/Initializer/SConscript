@@ -52,7 +52,8 @@ if env['generatedKernels']:
                       'MemoryAllocator.cpp',
                       'MemoryManager.cpp',
                       'time_stepping/LtsLayout.cpp',
-                      'CellLocalMatrices.cpp'] + initializeFiles
+                      'CellLocalMatrices.cpp',
+                      'tree/Lut.cpp' ] + initializeFiles
 
 for i in initializeFiles:
   env.sourceFiles.append(env.Object(i))

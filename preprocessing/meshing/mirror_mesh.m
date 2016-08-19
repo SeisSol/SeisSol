@@ -60,6 +60,8 @@ clear, close all;
 % get input
 filename0  = input('   Filename of mesh(suffix ".nc" is appended)                  :  ','s');
 normal     = input('    Normal axis to plane of symmetry (x,y,z)                   :  ','s');
+disp('!!!Warning: This script assumes that all rupture elements are on the symetry plane!!!');
+disp('!!!Warning: This script assumes that neither free surface elements nor absorbing elements are on the symetry plane!!!');
 %filename0 = 'halfmodel_planar.1'
 %normal = 'y'
 
@@ -288,7 +290,7 @@ faceId(ind4)=3;
 
 fprintf(fid_out,' BOUNDARY CONDITIONS 2.3.16\n');
 nbound=size(tetraId,1);
-fprintf(fid_out,'%s%8.0f%8.0f%8.0f%8.0f\n','                             103',1,nbound,0,6);
+fprintf(fid_out,'%s%8.0f%8.0f%8.0f%8.0f\n','                             103',1,2*nbound,0,6);
 for i = 1:nbound
     fprintf(fid_out,'%10.0f%5.0f%5.0f\n', tetraId(i),6,faceId(i));
 end
@@ -298,12 +300,12 @@ ind1 = find(faceId==1);
 ind2 = find(faceId==2);
 faceId(ind1)=2;
 faceId(ind2)=1;
+
 for i = 1:nbound
     currentvertices = element_vertices_new(s_vert(faceId(i),:), Elem_Old2New(tetraId(i)), 1);
-    if max(currentvertices)>vertices
-        %then one vertices has been created
-        fprintf(fid_out,'%10.0f%5.0f%5.0f\n', Elem_Old2New(tetraId(i)),6,faceId(i));
-    end
+    %This script assumes that all rupture elements are on the symetry plane
+    %we need both faces for the reader Gambit-Fast to work properly
+    fprintf(fid_out,'%10.0f%5.0f%5.0f\n', Elem_Old2New(tetraId(i)),6,faceId(i));
 end
 fprintf(fid_out,'%s\n','ENDOFSECTION');
 

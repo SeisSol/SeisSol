@@ -5,19 +5,19 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -40,6 +40,7 @@
 #ifdef USE_NETCDF
 #include "NetcdfReader.h"
 #endif // USE_NETCDF
+#include "Monitoring/instrumentation.fpp"
 
 #include "SeisSol.h"
 
@@ -52,9 +53,9 @@
 void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
 	logInfo(rank) << "Mesh reading done.";
-  
-  meshReader.displaceMesh(displacement);
-  meshReader.scaleMesh(scalingMatrix);
+
+	meshReader.displaceMesh(displacement);
+	meshReader.scaleMesh(scalingMatrix);
 
 	const std::vector<Element>& elements = meshReader.getElements();
 	const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -236,6 +237,8 @@ extern "C" {
 
 void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitionfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
+	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
+
 	logInfo(rank) << "Reading Gambit mesh using fast reader";
 	logInfo(rank) << "Parsing mesh and partition file:" << meshfile << ';' << partitionfile;
 
@@ -246,6 +249,8 @@ void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitio
 
 void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
+	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
+	
 #ifdef USE_NETCDF
 	logInfo(rank) << "Reading netCDF mesh" << meshfile;
 

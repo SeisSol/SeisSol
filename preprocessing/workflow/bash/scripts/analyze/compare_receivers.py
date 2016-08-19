@@ -152,11 +152,12 @@ for l_file in l_reference['files']:
       l_secondSum = l_secondSum + (l_reference['current'][l_variable][l_index])**2
     
     if( l_secondSum > 0 ):
+      absoluteError = False
       l_seismogramMisfit = l_firstSum / l_secondSum
-    elif( l_secondSum == 0 and l_firstSum == 0 ):
-      l_seismogramMisfit = 0
     else:
-      assert( False )
+      absoluteError = True
+      l_seismogramMisfit = l_firstSum
+
     l_output['csv'].write( l_reference['directory']  + ',' +
                            l_simulation['directory'] + ',' +
                            l_file                    + ',' +
@@ -171,7 +172,7 @@ for l_file in l_reference['files']:
     l_figure = matplotlib.pyplot.figure( figsize=(20, 10) )
 
     # setup the plot
-    matplotlib.pyplot.title( l_file + ', seismogram misfit=' + str(l_seismogramMisfit) )
+    matplotlib.pyplot.title('{}, {}seismogram misfit={}'.format(l_file, '(absolute) ' if absoluteError else '', l_seismogramMisfit))
     matplotlib.pyplot.suptitle('reference: ' + l_reference['directory'] + '\n simulation: ' + l_simulation['directory'] )
     matplotlib.pyplot.xlabel('time')
     matplotlib.pyplot.ylabel(l_variable)

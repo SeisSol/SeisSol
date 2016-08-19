@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,10 @@
 
 #ifndef CHECKPOINT_CHECK_POINT_H
 #define CHECKPOINT_CHECK_POINT_H
+
+#ifdef USE_MPI
+#include <mpi.h>
+#endif // USE_MPI
 
 #include <cstdio>
 #include <string>
@@ -91,6 +95,15 @@ private:
 	/** Offset in the file (in elements) */
 	unsigned long m_fileOffset;
 
+	/** Number of ranks per group */
+	unsigned int m_groupSize;
+
+	/** Total number of elements in the group */
+	unsigned int m_numGroupElems;
+
+	/** Offset in the group */
+	unsigned int m_groupOffset;
+
 	/** Was the checkpoint loaded */
 	bool m_loaded;
 
@@ -102,6 +115,7 @@ public:
 #endif // USE_MPI
 		  m_odd(0), // Start with even checkpoint
 		  m_numTotalElems(0), m_fileOffset(0),
+		  m_groupSize(0), m_numGroupElems(0), m_groupOffset(0),
 		  m_loaded(false)
 	{}
 
@@ -115,26 +129,11 @@ public:
 	virtual void setFilename(const char* filename) = 0;
 
 	/**
-	 * Late initialization should be called after the checkpoint is loaded.
-	 * @warning This might delete any existing checkpoint from previous executions
+	 * Should be called when a checkpoint is loaded
 	 */
-	virtual void initLate()
+	void setLoaded()
 	{
-		// If a checkpoint was loaded, we will reopen the old files
-		// otherwise, create a backup
-		if (!m_loaded) {
-			for (unsigned int i = 0; i < 2; i++) {
-				std::string filename = dataFile(i);
-				// Backup checkpoint
-				if (m_rank == 0)
-					rename(filename.c_str(), (filename + ".bak").c_str());
-			}
-
-#ifdef USE_MPI
-			// Make sure the file is moved before anyone create a new file
-			MPI_Barrier(m_comm);
-#endif // USE_MPI
-		}
+		m_loaded = true;
 	}
 
 	/**
@@ -222,6 +221,28 @@ protected:
 		m_fileOffset -= numElems;
 	}
 
+	void setGroupSumOffset(unsigned int numElems, unsigned int groupSize = 1)
+	{
+		m_groupSize = groupSize;
+		m_numGroupElems = numElems;
+		m_groupOffset = numElems;
+
+		if (groupSize > 1) {
+#ifdef USE_MPI
+			// Create a communicator for the group to do the reductions
+			MPI_Comm groupComm;
+			MPI_Comm_split(comm(), m_rank / groupSize, m_rank, &groupComm);
+
+			MPI_Allreduce(MPI_IN_PLACE, &m_numGroupElems, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
+			MPI_Scan(MPI_IN_PLACE, &m_groupOffset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
+
+			MPI_Comm_free(&groupComm);
+#endif // USE_MPI
+		}
+
+		m_groupOffset -= numElems;
+	}
+
 	/**
 	 * Checks if a valid checkpoint exists
 	 *
@@ -243,11 +264,26 @@ protected:
 	}
 
 	/**
-	 * Should be called when a checkpoint is loaded
+	 * Creates the new checkpoint files. Override this in the backend
+	 * @warning This might delete any existing checkpoint from previous executions
 	 */
-	void load()
+	virtual void createFiles()
 	{
-		m_loaded = true;
+		// If a checkpoint was loaded, we will reopen the old files
+		// otherwise, create a backup
+		if (!m_loaded) {
+			for (unsigned int i = 0; i < 2; i++) {
+				std::string filename = dataFile(i);
+				// Backup checkpoint
+				if (m_rank == 0)
+					rename(filename.c_str(), (filename + ".bak").c_str());
+			}
+
+#ifdef USE_MPI
+			// Make sure the file is moved before anyone create a new file
+			MPI_Barrier(m_comm);
+#endif // USE_MPI
+		}
 	}
 
 	/**
@@ -264,6 +300,14 @@ protected:
 	std::string dataFile(int odd) const
 	{
 		return m_dir + utils::Path(m_files[odd]);
+	}
+
+	/**
+	 * @return The name for files if the back-end uses directories
+	 */
+	virtual const char* fname() const
+	{
+		return "cp";
 	}
 
 	int rank() const
@@ -301,6 +345,21 @@ protected:
 	unsigned long fileOffset() const
 	{
 		return m_fileOffset;
+	}
+
+	unsigned int groupSize() const
+	{
+		return m_groupSize;
+	}
+
+	unsigned int numGroupElems() const
+	{
+		return m_numGroupElems;
+	}
+
+	unsigned int groupOffset() const
+	{
+		return m_groupOffset;
 	}
 };
 

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,10 @@
 #ifndef CHECKPOINT_WAVEFIELD_H
 #define CHECKPOINT_WAVEFIELD_H
 
+#include "Parallel/MPI.h"
+
+#include <cassert>
+
 #include "utils/env.h"
 #include "utils/logger.h"
 
@@ -62,7 +66,7 @@ class Wavefield : virtual public CheckPoint
 {
 private:
 	/** Pointer to the degrees of freedom */
-	real* m_dofs;
+	const real* m_dofs;
 
 	/** Number of dofs */
 	unsigned int m_numDofs;
@@ -88,20 +92,29 @@ public:
 	/**
 	 * Initialize checkpointing
 	 *
+	 * @param groupSize The group size of the MPI group for asynchronous MPI checkpointing
+	 *  (should be 1 for other modes)
+	 *
 	 * @return True of a valid checkpoint is available
 	 */
-	virtual bool init(real* dofs, unsigned int numDofs)
+	virtual bool init(unsigned int numDofs, unsigned int groupSize = 1)
 	{
+#ifndef USE_ASYNC_MPI
+		assert(groupSize == 1);
+#endif // USE_ASYNC_MPI
+
 #ifdef USE_MPI
 		// Setup rank, partitions, ...
-		setComm(MPI_COMM_WORLD);
+		setComm(seissol::MPI::mpi.comm());
 #endif // USE_MPI
 
 		logInfo(rank()) << "Initializing check pointing";
 
-		// Save the dof pointer and size
-		m_dofs = dofs;
+		// Save size
 		m_numDofs = numDofs;
+
+		// Compute the group size/offset
+		setGroupSumOffset(numDofs, groupSize);
 
 		// Actual number of elements in the file (for this rank)
 		unsigned int numDofsFile = numDofs;
@@ -109,14 +122,18 @@ public:
 #ifdef USE_MPI
 		// More sure the local part is a multiple of the block size
 		// This is important for all but the last rank
-		unsigned int blockSize = utils::Env::get<unsigned int>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 1);
+		int blockSize = utils::Env::get<int>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 1);
 		if (blockSize > 1 && rank() != partitions()-1) {
 			if (blockSize % sizeof(real) != 0)
 				logError() << "The block size for checkpointing must be a multiple of the size of the basic data type.";
 
-			unsigned int dofsPerBlock = blockSize / sizeof(real);
-			unsigned int numBlocks = (numDofs + dofsPerBlock - 1) / dofsPerBlock;
-			numDofsFile = numBlocks * dofsPerBlock;
+			if (rank() % groupSize == groupSize - 1) {
+				// Only the last rank of a group extends the number of elements
+				unsigned int dofsPerBlock = blockSize / sizeof(real);
+				unsigned int numGroupBlocks = (numGroupElems() + dofsPerBlock - 1) / dofsPerBlock;
+				unsigned int numGroupDofsFile = numGroupBlocks * dofsPerBlock;
+				numDofsFile = numDofs + (numGroupDofsFile - numGroupElems());
+			}
 		}
 #endif // USE_MPI
 
@@ -127,7 +144,7 @@ public:
 		m_iterations = (numDofs + m_dofsPerIteration - 1) / m_dofsPerIteration;
 		m_totalIterations = m_iterations;
 #ifdef USE_MPI
-		MPI_Allreduce(MPI_IN_PLACE, &m_totalIterations, 1, MPI_UNSIGNED, MPI_MAX, MPI_COMM_WORLD);
+		MPI_Allreduce(MPI_IN_PLACE, &m_totalIterations, 1, MPI_UNSIGNED, MPI_MAX, comm());
 #endif // USE_MPI
 
 		return false;
@@ -139,8 +156,19 @@ public:
 	 * @param[out] time Time of the simulation in the checkpoint
 	 * @param[out] timestepWavefield Time step of the wave field writer in the checkpoint
 	 *  (if the wave field writer was active)
+	 * @param dofs Pointer to the buffer where the degrees of freedom should be stored
 	 */
-	virtual void load(double &time, int &timestepWavefield) = 0;
+	virtual void load(double &time, int &timestepWavefield, real* dofs) = 0;
+
+	/**
+	 * Create checkpoint files. Should be called after loading the old checkpoint
+	 */
+	virtual void initLate(const real* dofs)
+	{
+		m_dofs = dofs;
+
+		createFiles();
+	}
 
 	/**
 	 * Prepare writing a checkpoint
@@ -163,9 +191,9 @@ public:
 	virtual void write(double time, int timestepWaveField) = 0;
 
 protected:
-	real* dofs()
+	void setDofs(const real* dofs)
 	{
-		return m_dofs;
+		m_dofs = dofs;
 	}
 
 	const real* dofs() const

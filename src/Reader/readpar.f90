@@ -310,7 +310,7 @@ CONTAINS
 
 #endif
         EQN%Plasticity = Plasticity
-        EQN%PlastCo = PlasticCo
+        EQN%PlastCo_0 = PlasticCo
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
         logInfo0(*) 'Plastic relaxation Tv is set to: '
@@ -545,7 +545,7 @@ CONTAINS
         logInfo(*) '| ERROR: These material types are only used for plastic calculations.'
       ENDIF
       !
-  CASE(60,61) ! special case of 1D landers example
+  CASE(60,61,62) ! special case of 1D landers example
       !
       logInfo0(*) 'Material property zones are defined by SeisSol. '
   CASE(33) ! special case of TPV33, T Ulrich 14.01.2016
@@ -1262,7 +1262,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: OutputMask(9)
+    INTEGER                    :: OutputMask(10)
     INTEGER                    :: printtimeinterval
     INTEGER                    :: printIntervalCriterion
     INTEGER                    :: refinement_strategy, refinement
@@ -1277,7 +1277,7 @@ CONTAINS
     printtimeinterval_sec = 1d0
     printIntervalCriterion = 1
     OutputMask(:) = 1
-    OutputMask(4:9) = 0
+    OutputMask(4:10) = 0
     refinement_strategy = 2
     refinement = 2
     !
@@ -1291,10 +1291,10 @@ CONTAINS
     endif
 
     ! if 2, printtimeinterval is set afterwards, when dt is known
-    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:9) =  OutputMask(1:9)      ! read info of desired output 1/ yes, 0/ no
+    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:10) =  OutputMask(1:10)      ! read info of desired output 1/ yes, 0/ no
                                                                                      ! position: 1/ slip rate 2/ stress 3/ normal velocity
                                                                                      ! 4/ in case of rate and state output friction and state variable
-                                                                                     ! 5/ background values 6/Slip 7/rupture speed
+                                                                                     ! 5/ background values 6/Slip 7/rupture speed 8/slip 9/peak SR 10/rupture arrival
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
 
     IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. & 
@@ -1469,6 +1469,7 @@ CONTAINS
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file
+
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
                                               Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1478,7 +1479,8 @@ CONTAINS
                                               RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, energy_rate_printtimeinterval
+                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, cohesion_max, cohesion_depth, energy_rate_printtimeinterval
+
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
                                                 Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1490,7 +1492,8 @@ CONTAINS
                                                 NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, &
-                                                OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, read_fault_file
+                                                OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
+                                                cohesion_max, cohesion_depth, read_fault_file
     !------------------------------------------------------------------------                                                                                   
     
     ! Setting default values
@@ -1549,6 +1552,9 @@ CONTAINS
     NucRS_sv0 = 0
     r_s = 0
     cohesion_0 = 0
+    cohesion_max = 0
+    cohesion_depth = 0
+
     read_fault_file = 0
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
@@ -1578,6 +1584,9 @@ CONTAINS
              EQN%YRef = YRef
              EQN%ZRef = ZRef
              DISC%DynRup%cohesion_0 = cohesion_0
+             DISC%DynRup%cohesion_max = cohesion_max
+             DISC%DynRup%cohesion_depth = cohesion_depth
+
              EQN%GPwise = GPwise
              IF (EQN%GPwise .EQ.1) THEN
                  logInfo0(*) 'GPwise initialization. '
@@ -1654,6 +1663,17 @@ CONTAINS
              DISC%DynRup%RS_srW = RS_srW  ! Vw, weakening sliding velocity
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
+             DISC%DynRup%XHypo  = XHypo
+             DISC%DynRup%YHypo  = YHypo
+             DISC%DynRup%ZHypo  = ZHypo
+             DISC%DynRup%R_crit   = R_crit    ! radius of the nucleation patch
+             DISC%DynRup%t_0      = t_0       ! forced rupture decay time
+             DISC%DynRup%NucBulk_xx_0 = NucBulk_xx_0
+             DISC%DynRup%NucBulk_yy_0 = NucBulk_yy_0
+             DISC%DynRup%NucBulk_zz_0 = NucBulk_zz_0
+             DISC%DynRup%NucShearXY_0 = NucShearXY_0
+             DISC%DynRup%NucShearYZ_0 = NucShearYZ_0
+             DISC%DynRup%NucShearXZ_0 = NucShearXZ_0
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
              STOP
@@ -1711,7 +1731,7 @@ CONTAINS
            ! moment rate and frictional energy rate output on=1, off=0
            DISC%DynRup%energy_rate_output_on = energy_rate_output_on
            DISC%DynRup%energy_rate_printtimeinterval = energy_rate_printtimeinterval
-           !
+
            !
            DISC%DynRup%OutputPointType = OutputPointType
 

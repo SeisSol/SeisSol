@@ -4,21 +4,22 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2013, SeisSol Group
+ * Copyright (c) 2013-2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -39,9 +40,7 @@
  * Counts the floating point operations in SeisSol.
  **/
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
+#include "Parallel/MPI.h"
 
 #include "FlopCounter.hpp"
 
@@ -63,31 +62,26 @@ extern "C" {
      * Prints the measured FLOPS.
      */
   void printFlops() {
-    int rank;
+	const int rank = seissol::MPI::mpi.rank();
     long long totalLibxsmmFlops;
     long long totalNonZeroFlops;
     long long totalHardwareFlops;
-    
+
     long long nonZeroFlops = g_SeisSolNonZeroFlopsLocal + g_SeisSolNonZeroFlopsNeighbor + g_SeisSolNonZeroFlopsOther;
     long long hardwareFlops = g_SeisSolHardwareFlopsLocal + g_SeisSolHardwareFlopsNeighbor + g_SeisSolHardwareFlopsOther;
-    
+
 #ifdef USE_MPI
     long long maxHardwareFlops;
 
-    MPI_Reduce(&libxsmm_num_total_flops, &totalLibxsmmFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&nonZeroFlops, &totalNonZeroFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&hardwareFlops, &totalHardwareFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&hardwareFlops, &maxHardwareFlops, 1, MPI_LONG_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&libxsmm_num_total_flops, &totalLibxsmmFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
+    MPI_Reduce(&nonZeroFlops, &totalNonZeroFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
+    MPI_Reduce(&hardwareFlops, &totalHardwareFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
+    MPI_Reduce(&hardwareFlops, &maxHardwareFlops, 1, MPI_LONG_LONG, MPI_MAX, 0, seissol::MPI::mpi.comm());
 
-    int size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-  
-    double loadImbalance = maxHardwareFlops - ((double) totalHardwareFlops) / size;
+    double loadImbalance = maxHardwareFlops - ((double) totalHardwareFlops) / seissol::MPI::mpi.size();
     logInfo(rank) << "Load imbalance:            " << loadImbalance;
     logInfo(rank) << "Relative load imbalance:   " << loadImbalance / maxHardwareFlops * 100.0 << "%";
 #else
-    rank = 0;
     totalLibxsmmFlops = libxsmm_num_total_flops;
     totalNonZeroFlops = nonZeroFlops;
     totalHardwareFlops = hardwareFlops;

@@ -163,7 +163,7 @@ CONTAINS
          ! DR output at each element
          CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
          CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
-         logInfo(*) 'Faultoutput successfully written to .vtu files at time', time
+         logInfo(*) 'Faultoutput successfully written at time', time
          ! remember that fault output was written here
          isOnElementwise=.TRUE.
        ! combines option 3 and 4: output at individual stations and at complete fault
@@ -277,7 +277,8 @@ CONTAINS
     REAL    :: cos1, sin1, scalarprod
     REAL, PARAMETER    :: ZERO = 0.0D0
     ! Parameters used for calculating Vr
-    INTEGER :: nDegFr2d, jBndGP
+    LOGICAL :: compute_Vr
+    INTEGER :: nDegFr2d, jBndGP, i1, j1
     REAL    :: chi, tau, phiT, phi2T(2),Slowness, dt_dchi, dt_dtau, Vr
     REAL    :: dt_dx1, dt_dy1
     REAL    :: xV(4), yV(4), zV(4)
@@ -401,8 +402,8 @@ CONTAINS
           ! Rotate DoF
           CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),EQN)
           DO iDegFr=1,LocDegFr
-            V1(iDegFr,:)=MATMUL(iT(:,:),dofiElem_ptr(iDegFr,:))
-            V2(iDegFr,:)=MATMUL(iT(:,:),DOFiNeigh_ptr(iDegFr,:))
+            V1(iDegFr,:)=MATMUL(iT(:,:),dofiElem_ptr(iDegFr,1:EQN%nVar))
+            V2(iDegFr,:)=MATMUL(iT(:,:),DOFiNeigh_ptr(iDegFr,1:EQN%nVar))
           ENDDO
           !
           ! load nearest boundary GP: iBndGP
@@ -598,6 +599,38 @@ CONTAINS
                 ! Calculation of rupture velocity from rupture time array
                 ! using the 2d basis functions and their derivatives
 
+                ! To compute accurately dt/dxi, all rupture_time have to be defined on the element
+                compute_VR = .TRUE.
+                DO jBndGP = 1,DISC%Galerkin%nBndGP
+                   IF (DISC%DynRup%rupture_time(iFace,jBndGP).EQ.0) THEN
+                      compute_VR = .FALSE.
+                      Vr = 0d0
+                   ENDIF
+                ENDDO
+
+                IF (compute_VR.EQ..TRUE.) THEN
+
+                ! The rupture velocity is based on the gradient of the rupture time
+                ! The gradient is not expected to be accurate for the side gauss points
+                !! We consider then the next internal gauss point if the closest gauss point is external
+                i1 = int((iBndGP-1)/(DISC%Galerkin%nPoly + 2))+1
+                j1 = modulo((iBndGP-1),(DISC%Galerkin%nPoly + 2))+1
+                IF (i1.EQ.1) THEN
+                   i1=i1+1
+                ELSE IF (i1.EQ.(DISC%Galerkin%nPoly + 2)) THEN
+                   i1=i1-1
+                ENDIF
+                IF (j1.EQ.1) THEN
+                   j1=j1+1
+                ELSE IF (j1.EQ.(DISC%Galerkin%nPoly + 2)) THEN
+                   j1=j1-1
+                ENDIF
+                iBndGP = (i1-1)*(DISC%Galerkin%nPoly + 2)+j1
+
+                !Uncomment for a selecting only the central GP
+                !i1  = int((DISC%Galerkin%nPoly + 2 -1)/2)+1
+                !iBndGP = (i1-1)*(DISC%Galerkin%nPoly + 2)+i1
+
                 !project rupture_time onto the basis functions
                 nDegFr2d = (DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2)/2
                 !projection of the rupture time on the basis functions
@@ -679,9 +712,12 @@ CONTAINS
                   Vr=1d0/Slowness
                 ENDIF
                 DEALLOCATE(projected_RT)
+                iBndGP = DynRup_output%OutInt(iOutPoints,1)
+                ENDIF
 
                 OutVars = OutVars + 1
                 DynRup_output%OutVal(iOutPoints,1,OutVars)  = Vr
+
               ENDIF
               IF (DynRup_output%OutputMask(8).EQ.1) THEN
                   OutVars = OutVars + 1
@@ -690,6 +726,10 @@ CONTAINS
               IF (DynRup_output%OutputMask(9).EQ.1) THEN
                   OutVars = OutVars + 1
                   DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%PeakSR(iFace,iBndGP)
+              ENDIF
+              IF (DynRup_output%OutputMask(10).EQ.1) THEN
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%rupture_time(iFace,iBndGP)
               ENDIF
           ENDIF
 

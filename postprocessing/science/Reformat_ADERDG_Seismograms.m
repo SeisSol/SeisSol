@@ -55,28 +55,45 @@ disp('     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
 disp(' '),disp(' ')
 
 clear, close all;
-filename = input('     Specify root-filename (typically: *file*-receiver-...):  ','s');
-ndt      = input('     Give number of time samples of the data:              ');
-nseis    = input('     Give number of seismograms:                           ');
-nvar     = input('     Give number of variables (including time):            ');
+workingdir   = input('     Give relative path, where are the data                :  ','s');
+if strcmp(workingdir,'')
+    workingdir='.'
+end
+prefix       = input('     Specify root-filename (typically: *file*-receiver-...):  ','s');
+nvar         = input('     Give number of variables (including time):            ');
 
-disp(' '),  disp('     Creating seismogram-processor relation ...' )
-eval(['!ls -l ',filename,'-receiver* > tmp.dat']);
+
+%evaluate nb of files and nb of time samples
+%do not consider files with only header
+eval(['!find ', workingdir,' -maxdepth 1 -name "',prefix,'*-receiver*" -size +30k | xargs wc -l > tmp.dat']);
 tmp_file = 'tmp.dat';
 fid   = fopen(tmp_file);
-  for i=1:nseis
-    junk  = fgetl(fid); proc_s(i,1:25)=junk(end-24:end); 
-  end
+command_result = textscan(fid,'%d %s',[inf 2]);
 fclose(fid);
 eval(['!rm tmp.dat']);
 
+[nseis,y]=size(command_result{1});
+nseis=nseis-1;
+disp('assuming 5 lines of header for computing ndt');
+ndt=min(command_result{1}(1:end-1))-5;
+
+msg = sprintf('found %d seismogram(s)', nseis);
+disp(msg);
+msg = sprintf('found %d time sample(s)', ndt);
+disp(msg);
+
+if nseis==0
+    error('no seismogram found')
+end
+
 num = 1;
 ind = 0;
+location(3,1:nseis) = 0;
 
 for num = 1:nseis
      
-    in_file = [filename,proc_s(num,:)];
-    
+    in_file = command_result{2}{num};
+
     fid   = fopen(in_file);
     junk  = fgetl(fid); junk  = fgetl(fid); 
     junk  = fscanf(fid,'%c',[6,1]);
@@ -86,6 +103,7 @@ for num = 1:nseis
     junk  = fscanf(fid,'%c',[6,1]);
     x3    = fscanf(fid,'%g',[1,1]);
     disp(sprintf('X: %g   Y: %g  Z: %g',x1,x2,x3));
+    location(:,num) = [x1; x2; x3];
     data = fscanf(fid,'%g',[nvar,ndt]); data = data';
     
     %determine and delete double samples from a possible restart
@@ -99,9 +117,15 @@ for num = 1:nseis
       
 end
 
+% add to struct
+d.data=MATLAB_OUTPUT;
+d.location=location;
+d.datalegend=char;
+d.locationlegend=('X,Y,Z');
+
+
 disp(' '),  disp('     Finished conversion!'), disp(' ')
-out_filename = input('     Give filename to save MATLAB data:  ','s');
+out_filename = input('     Give filename to save MATLAB data (adds .mat):  ','s');
 out_file = out_filename(1:end-4);
-eval([out_file,'= MATLAB_OUTPUT;']);
-eval(['save ',out_filename,'  ',out_file]);
+save(out_filename,'-v7.3','d')
 disp(sprintf('    \n Saved data as :  %s\n',out_filename));

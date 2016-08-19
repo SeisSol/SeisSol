@@ -5,9 +5,10 @@
 !! @author Atanas Atanasov (atanasoa AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Atanas_Atanasov)
 !! @author Alice Gabriel (gabriel AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/gabriel)
 !! @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2012, SeisSol Group
+!! Copyright (c) 2012-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -988,7 +989,7 @@ CONTAINS
   call MPI_Gather(  fault_elements,    1, MPI_INTEGER, &
                     DISC%DynRup%DynRup_out_elementwise%elements_per_rank(:), 1,  MPI_INTEGER, &
                     0,                  &
-                    MPI_COMM_WORLD,MPI%iErr)
+                    MPI%commWorld,MPI%iErr)
 #else
     DISC%DynRup%DynRup_out_elementwise%elements_per_rank(1)=fault_elements
 #endif
@@ -1169,6 +1170,7 @@ CONTAINS
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(7).EQ.1) OutVars = OutVars + 1
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(8).EQ.1) OutVars = OutVars + 1
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(9).EQ.1) OutVars = OutVars + 1
+       IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(10).EQ.1) OutVars = OutVars + 1
        !
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%CurrentPick(DISC%DynRup%DynRup_out_elementwise%nDR_pick))
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpTime(DISC%DynRup%DynRup_out_elementwise%MaxPickStore))
@@ -1227,6 +1229,10 @@ CONTAINS
        ENDIF
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(9).EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 16
+        k=k+1
+       ENDIF
+       IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(10).EQ.1) THEN
+        DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 17
         k=k+1
        ENDIF
        !

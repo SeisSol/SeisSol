@@ -39,32 +39,33 @@
 
 #include "Wavefield.h"
 
-bool seissol::checkpoint::posix::Wavefield::init(real* dofs, unsigned int numDofs)
+bool seissol::checkpoint::posix::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
 {
-	seissol::checkpoint::Wavefield::init(dofs, numDofs);
+	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 
 	return exists();
 }
 
-void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWaveField)
+void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWaveField, real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
-	seissol::checkpoint::CheckPoint::load();
+	seissol::checkpoint::CheckPoint::setLoaded();
 
 	int file = open();
 	checkErr(file);
 
-	// Skip identifier
-	checkErr(lseek64(file, sizeof(unsigned long), SEEK_SET));
-
 	// Read header
-	checkErr(read(file, &time, sizeof(time)), sizeof(time));
-	checkErr(read(file, &timestepWaveField, sizeof(timestepWaveField)),
-			sizeof(timestepWaveField));
+	WavefieldHeader header;
+	readHeader(file, header);
+	time = header.time;
+	timestepWaveField = header.timestepWaveField;
+
+	// Skip other processes before this in the group
+	checkErr(lseek64(file, groupOffset() * sizeof(real), SEEK_CUR));
 
 	// Convert to char* to do pointer arithmetic
-	char* buffer = reinterpret_cast<char*>(dofs());
+	char* buffer = reinterpret_cast<char*>(dofs);
 	unsigned long left = numDofs()*sizeof(real);
 
 	// Read dofs
@@ -87,8 +88,8 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 
 	logInfo(rank()) << "Writing check point.";
 
-	// Skip identifier
-	checkErr(lseek64(file(), sizeof(unsigned long), SEEK_SET));
+	// Start at the beginning
+	checkErr(lseek64(file(), 0, SEEK_SET));
 
 	// Write the header
 	EPIK_USER_REG(r_write_header, "checkpoint_write_header");
@@ -96,9 +97,10 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	EPIK_USER_START(r_write_header);
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	checkErr(::write(file(), &time, sizeof(time)), sizeof(time));
-	checkErr(::write(file(), &timestepWaveField, sizeof(timestepWaveField)),
-			sizeof(timestepWaveField));
+	WavefieldHeader header;
+	header.time = time;
+	header.timestepWaveField = timestepWaveField;
+	writeHeader(file(), header);
 
 	EPIK_USER_END(r_write_header);
 	SCOREP_USER_REGION_END(r_write_header);
@@ -112,6 +114,11 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	// Convert to char* to do pointer arithmetic
 	const char* buffer = reinterpret_cast<const char*>(dofs());
 	unsigned long left = numDofs()*sizeof(real);
+	if (alignment()) {
+		left = (left + alignment() - 1) / alignment();
+		left *= alignment();
+	}
+
 	while (left > 0) {
 		unsigned long written = ::write(file(), buffer, left);
 		if (written <= 0)

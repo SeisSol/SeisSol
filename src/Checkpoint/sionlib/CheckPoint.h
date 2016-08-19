@@ -1,12 +1,12 @@
-//-*-c++-*-
 /**
  * @file
  * This file is part of SeisSol.
  *
  * @author Gilbert Brietzke (gilbert.brietzke AT lrz.de, http://www.lrz.de)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,175 +46,283 @@
 #include <mpi.h>
 #endif // USE_MPI
 
-#ifdef USE_SIONLIB
-#include <sion.h>
-#else
-#define sion_int32 int
-#define sion_int64 long long
-#endif
-#include <string>
-#include <cstring>
 #include <errno.h>
+#include <string>
 #include <sys/stat.h>
+
+#include <sion.h>
+
 #include "utils/logger.h"
 #include "utils/env.h"
+
 #include "Checkpoint/CheckPoint.h"
 #include "Initializer/preProcessorMacros.fpp"
-
-using namespace std;
+#include "Initializer/typedefs.hpp"
 
 namespace seissol
-{  
-  namespace checkpoint
-  {   
-    namespace sionlib
-    {   
-      class CheckPoint : virtual public seissol::checkpoint::CheckPoint
-      {
-      private:
+{
+
+namespace checkpoint
+{
+
+namespace sionlib
+{
+
+class CheckPoint : virtual public seissol::checkpoint::CheckPoint
+{
+private:
 	/** Checkpoint identifier (written to the beginning of the file) */
 	const unsigned long m_identifier;
-	
-      public:
+
+	/** Number of files that should be used */
+	int m_numFiles;
+
+	/** (File system) Block size, -1 for auto */
+	const sion_int32 m_blockSize;
+
+	/** File name of the link */
+	std::string m_linkFile;
+
+	/** File name of odd/even checkpoint */
+	std::string m_dataFile[2];
+
+	/** Read mode */
+	std::string m_readMode;
+
+	/** Write mode */
+	std::string m_writeMode;
+
+	/** Rank of MPI_COMM_WORLD */
+	int m_processIdentifier;
+
+	/** The maximum written number of elements in chunk */
+	unsigned int m_chunkElementCount;
+
+public:
 	CheckPoint(unsigned long identifier)
-	  : m_identifier(identifier){}	
+	  : m_identifier(identifier),
+		m_numFiles(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_NUM_FILES", 1)),
+		m_blockSize(utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", -1)),
+		m_readMode("rb"), m_writeMode("wb"),
+		m_chunkElementCount(0)
+	{
+		// Detect ANSI/POSIX
+		std::string backend = utils::Env::get<const char*>("SEISSOL_CHECKPOINT_SION_BACKEND", "ansi");
+		utils::StringUtils::toLower(backend);
+		if (backend == "ansi" || backend == "posix") {
+			m_readMode += ","+backend;
+			m_writeMode += ","+backend;
+		}
 
-	virtual ~CheckPoint() {}
-	
-	void setFilename(const char* filename) {
-	  initFilename(filename, "sion");
+		// Detect collective mode
+		std::string collMode = utils::Env::get<const char*>("SEISSOL_CHECKPOINT_SION_COLL_MODE", "merge");
+		int collSize = utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_COLL_SIZE", 0);
+		if (collSize != 0) {
+			utils::StringUtils::toLower(collMode);
+			if (collMode == "merge") {
+				m_readMode += ",collectivemerge";
+				m_writeMode += ",collectivemerge";
+			} else {
+				m_readMode += ",collective";
+				m_writeMode += ",collective";
+			}
+
+			std::string sCollSize = utils::StringUtils::toString(collSize);
+			m_readMode += ",collsize=" + sCollSize;
+			m_writeMode += ",collsize=" + sCollSize;
+		}
+
+		MPI_Comm_rank(MPI_COMM_WORLD, &m_processIdentifier);
 	}
-	
-	void initLate() {
-#ifdef USE_SIONLIB
- 	  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
-	  int globalrank,numFiles;
-	  char fname[1023], *newfname=NULL;
-	  m_gComm=comm(); m_lComm = m_gComm; globalrank = rank(); numFiles = 0;
-	  seissol::checkpoint::CheckPoint::initLate();
-	  	  
-	  for (unsigned int i = 0; i < 2; i++) {
-	    m_files[i] = sion_paropen_mpi(const_cast<char*>(dataFile(i).c_str()), "bw", &numFiles, m_gComm, &m_lComm,
-					  &m_chunksize, &fsblksize, &globalrank, &m_fptr[i], &newfname);
-	    fgetpos(m_fptr[i],&m_chunkpos);
-	    checkErr(m_files[i]);
-	    logInfo(rank())<<"opened sionlib checkpoint:chunksize"<<m_chunksize<<"\n";
-	  }
-#endif
+
+	virtual ~CheckPoint()
+	{}
+
+	void setFilename(const char* filename)
+	{
+		initFilename(filename, 0L);
+
+		m_linkFile = std::string(seissol::checkpoint::CheckPoint::linkFile())
+		  + "/" + fname() + ".scp";
+		for (unsigned int i = 0; i < 2; i++)
+			m_dataFile[i] = seissol::checkpoint::CheckPoint::dataFile(i)
+				+ "/" + fname() + ".scp";
 	}
-	/** close single checkpoint file */
-	void close_file(int fh){
-	  checkErr(sion_parclose_mpi(fh));
+
+	/**
+	 * Does nothing (all files are already closed)
+	 */
+	void close()
+	{
 	}
-	/** close checkpoint */
-	void close(){
-	  for (unsigned int i = 0; i < 2; i++){
-	    checkErr(sion_parclose_mpi(m_files[i]));
-	  }
+
+protected:
+	void setChunkElementCount(unsigned int count)
+	{
+		m_chunkElementCount = count;
 	}
-	
-      protected:
-	int         m_files[2];
-	MPI_Comm    m_gComm, m_lComm;
-	FILE       *m_fptr[2];
-	sion_int64  m_chunksize;
-	fpos_t      m_chunkpos;
-	
-	bool exists() {
-	  if (!seissol::checkpoint::CheckPoint::exists())
-	    return false;
-	  int file = open();
-	  if (file < 0)
-	    return false;	  
-	  int hasCheckpoint = validate(file);
-	  close_file(file);//::close(file);
-	  return hasCheckpoint;
+
+	bool exists()
+	{
+		// Set the number of sion lib files
+		// Needs to be done after initialization of the communicator but
+		// before opening any files
+		if (m_numFiles > partitions()) {
+			logWarning(rank()) << "Reducing the number of SIONlib files for checkpointing to" << partitions();
+			m_numFiles = partitions();
+		}
+
+		if (!seissol::checkpoint::CheckPoint::exists())
+			return false;
+
+		int file = open(linkFile(), m_readMode);
+		if (file < 0) {
+			logWarning() << "Could not open checkpoint file";
+			return false;
+		}
+
+		int hasCheckpoint = validate(file);
+		sionClose(file);
+
+#ifdef USE_MPI
+		MPI_Allreduce(MPI_IN_PLACE, &hasCheckpoint, 1, MPI_INT, MPI_LAND, comm());
+#endif // USE_MPI
+
+		return hasCheckpoint;
 	}
-		
-	void flushCheckpoint() {	
-	  checkErr(fflush(m_fptr[odd()]));
+
+	void createFiles()
+	{
+		createFiles();
+
+		// Create the folder
+		if (rank() == 0) {
+			for (int i = 0; i < 2; i++) {
+				int ret = mkdir(seissol::checkpoint::CheckPoint::dataFile(i).c_str(),
+						S_IRWXU|S_IRWXG|S_IRWXO);
+				if (ret < 0 && errno != EEXIST)
+					checkErr(ret);
+			}
+		}
+
+#ifdef USE_MPI // Make sure all processes see the folders
+		MPI_Barrier(comm());
+#endif // USE_MPI
 	}
-	
-	/** Open a check point file, @return The file handle */
-	int open() {
-	  int fh; fh=-1;
-#ifdef USE_SIONLIB
-	  int globalrank,numFiles; FILE* fptr;
-	  char fname[1023], *newfname=NULL;
-	  globalrank = rank(); numFiles = 0; m_gComm = comm(); m_lComm = m_gComm;
-	  sion_int32 fsblksize= utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", 0);
-	  fh = sion_paropen_mpi(const_cast<char*>(linkFile().c_str()), "br", &numFiles, m_gComm, &m_lComm,
-	  			&m_chunksize, &fsblksize, &globalrank, &fptr, &newfname);
-#endif
-	  if (fh < 0)
-	    logWarning() << "checkpoint::sionlib::Open():Could not open checkpoint file";
-	  return fh;
+
+	/**
+	 * @return The read mode used in SIONlib
+	 */
+	const std::string& readMode() const
+	{
+		return m_readMode;
 	}
-		
-	string linkFile() const {
-	  string file = std::string(seissol::checkpoint::CheckPoint::linkFile());
-	  return file;
+
+	/**
+	 * @return The write mode used in SIONlib
+	 */
+	const std::string& writeMode() const
+	{
+		return m_writeMode;
 	}
-		
-	string dataFile(int odd) const {
-	  return seissol::checkpoint::CheckPoint::dataFile(odd); 
-	}	
-	/** @return The current file handle */
-	int file() const {
-	  return m_files[odd()];
+
+	/**
+	 * Open a SIONlib file
+	 *
+	 * @param mode SIONlib open mode
+	 * @return The file handle
+	 */
+	int open(const std::string& file, const std::string& mode)
+	{
+		int numFiles = m_numFiles;
+		MPI_Comm localComm = comm();
+		sion_int64 chunksize = m_chunkElementCount * sizeof(real);
+		sion_int32 fsblksize = m_blockSize;
+		int gRank = m_processIdentifier;
+		return sion_paropen_mpi(file.c_str(), mode.c_str(), &numFiles, comm(), &localComm,
+				&chunksize, &fsblksize, &gRank, 0L, 0L);
 	}
-	/** @return The current file pointer */
-	FILE* fptr() {
-	  return m_fptr[odd()];
+
+	void finalizeCheckpoint(int file)
+	{
+		SCOREP_USER_REGION_DEFINE(r_flush);
+		SCOREP_USER_REGION_BEGIN(r_flush, "checkpoint_flush", SCOREP_USER_REGION_TYPE_COMMON);
+
+		sionClose(file);
+
+		SCOREP_USER_REGION_END(r_flush);
 	}
-	/** reset file position to beginn of the chunk */
-	void setpos(){
-	  fsetpos(m_fptr[odd()],&m_chunkpos);
+
+	const std::string linkFile() const
+	{
+		return m_linkFile;
 	}
-	/** set chunk size */
-	void set_chunksize(sion_int64 chunksize) {
-	  m_chunksize = chunksize;
+
+	const std::string dataFile(int odd) const
+	{
+		return m_dataFile[odd];
 	}
-	/** @return The identifier of the file */
+
+	/**
+	 * @return The identifier of the file
+	 */
 	unsigned long identifier() const {
-	  return m_identifier;
+		return m_identifier;
 	}
 
-      private:
+	/**
+	 * Close a SIONlib file
+	 *
+	 * @param file The file handle
+	 */
+	void sionClose(int file)
+	{
+		checkErr(sion_parclose_mpi(file), SION_SUCCESS);
+	}
 
+private:
 	/** Validate an existing check point file */
 	bool validate(int file) const
 	{
-	  unsigned long id;
-#ifdef USE_SIONLIB
-	  checkErr(sion_fread(&id, sizeof(unsigned long),1,file));
-#endif
-	  if (id != identifier()) {
-	    logWarning() << "Checkpoint identifier does not match";
-	    return false;
-	  }
-	  return true;
+		unsigned long id;
+		size_t size = sion_coll_fread(&id, sizeof(id), 1, file);
+		if (size != 1) {
+			logWarning() << "Could not read checkpoint header";
+			return false;
+		}
+
+		if (id != identifier()) {
+			logWarning() << "Checkpoint identifier does not match";
+			return false;
+		}
+
+		return true;
 	}
-	
-      protected:
+
+protected:
 	template<typename T>
 	static void checkErr(T ret) {
-	  if (ret < 0)
-	    logError() << "Error in the SIONlib checkpoint module:" << strerror(errno);
-	}	
+		if (ret < 0)
+			logError() << "Error in the SIONlib checkpoint module";
+	}
+
 	/** Can be used to check read/write errors
 	 * @param ret The return value
 	 * @param target The expected return value (> 0)
 	 */
 	template<typename T, typename U>
 	static void checkErr(T ret, U target) {
-	  checkErr(ret);
-	  if (ret != target)
-	    logError() << "Error in the SIONlib checkpoint module:"
-		       << target << "bytes expected;" << ret << "bytes gotten";
+		checkErr(ret);
+		if (ret != target)
+			logError() << "Error in the SIONlib checkpoint module: Expected:"
+				<< target << "Received:" << ret;
 	}
-      }; 
-    }
-  }
+};
+
 }
+
+}
+
+}
+
 #endif // CHECKPOINT_SIONLIB_CHECK_POINT_H
