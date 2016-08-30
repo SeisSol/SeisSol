@@ -49,7 +49,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		const MeshReader &meshReader,
 		const double* dofs,  const double* pstrain,
 		const unsigned int* map,
-		int refinement, int timestep, int* output,
+		int refinement, int timestep, int* outputMask,
 		double timeTolerance)
 {
 	const int rank = seissol::MPI::mpi.rank();
