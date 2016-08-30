@@ -49,7 +49,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		const MeshReader &meshReader,
 		const double* dofs,  const double* pstrain,
 		const unsigned int* map,
-		int refinement, int timestep,
+		int refinement, int timestep, int* output,
 		double timeTolerance)
 {
 	const int rank = seissol::MPI::mpi.rank();
@@ -81,7 +81,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Currently all variables have to be chosen.
 	m_outputFlags.resize(numVars);
-	std::fill(m_outputFlags.begin(), m_outputFlags.end(), true);
+	for (size_t i = 0; i < numVars; i++) {
+		m_outputFlags[i] = (outputMask[i] != 0);
+	}
 
 	// Setup the tetrahedron refinement strategy
 	refinement::TetrahedronRefiner<double>* tetRefiner = 0L;
@@ -266,17 +268,22 @@ void seissol::writer::WaveFieldWriter::execInit(const WaveFieldInitParam &param)
 	// High order I/O
 	//
 	m_numVariables = param.numVars;
-	assert(m_numVariables == 9); // Currently nothing else is supported
-	std::vector<const char*> variables(m_numVariables);
-	variables[0] = "sigma_xx";
-	variables[1] = "sigma_yy";
-	variables[2] = "sigma_zz";
-	variables[3] = "sigma_xy";
-	variables[4] = "sigma_yz";
-	variables[5] = "sigma_xz";
-	variables[6] = "u";
-	variables[7] = "v";
-	variables[8] = "w";
+	std::vector<const char*> all_vars(MAX_VARIABLES);
+	std::vector<const char*> variables;
+	all_vars[0] = "sigma_xx";
+	all_vars[1] = "sigma_yy";
+	all_vars[2] = "sigma_zz";
+	all_vars[3] = "sigma_xy";
+	all_vars[4] = "sigma_yz";
+	all_vars[5] = "sigma_xz";
+	all_vars[6] = "u";
+	all_vars[7] = "v";
+	all_vars[8] = "w";
+	for (size_t i = 0; i < MAX_VARIABLES; i++) {
+		if (m_outputFlags[i]) {
+			variables.push_back(all_vars[i]);
+		}
+	}
 
 	// Initialize the I/O handler and write the mesh
 	const char* outputPrefix = m_outputPrefix.c_str();

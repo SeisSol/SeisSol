@@ -237,7 +237,7 @@ public:
 			const MeshReader &meshReader,
 			const double* dofs,  const double* pstrain,
 			const unsigned int* map,
-			int refinement, int timestep,
+			int refinement, int timestep, int* outputMask,
 			double timeTolerance);
 
 	/**
