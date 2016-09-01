@@ -8,21 +8,21 @@
 !! @section LICENSE
 !! Copyright (c) 2015, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -70,7 +70,7 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), value :: i_clustering
     end subroutine
   end interface
-  
+
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
     subroutine c_interoperability_setupNRFPointSources( NRFFileName ) bind( C, name='c_interoperability_setupNRFPointSources' )
@@ -79,7 +79,7 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in) :: NRFFileName
     end subroutine
   end interface
-  
+
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
     subroutine c_interoperability_setupFSRMPointSources( momentTensor, numberOfSources, centres, strikes, dips, rakes, onsets, areas, timestep, numberOfSamples, timeHistories ) bind( C, name='c_interoperability_setupFSRMPointSources' )
@@ -114,7 +114,7 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), value :: i_receiverSampling
     end subroutine
   end interface
-  
+
   interface c_interoperability_setMaterial
     subroutine c_interoperability_setMaterial( i_elem, i_side, i_materialVal, i_numMaterialVals ) bind( C, name='c_interoperability_setMaterial' )
     use iso_c_binding
@@ -134,7 +134,7 @@ module f_ftoc_bind_interoperability
       type(c_ptr), value :: i_initialLoading
     end subroutine
   end interface
-  
+
 
   interface c_interoperability_setPlasticParameters
     subroutine c_interoperability_setPlasticParameters( i_meshId, i_plasticParameters ) bind( C, name='c_interoperability_setPlasticParameters' )
@@ -182,7 +182,7 @@ module f_ftoc_bind_interoperability
     end subroutine
 
     subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
-        i_numSides, i_numBndGP, i_refinement ) &
+        i_numSides, i_numBndGP, i_refinement, i_outputMask ) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -195,6 +195,7 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), dimension(*), intent(in) :: i_slip2
       real(kind=c_double), dimension(*), intent(in) :: i_state
       real(kind=c_double), dimension(*), intent(in) :: i_strength
+      logical(kind=c_int), dimension(*), intent(out) :: i_outputMask
       integer(kind=c_int), value                    :: i_numSides
       integer(kind=c_int), value                    :: i_numBndGP
       integer(kind=c_int), value                    :: i_refinement

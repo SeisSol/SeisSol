@@ -161,9 +161,9 @@ extern "C" {
 
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement) {
+		  int numSides, int numBndGP, int refinement, int* outputMask) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			  numSides, numBndGP, refinement);
+			  numSides, numBndGP, refinement, outputMask);
   }
 
   void c_interoperability_addToDofs( int      i_meshId,
@@ -299,13 +299,13 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
 
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
-  
+
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
                                                             m_meshStructure );
 
   m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
   m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
-  
+
   unsigned* ltsToMesh;
   unsigned numberOfMeshCells;
   // get cell information & mappings
@@ -316,9 +316,9 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
   m_ltsLut.createLuts(  m_ltsTree,
                         ltsToMesh,
                         numberOfMeshCells );
-                        
+
   delete[] ltsToMesh;
-  
+
   // derive lts setups
   seissol::initializers::time_stepping::deriveLtsSetups( m_timeStepping.numberOfLocalClusters,
                                                          m_meshStructure,
@@ -499,7 +499,7 @@ void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval
 void seissol::Interoperability::initializeIO(
 		  double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement)
+		  int numSides, int numBndGP, int refinement, int* outputMask)
 {
 	  // Initialize checkpointing
 	  double currentTime;
@@ -523,7 +523,7 @@ void seissol::Interoperability::initializeIO(
 			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
 			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
 			  m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			  refinement, waveFieldTimeStep,
+			  refinement, waveFieldTimeStep, outputMask,
 			  seissol::SeisSol::main.timeManager().getTimeTolerance());
 
 	  // I/O initialization is the last step that requires the mesh reader
@@ -579,7 +579,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
                                                double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
   // assert that the cell provides derivatives
   assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
-  
+
   real*&    derivatives       = m_ltsLut.lookup(m_lts->derivatives, i_meshId-1);
   real*   (&faceNeighbors)[4] = m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1);
 
