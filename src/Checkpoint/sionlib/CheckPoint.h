@@ -193,8 +193,8 @@ protected:
 
 	void createFiles()
 	{
-		createFiles();
-
+		seissol::checkpoint::CheckPoint::createFiles();
+		
 		// Create the folder
 		if (rank() == 0) {
 			for (int i = 0; i < 2; i++) {

@@ -80,7 +80,8 @@ public:
 		m_h5files[0] = m_h5files[1] = -1;
 	}
 
-	virtual ~CheckPoint() {}
+	virtual ~CheckPoint()
+	{ }
 
 	void setFilename(const char* filename)
 	{
@@ -94,7 +95,8 @@ public:
 				checkH5Err(H5Fclose(m_h5files[i]));
 		}
 
-		checkH5Err(H5Pclose(m_h5XferList));
+		if (m_h5XferList >= 0)
+			checkH5Err(H5Pclose(m_h5XferList));
 	}
 
 protected:

@@ -109,7 +109,7 @@ void seissol::checkpoint::mpio::Fault::write(int timestepFault)
 	if (numSides() == 0)
 		return;
 
-	logInfo(rank()) << "Writing fault check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault.";
 
 	// Write the header
 	writeHeader(timestepFault);
@@ -131,7 +131,7 @@ void seissol::checkpoint::mpio::Fault::write(int timestepFault)
 	// Finalize the checkpoint
 	finalizeCheckpoint();
 
-	logInfo(rank()) << "Writing fault check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault. Done.";
 }
 
 bool seissol::checkpoint::mpio::Fault::validate(MPI_File file) const

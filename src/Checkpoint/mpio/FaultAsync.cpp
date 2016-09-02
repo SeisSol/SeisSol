@@ -84,7 +84,7 @@ void seissol::checkpoint::mpio::FaultAsync::writePrepare(int timestepFault)
 
 	m_started = true;
 
-	logInfo(rank()) << "Writing fault check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault. Done.";
 }
 
 void seissol::checkpoint::mpio::FaultAsync::write(int timestepFault)
@@ -95,7 +95,7 @@ void seissol::checkpoint::mpio::FaultAsync::write(int timestepFault)
 	if (numSides() == 0)
 		return;
 
-	logInfo(rank()) << "Writing fault check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault.";
 
 	if (m_started)
 		checkMPIErr(MPI_File_write_all_end(file(), m_dataCopy, MPI_STATUS_IGNORE));

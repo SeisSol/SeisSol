@@ -74,7 +74,7 @@ private:
 
 public:
 	Fault()
-		: m_numSides(), m_numBndGP(0)
+		: m_numSides(0), m_numBndGP(0)
 	{}
 
 	virtual ~Fault() {}

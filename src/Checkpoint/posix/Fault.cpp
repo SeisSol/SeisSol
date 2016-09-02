@@ -94,7 +94,7 @@ void seissol::checkpoint::posix::Fault::write(int timestepFault)
 	if (numSides() == 0)
 		return;
 
-	logInfo(rank()) << "Writing fault check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault.";
 
 	// Start at the beginning
 	checkErr(lseek64(file(), 0, SEEK_SET));
@@ -131,5 +131,5 @@ void seissol::checkpoint::posix::Fault::write(int timestepFault)
 	// Finalize the checkpoint
 	finalizeCheckpoint();
 
-	logInfo(rank()) << "Writing fault check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault. Done.";
 }

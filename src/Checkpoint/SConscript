@@ -40,7 +40,7 @@
 
 Import('env')
 
-sourceFiles = ['Fault.cpp', 'Manager.cpp']
+sourceFiles = ['Backend.cpp', 'Fault.cpp', 'Manager.cpp']
 sourceDirs = ['posix']
 
 if env['sionlib']:

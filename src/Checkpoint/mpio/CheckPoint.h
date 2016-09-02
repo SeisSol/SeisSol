@@ -97,7 +97,8 @@ public:
 	{
 	}
 
-	virtual ~CheckPoint() {}
+	virtual ~CheckPoint()
+	{ }
 
 	void setFilename(const char* filename)
 	{
@@ -112,10 +113,12 @@ public:
 			m_open = false;
 		}
 
-		MPI_Type_free(&m_headerType);
-		MPI_Type_free(&m_fileDataType);
-		if (rank() == 0)
-			MPI_Type_free(&m_fileHeaderType);
+		if (m_headerType != MPI_DATATYPE_NULL) {
+			MPI_Type_free(&m_headerType);
+			MPI_Type_free(&m_fileDataType);
+			if (rank() == 0)
+				MPI_Type_free(&m_fileHeaderType);
+		}
 	}
 
 protected:

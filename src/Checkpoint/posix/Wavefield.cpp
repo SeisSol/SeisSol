@@ -86,7 +86,7 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	EPIK_TRACER("CheckPoint_write");
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	logInfo(rank()) << "Writing check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing.";
 
 	// Start at the beginning
 	checkErr(lseek64(file(), 0, SEEK_SET));
@@ -133,5 +133,5 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	// Finalize the checkpoint
 	finalizeCheckpoint();
 
-	logInfo(rank()) << "Writing check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing. Done.";
 }

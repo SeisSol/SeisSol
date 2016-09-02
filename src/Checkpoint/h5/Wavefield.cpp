@@ -133,7 +133,7 @@ void seissol::checkpoint::h5::Wavefield::write(double time, int waveFieldTimeSte
 	EPIK_TRACER("CheckPoint_write");
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	logInfo(rank()) << "Writing check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing.";
 
 	EPIK_USER_REG(r_header, "checkpoint_write_header");
 	SCOREP_USER_REGION_DEFINE(r_header);
@@ -193,7 +193,7 @@ void seissol::checkpoint::h5::Wavefield::write(double time, int waveFieldTimeSte
 	// Finalize the checkpoint
 	finalizeCheckpoint();
 
-	logInfo(rank()) << "Writing check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing. Done.";
 }
 
 bool seissol::checkpoint::h5::Wavefield::validate(hid_t h5file) const

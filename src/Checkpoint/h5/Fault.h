@@ -86,7 +86,7 @@ private:
 	 * Identifiers of the main data set in the files
 	 * @todo Make the size depend on the size of VAR_NAMES
 	 */
-	hid_t m_h5data[2][8];
+	hid_t m_h5data[2][NUM_VARIABLES];
 
 	/** Identifiers for the file space of the data set */
 	hid_t m_h5fSpaceData;
@@ -94,7 +94,11 @@ private:
 public:
 	Fault()
 		: m_h5fSpaceData(-1)
-	{}
+	{
+		m_h5timestepFault[0] = m_h5timestepFault[1] = -1;
+		for (unsigned int i = 0; i < NUM_VARIABLES; i++)
+			m_h5data[0][i] = m_h5data[1][i] = -1;
+	}
 
 	bool init(unsigned int numSides, unsigned int numBndGP,
 		unsigned int groupSize = 1);
@@ -113,12 +117,15 @@ public:
 		if (numSides() == 0)
 			return;
 
-		for (unsigned int i = 0; i < 2; i++) {
-			checkH5Err(H5Aclose(m_h5timestepFault[i]));
-			for (unsigned int j = 0; j < NUM_VARIABLES; j++)
-				checkH5Err(H5Dclose(m_h5data[i][j]));
+		if (m_h5timestepFault[0] >= 0) {
+			for (unsigned int i = 0; i < 2; i++) {
+				checkH5Err(H5Aclose(m_h5timestepFault[i]));
+				for (unsigned int j = 0; j < NUM_VARIABLES; j++)
+					checkH5Err(H5Dclose(m_h5data[i][j]));
+			}
 		}
-		checkH5Err(H5Sclose(m_h5fSpaceData));
+		if (m_h5fSpaceData >= 0)
+			checkH5Err(H5Sclose(m_h5fSpaceData));
 
 		CheckPoint::close();
 	}

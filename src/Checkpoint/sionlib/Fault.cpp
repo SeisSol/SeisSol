@@ -97,7 +97,7 @@ void seissol::checkpoint::sionlib::Fault::write(int timestepFault)
 	if (numSides() == 0)
 		return;
 
-	logInfo(rank()) << "Writing fault check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault.";
 
 	int file = open(dataFile(odd()), writeMode());
 	checkErr(file);
@@ -125,5 +125,5 @@ void seissol::checkpoint::sionlib::Fault::write(int timestepFault)
 	// Finalize the checkpoint
 	finalizeCheckpoint(file);
 
-	logInfo(rank()) << "Writing fault check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault. Done.";
 }

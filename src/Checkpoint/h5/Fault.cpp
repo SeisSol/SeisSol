@@ -123,7 +123,7 @@ void seissol::checkpoint::h5::Fault::write(int timestepFault)
 	if (numSides() == 0)
 		return;
 
-	logInfo(rank()) << "Writing fault check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault.";
 
 	// Create array with all pointers
 	EPIK_USER_REG(r_write_fault, "checkpoint_write_fault");
@@ -155,7 +155,7 @@ void seissol::checkpoint::h5::Fault::write(int timestepFault)
 	// Finalize the checkpoint
 	finalizeCheckpoint();
 
-	logInfo(rank()) << "Writing fault check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing fault. Done.";
 }
 
 bool seissol::checkpoint::h5::Fault::validate(hid_t h5file) const

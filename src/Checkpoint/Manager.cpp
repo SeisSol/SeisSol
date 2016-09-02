@@ -40,85 +40,77 @@
 #include "Manager.h"
 #include "SeisSol.h"
 
-
 bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 		double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
 		double* state, double* strength, unsigned int numSides, unsigned int numBndGP,
 		double &time, int &waveFieldTimeStep, int &faultTimeStep)
 {
-	// Set the executor
-	setUp();
+		if (m_backend == DISABLED)
+			return false;
 
-	if (m_backend == DISABLED)
-		return false;
+		// Initialize the asynchronous module
+		async::Module<ManagerExecutor, CheckpointInitParam, CheckpointParam>::init();
 
-	// Buffer for file name
-#ifdef USE_ASYNC_MPI
-	m_bufferIds[FILENAME] = addBuffer(m_filename.size()+1);
-#endif // USE_ASYNC_MPI
+		// Buffer for file name
+		unsigned int id = addSyncBuffer(m_filename.c_str(), m_filename.size()+1, true);
+		assert(id == FILENAME);
 
-	// Buffers for data
-#if defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
-	m_bufferIds[DOFS] = addBuffer(numDofs * sizeof(real));
-	m_bufferIds[MU] = addBuffer(numSides * numBndGP * sizeof(double));
-	m_bufferIds[SLIP_RATE1] = addBuffer(numSides * numBndGP * sizeof(double));
-	m_bufferIds[SLIP_RATE2] = addBuffer(numSides * numBndGP * sizeof(double));
-	m_bufferIds[SLIP] = addBuffer(numSides * numBndGP * sizeof(double));
-	m_bufferIds[SLIP1] = addBuffer(numSides * numBndGP * sizeof(double));
-	m_bufferIds[SLIP2] = addBuffer(numSides * numBndGP * sizeof(double));
-	m_bufferIds[STATE] = addBuffer(numSides * numBndGP * sizeof(double));
-	m_bufferIds[STRENGTH] = addBuffer(numSides * numBndGP * sizeof(double));
-#endif // defined(USE_ASYNC_MPI) || defined(USE_ASYNC_THREAD)
+		// Buffers for data
+		id = addBuffer(dofs, numDofs * sizeof(real));
+		assert(id == DOFS);
+		id = addBuffer(mu, numSides * numBndGP * sizeof(double));
+		assert(id == DR_DOFS0);
+		addBuffer(slipRate1, numSides * numBndGP * sizeof(double));
+		addBuffer(slipRate2, numSides * numBndGP * sizeof(double));
+		addBuffer(slip, numSides * numBndGP * sizeof(double));
+		addBuffer(slip1, numSides * numBndGP * sizeof(double));
+		addBuffer(slip2, numSides * numBndGP * sizeof(double));
+		addBuffer(state, numSides * numBndGP * sizeof(double));
+		addBuffer(strength, numSides * numBndGP * sizeof(double));
 
-	// Save pointers for later
-	m_dofs = dofs;
-	m_drDofs[0] = mu;
-	m_drDofs[1] = slipRate1;
-	m_drDofs[2] = slipRate2;
-	m_drDofs[3] = slip;
-	m_drDofs[4] = slip1;
-	m_drDofs[5] = slip2;
-	m_drDofs[6] = state;
-	m_drDofs[7] = strength;
+		//
+		// Initialization for loading checkpoints
+		//
+		m_numDofs = numDofs;
+		m_numDRDofs = numSides * numBndGP;
 
-	m_numDofs = numDofs;
-	m_numDRDofs = numSides * numBndGP;
+		Wavefield* waveField;
+		Fault* fault;
+		createBackend(m_backend, waveField, fault);
 
-	initBackend();
+		waveField->setFilename(m_filename.c_str());
+		fault->setFilename(m_filename.c_str());
 
-	m_waveField->setFilename(m_filename.c_str());
-	m_fault->setFilename(m_filename.c_str());
-
-	int exists = m_waveField->init(numDofs, seissol::SeisSol::main.asyncIO().groupSize());
-	exists &= m_fault->init(numSides, numBndGP,
+		int exists = waveField->init(numDofs, seissol::SeisSol::main.asyncIO().groupSize());
+		exists &= fault->init(numSides, numBndGP,
 			seissol::SeisSol::main.asyncIO().groupSize());
 
-	// Make sure all rank think the same about the existing checkpoint
+		// Make sure all ranks think the same about the existing checkpoint
 #ifdef USE_MPI
-	MPI_Allreduce(MPI_IN_PLACE, &exists, 1, MPI_INT, MPI_LAND, seissol::MPI::mpi.comm());
+		MPI_Allreduce(MPI_IN_PLACE, &exists, 1, MPI_INT, MPI_LAND, seissol::MPI::mpi.comm());
 #endif // USE_MPI
 
-	// Load checkpoint?
-	if (exists) {
-		m_waveField->load(time, waveFieldTimeStep, dofs);
-		m_fault->load(faultTimeStep, mu, slipRate1, slipRate2,
-			slip, slip1, slip2, state, strength);
-	}
+		// Load checkpoint?
+		if (exists) {
+			waveField->load(time, waveFieldTimeStep, dofs);
+			fault->load(faultTimeStep, mu, slipRate1, slipRate2,
+				slip, slip1, slip2, state, strength);
+		}
 
-#ifdef USE_ASYNC_MPI
-	fillBuffer(m_bufferIds[FILENAME], m_filename.c_str(), m_filename.size()+1);
-#endif // USE_ASYNC_MPI
+		waveField->close();
+		fault->close();
 
-	// Initialize the executor
-	CheckpointInitParam param;
-#ifdef USE_ASYNC_MPI
-	assert(sizeof(param.bufferIds) == sizeof(m_bufferIds));
-	memcpy(param.bufferIds, m_bufferIds, sizeof(m_bufferIds));
-	param.backend = m_backend;
-#endif // USE_ASYNC_MPI
-	param.numBndGP = numBndGP;
-	param.loaded = exists;
-	callInit(param);
+		delete waveField;
+		delete fault;
 
-	return exists;
+		sendBuffer(FILENAME,  m_filename.size()+1);
+
+		// Initialize the executor
+		CheckpointInitParam param;
+		param.backend = m_backend;
+		param.numBndGP = numBndGP;
+		param.loaded = exists;
+		callInit(param);
+
+		return exists;
 }

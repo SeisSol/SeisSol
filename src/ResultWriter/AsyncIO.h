@@ -65,19 +65,11 @@ public:
 	 */
 	bool init()
 	{
-#ifdef USE_ASYNC_MPI
-		// Initialize the scheduler
-		unsigned int groupSize = std::min(utils::Env::get("SEISSOL_ASYNC_GROUP_SIZE", 64),
-				seissol::MPI::mpi.size());
-		logInfo(seissol::MPI::mpi.rank()) << "Setting ASYNC MPI I/O group size to" << groupSize;
-		setGroupSize(groupSize);
-#endif // USE_ASYNC_MPI
-
 		async::Dispatcher::init();
 
-#ifdef USE_ASYNC_MPI
-		seissol::MPI::mpi.setComm(scheduler().commWorld());
-#endif // USE_ASYNC_MPI
+#ifdef USE_MPI
+		seissol::MPI::mpi.setComm(commWorld());
+#endif // USE_MPI
 
 		return dispatch();
 	}
@@ -87,10 +79,8 @@ public:
 		// Call parent class
 		async::Dispatcher::finalize();
 
-#ifdef USE_ASYNC_MPI
 		// Reset the MPI communicator
 		seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
-#endif // USE_ASYNC_MPI
 	}
 };
 

@@ -97,7 +97,7 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 	EPIK_TRACER("CheckPoint_write");
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	logInfo(rank()) << "Writing check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing.";
 
 	// Write the header
 	writeHeader(time, timestepWaveField);
@@ -118,7 +118,7 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 	// Finalize the checkpoint
 	finalizeCheckpoint();
 
-	logInfo(rank()) << "Writing check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing. Done.";
 }
 
 bool seissol::checkpoint::mpio::Wavefield::validate(MPI_File file) const

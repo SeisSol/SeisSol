@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2015, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,29 +37,11 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_H5_WAVEFIELD_H
-#define CHECKPOINT_H5_WAVEFIELD_H
+#ifndef CHECKPOINT_BACKEND_H
+#define CHECKPOINT_BACKEND_H
 
-#ifndef USE_HDF
-#include "Checkpoint/WavefieldDummy.h"
-#else // USE_HDF
-
-#ifdef USE_MPI
-#include <mpi.h>
-#endif // USE_MPI
-
-
-#include <string>
-
-#include <hdf5.h>
-
-#include "utils/logger.h"
-
-#include "CheckPoint.h"
-#include "Checkpoint/Wavefield.h"
-#include "Initializer/typedefs.hpp"
-
-#endif // USE_HDF
+#include "Wavefield.h"
+#include "Fault.h"
 
 namespace seissol
 {
@@ -67,74 +49,23 @@ namespace seissol
 namespace checkpoint
 {
 
-namespace h5
-{
-
-#ifndef USE_HDF
-typedef WavefieldDummy Wavefield;
-#else // USE_HDF
-
-class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
-{
-private:
-	/** Identifiers of the HDF5 time attributes */
-	hid_t m_h5time[2];
-
-	/** Identifiers of the HDF5 wavefield attributes */
-	hid_t m_h5timestepWavefield[2];
-
-	/** Identifiers of the main data set in the files */
-	hid_t m_h5data[2];
-
-	/** Identifiers for the file space of the data set */
-	hid_t m_h5fSpaceData;
-
-public:
-	Wavefield()
-		: m_h5fSpaceData(-1)
-	{
-		m_h5time[0] = m_h5time[1] = -1;
-		m_h5timestepWavefield[0] = m_h5timestepWavefield[1] = -1;
-		m_h5data[0] = m_h5data[1] = -1;
-	}
-
-	~Wavefield()
-	{ }
-
-	bool init(unsigned int numDofs, unsigned int groupSize = 1);
-
-	void load(double &time, int &timestepWavefield, real* dofs);
-
-	void write(double time, int timestepWaveField);
-
-	void close()
-	{
-		if (m_h5time[0] >= 0) {
-			for (unsigned int i = 0; i < 2; i++) {
-				checkH5Err(H5Aclose(m_h5time[i]));
-				checkH5Err(H5Aclose(m_h5timestepWavefield[i]));
-				checkH5Err(H5Dclose(m_h5data[i]));
-			}
-		}
-		if (m_h5fSpaceData >= 0)
-			checkH5Err(H5Sclose(m_h5fSpaceData));
-
-		CheckPoint::close();
-	}
-
-protected:
-	bool validate(hid_t h5file) const;
-
-	hid_t initFile(int odd, const char* filename);
+/** Checkpoint backend types */
+enum Backend {
+	POSIX,
+	HDF5,
+	MPIO,
+	MPIO_ASYNC,
+	SIONLIB,
+	DISABLED
 };
 
-#endif // USE_HDF
+/**
+ * Create the backend instances depending on the selected backend
+ */
+void createBackend(Backend backend, Wavefield* &waveField, Fault* &fault);
 
 }
 
 }
 
-}
-
-#endif // CHECKPOINT_H5_WAVEFIELD_H
-
+#endif // CHECKPOINT_BACKEND_H
