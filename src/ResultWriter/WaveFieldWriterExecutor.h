@@ -110,8 +110,10 @@ public:
 		: m_waveFieldWriter(0L),
 		  m_lowWaveFieldWriter(0L),
 		  m_numVariables(0),
-		  m_outputFlags(0L),
-		  m_comm(MPI_COMM_NULL)
+		  m_outputFlags(0L)
+#ifdef USE_MPI
+		  , m_comm(MPI_COMM_NULL)
+#endif // USE_MPI
 	{ }
 
 	/**
