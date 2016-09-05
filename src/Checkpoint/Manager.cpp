@@ -37,6 +37,8 @@
  * @section DESCRIPTION
  */
 
+#include "utils/logger.h"
+
 #include "Manager.h"
 #include "SeisSol.h"
 
@@ -53,7 +55,7 @@ bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 
 		// Buffer for file name
 		unsigned int id = addSyncBuffer(m_filename.c_str(), m_filename.size()+1, true);
-		assert(id == FILENAME);
+		assert(id == FILENAME); NDBG_UNUSED(id);
 
 		// Buffers for data
 		id = addBuffer(dofs, numDofs * sizeof(real));

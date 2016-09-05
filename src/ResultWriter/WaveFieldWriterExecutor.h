@@ -256,7 +256,7 @@ public:
 	}
 
 public:
-	static const int NUM_LOWVARIABLES = 7;
+	static const unsigned int NUM_LOWVARIABLES = 7;
 };
 
 }

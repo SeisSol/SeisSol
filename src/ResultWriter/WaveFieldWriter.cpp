@@ -157,7 +157,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Create data buffers
 	bool first = false;
-	for (int i = 0; i < numVars; i++) {
+	for (unsigned int i = 0; i < numVars; i++) {
 		if (m_outputFlags[i]) {
 			unsigned int id = addBuffer(0L, meshRefiner.getNumCells() * sizeof(double));
 			if (!first) {
@@ -211,7 +211,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 		// Create data buffers
 		param.bufferIds[LOWVARIABLE0] = addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(double));
-		for (int i = 1; i < WaveFieldWriterExecutor::NUM_LOWVARIABLES; i++)
+		for (unsigned int i = 1; i < WaveFieldWriterExecutor::NUM_LOWVARIABLES; i++)
 			addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(double));
 
 		// Save number of cells
