@@ -535,7 +535,7 @@ env.Append(CPPPATH=['#/submodules/async'])
 # Required for communication thread and asynchronous I/O
 # pthread has to be appended after other libraries
 # this only appears when compiling with scalasca and hdf5/netcdf
-env.Append(LINKFLAGS=['-lpthread'])
+env.Append(LIBS=['pthread'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
