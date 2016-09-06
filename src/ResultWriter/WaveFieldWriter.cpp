@@ -110,6 +110,16 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "3 - Refinement by 32";
 	}
 
+	// Extracted region bounds - TODO: Take from user
+	// xMin, xMax, yMin, yMax, zMin, zMax
+	double regionBounds[6] = {0.0, 1.0, 0.0, 1.0, 0.0, 1.0};
+	regionBounds[1] = regionBounds[1] + regionBounds[0];
+	// Cells and vertices of the extracted region
+	std::vector<Element*> subElements;
+	std::vector<Vertex*> subVertices;
+	subElements.push_back(&(meshReader.getElements()[0]));
+	subVertices.push_back(&(meshReader.getVertices()[0]));
+
 	// Refine the mesh
 	refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 
