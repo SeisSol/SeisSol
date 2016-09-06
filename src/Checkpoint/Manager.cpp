@@ -114,5 +114,7 @@ bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 		param.loaded = exists;
 		callInit(param);
 
+		removeBuffer(FILENAME);
+
 		return exists;
 }

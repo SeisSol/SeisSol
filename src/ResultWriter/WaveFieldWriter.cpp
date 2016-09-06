@@ -241,6 +241,15 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Initialize the executor
 	callInit(param);
 
+	// Remove buffers
+	removeBuffer(param.bufferIds[OUTPUT_PREFIX]);
+	removeBuffer(param.bufferIds[CELLS]);
+	removeBuffer(param.bufferIds[VERTICES]);
+	if (pstrain) {
+		removeBuffer(param.bufferIds[LOWCELLS]);
+		removeBuffer(param.bufferIds[LOWVERTICES]);
+	}
+
 	// Remove the low mesh refiner if it was setup
 	if (pLowMeshRefiner)
 		delete pLowMeshRefiner;
