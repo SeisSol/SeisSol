@@ -117,8 +117,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Cells and vertices of the extracted region
 	std::vector<Element*> subElements;
 	std::vector<Vertex*> subVertices;
-	subElements.push_back(&(meshReader.getElements()->at(0)));
-
+	subElements.push_back(meshReader.getElements().at(0));
 	// Refine the mesh
 	refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 
