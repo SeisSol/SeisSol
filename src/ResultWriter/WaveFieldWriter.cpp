@@ -120,7 +120,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Cells and vertices of the extracted region
 	std::vector<const Element*> subElements(10);
 	std::vector<const Vertex*> subVertices;
-	std::unordered_set	tempSet;
+	std::unordered_set<int>	tempSet;
 	std::map<int, int> oldToNewVertexMap;
 	for (unsigned int i = 0; i < 10; i++) {
 		subElements.at(i) = &(meshReader.getElements().at(i));
