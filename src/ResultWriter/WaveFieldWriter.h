@@ -43,6 +43,7 @@
 #include "Parallel/MPI.h"
 
 #include <algorithm>
+#include <unordered_set>
 #include <cassert>
 #include <string>
 #include <vector>
