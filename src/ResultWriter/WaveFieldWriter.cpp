@@ -110,6 +110,11 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "3 - Refinement by 32";
 	}
 
+	// TODO: Create a placeholder for extracted mesh
+	// Add the subset extraction function to MeshReader class
+	MeshReader extractedMesh(rank);
+	extractedMesh.m_elements.push_back(meshReader.getElements()[0]);
+
 	// Refine the mesh
 	refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 
