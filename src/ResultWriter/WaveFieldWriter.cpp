@@ -143,6 +143,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
 	// 	subVertices.at[it->second] = it->first;
 	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
+	// TODO(5): Convert this loop into openMP
 	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
 		subVertices.at(it->second) = &(meshReader.getVertices().at(it->first));
 
