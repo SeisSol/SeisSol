@@ -51,7 +51,7 @@
 #include "Checkpoint/MPIInfo.h"
 #endif // USE_MPI
 
-bool seissol::checkpoint::h5::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
+bool seissol::checkpoint::h5::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
 {
 	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 
@@ -106,6 +106,7 @@ void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefie
 
 		// We are finished in less iterations, read data twice
 		// so everybody needs the same number of iterations
+		// TODO This does only work if everybody has at least 2 chunks
 		if (i < iterations()-1) {
 			fStart += count;
 			offset += count;

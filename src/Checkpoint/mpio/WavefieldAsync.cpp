@@ -43,7 +43,7 @@
 
 #include "WavefieldAsync.h"
 
-bool seissol::checkpoint::mpio::WavefieldAsync::init(unsigned int numDofs, unsigned int groupSize)
+bool seissol::checkpoint::mpio::WavefieldAsync::init(unsigned long numDofs, unsigned int groupSize)
 {
 	bool exists = Wavefield::init(numDofs, groupSize);
 

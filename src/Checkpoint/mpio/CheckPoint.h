@@ -158,14 +158,28 @@ protected:
 		MPI_Datatype elemType;
 		MPI_Type_contiguous(m_elemSize, MPI_BYTE, &elemType);
 
+		// Compute the number of blocks, we need to create the data type
+		const int MAX_INT = 1ul<<30;
+		unsigned int blocks = (numElem + MAX_INT - 1) / MAX_INT;
+
 		// Create data file type
-		int blockLength[] = {static_cast<int>(numElem)};
-		MPI_Aint displ[] = {static_cast<MPI_Aint>(m_headerSize + fileOffset() * m_elemSize)};
-		MPI_Datatype types[] = {elemType};
+		int* blockLength = new int[blocks]; //{static_cast<int>(numElem)};
+		MPI_Aint* displ = new MPI_Aint[blocks];
+		MPI_Datatype* types = new MPI_Datatype[blocks];
+		for (unsigned int i = 0; i < blocks; i++) {
+			blockLength[i] = MAX_INT;
+			displ[i] = m_headerSize + (fileOffset() + i*MAX_INT) * m_elemSize;
+			types[i] = elemType;
+		}
+		blockLength[blocks-1] = numElem - (blocks-1) * MAX_INT; // Set correct size for the last block
 		MPI_Type_create_struct(1, blockLength, displ, types, &m_fileDataType);
 		MPI_Type_commit(&m_fileDataType);
 
 		MPI_Type_free(&elemType);
+
+		delete [] blockLength;
+		delete [] displ;
+		delete [] types;
 
 		// Create the header file type
 		if (rank() == 0) {

@@ -40,7 +40,7 @@
 
 #include "Wavefield.h"
 
-bool seissol::checkpoint::sionlib::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
+bool seissol::checkpoint::sionlib::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
 {
 	if (groupSize != 1)
 		// TODO To read the sionlib file, we must use the same number of processes

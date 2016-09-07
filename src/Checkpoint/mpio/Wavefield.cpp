@@ -44,7 +44,7 @@
 #include "Wavefield.h"
 #include "Monitoring/instrumentation.fpp"
 
-bool seissol::checkpoint::mpio::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
+bool seissol::checkpoint::mpio::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
 {
 	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 
@@ -110,7 +110,21 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 
 	checkMPIErr(setDataView(file()));
 
-	checkMPIErr(MPI_File_write_all(file(), const_cast<real*>(dofs()), numDofs(), MPI_DOUBLE, MPI_STATUS_IGNORE));
+	const unsigned int totalIter = (totalIterations() + sizeof(real) - 1) / sizeof(real);
+	const unsigned int iter = (iterations() + sizeof(real) - 1) / sizeof(real);
+	unsigned int count = dofsPerIteration() * sizeof(real);
+	unsigned long offset = 0;
+	for (unsigned int i = 0; i < totalIter; i++) {
+		if (i == iter-1)
+			// Last iteration
+			count = numDofs() - (iter-1) * count;
+
+		checkMPIErr(MPI_File_write_all(file(), const_cast<real*>(&dofs()[offset]), count, MPI_DOUBLE, MPI_STATUS_IGNORE));
+
+		if (i < iter-1)
+			offset += count;
+		// otherwise we just continue writing the last chunk over and over
+	}
 
 	EPIK_USER_END(r_write_wavefield);
 	SCOREP_USER_REGION_END(r_write_wavefield);

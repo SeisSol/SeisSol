@@ -56,7 +56,7 @@ public:
 	 * @param
 	 * @return Always false (never finds a valid checkpoint)
 	 */
-	bool init(const real*, unsigned int, unsigned int = 1)
+	bool init(unsigned long, unsigned int = 1)
 	{
 		return false;
 	}

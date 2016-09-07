@@ -39,7 +39,7 @@
 
 #include "Wavefield.h"
 
-bool seissol::checkpoint::posix::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
+bool seissol::checkpoint::posix::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
 {
 	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 

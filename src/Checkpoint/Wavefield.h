@@ -69,7 +69,7 @@ private:
 	const real* m_dofs;
 
 	/** Number of dofs */
-	unsigned int m_numDofs;
+	unsigned long m_numDofs;
 
 	/** Number of (local) iterations we need to save all data (due to the 2GB limit) */
 	unsigned int m_iterations;
@@ -97,7 +97,7 @@ public:
 	 *
 	 * @return True of a valid checkpoint is available
 	 */
-	virtual bool init(unsigned int numDofs, unsigned int groupSize = 1)
+	virtual bool init(unsigned long numDofs, unsigned int groupSize = 1)
 	{
 #ifndef USE_ASYNC_MPI
 		assert(groupSize == 1);
@@ -117,7 +117,7 @@ public:
 		setGroupSumOffset(numDofs, groupSize);
 
 		// Actual number of elements in the file (for this rank)
-		unsigned int numDofsFile = numDofs;
+		unsigned long numDofsFile = numDofs;
 
 #ifdef USE_MPI
 		// More sure the local part is a multiple of the block size
@@ -201,7 +201,7 @@ protected:
 		return m_dofs;
 	}
 
-	unsigned int numDofs() const
+	unsigned long numDofs() const
 	{
 		return m_numDofs;
 	}

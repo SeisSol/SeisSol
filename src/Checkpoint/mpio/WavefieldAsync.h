@@ -76,7 +76,7 @@ public:
 	{
 	}
 
-	bool init(unsigned int numDofs, unsigned int groupSize = 1);
+	bool init(unsigned long numDofs, unsigned int groupSize = 1);
 
 	void writePrepare(double time, int timestepWaveField);
 

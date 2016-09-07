@@ -99,10 +99,10 @@ private:
 	unsigned int m_groupSize;
 
 	/** Total number of elements in the group */
-	unsigned int m_numGroupElems;
+	unsigned long m_numGroupElems;
 
 	/** Offset in the group */
-	unsigned int m_groupOffset;
+	unsigned long m_groupOffset;
 
 	/** Was the checkpoint loaded */
 	bool m_loaded;
@@ -210,7 +210,7 @@ protected:
 	 *
 	 * @param numElems Local number of elements
 	 */
-	void setSumOffset(unsigned int numElems)
+	void setSumOffset(unsigned long numElems)
 	{
 		m_numTotalElems = numElems;
 		m_fileOffset = numElems;
@@ -221,7 +221,7 @@ protected:
 		m_fileOffset -= numElems;
 	}
 
-	void setGroupSumOffset(unsigned int numElems, unsigned int groupSize = 1)
+	void setGroupSumOffset(unsigned long numElems, unsigned int groupSize = 1)
 	{
 		m_groupSize = groupSize;
 		m_numGroupElems = numElems;
@@ -233,8 +233,8 @@ protected:
 			MPI_Comm groupComm;
 			MPI_Comm_split(comm(), m_rank / groupSize, m_rank, &groupComm);
 
-			MPI_Allreduce(MPI_IN_PLACE, &m_numGroupElems, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-			MPI_Scan(MPI_IN_PLACE, &m_groupOffset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
+			MPI_Allreduce(MPI_IN_PLACE, &m_numGroupElems, 1, MPI_UNSIGNED_LONG, MPI_SUM, groupComm);
+			MPI_Scan(MPI_IN_PLACE, &m_groupOffset, 1, MPI_UNSIGNED_LONG, MPI_SUM, groupComm);
 
 			MPI_Comm_free(&groupComm);
 #endif // USE_MPI
@@ -352,12 +352,12 @@ protected:
 		return m_groupSize;
 	}
 
-	unsigned int numGroupElems() const
+	unsigned long numGroupElems() const
 	{
 		return m_numGroupElems;
 	}
 
-	unsigned int groupOffset() const
+	unsigned long groupOffset() const
 	{
 		return m_groupOffset;
 	}
