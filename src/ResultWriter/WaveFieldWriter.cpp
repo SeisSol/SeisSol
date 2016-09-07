@@ -130,7 +130,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// This might create a problem with vertex numbering
 	// Also, the map will be a shared variable requiring atomic updates
 	for (unsigned int i = firstElem; i < firstElem+numElems; i++) {
-		subElements.at(i) = &(meshReader.getElements().at(i));
+		subElements.at(i-firstElem) = &(meshReader.getElements().at(i));
 		// Map the old vertex index to the new one
 		for (unsigned int j = 0; j < 4; j++) {
 			// Insert the pair so that a repeated vertex is not added again
