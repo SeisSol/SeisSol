@@ -183,7 +183,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	for (unsigned int i = 0; i < meshReader.getVertices().size(); i++) {
 		subVertices.push_back(&allVertices[i]);
 	}
-
+	// TODO(6): add warning for "0" elements selected
+	
 	// Refine the mesh
 	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices, *tetRefiner);
