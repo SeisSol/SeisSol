@@ -115,10 +115,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	double regionBounds[6] = {0.0, 1.0, 0.0, 1.0, 0.0, 1.0};
 
 	// TODO(2): Find a good algorithm to extract the mesh
-	// As of now only take first 10 elements for testing purposes
-
+	// As of now only take first "numElems" elements for testing purposes
+	int numElems = 2;
 	// Cells of the extracted region
-	std::vector<const Element*> subElements(10);
+	std::vector<const Element*> subElements(numElems);
 	// The oldToNewVertexMap defines a map between old vertex index to
 	// new vertex index
 	std::map<int, int> oldToNewVertexMap;
@@ -128,17 +128,16 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// TODO(4): Convert all the loops to openMP
 	// This might create a problem with vertex numbering
 	// Also, the map will be a shared variable requiring atomic updates
-	for (unsigned int i = 0; i < 10; i++) {
+	for (unsigned int i = 0; i < numElems; i++) {
 		subElements.at(i) = &(meshReader.getElements().at(i));
 		// Map the old vertex index to the new one
 		for (unsigned int j = 0; j < 4; j++) {
-			// Temporary variable to hold the pair of old index and new index for a vertex
-			std::pair<int, int> valPair(meshReader.getElements().at(i).vertices[j], oldToNewVertexMap.size());
 			// Insert the pair so that a repeated vertex is not added again
-			oldToNewVertexMap.insert(valPair);
+			oldToNewVertexMap.insert(std::pair<int, int>(meshReader.getElements().at(i).vertices[j], oldToNewVertexMap.size()));
 		}
 	}
 	// Vertices of the extracted region
+	// This is created later on since now the size is known
 	// Pertaining to TODO(4): We assign the vertices using "at()"
 	// Loop over the map and perform
 	// for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
