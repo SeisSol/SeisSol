@@ -144,9 +144,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		bool insertFlag = false;
 		for (unsigned int j = 0; j < 4; j++) {
 			insertFlag |= vertexInBox(regionBounds,allVertices[allElements[i].vertices[j]].coords);
-		}
-		if (insertFlag) {
-			subElements.push_back(&(allElements[i]));
+			if (insertFlag) {
+				subElements.push_back(&(allElements[i]));
+				break;
+			}
 		}
 	}
 	// The oldToNewVertexMap defines a map between old vertex index to
