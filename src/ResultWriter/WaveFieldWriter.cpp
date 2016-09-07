@@ -45,6 +45,25 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
 
+int vertexInBox(const double * const boxBounds, const double * const vertexCoords) {
+	double u = boxBounds[1]-boxBounds[0];
+	double v = boxBounds[3]-boxBounds[2];
+	double w = boxBounds[5]-boxBounds[4];
+	double relVertexCoords[3] = {
+		vertexCoords[0] - boxBounds[0],
+		vertexCoords[1] - boxBounds[2],
+		vertexCoords[2] - boxBounds[4]
+	};
+
+	if ((relVertexCoords[0]*u <= u*u && relVertexCoords[0]*u >= 0) &&
+		(relVertexCoords[1]*v <= v*v && relVertexCoords[1]*v >= 0) &&
+		(relVertexCoords[2]*w <= w*w && relVertexCoords[2]*w >= 0)) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		int order, int numAlignedDOF,
 		const MeshReader &meshReader,
@@ -113,13 +132,20 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Extracted region bounds - TODO(1): Take from user
 	// xMin, xMax, yMin, yMax, zMin, zMax
 	double regionBounds[6] = {0.0, 1.0, 0.0, 1.0, 0.0, 1.0};
-
+	const std::vector<Element>& allElements = meshReader.getElements();
+	const std::vector<Vertex>& allVertices = meshReader.getVertices();
 	// TODO(2): Find a good algorithm to extract the mesh
-	// As of now only take random "numElems" elements for testing purposes
-	int numElems = 2;
-	int firstElem = 10;
 	// Cells of the extracted region
-	std::vector<const Element*> subElements(numElems);
+	std::vector<const Element*> subElements;
+	// Extract cells based on the region specified
+	for (std::vector<Element>::iterator thisElem = allElements.begin();
+			thisElem != allElements.end(); thisElem++) {
+		for (unsigned int j = 0; j < 4; j++) {
+			if (vertexInBox(regionBounds,allVertices[thisElem.vertices[j]].coords) == 1) {
+				subElements.push_back(&(allElements[i]));
+			}
+		}
+	}
 	// The oldToNewVertexMap defines a map between old vertex index to
 	// new vertex index
 	std::map<int, int> oldToNewVertexMap;
@@ -129,15 +155,15 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// TODO(4): Convert all the loops to openMP
 	// This might create a problem with vertex numbering
 	// Also, the map will be a shared variable requiring atomic updates
-	for (unsigned int i = firstElem; i < firstElem+numElems; i++) {
-		subElements.at(i-firstElem) = &(meshReader.getElements().at(i));
+	// for (unsigned int i = firstElem; i < firstElem+numElems; i++) {
+	// 	subElements.push_back(&(meshReader.getElements().at(i)));
 		// Map the old vertex index to the new one
 		// for (unsigned int j = 0; j < 4; j++) {
 		// 	// Insert the pair so that a repeated vertex is not added again
 		// 	oldToNewVertexMap.insert(std::pair<int, int>(meshReader.getElements().at(i).vertices[j], oldToNewVertexMap.size()));
 		// 	// std::cout << "Rank " << rank << " Cell " << i << " Old V " << meshReader.getElements().at(i).vertices[j] << " New V " << oldToNewVertexMap.size()-1 << std::endl;
 		// }
-	}
+	// }
 	// Vertices of the extracted region
 	// This is created later on since now the size is known
 	// Pertaining to TODO(4): We assign the vertices using "at()"
@@ -151,7 +177,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// 	subVertices.at(it->second) = &(meshReader.getVertices().at(it->first));
 	// }
 	for (unsigned int i = 0; i < meshReader.getVertices().size(); i++) {
-		subVertices.push_back(&(meshReader.getVertices().at(i)));
+		subVertices.push_back(&allVertices[i]);
 	}
 
 	// Refine the mesh
