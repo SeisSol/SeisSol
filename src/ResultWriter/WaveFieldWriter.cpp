@@ -131,7 +131,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Extracted region bounds - TODO(1): Take from user
 	// xMin, xMax, yMin, yMax, zMin, zMax
-	double regionBounds[6] = {0.0, 10.0, 0.0, 10.0, 0.0, 10.0};
+	double regionBounds[6] = {0.0, 7000.0, 0.0, 7000.0, 0.0, 7000.0};
 	const std::vector<Element>& allElements = meshReader.getElements();
 	const std::vector<Vertex>& allVertices = meshReader.getVertices();
 	const size_t numTotalElems = meshReader.getElements().size();
@@ -184,7 +184,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		subVertices.push_back(&allVertices[i]);
 	}
 	// TODO(6): add warning for "0" elements selected
-	
+
 	// Refine the mesh
 	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices, *tetRefiner);
