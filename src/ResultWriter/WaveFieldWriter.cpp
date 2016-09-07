@@ -115,7 +115,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	double regionBounds[6] = {0.0, 1.0, 0.0, 1.0, 0.0, 1.0};
 
 	// TODO(2): Find a good algorithm to extract the mesh
-	// As of now only take first "numElems" elements for testing purposes
+	// As of now only take random "numElems" elements for testing purposes
 	int numElems = 2;
 	int firstElem = 10;
 	// Cells of the extracted region
@@ -132,11 +132,11 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	for (unsigned int i = firstElem; i < firstElem+numElems; i++) {
 		subElements.at(i-firstElem) = &(meshReader.getElements().at(i));
 		// Map the old vertex index to the new one
-		for (unsigned int j = 0; j < 4; j++) {
-			// Insert the pair so that a repeated vertex is not added again
-			oldToNewVertexMap.insert(std::pair<int, int>(meshReader.getElements().at(i).vertices[j], oldToNewVertexMap.size()));
-			std::cout << "Rank " << rank << " Cell " << i << " Old V " << meshReader.getElements().at(i).vertices[j] << " New V " << oldToNewVertexMap.size()-1 << std::endl;
-		}
+		// for (unsigned int j = 0; j < 4; j++) {
+		// 	// Insert the pair so that a repeated vertex is not added again
+		// 	oldToNewVertexMap.insert(std::pair<int, int>(meshReader.getElements().at(i).vertices[j], oldToNewVertexMap.size()));
+		// 	// std::cout << "Rank " << rank << " Cell " << i << " Old V " << meshReader.getElements().at(i).vertices[j] << " New V " << oldToNewVertexMap.size()-1 << std::endl;
+		// }
 	}
 	// Vertices of the extracted region
 	// This is created later on since now the size is known
@@ -144,15 +144,19 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Loop over the map and perform
 	// for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
 	// 	subVertices.at[it->second] = it->first;
-	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
+	std::vector<const Vertex*> subVertices/*(oldToNewVertexMap.size())*/;
 	// TODO(5): Convert this loop into openMP
-	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
-	{
-		subVertices.at(it->second) = &(meshReader.getVertices().at(it->first));
+	// for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
+	// {
+	// 	subVertices.at(it->second) = &(meshReader.getVertices().at(it->first));
+	// }
+	for (unsigned int i = 0; i < meshReader.getVertices().size(); i++) {
+		subVertices.push_back(&(meshReader.getVertices().at(i)));
 	}
 
 	// Refine the mesh
-	refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
+	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
+	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices, *tetRefiner);
 
 	logInfo(rank) << "Refinement class initialized";
 	logDebug() << "Cells : "
@@ -165,7 +169,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Initialize the variable subsampler
 	m_variableSubsampler = new refinement::VariableSubsampler<double>(
-			meshReader.getElements().size(),
+			subElements.size(),
 			*tetRefiner, order, numVars, numAlignedDOF);
 
 	logInfo(rank) << "VariableSubsampler initialized";
@@ -226,7 +230,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		refinement::IdentityRefiner<double> lowTetRefiner;
 
 		// Mesh refiner
-		pLowMeshRefiner = new refinement::MeshRefiner<double>(meshReader, lowTetRefiner);
+		pLowMeshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices, lowTetRefiner);
 
 #ifdef USE_MPI
 		// Same offset issue for the normal mesh

@@ -209,6 +209,8 @@ public:
 
 			double* managedBuffer = async::Module<WaveFieldWriterExecutor,
 					WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(nextId);
+
+			// TODO: Change dof map
 			m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
 
 			sendBuffer(nextId, m_numCells*sizeof(double));
