@@ -170,7 +170,7 @@ MeshRefiner<T>::MeshRefiner(
 
 template<typename T>
 MeshRefiner<T>::MeshRefiner(
-            const std::vector<const Element *>& subCells,
+            const std::vector<const Element *>& subElements,
             const std::vector<const Vertex *>& subVertices,
         	const TetrahedronRefiner<T>& tetRefiner)
 		: kSubCellsPerCell(tetRefiner.getDivisionCount())
@@ -196,7 +196,7 @@ MeshRefiner<T>::MeshRefiner(
 	#pragma omp parallel for
 #endif // _OPENMP
     for (unsigned int i = 0; i < kInVertexCount; i++) {
-    	memcpy(&m_vertices[i*3], kVertices[i].coords, sizeof(double)*3);
+    	memcpy(&m_vertices[i*3], kVertices[i]->coords, sizeof(double)*3);
     }
 
     // The pointer to the new vertices
