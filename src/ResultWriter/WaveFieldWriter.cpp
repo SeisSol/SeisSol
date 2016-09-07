@@ -110,24 +110,42 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "3 - Refinement by 32";
 	}
 
-	// Extracted region bounds - TODO: Take from user
+	// Extracted region bounds - TODO(1): Take from user
 	// xMin, xMax, yMin, yMax, zMin, zMax
 	double regionBounds[6] = {0.0, 1.0, 0.0, 1.0, 0.0, 1.0};
 
-	// TODO: Find a good algorithm to extract the mesh
+	// TODO(2): Find a good algorithm to extract the mesh
 	// As of now only take first 10 elements for testing purposes
 
-	// Cells and vertices of the extracted region
+	// Cells of the extracted region
 	std::vector<const Element*> subElements(10);
-	std::vector<const Vertex*> subVertices;
-	std::set<int> oldVertexIndex;
+	// The oldToNewVertexMap defines a map between old vertex index to
+	// new vertex index
 	std::map<int, int> oldToNewVertexMap;
+	// TODO(3): remove the loop and insert the algorithm.
+	// This is temporary for testing.
+	// Loop over to extract elements
+	// TODO(4): Convert all the loops to openMP
+	// This might create a problem with vertex numbering
+	// Also, the map will be a shared variable requiring atomic updates
 	for (unsigned int i = 0; i < 10; i++) {
 		subElements.at(i) = &(meshReader.getElements().at(i));
+		// Map the old vertex index to the new one
 		for (unsigned int j = 0; j < 4; j++) {
-			oldVertexIndex.insert(meshReader.getElements().at(i).vertices[j]);
+			// Temporary variable to hold the pair of old index and new index for a vertex
+			std::pair<int, int> valPair(meshReader.getElements().at(i).vertices[j], oldToNewVertexMap.size());
+			// Insert the pair so that a repeated vertex is not added again
+			oldToNewVertexMap.insert(valPair);
 		}
 	}
+	// Vertices of the extracted region
+	// Pertaining to TODO(4): We assign the vertices using "at()"
+	// Loop over the map and perform
+	// for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
+	// 	subVertices.at[it->second] = it->first;
+	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
+	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
+		subVertices.at[it->second] = it->first;
 
 	// Refine the mesh
 	refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
