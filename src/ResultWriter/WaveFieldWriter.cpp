@@ -134,18 +134,19 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	double regionBounds[6] = {0.0, 1.0, 0.0, 1.0, 0.0, 1.0};
 	const std::vector<Element>& allElements = meshReader.getElements();
 	const std::vector<Vertex>& allVertices = meshReader.getVertices();
+	std::vector<Element>::iterator thisElem;
 	// TODO(2): Find a good algorithm to extract the mesh
 	// Cells of the extracted region
 	std::vector<const Element*> subElements;
 	// Extract cells based on the region specified
-	for (std::vector<Element>::iterator thisElem = allElements.begin();
-			thisElem != allElements.end(); thisElem++) {
-		for (unsigned int j = 0; j < 4; j++) {
-			if (vertexInBox(regionBounds,allVertices[thisElem.vertices[j]].coords) == 1) {
-				subElements.push_back(&(allElements[i]));
-			}
-		}
-	}
+	// for (std::vector<Element>::iterator thisElem = allElements.begin();
+	// 		thisElem != allElements.end(); thisElem++) {
+	// 	for (unsigned int j = 0; j < 4; j++) {
+	// 		if (vertexInBox(regionBounds,allVertices[thisElem.vertices[j]].coords) == 1) {
+	// 			subElements.push_back(&(allElements[i]));
+	// 		}
+	// 	}
+	// }
 	// The oldToNewVertexMap defines a map between old vertex index to
 	// new vertex index
 	std::map<int, int> oldToNewVertexMap;
