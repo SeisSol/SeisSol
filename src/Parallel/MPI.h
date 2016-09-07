@@ -47,6 +47,10 @@
 
 #include <mpi.h>
 
+#include "utils/logger.h"
+
+#include "async/Config.h"
+
 #include "Parallel/MPIBasic.h"
 
 #endif // USE_MPI
@@ -82,17 +86,22 @@ public:
 	 */
 	void init(int &argc, char** &argv)
 	{
-#if defined(USE_COMM_THREAD) || defined(USE_ASAGI) \
-	|| defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
+		int required = MPI_THREAD_SINGLE;
 		int provided;
-		MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
-#else // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
-	// || defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
-		MPI_Init(&argc, &argv);
-#endif // defined(USE_COMM_THREAD) || defined(USE_ASAGI)
-	// || defined(USE_ASYNC_THREAD) || defined(USE_ASYNC_MPI)
+#ifdef USE_COMM_THREAD
+		required = MPI_THREAD_MULTIPLE;
+#else // USE_COMM_THREAD
+		if (async::Config::mode() != async::SYNC)
+			required = MPI_THREAD_MULTIPLE;
+#endif // USE_COMM_THREAD
+		MPI_Init_thread(&argc, &argv, required, &provided);
 
 		setComm(MPI_COMM_WORLD);
+
+		// Test this after setComm() to get the correct m_rank
+		if (required < provided)
+			logWarning(m_rank) << utils::nospace << "Required MPI thread support (" << required
+				<< ") is smaller than provided thread support (" << provided << ").";
 	}
 
 	void setComm(MPI_Comm comm)
