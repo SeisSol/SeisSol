@@ -131,7 +131,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Extracted region bounds - TODO(1): Take from user
 	// xMin, xMax, yMin, yMax, zMin, zMax
-	double regionBounds[6] = {0.0, 1.0, 0.0, 1.0, 0.0, 1.0};
+	double regionBounds[6] = {0.0, 10.0, 0.0, 10.0, 0.0, 10.0};
 	const std::vector<Element>& allElements = meshReader.getElements();
 	const std::vector<Vertex>& allVertices = meshReader.getVertices();
 	const size_t numTotalElems = meshReader.getElements().size();
