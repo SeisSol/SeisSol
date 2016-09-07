@@ -116,7 +116,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// TODO(2): Find a good algorithm to extract the mesh
 	// As of now only take first "numElems" elements for testing purposes
-	int numElems = 3;
+	int numElems = 2;
+	int firstElem = 10;
 	// Cells of the extracted region
 	std::vector<const Element*> subElements(numElems);
 	// The oldToNewVertexMap defines a map between old vertex index to
@@ -128,7 +129,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// TODO(4): Convert all the loops to openMP
 	// This might create a problem with vertex numbering
 	// Also, the map will be a shared variable requiring atomic updates
-	for (unsigned int i = 0; i < numElems; i++) {
+	for (unsigned int i = firstElem; i < firstElem+numElems; i++) {
 		subElements.at(i) = &(meshReader.getElements().at(i));
 		// Map the old vertex index to the new one
 		for (unsigned int j = 0; j < 4; j++) {
