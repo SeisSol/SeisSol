@@ -45,7 +45,7 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
 
-int vertexInBox(const double * const boxBounds, const double * const vertexCoords) {
+bool vertexInBox(const double * const boxBounds, const double * const vertexCoords) {
 	double u = boxBounds[1]-boxBounds[0];
 	double v = boxBounds[3]-boxBounds[2];
 	double w = boxBounds[5]-boxBounds[4];
@@ -58,9 +58,9 @@ int vertexInBox(const double * const boxBounds, const double * const vertexCoord
 	if ((relVertexCoords[0]*u <= u*u && relVertexCoords[0]*u >= 0) &&
 		(relVertexCoords[1]*v <= v*v && relVertexCoords[1]*v >= 0) &&
 		(relVertexCoords[2]*w <= w*w && relVertexCoords[2]*w >= 0)) {
-		return 1;
+		return true;
 	} else {
-		return 0;
+		return false;
 	}
 }
 
@@ -141,10 +141,12 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	std::vector<const Element*> subElements;
 	// Extract cells based on the region specified
 	for (size_t i = 0; i < numTotalElems; i++) {
+		bool insertFlag = false;
 		for (unsigned int j = 0; j < 4; j++) {
-			if (vertexInBox(regionBounds,allVertices[allElements[i].vertices[j]].coords) == 1) {
-				subElements.push_back(&(allElements[i]));
-			}
+			insertFlag &= vertexInBox(regionBounds,allVertices[allElements[i].vertices[j]].coords);
+		}
+		if (insertFlag) {
+			subElements.push_back(&(allElements[i]));
 		}
 	}
 	// The oldToNewVertexMap defines a map between old vertex index to
