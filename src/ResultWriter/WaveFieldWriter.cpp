@@ -134,7 +134,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	double regionBounds[6] = {0.0, 1.0, 0.0, 1.0, 0.0, 1.0};
 	const std::vector<Element>& allElements = meshReader.getElements();
 	const std::vector<Vertex>& allVertices = meshReader.getVertices();
-	std::vector<Element>::iterator thisElem;
+	std::vector<Element>::iterator thisElem = allElements.begin();
 	// TODO(2): Find a good algorithm to extract the mesh
 	// Cells of the extracted region
 	std::vector<const Element*> subElements;
