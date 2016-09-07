@@ -145,7 +145,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// 	subVertices.at[it->second] = it->first;
 	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
 	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
-		subVertices.at[it->second] = it->first;
+		subVertices.at(it->second) = it->first;
 
 	// Refine the mesh
 	refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
