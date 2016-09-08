@@ -197,10 +197,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		oldToNewVertexMap, *tetRefiner);
 
 	logInfo(rank) << "Refinement class initialized";
-	logDebug() << "Cells : "
+	logInfo(rank) << "Cells : "
 			<< subElements.size() << "refined-to ->"
 			<< meshRefiner.getNumCells();
-	logDebug() << "Vertices : "
+	logInfo(rank) << "Vertices : "
 			<< subVertices.size()
 			<< "refined-to ->"
 			<< meshRefiner.getNumVertices();
