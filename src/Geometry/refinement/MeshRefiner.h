@@ -172,6 +172,7 @@ template<typename T>
 MeshRefiner<T>::MeshRefiner(
             const std::vector<const Element *>& subElements,
             const std::vector<const Vertex *>& subVertices,
+            const std::map<int, int>& oldToNewVertexMap,
         	const TetrahedronRefiner<T>& tetRefiner)
 		: kSubCellsPerCell(tetRefiner.getDivisionCount())
 
@@ -217,14 +218,14 @@ MeshRefiner<T>::MeshRefiner(
         {
             // Build a Terahedron containing the coordinates of the vertices.
             Tetrahedron<T> inTet = Tetrahedron<T>(
-                    kVertices[kElements[c]->vertices[0]]->coords,
-                    kVertices[kElements[c]->vertices[1]]->coords,
-                    kVertices[kElements[c]->vertices[2]]->coords,
-                    kVertices[kElements[c]->vertices[3]]->coords,
-					kElements[c]->vertices[0],
-					kElements[c]->vertices[1],
-					kElements[c]->vertices[2],
-					kElements[c]->vertices[3]);
+                    kVertices[oldToNewVertexMap[kElements[c]->vertices[0]]]->coords,
+                    kVertices[oldToNewVertexMap[kElements[c]->vertices[1]]]->coords,
+                    kVertices[oldToNewVertexMap[kElements[c]->vertices[2]]]->coords,
+                    kVertices[oldToNewVertexMap[kElements[c]->vertices[3]]]->coords,
+					oldToNewVertexMap[kElements[c]->vertices[0]],
+					oldToNewVertexMap[kElements[c]->vertices[1]],
+					oldToNewVertexMap[kElements[c]->vertices[2]],
+					oldToNewVertexMap[kElements[c]->vertices[3]]);
 
             // Generate the tets
             tetRefiner.refine(inTet,

@@ -174,20 +174,19 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Loop over the map and perform
 	// for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
 	// 	subVertices.at[it->second] = it->first;
-	std::vector<const Vertex*> subVertices/*(oldToNewVertexMap.size())*/;
+	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
 	// TODO(5): Convert this loop into openMP
-	// for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
-	// {
-	// 	subVertices.at(it->second) = &(meshReader.getVertices().at(it->first));
+	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
+		subVertices[it->second] = &(meshReader.getVertices()[it->first]);
+	// for (unsigned int i = 0; i < meshReader.getVertices().size(); i++) {
+	// 	subVertices.push_back(&allVertices[i]);
 	// }
-	for (unsigned int i = 0; i < meshReader.getVertices().size(); i++) {
-		subVertices.push_back(&allVertices[i]);
-	}
 	// TODO(6): add warning for "0" elements selected
 
 	// Refine the mesh
 	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
-	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices, *tetRefiner);
+	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices,
+		oldToNewVertexMap, *tetRefiner);
 
 	logInfo(rank) << "Refinement class initialized";
 	logDebug() << "Cells : "
@@ -261,7 +260,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		refinement::IdentityRefiner<double> lowTetRefiner;
 
 		// Mesh refiner
-		pLowMeshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices, lowTetRefiner);
+		pLowMeshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices,
+			oldToNewVertexMap, lowTetRefiner);
 
 #ifdef USE_MPI
 		// Same offset issue for the normal mesh
