@@ -132,27 +132,37 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Extracted region bounds - TODO(1): Take from user
 	// xMin, xMax, yMin, yMax, zMin, zMax
 	double regionBounds[6] = {-3500.0, 3500.0, -3500.0, 3500.0, -28500.0, -21500.0};
+	// Reference to the vector containing all the elements
 	const std::vector<Element>& allElements = meshReader.getElements();
+	// Reference to the vector containing all the vertices
 	const std::vector<Vertex>& allVertices = meshReader.getVertices();
+	// Total number of elements
 	const size_t numTotalElems = meshReader.getElements().size();
+	// Total number of vertices
 	const size_t numTotalVerts = meshReader.getVertices().size();
-	// TODO(2): Find a good algorithm to extract the mesh
-	// Cells of the extracted region
+	// Elements of the extracted region
 	std::vector<const Element*> subElements;
-	// Extract cells based on the region specified
+	// The oldToNewVertexMap defines a map between old vertex index to
+	// new vertex index
+	std::map<int, int> oldToNewVertexMap;
+	// Extract elements based on the region specified
 	for (size_t i = 0; i < numTotalElems; i++) {
-		bool insertFlag = false;
+		// Store the current number of elements to check if new was added
+		size_t numCurrentElems = subElements.size();
 		for (unsigned int j = 0; j < 4; j++) {
-			insertFlag |= vertexInBox(regionBounds,allVertices[allElements[i].vertices[j]].coords);
-			if (insertFlag) {
+			if (vertexInBox(regionBounds,allVertices[allElements[i].vertices[j]].coords)) {
 				subElements.push_back(&(allElements[i]));
 				break;
 			}
 		}
+		// If the new element was added then subElements.size() = numCurrentElems+1
+		if (numCurrentElems != subElements.size()) {
+			for (size_t j = 0; j < 4; j++) {
+				// Insert makes sure that the entries are unique since a vertex is shared between many elements
+				oldToNewVertexMap.insert(std::pair<int, int>(allElements[i].vertices[j],oldToNewVertexMap.size()));
+			}
+		}
 	}
-	// The oldToNewVertexMap defines a map between old vertex index to
-	// new vertex index
-	std::map<int, int> oldToNewVertexMap;
 	// TODO(3): remove the loop and insert the algorithm.
 	// This is temporary for testing.
 	// Loop over to extract elements
