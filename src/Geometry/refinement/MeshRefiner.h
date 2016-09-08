@@ -71,6 +71,7 @@ public:
 
     MeshRefiner(const std::vector<const Element *>& subElements,
             const std::vector<const Vertex *>& subVertices,
+            const std::map<int, int>& oldToNewVertexMap,
             const TetrahedronRefiner<T>& tetRefiner);
 
     ~MeshRefiner();
