@@ -187,6 +187,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "3 - Refinement by 32";
 	}
 
+	assert(subElements.size() != 0);
+	assert(subVertices.size() != 0);
+	assert(oldToNewVertexMap.size() != 0);
+
 	// Refine the mesh
 	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices,
