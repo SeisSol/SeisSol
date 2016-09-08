@@ -143,7 +143,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Elements of the extracted region
 	std::vector<const Element*> subElements;
 	// The oldToNewVertexMap defines a map between old vertex index to
-	// new vertex index
+	// new vertex index. This is used to assign the vertex subset as well as
+	// used in MeshRefiner since the elements would hold old index of vertices
 	std::map<int, int> oldToNewVertexMap;
 	// Extract elements based on the region specified
 	// TODO(4): Convert all the loops to openMP
@@ -159,7 +160,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		// If the new element was added then subElements.size() = numCurrentElems+1
 		if (numCurrentElems != subElements.size()) {
 			for (size_t j = 0; j < 4; j++) {
-				// Insert makes sure that the entries are unique since a vertex is shared between many elements
+				// Map makes sure that the entries are unique since a vertex is shared between many elements
 				oldToNewVertexMap.insert(std::pair<int, int>(allElements[i].vertices[j],oldToNewVertexMap.size()));
 			}
 		}
