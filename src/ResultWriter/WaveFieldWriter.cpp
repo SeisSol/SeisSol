@@ -90,23 +90,32 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	/** List of all buffer ids */
 	param.bufferIds[OUTPUT_PREFIX] = addSyncBuffer(m_outputPrefix.c_str(), m_outputPrefix.size()+1, true);
 
-	// Extracted region bounds - TODO(1): Take from user
+
+	/** Extract the elements and vertices based on user given bounds */
+	// TODO(1): Take from user
 	// xMin, xMax, yMin, yMax, zMin, zMax
 	double regionBounds[6] = {-3500.0, 3500.0, -3500.0, 3500.0, -28500.0, -21500.0};
+
 	// Reference to the vector containing all the elements
 	const std::vector<Element>& allElements = meshReader.getElements();
+
 	// Reference to the vector containing all the vertices
 	const std::vector<Vertex>& allVertices = meshReader.getVertices();
+
 	// Total number of elements
 	const size_t numTotalElems = meshReader.getElements().size();
+
 	// Total number of vertices
 	const size_t numTotalVerts = meshReader.getVertices().size();
+
 	// Elements of the extracted region
 	std::vector<const Element*> subElements;
+
 	// The oldToNewVertexMap defines a map between old vertex index to
 	// new vertex index. This is used to assign the vertex subset as well as
 	// used in MeshRefiner since the elements would hold old index of vertices
 	std::map<int, int> oldToNewVertexMap;
+
 	// Extract elements based on the region specified
 	// TODO(4): Convert all the loops to openMP
 	for (size_t i = 0; i < numTotalElems; i++) {
@@ -127,9 +136,11 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			}
 		}
 	}
+
 	// Vertices of the extracted region
 	// This is created later on since now the size is known
 	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
+
 	// Loop over the map and assign the vertices
 	// TODO(5): Convert this loop into openMP
 	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
@@ -182,10 +193,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		oldToNewVertexMap, *tetRefiner);
 
 	logInfo(rank) << "Refinement class initialized";
-	logDebug() << "Cells : "
+	logInfo(rank) << "Cells : "
 			<< subElements.size() << "refined-to ->"
 			<< meshRefiner.getNumCells();
-	logDebug() << "Vertices : "
+	logInfo(rank) << "Vertices : "
 			<< subVertices.size()
 			<< "refined-to ->"
 			<< meshRefiner.getNumVertices();
