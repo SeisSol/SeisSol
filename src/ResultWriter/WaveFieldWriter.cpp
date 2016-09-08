@@ -90,6 +90,53 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	/** List of all buffer ids */
 	param.bufferIds[OUTPUT_PREFIX] = addSyncBuffer(m_outputPrefix.c_str(), m_outputPrefix.size()+1, true);
 
+	// Extracted region bounds - TODO(1): Take from user
+	// xMin, xMax, yMin, yMax, zMin, zMax
+	double regionBounds[6] = {-3500.0, 3500.0, -3500.0, 3500.0, -28500.0, -21500.0};
+	// Reference to the vector containing all the elements
+	const std::vector<Element>& allElements = meshReader.getElements();
+	// Reference to the vector containing all the vertices
+	const std::vector<Vertex>& allVertices = meshReader.getVertices();
+	// Total number of elements
+	const size_t numTotalElems = meshReader.getElements().size();
+	// Total number of vertices
+	const size_t numTotalVerts = meshReader.getVertices().size();
+	// Elements of the extracted region
+	std::vector<const Element*> subElements;
+	// The oldToNewVertexMap defines a map between old vertex index to
+	// new vertex index. This is used to assign the vertex subset as well as
+	// used in MeshRefiner since the elements would hold old index of vertices
+	std::map<int, int> oldToNewVertexMap;
+	// Extract elements based on the region specified
+	// TODO(4): Convert all the loops to openMP
+	for (size_t i = 0; i < numTotalElems; i++) {
+		// Store the current number of elements to check if new was added
+		size_t numCurrentElems = subElements.size();
+		// Check if at least one vertex lies inside the region specifies
+		for (unsigned int j = 0; j < 4; j++) {
+			if (vertexInBox(regionBounds,allVertices[allElements[i].vertices[j]].coords)) {
+				subElements.push_back(&(allElements[i]));
+				break;
+			}
+		}
+		// If the new element was added then subElements.size() = numCurrentElems+1
+		if (numCurrentElems != subElements.size()) {
+			for (size_t j = 0; j < 4; j++) {
+				// Map makes sure that the entries are unique since a vertex is shared between many elements
+				oldToNewVertexMap.insert(std::pair<int, int>(allElements[i].vertices[j],oldToNewVertexMap.size()));
+			}
+		}
+	}
+	// Vertices of the extracted region
+	// This is created later on since now the size is known
+	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
+	// Loop over the map and assign the vertices
+	// TODO(5): Convert this loop into openMP
+	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
+		subVertices[it->second] = &allVertices[it->first];
+
+	// TODO(6): add warning for "0" elements selected
+
 	//
 	// High order I/O
 	//
@@ -129,52 +176,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "3 - Refinement by 32";
 	}
 
-	// Extracted region bounds - TODO(1): Take from user
-	// xMin, xMax, yMin, yMax, zMin, zMax
-	double regionBounds[6] = {-3500.0, 3500.0, -3500.0, 3500.0, -28500.0, -21500.0};
-	// Reference to the vector containing all the elements
-	const std::vector<Element>& allElements = meshReader.getElements();
-	// Reference to the vector containing all the vertices
-	const std::vector<Vertex>& allVertices = meshReader.getVertices();
-	// Total number of elements
-	const size_t numTotalElems = meshReader.getElements().size();
-	// Total number of vertices
-	const size_t numTotalVerts = meshReader.getVertices().size();
-	// Elements of the extracted region
-	std::vector<const Element*> subElements;
-	// The oldToNewVertexMap defines a map between old vertex index to
-	// new vertex index. This is used to assign the vertex subset as well as
-	// used in MeshRefiner since the elements would hold old index of vertices
-	std::map<int, int> oldToNewVertexMap;
-	// Extract elements based on the region specified
-	// TODO(4): Convert all the loops to openMP
-	for (size_t i = 0; i < numTotalElems; i++) {
-		// Store the current number of elements to check if new was added
-		size_t numCurrentElems = subElements.size();
-		for (unsigned int j = 0; j < 4; j++) {
-			if (vertexInBox(regionBounds,allVertices[allElements[i].vertices[j]].coords)) {
-				subElements.push_back(&(allElements[i]));
-				break;
-			}
-		}
-		// If the new element was added then subElements.size() = numCurrentElems+1
-		if (numCurrentElems != subElements.size()) {
-			for (size_t j = 0; j < 4; j++) {
-				// Map makes sure that the entries are unique since a vertex is shared between many elements
-				oldToNewVertexMap.insert(std::pair<int, int>(allElements[i].vertices[j],oldToNewVertexMap.size()));
-			}
-		}
-	}
-	// Vertices of the extracted region
-	// This is created later on since now the size is known
-	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
-	// Loop over the map and assign the vertices
-	// TODO(5): Convert this loop into openMP
-	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
-		subVertices[it->second] = &allVertices[it->first];
-
-	// TODO(6): add warning for "0" elements selected
-
 	// Refine the mesh
 	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices,
@@ -182,10 +183,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	logInfo(rank) << "Refinement class initialized";
 	logDebug() << "Cells : "
-			<< meshReader.getElements().size() << "refined-to ->"
+			<< subElements.size() << "refined-to ->"
 			<< meshRefiner.getNumCells();
 	logDebug() << "Vertices : "
-			<< meshReader.getVertices().size()
+			<< subVertices.size()
 			<< "refined-to ->"
 			<< meshRefiner.getNumVertices();
 
