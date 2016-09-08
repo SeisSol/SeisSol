@@ -188,11 +188,11 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	}
 
 	if (subElements.size() != 0)
-		logError() << "Number of elements cannot be 0" << std::endl;
+		std::cout << "Rank" << rank << " Number of elements cannot be 0" << std::endl;
 	if (subVertices.size() != 0)
-		logError() << "Number of vertices cannot be 0" << std::endl;
+		std::cout << "Rank" << rank << " Number of vertices cannot be 0" << std::endl;
 	if (oldToNewVertexMap.size() != 0)
-		logError() << "Map cannot be empty" << std::endl;
+		std::cout << "Rank" << rank << " Map cannot be empty" << std::endl;
 
 	// Refine the mesh
 	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
