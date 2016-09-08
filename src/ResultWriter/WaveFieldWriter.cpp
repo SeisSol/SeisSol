@@ -146,6 +146,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// new vertex index
 	std::map<int, int> oldToNewVertexMap;
 	// Extract elements based on the region specified
+	// TODO(4): Convert all the loops to openMP
 	for (size_t i = 0; i < numTotalElems; i++) {
 		// Store the current number of elements to check if new was added
 		size_t numCurrentElems = subElements.size();
@@ -163,34 +164,14 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			}
 		}
 	}
-	// TODO(3): remove the loop and insert the algorithm.
-	// This is temporary for testing.
-	// Loop over to extract elements
-	// TODO(4): Convert all the loops to openMP
-	// This might create a problem with vertex numbering
-	// Also, the map will be a shared variable requiring atomic updates
-	// for (unsigned int i = firstElem; i < firstElem+numElems; i++) {
-	// 	subElements.push_back(&(meshReader.getElements().at(i)));
-		// Map the old vertex index to the new one
-		// for (unsigned int j = 0; j < 4; j++) {
-		// 	// Insert the pair so that a repeated vertex is not added again
-		// 	oldToNewVertexMap.insert(std::pair<int, int>(meshReader.getElements().at(i).vertices[j], oldToNewVertexMap.size()));
-		// 	// std::cout << "Rank " << rank << " Cell " << i << " Old V " << meshReader.getElements().at(i).vertices[j] << " New V " << oldToNewVertexMap.size()-1 << std::endl;
-		// }
-	// }
 	// Vertices of the extracted region
 	// This is created later on since now the size is known
-	// Pertaining to TODO(4): We assign the vertices using "at()"
-	// Loop over the map and perform
-	// for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
-	// 	subVertices.at[it->second] = it->first;
 	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
+	// Loop over the map and assign the vertices
 	// TODO(5): Convert this loop into openMP
 	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
-		subVertices[it->second] = &(meshReader.getVertices()[it->first]);
-	// for (unsigned int i = 0; i < meshReader.getVertices().size(); i++) {
-	// 	subVertices.push_back(&allVertices[i]);
-	// }
+		subVertices[it->second] = &allVertices[it->first];
+
 	// TODO(6): add warning for "0" elements selected
 
 	// Refine the mesh
