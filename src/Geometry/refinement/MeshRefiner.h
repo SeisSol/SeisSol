@@ -213,20 +213,20 @@ MeshRefiner<T>::MeshRefiner(
     	Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
-        #pragma omp for schedule(static) nowait
+        #pragma omp for schedule(static) nowait shared(oldToNewVertexMap)
 #endif // _OPENMP
         for (size_t c = 0; c < kInCellCount; ++c)
         {
             // Build a Terahedron containing the coordinates of the vertices.
             Tetrahedron<T> inTet = Tetrahedron<T>(
-                    kVertices[oldToNewVertexMap[kElements[c]->vertices[0]]]->coords,
-                    kVertices[oldToNewVertexMap[kElements[c]->vertices[1]]]->coords,
-                    kVertices[oldToNewVertexMap[kElements[c]->vertices[2]]]->coords,
-                    kVertices[oldToNewVertexMap[kElements[c]->vertices[3]]]->coords,
-					oldToNewVertexMap[kElements[c]->vertices[0]],
-					oldToNewVertexMap[kElements[c]->vertices[1]],
-					oldToNewVertexMap[kElements[c]->vertices[2]],
-					oldToNewVertexMap[kElements[c]->vertices[3]]);
+                    kVertices[oldToNewVertexMap.at(kElements[c]->vertices[0])]]->coords,
+                    kVertices[oldToNewVertexMap.at(kElements[c]->vertices[1])]]->coords,
+                    kVertices[oldToNewVertexMap.at(kElements[c]->vertices[2])]]->coords,
+                    kVertices[oldToNewVertexMap.at(kElements[c]->vertices[3])]]->coords,
+					oldToNewVertexMap.at(kElements[c]->vertices[0])],
+					oldToNewVertexMap.at(kElements[c]->vertices[1])],
+					oldToNewVertexMap.at(kElements[c]->vertices[2])],
+					oldToNewVertexMap.at(kElements[c]->vertices[3])]);
 
             // Generate the tets
             tetRefiner.refine(inTet,
