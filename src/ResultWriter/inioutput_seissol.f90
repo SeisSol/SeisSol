@@ -96,6 +96,8 @@ CONTAINS
 #endif
     REAL                           :: time,x,y,Variable(8),k1,k2               !
     INTEGER                        :: timestep                                 !
+    INTEGER                        :: i                                        !
+    INTEGER                        :: outputMaskInt(9)                         !
     REAL,POINTER                   :: pvar(:,:)                                ! @TODO, breuera: remove not used
     REAL,POINTER                   :: cvar(:,:)                                !
     TYPE (tEquations)              :: EQN                                      !
@@ -182,6 +184,13 @@ CONTAINS
 
 
 #ifdef GENERATEDKERNELS
+    do i = 1, 9
+        if ( io%OutputMask(3+i) ) then
+            outputMaskInt(i) = 1
+        else
+            outputMaskInt(i) = 0
+        end if
+    end do
     call c_interoperability_initializeIO(    &
         i_mu        = disc%DynRup%mu,        &
         i_slipRate1 = disc%DynRup%slipRate1, &
@@ -194,7 +203,7 @@ CONTAINS
         i_numSides  = mesh%fault%nSide,      &
         i_numBndGP  = disc%galerkin%nBndGP,  &
         i_refinement= io%Refinement,         &
-        i_outputMask=io%OutputMask(4:12))
+        i_outputMask= outputMaskInt)
 #else
     if (IO%Format .eq. 6) then
         call waveFieldWriterInit(0, disc, eqn, io, mesh, mpi)
