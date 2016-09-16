@@ -155,6 +155,7 @@ public:
 		}
 
 		// Initialize the I/O handler and write the mesh
+		// TODO: Split communicator and call the rest of it only on the processes that have non-zero elements
 		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 			rank, outputPrefix, variables, param.timestep);
 
