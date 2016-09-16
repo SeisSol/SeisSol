@@ -69,7 +69,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		const MeshReader &meshReader,
 		const double* dofs,  const double* pstrain,
 		const unsigned int* map,
-		int refinement, int timestep, int* outputMask,
+		int refinement, int timestep, int* outputMask, double* outputRegionBounds,
 		double timeTolerance)
 {
 	if (!m_enabled)
@@ -92,9 +92,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 
 	/** Extract the elements and vertices based on user given bounds */
-	// TODO(1): Take from user
-	// xMin, xMax, yMin, yMax, zMin, zMax
-	double regionBounds[6] = {-3500.0, 3500.0, -3500.0, 3500.0, -28500.0, -21500.0};
 
 	// Reference to the vector containing all the elements
 	const std::vector<Element>& allElements = meshReader.getElements();
@@ -123,7 +120,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		size_t numCurrentElems = subElements.size();
 		// Check if at least one vertex lies inside the region specifies
 		for (unsigned int j = 0; j < 4; j++) {
-			if (vertexInBox(regionBounds,allVertices[allElements[i].vertices[j]].coords)) {
+			if (vertexInBox(outputRegionBounds,allVertices[allElements[i].vertices[j]].coords)) {
 				subElements.push_back(&(allElements[i]));
 				break;
 			}
