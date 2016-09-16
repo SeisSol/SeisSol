@@ -3190,7 +3190,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
                                           iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on
-      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, regionBounds
+      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, regionBounds(1:6)
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
