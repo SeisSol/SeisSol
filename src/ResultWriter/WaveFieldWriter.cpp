@@ -92,7 +92,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 
 	/** Extract the elements and vertices based on user given bounds */
-
 	// Reference to the vector containing all the elements
 	const std::vector<Element>& allElements = meshReader.getElements();
 
@@ -114,23 +113,20 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	std::map<int, int> oldToNewVertexMap;
 
 	// Extract elements based on the region specified
-	// TODO(4): Convert all the loops to openMP
+	// TODO(4): Convert this loop to openMP
 	for (size_t i = 0; i < numTotalElems; i++) {
 		// Store the current number of elements to check if new was added
-		size_t numCurrentElems = subElements.size();
-		// Check if at least one vertex lies inside the region specifies
-		for (unsigned int j = 0; j < 4; j++) {
-			if (vertexInBox(outputRegionBounds,allVertices[allElements[i].vertices[j]].coords)) {
-				subElements.push_back(&(allElements[i]));
-				break;
-			}
-		}
-		// If the new element was added then subElements.size() = numCurrentElems+1
-		if (numCurrentElems != subElements.size()) {
-			for (size_t j = 0; j < 4; j++) {
-				// Map makes sure that the entries are unique since a vertex is shared between many elements
-				oldToNewVertexMap.insert(std::pair<int, int>(allElements[i].vertices[j],oldToNewVertexMap.size()));
-			}
+		if (vertexInBox(regionBounds, allVertices[allElements[i].vertices[0]].coords) ||
+			vertexInBox(regionBounds, allVertices[allElements[i].vertices[1]].coords) ||
+			vertexInBox(regionBounds, allVertices[allElements[i].vertices[2]].coords) ||
+			vertexInBox(regionBounds, allVertices[allElements[i].vertices[3]].coords)) {
+
+			subElements.push_back(&(allElements[i]));
+
+			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
+			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
+			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[2], oldToNewVertexMap.size()));
+			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[3], oldToNewVertexMap.size()));
 		}
 	}
 
@@ -142,8 +138,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// TODO(5): Convert this loop into openMP
 	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
 		subVertices[it->second] = &allVertices[it->first];
-
-	// TODO(6): add warning for "0" elements selected
 
 	//
 	// High order I/O
@@ -185,7 +179,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	}
 
 	// Refine the mesh
-	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices,
 		oldToNewVertexMap, *tetRefiner);
 
