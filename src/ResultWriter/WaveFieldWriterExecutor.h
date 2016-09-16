@@ -75,6 +75,9 @@ struct WaveFieldInitParam
 	int timestep;
 
 	int bufferIds[BUFFERTAG_MAX+1];
+#ifdef USE_MPI
+	int commColour;
+#endif // USE_MPI
 };
 
 struct WaveFieldParam
@@ -154,13 +157,23 @@ public:
 				variables.push_back(varNames[i]);
 		}
 
+#ifdef USE_MPI
+		// Split the communicator into two - those containing vertices and those
+		//  not containing any vertices.
+		MPI_Comm_split(seissol::MPI::mpi.comm(), param.commColour, rank, &m_comm);
+		// Start the if statement
+		if (param.commColour == 1) {
+			// Get the new rank
+			MPI_Comm_rank(m_comm, &rank);
+#endif // USE_MPI
+
 		// Initialize the I/O handler and write the mesh
 		// TODO: Split communicator and call the rest of it only on the processes that have non-zero elements
 		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 			rank, outputPrefix, variables, param.timestep);
 
 #ifdef USE_MPI
-		MPI_Comm_dup(seissol::MPI::mpi.comm(), &m_comm);
+		// MPI_Comm_dup(seissol::MPI::mpi.comm(), &m_comm);
 		m_waveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
 
@@ -211,6 +224,10 @@ public:
 		m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
 
 		logInfo(rank) << "Initializing XDMF wave field output. Done.";
+#ifdef USE_MPI
+		}
+		// End the if statement
+#endif // USE_MPI
 	}
 
 	void exec(const async::ExecInfo &info, const WaveFieldParam &param)

@@ -191,6 +191,12 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "refined-to ->"
 			<< meshRefiner.getNumVertices();
 
+#ifdef USE_MPI
+	// This is to split the communicator when callInit(param) is called down below
+	// to avoid XDMF writer to stall when a rank has no vertices
+	param.commColour = (meshRefiner.getNumVertices() == 0) ? 0:1;
+#endif // USE_MPI
+
 	// Initialize the variable subsampler
 	m_variableSubsampler = new refinement::VariableSubsampler<double>(
 			subElements.size(),
@@ -223,9 +229,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Create mesh buffers
 	param.bufferIds[CELLS] = addSyncBuffer(const_cells, meshRefiner.getNumCells() * 4 * sizeof(unsigned int));
 	param.bufferIds[VERTICES] = addSyncBuffer(meshRefiner.getVertexData(), meshRefiner.getNumVertices() * 3 * sizeof(double));
-
-	std::cout << "*********************** Rank " << rank << '\t' << param.bufferIds[CELLS] << std::endl;
-	std::cout << "*********************** Rank " << rank << '\t' << param.bufferIds[VERTICES] << std::endl;
 
 	// Create data buffers
 	bool first = false;
