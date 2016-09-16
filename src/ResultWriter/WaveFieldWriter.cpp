@@ -188,6 +188,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	assert(subVertices.size() != 0);
 	assert(oldToNewVertexMap.size() != 0);
 
+	std::cout << "Rank " << rank << " Number of Elems " << subElements.size() << std::endl;
+
 	// Refine the mesh
 	// refinement::MeshRefiner<double> meshRefiner(meshReader, *tetRefiner);
 	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices,
