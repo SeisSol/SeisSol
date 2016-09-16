@@ -76,6 +76,8 @@ struct WaveFieldInitParam
 
 	int bufferIds[BUFFERTAG_MAX+1];
 #ifdef USE_MPI
+	// commColour = 1 => Non empty vertex set
+	// commColour = 0 => Empty vertex set
 	int commColour;
 #endif // USE_MPI
 };
