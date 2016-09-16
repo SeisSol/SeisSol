@@ -154,13 +154,9 @@ public:
 				variables.push_back(varNames[i]);
 		}
 
-		std::cout << "Before" << std::endl;
-
 		// Initialize the I/O handler and write the mesh
 		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 			rank, outputPrefix, variables, param.timestep);
-
-		std::cout << "After" << std::endl;
 
 #ifdef USE_MPI
 		MPI_Comm_dup(seissol::MPI::mpi.comm(), &m_comm);
