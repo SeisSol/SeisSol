@@ -127,7 +127,7 @@ public:
 		if (m_waveFieldWriter != 0L)
 			logError() << "Wave field writer already initialized";
 
-		const int rank = seissol::MPI::mpi.rank();
+		int rank = seissol::MPI::mpi.rank();
 
 		const char* outputPrefix = static_cast<const char*>(info.buffer(param.bufferIds[OUTPUT_PREFIX]));
 
