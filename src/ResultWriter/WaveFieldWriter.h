@@ -218,8 +218,6 @@ public:
 			nextId++;
 		}
 
-		std::cout << "********* Rank " << rank << std::endl;
-
 		if (m_pstrain) {
 			for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_LOWVARIABLES; i++) {
 				double* managedBuffer = async::Module<WaveFieldWriterExecutor,
@@ -238,7 +236,9 @@ public:
 
 		WaveFieldParam param;
 		param.time = time;
+		std::cout << "********* Before Rank " << rank << std::endl;
 		call(param);
+		std::cout << "********* After Rank " << rank << std::endl;
 
 		// Update last time step
 		m_lastTimeStep = time;
