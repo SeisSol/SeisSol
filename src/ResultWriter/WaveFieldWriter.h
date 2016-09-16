@@ -187,7 +187,6 @@ public:
 			return;
 
 		const int rank = seissol::MPI::mpi.rank();
-		std::cout << "********* Rank " << rank << std::endl;
 
 		if (time <= m_lastTimeStep + m_timeTolerance) {
 			// Ignore duplicate time steps. Might happen at the end of a simulation
@@ -218,6 +217,8 @@ public:
 
 			nextId++;
 		}
+
+		std::cout << "********* Rank " << rank << std::endl;
 
 		if (m_pstrain) {
 			for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_LOWVARIABLES; i++) {
