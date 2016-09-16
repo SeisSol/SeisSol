@@ -191,6 +191,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "refined-to ->"
 			<< meshRefiner.getNumVertices();
 
+	std::cout << "Rank " << rank << " Elems " << subElements.size() << std::endl;
+
 #ifdef USE_MPI
 	// This is to split the communicator when callInit(param) is called down below
 	// to avoid XDMF writer to stall when a rank has no vertices
