@@ -3301,6 +3301,11 @@ ALLOCATE( SpacePositionx(nDirac), &
            IO%RotationMask(1:4) = .TRUE.
          ENDIF
 
+      ALLOCATE(IO%OutputRegionBounds(6),STAT=allocStat )                                      !
+       IF (allocStat .NE. 0) THEN                                                       !
+         logError(*) 'could not allocate IO%OutputRegionBounds in readpar!'!
+         STOP                                                                           !
+       END IF
       IO%OutputRegionBounds(1:6) = OutputRegionBounds(1:6)
 
       IF(DISC%Galerkin%pAdaptivity.GT.0) THEN
