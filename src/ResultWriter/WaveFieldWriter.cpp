@@ -116,10 +116,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// TODO(4): Convert this loop to openMP
 	for (size_t i = 0; i < numTotalElems; i++) {
 		// Store the current number of elements to check if new was added
-		if (vertexInBox(regionBounds, allVertices[allElements[i].vertices[0]].coords) ||
-			vertexInBox(regionBounds, allVertices[allElements[i].vertices[1]].coords) ||
-			vertexInBox(regionBounds, allVertices[allElements[i].vertices[2]].coords) ||
-			vertexInBox(regionBounds, allVertices[allElements[i].vertices[3]].coords)) {
+		if (vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[0]].coords) ||
+			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[1]].coords) ||
+			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords) ||
+			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
 
 			subElements.push_back(&(allElements[i]));
 
