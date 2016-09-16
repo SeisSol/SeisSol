@@ -224,6 +224,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	param.bufferIds[CELLS] = addSyncBuffer(const_cells, meshRefiner.getNumCells() * 4 * sizeof(unsigned int));
 	param.bufferIds[VERTICES] = addSyncBuffer(meshRefiner.getVertexData(), meshRefiner.getNumVertices() * 3 * sizeof(double));
 
+	std::cout << "*********************** Rank " << rank << '\t' << param.bufferIds[CELLS] << std::endl;
+	std::cout << "*********************** Rank " << rank << '\t' << param.bufferIds[VERTICES] << std::endl;
+
 	// Create data buffers
 	bool first = false;
 	for (unsigned int i = 0; i < numVars; i++) {
