@@ -3307,6 +3307,18 @@ ALLOCATE( SpacePositionx(nDirac), &
          STOP                                                                           !
        END IF
       IO%OutputRegionBounds(1:6) = OutputRegionBounds(1:6)
+      IF (OutputRegionBounds(2)-OutputRegionBounds(1) <= 0.0)
+        logError(*) 'Please make sure the x bounds are correct'
+        STOP
+      ENDIF
+      IF (OutputRegionBounds(4)-OutputRegionBounds(3) <= 0.0)
+        logError(*) 'Please make sure the y bounds are correct'
+        STOP
+      ENDIF
+      IF (OutputRegionBounds(6)-OutputRegionBounds(5) <= 0.0)
+        logError(*) 'Please make sure the z bounds are correct'
+        STOP
+      ENDIF
 
       IF(DISC%Galerkin%pAdaptivity.GT.0) THEN
         IO%OutputMask(59) = .TRUE.
