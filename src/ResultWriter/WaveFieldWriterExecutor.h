@@ -166,7 +166,6 @@ public:
 #endif // USE_MPI
 
 		// Initialize the I/O handler and write the mesh
-		// TODO: Split communicator and call the rest of it only on the processes that have non-zero elements
 		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 			rank, outputPrefix, variables, param.timestep);
 
@@ -231,6 +230,7 @@ public:
 	void exec(const async::ExecInfo &info, const WaveFieldParam &param)
 	{
 #ifdef USE_MPI
+	// Execute this function only if m_waveFieldWriter is initialized
 		if (m_waveFieldWriter != 0L) {
 #endif // USE_MPI
 		// High order output

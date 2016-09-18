@@ -236,9 +236,8 @@ public:
 
 		WaveFieldParam param;
 		param.time = time;
-		std::cout << "********* Before Rank " << rank << std::endl;
+
 		call(param);
-		std::cout << "********* After Rank " << rank << std::endl;
 
 		// Update last time step
 		m_lastTimeStep = time;

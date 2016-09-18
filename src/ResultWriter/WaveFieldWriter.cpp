@@ -191,8 +191,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "refined-to ->"
 			<< meshRefiner.getNumVertices();
 
-	std::cout << "Rank " << rank << " Elems " << subElements.size() << std::endl;
-
 	// Initialize the variable subsampler
 	m_variableSubsampler = new refinement::VariableSubsampler<double>(
 			subElements.size(),
