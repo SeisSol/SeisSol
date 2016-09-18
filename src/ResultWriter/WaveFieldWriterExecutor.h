@@ -230,6 +230,9 @@ public:
 
 	void exec(const async::ExecInfo &info, const WaveFieldParam &param)
 	{
+#ifdef USE_MPI
+		if (info.bufferSize(param.bufferIds[CELLS]) != 0) {
+#endif // USE_MPI
 		// High order output
 		m_waveFieldWriter->addTimeStep(param.time);
 
@@ -256,6 +259,9 @@ public:
 
 			m_lowWaveFieldWriter->flush();
 		}
+#ifdef USE_MPI
+		}
+#endif // USE_MPI
 	}
 
 	void finalize()
