@@ -75,11 +75,6 @@ struct WaveFieldInitParam
 	int timestep;
 
 	int bufferIds[BUFFERTAG_MAX+1];
-#ifdef USE_MPI
-	// commColour = 1 => Non empty vertex set
-	// commColour = 0 => Empty vertex set
-	int commColour;
-#endif // USE_MPI
 };
 
 struct WaveFieldParam
@@ -164,7 +159,7 @@ public:
 		//  not containing any vertices.
 		MPI_Comm_split(seissol::MPI::mpi.comm(), param.commColour, rank, &m_comm);
 		// Start the if statement
-		if (param.commColour == 1) {
+		if (info.bufferSize(param.bufferIds[CELLS]) != 0) {
 			// Get the new rank
 			MPI_Comm_rank(m_comm, &rank);
 #endif // USE_MPI
