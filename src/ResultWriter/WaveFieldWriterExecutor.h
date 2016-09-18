@@ -157,7 +157,8 @@ public:
 #ifdef USE_MPI
 		// Split the communicator into two - those containing vertices and those
 		//  not containing any vertices.
-		MPI_Comm_split(seissol::MPI::mpi.comm(), param.commColour, rank, &m_comm);
+		int commColour = (info.bufferSize(param.bufferIds[CELLS]) == 0)?0:1;
+		MPI_Comm_split(seissol::MPI::mpi.comm(), commColour, rank, &m_comm);
 		// Start the if statement
 		if (info.bufferSize(param.bufferIds[CELLS]) != 0) {
 			// Get the new rank
