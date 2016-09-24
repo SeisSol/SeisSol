@@ -316,6 +316,19 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Initialize the executor
 	callInit(param);
 
+	// Save dof/map pointer
+	m_dofs = dofs;
+	m_pstrain = pstrain;
+	m_map = new unsigned int[m_numCells];
+	int subCellsPerCell[4] = {0,4,8,32};
+	for (size_t i = 0; i < subElements.size(); i++) {
+		for (size_t j = 0; j < subCellsPerCell[refinement]; j++) {
+			m_map[4*(i+subCellsPerCell[refinement])+j] =
+				map[4*(newToOldElementMap[i]+subCellsPerCell[refinement])+j];
+		}
+	}
+	// m_map = map;
+
 	// Remove the low mesh refiner if it was setup
 	if (pLowMeshRefiner)
 		delete pLowMeshRefiner;
@@ -324,16 +337,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	delete [] cells;
 	delete [] lowCells;
 #endif // USE_MPI
-
-	// Save dof/map pointer
-	m_dofs = dofs;
-	m_pstrain = pstrain;
-	// This map has to change
-	m_map = new unsigned int[m_numCells];
-	for (size_t i = 0; i < m_numCells; i++) {
-		m_map[i] = i;
-	}
-	// m_map = map;
 
 	m_timestep = timestep;
 	m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
