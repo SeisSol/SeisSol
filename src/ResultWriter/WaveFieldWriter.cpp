@@ -107,9 +107,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Elements of the extracted region
 	std::vector<const Element*> subElements;
 
-	// The oldToNewElementMap defines a map between old element index to
-	// new element index. This is used to assign the dof map.
-	std::map<int, int> oldToNewElementMap;
+	// The newToOldElementMap defines a map between new element index to
+	// old element index. This is used to assign the dof map.
+	std::vector<int> newToOldElementMap;
 
 	// The oldToNewVertexMap defines a map between old vertex index to
 	// new vertex index. This is used to assign the vertex subset as well as
@@ -127,7 +127,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 			subElements.push_back(&(allElements[i]));
 
-			oldToNewElementMap.insert(std::pair<int,int>(i,oldToNewElementMap.size()));
+			newToOldElementMap.push_back(i);
 
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
