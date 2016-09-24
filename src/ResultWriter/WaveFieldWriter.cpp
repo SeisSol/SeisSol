@@ -137,9 +137,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
 
 	// Loop over the map and assign the vertices
-#ifdef _OPENMP
-	#pragma omp parallel for schedule(static)
-#endif // _OPENMP
+// #ifdef _OPENMP
+// 	#pragma omp parallel for schedule(static)
+// #endif // _OPENMP
 	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
 		subVertices[it->second] = &allVertices[it->first];
 
