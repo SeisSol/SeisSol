@@ -323,8 +323,14 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	int subCellsPerCell[4] = {0,4,8,32};
 	for (size_t i = 0; i < subElements.size(); i++) {
 		for (size_t j = 0; j < subCellsPerCell[refinement]; j++) {
-			m_map[4*(i+subCellsPerCell[refinement])+j] =
-				map[4*(newToOldElementMap[i]+subCellsPerCell[refinement])+j];
+			m_map[4*(i*subCellsPerCell[refinement]+j)] =
+				map[4*(newToOldElementMap[i]*subCellsPerCell[refinement]+j)];
+			m_map[4*(i*subCellsPerCell[refinement]+j)+1] =
+				map[4*(newToOldElementMap[i]*subCellsPerCell[refinement]+j)+1];
+			m_map[4*(i*subCellsPerCell[refinement]+j)+2] =
+				map[4*(newToOldElementMap[i]*subCellsPerCell[refinement]+j)+2];
+			m_map[4*(i*subCellsPerCell[refinement]+j)+3] =
+				map[4*(newToOldElementMap[i]*subCellsPerCell[refinement]+j)+3];
 		}
 	}
 	// m_map = map;
