@@ -157,22 +157,27 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Setup the tetrahedron refinement strategy
 	refinement::TetrahedronRefiner<double>* tetRefiner = 0L;
+	int subCellsPerCell;
 	switch (refinement) {
 	case 0:
 		logInfo(rank) << "Refinement is turned off.";
 		tetRefiner = new refinement::IdentityRefiner<double>();
+		subCellsPerCell = 1;
 		break;
 	case 1:
 		logInfo(rank) << "Refinement Startegy is \"Divide by 4\"";
 		tetRefiner = new refinement::DivideTetrahedronBy4<double>();
+		subCellsPerCell = 4;
 		break;
 	case 2:
 		logInfo(rank) << "Refinement Startegy is \"Divide by 8\"";
 		tetRefiner = new refinement::DivideTetrahedronBy8<double>();
+		subCellsPerCell = 8;
 		break;
 	case 3:
 		logInfo(rank) << "Refinement Startegy is \"Divide by 32\"";
 		tetRefiner = new refinement::DivideTetrahedronBy32<double>();
+		subCellsPerCell = 32;
 		break;
 	default:
 		logError() << "Refinement Strategy is invalid!" << std::endl
@@ -182,8 +187,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "2 - Refinement by 8" << std::endl
 			<< "3 - Refinement by 32";
 	}
-
-	int subCellsPerCell = tetRefiner.getDivisionCount();
 
 	// Refine the mesh
 	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices,
