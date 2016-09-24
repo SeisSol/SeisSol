@@ -317,10 +317,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	callInit(param);
 
 	// Save dof/map pointer
+	assert(4*subElements.size() == m_numCells);
 	m_dofs = dofs;
 	m_pstrain = pstrain;
 	m_map = new unsigned int[m_numCells];
-	assert(4*subElements.size() == m_numCells);
 	int subCellsPerCell[4] = {1,4,8,32};
 	for (size_t i = 0; i < subElements.size(); i++) {
 		for (size_t j = 0; j < subCellsPerCell[refinement]; j++) {
