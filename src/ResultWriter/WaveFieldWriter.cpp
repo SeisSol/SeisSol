@@ -118,9 +118,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 
 	// Extract elements based on the region specified
-#ifdef _OPENMP
-	#pragma omp parallel for shared(subElements,oldToNewVertexMap,oldToNewElementMap)
-#endif // _OPENMP
 	for (size_t i = 0; i < numTotalElems; i++) {
 		// Store the current number of elements to check if new was added
 		if (vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[0]].coords) ||
