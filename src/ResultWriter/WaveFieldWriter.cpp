@@ -113,7 +113,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	std::map<int, int> oldToNewVertexMap;
 
 	// Extract elements based on the region specified
-	// TODO(4): Convert this loop to openMP
+#ifdef _OPENMP
+	#pragma omp parallel for shared(subElements,oldToNewVertexMap)
+#endif // _OPENMP
 	for (size_t i = 0; i < numTotalElems; i++) {
 		// Store the current number of elements to check if new was added
 		if (vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[0]].coords) ||
@@ -135,7 +137,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
 
 	// Loop over the map and assign the vertices
-	// TODO(5): Convert this loop into openMP
+#ifdef _OPENMP
+	#pragma omp parallel for schedule(static)
+#endif // _OPENMP
 	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
 		subVertices[it->second] = &allVertices[it->first];
 
