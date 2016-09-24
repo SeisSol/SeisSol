@@ -107,14 +107,19 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Elements of the extracted region
 	std::vector<const Element*> subElements;
 
+	// The oldToNewElementMap defines a map between old element index to
+	// new element index. This is used to assign the dof map.
+	std::map<int, int> oldToNewElementMap;
+
 	// The oldToNewVertexMap defines a map between old vertex index to
 	// new vertex index. This is used to assign the vertex subset as well as
 	// used in MeshRefiner since the elements would hold old index of vertices
 	std::map<int, int> oldToNewVertexMap;
 
+
 	// Extract elements based on the region specified
 #ifdef _OPENMP
-	#pragma omp parallel for shared(subElements,oldToNewVertexMap)
+	#pragma omp parallel for shared(subElements,oldToNewVertexMap,oldToNewElementMap)
 #endif // _OPENMP
 	for (size_t i = 0; i < numTotalElems; i++) {
 		// Store the current number of elements to check if new was added
@@ -124,6 +129,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
 
 			subElements.push_back(&(allElements[i]));
+
+			oldToNewElementMap.insert(std::pair<int,int>(i,oldToNewElementMap.size()));
 
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
@@ -137,9 +144,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
 
 	// Loop over the map and assign the vertices
-// #ifdef _OPENMP
-// 	#pragma omp parallel for schedule(static)
-// #endif // _OPENMP
 	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
 		subVertices[it->second] = &allVertices[it->first];
 
@@ -205,7 +209,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Delete the tetRefiner since it is no longer required
 	delete tetRefiner;
 
-	// Cells are a bit complicated because the vertex filter will now longer work if we just use the buffer
+	// Cells are a bit complicated because the vertex filter will no longer work if we just use the buffer
 	// We will add the offset later
 	const unsigned int* const_cells;
 #ifdef USE_MPI
