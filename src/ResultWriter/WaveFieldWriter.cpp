@@ -328,6 +328,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Save dof/map pointer
 	m_dofs = dofs;
 	m_pstrain = pstrain;
+	// This map has to change
+	m_map = new unsigned int[m_numCells];
 	m_map = map;
 
 	m_timestep = timestep;
