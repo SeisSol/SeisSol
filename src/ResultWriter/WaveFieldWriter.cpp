@@ -183,6 +183,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "3 - Refinement by 32";
 	}
 
+	int subCellsPerCell = tetRefiner.getDivisionCount();
+
 	// Refine the mesh
 	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices,
 		oldToNewVertexMap, *tetRefiner);
@@ -317,23 +319,21 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	callInit(param);
 
 	// Save dof/map pointer
-	assert(4*subElements.size() == m_numCells);
 	m_dofs = dofs;
 	m_pstrain = pstrain;
-	// m_map = new unsigned int[m_numCells];
-	// int subCellsPerCell[4] = {1,4,8,32};
-	// for (size_t i = 0; i < subElements.size(); i++) {
-	// 	for (size_t j = 0; j < subCellsPerCell[refinement]; j++) {
-	// 		m_map[4*(i*subCellsPerCell[refinement]+j)] =
-	// 			map[4*(newToOldElementMap[i]*subCellsPerCell[refinement]+j)];
-	// 		m_map[4*(i*subCellsPerCell[refinement]+j)+1] =
-	// 			map[4*(newToOldElementMap[i]*subCellsPerCell[refinement]+j)+1];
-	// 		m_map[4*(i*subCellsPerCell[refinement]+j)+2] =
-	// 			map[4*(newToOldElementMap[i]*subCellsPerCell[refinement]+j)+2];
-	// 		m_map[4*(i*subCellsPerCell[refinement]+j)+3] =
-	// 			map[4*(newToOldElementMap[i]*subCellsPerCell[refinement]+j)+3];
-	// 	}
-	// }
+	unsigned int newMap[m_numCells];
+	for (size_t i = 0; i < subElements.size(); i++) {
+		for (size_t j = 0; j < subCellsPerCell; j++) {
+			newMap[4*(i*subCellsPerCell+j)] =
+				map[4*(newToOldElementMap[i]*subCellsPerCell+j)];
+			newMap[4*(i*subCellsPerCell+j)+1] =
+				map[4*(newToOldElementMap[i]*subCellsPerCell+j)+1];
+			newMap[4*(i*subCellsPerCell+j)+2] =
+				map[4*(newToOldElementMap[i]*subCellsPerCell+j)+2];
+			newMap[4*(i*subCellsPerCell+j)+3] =
+				map[4*(newToOldElementMap[i]*subCellsPerCell+j)+3];
+		}
+	}
 	m_map = map;
 
 	// Remove the low mesh refiner if it was setup
