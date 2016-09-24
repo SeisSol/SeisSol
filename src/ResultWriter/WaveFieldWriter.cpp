@@ -157,27 +157,22 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Setup the tetrahedron refinement strategy
 	refinement::TetrahedronRefiner<double>* tetRefiner = 0L;
-	int subCellsPerCell;
 	switch (refinement) {
 	case 0:
 		logInfo(rank) << "Refinement is turned off.";
 		tetRefiner = new refinement::IdentityRefiner<double>();
-		subCellsPerCell = 1;
 		break;
 	case 1:
 		logInfo(rank) << "Refinement Startegy is \"Divide by 4\"";
 		tetRefiner = new refinement::DivideTetrahedronBy4<double>();
-		subCellsPerCell = 4;
 		break;
 	case 2:
 		logInfo(rank) << "Refinement Startegy is \"Divide by 8\"";
 		tetRefiner = new refinement::DivideTetrahedronBy8<double>();
-		subCellsPerCell = 8;
 		break;
 	case 3:
 		logInfo(rank) << "Refinement Startegy is \"Divide by 32\"";
 		tetRefiner = new refinement::DivideTetrahedronBy32<double>();
-		subCellsPerCell = 32;
 		break;
 	default:
 		logError() << "Refinement Strategy is invalid!" << std::endl
@@ -321,23 +316,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Initialize the executor
 	callInit(param);
 
-	// Save dof/map pointer
-	m_dofs = dofs;
-	m_pstrain = pstrain;
-	unsigned int newMap[m_numCells];
-	for (size_t i = 0; i < subElements.size(); i++) {
-		for (size_t j = 0; j < subCellsPerCell; j++) {
-			newMap[4*(i*subCellsPerCell+j)] =
-				map[4*(newToOldElementMap[i]*subCellsPerCell+j)];
-			newMap[4*(i*subCellsPerCell+j)+1] =
-				map[4*(newToOldElementMap[i]*subCellsPerCell+j)+1];
-			newMap[4*(i*subCellsPerCell+j)+2] =
-				map[4*(newToOldElementMap[i]*subCellsPerCell+j)+2];
-			newMap[4*(i*subCellsPerCell+j)+3] =
-				map[4*(newToOldElementMap[i]*subCellsPerCell+j)+3];
-		}
-	}
-	m_map = map;
 
 	// Remove the low mesh refiner if it was setup
 	if (pLowMeshRefiner)
@@ -347,6 +325,11 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	delete [] cells;
 	delete [] lowCells;
 #endif // USE_MPI
+
+	// Save dof/map pointer
+	m_dofs = dofs;
+	m_pstrain = pstrain;
+	m_map = map;
 
 	m_timestep = timestep;
 	m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
