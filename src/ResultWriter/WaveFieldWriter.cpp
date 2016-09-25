@@ -109,7 +109,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// m_map will now store a new map
 	// unsigned int* newMap = new unsigned int[4*numTotalElems];
-	m_map = new unsigned int[4*numTotalElems];
+	m_map = new unsigned int[numTotalElems];
 
 	// The oldToNewVertexMap defines a map between old vertex index to
 	// new vertex index. This is used to assign the vertex subset as well as
@@ -125,10 +125,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords) ||
 			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
 
-			m_map[4*subElements.size()]   = map[4*i];
-			m_map[4*subElements.size()+1] = map[4*i+1];
-			m_map[4*subElements.size()+2] = map[4*i+2];
-			m_map[4*subElements.size()+3] = map[4*i+3];
+			m_map[subElements.size()]   = map[i];
 
 			subElements.push_back(&(allElements[i]));
 
@@ -201,8 +198,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Initialize the variable subsampler
 	m_variableSubsampler = new refinement::VariableSubsampler<double>(
-			subElements.size(),
-			*tetRefiner, order, numVars, numAlignedDOF);
+			subElements.size(), *tetRefiner, order, numVars, numAlignedDOF);
 
 	logInfo(rank) << "VariableSubsampler initialized";
 

@@ -264,6 +264,8 @@ public:
 		m_variableSubsampler = 0L;
 		delete [] m_outputFlags;
 		m_outputFlags = 0L;
+		delete [] m_map;
+		m_map = 0L;
 	}
 
 	void tearDown()
