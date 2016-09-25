@@ -45,25 +45,6 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
 
-bool vertexInBox(const double * const boxBounds, const double * const vertexCoords) {
-	double u = boxBounds[1]-boxBounds[0];
-	double v = boxBounds[3]-boxBounds[2];
-	double w = boxBounds[5]-boxBounds[4];
-	double relVertexCoords[3] = {
-		vertexCoords[0] - boxBounds[0],
-		vertexCoords[1] - boxBounds[2],
-		vertexCoords[2] - boxBounds[4]
-	};
-
-	if ((relVertexCoords[0]*u <= u*u && relVertexCoords[0]*u >= 0) &&
-		(relVertexCoords[1]*v <= v*v && relVertexCoords[1]*v >= 0) &&
-		(relVertexCoords[2]*w <= w*w && relVertexCoords[2]*w >= 0)) {
-		return true;
-	} else {
-		return false;
-	}
-}
-
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		int order, int numAlignedDOF,
 		const MeshReader &meshReader,
@@ -107,8 +88,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Elements of the extracted region
 	std::vector<const Element*> subElements;
 
-	// m_map will now store a new map
-	// unsigned int* newMap = new unsigned int[4*numTotalElems];
+	// m_map will store a new map from new cell index to dof index
+	// the old map is contained in the "map" variable - which is a map from old
+	//    cell index to dof index
 	m_map = new unsigned int[numTotalElems];
 
 	// The oldToNewVertexMap defines a map between old vertex index to
@@ -125,10 +107,13 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords) ||
 			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
 
+			// Assign the new map
 			m_map[subElements.size()]   = map[i];
 
+			// Push the address of the element into the vector
 			subElements.push_back(&(allElements[i]));
 
+			// Push the vertices into the map which makes sure that the entries are unique
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[2], oldToNewVertexMap.size()));
@@ -328,12 +313,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Save dof/map pointer
 	m_dofs = dofs;
 	m_pstrain = pstrain;
-	// m_map = map;
 
 	m_timestep = timestep;
 	m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
 	m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
-
-	// TODO: remove later
-	// delete [] newMap;
 }
