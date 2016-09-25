@@ -97,7 +97,7 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	const double* m_pstrain;
 
 	/** Mapping from the cell order to dofs order */
-	unsigned int* m_map;
+	const unsigned int* m_map;
 
 	/** Time of the last output (makes sure output is not written twice at the end) */
 	double m_lastTimeStep;
@@ -164,7 +164,7 @@ public:
 	void init(unsigned int numVars, int order, int numAlignedDOF,
 			const MeshReader &meshReader,
 			const double* dofs,  const double* pstrain,
-			unsigned int* map,
+			const unsigned int* map,
 			int refinement, int timestep, int* outputMask, double* outputRegionBounds,
 			double timeTolerance);
 
