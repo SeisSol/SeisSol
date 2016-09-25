@@ -107,9 +107,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Elements of the extracted region
 	std::vector<const Element*> subElements;
 
-	// The newToOldElementMap defines a map between new element index to
-	// old element index. This is used to assign the dof map.
-	std::vector<int> newToOldElementMap;
+	// m_map will now store a new map
+	unsigned int* newMap = new unsigned int[4*numTotalElems];
 
 	// The oldToNewVertexMap defines a map between old vertex index to
 	// new vertex index. This is used to assign the vertex subset as well as
@@ -125,9 +124,12 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords) ||
 			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
 
-			subElements.push_back(&(allElements[i]));
+			newMap[4*subElements.size()]   = map[4*i];
+			newMap[4*subElements.size()+1] = map[4*i+1];
+			newMap[4*subElements.size()+2] = map[4*i+2];
+			newMap[4*subElements.size()+3] = map[4*i+3];
 
-			newToOldElementMap.push_back(i);
+			subElements.push_back(&(allElements[i]));
 
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
 			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
@@ -334,4 +336,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	m_timestep = timestep;
 	m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
 	m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
+
+	// TODO: remove later
+	delete [] newMap;
 }
