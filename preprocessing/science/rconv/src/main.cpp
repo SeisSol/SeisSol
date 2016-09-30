@@ -39,6 +39,7 @@
 
 #include "SRF.h"
 #include "NRFWriter.h"
+#include "XMFWriter.h"
 
 #include <utils/args.h>
 #include <iostream>
@@ -47,26 +48,47 @@
 int main(int argc, char** argv)
 {
   utils::Args args;
-	args.addOption("mcs", 'm', "Proj.4 string that describes the mesh coordinate system (e.g. \"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs\").");
   args.addOption("input", 'i', "Input file (.srf)");
-  args.addOption("output", 'o', "Output file (.nrf)");
+	args.addOption("mcs", 'm', "Proj.4 string that describes the mesh coordinate system (e.g. \"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs\").", utils::Args::Required, false);
+  args.addOption("output", 'o', "Output file (.nrf)", utils::Args::Required, false);
   args.addOption("normalize-onset", 'n', "Subtract the minimum onset time from all onsets.", utils::Args::No, false);
+	args.addOption("vcs", 'v', "Proj.4 string that describes the coordinate system for visualisation (defaults to geocentric, i.e. \"+proj=geocent +datum=WGS84 +units=m +no_def\").", utils::Args::Required, false);
+  args.addOption("xdmf", 'x', "Output for visualisation (.xmf)", utils::Args::Required, false);
+  
+  args.setCustomHelpMessage("\nWith rconv you may either convert a SRF file to a NRF file, which you can use as input in SeisSol.\n"
+                            "In this case, give the options -i, -m, -o, and optionally -n.\n\n"
+                            "You may also write a file which may be loaded in Paraview for visualisation of the SRF file.\n"
+                            "In this case, give the options -i, -x, and optionally -v.\n\n"
+                            "You may write both files simultaneously by giving all options.\n");
 
 	if (args.parse(argc, argv) == utils::Args::Success) {
-    std::string mcs = args.getArgument<std::string>("mcs");
     std::string in = args.getArgument<std::string>("input");
-    std::string out = args.getArgument<std::string>("output");
+    std::string mcs = args.getArgument<std::string>("mcs", "");
+    std::string out = args.getArgument<std::string>("output", "");
     bool normalizeOnset = args.isSet("normalize-onset");
+    std::string vcs = args.getArgument<std::string>("vcs", "+proj=geocent +datum=WGS84 +units=m +no_defs");
+    std::string xdmf = args.getArgument<std::string>("xdmf", "");
     
-    Map map(mcs);    
     std::cout << "Reading SRF..." << std::flush;
     std::vector<SRFPointSource> srf = parseSRF(in.c_str());
     std::cout << "finished." << std::endl;
 
-    std::cout << "Writing NRF..." << std::flush;
-    writeNRF(out.c_str(), srf, map, normalizeOnset);
-    std::cout << "finished." << std::endl;
+    if (mcs.empty() != out.empty()) {
+      std::cerr << "Error: -o and -m may only be given simultaneously." << std::endl;
+      return -1;
+    } else if (!mcs.empty()) {
+      Map map(mcs);    
+      std::cout << "Writing NRF..." << std::flush;
+      writeNRF(out.c_str(), srf, map, normalizeOnset);
+      std::cout << "finished." << std::endl;
+    }
     
+    if (!xdmf.empty()) {
+      Map mapGeocent(vcs);
+      std::cout << "Writing XDMF..." << std::flush;
+      writeXMF(out.c_str(), srf, mapGeocent);
+      std::cout << "finished." << std::endl;
+    }
 	} else {
 		return -1;
 	}
