@@ -108,7 +108,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
 
 			// Assign the new map
-			m_map[subElements.size()]   = map[i];
+			m_map[subElements.size()] = map[i];
 
 			// Push the address of the element into the vector
 			subElements.push_back(&(allElements[i]));
