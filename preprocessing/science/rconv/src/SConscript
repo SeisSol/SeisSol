@@ -44,6 +44,7 @@ env.sourceFiles.extend([
   env.Object('main.cpp'),
   env.Object('SRF.cpp'),
   env.Object('NRFWriter.cpp'),
+  env.Object('XMFWriter.cpp'),
   env.Object('Map.cpp')
 ])
 
