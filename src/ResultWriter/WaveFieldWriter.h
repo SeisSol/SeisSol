@@ -97,7 +97,7 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	const double* m_pstrain;
 
 	/** Mapping from the cell order to dofs order */
-	const unsigned int* m_map;
+	unsigned int* m_map;
 
 	/** Time of the last output (makes sure output is not written twice at the end) */
 	double m_lastTimeStep;
@@ -107,6 +107,27 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 
 	/** The current output time step */
 	unsigned int m_timestep;
+
+	/** Checks if a vertex given by the vertexCoords lies inside the boxBounds */
+	/*   The boxBounds is in the format: xMin, xMax, yMin, yMax, zMin, zMax */
+	bool vertexInBox(const double * const boxBounds, const double * const vertexCoords) {
+		double u = boxBounds[1]-boxBounds[0];
+		double v = boxBounds[3]-boxBounds[2];
+		double w = boxBounds[5]-boxBounds[4];
+		double relVertexCoords[3] = {
+			vertexCoords[0] - boxBounds[0],
+			vertexCoords[1] - boxBounds[2],
+			vertexCoords[2] - boxBounds[4]
+		};
+
+		if ((relVertexCoords[0]*u <= u*u && relVertexCoords[0]*u >= 0) &&
+			(relVertexCoords[1]*v <= v*v && relVertexCoords[1]*v >= 0) &&
+			(relVertexCoords[2]*w <= w*w && relVertexCoords[2]*w >= 0)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 
 public:
 	WaveFieldWriter()
@@ -165,7 +186,7 @@ public:
 			const MeshReader &meshReader,
 			const double* dofs,  const double* pstrain,
 			const unsigned int* map,
-			int refinement, int timestep, int* outputMask,
+			int refinement, int timestep, int* outputMask, double* outputRegionBounds,
 			double timeTolerance);
 
 	/**
@@ -209,6 +230,8 @@ public:
 
 			double* managedBuffer = async::Module<WaveFieldWriterExecutor,
 					WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(nextId);
+
+			// TODO: Change dof map
 			m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
 
 			sendBuffer(nextId, m_numCells*sizeof(double));
@@ -234,6 +257,7 @@ public:
 
 		WaveFieldParam param;
 		param.time = time;
+
 		call(param);
 
 		// Update last time step
@@ -261,6 +285,8 @@ public:
 		m_variableSubsampler = 0L;
 		delete [] m_outputFlags;
 		m_outputFlags = 0L;
+		delete [] m_map;
+		m_map = 0L;
 	}
 
 	void tearDown()

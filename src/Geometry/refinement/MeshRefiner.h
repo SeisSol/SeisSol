@@ -69,6 +69,11 @@ public:
     MeshRefiner(const MeshReader& meshReader,
             const TetrahedronRefiner<T>& tetRefiner);
 
+    MeshRefiner(const std::vector<const Element *>& subElements,
+            const std::vector<const Vertex *>& subVertices,
+            const std::map<int, int>& oldToNewVertexMap,
+            const TetrahedronRefiner<T>& tetRefiner);
+
     ~MeshRefiner();
 
     const unsigned int* getCellData() const;
@@ -82,15 +87,17 @@ public:
 
 template<typename T>
 MeshRefiner<T>::MeshRefiner(
-        	const MeshReader& meshReader,
+            const std::vector<const Element *>& subElements,
+            const std::vector<const Vertex *>& subVertices,
+            const std::map<int, int>& oldToNewVertexMap,
         	const TetrahedronRefiner<T>& tetRefiner)
 		: kSubCellsPerCell(tetRefiner.getDivisionCount())
 
 {
     using std::size_t;
 
-    const size_t kInVertexCount = meshReader.getVertices().size();
-    const size_t kInCellCount = meshReader.getElements().size();
+    const size_t kInVertexCount = subVertices.size();
+    const size_t kInCellCount = subElements.size();
     m_numSubCells = kInCellCount * kSubCellsPerCell;
 
     const unsigned int additionalVertices = tetRefiner.additionalVerticesPerCell();
@@ -99,15 +106,15 @@ MeshRefiner<T>::MeshRefiner(
     m_cells = new unsigned int[m_numSubCells * kIndicesPerCell];
     m_vertices = new T[m_numVertices * 3];
 
-    const std::vector<Vertex>& kVertices = meshReader.getVertices();
-    const std::vector<Element>& kElements = meshReader.getElements();
+    const std::vector<const Vertex*>& kVertices = subVertices;
+    const std::vector<const Element*>& kElements = subElements;
 
     // Copy original vertices
 #ifdef _OPENMP
 	#pragma omp parallel for
 #endif // _OPENMP
     for (unsigned int i = 0; i < kInVertexCount; i++) {
-    	memcpy(&m_vertices[i*3], kVertices[i].coords, sizeof(double)*3);
+    	memcpy(&m_vertices[i*3], kVertices[i]->coords, sizeof(double)*3);
     }
 
     // The pointer to the new vertices
@@ -115,7 +122,7 @@ MeshRefiner<T>::MeshRefiner(
 
     // Start the actual cell-refinement
 #ifdef _OPENMP
-    #pragma omp parallel
+    #pragma omp parallel shared(oldToNewVertexMap)
     {
 #endif // _OPENMPI
     	glm::tvec3<T>* newVerticesTmp = new glm::tvec3<T>[additionalVertices];
@@ -128,14 +135,14 @@ MeshRefiner<T>::MeshRefiner(
         {
             // Build a Terahedron containing the coordinates of the vertices.
             Tetrahedron<T> inTet = Tetrahedron<T>(
-                    kVertices[kElements[c].vertices[0]].coords,
-                    kVertices[kElements[c].vertices[1]].coords,
-                    kVertices[kElements[c].vertices[2]].coords,
-                    kVertices[kElements[c].vertices[3]].coords,
-					kElements[c].vertices[0],
-					kElements[c].vertices[1],
-					kElements[c].vertices[2],
-					kElements[c].vertices[3]);
+                    kVertices[oldToNewVertexMap.at(kElements[c]->vertices[0])]->coords,
+                    kVertices[oldToNewVertexMap.at(kElements[c]->vertices[1])]->coords,
+                    kVertices[oldToNewVertexMap.at(kElements[c]->vertices[2])]->coords,
+                    kVertices[oldToNewVertexMap.at(kElements[c]->vertices[3])]->coords,
+					oldToNewVertexMap.at(kElements[c]->vertices[0]),
+					oldToNewVertexMap.at(kElements[c]->vertices[1]),
+					oldToNewVertexMap.at(kElements[c]->vertices[2]),
+					oldToNewVertexMap.at(kElements[c]->vertices[3]));
 
             // Generate the tets
             tetRefiner.refine(inTet,
