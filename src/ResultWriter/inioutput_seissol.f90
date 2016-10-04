@@ -194,7 +194,8 @@ CONTAINS
         i_numSides  = mesh%fault%nSide,      &
         i_numBndGP  = disc%galerkin%nBndGP,  &
         i_refinement= io%Refinement,         &
-        i_outputMask=io%OutputMask(4:12))
+        i_outputMask=io%OutputMask(4:12),    &
+        i_outputRegionBounds = io%OutputRegionBounds(1:6)))
 #else
     if (IO%Format .eq. 6) then
         call waveFieldWriterInit(0, disc, eqn, io, mesh, mpi)
