@@ -82,9 +82,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Total number of elements
 	const size_t numTotalElems = meshReader.getElements().size();
 
-	// Total number of vertices
-	const size_t numTotalVerts = meshReader.getVertices().size();
-
 	// Elements of the extracted region
 	std::vector<const Element*> subElements;
 
