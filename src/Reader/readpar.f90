@@ -3215,6 +3215,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       nRecordPoints = 0
       energy_output_on = 0
       pickdt_energy = 1.0
+	  OutputRegionBounds(:) = 0.0
 !      RFileName = 'RecordPoints'
       pickDtType = 1
       PGMFlag = 0
