@@ -1395,6 +1395,8 @@ MODULE TypesDef
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
+	 REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
+                                                                                !< Format is xMin, xMax, yMin, yMax, zMin, zMax
      LOGICAL                      ,POINTER  :: RotationMask(:)                  !< Mask for rotational output
      INTEGER                      ,POINTER  :: ScalList(:) !<List of Scalar Vars
      INTEGER                      ,POINTER  :: VectList(:) !<List of Vector Vars

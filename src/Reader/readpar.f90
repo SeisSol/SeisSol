@@ -3190,14 +3190,14 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
                                           iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on
-      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval
+      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, OutputRegionBounds(1:6)
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy
+                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds
     !------------------------------------------------------------------------  
     !                                                                       
       logInfo(*) '<--------------------------------------------------------->'        
@@ -3215,6 +3215,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       nRecordPoints = 0
       energy_output_on = 0
       pickdt_energy = 1.0
+	  OutputRegionBounds(:) = 0.0
 !      RFileName = 'RecordPoints'
       pickDtType = 1
       PGMFlag = 0
@@ -3300,6 +3301,31 @@ ALLOCATE( SpacePositionx(nDirac), &
            END IF
            IO%RotationMask(1:4) = .TRUE.
          ENDIF
+
+      ALLOCATE(IO%OutputRegionBounds(6),STAT=allocStat )                                      !
+       IF (allocStat .NE. 0) THEN                                                       !
+         logError(*) 'could not allocate IO%OutputRegionBounds in readpar!'!
+         STOP                                                                           !
+       END IF
+      IO%OutputRegionBounds(1:6) = OutputRegionBounds(1:6)
+      ! Check if all are non-zero and then check if the min and max are not the same
+      IF ((OutputRegionBounds(1).NE.0.0).OR.(OutputRegionBounds(2).NE.0.0).OR.&
+          (OutputRegionBounds(3).NE.0.0).OR.(OutputRegionBounds(4).NE.0.0).OR.&
+          (OutputRegionBounds(5).NE.0.0).OR.(OutputRegionBounds(6).NE.0.0)) THEN
+
+          IF (OutputRegionBounds(2)-OutputRegionBounds(1) <= 0.0) THEN
+              logError(*) 'Please make sure the x bounds are correct'
+              STOP
+          ENDIF
+          IF (OutputRegionBounds(4)-OutputRegionBounds(3) <= 0.0) THEN
+              logError(*) 'Please make sure the y bounds are correct'
+              STOP
+          ENDIF
+          IF (OutputRegionBounds(6)-OutputRegionBounds(5) <= 0.0) THEN
+              logError(*) 'Please make sure the z bounds are correct'
+              STOP
+          ENDIF
+      END IF
 
       IF(DISC%Galerkin%pAdaptivity.GT.0) THEN
         IO%OutputMask(59) = .TRUE.
