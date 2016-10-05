@@ -49,7 +49,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		int order, int numAlignedDOF,
 		const MeshReader &meshReader,
 		const double* dofs,  const double* pstrain,
-		const unsigned int* map,
+		unsigned int* map,
 		int refinement, int timestep, int* outputMask, double* outputRegionBounds,
 		double timeTolerance)
 {
@@ -70,60 +70,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	/** List of all buffer ids */
 	param.bufferIds[OUTPUT_PREFIX] = addSyncBuffer(m_outputPrefix.c_str(), m_outputPrefix.size()+1, true);
-
-	/** Extract the elements and vertices based on user given bounds */
-	// Reference to the vector containing all the elements
-	const std::vector<Element>& allElements = meshReader.getElements();
-
-	// Reference to the vector containing all the vertices
-	const std::vector<Vertex>& allVertices = meshReader.getVertices();
-
-	// Total number of elements
-	const size_t numTotalElems = meshReader.getElements().size();
-
-	// Elements of the extracted region
-	std::vector<const Element*> subElements;
-
-	// m_map will store a new map from new cell index to dof index
-	// the old map is contained in the "map" variable - which is a map from old
-	//    cell index to dof index
-	m_map = new unsigned int[numTotalElems];
-
-	// The oldToNewVertexMap defines a map between old vertex index to
-	// new vertex index. This is used to assign the vertex subset as well as
-	// used in MeshRefiner since the elements would hold old index of vertices
-	std::map<int, int> oldToNewVertexMap;
-
-
-	// Extract elements based on the region specified
-	for (size_t i = 0; i < numTotalElems; i++) {
-		// Store the current number of elements to check if new was added
-		if (vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[0]].coords) ||
-			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[1]].coords) ||
-			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords) ||
-			vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
-
-			// Assign the new map
-			m_map[subElements.size()] = map[i];
-
-			// Push the address of the element into the vector
-			subElements.push_back(&(allElements[i]));
-
-			// Push the vertices into the map which makes sure that the entries are unique
-			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
-			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
-			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[2], oldToNewVertexMap.size()));
-			oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[3], oldToNewVertexMap.size()));
-		}
-	}
-
-	// Vertices of the extracted region
-	// This is created later on since now the size is known
-	std::vector<const Vertex*> subVertices(oldToNewVertexMap.size());
-
-	// Loop over the map and assign the vertices
-	for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
-		subVertices[it->second] = &allVertices[it->first];
 
 	//
 	// High order I/O
@@ -164,22 +110,92 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			<< "3 - Refinement by 32";
 	}
 
-	// Refine the mesh
-	refinement::MeshRefiner<double> meshRefiner(subElements, subVertices,
-		oldToNewVertexMap, *tetRefiner);
+	unsigned int numElems = meshReader.getElements().size();
+	unsigned int numVerts = meshReader.getVertices().size();
+
+	// These variables are only filled if a region is to be extracted
+	// Elements of the extracted region
+	std::vector<const Element*> subElements;
+	// The oldToNewVertexMap defines a map between old vertex index to
+	// new vertex index. This is used to assign the vertex subset as well as
+	// used in MeshRefiner since the elements would hold old index of vertices
+	std::map<int, int> oldToNewVertexMap;
+	// Vertices of the extracted region
+	std::vector<const Vertex*> subVertices;
+	// Mesh refiner
+	refinement::MeshRefiner<double>* meshRefiner = 0L;
+
+	// If at least one of the outputRegionBounds is non-zero then extract.
+	// Otherwise use the entire region.
+	// m_extractRegion = true  : Extract region
+	// m_extractRegion = false : Entire region
+	m_extractRegion = outputRegionBounds[0] != 0.0 ||
+		outputRegionBounds[1] != 0.0 || outputRegionBounds[3] != 0.0 ||
+		outputRegionBounds[4] != 0.0 || outputRegionBounds[5] != 0.0 ||
+		outputRegionBounds[6] != 0.0;
+
+	if (m_extractRegion) {
+		/** Extract the elements and vertices based on user given bounds */
+		// Reference to the vector containing all the elements
+		const std::vector<Element>& allElements = meshReader.getElements();
+
+		// Reference to the vector containing all the vertices
+		const std::vector<Vertex>& allVertices = meshReader.getVertices();
+
+		// m_map will store a new map from new cell index to dof index
+		// the old map is contained in the "map" variable - which is a map from old
+		//    cell index to dof index
+		m_map = new unsigned int[numElems];
+
+		// Extract elements based on the region specified
+		for (size_t i = 0; i < numElems; i++) {
+			// Store the current number of elements to check if new was added
+			if (vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[0]].coords) ||
+				vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[1]].coords) ||
+				vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords) ||
+				vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
+
+				// Assign the new map
+				m_map[subElements.size()] = map[i];
+
+				// Push the address of the element into the vector
+				subElements.push_back(&(allElements[i]));
+
+				// Push the vertices into the map which makes sure that the entries are unique
+				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
+				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
+				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[2], oldToNewVertexMap.size()));
+				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[3], oldToNewVertexMap.size()));
+			}
+		}
+
+		subVertices.resize(oldToNewVertexMap.size());
+
+		// Loop over the map and assign the vertices
+		for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
+			subVertices.at(it->second) = &allVertices[it->first];
+
+		numElems = subElements.size();
+		numVerts = subVertices.size();
+
+		meshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices,
+			oldToNewVertexMap, *tetRefiner);
+	} else {
+		meshRefiner = new refinement::MeshRefiner<double>(meshReader, *tetRefiner);
+	}
 
 	logInfo(rank) << "Refinement class initialized";
 	logDebug() << "Cells : "
 			<< subElements.size() << "refined-to ->"
-			<< meshRefiner.getNumCells();
+			<< meshRefiner->getNumCells();
 	logDebug() << "Vertices : "
 			<< subVertices.size()
 			<< "refined-to ->"
-			<< meshRefiner.getNumVertices();
+			<< meshRefiner->getNumVertices();
 
 	// Initialize the variable subsampler
 	m_variableSubsampler = new refinement::VariableSubsampler<double>(
-			subElements.size(), *tetRefiner, order, numVars, numAlignedDOF);
+			numElems, *tetRefiner, order, numVars, numAlignedDOF);
 
 	logInfo(rank) << "VariableSubsampler initialized";
 
@@ -192,28 +208,28 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 #ifdef USE_MPI
 	// Add the offset to the cells
 	MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
-	unsigned int offset = meshRefiner.getNumVertices();
+	unsigned int offset = meshRefiner->getNumVertices();
 	MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-	offset -= meshRefiner.getNumVertices();
+	offset -= meshRefiner->getNumVertices();
 
 	// Add the offset to all cells
-	unsigned int* cells = new unsigned int[meshRefiner.getNumCells() * 4];
-	for (unsigned int i = 0; i < meshRefiner.getNumCells() * 4; i++)
-		cells[i] = meshRefiner.getCellData()[i] + offset;
+	unsigned int* cells = new unsigned int[meshRefiner->getNumCells() * 4];
+	for (unsigned int i = 0; i < meshRefiner->getNumCells() * 4; i++)
+		cells[i] = meshRefiner->getCellData()[i] + offset;
 	const_cells = cells;
 #else // USE_MPI
-	const_cells = meshRefiner.getCellData();
+	const_cells = meshRefiner->getCellData();
 #endif // USE_MPI
 
 	// Create mesh buffers
-	param.bufferIds[CELLS] = addSyncBuffer(const_cells, meshRefiner.getNumCells() * 4 * sizeof(unsigned int));
-	param.bufferIds[VERTICES] = addSyncBuffer(meshRefiner.getVertexData(), meshRefiner.getNumVertices() * 3 * sizeof(double));
+	param.bufferIds[CELLS] = addSyncBuffer(const_cells, meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
+	param.bufferIds[VERTICES] = addSyncBuffer(meshRefiner->getVertexData(), meshRefiner->getNumVertices() * 3 * sizeof(double));
 
 	// Create data buffers
 	bool first = false;
 	for (unsigned int i = 0; i < numVars; i++) {
 		if (m_outputFlags[i]) {
-			unsigned int id = addBuffer(0L, meshRefiner.getNumCells() * sizeof(double));
+			unsigned int id = addBuffer(0L, meshRefiner->getNumCells() * sizeof(double));
 			if (!first) {
 				param.bufferIds[VARIABLE0] = id;
 				first = true;
@@ -222,7 +238,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	}
 
 	// Save number of cells
-	m_numCells = meshRefiner.getNumCells();
+	m_numCells = meshRefiner->getNumCells();
 
 	//
 	//  Low order I/O
@@ -239,23 +255,27 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		refinement::IdentityRefiner<double> lowTetRefiner;
 
 		// Mesh refiner
-		pLowMeshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices,
-			oldToNewVertexMap, lowTetRefiner);
+		if (m_extractRegion) {
+			pLowMeshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices,
+				oldToNewVertexMap, lowTetRefiner);
+		} else {
+			pLowMeshRefiner = new refinement::MeshRefiner<double>(meshReader, lowTetRefiner);
+		}
 
 #ifdef USE_MPI
 		// Same offset issue for the normal mesh
 		MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
-		unsigned int offset = meshRefiner.getNumVertices();
+		unsigned int offset = meshRefiner->getNumVertices();
 		MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-		offset -= meshRefiner.getNumVertices();
+		offset -= meshRefiner->getNumVertices();
 
 		// Add the offset to all cells
-		lowCells = new unsigned int[meshRefiner.getNumCells() * 4];
-		for (unsigned int i = 0; i < meshRefiner.getNumCells() * 4; i++)
-			cells[i] = meshRefiner.getCellData()[i] + offset;
+		lowCells = new unsigned int[meshRefiner->getNumCells() * 4];
+		for (unsigned int i = 0; i < meshRefiner->getNumCells() * 4; i++)
+			cells[i] = meshRefiner->getCellData()[i] + offset;
 		const_lowCells = cells;
 #else // USE_MPI
-		const_lowCells = meshRefiner.getCellData();
+		const_lowCells = meshRefiner->getCellData();
 #endif // USE_MPI
 
 		// Create mesh buffers
@@ -285,8 +305,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	sendBuffer(param.bufferIds[OUTPUT_FLAGS], numVars*sizeof(bool));
 
-	sendBuffer(param.bufferIds[CELLS], meshRefiner.getNumCells() * 4 * sizeof(unsigned int));
-	sendBuffer(param.bufferIds[VERTICES], meshRefiner.getNumVertices() * 3 * sizeof(double));
+	sendBuffer(param.bufferIds[CELLS], meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
+	sendBuffer(param.bufferIds[VERTICES], meshRefiner->getNumVertices() * 3 * sizeof(double));
 
 	if (pstrain) {
 		sendBuffer(param.bufferIds[LOWCELLS], pLowMeshRefiner->getNumCells() * 4 * sizeof(unsigned int));
@@ -308,8 +328,13 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Save dof/map pointer
 	m_dofs = dofs;
 	m_pstrain = pstrain;
+	if (!m_extractRegion) {
+		m_map = map;
+	}
 
 	m_timestep = timestep;
 	m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
 	m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
+
+	delete meshRefiner;
 }

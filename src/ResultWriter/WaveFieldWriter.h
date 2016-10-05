@@ -66,6 +66,9 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/** True if wave field output is enabled */
 	bool m_enabled;
 
+	/** False if entire region is to be written */
+	bool m_extractRegion;
+
 	/** The asynchronous executor */
 	WaveFieldWriterExecutor m_executor;
 
@@ -130,6 +133,7 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 public:
 	WaveFieldWriter()
 		: m_enabled(false),
+		  m_extractRegion(false),
 		  m_variableSubsampler(0L),
 		  m_numVariables(0),
 		  m_outputFlags(0L),
@@ -183,7 +187,7 @@ public:
 	void init(unsigned int numVars, int order, int numAlignedDOF,
 			const MeshReader &meshReader,
 			const double* dofs,  const double* pstrain,
-			const unsigned int* map,
+			unsigned int* map,
 			int refinement, int timestep, int* outputMask, double* outputRegionBounds,
 			double timeTolerance);
 
@@ -280,8 +284,10 @@ public:
 		m_variableSubsampler = 0L;
 		delete [] m_outputFlags;
 		m_outputFlags = 0L;
-		delete [] m_map;
-		m_map = 0L;
+		if (m_extractRegion) {
+			delete [] m_map;
+			m_map = 0L;
+		}
 	}
 
 	void tearDown()
