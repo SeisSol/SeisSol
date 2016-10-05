@@ -186,11 +186,10 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	logInfo(rank) << "Refinement class initialized";
 	logDebug() << "Cells : "
-			<< subElements.size() << "refined-to ->"
+			<< numElems << "refined-to ->"
 			<< meshRefiner->getNumCells();
 	logDebug() << "Vertices : "
-			<< subVertices.size()
-			<< "refined-to ->"
+			<< numVerts << "refined-to ->"
 			<< meshRefiner->getNumVertices();
 
 	// Initialize the variable subsampler
