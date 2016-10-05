@@ -124,7 +124,7 @@ public:
 		if (m_waveFieldWriter != 0L)
 			logError() << "Wave field writer already initialized";
 
-		const int rank = seissol::MPI::mpi.rank();
+		int rank = seissol::MPI::mpi.rank();
 
 		const char* outputPrefix = static_cast<const char*>(info.buffer(param.bufferIds[OUTPUT_PREFIX]));
 
@@ -154,12 +154,22 @@ public:
 				variables.push_back(varNames[i]);
 		}
 
+#ifdef USE_MPI
+	// Split the communicator into two - those containing vertices and those
+	//  not containing any vertices.
+	int commColour = (info.bufferSize(param.bufferIds[CELLS]) == 0)?0:1;
+	MPI_Comm_split(seissol::MPI::mpi.comm(), commColour, rank, &m_comm);
+	// Start the if statement
+	if (info.bufferSize(param.bufferIds[CELLS]) != 0) {
+		// Get the new rank
+		MPI_Comm_rank(m_comm, &rank);
+#endif // USE_MPI
+
 		// Initialize the I/O handler and write the mesh
 		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 			rank, outputPrefix, variables, param.timestep);
 
 #ifdef USE_MPI
-		MPI_Comm_dup(seissol::MPI::mpi.comm(), &m_comm);
 		m_waveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
 
@@ -192,7 +202,7 @@ public:
 				rank, (std::string(outputPrefix)+"-low").c_str(), lowVariables, param.timestep);
 
 #ifdef USE_MPI
-			m_lowWaveFieldWriter->setComm(m_comm);
+		m_lowWaveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
 
 			m_lowWaveFieldWriter->init(
@@ -210,10 +220,18 @@ public:
 		m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
 
 		logInfo(rank) << "Initializing XDMF wave field output. Done.";
+#ifdef USE_MPI
+	}
+	// End the if statement
+#endif // USE_MPI
 	}
 
 	void exec(const async::ExecInfo &info, const WaveFieldParam &param)
 	{
+#ifdef USE_MPI
+	// Execute this function only if m_waveFieldWriter is initialized
+		if (m_waveFieldWriter != 0L) {
+#endif // USE_MPI
 		// High order output
 		m_waveFieldWriter->addTimeStep(param.time);
 
@@ -240,6 +258,9 @@ public:
 
 			m_lowWaveFieldWriter->flush();
 		}
+#ifdef USE_MPI
+		}
+#endif // USE_MPI
 	}
 
 	void finalize()
