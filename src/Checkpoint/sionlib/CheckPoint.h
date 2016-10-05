@@ -115,29 +115,26 @@ public:
 		}
 
 		// Detect collective mode
-		std::string collMode = utils::Env::get<const char*>("SEISSOL_CHECKPOINT_SION_COLL_MODE", "merge");
 		int collSize = utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_COLL_SIZE", 0);
 		if (collSize != 0) {
+			std::string sCollSize = utils::StringUtils::toString(collSize);
+			m_readMode += ",collective,collsize=" + sCollSize;
+			m_writeMode += ",collective,collsize=" + sCollSize;
+
+			std::string collMode = utils::Env::get<const char*>("SEISSOL_CHECKPOINT_SION_COLL_MODE", "merge");
 			utils::StringUtils::toLower(collMode);
 			if (collMode == "merge") {
 				m_readMode += ",collectivemerge";
 				m_writeMode += ",collectivemerge";
-			} else {
-				m_readMode += ",collective";
-				m_writeMode += ",collective";
 			}
-
-			std::string sCollSize = utils::StringUtils::toString(collSize);
-			m_readMode += ",collsize=" + sCollSize;
-			m_writeMode += ",collsize=" + sCollSize;
 		}
 
 		MPI_Comm_rank(MPI_COMM_WORLD, &m_processIdentifier);
 	}
-	
+
 	virtual ~CheckPoint()
 	{}
-	
+
 	void setFilename(const char* filename)
 	{
 		initFilename(filename, 0L);
@@ -148,7 +145,7 @@ public:
 			m_dataFile[i] = seissol::checkpoint::CheckPoint::dataFile(i)
 				+ "/" + fname() + ".scp";
 	}
-	
+
 	void initLate()
 	{
 		seissol::checkpoint::CheckPoint::initLate();
@@ -174,7 +171,7 @@ public:
 	void close()
 	{
 	}
-	
+
 protected:
 	void setChunkElementCount(unsigned int count)
 	{
@@ -242,7 +239,7 @@ protected:
 		return sion_paropen_mpi(file.c_str(), mode.c_str(), &numFiles, comm(), &localComm,
 				&chunksize, &fsblksize, &gRank, 0L, 0L);
 	}
-		
+
 	void finalizeCheckpoint(int file)
 	{
 		SCOREP_USER_REGION_DEFINE(r_flush);
