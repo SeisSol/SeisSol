@@ -115,21 +115,18 @@ public:
 		}
 
 		// Detect collective mode
-		std::string collMode = utils::Env::get<const char*>("SEISSOL_CHECKPOINT_SION_COLL_MODE", "merge");
 		int collSize = utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_COLL_SIZE", 0);
 		if (collSize != 0) {
+			std::string sCollSize = utils::StringUtils::toString(collSize);
+			m_readMode += ",collective,collsize=" + sCollSize;
+			m_writeMode += ",collective,collsize=" + sCollSize;
+
+			std::string collMode = utils::Env::get<const char*>("SEISSOL_CHECKPOINT_SION_COLL_MODE", "merge");
 			utils::StringUtils::toLower(collMode);
 			if (collMode == "merge") {
 				m_readMode += ",collectivemerge";
 				m_writeMode += ",collectivemerge";
-			} else {
-				m_readMode += ",collective";
-				m_writeMode += ",collective";
 			}
-
-			std::string sCollSize = utils::StringUtils::toString(collSize);
-			m_readMode += ",collsize=" + sCollSize;
-			m_writeMode += ",collsize=" + sCollSize;
 		}
 
 		MPI_Comm_rank(MPI_COMM_WORLD, &m_processIdentifier);
@@ -194,7 +191,7 @@ protected:
 	void createFiles()
 	{
 		seissol::checkpoint::CheckPoint::createFiles();
-		
+
 		// Create the folder
 		if (rank() == 0) {
 			for (int i = 0; i < 2; i++) {

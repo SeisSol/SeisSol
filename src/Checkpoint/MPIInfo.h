@@ -68,8 +68,10 @@ public:
 		MPI_Info_create(&m_info);
 
 		// Set parameters
-		const int numParams = 2;
-		const char* params[numParams] = {"romio_cb_read", "romio_cb_write"};
+		const int numParams = 5;
+		const char* params[numParams] = {"cb_nodes",
+			"romio_cb_read", "romio_cb_write",
+			"romio_ds_read", "romio_ds_write"};
 
 		for (int i = 0; i < numParams; i++) {
 			std::string param(params[i]);
