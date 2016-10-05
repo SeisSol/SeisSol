@@ -54,7 +54,7 @@ module WaveFieldWriter
             character( kind=c_char ), dimension(*), intent(in) :: outputPrefix
             real( kind=c_double ), dimension(*), intent(in)    :: dofs
             real( kind=c_double ), dimension(*), intent(in)    :: pstrain
-            logical( kind=c_int ), dimension(*), intent(out)   :: outputMask
+            integer( kind=c_int ), dimension(*), intent(out)   :: outputMask
             integer( kind=c_int ), value                       :: numVars
             integer( kind=c_int ), value                       :: order
             integer( kind=c_int ), value                       :: numBasisFuncs
@@ -80,17 +80,27 @@ contains
         implicit none
 
         integer, intent(in)    :: timestep
+        integer                :: i
+        integer                :: outputMaskInt(9)
         type (tDiscretization) :: disc
         type (tEquations)      :: eqn
         type (tInputOutput)    :: io
         type (tUnstructMesh)   :: mesh
         type (tMPI)            :: mpi
 
+        do i = 1, 9
+            if ( io%OutputMask(3+i) ) then
+                outputMaskInt(i) = 1
+            else
+                outputMaskInt(i) = 0
+            end if
+        end do
+
         call wavefield_hdf_init(mpi%myRank, trim(io%OutputFile) // c_null_char, &
             disc%galerkin%dgvar(:, :, :, 1), disc%galerkin%pstrain(:,:), &
             eqn%nVarTotal, disc%spaceorder, &
             disc%galerkin%nDegFr, &
-            io%Refinement, timestep, io%OutputMask)
+            io%Refinement, timestep, outputMaskInt)
     end subroutine waveFieldWriterInit
 
     subroutine waveFieldWriterWriteStep(time, disc, mesh, mpi)
