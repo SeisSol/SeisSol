@@ -86,7 +86,7 @@ int main(int argc, char** argv)
     if (!xdmf.empty()) {
       Map mapGeocent(vcs);
       std::cout << "Writing XDMF..." << std::flush;
-      writeXMF(out.c_str(), srf, mapGeocent);
+      writeXMF(xdmf.c_str(), srf, mapGeocent);
       std::cout << "finished." << std::endl;
     }
 	} else {
