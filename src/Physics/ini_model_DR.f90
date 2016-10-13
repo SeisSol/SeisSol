@@ -319,9 +319,19 @@ MODULE ini_model_DR_mod
     
     ! ini rupture front output
     DISC%DynRup%RF = .FALSE.
+
+    ! Initialize '+'side elements
+    IF (DISC%DynRup%RFtime_on == 1) THEN
+       ! Loop over every mesh element
+       DO i = 1, MESH%Fault%nSide
+             IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
+       ENDDO
+    ENDIF
+
     !T. Ulrich 8.2015 initial rupture time array (for Vr calculations)
     ALLOCATE(DISC%DynRup%rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
     DISC%DynRup%rupture_time(:,:)=0.
+
     
     !frictional parameter initialization
     SELECT CASE(EQN%FL)
@@ -466,6 +476,7 @@ MODULE ini_model_DR_mod
        EQN%IniMu(:,:)    =  DISC%DynRup%RS_f0 
     END SELECT
     
+
     ! ini of bimaterial case (simple planar case) 
     ! ALICE: The following line from original ini_model needs to be confirmed
     !DISC%DynRup%Strength(i,:) = EQN%IniMu(i,:)*EQN%IniBulk_yy(i,:)
@@ -497,13 +508,7 @@ MODULE ini_model_DR_mod
   
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
-      
+
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
       iSide = MESH%Fault%Face(i,2,1)         
@@ -555,12 +560,6 @@ MODULE ini_model_DR_mod
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -670,12 +669,6 @@ MODULE ini_model_DR_mod
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -778,12 +771,6 @@ MODULE ini_model_DR_mod
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -857,12 +844,6 @@ MODULE ini_model_DR_mod
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -969,12 +950,6 @@ MODULE ini_model_DR_mod
       
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -1084,12 +1059,6 @@ MODULE ini_model_DR_mod
   
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -1294,12 +1263,6 @@ MODULE ini_model_DR_mod
   
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -1457,13 +1420,7 @@ MODULE ini_model_DR_mod
              
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
-      
+
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
       iSide = MESH%Fault%Face(i,2,1)  
@@ -1587,12 +1544,6 @@ MODULE ini_model_DR_mod
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -1681,12 +1632,6 @@ MODULE ini_model_DR_mod
  
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -1750,12 +1695,6 @@ MODULE ini_model_DR_mod
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
 
       ! element ID
       iElem = MESH%Fault%Face(i,1,1)
@@ -1982,13 +1921,7 @@ MODULE ini_model_DR_mod
   zIncreasingCohesion = -10000.
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
-      
+
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
       iSide = MESH%Fault%Face(i,2,1)  
@@ -2234,12 +2167,6 @@ MODULE ini_model_DR_mod
   g = 9.8D0    
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -2467,12 +2394,6 @@ MODULE ini_model_DR_mod
   zIncreasingCohesion = -10000.
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -2645,12 +2566,6 @@ MODULE ini_model_DR_mod
   logError(*) 'initialization Gauss wise'
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -2772,12 +2687,6 @@ MODULE ini_model_DR_mod
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -2870,12 +2779,6 @@ MODULE ini_model_DR_mod
              
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -3041,12 +2944,6 @@ MODULE ini_model_DR_mod
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
        
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
-      
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
       iSide = MESH%Fault%Face(i,2,1)  
@@ -3267,12 +3164,6 @@ MODULE ini_model_DR_mod
                
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -3583,12 +3474,6 @@ MODULE ini_model_DR_mod
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -3694,12 +3579,6 @@ MODULE ini_model_DR_mod
             
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -3815,12 +3694,6 @@ MODULE ini_model_DR_mod
               
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
@@ -3966,12 +3839,6 @@ MODULE ini_model_DR_mod
               
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-       
-      ! switch for rupture front output: RF
-      IF (DISC%DynRup%RFtime_on == 1) THEN
-          ! rupture front output just for + side elements!
-          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-      ENDIF
       
       ! element ID    
       iElem = MESH%Fault%Face(i,1,1)

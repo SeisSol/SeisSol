@@ -167,7 +167,7 @@ CONTAINS
     ! Write output for positive elements
     IF (MESH%FAULT%Face(iFace,1,1).NE.0) THEN
        IF (DISC%DynRup%rupture_time(iFace, iBndGP).GT. 0.0) THEN
-          WRITE(UNIT_RF,*) xGP, yGP, zGP, iBndGP, iFace, DISC%DynRup%rupture_time(iFace, iBndGP)
+          WRITE(UNIT_RF,*) xGP, yGP, zGP, DISC%DynRup%rupture_time(iFace, iBndGP)
        ENDIF
     ENDIF
 
