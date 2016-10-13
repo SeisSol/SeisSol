@@ -71,6 +71,7 @@ CONTAINS
     USE ini_SeisSol_mod
     USE Galerkin3D_solver_mod
     USE magnitude_output_mod
+    USE output_rupturefront_mod
     USE COMMON_operators_mod
 #ifdef PARALLEL
     USE MPIExchangeValues_mod
@@ -525,8 +526,9 @@ CONTAINS
 
     ! output magnitude for dynamic rupture simulations
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO)
+    ! output GP-wise RF in extra files
+    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%RF_output_on.EQ.1) CALL output_rupturefront(DISC,MESH,MPI,IO)
 
-    !
     logInfo(*)'<--------------------------------------------------------->'  !
     logInfo(*)'<     calc_SeisSol successfully finished                  >'  !
     logInfo(*)'<--------------------------------------------------------->'  !

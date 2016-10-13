@@ -1308,10 +1308,9 @@ CONTAINS
 
     DISC%DynRup%DynRup_out_elementwise%refinement = refinement                 ! read info of desired refinement level : default 0
 
-   IF ((OutputMask(7).EQ.1) .AND. (DISC%DynRup%RF_output_on.EQ.0)) THEN
-        logError(*) 'For Vr output, RF_output_on have to be set to 1'
-        logError(*) 'Setting RF_output_on to 1'
-        DISC%DynRup%RF_output_on = 1
+   IF ((OutputMask(7).EQ.1) .AND. (DISC%DynRup%RFtime_on.EQ.0)) THEN
+        ! set 'collecting RF time' to 1
+        DISC%DynRup%RFtime_on = 1
    ENDIF
 
   end SUBROUTINE readpar_faultElementwise
@@ -1727,7 +1726,16 @@ CONTAINS
            !OUTPUT
            ! rupture front (RF) output on = 1, off = 0
            DISC%DynRup%RF_output_on = RF_output_on
+
+           IF (DISC%DynRup%RF_output_on.EQ.1) THEN
+              ! set 'collecting RF time' to 1
+              DISC%DynRup%RFtime_on = 1
+              logInfo0(*) 'RF output on'
+           ELSE
+              DISC%DynRup%RFtime_on = 0
+           ENDIF
            !
+
            ! magnitude output on = 1, off = 0
            DISC%DynRup%magnitude_output_on = magnitude_output_on
 

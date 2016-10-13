@@ -190,7 +190,7 @@ module faultinput_mod
   	FaultFacesIteration: do iFault = 1, mesh%Fault%nSide
 
   		! switch for rupture front output: RF
-  		if (disc%DynRup%RF_output_on == 1) then
+  		if (disc%DynRup%RFtime_on == 1) then
   		  ! rupture front output just for + side elements!
   		  if (mesh%fault%Face(iFault,1,1) .NE. 0) disc%DynRup%RF(iFault,:) = .TRUE.
   		end if

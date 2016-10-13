@@ -5,7 +5,7 @@
 !! @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)
 !!
 !! @section LICENSE
-!! Copyright (c) 2013, SeisSol Group
+!! Copyright (c) 2013-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -228,8 +228,6 @@ MODULE Eval_friction_law_mod
                                    time,iT,                                   & ! IN: time, inv Trafo
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
-    USE output_rupturefront_mod 
-    !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
@@ -368,9 +366,9 @@ MODULE Eval_friction_law_mod
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
-         CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
-         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
+
      !idem
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
         DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
@@ -409,7 +407,6 @@ MODULE Eval_friction_law_mod
                                    time,iT,                                   & ! IN: time, inv Trafo
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
-    USE output_rupturefront_mod
     USE prak_clif_mod 
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -543,7 +540,6 @@ MODULE Eval_friction_law_mod
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
@@ -576,8 +572,6 @@ MODULE Eval_friction_law_mod
                                    time,iT,                                   & ! IN: time, inv Trafo
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
-    USE output_rupturefront_mod 
-    !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
@@ -597,7 +591,7 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(1:6,1:nBndGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
+    REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest, dynStress
     REAL        :: LocMu_S, LocMu_D
     REAL        :: tmpSlip
     REAL        :: LocSR1,LocSR2
@@ -728,9 +722,9 @@ MODULE Eval_friction_law_mod
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
+
      !idem
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
         DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
@@ -768,8 +762,6 @@ MODULE Eval_friction_law_mod
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                             time,iT,                                   & ! IN: time, inv Trafo
                             DISC,EQN,MESH,MPI,IO)
-    !-------------------------------------------------------------------------!
-    USE output_rupturefront_mod 
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -947,7 +939,6 @@ MODULE Eval_friction_law_mod
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
@@ -977,8 +968,6 @@ MODULE Eval_friction_law_mod
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                             time,iT,                                   & ! IN: time, inv Trafo
                             DISC,EQN,MESH,MPI,IO)
-    !-------------------------------------------------------------------------!
-    USE output_rupturefront_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1147,7 +1136,6 @@ MODULE Eval_friction_law_mod
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
@@ -1178,8 +1166,6 @@ MODULE Eval_friction_law_mod
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                             time,iT,                                   & ! IN: time, inv Trafo
                             DISC,EQN,MESH,MPI,IO,BND)
-    !-------------------------------------------------------------------------!
-    USE output_rupturefront_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1449,7 +1435,6 @@ MODULE Eval_friction_law_mod
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
@@ -1479,8 +1464,6 @@ MODULE Eval_friction_law_mod
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                             time,iT,                                   & ! IN: time, inv Trafo
                             DISC,EQN,MESH,MPI,IO,BND)
-    !-------------------------------------------------------------------------!
-    USE output_rupturefront_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1804,8 +1787,7 @@ MODULE Eval_friction_law_mod
      ! this way, no subtimestep resolution possible
      IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
-         CALL output_rupturefront(iBndGP,iElem,iSide,time,DISC,MESH,MPI,IO)
-         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
         DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR

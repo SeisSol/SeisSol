@@ -953,14 +953,14 @@ MODULE TypesDef
      REAL, POINTER                          :: Strength(:,:) => NULL()                   !< save strength since it is used for bimaterial
      !RF output handled in tDynRup as it has to be computed in the friction solver
      INTEGER                                :: RF_output_on                     !< rupture front output on = 1, off = 0
+     INTEGER                                :: RFtime_on                        !< collect rupture time for Vr or RF output on=1, off=0
      LOGICAL, ALLOCATABLE                   :: RF(:,:)                          !< rupture front output for this GP: true or false
-     ! Magnitude output
+     ! Magnitude and energy output
      INTEGER                                :: magnitude_output_on              !< magnitude output on = 1, off = 0
      INTEGER                                :: energy_rate_output_on            !< fault energy rate output on = 1, off = 0 (currently moment rate and frictional energy rate)
      INTEGER                                :: energy_rate_printtimeinterval    !< fault energy rate print time interval
      LOGICAL, ALLOCATABLE                   :: magnitude_out(:)                 !< magnitude output: true or false
      REAL, ALLOCATABLE                      :: averaged_Slip(:)                 !< slip averaged per element (length all + elements in this domain)
-     !energy output
      ! declarate output types
      LOGICAL                                :: DR_output                        !< Dynamic Rupture output just for domains with "+" elements
      INTEGER                                :: OutputPointType                  !< Type of output (3: at certain pickpoint positions, 4: at every element , 5: option 3 + 4)
