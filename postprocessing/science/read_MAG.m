@@ -80,3 +80,7 @@ seismicmoment_dynecm = seismicmoment*10^7;
 disp(['Total scalar seismic moment is: ',num2str(seismicmoment),' [Nm]'])
 disp(['Total scalar seismic moment is: ',num2str(seismicmoment_dynecm),' [dyne cm]'])
 disp(' ')
+
+%Calculate moment magnitude
+mag = (2/3)*log10(seismicmoment_dynecm)-10.7;
+disp(['The moment magnitude M_w is:  ',num2str(mag)])
