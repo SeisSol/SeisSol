@@ -1,3 +1,4 @@
+
 %%
 % @file
 % This file is part of SeisSol.
@@ -63,13 +64,19 @@ ploton       = input('     Show plots? (1=yes, 0=no)                :   ');
 if (ploton == 1)
   dt_sample  = input('     Contour plot lines every... [in sec]     :   ');
 end;
-
+ds_data      = input('     Includes dyn.shear stress arrival? (1=yes, 0=no)         :   ');
 
 disp(' '),  disp('     Read data...' )
 
 % read in data
 Ssearch = sprintf('%s/%s',workingdir,'*-RF-*');
 liste=dir(Ssearch);
+
+if (ds_data==1)
+    ndat = 5; %x,y,z,RF,DS
+else
+    ndat = 4; %x,y,z,RF
+end
 
 files = {liste.name};
 istart=1;
@@ -79,7 +86,7 @@ for k=1:numel(files)
     fid = fopen(sfilename,'r');
 
     maxnumberlines = fscanf(fid,'%g',[1,1]);
-    data_tmp(:,:) = fscanf(fid,'%g',[4,maxnumberlines]);
+    data_tmp(:,:) = fscanf(fid,'%g',[ndat,maxnumberlines]);
     fclose(fid);
     [junk len] = size(data_tmp);
     iend=(istart-1)+len;
@@ -112,7 +119,12 @@ if (ploton == 1)
     disp(' '),  disp('     Prepare plot...' )
 
     % convert data (at the moment for xz plane only!)
-    x=data(1,:);z=data(3,:);t=data(4,:);
+    x=data(1,:);
+    z=data(3,:);
+    t=data(4,:);
+    if (ds_data==1)
+        ds_t=data(5,:);
+    end
 
     % spatial sampling of data
     nx = 300;
@@ -134,11 +146,25 @@ if (ploton == 1)
     % contour plot
     figure;
     V=0:dt_sample:max(t);
-    [c,h]= contour(X,Z,T,V,'k');
+    [c,h]= contour(X,Z,T,V);
     hold on
     axis equal;
+    h.LineWidth = 2;
+    clabel(c,h,'fontsize',12)
 
-    clabel(c,h,'color','k','fontsize',12)
+    if (ds_data==1)
+        %DS: project unstructured data on structured grid
+        index = find(ds_t>0); %plot only values greater than 0
+        T_prime=griddata(x(index),z(index),ds_t(index),X,Z,'cubic');
+
+        % contour plot
+        V=0:dt_sample:6; %max(ds_t);
+        [c1,h1]= contour(X,Z,T_prime,V);
+        axis equal;
+        h1.LineWidth = 2;
+        h1.LineStyle='--';
+        clabel(c1,h1,'Color','r','fontsize',12)
+    end
 
 elseif (ploton == 0)
     disp('No data is displayed!')

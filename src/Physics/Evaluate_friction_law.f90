@@ -369,6 +369,15 @@ MODULE Eval_friction_law_mod
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
 
+     !output time when shear stress is equal to the dynamic stress after rupture arrived
+     !currently only for linear slip weakening
+      IF ( (DISC%DynRup%rupture_time(iFace, iBndGP).GT.0.0) .AND. (DISC%DynRup%rupture_time(iFace, iBndGP) .LE. time)) THEN
+          IF(DISC%DynRup%DS(iFace,iBndGP) .AND. ABS(LocSlip).GE.LocD_C) THEN
+          DISC%DynRup%dynStress_time(iFace, iBndGP)=time
+          DISC%DynRup%DS(iFace,iBndGP) = .FALSE.
+          ENDIF
+      ENDIF
+
      !idem
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
         DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
@@ -542,6 +551,16 @@ MODULE Eval_friction_law_mod
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
+
+     !output time when shear stress is equal to the dynamic stress after rupture arrived
+     !currently only for linear slip weakening
+      IF ( (DISC%DynRup%rupture_time(iFace, iBndGP).GT.0.0) .AND. (DISC%DynRup%rupture_time(iFace, iBndGP) .LE. time)) THEN
+          IF(DISC%DynRup%DS(iFace,iBndGP) .AND. ABS(LocSlip).GE.LocD_C) THEN
+          DISC%DynRup%dynStress_time(iFace, iBndGP)=time
+          DISC%DynRup%DS(iFace,iBndGP) = .FALSE.
+          ENDIF
+      ENDIF
+
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
         DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
      ENDIF
@@ -591,7 +610,7 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
     REAL        :: Stress(1:6,1:nBndGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest, dynStress
+    REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: tmpSlip
     REAL        :: LocSR1,LocSR2
@@ -724,6 +743,16 @@ MODULE Eval_friction_law_mod
         DISC%DynRup%rupture_time(iFace, iBndGP)=time
         DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
      ENDIF
+
+     !output time when shear stress is equal to the dynamic stress after rupture arrived
+     !currently only for linear slip weakening
+      IF ( (DISC%DynRup%rupture_time(iFace, iBndGP).GT.0.0) .AND. (DISC%DynRup%rupture_time(iFace, iBndGP) .LE. time)) THEN
+          IF(DISC%DynRup%DS(iFace,iBndGP) .AND. ABS(LocSlip).GE.LocD_C) THEN
+          DISC%DynRup%dynStress_time(iFace, iBndGP)=time
+          DISC%DynRup%DS(iFace,iBndGP) = .FALSE.
+          ENDIF
+      ENDIF
+
 
      !idem
      IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN

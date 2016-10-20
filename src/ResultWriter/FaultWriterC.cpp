@@ -50,7 +50,7 @@
 static xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>* xdmfWriter = 0L;
 
 static char const * const labels[] = {
-  "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl","PSR", "RT"
+  "SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl","PSR", "RT", "DS"
 };
 
 #ifdef USE_MPI
@@ -115,6 +115,8 @@ void fault_hdf_init(const int* cells, const double* vertices,
 			variables.push_back(labels[15]);
 		if (outputMask[9])
 			variables.push_back(labels[16]);
+		if (outputMask[10])
+			variables.push_back(labels[17]);
 
 		// TODO get the timestep from the checkpoint
 		xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>(rank,

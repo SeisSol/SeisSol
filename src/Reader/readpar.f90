@@ -1265,7 +1265,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: OutputMask(10)
+    INTEGER                    :: OutputMask(11)
     INTEGER                    :: printtimeinterval
     INTEGER                    :: printIntervalCriterion
     INTEGER                    :: refinement_strategy, refinement
@@ -1280,7 +1280,7 @@ CONTAINS
     printtimeinterval_sec = 1d0
     printIntervalCriterion = 1
     OutputMask(:) = 1
-    OutputMask(4:10) = 0
+    OutputMask(4:11) = 0
     refinement_strategy = 2
     refinement = 2
     !
@@ -1294,24 +1294,48 @@ CONTAINS
     endif
 
     ! if 2, printtimeinterval is set afterwards, when dt is known
-    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:10) =  OutputMask(1:10)      ! read info of desired output 1/ yes, 0/ no
+    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:11) =  OutputMask(1:11)      ! read info of desired output 1/ yes, 0/ no
                                                                                      ! position: 1/ slip rate 2/ stress 3/ normal velocity
                                                                                      ! 4/ in case of rate and state output friction and state variable
-                                                                                     ! 5/ background values 6/Slip 7/rupture speed 8/slip 9/peak SR 10/rupture arrival
+                                                                                     ! 5/ background values 6/Slip 7/rupture speed 8/final slip 9/peak SR
+                                                                                     ! 10/rupture arrival 11/dynamic shear stress arrival
+
+
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
 
     IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. & 
-       DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1) THEN
+        DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1 .AND. &
+        DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.0) THEN
         logError(*) 'Undefined refinement strategy for fault output!'
         STOP
     ENDIF
 
     DISC%DynRup%DynRup_out_elementwise%refinement = refinement                 ! read info of desired refinement level : default 0
 
-   IF ((OutputMask(7).EQ.1) .AND. (DISC%DynRup%RFtime_on.EQ.0)) THEN
+    !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
+    IF (OutputMask(11).EQ.1) THEN
+        SELECT CASE (EQN%FL)
+               CASE(2,6,13,16,17,29,30) !LSW friction law cases
+                    !use only if RF_output=1
+                    IF (OutputMask(10).EQ.1) THEN
+                        ! set 'collecting DS time' to 1
+                        DISC%DynRup%DS_output_on = 1
+                    ELSE
+                        DISC%DynRup%DynRup_out_elementwise%OutputMask(10) = 1
+                        logInfo(*) 'RF output turned on when DS output is used'
+                        ! set 'collecting DS time' to 1
+                        DISC%DynRup%DS_output_on = 1
+                    ENDIF
+               CASE DEFAULT
+                    logError(*) 'Dynamic shear stress arrival output only for LSW friction laws.'
+        END SELECT
+    ENDIF
+
+    IF ((OutputMask(7).EQ.1) .AND. (DISC%DynRup%RFtime_on.EQ.0)) THEN
         ! set 'collecting RF time' to 1
         DISC%DynRup%RFtime_on = 1
-   ENDIF
+    ENDIF
+
 
   end SUBROUTINE readpar_faultElementwise
 
@@ -1469,7 +1493,7 @@ CONTAINS
     TYPE (tBoundary)                       :: BND
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
-    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, &
+    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file
 
     CHARACTER(600)                         :: FileName_BackgroundStress
@@ -1493,7 +1517,7 @@ CONTAINS
                                                 RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW, Nucleation, &
                                                 NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                                NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, &
+                                                NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
                                                 cohesion_max, cohesion_depth, read_fault_file
     !------------------------------------------------------------------------                                                                                   
@@ -1503,6 +1527,7 @@ CONTAINS
     Nucleation = 0
     FL = 0
     RF_output_on = 0
+    DS_output_on = 0
     magnitude_output_on = 0
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
@@ -1724,17 +1749,27 @@ CONTAINS
            END SELECT
 
            !OUTPUT
-           ! rupture front (RF) output on = 1, off = 0
+           ! rupture front (RF) output in extra files: on = 1, off = 0
            DISC%DynRup%RF_output_on = RF_output_on
 
            IF (DISC%DynRup%RF_output_on.EQ.1) THEN
               ! set 'collecting RF time' to 1
               DISC%DynRup%RFtime_on = 1
-              logInfo0(*) 'RF output on'
+              logInfo0(*) 'RF output in extra files on'
            ELSE
               DISC%DynRup%RFtime_on = 0
            ENDIF
            !
+           ! dynamic stress output on = 1, off = 0
+           DISC%DynRup%DS_output_on = DS_output_on
+           IF ((DISC%DynRup%DS_output_on.EQ.1).AND. (DISC%DynRup%RF_output_on.EQ.1)) THEN
+               logInfo0(*) 'DS output on'
+           ELSE IF ((DISC%DynRup%DS_output_on.EQ.1).AND. (DISC%DynRup%RF_output_on.EQ.0)) THEN
+               logInfo0(*) 'DS output on. For ouput in files, RF_output is turned on.'
+               DISC%DynRup%RF_output_on = 1
+               DISC%DynRup%RFtime_on = 1
+           ENDIF
+
 
            ! magnitude output on = 1, off = 0
            DISC%DynRup%magnitude_output_on = magnitude_output_on
