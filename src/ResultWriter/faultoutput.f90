@@ -307,10 +307,12 @@ CONTAINS
     ! in case of refined fault output elements, the rotation matrices are only stored for every mother tet
     ! in pickpoint case SubElem = 1, in refined elementwise case SubElem = number of subtets per element
     IF (DISC%DynRup%OutputPointType.EQ.4) THEN
-        IF(DISC%DynRup%DynRup_out_elementwise%refinement_strategy.eq.1) then
+        IF(DISC%DynRup%DynRup_out_elementwise%refinement_strategy.eq.1) THEN
             number_of_subtriangles=3
-        ELSE
+        ELSE IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.eq.2) THEN
             number_of_subtriangles=4
+        ELSE
+            number_of_subtriangles=1
         ENDIF
         SubElem = number_of_subtriangles**DISC%DynRup%DynRup_out_elementwise%refinement
     ELSE
@@ -730,6 +732,10 @@ CONTAINS
               IF (DynRup_output%OutputMask(10).EQ.1) THEN
                   OutVars = OutVars + 1
                   DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%rupture_time(iFace,iBndGP)
+              ENDIF
+              IF (DynRup_output%OutputMask(11).EQ.1) THEN
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%dynStress_time(iFace,iBndGP)
               ENDIF
           ENDIF
 

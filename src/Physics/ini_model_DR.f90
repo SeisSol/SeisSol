@@ -304,6 +304,7 @@ MODULE ini_model_DR_mod
                EQN%IniShearXZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
     ALLOCATE(  DISC%DynRup%Strength(MESH%Fault%nSide,DISC%Galerkin%nBndGP)  )
     ALLOCATE(  DISC%DynRup%RF(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
+    ALLOCATE(  DISC%DynRup%DS(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
     ALLOCATE(  DISC%DynRup%cohesion(MESH%Fault%nSide,DISC%Galerkin%nBndGP)  )
       
     ! Allocate and initialize magnitude output
@@ -319,18 +320,34 @@ MODULE ini_model_DR_mod
     
     ! ini rupture front output
     DISC%DynRup%RF = .FALSE.
+    !ini dyn.stress ouput
+    DISC%DynRup%DS = .FALSE.
 
-    ! Initialize '+'side elements
-    IF (DISC%DynRup%RFtime_on == 1) THEN
+    ! Initialize '+'side elements for RF und DS output
+    IF ((DISC%DynRup%RFtime_on .EQ. 1) .AND. (DISC%DynRup%DS_output_on .EQ. 1) ) THEN
        ! Loop over every mesh element
-       DO i = 1, MESH%Fault%nSide
-             IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
-       ENDDO
+           DO i = 1, MESH%Fault%nSide
+              IF (MESH%FAULT%Face(i,1,1) .NE. 0) THEN
+                 DISC%DynRup%RF(i,:) = .TRUE.
+                 DISC%DynRup%DS(i,:) = .TRUE.
+              ENDIF
+           ENDDO
+     ELSEIF ((DISC%DynRup%RFtime_on .EQ. 1) .AND. (DISC%DynRup%DS_output_on .EQ. 0 )) THEN
+           DO i = 1, MESH%Fault%nSide
+              IF (MESH%FAULT%Face(i,1,1) .NE. 0) THEN
+                 DISC%DynRup%RF(i,:) = .TRUE.
+              ENDIF
+          ENDDO
     ENDIF
+
 
     !T. Ulrich 8.2015 initial rupture time array (for Vr calculations)
     ALLOCATE(DISC%DynRup%rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
     DISC%DynRup%rupture_time(:,:)=0.
+
+    !time at which the shear stress is equal the dynamic stress
+    ALLOCATE(DISC%DynRup%dynStress_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+    DISC%DynRup%dynStress_time(:,:)=0.
 
     
     !frictional parameter initialization
