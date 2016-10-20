@@ -38,9 +38,87 @@
  **/
 #ifndef GAMBITWRITER_H_
 #define GAMBITWRITER_H_
+#include <cstdio>
+#include <ctime>
 
 #include "GMSH.h"
 
-void writeNEU(char const* filename, GMSH const& msh);
+template<unsigned DIM>
+struct GambitInfo {
+  static unsigned const Type;
+};
+
+template<unsigned DIM>
+void writeNEU(char const* filename, GMSH<DIM> const& msh) {
+  FILE* file;
+  file = fopen(filename, "w");
+  fprintf(file, "        CONTROL INFO 2.0.0\n");
+  fprintf(file, "** GAMBIT NEUTRAL FILE\n");
+  fprintf(file, "Gmsh mesh in GAMBIT neutral file format\n");
+  fprintf(file, "PROGRAM:                Gambit     VERSION:  2.0.0\n");
+  time_t rawtime;
+  struct tm* timeinfo;
+  time(&rawtime);
+  timeinfo = localtime(&rawtime);
+  char datestring[256];
+  strftime(datestring, sizeof(datestring), "%c", timeinfo);
+  fprintf(file, "%s\n", datestring);
+  fprintf(file, "     NUMNP     NELEM     NGRPS    NBSETS     NDFCD     NDFVL\n");
+  fprintf(file, " %9d %9d %9d %9d %9d %9d\n", msh.numVertices, msh.numElements, msh.materialGroups.size(), msh.boundaryConditions.size(), DIM, DIM);
+  fprintf(file, "ENDOFSECTION\n");
+  
+  // Vertices
+  fprintf(file, "   NODAL COORDINATES 2.0.0\n");
+  for (unsigned vertex = 0; vertex < msh.numVertices; ++vertex) {
+    fprintf(file, "%10d", vertex+1);
+    for (unsigned c = 0; c < DIM; ++c) {
+      fprintf(file, "%20.11e", msh.vertices[vertex][c]);
+    }
+    fprintf(file, "\n");
+  }
+  fprintf(file, "ENDOFSECTION\n");
+  
+  // Elements
+  fprintf(file, "      ELEMENTS/CELLS 2.0.0\n");
+  for (unsigned element = 0; element < msh.numElements; ++element) {
+    fprintf(file, "%8d %2d %2d ", element+1, GambitInfo<DIM>::Type, GMSH<DIM>::Element::NumNodes);
+    for (unsigned n = 0; n < GMSH<DIM>::Element::NumNodes; ++n) {
+      fprintf(file, "%8d", msh.elements[element].nodes[n]+1);
+    }
+    fprintf(file, "\n");
+  }
+  fprintf(file, "ENDOFSECTION\n");
+  
+  // Material groups
+  for (auto group = msh.materialGroups.cbegin(); group != msh.materialGroups.cend(); ++group) {
+    fprintf(file, "       ELEMENT GROUP 2.0.0\n");
+    fprintf(file, "GROUP: %10d ELEMENTS: %10d MATERIAL: %10d NFLAGS: %10d\n", group->first, group->second.size(), 2, 1);
+    fprintf(file, "Material group %d\n", group->first);
+    fprintf(file, "       0");
+    for (unsigned gm = 0; gm < group->second.size(); ++gm) {
+      if (gm % 10 == 0) {
+        fprintf(file, "\n");
+      }
+      fprintf(file, "%8d", group->second[gm]+1);
+    }
+    fprintf(file, "\n");
+    fprintf(file, "ENDOFSECTION\n");
+  }
+  
+  // Boundary conditions
+  for (auto boundaryCondition = msh.boundaryConditions.cbegin(); boundaryCondition != msh.boundaryConditions.cend(); ++boundaryCondition) {
+    fprintf(file, "       BOUNDARY CONDITIONS 2.0.0\n");
+    // collect members in group
+    fprintf(file, "%32d%8d%8d%8d%8d\n", boundaryCondition->first, 1, boundaryCondition->second.size(), 0, 6);
+    for (auto boundary = boundaryCondition->second.begin(); boundary < boundaryCondition->second.end(); ++boundary) {
+      fprintf(file, "%10d %5d %5d\n", boundary->element+1, GambitInfo<DIM>::Type, boundary->side+1);
+    }
+    fprintf(file, "ENDOFSECTION\n");
+  }
+  
+  fclose(file);
+}
+
+
 
 #endif

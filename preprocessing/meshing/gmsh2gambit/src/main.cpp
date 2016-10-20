@@ -43,27 +43,41 @@
 #include <utils/args.h>
 #include <iostream>
 
+template<unsigned DIM>
+void convert(std::string const& in, std::string const& out) {
+  std::cout << "Reading MSH..." << std::flush;
+  GMSH<DIM> msh(in.c_str());
+  std::cout << "finished." << std::endl;
+  std::cout << "Writing NEU..." << std::flush;
+  writeNEU(out.c_str(), msh);
+  std::cout << "finished." << std::endl;
+}
 
 int main(int argc, char** argv)
 {
   utils::Args args;
+  args.addOption("dim", 'd', "Dimension (Defaults to 3, put 2 here for SeisSol 2D)", utils::Args::Required, false);
   args.addOption("input", 'i', "Input file (.msh)");
   args.addOption("output", 'o', "Output file (.neu)");
 
 	if (args.parse(argc, argv) == utils::Args::Success) {
+    unsigned dim = args.getArgument<unsigned>("dim", 3);
     std::string in = args.getArgument<std::string>("input");
     std::string out = args.getArgument<std::string>("output");
     
     std::cout << "Reading MSH..." << std::flush;
-    GMSH msh = parseMSH(in.c_str());
-    std::cout << "finished." << std::endl;
-
-    std::cout << "Writing NEU..." << std::flush;
-    writeNEU(out.c_str(), msh);
-    std::cout << "finished." << std::endl;
-    
-    msh.free();
-    
+    switch (dim) {
+      case 3:
+        convert<3>(in, out);
+        break;
+      case 2:
+        std::cerr << "Warning: The z-coordinate will be ignored. If your mesh is not parallel to the z=0 plane, you will be in trouble." << std::endl;
+        convert<2>(in, out);
+        break;
+      default:
+        std::cerr << "Error: Only dim=2 and dim=3 are supported." << std::endl;
+        break;
+    }    
 	} else {
 		return -1;
 	}
