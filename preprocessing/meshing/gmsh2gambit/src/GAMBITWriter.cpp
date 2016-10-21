@@ -39,5 +39,5 @@
 
 #include "GAMBITWriter.h"
 
-unsigned const GambitInfo<2>::Type = 3;
-unsigned const GambitInfo<3>::Type = 6;
+template<> unsigned const GambitInfo<2>::Type = 3;
+template<> unsigned const GambitInfo<3>::Type = 6;
