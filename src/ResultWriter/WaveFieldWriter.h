@@ -115,8 +115,8 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/*   The boxBounds is in the format: xMin, xMax, yMin, yMax, zMin, zMax */
 	bool vertexInBox(const double * const boxBounds, const double * const vertexCoords) {
 		if (vertexCoords[0] <= boxBounds[1] && vertexCoords[0] >= boxBounds[0] &&
-			vertexCoords[1] <= boxBounds[3] && vertexCoords[1] >= boxBounds[2] &&
-			vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4]) {
+				vertexCoords[1] <= boxBounds[3] && vertexCoords[1] >= boxBounds[2] &&
+				vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4]) {
 			return true;
 		} else {
 			return false;

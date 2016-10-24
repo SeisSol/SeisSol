@@ -130,9 +130,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// m_extractRegion = true  : Extract region
 	// m_extractRegion = false : Entire region
 	m_extractRegion = outputRegionBounds[0] != 0.0 ||
-		outputRegionBounds[1] != 0.0 || outputRegionBounds[3] != 0.0 ||
-		outputRegionBounds[4] != 0.0 || outputRegionBounds[5] != 0.0 ||
-		outputRegionBounds[6] != 0.0;
+		outputRegionBounds[1] != 0.0 || outputRegionBounds[2] != 0.0 ||
+		outputRegionBounds[3] != 0.0 || outputRegionBounds[4] != 0.0 ||
+		outputRegionBounds[5] != 0.0;
 
 	if (m_extractRegion) {
 		/** Extract the elements and vertices based on user given bounds */
