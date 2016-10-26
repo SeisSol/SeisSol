@@ -7,4 +7,4 @@ You need to have the proj.4 and the NetCDF libraries installed and make sure tha
 `scons` in the main folder in order to compile rconv.
 
 ## Using rconv
-Starting rconv without arguments gives you a short introduction for using the tool. You may furthermore consult the correspdoning [Wiki entry](https://github.com/SeisSol/SeisSol/wiki/Standard-Rupture-Format).
+Starting rconv without arguments gives you a short introduction for using the tool. You may furthermore consult the [Wiki entry](https://github.com/SeisSol/SeisSol/wiki/Standard-Rupture-Format) about the Standard Rupture Format.
