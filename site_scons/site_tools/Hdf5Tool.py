@@ -100,7 +100,7 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
         if parallel:
             hdf5s[0], hdf5s[1] = hdf5s[1], hdf5s[0]
         for hdf5 in hdf5s:
-            flags = utils.pkgconfig.parse(conf, env, hdf5)
+            flags = utils.pkgconfig.parse(conf, hdf5)
             if flags:
                 break
 

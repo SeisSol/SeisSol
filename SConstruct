@@ -49,6 +49,7 @@ import commands
 # import helpers
 import arch
 import memlayout
+import libs
 
 # print the welcome message
 print '********************************************'
@@ -290,6 +291,12 @@ env['F90COM'] = env['F90PPCOM']
 # Use Fortran for linking
 env['LINK'] = env['F90']
 
+# Linker-flags for Fortran linking
+if env['compiler'] == 'intel':
+    env.Append(LINKFLAGS=['-nofor-main', '-cxxlib']) #Add -ldmalloc for ddt
+elif env['compiler'] == 'gcc':
+    env.Append(LIBS=['stdc++'])
+
 #
 # Scalasca
 #
@@ -310,6 +317,11 @@ if env['scalasca'] in ['default_2.x', 'kernels_2.x']:
     l_scorepArguments = l_scorepArguments + ' --mpp=none '
   if env['parallelization'] in ['mpi', 'hybrid']:
     l_scorepArguments = l_scorepArguments + ' --mpp=mpi '
+    # The following line is required for tests
+    env['CONF_PREFIX'] = """
+#include <mpi.h>
+void init() { MPI_Init(0, 0L); }
+"""
 
   if env['parallelization'] in ['mpi', 'none']:
     l_scorepCxxArguments = l_scorepArguments + ' --thread=none '
@@ -318,7 +330,10 @@ if env['scalasca'] in ['default_2.x', 'kernels_2.x']:
       # Seems to work with "RF_output_on = 0"
       l_scorepCxxArguments = l_scorepArguments + ' --thread=pthread '
     else:
-      l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
+      if libs.find(env, 'openmp', required=False, version='3.0'):
+        l_scorepCxxArguments = l_scorepArguments + ' --thread=omp:ancestry '
+      else:
+        l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
 
   for mode in ['F90']:
     env[mode] = 'scorep' + l_scorepArguments + ' --thread=none ' + env[mode]
@@ -364,12 +379,6 @@ elif env['compiler'] == 'gcc':
 if env['compiler'] == 'intel':
     # TODO Check if Fortran alignment is still necessary in the latest version
     env.Append(F90LFAGS=['-align', '-align', 'array64byte'])
-
-# Add  Linker-flags  for cross-compiling
-if env['compiler'] == 'intel':
-    env.Append(LINKFLAGS=['-nofor-main', '-cxxlib']) #Add -ldmalloc for ddt
-elif env['compiler'] == 'gcc':
-    env.Append(LIBS=['stdc++'])
 
 #
 # Architecture dependent settings
