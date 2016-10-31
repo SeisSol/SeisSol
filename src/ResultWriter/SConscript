@@ -59,6 +59,7 @@ writerFiles = [ 'analyse_seissol.f90',
 writerFiles += [ 'WaveFieldWriterC.cpp',
                  'WaveFieldWriterF.f90',
                  'WaveFieldWriter.cpp',
+				 'PostProcessor.cpp',
                  'FaultWriterC.cpp',
                  'FaultWriterF.f90' ]
 

@@ -230,6 +230,11 @@ class seissol::Interoperability {
    void enableCheckPointing( double i_checkPointInterval,
 		   const char *i_checkPointFilename, const char* i_checkPointBackend );
 
+   /**
+    * Gets the integration mask from the parameter file
+    **/
+   void getIntegrationMask( int* i_integrationMask );
+
    void initializeIO(double* mu, double* slipRate1, double* slipRate2,
 			  double* slip, double* slip1, double* slip2, double* state, double* strength,
 			  int numSides, int numBndGP, int refinement, int* outputMask,

@@ -68,8 +68,8 @@ template<typename T>
 struct seissol::initializers::Variable {
   unsigned index;
   LayerMask mask;
-  
-  Variable() : index(std::numeric_limits<unsigned>::max()) {}
+  unsigned count;
+  Variable() : index(std::numeric_limits<unsigned>::max()), count(1) {}
 };
 
 struct seissol::initializers::Bucket {

@@ -130,7 +130,7 @@ public:
   
   template<typename T>
   T& lookup(Variable<T> const& handle, unsigned meshId) const {
-    return m_ltsTree->var(handle)[ltsId(handle.mask, meshId)];
+    return m_ltsTree->var(handle)[ltsId(handle.mask, meshId)*handle.count];
   }
 };
 

@@ -84,8 +84,14 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/** Number of variables */
 	unsigned int m_numVariables;
 
+	/** Number of integrated variables */
+	unsigned int m_numIntegratedVariables;
+
 	/** Flag indicated which variables should be written */
 	bool* m_outputFlags;
+
+	/** Flag indicated which low variables should be written */
+	bool* m_lowOutputFlags;
 
 	/** Refined number of cells */
 	unsigned int m_numCells;
@@ -98,6 +104,9 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 
 	/** Pointer to the plastic strain */
 	const double* m_pstrain;
+
+	/** Pointer to the integrals */
+	const double* m_integrals;
 
 	/** Mapping from the cell order to dofs order */
 	unsigned int* m_map;
@@ -130,8 +139,9 @@ public:
 		  m_variableSubsampler(0L),
 		  m_numVariables(0),
 		  m_outputFlags(0L),
+		  m_lowOutputFlags(0L),
 		  m_numCells(0), m_numLowCells(0),
-		  m_dofs(0L), m_pstrain(0L),
+		  m_dofs(0L), m_pstrain(0L), m_integrals(0L),
 		  m_map(0L),
 		  m_lastTimeStep(-1),
 		  m_timeTolerance(0),
@@ -179,7 +189,7 @@ public:
 	 */
 	void init(unsigned int numVars, int order, int numAlignedDOF,
 			const MeshReader &meshReader,
-			const double* dofs,  const double* pstrain,
+			const double* dofs,  const double* pstrain, const double* integrals,
 			unsigned int* map,
 			int refinement, int timestep, int* outputMask, double* outputRegionBounds,
 			double timeTolerance);
@@ -248,6 +258,33 @@ public:
 			}
 		}
 
+		if (m_integrals) {
+			unsigned int offset = 0;
+			unsigned int flagOffset = WaveFieldWriterExecutor::NUM_LOWVARIABLES;
+		if (m_pstrain) {
+				offset = WaveFieldWriterExecutor::NUM_LOWVARIABLES;
+				flagOffset = 0;
+			}
+
+			nextId = offset;
+			for (unsigned int i = offset; i < offset+WaveFieldWriterExecutor::NUM_INTEGRATED_VARIABLES; i++) {
+				if (!m_lowOutputFlags[i+flagOffset])
+					continue;
+				double* managedBuffer = async::Module<WaveFieldWriterExecutor,
+				WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(m_variableBufferIds[1]+nextId);
+
+#ifdef _OPENMP
+				#pragma omp parallel for schedule(static)
+#endif // _OPENMP
+				for (unsigned int j = 0; j < m_numLowCells; j++)
+					managedBuffer[j] = m_integrals[m_map[j]
+							* m_numIntegratedVariables + nextId-offset];
+
+				sendBuffer(m_variableBufferIds[1]+nextId, m_numLowCells*sizeof(double));
+				nextId++;
+			}
+		}
+
 		WaveFieldParam param;
 		param.time = time;
 		call(param);
@@ -277,6 +314,8 @@ public:
 		m_variableSubsampler = 0L;
 		delete [] m_outputFlags;
 		m_outputFlags = 0L;
+		delete [] m_lowOutputFlags;
+		m_lowOutputFlags = 0L;
 		if (m_extractRegion) {
 			delete [] m_map;
 			m_map = 0L;

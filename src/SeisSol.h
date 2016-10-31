@@ -55,6 +55,7 @@
 
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
+#include "ResultWriter/PostProcessor.h"
 
 #define SEISSOL_VERSION_STRING "SVN Mainline"
 
@@ -100,6 +101,9 @@ private:
 
 	/** Wavefield output module */
 	writer::WaveFieldWriter m_waveFieldWriter;
+
+	/** PostProcessor module **/
+	writer::PostProcessor m_postProcessor;
 
 private:
 	/**
@@ -170,6 +174,13 @@ public:
 	{
 		return m_waveFieldWriter;
 	}
+
+	/** Get the post processor module
+	 */
+	 writer::PostProcessor& postProcessor()
+	 {
+		 return m_postProcessor;
+	 }
 
 	/**
 	 * Set the mesh reader

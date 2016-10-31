@@ -75,6 +75,7 @@
 #include <omp.h>
 #endif
 
+#include "SeisSol.h"
 #include "TimeCluster.h"
 #include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
@@ -588,6 +589,12 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                          energy[l_cell],
                                          pstrain[l_cell] );
 #endif
+#ifdef INTEGRATE_QUANTITIES
+  seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
+                                                              i_layerData,
+                                                              l_cell,
+                                      			              dofs[l_cell] );
+#endif // INTEGRATE_QUANTITIES
   }
 }
 
