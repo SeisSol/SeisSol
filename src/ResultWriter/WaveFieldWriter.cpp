@@ -304,7 +304,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		} else {
 			numLowVars = WaveFieldWriterExecutor::NUM_LOWVARIABLES + m_numIntegratedVariables;
 		}
-		logInfo(rank) << "Total number of extra variables " << numLowVars;
 
 		for (unsigned int i = 1; i < numLowVars; i++)
 			addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(double));
