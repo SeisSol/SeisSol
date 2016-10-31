@@ -67,6 +67,7 @@
  * @section DESCRIPTION
  * Memory management of SeisSol.
  **/
+#include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
 
