@@ -242,8 +242,10 @@ public:
 			nextId++;
 		}
 
+		// nextId is required in a manner similar to above for writing integrated variables
+		nextId = 0;
 		if (m_pstrain) {
-			for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_LOWVARIABLES; i++) {
+			for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++) {
 				double* managedBuffer = async::Module<WaveFieldWriterExecutor,
 						WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(m_variableBufferIds[1]+i);
 
@@ -252,23 +254,20 @@ public:
 #endif // _OPENMP
 				for (unsigned int j = 0; j < m_numLowCells; j++)
 					managedBuffer[j] = m_pstrain[m_map[j]
-							* WaveFieldWriterExecutor::NUM_LOWVARIABLES + i];
+							* WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES + i];
 
 				sendBuffer(m_variableBufferIds[1]+i, m_numLowCells*sizeof(double));
 			}
+			nextId = WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
 		}
+		
+		// This offset is used to access the correct variable in m_integrals
+		// If pstrain is enabled then the offset is set to NUM_PLASTICITY_VARIABLES otherwise it is set to 0
+		unsigned int offset = nextId;
 
 		if (m_integrals) {
-			unsigned int offset = 0;
-			unsigned int flagOffset = WaveFieldWriterExecutor::NUM_LOWVARIABLES;
-		if (m_pstrain) {
-				offset = WaveFieldWriterExecutor::NUM_LOWVARIABLES;
-				flagOffset = 0;
-			}
-
-			nextId = offset;
-			for (unsigned int i = offset; i < offset+WaveFieldWriterExecutor::NUM_INTEGRATED_VARIABLES; i++) {
-				if (!m_lowOutputFlags[i+flagOffset])
+			for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_INTEGRATED_VARIABLES; i++) {
+				if (!m_lowOutputFlags[i+WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES])
 					continue;
 				double* managedBuffer = async::Module<WaveFieldWriterExecutor,
 				WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(m_variableBufferIds[1]+nextId);
@@ -278,7 +277,7 @@ public:
 #endif // _OPENMP
 				for (unsigned int j = 0; j < m_numLowCells; j++)
 					managedBuffer[j] = m_integrals[m_map[j]
-							* m_numIntegratedVariables + nextId-offset];
+							* m_numIntegratedVariables + nextId - offset];
 
 				sendBuffer(m_variableBufferIds[1]+nextId, m_numLowCells*sizeof(double));
 				nextId++;

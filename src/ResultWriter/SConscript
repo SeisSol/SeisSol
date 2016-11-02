@@ -59,9 +59,11 @@ writerFiles = [ 'analyse_seissol.f90',
 writerFiles += [ 'WaveFieldWriterC.cpp',
                  'WaveFieldWriterF.f90',
                  'WaveFieldWriter.cpp',
-				 'PostProcessor.cpp',
                  'FaultWriterC.cpp',
                  'FaultWriterF.f90' ]
+
+if env['generatedKernels']:
+	writerFiles += ['PostProcessor.cpp']
 
 for i in writerFiles:
   env.sourceFiles.append(env.Object(i))

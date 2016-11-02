@@ -195,7 +195,7 @@ public:
 			m_lowOutputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[LOW_OUTPUT_FLAGS]));
 			// Variables
 			std::vector<const char*> lowVariables;
-			const char* lowVarNames[NUM_TOTALLOWVARS] = {
+			const char* lowVarNames[NUM_LOWVARIABLES] = {
 				"ep_xx",
 				"ep_yy",
 				"ep_zz",
@@ -214,7 +214,7 @@ public:
 				"displacement_z"
 			};
 
-			for (size_t i = 0; i < NUM_TOTALLOWVARS; i++) {
+			for (size_t i = 0; i < NUM_LOWVARIABLES; i++) {
 				if (m_lowOutputFlags[i]) {
 					lowVariables.push_back(lowVarNames[i]);
 				}
@@ -274,7 +274,7 @@ public:
 			m_lowWaveFieldWriter->addTimeStep(param.time);
 
 		nextId = 0;
-		for (unsigned int i = 0; i < NUM_TOTALLOWVARS; i++) {
+		for (unsigned int i = 0; i < NUM_LOWVARIABLES; i++) {
 			if (m_lowOutputFlags[i]) {
 				m_lowWaveFieldWriter->writeData(nextId,
 					static_cast<const double*>(info.buffer(m_variableBufferIds[1]+nextId)));
@@ -306,9 +306,9 @@ public:
 	}
 
 public:
-	static const unsigned int NUM_LOWVARIABLES = 7;
+	static const unsigned int NUM_PLASTICITY_VARIABLES = 7;
 	static const unsigned int NUM_INTEGRATED_VARIABLES = 9;
-	static const unsigned int NUM_TOTALLOWVARS = 16;
+	static const unsigned int NUM_LOWVARIABLES = NUM_PLASTICITY_VARIABLES+NUM_INTEGRATED_VARIABLES;
 };
 
 }
