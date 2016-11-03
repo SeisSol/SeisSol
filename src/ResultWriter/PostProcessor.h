@@ -70,7 +70,7 @@ public:
     	const double * const i_dofs);
     void setIntegrationMask(const int * const i_integrationMask);
     int getNumberOfVariables();
-    bool* getIntegrationMask();
+    void getIntegrationMask(bool* transferTo);
     void allocateMemory(seissol::initializers::LTSTree* ltsTree);
     const double* getIntegrals(seissol::initializers::LTSTree* ltsTree);
 };

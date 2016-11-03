@@ -241,14 +241,12 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 #ifdef GENERATEDKERNELS
 	// Set up for low order output flags
 	m_lowOutputFlags = new bool[WaveFieldWriterExecutor::NUM_LOWVARIABLES];
+	m_numIntegratedVariables = seissol::SeisSol::main.postProcessor().getNumberOfVariables();
 	for (size_t i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++) {
 		m_lowOutputFlags[i] = (pstrain != 0L);
 	}
-	for (size_t i = 0; i < WaveFieldWriterExecutor::NUM_INTEGRATED_VARIABLES; i++) {
-		m_lowOutputFlags[i+WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES] = seissol::SeisSol::main.postProcessor().getIntegrationMask()[i];
-	}
+	seissol::SeisSol::main.postProcessor().getIntegrationMask(&m_lowOutputFlags[WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES]);
 	param.bufferIds[LOW_OUTPUT_FLAGS] = addSyncBuffer(m_lowOutputFlags, WaveFieldWriterExecutor::NUM_LOWVARIABLES*sizeof(bool), true);
-	m_numIntegratedVariables = seissol::SeisSol::main.postProcessor().getNumberOfVariables();
 #endif
 	//
 	//  Low order I/O

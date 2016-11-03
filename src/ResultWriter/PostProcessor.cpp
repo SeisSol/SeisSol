@@ -53,9 +53,9 @@ void seissol::writer::PostProcessor::integrateQuantities(const double i_timestep
 void seissol::writer::PostProcessor::setIntegrationMask(const int * const i_integrationMask) {
 	unsigned int nextId = 0;
 	for (int i = 0; i < 9; i++) {
-		m_integrationMask[i] = (bool)i_integrationMask[i];
+		m_integrationMask[i] = (i_integrationMask[i] > 0);
 		if (m_integrationMask[i]) {
-			m_integerMap.push_back(nextId);
+			m_integerMap.push_back(i);
 			m_numberOfVariables++;
 			nextId++;
 		}
@@ -67,8 +67,10 @@ int seissol::writer::PostProcessor::getNumberOfVariables() {
 	return m_numberOfVariables;
 }
 
-bool* seissol::writer::PostProcessor::getIntegrationMask() {
-	return m_integrationMask;
+void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
+	for(int i = 0; i < 9; i++) {
+		transferTo[i] = m_integrationMask[i];
+	}
 }
 
 void seissol::writer::PostProcessor::allocateMemory(seissol::initializers::LTSTree* ltsTree) {
