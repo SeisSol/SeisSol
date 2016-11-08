@@ -2,7 +2,7 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Vishal Sontakke (vishal.sontakke AT tum.de)
  *
  * @section LICENSE
  * Copyright (c) 2016, SeisSol Group
@@ -35,59 +35,48 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Wave field Fortran interface
  */
 
-#include "Parallel/MPI.h"
+#ifndef POST_PROCESSOR_H
+#define POST_PROCESSOR_H
 
-#include "utils/logger.h"
+#include <vector>
+#include <Initializer/typedefs.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/preProcessorMacros.fpp>
 
-#include "SeisSol.h"
-#include "WaveFieldWriter.h"
-#include "Geometry/MeshReader.h"
-
-/** Map from cells to dofs (really required for GENERATEDKERNELS */
-static unsigned int* cellMap;
-
-extern "C"
+namespace seissol
 {
 
-void wavefield_hdf_init(int rank, const char* outputPrefix,
-		const double* dofs, const double* pstrain,
-		int numVars, int order, int numBasisFuncs,
-        int refinement,  int timestep, int* outputMask, double* outputRegionBounds)
+namespace writer
 {
-	seissol::SeisSol::main.waveFieldWriter().enable();
-	seissol::SeisSol::main.waveFieldWriter().setFilename(outputPrefix);
 
-	// Create the map (really required for clustered lts)
-	MeshReader& meshReader = seissol::SeisSol::main.meshReader();
-	cellMap = new unsigned int[meshReader.getElements().size()];
-#ifdef _OPENMP
-	#pragma omp parallel for
-#endif //_OPENMP
-	for (unsigned int i = 0; i < meshReader.getElements().size(); i++)
-		cellMap[i] = i;
+class PostProcessor {
+private:
+    bool m_integrationMask[9];
+    int m_numberOfVariables;
+    std::vector<int> m_integerMap;
+    seissol::initializers::Variable<real> m_integrals;
+public:
+    PostProcessor (): m_numberOfVariables(0), m_integerMap(0L) {
+        for (size_t i = 0; i < 9; i++) {
+            m_integrationMask[i] = false;
+        }
+    }
+    virtual ~PostProcessor () {}
+    void integrateQuantities(const double i_timestep,
+    	seissol::initializers::Layer& i_layerData, const unsigned int l_cell,
+    	const double * const i_dofs);
+    void setIntegrationMask(const int * const i_integrationMask);
+    int getNumberOfVariables();
+    void getIntegrationMask(bool* transferTo);
+    void allocateMemory(seissol::initializers::LTSTree* ltsTree);
+    const double* getIntegrals(seissol::initializers::LTSTree* ltsTree);
+};
 
-	seissol::SeisSol::main.waveFieldWriter().init(numVars, order, numBasisFuncs,
-			meshReader,	dofs, pstrain, 0L, cellMap, refinement, timestep, outputMask,
-			outputRegionBounds, 0);
-
-	// I/O is currently the last initialization that requires the mesh reader
-	seissol::SeisSol::main.freeMeshReader();
-}
-
-void wavefield_hdf_close()
-{
-	seissol::SeisSol::main.waveFieldWriter().close();
-	delete [] cellMap;
-}
-
-/**
- */
-void wavefield_hdf_write_step(double time)
-{
-	seissol::SeisSol::main.waveFieldWriter().write(time);
 }
 
 }
+
+#endif // POST_PROCESSOR_H

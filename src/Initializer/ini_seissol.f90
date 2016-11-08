@@ -109,6 +109,7 @@ CONTAINS
     INTEGER                        :: dummy(4)                                 !
     INTEGER                        :: nGraphVertex                             !
     INTEGER                        :: LocPoly                                  !
+	INTEGER						   :: IntegrationMask(1:9)					   !
     INTEGER, POINTER               :: MetisWeight(:)                           !
     REAL                           :: AnelasticFactor(7,10)                    ! Factor of additional cost due to anelasticity
     REAL                           :: OrderFactor(7)                           ! Factor of additional cost due to order
@@ -207,6 +208,18 @@ CONTAINS
                                                      i_checkPointFilename = trim(io%checkpoint%filename) // c_null_char, &
                                                      i_checkPointBackend = trim(io%checkpoint%backend) // c_null_char )
     endif
+
+#ifdef INTEGRATE_QUANTITIES
+	do i = 1,9
+		if ( io%IntegrationMask(i) ) then
+			IntegrationMask(i) = 1
+		else
+			IntegrationMask(i) = 0
+		end if
+	end do
+
+	call c_interoperability_getIntegrationMask( i_integrationMask = IntegrationMask(1:9) )
+#endif // INTEGRATE_QUANTITIES
 #endif
 
     ! Start mesh reading/computing section

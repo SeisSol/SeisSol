@@ -67,6 +67,7 @@
  * @section DESCRIPTION
  * Memory management of SeisSol.
  **/
+#include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
 
@@ -786,6 +787,7 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
   
   // Setup tree variables
   m_lts.addTo(m_ltsTree);
+  seissol::SeisSol::main.postProcessor().allocateMemory(&m_ltsTree);
   m_ltsTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
 
   /// From this point, the tree layout, variables, and buckets cannot be changed anymore

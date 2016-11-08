@@ -66,6 +66,7 @@ enum BufferTags {
 	VARIABLE0,
 	LOWCELLS,
 	LOWVERTICES,
+	LOW_OUTPUT_FLAGS,
 	LOWVARIABLE0,
 	BUFFERTAG_MAX = LOWVARIABLE0
 };
@@ -100,6 +101,9 @@ private:
 	/** Flag indicated which variables should be written */
 	const bool* m_outputFlags;
 
+	/** Flags indicating which low order variables should be written */
+	const bool* m_lowOutputFlags;
+
 #ifdef USE_MPI
 	/** The MPI communicator for the XDMF writer */
 	MPI_Comm m_comm;
@@ -110,7 +114,8 @@ public:
 		: m_waveFieldWriter(0L),
 		  m_lowWaveFieldWriter(0L),
 		  m_numVariables(0),
-		  m_outputFlags(0L)
+		  m_outputFlags(0L),
+		  m_lowOutputFlags(0L)
 #ifdef USE_MPI
 		  , m_comm(MPI_COMM_NULL)
 #endif // USE_MPI
@@ -186,17 +191,34 @@ public:
 		// Low order I/O
 		//
 		if (param.bufferIds[LOWCELLS] >= 0) {
-			// Pstrain enabled
-
+			// Pstrain or Integrated quantities enabled
+			m_lowOutputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[LOW_OUTPUT_FLAGS]));
 			// Variables
-			std::vector<const char*> lowVariables(NUM_LOWVARIABLES);
-			lowVariables[0] = "ep_xx";
-			lowVariables[1] = "ep_yy";
-			lowVariables[2] = "ep_zz";
-			lowVariables[3] = "ep_xy";
-			lowVariables[4] = "ep_yz";
-			lowVariables[5] = "ep_xz";
-			lowVariables[6] = "eta";
+			std::vector<const char*> lowVariables;
+			const char* lowVarNames[NUM_LOWVARIABLES] = {
+				"ep_xx",
+				"ep_yy",
+				"ep_zz",
+				"ep_xy",
+				"ep_yz",
+				"ep_xz",
+				"eta",
+				"int_sigma_xx",
+				"int_sigma_yy",
+				"int_sigma_zz",
+				"int_sigma_xy",
+				"int_sigma_yz",
+				"int_sigma_xz",
+				"displacement_x",
+				"displacement_y",
+				"displacement_z"
+			};
+
+			for (size_t i = 0; i < NUM_LOWVARIABLES; i++) {
+				if (m_lowOutputFlags[i]) {
+					lowVariables.push_back(lowVarNames[i]);
+				}
+			}
 
 			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
 				rank, (std::string(outputPrefix)+"-low").c_str(), lowVariables, param.timestep);
@@ -251,10 +273,15 @@ public:
 		if (m_lowWaveFieldWriter) {
 			m_lowWaveFieldWriter->addTimeStep(param.time);
 
-			for (unsigned int i = 0; i < NUM_LOWVARIABLES; i++) {
-				m_lowWaveFieldWriter->writeData(i,
-					static_cast<const double*>(info.buffer(m_variableBufferIds[1]+i)));
+		nextId = 0;
+		for (unsigned int i = 0; i < NUM_LOWVARIABLES; i++) {
+			if (m_lowOutputFlags[i]) {
+				m_lowWaveFieldWriter->writeData(nextId,
+					static_cast<const double*>(info.buffer(m_variableBufferIds[1]+nextId)));
+
+			nextId++;
 			}
+		}
 
 			m_lowWaveFieldWriter->flush();
 		}
@@ -279,7 +306,9 @@ public:
 	}
 
 public:
-	static const unsigned int NUM_LOWVARIABLES = 7;
+	static const unsigned int NUM_PLASTICITY_VARIABLES = 7;
+	static const unsigned int NUM_INTEGRATED_VARIABLES = 9;
+	static const unsigned int NUM_LOWVARIABLES = NUM_PLASTICITY_VARIABLES+NUM_INTEGRATED_VARIABLES;
 };
 
 }

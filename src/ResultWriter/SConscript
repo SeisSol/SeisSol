@@ -62,6 +62,9 @@ writerFiles += [ 'WaveFieldWriterC.cpp',
                  'FaultWriterC.cpp',
                  'FaultWriterF.f90' ]
 
+if env['generatedKernels']:
+	writerFiles += ['PostProcessor.cpp']
+
 for i in writerFiles:
   env.sourceFiles.append(env.Object(i))
 

@@ -159,6 +159,10 @@ extern "C" {
     		i_checkPointFilename, i_checkPointBackend );
   }
 
+  void c_interoperability_getIntegrationMask( int* i_integrationMask ) {
+    e_interoperability.getIntegrationMask( i_integrationMask );
+  }
+
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds) {
@@ -478,6 +482,10 @@ void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterva
   seissol::SeisSol::main.waveFieldWriter().setFilename( i_waveFieldFilename );
 }
 
+void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
+  seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
+}
+
 void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval,
 		const char *i_checkPointFilename, const char *i_checkPointBackend ) {
   seissol::SeisSol::main.simulator().setCheckPointInterval( i_checkPointInterval );
@@ -523,6 +531,7 @@ void seissol::Interoperability::initializeIO(
 			  seissol::SeisSol::main.meshReader(),
 			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
 			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+              seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
 			  m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
 			  refinement, waveFieldTimeStep, outputMask, outputRegionBounds,
 			  seissol::SeisSol::main.timeManager().getTimeTolerance());
