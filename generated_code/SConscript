@@ -56,8 +56,14 @@ def generate_code(target, source, env, for_signature):
 
 env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
 
+codeGenScript = str()
 if env['equations'].startswith('viscoelastic'):
-  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'], [env['equations'] + '.py', Glob('gemmgen/*.py')])
+  codeGenScript = env['equations']
+elif env['equations'].startswith('elastic'):
+  codeGenScript = 'dynamic_rupture'
+
+if len(codeGenScript) > 0:
+  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'], [codeGenScript + '.py', Glob('gemmgen/*.py')])
   buildDir = '#/' + env['buildDir'] if not os.path.isabs(env['buildDir']) else env['buildDir']
   env.Append(CPPPATH=buildDir)
 
