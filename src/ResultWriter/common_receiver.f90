@@ -140,8 +140,15 @@ CONTAINS
       !
       IF ( (io_x.GE.xmin).and.(io_x.LE.xmax).and.(io_y.GE.ymin).and.(io_y.LE.ymax) .and.(io_z.GE.zmin).and.(io_z.LE.zmax)) THEN
         !
+#ifdef OMP
+  !$omp parallel private(iElem)
+  !$omp do schedule(static)
+#endif
         DO iElem = 1, MESH%nElem
           IF(XYZInElement(io_x, io_y, io_z, iElem,1e-5,MESH,DISC)) THEN
+#ifdef OMP
+  !$omp critical
+#endif
             IO%UnstructRecpoint(i)%inside=.true.  ! Point is localized in an element
             IO%UnstructRecPoint(i)%index = iElem  ! Element number
             SELECT CASE(MESH%LocalElemType(iElem))
@@ -159,9 +166,16 @@ CONTAINS
             IO%UnstructRecpoint(i)%eta  = eta
             IO%UnstructRecpoint(i)%zeta = zeta
             IO%nlocalRecordPoint = IO%nlocalRecordPoint + 1
+#ifdef OMP
+  !$omp end critical
+#else
             EXIT
+#endif
           ENDIF
         ENDDO
+#ifdef OMP
+    !$omp end parallel   
+#endif
       ENDIF
     ENDDO
     !
