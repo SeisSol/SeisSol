@@ -63,7 +63,7 @@ elif env['equations'].startswith('elastic'):
   codeGenScript = 'dynamic_rupture'
 
 if len(codeGenScript) > 0:
-  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'], [codeGenScript + '.py', Glob('gemmgen/*.py')])
+  generated = env.Generate(['dr_gemms.cpp', 'dr_gemms.h', 'dr_init.cpp', 'dr_init.h', 'dr_sizes.h', 'dr_kernels.cpp', 'dr_kernels.h', 'dr_flops.h', 'dr_KernelTests.t.h'], [codeGenScript + '.py', Glob('gemmgen/*.py')])
   buildDir = '#/' + env['buildDir'] if not os.path.isabs(env['buildDir']) else env['buildDir']
   env.Append(CPPPATH=buildDir)
 

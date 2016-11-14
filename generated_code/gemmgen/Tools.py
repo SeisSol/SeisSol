@@ -136,7 +136,7 @@ def numberOfBasisFunctions(order):
 def alignedNumberOfBasisFunctions(order, architecture):
   return architecture.getAlignedDim(numberOfBasisFunctions(order))
 
-def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
+def generate(outputDir, db, kernels, libxsmmGenerator, architecture, prefix=''):
   Expr.analyseKernels(db, kernels)
 
   for matrixInfo in db.itervalues():
@@ -159,7 +159,7 @@ def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
       print('{:16} {}'.format(name, block))
       name = ''
 
-  generator = Generator.Generator(db, libxsmmGenerator, architecture)
+  generator = Generator.Generator(db, libxsmmGenerator, architecture, prefix)
   generator.generateKernels(outputDir, kernels)
   generator.generateInitializer(outputDir)
   generator.generateUnitTests(outputDir, kernels)

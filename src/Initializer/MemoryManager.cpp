@@ -80,6 +80,8 @@
 #define MATRIXXMLFILE "matrices_" STR(NUMBER_OF_BASIS_FUNCTIONS) ".xml"
 #endif
 
+#include <generated_code/dr_init.h>
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -100,6 +102,19 @@ void seissol::initializers::MemoryManager::initialize()
 
   // allocate thread-local LTS integration buffers
   allocateIntegrationBufferLTS();
+  
+  real* drGlobalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
+   for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
+    memcpy(
+      &drGlobalMatrixMem[ seissol::model::globalMatrixOffsets[matrix] ],
+      seissol::model::globalMatrixValues[matrix],
+      (seissol::model::globalMatrixOffsets[matrix+1] - seissol::model::globalMatrixOffsets[matrix]) * sizeof(real)
+    );
+  }
+  for (unsigned face = 0; face < 4; ++face) {
+    m_globalData.nodalFluxMatrices[face] = &drGlobalMatrixMem[ seissol::model::globalMatrixOffsets[face] ];
+    m_globalData.faceToNodalMatrices[face] = &drGlobalMatrixMem[ seissol::model::globalMatrixOffsets[4+face] ];
+  }
   
 // if equations == viscoelastic
 // @TODO Remove ifdef and generalize initialization

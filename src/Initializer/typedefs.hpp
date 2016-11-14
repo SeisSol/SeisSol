@@ -292,6 +292,9 @@ struct GlobalData {
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
    **/
   real *integrationBufferLTS;
+  
+  real* nodalFluxMatrices[4];
+  real* faceToNodalMatrices[4];
 };
 
 // data for the cell local integration

@@ -85,14 +85,15 @@ def functionName(name):
   return (functionName, base, index)
 
 class Generator:
-  def __init__(self, db, libxsmmGenerator, architecture):
+  def __init__(self, db, libxsmmGenerator, architecture, prefix=''):
     self.db = db
     self.libxsmmGenerator = libxsmmGenerator
     self.architecture = architecture
+    self.prefix = prefix
     
   def __generateGemms(self, outputDir, gemmlist):
-    cppFilename = outputDir + '/gemms.cpp'
-    hFilename = outputDir + '/gemms.h'
+    cppFilename = '{}/{}gemms.cpp'.format(outputDir,self.prefix)
+    hFilename = '{}/{}gemms.h'.format(outputDir,self.prefix)
     
     with Code.Cpp(cppFilename) as cpp:
       cpp('#ifndef NDEBUG')
@@ -187,7 +188,7 @@ class Generator:
       
     self.__generateGemms(outputDir, gemmlist)
 
-    with Code.Cpp(outputDir + '/kernels.h') as header:
+    with Code.Cpp('{}/{}kernels.h'.format(outputDir, self.prefix)) as header:
       with header.HeaderGuard('KERNELS'):
         with header.Namespace('seissol'):
           with header.Namespace('generatedKernels'):
@@ -198,10 +199,10 @@ class Generator:
               pointers = [value[i] + str(i) if value.has_key(i) else '0' for i in range(0, maxkey+1)]
               header('static void (* const {}[])({}) = {{ {} }};'.format(key, signatures[key], ', '.join(pointers)))
             
-    with Code.Cpp(outputDir + '/kernels.cpp') as cpp:
+    with Code.Cpp('{}/{}kernels.cpp'.format(outputDir, self.prefix)) as cpp:
       cpp.includeSys('cstring')
       cpp.includeSys('Initializer/preProcessorMacros.fpp')
-      cpp.include('gemms.h')
+      cpp.include(self.prefix + 'gemms.h')
       with cpp.Namespace('seissol'):
         with cpp.Namespace('generatedKernels'):
           for name, gk in generatedKernels:
@@ -219,7 +220,7 @@ class Generator:
                     formatOffset(operation['nameC'], operation['offsetC'])
                   ))
                   
-    with Code.Cpp(outputDir + '/flops.h') as header:
+    with Code.Cpp('{}/{}flops.h'.format(outputDir, self.prefix)) as header:
       with header.HeaderGuard('FLOPS'):
         with header.Namespace('seissol'):
           with header.Namespace('flops'):
@@ -247,7 +248,7 @@ class Generator:
       offset = self.db[globalMatrixValues[i]].requiredReals if globalMatrixValues.has_key(i) else 0
       globalMatrixOffsets.append(globalMatrixOffsets[-1] + offset)
       
-    with Code.Cpp(outputDir + '/sizes.h') as header:
+    with Code.Cpp('{}/{}sizes.h'.format(outputDir, self.prefix)) as header:
       with header.HeaderGuard('SIZES'):
         with header.Namespace('seissol'):
           with header.Namespace('model'):
@@ -259,7 +260,7 @@ class Generator:
                 if len(matrixInfo.blocks) == 1 and matrixInfo.blocks[0].ld > 0:
                   header('unsigned const ld = {};'.format(matrixInfo.blocks[0].ld))
     
-    hFilename = 'init.h'
+    hFilename = self.prefix + 'init.h'
     with Code.Cpp(outputDir + '/' + hFilename) as header:
       with header.HeaderGuard('INIT'):
         header.includeSys('cstring')
@@ -290,7 +291,7 @@ class Generator:
             header('unsigned const numGlobalMatrices = {};'.format(maxGlobalMatrixId+1))
                   
 
-    with Code.Cpp(outputDir + '/init.cpp') as cpp:
+    with Code.Cpp('{}/{}init.cpp'.format(outputDir, self.prefix)) as cpp:
       cpp.include(hFilename)      
       with cpp.Namespace('seissol'):
         with cpp.Namespace('model'):
@@ -332,15 +333,15 @@ class Generator:
       funName, base, index = functionName(name)  
       referenceKernels.append( (funName, rk) )
     
-    with Code.Cpp(outputDir + '/KernelTests.t.h') as test:
+    with Code.Cpp('{}/{}KernelTests.t.h'.format(outputDir, self.prefix)) as test:
       with test.HeaderGuard('TEST'):
         test.includeSys('cstdlib')
         test.includeSys('cstring')
         test.includeSys('ctime')
         test.includeSys('cxxtest/TestSuite.h')
         test.includeSys('Initializer/preProcessorMacros.fpp')
-        test.include('init.h')
-        test.include('kernels.h')
+        test.include(self.prefix + 'init.h')
+        test.include(self.prefix + 'kernels.h')
         with test.Ifndef('NDEBUG'):
           test('long long libxsmm_num_total_flops = 0;')
         with test.Namespace('seissol'):
