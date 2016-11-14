@@ -150,8 +150,6 @@ CONTAINS
     CALL readpar_discretisation(EQN,usMESH,DISC,SOURCE,IO)         !
     !                                                                        !
     CALL readpar_output(EQN,DISC,IO,CalledFromStructCode)          !
-    !                                                                        !        
-    CALL readpar_postprocessing(IO)          					   !
     !                                                                        !
     CALL readpar_abort(DISC,IO)                                    !
     !                                                                        !        
@@ -3208,40 +3206,7 @@ ALLOCATE( SpacePositionx(nDirac), &
         logInfo(*) 'Specified dt_fix            : ', DISC%FixTimeStep
         logInfo(*) 'Actual timestep is min of dt_CFL and dt_fix. '                                                     
     !                                                                         
-  END SUBROUTINE readpar_discretisation
-
-  !===========================================================================
-  ! P O S T P R O C E S S I N G               
-  !===========================================================================
-    SUBROUTINE readpar_postprocessing(IO)
-      !------------------------------------------------------------------------
-      IMPLICIT NONE 
-      !------------------------------------------------------------------------
-      TYPE (tInputOutput)   :: IO
-      !------------------------------------------------------------------------
-      ! local Variables
-      INTEGER               :: allocstat
-      !------------------------------------------------------------------------
-      INTENT(INOUT)      	:: IO
-      !------------------------------------------------------------------------
-      INTEGER				:: IntegrationMask(1:9)
-	  NAMELIST              /Postprocessing/ IntegrationMask
-  !------------------------------------------------------------------------  
-      !                                                                       
-      logInfo(*) '<--------------------------------------------------------->'        
-      logInfo(*) '<  P O S T P R O C E S S I N G                            >'        
-      logInfo(*) '<--------------------------------------------------------->'
-      ! Setting default values
-      IntegrationMask(:) = 0
-      !
-      READ(IO%UNIT%FileIn, nml = Postprocessing)                                                            
-      ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
-      IF (allocStat .NE. 0) THEN                                             !
-        logError(*) 'could not allocate IO%IntegrationMask in readpar!'      !
-        STOP                                                                 !
-      END IF
-      IO%IntegrationMask(1:9) = IntegrationMask(1:9)
-    END SUBROUTINE readpar_postprocessing                              
+  END SUBROUTINE readpar_discretisation                         
                                                                                                    
   !===========================================================================
   ! O U T P U T               
@@ -3267,7 +3232,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       !------------------------------------------------------------------------
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
-                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on
+                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9)
       REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, OutputRegionBounds(1:6)
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       character(LEN=64)                :: checkPointBackend
@@ -3275,7 +3240,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds
+                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask
     !------------------------------------------------------------------------  
     !                                                                       
       logInfo(*) '<--------------------------------------------------------->'        
@@ -3285,6 +3250,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       ! Setting default values
       OutputFile = 'data'
       iOutputMaskMaterial(:) =  0
+	  IntegrationMask(:) = 0
       Rotation = 0
       Format = 1
       Refinement = 0
@@ -3404,6 +3370,13 @@ ALLOCATE( SpacePositionx(nDirac), &
               STOP
           ENDIF
       END IF
+
+	  ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
+      IF (allocStat .NE. 0) THEN                                             !
+        logError(*) 'could not allocate IO%IntegrationMask in readpar!'      !
+        STOP                                                                 !
+      END IF
+      IO%IntegrationMask(1:9) = IntegrationMask(1:9)
 
       IF(DISC%Galerkin%pAdaptivity.GT.0) THEN
         IO%OutputMask(59) = .TRUE.
