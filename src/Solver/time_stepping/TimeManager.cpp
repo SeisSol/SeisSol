@@ -95,7 +95,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                      l_meshStructure,
                                      l_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                     l_globalDataCopies
+                                     ,l_globalDataCopies
 #endif
                                      );
 

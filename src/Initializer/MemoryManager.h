@@ -212,6 +212,8 @@ class seissol::initializers::MemoryManager {
      **/
     void initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader,
                                    struct GlobalData        &o_globalData );
+#else
+    void initializeGlobalData(struct GlobalData &o_globalData);
 #endif
 
     /**
@@ -309,7 +311,7 @@ class seissol::initializers::MemoryManager {
                           struct MeshStructure          *&o_meshStructure,
                           struct GlobalData             *&o_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                          struct GlobalData             *&o_globalDataCopies
+                          ,struct GlobalData             *&o_globalDataCopies
 #endif
                         );
                           

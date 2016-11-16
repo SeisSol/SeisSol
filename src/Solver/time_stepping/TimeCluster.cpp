@@ -543,7 +543,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                              +(cellInformation[l_cell].faceRelations[l_face][0]*3)
                                                              +(cellInformation[l_cell].faceRelations[l_face][1])];
     // fourth face's prefetches
-    if (l_cell < (i_numberOfCells-1) ) {
+    if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
       l_face = 0;
       l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell+1][l_face];
       l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(l_face*12)

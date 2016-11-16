@@ -106,34 +106,32 @@ void seissol::initializers::MemoryManager::initialize()
 // @TODO This implementation doesn't backport the support for multiple copies of global data
 // @TODO make sure that multiple copies of global data are still supported by this unified implementation
 #ifdef REQUIRE_SOURCE_MATRIX
-  real* globalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
-  for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
-    memcpy(
-      &globalMatrixMem[ seissol::model::globalMatrixOffsets[matrix] ],
-      seissol::model::globalMatrixValues[matrix],
-      (seissol::model::globalMatrixOffsets[matrix+1] - seissol::model::globalMatrixOffsets[matrix]) * sizeof(real)
-    );
-  }
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    m_globalData.stiffnessMatricesTransposed[transposedStiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
-  }
-  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    m_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[3 + stiffness] ];
-  }
-  for (unsigned flux = 0; flux < 52; ++flux) {
-    m_globalData.fluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + flux] ];
-  }
+#  ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
+  initializeGlobalData( m_globalData );
+#else
+  // determine the number of threads
+  unsigned int l_numberOfThreads = omp_get_max_threads();
+  unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
+  unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
+  logInfo(0) << "Number of GlobalData copies: " << l_numberOfCopies;
 
-  // @TODO Integrate this step into the code generator
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    real* matrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
-    for (unsigned i = 0; i < seissol::model::globalMatrixOffsets[transposedStiffness+1]-seissol::model::globalMatrixOffsets[transposedStiffness]; ++i) {
-      matrix[i] *= -1.0;
+  m_globalDataCopies = new GlobalData[l_numberOfCopies]; 
+
+  // initialize in parallel to obtain best possible NUMA placement
+  #pragma omp parallel
+  {
+    if (omp_get_thread_num()%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) {
+      // @TODO check why initializeGlobalMatrices is not thread-safe
+      #pragma omp critical
+      {
+        initializeGlobalData( m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY] );
+      }
     }
   }
 
-  // set LTS integration buffer
-  m_globalData.integrationBufferLTS = m_integrationBufferLTS;
+  // set master structure
+  m_globalData = m_globalDataCopies[0];
+#  endif
 #else
 
   XmlParser i_matrixReader(MATRIXXMLFILE);
@@ -427,6 +425,37 @@ void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seiss
   /*
    *  (thread-local) LTS integration buffers
    */
+  o_globalData.integrationBufferLTS = m_integrationBufferLTS;
+}
+#else
+void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalData &o_globalData )
+{
+  real* globalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
+  for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
+    memcpy(
+      &globalMatrixMem[ seissol::model::globalMatrixOffsets[matrix] ],
+      seissol::model::globalMatrixValues[matrix],
+      (seissol::model::globalMatrixOffsets[matrix+1] - seissol::model::globalMatrixOffsets[matrix]) * sizeof(real)
+    );
+  }
+  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+    o_globalData.stiffnessMatricesTransposed[transposedStiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
+  }
+  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
+    o_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[3 + stiffness] ];
+  }
+  for (unsigned flux = 0; flux < 52; ++flux) {
+    o_globalData.fluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + flux] ];
+  }
+
+  // @TODO Integrate this step into the code generator
+  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+    real* matrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
+    for (unsigned i = 0; i < seissol::model::globalMatrixOffsets[transposedStiffness+1]-seissol::model::globalMatrixOffsets[transposedStiffness]; ++i) {
+      matrix[i] *= -1.0;
+    }
+  }
+
   o_globalData.integrationBufferLTS = m_integrationBufferLTS;
 }
 #endif
@@ -864,7 +893,7 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
                                                             struct MeshStructure          *&o_meshStructure,
                                                             struct GlobalData             *&o_globalData
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                                            struct GlobalData             *&o_globalDataCopies
+                                                            ,struct GlobalData             *&o_globalDataCopies
 #endif
                                                           ) {
   o_meshStructure           =  m_meshStructure + i_cluster;

@@ -170,6 +170,8 @@ CONTAINS
         ALLOCATE ( EQN%PlastCo(MESH%nElem) )
         EQN%PlastCo(:) = EQN%PlastCo_0 !assign constant value from parameter file
         !add element-dependent assignement for special lintypes in the following
+        allocate(EQN%IniStress(6,MESH%nElem))
+        EQN%IniStress(:,:) = 0.0D0
     ENDIF
 
       SELECT CASE(EQN%LinType)
@@ -518,10 +520,6 @@ CONTAINS
         MaterialVal(:,1) = EQN%rho0
         MaterialVal(:,2) = EQN%mu
         MaterialVal(:,3) = EQN%lambda
-        ! Initialisation of IniStress(6 stress components in 3D)
-        !
-        ALLOCATE(EQN%IniStress(6,MESH%nElem))
-                 EQN%IniStress(:,:)=0.0D0
 
         DO iElem=1, MESH%nElem
 
@@ -561,8 +559,6 @@ CONTAINS
         MaterialVal(:,3) = EQN%lambda
 
 
-        ALLOCATE(EQN%IniStress(6,MESH%nElem))
-                 EQN%IniStress(:,:)=0.0D0
         b11 = 0.926793
         b33 = 1.073206
         b13 = -0.169029
@@ -681,9 +677,6 @@ CONTAINS
         ENDDO
       !
        IF (EQN%Plasticity.EQ.1) THEN
-         ALLOCATE(EQN%IniStress(6,MESH%nElem))
-               EQN%IniStress(:,:)=0.0D0
-
          DO iElem=1, MESH%nElem
 
                 z = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
@@ -713,10 +706,6 @@ CONTAINS
          BedrockVelModel(9,:) = (/ -31000.0, 2950.0, 4.2598e10, 5.1212e10/)
          BedrockVelModel(10,:) = (/ -50000.0, 3200.0, 6.4800e10, 6.5088e10/)
          !
-         IF (EQN%Plasticity.EQ.1) THEN !initialize stress loading in the volume for plasticity
-            ALLOCATE(EQN%IniStress(6,MESH%nElem))
-               EQN%IniStress(:,:)=0.0D0
-         ENDIF !Plasticity
 
          DO iElem = 1, MESH%nElem
              z = MESH%ELEM%xyBary(3,iElem)
