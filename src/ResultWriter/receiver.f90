@@ -519,6 +519,13 @@ CONTAINS
            CYCLE    ! If receiver is NOT in the (sub-)domain, continue.
         ENDIF
         !
+#ifdef GENERATEDKERNELS
+        time          = i_fullUpdateTime
+        dt            = i_timeStepWidth
+        localpicktime = i_receiverTime
+#endif
+        DO WHILE( (localpicktime.GE.time).AND.(localpicktime.LE.time+dt+1e-10).AND.(localpicktime.LE.DISC%EndTime+1e-10) )
+
         IF(j.LE.IO%nRecordPoint)THEN
 #ifdef PARALLEL
            WRITE(cmyrank,'(I5.5)') MPI%myrank                                   ! myrank -> cmyrank
@@ -537,12 +544,6 @@ CONTAINS
           CALL common_receiver_ck(EQN,MESH,DISC,IO,j,TaylorDof,dt,time,localpicktime,dt_op,time_op)
         END SELECT
         !
-#ifdef GENERATEDKERNELS
-        time          = i_fullUpdateTime
-        dt            = i_timeStepWidth
-        localpicktime = i_receiverTime
-#endif
-        DO WHILE( (localpicktime.GE.time).AND.(localpicktime.LE.time+dt+1e-10).AND.(localpicktime.LE.DISC%EndTime+1e-10) )
             !
             CALL common_receiver_interp(EQN,MESH,DISC,IO,j,TaylorDof,time,localpicktime,state,state_rot)
             !
