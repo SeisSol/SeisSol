@@ -50,6 +50,7 @@ import commands
 import arch
 import memlayout
 import libs
+import utils.gitversion
 
 # print the welcome message
 print '********************************************'
@@ -248,6 +249,10 @@ if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['par
 if not env.has_key('memLayout'):
   env['memLayout'] = memlayout.guessMemoryLayout(env)
 
+# Detect SeisSol version
+seissol_version = utils.gitversion.get(env)
+print 'Compiling SeisSol version:', seissol_version
+
 #
 # preprocessor, compiler and linker
 #
@@ -430,7 +435,6 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
 #
 # Basic preprocessor defines
 #
-
 # set precompiler mode for the number of quantities and basis functions
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
@@ -596,6 +600,9 @@ elif env['compiler'] == 'gcc':
 # get the source files
 env.sourceFiles = []
 env.generatedTestSourceFiles = []
+
+# Generate the version file
+utils.gitversion.generateHeader(env, target='#/src/version.h')
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)

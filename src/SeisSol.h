@@ -57,8 +57,6 @@
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
 
-#define SEISSOL_VERSION_STRING "SVN Mainline"
-
 class MeshReader;
 
 namespace seissol

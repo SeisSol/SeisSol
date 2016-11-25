@@ -15,6 +15,9 @@ com.apple.timemachine.supported
 # Kernel generator
 *.exe
 
+# Generated files
+src/version.h
+
 ## C++
 # Compiled Object files
 *.slo
