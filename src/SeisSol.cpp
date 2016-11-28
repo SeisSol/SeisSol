@@ -38,6 +38,7 @@
  * Main C++ SeisSol file
  */
 
+#include <limits.h>
 #include <unistd.h>
 
 #ifdef _OPENMP
