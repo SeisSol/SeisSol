@@ -156,7 +156,7 @@ public:
 
 // Create all template instances for call
 #define MODULES_CALL_INSTANCE(enum, func)                          \
-	template<>                                                 \
+	template<> inline                                          \
 	void seissol::Modules::call<seissol::enum>(Module* module) \
 	{                                                          \
 		module->func();                                    \
