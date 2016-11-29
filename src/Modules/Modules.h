@@ -42,6 +42,7 @@
 
 #include <cassert>
 #include <map>
+#include <utility>
 
 #include "utils/logger.h"
 
@@ -76,7 +77,7 @@ enum Hook
 class Modules
 {
 private:
-	std::map<int, Module*> m_hooks[MAX_HOOKS];
+	std::multimap<int, Module*> m_hooks[MAX_HOOKS];
 
 	Hook m_lastHook;
 
@@ -99,7 +100,7 @@ private:
 			logError() << "Trying to register for hook" << strHook(hook)
 				<< "but SeisSol was already processing" << strHook(m_lastHook);
 
-		m_hooks[hook][priority] = &module;
+		m_hooks[hook].insert(std::pair<const int, Module*>(priority, &module));
 	}
 
 	/**
@@ -108,7 +109,7 @@ private:
 	template<Hook hook>
 	void _callHook()
 	{
-		for (std::map<int, Module*>::iterator it = m_hooks[hook].begin();
+		for (std::multimap<int, Module*>::iterator it = m_hooks[hook].begin();
 				it != m_hooks[hook].end(); it++) {
 			call<hook>(it->second);
 		}
