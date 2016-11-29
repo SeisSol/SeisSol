@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,105 +35,59 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * MPI Wrapper
+ * Velocity field reader Fortran interface
  */
 
-#ifndef MPI_H
-#define MPI_H
+#ifdef _OPENMP
+#include <omp.h>
+#endif // _OPENMP
 
-#ifndef USE_MPI
-#include "Parallel/MPIDummy.h"
-#else // USE_MPI
+#include "AsagiModule.h"
 
-#include <mpi.h>
-
-#include "utils/logger.h"
-
-#include "async/Config.h"
-
-#include "Parallel/MPIBasic.h"
-
-#endif // USE_MPI
-
-namespace seissol
+seissol::asagi::AsagiModule::AsagiModule()
+	: m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads())
 {
+	// Register for the pre MPI hook
+	Modules::registerHook(*this, seissol::PRE_MPI);
 
-#ifndef USE_MPI
-typedef MPIDummy MPI;
-#else // USE_MPI
+	if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
+		m_mpiMode = MPI_WINDOWS;
 
-/**
- * MPI handling.
- *
- * Make sure only one instance of this class exists!
- */
-class MPI : public MPIBasic
-{
-private:
-	MPI_Comm m_comm;
-
-private:
-	MPI()
-		: m_comm(MPI_COMM_NULL)
-	{ }
-
-public:
-	~MPI()
-	{ }
-
-	/**
-	 * Initialize MPI
-	 */
-	void init(int &argc, char** &argv)
-	{
-		int required = (m_threadsafe ? MPI_THREAD_MULTIPLE : MPI_THREAD_SINGLE);
-		int provided;
-		MPI_Init_thread(&argc, &argv, required, &provided);
-
-		setComm(MPI_COMM_WORLD);
-
-		// Test this after setComm() to get the correct m_rank
-		if (required < provided)
-			logWarning(m_rank) << utils::nospace << "Required MPI thread support (" << required
-				<< ") is smaller than provided thread support (" << provided << ").";
+		// Emit a warning later
+		// TODO use a general logger that can buffer log messages and emit them later
+		Modules::registerHook(*this, seissol::POST_MPI_INIT);
 	}
-
-	void setComm(MPI_Comm comm)
-	{
-		m_comm = comm;
-
-		MPI_Comm_rank(comm, &m_rank);
-		MPI_Comm_size(comm, &m_size);
-	}
-
-	/**
-	 * @return The main communicator for the application
-	 */
-	MPI_Comm comm() const
-	{
-		return m_comm;
-	}
-
-	void barrier(MPI_Comm comm) const
-	{
-		MPI_Barrier(comm);
-	}
-
-	/**
-	 * Finalize MPI
-	 */
-	void finalize()
-	{
-		MPI_Finalize();
-	}
-
-public:
-	/** The only instance of the class */
-	static MPI mpi;
-};
-
-#endif // USE_MPI
-
 }
 
-#endif // MPI_H
+seissol::asagi::AsagiModule seissol::asagi::AsagiModule::instance;
+
+seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
+{
+#ifdef USE_MPI
+	const char* mpiModeName = utils::Env::get("SEISSOL_ASAGI_MPI_MODE", "WINDOWS");
+	if (strcmp(mpiModeName, "WINDOWS") == 0)
+		return MPI_WINDOWS;
+	if (strcmp(mpiModeName, "COMM_THREAD") == 0)
+		return MPI_COMM_THREAD;
+	if (strcmp(mpiModeName, "OFF") == 0)
+		return MPI_OFF;
+
+	logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
+#endif // USE_MPI
+
+	return MPI_OFF;
+}
+
+int seissol::asagi::AsagiModule::getTotalThreads()
+{
+	int totalThreads = 1;
+
+#ifdef _OPENMP
+	totalThreads = omp_get_max_threads();
+#ifdef USE_COMM_THREAD
+	totalThreads++;
+#endif // USE_COMM_THREAD
+#endif // _OPENMP
+
+	return totalThreads;
+}

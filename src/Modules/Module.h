@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,105 +35,71 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * MPI Wrapper
  */
 
-#ifndef MPI_H
-#define MPI_H
+#ifndef MODULE_H
+#define MODULE_H
 
-#ifndef USE_MPI
-#include "Parallel/MPIDummy.h"
-#else // USE_MPI
-
-#include <mpi.h>
-
-#include "utils/logger.h"
-
-#include "async/Config.h"
-
-#include "Parallel/MPIBasic.h"
-
-#endif // USE_MPI
+#include <climits>
 
 namespace seissol
 {
 
-#ifndef USE_MPI
-typedef MPIDummy MPI;
-#else // USE_MPI
-
 /**
- * MPI handling.
- *
- * Make sure only one instance of this class exists!
+ * Base class for all modules
  */
-class MPI : public MPIBasic
+class Module
 {
-private:
-	MPI_Comm m_comm;
-
-private:
-	MPI()
-		: m_comm(MPI_COMM_NULL)
-	{ }
+public:
+	/**
+	 * Possible priorites for modules
+	 *
+	 * @todo Use std::numeric_limits<int> as soon as we switch to
+	 *  C++0x
+	 */
+	enum Priority
+	{
+		MAX = INT_MIN,
+		HIGHEST = -10000,
+		HIGHER = -1000,
+		HIGH = -100,
+		DEFAULT = 0,
+		LOW = 100,
+		LOWER = 1000,
+		LOWEST = 10000,
+		MIN = INT_MAX
+	};
 
 public:
-	~MPI()
-	{ }
-
 	/**
-	 * Initialize MPI
+	 * Called before initializing MPI
 	 */
-	void init(int &argc, char** &argv)
+	virtual void preMPI()
 	{
-		int required = (m_threadsafe ? MPI_THREAD_MULTIPLE : MPI_THREAD_SINGLE);
-		int provided;
-		MPI_Init_thread(&argc, &argv, required, &provided);
-
-		setComm(MPI_COMM_WORLD);
-
-		// Test this after setComm() to get the correct m_rank
-		if (required < provided)
-			logWarning(m_rank) << utils::nospace << "Required MPI thread support (" << required
-				<< ") is smaller than provided thread support (" << provided << ").";
-	}
-
-	void setComm(MPI_Comm comm)
-	{
-		m_comm = comm;
-
-		MPI_Comm_rank(comm, &m_rank);
-		MPI_Comm_size(comm, &m_size);
 	}
 
 	/**
-	 * @return The main communicator for the application
+	 * Called after MPI initialization
 	 */
-	MPI_Comm comm() const
+	virtual void postMPIInit()
 	{
-		return m_comm;
-	}
-
-	void barrier(MPI_Comm comm) const
-	{
-		MPI_Barrier(comm);
 	}
 
 	/**
-	 * Finalize MPI
+	 * Called before the model is initialized
 	 */
-	void finalize()
+	virtual void preModel()
 	{
-		MPI_Finalize();
 	}
 
-public:
-	/** The only instance of the class */
-	static MPI mpi;
+	/**
+	 * Called after the model is initialized
+	 */
+	virtual void postModel()
+	{
+	}
 };
-
-#endif // USE_MPI
 
 }
 
-#endif // MPI_H
+#endif // MODULE_H

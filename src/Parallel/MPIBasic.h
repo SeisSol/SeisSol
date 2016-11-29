@@ -55,9 +55,13 @@ protected:
 	/** Number of processors */
 	int m_size;
 
+	/** Requires threadsafe MPI */
+	bool m_threadsafe;
+
 protected:
 	MPIBasic()
-		: m_rank(0), m_size(1)
+		: m_rank(0), m_size(1),
+		  m_threadsafe(false)
 	{ }
 
 public:
@@ -78,6 +82,11 @@ public:
 	int size() const
 	{
 		return m_size;
+	}
+
+	void requireThreadsafe()
+	{
+		m_threadsafe = true;
 	}
 
 };
