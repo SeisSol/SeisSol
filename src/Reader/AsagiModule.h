@@ -66,7 +66,7 @@ enum MPI_Mode
 class AsagiModule : public Module
 {
 private:
-	/** The (guessed) MPI mode used for ASAGI communication */
+	/** The MPI mode used for ASAGI communication */
 	MPI_Mode m_mpiMode;
 
 	/** The total number of threads (including the communication thread */
