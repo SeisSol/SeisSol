@@ -60,6 +60,8 @@
 #include "AsagiModule.h"
 #include "Monitoring/instrumentation.fpp"
 
+#endif // USE_ASAGI
+
 namespace seissol
 {
 
@@ -67,6 +69,8 @@ namespace asagi
 {
 
 typedef double vertex_t[3];
+
+#ifdef USE_ASAGI
 
 enum NUMACache_Mode
 {
@@ -308,10 +312,10 @@ private:
 	}
 };
 
-}
-
-}
-
 #endif // USE_ASAGI
+
+}
+
+}
 
 #endif // ASAGIREADER_H
