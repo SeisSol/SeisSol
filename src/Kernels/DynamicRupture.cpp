@@ -46,6 +46,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <stdint.h>
 
 #include <generated_code/dr_kernels.h>
 #include <Kernels/common.hpp>

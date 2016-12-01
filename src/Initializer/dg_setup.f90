@@ -1320,7 +1320,9 @@ CONTAINS
                                                  0:DISC%Galerkin%nPolyRec),                                            &
                  DISC%Galerkin%IntGPBaseFunc_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,0:DISC%Galerkin%nPolyRec),   &
 !                 DISC%Galerkin%BndGPBaseFunc3D_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**2,MESH%nSides_Tet),          &
+#ifndef GENERATEDKERNELS
                  Mesh%ELEM%BndBF_GP_Tet(0:MaxDegFr,DISC%Galerkin%nBndGP,MESH%nSides_Tet),                              &
+#endif
                  STAT = allocstat                                                                                      )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate all variables!'
@@ -1942,7 +1944,7 @@ CONTAINS
             ENDDO
         ENDDO
         !
-
+#ifndef GENERATEDKERNELS
         MESH%ELEM%BndBF_GP_Tet(:,:,:) = 0.0
 
         DO iSide = 1, MESH%nSides_Tet
@@ -2105,7 +2107,7 @@ CONTAINS
         ENDWHERE
         !
         ENDIF ! EQN%DR.EQ.1 - force GP matching at fault surface
-
+#endif ! GENERATEDKERNELS
 
 !        ! ------------------------------------------------------------
 !        ! ATTENUATION
