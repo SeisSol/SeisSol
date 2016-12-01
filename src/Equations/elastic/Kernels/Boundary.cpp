@@ -85,6 +85,8 @@
 #include <stdint.h>
 #include <cstddef>
 
+#include <generated_code/dr_kernels.h>
+
 seissol::kernels::Boundary::Boundary() {
   // intialize the function pointers to the matrix kernels
 #define BOUNDARY_KERNEL
@@ -183,6 +185,7 @@ void seissol::kernels::Boundary::flopsLocalIntegral( const enum faceType  i_face
 
 void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i_faceTypes[4],
                                                            const int           i_neighboringIndices[4][2],
+                                                           const CellDRMapping (&cellDrMapping)[4],
                                                                  real         *i_fluxMatrices[52],
                                                                  real         *i_timeIntegrated[4],
                                                                  real          i_fluxSolvers[4][    NUMBER_OF_QUANTITIES             *NUMBER_OF_QUANTITIES ],
@@ -280,6 +283,15 @@ void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i
       m_matrixKernels[53](   l_temporaryResult,    i_fluxSolvers[l_face],    io_degreesOfFreedom,
                              NULL,                 NULL,                     NULL                 );  // These will be be ignored
 #endif
+    } else if (i_faceTypes[l_face] == dynamicRupture) {
+      assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+      assert(((uintptr_t)cellDrMapping[l_face].fluxMatrix) % ALIGNMENT == 0);
+      seissol::generatedKernels::nodalFlux[cellDrMapping[l_face].fluxKernel](
+        cellDrMapping[l_face].fluxSolver,
+        cellDrMapping[l_face].godunov,
+        cellDrMapping[l_face].fluxMatrix,
+        io_degreesOfFreedom
+      );
     }
   }
 }

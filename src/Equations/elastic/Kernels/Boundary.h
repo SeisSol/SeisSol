@@ -213,6 +213,7 @@ class seissol::kernels::Boundary {
      **/
     void computeNeighborsIntegral( const enum faceType i_faceTypes[4],
                                    const int           i_neighboringIndices[4][2],
+                                   const CellDRMapping (&cellDrMapping)[4],
                                          real         *i_fluxMatrices[52],
                                          real         *i_timeIntegrated[4],
                                          real          i_fluxSolvers[4][    NUMBER_OF_QUANTITIES             *NUMBER_OF_QUANTITIES ],

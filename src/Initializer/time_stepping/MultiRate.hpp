@@ -126,33 +126,6 @@ class seissol::initializers::time_stepping::MultiRate {
     }
 
     /**
-     * Derives the ids of the cells with respect to time clusters based on the multi-rate scheme.
-     *
-     * @param i_minimumTimeStepWidth global minimum time step width.
-     * @param i_multiRate rate of the multi-rate scheme.
-     * @param i_numberOfCells number of cells.
-     * @param io_cellLocalInformation setup of the cells where each cell is assigned a cluster id.
-     **/
-    static void deriveCellIds( double                i_minimumTimeStepWidth,
-                               unsigned int          i_multiRate,
-                               unsigned int          i_numberOfCells,
-                               CellLocalInformation *io_cellLocalInformation ) {
-      logInfo() << "Deriving clusters ids for min. time step width / multiRate:" << i_minimumTimeStepWidth << "/"
-                                                                                 << i_multiRate;
-      // iterate over all cells
-      for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {
-        double   l_clusterTimeStepWidth;
-
-        // get the id for this cell
-        getMultiRateInfo( io_cellLocalInformation[l_cell].timeStepWidth,
-                          i_minimumTimeStepWidth,
-                          i_multiRate,
-                          l_clusterTimeStepWidth,
-                          io_cellLocalInformation[l_cell].clusterId );
-      }
-    }
-
-    /**
      * Derives the cluster ids the cells belong to.
      *
      * @param i_minimumTimeStepWidth global minimum time step width.

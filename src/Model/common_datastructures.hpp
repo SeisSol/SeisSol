@@ -46,6 +46,11 @@ namespace seissol {
       real lambda;
       real mu;
       real rho;
+    };    
+    struct IsotropicWaveSpeeds {
+      real density;
+      real pWaveVelocity;
+      real sWaveVelocity;
     };
   }
 }

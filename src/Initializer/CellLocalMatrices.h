@@ -46,6 +46,7 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/Lut.hpp>
 #include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/DynamicRupture.h>
 
 namespace seissol {
   namespace initializers {
@@ -56,6 +57,15 @@ namespace seissol {
                                        LTSTree*               io_ltsTree,
                                        LTS*                   i_lts,
                                        Lut*                   i_ltsLut );
+                                       
+     void initializeDynamicRuptureMatrices( MeshReader const&      i_meshReader,                                                    
+                                            LTSTree*               io_ltsTree,
+                                            LTS*                   i_lts,
+                                            Lut*                   i_ltsLut,
+                                            LTSTree*               dynRupTree,
+                                            DynamicRupture*        dynRup,
+                                            GlobalData const&      global,
+                                            TimeStepping const&    timeStepping );
   }
 }
 

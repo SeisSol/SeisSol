@@ -330,13 +330,22 @@ class seissol::Interoperability {
                                         double o_dofs[NUMBER_OF_DOFS] );
 
    /**
-    * Computes dynamic rupture on the faces.
+    * Compute fault output.
     *
     * @param i_fullUpdateTime full update time of the respective DOFs.
     * @param i_timeStepWidth time step width of the next full update.
-    **/
-   void computeDynamicRupture( double i_fullUpdateTime,
-                               double i_timeStepWidth );
+    **/                               
+   void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
+                               
+   void evaluateFrictionLaw(  int face,
+                              double godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
+                              double imposedStatePlus[seissol::model::godunovState::reals],
+                              double imposedStateMinus[seissol::model::godunovState::reals],
+                              double i_fullUpdateTime,
+                              double i_timeStepWidth,
+                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
+                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
+   
 
    /**
     * Computes plasticity.

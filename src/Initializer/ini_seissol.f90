@@ -438,6 +438,7 @@ CONTAINS
     logInfo(*) 'Galerkin3D module initialized correctly.'     !
     logInfo(*) ' '                                             !
                                                                               !
+#ifndef GENERATEDKERNELS
     !
     ! Precomputation of dynamic rupture matrices
     !
@@ -518,6 +519,7 @@ CONTAINS
       
       deallocate( MaterialVals, WaveSpeeds )
     endif
+#endif
 
     !                                                                          ! 
     logInfo(*) '<--------------------------------------------------------->'  !

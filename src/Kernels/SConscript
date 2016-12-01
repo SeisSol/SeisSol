@@ -40,7 +40,7 @@
 Import('env')
   
 if env['generatedKernels']:
-  solverFiles = [ 'TimeCommon.cpp' ]
+  solverFiles = [ 'TimeCommon.cpp', 'DynamicRupture.cpp' ]
   for i in solverFiles:
     env.sourceFiles.append(env.Object(i))
 

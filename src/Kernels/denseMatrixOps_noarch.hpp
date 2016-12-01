@@ -43,6 +43,7 @@
 #define DMO_INCREMENT 1
 #define DMO_BROADCAST(IN, OUT) real OUT = *(IN);
 #define DMO_STREAM(IN, OUT) *(OUT) = *(IN);
+#define DMO_SXT(S, X, Y) *(Y) = (S) * *(X);
 #define DMO_SXTYP(S, X, Y) *(Y) += (S) * *(X);
 #define DMO_XYMST(S, X, Y, Z) *(Z) = (*(X)-*(Y)) * (S);
 #define DMO_XYMSTZP(S, X, Y, Z) *(Z) += (*(X)-*(Y)) * (S);

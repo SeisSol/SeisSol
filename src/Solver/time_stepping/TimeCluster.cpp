@@ -80,6 +80,7 @@
 #include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
 #include <Kernels/TimeCommon.h>
+#include <Kernels/DynamicRupture.h>
 
 extern long long g_SeisSolNonZeroFlopsLocal;
 extern long long g_SeisSolHardwareFlopsLocal;
@@ -108,7 +109,9 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   struct GlobalData             *i_globalDataCopies,
 #endif
                                                   seissol::initializers::TimeCluster* i_clusterData,
-                                                  seissol::initializers::LTS*         i_lts  ):
+                                                  seissol::initializers::TimeCluster* i_dynRupClusterData,
+                                                  seissol::initializers::LTS*         i_lts,
+                                                  seissol::initializers::DynamicRupture* i_dynRup  ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -125,7 +128,9 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_globalDataCopies(        i_globalDataCopies         ),
 #endif
  m_clusterData(             i_clusterData              ),
+ m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
+ m_dynRup(                  i_dynRup                   ),
  // cells
  m_cellToPointSources(      NULL                       ),
  m_numberOfCellToPointSourcesMappings(0                ),
@@ -252,13 +257,46 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture() {
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   if( m_dynamicRuptureFaces == true ) {
-    e_interoperability.computeDynamicRupture( m_fullUpdateTime,
+    e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
+    
+    seissol::initializers::Layer& layerData = m_dynRupClusterData->child<Interior>();
+    DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
+    DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
+    real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
+    real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
+    real                                (*godunov)[CONVERGENCE_ORDER][seissol::model::godunovState::reals]  = layerData.var(m_dynRup->godunov);
+    real                                (*imposedStatePlus)[seissol::model::godunovState::reals]            = layerData.var(m_dynRup->imposedStatePlus);
+    real                                (*imposedStateMinus)[seissol::model::godunovState::reals]           = layerData.var(m_dynRup->imposedStateMinus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
+
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static)
+#endif
+  for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+    m_dynamicRuptureKernel.computeGodunovState( faceInformation[face],
+                                                m_globalData,
+                                               &godunovData[face],
+                                                timeDerivativePlus[face],
+                                                timeDerivativeMinus[face],
+                                                godunov[face] );
+
+    e_interoperability.evaluateFrictionLaw( static_cast<int>(face),
+                                            godunov[face],
+                                            imposedStatePlus[face],
+                                            imposedStateMinus[face],
+                                            m_fullUpdateTime,
+                                            m_timeStepWidth,
+                                            waveSpeedsPlus[face],
+                                            waveSpeedsMinus[face] );
+  }
+/*    e_interoperability.computeDynamicRupture( m_fullUpdateTime,
                                               m_timeStepWidth );
 
 #ifdef USE_MPI
     // TODO: This is not optimal as we are syncing all copy layers
     e_interoperability.synchronizeCopyLayerDofs();
-#endif
+#endif*/
   }
 }
 
@@ -482,6 +520,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   
   real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
   real*                     (*faceNeighbors)[4]             = i_layerData.var(m_lts->faceNeighbors);
+  CellDRMapping             (*drMapping)[4]                 = i_layerData.var(m_lts->drMapping);
   NeighboringIntegrationData* neighboringIntegration        = i_layerData.var(m_lts->neighboringIntegration);
   CellLocalInformation*       cellInformation               = i_layerData.var(m_lts->cellInformation);
 #ifdef USE_PLASTICITY
@@ -569,6 +608,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
     //       cannot generate a 0-id copy reference in the end as remainder handling
     m_neighborKernel.computeNeighborsIntegral( cellInformation[l_cell].faceTypes,
                                                cellInformation[l_cell].faceRelations,
+                                               drMapping[l_cell],
                                                l_globalData->fluxMatrices,
                                                l_timeIntegrated,
                                                neighboringIntegration[l_cell].nAmNm1,
@@ -718,6 +758,10 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
   testForCopyLayerSends();
 #endif
 
+  if( m_updatable.neighboringInterior ) { // If interior was not processed yet
+    computeDynamicRupture();
+  }
+
   computeNeighboringIntegration( m_clusterData->child<Copy>() );
 
   g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[NeighborCopy];
@@ -730,7 +774,6 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
 
   // compute dynamic rupture, update simulation time and statistics
   if( !m_updatable.neighboringInterior ) {
-    computeDynamicRupture();
     m_fullUpdateTime      += m_timeStepWidth;
     m_subTimeStart        += m_timeStepWidth;
     m_numberOfFullUpdates += 1;
@@ -746,12 +789,15 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
 
 void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
   SCOREP_USER_REGION( "computeNeighboringInterior", SCOREP_USER_REGION_TYPE_FUNCTION )
-
   // ensure a valid call
   if( !m_updatable.neighboringInterior ) {
     logError() << "Invalid call of computeNeighboringInterior, aborting:"
       << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
       << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
+  }
+
+  if( m_updatable.neighboringCopy ) { // If copy was not processed yet
+    computeDynamicRupture();
   }
 
   // Update all cells in the interior with the neighboring boundary contribution.
@@ -762,7 +808,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
 
   // compute dynamic rupture, update simulation time and statistics
   if( !m_updatable.neighboringCopy ) {
-    computeDynamicRupture();
     m_fullUpdateTime      += m_timeStepWidth;
     m_subTimeStart        += m_timeStepWidth;
     m_numberOfFullUpdates += 1;

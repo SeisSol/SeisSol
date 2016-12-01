@@ -4,9 +4,10 @@
 !!
 !! @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+!! @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 !!
 !! @section LICENSE
-!! Copyright (c) 2015, SeisSol Group
+!! Copyright (c) 2015-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -43,8 +44,12 @@
 module f_ctof_bind_interoperability
   implicit none
 
-  interface f_interoperability_computeDynamicRupture
-    module procedure f_interoperability_computeDynamicRupture
+  interface f_interoperability_faultOutput
+    module procedure f_interoperability_faultOutput
+  end interface
+
+  interface f_interoperability_evaluateFrictionLaw
+    module procedure f_interoperability_evaluateFrictionLaw
   end interface
 
   interface f_interoperability_writeReceivers
@@ -91,11 +96,10 @@ module f_ctof_bind_interoperability
       l_timeStep = l_domain%disc%iterationstep
     end subroutine
 
-    subroutine f_interoperability_computeDynamicRupture( i_domain, i_time, i_timeStepWidth ) bind (c, name='f_interoperability_computeDynamicRupture')
+    subroutine f_interoperability_faultOutput( i_domain, i_time, i_timeStepWidth ) bind (c, name='f_interoperability_faultOutput')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
-      use friction_mod
       use faultoutput_mod
       implicit none
 
@@ -110,11 +114,7 @@ module f_ctof_bind_interoperability
 
       integer :: i, rank_int
 
-      ! register scorep region dynamic rupture
-      SCOREP_USER_REGION_DEFINE( r_dr )
       SCOREP_USER_REGION_DEFINE( r_dr_output )
-
-      SCOREP_USER_REGION_BEGIN( r_dr, "dynamic_rupture", SCOREP_USER_REGION_TYPE_COMMON )
 
       ! convert c to fortran pointers
       call c_f_pointer( i_domain,        l_domain)
@@ -125,9 +125,129 @@ module f_ctof_bind_interoperability
       call faultoutput(l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%io, l_domain%mpi, l_domain%optionalFields%BackgroundValue, l_domain%bnd, l_time, l_timeStepWidth)
       SCOREP_USER_REGION_END( r_dr_output )
 
-      call friction(l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%optionalFields, l_domain%bnd, l_time, l_timeStepWidth)
-
       l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
+    end subroutine
+    
+    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_godunov, i_imposedStatePlus, i_imposedStateMinus, i_numberOfBasisFunctions2D, i_godunovLd, i_time, i_timeStepWidth, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      use Eval_friction_law_mod
+      use JacobiNormal_mod, only: RotationMatrix3D
+      implicit none
+
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      
+      integer(kind=c_int), value             :: i_face
+      integer(kind=c_int), value             :: i_numberOfBasisFunctions2D
+      integer(kind=c_int), value             :: i_godunovLd
+      
+      type(c_ptr), value                     :: i_godunov
+      real*8, pointer                        :: l_godunov(:,:,:)
+      
+      type(c_ptr), value                     :: i_imposedStatePlus
+      real*8, pointer                        :: l_imposedStatePlus(:,:)
+      
+      type(c_ptr), value                     :: i_imposedStateMinus
+      real*8, pointer                        :: l_imposedStateMinus(:,:)
+
+      type(c_ptr), value                     :: i_time
+      real*8, pointer                        :: l_time
+
+      type(c_ptr), value                     :: i_timeStepWidth
+      real*8, pointer                        :: l_timeStepWidth
+      
+      real(kind=c_double), value             :: densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus
+      
+      REAL        :: NormalVect_n(3)
+      REAL        :: NormalVect_s(3)
+      REAL        :: NormalVect_t(3)
+      REAL        :: T(9,9)
+      REAL        :: iT(9,9)
+      REAL        :: rho, rho_neig
+      REAL        :: w_speed(3),w_speed_neig(3)
+      
+      REAL        :: TractionGP_XY(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
+      REAL        :: TractionGP_XZ(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
+      REAL        :: NorStressGP(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
+      REAL        :: XYStressGP(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
+      REAL        :: XZStressGP(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
+      real        :: subTimeStepWidth
+
+      integer :: iSide, iElem, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, MPIIndex_DR, i, j
+      
+      ! register scorep region dynamic rupture
+      SCOREP_USER_REGION_DEFINE( r_dr )
+      SCOREP_USER_REGION_BEGIN( r_dr, "friction_law", SCOREP_USER_REGION_TYPE_COMMON )
+
+      ! convert c to fortran pointers
+      call c_f_pointer( i_domain,             l_domain)
+      call c_f_pointer( i_godunov,            l_godunov, [i_godunovLd,9,CONVERGENCE_ORDER])
+      call c_f_pointer( i_imposedStatePlus,   l_imposedStatePlus, [i_godunovLd,9])
+      call c_f_pointer( i_imposedStateMinus,  l_imposedStateMinus, [i_godunovLd,9])
+      call c_f_pointer( i_time,               l_time  )
+      call c_f_pointer( i_timeStepWidth,      l_timeStepWidth )
+      
+      iElem               = l_domain%MESH%Fault%Face(i_face,1,1)          ! Remark:
+      iSide               = l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
+      iNeighbor           = l_domain%MESH%Fault%Face(i_face,1,2)          ! iNeighbor denotes "-" side
+      iLocalNeighborSide  = l_domain%MESH%Fault%Face(i_face,2,2)
+      
+      NormalVect_n = l_domain%MESH%Fault%geoNormals(1:3,i_face)
+      NormalVect_s = l_domain%MESH%Fault%geoTangent1(1:3,i_face)
+      NormalVect_t = l_domain%MESH%Fault%geoTangent2(1:3,i_face)
+      CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),l_domain%EQN)
+      
+      rho = densityPlus
+      w_speed(:) = (/ pWaveVelocityPlus, sWaveVelocityPlus, sWaveVelocityPlus /)
+      rho_neig = densityMinus
+      w_speed_neig(:) = (/ pWaveVelocityMinus, sWaveVelocityMinus, sWaveVelocityMinus /)
+      
+      do j=1,CONVERGENCE_ORDER
+        do i=1,i_numberOfBasisFunctions2D
+          NorStressGP(i,j) = l_godunov(i,1,j)
+          XYStressGP(i,j) = l_godunov(i,4,j)
+          XZStressGP(i,j) = l_godunov(i,6,j)
+        enddo
+      enddo
+      
+      ! FIXME: Trouble if LTS would be used due to OpenMP race conditions
+      subTimeStepWidth = l_timeStepWidth / CONVERGENCE_ORDER
+      l_domain%DISC%Galerkin%TimeGaussP(1) = subTimeStepWidth
+      do j=2,CONVERGENCE_ORDER
+        l_domain%DISC%Galerkin%TimeGaussP(j) = l_domain%DISC%Galerkin%TimeGaussP(j-1) + subTimeStepWidth
+      enddo
+      
+      call Eval_friction_law( TractionGP_XY,TractionGP_XZ,        & ! OUT: updated Traction
+                              NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
+                              i_face,iSide,iElem,l_time,iT,          & ! IN: element ID, time, inv Trafo
+                              rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
+                              l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%bnd)
+
+      l_imposedStatePlus = 0.0
+      l_imposedStateMinus = 0.0
+
+      do j=1,CONVERGENCE_ORDER
+        do i=1,i_numberOfBasisFunctions2D
+          l_imposedStateMinus(i,1) = l_imposedStateMinus(i,1) + l_godunov(i,1,j)
+          l_imposedStateMinus(i,4) = l_imposedStateMinus(i,4) + TractionGP_XY(i,j)
+          l_imposedStateMinus(i,6) = l_imposedStateMinus(i,6) + TractionGP_XZ(i,j)
+          l_imposedStateMinus(i,7) = l_imposedStateMinus(i,7) + l_godunov(i,7,j)
+          l_imposedStateMinus(i,8) = l_imposedStateMinus(i,8) + l_godunov(i,8,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XY(i,j)-l_godunov(i,4,j))
+          l_imposedStateMinus(i,9) = l_imposedStateMinus(i,9) + l_godunov(i,9,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XZ(i,j)-l_godunov(i,6,j))
+        
+          l_imposedStatePlus(i,1) = l_imposedStatePlus(i,1) + l_godunov(i,1,j)
+          l_imposedStatePlus(i,4) = l_imposedStatePlus(i,4) + TractionGP_XY(i,j)
+          l_imposedStatePlus(i,6) = l_imposedStatePlus(i,6) + TractionGP_XZ(i,j)
+          l_imposedStatePlus(i,7) = l_imposedStatePlus(i,7) + l_godunov(i,7,j)
+          l_imposedStatePlus(i,8) = l_imposedStatePlus(i,8) + l_godunov(i,8,j) + 1.0D0/(w_speed(2)*rho) * (TractionGP_XY(i,j)-l_godunov(i,4,j))
+          l_imposedStatePlus(i,9) = l_imposedStatePlus(i,9) + l_godunov(i,9,j) + 1.0D0/(w_speed(2)*rho) * (TractionGP_XZ(i,j)-l_godunov(i,6,j))
+        enddo
+      enddo
+      
+      l_imposedStatePlus = subTimeStepWidth * l_imposedStatePlus
+      l_imposedStateMinus = subTimeStepWidth * l_imposedStateMinus
 
       SCOREP_USER_REGION_END( r_dr )
     end subroutine

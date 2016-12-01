@@ -112,8 +112,10 @@ void seissol::initializers::MemoryManager::initialize()
     );
   }
   for (unsigned face = 0; face < 4; ++face) {
-    m_globalData.nodalFluxMatrices[face] = &drGlobalMatrixMem[ seissol::model::globalMatrixOffsets[face] ];
-    m_globalData.faceToNodalMatrices[face] = &drGlobalMatrixMem[ seissol::model::globalMatrixOffsets[4+face] ];
+    for (unsigned h = 0; h < 4; ++h) {
+      m_globalData.nodalFluxMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::globalMatrixOffsets[4*face+h] ];
+      m_globalData.faceToNodalMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::globalMatrixOffsets[16 + 4*face+h] ];
+    }
   }
   
 // if equations == viscoelastic
@@ -795,7 +797,8 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
 }
 
 void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
-                                                          struct MeshStructure*       i_meshStructure )
+                                                          struct MeshStructure*       i_meshStructure,
+                                                          unsigned                    numFaultFaces )
 {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
@@ -818,6 +821,21 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
 
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();
+  
+  /// Dynamic rupture tree  
+  m_dynRup.addTo(m_dynRupTree);
+  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_dynRupTree.fixate();
+  
+  for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_dynRupTree.child(tc);
+    cluster.child<Ghost>().setNumberOfCells(0);
+    cluster.child<Copy>().setNumberOfCells(0);
+    cluster.child<Interior>().setNumberOfCells(numFaultFaces);
+  }
+  
+  m_dynRupTree.allocateVariables();
+  m_dynRupTree.touchVariables();
 }
 
 void seissol::initializers::MemoryManager::initializeMemoryLayout()

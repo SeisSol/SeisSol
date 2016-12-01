@@ -51,6 +51,7 @@
 #include <Kernels/equations.hpp>
 #include <Model/datastructures.hpp>
 #include <generated_code/sizes.h>
+#include <generated_code/dr_sizes.h>
 
 #include <cstddef>
 
@@ -138,9 +139,6 @@ struct CellLocalInformation {
 
   // unique global id of the time cluster
   unsigned int clusterId;
-
-  // maximum cfl time step width of this cell
-  double timeStepWidth;
 };
 
 struct MeshStructure {
@@ -293,8 +291,37 @@ struct GlobalData {
    **/
   real *integrationBufferLTS;
   
-  real* nodalFluxMatrices[4];
-  real* faceToNodalMatrices[4];
+   /** 
+   * Addresses of the global nodal flux matrices
+   *
+   *    0:  \f$ P^{+,1} \f$
+   *    1:  \f$ P^{-,1,1} \f$
+   *    2:  \f$ P^{-,1,2} \f$
+   *    3 : \f$ P^{-,1,3} \f$
+   *    4:  \f$ P^{+,2} \f$
+   *    5:  \f$ P^{-,2,1} \f$
+   *    6:  \f$ P^{-,2,2} \f$
+   *    7 : \f$ P^{-,2,3} \f$
+   *    [..]
+   *    15: \f$ P^{-,4,3} \f$
+   **/ 
+  real* nodalFluxMatrices[4][4];
+  
+  /** 
+   * Addresses of the global face to nodal matrices
+   *
+   *    0:  \f$ N^{+,1} \f$
+   *    1:  \f$ N^{-,1,1} \f$
+   *    2:  \f$ N^{-,1,2} \f$
+   *    3 : \f$ N^{-,1,3} \f$
+   *    4:  \f$ N^{+,2} \f$
+   *    5:  \f$ N^{-,2,1} \f$
+   *    6:  \f$ N^{-,2,2} \f$
+   *    7 : \f$ N^{-,2,3} \f$
+   *    [..]
+   *    15: \f$ N^{-,4,3} \f$
+   **/ 
+  real* faceToNodalMatrices[4][4];
 };
 
 // data for the cell local integration
@@ -371,6 +398,24 @@ struct PiecewiseLinearFunction1D {
   
   PiecewiseLinearFunction1D() : slopes(NULL), intercepts(NULL), numberOfPieces(0) {}
   ~PiecewiseLinearFunction1D() { delete[] slopes; delete[] intercepts; numberOfPieces = 0; }
+};
+
+struct DRFaceInformation {
+  unsigned plusSide;
+  unsigned minusSide;
+  unsigned faceRelation;
+};
+
+struct DRGodunovData {
+  real godunovMatrixPlus[seissol::model::godunovMatrix::reals];
+  real godunovMatrixMinus[seissol::model::godunovMatrix::reals];
+};
+
+struct CellDRMapping {
+  unsigned fluxKernel;
+  real* godunov;
+  real* fluxSolver;
+  real* fluxMatrix;
 };
 
 #endif

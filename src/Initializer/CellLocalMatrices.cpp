@@ -41,8 +41,10 @@
 #include "CellLocalMatrices.h"
 #include <Numerical_aux/Transformation.h>
 #include <Model/Setup.h>
+#include <Model/common.hpp>
 #include <Geometry/MeshTools.h>
 #include <generated_code/init.h>
+#include <generated_code/dr_init.h>
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,
@@ -190,5 +192,174 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     }
     
     ltsToMesh += it->getNumberOfCells();
+  }
+}
+
+void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
+                            unsigned               meshId,
+                            unsigned               side,
+                            double*                surfaceArea,
+                            double*                volume )
+{
+  std::vector<Vertex> const& vertices = i_meshReader.getVertices();
+  std::vector<Element> const& elements = i_meshReader.getElements();
+
+  real x[4];
+  real y[4];
+  real z[4];
+      
+  // Iterate over all 4 vertices of the tetrahedron
+  for (unsigned vertex = 0; vertex < 4; ++vertex) {
+    VrtxCoords const& coords = vertices[ elements[meshId].vertices[vertex] ].coords;
+    x[vertex] = coords[0];
+    y[vertex] = coords[1];
+    z[vertex] = coords[2];
+  }
+  
+  VrtxCoords normal;
+  VrtxCoords tangent1;
+  VrtxCoords tangent2;
+  MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
+  
+  *volume = MeshTools::volume(elements[meshId], vertices);
+  *surfaceArea = MeshTools::surface(normal);
+}
+
+void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const&      i_meshReader,
+                                                              LTSTree*               io_ltsTree,
+                                                              LTS*                   i_lts,
+                                                              Lut*                   i_ltsLut,
+                                                              LTSTree*               dynRupTree,
+                                                              DynamicRupture*        dynRup,
+                                                              GlobalData const&      global,
+                                                              TimeStepping const&/*    timeStepping*/ )
+{
+  real TData[seissol::model::godunovMatrix::rows * seissol::model::godunovMatrix::cols];
+  real TinvData[seissol::model::godunovMatrix::rows * seissol::model::godunovMatrix::cols];
+  real QgodLocalData[9*9];
+  real QgodNeighborData[9*9];
+  real APlusData[9*9];
+  real AMinusData[9*9];
+  
+  std::vector<Fault> const& fault = i_meshReader.getFault();
+  std::vector<Element> const& elements = i_meshReader.getElements();
+  CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
+  CellMaterialData* material = io_ltsTree->var(i_lts->material);
+  
+  for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost) | LayerMask(Copy)); it != dynRupTree->endLeaf(); ++it) {
+    real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
+    real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
+    real                                (*imposedStatePlus)[seissol::model::godunovState::reals]    = it->var(dynRup->imposedStatePlus);
+    real                                (*imposedStateMinus)[seissol::model::godunovState::reals]   = it->var(dynRup->imposedStateMinus);
+    DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
+    real                                (*fluxSolverPlus)[seissol::model::fluxSolver::reals]        = it->var(dynRup->fluxSolverPlus);
+    real                                (*fluxSolverMinus)[seissol::model::fluxSolver::reals]       = it->var(dynRup->fluxSolverMinus);
+    DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
+    
+#ifdef _OPENMP
+  #pragma omp parallel for private(TData, TinvData, QgodLocalData, QgodNeighborData, APlusData, AMinusData) schedule(static)
+#endif
+    for (unsigned face = 0; face < it->getNumberOfCells(); ++face) {
+      /// Face information
+      faceInformation[face].plusSide = fault[face].side;
+      faceInformation[face].minusSide = fault[face].neighborSide;
+      faceInformation[face].faceRelation = elements[ fault[face].element ].sideOrientations[ fault[face].side ] + 1;
+
+      /// Time derivative mapping
+      timeDerivativePlus[face] = &i_ltsLut->lookup(i_lts->derivatives, fault[face].element)[0];
+      timeDerivativeMinus[face] = &i_ltsLut->lookup(i_lts->derivatives, fault[face].neighborElement)[0];
+      
+      /// DR mapping for elements
+      for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
+        unsigned plusLtsId = i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].element, duplicate);
+        unsigned minusLtsId = i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].neighborElement, duplicate);
+        
+        if (plusLtsId != std::numeric_limits<unsigned>::max()) {
+          CellDRMapping& mapping = drMapping[plusLtsId][ faceInformation[face].plusSide ];
+          mapping.fluxKernel = 4*faceInformation[face].plusSide;
+          mapping.godunov = &imposedStatePlus[face][0];
+          mapping.fluxSolver = &fluxSolverPlus[face][0];
+          mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[face].plusSide ][0];
+        }
+        if (minusLtsId != std::numeric_limits<unsigned>::max()) {
+          CellDRMapping& mapping = drMapping[minusLtsId][ faceInformation[face].minusSide ];
+          mapping.fluxKernel = 4*faceInformation[face].minusSide + faceInformation[face].faceRelation;
+          mapping.godunov = &imposedStateMinus[face][0];
+          mapping.fluxSolver = &fluxSolverMinus[face][0];
+          mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[face].minusSide ][ faceInformation[face].faceRelation ];
+        }
+      }
+      
+      /// Transformation matrix
+      DenseMatrixView<seissol::model::godunovMatrix::rows, seissol::model::godunovMatrix::cols> T(TData);
+      DenseMatrixView<seissol::model::godunovMatrix::cols, seissol::model::godunovMatrix::rows> Tinv(TinvData);
+      seissol::model::getFaceRotationMatrix(fault[face].normal, fault[face].tangent1, fault[face].tangent2, T, Tinv);
+        
+      /// Materials
+      seissol::model::ElasticMaterial plusMaterial;
+      seissol::model::ElasticMaterial minusMaterial;
+      unsigned plusLtsId = i_ltsLut->ltsId(i_lts->material.mask, fault[face].element);
+      unsigned minusLtsId = i_ltsLut->ltsId(i_lts->material.mask, fault[face].neighborElement);
+      if (plusLtsId != std::numeric_limits<unsigned>::max()) {
+        plusMaterial = material[plusLtsId].local;
+        minusMaterial = material[plusLtsId].neighbor[ faceInformation[face].plusSide ];
+      } else {
+        assert(minusLtsId != std::numeric_limits<unsigned>::max());
+        plusMaterial = material[minusLtsId].neighbor[ faceInformation[face].minusSide ];
+        minusMaterial = material[minusLtsId].local;
+      }
+      
+      /// Wave speeds
+      waveSpeedsPlus[face].density = plusMaterial.rho;
+      waveSpeedsPlus[face].pWaveVelocity = sqrt( (plusMaterial.lambda + 2.0*plusMaterial.mu) / plusMaterial.rho);
+      waveSpeedsPlus[face].sWaveVelocity = sqrt( plusMaterial.mu / plusMaterial.rho);
+      waveSpeedsMinus[face].density = minusMaterial.rho;
+      waveSpeedsMinus[face].pWaveVelocity = sqrt( (minusMaterial.lambda + 2.0*minusMaterial.mu) / minusMaterial.rho);
+      waveSpeedsMinus[face].sWaveVelocity = sqrt( minusMaterial.mu / minusMaterial.rho);
+      
+      /// Godunov state
+      DenseMatrixView<9, 9> QgodLocal(QgodLocalData);
+      DenseMatrixView<9, 9> QgodNeighbor(QgodNeighborData);
+      seissol::model::getTransposedElasticGodunovState( plusMaterial, minusMaterial, QgodLocal, QgodNeighbor );
+      
+      MatrixView godunovMatrixPlus(godunovData[face].godunovMatrixPlus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
+      MatrixView godunovMatrixMinus(godunovData[face].godunovMatrixMinus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
+      for (unsigned j = 0; j < seissol::model::godunovMatrix::cols; ++j) {
+        for (unsigned i = 0; i < seissol::model::godunovMatrix::rows; ++i) {
+          for (unsigned k = 0; k < 9; ++k) {
+            godunovMatrixPlus(i, j) += Tinv(k, i) * QgodLocal(k, j);
+            godunovMatrixMinus(i, j) += Tinv(k, i) * QgodNeighbor(k, j);
+          }
+        }
+      }
+
+      MatrixView APlus(APlusData, sizeof(APlusData)/sizeof(real), &colMjrIndex<9>);
+      MatrixView AMinus(AMinusData, sizeof(AMinusData)/sizeof(real), &colMjrIndex<9>);
+      seissol::model::getTransposedElasticCoefficientMatrix(plusMaterial, 0, APlus);
+      seissol::model::getTransposedElasticCoefficientMatrix(minusMaterial, 0, AMinus);
+      
+      MatrixView fluxSolverPlusView(fluxSolverPlus[face], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
+      MatrixView fluxSolverMinusView(fluxSolverMinus[face], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
+      
+      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
+      surfaceAreaAndVolume( i_meshReader, fault[face].element, fault[face].side, &plusSurfaceArea, &plusVolume );
+      surfaceAreaAndVolume( i_meshReader, fault[face].neighborElement, fault[face].neighborSide, &minusSurfaceArea, &minusVolume );
+
+      double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
+      double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
+      for (unsigned j = 0; j < seissol::model::fluxSolver::cols; ++j) {
+        for (unsigned i = 0; i < seissol::model::fluxSolver::rows; ++i) {
+          for (unsigned k = 0; k < 9; ++k) {
+            fluxSolverPlusView(i, j) += APlus(i, k) * T(j, k);
+            fluxSolverMinusView(i, j) += AMinus(i, k) * T(j, k);
+          }
+          fluxSolverPlusView(i, j) *= fluxScalePlus;
+          fluxSolverMinusView(i, j) *= fluxScaleMinus;
+        }
+      }
+      
+    }
   }
 }
