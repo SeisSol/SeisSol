@@ -35,61 +35,49 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Velocity field reader Fortran interface
  */
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
+#ifndef FAULT_MPI_BASIC_H
+#define FAULT_MPI_BASIC_H
 
-#include "utils/env.h"
-
-#include "AsagiModule.h"
-
-seissol::asagi::AsagiModule::AsagiModule()
-	: m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads())
+namespace seissol
 {
-	// Register for the pre MPI hook
-	Modules::registerHook(*this, seissol::PRE_MPI);
 
-	if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
-		m_mpiMode = MPI_WINDOWS;
+class FaultMPIBasic
+{
+protected:
+	/** This rank */
+	int m_rank;
 
-		// Emit a warning later
-		// TODO use a general logger that can buffer log messages and emit them later
-		Modules::registerHook(*this, seissol::POST_MPI_INIT);
+	/** Number of processors */
+	int m_size;
+
+protected:
+	FaultMPIBasic()
+		: m_rank(0), m_size(0)
+	{}
+
+public:
+	~FaultMPIBasic()
+	{ }
+
+	/**
+	 * @return The rank of this process
+	 */
+	int rank() const
+	{
+		return m_rank;
 	}
+
+	/**
+	 * @return The total number of processes
+	 */
+	int size() const
+	{
+		return m_size;
+	}
+};
+
 }
 
-seissol::asagi::AsagiModule seissol::asagi::AsagiModule::instance;
-
-seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
-{
-#ifdef USE_MPI
-	const char* mpiModeName = utils::Env::get("SEISSOL_ASAGI_MPI_MODE", "WINDOWS");
-	if (strcmp(mpiModeName, "WINDOWS") == 0)
-		return MPI_WINDOWS;
-	if (strcmp(mpiModeName, "COMM_THREAD") == 0)
-		return MPI_COMM_THREAD;
-	if (strcmp(mpiModeName, "OFF") == 0)
-		return MPI_OFF;
-
-	logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
-#endif // USE_MPI
-
-	return MPI_OFF;
-}
-
-int seissol::asagi::AsagiModule::getTotalThreads()
-{
-	int totalThreads = 1;
-
-#ifdef _OPENMP
-	totalThreads = omp_get_max_threads();
-#ifdef USE_COMM_THREAD
-	totalThreads++;
-#endif // USE_COMM_THREAD
-#endif // _OPENMP
-
-	return totalThreads;
-}
+#endif // FAULT_MPI_BASIC_H

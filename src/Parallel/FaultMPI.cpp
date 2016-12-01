@@ -35,61 +35,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Velocity field reader Fortran interface
  */
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
+#include "FaultMPI.h"
+#include "MPI.h"
 
-#include "utils/env.h"
+#ifdef USE_MPI
 
-#include "AsagiModule.h"
-
-seissol::asagi::AsagiModule::AsagiModule()
-	: m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads())
+// These functions cannot be in the header file due to cyclic dependencies
+void seissol::FaultMPI::init(bool hasFault)
 {
-	// Register for the pre MPI hook
-	Modules::registerHook(*this, seissol::PRE_MPI);
+	int color = hasFault ? 0 : MPI_UNDEFINED;
+	MPI_Comm_split(MPI::mpi.comm(), color, MPI::mpi.rank(), &m_comm);
 
-	if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
-		m_mpiMode = MPI_WINDOWS;
-
-		// Emit a warning later
-		// TODO use a general logger that can buffer log messages and emit them later
-		Modules::registerHook(*this, seissol::POST_MPI_INIT);
+	if (hasFault) {
+		MPI_Comm_size(m_comm, &m_size);
+		MPI_Comm_rank(m_comm, &m_rank);
 	}
 }
 
-seissol::asagi::AsagiModule seissol::asagi::AsagiModule::instance;
-
-seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
-{
-#ifdef USE_MPI
-	const char* mpiModeName = utils::Env::get("SEISSOL_ASAGI_MPI_MODE", "WINDOWS");
-	if (strcmp(mpiModeName, "WINDOWS") == 0)
-		return MPI_WINDOWS;
-	if (strcmp(mpiModeName, "COMM_THREAD") == 0)
-		return MPI_COMM_THREAD;
-	if (strcmp(mpiModeName, "OFF") == 0)
-		return MPI_OFF;
-
-	logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
 #endif // USE_MPI
-
-	return MPI_OFF;
-}
-
-int seissol::asagi::AsagiModule::getTotalThreads()
-{
-	int totalThreads = 1;
-
-#ifdef _OPENMP
-	totalThreads = omp_get_max_threads();
-#ifdef USE_COMM_THREAD
-	totalThreads++;
-#endif // USE_COMM_THREAD
-#endif // _OPENMP
-
-	return totalThreads;
-}

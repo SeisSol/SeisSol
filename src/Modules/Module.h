@@ -86,6 +86,13 @@ public:
 	}
 
 	/**
+	 * Called after mesh initialization
+	 */
+	virtual void postMesh()
+	{
+	}
+
+	/**
 	 * Called before the model is initialized
 	 */
 	virtual void preModel()

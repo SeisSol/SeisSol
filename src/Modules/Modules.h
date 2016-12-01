@@ -64,6 +64,8 @@ enum Hook
 {
 	PRE_MPI,
 	POST_MPI_INIT,
+	/** @warning This will be triggered only with C++ mesh readers (not when Gambit3D-mixed is used) */
+	POST_MESH,
 	PRE_MODEL,
 	POST_MODEL,
 	FIRST_HOOK = PRE_MPI,
@@ -130,6 +132,8 @@ private:
 			return "PRE_MPI";
 		case POST_MPI_INIT:
 			return "POST_MPI_INIT";
+		case POST_MESH:
+			return "POST_MESH";
 		case PRE_MODEL:
 			return "PRE_MODEL";
 		case POST_MODEL:
@@ -164,6 +168,7 @@ public:
 
 MODULES_CALL_INSTANCE(PRE_MPI, preMPI)
 MODULES_CALL_INSTANCE(POST_MPI_INIT, postMPIInit)
+MODULES_CALL_INSTANCE(POST_MESH, postMesh)
 MODULES_CALL_INSTANCE(PRE_MODEL, preModel)
 MODULES_CALL_INSTANCE(POST_MODEL, postModel)
 

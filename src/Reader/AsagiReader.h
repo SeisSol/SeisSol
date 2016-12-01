@@ -45,7 +45,6 @@
 
 #include "Parallel/MPI.h"
 
-#include <cassert>
 #include <string>
 
 #include <asagi.h>
@@ -92,9 +91,25 @@ private:
 	/** Number of values in the grid */
 	unsigned int m_numValues;
 
+	/** The minimum of the domain */
+	glm::dvec3 m_min;
+
+	/** The maximum of the domain */
+	glm::dvec3 m_max;
+
+	/** The difference between two neighboring coordinates */
+	glm::dvec3 m_delta;
+
+	/** Buffer for interpolation */
+	float* m_tmpValues;
+
+	/** Buffer for interpolation */
+	float* m_tmpInterpolValues;
+
 public:
 	AsagiReader(const char* envPrefix)
-		: m_envPrefix(envPrefix), m_grid(0L), m_numValues(0)
+		: m_envPrefix(envPrefix), m_grid(0L), m_numValues(0),
+		  m_tmpValues(0L), m_tmpInterpolValues(0L)
 	{
 	}
 
@@ -103,12 +118,15 @@ public:
 		close();
 	}
 
-	void open(const char* file, unsigned int numValues)
+	/**
+	 * @return Number of variables found in the dataset
+	 */
+	unsigned int open(const char* file
+#ifdef USE_MPI
+			  , MPI_Comm comm = seissol::MPI::mpi.comm()
+#endif // USE_MPI
+	)
 	{
-		assert(numValues > 0);
-
-		m_numValues = numValues;
-
 		SCOREP_USER_REGION("AsagiReader_open", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 		const int rank = seissol::MPI::mpi.rank();
@@ -118,7 +136,7 @@ public:
 		// Set MPI mode
 		if (AsagiModule::mpiMode() != MPI_OFF) {
 #ifdef USE_MPI
-			m_grid->setComm(seissol::MPI::mpi.comm());
+			m_grid->setComm(comm);
 #endif // USE_MPI
 
 			if (AsagiModule::mpiMode() == MPI_COMM_THREAD)
@@ -178,12 +196,106 @@ public:
 		}
 		//SCOREP_RECORDING_ON();
 
-		if (m_grid->getVarSize() != numValues * sizeof(float))
-			logError() << "Invalid variable size in material file";
+		// Grid dimensions
+		m_min = glm::dvec3(m_grid->getMin(0), m_grid->getMin(1), m_grid->getMin(2));
+		m_max = glm::dvec3(m_grid->getMax(0), m_grid->getMax(1), m_grid->getMax(2));
+		m_delta = glm::dvec3(m_grid->getDelta(0), m_grid->getDelta(1), m_grid->getDelta(2));
+
+		// Number of variables
+		m_numValues = m_grid->getVarSize() / sizeof(float);
+		return m_numValues;
+	}
+
+	/**
+	 * @return 0 if the parameter from ASAGI was used, 1 otherwise
+	 * @tparam Setter A struct with function <code>set(float*)</code> which will
+	 *  be called with the corresponding values from ASAGI.
+	 */
+	template<class Setter>
+	int readValue(const vertex_t &coords, Setter setter, const float* defaultValues)
+	{
+		const glm::dvec3 coord(coords[0], coords[1], coords[2]);
+
+		// Compute the surrounding coordinates
+		glm::dvec3 shiftedBary = coord - m_min;
+		glm::dvec3 lowCoord = glm::floorMultiple(shiftedBary, m_delta) + m_min;
+		glm::dvec3 highCoord = glm::ceilMultiple(shiftedBary, m_delta) + m_min;
+
+		// Define pointer into the buffer (shortcut for later)
+		float * const tmpValues[8] = {m_tmpValues,
+			&m_tmpValues[m_numValues],
+			&m_tmpValues[m_numValues*2],
+			&m_tmpValues[m_numValues*3],
+			&m_tmpValues[m_numValues*4],
+			&m_tmpValues[m_numValues*5],
+			&m_tmpValues[m_numValues*6],
+			&m_tmpValues[m_numValues*7]
+		};
+
+		// Fix low/high if they are outside of the domain (but the bary center is inside)
+		// -> Should not be necessary if we use vertex centered grid
+//			if (glm::all(glm::greaterThanEqual(coord, min))
+//				&& glm::any(glm::lessThan(lowCoord, min)))
+//				lowCoord = glm::max(lowCoord, min);
+//			if (glm::all(glm::lessThanEqual(coord, max))
+//				&& glm::any(glm::greaterThan(highCoord, max)))
+//				highCoord = glm::min(highCoord, max);
+
+		if (glm::any(glm::lessThan(lowCoord, m_min))
+			|| glm::any(glm::greaterThan(highCoord, m_max))) {
+			// Outside the ASAGI domain
+
+			setter.set(defaultValues);
+
+			return 1;
+		}
+
+		// Get all 8 values
+		double pos[3];
+		pos[0] = lowCoord.x; pos[1] = lowCoord.y; pos[2] = lowCoord.z;
+		m_grid->getBuf(tmpValues[0], pos);
+		pos[0] = lowCoord.x; pos[1] = lowCoord.y; pos[2] = highCoord.z;
+		m_grid->getBuf(tmpValues[1], pos);
+		pos[0] = lowCoord.x; pos[1] = highCoord.y; pos[2] = lowCoord.z;
+		m_grid->getBuf(tmpValues[2], pos);
+		pos[0] = lowCoord.x; pos[1] = highCoord.y; pos[2] = highCoord.z;
+		m_grid->getBuf(tmpValues[3], pos);
+		pos[0] = highCoord.x; pos[1] = lowCoord.y; pos[2] = lowCoord.z;
+		m_grid->getBuf(tmpValues[4], pos);
+		pos[0] = highCoord.x; pos[1] = lowCoord.y; pos[2] = highCoord.z;
+		m_grid->getBuf(tmpValues[5], pos);
+		pos[0] = highCoord.x; pos[1] = highCoord.y; pos[2] = lowCoord.z;
+		m_grid->getBuf(tmpValues[6], pos);
+		pos[0] = highCoord.x; pos[1] = highCoord.y; pos[2] = highCoord.z;
+		m_grid->getBuf(tmpValues[7], pos);
+
+		// Do trilinear interpolation:
+		// https://en.wikipedia.org/wiki/Trilinear_interpolation
+		glm::dvec3 d = (coord - lowCoord) / m_delta;
+
+		for (unsigned int i = 0; i < m_numValues; i++) {
+			double c0[4];
+			for (unsigned int k = 0; k < 4; k++)
+				c0[k] = tmpValues[k][i]*(1-d.x) + tmpValues[k+4][i]*d.x;
+
+			double c1[2];
+			for (unsigned int k = 0; k < 2; k++)
+				c1[k] = c0[k]*(1-d.y) + c0[k+1]*d.y;
+
+			m_tmpInterpolValues[i] = c1[0]*(1-d.z) + c1[1]*d.z;
+		}
+
+		setter.set(m_tmpInterpolValues);
+		return 0;
 	}
 
 	/**
 	 * @param[out] outside Number of cells found outside the ASAGI grid
+	 * @tparam Setter A struct with a public attribute <code>i</code> and a function
+	 *  <code>set(float*)</code>. <code>i<code> will be set to the current
+	 *  element before calling <code>set(float*)</code> with the corresponding
+	 *  values from ASAGI. <code>set(float*)</code> needs to be threadsafe
+	 *  if OpenMP is enabled.
 	 */
 	template<class Setter>
 	void read(const vertex_t* coords, unsigned int numElements,
@@ -194,91 +306,21 @@ public:
 
 		const int rank = seissol::MPI::mpi.rank();
 
-		// Grid dimensions
-		const glm::dvec3 min(m_grid->getMin(0), m_grid->getMin(1), m_grid->getMin(2));
-		const glm::dvec3 max(m_grid->getMax(0), m_grid->getMax(1), m_grid->getMax(2));
-		const glm::dvec3 delta(m_grid->getDelta(0), m_grid->getDelta(1), m_grid->getDelta(2));
-
 		unsigned long outsideInt = 0;
 
 		// Allocate buffer
-		float* values[8];
-		for (unsigned int i = 0; i < 8; i++)
-			values[i] = new float[m_numValues];
-		float* interpolValues = new float[m_numValues];
+		m_tmpValues = new float[m_numValues*8];
+		m_tmpInterpolValues = new float[m_numValues];
 
 		//SCOREP_RECORDING_OFF();
 #ifdef _OPENMP
 		#pragma omp parallel for num_threads(m_asagiThreads) reduction(+: outsideInt)
 #endif // _OPENMP
 		for (int i = 0; i < numElements; i++) {
-			const glm::dvec3 coord(coords[i][0], coords[i][1], coords[i][2]);
-
-			// Compute the surrounding coordinates
-			glm::dvec3 shiftedBary = coord - min;
-			glm::dvec3 lowCoord = glm::floorMultiple(shiftedBary, delta) + min;
-			glm::dvec3 highCoord = glm::ceilMultiple(shiftedBary, delta) + min;
-
-			// Fix low/high if they are outside of the domain (but the bary center is inside)
-			// -> Should not be necessary if we use vertex centered grid
-//			if (glm::all(glm::greaterThanEqual(coord, min))
-//				&& glm::any(glm::lessThan(lowCoord, min)))
-//				lowCoord = glm::max(lowCoord, min);
-//			if (glm::all(glm::lessThanEqual(coord, max))
-//				&& glm::any(glm::greaterThan(highCoord, max)))
-//				highCoord = glm::min(highCoord, max);
-
-			if (glm::any(glm::lessThan(lowCoord, min))
-				|| glm::any(glm::greaterThan(highCoord, max))) {
-				// Outside the ASAGI domain
-
-				setter.set(i, defaultValues);
-
-				outside++;
-			} else {
-				// Get all 8 values
-				double pos[3];
-				pos[0] = lowCoord.x; pos[1] = lowCoord.y; pos[2] = lowCoord.z;
-				m_grid->getBuf(values[0], pos);
-				pos[0] = lowCoord.x; pos[1] = lowCoord.y; pos[2] = highCoord.z;
-				m_grid->getBuf(values[1], pos);
-				pos[0] = lowCoord.x; pos[1] = highCoord.y; pos[2] = lowCoord.z;
-				m_grid->getBuf(values[2], pos);
-				pos[0] = lowCoord.x; pos[1] = highCoord.y; pos[2] = highCoord.z;
-				m_grid->getBuf(values[3], pos);
-				pos[0] = highCoord.x; pos[1] = lowCoord.y; pos[2] = lowCoord.z;
-				m_grid->getBuf(values[4], pos);
-				pos[0] = highCoord.x; pos[1] = lowCoord.y; pos[2] = highCoord.z;
-				m_grid->getBuf(values[5], pos);
-				pos[0] = highCoord.x; pos[1] = highCoord.y; pos[2] = lowCoord.z;
-				m_grid->getBuf(values[6], pos);
-				pos[0] = highCoord.x; pos[1] = highCoord.y; pos[2] = highCoord.z;
-				m_grid->getBuf(values[7], pos);
-
-				// Do trilinear interpolation:
-				// https://en.wikipedia.org/wiki/Trilinear_interpolation
-				glm::dvec3 d = (coord - lowCoord) / delta;
-
-				for (unsigned int j = 0; j < 3; j++) {
-					double c0[4];
-					for (unsigned int k = 0; k < 4; k++)
-						c0[k] = values[k][j]*(1-d.x) + values[k+4][j]*d.x;
-
-					double c1[2];
-					for (unsigned int k = 0; k < 2; k++)
-						c1[k] = c0[k]*(1-d.y) + c0[k+1]*d.y;
-
-					interpolValues[j] = c1[0]*(1-d.z) + c1[1]*d.z;
-				}
-
-				setter.set(i, interpolValues);
-			}
+			setter.i = i;
+			outsideInt += readValue(coords[i], setter, defaultValues);
 		}
 		//SCOREP_RECORDING_ON();
-
-		for (unsigned int i = 0; i < 8; i++)
-			delete [] values[i];
-		delete [] interpolValues;
 
 #ifdef USE_MPI
 		if (rank == 0)
@@ -291,6 +333,11 @@ public:
 
 	void close()
 	{
+		delete [] m_tmpValues;
+		m_tmpValues = 0L;
+		delete [] m_tmpInterpolValues;
+		m_tmpInterpolValues = 0L;
+
 		delete m_grid;
 		m_grid = 0L;
 	}

@@ -40,6 +40,8 @@
 #ifndef MPI_BASIC_H
 #define MPI_BASIC_H
 
+#include "FaultMPI.h"
+
 namespace seissol
 {
 
@@ -57,6 +59,10 @@ protected:
 
 	/** Requires threadsafe MPI */
 	bool m_threadsafe;
+
+public:
+	/** The fault MPI wrapper */
+	FaultMPI fault;
 
 protected:
 	MPIBasic()

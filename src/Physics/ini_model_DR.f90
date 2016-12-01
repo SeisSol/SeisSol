@@ -52,6 +52,7 @@ MODULE ini_model_DR_mod
   USE DGBasis_mod
   USE read_backgroundstress_mod
   USE faultinput_mod
+  use StressReader
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
   PRIVATE
@@ -202,7 +203,7 @@ MODULE ini_model_DR_mod
     CASE(1202)
        CALL background_SUMATRA_RS(DISC,EQN,MESH,BND)
     case(1500)
-       call background_asagi(disc, eqn, mesh, bnd)
+       call background_asagi(io, disc, eqn, mesh, bnd)
     !
     ! Add your background stress model subroutine call here
     !
@@ -3973,12 +3974,14 @@ MODULE ini_model_DR_mod
   END SUBROUTINE background_TPV103       !  SCEC TPV103 test with velocity weakening friction (based on slip law)
 
   ! Initialize background stress via ASAGI
-  subroutine background_asagi(disc, eqn, mesh, bnd)
+  subroutine background_asagi(io, disc, eqn, mesh, bnd)
   !-------------------------------------------------------------------------!
   USE DGBasis_mod
+  use, intrinsic :: iso_c_binding
   !-------------------------------------------------------------------------!
   IMPLICIT NONE
   !-------------------------------------------------------------------------!
+  TYPE(tInputOutput)             :: IO
   TYPE(tDiscretization), target  :: DISC
   TYPE(tEquations)               :: EQN
   TYPE(tUnstructMesh)            :: MESH
@@ -3992,9 +3995,20 @@ MODULE ini_model_DR_mod
   REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
+  real, dimension(1:6)           :: values
+  real( kind=c_float ), dimension(1:7) :: defaultValues
   !-------------------------------------------------------------------------!
 
-     ! TODO allocate variables
+     call openStressField(io)
+
+     ! Default values
+     defaultValues(1) = EQN%Bulk_xx_0
+     defaultValues(2) = EQN%Bulk_yy_0
+     defaultValues(3) = EQN%Bulk_zz_0
+     defaultValues(4) = EQN%ShearXY_0
+     defaultValues(5) = EQN%ShearXZ_0
+     defaultValues(6) = EQN%ShearYZ_0
+     defaultValues(7) = 0.0 ! p
 
      DO i = 1, MESH%Fault%nSide
         ! element ID
@@ -4027,10 +4041,18 @@ MODULE ini_model_DR_mod
             CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
             CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
 
-            ! TODO initialize ASAGI
+            call readStress(xGp, yGp, zGp, values, defaultValues)
+            EQN%IniBulk_xx(i,iBndGP) = values(1)
+            EQN%IniBulk_yy(i,iBndGP) = values(2)
+            EQN%IniBulk_zz(i,iBndGP) = values(3)
+            EQN%IniShearXY(i,iBndGP) = values(4)
+            EQN%IniShearXZ(i,iBndGP) = values(5)
+            EQN%IniShearYZ(i,iBndGP) = values(6)
 
          ENDDO ! iBndGP
      end do
+
+     call closeStressField()
   end subroutine background_asagi
 
   !---------------------------------------------------------------------------!

@@ -42,16 +42,14 @@
 #define MPI_H
 
 #ifndef USE_MPI
-#include "Parallel/MPIDummy.h"
+#include "MPIDummy.h"
 #else // USE_MPI
 
 #include <mpi.h>
 
 #include "utils/logger.h"
 
-#include "async/Config.h"
-
-#include "Parallel/MPIBasic.h"
+#include "MPIBasic.h"
 
 #endif // USE_MPI
 
@@ -124,6 +122,8 @@ public:
 	 */
 	void finalize()
 	{
+		fault.finalize();
+
 		MPI_Finalize();
 	}
 

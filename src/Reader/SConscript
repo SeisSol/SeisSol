@@ -46,7 +46,9 @@ readerFiles = [ 'read_backgroundstress.f90',
                 'readparC.cpp',
                 'faultinput.f90',
                 'VelocityFieldReaderF.f90',
-                'VelocityFieldReaderC.cpp' ]
+                'VelocityFieldReaderC.cpp',
+                'StressReaderC.cpp',
+                'StressReaderF.f90' ]
 
 if env['asagi']:
 	readerFiles.extend(['AsagiModule.cpp'])

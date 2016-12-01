@@ -40,14 +40,9 @@
 
 #include "Parallel/MPI.h"
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif // _OPENMP
-
 #include "utils/logger.h"
 
 #include "AsagiReader.h"
-#include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
 
@@ -56,6 +51,9 @@ namespace seissol
 
 struct Setter
 {
+	/** The current element (set by {@link AsagiReader} */
+	unsigned int i;
+
 	/** The material values we need to write to */
 	double* const materialValues;
 
@@ -63,12 +61,12 @@ struct Setter
 	const unsigned int numElements;
 
 	Setter(double* materialValues, unsigned int numElements)
-		: materialValues(materialValues), numElements(numElements)
+		: i(0), materialValues(materialValues), numElements(numElements)
 	{
 	}
 
 
-	void set(unsigned int i, const float* material)
+	void set(const float* material)
 	{
 		materialValues[i] = material[0];
 		materialValues[i+numElements] = material[1];
@@ -103,7 +101,9 @@ void read_velocity_field(const char* file, int numElements, const seissol::asagi
 	stopwatch.start();
 
 	logInfo(rank) << "Initializing velocity field.";
-	reader.open(file, 3);
+	unsigned int variables = reader.open(file);
+	if (variables != 3)
+		logError() << "Invalid number of variables in material file";
 
 	double time = stopwatch.stop();
 	logInfo(rank) << "Velocity field opened in" << time << "sec.";
