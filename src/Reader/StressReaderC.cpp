@@ -51,7 +51,6 @@
 #ifdef USE_ASAGI
 /** The ASAGI reader */
 static seissol::asagi::AsagiReader reader("SEISSOL_ASAGI_STRESS");
-#endif // USE_ASAGI
 
 /** The number of variables found in ASAGI */
 unsigned int numVariables;
@@ -61,6 +60,7 @@ static unsigned long outside = 0;
 
 /** The stopwatch for timing */
 static Stopwatch stopwatch;
+#endif // USE_ASAGI
 
 namespace seissol
 {
