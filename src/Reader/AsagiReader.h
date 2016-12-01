@@ -119,9 +119,10 @@ public:
 	}
 
 	/**
+	 * @param sparse Set to true to use the cache grid (sparse load) in ASAGI
 	 * @return Number of variables found in the dataset
 	 */
-	unsigned int open(const char* file
+	unsigned int open(const char* file, bool sparse = false
 #ifdef USE_MPI
 			  , MPI_Comm comm = seissol::MPI::mpi.comm()
 #endif // USE_MPI
@@ -132,6 +133,9 @@ public:
 		const int rank = seissol::MPI::mpi.rank();
 
 		m_grid = ::asagi::Grid::createArray();
+
+		if (sparse)
+			m_grid->setParam("GRID", "CACHE");
 
 		// Set MPI mode
 		if (AsagiModule::mpiMode() != MPI_OFF) {

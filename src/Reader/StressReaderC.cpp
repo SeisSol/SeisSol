@@ -42,6 +42,9 @@
 
 #include <cstring>
 
+#include "utils/env.h"
+#include "utils/logger.h"
+
 #include "AsagiReader.h"
 #include "Monitoring/Stopwatch.h"
 
@@ -105,8 +108,10 @@ void open_stress_field(const char* file)
 	// Use manual timing since Score-P does not work
 	stopwatch.start();
 
+	bool sparse = utils::Env::get<bool>("SEISSOL_ASAGI_STRESS_SPARSE", false);
+
 	logInfo(rank) << "Initializing stress field.";
-	numVariables = reader.open(file
+	numVariables = reader.open(file, sparse
 #ifdef USE_MPI
 		, seissol::MPI::mpi.fault.comm()
 #endif // USE_MPI
