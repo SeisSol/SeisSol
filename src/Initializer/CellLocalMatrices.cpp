@@ -203,18 +203,6 @@ void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
 {
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
   std::vector<Element> const& elements = i_meshReader.getElements();
-
-  real x[4];
-  real y[4];
-  real z[4];
-      
-  // Iterate over all 4 vertices of the tetrahedron
-  for (unsigned vertex = 0; vertex < 4; ++vertex) {
-    VrtxCoords const& coords = vertices[ elements[meshId].vertices[vertex] ].coords;
-    x[vertex] = coords[0];
-    y[vertex] = coords[1];
-    z[vertex] = coords[2];
-  }
   
   VrtxCoords normal;
   VrtxCoords tangent1;
@@ -266,15 +254,26 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       faceInformation[face].plusSide = fault[face].side;
       faceInformation[face].minusSide = fault[face].neighborSide;
       faceInformation[face].faceRelation = elements[ fault[face].element ].sideOrientations[ fault[face].side ] + 1;
-
+      
       /// Time derivative mapping
-      timeDerivativePlus[face] = &i_ltsLut->lookup(i_lts->derivatives, fault[face].element)[0];
-      timeDerivativeMinus[face] = &i_ltsLut->lookup(i_lts->derivatives, fault[face].neighborElement)[0];
+      if (fault[face].element >= 0) {
+        timeDerivativePlus[face] = i_ltsLut->lookup(i_lts->derivatives, fault[face].element);
+        timeDerivativeMinus[face] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[face].element)[ faceInformation[face].plusSide ];
+      } else if (fault[face].neighborElement >= 0) {
+        timeDerivativePlus[face] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[face].neighborElement)[ faceInformation[face].minusSide ];
+        timeDerivativeMinus[face] = i_ltsLut->lookup(i_lts->derivatives, fault[face].neighborElement);
+      } else {
+        assert(false);
+      }
+      
+      assert(timeDerivativePlus[face] != NULL && timeDerivativeMinus[face] != NULL);
       
       /// DR mapping for elements
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        unsigned plusLtsId = i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].element, duplicate);
-        unsigned minusLtsId = i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].neighborElement, duplicate);
+        unsigned plusLtsId = (fault[face].element >= 0)          ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].element, duplicate) : std::numeric_limits<unsigned>::max();
+        unsigned minusLtsId = (fault[face].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].neighborElement, duplicate) : std::numeric_limits<unsigned>::max();
+        
+        assert(duplicate != 0 || plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
         
         if (plusLtsId != std::numeric_limits<unsigned>::max()) {
           CellDRMapping& mapping = drMapping[plusLtsId][ faceInformation[face].plusSide ];
@@ -300,8 +299,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       /// Materials
       seissol::model::ElasticMaterial plusMaterial;
       seissol::model::ElasticMaterial minusMaterial;
-      unsigned plusLtsId = i_ltsLut->ltsId(i_lts->material.mask, fault[face].element);
-      unsigned minusLtsId = i_ltsLut->ltsId(i_lts->material.mask, fault[face].neighborElement);
+      unsigned plusLtsId = (fault[face].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[face].element) : std::numeric_limits<unsigned>::max();
+      unsigned minusLtsId = (fault[face].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[face].neighborElement) : std::numeric_limits<unsigned>::max();
+
+      assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
+
       if (plusLtsId != std::numeric_limits<unsigned>::max()) {
         plusMaterial = material[plusLtsId].local;
         minusMaterial = material[plusLtsId].neighbor[ faceInformation[face].plusSide ];
@@ -344,8 +346,18 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       MatrixView fluxSolverMinusView(fluxSolverMinus[face], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
       
       double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
-      surfaceAreaAndVolume( i_meshReader, fault[face].element, fault[face].side, &plusSurfaceArea, &plusVolume );
-      surfaceAreaAndVolume( i_meshReader, fault[face].neighborElement, fault[face].neighborSide, &minusSurfaceArea, &minusVolume );
+      if (fault[face].element >= 0) {
+        surfaceAreaAndVolume( i_meshReader, fault[face].element, fault[face].side, &plusSurfaceArea, &plusVolume );
+      } else {
+        /// Blow up solution on purpose if used by mistake
+        plusSurfaceArea = 1.e99; plusVolume = 1.0;
+      }
+      if (fault[face].neighborElement >= 0) {
+        surfaceAreaAndVolume( i_meshReader, fault[face].neighborElement, fault[face].neighborSide, &minusSurfaceArea, &minusVolume );
+      } else {
+        /// Blow up solution on purpose if used by mistake
+        minusSurfaceArea = 1.e99; minusVolume = 1.0;
+      }
 
       double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
