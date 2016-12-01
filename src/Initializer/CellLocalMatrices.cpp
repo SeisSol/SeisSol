@@ -250,11 +250,18 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   #pragma omp parallel for private(TData, TinvData, QgodLocalData, QgodNeighborData, APlusData, AMinusData) schedule(static)
 #endif
     for (unsigned face = 0; face < it->getNumberOfCells(); ++face) {
+      assert(fault[face].element >= 0 || fault[face].neighborElement >= 0);
+
       /// Face information
       faceInformation[face].plusSide = fault[face].side;
       faceInformation[face].minusSide = fault[face].neighborSide;
-      faceInformation[face].faceRelation = elements[ fault[face].element ].sideOrientations[ fault[face].side ] + 1;
-      
+      if (fault[face].element >= 0) {
+        faceInformation[face].faceRelation = elements[ fault[face].element ].sideOrientations[ fault[face].side ] + 1;
+      } else {
+        /// \todo check if this is correct
+        faceInformation[face].faceRelation = elements[ fault[face].neighborElement ].sideOrientations[ fault[face].neighborSide ] + 1;
+      }
+
       /// Time derivative mapping
       if (fault[face].element >= 0) {
         timeDerivativePlus[face] = i_ltsLut->lookup(i_lts->derivatives, fault[face].element);
