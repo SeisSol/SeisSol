@@ -42,6 +42,8 @@
 #include <omp.h>
 #endif // _OPENMP
 
+#include <string>
+
 #include "utils/env.h"
 
 #include "AsagiModule.h"
@@ -66,12 +68,12 @@ seissol::asagi::AsagiModule seissol::asagi::AsagiModule::instance;
 seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
 {
 #ifdef USE_MPI
-	const char* mpiModeName = utils::Env::get("SEISSOL_ASAGI_MPI_MODE", "WINDOWS");
-	if (strcmp(mpiModeName, "WINDOWS") == 0)
+	std::string mpiModeName = utils::Env::get("SEISSOL_ASAGI_MPI_MODE", "WINDOWS");
+	if (mpiModeName == "WINDOWS")
 		return MPI_WINDOWS;
-	if (strcmp(mpiModeName, "COMM_THREAD") == 0)
+	if (mpiModeName == "COMM_THREAD")
 		return MPI_COMM_THREAD;
-	if (strcmp(mpiModeName, "OFF") == 0)
+	if (mpiModeName == "OFF")
 		return MPI_OFF;
 
 	logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
