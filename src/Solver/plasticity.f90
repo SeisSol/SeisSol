@@ -113,8 +113,8 @@ MODULE Plasticity_mod
     REAL        :: Energy(1:2)                                                !plastic and elastic strain energy
     REAL        :: parameters(1:3)                                            !1=volume of the triangle, 2=plastcohesion, 3=density rho
     REAL        :: I1,I1_0,I2,I2_0                                            !first and second invariants of strains
-    REAL, POINTER :: IntGaussP(:,:)     =>NULL()
-    REAL, POINTER :: IntGaussW(:)       =>NULL()
+    REAL        :: IntGaussP(:,:)
+    REAL        :: IntGaussW(:)
     REAL, POINTER :: IntGPBaseFunc(:,:) =>NULL()
     REAL, POINTER :: MassMatrix(:,:)    =>NULL()
 
@@ -202,9 +202,7 @@ MODULE Plasticity_mod
     DO iIntGP = 1, nIntGP
 
        IF (tau(iIntGP) .GT. taulim(iIntGP)) THEN !plastic behaviour, else: elastic and stress tensor=trial stress tensor
-           IF (check .EQ. .FALSE.) THEN
-               check = .TRUE.
-           ENDIF
+           check = .TRUE.
            yldfac = 1.0D0- (1.0D0 - taulim(iIntGP)/tau(iIntGP))*(relaxtime) !factor by Duan/Day 2008
 
            ! adjustment of stresses, GP-wise for every variable 1-6
@@ -219,7 +217,7 @@ MODULE Plasticity_mod
     ENDDO !adjustment over all GP-points
 
 
-    IF (check .EQ. .false.) THEN !nothing was adjusted
+    IF (.NOT. check) THEN !nothing was adjusted
        dudt_plastic(1:nDegFr,1:6) = 0.0
       !
     ELSE !back projection is necessary because at least one GP was adjusted
