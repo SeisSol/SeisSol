@@ -170,19 +170,43 @@ module f_ctof_bind_interoperability
       call c_f_pointer( io_Energy,        l_Energy, [3]                             )
       call c_f_pointer( io_pstrain,       l_pstrain,    [7]                                )
 
-      call plasticity_3d( disc         = l_domain%disc, &
-                          dgvar        = l_dofs, &
-                          dofStress    = l_initialLoading, &
-                          nDegFr       = NUMBER_OF_BASIS_FUNCTIONS, &
-                          nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
-                          bulkFriction = l_domain%eqn%BulkFriction, &
-                          tv           = l_domain%eqn%Tv, &
-                          dt           = l_timeStep, &
-                          mu           = l_domain%eqn%mu, &
-                          lambda       = l_domain%eqn%lambda, &
-                          parameters   = l_plasticParameters ,&
-                          Energy       = l_Energy,&
-                          pstrain      = l_pstrain )
+
+      select case(l_domain%eqn%PlastMethod) !two different methods to check plasticity
+
+      case(0) !values at internal GP = high-order points
+              call plasticity_3d_high( dgvar    = l_dofs, &
+                                  dofStress     = l_initialLoading, & !l_domain%eqn%inistress, & !l_initialLoading is the same as inistress for the high-order case
+                                  nDegFr        = NUMBER_OF_BASIS_FUNCTIONS, &
+                                  nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
+                                  bulkFriction  = l_domain%eqn%BulkFriction, &
+                                  tv            = l_domain%eqn%Tv, &
+                                  dt            = l_timeStep, &
+                                  mu            = l_domain%eqn%mu, &
+                                  lambda        = l_domain%eqn%lambda, &
+                                  parameters    = l_plasticParameters, &
+                                  Energy        = l_Energy, &
+                                  pstrain       = l_pstrain, &
+                                  intGaussP     = l_domain%disc%Galerkin%intGaussP_Tet,&
+                                  intGaussW     = l_domain%disc%Galerkin%intGaussW_Tet,&
+                                  disc          = l_domain%disc, &
+                                  nVar          = l_domain%eqn%nVar, &
+                                  nIntGP        =l_domain%disc%galerkin%nIntGP)
+
+      case(2) !average of an element
+              call plasticity_3d_avg( disc      = l_domain%disc, &
+                                  dgvar         = l_dofs, &
+                                  dofStress     = l_initialLoading, &
+                                  nDegFr        = NUMBER_OF_BASIS_FUNCTIONS, &
+                                  nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
+                                  bulkFriction  = l_domain%eqn%BulkFriction, &
+                                  tv            = l_domain%eqn%Tv, &
+                                  dt            = l_timeStep, &
+                                  mu            = l_domain%eqn%mu, &
+                                  lambda        = l_domain%eqn%lambda, &
+                                  parameters    = l_plasticParameters ,&
+                                  Energy        = l_Energy,&
+                                  pstrain       = l_pstrain )
+      end select
 
 
     end subroutine

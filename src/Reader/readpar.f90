@@ -224,14 +224,14 @@ CONTAINS
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, &
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint, &
                                   MaterialType, RandomField_Flag, nMechanisms
     REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, &
                                   PlasticCo, BulkFriction, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
     CHARACTER(LEN=600), DIMENSION(:), ALLOCATABLE  :: RF_Files   
     NAMELIST                   /Equations/ Anisotropy, Anelasticity, Plasticity, &
-                                           PlasticCo, BulkFriction, Tv, &
+                                           PlasticCo, BulkFriction, Tv, pmethod, &
                                            Adjoint, MaterialType, rho, mu, lambda, &
                                            MaterialFileName, nMechanisms, FreqCentral, &
                                            FreqRatio, RandomField_Flag, AdjFileName
@@ -264,6 +264,7 @@ CONTAINS
     Anisotropy          = 0
     Anelasticity        = 0
     Plasticity          = 0
+    pmethod             = 2 !average approach as default for plasticity
     Adjoint             = 0
     MaterialType        = 0
     RandomField_Flag    = 0
@@ -313,13 +314,24 @@ CONTAINS
         EQN%PlastCo_0 = PlasticCo
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
-        logInfo0(*) 'Plastic relaxation Tv is set to: '
-        !read additional values
+        EQN%PlastMethod = pmethod
+        SELECT CASE (EQN%PlastMethod) !two different methods for plasticity
+        CASE(0)
+                 logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
+                 logInfo0(*) 'High-order points are used for plasticity. '
+        CASE(2)
+                 logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
+                 logInfo0(*) 'Average of an element is used for plasticity. '
+        CASE DEFAULT
+                 logError(*) 'ERROR: choose 0 or 2 as plasticity method'
+        stop
+        END SELECT
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
       STOP
     END SELECT
-    !
+
+
     SELECT CASE(Anelasticity)
     CASE(0)
       logInfo(*) 'No attenuation assumed. '
@@ -535,14 +547,14 @@ CONTAINS
       CLOSE(IO%UNIT%other01)      
       !
   CASE(12, 26) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
-           ! special case for TPV13, TPV27 add other cases that use plasticity with different initial stress values here
+               ! special case for TPV13 and TPV27, add other cases that use plasticity with different initial stress values here
       IF (EQN%Plasticity.EQ.1)THEN
         logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
         logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
         logInfo0(*) ' mu = ', EQN%mu       ! (2)
         logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
       ELSE
-        logInfo(*) '| ERROR: These material types are only used for plastic calculations.'
+        logInfo(*) '| ERROR: This material type is only used when plasticity is on.'
       ENDIF
       !
   CASE(60,61,62) ! special case of 1D landers example
@@ -3259,7 +3271,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       nRecordPoints = 0
       energy_output_on = 0
       pickdt_energy = 1.0
-	  OutputRegionBounds(:) = 0.0
+      OutputRegionBounds(:) = 0.0
 !      RFileName = 'RecordPoints'
       pickDtType = 1
       PGMFlag = 0
@@ -3549,7 +3561,6 @@ ALLOCATE( SpacePositionx(nDirac), &
 
        ! energy output on = 1, off =0
        IO%energy_output_on = energy_output_on
-
 
        IF(IO%energy_output_on .EQ. 1) THEN
 #ifdef GENERATEDKERNELS

@@ -2638,7 +2638,6 @@ CONTAINS
         DISC%Galerkin%Strain_Matrix(4,4) = 1/(2*EQN%mu)
         DISC%Galerkin%Strain_Matrix(5,5) = 1/(2*EQN%mu)
         DISC%Galerkin%Strain_Matrix(6,6) = 1/(2*EQN%mu)
-
         DISC%Galerkin%Strain_Matrix(1,2) = -v*Einv
         DISC%Galerkin%Strain_Matrix(1,3) = -v*Einv
         DISC%Galerkin%Strain_Matrix(2,1) = -v*Einv
@@ -2646,6 +2645,7 @@ CONTAINS
         DISC%Galerkin%Strain_Matrix(3,1) = -v*Einv
         DISC%Galerkin%Strain_Matrix(3,2) = -v*Einv
     ENDIF
+
 
     logInfo0(*) 'DG initial condition projection... '
     !
@@ -2736,8 +2736,8 @@ CONTAINS
                 ENDDO
             ENDIF
 
-            IF(EQN%Plasticity.EQ.1) THEN
-            ! L2 projection of initial stress loading for the plastic calculations onto the DOFs, only for the low order case
+            IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN !average approach for plasticity
+            ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
               iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
               DO iDegFr = 1, nDegFr
                  phi = IntGPBaseFunc(iDegFr,iIntGP)
@@ -2748,26 +2748,32 @@ CONTAINS
                 DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
 #endif
               ENDDO
+           ENDIF
 
-
-            ENDIF
     ENDDO !iIntGP
 
             DO iDegFr = 1, nDegFr
 #ifdef GENERATEDKERNELS
                l_dofsUpdate(iDegFr, :) = l_dofsUpdate( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-               IF(EQN%Plasticity.EQ.1) THEN
+               IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
                   l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
                ENDIF
 #else
                DISC%Galerkin%dgvar(iDegFr,:,iElem,1) = DISC%Galerkin%dgvar(iDegFr,:,iElem,1) / MassMatrix(iDegFr,iDegFr)
-               IF(EQN%Plasticity.EQ.1) THEN
+               IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
                   DISC%Galerkin%DOFStress(iDegFr,:,iElem) = DISC%Galerkin%DOFStress(iDegFr,:,iElem)/ MassMatrix(iDegFr, iDegFr)
                ENDIF
 #endif
             ENDDO
 
-
+            IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 0) THEN !high-order points approach
+            !elementwise assignement of the initial loading
+#ifdef GENERATEDKERNELS
+               l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
+#else
+               DISC%Galerkin%DOFStress(1,1:6,iElem) = EQN%IniStress(1:6,iElem)
+#endif
+            ENDIF
 
 #ifdef GENERATEDKERNELS
         ! write the update back
