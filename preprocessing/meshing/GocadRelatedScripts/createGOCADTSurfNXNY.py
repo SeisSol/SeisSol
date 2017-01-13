@@ -57,11 +57,10 @@ if args.NX=='':
    print "NX not defined: trying to guess it..."
    rowdiff = dataxyz[1,:]-dataxyz[0,:]
    ix = -1
-   for i in range(0,3):
-      if abs(rowdiff[i])<1e-16:
-         ix = i
-         break
-   if ix>0:
+   ids = np.where(abs(rowdiff)<1e-16)[0]
+   if len(ids)==1:
+      #only one column starts with constant values
+      ix = ids[0]
       for i in range(1,nvertex):
          if abs(dataxyz[i,ix]-dataxyz[i-1,ix])>1e-16:
             NX = i
@@ -69,6 +68,30 @@ if args.NX=='':
             NY = nvertex/NX
             print "NX,NY = %d,%d" %(NX,NY)
             break
+   elif len(ids)>1:
+      print "2 columns starts with constant values"
+      nx =[]
+      #find other dimension
+      for ix in range(0,3):
+         if ix not in ids:
+            iy=ix
+      for ix in ids:
+         for i in range(1,nvertex):
+            if abs(dataxyz[i,ix]-dataxyz[i-1,ix])>1e-16:
+               break
+         if abs(dataxyz[0,iy]-dataxyz[0+i,iy])>1e-16:
+            nx.append(1e20)
+         else:
+            nx.append(i)
+      NX = min(nx)
+
+      if NX==1e10:
+         print "unable to guess NX and NY"
+         exit()
+
+      assert (nvertex%NX==0), "nvertex%%NX!=0 nvertex/NX = %f" %(float(nvertex)/NX)
+      NY = nvertex/NX
+      print "NX,NY = %d,%d" %(NX,NY)
    else:
       print "unable to guess NX and NY"
       exit()
