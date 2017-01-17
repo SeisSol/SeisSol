@@ -444,8 +444,17 @@ void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalDa
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     o_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[3 + stiffness] ];
   }
-  for (unsigned flux = 0; flux < 52; ++flux) {
-    o_globalData.fluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + flux] ];
+  for (unsigned cob = 0; cob < 4; ++cob) {
+    o_globalData.changeOfBasisMatrices[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + cob] ];
+  }
+  for (unsigned cob = 0; cob < 4; ++cob) {
+    o_globalData.localChangeOfBasisMatricesTransposed[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[10 + cob] ];
+  }
+  for (unsigned cob = 0; cob < 4; ++cob) {
+    o_globalData.neighbourChangeOfBasisMatricesTransposed[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[14 + cob] ];
+  }
+  for (unsigned flux = 0; flux < 3; ++flux) {
+    o_globalData.neighbourFluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[18 + flux] ];
   }
 
   // @TODO Integrate this step into the code generator

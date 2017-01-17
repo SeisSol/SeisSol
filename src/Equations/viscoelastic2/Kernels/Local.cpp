@@ -90,7 +90,8 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
     if( i_faceTypes[face] != dynamicRupture ) {
       seissol::generatedKernels::localFlux[face](
         local->nApNm1[face],
-        global->fluxMatrices[face],
+        global->localChangeOfBasisMatricesTransposed[face],
+        global->changeOfBasisMatrices[face],
         i_timeIntegratedDegreesOfFreedom,
         reducedDofs
       );

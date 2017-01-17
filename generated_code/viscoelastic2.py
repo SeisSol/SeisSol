@@ -82,8 +82,10 @@ stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
 globalMatrixIdRules = [
   (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: stiffnessOrder[x[0]]),
   (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 3 + stiffnessOrder[x[0]]),  
-  (r'^fM(\d{1})$', lambda x: 6 + int(x[0])-1),
-  (r'^fP(\d{1})(\d{1})(\d{1})$', lambda x: 10 + (int(x[0])-1)*12 + (int(x[1])-1)*3 + (int(x[2])-1))
+  (r'^r(\d{1})DivM$', lambda x: 6 + int(x[0])-1),
+  (r'^rT(\d{1})$', lambda x: 10 + int(x[0])-1),
+  (r'^fMrT(\d{1})$', lambda x: 14 + int(x[0])-1),
+  (r'^fP(\d{1})$', lambda x: 18 + (int(x[0])-1))
 ]
 DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
 
@@ -100,13 +102,13 @@ volume = db['kXiDivM'] * db['reducedTimeIntegratedDofs'] * db['AstarT'] \
 kernels.append(('volume', volume))
 
 for i in range(0, 4):
-  localFlux = db['fM{}'.format(i+1)] * db['reducedTimeIntegratedDofs'] * db['AplusT']
+  localFlux = db['r{}DivM'.format(i+1)] * db['fMrT{}'.format(i+1)] * db['reducedTimeIntegratedDofs'] * db['AplusT']
   kernels.append(('localFlux[{}]'.format(i), localFlux))
 
 for i in range(0, 4):
   for j in range(0, 4):
     for h in range(0, 3):
-      neighboringFlux = db['fP{}{}{}'.format(i+1, j+1, h+1)] * db['reducedTimeIntegratedDofs'] * db['AminusT']
+      neighboringFlux = db['r{}DivM'.format(i+1)] * db['fP{}'.format(h+1)] * db['rT{}'.format(j+1)] * db['reducedTimeIntegratedDofs'] * db['AminusT']
       kernels.append(('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux))
 
 derivative = db['kXiDivMT'] * db['reducedDofs'] * db['AstarT'] \

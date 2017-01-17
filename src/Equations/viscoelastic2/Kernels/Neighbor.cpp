@@ -93,17 +93,20 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
         
         // assert we have a valid index.
         assert( l_id < 48 );
-        
+
         seissol::generatedKernels::neighboringFlux[l_id](
           neighbor->nAmNm1[l_face],
-          global->fluxMatrices[4 + l_id],
+          global->neighbourFluxMatrices[ i_neighboringIndices[l_face][1] ],
+          global->changeOfBasisMatrices[ l_face ],
+          global->neighbourChangeOfBasisMatricesTransposed[ i_neighboringIndices[l_face][0] ],
           i_timeIntegrated[l_face],
           reducedDofs
         );
       } else { // fall back to local matrices in case of free surface boundary conditions
         seissol::generatedKernels::localFlux[l_face](
           neighbor->nAmNm1[l_face],
-          global->fluxMatrices[l_face],
+          global->localChangeOfBasisMatricesTransposed[l_face],
+          global->changeOfBasisMatrices[l_face],
           i_timeIntegrated[l_face],
           reducedDofs
         );

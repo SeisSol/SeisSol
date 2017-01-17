@@ -240,6 +240,7 @@ struct MeshStructure {
 };
 
 struct GlobalData {
+#ifndef REQUIRE_SOURCE_MATRIX
  /** 
    * Addresses of the global flux matrices (multiplied by the inverse diagonal mass matrix):
    *
@@ -260,6 +261,47 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is given as above, however the chunks in memory are allowed to have a different orderning as given in the XML-file.
    **/ 
   real *fluxMatrices[52];
+#else
+  
+  /**
+   * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass matrix):
+   * 
+   *    0: \f$ M^{-1} R^1 \f$
+   *    1: \f$ M^{-1} R^2 \f$
+   *    2: \f$ M^{-1} R^3 \f$
+   *    3: \f$ M^{-1} R^4 \f$
+   **/
+  real* changeOfBasisMatrices[4];
+  
+  /**
+   * Addresses of the transposed global change of basis matrices left-multiplied with the local flux matrix:
+   * 
+   *    0: \f$ F^- ( R^1 )^T \f$
+   *    1: \f$ F^- ( R^2 )^T \f$
+   *    2: \f$ F^- ( R^3 )^T \f$
+   *    3: \f$ F^- ( R^4 )^T \f$
+   **/
+  real* localChangeOfBasisMatricesTransposed[4];
+  
+  /**
+   * Addresses of the transposed global change of basis matrices:
+   * 
+   *    0: \f$ ( R^1 )^T \f$
+   *    1: \f$ ( R^2 )^T \f$
+   *    2: \f$ ( R^3 )^T \f$
+   *    3: \f$ ( R^4 )^T \f$
+   **/
+  real* neighbourChangeOfBasisMatricesTransposed[4];
+  
+  /**
+   * Addresses of the global flux matrices:
+   * 
+   *    0: \f$ F^{+,1] \f$
+   *    1: \f$ F^{+,2] \f$
+   *    2: \f$ F^{+,3] \f$
+   **/
+  real* neighbourFluxMatrices[3];
+#endif
 
   /** 
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
