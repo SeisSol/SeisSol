@@ -414,8 +414,17 @@ unsigned int init_data_structures(unsigned int i_cells)
     }
 
     // flux matrices for boundary integration
-    for( unsigned int l_fluxMatrix = 0; l_fluxMatrix < 52; l_fluxMatrix++ ) {
-      m_globalData->fluxMatrices[l_fluxMatrix] = m_globalPointer + seissol::model::globalMatrixOffsets[6 + l_fluxMatrix];
+    for (unsigned cob = 0; cob < 4; ++cob) {
+      m_globalData->changeOfBasisMatrices[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[6 + cob];
+    }
+    for (unsigned cob = 0; cob < 4; ++cob) {
+      m_globalData->neighbourChangeOfBasisMatricesTransposed[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[10 + cob];
+    }
+    for (unsigned cob = 0; cob < 4; ++cob) {
+      m_globalData->localChangeOfBasisMatricesTransposed[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[14 + cob];
+    }
+    for (unsigned flux = 0; flux < 3; ++flux) {
+      m_globalData->neighbourFluxMatrices[flux] = m_globalPointer + seissol::model::globalMatrixOffsets[18 + flux];
     }
   }
 
