@@ -129,6 +129,12 @@ def memoryLayoutFromFile(xmlFile, db, clones):
   for name, matrix in db.iteritems():
     if not nofits.has_key(name) or nofits[name] == False:
       matrix.fitBlocksToSparsityPattern()
+
+def numberOfBasisFunctions2D(order):
+  return order * (order + 1) / 2
+
+def alignedNumberOfBasisFunctions2D(order, architecture):
+  return architecture.getAlignedDim(numberOfBasisFunctions2D(order))
   
 def numberOfBasisFunctions(order):
   return order * (order + 1) * (order + 2) / 6

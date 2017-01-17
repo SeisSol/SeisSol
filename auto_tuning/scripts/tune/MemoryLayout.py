@@ -76,7 +76,12 @@ def generateLayoutFile(matrices, configs):
   for name, idx in matrices:
     selection[name] = configs[name][idx]
   writeConfig('tuned_layout.xml', selection)
-
+  
+def mergeBlock(block1, block2):
+  return  ( min(block1[0], block2[0]),
+            max(block1[1], block2[1]),
+            min(block1[2], block2[2]),
+            max(block1[3], block2[3]) )
 
 def getGlobalMatrices(order, arch):
   architecture = Arch.getArchitectureByIdentifier(arch)
@@ -98,14 +103,17 @@ def getGlobalMatrices(order, arch):
       'kXiDivMT': [ True ],
       'kEtaDivMT': [ True ],
       'kZetaDivMT': [ True ],
-      'fM1': [ True ],
-      'fM2': [ True ],
-      'fP111': [ True ],
-      'fP112': [ True ],
-      'fP113': [ True ],
-      'fP121': [ True ],
-      'fP211': [ True ],
-      'fP222': [ True ]
+      'fP1': [ True ],
+      'fP2': [ True ],
+      'fP3': [ True ],
+      'r1DivM': [ True ],
+      'r2DivM': [ True ],
+      'r3DivM': [ True ],
+      'r4DivM': [ True ],
+      'rT1': [ True ],
+      'rT2': [ True ],
+      'rT3': [ True ],
+      'rT4': [ True ]
     }
 
   stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
@@ -119,11 +127,7 @@ def getGlobalMatrices(order, arch):
     # merge first two blocks
     block1 = transposedStiffnessBlocks.pop(0)
     block2 = transposedStiffnessBlocks.pop(0)
-    mergedBlock = ( min(block1[0], block2[0]),
-                    max(block1[1], block2[1]),
-                    min(block1[2], block2[2]),
-                    max(block1[3], block2[3]) )
-    transposedStiffnessBlocks.insert(0, mergedBlock)
+    transposedStiffnessBlocks.insert(0, mergeBlock(block1, block2))
 
   stiffnessBlocks = [(block[2], block[3], block[0], block[1]) for block in transposedStiffnessBlocks]
   noMemsetStiffnessBlocks = list()
@@ -136,6 +140,49 @@ def getGlobalMatrices(order, arch):
     configs[matrix].append(stiffnessBlocks)
     configs[matrix].append(noMemsetStiffnessBlocks)
     configs[matrix + 'T'].append(transposedStiffnessBlocks)
+    
+  # fP matrices
+  fPBlocks = list()
+  for o in range(1, order+1):
+    start = Tools.numberOfBasisFunctions2D(o-1)
+    stop = Tools.numberOfBasisFunctions2D(o)
+    transposedStiffnessBlocks.append((start, stop, start, stop))
+  # merge first three blocks
+  for i in range(2):
+    if len(fPBlocks) >= 2:
+      block1 = fPBlocks.pop(0)
+      block2 = fPBlocks.pop(0)
+      fPBlocks.insert(0, mergeBlock(block1, block2))
+  for i in range(1,4):
+    configs['fP{}'.format(i)].append(fPBlocks)
+  
+  # rT matrices
+  rTBlocks = list()
+  for o in range(1, order+1):
+    stoprow = Tools.numberOfBasisFunctions2D(o)
+    startcol = Tools.numberOfBasisFunctions(o-1)
+    stopcol = Tools.numberOfBasisFunctions(o)
+    rTBlocks.append((0, stoprow, startcol, stopcol))    
+  # merge first three blocks
+  for i in range(2):
+    if len(fPBlocks) >= 2:
+      block1 = rTBlocks.pop(0)
+      block2 = rTBlocks.pop(0)
+      rTBlocks.insert(0, mergeBlock(block1, block2))
+  rBlocks = [(block[2], block[3], block[0], block[1]) for block in rTBlocks]
+  noMemsetRBlocks = list()
+  for i, block in enumerate(rBlocks):
+    startrow = noMemsetRBlocks[i-1][1] if i > 0 else block[0]
+    stoprow = architecture.getAlignedIndex(block[1]) if i != len(rBlocks)-1 else block[1]
+    noMemsetRBlocks.append( (startrow, stoprow, block[2], block[3]) )
+  for i in range(1,4):
+    configs['r{}DivM'.format(i)].append(rBlocks)
+    configs['r{}DivM'.format(i)].append(noMemsetRBlocks)
+    configs['rT{}'.format(i)].append(rTBlocks)
+
+  # fMrT and rT have the same sparsity pattern
+  for i in range(1,5):
+    configs['fMrT{}'.format(i)] = copy.deepcopy(configs['rT{}'.format(i)])
     
   return configs
   
