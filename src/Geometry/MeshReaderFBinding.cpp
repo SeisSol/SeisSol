@@ -162,8 +162,9 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 		logInfo(rank) << "Extracting fault information";
 
 		VrtxCoords center;
-		getfaultreferencepoint(&center[0], &center[1], &center[2]);
-		meshReader.findFault(center);
+		int refPointMethod;
+		getfaultreferencepoint(&center[0], &center[1], &center[2], &refPointMethod);
+		meshReader.findFault(center, refPointMethod);
 
 		int* mpiNumberDr;
 		getmpinumberdr(&size, &mpiNumberDr);

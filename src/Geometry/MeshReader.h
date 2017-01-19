@@ -142,7 +142,7 @@ public:
 	/**
 	 * Reconstruct the fault information from the boundary conditions
 	 */
-	void findFault(const VrtxCoords refPoint)
+	void findFault(const VrtxCoords refPoint, const int refPointMethod)
 	{
 		for (std::vector<Element>::iterator i = m_elements.begin();
 				i != m_elements.end(); i++) {
@@ -204,8 +204,12 @@ public:
 				MeshTools::sub(m_vertices[i->vertices[MeshTools::FACE2MISSINGNODE[j]]].coords,
 						m_vertices[i->vertices[MeshTools::FACE2NODES[j][0]]].coords,
 						tmp2);
-				bool isPlus = MeshTools::dot(tmp1, f.normal) * MeshTools::dot(tmp2, f.normal) > 0;
-
+				bool isPlus;
+				if (refPointMethod == 0) {
+					isPlus = MeshTools::dot(tmp1, f.normal) * MeshTools::dot(tmp2, f.normal) > 0;
+				} else {
+					isPlus = MeshTools::dot(refPoint, f.normal)> 0;
+				}
 				// Fix normal direction and get correct chiVec
 				if (!isPlus) {
 					MeshTools::mul(f.normal, -1.0, f.normal);

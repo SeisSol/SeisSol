@@ -1201,6 +1201,7 @@ MODULE TypesDef
      INTEGER                                :: AneMatIni                        !< indicates where in MaterialVal begin the anelastic parameters
      INTEGER                                :: nNonZeroEV                       !< number of non-zero eigenvalues
      INTEGER                                :: RandomField_Flag                 !< Flag for number of used random fields
+     INTEGER                                :: refPointMethod                   !< fault orientation: (0) using a reference point (1) using a reference vector
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)

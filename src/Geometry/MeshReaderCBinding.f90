@@ -546,16 +546,18 @@ contains
         ptr = c_loc(m_bnd%ObjMPI(i)%DomainElements(1))
     end subroutine getBndDomainElements
 
-    subroutine getFaultReferencePoint(x, y, z) bind(C)
+    subroutine getFaultReferencePoint(x, y, z, method) bind(C)
         implicit none
 
         real( kind=c_double ), intent(out) :: x
         real( kind=c_double ), intent(out) :: y
         real( kind=c_double ), intent(out) :: z
+        integer( kind=c_int ), intent(out) :: method
 
         x = m_eqn%XRef
         y = m_eqn%YRef
         z = m_eqn%ZRef
+        method = m_eqn%refPointMethod
     end subroutine getFaultReferencePoint
 
     subroutine getFaultFace(s, ptr) bind(C)
