@@ -22,7 +22,7 @@ install:
  - tar -xaf netcdf-4.3.1.1.tar.gz
  - cd netcdf-4.3.1.1 && CC=mpicc ./configure --prefix=/usr && make && sudo make install && cd ..
  - unzip master.zip
- - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin
+ - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
 
 script:
  - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
