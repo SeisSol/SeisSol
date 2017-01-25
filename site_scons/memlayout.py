@@ -41,15 +41,17 @@
 import os
 
 def guessMemoryLayout(env):
-  if env['equations'] == 'elastic' or not env['generatedKernels']:
+  if not env['generatedKernels']:
     return ''
     
   path = os.path.join('auto_tuning', 'config')
-
-  if env['equations'] == 'viscoelastic':
-    name = '{0}_{1}_O{2}_M{3}.xml'.format(env['equations'], env['arch'], env['order'], env['numberOfMechanisms'])
-  else:
-    name = '{0}_{1}_O{2}.xml'.format(env['equations'], env['arch'], env['order'], env['numberOfMechanisms'])
+  
+  # TODO: enable tuned memory layouts after auto-tuning for flux decomposition
+  name = 'NOT-TUNED'
+  #if env['equations'] == 'viscoelastic':
+  #  name = '{0}_{1}_O{2}_M{3}.xml'.format(env['equations'], env['arch'], env['order'], env['numberOfMechanisms'])
+  #else:
+  #  name = '{0}_{1}_O{2}.xml'.format(env['equations'], env['arch'], env['order'])
   
   candidate = os.path.join(path, name)
   if os.path.exists(candidate):

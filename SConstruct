@@ -102,7 +102,7 @@ vars.AddVariables(
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
 
-  ( 'memLayout', 'Path to memory layout file (needs to be set if equations=viscoelastic).' ),
+  ( 'memLayout', 'Path to memory layout file.' ),
 
   ( 'programName', 'name of the executable', 'none' ),
 
