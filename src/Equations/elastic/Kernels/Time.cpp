@@ -33,6 +33,7 @@
  * This file is part of SeisSol.
  *
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
@@ -70,20 +71,18 @@
 
 #include "Time.h"
 
-#include <matrix_kernels/sparse.h>
-#include <matrix_kernels/dense.h>
-
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
 extern long long libxsmm_num_total_flops;
 #endif
 
+#include <Kernels/denseMatrixOps.hpp>
+#include <generated_code/kernels.h>
+#include <generated_code/flops.h>
+
 #include <cstring>
 #include <cassert>
 #include <stdint.h>
-#if defined(__SSE3__) || defined(__MIC__)
-#include <immintrin.h>
-#endif
 
 seissol::kernels::Time::Time() {
   // compute the aligned number of basis functions and offsets of the derivatives
@@ -96,26 +95,22 @@ seissol::kernels::Time::Time() {
       m_derivativesOffsets[l_order] +=  m_derivativesOffsets[l_order-1];
     }
   }
-
-  // intialize the function pointers to the matrix kernels
-#define TIME_KERNEL
-#include <initialization/bind.h>
-#undef TIME_KERNEL
 }
 
-void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
-                                                real** i_stiffnessMatrices,
-                                          const real*  i_degreesOfFreedom,
-                                                real   i_starMatrices[3][STAR_NNZ],
-                                                real*  o_timeIntegrated,
-                                                real*  o_timeDerivatives ) {
+void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
+                                          GlobalData const*           global,
+                                          LocalIntegrationData const* local,
+                                          real const*                 i_degreesOfFreedom,
+                                          real*                       o_timeIntegrated,
+                                          real*                       o_timeDerivatives )
+{
   /*
    * assert alignments.
    */
   assert( ((uintptr_t)i_degreesOfFreedom)     % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_stiffnessMatrices[0]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_stiffnessMatrices[1]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_stiffnessMatrices[2]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[0]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[1]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[2]) % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
@@ -126,7 +121,6 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
   real l_scalar = i_timeStepWidth;
 
   // temporary result
-  real l_temporaryResult[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
   real l_derivativesBuffer[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(PAGESIZE_STACK)));
 
   // initialize time integrated DOFs and derivatives
@@ -144,18 +138,20 @@ void seissol::kernels::Time::computeAder(       double i_timeStepWidth,
     streamstoreFirstDerivative( i_degreesOfFreedom,
                                 o_timeDerivatives );
   }
-
-  // compute all derivatives and contributions to the time integrated DOFs
+  
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    // iterate over dimensions 
-    for( unsigned int l_c = 0; l_c < 3; l_c++ ) {
-      // compute $K_{\xi_c}.Q_k$ and $(K_{\xi_c}.Q_k).A*$
-      m_matrixKernels[ (l_derivative-1)*4 + l_c ] ( i_stiffnessMatrices[l_c], l_derivativesBuffer+m_derivativesOffsets[l_derivative-1],  l_temporaryResult,
-                                                    NULL,                     NULL,                                                    NULL                                                  ); // These will be be ignored
-
-      m_matrixKernels[ (l_derivative-1)*4 + 3   ] ( l_temporaryResult,        i_starMatrices[l_c],                                     l_derivativesBuffer+m_derivativesOffsets[l_derivative],
-                                                    NULL,                     NULL,                                                    NULL                                                  ); // These will be be ignored
-    }
+    real const* lastDerivative = l_derivativesBuffer + m_derivativesOffsets[l_derivative-1];
+    real* currentDerivative = l_derivativesBuffer + m_derivativesOffsets[l_derivative];
+    seissol::generatedKernels::derivative[l_derivative](
+      local->starMatrices[0],
+      local->starMatrices[1],
+      local->starMatrices[2],
+      global->stiffnessMatricesTransposed[1],
+      global->stiffnessMatricesTransposed[0],
+      global->stiffnessMatricesTransposed[2],
+      lastDerivative,
+      currentDerivative
+    );
 
     // update scalar for this derivative
     l_scalar *= i_timeStepWidth / real(l_derivative+1);
@@ -553,20 +549,30 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 
   // interate over derivatives
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    // iterate over dimensions
-    for( unsigned int l_c = 0; l_c < 3; l_c++ ) {
-      o_nonZeroFlops  += m_nonZeroFlops[  (l_derivative-1)*4 + l_c ];
-      o_hardwareFlops += m_hardwareFlops[ (l_derivative-1)*4 + l_c ];
-
-      o_nonZeroFlops  += m_nonZeroFlops[  (l_derivative-1)*4 + 3   ];
-      o_hardwareFlops += m_hardwareFlops[ (l_derivative-1)*4 + 3   ];
-    }
+    o_nonZeroFlops  += seissol::flops::derivative_nonZero[l_derivative];
+    o_hardwareFlops += seissol::flops::derivative_hardware[l_derivative];
 
     // update of time integrated DOFs
     o_nonZeroFlops  += seissol::kernels::getNumberOfBasisFunctions(        CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
     o_hardwareFlops += seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
   }
 
+}
+
+unsigned seissol::kernels::Time::bytesAder()
+{
+  unsigned reals = 0;
+  
+  // DOFs load, tDOFs load, tDOFs write
+  reals += 3 * NUMBER_OF_ALIGNED_DOFS;
+  // star matrices, source matrix
+  reals += seissol::model::AstarT::reals
+           + seissol::model::BstarT::reals
+           + seissol::model::CstarT::reals;
+           
+  /// \todo incorporate derivatives
+
+  return reals * sizeof(real);
 }
 
 void seissol::kernels::Time::computeIntegral( double                            i_expansionPoint,

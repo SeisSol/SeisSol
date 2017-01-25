@@ -43,6 +43,7 @@
 
 #include "TimeManager.h"
 #include <Initializer/preProcessorMacros.fpp>
+#include <Initializer/time_stepping/common.hpp>
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <sys/sysinfo.h>

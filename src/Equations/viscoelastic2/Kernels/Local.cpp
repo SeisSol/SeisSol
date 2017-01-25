@@ -58,7 +58,8 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
                                                 GlobalData const*           global,
                                                 LocalIntegrationData const* local,
                                                 real*                       i_timeIntegratedDegreesOfFreedom,
-                                                real*                       io_degreesOfFreedom ) {
+                                                real*                       io_degreesOfFreedom )
+{
   // assert alignments
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {

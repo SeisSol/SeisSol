@@ -56,21 +56,20 @@ def generate_code(target, source, env, for_signature):
 
 env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
 
-if env['equations'].startswith('viscoelastic'):
-  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'], [env['equations'] + '.py', Glob('gemmgen/*.py')])
-  buildDir = '#/' + env['buildDir'] if not os.path.isabs(env['buildDir']) else env['buildDir']
-  env.Append(CPPPATH=buildDir)
+generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'], [env['equations'] + '.py', Glob('gemmgen/*.py')])
+buildDir = '#/' + env['buildDir'] if not os.path.isabs(env['buildDir']) else env['buildDir']
+env.Append(CPPPATH=buildDir)
 
-  cppFiles = filter(lambda t: str(t).endswith('.cpp'), generated)
-  for cpp in cppFiles:
-    obj = env.Object(cpp)
-    env.Depends(obj, generated)
-    env.sourceFiles.append(obj)
-  
-  if hasattr(env, 'generatedTestSourceFiles'):
-    testFiles = filter(lambda t: str(t).endswith('.t.h'), generated)
-    for test in testFiles:
-      env.generatedTestSourceFiles.append(test.abspath)
+cppFiles = filter(lambda t: str(t).endswith('.cpp'), generated)
+for cpp in cppFiles:
+  obj = env.Object(cpp)
+  env.Depends(obj, generated)
+  env.sourceFiles.append(obj)
+
+if hasattr(env, 'generatedTestSourceFiles'):
+  testFiles = filter(lambda t: str(t).endswith('.t.h'), generated)
+  for test in testFiles:
+    env.generatedTestSourceFiles.append(test.abspath)
 
 
 Export('env')

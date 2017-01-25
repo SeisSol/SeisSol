@@ -59,7 +59,8 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
                                                             GlobalData const*                 global,
                                                             NeighboringIntegrationData const* neighbor,
                                                             real*                             i_timeIntegrated[4],
-                                                            real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] ) {
+                                                            real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] )
+{
 #ifndef NDEBUG
   // alignment of the flux matrices
   for( int l_matrix = 0; l_matrix < 52; l_matrix++ ) {

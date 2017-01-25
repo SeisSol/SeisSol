@@ -1,0 +1,9 @@
+<memory_layouts>
+  <matrix name="star" sparse="True"/>
+  <matrix name="kXiDivM" sparse="True"/>
+  <matrix name="fP113" sparse="True"/>
+  <matrix name="fP111" sparse="True"/>
+  <matrix name="fP112" sparse="True"/>
+  <matrix name="fP222" sparse="True"/>
+  <matrix name="fP211" sparse="True"/>
+</memory_layouts>

@@ -41,12 +41,9 @@
 Import('env')
   
 if env['generatedKernels']:
-  sourceDir = 'Equations/' + env['equations'] + '/generated_code/';
-  SConscript(sourceDir + 'SConscript', variant_dir='#/'+env['buildDir']+'/' + sourceDir, duplicate=0)
-
   solverFiles = [ 'Kernels/Time.cpp',
-                  'Kernels/Volume.cpp',
-                  'Kernels/Boundary.cpp',
+                  'Kernels/Local.cpp',
+                  'Kernels/Neighbor.cpp',
                   'Model/Setup.cpp' ]
   for i in solverFiles:
     env.sourceFiles.append(env.Object(i))

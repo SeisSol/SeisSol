@@ -235,7 +235,7 @@ if unknownVariables:
 if env['order'] == 'none':
   ConfigurationError("*** Convergence order not set.")
 
-if env['equations'] == 'viscoelastic':
+if env['equations'].startswith('viscoelastic'):
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
 
@@ -507,7 +507,7 @@ env.Append( CPPPATH=['#/submodules', '#/submodules/glm'] )
 #
 
 # Libxsmm
-env.Tool('LibxsmmTool', required=env['equations'].startswith('viscoelastic'))
+env.Tool('LibxsmmTool', required=True)
 
 # Library pathes
 env.Tool('DirTool', fortran=True)

@@ -426,43 +426,17 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       l_bufferPointer = l_integrationBuffer;
     }
 
-#ifdef REQUIRE_SOURCE_MATRIX
-  m_timeKernel.computeAder( m_timeStepWidth,
-                            m_globalData,
-                            &localIntegration[l_cell],
-                            dofs[l_cell],
-                            l_bufferPointer,
-                            derivatives[l_cell] );
-  m_localKernel.computeIntegral( cellInformation[l_cell].faceTypes,
-                                 m_globalData,
-                                 &localIntegration[l_cell],
-                                 l_bufferPointer,
-                                 dofs[l_cell] );
-#else
-    m_timeKernel.computeAder(              m_timeStepWidth,
-                                           m_globalData->stiffnessMatricesTransposed,
-                                           dofs[l_cell],
-                                           localIntegration[l_cell].starMatrices,
-                                           l_bufferPointer,
-                                           derivatives[l_cell] );
-
-    m_localKernel.computeIntegral(         m_globalData->stiffnessMatrices,
-                                           l_bufferPointer,
-                                           localIntegration[l_cell].starMatrices,
-                                           dofs[l_cell] );
-
-    m_neighborKernel.computeLocalIntegral( cellInformation[l_cell].faceTypes,
-                                           m_globalData->fluxMatrices,
-                                           l_bufferPointer,
-                                           localIntegration[l_cell].nApNm1,
-#ifdef ENABLE_STREAM_MATRIX_PREFETCH
-                                           dofs[l_cell],
-                                           buffers[l_cell+1],
-                                           dofs[l_cell+1] );
-#else
-                                           dofs[l_cell] );
-#endif // ENABLE_STREAM_MATRIX_PREFETCH
-#endif // REQUIRE_SOURCE_MATRIX
+    m_timeKernel.computeAder( m_timeStepWidth,
+                              m_globalData,
+                              &localIntegration[l_cell],
+                              dofs[l_cell],
+                              l_bufferPointer,
+                              derivatives[l_cell] );
+    m_localKernel.computeIntegral( cellInformation[l_cell].faceTypes,
+                                   m_globalData,
+                                   &localIntegration[l_cell],
+                                   l_bufferPointer,
+                                   dofs[l_cell] );
 
     // update lts buffers if required
     // TODO: Integrate this step into the kernel
@@ -557,29 +531,12 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
     }
 #endif
 
-#ifdef REQUIRE_SOURCE_MATRIX
     m_neighborKernel.computeNeighborsIntegral( cellInformation[l_cell].faceTypes,
                                                cellInformation[l_cell].faceRelations,
                                                l_globalData,
                                                &neighboringIntegration[l_cell],
                                                l_timeIntegrated,
                                                dofs[l_cell] );
-#else
-    // @TODO in case of multiple global data copies, choose a distribution which
-    //       cannot generate a 0-id copy reference in the end as remainder handling
-    m_neighborKernel.computeNeighborsIntegral( cellInformation[l_cell].faceTypes,
-                                               cellInformation[l_cell].faceRelations,
-                                               l_globalData->fluxMatrices,
-                                               l_timeIntegrated,
-                                               neighboringIntegration[l_cell].nAmNm1,
-#ifdef ENABLE_MATRIX_PREFETCH
-                                               dofs[l_cell],
-                                               l_faceNeighbors_prefetch,
-                                               l_fluxMatricies_prefetch );
-#else
-                                               dofs[l_cell] );
-#endif // ENABLE_MATRIX_PREFETCH
-#endif // REQUIRE_SOURCE_MATRIX
 
 #ifdef USE_PLASTICITY
   e_interoperability.computePlasticity(  m_timeStepWidth,
@@ -786,18 +743,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops( unsigned
     m_timeKernel.flopsAder(cellNonZero, cellHardware);
     nonZeroFlops += cellNonZero;
     hardwareFlops += cellHardware;
-#ifdef REQUIRE_SOURCE_MATRIX
     m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, cellNonZero, cellHardware);
     nonZeroFlops += cellNonZero;
     hardwareFlops += cellHardware;
-#else
-    m_localKernel.flopsIntegral(cellNonZero, cellHardware);
-    nonZeroFlops += cellNonZero;
-    hardwareFlops += cellHardware;
-    m_neighborKernel.flopsLocalIntegral(cellInformation[cell].faceTypes, cellNonZero, cellHardware);
-    nonZeroFlops += cellNonZero;
-    hardwareFlops += cellHardware;
-#endif
   }
 }
 

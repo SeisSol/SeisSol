@@ -62,8 +62,8 @@ vars.AddVariables(
   EnumVariable( 'compiler', 'Select the compiler (default: intel)', 'intel',
                 allowed_values=('intel', 'gcc')),
   
-  EnumVariable( 'equations', 'equations to use', 'viscoelastic',
-                allowed_values=('viscoelastic', 'viscoelastic2')),
+  EnumVariable( 'equations', 'equations to use', 'viscoelastic2',
+                allowed_values=('elastic', 'viscoelastic', 'viscoelastic2')),
 
   EnumVariable( 'order', 'convergence order of the ADER-DG method', 'none',
                   allowed_values=('none', '2', '3', '4', '5', '6', '7', '8')),
@@ -86,6 +86,10 @@ if env['compiler'] == 'intel':
 elif env['compiler'] == 'gcc':
     env['CC'] = 'gcc'
     env['CXX'] = 'g++'
+    
+if env['equations'].startswith('viscoelastic'):
+  if env['numberOfMechanisms'] == '0':
+    ConfigurationError("*** Number of mechanisms not set.")
 
 # generate help text
 Help(vars.GenerateHelpText(env))
@@ -98,6 +102,12 @@ if 'buildVariablesFile' in unknownVariables:
 # exit in the case of unknown variables
 if unknownVariables:
   raise EnvironmentError("*** The following build variables are unknown: " + str(unknownVariables.keys()))
+  
+numberOfQuantities = {
+  'elastic' : 9,
+  'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6
+}
+numberOfQuantities['viscoelastic2'] = numberOfQuantities['viscoelastic']
 
 #
 # Libraries
@@ -120,7 +130,7 @@ flags = ['-fopenmp']
 if env['compileMode'] == 'debug':
   flags.extend(['-O0', '-g'])
 else:
-  flags.extend(['-O2'])
+  flags.extend(['-O3'])
   env.Append(CPPDEFINES=['NDEBUG'])
 
 env.Append( CFLAGS    = flags,
@@ -130,7 +140,7 @@ env.Append( CFLAGS    = flags,
 env.Append(CPPDEFINES=[ 'GENERATEDKERNELS',
                         'CONVERGENCE_ORDER=' + str(env['order']),
                         'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms']),
-                        'NUMBER_OF_QUANTITIES=' + str(9 + 6*int(env['numberOfMechanisms'])),
+                        'NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]),
                         'EQUATIONS_' + env['equations'].upper() ])
 
 # add pathname to the list of directories which are search for include
