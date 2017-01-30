@@ -118,7 +118,7 @@ void read_velocity_field(const char* file, int numElements, const seissol::asagi
 		setter, defaultValues,
 		outside);
 	if (outside > 0)
-		logWarning(rank) << "Found" << outside << "cells of the given velocity field.";
+		logWarning(rank) << "Found" << outside << "cells outside of the given velocity field.";
 
 	time = stopwatch.stop();
 	logInfo(rank) << "Velocity field initialized in" << time << "sec.";

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,10 @@
 #include "Parallel/MPI.h"
 
 #include <string>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif // _OPENMP
 
 #include <asagi.h>
 
@@ -140,7 +144,10 @@ public:
 		// Set MPI mode
 		if (AsagiModule::mpiMode() != MPI_OFF) {
 #ifdef USE_MPI
-			m_grid->setComm(comm);
+			::asagi::Grid::Error err = m_grid->setComm(comm);
+			if (err != ::asagi::Grid::SUCCESS)
+				logError() << "Could not set ASAGI communicator:" << err;
+
 #endif // USE_MPI
 
 			if (AsagiModule::mpiMode() == MPI_COMM_THREAD)
@@ -207,6 +214,11 @@ public:
 
 		// Number of variables
 		m_numValues = m_grid->getVarSize() / sizeof(float);
+
+		// Allocate buffer
+		m_tmpValues = new float[m_asagiThreads * 8 * m_numValues];
+		m_tmpInterpolValues = new float[m_asagiThreads * m_numValues];
+
 		return m_numValues;
 	}
 
@@ -216,7 +228,7 @@ public:
 	 *  be called with the corresponding values from ASAGI.
 	 */
 	template<class Setter>
-	int readValue(const vertex_t &coords, Setter setter, const float* defaultValues)
+	int readValue(const vertex_t &coords, Setter &setter, const float* defaultValues)
 	{
 		const glm::dvec3 coord(coords[0], coords[1], coords[2]);
 
@@ -225,16 +237,23 @@ public:
 		glm::dvec3 lowCoord = glm::floorMultiple(shiftedBary, m_delta) + m_min;
 		glm::dvec3 highCoord = glm::ceilMultiple(shiftedBary, m_delta) + m_min;
 
+#ifdef _OPENMP
+		int ompId = omp_get_thread_num();
+#else // _OPENMP
+		int ompId = 0;
+#endif // _OPENMP
+
 		// Define pointer into the buffer (shortcut for later)
-		float * const tmpValues[8] = {m_tmpValues,
-			&m_tmpValues[m_numValues],
-			&m_tmpValues[m_numValues*2],
-			&m_tmpValues[m_numValues*3],
-			&m_tmpValues[m_numValues*4],
-			&m_tmpValues[m_numValues*5],
-			&m_tmpValues[m_numValues*6],
-			&m_tmpValues[m_numValues*7]
+		float * const tmpValues[8] = {&m_tmpValues[ompId * 8 * m_numValues],
+			&m_tmpValues[(ompId * 8 + 1) * m_numValues],
+			&m_tmpValues[(ompId * 8 + 2) * m_numValues],
+			&m_tmpValues[(ompId * 8 + 3) * m_numValues],
+			&m_tmpValues[(ompId * 8 + 4) * m_numValues],
+			&m_tmpValues[(ompId * 8 + 5) * m_numValues],
+			&m_tmpValues[(ompId * 8 + 6) * m_numValues],
+			&m_tmpValues[(ompId * 8 + 7) * m_numValues]
 		};
+		float * const tmpInterpolValues = &m_tmpInterpolValues[ompId * m_numValues];
 
 		// Fix low/high if they are outside of the domain (but the bary center is inside)
 		// -> Should not be necessary if we use vertex centered grid
@@ -286,10 +305,10 @@ public:
 			for (unsigned int k = 0; k < 2; k++)
 				c1[k] = c0[k]*(1-d.y) + c0[k+1]*d.y;
 
-			m_tmpInterpolValues[i] = c1[0]*(1-d.z) + c1[1]*d.z;
+			tmpInterpolValues[i] = c1[0]*(1-d.z) + c1[1]*d.z;
 		}
 
-		setter.set(m_tmpInterpolValues);
+		setter.set(tmpInterpolValues);
 		return 0;
 	}
 
@@ -312,13 +331,9 @@ public:
 
 		unsigned long outsideInt = 0;
 
-		// Allocate buffer
-		m_tmpValues = new float[m_numValues*8];
-		m_tmpInterpolValues = new float[m_numValues];
-
 		//SCOREP_RECORDING_OFF();
 #ifdef _OPENMP
-		#pragma omp parallel for num_threads(m_asagiThreads) reduction(+: outsideInt)
+		#pragma omp parallel for num_threads(m_asagiThreads) firstprivate(setter) reduction(+: outsideInt)
 #endif // _OPENMP
 		for (int i = 0; i < numElements; i++) {
 			setter.i = i;

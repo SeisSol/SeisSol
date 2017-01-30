@@ -168,7 +168,7 @@ void close_stress_field()
 		MPI_Reduce(&outside, 0L, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, seissol::MPI::mpi.fault.comm());
 #endif // USE_MPI
 	if (outside > 0)
-		logWarning(rank) << "Found" << outside << "cells of the given stress field.";
+		logWarning(rank) << "Found" << outside << "cells outside of the given stress field.";
 
 	double time = stopwatch.stop();
 	logInfo(rank) << "Stress field initialized in" << time << "sec.";
