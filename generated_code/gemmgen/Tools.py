@@ -41,6 +41,7 @@ import lxml.etree
 import DB
 import Expr
 import Generator
+import numpy
 
 def __complain(child):
   raise ValueError('Unknown tag ' + child.tag)
@@ -96,36 +97,62 @@ def memoryLayoutFromFile(xmlFile, db, clones):
   root = tree.getroot()
   strtobool = ['yes', 'true', '1']
   nofits = dict()
-  for matrix in root:
-    if matrix.tag == 'matrix':
-      name = matrix.get('name')
-      nofit = matrix.get('nofit', '').lower() in strtobool
-      sparse = matrix.get('sparse', '').lower() in strtobool
-      if clones.has_key(name) or db.has_key(name):
-        blocks = []
-        for block in matrix:
-          if block.tag == 'block':
-            startrow = int(block.get('startrow'))
-            stoprow = int(block.get('stoprow'))
-            startcol = int(block.get('startcol'))
-            stopcol = int(block.get('stopcol'))
-            blksparse = (block.get('sparse') == None and sparse) or block.get('sparse', '').lower() in strtobool
-            blocks.append(DB.MatrixBlock(startrow, stoprow, startcol, stopcol, blksparse))
-          else:
-            __complain(block)
-        names = clones[name] if clones.has_key(name) else [name]
-        for n in names:
-          nofits[n] = nofit
-          if len(blocks) == 0:
-            db[n].setSingleBlock(sparse)
-          else:
-            db[n].setBlocks(blocks)
-          if not nofit:
-            db[n].fitBlocksToSparsityPattern()
+  groups = dict()
+  
+  for group in root.findall('group'):
+    groupName = group.get('name')
+    noMutualSparsityPattern = group.get('noMutualSparsityPattern', '').lower() in strtobool
+    groups[groupName] = list()
+    for matrix in group:
+      if matrix.tag == 'matrix':
+        matrixName = matrix.get('name')
+        if not db.has_key(matrixName):
+          raise ValueError('Unrecognized matrix name ' + matrixName)
+        if len(groups[groupName]) > 0:
+          lastMatrixInGroup = groups[groupName][-1]
+          if db[lastMatrixInGroup].rows != db[matrixName].rows or db[lastMatrixInGroup].cols != db[matrixName].cols:
+            raise ValueError('Matrix {} cannot be in the same group as matrix {} due to different shapes.'.format(matrixName, lastMatrixInGroup))
+        groups[groupName].append( matrixName )
       else:
-        raise ValueError('Unrecognized matrix name ' + name)
+        __complain(group)
+    # equalize sparsity pattern
+    if not noMutualSparsityPattern:
+      spp = None
+      for matrix in groups[groupName]:
+        spp = spp + db[matrix].spp if spp != None else db[matrix].spp
+      spp[numpy.abs(spp) > 0] = 1.0
+      for matrix in groups[groupName]:
+        db[matrix].spp = spp
+
+  for matrix in root.findall('matrix'):
+    group = matrix.get('group')
+    name = matrix.get('name')
+    nofit = matrix.get('nofit', '').lower() in strtobool
+    sparse = matrix.get('sparse', '').lower() in strtobool
+    
+    if groups.has_key(group) or clones.has_key(name) or db.has_key(name):
+      blocks = []
+      for block in matrix:
+        if block.tag == 'block':
+          startrow = int(block.get('startrow'))
+          stoprow = int(block.get('stoprow'))
+          startcol = int(block.get('startcol'))
+          stopcol = int(block.get('stopcol'))
+          blksparse = (block.get('sparse') == None and sparse) or block.get('sparse', '').lower() in strtobool
+          blocks.append(DB.MatrixBlock(startrow, stoprow, startcol, stopcol, blksparse))
+        else:
+          __complain(block)
+      names = groups[group] if groups.has_key(group) else (clones[name] if clones.has_key(name) else [name])
+      for n in names:
+        nofits[n] = nofit
+        if len(blocks) == 0:
+          db[n].setSingleBlock(sparse)
+        else:
+          db[n].setBlocks(blocks)
+        if not nofit:
+          db[n].fitBlocksToSparsityPattern()
     else:
-      __complain(matrix)
+      raise ValueError('Unrecognized matrix name ' + name)
   for name, matrix in db.iteritems():
     if not nofits.has_key(name) or nofits[name] == False:
       matrix.fitBlocksToSparsityPattern()

@@ -153,7 +153,7 @@ class MatrixInfo:
       
     if self.spp.shape[0] != self.rows or self.spp.shape[1] != self.cols:
       raise ValueError('Matrix dimensions are different to the dimensions of the sparsity pattern.')
-      
+
     self.values = values
     if self.values != None:
       self.values.sort(key=lambda entry: (entry[1], entry[0]))
@@ -234,6 +234,7 @@ class MatrixInfo:
         if block.sparse:
           counter = 0
           for entry in self.values:
+            # TODO: FIXME in case of forced mutual sparsity pattern
             if entry[0] >= block.startrow and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
               blockValues[block.offset + counter] = entry[2]
               counter = counter + 1
