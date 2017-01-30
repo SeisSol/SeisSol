@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -69,8 +69,8 @@ enum Hook
 	PRE_MODEL,
 	POST_MODEL,
 	FIRST_HOOK = PRE_MPI,
-	MAX_INIT_HOOKS = POST_MODEL+1,
-	MAX_HOOKS = POST_MODEL+1
+	MAX_INIT_HOOKS = POST_MODEL + 1,
+	MAX_HOOKS = POST_MODEL + 1
 };
 
 /**
@@ -81,11 +81,12 @@ class Modules
 private:
 	std::multimap<int, Module*> m_hooks[MAX_HOOKS];
 
-	Hook m_lastHook;
+	// The hook that should be called next
+	Hook m_nextHook;
 
 private:
 	Modules()
-		: m_lastHook(static_cast<Hook>(FIRST_HOOK-1))
+		: m_nextHook(FIRST_HOOK)
 	{
 	}
 
@@ -96,11 +97,11 @@ private:
 	{
 		assert(hook < MAX_HOOKS);
 
-		if (m_lastHook >= MAX_INIT_HOOKS)
+		if (m_nextHook >= MAX_INIT_HOOKS)
 			logError() << "Trying to register for a hook after initialization phase";
-		if (hook <= m_lastHook)
+		if (hook < m_nextHook)
 			logError() << "Trying to register for hook" << strHook(hook)
-				<< "but SeisSol was already processing" << strHook(m_lastHook);
+				<< "but SeisSol was already processing" << strHook(static_cast<Hook>(m_nextHook-1));
 
 		m_hooks[hook].insert(std::pair<const int, Module*>(priority, &module));
 	}
