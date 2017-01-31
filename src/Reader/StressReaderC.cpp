@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,9 @@ static Stopwatch stopwatch;
 namespace seissol
 {
 
+namespace stress_reader
+{
+
 struct Setter
 {
 	const unsigned int numValues;
@@ -89,6 +92,8 @@ struct Setter
 		}
 	}
 };
+
+}
 
 }
 
@@ -143,7 +148,7 @@ void read_stress(double x, double y, double z, double values[6], const float def
 #ifdef USE_ASAGI
 	const seissol::asagi::vertex_t coord = {x, y, z};
 
-	seissol::Setter setter(numVariables, values);
+	seissol::stress_reader::Setter setter(numVariables, values);
 	outside += reader.readValue(coord, setter, defaultValues);
 
 #else // USE_ASAGI

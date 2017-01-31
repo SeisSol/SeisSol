@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,9 @@
 namespace seissol
 {
 
+namespace velocity_reader
+{
+
 struct Setter
 {
 	/** The current element (set by {@link AsagiReader} */
@@ -73,6 +76,8 @@ struct Setter
 		materialValues[i+2*numElements] = material[2];
 	}
 };
+
+}
 
 }
 
@@ -111,7 +116,7 @@ void read_velocity_field(const char* file, int numElements, const seissol::asagi
 	// Start reading the data
 	stopwatch.start();
 
-	seissol::Setter setter(materialValues, numElements);
+	seissol::velocity_reader::Setter setter(materialValues, numElements);
 	float defaultValues[3] = {defaultRho, defaultMu, defaultLambda};
 	unsigned long outside;
 	reader.read(baryCenters, numElements,
