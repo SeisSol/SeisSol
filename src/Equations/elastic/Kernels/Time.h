@@ -98,20 +98,7 @@ class seissol::kernels::Time {
      * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
      */
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-    
-    void streamstoreFirstDerivative(  const real* i_degreesOfFreedom,
-                                      real* o_derivativesBuffer );
-                                      
-    void integrateInTime( const real*        i_derivativesBuffer,
-                          real         i_scalar,
-                          unsigned int i_derivative,
-                          real*        o_timeIntegrated,
-                          real*        o_timeDerivatives );
-    
-    void initialize( const real         i_scalar,
-                     const real*        i_degreesOfFreedom,
-                     real*        o_timeIntegrated,
-                     real*        o_derivativesBuffer );
+
   public:
     /**
      * Constructor, which initializes the time kernel.

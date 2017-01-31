@@ -83,6 +83,47 @@ namespace seissol {
     }
     
     /**
+     * Computes Y = scalar * X.
+     * The number of rows must be a multiple of the alignment.
+     * 
+     * @param scalar The value that X shall be scaled with.
+     * @param rows Number of rows of X and Y.
+     * @param columns Number of columns of X and Y.
+     * @param X
+     * @param LDX Size of leading dimension of X.
+     * @param Y
+     * @param LDY Size of leading dimension of Y.
+     **/
+    inline void SXt(  real scalar,
+                      unsigned rows,
+                      unsigned columns,
+                      real const* X,
+                      unsigned LDX,
+                      real* Y,
+                      unsigned LDY )
+    {
+      assert(rows % DMO_INCREMENT == 0);
+      
+      DMO_BROADCAST(&scalar, intrin_scalar)
+      
+      for (unsigned int column = 0; column < columns; ++column) {
+        real const* xCol = &X[column * LDX];
+        real* yCol = &Y[column * LDY];
+        for (unsigned row = 0; row < rows; row += DMO_INCREMENT) {
+          DMO_SXT(intrin_scalar, xCol+row, yCol+row)
+        }
+      }
+            
+#ifndef NDEBUG
+      long long temp_flops = rows * columns;
+#ifdef _OPENMP
+#pragma omp atomic
+#endif
+      libxsmm_num_total_flops += temp_flops;
+#endif
+    }
+    
+    /**
      * Computes Y = scalar * X + Y.
      * The number of rows must be a multiple of the alignment.
      * 

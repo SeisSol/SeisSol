@@ -91,16 +91,18 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
                                                             real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] )
 {
 #ifndef NDEBUG
-  // alignment of the flux matrices
-  for( int l_matrix = 0; l_matrix < 52; l_matrix++ ) {
-    assert( ((uintptr_t)global->fluxMatrices[l_matrix]) % ALIGNMENT == 0 );
-  }
-
-  // alignment of the time integrated dofs
-  for( int l_neighbor = 0; l_neighbor < 4; l_neighbor++ ) {
+  for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
+    assert( ((uintptr_t)global->changeOfBasisMatrices[l_neighbor]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed[l_neighbor]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed[l_neighbor]) % ALIGNMENT == 0 );
+    // alignment of the time integrated dofs
     if( i_faceTypes[l_neighbor] != outflow && i_faceTypes[l_neighbor] != dynamicRupture ) { // no alignment for outflow and DR boundaries required
       assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % ALIGNMENT == 0 );
     }
+  }
+  
+  for( int h = 0; h < 3; ++h ) {
+    assert( ((uintptr_t)global->neighbourFluxMatrices[h]) % ALIGNMENT == 0 );
   }
 #endif
 
