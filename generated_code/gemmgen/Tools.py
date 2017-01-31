@@ -186,13 +186,13 @@ def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
 
   for matrixInfo in db.itervalues():
     matrixInfo.generateMemoryLayout(architecture, alignStartrow=matrixInfo.leftMultiplication)    
-  for name, kernel in kernels:
-    kernel.generateMemoryLayout(architecture, alignStartrow=True)
+  for prototype in kernels:
+    prototype.kernel.generateMemoryLayout(architecture, alignStartrow=True)
 
   print('\nKernels')
   print('-------')
-  for name, kernel in kernels:
-    print(u'{}: {}'.format(name, kernel.symbol))
+  for prototype in kernels:
+    print(u'{}: {}'.format(prototype.name, prototype.kernel.symbol))
 
   print('\nMemory layout')
   print('-------------')

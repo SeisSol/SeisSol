@@ -49,13 +49,21 @@ def calculateOptimalSparseFlops(matrices):
   # Eliminate irrelevant entries in the matrix multiplication
   equivalentSparsityPatterns = Sparse.equivalentMultiplicationPatterns(sparsityPatterns)
   return Sparse.calculateOptimalSparseFlops(equivalentSparsityPatterns)
+  
+class Prototype:
+  def __init__(self, name, kernel, beta=1):
+    if beta != 0 and beta != 1:
+      raise ValueError('Other betas than one or zero are currently not supported.')
+    self.name = name
+    self.kernel = kernel
+    self.beta = beta
 
 class Operation:
   MEMSET = 1,
   GEMM = 2
   
 class Kernel(object):
-  def __init__(self, kernel, db, architecture):
+  def __init__(self, prototype, db, architecture):
     self.db = db
     self.arch = architecture
     self.involvedMatrices = set()
@@ -63,17 +71,17 @@ class Kernel(object):
     self.operations = list()
     self.tempBaseName = 'temporaryResult'
     self.resultName = 'result'
-    self.kernel = kernel
+    self.prototype = prototype
 
-    for mul in kernel.symbol:
-      self.gemms([self.db[name] for name in mul])
+    for index, mul in enumerate(prototype.kernel.symbol):
+      self.gemms([self.db[name] for name in mul], index == 0)
 
     self.temps.sort(key=lambda temp: temp.name)
-    self.involvedMatrices = set([name for mul in kernel.symbol for name in mul])
+    self.involvedMatrices = set([name for mul in prototype.kernel.symbol for name in mul])
     self.involvedMatrices = sorted(list(self.involvedMatrices))
     self.involvedMatrices.append(self.resultName)
       
-  def gemms(self, matrices):
+  def gemms(self, matrices, firstProduct):
     raise NotImplementedError()
 
 class GeneratedKernel(Kernel):
@@ -87,7 +95,7 @@ class GeneratedKernel(Kernel):
   def __intersect(self, blockA, blockB):
     return (max(blockA.startcol, blockB.startrow), min(blockA.stopcol, blockB.stoprow))
 
-  def gemms(self, matrices):
+  def gemms(self, matrices, firstProduct):
     nameToIndex = dict()
     for i,matrix in enumerate(matrices):
       nameToIndex[matrix.name] = i
@@ -153,8 +161,8 @@ class GeneratedKernel(Kernel):
           beta = 0
           result.requiredReals = max(resultRequiredReals, result.requiredReals)
         else:
-          beta = 1
-          result = self.kernel
+          beta = 1 if not firstProduct else self.prototype.beta
+          result = self.prototype.kernel
           resultName = self.resultName
         
         ops = []
@@ -291,10 +299,10 @@ class GeneratedKernel(Kernel):
     
 
 class ReferenceKernel(Kernel):
-  def __init__(self, kernel, db, architecture):
-    super(ReferenceKernel, self).__init__(kernel, db, architecture)
+  def __init__(self, prototype, db, architecture):
+    super(ReferenceKernel, self).__init__(prototype, db, architecture)
 
-  def gemms(self, matrices):
+  def gemms(self, matrices, firstProduct):
     resultSize = 0
     leftName = matrices[0].name
     leftRows = matrices[0].rows

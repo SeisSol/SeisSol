@@ -44,5 +44,5 @@ def analyseLeftAndRightMultiplication(db, expr):
     db[ mul[-1] ].rightMultiplication = True
 
 def analyseKernels(db, kernels):
-  for name, kernel in kernels:
-    analyseLeftAndRightMultiplication(db, kernel.symbol)
+  for prototype in kernels:
+    analyseLeftAndRightMultiplication(db, prototype.kernel.symbol)

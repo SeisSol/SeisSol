@@ -168,10 +168,10 @@ class Generator:
     flops = dict()
     generatedKernels = list()
     gemmlist = list()
-    for name, kernel in kernels:
-      gk = Kernel.GeneratedKernel(kernel, self.db, self.architecture)
+    for prototype in kernels:
+      gk = Kernel.GeneratedKernel(prototype, self.db, self.architecture)
       flop = (gk.nonZeroFlops, gk.hardwareFlops)
-      funName, base, index = functionName(name)
+      funName, base, index = functionName(prototype.name)
       if index >= 0:
         if not luts.has_key(base):
           luts[base] = dict()
@@ -327,9 +327,9 @@ class Generator:
           
   def generateUnitTests(self, outputDir, kernels):
     referenceKernels = list()
-    for name, kernel in kernels:
-      rk = Kernel.ReferenceKernel(kernel, self.db, self.architecture)
-      funName, base, index = functionName(name)  
+    for prototype in kernels:
+      rk = Kernel.ReferenceKernel(prototype, self.db, self.architecture)
+      funName, base, index = functionName(prototype.name)  
       referenceKernels.append( (funName, rk) )
     
     with Code.Cpp(outputDir + '/KernelTests.t.h') as test:
@@ -397,21 +397,22 @@ class Generator:
                         test('unsigned idx = seissol::model::{}::index(row, col);'.format(matrix))
                         with test.If('idx != -1'):
                           test('{name}[idx] = drand48();'.format(name=matrix))
-              referenceReals = rk.kernel.rows * rk.kernel.cols
+              referenceReals = rk.prototype.kernel.rows * rk.prototype.kernel.cols
               test(self.__localArray('reference', referenceReals))
               test.memset('reference', referenceReals, self.architecture.typename)
-              test(self.__localArray('result', rk.kernel.requiredReals))
-              test.memset('result', rk.kernel.requiredReals, self.architecture.typename)
+              test(self.__localArray('result', rk.prototype.kernel.requiredReals))
+              if rk.prototype.beta != 0.0:
+                test.memset('result', rk.prototype.kernel.requiredReals, self.architecture.typename)
               
               test('seissol::unit_test::{}({});'.format(name, ', '.join(rk.involvedMatrices[0:-1] + ['reference'])))
               test('seissol::generatedKernels::{}({});'.format(name, ', '.join(rk.involvedMatrices)))
 
               test('double error = 0.0;')
               test('double refNorm = 0.0;')
-              resultBlock = rk.kernel.blocks[0]
+              resultBlock = rk.prototype.kernel.blocks[0]
               with test.For('unsigned col = {block.startcol}; col < {block.stopcol}; ++col'.format(block=resultBlock)):
                 with test.For('unsigned row = {block.startrow}; row < {block.stoprow}; ++row'.format(block=resultBlock)):
-                  test('double ref = reference[col*{} + row];'.format(rk.kernel.rows))
+                  test('double ref = reference[col*{} + row];'.format(rk.prototype.kernel.rows))
                   test('double diff = ref - result[col*{} + row];'.format(resultBlock.ld))
                   test('error += diff * diff;')
                   test('refNorm += ref * ref;')

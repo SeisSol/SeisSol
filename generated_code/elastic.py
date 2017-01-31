@@ -38,7 +38,7 @@
 # @section DESCRIPTION
 #
   
-from gemmgen import DB, Tools, Arch
+from gemmgen import DB, Tools, Arch, Kernel
 import argparse
 
 cmdLineParser = argparse.ArgumentParser()
@@ -90,17 +90,17 @@ db.insert(DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuant
 volume = db['kXiDivM'] * db['timeIntegrated'] * db['AstarT'] \
        + db['kEtaDivM'] * db['timeIntegrated'] * db['BstarT'] \
        + db['kZetaDivM'] * db['timeIntegrated'] * db['CstarT']
-kernels.append(('volume', volume))
+kernels.append(Kernel.Prototype('volume', volume))
 
 for i in range(0, 4):
   localFlux = db['r{}DivM'.format(i+1)] * db['fMrT{}'.format(i+1)] * db['timeIntegrated'] * db['AplusT']
-  kernels.append(('localFlux[{}]'.format(i), localFlux))
+  kernels.append(Kernel.Prototype('localFlux[{}]'.format(i), localFlux))
 
 for i in range(0, 4):
   for j in range(0, 4):
     for h in range(0, 3):
       neighboringFlux = db['r{}DivM'.format(i+1)] * db['fP{}'.format(h+1)] * db['rT{}'.format(j+1)] * db['timeIntegrated'] * db['AminusT']
-      kernels.append(('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux))
+      kernels.append(Kernel.Prototype('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux))
 
 for i in range(1, order):
   lastD = 'timeDerivative{}'.format(str(i-1))
@@ -109,7 +109,7 @@ for i in range(1, order):
              + db['kEtaDivMT'] * db[lastD] * db['BstarT'] \
              + db['kZetaDivMT'] * db[lastD] * db['CstarT']
   derivative.fitBlocksToSparsityPattern()
-  kernels.append(('derivative[{}]'.format(i), derivative))
+  kernels.append(Kernel.Prototype('derivative[{}]'.format(i), derivative, beta=0))
   db.insert(derivative.flat(newD))
   db[newD].fitBlocksToSparsityPattern()
 
