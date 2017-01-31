@@ -43,7 +43,7 @@
 #if defined(DOUBLE_PRECISION)
 
 #define DMO_INCREMENT 8
-#define DMO_BROADCAST(IN, OUT) __m512d OUT = _mm512_broadcastsd_pd(IN);
+#define DMO_BROADCAST(IN, OUT) __m512d OUT = _mm512_broadcastsd_pd(_mm_load_sd(IN));
 #define DMO_STREAM(IN, OUT) _mm512_stream_pd(OUT, _mm512_load_pd(IN));
 #define DMO_SXT(S, X, Y) __m512d x = _mm512_load_pd(X); _mm512_store_pd(Y, _mm512_mul_pd(S, x));
 #define DMO_SXTYP(S, X, Y) __m512d x = _mm512_load_pd(X); _mm512_store_pd(Y, _mm512_fmadd_pd(S, x, _mm512_load_pd(Y)));
@@ -53,7 +53,7 @@
 #elif defined(SINGLE_PRECISION)
 
 #define DMO_INCREMENT 16
-#define DMO_BROADCAST(IN, OUT) __m512 OUT = _mm512_broadcastss_ps(IN);
+#define DMO_BROADCAST(IN, OUT) __m512 OUT = _mm512_broadcastss_ps(_mm_load_ss(IN));
 #define DMO_STREAM(IN, OUT) _mm512_stream_ps(OUT, _mm512_load_ps(IN));
 #define DMO_SXT(S, X, Y) __m512 x = _mm512_load_ps(X); _mm512_store_ps(Y, _mm512_mul_ps(S, x));
 #define DMO_SXTYP(S, X, Y) __m512 x = _mm512_load_ps(X); _mm512_store_ps(Y, _mm512_fmadd_ps(S, x, _mm512_load_ps(Y)));
