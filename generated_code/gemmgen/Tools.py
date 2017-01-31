@@ -131,7 +131,7 @@ def memoryLayoutFromFile(xmlFile, db, clones):
     if not noMutualSparsityPattern:
       spp = None
       for matrix in groups[groupName]:
-        spp = spp + db[matrix].spp if spp != None else db[matrix].spp
+        spp = spp + db[matrix].spp if spp is not None else db[matrix].spp
       spp[numpy.abs(spp) > 0] = 1.0
       for matrix in groups[groupName]:
         db[matrix].updateSparsityPattern(spp)

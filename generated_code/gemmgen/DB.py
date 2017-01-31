@@ -154,13 +154,19 @@ class MatrixInfo:
       raise ValueError('Matrix dimensions are different to the dimensions of the sparsity pattern.')
 
   def updateSparsityPattern(self, sparsityPattern):
-    test = scipy.sparse.dok_matrix(sparsityPattern)
-    testNNZ = test.nnz
-    test.update(self.matrix.asformat('dok'))
-    if testNNZ != test.nnz:
+    if isinstance(sparsityPattern, scipy.sparse.coo_matrix):
+      (row, col) = (sparsityPattern.row, sparsityPattern.col)
+      self.spp = sparsityPattern.astype(np.float64).todense()
+    elif isinstance(sparsityPattern, numpy.matrix):
+      (row, col, dummy) = scipy.sparse.find(sparsityPattern)
+      self.spp = sparsityPattern
+    else:
+      raise ValueError('updateSparsityPattern: New sparsity pattern should be of type scipy.sparse.coo_matrix or numpy.matrix')
+    newSppSet = frozenset(zip(row, col))
+    originalSppSet = frozenset(zip(self.matrix.row, self.matrix.col))
+    if len(originalSppSet.difference(newSppSet)) > 0:
       raise ValueError('updateSparsityPattern: New sparsity pattern does not include all non-zeros of matrix.')
     
-    self.spp = sparsityPattern.astype(np.float64).todense()
     # ensure that spp has only zeros and ones
     self.spp[np.abs(self.spp) > 0] = 1.0
     
@@ -242,10 +248,11 @@ class MatrixInfo:
     # self.spp may be different than self.values (e.g. to force a mutual sparsity
     # pattern for several matrices).
     # Here, we add the additional zeros of self.spp.
-    implMatrix = scipy.sparse.dok_matrix(self.spp, dtype=self.matrix.dtype)
-    implMatrix.update(self.matrix.asformat('dok'))
-    implMatrixCoo = implMatrix.asformat('coo')
-    implValues = zip(implMatrixCoo.row, implMatrixCoo.col, implMatrixCoo.data)
+    (sppRow, sppCol, dummy) = scipy.sparse.find(self.spp)
+    implMatrix = {entry: '0.' for entry in itertools.izip(sppRow, sppCol)}
+    for entry in itertools.izip(self.matrix.row, self.matrix.col, self.matrix.data):
+      implMatrix[(entry[0], entry[1])] = entry[2]
+    implValues = [(key[0], key[1], value) for key, value in implMatrix.iteritems()]
     implValues.sort(key=lambda entry: (entry[1], entry[0]))
     
     blockValues = ['0.'] * self.requiredReals

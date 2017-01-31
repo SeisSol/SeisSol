@@ -102,7 +102,7 @@ class GeneratedKernel(Kernel):
     # Determine the matrix multiplication order based on the implementation pattern
     chainOrder, dummy = Sparse.sparseMatrixChainOrder(implementationPatterns)
     
-    self.nonZeroFlops += Sparse.calculateOptimalSparseFlops(equivalentSparsityPatterns)
+    self.nonZeroFlops += calculateOptimalSparseFlops(matrices)
 
     # convert matrix chain order to postfix
     stack = list()
