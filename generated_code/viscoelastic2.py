@@ -71,8 +71,8 @@ db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArg
 
 # Determine sparsity patterns that depend on the number of mechanisms
 riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfReducedQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfReducedQuantities-9, numberOfReducedQuantities), dtype=np.float64)]])
-db.insert(DB.MatrixInfo('AplusT', numberOfReducedQuantities, numberOfReducedQuantities, sparsityPattern=riemannSolverSpp))
-db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQuantities, sparsityPattern=riemannSolverSpp))
+db.insert(DB.MatrixInfo('AplusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
+db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
 
 # Load sparse-, dense-, block-dense-config
 Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)

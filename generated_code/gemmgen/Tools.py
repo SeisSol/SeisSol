@@ -128,14 +128,13 @@ def memoryLayoutFromFile(xmlFile, db, clones):
       else:
         __complain(group)
     # equalize sparsity pattern
-    # FIXME: calculation of non-zero flops
     if not noMutualSparsityPattern:
       spp = None
       for matrix in groups[groupName]:
         spp = spp + db[matrix].spp if spp != None else db[matrix].spp
       spp[numpy.abs(spp) > 0] = 1.0
       for matrix in groups[groupName]:
-        db[matrix].spp = spp
+        db[matrix].updateSparsityPattern(spp)
 
   for matrix in root.findall('matrix'):
     group = matrix.get('group')
