@@ -40,7 +40,6 @@
 #ifndef MODULES_H
 #define MODULES_H
 
-#include <cassert>
 #include <map>
 #include <utility>
 
@@ -93,18 +92,7 @@ private:
 	/**
 	 * Do the real work for registering for a hook
 	 */
-	void _registerHook(Module &module, Hook hook, int priority)
-	{
-		assert(hook < MAX_HOOKS);
-
-		if (m_nextHook >= MAX_INIT_HOOKS)
-			logError() << "Trying to register for a hook after initialization phase";
-		if (hook < m_nextHook)
-			logError() << "Trying to register for hook" << strHook(hook)
-				<< "but SeisSol was already processing" << strHook(static_cast<Hook>(m_nextHook-1));
-
-		m_hooks[hook].insert(std::pair<const int, Module*>(priority, &module));
-	}
+	void _registerHook(Module &module, Hook hook, int priority);
 
 	/**
 	 * Do the real work for handling a hook
@@ -119,42 +107,33 @@ private:
 	}
 
 private:
-	/** The only instance of this class */
-	static Modules instance;
-
-private:
 	template<Hook hook>
 	static void call(Module* module);
 
-	static const char* strHook(Hook hook)
+	static const char* strHook(Hook hook);
+
+	/**
+	 * The only instance of this class
+	 *
+	 * We need to use a static function to prevent the "static initialization order fiasco".
+	 */
+	static Modules& instance()
 	{
-		switch (hook) {
-		case PRE_MPI:
-			return "PRE_MPI";
-		case POST_MPI_INIT:
-			return "POST_MPI_INIT";
-		case POST_MESH:
-			return "POST_MESH";
-		case PRE_MODEL:
-			return "PRE_MODEL";
-		case POST_MODEL:
-			return "POST_MODEL";
-		default:
-			return "unknown hook";
-		}
+		static Modules _instance;
+		return _instance;
 	}
 
 // Public interface
 public:
 	static void registerHook(Module &module, Hook hook, int priority = Module::DEFAULT)
 	{
-		instance._registerHook(module, hook, priority);
+		instance()._registerHook(module, hook, priority);
 	}
 
 	template<Hook hook>
 	static void callHook()
 	{
-		instance._callHook<hook>();
+		instance()._callHook<hook>();
 	}
 
 };

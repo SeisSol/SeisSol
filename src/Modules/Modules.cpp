@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,37 @@
  * @section DESCRIPTION
  */
 
+#include <cassert>
+
 #include "Modules.h"
 
-seissol::Modules seissol::Modules::instance;
+void seissol::Modules::_registerHook(Module &module, Hook hook, int priority)
+{
+	assert(hook < MAX_HOOKS);
+
+	if (m_nextHook >= MAX_INIT_HOOKS)
+		logError() << "Trying to register for a hook after initialization phase";
+	if (hook < m_nextHook)
+		logError() << "Trying to register for hook" << strHook(hook)
+			<< "but SeisSol was already processing" << strHook(static_cast<Hook>(m_nextHook-1));
+
+	m_hooks[hook].insert(std::pair<int, Module*>(priority, &module));
+}
+
+const char* seissol::Modules::strHook(Hook hook)
+{
+	switch (hook) {
+	case PRE_MPI:
+		return "PRE_MPI";
+	case POST_MPI_INIT:
+		return "POST_MPI_INIT";
+	case POST_MESH:
+		return "POST_MESH";
+	case PRE_MODEL:
+		return "PRE_MODEL";
+	case POST_MODEL:
+		return "POST_MODEL";
+	default:
+		return "unknown hook";
+	}
+}
