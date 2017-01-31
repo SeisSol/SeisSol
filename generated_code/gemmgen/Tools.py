@@ -42,6 +42,7 @@ import DB
 import Expr
 import Generator
 import numpy
+import scipy.sparse
 
 def __complain(child):
   raise ValueError('Unknown tag ' + child.tag)
@@ -51,30 +52,41 @@ def __parseMatrix(node, clones):
   rows = int( node.get('rows') )
   columns = int( node.get('columns') )
   if len(node) != 0:
-    spp = (list(), list())
-    values = list()
+    indices = (list(), list())
+    data = list()
     for child in node:
       if child.tag == 'entry':
         row = int(child.get('row'))-1
         col = int(child.get('column'))-1
-        spp[0].append(row)
-        spp[1].append(col)
-        if values != None and 'value' in child.keys():
-          values.append((row, col, child.get('value')))
+        indices[0].append(row)
+        indices[1].append(col)
+        if data != None and 'value' in child.keys():
+          data.append(child.get('value'))
         else:
-          values = None
+          data = None
       else:
         self.__complain(child)
   else:
-    spp = None
-    values = None
+    indices = None
+    data = None
+
+  spp = None
+  isConstantGlobalMatrix = False
+  if indices is not None:
+    if data is None:
+      dtype = numpy.float64
+      data = numpy.ones(len(indices[0]))
+    else:
+      dtype = numpy.str_
+      isConstantGlobalMatrix = True
+    spp = scipy.sparse.coo_matrix((data, indices), shape=(rows, columns), dtype=dtype)
 
   dbUpdate = DB.DB()
   if clones.has_key(name):
     for clone in clones[name]:
-      dbUpdate[clone] = DB.MatrixInfo(clone, rows, columns, spp, values)
+      dbUpdate[clone] = DB.MatrixInfo(clone, rows, columns, spp, isConstantGlobalMatrix)
   else:
-    dbUpdate[name] = DB.MatrixInfo(name, rows, columns, spp, values)
+    dbUpdate[name] = DB.MatrixInfo(name, rows, columns, spp, isConstantGlobalMatrix)
   
   return dbUpdate
 
@@ -116,6 +128,7 @@ def memoryLayoutFromFile(xmlFile, db, clones):
       else:
         __complain(group)
     # equalize sparsity pattern
+    # FIXME: calculation of non-zero flops
     if not noMutualSparsityPattern:
       spp = None
       for matrix in groups[groupName]:

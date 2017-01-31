@@ -238,7 +238,7 @@ class Generator:
     globalMatrixValues = dict()
     maxGlobalMatrixId = -1
     for matrixInfo in self.db.itervalues():
-      if matrixInfo.values != None:
+      if matrixInfo.isConstantGlobalMatrix:
         globalMatrixValues[matrixInfo.globalMatrixId] = matrixInfo.name
         maxGlobalMatrixId = max(maxGlobalMatrixId, matrixInfo.globalMatrixId)
         
@@ -267,7 +267,7 @@ class Generator:
           with header.Namespace('model'):
             for matrixInfo in self.db.itervalues():
               with header.Namespace(matrixInfo.name):
-                if matrixInfo.values == None:
+                if not matrixInfo.isConstantGlobalMatrix:
                   header('void convertToDense({typename} const* matrix, {typename}* denseMatrix);'.format(typename=self.architecture.typename))
                   with header.Function('static inline int index(unsigned row, unsigned column)'):
                     header('static int const lut[] = {{ {} }};'.format(
@@ -295,7 +295,7 @@ class Generator:
       with cpp.Namespace('seissol'):
         with cpp.Namespace('model'):
           for matrixInfo in self.db.itervalues():
-            if matrixInfo.values == None:
+            if not matrixInfo.isConstantGlobalMatrix:
               with cpp.Function('void {namespace}::convertToDense({typename} const* matrix, {typename}* denseMatrix)'.format(namespace=matrixInfo.name, typename=self.architecture.typename)):
                 cpp.memset('denseMatrix', matrixInfo.rows * matrixInfo.cols, self.architecture.typename)
                 for block in matrixInfo.blocks:
@@ -358,7 +358,7 @@ class Generator:
                   if self.db.has_key(matrix):
                     matrixInfo = self.db[matrix]
                     test(self.__localArray(matrix + '_dense', matrixInfo.rows * matrixInfo.cols, aligned=False))
-                    if matrixInfo.values == None:
+                    if not matrixInfo.isConstantGlobalMatrix:
                       test('seissol::model::{name}::convertToDense({name}, {name}_dense);'.format(name=matrix))
                     else:
                       test('seissol::model::{name}::convertToDense({name}_dense);'.format(name=matrix))
@@ -388,7 +388,7 @@ class Generator:
                 if self.db.has_key(matrix):
                   matrixInfo = self.db[matrix]
                   test(self.__localArray(matrix, matrixInfo.requiredReals))
-                  if matrixInfo.values != None:
+                  if matrixInfo.isConstantGlobalMatrix:
                     test('memcpy({name}, seissol::model::{name}::values, {reals} * sizeof({typename}));'.format(name=matrix, reals=matrixInfo.requiredReals, typename=self.architecture.typename))
                   else:
                     test.memset(matrix, matrixInfo.requiredReals, self.architecture.typename)

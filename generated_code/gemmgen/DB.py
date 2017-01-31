@@ -42,6 +42,7 @@ import numpy.matlib
 import scipy.sparse
 import copy
 import re
+import itertools
 
 class DB(dict):  
   def insert(self, matrixInfo):
@@ -129,7 +130,7 @@ def determineGlobalMatrixIds(globalMatrixIdRules, db):
         value.globalMatrixId = rule[1](match.groups())
 
 class MatrixInfo:
-  def __init__(self, name, rows = 0, cols = 0, sparsityPattern = None, values = None):
+  def __init__(self, name, rows, cols, matrix = None, isConstantGlobalMatrix = False):
     self.name = name
     self.rows = rows
     self.cols = cols
@@ -138,26 +139,36 @@ class MatrixInfo:
     self.rightMultiplication = False
     self.symbol = [ [self.name] ]
     self.globalMatrixId = -1
+    self.isConstantGlobalMatrix = isConstantGlobalMatrix
     
     self.setSingleBlock()
-
-    if isinstance(sparsityPattern, tuple):
-      self.spp = scipy.sparse.coo_matrix((np.ones(len(sparsityPattern[0])), sparsityPattern), shape=(self.rows, self.cols), dtype=np.float64).todense()
-    elif sparsityPattern is None:
-      self.spp = np.matlib.ones((self.rows, self.cols), dtype=np.float64)
-    else:
-      self.spp = sparsityPattern
     
-    # ensure that spp has only zeros and ones
-    self.spp[np.abs(self.spp) > 0] = 1.0
+    if matrix is not None:
+      self.matrix = scipy.sparse.coo_matrix(matrix)
+    else:
+      self.matrix = scipy.sparse.coo_matrix(np.matlib.ones((self.rows, self.cols), dtype=np.float64))
+      
+    self.updateSparsityPattern(self.matrix)
       
     if self.spp.shape[0] != self.rows or self.spp.shape[1] != self.cols:
       raise ValueError('Matrix dimensions are different to the dimensions of the sparsity pattern.')
 
-    self.values = values
-    if self.values != None:
-      self.values.sort(key=lambda entry: (entry[1], entry[0]))
+  def updateSparsityPattern(self, sparsityPattern):
+    test = scipy.sparse.dok_matrix(sparsityPattern)
+    testNNZ = test.nnz
+    test.update(self.matrix.asformat('dok'))
+    if testNNZ != test.nnz:
+      raise ValueError('updateSparsityPattern: New sparsity pattern does not include all non-zeros of matrix.')
     
+    self.spp = sparsityPattern.astype(np.float64).todense()
+    # ensure that spp has only zeros and ones
+    self.spp[np.abs(self.spp) > 0] = 1.0
+    
+  def getOriginalSparsityPattern(self):
+    originalSpp = self.matrix.astype(np.float64).todense()
+    originalSpp[np.abs(originalSpp) > 0] = 1.0
+    return originalSpp
+
   def __mul__(self, other):
     spp = self.spp * other.spp
     result = MatrixInfo('{}*{}'.format(self.name, other.name), self.rows, other.cols, spp)
@@ -225,35 +236,39 @@ class MatrixInfo:
         self.requiredReals += block.ld * block.cols()
     
   def flat(self, name):
-    return MatrixInfo(name, self.rows, self.cols, sparsityPattern=self.spp)
+    return MatrixInfo(name, self.rows, self.cols, matrix=self.spp)
     
   def getValuesAsStoredInMemory(self):
-    if self.values != None:
-      blockValues = ['0.'] * self.requiredReals
-      for block in self.blocks:
-        if block.sparse:
-          counter = 0
-          for entry in self.values:
-            # TODO: FIXME in case of forced mutual sparsity pattern
-            if entry[0] >= block.startrow and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
-              blockValues[block.offset + counter] = entry[2]
-              counter = counter + 1
-              if counter >= block.nnz:
-                break
-        else:
-          for entry in self.values:
-            if entry[0] >= block.startrow + block.startpaddingrows and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
-              blockValues[block.offset + (entry[0] - block.startrow) + (entry[1] - block.startcol) * block.ld] = entry[2]
-      return blockValues
-    return None
+    # self.spp may be different than self.values (e.g. to force a mutual sparsity
+    # pattern for several matrices).
+    # Here, we add the additional zeros of self.spp.
+    implMatrix = scipy.sparse.dok_matrix(self.spp, dtype=self.matrix.dtype)
+    implMatrix.update(self.matrix.asformat('dok'))
+    implMatrixCoo = implMatrix.asformat('coo')
+    implValues = zip(implMatrixCoo.row, implMatrixCoo.col, implMatrixCoo.data)
+    implValues.sort(key=lambda entry: (entry[1], entry[0]))
+    
+    blockValues = ['0.'] * self.requiredReals
+    for block in self.blocks:
+      if block.sparse:
+        counter = 0
+        for entry in implValues:
+          if entry[0] >= block.startrow and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
+            blockValues[block.offset + counter] = entry[2]
+            counter = counter + 1
+            if counter >= block.nnz:
+              break
+      else:
+        for entry in implValues:
+          if entry[0] >= block.startrow + block.startpaddingrows and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
+            blockValues[block.offset + (entry[0] - block.startrow) + (entry[1] - block.startcol) * block.ld] = entry[2]
+    return blockValues
       
   def getValuesDense(self):
-    if self.values != None:
-      denseValues = ['0.'] * (self.rows * self.cols)
-      for entry in self.values:
-        denseValues[entry[0] + entry[1] * self.rows] = entry[2]
-      return denseValues
-    return None
+    denseValues = ['0.'] * (self.rows * self.cols)
+    for entry in itertools.izip(self.matrix.row, self.matrix.col, self.matrix.data):
+      denseValues[entry[0] + entry[1] * self.rows] = entry[2]
+    return denseValues
 
   def getIndexLUT(self):
     lut = [-1] * (self.rows * self.cols)
@@ -278,4 +293,3 @@ class MatrixInfo:
       else:
         implementationPattern[fittedBlocks[i].slice()] = 1.0
     return implementationPattern
-    

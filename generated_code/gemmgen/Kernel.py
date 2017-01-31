@@ -44,6 +44,12 @@ import itertools
 import operator
 import numpy
 
+def calculateOptimalSparseFlops(matrices):
+  sparsityPatterns = [matrix.getOriginalSparsityPattern() for matrix in matrices]
+  # Eliminate irrelevant entries in the matrix multiplication
+  equivalentSparsityPatterns = Sparse.equivalentMultiplicationPatterns(sparsityPatterns)
+  return Sparse.calculateOptimalSparseFlops(equivalentSparsityPatterns)
+
 class Operation:
   MEMSET = 1,
   GEMM = 2
@@ -134,12 +140,12 @@ class GeneratedKernel(Kernel):
         if len(output) > 0:
           if len(self.temps) == 0:
             tempCounter += 1
-            self.temps.append(DB.MatrixInfo(self.tempBaseName + str(tempCounter)))
+            self.temps.append(DB.MatrixInfo(self.tempBaseName + str(tempCounter), 0, 0))
           result = self.temps.pop()
           resultRequiredReals = result.requiredReals
           spp1 = implementationPatterns[nameToIndex[op1.name]] if nameToIndex.has_key(op1.name) else op1.spp
           spp2 = implementationPatterns[nameToIndex[op2.name]] if nameToIndex.has_key(op2.name) else op2.spp
-          result = DB.MatrixInfo(result.name, op1.rows, op2.cols, sparsityPattern = spp1 * spp2)
+          result = DB.MatrixInfo(result.name, op1.rows, op2.cols, matrix = spp1 * spp2)
           result.fitBlocksToSparsityPattern()
           result.generateMemoryLayout(self.arch, alignStartrow=True)
           resultName = result.name
