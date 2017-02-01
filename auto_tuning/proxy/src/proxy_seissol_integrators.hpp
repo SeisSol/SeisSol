@@ -115,9 +115,16 @@ void computeLocalIntegration() {
 void computeNeighboringIntegration() {
   real  l_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(4096)));
   real *l_timeIntegrated[4];
+#ifdef ENABLE_MATRIX_PREFETCH
+  real *l_faceNeighbors_prefetch[4];
+#endif
 
 #ifdef _OPENMP
+#  ifdef ENABLE_MATRIX_PREFETCH
+  #pragma omp parallel private(l_integrationBuffer, l_timeIntegrated, l_faceNeighbors_prefetch)
+#  else
   #pragma omp parallel private(l_integrationBuffer, l_timeIntegrated)
+#  endif
   {
 #if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY < 512
   GlobalData* l_globalData = m_globalDataArray[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY];
@@ -138,11 +145,28 @@ void computeNeighboringIntegration() {
                                                l_integrationBuffer,
                                                l_timeIntegrated );
 
+#ifdef ENABLE_MATRIX_PREFETCH
+#pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
+    l_faceNeighbors_prefetch[0] = m_cells->faceNeighbors[l_cell][1];
+    l_faceNeighbors_prefetch[1] = m_cells->faceNeighbors[l_cell][2];
+    l_faceNeighbors_prefetch[2] = m_cells->faceNeighbors[l_cell][3];
+
+    // fourth face's prefetches
+    if (l_cell < (m_cells->numberOfCells-1) ) {
+      l_faceNeighbors_prefetch[3] = m_cells->faceNeighbors[l_cell+1][0];
+    } else {
+      l_faceNeighbors_prefetch[3] = m_cells->faceNeighbors[l_cell][3];
+    }
+#endif
+
     m_neighborKernel.computeNeighborsIntegral( m_cellInformation[l_cell].faceTypes,
                                                m_cellInformation[l_cell].faceRelations,
                                                l_globalData,
                                                &m_cellData->neighboringIntegration[l_cell],
                                                l_timeIntegrated,
+#ifdef ENABLE_MATRIX_PREFETCH
+                                               l_faceNeighbors_prefetch,
+#endif
                                                m_cells->dofs[l_cell]);
   }
 

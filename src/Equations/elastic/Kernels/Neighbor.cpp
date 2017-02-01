@@ -88,6 +88,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
                                                             GlobalData const*                 global,
                                                             NeighboringIntegrationData const* neighbor,
                                                             real*                             i_timeIntegrated[4],
+                                                            real*                             faceNeighbors_prefetch[4],
                                                             real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] )
 {
 #ifndef NDEBUG
@@ -129,7 +130,8 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
           global->changeOfBasisMatrices[ l_face ],
           global->neighbourChangeOfBasisMatricesTransposed[ i_neighboringIndices[l_face][0] ],
           i_timeIntegrated[l_face],
-          io_degreesOfFreedom
+          io_degreesOfFreedom,
+          faceNeighbors_prefetch[l_face]
         );
       } else { // fall back to local matrices in case of free surface boundary conditions
         seissol::generatedKernels::localFlux[l_face](
@@ -137,7 +139,8 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
           global->localChangeOfBasisMatricesTransposed[l_face],
           global->changeOfBasisMatrices[l_face],
           i_timeIntegrated[l_face],
-          io_degreesOfFreedom
+          io_degreesOfFreedom,
+          faceNeighbors_prefetch[l_face]
         );
       }
     }

@@ -84,6 +84,12 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
   );
   
   for( unsigned int face = 0; face < 4; face++ ) {
+    real const* prefetch;
+    if (face == 0) {
+      prefetch = i_timeIntegratedDegreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
+    } else if (face == 1) {
+      prefetch = io_degreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
+    }
     // no element local contribution in the case of dynamic rupture boundary conditions
     if( i_faceTypes[face] != dynamicRupture ) {
       seissol::generatedKernels::localFlux[face](
@@ -91,7 +97,8 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
         global->localChangeOfBasisMatricesTransposed[face],
         global->changeOfBasisMatrices[face],
         i_timeIntegratedDegreesOfFreedom,
-        io_degreesOfFreedom
+        io_degreesOfFreedom,
+        prefetch
       );
     }
   }

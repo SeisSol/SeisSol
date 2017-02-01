@@ -239,6 +239,9 @@ if env['equations'].startswith('viscoelastic'):
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
 
+if env['equations'] == 'elastic':
+  env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
+
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
   print "*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available."

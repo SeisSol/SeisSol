@@ -94,13 +94,20 @@ kernels.append(Kernel.Prototype('volume', volume))
 
 for i in range(0, 4):
   localFlux = db['r{}DivM'.format(i+1)] * db['fMrT{}'.format(i+1)] * db['timeIntegrated'] * db['AplusT']
-  kernels.append(Kernel.Prototype('localFlux[{}]'.format(i), localFlux))
+  prefetch = None
+  if i == 0:
+    prefetch = db['timeIntegrated']
+  elif i == 1:
+    prefetch = localFlux.flat('degreesOfFreedom')
+  else:
+    prefetch = Kernel.DummyPrefetch()
+  kernels.append(Kernel.Prototype('localFlux[{}]'.format(i), localFlux, prefetch=prefetch))
 
 for i in range(0, 4):
   for j in range(0, 4):
     for h in range(0, 3):
       neighboringFlux = db['r{}DivM'.format(i+1)] * db['fP{}'.format(h+1)] * db['rT{}'.format(j+1)] * db['timeIntegrated'] * db['AminusT']
-      kernels.append(Kernel.Prototype('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux))
+      kernels.append(Kernel.Prototype('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux, prefetch=db['timeIntegrated']))
 
 for i in range(1, order):
   lastD = 'timeDerivative{}'.format(str(i-1))

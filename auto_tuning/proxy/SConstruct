@@ -126,6 +126,9 @@ env.Append( CFLAGS    = archFlags,
             LINKFLAGS = archFlags )
 env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['arch'].upper()])
 
+if env['equations'] == 'elastic':
+  env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
+
 flags = ['-fopenmp']
 if env['compileMode'] == 'debug':
   flags.extend(['-O0', '-g'])

@@ -81,9 +81,9 @@ def getFlags(architecture, compiler):
     flags = ['-mmic', '-fma']
   elif cpu == 'knl':
     if compiler == 'intel':
-      flags = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4']
+      flags = ['-xMIC-AVX512', '-fma', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4']
     else:
-      flags = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4']
+      flags = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4']
   else:
     flags = []
   

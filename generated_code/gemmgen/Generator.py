@@ -51,7 +51,7 @@ def generateRoutineName(gemm):
   name = 'sparse_' + gemm['spMtxName'] if gemm['spp'] is not None else 'gemm'
   lda = 'Asparse' if gemm['LDA'] <= 0 else 'ldA{}'.format(gemm['LDA'])
   ldb = 'Bsparse' if gemm['LDB'] <= 0 else 'ldB{}'.format(gemm['LDB'])
-  return '{}_m{}_n{}_k{}_{}_{}_ldC{}_beta{}_alignedA{}_alignedC{}_pfsigonly'.format(
+  return '{}_m{}_n{}_k{}_{}_{}_ldC{}_beta{}_alignedA{}_alignedC{}_{}'.format(
     name,
     gemm['M'],
     gemm['N'],
@@ -61,7 +61,8 @@ def generateRoutineName(gemm):
     gemm['LDC'],
     gemm['beta'],
     gemm['alignedA'],
-    gemm['alignedC']
+    gemm['alignedC'],
+    gemm['prefetch']
   )
 
 def formatOffset(name, offset):
@@ -127,7 +128,7 @@ class Generator:
           os.system(self.__generateLibxsmmGeneratorCall(cppFilename, gemmlist[index], sppFile))
 
   def __generateLibxsmmGeneratorCall(self, filename, gemm, sppFile):
-    return '{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} pfsigonly {}P {}'.format(
+    return '{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}P {}'.format(
       self.libxsmmGenerator,
       gemm['type'],
       filename,
@@ -143,19 +144,16 @@ class Generator:
       gemm['alignedA'],
       gemm['alignedC'],
       self.architecture.name,
+      gemm['prefetch'],
       self.architecture.precision,
       sppFile
     )
     
   def __gemmSignature(self, names, writeNames=True):
     if writeNames:
-      signature = ', '.join(['{} const* {}'.format(self.architecture.typename, name) for name in names[0:-1]])
-      signature += ', {}* {}'.format(self.architecture.typename, names[-1])
+      signature = ', '.join(['{}{}* {}'.format(self.architecture.typename, ' const' if name != Kernel.Kernel.ResultName else '', name) for name in names])
     else:
-      signature = ''
-      for i in range(0, len(names)-1):
-        signature += self.architecture.typename + ' const*, '
-      signature += self.architecture.typename + '*'
+      signature = ', '.join(['{}{}*'.format(self.architecture.typename, ' const' if name != Kernel.Kernel.ResultName else '') for name in names])
     return signature
     
   def __localArray(self, name, reals, aligned=True):
@@ -183,7 +181,7 @@ class Generator:
       else:
         flops[funName] = flop
       generatedKernels.append( (funName, gk) )
-      gemmlist.extend(gk.gemmlist)
+      gemmlist.extend([op['gemm'] for op in gk.operations if op.has_key('gemm')])
       
     self.__generateGemms(outputDir, gemmlist)
 
@@ -212,11 +210,13 @@ class Generator:
                 if operation['type'] == Kernel.Operation.MEMSET:
                   cpp.memset(operation['pointer'], operation['numberOfReals'], operation['dataType'], operation['offset'])
                 elif operation['type'] == Kernel.Operation.GEMM:
-                  cpp('{}({}, {}, {}, NULL, NULL, NULL);'.format(
+                  prefetch = operation['gemm']['prefetchPointer'] if operation['gemm'].has_key('prefetchPointer') else 'NULL'
+                  cpp('{}({}, {}, {}, NULL, {}, NULL);'.format(
                     generateRoutineName(operation['gemm']),
                     formatOffset(operation['nameA'], operation['offsetA']),
                     formatOffset(operation['nameB'], operation['offsetB']),
-                    formatOffset(operation['nameC'], operation['offsetC'])
+                    formatOffset(operation['nameC'], operation['offsetC']),
+                    prefetch
                   ))
                   
     with Code.Cpp(outputDir + '/flops.h') as header:
@@ -404,8 +404,9 @@ class Generator:
               if rk.prototype.beta != 0.0:
                 test.memset('result', rk.prototype.kernel.requiredReals, self.architecture.typename)
               
+              dummyPrefetch = ['NULL'] if rk.prototype.prefetch is not None else []
               test('seissol::unit_test::{}({});'.format(name, ', '.join(rk.involvedMatrices[0:-1] + ['reference'])))
-              test('seissol::generatedKernels::{}({});'.format(name, ', '.join(rk.involvedMatrices)))
+              test('seissol::generatedKernels::{}({});'.format(name, ', '.join(rk.involvedMatrices + dummyPrefetch)))
 
               test('double error = 0.0;')
               test('double refNorm = 0.0;')

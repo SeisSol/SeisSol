@@ -467,12 +467,11 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   real *l_timeIntegrated[4];
 #ifdef ENABLE_MATRIX_PREFETCH
   real *l_faceNeighbors_prefetch[4];
-  real *l_fluxMatricies_prefetch[4];
 #endif
 
 #ifdef _OPENMP
 #ifdef ENABLE_MATRIX_PREFETCH
-  #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch, l_fluxMatricies_prefetch)
+  #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch)
 #else
   #pragma omp parallel for schedule(static) private(l_timeIntegrated)
 #endif
@@ -498,36 +497,15 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
 #ifdef ENABLE_MATRIX_PREFETCH
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-    // first face's prefetches
-    int l_face = 1;
-    l_faceNeighbors_prefetch[0] = faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[0] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(cellInformation[l_cell].faceRelations[l_face][1])];
-    // second face's prefetches
-    l_face = 2;
-    l_faceNeighbors_prefetch[1] = faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[1] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(cellInformation[l_cell].faceRelations[l_face][1])];
-    // third face's prefetches
-    l_face = 3;
-    l_faceNeighbors_prefetch[2] = faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[2] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(cellInformation[l_cell].faceRelations[l_face][1])];
+    l_faceNeighbors_prefetch[0] = faceNeighbors[l_cell][1];
+    l_faceNeighbors_prefetch[1] = faceNeighbors[l_cell][2];
+    l_faceNeighbors_prefetch[2] = faceNeighbors[l_cell][3];
+
     // fourth face's prefetches
     if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-      l_face = 0;
-      l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell+1][l_face];
-      l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                               +(cellInformation[l_cell+1].faceRelations[l_face][0]*3)
-                                                               +(cellInformation[l_cell+1].faceRelations[l_face][1])];
+      l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell+1][0];
     } else {
       l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
-      l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(3*12)
-                                                               +(cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                               +(cellInformation[l_cell].faceRelations[l_face][1])];
     }
 #endif
 
@@ -536,6 +514,9 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                l_globalData,
                                                &neighboringIntegration[l_cell],
                                                l_timeIntegrated,
+#ifdef ENABLE_MATRIX_PREFETCH
+                                               l_faceNeighbors_prefetch,
+#endif
                                                dofs[l_cell] );
 
 #ifdef USE_PLASTICITY

@@ -49,20 +49,26 @@ def calculateOptimalSparseFlops(matrices):
   # Eliminate irrelevant entries in the matrix multiplication
   equivalentSparsityPatterns = Sparse.equivalentMultiplicationPatterns(sparsityPatterns)
   return Sparse.calculateOptimalSparseFlops(equivalentSparsityPatterns)
-  
+
+class DummyPrefetch:
+  pass
+
 class Prototype:
-  def __init__(self, name, kernel, beta=1):
+  def __init__(self, name, kernel, beta=1, prefetch=None):
     if beta != 0 and beta != 1:
       raise ValueError('Other betas than one or zero are currently not supported.')
     self.name = name
     self.kernel = kernel
     self.beta = beta
+    self.prefetch = prefetch
 
 class Operation:
   MEMSET = 1,
   GEMM = 2
   
 class Kernel(object):
+  ResultName = 'result'
+
   def __init__(self, prototype, db, architecture):
     self.db = db
     self.arch = architecture
@@ -70,7 +76,6 @@ class Kernel(object):
     self.temps = list()
     self.operations = list()
     self.tempBaseName = 'temporaryResult'
-    self.resultName = 'result'
     self.prototype = prototype
 
     for index, mul in enumerate(prototype.kernel.symbol):
@@ -79,18 +84,40 @@ class Kernel(object):
     self.temps.sort(key=lambda temp: temp.name)
     self.involvedMatrices = set([name for mul in prototype.kernel.symbol for name in mul])
     self.involvedMatrices = sorted(list(self.involvedMatrices))
-    self.involvedMatrices.append(self.resultName)
+    self.involvedMatrices.append(Kernel.ResultName)
       
   def gemms(self, matrices, firstProduct):
     raise NotImplementedError()
 
 class GeneratedKernel(Kernel):
+  PrefetchSuffix = '_prefetch'
+  DefaultPrefetchMode = 'pfsigonly'
+  
   def __init__(self, kernel, db, architecture):
-    self.gemmlist = list()
     self.nonZeroFlops = 0
     self.hardwareFlops = 0
     
     super(GeneratedKernel, self).__init__(kernel, db, architecture)
+    
+    if self.prototype.prefetch is not None:
+      if self.arch.enablePrefetch and not isinstance(self.prototype.prefetch, DummyPrefetch):
+        blocks = self.prototype.prefetch.blocks
+        prefetchPointerName = self.prototype.prefetch.name + GeneratedKernel.PrefetchSuffix
+        if len(blocks) > 1 or blocks[0].sparse:
+          raise ValueError('Prefetching is currently only supported for matrices with dense single block memory layout.')
+        match = False
+        for op in self.operations:
+          if op['type'] == Operation.GEMM:
+            if blocks[0].slice() == op['modifiedBlockC'].slice():
+              match = True
+              op['gemm']['prefetch'] = 'BL2viaC'
+              op['gemm']['prefetchPointer'] = prefetchPointerName
+        if not match:
+          raise ValueError('Did not a find suitable gemm for prefetching. Consider improving this dumb implementation.')
+      else:
+        prefetchPointerName = '/* no prefetch */'
+      
+      self.involvedMatrices.append(prefetchPointerName)
 
   def __intersect(self, blockA, blockB):
     return (max(blockA.startcol, blockB.startrow), min(blockA.stopcol, blockB.stoprow))
@@ -163,10 +190,9 @@ class GeneratedKernel(Kernel):
         else:
           beta = 1 if not firstProduct else self.prototype.beta
           result = self.prototype.kernel
-          resultName = self.resultName
+          resultName = Kernel.ResultName
         
         ops = []
-        writes = []
         # op1 and op2 may be partitioned in several blocks.
         # Here we split the blocks of op1 and op2 in sums, i.e.
         # op1 * op2 = (op11 + op12 + ... + op1m) * (op21 + op22 + ... + op2n)
@@ -180,8 +206,9 @@ class GeneratedKernel(Kernel):
           for i2, block2 in enumerate(blocks2):
             # op1k * op2l is only nonzero if the columns of op1k and
             # the rows of op2l intersect.
-            self.__gemm(op1.name, block1, op1.blocks[i1], op2.name, block2, op2.blocks[i2], resultName, result.blocks[0], beta, ops, writes)
+            self.__gemm(op1.name, block1, op1.blocks[i1], op2.name, block2, op2.blocks[i2], resultName, result.blocks[0], beta, ops)
 
+        writes = [op['modifiedBlockC'] for op in ops]
         # Reorder ops in order to find betas
         if len(writes) > 0 and beta == 0:
           targetCard = result.blocks[0].ld * result.blocks[0].cols()
@@ -209,7 +236,6 @@ class GeneratedKernel(Kernel):
           ops = [ops[o] for o in order]
 
         for op in ops:
-          self.gemmlist.append(op['gemm'])
           self.operations.append(op)
           if op['gemm']['spp'] is not None:
             NNZ = int(numpy.sum(op['gemm']['spp']))
@@ -226,7 +252,7 @@ class GeneratedKernel(Kernel):
         if not nameToIndex.has_key(op2.name):
           self.temps.append(op2)
 
-  def __gemm(self, nameA, blockA, memoryBlockA, nameB, blockB, memoryBlockB, nameC, memoryBlockC, beta, ops, writes):
+  def __gemm(self, nameA, blockA, memoryBlockA, nameB, blockB, memoryBlockB, nameC, memoryBlockC, beta, ops):
     if memoryBlockA.sparse and memoryBlockB.sparse:
       raise NotImplementedError('The generator does not support sparse * sparse multiplications.')
 
@@ -263,7 +289,6 @@ class GeneratedKernel(Kernel):
 
       startrowC = m1 - memoryBlockC.startrow
       startcolC = blockB.startcol - memoryBlockC.startcol
-      writes.append(DB.MatrixBlock(startrowC, startrowC + M, startcolC, startcolC + N))
 
       alignedA = self.arch.checkAlignment(offsetA)
       alignedC = self.arch.checkAlignment(offsetC)
@@ -284,7 +309,8 @@ class GeneratedKernel(Kernel):
         'alignedA':     int(alignedA),
         'alignedC':     int(alignedC),
         'spp':          sparsityPattern,
-        'spMtxName':    spMtxName
+        'spMtxName':    spMtxName,
+        'prefetch':     GeneratedKernel.DefaultPrefetchMode
       }
       ops.append(dict(
         type=Operation.GEMM,
@@ -294,7 +320,8 @@ class GeneratedKernel(Kernel):
         nameC=nameC,
         offsetA=offsetA,
         offsetB=offsetB,
-        offsetC=offsetC        
+        offsetC=offsetC,
+        modifiedBlockC=DB.MatrixBlock(startrowC, startrowC + M, startcolC, startcolC + N)
       ))
     
 
