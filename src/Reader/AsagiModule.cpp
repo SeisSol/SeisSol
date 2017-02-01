@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,11 +54,13 @@ seissol::asagi::AsagiModule::AsagiModule()
 	// Register for the pre MPI hook
 	Modules::registerHook(*this, seissol::PRE_MPI);
 
-	if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
+	// Emit a warning/error later
+	// TODO use a general logger that can buffer log messages and emit them later
+	if (m_mpiMode == MPI_UNKNOWN) {
+		Modules::registerHook(*this, seissol::POST_MPI_INIT);
+	} else if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
 		m_mpiMode = MPI_WINDOWS;
 
-		// Emit a warning later
-		// TODO use a general logger that can buffer log messages and emit them later
 		Modules::registerHook(*this, seissol::POST_MPI_INIT);
 	}
 }
@@ -68,7 +70,7 @@ seissol::asagi::AsagiModule seissol::asagi::AsagiModule::instance;
 seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
 {
 #ifdef USE_MPI
-	std::string mpiModeName = utils::Env::get("SEISSOL_ASAGI_MPI_MODE", "WINDOWS");
+	std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "WINDOWS");
 	if (mpiModeName == "WINDOWS")
 		return MPI_WINDOWS;
 	if (mpiModeName == "COMM_THREAD")
@@ -76,10 +78,10 @@ seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
 	if (mpiModeName == "OFF")
 		return MPI_OFF;
 
-	logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
-#endif // USE_MPI
-
+	return MPI_UNKNOWN;
+#else // USE_MPI
 	return MPI_OFF;
+#endif // USE_MPI
 }
 
 int seissol::asagi::AsagiModule::getTotalThreads()
@@ -95,3 +97,5 @@ int seissol::asagi::AsagiModule::getTotalThreads()
 
 	return totalThreads;
 }
+
+const char* seissol::asagi::AsagiModule::ENV_MPI_MODE = "SEISSOL_ASAGI_MPI_MODE";

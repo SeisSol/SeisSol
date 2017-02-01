@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,8 +45,11 @@
 
 #include "Parallel/MPI.h"
 
+#include <string>
+
 #include <asagi.h>
 
+#include "utils/env.h"
 #include "utils/logger.h"
 
 #include "Modules/Module.h"
@@ -60,7 +63,7 @@ namespace asagi
 
 enum MPI_Mode
 {
-	MPI_OFF, MPI_WINDOWS, MPI_COMM_THREAD
+	MPI_OFF, MPI_WINDOWS, MPI_COMM_THREAD, MPI_UNKNOWN
 };
 
 class AsagiModule : public Module
@@ -68,6 +71,9 @@ class AsagiModule : public Module
 private:
 	/** The MPI mode used for ASAGI communication */
 	MPI_Mode m_mpiMode;
+
+	/** The real name set via the environment variable */
+	std::string m_mpiModeName;
 
 	/** The total number of threads (including the communication thread */
 	int m_totalThreads;
@@ -89,14 +95,19 @@ public:
 	}
 
 	/**
-	 * At the moment this function will only be registered when this warning
+	 * At the moment this function will only be registered when this warning/error
 	 * needs to be emitted.
 	 */
 	void postMPIInit()
 	{
-		const int rank = MPI::mpi.rank();
-		logWarning(rank) << "Running with only one OMP thread."
-			<< "Using MPI window communication instead of threads.";
+		if (m_mpiMode == MPI_UNKNOWN) {
+			std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "");
+			logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
+		} else {
+			const int rank = MPI::mpi.rank();
+			logWarning(rank) << "Running with only one OMP thread."
+				<< "Using MPI window communication instead of threads.";
+		}
 	}
 
 	/**
@@ -152,6 +163,9 @@ public:
 	{
 		return instance.m_totalThreads;
 	}
+
+private:
+	static const char* ENV_MPI_MODE;
 };
 
 }

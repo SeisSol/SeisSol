@@ -53,7 +53,7 @@
 static seissol::asagi::AsagiReader reader("SEISSOL_ASAGI_STRESS");
 
 /** The number of variables found in ASAGI */
-unsigned int numVariables;
+static unsigned int numVariables;
 
 /** Counter for values outside the box */
 static unsigned long outside = 0;
