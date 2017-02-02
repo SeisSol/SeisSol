@@ -85,7 +85,7 @@ def generateTuningLayoutFiles(memoryLayouts):
 def generateLayoutFile(configNames, memoryLayouts):
   selection = dict()
   for name, idx in configNames:
-    selection[name] = configs[name][idx]
+    selection[name] = memoryLayouts[1][name][idx]
   writeConfig('tuned_layout.xml', memoryLayouts[0], selection)
   
 def mergeBlock(block1, block2):
