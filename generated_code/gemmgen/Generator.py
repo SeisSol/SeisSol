@@ -342,7 +342,7 @@ class Generator:
         test.include('init.h')
         test.include('kernels.h')
         with test.Ifndef('NDEBUG'):
-          test('long long libxsmm_num_total_flops = 0;')
+          test('extern long long libxsmm_num_total_flops;')
         with test.Namespace('seissol'):
           with test.Namespace('unit_test'):
             with test.Function('void gemm(unsigned m, unsigned n, unsigned k, {tn}* A, {tn}* B, {tn} beta, {tn}* C)'.format(tn=self.architecture.typename)):

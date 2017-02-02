@@ -206,7 +206,7 @@ def getGlobalMatrices(order, arch):
     startrow = noMemsetRBlocks[i-1][1] if i > 0 else block[0]
     stoprow = architecture.getAlignedIndex(block[1]) if i != len(rBlocks)-1 else block[1]
     noMemsetRBlocks.append( (startrow, stoprow, block[2], block[3]) )
-  for i in range(1,4):
+  for i in range(1,5):
     configs['r{}DivM'.format(i)].append(rBlocks)
     configs['r{}DivM'.format(i)].append(noMemsetRBlocks)
     configs['rT{}'.format(i)].append(rTBlocks)
