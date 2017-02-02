@@ -210,7 +210,7 @@ class Generator:
                 if operation['type'] == Kernel.Operation.MEMSET:
                   cpp.memset(operation['pointer'], operation['numberOfReals'], operation['dataType'], operation['offset'])
                 elif operation['type'] == Kernel.Operation.GEMM:
-                  prefetch = operation['gemm']['prefetchPointer'] if operation['gemm'].has_key('prefetchPointer') else 'NULL'
+                  prefetch = formatOffset(operation['gemm']['prefetchPointer'], operation['offsetC']) if operation['gemm'].has_key('prefetchPointer') else 'NULL'
                   cpp('{}({}, {}, {}, NULL, {}, NULL);'.format(
                     generateRoutineName(operation['gemm']),
                     formatOffset(operation['nameA'], operation['offsetA']),

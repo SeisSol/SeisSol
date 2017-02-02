@@ -45,7 +45,7 @@ from tune import MemoryLayout, Proxy, Analysis
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--equations', required=True)
 cmdLineParser.add_argument('--order', required=True, type=int)
-cmdLineParser.add_argument('--numberOfMechanisms', type=int)
+cmdLineParser.add_argument('--numberOfMechanisms', type=int, default=0)
 cmdLineParser.add_argument('--arch', required=True)
 cmdLineParser.add_argument('--workingDir', required=True)
 cmdLineParser.add_argument('--nelem', default=10000, type=int)
@@ -59,6 +59,9 @@ build = args.action == 'build' or args.action == 'all'
 test = args.action == 'test' or args.action == 'all'
 run = args.action == 'run' or args.action == 'all'
 analyse = args.action == 'analyse' or args.action == 'all'
+
+if args.numberOfMechanisms == 0 and args.equations.startswith('viscoelastic'):
+  raise ValueError('The number of mechanisms must be greater than 0 for equations=viscoelastic.')
 
 
 # Generate working directory
@@ -80,7 +83,9 @@ tryMkdir(Proxy.BuildDir)
 tryMkdir(Proxy.OutputDir)
 
 if build or analyse:
-  # Generate memory layouts
+  # Generate memory layouts  
+  if args.equations == 'elastic':
+    memoryLayouts = MemoryLayout.getElasticMemoryLayouts(args.order, args.arch)
   if args.equations == 'viscoelastic':
     memoryLayouts = MemoryLayout.getViscoelasticMemoryLayouts(args.order, args.numberOfMechanisms, args.arch)
   elif args.equations == 'viscoelastic2':

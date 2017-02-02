@@ -102,23 +102,29 @@ class GeneratedKernel(Kernel):
     if self.prototype.prefetch is not None:
       if self.arch.enablePrefetch and not isinstance(self.prototype.prefetch, DummyPrefetch):
         blocks = self.prototype.prefetch.blocks
-        prefetchPointerName = self.prototype.prefetch.name + GeneratedKernel.PrefetchSuffix
+        if db.has_key(self.prototype.prefetch.name):
+          prefetchPointerName = self.prototype.prefetch.name + GeneratedKernel.PrefetchSuffix
+        else:
+          prefetchPointerName = Kernel.ResultName + GeneratedKernel.PrefetchSuffix
         if len(blocks) > 1 or blocks[0].sparse:
           raise ValueError('Prefetching is currently only supported for matrices with dense single block memory layout.')
         match = -1
         bestOverlap = 0
+        writesByLDC = dict()
         for index, op in enumerate(self.operations):
           if op['type'] == Operation.GEMM:
-            b1 = blocks[0]
-            b2 = op['modifiedBlockC']
-            overlapr = min(b1.stoprow, b2.stoprow) - max(b1.startrow, b2.startrow)
-            overlapc = min(b1.stopcol, b2.stopcol) - max(b1.startcol, b2.stopcol)
-            overlap = overlapr * overlapc
-            if overlap > bestOverlap:
-              bestOverlap = overlap
-              match = index
-        self.operations[match]['gemm']['prefetch'] = 'BL2viaC'
-        self.operations[match]['gemm']['prefetchPointer'] = prefetchPointerName
+            ldc = op['gemm']['LDC']
+            if not writesByLDC.has_key(ldc):
+              writesByLDC[ldc] = {'indices': list(), 'modBlocks': list()}
+            writesByLDC[ldc]['indices'].append(index)
+            writesByLDC[ldc]['modBlocks'].append(op['modifiedBlockC'])
+        bestLDC = min(writesByLDC.keys(), key=lambda x: abs(x - blocks[0].ld))
+        targetCard = blocks[0].ld * blocks[0].cols()
+        mds = MDS.maxDisjointSet(writesByLDC[bestLDC]['modBlocks'], targetCard)
+        for m in mds:
+          opIndex = writesByLDC[bestLDC]['indices'][m]
+          self.operations[opIndex]['gemm']['prefetch'] = 'BL2viaC'
+          self.operations[opIndex]['gemm']['prefetchPointer'] = prefetchPointerName
       else:
         prefetchPointerName = '/* no prefetch */'
       
@@ -219,7 +225,7 @@ class GeneratedKernel(Kernel):
           targetCard = result.blocks[0].ld * result.blocks[0].cols()
           mdsIn = MDS.maxDisjointSet(writes, targetCard)
           mdsOut = list( set(range(len(writes))).difference(set(mdsIn)) )
-          order = mdsIn + mdsOut          
+          order = mdsIn + mdsOut
           memsetInterval = set(range(targetCard))
           for m in mdsIn:
             memsetInterval.difference_update(set( [i + j*result.blocks[0].ld for j in range(writes[m].startcol, writes[m].stopcol) for i in range(writes[m].startrow, writes[m].stoprow)] ))

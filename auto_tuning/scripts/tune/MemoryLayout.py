@@ -42,20 +42,31 @@ from gemmgen import Arch, Tools
 from lxml import etree
 import numpy
 import argparse
+import copy
 
 OutputDir = 'layouts'
 
-def writeConfig(fileName, config):
+def writeConfig(fileName, groups, configs):
   root = etree.Element('memory_layouts')
   
-  for name, layout in config.iteritems():
+  for name, matrices in groups.iteritems():
+    group = etree.SubElement(root, 'group', {'name': name})
+    for matrix in matrices:
+      etree.SubElement(group, 'matrix', {'name': matrix})
+  
+  for name, layout in configs.iteritems():
+    if groups.has_key(name):
+      attribs = {'group': name}
+    else:
+      attribs = {'name': name}
     if type(layout) == list:
-      matrix = etree.SubElement(root, 'matrix', name=name)
+      matrix = etree.SubElement(root, 'matrix', attribs)
       for l in layout:
         sparse = l[4] if len(l) >= 5 else False
         etree.SubElement(matrix, 'block', startrow=str(l[0]), stoprow=str(l[1]), startcol=str(l[2]), stopcol=str(l[3]), sparse=str(sparse))
     elif type(layout) == bool:
-      matrix = etree.SubElement(root, 'matrix', name=name, sparse=str(layout))
+      attribs.update({'sparse': str(layout)})
+      matrix = etree.SubElement(root, 'matrix', attribs)
     else:
       raise ValueError('Unsupported type.')
   
@@ -63,19 +74,19 @@ def writeConfig(fileName, config):
   with open(fileName, 'w') as f:
     xml.write(f, pretty_print=True)
 
-def generateTuningLayoutFiles(configs):
+def generateTuningLayoutFiles(memoryLayouts):
   prefix = OutputDir + '/'
-  writeConfig(prefix + 'dense0.xml', {})
+  writeConfig(prefix + 'dense0.xml', memoryLayouts[0], {})
 
-  for name, layouts in configs.iteritems():
+  for name, layouts in memoryLayouts[1].iteritems():
     for idx, layout in enumerate(layouts):
-      writeConfig('{}{}{}.xml'.format(prefix, name, idx), { name: layout })
+      writeConfig('{}{}{}.xml'.format(prefix, name, idx), memoryLayouts[0], { name: layout })
 
-def generateLayoutFile(matrices, configs):
+def generateLayoutFile(configNames, memoryLayouts):
   selection = dict()
-  for name, idx in matrices:
+  for name, idx in configNames:
     selection[name] = configs[name][idx]
-  writeConfig('tuned_layout.xml', selection)
+  writeConfig('tuned_layout.xml', memoryLayouts[0], selection)
   
 def mergeBlock(block1, block2):
   return  ( min(block1[0], block2[0]),
@@ -85,17 +96,32 @@ def mergeBlock(block1, block2):
 
 def getGlobalMatrices(order, arch):
   architecture = Arch.getArchitectureByIdentifier(arch)
-
-  if architecture.name == 'knc':
+  stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
+  if architecture.name in ['knc', 'knl']:
+    blockMerge = 2
+    groups = {
+      'stiffnessTransposed': map(lambda x: x + 'T', stiffnessMatrices)
+    }
     configs = {
       'kXiDivM': [],
       'kEtaDivM': [],
       'kZetaDivM': [],
-      'kXiDivMT': [],
-      'kEtaDivMT': [],
-      'kZetaDivMT': []
+      'stiffnessTransposed': [],
+      'fP1': [ ],
+      'fP2': [ ],
+      'fP3': [ ],
+      'r1DivM': [ ],
+      'r2DivM': [ ],
+      'r3DivM': [ ],
+      'r4DivM': [ ],
+      'rT1': [ ],
+      'rT2': [ ],
+      'rT3': [ ],
+      'rT4': [ ]
     }
   else:
+    blockMerge = 1
+    groups = {}
     configs = {
       'kXiDivM': [ True ],
       'kEtaDivM': [ True ],
@@ -116,18 +142,18 @@ def getGlobalMatrices(order, arch):
       'rT4': [ True ]
     }
 
-  stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
   transposedStiffnessBlocks = list()
   for o in range(2, order+1):
     stoprow = Tools.numberOfBasisFunctions(o-1)
     startcol = Tools.numberOfBasisFunctions(o-1)
     stopcol = Tools.numberOfBasisFunctions(o)
     transposedStiffnessBlocks.append((0, stoprow, startcol, stopcol))
-  if len(transposedStiffnessBlocks) >= 2:
-    # merge first two blocks
-    block1 = transposedStiffnessBlocks.pop(0)
-    block2 = transposedStiffnessBlocks.pop(0)
-    transposedStiffnessBlocks.insert(0, mergeBlock(block1, block2))
+  for i in range(blockMerge):
+    if len(transposedStiffnessBlocks) >= 2:
+      # merge first blocks
+      block1 = transposedStiffnessBlocks.pop(0)
+      block2 = transposedStiffnessBlocks.pop(0)
+      transposedStiffnessBlocks.insert(0, mergeBlock(block1, block2))
 
   stiffnessBlocks = [(block[2], block[3], block[0], block[1]) for block in transposedStiffnessBlocks]
   noMemsetStiffnessBlocks = list()
@@ -139,16 +165,21 @@ def getGlobalMatrices(order, arch):
   for matrix in stiffnessMatrices:
     configs[matrix].append(stiffnessBlocks)
     configs[matrix].append(noMemsetStiffnessBlocks)
-    configs[matrix + 'T'].append(transposedStiffnessBlocks)
+
+  if groups.has_key('stiffnessTransposed'):
+    configs['stiffnessTransposed'].append(transposedStiffnessBlocks)
+  else:
+    for matrix in stiffnessMatrices:
+      configs[matrix + 'T'].append(transposedStiffnessBlocks)
     
   # fP matrices
   fPBlocks = list()
   for o in range(1, order+1):
     start = Tools.numberOfBasisFunctions2D(o-1)
     stop = Tools.numberOfBasisFunctions2D(o)
-    transposedStiffnessBlocks.append((start, stop, start, stop))
+    fPBlocks.append((start, stop, start, stop))
   # merge first three blocks
-  for i in range(2):
+  for i in range(blockMerge+1):
     if len(fPBlocks) >= 2:
       block1 = fPBlocks.pop(0)
       block2 = fPBlocks.pop(0)
@@ -164,8 +195,8 @@ def getGlobalMatrices(order, arch):
     stopcol = Tools.numberOfBasisFunctions(o)
     rTBlocks.append((0, stoprow, startcol, stopcol))    
   # merge first three blocks
-  for i in range(2):
-    if len(fPBlocks) >= 2:
+  for i in range(blockMerge+1):
+    if len(rTBlocks) >= 2:
       block1 = rTBlocks.pop(0)
       block2 = rTBlocks.pop(0)
       rTBlocks.insert(0, mergeBlock(block1, block2))
@@ -184,25 +215,35 @@ def getGlobalMatrices(order, arch):
   for i in range(1,5):
     configs['fMrT{}'.format(i)] = copy.deepcopy(configs['rT{}'.format(i)])
     
-  return configs
+  return (groups, configs)
   
 def getStarMatrices(Q):
-  return { 'star': [ True, [(0, 6, 6, 9), (6, 9, 0, Q)], [(0, 6, 6, 9), (6, 9, 0, 6), (6, 9, 9, Q)] ] }
+  star1 = [(0, 6, 6, 9), (6, 9, 0, Q)]
+  star2 = [(0, 6, 6, 9), (6, 9, 0, 6)]
+  if Q > 9:
+    star2.append((6, 9, 9, Q))
+  return { 'star': [ True, star1, star2 ] }
+  
+def getElasticMemoryLayouts(order, arch):
+  groups, configs = getGlobalMatrices(order, arch)
+  configs.update( getStarMatrices(9) )
+  
+  return (groups, configs)
     
 def getViscoelasticMemoryLayouts(order, numberOfMechanisms, arch):  
   Q = 9 + 6 * numberOfMechanisms
   
-  configs = getGlobalMatrices(order, arch)
+  groups, configs = getGlobalMatrices(order, arch)
   configs.update( getStarMatrices(Q) )
   configs.update( { 'source': [ True, [(9, Q, 0, 9), (9, Q, 9, Q, True)] ] } )
   
-  return configs
+  return (groups, configs)
   
 def getViscoelastic2MemoryLayouts(order, arch):  
-  configs = getGlobalMatrices(order, arch)
+  groups, configs = getGlobalMatrices(order, arch)
   configs.update( getStarMatrices(15) )
   configs.update( { 'ET': [ True ] } )
   
-  return configs
+  return (groups, configs)
   
   

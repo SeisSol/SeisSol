@@ -98,7 +98,7 @@ for i in range(0, 4):
   if i == 0:
     prefetch = db['timeIntegrated']
   elif i == 1:
-    prefetch = localFlux.flat('degreesOfFreedom')
+    prefetch = localFlux
   else:
     prefetch = Kernel.DummyPrefetch()
   kernels.append(Kernel.Prototype('localFlux[{}]'.format(i), localFlux, prefetch=prefetch))
