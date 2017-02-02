@@ -1859,7 +1859,69 @@ MODULE ini_model_DR_mod
 
     ENDDO !    MESH%Fault%nSide
   END SUBROUTINE
-   
+
+  ! COMPUTE NORMALIZED STRESS FOLLOWING THE METHOD  OF Aochi and Madariaga 2004 extended to dip slip fault
+  SUBROUTINE STRESS_DIP_SLIP_AM(DISC,strike, dip, sigmazz, cohesion, R, bii)
+  IMPLICIT NONE
+  TYPE(tDiscretization), target  :: DISC
+  REAL                           :: strike, dip, sigmazz, cohesion, R
+  REAL                           :: strike_rad, dip_rad
+  REAL                           :: c2,s2,Phi,c2bis,mu_dy,mu_st
+  REAL                           :: ds, sm, phi_xyz,c,s
+  REAL                           :: sii(3), Stress(3,3), R1(3,3), R2(3,3), Stress_cartesian_norm(3,3)
+  REAL                           :: bii(6)
+  REAL, PARAMETER                :: pi = 3.141592653589793d0
+  INTENT(IN)    :: strike, dip, sigmazz, cohesion, R
+  INTENT(INOUT) :: bii
+  mu_dy = DISC%DynRup%Mu_D_ini
+  mu_st = DISC%DynRup%Mu_S_ini
+  !most favorable direction (A4, AM2003)
+  Phi = pi/4d0-0.5d0*atan(mu_st)
+  s2=sin(2d0*Phi)
+  c2=cos(2d0*Phi) 
+  strike_rad = strike*pi/180d0
+  dip_rad = dip*pi/180d0
+    
+  c2bis = c2 - cos(2d0*(Phi-dip_rad))
+  print *, strike_rad,dip_rad,c2bis
+  
+  !ds (delta_sigma) is deduced from R (A5, Aochi and Madariaga 2003), 
+  !assuming that sig1 and sig3 are in the yz plane
+  !sigzz and sigma_ini are then related by a phi+dip rotation (using A3, AM03)
+  !sigmazz = sm  - ds * cos(2.*(Phi+dip_rad))
+  !Now we have to assume that P = sm (not any more equal to sigmazz) 
+  !and we can obtain the new expression of ds:
+  ds =  (mu_dy * sigmazz + R*(cohesion + (mu_st-mu_dy)*sigmazz)) / (s2 + mu_dy*c2bis + R*(mu_st-mu_dy)*c2bis)
+  sm =  sigmazz + ds * cos(2d0*(Phi-dip_rad))
+  print*, c2bis, sigmazz,ds, sm
+  
+  sii(1)= sm + ds
+  !could be any value between sig1 and sig3
+  sii(2)= sm 
+  sii(3)= sm - ds
+
+  Stress = transpose(reshape((/ sii(1), 0d0, 0d0, 0d0, sii(2), 0d0, 0d0, 0d0, sii(3) /), shape(Stress)))
+
+  !first rotation: in xz plane
+  phi_xyz=(Phi-dip_rad)
+  c=cos(phi_xyz)
+  s=-sin(phi_xyz)
+  R1= transpose(reshape((/ c, 0d0, s, 0d0, 1d0, 0d0, -s, 0d0, c /), shape(R1)))
+  
+  !I cant explain the minus sign...
+  c=cos(strike_rad)
+  s=-sin(strike_rad)
+  R2= transpose(reshape((/ c, -s, 0d0, s, c, 0d0, 0d0, 0d0, 1d0 /), shape(R2)))
+
+  Stress_cartesian_norm = MATMUL(R2,MATMUL(R1,MATMUL(Stress,MATMUL(TRANSPOSE(R1),TRANSPOSE(R2)))))/sigmazz
+  bii(1) = Stress_cartesian_norm(1,1)
+  bii(2) = Stress_cartesian_norm(2,2)
+  bii(3) = Stress_cartesian_norm(3,3)
+  bii(4) = Stress_cartesian_norm(1,2)
+  bii(5) = Stress_cartesian_norm(2,3)
+  bii(6) = Stress_cartesian_norm(1,3)
+  END SUBROUTINE
+
   !> SUMATRA test case
   !> T. ULRICH 06.2015
   !> tpv29 used as a model
@@ -1888,8 +1950,9 @@ MODULE ini_model_DR_mod
   REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
   REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
   REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
-  REAL                           :: yN1, yN2, yS1, yS2, alpha
+  REAL                           :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
+  REAL                           :: bii(6)
   !-------------------------------------------------------------------------! 
   INTENT(IN)    :: MESH, BND 
   INTENT(INOUT) :: DISC,EQN
@@ -1901,37 +1964,18 @@ MODULE ini_model_DR_mod
   Laterally_homogenous_Stress = 1
 
   IF (Laterally_homogenous_Stress.EQ.1) THEN
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds
-     b11 = 1.1854
-     b22 = 1.3162
-     b12 = 0.3076
-     b13 = 0.1259
-     b23 = 0.1555
+     ! strike, dip, sigmazz,cohesion,R
+     CALL STRESS_DIP_SLIP_AM(DISC,309d0, 19d0, 555562000d0, 0.4d6, 0.6d0, bii)
+     b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+     logError(*) b11,b22,b12,b23,b13
   ELSE
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  South (strike = 25+90+180)
-     b11_S = 1.0487
-     b22_S = 1.4529
-     b12_S = 0.2409
-     b13_S = 0.0846
-     b23_S = 0.1814
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 40+90+180)
-     b11_C = 1.1962
-     b22_C = 1.3054
-     b12_C = 0.3097
-     b13_C = 0.1286
-     b23_C = 0.1533
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 75+90+180)
-     b11_N = 1.5231
-     b22_N = 0.9785
-     b12_N = 0.1572
-     b13_N = 0.1933
-     b23_N = 0.0518
-
-     ! 10.5/8.5/5/4
-     yN2 = 1160695.0941260615
-     yN1 = 939574.3060454715
-     yS2 = 552664.2968779367
-     yS1 = 442127.3902531094
+     !93 4
+     xS1 = 5.0000000000e+05 
+     yS1 = 4.4212739025e+05 
+     !92.5 5.5
+     xS2 = 4.4461626476e+05 
+     ys2 = 6.0795713230e+05
+     !4
   ENDIF
 
   g = 9.8D0    
@@ -2030,42 +2074,23 @@ MODULE ini_model_DR_mod
              !**yS1
              ! cst_S
 
-             IF (yGP.GE.yN2) THEN
-                b11 = b11_N
-                b22 = b22_N
-                b12 = b12_N
-                b13 = b13_N
-                b23 = b23_N
-             ELSE IF ((yGP.GE.yN1).AND.(yGP.LT.yN2)) THEN
-                alpha = (yGP-yN1)/(yN2-yN1)
-                b11 = alpha * b11_N + (1d0-alpha)* b11_C
-                b22 = alpha * b22_N + (1d0-alpha)* b22_C
-                b12 = alpha * b12_N + (1d0-alpha)* b12_C
-                b13 = alpha * b13_N + (1d0-alpha)* b13_C
-                b23 = alpha * b23_N + (1d0-alpha)* b23_C
-             ELSE IF ((yGP.GE.yS2).AND.(yGP.LT.yN1)) THEN
-                b11 = b11_C
-                b22 = b22_C
-                b12 = b12_C
-                b13 = b13_C
-                b23 = b23_C
-             ELSE IF ((yGP.GE.yS1).AND.(yGP.LT.yS2)) THEN
+             IF ((yGP-yS1).LT.(xGP-XS1)) THEN
+                ! strike, dip, sigmazz,cohesion,R
+                CALL STRESS_DIP_SLIP_AM(DISC,309d0, 12d0, 555562000d0, 0.4d6, 0.6d0, bii)
+                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+             ELSE IF ((yGP-yS2).LT.(xGP-XS2)) THEN
                 alpha = (yGP-yS1)/(yS2-yS1)
-                b11 = alpha * b11_C + (1d0-alpha)* b11_S
-                b22 = alpha * b22_C + (1d0-alpha)* b22_S
-                b12 = alpha * b12_C + (1d0-alpha)* b12_S
-                b13 = alpha * b13_C + (1d0-alpha)* b13_S
-                b23 = alpha * b23_C + (1d0-alpha)* b23_S
+                ! strike, dip, sigmazz,cohesion,R
+                CALL STRESS_DIP_SLIP_AM(DISC,(1d0-alpha)*309d0+alpha*330d0, 12d0, 555562000d0, 0.4d6, 0.6d0, bii)
+                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ELSE
-                b11 = b11_S
-                b22 = b22_S
-                b12 = b12_S
-                b13 = b13_s
-                b23 = b23_s
+                ! strike, dip, sigmazz,cohesion,R
+                CALL STRESS_DIP_SLIP_AM(DISC,330d0, 12d0, 555562000d0, 0.4d6, 0.6d0, bii)
+                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ENDIF
           ENDIF
 
-          Pf = -1000D0 * g * zGP
+          Pf = -1000D0 * g * zGP * 2d0
           EQN%IniBulk_zz(i,iBndGP)  =  sigzz
           EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
           EQN%IniBulk_yy(i,iBndGP)  =  Omega*(b22*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
