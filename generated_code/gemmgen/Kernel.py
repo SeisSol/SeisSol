@@ -105,15 +105,20 @@ class GeneratedKernel(Kernel):
         prefetchPointerName = self.prototype.prefetch.name + GeneratedKernel.PrefetchSuffix
         if len(blocks) > 1 or blocks[0].sparse:
           raise ValueError('Prefetching is currently only supported for matrices with dense single block memory layout.')
-        match = False
-        for op in self.operations:
+        match = -1
+        bestOverlap = 0
+        for index, op in enumerate(self.operations):
           if op['type'] == Operation.GEMM:
-            if blocks[0].slice() == op['modifiedBlockC'].slice():
-              match = True
-              op['gemm']['prefetch'] = 'BL2viaC'
-              op['gemm']['prefetchPointer'] = prefetchPointerName
-        if not match:
-          raise ValueError('Did not a find suitable gemm for prefetching. Consider improving this dumb implementation.')
+            b1 = blocks[0]
+            b2 = op['modifiedBlockC']
+            overlapr = min(b1.stoprow, b2.stoprow) - max(b1.startrow, b2.startrow)
+            overlapc = min(b1.stopcol, b2.stopcol) - max(b1.startcol, b2.stopcol)
+            overlap = overlapr * overlapc
+            if overlap > bestOverlap:
+              bestOverlap = overlap
+              match = index
+        self.operations[match]['gemm']['prefetch'] = 'BL2viaC'
+        self.operations[match]['gemm']['prefetchPointer'] = prefetchPointerName
       else:
         prefetchPointerName = '/* no prefetch */'
       
