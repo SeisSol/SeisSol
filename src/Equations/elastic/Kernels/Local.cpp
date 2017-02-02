@@ -84,7 +84,7 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
   );
   
   for( unsigned int face = 0; face < 4; face++ ) {
-    real const* prefetch;
+    real const* prefetch = NULL;
     if (face == 0) {
       prefetch = i_timeIntegratedDegreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
     } else if (face == 1) {

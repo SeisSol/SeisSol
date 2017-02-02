@@ -394,7 +394,7 @@ class Generator:
                     test.memset(matrix, matrixInfo.requiredReals, self.architecture.typename)
                     with test.For('unsigned col = 0; col < {}; ++col'.format(matrixInfo.cols)):
                       with test.For('unsigned row = 0; row < {}; ++row'.format(matrixInfo.rows)):
-                        test('unsigned idx = seissol::model::{}::index(row, col);'.format(matrix))
+                        test('int idx = seissol::model::{}::index(row, col);'.format(matrix))
                         with test.If('idx != -1'):
                           test('{name}[idx] = drand48();'.format(name=matrix))
               referenceReals = rk.prototype.kernel.rows * rk.prototype.kernel.cols
