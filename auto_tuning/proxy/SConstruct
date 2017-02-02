@@ -80,6 +80,7 @@ vars.AddVariables(
 env = Environment(variables=vars)
 env['ENV'] = os.environ
 
+env['generatedKernels'] = True
 if env['compiler'] == 'intel':
     env['CC'] = 'icc'
     env['CXX'] = 'icpc'
@@ -115,6 +116,11 @@ numberOfQuantities['viscoelastic2'] = numberOfQuantities['viscoelastic']
 
 # Libxsmm
 env.Tool('LibxsmmTool', required=True)
+
+# Memkind
+if 'knl' in env['arch']:
+  env.Tool('MemkindTool', required=True)
+  env.Append(CPPDEFINES=['USE_MEMKIND'])
 
 #
 # precompiler, compiler and linker flags

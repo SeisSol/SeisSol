@@ -85,12 +85,12 @@ seissol::memory::ManagedAllocator m_allocator;
 #define NUMBER_OF_THREADS_PER_GLOBALDATA_COPY 16383
 #endif
 
-#define HBM_DOFS seissol::memory::Standard
-#define HBM_TDOFS seissol::memory::Standard
-#define HBM_DERS seissol::memory::Standard
-#define HBM_CELLLOCAL_LOCAL seissol::memory::Standard
-#define HBM_CELLLOCAL_NEIGH seissol::memory::Standard
-#define HBM_GLOBALDATA seissol::memory::Standard
+#define HBM_DOFS seissol::memory::HighBandwidth
+#define HBM_TDOFS seissol::memory::HighBandwidth
+#define HBM_DERS seissol::memory::HighBandwidth
+#define HBM_CELLLOCAL_LOCAL seissol::memory::HighBandwidth
+#define HBM_CELLLOCAL_NEIGH seissol::memory::HighBandwidth
+#define HBM_GLOBALDATA seissol::memory::HighBandwidth
 
 real m_timeStepWidthSimulation = (real)1.0;
 real* m_dofs;
