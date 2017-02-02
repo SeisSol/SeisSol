@@ -186,7 +186,7 @@ class GeneratedKernel(Kernel):
         if len(output) > 0:
           if len(self.temps) == 0:
             tempCounter += 1
-            self.temps.append(DB.MatrixInfo(self.tempBaseName + str(tempCounter), 0, 0))
+            self.temps.append(DB.MatrixInfo(self.tempBaseName + str(tempCounter), 1, 1))
           result = self.temps.pop()
           resultRequiredReals = result.requiredReals
           spp1 = implementationPatterns[nameToIndex[op1.name]] if nameToIndex.has_key(op1.name) else op1.spp
