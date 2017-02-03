@@ -115,7 +115,6 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
       lastDerivative,
       currentDerivative
     );
-    lastDerivative = currentDerivative;
 
     for (int mech = NUMBER_OF_RELAXATION_MECHANISMS-1; mech >= 0; --mech) {
       unsigned mechOffset = NUMBER_OF_ALIGNED_ELASTIC_DOFS + mech * NUMBER_OF_ALIGNED_MECHANISM_DOFS;
@@ -150,6 +149,8 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
             o_timeIntegrated,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
             derivativesStore );
+
+    lastDerivative = currentDerivative;
   }
 }
 
