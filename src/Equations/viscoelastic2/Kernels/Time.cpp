@@ -80,14 +80,15 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   // temporary result
   real l_derivativesBuffer[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(PAGESIZE_STACK)));
 
-  // initialize derivatives
-  for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; ++l_dof ) {
-    l_derivativesBuffer[l_dof] = i_degreesOfFreedom[l_dof];
-    o_timeIntegrated[l_dof]  = i_degreesOfFreedom[l_dof] * l_scalar;
-  }
-  for( unsigned int l_dof = NUMBER_OF_ALIGNED_DOFS; l_dof < NUMBER_OF_ALIGNED_DERS; l_dof++ ) {
-    l_derivativesBuffer[l_dof] = 0.0;
-  }
+  // initialize time integrated DOFs
+  SXt(  l_scalar,
+        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+        NUMBER_OF_QUANTITIES,
+        i_degreesOfFreedom,
+        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+        o_timeIntegrated,
+        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS  );
+
 #ifndef NDEBUG
 #ifdef _OPENMP
 #pragma omp atomic
@@ -101,8 +102,8 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   }
 
   // compute all derivatives and contributions to the time integrated DOFs
+  real const* lastDerivative = i_degreesOfFreedom;
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    real const* lastDerivative = l_derivativesBuffer + (l_derivative-1) * NUMBER_OF_ALIGNED_DOFS;
     real* currentDerivative = l_derivativesBuffer + l_derivative * NUMBER_OF_ALIGNED_DOFS;
     seissol::generatedKernels::derivative(
       local->starMatrices[0],
@@ -114,6 +115,7 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
       lastDerivative,
       currentDerivative
     );
+    lastDerivative = currentDerivative;
 
     for (int mech = NUMBER_OF_RELAXATION_MECHANISMS-1; mech >= 0; --mech) {
       unsigned mechOffset = NUMBER_OF_ALIGNED_ELASTIC_DOFS + mech * NUMBER_OF_ALIGNED_MECHANISM_DOFS;

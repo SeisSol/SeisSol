@@ -38,7 +38,7 @@
 # @section DESCRIPTION
 #
 
-from gemmgen import DB, Tools, Arch
+from gemmgen import DB, Tools, Arch, Kernel
 import numpy as np
 import argparse
 
@@ -99,25 +99,32 @@ db.insert(DB.MatrixInfo('mechanism', numberOfBasisFunctions, numberOfMechanismQu
 volume = db['kXiDivM'] * db['reducedTimeIntegratedDofs'] * db['AstarT'] \
        + db['kEtaDivM'] * db['reducedTimeIntegratedDofs'] * db['BstarT'] \
        + db['kZetaDivM'] * db['reducedTimeIntegratedDofs'] * db['CstarT']
-kernels.append(('volume', volume))
+kernels.append(Kernel.Prototype('volume', volume, beta=0))
 
 for i in range(0, 4):
   localFlux = db['r{}DivM'.format(i+1)] * db['fMrT{}'.format(i+1)] * db['reducedTimeIntegratedDofs'] * db['AplusT']
-  kernels.append(('localFlux[{}]'.format(i), localFlux))
+  prefetch = None
+  if i == 0:
+    prefetch = db['reducedTimeIntegratedDofs']
+  elif i == 1:
+    prefetch = localFlux
+  else:
+    prefetch = Kernel.DummyPrefetch()
+  kernels.append(Kernel.Prototype('localFlux[{}]'.format(i), localFlux, prefetch=prefetch))
 
 for i in range(0, 4):
   for j in range(0, 4):
     for h in range(0, 3):
       neighboringFlux = db['r{}DivM'.format(i+1)] * db['fP{}'.format(h+1)] * db['rT{}'.format(j+1)] * db['reducedTimeIntegratedDofs'] * db['AminusT']
-      kernels.append(('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux))
+      kernels.append(Kernel.Prototype('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux, prefetch=db['reducedTimeIntegratedDofs']))
 
 derivative = db['kXiDivMT'] * db['reducedDofs'] * db['AstarT'] \
            + db['kEtaDivMT'] * db['reducedDofs'] * db['BstarT'] \
            + db['kZetaDivMT'] * db['reducedDofs'] * db['CstarT']
-kernels.append(('derivative', derivative))
+kernels.append(Kernel.Prototype('derivative', derivative, beta=0))
 
 source = db['mechanism'] * db['ET']
-kernels.append(('source', source))
+kernels.append(Kernel.Prototype('source', source))
 
 # Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)

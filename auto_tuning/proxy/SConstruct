@@ -132,7 +132,7 @@ env.Append( CFLAGS    = archFlags,
             LINKFLAGS = archFlags )
 env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['arch'].upper()])
 
-if env['equations'] == 'elastic':
+if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
 flags = ['-fopenmp']

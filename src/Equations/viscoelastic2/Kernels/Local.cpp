@@ -73,7 +73,6 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
 #endif
 
   real reducedDofs[NUMBER_OF_ALIGNED_REDUCED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-  memset(reducedDofs, 0, NUMBER_OF_ALIGNED_REDUCED_DOFS * sizeof(real));
   
   seissol::generatedKernels::volume(
     local->starMatrices[0],
@@ -87,6 +86,12 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
   );
   
   for( unsigned int face = 0; face < 4; face++ ) {
+    real const* prefetch = NULL;
+    if (face == 0) {
+      prefetch = i_timeIntegratedDegreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
+    } else if (face == 1) {
+      prefetch = io_degreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
+    }
     // no element local contribution in the case of dynamic rupture boundary conditions
     if( i_faceTypes[face] != dynamicRupture ) {
       seissol::generatedKernels::localFlux[face](
@@ -94,7 +99,8 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
         global->localChangeOfBasisMatricesTransposed[face],
         global->changeOfBasisMatrices[face],
         i_timeIntegratedDegreesOfFreedom,
-        reducedDofs
+        reducedDofs,
+        prefetch
       );
     }
   }

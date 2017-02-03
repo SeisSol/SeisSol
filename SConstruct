@@ -239,7 +239,7 @@ if env['equations'].startswith('viscoelastic'):
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
 
-if env['equations'] == 'elastic':
+if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
 # check for architecture

@@ -60,6 +60,7 @@ class seissol::kernels::Neighbor {
                                     GlobalData const*                 global,
                                     NeighboringIntegrationData const* neighbor,
                                     real*                             i_timeIntegrated[4],
+                                    real*                             faceNeighbors_prefetch[4],
                                     real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] );
 
     void flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
