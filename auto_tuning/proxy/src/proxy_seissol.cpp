@@ -115,6 +115,15 @@ double derive_cycles_from_time(double time) {
   return cycles;
 }
 
+void print_hostname() {
+  FILE* fp = popen("hostname", "r");
+  if (fp > 0) {
+    char buffer[256];
+    fread(buffer, 255, 1, fp);
+    printf("Host: %s\n", buffer);
+  }
+}
+
 #include <generated_code/init.h>
 #include <generated_code/flops.h>
 #include <Initializer/typedefs.hpp>
@@ -230,6 +239,7 @@ int main(int argc, char* argv[]) {
   total_cycles = derive_cycles_from_time(total);
 #endif
 
+  print_hostname();
   printf("=================================================\n");
   printf("===            PERFORMANCE SUMMARY            ===\n");
   printf("=================================================\n");
