@@ -46,9 +46,13 @@
 #include "FaultWriter.h"
 #include "SeisSol.h"
 #include "Modules/Modules.h"
+#ifdef GENERATEDKERNELS
 #include "Solver/Interoperability.h"
+#endif // GENERATEDKERNELS
 
+#ifdef GENERATEDKERNELS
 extern seissol::Interoperability e_interoperability;
+#endif // GENERATEDKERNELS
 
 void seissol::writer::FaultWriter::init(const int* cells, const double* vertices,
 	unsigned int nCells, unsigned int nVertices,
@@ -172,8 +176,10 @@ void seissol::writer::FaultWriter::simulationStart()
 
 void seissol::writer::FaultWriter::syncPoint(double currentTime)
 {
+#ifdef GENERATEDKERNELS
 	SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)
 
 	e_interoperability.calcElementwiseFaultoutput(currentTime);
 	write(currentTime);
+#endif // GENERATEDKERNELS
 }
