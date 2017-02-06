@@ -51,7 +51,7 @@
 extern seissol::Interoperability e_interoperability;
 
 void seissol::writer::FaultWriter::init(const int* cells, const double* vertices,
-	int nCells, int nVertices,
+	unsigned int nCells, unsigned int nVertices,
 	int* outputMask, const double** dataBuffer,
 	const char* outputPrefix,
 	double interval)

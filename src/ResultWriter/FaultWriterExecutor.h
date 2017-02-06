@@ -40,7 +40,9 @@
 #ifndef FAULTWRITEREXECUTOR_H
 #define FAULTWRITEREXECUTOR_H
 
+#ifdef USE_MPI
 #include <mpi.h>
+#endif // USE_MPI
 
 #include "xdmfwriter/XdmfWriter.h"
 

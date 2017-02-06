@@ -207,7 +207,7 @@ public:
 
 };
 
-template<>
+template<> inline
 void seissol::Modules::_callHook<SYNCHRONIZATION_POINT>()
 {
 	logError() << "Synchronization point hooks have to be called with \"callSyncHook\"";
@@ -227,6 +227,8 @@ MODULES_CALL_INSTANCE(POST_MESH, postMesh)
 MODULES_CALL_INSTANCE(PRE_MODEL, preModel)
 MODULES_CALL_INSTANCE(POST_MODEL, postModel)
 MODULES_CALL_INSTANCE(SIMULATION_START, simulationStart)
+
+#undef MODULES_CALL_INSTANCE
 
 }
 

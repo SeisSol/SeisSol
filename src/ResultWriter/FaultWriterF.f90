@@ -76,7 +76,7 @@ contains
     subroutine initFaultOutput(points, outputMask, dataBuffer, outputPrefix, interval)
         implicit none
 
-        type (tUnstructPoint), dimension(:) :: points
+        type(tUnstructPoint), dimension(:)  :: points
         integer, dimension(:)               :: outputMask
         real, dimension(:,:,:), target      :: dataBuffer
         character(len=60)                   :: outputPrefix
@@ -87,6 +87,7 @@ contains
         integer :: nCells
         integer :: nVertices
         integer :: i, j
+        real, dimension(:), pointer :: dummyBuffer
         type(c_ptr) :: cDataBuffer(SIZE(dataBuffer, 3))
 
         ! TODO do not dublicate local vertices
@@ -108,7 +109,8 @@ contains
         enddo
 
         do i=1,size(dataBuffer, 3)
-            cDataBuffer(i) = c_loc(dataBuffer(:,:,i))
+            dummyBuffer => dataBuffer(:,1,i)
+            cDataBuffer(i) = c_loc(dummyBuffer(1))
         enddo
 
         call fault_hdf_init(cells, vertices, &

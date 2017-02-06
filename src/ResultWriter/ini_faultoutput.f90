@@ -1156,7 +1156,7 @@ CONTAINS
        !
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%CurrentPick(DISC%DynRup%DynRup_out_elementwise%nDR_pick))
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpTime(DISC%DynRup%DynRup_out_elementwise%MaxPickStore))
-       ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpState(DISC%DynRup%DynRup_out_elementwise%nDR_pick,DISC%DynRup%DynRup_out_elementwise%MaxPickStore,OutVars))
+       ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpState(DISC%DynRup%DynRup_out_elementwise%nDR_pick, 1, OutVars)) ! One TmpState is enough for the element wise output
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%OutVal(MAXVAL(DISC%DynRup%DynRup_out_elementwise%RecPoint(:)%globalreceiverindex),1,OutVars))
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%rotmat(DISC%DynRup%DynRup_out_elementwise%nDR_pick/SubElem,1:6,1:6)) ! store rotation matrix only for mother tets
        !
