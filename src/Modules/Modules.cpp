@@ -67,6 +67,10 @@ const char* seissol::Modules::strHook(Hook hook)
 		return "PRE_MODEL";
 	case POST_MODEL:
 		return "POST_MODEL";
+	case SIMULATION_START:
+		return "SIMULATION_START";
+	case SYNCHRONIZATION_POINT:
+		return "SYNCHRONIZATION_POINT";
 	default:
 		return "unknown hook";
 	}

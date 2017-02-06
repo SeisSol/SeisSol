@@ -5,7 +5,7 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2016, SeisSol Group
+!! Copyright (c) 2016-2017, SeisSol Group
 !! All rights reserved.
 !!
 !! Redistribution and use in source and binary forms, with or without
@@ -47,14 +47,8 @@ module FaultWriter
 
     ! C functions
     interface
-        subroutine fault_create_comm(dr) bind(C, name="fault_create_comm")
-            use, intrinsic :: iso_c_binding
-
-            integer( kind=c_int ), value :: dr
-        end subroutine fault_create_comm
-
         subroutine fault_hdf_init(cells, vertices, nCells, nVertices, &
-                outputMask, outputPrefix) bind(C, name="fault_hdf_init")
+                outputMask, dataBuffer, outputPrefix, interval) bind(C, name="fault_hdf_init")
             use, intrinsic :: iso_c_binding
 
             integer( kind=c_int ), dimension(*), intent(in)    :: cells
@@ -62,7 +56,9 @@ module FaultWriter
             integer( kind=c_int ), value                       :: nCells
             integer( kind=c_int ), value                       :: nVertices
             integer( kind=c_int ), dimension(*), intent(in)    :: outputMask
+            type(c_ptr), dimension(*), intent(in)              :: dataBuffer
             character( kind=c_char ), dimension(*), intent(in) :: outputPrefix
+            real( kind=c_double ), value                       :: interval
         end subroutine fault_hdf_init
 
         subroutine fault_hdf_close() bind(C, name="fault_hdf_close")
@@ -74,31 +70,24 @@ module FaultWriter
 
             real( kind=c_double ), value                    :: time
         end subroutine fault_hdf_write
-
-        subroutine fault_hdf_write_data(id, data) bind(C, name="fault_hdf_write_data")
-            use, intrinsic :: iso_c_binding
-
-            integer, value                      :: id
-            real( kind=c_double ), dimension(*) :: data
-        end subroutine fault_hdf_write_data
-
-        subroutine fault_hdf_flush() bind(C, name="fault_hdf_flush")
-        end subroutine fault_hdf_flush
     end interface
 
 contains
-    subroutine initFaultOutput(points, outputMask, outputPrefix)
+    subroutine initFaultOutput(points, outputMask, dataBuffer, outputPrefix, interval)
         implicit none
 
         type (tUnstructPoint), dimension(:) :: points
         integer, dimension(:)               :: outputMask
+        real, dimension(:,:,:), target      :: dataBuffer
         character(len=60)                   :: outputPrefix
+        real                                :: interval
 
         integer, dimension(:,:), allocatable :: cells
         real, dimension(:,:), allocatable :: vertices
         integer :: nCells
         integer :: nVertices
         integer :: i, j
+        type(c_ptr) :: cDataBuffer(SIZE(dataBuffer, 3))
 
         ! TODO do not dublicate local vertices
         nCells = size(points)
@@ -118,10 +107,15 @@ contains
             enddo
         enddo
 
+        do i=1,size(dataBuffer, 3)
+            cDataBuffer(i) = c_loc(dataBuffer(:,:,i))
+        enddo
+
         call fault_hdf_init(cells, vertices, &
             nCells, nVertices, &
-            outputMask, &
-            trim(outputPrefix) // c_null_char)
+            outputMask, cDataBuffer, &
+            trim(outputPrefix) // c_null_char, &
+            interval)
 
         deallocate(cells, vertices)
     end subroutine initFaultOutput
@@ -133,21 +127,6 @@ contains
 
         call fault_hdf_write(time)
     end subroutine writeFault
-
-    subroutine writeFaultData(id, data)
-        implicit none
-
-        integer            :: id
-        real, dimension(*) :: data
-
-        call fault_hdf_write_data(id-1, data)
-    end subroutine writeFaultData
-
-    subroutine flushFault()
-        implicit none
-
-        call fault_hdf_flush()
-    end subroutine flushFault
 
     subroutine closeFaultOutput()
         implicit none

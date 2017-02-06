@@ -6,23 +6,23 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2008-2016, SeisSol Group
+!! Copyright (c) 2008-2017, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -209,7 +209,7 @@ MODULE TypesDef
 
      real*8, allocatable, dimension( :, :, :, : ) :: fluxSolver !< jacobian of the plus(1)/minus(2) side multiplid by the back rotation matrix from face-normal-space to xyz-space and the determinant of jacobian of the transformation from x-y-z to xi-eta-zeta space
   END TYPE tFault
-  
+
   !< Description of all the vertices in the domain (the first index runs from 1 to MESH%nNode)
   TYPE tVertex
      REAL                         , POINTER :: xyNode(:,:)                      !<Coordinates of the nodes
@@ -552,37 +552,37 @@ MODULE TypesDef
     REAL, POINTER     :: SectorVectors(:,:,:) => NULL()
     REAL, POINTER     :: Sector_iR(:,:,:) => NULL()
     !<
-    REAL, POINTER     :: IntMonomial(:,:) => NULL()           !< Factors for integrating 2D 
+    REAL, POINTER     :: IntMonomial(:,:) => NULL()           !< Factors for integrating 2D
     !<                                                !< monomials over ref. elem.
-    !< Now, all variables for the quadrature-free nonlinear ADER-DG follow:        
-    REAL, POINTER     :: LocalBinomialCoeff(:,:) => NULL()    !< Bico. with higher order    
-    REAL, POINTER     :: Kxi_loc( :,:,:) => NULL()            !< xi stiffness, nl. ADER-DG  
-    REAL, POINTER     :: Keta_loc(:,:,:) => NULL()            !< eta stiffness, nl. ADER-DG  
-    REAL, POINTER     :: Flux_loc(:,:,:) => NULL()            !< flux-matrix, nl. ADER-DG   
-    REAL, POINTER     :: CNonZero_Kxi(:) => NULL()            !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Keta(:) => NULL()           !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kzeta(:) => NULL()          !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kxi_Tet(:) => NULL()            !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Keta_Tet(:) => NULL()           !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kzeta_Tet(:) => NULL()          !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Flux(:,:) => NULL()         !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Flux3D(:,:,:,:) => NULL()   !< Sparsity coefficients      
-    INTEGER           :: NonZero_Kxi                 !< No. of nonzero elements    
-    INTEGER           :: NonZero_Keta                !< No. of nonzero elements    
-    INTEGER           :: NonZero_Kzeta               !< No. of nonzero elements    
-    INTEGER           :: NonZero_Kxi_Tet             !< No. of nonzero elements    
-    INTEGER           :: NonZero_Keta_Tet            !< No. of nonzero elements    
-    INTEGER           :: NonZero_Kzeta_Tet           !< No. of nonzero elements    
-    INTEGER, POINTER  :: NonZero_Flux(:) => NULL()            !< No. of nonzero elements    
-    INTEGER, POINTER  :: NonZero_Flux3D(:,:,:) => NULL()      !< No. of nonzero elements    
-    INTEGER, POINTER  :: IndexNonZero_Kxi(:,:) => NULL()      !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Keta(:,:) => NULL()     !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kzeta(:,:) => NULL()    !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kxi_Tet(:,:) => NULL()      !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Keta_Tet(:,:) => NULL()     !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kzeta_Tet(:,:) => NULL()    !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Flux(:,:,:) => NULL()   !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Flux3D(:,:,:,:,:)=> NULL()!< Sparsity: non-zero indices  
+    !< Now, all variables for the quadrature-free nonlinear ADER-DG follow:
+    REAL, POINTER     :: LocalBinomialCoeff(:,:) => NULL()    !< Bico. with higher order
+    REAL, POINTER     :: Kxi_loc( :,:,:) => NULL()            !< xi stiffness, nl. ADER-DG
+    REAL, POINTER     :: Keta_loc(:,:,:) => NULL()            !< eta stiffness, nl. ADER-DG
+    REAL, POINTER     :: Flux_loc(:,:,:) => NULL()            !< flux-matrix, nl. ADER-DG
+    REAL, POINTER     :: CNonZero_Kxi(:) => NULL()            !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Keta(:) => NULL()           !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Kzeta(:) => NULL()          !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Kxi_Tet(:) => NULL()            !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Keta_Tet(:) => NULL()           !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Kzeta_Tet(:) => NULL()          !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Flux(:,:) => NULL()         !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Flux3D(:,:,:,:) => NULL()   !< Sparsity coefficients
+    INTEGER           :: NonZero_Kxi                 !< No. of nonzero elements
+    INTEGER           :: NonZero_Keta                !< No. of nonzero elements
+    INTEGER           :: NonZero_Kzeta               !< No. of nonzero elements
+    INTEGER           :: NonZero_Kxi_Tet             !< No. of nonzero elements
+    INTEGER           :: NonZero_Keta_Tet            !< No. of nonzero elements
+    INTEGER           :: NonZero_Kzeta_Tet           !< No. of nonzero elements
+    INTEGER, POINTER  :: NonZero_Flux(:) => NULL()            !< No. of nonzero elements
+    INTEGER, POINTER  :: NonZero_Flux3D(:,:,:) => NULL()      !< No. of nonzero elements
+    INTEGER, POINTER  :: IndexNonZero_Kxi(:,:) => NULL()      !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Keta(:,:) => NULL()     !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Kzeta(:,:) => NULL()    !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Kxi_Tet(:,:) => NULL()      !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Keta_Tet(:,:) => NULL()     !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Kzeta_Tet(:,:) => NULL()    !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Flux(:,:,:) => NULL()   !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Flux3D(:,:,:,:,:)=> NULL()!< Sparsity: non-zero indices
 
     REAL, POINTER     :: NC_BndBF_GP(:,:,:) => NULL()         !<Precomputed basis functions at Gauss Point of non-conforming elements
     !< ---------------------------------------------------------------------------
@@ -879,7 +879,6 @@ MODULE TypesDef
      REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
      REAL                                   :: p0
      integer                                :: refinement
-     integer,pointer                        :: elements_per_rank(:)
      integer                                :: refinement_strategy
   END TYPE tDynRup_output
 
@@ -975,12 +974,12 @@ MODULE TypesDef
 #endif
 
     integer              :: nDRElems !< number of DR Elems
-    real*8, allocatable  :: DRupdates(:,:,:)            !< shadow storage of receiver elemes 
+    real*8, allocatable  :: DRupdates(:,:,:)            !< shadow storage of receiver elemes
     integer, allocatable :: indicesOfDRElems(:) !< indices of elements having a pickpoint
     integer, allocatable :: DRupdatesPosition(:,:) !< helper array to determine the position inside DRupdates in friction routine
 
     integer              :: nDRElemsMIC !< number of DR Elems
-    real*8, allocatable  :: DRupdatesMIC(:,:,:)            !< shadow storage of receiver elemes 
+    real*8, allocatable  :: DRupdatesMIC(:,:,:)            !< shadow storage of receiver elemes
     integer, allocatable :: indicesOfDRElemsMIC(:) !< indices of elements having a pickpoint
     integer, allocatable :: indicesOfDRElemsInCPUupdates(:) !< indices of elements having a pickpoint
 
@@ -1065,11 +1064,11 @@ MODULE TypesDef
      TYPE(tSparseTensor3), POINTER          :: ESpHexa(:)                       !< Sparse star tensor E
      TYPE(tSparseMatrix),POINTER            :: InvSystemMatrix(:)               !< Inverse system matrix for ST-DG
 
-     TYPE(tSparseTensor3), POINTER          :: AStar_Sp(:)  =>NULL()            !< Sparse star tensor A      
-     TYPE(tSparseTensor3), POINTER          :: BStar_Sp(:)  =>NULL()            !< Sparse star tensor B      
-     TYPE(tSparseTensor3), POINTER          :: CStar_Sp(:)  =>NULL()            !< Sparse star tensor C      
-     TYPE(tSparseTensor3), POINTER          :: EStar_Sp(:)  =>NULL()            !< Sparse star tensor E      
-     !< 
+     TYPE(tSparseTensor3), POINTER          :: AStar_Sp(:)  =>NULL()            !< Sparse star tensor A
+     TYPE(tSparseTensor3), POINTER          :: BStar_Sp(:)  =>NULL()            !< Sparse star tensor B
+     TYPE(tSparseTensor3), POINTER          :: CStar_Sp(:)  =>NULL()            !< Sparse star tensor C
+     TYPE(tSparseTensor3), POINTER          :: EStar_Sp(:)  =>NULL()            !< Sparse star tensor E
+     !<
      TYPE(tSparseTensor3), POINTER          :: FLStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      TYPE(tSparseTensor3), POINTER          :: FRStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      !< Dynamic Rupture variables to exchange dgvar values of MPI-fault elements since the Taylor derivatives are needed in friction
@@ -1181,7 +1180,7 @@ MODULE TypesDef
      INTEGER                                :: Anisotropy                       !< (0) = isotop, (1) = hexagonal, (2) = orthorhombisch, (3) = tetragonal
      INTEGER                                :: Anelasticity                     !< (0) = elastic, (1) = anelastic
      INTEGER                                :: Poroelasticity                   !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
-     INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic 
+     INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic
      REAL, POINTER                          :: Energy(:,:)=> NULL()
      REAL                                   :: PlastCo_0                        !< Cohesion for the Drucker-Prager plasticity, initial constant value
      REAL, POINTER                          :: PlastCo(:)                       !< Cohesion for the Drucker-Prager plasticity, depth-dependent
@@ -1288,7 +1287,7 @@ MODULE TypesDef
      REAL                   , DIMENSION(3)  :: coordz                           !< (subtet) vertices coordinates in z
      INTEGER                                :: index                            !< Element index
      INTEGER                                :: globalreceiverindex              !< receiver index of global list
-     LOGICAL                                :: inside                           !< If a point is inside the mesh or not     
+     LOGICAL                                :: inside                           !< If a point is inside the mesh or not
   END TYPE tUnstructPoint
   !< Spline
   TYPE  tSpline
@@ -1890,7 +1889,7 @@ MODULE TypesDef
      REAL                         , POINTER :: cvar(:,:) => NULL()
      REAL                         , POINTER :: vvar(:,:) => NULL()
      REAL                                   :: dtReference
-     REAL                                   :: PeriodicDisp(4) 
+     REAL                                   :: PeriodicDisp(4)
   END TYPE tUnstructDomainDescript
 
 END MODULE TypesDef

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
+ * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,71 +24,115 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Asynchronous I/O
  */
 
-#ifndef ASYNCIO_H
-#define ASYNCIO_H
+#ifndef FAULTWRITEREXECUTOR_H
+#define FAULTWRITEREXECUTOR_H
 
-#include "Parallel/MPI.h"
+#include <mpi.h>
 
-#include <algorithm>
+#include "xdmfwriter/XdmfWriter.h"
 
-#include "utils/env.h"
-#include "utils/logger.h"
-
-#include "async/Dispatcher.h"
+#include "async/ExecInfo.h"
 
 namespace seissol
 {
 
-namespace io
+namespace writer
 {
 
-class AsyncIO : public async::Dispatcher
+struct FaultInitParam
+{
+	static const unsigned int OUTPUT_MASK_SIZE = 18;
+
+	bool outputMask[OUTPUT_MASK_SIZE];
+};
+
+struct FaultParam
+{
+	double time;
+};
+
+class FaultWriterExecutor
 {
 public:
-	/**
-	 * @return False if this rank is an MPI executor that does not contribute to the
-	 *  computation.
-	 */
-	bool init()
-	{
-		async::Dispatcher::init();
+	enum BufferIds {
+		OUTPUT_PREFIX = 0,
+		CELLS = 1,
+		VERTICES = 2,
+		VARIABLES0 = 3
+	};
+
+private:
+	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>* m_xdmfWriter;
 
 #ifdef USE_MPI
-		seissol::MPI::mpi.setComm(commWorld());
-		// TODO Update fault communicator (not really sure how we can do this at this point)
+	/** The MPI communicator for the writer */
+	MPI_Comm m_comm;
 #endif // USE_MPI
 
-		return dispatch();
+	/** The number of variables that should be written */
+	unsigned int m_numVariables;
+
+public:
+	FaultWriterExecutor()
+		: m_xdmfWriter(0L),
+#ifdef USE_MPI
+		m_comm(MPI_COMM_NULL),
+#endif // USE_MPI
+		m_numVariables(0)
+	{
+	}
+
+	/**
+	 * Initialize the XDMF writer
+	 */
+	void execInit(const async::ExecInfo &info, const FaultInitParam &param);
+
+	void exec(const async::ExecInfo &info, const FaultParam &param)
+	{
+		if (!m_xdmfWriter)
+			return;
+
+		m_xdmfWriter->addTimeStep(param.time);
+
+		for (unsigned int i = 0; i < m_numVariables; i++)
+			m_xdmfWriter->writeData(i, static_cast<const double*>(info.buffer(VARIABLES0 + i)));
+
+		m_xdmfWriter->flush();
 	}
 
 	void finalize()
 	{
-		// Call parent class
-		async::Dispatcher::finalize();
-
 #ifdef USE_MPI
-		// Reset the MPI communicator
-		seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
+		if (m_comm != MPI_COMM_NULL) {
+			MPI_Comm_free(&m_comm);
+			m_comm = MPI_COMM_NULL;
+		}
 #endif // USE_MPI
+
+		delete m_xdmfWriter;
+		m_xdmfWriter = 0L;
 	}
+
+private:
+	/** Variable names in the output */
+	static char const * const LABELS[];
 };
 
 }
 
 }
 
-#endif // ASYNCIO_H
+#endif // FAULTWRITEREXECUTOR_H

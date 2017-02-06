@@ -1301,6 +1301,10 @@ CONTAINS
     DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
     if (printIntervalCriterion.EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
+#ifdef GENERATEDKERNELS
+        logError(*) 'The generated kernels version does no longer support printIntervalCriterion = 1 for elementwise fault output'
+        stop
+#endif
     else
         DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec = printtimeinterval_sec   ! read time interval at which output will be written
     endif

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
+ * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,28 +37,108 @@
  * @section DESCRIPTION
  */
 
-#include "SeisSol.h"
+#ifndef FAULTWRITER_H
+#define FAULTWRITER_H
 
-extern "C"
+#include "Parallel/MPI.h"
+
+#include "utils/logger.h"
+
+#include "async/Module.h"
+
+#include "FaultWriterExecutor.h"
+#include "Modules/Module.h"
+#include "Monitoring/instrumentation.fpp"
+
+namespace seissol
 {
 
-void fault_hdf_init(const int* cells, const double* vertices,
+namespace writer
+{
+
+class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>,
+	public seissol::Module
+{
+private:
+	/** Is enabled? */
+	bool m_enabled;
+
+	/** The asynchronous executor */
+	FaultWriterExecutor m_executor;
+
+	/** Total number of variables */
+	unsigned int m_numVariables;
+
+public:
+	FaultWriter()
+		: m_enabled(false)
+	{
+	}
+
+	/**
+	 * Called by ASYNC on all ranks
+	 */
+	void setUp()
+	{
+		setExecutor(m_executor);
+	}
+
+	void init(const int* cells, const double* vertices,
 		int nCells, int nVertices,
-		int* outputMask, const double** dataBuffer, const char* outputPrefix,
-		double interval)
-{
-	seissol::SeisSol::main.faultWriter().init(cells, vertices, nCells, nVertices,
-		outputMask, dataBuffer, outputPrefix, interval);
+		int* outputMask, const double** dataBuffer,
+		const char* outputPrefix,
+		double interval);
+
+	void write(double time)
+	{
+		SCOREP_USER_REGION("FaultWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION)
+
+		if (!m_enabled)
+			logError() << "Trying to write fault output, but fault output is not enabled";
+
+		const int rank = seissol::MPI::mpi.rank();
+
+		wait();
+
+		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ".";
+
+		FaultParam param;
+		param.time = time;
+
+		for (unsigned int i = 0; i < m_numVariables; i++)
+			sendBuffer(FaultWriterExecutor::VARIABLES0 + i);
+
+		call(param);
+
+		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
+	}
+
+	void close()
+	{
+		if (!m_enabled)
+			return;
+
+		wait();
+	}
+
+	void tearDown()
+	{
+		if (!m_enabled)
+			return;
+
+		m_executor.finalize();
+	}
+
+	//
+	// Hooks
+	//
+	void simulationStart();
+
+	void syncPoint(double currentTime);
+};
+
 }
 
-void fault_hdf_write(double time)
-{
-	seissol::SeisSol::main.faultWriter().write(time);
 }
 
-void fault_hdf_close()
-{
-	seissol::SeisSol::main.faultWriter().close();
-}
-
-}
+#endif // FAULTWRITER_H

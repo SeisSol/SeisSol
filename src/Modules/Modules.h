@@ -40,6 +40,9 @@
 #ifndef MODULES_H
 #define MODULES_H
 
+#include <algorithm>
+#include <cassert>
+#include <limits>
 #include <map>
 #include <utility>
 
@@ -67,9 +70,24 @@ enum Hook
 	POST_MESH,
 	PRE_MODEL,
 	POST_MODEL,
+	/**
+	 * Called when the simulation starts.
+	 *
+	 * @warning Only called when the simulation is not loaded from a checkpoint.
+	 * @warning This will only be triggered in the generated kernels version.
+	 */
+	SIMULATION_START,
+	/**
+	 * Global synchronization point during simulation
+	 *
+	 * Registering for this hook requires setting the update interval.
+	 *
+	 * @warning This will only be triggered in the generated kernels version.
+	 */
+	SYNCHRONIZATION_POINT,
 	FIRST_HOOK = PRE_MPI,
-	MAX_INIT_HOOKS = POST_MODEL + 1,
-	MAX_HOOKS = POST_MODEL + 1
+	MAX_INIT_HOOKS = SIMULATION_START + 1,
+	MAX_HOOKS = SYNCHRONIZATION_POINT + 1
 };
 
 /**
@@ -80,7 +98,7 @@ class Modules
 private:
 	std::multimap<int, Module*> m_hooks[MAX_HOOKS];
 
-	// The hook that should be called next
+	/** The hook that should be called next */
 	Hook m_nextHook;
 
 private:
@@ -103,6 +121,37 @@ private:
 		for (std::multimap<int, Module*>::iterator it = m_hooks[hook].begin();
 				it != m_hooks[hook].end(); it++) {
 			call<hook>(it->second);
+		}
+
+		m_nextHook = static_cast<Hook>(hook + 1);
+	}
+
+	double _callSyncHook(double currentTime, double timeTolerance)
+	{
+		double nextSyncTime = std::numeric_limits<double>::max();
+
+		for (std::multimap<int, Module*>::iterator it = m_hooks[SYNCHRONIZATION_POINT].begin();
+				it != m_hooks[SYNCHRONIZATION_POINT].end(); it++) {
+			nextSyncTime = std::min(nextSyncTime, it->second->potentialSyncPoint(currentTime, timeTolerance));
+		}
+
+		return nextSyncTime;
+	}
+
+	/**
+	 * Set the simulation start time.
+	 *
+	 * This is required to handle synchronization points correctly when the simulation starts
+	 * from a checkpoint.
+	 */
+	void _setSimulationStartTime(double time)
+	{
+		assert(m_nextHook <= SYNCHRONIZATION_POINT);
+
+		// Set the simulation time in all modules that are called at synchronization points
+		for (std::multimap<int, Module*>::iterator it = m_hooks[SYNCHRONIZATION_POINT].begin();
+				it != m_hooks[SYNCHRONIZATION_POINT].end(); it++) {
+			it->second->setSimulationStartTime(time);
 		}
 	}
 
@@ -136,7 +185,33 @@ public:
 		instance()._callHook<hook>();
 	}
 
+	/**
+	 * @param currentTime The current simulation time.
+	 * @param timeTolerance The time tolerance for time comparison
+	 * @return The next synchronization point
+	 *
+	 * @todo The time tolerance is global constant, maybe not necessary to pass it here
+	 */
+	static double callSyncHook(double currentTime, double timeTolerance)
+	{
+		return instance()._callSyncHook(currentTime, timeTolerance);
+	}
+
+	/**
+	 * Set the simulation start time
+	 */
+	static void setSimulationStartTime(double time)
+	{
+		return instance()._setSimulationStartTime(time);
+	}
+
 };
+
+template<>
+void seissol::Modules::_callHook<SYNCHRONIZATION_POINT>()
+{
+	logError() << "Synchronization point hooks have to be called with \"callSyncHook\"";
+}
 
 // Create all template instances for call
 #define MODULES_CALL_INSTANCE(enum, func)                          \
@@ -151,6 +226,7 @@ MODULES_CALL_INSTANCE(POST_MPI_INIT, postMPIInit)
 MODULES_CALL_INSTANCE(POST_MESH, postMesh)
 MODULES_CALL_INSTANCE(PRE_MODEL, preModel)
 MODULES_CALL_INSTANCE(POST_MODEL, postModel)
+MODULES_CALL_INSTANCE(SIMULATION_START, simulationStart)
 
 }
 

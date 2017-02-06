@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,14 +37,61 @@
  * @section DESCRIPTION
  */
 
-#ifndef FAULTWRITERC_H
-#define FAULTWRITERC_H
+#include "Parallel/MPI.h"
 
-extern "C"
+#include <string>
+#include <vector>
+
+#include "utils/logger.h"
+
+#include "FaultWriterExecutor.h"
+
+/**
+ * Initialize the XDMF writers
+ */
+void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info, const seissol::writer::FaultInitParam &param)
 {
+	if (m_xdmfWriter)
+		logError() << "Wave field writer already initialized";
 
-void fault_hdf_close();
+	unsigned int nCells = info.bufferSize(CELLS) / (3 * sizeof(int));
+	unsigned int nVertices = info.bufferSize(VERTICES) / (3 * sizeof(double));
 
+#ifdef USE_MPI
+	MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
+#endif // USE_MPI
+
+	if (nCells > 0) {
+		int rank = 0;
+#ifdef USE_MPI
+		MPI_Comm_rank(m_comm, &rank);
+#endif // USE_MPI
+
+		std::string outputName(static_cast<const char*>(info.buffer(OUTPUT_PREFIX)));
+		outputName += "-fault";
+
+		std::vector<const char*> variables;
+		for (unsigned int i = 0; i < FaultInitParam::OUTPUT_MASK_SIZE; i++) {
+			if (param.outputMask[i])
+				variables.push_back(LABELS[i]);
+		}
+		m_numVariables = variables.size();
+
+		// TODO get the timestep from the checkpoint
+		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>(rank,
+			outputName.c_str(), variables, 0);
+
+#ifdef USE_MPI
+		m_xdmfWriter->setComm(m_comm);
+#endif // USE_MPI
+
+		m_xdmfWriter->init(nCells, static_cast<const unsigned int*>(info.buffer(CELLS)),
+			nVertices, static_cast<const double*>(info.buffer(VERTICES)), true);
+
+		logInfo(rank) << "Initializing XDMF fault output. Done.";
+	}
 }
 
-#endif // FAULTWRITERC_H
+char const * const seissol::writer::FaultWriterExecutor::LABELS[] = {
+	"SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl","PSR", "RT", "DS"
+};

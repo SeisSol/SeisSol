@@ -8,23 +8,23 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2013-2016, SeisSol Group
+!! Copyright (c) 2013-2017, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -57,17 +57,17 @@
   !
   !---------------------------------------------------------------------------!
   PUBLIC   :: faultoutput
-  PRIVATE  :: calc_FaultOutput
+  public   :: calc_FaultOutput
   PRIVATE  :: write_FaultOutput_elementwise
   PRIVATE  :: write_FaultOutput_atPickpoint
   !---------------------------------------------------------------------------!
-  
+
 CONTAINS
 
 !> Fault output interface to manage output calculation and type of format
 !<
   SUBROUTINE faultoutput(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
-      
+
       !-------------------------------------------------------------------------!
       USE JacobiNormal_mod
       USE magnitude_output_mod
@@ -160,22 +160,24 @@ CONTAINS
                RETURN
             ENDIF
          ENDIF
+#ifndef GENERATEDKERNELS
          ! DR output at each element
          CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
          CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
          logInfo(*) 'Faultoutput successfully written at time', time
+#endif
          ! remember that fault output was written here
          isOnElementwise=.TRUE.
        ! combines option 3 and 4: output at individual stations and at complete fault
        CASE(5)
-         ! check time for fault receiver output 
+         ! check time for fault receiver output
          IF (.NOT. DISC%DynRup%DynRup_out_atPickpoint%DR_pick_output ) THEN
              CONTINUE
          ELSEIF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval).EQ.0 &
          .OR. (min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0) ) THEN
             isOnPickpoint = .TRUE.
          ENDIF
-         ! check time for fault plane output 
+         ! check time for fault plane output
          IF (DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion.EQ.1) THEN
             IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
             ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))) THEN
@@ -201,12 +203,14 @@ CONTAINS
            CALL write_FaultOutput_atPickpoint(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
          ENDIF
          !
+#ifndef GENERATEDKERNELS
          IF (isOnElementwise) THEN
            DISC%DynRup%OutputPointType=4
            CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
            CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
            DISC%DynRup%OutputPointType=5
          ENDIF
+#endif
        CASE DEFAULT
           ! no output
           CONTINUE
@@ -465,7 +469,7 @@ CONTAINS
 
           ! absolute shear stress
           TracEla = SQRT((S_XY + LocXYStress)**2 + (S_XZ + LocXZStress)**2)
-          
+
           ! compute fault strength
           SELECT CASE(EQN%FL)
           CASE DEFAULT
@@ -785,65 +789,7 @@ CONTAINS
       REAL                     :: MaterialVal(MESH%nElem,EQN%nBackgroundVar)    ! Local Mean Values
       REAL                     :: dt, time
       !-------------------------------------------------------------------------!
-      ! Local variable declaration                                              !
-      INTEGER(8)               :: plotter
-      INTEGER                  :: iFault,iElem,iSide,vIt,iOutPoints,k,i,j,iLocalNeighborSide, iSubTet
-      REAL                     :: xV(MESH%nVertexMax)
-      REAL                     :: yV(MESH%nVertexMax)
-      REAL                     :: zV(MESH%nVertexMax)
-	  INTEGER                  :: VertexSide(4,3)
-      CHARACTER(len=200)       :: filename
-      CHARACTER(100)           :: iterStr
-      INTEGER                  :: in
-      INTEGER                  :: number_of_triangles, SubElem
-      !-------------------------------------------------------------------------!
-      !
-      ! register epik function
-      EPIK_FUNC_REG("write_faultoutput_elementwise")
-      SCOREP_USER_FUNC_DEFINE()
-      EPIK_FUNC_START()
-      SCOREP_USER_FUNC_BEGIN("write_faultoutput_elementwise")
-      !
-      IF(DISC%DynRup%DynRup_out_elementwise%refinement_strategy.eq.1) THEN
-      	number_of_triangles=3
-      ELSE
-        number_of_triangles=4
-      ENDIF
-      SubElem = number_of_triangles**DISC%DynRup%DynRup_out_elementwise%refinement
-      IF  (DISC%DynRup%DynRup_out_elementwise%nDR_pick.eq.0) THEN
-        EPIK_FUNC_END()
-        SCOREP_USER_FUNC_END()
-      	RETURN
-      END IF
-      in=0
-      !
-      VertexSide(1,:) =  (/ 1, 3, 2 /)   ! Local tet. vertices of tet. side I   !
-      VertexSide(2,:) =  (/ 1, 2, 4 /)   ! Local tet. vertices of tet. side II  !
-      VertexSide(3,:) =  (/ 1, 4, 3 /)   ! Local tet. vertices of tet. side III !
-      VertexSide(4,:) =  (/ 2, 3, 4 /)   ! Local tet. vertices of tet. side IV  !
-      !
-      DO iFault = 1, MESH%Fault%nSide
- 	        iElem               = MESH%Fault%Face(iFault,1,1)
-	  	IF (iElem .NE. 0) THEN
-	  	    in=in+1
-	  	ENDIF
-      ENDDO
-      !
-      IF (in>0) THEN
-        !
-        call writeFault(time)
-        DO j=1,SIZE(DISC%DynRup%DynRup_out_elementwise%TmpState,3)
-         call writeFaultData(j, DISC%DynRup%DynRup_out_elementwise%TmpState(:,:,j))
-        ENDDO !OutVars
-        call flushFault()
-        !
-        DO iOutPoints = 1,DISC%DynRup%DynRup_out_elementwise%nDR_pick
-    	   DISC%DynRup%DynRup_out_elementwise%CurrentPick(iOutPoints) = 0
-        ENDDO
-      END IF !IF (in>0)
-
-      EPIK_FUNC_END()
-      SCOREP_USER_FUNC_END()
+      call writeFault(time)
   END SUBROUTINE ! write_FaultOutput_elementwise
   !
   !> writing fault output at pickpoints to files
@@ -868,7 +814,7 @@ CONTAINS
     INTEGER :: stat
     INTEGER :: nOutPoints
     INTEGER :: iOutPoints, k                                                  ! Loop variables                   !
-    REAL, ALLOCATABLE       :: TmpStateIO(:)                                  ! local variable to avoid fortran runtime copy 
+    REAL, ALLOCATABLE       :: TmpStateIO(:)                                  ! local variable to avoid fortran runtime copy
     CHARACTER (LEN=5)       :: cmyrank
     CHARACTER (len=200)     :: ptsoutfile
     !-------------------------------------------------------------------------!

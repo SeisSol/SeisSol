@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,10 @@
 #define MODULE_H
 
 #include <climits>
+#include <cmath>
+#include <limits>
+
+#include "utils/logger.h"
 
 namespace seissol
 {
@@ -50,6 +54,13 @@ namespace seissol
  */
 class Module
 {
+private:
+	/** The synchronization interval for this module */
+	double m_syncInterval;
+
+	/** The last synchronization point for this module */
+	double m_lastSyncPoint;
+
 public:
 	/**
 	 * Possible priorites for modules
@@ -71,6 +82,47 @@ public:
 	};
 
 public:
+	Module()
+		: m_syncInterval(0), m_lastSyncPoint(0)
+	{ }
+
+	/**
+	 * Called by {@link Modules} at every synchronization point
+	 *
+	 * We have to ensure that this is "our" synchronization point before
+	 * calling {@link syncPoint}.
+	 *
+	 * @return The next synchronization point for this module
+	 */
+	double potentialSyncPoint(double currentTime, double timeTolerance)
+	{
+		if (m_syncInterval <= 0)
+			return std::numeric_limits<double>::max();
+
+		if (std::abs(currentTime - (m_lastSyncPoint + m_syncInterval)) < timeTolerance) {
+			syncPoint(currentTime);
+
+			m_lastSyncPoint += m_syncInterval;
+			return m_lastSyncPoint;
+		}
+
+		return m_lastSyncPoint + m_syncInterval;
+	}
+
+	/**
+	 * Called by {@link Modules} before the simulation starts to set the synchronization point.
+	 *
+	 * This is only called for modules that register for the SYNCHRONIZATION_POINT hook.
+	 */
+	void setSimulationStartTime(double time)
+	{
+		m_lastSyncPoint = time;
+	}
+
+	//
+	// Potential hooks
+	//
+
 	/**
 	 * Called before initializing MPI
 	 */
@@ -104,6 +156,35 @@ public:
 	 */
 	virtual void postModel()
 	{
+	}
+
+	/**
+	 * Called before the actual simulation.
+	 *
+	 * Only called when the simulation is not started from a checkpoint
+	 */
+	virtual void simulationStart()
+	{
+	}
+
+	/**
+	 * Called at synchronization points
+	 */
+	virtual void syncPoint(double currentTime)
+	{
+	}
+
+protected:
+	/**
+	 * Set the synchronization interval for this module
+	 *
+	 * This is only required for modules that register for {@link SYNCHRONIZATION_POINT}.
+	 */
+	void setSyncInterval(double interval)
+	{
+		if (m_syncInterval != 0)
+			logError() << "Synchronization interval is already set";
+		m_syncInterval = interval;
 	}
 };
 

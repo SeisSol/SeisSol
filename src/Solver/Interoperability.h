@@ -6,7 +6,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -350,6 +350,13 @@ class seissol::Interoperability {
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
    
+
+   /**
+    * Prepare element wise faultoutput
+    *
+    * @param time The current simulation time
+    */
+   void calcElementwiseFaultoutput( double time );
 
    /**
     * Computes plasticity.
