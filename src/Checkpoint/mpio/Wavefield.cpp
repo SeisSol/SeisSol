@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,8 @@
 
 #include <cstddef>
 
+#include "utils/env.h"
+
 #include "Wavefield.h"
 #include "Monitoring/instrumentation.fpp"
 
@@ -59,6 +61,9 @@ bool seissol::checkpoint::mpio::Wavefield::init(unsigned long numDofs, unsigned 
 
 	// Define the file view
 	defineFileView(sizeof(Header), numDofs);
+
+	// Large buffers are supported?
+	m_useLargeBuffer = utils::Env::get<int>("SEISSOL_CHECKPOINT_MPIO_LARGE_BUFFER", 1) != 0;
 
 	return exists();
 }
@@ -110,9 +115,14 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 
 	checkMPIErr(setDataView(file()));
 
-	const unsigned int totalIter = (totalIterations() + sizeof(real) - 1) / sizeof(real);
-	const unsigned int iter = (iterations() + sizeof(real) - 1) / sizeof(real);
-	unsigned int count = dofsPerIteration() * sizeof(real);
+	unsigned int totalIter = totalIterations();
+	unsigned int iter = iterations();
+	unsigned int count = dofsPerIteration();
+	if (m_useLargeBuffer) {
+		totalIter = (totalIter + sizeof(real) - 1) / sizeof(real);
+		iter = (iter + sizeof(real) - 1) / sizeof(real);
+		count *= sizeof(real);
+	}
 	unsigned long offset = 0;
 	for (unsigned int i = 0; i < totalIter; i++) {
 		if (i == iter-1)
@@ -124,6 +134,8 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 		if (i < iter-1)
 			offset += count;
 		// otherwise we just continue writing the last chunk over and over
+		else if (i != totalIter-1)
+			checkMPIErr(MPI_File_seek(file(), -count * sizeof(real), MPI_SEEK_CUR));
 	}
 
 	EPIK_USER_END(r_write_wavefield);
