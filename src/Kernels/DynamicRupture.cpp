@@ -51,6 +51,7 @@
 #include <generated_code/dr_kernels.h>
 #include <Kernels/common.hpp>
 #include <Kernels/denseMatrixOps.hpp>
+#include <Numerical_aux/Quadrature.h>
 
 /// \todo Make this information available in the code generator
 /// \todo FIXME Will not work for viscoelasticity
@@ -66,7 +67,9 @@ seissol::kernels::DynamicRupture::DynamicRupture() {
   }
 }
 
-void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep) {
+void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
+{
+#ifdef USE_DR_CELLAVERAGE
   double subIntervalWidth = timestep / CONVERGENCE_ORDER;
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     double t1 = timeInterval * subIntervalWidth;
@@ -74,32 +77,53 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep) {
     /// Compute time-integrated Taylor expansion (at t0=0) weights for interval [t1,t2].
     unsigned factorial = 1;
     for (unsigned derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
-      m_timeAverageFactors[timeInterval][derivative] = (t2-t1) / (factorial * subIntervalWidth);
+      m_timeFactors[timeInterval][derivative] = (t2-t1) / (factorial * subIntervalWidth);
       t1 *= t1;
       t2 *= t2;
       factorial *= (derivative+2);
     }
+    /// We define the time "point" of the interval as the centre of the interval in order
+    /// to be somewhat compatible to legacy code.
+    timePoints[timeInterval] = timeInterval * subIntervalWidth + subIntervalWidth / 2.;
+    timeWeights[timeInterval] = subIntervalWidth;
   }
+#else
+  seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
+  for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+    timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
+    timeWeights[point] = 0.5 * timestep * timeWeights[point];
+  }
+
+  for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+    double time = 1.0;
+    unsigned factorial = 1;
+    for (unsigned derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+      m_timeFactors[point][derivative] = time / factorial;
+      time *= timePoints[point];
+      factorial *= (derivative+1);
+    }
+  }
+#endif
 }
 
-void seissol::kernels::DynamicRupture::computeTimeAverage( unsigned timeInterval,
-                                                           real const* timeDerivatives,
-                                                           real timeAverage[NUMBER_OF_ALIGNED_DOFS] ) {
-  SXt(  m_timeAverageFactors[timeInterval][0],
+void seissol::kernels::DynamicRupture::evaluateTaylorExpansion( unsigned timeInterval,
+                                                                real const* timeDerivatives,
+                                                                real degreesOfFreedom[NUMBER_OF_ALIGNED_DOFS] ) {
+  SXt(  m_timeFactors[timeInterval][0],
         m_numberOfAlignedBasisFunctions[0],
         NUMBER_OF_QUANTITIES,
         timeDerivatives,
         m_numberOfAlignedBasisFunctions[0],
-        timeAverage,
+        degreesOfFreedom,
         NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
 
   for (unsigned derivative = 1; derivative < CONVERGENCE_ORDER; ++derivative) {
-    SXtYp(  m_timeAverageFactors[timeInterval][derivative],
+    SXtYp(  m_timeFactors[timeInterval][derivative],
             m_numberOfAlignedBasisFunctions[derivative],
             NUMBER_OF_QUANTITIES,
             timeDerivatives + m_derivativesOffsets[derivative],
             m_numberOfAlignedBasisFunctions[derivative],
-            timeAverage,
+            degreesOfFreedom,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
   }
 }
@@ -125,22 +149,22 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
   memset(godunov, 0, CONVERGENCE_ORDER * seissol::model::godunovState::reals * sizeof(real));
   
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-    real timeAveragePlus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-    real timeAverageMinus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-    computeTimeAverage(timeInterval, timeDerivativePlus, timeAveragePlus);
-    computeTimeAverage(timeInterval, timeDerivativeMinus, timeAverageMinus);
+    real degreesOfFreedomPlus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
+    real degreesOfFreedomMinus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
+    evaluateTaylorExpansion(timeInterval, timeDerivativePlus, degreesOfFreedomPlus);
+    evaluateTaylorExpansion(timeInterval, timeDerivativeMinus, degreesOfFreedomMinus);
     
     seissol::generatedKernels::godunovState[4*faceInfo.plusSide](
       godunovData->godunovMatrixPlus,
       global->faceToNodalMatrices[faceInfo.plusSide][0],
-      timeAveragePlus,
+      degreesOfFreedomPlus,
       &godunov[timeInterval][0]
     );
   
     seissol::generatedKernels::godunovState[4*faceInfo.minusSide + faceInfo.faceRelation](
       godunovData->godunovMatrixMinus,
       global->faceToNodalMatrices[faceInfo.minusSide][faceInfo.faceRelation],
-      timeAverageMinus,
+      degreesOfFreedomMinus,
       &godunov[timeInterval][0]
     ); 
   }

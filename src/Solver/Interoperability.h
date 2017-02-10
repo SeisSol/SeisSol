@@ -342,7 +342,8 @@ class seissol::Interoperability {
                               double imposedStatePlus[seissol::model::godunovState::reals],
                               double imposedStateMinus[seissol::model::godunovState::reals],
                               double i_fullUpdateTime,
-                              double i_timeStepWidth,
+                              double timePoints[CONVERGENCE_ORDER],
+                              double timeWeights[CONVERGENCE_ORDER],
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
    

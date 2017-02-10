@@ -51,25 +51,31 @@ cmdLineParser.add_argument('--order')
 cmdLineParser.add_argument('--numberOfMechanisms')
 cmdLineParser.add_argument('--generator')
 cmdLineParser.add_argument('--memLayout', nargs='?')
+cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineArgs = cmdLineParser.parse_args()
 
 architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
 libxsmmGenerator = cmdLineArgs.generator
 order = int(cmdLineArgs.order)
-numberOfBasisFunctions3D = Tools.numberOfBasisFunctions(order)
-numberOfPoints = int(4**math.ceil(math.log(order*(order+1)/2,4)))
+numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
+if cmdLineArgs.dynamicRuptureMethod == 'quadrature':
+  numberOfPoints = (order+1)**2
+elif cmdLineArgs.dynamicRuptureMethod == 'cellaverage':
+  numberOfPoints = int(4**math.ceil(math.log(order*(order+1)/2,4)))
+else:
+  raise ValueError('Unknown dynamic rupture method.')
 numberOfQuantities = 9
 
 clones = dict()
 
 # Load matrices
-db = Tools.parseMatrixFile('{}/dr_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order*(order+1)/2), clones)
+db = Tools.parseMatrixFile('{}/dr_{}_matrices_{}.xml'.format(cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod, order), clones)
 
 # Determine sparsity patterns that depend on the number of mechanisms
 db.insert(DB.MatrixInfo('godunovMatrix', numberOfQuantities, numberOfQuantities))
 db.insert(DB.MatrixInfo('fluxSolver', numberOfQuantities, numberOfQuantities))
 
-db.insert(DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions3D, numberOfQuantities))
+db.insert(DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities))
 db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfQuantities))
 
 stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }

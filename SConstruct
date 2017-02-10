@@ -147,17 +147,24 @@ vars.AddVariables(
                 allowed_values=('none', 'debug', 'info', 'warning', 'error')
               ),
 
-  EnumVariable( 'numberOfTemporalIntegrationPoints',
-                'number of temporal integration points for the dynamic rupture boundary integration.; \'auto\' uses the number of temporal integration points required to reach formal convergence order.',
-                'auto',
-                allowed_values=('auto', '1', '2', '3', '4', '5', '6')
-              ),
+# Currently not implemented
+#  EnumVariable( 'numberOfTemporalIntegrationPoints',
+#                'number of temporal integration points for the dynamic rupture boundary integration.; \'auto\' uses the number of temporal integration points required to reach formal convergence order.',
+#                'auto',
+#                allowed_values=('auto', '1', '2', '3', '4', '5', '6')
+#              ),
 
   BoolVariable( 'commThread', 'use communication thread for MPI progression (option has no effect when not compiling hybrid target)', False ),
 
   BoolVariable( 'plasticity', 'enable plasticity (generated kernels only)', False ),
 
-  BoolVariable( 'integrateQuants', 'enable computation and storage of integrated quantities (generated kernels only)', False )
+  BoolVariable( 'integrateQuants', 'enable computation and storage of integrated quantities (generated kernels only)', False ),
+  
+  EnumVariable( 'dynamicRuptureMethod',
+                'Use quadrature here, cellaverage is EXPERIMENTAL.',
+                'quadrature',
+                allowed_values=('quadrature', 'cellaverage')
+              )
 )
 
 # external variables
@@ -436,8 +443,9 @@ env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
 # set number of temporal integration points for dynamic ruputure boundary conditions
-if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
-  env.Append(CPPDEFINES=['NUMBER_OF_TEMPORAL_INTEGRATION_POINTS='+env['numberOfTemporalIntegrationPoints']])
+# Currently not implemented
+#if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
+#  env.Append(CPPDEFINES=['NUMBER_OF_TEMPORAL_INTEGRATION_POINTS='+env['numberOfTemporalIntegrationPoints']])
 
 # add parallel flag for mpi
 if env['parallelization'] in ['mpi', 'hybrid']:
@@ -466,6 +474,9 @@ if env['generatedKernels']:
 # pthread is linked after the other libraries
 if env['commThread']:
   env.Append(CPPDEFINES=['USE_COMM_THREAD'])
+  
+if env['dynamicRuptureMethod'] == 'cellaverage':
+  env.Append(CPPDEFINES=['USE_DR_CELLAVERAGE'])
 
 # Default log level for rank 0 is same as logLevel
 if env['logLevel0'] == 'none':

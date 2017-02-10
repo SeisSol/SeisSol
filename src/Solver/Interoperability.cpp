@@ -246,7 +246,8 @@ extern "C" {
                                                       int     i_numberOfBasisFunctions2D,
                                                       int     i_godunovLd,
                                                       double* i_fullUpdateTime,
-                                                      double* i_timeStepWidth,
+                                                      double* timePoints,
+                                                      double* timeWeights,
                                                       double  densityPlus,
                                                       double  pWaveVelocityPlus,
                                                       double  sWaveVelocityPlus,
@@ -719,12 +720,13 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                                       double imposedStatePlus[seissol::model::godunovState::reals],
                                                       double imposedStateMinus[seissol::model::godunovState::reals],
                                                       double i_fullUpdateTime,
-                                                      double i_timeStepWidth,
+                                                      double timePoints[CONVERGENCE_ORDER],
+                                                      double timeWeights[CONVERGENCE_ORDER],
                                                       seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
                                                       seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
 {
   int fFace = face + 1;
-  int numberOfBasisFunctions2D = seissol::model::godunovState::rows;
+  int numberOfPoints = seissol::model::godunovState::rows;
   int godunovLd = seissol::model::godunovState::ld;
 
   f_interoperability_evaluateFrictionLaw( m_domain,
@@ -732,10 +734,11 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                          &godunov[0][0],
                                          &imposedStatePlus[0],
                                          &imposedStateMinus[0],
-                                          numberOfBasisFunctions2D,
+                                          numberOfPoints,
                                           godunovLd,
                                           &i_fullUpdateTime,
-                                          &i_timeStepWidth,
+                                          &timePoints[0],
+                                          &timeWeights[0],
                                           waveSpeedsPlus.density,
                                           waveSpeedsPlus.pWaveVelocity,
                                           waveSpeedsPlus.sWaveVelocity,

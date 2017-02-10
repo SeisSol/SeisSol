@@ -1630,7 +1630,7 @@ CONTAINS
                  IO         = IO,                              &
                  quiet      = .TRUE.                           )
 
-#ifdef GENERATEDKERNELS
+#ifdef USE_DR_CELLAVERAGE
         call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, DISC%Galerkin%BndGaussP_Tet)
         DISC%Galerkin%BndGaussW_Tet = 1.e99 ! blow up solution if used
 #else

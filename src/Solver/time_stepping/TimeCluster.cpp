@@ -286,7 +286,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture() {
                                             imposedStatePlus[face],
                                             imposedStateMinus[face],
                                             m_fullUpdateTime,
-                                            m_timeStepWidth,
+                                            m_dynamicRuptureKernel.timePoints,
+                                            m_dynamicRuptureKernel.timeWeights,
                                             waveSpeedsPlus[face],
                                             waveSpeedsMinus[face] );
   }

@@ -53,13 +53,17 @@ class seissol::kernels::DynamicRupture {
   private:
     unsigned int m_numberOfAlignedBasisFunctions[CONVERGENCE_ORDER];
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-    double m_timeAverageFactors[CONVERGENCE_ORDER][CONVERGENCE_ORDER];
+    double m_timeFactors[CONVERGENCE_ORDER][CONVERGENCE_ORDER];
     
-    void computeTimeAverage(  unsigned timeInterval,
-                              real const* timeDerivatives,
-                              real timeAverage[NUMBER_OF_ALIGNED_DOFS] );
+    void evaluateTaylorExpansion( unsigned timeInterval,
+                                  real const* timeDerivatives,
+                                  real degreesOfFreedom[NUMBER_OF_ALIGNED_DOFS] );
 
   public:
+    double timePoints[CONVERGENCE_ORDER];
+    double timeSteps[CONVERGENCE_ORDER];
+    double timeWeights[CONVERGENCE_ORDER];
+
     DynamicRupture();
     
     void setTimeStepWidth(double timestep);

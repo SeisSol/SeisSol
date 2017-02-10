@@ -128,7 +128,7 @@ module f_ctof_bind_interoperability
       l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
     end subroutine
     
-    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_godunov, i_imposedStatePlus, i_imposedStateMinus, i_numberOfBasisFunctions2D, i_godunovLd, i_time, i_timeStepWidth, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
+    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_godunov, i_imposedStatePlus, i_imposedStateMinus, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -140,7 +140,7 @@ module f_ctof_bind_interoperability
       type(tUnstructDomainDescript), pointer :: l_domain
       
       integer(kind=c_int), value             :: i_face
-      integer(kind=c_int), value             :: i_numberOfBasisFunctions2D
+      integer(kind=c_int), value             :: i_numberOfPoints
       integer(kind=c_int), value             :: i_godunovLd
       
       type(c_ptr), value                     :: i_godunov
@@ -154,9 +154,9 @@ module f_ctof_bind_interoperability
 
       type(c_ptr), value                     :: i_time
       real*8, pointer                        :: l_time
-
-      type(c_ptr), value                     :: i_timeStepWidth
-      real*8, pointer                        :: l_timeStepWidth
+      
+      real(c_double), intent(in), dimension(CONVERGENCE_ORDER)  :: timePoints
+      real(c_double), intent(in), dimension(CONVERGENCE_ORDER)  :: timeWeights
       
       real(kind=c_double), value             :: densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus
       
@@ -168,11 +168,11 @@ module f_ctof_bind_interoperability
       REAL        :: rho, rho_neig
       REAL        :: w_speed(3),w_speed_neig(3)
       
-      REAL        :: TractionGP_XY(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
-      REAL        :: TractionGP_XZ(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
-      REAL        :: NorStressGP(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
-      REAL        :: XYStressGP(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
-      REAL        :: XZStressGP(1:i_numberOfBasisFunctions2D,CONVERGENCE_ORDER)
+      REAL        :: TractionGP_XY(1:i_numberOfPoints,CONVERGENCE_ORDER)
+      REAL        :: TractionGP_XZ(1:i_numberOfPoints,CONVERGENCE_ORDER)
+      REAL        :: NorStressGP(1:i_numberOfPoints,CONVERGENCE_ORDER)
+      REAL        :: XYStressGP(1:i_numberOfPoints,CONVERGENCE_ORDER)
+      REAL        :: XZStressGP(1:i_numberOfPoints,CONVERGENCE_ORDER)
       real        :: subTimeStepWidth
 
       integer :: iSide, iElem, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, MPIIndex_DR, i, j
@@ -187,7 +187,6 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_imposedStatePlus,   l_imposedStatePlus, [i_godunovLd,9])
       call c_f_pointer( i_imposedStateMinus,  l_imposedStateMinus, [i_godunovLd,9])
       call c_f_pointer( i_time,               l_time  )
-      call c_f_pointer( i_timeStepWidth,      l_timeStepWidth )
       
       iElem               = l_domain%MESH%Fault%Face(i_face,1,1)          ! Remark:
       iSide               = l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
@@ -205,23 +204,16 @@ module f_ctof_bind_interoperability
       w_speed_neig(:) = (/ pWaveVelocityMinus, sWaveVelocityMinus, sWaveVelocityMinus /)
       
       do j=1,CONVERGENCE_ORDER
-        do i=1,i_numberOfBasisFunctions2D
+        do i=1,i_numberOfPoints
           NorStressGP(i,j) = l_godunov(i,1,j)
           XYStressGP(i,j) = l_godunov(i,4,j)
           XZStressGP(i,j) = l_godunov(i,6,j)
         enddo
       enddo
       
-      ! FIXME: Trouble if LTS would be used due to OpenMP race conditions
-      subTimeStepWidth = l_timeStepWidth / CONVERGENCE_ORDER
-      l_domain%DISC%Galerkin%TimeGaussP(1) = subTimeStepWidth
-      do j=2,CONVERGENCE_ORDER
-        l_domain%DISC%Galerkin%TimeGaussP(j) = l_domain%DISC%Galerkin%TimeGaussP(j-1) + subTimeStepWidth
-      enddo
-      
       call Eval_friction_law( TractionGP_XY,TractionGP_XZ,        & ! OUT: updated Traction
                               NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
-                              i_face,iSide,iElem,l_time,iT,          & ! IN: element ID, time, inv Trafo
+                              i_face,iSide,iElem,l_time,timePoints,iT,          & ! IN: element ID, time, inv Trafo
                               rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
                               l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%bnd)
 
@@ -229,25 +221,22 @@ module f_ctof_bind_interoperability
       l_imposedStateMinus = 0.0
 
       do j=1,CONVERGENCE_ORDER
-        do i=1,i_numberOfBasisFunctions2D
-          l_imposedStateMinus(i,1) = l_imposedStateMinus(i,1) + l_godunov(i,1,j)
-          l_imposedStateMinus(i,4) = l_imposedStateMinus(i,4) + TractionGP_XY(i,j)
-          l_imposedStateMinus(i,6) = l_imposedStateMinus(i,6) + TractionGP_XZ(i,j)
-          l_imposedStateMinus(i,7) = l_imposedStateMinus(i,7) + l_godunov(i,7,j)
-          l_imposedStateMinus(i,8) = l_imposedStateMinus(i,8) + l_godunov(i,8,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XY(i,j)-l_godunov(i,4,j))
-          l_imposedStateMinus(i,9) = l_imposedStateMinus(i,9) + l_godunov(i,9,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XZ(i,j)-l_godunov(i,6,j))
+        do i=1,i_numberOfPoints
+          l_imposedStateMinus(i,1) = l_imposedStateMinus(i,1) + timeWeights(j) * l_godunov(i,1,j)
+          l_imposedStateMinus(i,4) = l_imposedStateMinus(i,4) + timeWeights(j) * TractionGP_XY(i,j)
+          l_imposedStateMinus(i,6) = l_imposedStateMinus(i,6) + timeWeights(j) * TractionGP_XZ(i,j)
+          l_imposedStateMinus(i,7) = l_imposedStateMinus(i,7) + timeWeights(j) * l_godunov(i,7,j)
+          l_imposedStateMinus(i,8) = l_imposedStateMinus(i,8) + timeWeights(j) * (l_godunov(i,8,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XY(i,j)-l_godunov(i,4,j)))
+          l_imposedStateMinus(i,9) = l_imposedStateMinus(i,9) + timeWeights(j) * (l_godunov(i,9,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XZ(i,j)-l_godunov(i,6,j)))
         
-          l_imposedStatePlus(i,1) = l_imposedStatePlus(i,1) + l_godunov(i,1,j)
-          l_imposedStatePlus(i,4) = l_imposedStatePlus(i,4) + TractionGP_XY(i,j)
-          l_imposedStatePlus(i,6) = l_imposedStatePlus(i,6) + TractionGP_XZ(i,j)
-          l_imposedStatePlus(i,7) = l_imposedStatePlus(i,7) + l_godunov(i,7,j)
-          l_imposedStatePlus(i,8) = l_imposedStatePlus(i,8) + l_godunov(i,8,j) + 1.0D0/(w_speed(2)*rho) * (TractionGP_XY(i,j)-l_godunov(i,4,j))
-          l_imposedStatePlus(i,9) = l_imposedStatePlus(i,9) + l_godunov(i,9,j) + 1.0D0/(w_speed(2)*rho) * (TractionGP_XZ(i,j)-l_godunov(i,6,j))
+          l_imposedStatePlus(i,1) = l_imposedStatePlus(i,1) + timeWeights(j) * l_godunov(i,1,j)
+          l_imposedStatePlus(i,4) = l_imposedStatePlus(i,4) + timeWeights(j) * TractionGP_XY(i,j)
+          l_imposedStatePlus(i,6) = l_imposedStatePlus(i,6) + timeWeights(j) * TractionGP_XZ(i,j)
+          l_imposedStatePlus(i,7) = l_imposedStatePlus(i,7) + timeWeights(j) * l_godunov(i,7,j)
+          l_imposedStatePlus(i,8) = l_imposedStatePlus(i,8) + timeWeights(j) * (l_godunov(i,8,j) + 1.0D0/(w_speed(2)*rho) * (TractionGP_XY(i,j)-l_godunov(i,4,j)))
+          l_imposedStatePlus(i,9) = l_imposedStatePlus(i,9) + timeWeights(j) * (l_godunov(i,9,j) + 1.0D0/(w_speed(2)*rho) * (TractionGP_XZ(i,j)-l_godunov(i,6,j)))
         enddo
       enddo
-      
-      l_imposedStatePlus = subTimeStepWidth * l_imposedStatePlus
-      l_imposedStateMinus = subTimeStepWidth * l_imposedStateMinus
 
       SCOREP_USER_REGION_END( r_dr )
     end subroutine

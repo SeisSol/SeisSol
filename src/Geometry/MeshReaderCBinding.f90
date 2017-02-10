@@ -144,7 +144,7 @@ contains
             endif
         endif
         
-#ifdef GENERATEDKERNELS
+#ifdef USE_DR_CELLAVERAGE
         DISC%Galerkin%nBndGP = 4**ceiling(log( real((DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2) / 2) )/log(4.))
 #else
         DISC%Galerkin%nBndGP = (DISC%Galerkin%nPoly + 2)**2
@@ -158,7 +158,7 @@ contains
 
         allocate(mesh%ELEM%BndGP_Tri(2, DISC%Galerkin%nBndGP), &
                  mesh%ELEM%BndGW_Tri(DISC%Galerkin%nBndGP))
-#ifdef GENERATEDKERNELS
+#ifdef USE_DR_CELLAVERAGE
         call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, mesh%ELEM%BndGP_Tri)
         mesh%ELEM%BndGW_Tri = 1.e99 ! blow up solution if used
 #else
