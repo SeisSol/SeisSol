@@ -201,11 +201,11 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), dimension(*), intent(in) :: i_slip2
       real(kind=c_double), dimension(*), intent(in) :: i_state
       real(kind=c_double), dimension(*), intent(in) :: i_strength
-      real(kind=c_double), dimension(*), intent(out) :: i_outputRegionBounds
-      integer(kind=c_int), dimension(*), intent(out) :: i_outputMask
       integer(kind=c_int), value                    :: i_numSides
       integer(kind=c_int), value                    :: i_numBndGP
       integer(kind=c_int), value                    :: i_refinement
+      integer(kind=c_int), dimension(*), intent(in) :: i_outputMask
+      real(kind=c_double), dimension(*), intent(in) :: i_outputRegionBounds
     end subroutine
 
     subroutine c_interoperability_addToDofs( i_meshId, i_update, numberOfQuantities ) bind( C, name='c_interoperability_addToDofs' )
