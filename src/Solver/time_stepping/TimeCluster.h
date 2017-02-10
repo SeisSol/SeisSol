@@ -194,10 +194,13 @@ private:
     enum ComputePart {
       LocalInterior = 0,
       NeighborInterior,
+      DRNeighborInterior,
 #ifdef USE_MPI
       LocalCopy,
       NeighborCopy,
+      DRNeighborCopy,
 #endif
+      DRFrictionLaw,
       NUM_COMPUTE_PARTS
     };
     
@@ -300,7 +303,13 @@ private:
     void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
                                           CellLocalInformation const* cellInformation,
                                           long long&                  nonZeroFlops,
-                                          long long&                  hardwareFlops);
+                                          long long&                  hardwareFlops,
+                                          long long&                  drNonZeroFlops,
+                                          long long&                  drHardwareFlops );
+
+    void computeDynamicRuptureFlops(  long long&                  nonZeroFlops,
+                                      long long&                  hardwareFlops );
+                                          
     void computeFlops();
 
   public:

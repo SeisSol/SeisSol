@@ -49,6 +49,7 @@
 #include <stdint.h>
 
 #include <generated_code/dr_kernels.h>
+#include <generated_code/dr_flops.h>
 #include <Kernels/common.hpp>
 #include <Kernels/denseMatrixOps.hpp>
 #include <Numerical_aux/Quadrature.h>
@@ -168,4 +169,31 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
       &godunov[timeInterval][0]
     ); 
   }
+}
+
+void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation const&  faceInfo,
+                                                          long long&                o_nonZeroFlops,
+                                                          long long&                o_hardwareFlops )
+{
+  // reset flops
+  o_nonZeroFlops = 0; o_hardwareFlops = 0;
+  
+  // SXt flops
+  o_nonZeroFlops += m_numberOfAlignedBasisFunctions[0] * NUMBER_OF_QUANTITIES;
+  o_hardwareFlops += m_numberOfAlignedBasisFunctions[0] * NUMBER_OF_QUANTITIES;
+  
+  // SXtYp flops
+  for (unsigned derivative = 1; derivative < CONVERGENCE_ORDER; ++derivative) {
+    o_nonZeroFlops += 2 * m_numberOfAlignedBasisFunctions[derivative] * NUMBER_OF_QUANTITIES;
+    o_hardwareFlops += 2 * m_numberOfAlignedBasisFunctions[derivative] * NUMBER_OF_QUANTITIES;
+  }
+  
+  o_nonZeroFlops += seissol::flops::godunovState_nonZero[4*faceInfo.plusSide];
+  o_hardwareFlops += seissol::flops::godunovState_hardware[4*faceInfo.plusSide];
+  
+  o_nonZeroFlops += seissol::flops::godunovState_nonZero[4*faceInfo.minusSide + faceInfo.faceRelation];
+  o_hardwareFlops += seissol::flops::godunovState_hardware[4*faceInfo.minusSide + faceInfo.faceRelation];
+  
+  o_nonZeroFlops *= CONVERGENCE_ORDER;
+  o_hardwareFlops *= CONVERGENCE_ORDER;
 }

@@ -86,6 +86,7 @@
 #include <cstddef>
 
 #include <generated_code/dr_kernels.h>
+#include <generated_code/dr_flops.h>
 
 seissol::kernels::Boundary::Boundary() {
   // intialize the function pointers to the matrix kernels
@@ -299,9 +300,12 @@ void seissol::kernels::Boundary::computeNeighborsIntegral( const enum faceType i
 void seissol::kernels::Boundary::flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                                          const int            i_neighboringIndices[4][2],
                                                          unsigned int        &o_nonZeroFlops,
-                                                         unsigned int        &o_hardwareFlops ) {
+                                                         unsigned int        &o_hardwareFlops,
+                                                         long long&           o_drNonZeroFlops,
+                                                         long long&           o_drHardwareFlops ) {
   // reset flops
   o_nonZeroFlops = 0; o_hardwareFlops = 0;
+  o_drNonZeroFlops = 0; o_drHardwareFlops = 0;
 
   // iterate over faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
@@ -334,6 +338,9 @@ void seissol::kernels::Boundary::flopsNeighborsIntegral( const enum faceType  i_
 
       o_nonZeroFlops  += m_nonZeroFlops[ 53];
       o_hardwareFlops += m_hardwareFlops[53];
+    } else if (i_faceTypes[l_face] == dynamicRupture) {
+      o_drNonZeroFlops += seissol::flops::nodalFlux_nonZero[l_face];
+      o_drHardwareFlops += seissol::flops::nodalFlux_hardware[l_face];
     }
   }
 }

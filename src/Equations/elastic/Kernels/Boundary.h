@@ -240,7 +240,9 @@ class seissol::kernels::Boundary {
     void flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                  const int            i_neighboringIndices[4][2],
                                  unsigned int        &o_nonZeroFlops,
-                                 unsigned int        &o_hardwareFlops );
+                                 unsigned int        &o_hardwareFlops,
+                                 long long&           o_drNonZeroFlops,
+                                 long long&           o_drHardwareFlops );
 };
 
 #endif

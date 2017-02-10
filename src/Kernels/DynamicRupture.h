@@ -74,6 +74,10 @@ class seissol::kernels::DynamicRupture {
                               real const*                 timeDerivativePlus,
                               real const*                 timeDerivativeMinus,
                               real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals]);
+
+    void flopsGodunovState( DRFaceInformation const&  faceInfo,
+                            long long&                o_nonZeroFlops,
+                            long long&                o_hardwareFlops );
 };
 
 #endif
