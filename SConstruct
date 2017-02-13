@@ -572,6 +572,7 @@ env.Append(LIBS=['pthread'])
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
 env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equations/' + env['equations'] + '/generated_code'])
+env.Append(F90PATH=['#/src/Equations/' + env['equations'] + '/generated_code'])
 
 #
 # setup the program name and the build directory
@@ -598,13 +599,6 @@ else:
 
 env['buildDir'] = '%s/build_%s' %(env['buildDir'], program_suffix)
 
-# set sub directories (important for scons tree)
-buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Parallel', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
-
-for buildDir in range(len(buildDirectories)):
-  buildDirectories[buildDir] = '#/'+env['buildDir'] + '/' + buildDirectories[buildDir]
-env.AppendUnique(F90PATH=buildDirectories)
-
 # set module path
 if env['compiler'] == 'intel':
     env.Append(F90FLAGS='-module ${TARGET.dir}')
@@ -619,15 +613,22 @@ env.generatedTestSourceFiles = []
 utils.gitversion.generateHeader(env, target='#/src/version.h')
 
 Export('env')
-SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
-SConscript('src/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)
-SConscript('submodules/SConscript', variant_dir='#/'+env['buildDir']+'/submodules', duplicate=0)
+SConscript('generated_code/SConscript', variant_dir=env['buildDir'] + '/generated_code', duplicate=0)
+SConscript('src/SConscript', variant_dir=env['buildDir'] + '/src', duplicate=0)
+SConscript('submodules/SConscript', variant_dir=env['buildDir']+'/submodules', duplicate=0)
 Import('env')
 
 # remove .mod entries for the linker
+modDirectories = []
 sourceFiles = []
 for sourceFile in env.sourceFiles:
   sourceFiles.append(sourceFile[0])
+  if len(sourceFile) > 1:
+    modDir = os.path.dirname(str(sourceFile[1]))
+    modDirectories.append(modDir)
+for directory in set(modDirectories):
+  Execute(Mkdir(directory))
+env.AppendUnique(F90PATH=map(lambda x: '#/' + x, modDirectories))
 
 #print env.Dump()
 

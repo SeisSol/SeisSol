@@ -41,8 +41,7 @@
 Import('env')
   
 if env['generatedKernels']:
-  sourceDir = 'Equations/' + env['equations'] + '/';
-  SConscript(sourceDir + 'SConscript', variant_dir='#/'+env['buildDir']+'/' + sourceDir, duplicate=0)
+  SConscript(env['equations']+'/SConscript')
 
 Export('env')
 

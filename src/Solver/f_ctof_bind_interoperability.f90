@@ -40,6 +40,15 @@
 !! C++/Fortran-interoperability: Fortran-bindings
 
 #include "Initializer/preProcessorMacros.fpp"
+#include "initialization/precision.h"
+
+#if defined(DOUBLE_PRECISION)
+#define REAL_TYPE real*8
+#elif defined(SINGLE_PRECISION)
+#define REAL_TYPE real*4
+#else
+#error Unknown floating point precision type.
+#endif
 
 module f_ctof_bind_interoperability
   implicit none
@@ -144,13 +153,13 @@ module f_ctof_bind_interoperability
       integer(kind=c_int), value             :: i_godunovLd
       
       type(c_ptr), value                     :: i_godunov
-      real*8, pointer                        :: l_godunov(:,:,:)
+      REAL_TYPE, pointer                     :: l_godunov(:,:,:)
       
       type(c_ptr), value                     :: i_imposedStatePlus
-      real*8, pointer                        :: l_imposedStatePlus(:,:)
+      REAL_TYPE, pointer                     :: l_imposedStatePlus(:,:)
       
       type(c_ptr), value                     :: i_imposedStateMinus
-      real*8, pointer                        :: l_imposedStateMinus(:,:)
+      REAL_TYPE, pointer                     :: l_imposedStateMinus(:,:)
 
       type(c_ptr), value                     :: i_time
       real*8, pointer                        :: l_time

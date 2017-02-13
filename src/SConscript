@@ -41,11 +41,6 @@
 
 Import('env')
 
-sourceFiles = ['seissolxx.f90', 'SeisSol.cpp', 'main.cpp']
-
-for i in sourceFiles:
-    env.sourceFiles.append(env.Object(i))
-
 sourceDirectories = ['Monitoring', 'Geometry', 'Kernels', 'Initializer', 'Equations', 'Model', 'Numerical_aux', 'Physics', 'Reader', 'ResultWriter', 'Solver', 'SourceTerm', 'Parallel']
 
 if env['generatedKernels']:
@@ -53,7 +48,13 @@ if env['generatedKernels']:
 
 for sourceDir in sourceDirectories:
   Export('env')
-  SConscript(sourceDir+'/SConscript', variant_dir='#/'+env['buildDir']+'/'+sourceDir, duplicate=0)
+  SConscript(sourceDir+'/SConscript')
   Import('env')
+
+
+sourceFiles = ['seissolxx.f90', 'SeisSol.cpp', 'main.cpp']
+
+for i in sourceFiles:
+    env.sourceFiles.append(env.Object(i))
 
 Export('env')

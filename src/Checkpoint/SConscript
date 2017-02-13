@@ -57,7 +57,7 @@ for i in sourceFiles:
 
 for sourceDir in sourceDirs:
     Export('env')
-    SConscript('checkpoint/'+sourceDir+'/SConscript', variant_dir='#/'+env['buildDir']+'/Checkpoint/'+sourceDir, duplicate=0)
+    SConscript(sourceDir+'/SConscript')
     Import('env')
 
 Export('env')
