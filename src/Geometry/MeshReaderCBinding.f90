@@ -143,17 +143,25 @@ contains
                 eqn%DR = 0
             endif
         endif
-
-        disc%Galerkin%nBndGP = (disc%Galerkin%nPoly+2)*(disc%Galerkin%nPoly+2)
-        disc%Galerkin%nIntGP = disc%Galerkin%nBndGP*(disc%Galerkin%nPoly+2)
+        
+#ifdef USE_DR_CELLAVERAGE
+        DISC%Galerkin%nBndGP = 4**ceiling(log( real((DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2) / 2) )/log(4.))
+#else
+        DISC%Galerkin%nBndGP = (DISC%Galerkin%nPoly + 2)**2
+#endif
+        disc%Galerkin%nIntGP = (disc%Galerkin%nPoly+2)**3
 
         allocate(mesh%LocalVrtxType(nElements))
         mesh%LocalVrtxType(:) = 4
         allocate(mesh%LocalElemType(nElements))
         mesh%LocalElemType(:) = 4
 
-        allocate(mesh%ELEM%BndGP_Tri(2, (disc%Galerkin%nPoly+2)**2), &
-                 mesh%ELEM%BndGW_Tri((disc%Galerkin%nPoly+2)**2))
+        allocate(mesh%ELEM%BndGP_Tri(2, DISC%Galerkin%nBndGP), &
+                 mesh%ELEM%BndGW_Tri(DISC%Galerkin%nBndGP))
+#ifdef USE_DR_CELLAVERAGE
+        call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, mesh%ELEM%BndGP_Tri)
+        mesh%ELEM%BndGW_Tri = 1.e99 ! blow up solution if used
+#else
         call TriangleQuadraturePoints(                    &
                   nIntGP     = disc%Galerkin%nBndGP,      &
                   IntGaussP  = mesh%ELEM%BndGP_Tri,       &
@@ -161,6 +169,7 @@ contains
                   M          = disc%Galerkin%nPoly+2,     &
                   IO         = io,                        &
                   quiet      = .true.                     )
+#endif
 
         call computeAdditionalMeshInfo()
 

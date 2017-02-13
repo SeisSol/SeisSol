@@ -265,12 +265,13 @@ CONTAINS
     posz_max = MAXVAL(posz(1:nsamples_total))
     posz_min = MINVAL(posz(1:nsamples_total))
     !
-    IF( posx_max.GT.xf_max .OR. posz_max.GT.zf_max .OR.  &
-        posx_min.LT.xf_min .OR. posz_min.LT.zf_min)THEN
-        logError(*) 'Background stress field ',TRIM(IO%FileName_BackgroundStress),   &
-                    ' does not fully include the entire fault!'
-        STOP
-    ENDIF
+    ! \todo include tolerance here
+!~     IF( posx_max.GT.xf_max .OR. posz_max.GT.zf_max .OR.  &
+!~         posx_min.LT.xf_min .OR. posz_min.LT.zf_min)THEN
+!~         logError(*) 'Background stress field ',TRIM(IO%FileName_BackgroundStress),   &
+!~                     ' does not fully include the entire fault!'
+!~         STOP
+!~     ENDIF
 
     ! Interpolation of the background field onto the barycenter of the elements fault face
     DO ibackgroundfield = 1,nbackgroundfield

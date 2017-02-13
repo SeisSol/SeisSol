@@ -55,6 +55,8 @@ long long g_SeisSolNonZeroFlopsNeighbor = 0;
 long long g_SeisSolHardwareFlopsNeighbor = 0;
 long long g_SeisSolNonZeroFlopsOther = 0;
 long long g_SeisSolHardwareFlopsOther = 0;
+long long g_SeisSolNonZeroFlopsDynamicRupture = 0;
+long long g_SeisSolHardwareFlopsDynamicRupture = 0;
 
 // prevent name mangling
 extern "C" {
@@ -62,33 +64,46 @@ extern "C" {
      * Prints the measured FLOPS.
      */
   void printFlops() {
-	const int rank = seissol::MPI::mpi.rank();
-    long long totalLibxsmmFlops;
-    long long totalNonZeroFlops;
-    long long totalHardwareFlops;
-
-    long long nonZeroFlops = g_SeisSolNonZeroFlopsLocal + g_SeisSolNonZeroFlopsNeighbor + g_SeisSolNonZeroFlopsOther;
-    long long hardwareFlops = g_SeisSolHardwareFlopsLocal + g_SeisSolHardwareFlopsNeighbor + g_SeisSolHardwareFlopsOther;
+    const int rank = seissol::MPI::mpi.rank();
+    
+    enum Counter {
+      Libxsmm = 0,
+      WPNonZeroFlops,
+      WPHardwareFlops,
+      DRNonZeroFlops,
+      DRHardwareFlops,
+      NUM_COUNTERS
+    };
+    
+    long long flops[NUM_COUNTERS];
+    
+    flops[Libxsmm]          = libxsmm_num_total_flops;
+    flops[WPNonZeroFlops]   = g_SeisSolNonZeroFlopsLocal + g_SeisSolNonZeroFlopsNeighbor + g_SeisSolNonZeroFlopsOther;
+    flops[WPHardwareFlops]  = g_SeisSolHardwareFlopsLocal + g_SeisSolHardwareFlopsNeighbor + g_SeisSolHardwareFlopsOther;
+    flops[DRNonZeroFlops]   = g_SeisSolNonZeroFlopsDynamicRupture;
+    flops[DRHardwareFlops]  = g_SeisSolHardwareFlopsDynamicRupture;
 
 #ifdef USE_MPI
+    long long totalFlops[NUM_COUNTERS];
+    long long hardwareFlops = flops[WPHardwareFlops] + flops[DRHardwareFlops];
     long long maxHardwareFlops;
 
-    MPI_Reduce(&libxsmm_num_total_flops, &totalLibxsmmFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
-    MPI_Reduce(&nonZeroFlops, &totalNonZeroFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
-    MPI_Reduce(&hardwareFlops, &totalHardwareFlops, 1, MPI_LONG_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
+    MPI_Reduce(&flops, &totalFlops, NUM_COUNTERS, MPI_LONG_LONG, MPI_SUM, 0, seissol::MPI::mpi.comm());
     MPI_Reduce(&hardwareFlops, &maxHardwareFlops, 1, MPI_LONG_LONG, MPI_MAX, 0, seissol::MPI::mpi.comm());
 
-    double loadImbalance = maxHardwareFlops - ((double) totalHardwareFlops) / seissol::MPI::mpi.size();
+    double loadImbalance = maxHardwareFlops - ((double) totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops]) / seissol::MPI::mpi.size();
     logInfo(rank) << "Load imbalance:            " << loadImbalance;
     logInfo(rank) << "Relative load imbalance:   " << loadImbalance / maxHardwareFlops * 100.0 << "%";
 #else
-    totalLibxsmmFlops = libxsmm_num_total_flops;
-    totalNonZeroFlops = nonZeroFlops;
-    totalHardwareFlops = hardwareFlops;
+    long long* totalFlops = &flops[0];
 #endif
 
-    logInfo(rank) << "Total   measured HW-GFLOP: " << ((double)totalLibxsmmFlops)/1e9;
-    logInfo(rank) << "Total calculated HW-GFLOP: " << ((double)totalHardwareFlops)/1e9;
-    logInfo(rank) << "Total calculated NZ-GFLOP: " << ((double)totalNonZeroFlops)/1e9;
+    logInfo(rank) << "Total   measured HW-GFLOP: " << ((double)totalFlops[Libxsmm])/1e9;
+    logInfo(rank) << "Total calculated HW-GFLOP: " << ( (double)(totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops]) )/1e9;
+    logInfo(rank) << "Total calculated NZ-GFLOP: " << ((double)(totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops]))/1e9;
+    logInfo(rank) << "WP calculated HW-GFLOP: " << ((double)totalFlops[WPHardwareFlops])/1e9;
+    logInfo(rank) << "WP calculated NZ-GFLOP: " << ((double)totalFlops[WPNonZeroFlops])/1e9;
+    logInfo(rank) << "DR calculated HW-GFLOP: " << ((double)totalFlops[DRHardwareFlops])/1e9;
+    logInfo(rank) << "DR calculated NZ-GFLOP: " << ((double)totalFlops[DRNonZeroFlops])/1e9;
   }
 }

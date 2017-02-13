@@ -83,6 +83,7 @@
 
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/DynamicRupture.h>
 
 namespace seissol {
   namespace initializers {
@@ -165,6 +166,9 @@ class seissol::initializers::MemoryManager {
     LTSTree               m_ltsTree;
     LTS                   m_lts;
     
+    LTSTree               m_dynRupTree;
+    DynamicRupture        m_dynRup;
+    
     
 
     /**
@@ -235,7 +239,8 @@ class seissol::initializers::MemoryManager {
      * @param i_meshStructrue mesh structure.
      **/
     void fixateLtsTree( struct TimeStepping&        i_timeStepping,
-                        struct MeshStructure*       i_meshStructure );
+                        struct MeshStructure*       i_meshStructure,
+                        unsigned                    numFaultFaces );
 
     /**
      * Set up the internal structure.
@@ -274,6 +279,14 @@ class seissol::initializers::MemoryManager {
                           
     inline LTS* getLts() {
       return &m_lts;
+    }
+                          
+    inline LTSTree* getDynamicRuptureTree() {
+      return &m_dynRupTree;
+    }
+                          
+    inline DynamicRupture* getDynamicRupture() {
+      return &m_dynRup;
     }
 };
 

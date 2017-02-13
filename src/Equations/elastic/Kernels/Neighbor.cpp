@@ -85,6 +85,7 @@
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
                                                             int const                         i_neighboringIndices[4][2],
+                                                            CellDRMapping const             (&cellDrMapping)[4],
                                                             GlobalData const*                 global,
                                                             NeighboringIntegrationData const* neighbor,
                                                             real*                             i_timeIntegrated[4],
@@ -143,6 +144,15 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
           faceNeighbors_prefetch[l_face]
         );
       }
+    } else if (i_faceTypes[l_face] == dynamicRupture) {
+      assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+      assert(((uintptr_t)cellDrMapping[l_face].fluxMatrix) % ALIGNMENT == 0);
+      seissol::generatedKernels::nodalFlux[cellDrMapping[l_face].fluxKernel](
+        cellDrMapping[l_face].fluxSolver,
+        cellDrMapping[l_face].godunov,
+        cellDrMapping[l_face].fluxMatrix,
+        io_degreesOfFreedom
+      );
     }
   }
 }
@@ -150,9 +160,12 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
 void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                                          const int            i_neighboringIndices[4][2],
                                                          unsigned int        &o_nonZeroFlops,
-                                                         unsigned int        &o_hardwareFlops ) {
+                                                         unsigned int        &o_hardwareFlops,
+                                                         long long&           o_drNonZeroFlops,
+                                                         long long&           o_drHardwareFlops ) {
   // reset flops
   o_nonZeroFlops = 0; o_hardwareFlops = 0;
+  o_drNonZeroFlops = 0; o_drHardwareFlops = 0;
   
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
@@ -173,6 +186,9 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_
         o_nonZeroFlops  += seissol::flops::localFlux_nonZero[l_face];
         o_hardwareFlops += seissol::flops::localFlux_hardware[l_face];
       }
+    } else if (i_faceTypes[l_face] == dynamicRupture) {
+      o_drNonZeroFlops += seissol::flops::nodalFlux_nonZero[l_face];
+      o_drHardwareFlops += seissol::flops::nodalFlux_hardware[l_face];
     }
   }
 }

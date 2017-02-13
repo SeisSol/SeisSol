@@ -266,7 +266,7 @@ CONTAINS
     IF (ASSOCIATED( DISC%Galerkin%IntGPBaseFunc_Tet)) DEALLOCATE(DISC%Galerkin%IntGPBaseFunc_Tet)
     IF (ASSOCIATED( DISC%Galerkin%IntGPBaseGrad_Tet)) DEALLOCATE(DISC%Galerkin%IntGPBaseGrad_Tet)
     IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc_Tet)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc3D_Tet)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc3D_Tet)
+!    IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc3D_Tet)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc3D_Tet)
     IF (ASSOCIATED( DISC%Galerkin%MassMatrix_Tet)) DEALLOCATE(DISC%Galerkin%MassMatrix_Tet)
     IF (ASSOCIATED( DISC%Galerkin%iMassMatrix_Tet)) DEALLOCATE(DISC%Galerkin%iMassMatrix_Tet)
     IF (ASSOCIATED( DISC%Galerkin%Kxi_k_Tet)) DEALLOCATE(DISC%Galerkin%Kxi_k_Tet)
@@ -1313,14 +1313,16 @@ CONTAINS
                  DISC%Galerkin%iMassMatrix_Tet(MaxDegFr,MaxDegFr, 0:DISC%Galerkin%nPolyRec),                           &
                  DISC%Galerkin%IntGaussP_Tet(EQN%Dimension,DISC%Galerkin%nIntGP),                                      &
                  DISC%Galerkin%IntGaussW_Tet(DISC%Galerkin%nIntGP),                                                    &
-                 DISC%Galerkin%BndGaussP_Tet(EQN%Dimension,DISC%Galerkin%nBndGP),                                      &
+                 DISC%Galerkin%BndGaussP_Tet(EQN%Dimension-1,DISC%Galerkin%nBndGP),                                      &
                  DISC%Galerkin%BndGaussW_Tet(Disc%Galerkin%nBndGP),                                                    &
                  Tens3GaussP(EQN%Dimension,(DISC%Galerkin%nPoly+2)**3),Tens3GaussW((DISC%Galerkin%nPoly+2)**3),        &
                  DISC%Galerkin%IntGPBaseGrad_Tet(EQN%Dimension,0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,               &
                                                  0:DISC%Galerkin%nPolyRec),                                            &
                  DISC%Galerkin%IntGPBaseFunc_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,0:DISC%Galerkin%nPolyRec),   &
-                 DISC%Galerkin%BndGPBaseFunc3D_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**2,MESH%nSides_Tet),          &
+!                 DISC%Galerkin%BndGPBaseFunc3D_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**2,MESH%nSides_Tet),          &
+#ifndef GENERATEDKERNELS
                  Mesh%ELEM%BndBF_GP_Tet(0:MaxDegFr,DISC%Galerkin%nBndGP,MESH%nSides_Tet),                              &
+#endif
                  STAT = allocstat                                                                                      )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate all variables!'
@@ -1586,7 +1588,9 @@ CONTAINS
 
     ! Attention: Don't change Nr of GP here since some routine depend on these numbers
     DISC%Galerkin%nIntGP = (DISC%Galerkin%nPoly + 2)**3
+#ifndef GENERATEDKERNELS
     DISC%Galerkin%nBndGP = (DISC%Galerkin%nPoly + 2)**2
+#endif
 
     SELECT CASE(DISC%Galerkin%DGMethod)
     CASE(3)
@@ -1626,6 +1630,10 @@ CONTAINS
                  IO         = IO,                              &
                  quiet      = .TRUE.                           )
 
+#ifdef USE_DR_CELLAVERAGE
+        call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, DISC%Galerkin%BndGaussP_Tet)
+        DISC%Galerkin%BndGaussW_Tet = 1.e99 ! blow up solution if used
+#else
         ! Compute and store surface gaussian integration points
         CALL TriangleQuadraturePoints(                         &
                  nIntGP     = DISC%Galerkin%nBndGP,            &
@@ -1634,6 +1642,7 @@ CONTAINS
                  M          = DISC%Galerkin%nPoly+2,           &
                  IO         = IO,                              &
                  quiet      = .TRUE.                           )
+#endif
 
         NULLIFY( Tens3GaussP )
         NULLIFY( Tens3GaussW )
@@ -1903,7 +1912,7 @@ CONTAINS
 
         DISC%Galerkin%IntGPBaseFunc_Tet(:,:,:)          = 0.0d0
         DISC%Galerkin%IntGPBaseGrad_Tet(:,:,:,:)        = 0.0d0
-        DISC%Galerkin%BndGPBaseFunc3D_Tet(:,:,:)        = 0.0d0
+!        DISC%Galerkin%BndGPBaseFunc3D_Tet(:,:,:)        = 0.0d0
 
         iPoly = DISC%Galerkin%nPoly
 
@@ -1935,7 +1944,7 @@ CONTAINS
             ENDDO
         ENDDO
         !
-
+#ifndef GENERATEDKERNELS
         MESH%ELEM%BndBF_GP_Tet(:,:,:) = 0.0
 
         DO iSide = 1, MESH%nSides_Tet
@@ -1955,7 +1964,7 @@ CONTAINS
                                    DISC%Galerkin%NonZeroCPoly_Tet,             &
                                    DISC%Galerkin%NonZeroCPolyIndex_Tet         )
                   !
-                  DISC%Galerkin%BndGPBaseFunc3D_Tet(iDegFr,iBndGP,iSide)  = phi
+!                   DISC%Galerkin%BndGPBaseFunc3D_Tet(iDegFr,iBndGP,iSide)  = phi
                   MESH%ELEM%BndBF_GP_Tet(iDegFr,iBndGP,iSide) = phi
                   !
                ENDDO
@@ -2098,7 +2107,7 @@ CONTAINS
         ENDWHERE
         !
         ENDIF ! EQN%DR.EQ.1 - force GP matching at fault surface
-
+#endif ! GENERATEDKERNELS
 
 !        ! ------------------------------------------------------------
 !        ! ATTENUATION
@@ -2225,16 +2234,16 @@ CONTAINS
                  quiet      = .TRUE.                           )
 
         ! Compute and store surface gaussian integration points
-        CALL HypercubeQuadraturePoints(                        &
-                 nIntGP     = DISC%Galerkin%nBndGP,            &
-                 IntGaussP  = DISC%Galerkin%BndGaussP_Hex,     &
-                 IntGaussW  = DISC%Galerkin%BndGaussW_Hex,     &
-                 M          = DISC%Galerkin%nPoly+2,           &
-                 nDim       = 2,                               &
-                 X1         = (/ 0., 0. /),                    &
-                 X2         = (/ 1., 1. /),                    &
-                 IO         = IO,                              &
-                 quiet      = .TRUE.                           )
+!~         CALL HypercubeQuadraturePoints(                        &
+!~                  nIntGP     = DISC%Galerkin%nBndGP,            &
+!~                  IntGaussP  = DISC%Galerkin%BndGaussP_Hex,     &
+!~                  IntGaussW  = DISC%Galerkin%BndGaussW_Hex,     &
+!~                  M          = DISC%Galerkin%nPoly+2,           &
+!~                  nDim       = 2,                               &
+!~                  X1         = (/ 0., 0. /),                    &
+!~                  X2         = (/ 1., 1. /),                    &
+!~                  IO         = IO,                              &
+!~                  quiet      = .TRUE.                           )
 
  !       NULLIFY( Tens3GaussP )
  !       NULLIFY( Tens3GaussW )
@@ -4667,13 +4676,13 @@ CONTAINS
     ENDIF
 
         ! Compute and store surface gaussian integration points
-        CALL TriangleQuadraturePoints(                         &
-                 nIntGP     = DISC%Galerkin%nBndGP,            &
-                 IntGaussP  = DISC%Galerkin%BndGaussP_Tet,     &
-                 IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
-                 M          = DISC%Galerkin%nPoly+2,           &
-                 IO         = IO,                              &
-                 quiet      = .TRUE.                           )
+!~         CALL TriangleQuadraturePoints(                         &
+!~                  nIntGP     = DISC%Galerkin%nBndGP,            &
+!~                  IntGaussP  = DISC%Galerkin%BndGaussP_Tet,     &
+!~                  IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
+!~                  M          = DISC%Galerkin%nPoly+2,           &
+!~                  IO         = IO,                              &
+!~                  quiet      = .TRUE.                           )
       
   END SUBROUTINE Read2dGF
 

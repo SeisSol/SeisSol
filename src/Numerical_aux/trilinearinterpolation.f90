@@ -98,15 +98,12 @@ CONTAINS
 
         REAL                        :: F   (0:1,0:1,0:1)                    ! Values of function on vertexes
 
-        INTEGER                     :: Lx, Ly, Lz                           ! Lower limits of local raster
-        INTEGER                     :: Rx, Ry, Rz                           ! Higer limits of local raster
         INTEGER                     :: ix, iy, iz                           ! Index in the raster array
         INTEGER                     :: ix_old, iy_old, iz_old               ! previous index in the raster array
         INTEGER                     :: nx, ny, nz                           ! Number of cells in the raster
         INTEGER                     :: nPoints                              ! Number of points to evaluate
         INTEGER                     :: iPoint                               ! Actual point to evaluate
-        INTEGER                     :: iVert                                !
-        INTEGER                     :: jVert                                !
+        INTEGER                     :: fi, fj, fk, li, lj, lk               !
         !-------------------------------------------------------------------!
 
         ! Sub set of the raster
@@ -120,7 +117,7 @@ CONTAINS
         ny = SIZE(Raster,DIM=2)
         nz = SIZE(Raster,DIM=3)
 
-        ix_old = 0; iy_old = 0;; iz_old = 0;
+        ix_old = huge(ix_old); iy_old = huge(iy_old); iz_old = huge(iz_old);
 
         DO iPoint=1,nPoints
             x = Set_x(iPoint);
@@ -139,13 +136,8 @@ CONTAINS
             y1 = (y-(y0+(iy-1)*dy))/dy
             z1 = (z-(z0+(iz-1)*dz))/dz
 
-            ! If iPoint is outside raster assign 0
-            IF (ix.EQ.0 .OR. ix.EQ.nx .OR. iy.EQ.0 .OR. iy.EQ.ny .OR. iz.EQ.0 .OR. iz.EQ.nz) THEN
-                P(iPoint) = 0.0d0
-                CYCLE
+            IF (ix.EQ.ix_old .AND. iy.EQ.iy_old .AND. iz.EQ.iz_old) THEN
             
-            ELSE IF (ix.EQ.ix_old .AND. iy.EQ.iy_old .AND. iz.EQ.iz_old) THEN
-                
                 ! If the new points belong to the same raster cell
                 ! Eval polynomia
                 IF (PRESENT(dP)) THEN
@@ -157,16 +149,18 @@ CONTAINS
                     CALL EvalTrilinearPolynomia(P(iPoint),x1,y1,z1,A)
                 ENDIF
 
-            
             ELSE
 
-                ! Limits of the local raster
-                Lx = 1; Rx = 2;
-                Ly = 1; Ry = 2;
-                Lz = 1; Rz = 2;
-
-                ! Function values
-                F = Raster(ix+(Lx-1):ix+1-(2-Rx),iy+(Ly-1):iy+1-(2-Ry),iz+(Lz-1):iz+1-(2-Rz))
+                do fi=0,1
+                  do fj=0,1
+                    do fk=0,1
+                      li = min(max(ix+fi,1),nx)
+                      lj = min(max(iy+fj,1),ny)
+                      lk = min(max(iz+fk,1),nz)
+                      F(fi,fj,fk) = Raster(li,lj,lk)
+                    enddo
+                  enddo
+                enddo
                 
                 ! Eval coeficients
                 CALL TrilinearInterpolationPolynomia(A,F)
@@ -180,7 +174,7 @@ CONTAINS
                     CALL EvalTrilinearPolynomia(P(iPoint),x1,y1,z1,A)
                 ENDIF
 
-                ix_old = ix; iy_old = iy;; iz_old = iz;
+                ix_old = ix; iy_old = iy; iz_old = iz;
 
             ENDIF
 

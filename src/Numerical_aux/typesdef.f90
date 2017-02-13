@@ -541,7 +541,7 @@ MODULE TypesDef
     REAL, POINTER     :: IntGPBaseFunc_Tet(:,:,:) => NULL()       !< Precalc. basis functions
     REAL, POINTER     :: IntGPBaseGrad_Tet(:,:,:,:) => NULL()     !< Precalc. basis gradients
     REAL, POINTER     :: BndGPBaseFunc_Tet(:,:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D_Tet(:,:,:) => NULL()     !< Precalc. basis functions
+!    REAL, POINTER     :: BndGPBaseFunc3D_Tet(:,:,:) => NULL()     !< Precalc. basis functions
     REAL, POINTER     :: IntGPBaseFunc_Hex(:,:,:) => NULL()       !< Precalc. basis functions
     REAL, POINTER     :: IntGPBaseGrad_Hex(:,:,:,:) => NULL()     !< Precalc. basis gradients
     REAL, POINTER     :: BndGPBaseFunc_Hex(:,:,:,:) => NULL()     !< Precalc. basis functions

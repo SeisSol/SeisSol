@@ -74,7 +74,7 @@ MODULE Eval_friction_law_mod
   !<
   SUBROUTINE Eval_friction_law(    TractionGP_XY,TractionGP_XZ,        & ! OUT: updated Traction
                                    NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
-                                   iFace,iSide,iElem,time,iT,          & ! IN: element ID, time, inv Trafo
+                                   iFace,iSide,iElem,time,timePoints,iT,          & ! IN: element ID, time, inv Trafo
                                    rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
                                    EQN,DISC,MESH,MPI,IO,BND)             ! global variables
     !-------------------------------------------------------------------------!
@@ -88,7 +88,7 @@ MODULE Eval_friction_law_mod
     TYPE (tBoundary)               :: BND
     !-------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER     :: nBndGP,nTimeGP
+    INTEGER     :: nBndGP,iTimeGP,nTimeGP
     INTEGER     :: iFace,iSide,iElem
     REAL        :: TractionGP_XY(:,:)
     REAL        :: TractionGP_XZ(:,:)
@@ -97,7 +97,9 @@ MODULE Eval_friction_law_mod
     REAL        :: XZStressGP(:,:)
     REAL        :: iT(:,:)
     REAL        :: time
+    real        :: timePoints(:)
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
+    real        :: DeltaT(1:DISC%Galerkin%nTimeGP)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: MESH,MPI,IO,NorStressGP,XYStressGP,XZStressGP
     INTENT(IN)    :: iFace,iSide,iElem,rho,rho_neig,w_speed,w_speed_neig,time
@@ -107,6 +109,12 @@ MODULE Eval_friction_law_mod
     ! load number of GP iterations
     nBndGP  = DISC%Galerkin%nBndGP
     nTimeGP = DISC%Galerkin%nTimeGP
+    
+    DeltaT(1)=timePoints(1)
+    DO iTimeGP=2,nTimeGP
+       DeltaT(iTimeGP)=timePoints(iTimeGP)-timePoints(iTimeGP-1)
+    ENDDO
+    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
        
     ! Evaluate friction law GP-wise
     SELECT CASE(EQN%FL)
@@ -121,7 +129,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,iT,                                   & ! IN: time, inv Trafo
+                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                 DISC,EQN,MESH,MPI,IO)                          
                                 
         CASE(3,4) ! Rate-and-state friction
@@ -131,7 +139,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,iT,                                   & ! IN: time, inv Trafo
+                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                 DISC,EQN,MESH,MPI,IO)
        
         CASE(6) ! Coulomb model for LSW and bimaterial
@@ -141,7 +149,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,iT,                                   & ! IN: time, inv Trafo
+                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                 DISC,EQN,MESH,MPI,IO)
 
         CASE(7) ! severe velocity weakening friction as in Ampuero&Ben-Zion2008
@@ -151,7 +159,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,iT,                                   & ! IN: time, inv Trafo
+                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                 DISC,EQN,MESH,MPI,IO)
 
         CASE(16,17,29,30) ! Specific conditions for SCEC TPV16/17
@@ -162,7 +170,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,iT,                                   & ! IN: time, inv Trafo
+                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                 DISC,EQN,MESH,MPI,IO)                          
         CASE(101) ! Specific conditions for SCEC TPV101
                       ! as case 3 (rate-and-state friction) aging law
@@ -173,7 +181,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,iT,                                   & ! IN: time, inv Trafo
+                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                 DISC,EQN,MESH,MPI,IO,BND)
 
         CASE(103) ! Specific conditions for SCEC TPV103
@@ -185,7 +193,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,iT,                                   & ! IN: time, inv Trafo
+                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                 DISC,EQN,MESH,MPI,IO,BND)
 
 
@@ -225,7 +233,7 @@ MODULE Eval_friction_law_mod
                                    NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                    iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                    rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                   time,iT,                                   & ! IN: time, inv Trafo
+                                   time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -254,22 +262,15 @@ MODULE Eval_friction_law_mod
     REAL        :: P_0,Strength,cohesion
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
-    REAL        :: Deltat(1:nTimeGP)
+    REAL        :: DeltaT(1:nTimeGP)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
     INTENT(IN)    :: EQN,MESH,MPI,IO
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
 
     tmpSlip = 0.0D0
-
-    ! get time increment
-    DeltaT(1)=DISC%Galerkin%TimeGaussP(1)
-    DO iTimeGP=2,nTimeGP
-       DeltaT(iTimeGP)=DISC%Galerkin%TimeGaussP(iTimeGP)-DISC%Galerkin%TimeGaussP(iTimeGP-1)
-    ENDDO
-    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
 
     !Background stress rotation to face's reference system
     Stress(1,:)=EQN%IniBulk_xx(iFace,:)
@@ -413,7 +414,7 @@ MODULE Eval_friction_law_mod
                                    NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                    iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                    rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                   time,iT,                                   & ! IN: time, inv Trafo
+                                   time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     USE prak_clif_mod 
@@ -447,17 +448,10 @@ MODULE Eval_friction_law_mod
     REAL        :: Deltat(1:nTimeGP)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
     INTENT(IN)    :: EQN,MESH,MPI,IO
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
-
-    ! get time increment
-    DeltaT(1)=DISC%Galerkin%TimeGaussP(1)
-    DO iTimeGP=2,nTimeGP
-       DeltaT(iTimeGP)=DISC%Galerkin%TimeGaussP(iTimeGP)-DISC%Galerkin%TimeGaussP(iTimeGP-1)
-    ENDDO
-    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
 
     !Background stress rotation to face's reference system
     Stress(1,:)=EQN%IniBulk_xx(iFace,:)
@@ -588,7 +582,7 @@ MODULE Eval_friction_law_mod
                                    NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                    iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                    rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                   time,iT,                                   & ! IN: time, inv Trafo
+                                   time,DeltaT,iT,                            & ! IN: time, inv Trafo
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -622,19 +616,12 @@ MODULE Eval_friction_law_mod
     REAL        :: f1,f2,tn
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
     INTENT(IN)    :: EQN,MESH,MPI,IO
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
     t_0 = DISC%DynRup%t_0
     tmpSlip = 0.0D0
-
-    ! get time increment
-    DeltaT(1)=DISC%Galerkin%TimeGaussP(1)
-    DO iTimeGP=2,nTimeGP
-       DeltaT(iTimeGP)=DISC%Galerkin%TimeGaussP(iTimeGP)-DISC%Galerkin%TimeGaussP(iTimeGP-1)
-    ENDDO
-    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
 
     !Background stress rotation to face's reference system
     Stress(1,:)=EQN%IniBulk_xx(iFace,:)
@@ -789,7 +776,7 @@ MODULE Eval_friction_law_mod
                             NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                            time,iT,                                   & ! IN: time, inv Trafo
+                            time,DeltaT,iT,                            & ! IN: time, inv Trafo
                             DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -825,16 +812,10 @@ MODULE Eval_friction_law_mod
     REAL        :: RS_f0,RS_a,RS_b,RS_sl0,RS_sr0
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
     INTENT(IN)    :: EQN,MESH,MPI,IO
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
-    ! get time increment
-    DeltaT(1)=DISC%Galerkin%TimeGaussP(1)
-    DO iTimeGP=2,nTimeGP
-       DeltaT(iTimeGP)=DISC%Galerkin%TimeGaussP(iTimeGP)-DISC%Galerkin%TimeGaussP(iTimeGP-1)
-    ENDDO
-    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
 
     !Background stress rotation to face's reference system
     Stress(1,:)=EQN%IniBulk_xx(iFace,:)
@@ -995,7 +976,7 @@ MODULE Eval_friction_law_mod
                             NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                            time,iT,                                   & ! IN: time, inv Trafo
+                            time,DeltaT,iT,                            & ! IN: time, inv Trafo
                             DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -1031,7 +1012,7 @@ MODULE Eval_friction_law_mod
     REAL        :: RS_f0,RS_a,RS_b,RS_sl0,RS_sr0, Tc, coeft
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
     INTENT(IN)    :: EQN,MESH,MPI,IO
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------!
@@ -1045,12 +1026,6 @@ MODULE Eval_friction_law_mod
     ! dynamic friction value (if reached) mu_d = mu_s + (a - b)
     ! Tc tunes between slip-weakening and rate-weakening behavior
     !
-    ! get time increment
-    DeltaT(1)=DISC%Galerkin%TimeGaussP(1)
-    DO iTimeGP=2,nTimeGP
-       DeltaT(iTimeGP)=DISC%Galerkin%TimeGaussP(iTimeGP)-DISC%Galerkin%TimeGaussP(iTimeGP-1)
-    ENDDO
-    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
 
     !Background stress rotation to face's reference system
     Stress(1,:)=EQN%IniBulk_xx(iFace,:)
@@ -1193,7 +1168,7 @@ MODULE Eval_friction_law_mod
                             NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                            time,iT,                                   & ! IN: time, inv Trafo
+                            time,DeltaT,iT,                            & ! IN: time, inv Trafo
                             DISC,EQN,MESH,MPI,IO,BND)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -1238,18 +1213,12 @@ MODULE Eval_friction_law_mod
     INTEGER     :: VertexSide(4,3)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
     INTENT(IN)    :: MESH,MPI,IO
     INTENT(INOUT) :: EQN,DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------!
     ! switch for Gauss node wise stress assignment
     nodewise = .TRUE.
-    ! get time increment
-    DeltaT(1)=DISC%Galerkin%TimeGaussP(1)
-    DO iTimeGP=2,nTimeGP
-       DeltaT(iTimeGP)=DISC%Galerkin%TimeGaussP(iTimeGP)-DISC%Galerkin%TimeGaussP(iTimeGP-1)
-    ENDDO
-    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
 
     !Apply time dependent nucleation at global time step not sub time steps for simplicity
     !initialize time and space dependent nucleation
@@ -1491,7 +1460,7 @@ MODULE Eval_friction_law_mod
                             NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                            time,iT,                                   & ! IN: time, inv Trafo
+                            time,DeltaT,iT,                            & ! IN: time, inv Trafo
                             DISC,EQN,MESH,MPI,IO,BND)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -1540,18 +1509,12 @@ MODULE Eval_friction_law_mod
     INTEGER     :: VertexSide(4,3)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
     INTENT(IN)    :: MESH,MPI,IO
     INTENT(INOUT) :: EQN,DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------!
     ! switch for Gauss node wise stress assignment
     nodewise = .TRUE.
-    ! get time increment
-    DeltaT(1)=DISC%Galerkin%TimeGaussP(1)
-    DO iTimeGP=2,nTimeGP
-       DeltaT(iTimeGP)=DISC%Galerkin%TimeGaussP(iTimeGP)-DISC%Galerkin%TimeGaussP(iTimeGP-1)
-    ENDDO
-    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
 
     !Apply time dependent nucleation at global time step not sub time steps for simplicity
     !initialize time and space dependent nucleation

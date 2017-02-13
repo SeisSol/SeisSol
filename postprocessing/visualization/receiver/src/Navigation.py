@@ -98,13 +98,16 @@ class Navigation(QWidget):
       
       files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
       files.sort()
+      numValidFiles = 0
       for f in files:
-        wf = Tecplot.read(os.path.join(folder,f))
-        item = QStandardItem(f)
-        item.setData(wf)
-        self.model.appendRow(item)
+        if f.endswith('dat'):
+          wf = Tecplot.read(os.path.join(folder,f))
+          item = QStandardItem(f)
+          item.setData(wf)
+          self.model.appendRow(item)
+          numValidFiles = numValidFiles + 1
         
-      if currentIndex.row() >= 0 and len(files) > currentIndex.row():
+      if currentIndex.row() >= 0 and numValidFiles > currentIndex.row():
         newIndex = self.model.index(currentIndex.row(), currentIndex.column())
         self.receiverList.setCurrentIndex(newIndex)
         self.activeItemChanged.emit()

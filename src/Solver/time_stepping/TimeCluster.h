@@ -87,6 +87,8 @@
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 
+#include <Kernels/DynamicRupture.h>
+
 // some check for correct functionality
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
 #ifndef _OPENMP
@@ -130,6 +132,8 @@ private:
 
     //! neighbor kernel
     kernels::Neighbor &m_neighborKernel;
+    
+    kernels::DynamicRupture m_dynamicRuptureKernel;
 
     /*
      * mesh structure
@@ -160,7 +164,12 @@ private:
     std::list< MPI_Request* > m_receiveQueue;
 #endif    
     seissol::initializers::TimeCluster* m_clusterData;
+    seissol::initializers::TimeCluster* m_dynRupClusterData;
     seissol::initializers::LTS*         m_lts;
+    seissol::initializers::DynamicRupture* m_dynRup;
+
+    //! time step width of the performed time step.
+    double m_timeStepWidth;
 
     //! receivers
     std::vector< int > m_receivers;
@@ -180,10 +189,13 @@ private:
     enum ComputePart {
       LocalInterior = 0,
       NeighborInterior,
+      DRNeighborInterior,
 #ifdef USE_MPI
       LocalCopy,
       NeighborCopy,
+      DRNeighborCopy,
 #endif
+      DRFrictionLaw,
       NUM_COMPUTE_PARTS
     };
     
@@ -286,7 +298,13 @@ private:
     void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
                                           CellLocalInformation const* cellInformation,
                                           long long&                  nonZeroFlops,
-                                          long long&                  hardwareFlops);
+                                          long long&                  hardwareFlops,
+                                          long long&                  drNonZeroFlops,
+                                          long long&                  drHardwareFlops );
+
+    void computeDynamicRuptureFlops(  long long&                  nonZeroFlops,
+                                      long long&                  hardwareFlops );
+                                          
     void computeFlops();
 
   public:
@@ -305,9 +323,6 @@ private:
 
     //! reset lts buffers before performing time predictions
     volatile bool m_resetLtsBuffers;
-
-    //! time step width of the performed time step.
-    double m_timeStepWidth;
 
     /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
      * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time refers to the derivation of the surrounding time derivatives, which
@@ -369,13 +384,24 @@ private:
                  struct GlobalData             *i_globalDataCopies,
 #endif
                  seissol::initializers::TimeCluster* i_clusterData,
-                 seissol::initializers::LTS*         i_lts );
+                 seissol::initializers::TimeCluster* i_dynRupClusterData,
+                 seissol::initializers::LTS*         i_lts,
+                 seissol::initializers::DynamicRupture* i_dynRup);
 
     /**
      * Destructor of a LTS cluster.
      * TODO: Currently prints only statistics in debug mode.
      **/
     ~TimeCluster();
+    
+    double timeStepWidth() const {
+      return m_timeStepWidth;
+    }
+    
+    void setTimeStepWidth(double timestep) {
+      m_timeStepWidth = timestep;
+      m_dynamicRuptureKernel.setTimeStepWidth(timestep);
+    }
 
     /**
      * Adds a source to the cluster.

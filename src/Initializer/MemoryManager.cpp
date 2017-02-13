@@ -127,6 +127,7 @@ seissol::initializers::MemoryManager::~MemoryManager() {
 
 void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalData &o_globalData )
 {
+  // DG global matrices
   real* globalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
   for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
     memcpy(
@@ -163,6 +164,22 @@ void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalDa
   }
 
   o_globalData.integrationBufferLTS = m_integrationBufferLTS;
+
+  // Dynamic Rupture global matrices  
+  real* drGlobalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
+  for (unsigned matrix = 0; matrix < seissol::model::dr_numGlobalMatrices; ++matrix) {
+    memcpy(
+      &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[matrix] ],
+      seissol::model::dr_globalMatrixValues[matrix],
+      (seissol::model::dr_globalMatrixOffsets[matrix+1] - seissol::model::dr_globalMatrixOffsets[matrix]) * sizeof(real)
+    );
+  }
+  for (unsigned face = 0; face < 4; ++face) {
+    for (unsigned h = 0; h < 4; ++h) {
+      m_globalData.nodalFluxMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[4*face+h] ];
+      m_globalData.faceToNodalMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[16 + 4*face+h] ];
+    }
+  }
 }
 
 void seissol::initializers::MemoryManager::allocateIntegrationBufferLTS() {
@@ -514,7 +531,8 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
 }
 
 void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
-                                                          struct MeshStructure*       i_meshStructure )
+                                                          struct MeshStructure*       i_meshStructure,
+                                                          unsigned                    numFaultFaces )
 {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
@@ -537,6 +555,21 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
 
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();
+  
+  /// Dynamic rupture tree  
+  m_dynRup.addTo(m_dynRupTree);
+  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_dynRupTree.fixate();
+  
+  for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_dynRupTree.child(tc);
+    cluster.child<Ghost>().setNumberOfCells(0);
+    cluster.child<Copy>().setNumberOfCells(0);
+    cluster.child<Interior>().setNumberOfCells(numFaultFaces);
+  }
+  
+  m_dynRupTree.allocateVariables();
+  m_dynRupTree.touchVariables();
 }
 
 void seissol::initializers::MemoryManager::initializeMemoryLayout()

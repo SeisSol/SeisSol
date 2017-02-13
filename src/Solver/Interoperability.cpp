@@ -234,9 +234,26 @@ extern "C" {
   extern void f_interoperability_getDynamicRuptureTimeStep( void *i_domain,
 		  	  	  	  	  	  	  	  	  	  	  	  	    int  *i_timeStep );
 
-  extern void f_interoperability_computeDynamicRupture( void   *i_domain,
-                                                        double *i_fullUpdateTime,
-                                                        double *i_timeStepWidth );
+  extern void f_interoperability_faultOutput( void   *i_domain,
+                                              double *i_fullUpdateTime,
+                                              double *i_timeStepWidth );
+
+  extern void f_interoperability_evaluateFrictionLaw( void*   i_domain,
+                                                      int     i_face,
+                                                      double* i_godunov,
+                                                      double* i_imposedStatePlus,
+                                                      double* i_imposedStateMinus,
+                                                      int     i_numberOfBasisFunctions2D,
+                                                      int     i_godunovLd,
+                                                      double* i_fullUpdateTime,
+                                                      double* timePoints,
+                                                      double* timeWeights,
+                                                      double  densityPlus,
+                                                      double  pWaveVelocityPlus,
+                                                      double  sWaveVelocityPlus,
+                                                      double  densityMinus,
+                                                      double  pWaveVelocityMinus,
+                                                      double  sWaveVelocityMinus );
 
   extern void f_interoperability_computePlasticity( void    *i_domain,
                                                     double  *i_timestep,
@@ -305,7 +322,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
 
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
-                                                            m_meshStructure );
+                                                            m_meshStructure,
+                                                            seissol::SeisSol::main.meshReader().getFault().size() );
 
   m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
   m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
@@ -444,6 +462,15 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                       m_ltsTree,
                                                       m_lts,
                                                       &m_ltsLut );
+
+  seissol::initializers::initializeDynamicRuptureMatrices( seissol::SeisSol::main.meshReader(),
+                                                           m_ltsTree,
+                                                           m_lts,
+                                                           &m_ltsLut,
+                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
+                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+                                                           *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
+                                                           m_timeStepping );
 }
 
 template<typename T>
@@ -675,11 +702,42 @@ void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,
                                      l_receiverIds );
 }
 
-void seissol::Interoperability::computeDynamicRupture( double i_fullUpdateTime,
-                                                       double i_timeStepWidth ) {
-  f_interoperability_computeDynamicRupture(  m_domain,
-                                            &i_fullUpdateTime,
-                                            &i_timeStepWidth );
+void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
+                                             double i_timeStepWidth )
+{
+  f_interoperability_faultOutput( m_domain, &i_fullUpdateTime, &i_timeStepWidth );
+}
+
+void seissol::Interoperability::evaluateFrictionLaw(  int face,
+                                                      double godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
+                                                      double imposedStatePlus[seissol::model::godunovState::reals],
+                                                      double imposedStateMinus[seissol::model::godunovState::reals],
+                                                      double i_fullUpdateTime,
+                                                      double timePoints[CONVERGENCE_ORDER],
+                                                      double timeWeights[CONVERGENCE_ORDER],
+                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
+                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
+{
+  int fFace = face + 1;
+  int numberOfPoints = seissol::model::godunovState::rows;
+  int godunovLd = seissol::model::godunovState::ld;
+
+  f_interoperability_evaluateFrictionLaw( m_domain,
+                                          fFace,
+                                         &godunov[0][0],
+                                         &imposedStatePlus[0],
+                                         &imposedStateMinus[0],
+                                          numberOfPoints,
+                                          godunovLd,
+                                          &i_fullUpdateTime,
+                                          &timePoints[0],
+                                          &timeWeights[0],
+                                          waveSpeedsPlus.density,
+                                          waveSpeedsPlus.pWaveVelocity,
+                                          waveSpeedsPlus.sWaveVelocity,
+                                          waveSpeedsMinus.density,
+                                          waveSpeedsMinus.pWaveVelocity,
+                                          waveSpeedsMinus.sWaveVelocity);
 }
 
 #ifdef USE_PLASTICITY

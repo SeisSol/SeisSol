@@ -122,11 +122,12 @@ def patternFittedBlocks(blocks, pattern):
     fittedBlocks.append(bounds)
   return fittedBlocks
   
-def determineGlobalMatrixIds(globalMatrixIdRules, db):
+def determineGlobalMatrixIds(globalMatrixIdRules, db, group = str()):
   for key, value in db.iteritems():
     for rule in globalMatrixIdRules:
       match = re.search(rule[0], key)
       if match != None:
+        value.globalMatrixGroup = group
         value.globalMatrixId = rule[1](match.groups())
 
 class MatrixInfo:
@@ -138,6 +139,7 @@ class MatrixInfo:
     self.leftMultiplication = False
     self.rightMultiplication = False
     self.symbol = [ [self.name] ]
+    self.globalMatrixGroup = str()
     self.globalMatrixId = -1
     self.isConstantGlobalMatrix = isConstantGlobalMatrix
     

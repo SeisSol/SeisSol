@@ -40,6 +40,7 @@
   
 from gemmgen import DB, Tools, Arch, Kernel
 import argparse
+from dynamic_rupture import dynamic_rupture
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -49,6 +50,7 @@ cmdLineParser.add_argument('--order')
 cmdLineParser.add_argument('--numberOfMechanisms')
 cmdLineParser.add_argument('--generator')
 cmdLineParser.add_argument('--memLayout')
+cmdLineParser.add_argument('--dynamicRuptureMethod', nargs='?')
 cmdLineArgs = cmdLineParser.parse_args()
 
 architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
@@ -119,6 +121,8 @@ for i in range(1, order):
   kernels.append(Kernel.Prototype('derivative[{}]'.format(i), derivative, beta=0))
   db.insert(derivative.flat(newD))
   db[newD].fitBlocksToSparsityPattern()
+  
+dynamic_rupture(db, kernels, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities)
 
 # Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)  

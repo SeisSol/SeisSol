@@ -462,8 +462,9 @@ CONTAINS
       shortest = +2.0D0
       DO iBndGP = 1,DISC%Galerkin%nBndGP
          !
-         chi  = DISC%Galerkin%bndGaussP_Tet(1,iBndGP)
-         tau  = DISC%Galerkin%bndGaussP_Tet(2,iBndGP)
+         chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+         tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+!~          write(6,*) chi, ' ', tau, ' ', DISC%Galerkin%bndGaussP_Tet(1,iBndGP), ' ', DISC%Galerkin%bndGaussP_Tet(2,iBndGP)
          CALL TrafoChiTau2XiEtaZeta(xi_GP,eta_GP,zeta_GP,chi,tau,iSide,0)
          !
          distance = SQRT((xi-xi_GP)**2 + (eta-eta_GP)**2 + (zeta-zeta_GP)**2)
