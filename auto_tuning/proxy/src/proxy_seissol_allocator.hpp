@@ -266,7 +266,6 @@ unsigned int init_data_structures(unsigned int i_cells)
 #else
     m_cellInformation[l_cell].ltsSetup = 0;
 #endif
-    m_cellInformation[l_cell].timeStepWidth = 1.0;
   }
 
   /* init dofs */

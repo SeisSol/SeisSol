@@ -76,10 +76,11 @@ seissol_flops flops_neigh_actual(unsigned int i_timesteps) {
   // iterate over cells
   for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
+    long long l_drNonZeroFlops, l_drHardwareFlops;
     // get flops
-    m_neighborKernel.flopsNeighborsIntegral( m_cellInformation[l_cell].faceTypes, m_cellInformation[l_cell].faceRelations, l_nonZeroFlops, l_hardwareFlops );
-    ret.d_nonZeroFlops  += (double)l_nonZeroFlops;
-    ret.d_hardwareFlops += (double)l_hardwareFlops;
+    m_neighborKernel.flopsNeighborsIntegral( m_cellInformation[l_cell].faceTypes, m_cellInformation[l_cell].faceRelations, l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
+    ret.d_nonZeroFlops  += (double)(l_nonZeroFlops + l_drNonZeroFlops);
+    ret.d_hardwareFlops += (double)(l_hardwareFlops + l_drHardwareFlops);
   }
 
   ret.d_nonZeroFlops *= (double)i_timesteps;

@@ -73,7 +73,13 @@ vars.AddVariables(
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
 
-  PathVariable( 'memLayout', 'memory layout xml file', '', PathVariable.PathIsFile)
+  PathVariable( 'memLayout', 'memory layout xml file', '', PathVariable.PathIsFile),
+
+  EnumVariable( 'dynamicRuptureMethod',
+                'Use quadrature here, cellaverage is EXPERIMENTAL.',
+                'quadrature',
+                allowed_values=('quadrature', 'cellaverage')
+              )
 )
 
 # set environment

@@ -118,6 +118,7 @@ void computeNeighboringIntegration() {
 #ifdef ENABLE_MATRIX_PREFETCH
   real *l_faceNeighbors_prefetch[4];
 #endif
+  CellDRMapping dummyMapping[4];
 
 #ifdef _OPENMP
 #  ifdef ENABLE_MATRIX_PREFETCH
@@ -139,7 +140,7 @@ void computeNeighboringIntegration() {
     seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
                                               m_cellInformation[l_cell].ltsSetup,
                                                m_cellInformation[l_cell].faceTypes,
-                                               m_cellInformation[l_cell].timeStepWidth,
+                                               0.0,
                                        (double)m_timeStepWidthSimulation,
                                                m_cells->faceNeighbors[l_cell],
                                                l_integrationBuffer,
@@ -161,6 +162,7 @@ void computeNeighboringIntegration() {
 
     m_neighborKernel.computeNeighborsIntegral( m_cellInformation[l_cell].faceTypes,
                                                m_cellInformation[l_cell].faceRelations,
+                                               dummyMapping,
                                                l_globalData,
                                                &m_cellData->neighboringIntegration[l_cell],
                                                l_timeIntegrated,
