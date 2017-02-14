@@ -137,7 +137,9 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
                                                             DRGodunovData const*        godunovData,
                                                             real const*                 timeDerivativePlus,
                                                             real const*                 timeDerivativeMinus,
-                                                            real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals] ) {
+                                                            real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
+                                                            real const*                 timeDerivativePlus_prefetch,
+                                                            real const*                 timeDerivativeMinus_prefetch ) {
   // assert alignments
 #ifndef NDEBUG
   for (unsigned face = 0; face < 4; ++face) {
@@ -150,26 +152,29 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
   assert( ((uintptr_t)&godunov[0])         % ALIGNMENT == 0 );
 #endif
 
-  memset(godunov, 0, CONVERGENCE_ORDER * seissol::model::godunovState::reals * sizeof(real));
-  
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     real degreesOfFreedomPlus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
     real degreesOfFreedomMinus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
     evaluateTaylorExpansion(timeInterval, timeDerivativePlus, degreesOfFreedomPlus);
     evaluateTaylorExpansion(timeInterval, timeDerivativeMinus, degreesOfFreedomMinus);
+
+    real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativePlus_prefetch;
+    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativeMinus_prefetch;
     
     seissol::generatedKernels::godunovState[4*faceInfo.plusSide](
       godunovData->godunovMatrixPlus,
       global->faceToNodalMatrices[faceInfo.plusSide][0],
       degreesOfFreedomPlus,
-      &godunov[timeInterval][0]
+      &godunov[timeInterval][0],
+      plusPrefetch
     );
   
     seissol::generatedKernels::godunovState[4*faceInfo.minusSide + faceInfo.faceRelation](
       godunovData->godunovMatrixMinus,
       global->faceToNodalMatrices[faceInfo.minusSide][faceInfo.faceRelation],
       degreesOfFreedomMinus,
-      &godunov[timeInterval][0]
+      &godunov[timeInterval][0],
+      minusPrefetch
     ); 
   }
 }

@@ -270,12 +270,15 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture() {
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+      unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
       m_dynamicRuptureKernel.computeGodunovState( faceInformation[face],
                                                   m_globalData,
                                                  &godunovData[face],
                                                   timeDerivativePlus[face],
                                                   timeDerivativeMinus[face],
-                                                  godunov[face] );
+                                                  godunov[face],
+                                                  timeDerivativePlus[prefetchFace],
+                                                  timeDerivativeMinus[prefetchFace] );
 
       e_interoperability.evaluateFrictionLaw( static_cast<int>(face),
                                               godunov[face],
@@ -545,13 +548,13 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
 #ifdef ENABLE_MATRIX_PREFETCH
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-    l_faceNeighbors_prefetch[0] = faceNeighbors[l_cell][1];
-    l_faceNeighbors_prefetch[1] = faceNeighbors[l_cell][2];
-    l_faceNeighbors_prefetch[2] = faceNeighbors[l_cell][3];
+    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != dynamicRupture) ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
+    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != dynamicRupture) ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
+    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != dynamicRupture) ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
 
     // fourth face's prefetches
     if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-      l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell+1][0];
+      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != dynamicRupture) ? faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
     } else {
       l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
     }

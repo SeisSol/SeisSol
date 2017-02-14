@@ -101,7 +101,7 @@ struct seissol::initializers::LTS {
     tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
     tree.addVar(              plasticity,   plasticityMask,                 1,      seissol::memory::Standard );
-    tree.addVar(               drMapping, LayerMask(Ghost),                 1,      seissol::memory::Standard );
+    tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(                  energy,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
     tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
     

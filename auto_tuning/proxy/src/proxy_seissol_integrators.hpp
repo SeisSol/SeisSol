@@ -147,13 +147,13 @@ void computeNeighboringIntegration() {
 
 #ifdef ENABLE_MATRIX_PREFETCH
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-    l_faceNeighbors_prefetch[0] = m_cells->faceNeighbors[l_cell][1];
-    l_faceNeighbors_prefetch[1] = m_cells->faceNeighbors[l_cell][2];
-    l_faceNeighbors_prefetch[2] = m_cells->faceNeighbors[l_cell][3];
+    l_faceNeighbors_prefetch[0] = (m_cellInformation[l_cell].faceTypes[1] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][1] : m_cells->drMapping[l_cell][1].godunov;
+    l_faceNeighbors_prefetch[1] = (m_cellInformation[l_cell].faceTypes[2] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][2] : m_cells->drMapping[l_cell][2].godunov;
+    l_faceNeighbors_prefetch[2] = (m_cellInformation[l_cell].faceTypes[3] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][3] : m_cells->drMapping[l_cell][3].godunov;
 
     // fourth face's prefetches
     if (l_cell < (m_cells->numberOfCells-1) ) {
-      l_faceNeighbors_prefetch[3] = m_cells->faceNeighbors[l_cell+1][0];
+      l_faceNeighbors_prefetch[3] = (m_cellInformation[l_cell+1].faceTypes[0] != dynamicRupture) ? m_cells->faceNeighbors[l_cell+1][0] : m_cells->drMapping[l_cell+1][0].godunov;
     } else {
       l_faceNeighbors_prefetch[3] = m_cells->faceNeighbors[l_cell][3];
     }
@@ -189,12 +189,15 @@ void computeDynRupGodunovState()
   #pragma omp parallel for schedule(static)
 #endif
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+    unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
     m_dynRupKernel.computeGodunovState( faceInformation[face],
                                         m_globalData,
                                        &godunovData[face],
                                         timeDerivativePlus[face],
                                         timeDerivativeMinus[face],
-                                        godunov[face] );
+                                        godunov[face],
+                                        timeDerivativePlus[prefetchFace],
+                                        timeDerivativeMinus[prefetchFace] );
   }
 }
 

@@ -151,7 +151,8 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
         cellDrMapping[l_face].fluxSolver,
         cellDrMapping[l_face].godunov,
         cellDrMapping[l_face].fluxMatrix,
-        io_degreesOfFreedom
+        io_degreesOfFreedom,
+        faceNeighbors_prefetch[l_face]
       );
     }
   }
