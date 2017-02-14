@@ -90,7 +90,7 @@ def addKernels(db, kernels, dofMatrixName):
     
     for h in range(1,4):
       godunovStateMinus = db['nM{}{}'.format(i+1,h)] * db[dofMatrixName] * db['godunovMatrix']
-      kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4+h), godunovStateMinus, beta=0, prefetch=godunovStateMinus))
+      kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4+h), godunovStateMinus, beta=1, prefetch=godunovStateMinus))
 
       flux = db['pM{}{}'.format(i+1,h)] * db['godunovState'] * db['fluxSolver']
       kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4+h), flux, prefetch=db['godunovState']))
