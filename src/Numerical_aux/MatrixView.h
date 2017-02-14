@@ -59,6 +59,11 @@ public:
   
   void setZero() {
     memset(data, 0, reals * sizeof(real));
+  }  
+  
+  inline real value(unsigned row, unsigned col) {
+    int idx = (*index)(row, col);
+    return (idx != -1) ? data[idx] : 0.0;
   }
   
   inline real& operator()(unsigned row, unsigned col) {

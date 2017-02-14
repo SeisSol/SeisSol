@@ -40,7 +40,7 @@
   
 from gemmgen import DB, Tools, Arch, Kernel
 import argparse
-from dynamic_rupture import dynamic_rupture
+import DynamicRupture
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -50,7 +50,7 @@ cmdLineParser.add_argument('--order')
 cmdLineParser.add_argument('--numberOfMechanisms')
 cmdLineParser.add_argument('--generator')
 cmdLineParser.add_argument('--memLayout')
-cmdLineParser.add_argument('--dynamicRuptureMethod', nargs='?')
+cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineArgs = cmdLineParser.parse_args()
 
 architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
@@ -67,6 +67,8 @@ db = Tools.parseMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, 
 
 db.insert(DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities))
 db.insert(DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities))
+
+DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
 
 # Load sparse-, dense-, block-dense-config
 Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
@@ -122,7 +124,7 @@ for i in range(1, order):
   db.insert(derivative.flat(newD))
   db[newD].fitBlocksToSparsityPattern()
   
-dynamic_rupture(db, kernels, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities)
+DynamicRupture.addKernels(db, kernels, 'timeDerivative0')
 
 # Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)  

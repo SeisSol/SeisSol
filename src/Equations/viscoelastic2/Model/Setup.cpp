@@ -76,7 +76,7 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
                                                      unsigned        i_dim,
                                                      real            o_M[seissol::model::AstarT::reals] )
 {
-  MatrixView M(o_M, seissol::model::AstarT::reals, seissol::model::AstarT::index);  
+  MatrixView M(o_M, seissol::model::AstarT::reals, seissol::model::AstarT::index);
   // M.setZero();
 
   seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, M);

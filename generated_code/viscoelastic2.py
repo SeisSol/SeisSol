@@ -41,6 +41,7 @@
 from gemmgen import DB, Tools, Arch, Kernel
 import numpy as np
 import argparse
+import DynamicRupture
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -50,6 +51,7 @@ cmdLineParser.add_argument('--order')
 cmdLineParser.add_argument('--numberOfMechanisms')
 cmdLineParser.add_argument('--generator')
 cmdLineParser.add_argument('--memLayout')
+cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineArgs = cmdLineParser.parse_args()
 
 architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
@@ -57,9 +59,10 @@ libxsmmGenerator = cmdLineArgs.generator
 order = int(cmdLineArgs.order)
 numberOfMechanisms = int(cmdLineArgs.numberOfMechanisms)
 numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
+numberOfElasticQuantities = 9
 numberOfMechanismQuantities = 6
-numberOfReducedQuantities = 9 + numberOfMechanismQuantities
-numberOfQuantities = 9 + 6*numberOfMechanisms
+numberOfReducedQuantities = numberOfElasticQuantities + numberOfMechanismQuantities
+numberOfQuantities = numberOfElasticQuantities + 6*numberOfMechanisms
 
 clones = {
   'star': [ 'AstarT', 'BstarT', 'CstarT' ]
@@ -73,6 +76,8 @@ db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArg
 riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfReducedQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfReducedQuantities-9, numberOfReducedQuantities), dtype=np.float64)]])
 db.insert(DB.MatrixInfo('AplusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
 db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
+
+DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfElasticQuantities, numberOfReducedQuantities)
 
 # Load sparse-, dense-, block-dense-config
 Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
@@ -125,6 +130,8 @@ kernels.append(Kernel.Prototype('derivative', derivative, beta=0))
 
 source = db['mechanism'] * db['ET']
 kernels.append(Kernel.Prototype('source', source))
+
+DynamicRupture.addKernels(db, kernels, 'reducedDofs')
 
 # Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)

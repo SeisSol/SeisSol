@@ -657,6 +657,10 @@ if env['unitTests'] != 'none':
   # Fail on error (as we can't see OK messages in the output)
   env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])
   env.Append(CPPDEFINES={'SEISSOL_TESTS': '"\\"' + Dir('.').srcnode().abspath + '/src/tests/\\""'})
+  
+  # Try to remove weird linker errors
+  if env['compiler'] == 'intel':
+    env.Append(CXXFLAGS = ['-ffreestanding'])
 
   # add cxxtest-tool
   env.Tool('cxxtest')

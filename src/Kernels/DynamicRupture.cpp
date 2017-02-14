@@ -54,12 +54,15 @@
 #include <Kernels/denseMatrixOps.hpp>
 #include <Numerical_aux/Quadrature.h>
 
-/// \todo Make this information available in the code generator
-/// \todo FIXME Will not work for viscoelasticity
 seissol::kernels::DynamicRupture::DynamicRupture() {
   m_derivativesOffsets[0] = 0;
   for( int l_order = 0; l_order < CONVERGENCE_ORDER; l_order++ ) {
+
+#ifdef NUMBER_OF_ALIGNED_DER_BASIS_FUNCTIONS /// Derivatives are compressed
     m_numberOfAlignedBasisFunctions[l_order] = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER-l_order, ALIGNMENT );
+#else /// Derivatives are NOT compressed
+    m_numberOfAlignedBasisFunctions[l_order] = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER, ALIGNMENT );
+#endif
 
     if( l_order > 0 ) {
       m_derivativesOffsets[l_order]  =  m_numberOfAlignedBasisFunctions[l_order-1] * NUMBER_OF_QUANTITIES;

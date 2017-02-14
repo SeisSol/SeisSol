@@ -68,10 +68,8 @@
  * Boundary kernel of SeisSol.
  **/
 
-#ifndef BOUNDARY_H_
-#define BOUNDARY_H_
-
-#include <Initializer/typedefs.hpp>
+#ifndef KERNELS_NEIGHBOR_H_
+#define KERNELS_NEIGHBOR_H_
 
 #include <Initializer/typedefs.hpp>
 #include <generated_code/sizes.h>

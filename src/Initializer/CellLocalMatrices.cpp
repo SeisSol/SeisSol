@@ -225,8 +225,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   real TinvData[seissol::model::godunovMatrix::rows * seissol::model::godunovMatrix::cols];
   real QgodLocalData[9*9];
   real QgodNeighborData[9*9];
-  real APlusData[9*9];
-  real AMinusData[9*9];
+  real APlusData[seissol::model::AstarT::reals];
+  real AMinusData[seissol::model::AstarT::reals];
   
   std::vector<Fault> const& fault = i_meshReader.getFault();
   std::vector<Element> const& elements = i_meshReader.getElements();
@@ -273,7 +273,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       }
       
       assert(timeDerivativePlus[face] != NULL && timeDerivativeMinus[face] != NULL);
-      
+
       /// DR mapping for elements
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
         unsigned plusLtsId = (fault[face].element >= 0)          ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].element, duplicate) : std::numeric_limits<unsigned>::max();
@@ -296,15 +296,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[face].minusSide ][ faceInformation[face].faceRelation ];
         }
       }
-      
+
       /// Transformation matrix
       DenseMatrixView<seissol::model::godunovMatrix::rows, seissol::model::godunovMatrix::cols> T(TData);
       DenseMatrixView<seissol::model::godunovMatrix::cols, seissol::model::godunovMatrix::rows> Tinv(TinvData);
       seissol::model::getFaceRotationMatrix(fault[face].normal, fault[face].tangent1, fault[face].tangent2, T, Tinv);
-        
+
       /// Materials
-      seissol::model::ElasticMaterial plusMaterial;
-      seissol::model::ElasticMaterial minusMaterial;
+      seissol::model::Material plusMaterial;
+      seissol::model::Material minusMaterial;
       unsigned plusLtsId = (fault[face].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[face].element) : std::numeric_limits<unsigned>::max();
       unsigned minusLtsId = (fault[face].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[face].neighborElement) : std::numeric_limits<unsigned>::max();
 
@@ -332,10 +332,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       DenseMatrixView<9, 9> QgodNeighbor(QgodNeighborData);
       seissol::model::getTransposedElasticGodunovState( plusMaterial, minusMaterial, QgodLocal, QgodNeighbor );
       
+      // \todo Generate a kernel for this
       MatrixView godunovMatrixPlus(godunovData[face].godunovMatrixPlus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
       MatrixView godunovMatrixMinus(godunovData[face].godunovMatrixMinus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
-      for (unsigned j = 0; j < seissol::model::godunovMatrix::cols; ++j) {
-        for (unsigned i = 0; i < seissol::model::godunovMatrix::rows; ++i) {
+      for (unsigned j = 0; j < 9; ++j) {
+        for (unsigned i = 0; i < 9; ++i) {
           for (unsigned k = 0; k < 9; ++k) {
             godunovMatrixPlus(i, j) += Tinv(k, i) * QgodLocal(k, j);
             godunovMatrixMinus(i, j) += Tinv(k, i) * QgodNeighbor(k, j);
@@ -343,10 +344,10 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         }
       }
 
-      MatrixView APlus(APlusData, sizeof(APlusData)/sizeof(real), &colMjrIndex<9>);
-      MatrixView AMinus(AMinusData, sizeof(AMinusData)/sizeof(real), &colMjrIndex<9>);
-      seissol::model::getTransposedElasticCoefficientMatrix(plusMaterial, 0, APlus);
-      seissol::model::getTransposedElasticCoefficientMatrix(minusMaterial, 0, AMinus);
+      MatrixView APlus(APlusData, seissol::model::AstarT::reals, seissol::model::AstarT::index);
+      MatrixView AMinus(AMinusData, seissol::model::AstarT::reals, seissol::model::AstarT::index);
+      seissol::model::getTransposedCoefficientMatrix(plusMaterial, 0, APlusData);
+      seissol::model::getTransposedCoefficientMatrix(minusMaterial, 0, AMinusData);
       
       MatrixView fluxSolverPlusView(fluxSolverPlus[face], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
       MatrixView fluxSolverMinusView(fluxSolverMinus[face], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
@@ -365,13 +366,14 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
       }
 
+      // \todo Generate a kernel for this
       double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
       for (unsigned j = 0; j < seissol::model::fluxSolver::cols; ++j) {
-        for (unsigned i = 0; i < seissol::model::fluxSolver::rows; ++i) {
-          for (unsigned k = 0; k < 9; ++k) {
-            fluxSolverPlusView(i, j) += APlus(i, k) * T(j, k);
-            fluxSolverMinusView(i, j) += AMinus(i, k) * T(j, k);
+        for (unsigned i = 0; i < 9; ++i) {
+          for (unsigned k = 0; k < seissol::model::fluxSolver::cols; ++k) {
+            fluxSolverPlusView(i, j) += APlus.value(i, k) * T(j, k);
+            fluxSolverMinusView(i, j) += AMinus.value(i, k) * T(j, k);
           }
           fluxSolverPlusView(i, j) *= fluxScalePlus;
           fluxSolverMinusView(i, j) *= fluxScaleMinus;

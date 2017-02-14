@@ -39,8 +39,9 @@
 #
 
 from gemmgen import DB, Tools, Arch, Kernel
+import numpy as np
 
-def dynamic_rupture(db, kernels, matricesDir, order, dynamicRuptureMethod, numberOfQuantities):
+def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
   numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
 
   if dynamicRuptureMethod == 'quadrature':
@@ -55,12 +56,19 @@ def dynamic_rupture(db, kernels, matricesDir, order, dynamicRuptureMethod, numbe
   # Load matrices
   db.update(Tools.parseMatrixFile('{}/dr_{}_matrices_{}.xml'.format(matricesDir, dynamicRuptureMethod, order), clones))
 
-  # Determine sparsity patterns that depend on the number of mechanisms
-  db.insert(DB.MatrixInfo('godunovMatrix', numberOfQuantities, numberOfQuantities))
-  db.insert(DB.MatrixInfo('fluxSolver', numberOfQuantities, numberOfQuantities))
-
-  #~ db.insert(DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities))
-  db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfQuantities))
+  # Determine matrices
+  # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
+  godunovMatrixSpp = np.matlib.zeros((numberOfQuantities,numberOfQuantities))
+  godunovMatrixSpp[0:numberOfElasticQuantities,0:numberOfElasticQuantities] = 1.
+  db.insert(DB.MatrixInfo('godunovMatrix', numberOfQuantities, numberOfQuantities, matrix=godunovMatrixSpp))
+  
+  fluxSolverSpp = np.matlib.zeros((numberOfQuantities,numberOfQuantities))
+  fluxSolverSpp[0:numberOfElasticQuantities,:] = 1.
+  db.insert(DB.MatrixInfo('fluxSolver', numberOfQuantities, numberOfQuantities, matrix=fluxSolverSpp))
+  
+  godunovStateSpp = np.matlib.zeros((numberOfPoints,numberOfQuantities))
+  godunovStateSpp[:,0:numberOfElasticQuantities] = 1.
+  db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfQuantities, matrix=godunovStateSpp))
 
   stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
   globalMatrixIdRules = [
@@ -71,16 +79,17 @@ def dynamic_rupture(db, kernels, matricesDir, order, dynamicRuptureMethod, numbe
   ]
   DB.determineGlobalMatrixIds(globalMatrixIdRules, db, 'dr')
 
+def addKernels(db, kernels, dofMatrixName):
   # Kernels
   for i in range(0,4):
-    godunovStatePlus = db['nP{}'.format(i+1)] * db['timeDerivative0'] * db['godunovMatrix']
+    godunovStatePlus = db['nP{}'.format(i+1)] * db[dofMatrixName] * db['godunovMatrix']
     kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4), godunovStatePlus))
     
     flux = db['pP{}'.format(i+1)] * db['godunovState'] * db['fluxSolver']
     kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4), flux))
     
     for h in range(1,4):
-      godunovStateMinus = db['nM{}{}'.format(i+1,h)] * db['timeDerivative0'] * db['godunovMatrix']
+      godunovStateMinus = db['nM{}{}'.format(i+1,h)] * db[dofMatrixName] * db['godunovMatrix']
       kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4+h), godunovStateMinus))
 
       flux = db['pM{}{}'.format(i+1,h)] * db['godunovState'] * db['fluxSolver']
