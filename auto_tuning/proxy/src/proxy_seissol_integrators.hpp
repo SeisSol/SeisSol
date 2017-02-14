@@ -118,7 +118,6 @@ void computeNeighboringIntegration() {
 #ifdef ENABLE_MATRIX_PREFETCH
   real *l_faceNeighbors_prefetch[4];
 #endif
-  CellDRMapping dummyMapping[4];
 
 #ifdef _OPENMP
 #  ifdef ENABLE_MATRIX_PREFETCH
@@ -162,7 +161,7 @@ void computeNeighboringIntegration() {
 
     m_neighborKernel.computeNeighborsIntegral( m_cellInformation[l_cell].faceTypes,
                                                m_cellInformation[l_cell].faceRelations,
-                                               dummyMapping,
+                                               m_cells->drMapping[l_cell],
                                                l_globalData,
                                                &m_cellData->neighboringIntegration[l_cell],
                                                l_timeIntegrated,
@@ -175,5 +174,27 @@ void computeNeighboringIntegration() {
 #ifdef _OPENMP
   }
 #endif
+}
+
+void computeDynRupGodunovState()
+{
+  seissol::initializers::Layer& layerData = m_dynRupTree.child(0).child<Interior>();
+  DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup.faceInformation);
+  DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup.godunovData);
+  real**                                timeDerivativePlus                                                = layerData.var(m_dynRup.timeDerivativePlus);
+  real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup.timeDerivativeMinus);
+  real                                (*godunov)[CONVERGENCE_ORDER][seissol::model::godunovState::reals]  = layerData.var(m_dynRup.godunov);
+
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static)
+#endif
+  for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+    m_dynRupKernel.computeGodunovState( faceInformation[face],
+                                        m_globalData,
+                                       &godunovData[face],
+                                        timeDerivativePlus[face],
+                                        timeDerivativeMinus[face],
+                                        godunov[face] );
+  }
 }
 

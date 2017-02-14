@@ -146,7 +146,7 @@ if env['compileMode'] == 'debug':
   flags.extend(['-O0', '-g'])
 else:
   flags.extend(['-O3'])
-  env.Append(CPPDEFINES=['NDEBUG'])
+env.Append(CPPDEFINES=['NDEBUG'])
 
 env.Append( CFLAGS    = flags,
             CXXFLAGS  = flags,
@@ -186,7 +186,7 @@ for sourceFile in env.sourceFiles:
   sourceFiles.append(sourceFile[0])
 sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles)
 
-env.Program(env['execDir']+'/flops_per_cell', sourceFiles + [env.Object('src/seissol_src/Kernels/DynamicRupture.cpp'), env.Object('src/flops_per_cell.cpp')])
+env.Program(env['execDir']+'/flops_per_cell', sourceFiles + [env.Object('src/flops_per_cell.cpp')])
 
 if env.generatedTestSourceFiles:
   env.CxxTest(target=env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)

@@ -89,6 +89,27 @@ seissol_flops flops_neigh_actual(unsigned int i_timesteps) {
   return ret;
 }
 
+seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
+  seissol_flops ret;
+  ret.d_nonZeroFlops = 0.0;
+  ret.d_hardwareFlops = 0.0;
+  
+  // iterate over cells
+  seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
+  DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
+  for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
+    long long l_drNonZeroFlops, l_drHardwareFlops;
+    m_dynRupKernel.flopsGodunovState(faceInformation[face], l_drNonZeroFlops, l_drHardwareFlops);
+    ret.d_nonZeroFlops  += (double)(l_drNonZeroFlops);
+    ret.d_hardwareFlops += (double)(l_drHardwareFlops);
+  }
+
+  ret.d_nonZeroFlops *= (double)i_timesteps;
+  ret.d_hardwareFlops *= (double)i_timesteps;
+
+  return ret;
+}
+
 seissol_flops flops_local_actual(unsigned int i_timesteps) {
   seissol_flops ret;
   seissol_flops tmp;
