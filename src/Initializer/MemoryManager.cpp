@@ -176,8 +176,8 @@ void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalDa
   }
   for (unsigned face = 0; face < 4; ++face) {
     for (unsigned h = 0; h < 4; ++h) {
-      m_globalData.nodalFluxMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[4*face+h] ];
-      m_globalData.faceToNodalMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[16 + 4*face+h] ];
+      o_globalData.nodalFluxMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[4*face+h] ];
+      o_globalData.faceToNodalMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[16 + 4*face+h] ];
     }
   }
 }
