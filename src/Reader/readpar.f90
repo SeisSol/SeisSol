@@ -2862,7 +2862,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     REAL                       :: periodic_direction(3)
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
-    CHARACTER(LEN=45)          :: Name
+    CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: MESH,BND,SOURCE,IO
@@ -2904,7 +2904,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     IO%MeshFile = MeshFile                               ! mesh input (mesh file name, no_file)
  
     Name = TRIM(IO%MeshFile) // '.met'
-    IO%MetisFile = Name(1:35)
+    IO%MetisFile = Name(1:600)
 
     MESH%iniSquareMesh = .FALSE.
     MESH%iniDiscMesh   = .FALSE.
@@ -2929,7 +2929,7 @@ ALLOCATE( SpacePositionx(nDirac), &
             Name = TRIM(IO%MeshFile)//'.neu'
           endif
 
-          IO%MeshFile=Name(1:35)
+          IO%MeshFile=Name(1:600)
 
           inquire( file=IO%MeshFile , exist=file_exits )
           if ( .NOT.file_exits ) then

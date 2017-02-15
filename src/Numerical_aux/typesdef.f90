@@ -1378,8 +1378,8 @@ MODULE TypesDef
      CHARACTER(LEN=600)                     :: title                            !< title for Tecplot output
      CHARACTER(LEN=200)                     :: Path                             !< Output path
      CHARACTER(LEN=60)                      :: OutputFile                       !< Output filename
-     CHARACTER(LEN=200)                     :: MetisFile                        !< Metis filename
-     CHARACTER(LEN=35)                      :: MeshFile                         !< Mesh filename
+     CHARACTER(LEN=600)                     :: MetisFile                        !< Metis filename
+     CHARACTER(LEN=600)                     :: MeshFile                         !< Mesh filename
      CHARACTER(LEN=200)                     :: BndFile                          !< CFX boundary conditions
      CHARACTER(LEN=200)                     :: ContourFile                      !< Contour filename
      CHARACTER(LEN=200)                     :: ErrorFile                        !< Error filename
