@@ -54,13 +54,13 @@ class DummyPrefetch:
   pass
 
 class Prototype:
-  def __init__(self, name, kernel, beta=1, prefetch=None):
+  def __init__(self, name, kernel, beta=1, prefetch=list()):
     if beta != 0 and beta != 1:
       raise ValueError('Other betas than one or zero are currently not supported.')
     self.name = name
     self.kernel = kernel
     self.beta = beta
-    self.prefetch = prefetch
+    self.prefetch = prefetch if isinstance(prefetch, list) else [prefetch]
 
 class Operation:
   MEMSET = 1,
@@ -99,11 +99,11 @@ class GeneratedKernel(Kernel):
     
     super(GeneratedKernel, self).__init__(kernel, db, architecture)
     
-    if self.prototype.prefetch is not None:
-      if self.arch.enablePrefetch and not isinstance(self.prototype.prefetch, DummyPrefetch):
-        blocks = self.prototype.prefetch.blocks
-        if db.has_key(self.prototype.prefetch.name):
-          prefetchPointerName = self.prototype.prefetch.name + GeneratedKernel.PrefetchSuffix
+    for prefetch in self.prototype.prefetch:
+      if self.arch.enablePrefetch and not isinstance(prefetch, DummyPrefetch):
+        blocks = prefetch.blocks
+        if db.has_key(prefetch.name):
+          prefetchPointerName = prefetch.name + GeneratedKernel.PrefetchSuffix
         else:
           prefetchPointerName = Kernel.ResultName + GeneratedKernel.PrefetchSuffix
         if len(blocks) > 1 or blocks[0].sparse:
@@ -112,7 +112,7 @@ class GeneratedKernel(Kernel):
         bestOverlap = 0
         writesByLDC = dict()
         for index, op in enumerate(self.operations):
-          if op['type'] == Operation.GEMM:
+          if op['type'] == Operation.GEMM and op['gemm']['prefetch'] == GeneratedKernel.DefaultPrefetchMode:
             ldc = op['gemm']['LDC']
             if not writesByLDC.has_key(ldc):
               writesByLDC[ldc] = {'indices': list(), 'modBlocks': list()}

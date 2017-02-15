@@ -418,7 +418,7 @@ class Generator:
               if rk.prototype.beta != 0.0:
                 test.memset('result', rk.prototype.kernel.requiredReals, self.architecture.typename)
               
-              dummyPrefetch = ['NULL'] if rk.prototype.prefetch is not None else []
+              dummyPrefetch = ['NULL'] * len(rk.prototype.prefetch)
               test('seissol::unit_test::{}({});'.format(name, ', '.join(rk.involvedMatrices[0:-1] + ['reference'])))
               test('seissol::generatedKernels::{}({});'.format(name, ', '.join(rk.involvedMatrices + dummyPrefetch)))
 
