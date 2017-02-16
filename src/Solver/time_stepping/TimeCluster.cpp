@@ -572,12 +572,16 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                dofs[l_cell] );
 
 #ifdef USE_PLASTICITY
-  e_interoperability.computePlasticity(  m_timeStepWidth,
+  seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
+                                                   l_globalData,
+                                                   &plasticity[l_cell],
+                                                   dofs[l_cell] );
+  /*e_interoperability.computePlasticity(  m_timeStepWidth,
                                          plasticity[l_cell].plasticParameters,
                                          plasticity[l_cell].initialLoading,
                                          dofs[l_cell],
                                          energy[l_cell],
-                                         pstrain[l_cell] );
+                                         pstrain[l_cell] );*/
 #endif
 #ifdef INTEGRATE_QUANTITIES
   seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,

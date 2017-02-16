@@ -339,6 +339,10 @@ struct GlobalData {
    *    15: \f$ N^{-,4,3} \f$
    **/ 
   real* faceToNodalMatrices[4][4];
+  
+  //! Switch to nodal for plasticity
+  real* vandermondeMatrix;
+  real* vandermondeMatrixInverse;
 };
 
 // data for the cell local integration
@@ -374,6 +378,9 @@ struct PlasticityData {
   real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
   // cell dependent plastic parameters
   real plasticParameters[3];
+  real cohesionTimesCosAngularFriction;
+  real sinAngularFriction;
+  real Tv;
 };
 
 /**

@@ -132,8 +132,13 @@ extern "C" {
   }
 
  void c_interoperability_setPlasticParameters( int    *i_meshId,
+                                               double i_bulkFriction,
                                                double *i_plasticParameters ) {
-    e_interoperability.setPlasticParameters( i_meshId, i_plasticParameters );
+    e_interoperability.setPlasticParameters( i_meshId, i_bulkFriction, i_plasticParameters );
+  }
+  
+  void c_interoperability_setTv(double tv) {
+    e_interoperability.setTv(tv);
   }
 #endif
 
@@ -436,7 +441,7 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 }
 
 #ifdef USE_PLASTICITY
-void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {\
+void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
@@ -446,12 +451,23 @@ void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_init
   }
 }
 //synchronize element dependent plasticity parameters
-void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {\
+void seissol::Interoperability::setPlasticParameters( int* i_meshId, double i_bulkFriction, double* i_plasticParameters) {
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
 
   for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
       plasticity.plasticParameters[l_para] = i_plasticParameters[l_para];
   }
+  
+  double angularFriction = atan(i_bulkFriction);
+  
+  plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[1] * cos(angularFriction);
+  plasticity.sinAngularFriction = sin(angularFriction);
+  
+}
+
+
+void seissol::Interoperability::setTv(double tv) {
+  seissol::SeisSol::main.timeManager().setTv(tv);
 }
 #endif
 

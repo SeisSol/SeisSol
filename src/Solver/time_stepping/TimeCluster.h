@@ -83,11 +83,10 @@
 #include <Initializer/tree/LTSTree.hpp>
 
 #include <Kernels/Time.h>
-
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
-
 #include <Kernels/DynamicRupture.h>
+#include <Kernels/Plasticity.h>
 
 // some check for correct functionality
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
@@ -201,6 +200,12 @@ private:
     
     long long m_flops_nonZero[NUM_COMPUTE_PARTS];
     long long m_flops_hardware[NUM_COMPUTE_PARTS];
+    
+    //! Tv parameter for plasticity
+    double m_tv;
+    
+    //! Relax time for plasticity
+    double m_relaxTime;
 
 #ifdef USE_MPI
     /**
@@ -306,6 +311,11 @@ private:
                                       long long&                  hardwareFlops );
                                           
     void computeFlops();
+    
+    //! Update relax time for plasticity
+    void updateRelaxTime() {
+      m_relaxTime = (m_tv > 0.0) ? 1.0 - exp(-m_timeStepWidth / m_tv) : 1.0;
+    }
 
   public:
     //! flags identifiying if the respective part is allowed to be updated
@@ -400,6 +410,7 @@ private:
     
     void setTimeStepWidth(double timestep) {
       m_timeStepWidth = timestep;
+      updateRelaxTime();
       m_dynamicRuptureKernel.setTimeStepWidth(timestep);
     }
 
@@ -441,6 +452,14 @@ private:
      * Enables dynamic rupture call-backs in every time step.
      **/
     void enableDynamicRupture();
+    
+    /**
+     * Set Tv constant for plasticity.
+     */
+    void setTv(double tv) {
+      m_tv = tv;
+      updateRelaxTime();
+    }
 
 #ifdef USE_MPI
     /**

@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#!/usr/bin/env python
 ##
 # @file
 # This file is part of SeisSol.
@@ -8,21 +8,21 @@
 # @section LICENSE
 # Copyright (c) 2016, SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -36,13 +36,30 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 # @section DESCRIPTION
+#
 
-Import('env')
-  
-if env['generatedKernels']:
-  solverFiles = [ 'TimeCommon.cpp', 'DynamicRupture.cpp', 'Plasticity.cpp' ]
-  for i in solverFiles:
-    env.sourceFiles.append(env.Object(i))
+from gemmgen import DB, Tools, Arch, Kernel
+import numpy as np
 
-Export('env')
+def addMatrices(db, matricesDir, order):
+  numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
+  clones = dict()
 
+  # Load matrices
+  db.update(Tools.parseMatrixFile('{}/plasticity_matrices_{}.xml'.format(matricesDir, order), clones))
+
+  db.insert(DB.MatrixInfo('stressDOFS', numberOfBasisFunctions, 6))
+
+  matrixOrder = { 'v': 0, 'vInv': 1 }
+  globalMatrixIdRules = [
+    (r'^(v|vInv)$', lambda x: matrixOrder[x[0]])
+  ]
+  DB.determineGlobalMatrixIds(globalMatrixIdRules, db, 'plasticity')
+
+def addKernels(db, kernels):
+  evaluateAtNodes = db['v'] * db['stressDOFS']
+  db.insert(evaluateAtNodes.flat('interpolationDOFS'))
+  kernels.append(Kernel.Prototype('evaluateAtNodes', evaluateAtNodes, beta=0))
+
+  convertToModal = db['vInv'] * db['stressDOFS']
+  kernels.append(Kernel.Prototype('convertToModal', convertToModal, beta=0))

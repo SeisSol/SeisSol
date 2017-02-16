@@ -204,6 +204,11 @@ class seissol::time_stepping::TimeManager {
     void enableDynamicRupture(unsigned dynamicRuptureCluster);
 
     /**
+     * Set Tv constant for plasticity.
+     */
+    void setTv(double tv);
+
+    /**
      * Sets the sampling of the receivers.
      *
      * @param i_receiverSampling receiver sampling.

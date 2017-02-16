@@ -41,6 +41,7 @@
 from gemmgen import DB, Tools, Arch, Kernel
 import argparse
 import DynamicRupture
+import Plasticity
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -69,6 +70,7 @@ db.insert(DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities))
 db.insert(DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities))
 
 DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
+Plasticity.addMatrices(db, cmdLineArgs.matricesDir, order)
 
 # Load sparse-, dense-, block-dense-config
 Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
@@ -125,6 +127,7 @@ for i in range(1, order):
   db[newD].fitBlocksToSparsityPattern()
   
 DynamicRupture.addKernels(db, kernels, 'timeDerivative0')
+Plasticity.addKernels(db, kernels)
 
 # Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)  

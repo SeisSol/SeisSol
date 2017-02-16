@@ -417,6 +417,12 @@ void seissol::time_stepping::TimeManager::enableDynamicRupture(unsigned dynamicR
   m_clusters[dynamicRuptureCluster]->enableDynamicRupture();
 }
 
+void seissol::time_stepping::TimeManager::setTv(double tv) {
+  for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
+    m_clusters[l_cluster]->setTv(tv);
+  }
+}
+
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 void seissol::time_stepping::TimeManager::pollForCommunication() {
   // pin this thread to the last core

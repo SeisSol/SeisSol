@@ -2802,6 +2802,7 @@ CONTAINS
 
         !initialize parameters in C
         call c_interoperability_setPlasticParameters( i_meshId         = c_loc( iElem), \
+                                                   i_bulkFriction      = EQN%BulkFriction, \
                                                    i_plasticParameters = c_loc( l_plasticParameters ) )
 #endif
 
@@ -2822,6 +2823,10 @@ CONTAINS
 
 
     ENDDO ! iElem
+    
+#ifdef USE_PLASTICITY    
+    call c_interoperability_setTv( tv = EQN%Tv )
+#endif
 
 #ifdef GENERATEDKERNELS
 #ifdef USE_PLASTICITY
