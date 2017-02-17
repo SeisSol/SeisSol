@@ -92,7 +92,7 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
   }
   
   bool adjust = false;
-  for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
+  for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::rows; ++ip) {
     if (tau[ip] > taulim[ip]) {
       adjust = true;
       yieldFactor[ip] = 1.0 - (1.0 - taulim[ip] / tau[ip]) * relaxTime;

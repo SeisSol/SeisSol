@@ -184,6 +184,7 @@ class MatrixInfo:
   def __mul__(self, other):
     spp = self.spp * other.spp
     result = MatrixInfo('{}*{}'.format(self.name, other.name), self.rows, other.cols, spp)
+    result.leftMultiplication = True # Force alignment of result matrix
     if len(self.symbol) == 1 and len(other.symbol) == 1:
       result.symbol = copy.deepcopy(self.symbol)
       result.symbol[0].extend(other.symbol[0])
@@ -248,7 +249,10 @@ class MatrixInfo:
         self.requiredReals += block.ld * block.cols()
     
   def flat(self, name):
-    return MatrixInfo(name, self.rows, self.cols, matrix=self.spp)
+    flatMatrix = MatrixInfo(name, self.rows, self.cols, matrix=self.spp)
+    flatMatrix.leftMultiplication = self.leftMultiplication
+    flatMatrix.rightMultiplication = self.rightMultiplication
+    return flatMatrix
     
   def getValuesAsStoredInMemory(self):
     # self.spp may be different than self.values (e.g. to force a mutual sparsity
