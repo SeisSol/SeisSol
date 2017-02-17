@@ -6,7 +6,7 @@
  * @author Stephanie Wollherr (wollherr AT geophysik.uni-muenchen.de, https://www.geophysik.uni-muenchen.de/Members/wollherr)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,7 +46,6 @@
 #include <cmath>
 #include <generated_code/kernels.h>
 
-
 void seissol::kernels::Plasticity::computePlasticity( double                      relaxTime,
                                                       GlobalData const*           global,
                                                       PlasticityData const*       plasticityData,
@@ -63,7 +62,7 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
   
   for (unsigned q = 0; q < 6; ++q) {
     for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-      interpolationDofs[q* seissol::model::interpolationDOFS::ld + ip] += plasticityData->initialLoading[q][0];
+      interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] += plasticityData->initialLoading[q][0];
     }
   }
   
@@ -73,7 +72,7 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
                       + interpolationDofs[2 * seissol::model::interpolationDOFS::ld + ip] ) / 3.0;
   }
   
-  memcpy(devStress, interpolationDofs, 6 * seissol::model::interpolationDOFS::ld * sizeof(real));
+  memcpy(devStress, interpolationDofs, seissol::model::interpolationDOFS::reals * sizeof(real));
   for (unsigned q = 0; q < 3; ++q) {
     for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
       devStress[q * seissol::model::interpolationDOFS::ld + ip] -= meanStress[ip];
@@ -111,7 +110,7 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
                                                                           - plasticityData->initialLoading[q][0];
       }
     }
-    for (unsigned q = 4; q < 6; ++q) {
+    for (unsigned q = 3; q < 6; ++q) {
       for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
         interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] = yieldFactor[ip] * devStress[q * seissol::model::interpolationDOFS::ld + ip]
                                                                           - plasticityData->initialLoading[q][0];

@@ -380,7 +380,6 @@ struct PlasticityData {
   real plasticParameters[3];
   real cohesionTimesCosAngularFriction;
   real sinAngularFriction;
-  real Tv;
 };
 
 /**
