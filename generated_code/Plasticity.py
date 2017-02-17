@@ -61,5 +61,5 @@ def addKernels(db, kernels):
   db.insert(evaluateAtNodes.flat('interpolationDOFS'))
   kernels.append(Kernel.Prototype('evaluateAtNodes', evaluateAtNodes, beta=0))
 
-  convertToModal = db['vInv'] * db['stressDOFS']
+  convertToModal = db['vInv'] * db['interpolationDOFS']
   kernels.append(Kernel.Prototype('convertToModal', convertToModal, beta=0))
