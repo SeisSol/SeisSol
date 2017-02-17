@@ -88,7 +88,7 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
   }
   
   for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-    taulim[ip] = std::max(0.0, plasticityData->cohesionTimesCosAngularFriction - meanStress[ip] * plasticityData->sinAngularFriction);
+    taulim[ip] = std::max((real) 0.0, plasticityData->cohesionTimesCosAngularFriction - meanStress[ip] * plasticityData->sinAngularFriction);
   }
   
   bool adjust = false;
