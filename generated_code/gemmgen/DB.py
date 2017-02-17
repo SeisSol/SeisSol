@@ -130,6 +130,10 @@ def determineGlobalMatrixIds(globalMatrixIdRules, db, group = str()):
         value.globalMatrixGroup = group
         value.globalMatrixId = rule[1](match.groups())
 
+# Workaround for newer scipy versions that complain on .astype(..) for string matrices
+def extractSparsityPattern(cooMatrix):
+  return scipy.sparse.coo_matrix((np.ones(len(cooMatrix.row)), (cooMatrix.row, cooMatrix.col)), shape=cooMatrix.shape, dtype=np.float64).todense()
+
 class MatrixInfo:
   def __init__(self, name, rows, cols, matrix = None, isConstantGlobalMatrix = False):
     self.name = name
@@ -158,7 +162,7 @@ class MatrixInfo:
   def updateSparsityPattern(self, sparsityPattern):
     if isinstance(sparsityPattern, scipy.sparse.coo_matrix):
       (row, col) = (sparsityPattern.row, sparsityPattern.col)
-      self.spp = sparsityPattern.astype(np.float64).todense()
+      self.spp = extractSparsityPattern(sparsityPattern)
     elif isinstance(sparsityPattern, numpy.matrix):
       (row, col, dummy) = scipy.sparse.find(sparsityPattern)
       self.spp = sparsityPattern
@@ -173,7 +177,7 @@ class MatrixInfo:
     self.spp[np.abs(self.spp) > 0] = 1.0
     
   def getOriginalSparsityPattern(self):
-    originalSpp = self.matrix.astype(np.float64).todense()
+    originalSpp = extractSparsityPattern(self.matrix)
     originalSpp[np.abs(originalSpp) > 0] = 1.0
     return originalSpp
 
