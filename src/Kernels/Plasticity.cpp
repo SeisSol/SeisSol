@@ -56,23 +56,23 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
   real tau[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   real taulim[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   real yieldFactor[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
-  real devStress[seissol::model::interpolationDOFS::reals] __attribute__((aligned(ALIGNMENT)));
+  real devStress[3 * seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   
   seissol::generatedKernels::evaluateAtNodes(degreesOfFreedom, global->vandermondeMatrix, interpolationDofs);
   
   for (unsigned q = 0; q < 6; ++q) {
+    real initialLoading = plasticityData->initialLoading[q][0];
     for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-      interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] += plasticityData->initialLoading[q][0];
+      interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] += initialLoading;
     }
   }
   
   for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
     meanStress[ip] = ( interpolationDofs[0 * seissol::model::interpolationDOFS::ld + ip]
                       + interpolationDofs[1 * seissol::model::interpolationDOFS::ld + ip]
-                      + interpolationDofs[2 * seissol::model::interpolationDOFS::ld + ip] ) / 3.0;
+                      + interpolationDofs[2 * seissol::model::interpolationDOFS::ld + ip] ) * (1.0 / 3.0);
   }
-  
-  memcpy(devStress, interpolationDofs, seissol::model::interpolationDOFS::reals * sizeof(real));
+
   for (unsigned q = 0; q < 3; ++q) {
     for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
       devStress[q * seissol::model::interpolationDOFS::ld + ip] -= meanStress[ip];
@@ -83,9 +83,9 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
     tau[ip] = sqrt(0.5 * (devStress[0 * seissol::model::interpolationDOFS::ld + ip] * devStress[0 * seissol::model::interpolationDOFS::ld + ip]
             + devStress[1 * seissol::model::interpolationDOFS::ld + ip] * devStress[1 * seissol::model::interpolationDOFS::ld + ip]
             + devStress[2 * seissol::model::interpolationDOFS::ld + ip] * devStress[2 * seissol::model::interpolationDOFS::ld + ip])
-            + devStress[3 * seissol::model::interpolationDOFS::ld + ip] * devStress[3 * seissol::model::interpolationDOFS::ld + ip]
-            + devStress[4 * seissol::model::interpolationDOFS::ld + ip] * devStress[4 * seissol::model::interpolationDOFS::ld + ip]
-            + devStress[5 * seissol::model::interpolationDOFS::ld + ip] * devStress[5 * seissol::model::interpolationDOFS::ld + ip]);
+            + interpolationDofs[3 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[3 * seissol::model::interpolationDOFS::ld + ip]
+            + interpolationDofs[4 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[4 * seissol::model::interpolationDOFS::ld + ip]
+            + interpolationDofs[5 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[5 * seissol::model::interpolationDOFS::ld + ip]);
   }
   
   for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
@@ -104,16 +104,18 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
   
   if (adjust) {
     for (unsigned q = 0; q < 3; ++q) {
+      real initialLoading = plasticityData->initialLoading[q][0];
       for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
         interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] = yieldFactor[ip] * devStress[q * seissol::model::interpolationDOFS::ld + ip]
                                                                           + meanStress[ip]
-                                                                          - plasticityData->initialLoading[q][0];
+                                                                          - initialLoading;
       }
     }
     for (unsigned q = 3; q < 6; ++q) {
+      real initialLoading = plasticityData->initialLoading[q][0];
       for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-        interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] = yieldFactor[ip] * devStress[q * seissol::model::interpolationDOFS::ld + ip]
-                                                                          - plasticityData->initialLoading[q][0];
+        interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] = yieldFactor[ip] * interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip]
+                                                                          - initialLoading;
       }
     }
     generatedKernels::convertToModal(interpolationDofs, global->vandermondeMatrixInverse, degreesOfFreedom);
