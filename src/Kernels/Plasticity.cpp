@@ -63,7 +63,7 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
   
   for (unsigned q = 0; q < 6; ++q) {
     for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-      interpolationDofs[ip] += plasticityData->initialLoading[q][0];
+      interpolationDofs[q* seissol::model::interpolationDOFS::ld + ip] += plasticityData->initialLoading[q][0];
     }
   }
   
