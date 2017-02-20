@@ -282,18 +282,24 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         assert(duplicate != 0 || plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
         
         if (plusLtsId != std::numeric_limits<unsigned>::max()) {
+#pragma omp critical
+{
           CellDRMapping& mapping = drMapping[plusLtsId][ faceInformation[face].plusSide ];
           mapping.fluxKernel = 4*faceInformation[face].plusSide;
           mapping.godunov = &imposedStatePlus[face][0];
           mapping.fluxSolver = &fluxSolverPlus[face][0];
           mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[face].plusSide ][0];
+}
         }
         if (minusLtsId != std::numeric_limits<unsigned>::max()) {
+#pragma omp critical
+{
           CellDRMapping& mapping = drMapping[minusLtsId][ faceInformation[face].minusSide ];
           mapping.fluxKernel = 4*faceInformation[face].minusSide + faceInformation[face].faceRelation;
           mapping.godunov = &imposedStateMinus[face][0];
           mapping.fluxSolver = &fluxSolverMinus[face][0];
           mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[face].minusSide ][ faceInformation[face].faceRelation ];
+}
         }
       }
 
