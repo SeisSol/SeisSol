@@ -24,71 +24,78 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Asynchronous I/O
+ * Velocity field reader Fortran interface
  */
 
-#ifndef ASYNCIO_H
-#define ASYNCIO_H
+#ifdef _OPENMP
+#include <omp.h>
+#endif // _OPENMP
 
-#include "Parallel/MPI.h"
-
-#include <algorithm>
+#include <string>
 
 #include "utils/env.h"
-#include "utils/logger.h"
 
-#include "async/Dispatcher.h"
+#include "AsagiModule.h"
 
-namespace seissol
+seissol::asagi::AsagiModule::AsagiModule()
+	: m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads())
 {
+	// Register for the pre MPI hook
+	Modules::registerHook(*this, seissol::PRE_MPI);
 
-namespace io
-{
+	// Emit a warning/error later
+	// TODO use a general logger that can buffer log messages and emit them later
+	if (m_mpiMode == MPI_UNKNOWN) {
+		Modules::registerHook(*this, seissol::POST_MPI_INIT);
+	} else if (m_mpiMode == MPI_COMM_THREAD && m_totalThreads == 1) {
+		m_mpiMode = MPI_WINDOWS;
 
-class AsyncIO : public async::Dispatcher
-{
-public:
-	/**
-	 * @return False if this rank is an MPI executor that does not contribute to the
-	 *  computation.
-	 */
-	bool init()
-	{
-		async::Dispatcher::init();
-
-#ifdef USE_MPI
-		seissol::MPI::mpi.setComm(commWorld());
-		// TODO Update fault communicator (not really sure how we can do this at this point)
-#endif // USE_MPI
-
-		return dispatch();
+		Modules::registerHook(*this, seissol::POST_MPI_INIT);
 	}
-
-	void finalize()
-	{
-		// Call parent class
-		async::Dispatcher::finalize();
-
-#ifdef USE_MPI
-		// Reset the MPI communicator
-		seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
-#endif // USE_MPI
-	}
-};
-
 }
 
+seissol::asagi::AsagiModule seissol::asagi::AsagiModule::instance;
+
+seissol::asagi::MPI_Mode seissol::asagi::AsagiModule::getMPIMode()
+{
+#ifdef USE_MPI
+	std::string mpiModeName = utils::Env::get(ENV_MPI_MODE, "WINDOWS");
+	if (mpiModeName == "WINDOWS")
+		return MPI_WINDOWS;
+	if (mpiModeName == "COMM_THREAD")
+		return MPI_COMM_THREAD;
+	if (mpiModeName == "OFF")
+		return MPI_OFF;
+
+	return MPI_UNKNOWN;
+#else // USE_MPI
+	return MPI_OFF;
+#endif // USE_MPI
 }
 
-#endif // ASYNCIO_H
+int seissol::asagi::AsagiModule::getTotalThreads()
+{
+	int totalThreads = 1;
+
+#ifdef _OPENMP
+	totalThreads = omp_get_max_threads();
+#ifdef USE_COMM_THREAD
+	totalThreads++;
+#endif // USE_COMM_THREAD
+#endif // _OPENMP
+
+	return totalThreads;
+}
+
+const char* seissol::asagi::AsagiModule::ENV_MPI_MODE = "SEISSOL_ASAGI_MPI_MODE";

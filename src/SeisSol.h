@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2016, SeisSol Group
+ * Copyright (c) 2014-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,7 @@
 
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
+#include "ResultWriter/FaultWriter.h"
 
 class MeshReader;
 
@@ -103,6 +104,9 @@ private:
 
 	/** Wavefield output module */
 	writer::WaveFieldWriter m_waveFieldWriter;
+
+	/** Fault output module */
+	writer::FaultWriter m_faultWriter;
 
 private:
 	/**
@@ -179,6 +183,14 @@ public:
 	writer::WaveFieldWriter& waveFieldWriter()
 	{
 		return m_waveFieldWriter;
+	}
+
+	/**
+	 * Get the fault writer module
+	 */
+	writer::FaultWriter& faultWriter()
+	{
+		return m_faultWriter;
 	}
 
 	/**

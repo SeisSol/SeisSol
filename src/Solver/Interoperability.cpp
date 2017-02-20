@@ -6,7 +6,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,6 @@
 #include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
-#include "ResultWriter/FaultWriterC.h"
 
 seissol::Interoperability e_interoperability;
 
@@ -259,6 +258,9 @@ extern "C" {
                                                       double  densityMinus,
                                                       double  pWaveVelocityMinus,
                                                       double  sWaveVelocityMinus );
+
+  extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
+	                                                     double time );
 
   extern void f_interoperability_computePlasticity( void    *i_domain,
                                                     double  *i_timestep,
@@ -694,7 +696,7 @@ void seissol::Interoperability::finalizeIO()
 {
 	seissol::SeisSol::main.waveFieldWriter().close();
 	seissol::SeisSol::main.checkPointManager().close();
-	fault_hdf_close();
+	seissol::SeisSol::main.faultWriter().close();
 }
 
 void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,
@@ -755,6 +757,12 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                           waveSpeedsMinus.pWaveVelocity,
                                           waveSpeedsMinus.sWaveVelocity);
 }
+
+void seissol::Interoperability::calcElementwiseFaultoutput(double time)
+{
+	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
+}
+
 
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::computePlasticity(  double i_timeStep,

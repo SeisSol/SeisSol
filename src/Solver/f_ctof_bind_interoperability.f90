@@ -7,23 +7,23 @@
 !! @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 !!
 !! @section LICENSE
-!! Copyright (c) 2015-2016, SeisSol Group
+!! Copyright (c) 2015-2017, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -121,8 +121,7 @@ module f_ctof_bind_interoperability
       type(c_ptr), value                     :: i_timeStepWidth
       real*8, pointer                        :: l_timeStepWidth
 
-      integer :: i, rank_int
-
+      ! register scorep region dynamic rupture output (receiver)
       SCOREP_USER_REGION_DEFINE( r_dr_output )
 
       ! convert c to fortran pointers
@@ -130,13 +129,14 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_time,          l_time  )
       call c_f_pointer( i_timeStepWidth, l_timeStepWidth )
 
-      SCOREP_USER_REGION_BEGIN( r_dr_output, "fault_output", SCOREP_USER_REGION_TYPE_COMMON )
+      SCOREP_USER_REGION_BEGIN( r_dr_output, "fault_output_receiver", SCOREP_USER_REGION_TYPE_COMMON )
+      ! NOTE: This will only handle faul receivers
       call faultoutput(l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%io, l_domain%mpi, l_domain%optionalFields%BackgroundValue, l_domain%bnd, l_time, l_timeStepWidth)
       SCOREP_USER_REGION_END( r_dr_output )
 
       l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
     end subroutine
-    
+
     subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_godunov, i_imposedStatePlus, i_imposedStateMinus, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
       use iso_c_binding
       use typesDef
@@ -147,28 +147,28 @@ module f_ctof_bind_interoperability
 
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
-      
+
       integer(kind=c_int), value             :: i_face
       integer(kind=c_int), value             :: i_numberOfPoints
       integer(kind=c_int), value             :: i_godunovLd
-      
+
       type(c_ptr), value                     :: i_godunov
       REAL_TYPE, pointer                     :: l_godunov(:,:,:)
-      
+
       type(c_ptr), value                     :: i_imposedStatePlus
       REAL_TYPE, pointer                     :: l_imposedStatePlus(:,:)
-      
+
       type(c_ptr), value                     :: i_imposedStateMinus
       REAL_TYPE, pointer                     :: l_imposedStateMinus(:,:)
 
       type(c_ptr), value                     :: i_time
       real*8, pointer                        :: l_time
-      
+
       real(c_double), intent(in), dimension(CONVERGENCE_ORDER)  :: timePoints
       real(c_double), intent(in), dimension(CONVERGENCE_ORDER)  :: timeWeights
-      
+
       real(kind=c_double), value             :: densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus
-      
+
       REAL        :: NormalVect_n(3)
       REAL        :: NormalVect_s(3)
       REAL        :: NormalVect_t(3)
@@ -176,7 +176,7 @@ module f_ctof_bind_interoperability
       REAL        :: iT(9,9)
       REAL        :: rho, rho_neig
       REAL        :: w_speed(3),w_speed_neig(3)
-      
+
       REAL        :: TractionGP_XY(1:i_numberOfPoints,CONVERGENCE_ORDER)
       REAL        :: TractionGP_XZ(1:i_numberOfPoints,CONVERGENCE_ORDER)
       REAL        :: NorStressGP(1:i_numberOfPoints,CONVERGENCE_ORDER)
@@ -185,7 +185,7 @@ module f_ctof_bind_interoperability
       real        :: subTimeStepWidth
 
       integer :: iSide, iElem, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, MPIIndex_DR, i, j
-      
+
       ! register scorep region dynamic rupture
       SCOREP_USER_REGION_DEFINE( r_dr )
       SCOREP_USER_REGION_BEGIN( r_dr, "friction_law", SCOREP_USER_REGION_TYPE_COMMON )
@@ -196,22 +196,22 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_imposedStatePlus,   l_imposedStatePlus, [i_godunovLd,9])
       call c_f_pointer( i_imposedStateMinus,  l_imposedStateMinus, [i_godunovLd,9])
       call c_f_pointer( i_time,               l_time  )
-      
+
       iElem               = l_domain%MESH%Fault%Face(i_face,1,1)          ! Remark:
       iSide               = l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
       iNeighbor           = l_domain%MESH%Fault%Face(i_face,1,2)          ! iNeighbor denotes "-" side
       iLocalNeighborSide  = l_domain%MESH%Fault%Face(i_face,2,2)
-      
+
       NormalVect_n = l_domain%MESH%Fault%geoNormals(1:3,i_face)
       NormalVect_s = l_domain%MESH%Fault%geoTangent1(1:3,i_face)
       NormalVect_t = l_domain%MESH%Fault%geoTangent2(1:3,i_face)
       CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),l_domain%EQN)
-      
+
       rho = densityPlus
       w_speed(:) = (/ pWaveVelocityPlus, sWaveVelocityPlus, sWaveVelocityPlus /)
       rho_neig = densityMinus
       w_speed_neig(:) = (/ pWaveVelocityMinus, sWaveVelocityMinus, sWaveVelocityMinus /)
-      
+
       do j=1,CONVERGENCE_ORDER
         do i=1,i_numberOfPoints
           NorStressGP(i,j) = l_godunov(i,1,j)
@@ -219,7 +219,7 @@ module f_ctof_bind_interoperability
           XZStressGP(i,j) = l_godunov(i,6,j)
         enddo
       enddo
-      
+
       call Eval_friction_law( TractionGP_XY,TractionGP_XZ,        & ! OUT: updated Traction
                               NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
                               i_face,iSide,iElem,l_time,timePoints,iT,          & ! IN: element ID, time, inv Trafo
@@ -237,7 +237,7 @@ module f_ctof_bind_interoperability
           l_imposedStateMinus(i,7) = l_imposedStateMinus(i,7) + timeWeights(j) * l_godunov(i,7,j)
           l_imposedStateMinus(i,8) = l_imposedStateMinus(i,8) + timeWeights(j) * (l_godunov(i,8,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XY(i,j)-l_godunov(i,4,j)))
           l_imposedStateMinus(i,9) = l_imposedStateMinus(i,9) + timeWeights(j) * (l_godunov(i,9,j) - 1.0D0/(w_speed_neig(2)*rho_neig) * (TractionGP_XZ(i,j)-l_godunov(i,6,j)))
-        
+
           l_imposedStatePlus(i,1) = l_imposedStatePlus(i,1) + timeWeights(j) * l_godunov(i,1,j)
           l_imposedStatePlus(i,4) = l_imposedStatePlus(i,4) + timeWeights(j) * TractionGP_XY(i,j)
           l_imposedStatePlus(i,6) = l_imposedStatePlus(i,6) + timeWeights(j) * TractionGP_XZ(i,j)
@@ -249,6 +249,28 @@ module f_ctof_bind_interoperability
 
       SCOREP_USER_REGION_END( r_dr )
     end subroutine
+
+    subroutine f_interoperability_calcElementwiseFaultoutput(i_domain, time) bind (c, name="f_interoperability_calcElementwiseFaultoutput")
+      use iso_c_binding
+      use typesDef
+      use faultoutput_mod
+      implicit none
+
+      type( c_ptr ), value         :: i_domain
+      real( kind=c_double ), value :: time
+
+      type(tUnstructDomainDescript), pointer :: domain
+      integer :: OutputPointType
+
+      ! convert c to fortran pointers
+      call c_f_pointer(i_domain, domain)
+
+      OutputPointType = domain%DISC%DynRup%OutputPointType
+      domain%DISC%DynRup%OutputPointType = 4
+      call calc_FaultOutput(domain%DISC%DynRup%DynRup_out_elementwise, domain%DISC, domain%EQN, domain%MESH, &
+          domain%optionalFields%BackgroundValue, domain%BND, time)
+      domain%DISC%DynRup%OutputPointType = OutputPointType
+    end subroutine f_interoperability_calcElementwiseFaultoutput
 
     subroutine f_interoperability_computePlasticity( i_domain, i_timeStep, &
             i_numberOfAlignedBasisFunctions, i_plasticParameters, i_initialLoading, io_dofs, io_Energy, io_pstrain ) bind( c, name='f_interoperability_computePlasticity')
@@ -383,27 +405,27 @@ module f_ctof_bind_interoperability
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
 
-      real(kind=c_double), value             :: i_x, i_y, i_z      
+      real(kind=c_double), value             :: i_x, i_y, i_z
       integer(kind=c_int), value             :: i_elem
 
       type(c_ptr), value                     :: o_mInvJInvPhisAtSources
       real*8, pointer                        :: l_mInvJInvPhisAtSources(:)
-      
+
       real                                   :: l_xi, l_eta, l_zeta
       integer                                :: indices(4) ! == MESH%nVertices_Tet
       integer                                :: l_elem, l_dof
       real                                   :: vx(4), vy(4), vz(4)
-      
+
       call c_f_pointer( i_domain,                 l_domain                                              )
       call c_f_pointer( o_mInvJInvPhisAtSources,  l_mInvJInvPhisAtSources,  [NUMBER_OF_BASIS_FUNCTIONS] )
-      
+
       ! f_elem = c_elem + 1
       l_elem = i_elem + 1
       indices = l_domain%MESH%ELEM%Vertex(1:l_domain%MESH%nVertices_Tet, l_elem)
       vx = l_domain%MESH%VRTX%xyNode(1, indices)
       vy = l_domain%MESH%VRTX%xyNode(2, indices)
       vz = l_domain%MESH%VRTX%xyNode(3, indices)
-      
+
       call TrafoXYZ2XiEtaZeta(xi    = l_xi,   &
                               eta   = l_eta,  &
                               zeta  = l_zeta, &

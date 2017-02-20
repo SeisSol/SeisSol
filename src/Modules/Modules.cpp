@@ -24,71 +24,54 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Asynchronous I/O
  */
 
-#ifndef ASYNCIO_H
-#define ASYNCIO_H
+#include <cassert>
 
-#include "Parallel/MPI.h"
+#include "Modules.h"
 
-#include <algorithm>
-
-#include "utils/env.h"
-#include "utils/logger.h"
-
-#include "async/Dispatcher.h"
-
-namespace seissol
+void seissol::Modules::_registerHook(Module &module, Hook hook, int priority)
 {
+	assert(hook < MAX_HOOKS);
 
-namespace io
-{
+	if (m_nextHook >= MAX_INIT_HOOKS)
+		logError() << "Trying to register for a hook after initialization phase";
+	if (hook < m_nextHook)
+		logError() << "Trying to register for hook" << strHook(hook)
+			<< "but SeisSol was already processing" << strHook(static_cast<Hook>(m_nextHook-1));
 
-class AsyncIO : public async::Dispatcher
-{
-public:
-	/**
-	 * @return False if this rank is an MPI executor that does not contribute to the
-	 *  computation.
-	 */
-	bool init()
-	{
-		async::Dispatcher::init();
-
-#ifdef USE_MPI
-		seissol::MPI::mpi.setComm(commWorld());
-		// TODO Update fault communicator (not really sure how we can do this at this point)
-#endif // USE_MPI
-
-		return dispatch();
-	}
-
-	void finalize()
-	{
-		// Call parent class
-		async::Dispatcher::finalize();
-
-#ifdef USE_MPI
-		// Reset the MPI communicator
-		seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
-#endif // USE_MPI
-	}
-};
-
+	m_hooks[hook].insert(std::pair<int, Module*>(priority, &module));
 }
 
+const char* seissol::Modules::strHook(Hook hook)
+{
+	switch (hook) {
+	case PRE_MPI:
+		return "PRE_MPI";
+	case POST_MPI_INIT:
+		return "POST_MPI_INIT";
+	case POST_MESH:
+		return "POST_MESH";
+	case PRE_MODEL:
+		return "PRE_MODEL";
+	case POST_MODEL:
+		return "POST_MODEL";
+	case SIMULATION_START:
+		return "SIMULATION_START";
+	case SYNCHRONIZATION_POINT:
+		return "SYNCHRONIZATION_POINT";
+	default:
+		return "unknown hook";
+	}
 }
-
-#endif // ASYNCIO_H

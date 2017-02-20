@@ -160,7 +160,7 @@ vars.AddVariables(
   BoolVariable( 'plasticity', 'enable plasticity (generated kernels only)', False ),
 
   BoolVariable( 'integrateQuants', 'enable computation and storage of integrated quantities (generated kernels only)', False ),
-  
+
   EnumVariable( 'dynamicRuptureMethod',
                 'Use quadrature here, cellaverage is EXPERIMENTAL.',
                 'quadrature',
@@ -218,6 +218,8 @@ vars.AddVariables(
                 allowed_values=('none', 'default', 'kernels', 'default_2.x', 'kernels_2.x')
               ),
 )
+
+env.Tool('MPITool', vars=vars)
 
 # set environment
 env = Environment(variables=vars)
@@ -481,7 +483,7 @@ if env['generatedKernels']:
 # pthread is linked after the other libraries
 if env['commThread']:
   env.Append(CPPDEFINES=['USE_COMM_THREAD'])
-  
+
 if env['dynamicRuptureMethod'] == 'cellaverage':
   env.Append(CPPDEFINES=['USE_DR_CELLAVERAGE'])
 
@@ -657,7 +659,7 @@ if env['unitTests'] != 'none':
   # Fail on error (as we can't see OK messages in the output)
   env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])
   env.Append(CPPDEFINES={'SEISSOL_TESTS': '"\\"' + Dir('.').srcnode().abspath + '/src/tests/\\""'})
-  
+
   # Try to remove weird linker errors
   if env['compiler'] == 'intel':
     env.Append(CXXFLAGS = ['-ffreestanding'])

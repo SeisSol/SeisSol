@@ -6,23 +6,23 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2009-2016, SeisSol Group
+!! Copyright (c) 2009-2017, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -494,7 +494,7 @@ CONTAINS
     !  |    d    |  n  |  t  |   /                    /
     !  |         |  d  |     |  /       Symmetry     /
     !  |         |     |     | /                    /
-    !  |_________|_____|_____|/ _ _ _ _ _ _ _ _ _ _/ 
+    !  |_________|_____|_____|/ _ _ _ _ _ _ _ _ _ _/
     !  |s^2/2 + s|  s  |s^2/2|     |     |         |
     !  |         |     |     |     |     |         |
     ! -50     -cut2  -cut1   0    cut1  cut2      50
@@ -941,10 +941,10 @@ CONTAINS
     END SELECT
 #endif ! GENERATEDKERNELS
 
-    logInfo0(*) 'Initializing DR parallelization'   
+    logInfo0(*) 'Initializing DR parallelization'
     DISC%DynRup%nDRElems = 0
 
-    IF(EQN%DR.EQ.1) THEN 
+    IF(EQN%DR.EQ.1) THEN
       DO iDRFace=1,mesh%fault%nSide
         IF(MESH%Fault%Face(iDRFace,1,1).GT.0) THEN
           ! increase face counter
@@ -1019,13 +1019,13 @@ CONTAINS
 #if defined(GENERATEDKERNELS)
   do iElem = 1, MESH%nElem
     iSide = 0
-    
+
     materialVal = OptionalFields%BackgroundValue(iElem,:)
     call c_interoperability_setMaterial( i_elem = iElem,                                         \
                                          i_side = iSide,                                         \
                                          i_materialVal = materialVal,\
                                          i_numMaterialVals = EQN%nBackgroundVar                  )
-                                         
+
     do iSide = 1,4
       IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
           iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
@@ -1039,21 +1039,21 @@ CONTAINS
           CASE DEFAULT ! For boundary conditions take inside material
               materialVal = OptionalFields%BackgroundValue(iElem,:)
           END SELECT
-      ENDIF      
+      ENDIF
       call c_interoperability_setMaterial( i_elem = iElem,                        \
                                            i_side = iSide,                        \
                                            i_materialVal = materialVal,       \
                                            i_numMaterialVals = EQN%nBackgroundVar )
-                                           
+
     enddo
   enddo
-  
+
 #ifdef USE_MPI
   ! synchronize redundant cell data
   logInfo0(*) 'Synchronizing copy cell material data.';
   call c_interoperability_synchronizeCellLocalData;
 #endif
-  
+
   ! Initialize source terms
   select case(SOURCE%Type)
     case(0)
@@ -2610,7 +2610,7 @@ CONTAINS
 #ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
-    real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 ) 
+    real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
     real    :: l_plasticParameters(3)
 #endif
     !-------------------------------------------------------------------------!
@@ -2731,7 +2731,7 @@ CONTAINS
                 DISC%Galerkin%dgvar(iDegFr,1:EQN%nVar,iElem,1) + IntGaussW(iIntGP)*iniGP(:)*phi
 #endif
             ENDDO
-            
+
             IF(EQN%Anelasticity.EQ.1) THEN
                 ! Projection of anelastic functions
                 DO iDegFr = 1, nDegFr
@@ -2823,8 +2823,8 @@ CONTAINS
 
 
     ENDDO ! iElem
-    
-#ifdef USE_PLASTICITY    
+
+#ifdef USE_PLASTICITY
     call c_interoperability_setTv( tv = EQN%Tv )
 #endif
 
@@ -3710,12 +3710,6 @@ CONTAINS
     !
     ! Initialize fault rupture output
     ! only in case Dynamic rupture is turned on, and for + elements assigned to the fault
-    if (EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) then
-        hasDr = 1
-    else
-        hasDr = 0
-    endif
-    call fault_create_comm(hasDr)
     IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
         ! Case 3
         ! output at certain positions specified in the *.dyn file
@@ -3755,13 +3749,9 @@ CONTAINS
             CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
         ENDIF ! DISC%DynRup%OutputPointType
     ENDIF ! end initialize fault output
-    ! Initialize fault output pvd wrapper
-    ! involves collecting meta data of fault ouptut for ALL elements
-    ! but only in cases dynamic rupture is turned on and output is set to 4 or 5
+    ! Initialize the fault Xdmf Writer (has to be done on all ranks)
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
-     logInfo(*) "Initialize fault-output.pvd file to wrap fault output data"
-     ! MPI_GATHER
-     CALL create_meta(DISC,MPI,DISC%DynRup%DynRup_out_elementwise%nDR_pick)
+     CALL ini_fault_xdmfwriter(DISC,IO)
     ENDIF
     !
     !
@@ -4688,7 +4678,7 @@ CONTAINS
 !~                  M          = DISC%Galerkin%nPoly+2,           &
 !~                  IO         = IO,                              &
 !~                  quiet      = .TRUE.                           )
-      
+
   END SUBROUTINE Read2dGF
 
 END MODULE dg_setup_mod

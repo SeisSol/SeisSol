@@ -8,23 +8,23 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2012-2016, SeisSol Group
+!! Copyright (c) 2012-2017, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -40,11 +40,7 @@
 !! @section DESCRIPTION
 !! Routines initializing fault output for dynamic rupture simulations
 
-#ifdef BG
-#include "../Initializer/preProcessorMacros.fpp"
-#else
 #include "Initializer/preProcessorMacros.fpp"
-#endif
 
 MODULE ini_faultoutput_mod
   !---------------------------------------------------------------------------!
@@ -62,7 +58,7 @@ MODULE ini_faultoutput_mod
 
   PUBLIC  :: ini_fault_subsampled
   PUBLIC  :: ini_fault_receiver
-  PUBLIC  :: create_meta
+  PUBLIC  :: ini_fault_xdmfwriter
   !---------------------------------------------------------------------------!
   INTERFACE ini_fault_receiver
      MODULE PROCEDURE ini_fault_receiver
@@ -74,8 +70,8 @@ MODULE ini_faultoutput_mod
      MODULE PROCEDURE ini_fault_subsampled
   END INTERFACE
 
-  INTERFACE create_meta
-    MODULE PROCEDURE create_meta
+  INTERFACE ini_fault_xdmfwriter
+    MODULE PROCEDURE ini_fault_xdmfwriter
   END INTERFACE
 CONTAINS
 
@@ -963,37 +959,21 @@ CONTAINS
         element_zeta(3) = 1.0
     ENDIF
   END SUBROUTINE set_xi_eta_zeta
-  !
-  !> Subroutine used by the pvd writer. The full pvd file is conctructed on rank 0.
-  !> Ranks which hold fault data are collected once initially
-  !<
-  SUBROUTINE create_meta(DISC,MPI,fault_elements)
-  !-------------------------------------------------------------------------!
-#ifdef PARALLEL
-    INCLUDE 'mpif.h'
-#endif
+
+  SUBROUTINE ini_fault_xdmfwriter(DISC,IO)
+   use FaultWriter
   !-------------------------------------------------------------------------!
   ! Argument list declaration
   TYPE(tDiscretization)   :: DISC
-  TYPE(tMPI)              :: MPI
-  INTEGER                 :: fault_elements
+  TYPE(tInputOutput)      :: IO
   !-------------------------------------------------------------------------!
-  ! Local variable declaration
-  INTEGER                 :: size
-  !-------------------------------------------------------------------------!
-  size=1
-#ifdef PARALLEL
-  size = MPI%nCPU
-#endif
-  ALLOCATE(DISC%DynRup%DynRup_out_elementwise%elements_per_rank(size))
-#ifdef PARALLEL
-  call MPI_Gather(  fault_elements,    1, MPI_INTEGER, &
-                    DISC%DynRup%DynRup_out_elementwise%elements_per_rank(:), 1,  MPI_INTEGER, &
-                    0,                  &
-                    MPI%commWorld,MPI%iErr)
-#else
-    DISC%DynRup%DynRup_out_elementwise%elements_per_rank(1)=fault_elements
-#endif
+
+   call initFaultOutput(DISC%DynRup%DynRup_out_elementwise%RecPoint, &
+        DISC%DynRup%DynRup_out_elementwise%OutputMask, &
+        DISC%DynRup%DynRup_out_elementwise%TmpState, &
+        IO%OutputFile, &
+        DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec)
+
   END SUBROUTINE
 !
 !> Subroutine initializing the fault output
@@ -1176,7 +1156,7 @@ CONTAINS
        !
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%CurrentPick(DISC%DynRup%DynRup_out_elementwise%nDR_pick))
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpTime(DISC%DynRup%DynRup_out_elementwise%MaxPickStore))
-       ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpState(DISC%DynRup%DynRup_out_elementwise%nDR_pick,DISC%DynRup%DynRup_out_elementwise%MaxPickStore,OutVars))
+       ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpState(DISC%DynRup%DynRup_out_elementwise%nDR_pick, 1, OutVars)) ! One TmpState is enough for the element wise output
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%OutVal(MAXVAL(DISC%DynRup%DynRup_out_elementwise%RecPoint(:)%globalreceiverindex),1,OutVars))
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%rotmat(DISC%DynRup%DynRup_out_elementwise%nDR_pick/SubElem,1:6,1:6)) ! store rotation matrix only for mother tets
        !
@@ -1273,10 +1253,6 @@ CONTAINS
          DISC%DynRup%DynRup_Constants(iOutPoints)%td0 = tmp_mat(6)
        END DO
    ENDIF
-
-   call initFaultOutput(DISC%DynRup%DynRup_out_elementwise%RecPoint, &
-        DISC%DynRup%DynRup_out_elementwise%OutputMask, &
-        IO%OutputFile)
   !
   END SUBROUTINE ini_fault_subsampled
 !

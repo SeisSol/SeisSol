@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -130,8 +130,8 @@ public:
 			if (rank() % groupSize == groupSize - 1) {
 				// Only the last rank of a group extends the number of elements
 				unsigned int dofsPerBlock = blockSize / sizeof(real);
-				unsigned int numGroupBlocks = (numGroupElems() + dofsPerBlock - 1) / dofsPerBlock;
-				unsigned int numGroupDofsFile = numGroupBlocks * dofsPerBlock;
+				unsigned long numGroupBlocks = (numGroupElems() + dofsPerBlock - 1) / dofsPerBlock;
+				unsigned long numGroupDofsFile = numGroupBlocks * dofsPerBlock;
 				numDofsFile = numDofs + (numGroupDofsFile - numGroupElems());
 			}
 		}

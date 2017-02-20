@@ -35,20 +35,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "MeshReaderFBinding.h"
-#include "GambitReader.h"
-#ifdef USE_NETCDF
-#include "NetcdfReader.h"
-#endif // USE_NETCDF
-#include "Monitoring/instrumentation.fpp"
-
-#include "SeisSol.h"
 
 #include <algorithm>
 #include <cstring>
 #include <iostream>
 
 #include "utils/logger.h"
+
+#include "SeisSol.h"
+#include "MeshReaderFBinding.h"
+#include "GambitReader.h"
+#ifdef USE_NETCDF
+#include "NetcdfReader.h"
+#endif // USE_NETCDF
+#include "Modules/Modules.h"
+#include "Monitoring/instrumentation.fpp"
 
 void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
@@ -231,6 +232,12 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 
 	logInfo(rank) << "C++ mesh data structures initialized.";
 #endif // GENERATEDKERNELS
+
+	// Setup the communicator for dynamic rupture
+	seissol::MPI::mpi.fault.init(meshReader.getFault().size() > 0);
+
+	// Call the post mesh initialization hook
+	seissol::Modules::callHook<seissol::POST_MESH>();
 }
 
 extern "C" {
@@ -250,7 +257,7 @@ void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitio
 void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
-	
+
 #ifdef USE_NETCDF
 	logInfo(rank) << "Reading netCDF mesh" << meshfile;
 

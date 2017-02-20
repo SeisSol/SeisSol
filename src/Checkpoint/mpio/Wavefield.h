@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -75,9 +75,12 @@ private:
 		int timestepWavefield;
 	};
 
+	/** MPI-IO supports buffer larger > 2 GB */
+	bool m_useLargeBuffer;
+
 public:
 	Wavefield()
-		: CheckPoint(0x7A3B4, sizeof(real))
+		: CheckPoint(0x7A3B4, sizeof(real)), m_useLargeBuffer(true)
 	{
 	}
 
