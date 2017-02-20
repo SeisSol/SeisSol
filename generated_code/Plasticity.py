@@ -48,7 +48,8 @@ def addMatrices(db, matricesDir, order):
   # Load matrices
   db.update(Tools.parseMatrixFile('{}/plasticity_matrices_{}.xml'.format(matricesDir, order), clones))
 
-  db.insert(DB.MatrixInfo('stressDOFS', numberOfBasisFunctions, 6))
+  # force Aligned in order to be compatible with regular DOFs.
+  db.insert(DB.MatrixInfo('stressDOFS', numberOfBasisFunctions, 6, forceAligned=True))
 
   matrixOrder = { 'v': 0, 'vInv': 1 }
   globalMatrixIdRules = [

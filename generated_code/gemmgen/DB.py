@@ -135,12 +135,12 @@ def extractSparsityPattern(cooMatrix):
   return scipy.sparse.coo_matrix((np.ones(len(cooMatrix.row)), (cooMatrix.row, cooMatrix.col)), shape=cooMatrix.shape, dtype=np.float64).todense()
 
 class MatrixInfo:
-  def __init__(self, name, rows, cols, matrix = None, isConstantGlobalMatrix = False):
+  def __init__(self, name, rows, cols, matrix = None, isConstantGlobalMatrix = False, forceAligned = False):
     self.name = name
     self.rows = rows
     self.cols = cols
     self.requiredReals = -1
-    self.leftMultiplication = False
+    self.leftMultiplication = forceAligned
     self.rightMultiplication = False
     self.symbol = [ [self.name] ]
     self.globalMatrixGroup = str()
