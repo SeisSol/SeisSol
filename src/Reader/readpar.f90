@@ -3254,6 +3254,16 @@ ALLOCATE( SpacePositionx(nDirac), &
                                           iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9)
       REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, OutputRegionBounds(1:6)
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
+      !> The checkpoint back-end is specified via a string.
+      !!
+      !! If none is specified, checkpoints are disabled. To use the HDF5, MPI-IO or SIONlib
+      !! back-ends you need to compile SeisSol with HDF5, MPI or SIONlib respectively.
+      !!
+      !! @allowed_values 'posix', 'hdf5', 'mpio', 'mpio_async', 'sionlib', 'none'
+      !! @warning When using an asynchronous back-end (mpio_async), you might lose
+      !!  2 * checkPointInterval of your computation.
+      !! @more_info https://github.com/SeisSol/SeisSol/wiki/Parameter-File
+      !! 
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
