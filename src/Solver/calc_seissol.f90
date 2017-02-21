@@ -69,7 +69,9 @@ CONTAINS
 #endif
     USE data_output_mod
     USE ini_SeisSol_mod
+#ifndef GENERATEDKERNELS
     USE Galerkin3D_solver_mod
+#endif
     USE magnitude_output_mod
     USE output_rupturefront_mod
     USE COMMON_operators_mod

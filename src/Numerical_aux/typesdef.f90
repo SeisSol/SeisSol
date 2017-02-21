@@ -973,6 +973,7 @@ MODULE TypesDef
      TYPE(thd_fault_receiver)           , POINTER :: hd_rec  => NULL()                         !< HDF5 file handle for fault hdf5 outpu
 #endif
 
+#ifndef GENERATEDKERNELS
     integer              :: nDRElems !< number of DR Elems
     real*8, allocatable  :: DRupdates(:,:,:)            !< shadow storage of receiver elemes
     integer, allocatable :: indicesOfDRElems(:) !< indices of elements having a pickpoint
@@ -982,6 +983,7 @@ MODULE TypesDef
     real*8, allocatable  :: DRupdatesMIC(:,:,:)            !< shadow storage of receiver elemes
     integer, allocatable :: indicesOfDRElemsMIC(:) !< indices of elements having a pickpoint
     integer, allocatable :: indicesOfDRElemsInCPUupdates(:) !< indices of elements having a pickpoint
+#endif
 
      type(tDynRun_constants),pointer         :: DynRup_Constants(:), DynRup_Constants_globInd(:) => NULL()
    END TYPE tDynRup                                                        !<

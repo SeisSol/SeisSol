@@ -941,6 +941,7 @@ CONTAINS
     END SELECT
 #endif ! GENERATEDKERNELS
 
+#ifndef GENERATEDKERNELS
     logInfo0(*) 'Initializing DR parallelization'
     DISC%DynRup%nDRElems = 0
 
@@ -992,6 +993,7 @@ CONTAINS
     ENDIF
 
     logInfo0(*) 'Initializing DR parallelization. Done.'
+#endif
 
     !
     !CALL ini_DGSponge(EQN,DISC,MESH,IO)  ! not yet done for hybrids
