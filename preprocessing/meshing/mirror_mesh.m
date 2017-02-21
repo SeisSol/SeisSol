@@ -82,7 +82,7 @@ switch normal
 end
 
 
-filename_new = '/export/data/ulrich/sym_mesh.neu';
+filename_new = sprintf('%s_mirrored.neu',filename0); 
 disp(sprintf('output will be written in %s', filename_new))
 
 filename = sprintf('%s.nc',filename0);
@@ -188,13 +188,15 @@ end
 listgroup = unique(element_group_new);
 %there is no group 0
 ngroups = size(listgroup,1)-ismember(0,listgroup);
+%date
+dt = datestr(now,'ddd mmm dd HH:MM:SS yyyy');
 
-fid_out = fopen('/export/data/ulrich/sym_mesh.neu', 'w');
+fid_out = fopen(filename_new, 'w');
 fprintf(fid_out,'%s','        CONTROL INFO 1.2.1');
 fprintf(fid_out,'\n%s','** GAMBIT NEUTRAL FILE');
 fprintf(fid_out,'\n%s','Simmetrix mesh in GAMBIT neutral file format');
 fprintf(fid_out,'\n%s','PROGRAM:               Gambit     1.2.1');
-fprintf(fid_out,'\n%s','Mon Feb 15 11:39:00 2016');
+fprintf(fid_out,'\n%s',dt);
 fprintf(fid_out,'\n%s','     NUMNP     NELEM     NGRPS    NBSETS     NDFCD     NDFVL');
 %     NUMNP     NELEM     NGRPS    NBSETS     NDFCD     NDFVL
 %       606      2538         1         3         3         3

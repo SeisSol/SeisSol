@@ -1,35 +1,40 @@
 The SeisSol core group is:
- * Atanasov, Atanas - TUM
- * Brietzke, Gilbert - LMU, GFZ, LRZ
+ * Brietzke, Gilbert - LRZ
  * Bader, Michael - TUM
- * Breuer, Alexander - TUM
- * Castro, Cristobal E. - LMU, UniTN
- * de la Puente, Josep - LMU
- * Dumbser, Michael - UniTN, UniS
  * Gabriel, Alice-Agnes - LMU
- * Heinecke, Alexander - TUM
- * Hermann, Verena - LMU
- * Kaeser, Martin - LMU, UniTN
- * Passone, Luca - KAUST
- * Pelties, Christian - LMU
+ * Madden, Elizabeth - LMU
+ * Rannabauer, Leonhard - TUM
  * Rettenberger, Sebastian - TUM
+ * Ulrich, Thomas - LMU
  * Uphoff, Carsten - TUM
- * Wenk, Stefan - LMU
+ * Wollherr, Stephanie - LMU
 
-The SeisSol group appreciates the work of following contributors:
+
+The SeisSol group appreciates the work of following contributors and former core group members:
  * Ampuero, Jean-Paul - Caltech
- * van Driel, Martin - LMU
- * Gratl, Fabio - TUM
- * Huang, Yihe - Caltech
+ * Atanasov, Atanas - TUM
+ * Breuer, Alexander - UCSD
+ * Castro, Cristobal E.
+ * de la Puente, Josep - BSC
+ * van Driel, Martin - ETH
+ * Dumbser, Michael - UniTN
+ * Gratl, Fabio
+ * Heinecke, Alexander - Intel
+ * Hermann, Verena
+ * Huang, Yihe - UMich
  * Igel, Heiner - LMU
  * Imperatori, Walter - KAUST
  * Jordan, Kirk - IBM Research
+ * Kaeser, Martin - MunichRE
  * Li, Yang - TUM
  * Mai, Martin - KAUST
- * Nerger, Amaryllis - LMU
+ * Nerger, Amaryllis
+ * Passone, Luca - KAUST
+ * Pelties, Christian - MunichRE
  * Pinaev, Dmitry - TUM
  * Sachdeva, Vipin - IBM Research
- * Simon, Marek - LMU
+ * Simon, Marek
+ * Wenk, Stefan
 
 The SeisSol group appreciates the work of the developers of Hydsol, the early roots of the SeisSol code:
  * Dumbser, Michael - UniTN, UniS
@@ -37,7 +42,7 @@ The SeisSol group appreciates the work of the developers of Hydsol, the early ro
  * Utzmann, Jens - UniS
  * Munz, Claus-Dieter - UniS
 
-website: http://seissol.geophysik.uni-muenchen.de
+website: http://www.seissol.org/
 
 TUM: 
 Technische Universitaet Muenchen
@@ -70,13 +75,6 @@ Boltzmannstraße 1
 Germany
 http://www.lrz.de/
 
-GFZ:
-Helmholtz-Zentrum Potsdam - Deutsches GeoForschungsZentrum  GFZ
-Stiftung des Öffentlichen Rechts des Landes Brandenburg
-Telegrafenberg
-14473 Potsdam
-Germany
-http://www.gfz-potsdam.de
 
 KAUST:
 King Abdullah University of Science and Technology
@@ -99,10 +97,3 @@ Cambridge, MA, 02142
 USA
 http://www.research.ibm.com/
 
-UniS:
-Institut für Aerodynamik und Gasdynamik
-Universitaet Stuttgart
-Pfaffenwaldring 21
-70550 Stuttgart
-Germany
-http://www.iag.uni-stuttgart.de/
