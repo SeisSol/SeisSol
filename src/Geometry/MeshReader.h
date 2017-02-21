@@ -213,14 +213,21 @@ public:
 
 				// Fix normal direction and get correct chiVec
 				if (!isPlus) {
-					MeshTools::mul(f.normal, -1.0, f.normal);
-
 					// In case of a minus side, compute chi using node 0 and 1 from the plus side
 					MeshTools::sub(m_vertices[i->vertices[MeshTools::FACE2NODES[j]
 					              [MeshTools::NEIGHBORFACENODE2LOCAL[(3+1-i->sideOrientations[j])%3]]]].coords,
 							m_vertices[i->vertices[MeshTools::FACE2NODES[j]
 							      [MeshTools::NEIGHBORFACENODE2LOCAL[(3+0-i->sideOrientations[j])%3]]]].coords,
 							chiVec);
+
+          MeshTools::sub(m_vertices[i->vertices[MeshTools::FACE2NODES[j]
+					              [MeshTools::NEIGHBORFACENODE2LOCAL[(3+2-i->sideOrientations[j])%3]]]].coords,
+							m_vertices[i->vertices[MeshTools::FACE2NODES[j]
+							      [MeshTools::NEIGHBORFACENODE2LOCAL[(3+0-i->sideOrientations[j])%3]]]].coords,
+							tauVec);
+
+          MeshTools::cross(chiVec, tauVec, f.normal);
+          MeshTools::mul(f.normal, 1.0 / MeshTools::norm(f.normal), f.normal);
 				}
 
 				// Compute vector inside the triangle's plane for the rotation matrix
