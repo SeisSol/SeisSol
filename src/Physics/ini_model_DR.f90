@@ -1883,7 +1883,6 @@ MODULE ini_model_DR_mod
   dip_rad = dip*pi/180d0
     
   c2bis = c2 - cos(2d0*(Phi-dip_rad))
-  print *, strike_rad,dip_rad,c2bis
   
   !ds (delta_sigma) is deduced from R (A5, Aochi and Madariaga 2003), 
   !assuming that sig1 and sig3 are in the yz plane
@@ -1893,25 +1892,24 @@ MODULE ini_model_DR_mod
   !and we can obtain the new expression of ds:
   ds =  (mu_dy * sigmazz + R*(cohesion + (mu_st-mu_dy)*sigmazz)) / (s2 + mu_dy*c2bis + R*(mu_st-mu_dy)*c2bis)
   sm =  sigmazz + ds * cos(2d0*(Phi-dip_rad))
-  print*, c2bis, sigmazz,ds, sm
   
   sii(1)= sm + ds
   !could be any value between sig1 and sig3
   sii(2)= sm 
   sii(3)= sm - ds
 
-  Stress = transpose(reshape((/ sii(1), 0d0, 0d0, 0d0, sii(2), 0d0, 0d0, 0d0, sii(3) /), shape(Stress)))
+  Stress = transpose(reshape((/ sii(1), 0.0, 0.0, 0.0, sii(2), 0.0, 0.0, 0.0, sii(3) /), shape(Stress)))
 
   !first rotation: in xz plane
   phi_xyz=(Phi-dip_rad)
   c=cos(phi_xyz)
   s=-sin(phi_xyz)
-  R1= transpose(reshape((/ c, 0d0, s, 0d0, 1d0, 0d0, -s, 0d0, c /), shape(R1)))
+  R1= transpose(reshape((/ c, 0.0, s, 0.0, 1.0, 0.0, -s, 0.0, c /), shape(R1)))
   
   !I cant explain the minus sign...
   c=cos(strike_rad)
   s=-sin(strike_rad)
-  R2= transpose(reshape((/ c, -s, 0d0, s, c, 0d0, 0d0, 0d0, 1d0 /), shape(R2)))
+  R2= transpose(reshape((/ c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0 /), shape(R2)))
 
   Stress_cartesian_norm = MATMUL(R2,MATMUL(R1,MATMUL(Stress,MATMUL(TRANSPOSE(R1),TRANSPOSE(R2)))))/sigmazz
   bii(1) = Stress_cartesian_norm(1,1)
@@ -1961,13 +1959,12 @@ MODULE ini_model_DR_mod
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
   ! NOTE: z negative is depth, free surface is at z=0
-  Laterally_homogenous_Stress = 1
+  Laterally_homogenous_Stress = 0
 
   IF (Laterally_homogenous_Stress.EQ.1) THEN
      ! strike, dip, sigmazz,cohesion,R
-     CALL STRESS_DIP_SLIP_AM(DISC,309d0, 19d0, 555562000d0, 0.4d6, 0.6d0, bii)
+     CALL STRESS_DIP_SLIP_AM(DISC,309.0, 19.0, 555562000.0, 0.4e6, 0.6, bii)
      b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
-     logError(*) b11,b22,b12,b23,b13
   ELSE
      !93 4
      xS1 = 5.0000000000e+05 
@@ -2076,16 +2073,16 @@ MODULE ini_model_DR_mod
 
              IF ((yGP-yS1).LT.(xGP-XS1)) THEN
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,309d0, 12d0, 555562000d0, 0.4d6, 0.6d0, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,309.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ELSE IF ((yGP-yS2).LT.(xGP-XS2)) THEN
                 alpha = (yGP-yS1)/(yS2-yS1)
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,(1d0-alpha)*309d0+alpha*330d0, 12d0, 555562000d0, 0.4d6, 0.6d0, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ELSE
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,330d0, 12d0, 555562000d0, 0.4d6, 0.6d0, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ENDIF
           ENDIF
