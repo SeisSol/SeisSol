@@ -218,6 +218,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                                               Lut*                   i_ltsLut,
                                                               LTSTree*               dynRupTree,
                                                               DynamicRupture*        dynRup,
+                                                              unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
 {
@@ -233,7 +234,9 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
   CellMaterialData* material = io_ltsTree->var(i_lts->material);
   
-  for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost) | LayerMask(Copy)); it != dynRupTree->endLeaf(); ++it) {
+  unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
+  
+  for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
     real                                (*imposedStatePlus)[seissol::model::godunovState::reals]    = it->var(dynRup->imposedStatePlus);
@@ -248,57 +251,59 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 #ifdef _OPENMP
   #pragma omp parallel for private(TData, TinvData, QgodLocalData, QgodNeighborData, APlusData, AMinusData) schedule(static)
 #endif
-    for (unsigned face = 0; face < it->getNumberOfCells(); ++face) {
-      assert(fault[face].element >= 0 || fault[face].neighborElement >= 0);
+    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+      unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+      assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
       /// Face information
-      faceInformation[face].plusSide = fault[face].side;
-      faceInformation[face].minusSide = fault[face].neighborSide;
-      if (fault[face].element >= 0) {
-        faceInformation[face].faceRelation = elements[ fault[face].element ].sideOrientations[ fault[face].side ] + 1;
+      faceInformation[ltsFace].meshFace = meshFace;
+      faceInformation[ltsFace].plusSide = fault[meshFace].side;
+      faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
+      if (fault[meshFace].element >= 0) {
+        faceInformation[ltsFace].faceRelation = elements[ fault[meshFace].element ].sideOrientations[ fault[meshFace].side ] + 1;
       } else {
         /// \todo check if this is correct
-        faceInformation[face].faceRelation = elements[ fault[face].neighborElement ].sideOrientations[ fault[face].neighborSide ] + 1;
+        faceInformation[ltsFace].faceRelation = elements[ fault[meshFace].neighborElement ].sideOrientations[ fault[meshFace].neighborSide ] + 1;
       }
 
       /// Time derivative mapping
-      if (fault[face].element >= 0) {
-        timeDerivativePlus[face] = i_ltsLut->lookup(i_lts->derivatives, fault[face].element);
-        timeDerivativeMinus[face] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[face].element)[ faceInformation[face].plusSide ];
-      } else if (fault[face].neighborElement >= 0) {
-        timeDerivativePlus[face] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[face].neighborElement)[ faceInformation[face].minusSide ];
-        timeDerivativeMinus[face] = i_ltsLut->lookup(i_lts->derivatives, fault[face].neighborElement);
+      if (fault[meshFace].element >= 0) {
+        timeDerivativePlus[ltsFace] = i_ltsLut->lookup(i_lts->derivatives, fault[meshFace].element);
+        timeDerivativeMinus[ltsFace] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[meshFace].element)[ faceInformation[ltsFace].plusSide ];
+      } else if (fault[meshFace].neighborElement >= 0) {
+        timeDerivativePlus[ltsFace] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[meshFace].neighborElement)[ faceInformation[ltsFace].minusSide ];
+        timeDerivativeMinus[ltsFace] = i_ltsLut->lookup(i_lts->derivatives, fault[meshFace].neighborElement);
       } else {
         assert(false);
       }
       
-      assert(timeDerivativePlus[face] != NULL && timeDerivativeMinus[face] != NULL);
+      assert(timeDerivativePlus[ltsFace] != NULL && timeDerivativeMinus[ltsFace] != NULL);
 
       /// DR mapping for elements
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        unsigned plusLtsId = (fault[face].element >= 0)          ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].element, duplicate) : std::numeric_limits<unsigned>::max();
-        unsigned minusLtsId = (fault[face].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[face].neighborElement, duplicate) : std::numeric_limits<unsigned>::max();
+        unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[meshFace].element, duplicate) : std::numeric_limits<unsigned>::max();
+        unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[meshFace].neighborElement, duplicate) : std::numeric_limits<unsigned>::max();
         
         assert(duplicate != 0 || plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
         
         if (plusLtsId != std::numeric_limits<unsigned>::max()) {
 #pragma omp critical
 {
-          CellDRMapping& mapping = drMapping[plusLtsId][ faceInformation[face].plusSide ];
-          mapping.fluxKernel = 4*faceInformation[face].plusSide;
-          mapping.godunov = &imposedStatePlus[face][0];
-          mapping.fluxSolver = &fluxSolverPlus[face][0];
-          mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[face].plusSide ][0];
+          CellDRMapping& mapping = drMapping[plusLtsId][ faceInformation[ltsFace].plusSide ];
+          mapping.fluxKernel = 4*faceInformation[ltsFace].plusSide;
+          mapping.godunov = &imposedStatePlus[ltsFace][0];
+          mapping.fluxSolver = &fluxSolverPlus[ltsFace][0];
+          mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[ltsFace].plusSide ][0];
 }
         }
         if (minusLtsId != std::numeric_limits<unsigned>::max()) {
 #pragma omp critical
 {
-          CellDRMapping& mapping = drMapping[minusLtsId][ faceInformation[face].minusSide ];
-          mapping.fluxKernel = 4*faceInformation[face].minusSide + faceInformation[face].faceRelation;
-          mapping.godunov = &imposedStateMinus[face][0];
-          mapping.fluxSolver = &fluxSolverMinus[face][0];
-          mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[face].minusSide ][ faceInformation[face].faceRelation ];
+          CellDRMapping& mapping = drMapping[minusLtsId][ faceInformation[ltsFace].minusSide ];
+          mapping.fluxKernel = 4*faceInformation[ltsFace].minusSide + faceInformation[ltsFace].faceRelation;
+          mapping.godunov = &imposedStateMinus[ltsFace][0];
+          mapping.fluxSolver = &fluxSolverMinus[ltsFace][0];
+          mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[ltsFace].minusSide ][ faceInformation[ltsFace].faceRelation ];
 }
         }
       }
@@ -306,32 +311,32 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       /// Transformation matrix
       DenseMatrixView<seissol::model::godunovMatrix::rows, seissol::model::godunovMatrix::cols> T(TData);
       DenseMatrixView<seissol::model::godunovMatrix::cols, seissol::model::godunovMatrix::rows> Tinv(TinvData);
-      seissol::model::getFaceRotationMatrix(fault[face].normal, fault[face].tangent1, fault[face].tangent2, T, Tinv);
+      seissol::model::getFaceRotationMatrix(fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, T, Tinv);
 
       /// Materials
       seissol::model::Material plusMaterial;
       seissol::model::Material minusMaterial;
-      unsigned plusLtsId = (fault[face].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[face].element) : std::numeric_limits<unsigned>::max();
-      unsigned minusLtsId = (fault[face].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[face].neighborElement) : std::numeric_limits<unsigned>::max();
+      unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].element) : std::numeric_limits<unsigned>::max();
+      unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].neighborElement) : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
       if (plusLtsId != std::numeric_limits<unsigned>::max()) {
         plusMaterial = material[plusLtsId].local;
-        minusMaterial = material[plusLtsId].neighbor[ faceInformation[face].plusSide ];
+        minusMaterial = material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
       } else {
         assert(minusLtsId != std::numeric_limits<unsigned>::max());
-        plusMaterial = material[minusLtsId].neighbor[ faceInformation[face].minusSide ];
+        plusMaterial = material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
         minusMaterial = material[minusLtsId].local;
       }
       
       /// Wave speeds
-      waveSpeedsPlus[face].density = plusMaterial.rho;
-      waveSpeedsPlus[face].pWaveVelocity = sqrt( (plusMaterial.lambda + 2.0*plusMaterial.mu) / plusMaterial.rho);
-      waveSpeedsPlus[face].sWaveVelocity = sqrt( plusMaterial.mu / plusMaterial.rho);
-      waveSpeedsMinus[face].density = minusMaterial.rho;
-      waveSpeedsMinus[face].pWaveVelocity = sqrt( (minusMaterial.lambda + 2.0*minusMaterial.mu) / minusMaterial.rho);
-      waveSpeedsMinus[face].sWaveVelocity = sqrt( minusMaterial.mu / minusMaterial.rho);
+      waveSpeedsPlus[ltsFace].density = plusMaterial.rho;
+      waveSpeedsPlus[ltsFace].pWaveVelocity = sqrt( (plusMaterial.lambda + 2.0*plusMaterial.mu) / plusMaterial.rho);
+      waveSpeedsPlus[ltsFace].sWaveVelocity = sqrt( plusMaterial.mu / plusMaterial.rho);
+      waveSpeedsMinus[ltsFace].density = minusMaterial.rho;
+      waveSpeedsMinus[ltsFace].pWaveVelocity = sqrt( (minusMaterial.lambda + 2.0*minusMaterial.mu) / minusMaterial.rho);
+      waveSpeedsMinus[ltsFace].sWaveVelocity = sqrt( minusMaterial.mu / minusMaterial.rho);
       
       /// Godunov state
       DenseMatrixView<9, 9> QgodLocal(QgodLocalData);
@@ -339,8 +344,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       seissol::model::getTransposedElasticGodunovState( plusMaterial, minusMaterial, QgodLocal, QgodNeighbor );
       
       // \todo Generate a kernel for this
-      MatrixView godunovMatrixPlus(godunovData[face].godunovMatrixPlus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
-      MatrixView godunovMatrixMinus(godunovData[face].godunovMatrixMinus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
+      MatrixView godunovMatrixPlus(godunovData[ltsFace].godunovMatrixPlus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
+      MatrixView godunovMatrixMinus(godunovData[ltsFace].godunovMatrixMinus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
       for (unsigned j = 0; j < 9; ++j) {
         for (unsigned i = 0; i < 9; ++i) {
           for (unsigned k = 0; k < 9; ++k) {
@@ -355,18 +360,18 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       seissol::model::getTransposedCoefficientMatrix(plusMaterial, 0, APlusData);
       seissol::model::getTransposedCoefficientMatrix(minusMaterial, 0, AMinusData);
       
-      MatrixView fluxSolverPlusView(fluxSolverPlus[face], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
-      MatrixView fluxSolverMinusView(fluxSolverMinus[face], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
+      MatrixView fluxSolverPlusView(fluxSolverPlus[ltsFace], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
+      MatrixView fluxSolverMinusView(fluxSolverMinus[ltsFace], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
       
       double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
-      if (fault[face].element >= 0) {
-        surfaceAreaAndVolume( i_meshReader, fault[face].element, fault[face].side, &plusSurfaceArea, &plusVolume );
+      if (fault[meshFace].element >= 0) {
+        surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
       } else {
         /// Blow up solution on purpose if used by mistake
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
       }
-      if (fault[face].neighborElement >= 0) {
-        surfaceAreaAndVolume( i_meshReader, fault[face].neighborElement, fault[face].neighborSide, &minusSurfaceArea, &minusVolume );
+      if (fault[meshFace].neighborElement >= 0) {
+        surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
       } else {
         /// Blow up solution on purpose if used by mistake
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
@@ -385,7 +390,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           fluxSolverMinusView(i, j) *= fluxScaleMinus;
         }
       }
-      
     }
+    
+    layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
 }

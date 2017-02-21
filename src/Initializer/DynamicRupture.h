@@ -65,7 +65,7 @@ struct seissol::initializers::DynamicRupture {
   
   
   void addTo(LTSTree& tree) {
-    LayerMask mask = LayerMask(Ghost) | LayerMask(Copy);
+    LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(                 godunov,             mask,     PAGESIZE_HEAP,      seissol::memory::Standard );

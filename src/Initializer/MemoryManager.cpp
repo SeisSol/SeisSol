@@ -543,7 +543,9 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
 
 void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
                                                           struct MeshStructure*       i_meshStructure,
-                                                          unsigned                    numFaultFaces )
+                                                          unsigned                    dynamicRuptureTimeCluster,
+                                                          unsigned                    numberOfDRCopyFaces,
+                                                          unsigned                    numberOfDRInteriorFaces )
 {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
@@ -571,12 +573,17 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
   m_dynRup.addTo(m_dynRupTree);
   m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
   m_dynRupTree.fixate();
-  
+
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    cluster.child<Copy>().setNumberOfCells(0);
-    cluster.child<Interior>().setNumberOfCells(numFaultFaces);
+    if (tc == dynamicRuptureTimeCluster) {
+      cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces);
+      cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces);
+    } else {
+      cluster.child<Copy>().setNumberOfCells(0);
+      cluster.child<Interior>().setNumberOfCells(0);
+    }
   }
   
   m_dynRupTree.allocateVariables();

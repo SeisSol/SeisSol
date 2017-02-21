@@ -64,6 +64,7 @@ namespace seissol {
                                             Lut*                   i_ltsLut,
                                             LTSTree*               dynRupTree,
                                             DynamicRupture*        dynRup,
+                                            unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
   }

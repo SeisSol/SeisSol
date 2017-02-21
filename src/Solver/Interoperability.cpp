@@ -291,12 +291,13 @@ extern "C" {
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_domain(NULL), m_ltsTree(NULL), m_lts(NULL) // reset domain pointer
+  m_domain(NULL), m_ltsTree(NULL), m_lts(NULL), m_ltsFaceToMeshFace(NULL) // reset domain pointer
 {
 }
 
 seissol::Interoperability::~Interoperability()
 {
+  delete[] m_ltsFaceToMeshFace;
 }
 
 void seissol::Interoperability::setDomain( void* i_domain ) {
@@ -327,10 +328,20 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
 
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
+  
+  
+  unsigned numberOfDRCopyFaces;
+  unsigned numberOfDRInteriorFaces;
+  // get cell information & mappings
+  seissol::SeisSol::main.getLtsLayout().getDynamicRuptureInformation( m_ltsFaceToMeshFace,
+                                                                      numberOfDRCopyFaces,
+                                                                      numberOfDRInteriorFaces );
 
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
                                                             m_meshStructure,
-                                                            seissol::SeisSol::main.meshReader().getFault().size() );
+                                                            seissol::SeisSol::main.getLtsLayout().getDynamicRuptureCluster(),
+                                                            numberOfDRCopyFaces,
+                                                            numberOfDRInteriorFaces );
 
   m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
   m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
@@ -487,6 +498,7 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            &m_ltsLut,
                                                            seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
                                                            seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+                                                           m_ltsFaceToMeshFace,
                                                            *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
                                                            m_timeStepping );
 }

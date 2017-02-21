@@ -240,7 +240,9 @@ class seissol::initializers::MemoryManager {
      **/
     void fixateLtsTree( struct TimeStepping&        i_timeStepping,
                         struct MeshStructure*       i_meshStructure,
-                        unsigned                    numFaultFaces );
+                        unsigned                    dynamicRuptureTimeCluster,
+                        unsigned                    numberOfDRCopyFaces,
+                        unsigned                    numberOfDRInteriorFaces );
 
     /**
      * Set up the internal structure.

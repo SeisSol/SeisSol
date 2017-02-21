@@ -194,7 +194,8 @@ private:
       NeighborCopy,
       DRNeighborCopy,
 #endif
-      DRFrictionLaw,
+      DRFrictionLawCopy,
+      DRFrictionLawInterior,
       NUM_COMPUTE_PARTS
     };
     
@@ -259,7 +260,7 @@ private:
     /**
      * Computes dynamic rupture.
      **/
-    void computeDynamicRupture();
+    void computeDynamicRupture( seissol::initializers::Layer&  layerData );
 
     /**
      * Computes all cell local integration.
@@ -307,8 +308,9 @@ private:
                                           long long&                  drNonZeroFlops,
                                           long long&                  drHardwareFlops );
 
-    void computeDynamicRuptureFlops(  long long&                  nonZeroFlops,
-                                      long long&                  hardwareFlops );
+    void computeDynamicRuptureFlops(  seissol::initializers::Layer& layerData,
+                                      long long&                    nonZeroFlops,
+                                      long long&                    hardwareFlops );
                                           
     void computeFlops();
     

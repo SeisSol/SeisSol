@@ -86,6 +86,9 @@ class seissol::Interoperability {
 
     //! Lookup table relating mesh to cells
     seissol::initializers::Lut        m_ltsLut;
+    
+    //! Lookup table relating faces to layers
+    unsigned*                         m_ltsFaceToMeshFace;
 
  public:
    /**

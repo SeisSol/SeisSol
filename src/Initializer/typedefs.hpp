@@ -424,6 +424,7 @@ struct PiecewiseLinearFunction1D {
 };
 
 struct DRFaceInformation {
+  unsigned meshFace;
   unsigned plusSide;
   unsigned minusSide;
   unsigned faceRelation;
