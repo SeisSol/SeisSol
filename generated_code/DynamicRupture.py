@@ -40,6 +40,7 @@
 
 from gemmgen import DB, Tools, Arch, Kernel
 import numpy as np
+import math
 
 def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
   numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
