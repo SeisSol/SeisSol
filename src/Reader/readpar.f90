@@ -1510,7 +1510,7 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
-                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file
+                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod
 
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
@@ -1526,7 +1526,7 @@ CONTAINS
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
                                                 Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
-                                                RS_sv0, XRef, YRef, ZRef,FileName_BackgroundStress, &
+                                                RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, Rupspeed, &
                                                 Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                                 RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
@@ -1558,6 +1558,7 @@ CONTAINS
     XRef = 0
     YRef = 0
     ZRef = 0
+    refPointMethod=0
     GPwise = 1 !1=GPwise and 0=elementwise
     inst_healing = 0
     Rupspeed = 0
@@ -1626,6 +1627,7 @@ CONTAINS
              EQN%XRef = XRef
              EQN%YRef = YRef
              EQN%ZRef = ZRef
+             EQN%refPointMethod = refPointMethod
              DISC%DynRup%cohesion_0 = cohesion_0
              DISC%DynRup%cohesion_max = cohesion_max
              DISC%DynRup%cohesion_depth = cohesion_depth
@@ -1643,6 +1645,7 @@ CONTAINS
              EQN%XRef = XRef
              EQN%YRef = YRef
              EQN%ZRef = ZRef
+             EQN%refPointMethod = refPointMethod
            CASE DEFAULT
              logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
              STOP

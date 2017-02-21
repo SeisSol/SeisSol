@@ -223,8 +223,9 @@ private:
 
 		if (checkFault) {
 			VrtxCoords center;
-			getfaultreferencepoint(&center[0], &center[1], &center[2]);
-			meshReader.findFault(center);
+                        int refPointMethod;
+			getfaultreferencepoint(&center[0], &center[1], &center[2], &refPointMethod);
+			meshReader.findFault(center, refPointMethod);
 
 			int* mpinumberdr;
 			getmpinumberdr(&size, &mpinumberdr);
