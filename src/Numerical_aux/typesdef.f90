@@ -883,25 +883,35 @@ MODULE TypesDef
   END TYPE tDynRup_output
 
   TYPE tDynRup
-     REAL, POINTER                          :: Slip(:,:) => NULL()               !< Slip path at given fault node
-     REAL, POINTER                          :: Slip1(:,:) => NULL()                      !< Slip at given fault node along loc dir 1
-     REAL, POINTER                          :: Slip2(:,:) => NULL()                      !< Slip at given fault node along loc dir 2
-     REAL, POINTER                          :: SlipRate1(:,:) => NULL()                  !< Slip Rate at given fault node
-     REAL, POINTER                          :: SlipRate2(:,:) => NULL()                  !< Slip Rate at given fault node
-     REAL, POINTER                          :: PeakSR(:,:) => NULL()                     !< Slip Rate at given fault node
-     REAL, POINTER                          :: TracXZ(:,:) => NULL()                     !< Traction at given fault node
-     REAL, POINTER                          :: TracXY(:,:) => NULL()                     !< Traction at given fault node
-     REAL, POINTER                          :: Mu(:,:) => NULL()                         !< Current friction coefficient at given fault node
-     REAL, POINTER                          :: Mu_S(:,:) => NULL()                       !< Static friction coefficient at given fault node
-     REAL, POINTER                          :: Mu_D(:,:) => NULL()                       !< Dynamic friction coefficient at given fault node
-     REAL, POINTER                          :: StateVar(:,:) => NULL()                   !< State variable used at Rate-and-state friction laws
-     REAL, POINTER                          :: cohesion(:,:) => NULL()                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
+     real, allocatable                      :: output_Mu(:,:)
+     real, allocatable                      :: output_StateVar(:,:)
+     real, allocatable                      :: output_cohesion(:,:)
+     real, allocatable                      :: output_Strength(:,:)
+     real, allocatable                      :: output_Slip(:,:)
+     real, allocatable                      :: output_Slip1(:,:)
+     real, allocatable                      :: output_Slip2(:,:)
+     real, allocatable                      :: output_rupture_time(:,:)
+     real, allocatable                      :: output_PeakSR(:,:)
+     real, allocatable                      :: output_dynStress_time(:,:)  
+     REAL, allocatable                      :: Slip(:,:)               !< Slip path at given fault node
+     REAL, allocatable                      :: Slip1(:,:)                      !< Slip at given fault node along loc dir 1
+     REAL, allocatable                      :: Slip2(:,:)                      !< Slip at given fault node along loc dir 2
+     REAL, allocatable                      :: SlipRate1(:,:)                  !< Slip Rate at given fault node
+     REAL, allocatable                      :: SlipRate2(:,:)                  !< Slip Rate at given fault node
+     REAL, allocatable                      :: PeakSR(:,:)                     !< Slip Rate at given fault node
+     REAL, allocatable                      :: TracXZ(:,:)                     !< Traction at given fault node
+     REAL, allocatable                      :: TracXY(:,:)                     !< Traction at given fault node
+     REAL, allocatable                      :: Mu(:,:)                         !< Current friction coefficient at given fault node
+     REAL, allocatable                      :: Mu_S(:,:)                       !< Static friction coefficient at given fault node
+     REAL, allocatable                      :: Mu_D(:,:)                       !< Dynamic friction coefficient at given fault node
+     REAL, allocatable                      :: StateVar(:,:)                   !< State variable used at Rate-and-state friction laws
+     REAL, allocatable                      :: cohesion(:,:)                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
      REAL                                   :: cohesion_0                                !< Default cohesion value
      REAL                                   :: cohesion_max                              !< maximum added cohesion for linear increasing cohesion
      REAL                                   :: cohesion_depth                            !< depth at which cohesion is increased
-     REAL, POINTER                          :: forced_rupture_time(:,:) => NULL()        !< forced rupture time at given fault node
-     REAL, POINTER                          :: rupture_time(:,:) => NULL()               !< rupture time at given fault node> used for VR ouput calculation
-     REAL, POINTER                          :: dynStress_time(:,:) => NULL()             !< time at which the shear stress is equal the dynamic stress
+     REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
+     REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
+     REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress
      REAL                                   :: XHypo                            !< x-coordinate of the forced rupture patch
      REAL                                   :: YHypo                            !< y-coordinate of the forced rupture circle
      REAL                                   :: ZHypo                            !< z-coordinate of the forced rupture circle

@@ -252,6 +252,11 @@ class seissol::Interoperability {
     * @param o_timeStep The dynamic rupture time step
     */
    void getDynamicRuptureTimeStep(int &o_timeStep);
+   
+   /**
+    * Copy dynamic rupture variables for output.
+    **/   
+   void copyDynamicRuptureState();
 
    /**
     * Adds the specified update to dofs.

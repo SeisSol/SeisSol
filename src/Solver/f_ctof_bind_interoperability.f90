@@ -103,6 +103,30 @@ module f_ctof_bind_interoperability
       call c_f_pointer( o_timeStep, l_timeStep )
 
       l_timeStep = l_domain%disc%iterationstep
+    end subroutine  
+
+    subroutine f_interoperability_copyDynamicRuptureState( i_domain ) bind (c, name='f_interoperability_copyDynamicRuptureState')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+
+      ! convert c to fortran pointers
+      call c_f_pointer( i_domain, l_domain)
+      
+      l_domain%disc%DynRup%output_Mu             = l_domain%disc%DynRup%Mu
+      l_domain%disc%DynRup%output_StateVar       = l_domain%disc%DynRup%StateVar
+      l_domain%disc%DynRup%output_cohesion       = l_domain%disc%DynRup%cohesion
+      l_domain%disc%DynRup%output_Strength       = l_domain%disc%DynRup%Strength
+      l_domain%disc%DynRup%output_Slip           = l_domain%disc%DynRup%Slip
+      l_domain%disc%DynRup%output_Slip1          = l_domain%disc%DynRup%Slip1
+      l_domain%disc%DynRup%output_Slip2          = l_domain%disc%DynRup%Slip2
+      l_domain%disc%DynRup%output_rupture_time   = l_domain%disc%DynRup%rupture_time
+      l_domain%disc%DynRup%output_PeakSR         = l_domain%disc%DynRup%PeakSR
+      l_domain%disc%DynRup%output_dynStress_time = l_domain%disc%DynRup%dynStress_time
     end subroutine
 
     subroutine f_interoperability_faultOutput( i_domain, i_time, i_timeStepWidth ) bind (c, name='f_interoperability_faultOutput')

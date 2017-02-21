@@ -1125,6 +1125,17 @@ CONTAINS
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
       DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
       DISC%DynRup%PeakSR        = 0.0D0
+      
+      allocate(disc%DynRup%output_Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_cohesion(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_Strength(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_Slip(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_Slip1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_Slip2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_PeakSR(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_dynStress_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
 
     else
         ! Allocate dummy arrays to avoid debug errors

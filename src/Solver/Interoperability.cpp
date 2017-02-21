@@ -238,6 +238,8 @@ extern "C" {
   extern void f_interoperability_getDynamicRuptureTimeStep( void *i_domain,
 		  	  	  	  	  	  	  	  	  	  	  	  	    int  *i_timeStep );
 
+  extern void f_interoperability_copyDynamicRuptureState(void* domain);
+
   extern void f_interoperability_faultOutput( void   *i_domain,
                                               double *i_fullUpdateTime,
                                               double *i_timeStepWidth );
@@ -601,6 +603,11 @@ void seissol::Interoperability::initializeIO(
 void seissol::Interoperability::getDynamicRuptureTimeStep(int &o_timeStep)
 {
 	f_interoperability_getDynamicRuptureTimeStep(m_domain, &o_timeStep);
+}
+
+void seissol::Interoperability::copyDynamicRuptureState()
+{
+	f_interoperability_copyDynamicRuptureState(m_domain);
 }
 
 void seissol::Interoperability::addToDofs( int      i_meshId,
