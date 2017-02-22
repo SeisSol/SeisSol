@@ -126,6 +126,12 @@ CONTAINS
     REAL                            :: ZoneIns, ZoneTrans, xG, yG, X2, LocX(3), LocY(3), tmp
     REAL                            :: BedrockVelModel(10,4)
     INTEGER                         :: eType
+    REAL                            :: Pf                                     ! fluid pressure
+    REAL                            :: b11, b22, b12, b13, b23, b33           ! coefficients for special loading
+    REAL                            :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
+    REAL                            :: nLayers, zLayers(20), rhoLayers(20)
+    REAL                            :: sigzz, Rz, g
+    REAL                            :: bii(6)
     INTEGER         :: nTens3GP
     REAL,POINTER    :: Tens3GaussP(:,:)
     REAL,POINTER    :: Tens3GaussW(:)
@@ -149,7 +155,6 @@ CONTAINS
 
     REAL, POINTER                   :: iMassMatrix(:,:) => NULL()             ! Pointer to the corresponding mass matrix
     INTEGER                         :: LocElemType                            ! Type of element
-    REAL                            :: Pf, b13, b33, b11                      ! fluid pressure and coeffcients for special initial loading in TPV26/TPV27
     INTEGER                         :: InterpolationScheme = 1                ! Select the interpolation scheme (linear=1, cubic=else)
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: MESH,IC
@@ -1050,6 +1055,90 @@ CONTAINS
                  logError(*) "Material assignement: unkown region", iLayer
            END SELECT
         ENDDO
+
+        !assign stress tensor for the whole domain
+        IF (EQN%Plasticity.EQ.1) THEN
+            xS1 = 5.0000000000e+05
+            yS1 = 4.4212739025e+05
+            xS2 = 4.4461626476e+05
+            ys2 = 6.0795713230e+05
+
+            g = 9.8D0
+            ! TO BE USED WITH 1d Layered medium
+            !free surface assumed at z=-2000m
+            !properties of continental crust
+            nLayers = 6
+            zLayers (1:6) = (/ 0d0,-2000d0, -6000d0, -12000d0, -23000d0,-600d6 /)
+            rhoLayers (1:6) = (/ 1000d0, 2720d0, 2860d0, 3050d0, 3300d0, 3375d0 /)
+            sigzz = 0d0
+
+
+            DO iElem=1, MESH%nElem
+                z = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
+                y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
+                x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
+
+                DO k = 2, nLayers
+                   IF (z.GT.zLayers(k)) THEN
+                      sigzz = sigzz + rhoLayers(k-1)*(z-zLayers(k-1))*g
+                      EXIT
+                   ELSE
+                      sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
+                   ENDIF
+               ENDDO
+
+               IF (z.LT.-25000D0) THEN
+                  Rz = (-z - 25000D0)/150e3
+               ELSE
+                  Rz = 0.
+               ENDIF
+
+               Omega = max(0D0,min(1d0, 1D0-Rz))
+
+               Pf = -1000D0 * g * z * 2d0
+
+               IF ((y-yS1).LT.(x-XS1)) THEN
+                   ! strike, dip, sigmazz,cohesion,R
+                   CALL STRESS_DIP_SLIP_AM(DISC,309.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                   b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+
+               ELSE IF ((y-yS2).LT.(x-XS2)) THEN
+                   alpha = (y-yS1)/(yS2-yS1)
+                   ! strike, dip, sigmazz,cohesion,R
+                   CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                   b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+
+               ELSE
+                   ! strike, dip, sigmazz,cohesion,R
+                   CALL STRESS_DIP_SLIP_AM(DISC,330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                   b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+               ENDIF
+
+               ! stress tensor for plasticity, elementwise assignement
+
+                !sigma_zz
+                EQN%IniStress(3,iElem)  = sigzz
+                !sigma_xx
+                EQN%IniStress(1,iElem)  = Omega*(b11*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+                !sigma_yy
+                EQN%IniStress(2,iElem)  = Omega*(b22*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+                !sigma_xy
+                EQN%IniStress(4,iElem)  = Omega*(b12*(sigzz + Pf))
+                !sigma_yz
+                EQN%IniStress(5,iElem)  = Omega*(b23*(sigzz + Pf))
+                !sigma_xz
+                EQN%IniStress(6,iElem)  = Omega*(b13*(sigzz + Pf))
+                !add fluid pressure
+                EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+                EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+                EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+
+                ! depth dependent plastic cohesion, related to szz
+                EQN%PlastCo(iElem) = 0.017* EQN%IniStress(3,iElem)
+          ENDDO
+
+       ENDIF !Plasticity
 
      CASE(1221)     ! T. Ulrich SUMATRA 2 x 1d 09.03.2016 GEO MESH
 	 ! OCeanic Crust

@@ -62,10 +62,14 @@ MODULE ini_model_DR_mod
   INTERFACE DR_setup
      MODULE PROCEDURE DR_setup
   END INTERFACE
+  INTERFACE STRESS_DIP_SLIP_AM
+     MODULE PROCEDURE STRESS_DIP_SLIP_AM
+  END INTERFACE
   !---------------------------------------------------------------------------!
   PUBLIC  :: DR_setup
   PRIVATE :: DR_basic_ini
   !---------------------------------------------------------------------------!
+  PUBLIC  :: STRESS_DIP_SLIP_AM
   PRIVATE :: background_HOM
   PRIVATE :: background_TPV5
   PRIVATE :: background_STEP
