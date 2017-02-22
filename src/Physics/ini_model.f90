@@ -1035,7 +1035,7 @@ CONTAINS
              MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
             CASE(4)
              MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-           CASE(6)
+            CASE(6)
             ! Crustal Crust
              z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
              IF (z.GT.BedrockVelModel(4,1)) THEN
@@ -1057,6 +1057,7 @@ CONTAINS
         ENDDO
 
         !assign stress tensor for the whole domain
+        !use the same stresses as in ini_model_DR although they are aligned with layers for the fault region
         IF (EQN%Plasticity.EQ.1) THEN
             xS1 = 5.0000000000e+05
             yS1 = 4.4212739025e+05
@@ -1135,7 +1136,8 @@ CONTAINS
 
 
                 ! depth dependent plastic cohesion, related to szz
-                EQN%PlastCo(iElem) = 0.017* EQN%IniStress(3,iElem)
+                ! following Shua Ma, 2012
+                EQN%PlastCo(iElem) = 0.1008* abs(EQN%IniStress(3,iElem))
           ENDDO
 
        ENDIF !Plasticity
