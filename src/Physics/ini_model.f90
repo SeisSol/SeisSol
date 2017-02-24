@@ -890,7 +890,7 @@ CONTAINS
            CASE(2)
             MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
            CASE DEFAULT
-                 logError(*) "Material assignement: unkown region", iLayer
+                 logError(*) "Material assignment: unknown region", iLayer
            END SELECT
         ENDDO
 
@@ -944,7 +944,7 @@ CONTAINS
            CASE(4)
             MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
            CASE DEFAULT
-                 logError(*) "Material assignement: unkown region", iLayer
+                 logError(*) "Material assignment: unknown region", iLayer
            END SELECT
         ENDDO
 
@@ -1005,11 +1005,11 @@ CONTAINS
            CASE(2) !below 80km
             MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
            CASE DEFAULT
-                 logError(*) "Material assignement: unkown region", iLayer
+                 logError(*) "Material assignment: unknown region", iLayer
            END SELECT
         ENDDO
 
-     CASE(1224)     ! T. Ulrich SUMATRA 2 x 1d 13.07.16 and 2 layers below fault, fault in a LVZ (small model)
+     CASE(1224,1225,1226)     ! T. Ulrich SUMATRA 2 x 1d 13.07.16 and 2 layers below fault, fault in a LVZ (small model)
          ! OCeanic Crust
          ! Layer                   depth    rho     mu          lambda
          BedrockVelModel(1,:) = (/  -6d3, 2550d0,18589500000d0,26571000000d0/)
@@ -1052,7 +1052,7 @@ CONTAINS
            CASE(5) !below 80km
             MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
            CASE DEFAULT
-                 logError(*) "Material assignement: unkown region", iLayer
+                 logError(*) "Material assignment: unknown region", iLayer
            END SELECT
         ENDDO
 
@@ -1134,13 +1134,24 @@ CONTAINS
                 EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
                 EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
 
-
-                ! depth dependent plastic cohesion, related to szz
-                ! following Shua Ma, 2012
-                EQN%PlastCo(iElem) = 0.1008* abs(EQN%IniStress(3,iElem))
+                !handle plastic cohesion
+                SELECT CASE(EQN%linType)
+                CASE(1224)! depth dependent plastic cohesion, related to szz, following Shua Ma (2012)
+                            EQN%PlastCo(iElem) = 0.1008* abs(EQN%IniStress(3,iElem))
+                CASE(1225) !constant everywhere, following Tan (2012)
+                            EQN%PlastCo(iElem) = 4.0e+06
+                CASE(1226) !lower cohesion and bulk friction for layer around the fault
+                     iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
+                     IF (iLayer.EQ.1) THEN
+                        EQN%PlastCo(iElem) = 1.0e+06
+                     ELSE
+                        EQN%PlastCo(iElem) = 4.0e+06
+                     ENDIF
+                END SELECT
           ENDDO
 
        ENDIF !Plasticity
+
 
      CASE(1221)     ! T. Ulrich SUMATRA 2 x 1d 09.03.2016 GEO MESH
 	 ! OCeanic Crust
