@@ -47,18 +47,27 @@
 #include <generated_code/kernels.h>
 
 void seissol::kernels::Plasticity::computePlasticity( double                      relaxTime,
+                                                      double                      timeStepWidth,
                                                       GlobalData const*           global,
                                                       PlasticityData const*       plasticityData,
-                                                      real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ] )
+                                                      real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ],
+                                                      double*                     pstrain)
 {
   real interpolationDofs[seissol::model::interpolationDOFS::reals] __attribute__((aligned(ALIGNMENT)));
   real meanStress[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   real tau[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   real taulim[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   real yieldFactor[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
+  real dudt_pstrain[7];
   
   seissol::generatedKernels::evaluateAtNodes(degreesOfFreedom, global->vandermondeMatrix, interpolationDofs);
   
+  //copy dofs for later comparison, only first dof of stresses required
+  real prev_degreesOfFreedom[6];
+  for (unsigned q = 0; q < 6; ++q) {
+	  prev_degreesOfFreedom[q] = degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+  }
+
   for (unsigned q = 0; q < 6; ++q) {
     real initialLoading = plasticityData->initialLoading[q][0];
     for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
@@ -117,7 +126,22 @@ void seissol::kernels::Plasticity::computePlasticity( double                    
                                                                           - initialLoading;
       }
     }
+
+
     generatedKernels::convertToModal(interpolationDofs, global->vandermondeMatrixInverse, degreesOfFreedom);
+
+    // calculate plastic strain with first dof only (for now)
+    for (unsigned q = 0; q < 6; ++q) {
+        real mufactor = plasticityData->mufactor;
+        dudt_pstrain[q] = mufactor*(prev_degreesOfFreedom[q] - degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]);
+        pstrain[q] += dudt_pstrain[q];
+    }
+
+    //accumulated plastic strain
+    pstrain[6] += timeStepWidth * sqrt(0.5 * (dudt_pstrain[0]*dudt_pstrain[0] + dudt_pstrain[1]*dudt_pstrain[1]
+            + dudt_pstrain[2]*dudt_pstrain[2])+ dudt_pstrain[3]*dudt_pstrain[3]
+			+ dudt_pstrain[4]*dudt_pstrain[4] + dudt_pstrain[5]*dudt_pstrain[5]);
+
   }
   
 }

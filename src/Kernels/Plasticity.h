@@ -53,9 +53,11 @@ namespace seissol {
 class seissol::kernels::Plasticity {
 public:
   static void computePlasticity( double                      relaxTime,
+                                 double                      timeStepWidth,
                                  GlobalData const*           global,
                                  PlasticityData const*       plasticityData,
-                                 real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ] );
+                                 real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ],
+                                 double*                     pstrain);
 };
 
 #endif
