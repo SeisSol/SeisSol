@@ -137,11 +137,10 @@ module f_ftoc_bind_interoperability
 
 
   interface c_interoperability_setPlasticParameters
-    subroutine c_interoperability_setPlasticParameters( i_meshId, i_bulkFriction, i_plasticParameters ) bind( C, name='c_interoperability_setPlasticParameters' )
-      use iso_c_binding, only: c_ptr, c_double
+    subroutine c_interoperability_setPlasticParameters( i_meshId, i_plasticParameters ) bind( C, name='c_interoperability_setPlasticParameters' )
+      use iso_c_binding, only: c_ptr
       implicit none
       type(c_ptr), value :: i_meshId
-      real(kind=c_double), value :: i_bulkFriction
       type(c_ptr), value :: i_plasticParameters
     end subroutine
   end interface

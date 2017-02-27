@@ -62,7 +62,7 @@ MODULE Plasticity_mod
   CONTAINS
 
 
-  SUBROUTINE Plasticity_3D_high(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, &
+  SUBROUTINE Plasticity_3D_high(dgvar, DOFStress, nDegFr, nAlignedDegFr, &
                                 Tv, dt, mu, lambda, parameters , Energy, pstrain, &
                                 intGaussP, intGaussW, DISC, nVar, nIntGP)
 
@@ -97,7 +97,7 @@ MODULE Plasticity_mod
     REAL        :: tau(1:nIntGP)
     REAL        :: taulim(1:nIntGP)                                           !tau= potential flow function, taulim= drucker-Prager yield stress.
     REAL        :: secInv(1:nIntGP)                                           !second Invariant of deviatoric stress
-    REAL        :: BulkFriction, Tv                                           !plastic parameters
+    REAL        :: Tv                                                         !relaxtime
     REAL        :: DOFStress(1:nDegFr,1:6)                                    !initial loading
     REAL        :: dgvar(1:nAlignedDegFr,1:9)                                 !dof's
     REAL        :: dgvar_new(1:nAlignedDegFr,1:6)                             !
@@ -111,7 +111,7 @@ MODULE Plasticity_mod
     REAL        :: estrain(1:6), estrain_ini(1:6)                             !total elastic strain
     REAL        :: PlasticEnergy_tmp, KineticEnergy_tmp, EstrainEnergy_tmp    !temp. energies
     REAL        :: Energy(1:2)                                                !plastic and elastic strain energy
-    REAL        :: parameters(1:3)                                            !1=volume of the triangle, 2=plastcohesion, 3=density rho
+    REAL        :: parameters(1:4)                                            !1=volume of the triangle, 2=plastcohesion, 3=density rho, 4 = bulk friction
     REAL        :: I1,I1_0,I2,I2_0                                            !first and second invariants of strains
     REAL        :: IntGaussP(:,:)
     REAL        :: IntGaussW(:)
@@ -120,7 +120,7 @@ MODULE Plasticity_mod
 
 
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, dt, &
+    INTENT(IN)    :: DOFStress, nDegFr, nAlignedDegFr, Tv, dt, &
                      mu, lambda, parameters, intGaussP, intGaussW, DISC, nVar, nIntGP
     INTENT(INOUT) :: dgvar, Energy, pstrain
     !-------------------------------------------------------------------------!
@@ -131,7 +131,7 @@ MODULE Plasticity_mod
     Stress_total = 0.0D0
     Energy(1:2)  = 0.0D0
 
-    angfric = ATAN(BulkFriction) !angle of friction
+    angfric = ATAN(parameters(4)) !angle of friction = atan(bulk friction)
 
     IF (Tv .GT. 0) THEN
        relaxtime = 1.0D0 - EXP(-dt/(Tv)) !Tv: direct input via parameter file; Tv smaller-> stronger plasticity
@@ -285,7 +285,7 @@ MODULE Plasticity_mod
   !yldfac is only caluclated from the first DOF, and all DOF's are adjusted by the same coefficient
 
   SUBROUTINE Plasticity_3D_avg(DISC, dgvar, DOFStress, nDegFr, nAlignedDegFr, &
-                               BulkFriction, Tv, dt, mu,lambda, parameters , &
+                               Tv, dt, mu,lambda, parameters , &
                                Energy, pstrain)
 
     !-------------------------------------------------------------------------!
@@ -310,7 +310,7 @@ MODULE Plasticity_mod
     REAL        :: mu, lambda                                                 !Lame parameters
     REAL        :: tau,taulim                                                 !tau= potential flow function, taulim= drucker-Prager yield stress.
     REAL        :: secInv                                                     !secInv=second Invariant of deviatoric stress
-    REAL        :: BulkFriction, Tv                                           !plastic parameters
+    REAL        :: Tv                                                         !relaxtime
     REAL        :: DOFStress(1:nDegFr,1:6)                                    !initial loading
     REAL        :: dgvar(1:nAlignedDegFr,1:9)                                 !dofs
     REAL        :: dudt_pstrain(1:6)                                          !change in plastic strain
@@ -318,10 +318,10 @@ MODULE Plasticity_mod
     REAL        :: estrain(1:6), estrain_ini(1:6)                             !total elastic strain
     REAL        :: PlasticEnergy_tmp, EstrainEnergy_tmp
     REAL        :: Energy(1:2)
-    REAL        :: parameters(1:3)                                            !1=volume of the triangle, 2=plastcohesion, 3=density rho
+    REAL        :: parameters(1:4)                                            !1=volume of the triangle, 2=plastcohesion, 3=density rho, 4 = bulk friction
     REAL         :: I1,I1_0,I2,I2_0                                           !first and second invariants of strains
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: DISC, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, &
+    INTENT(IN)    :: DISC, DOFStress, nDegFr, nAlignedDegFr, Tv, &
                      dt, mu, lambda, parameters
     INTENT(INOUT) :: dgvar, Energy, pstrain
     !-------------------------------------------------------------------------!
@@ -330,7 +330,7 @@ MODULE Plasticity_mod
     Energy(1:2) = 0.0
 
 
-    angfric = ATAN(BulkFriction) !angle of friction
+    angfric = ATAN(parameters(4)) !angle of friction = atan(bulk friction)
 
     !Tv: direct input via parameter file; Tv smaller-> stronger plasticity
     IF (Tv .GT. 0) THEN

@@ -264,7 +264,10 @@ CONTAINS
     Anisotropy          = 0
     Anelasticity        = 0
     Plasticity          = 0
-    pmethod             = 2 !average approach as default for plasticity
+    BulkFriction        = 0.
+    PlasticCo           = 0.
+    Tv                  = 0.03  !standard value from SCEC benchmarks
+    pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
     MaterialType        = 0
     RandomField_Flag    = 0
@@ -311,8 +314,9 @@ CONTAINS
 
 #endif
         EQN%Plasticity = Plasticity
+        !first constant, can be overwritten in ini_model
         EQN%PlastCo_0 = PlasticCo
-        EQN%BulkFriction = BulkFriction
+        EQN%BulkFriction_0 = BulkFriction
         EQN%Tv = Tv
         EQN%PlastMethod = pmethod
         SELECT CASE (EQN%PlastMethod) !two different methods for plasticity

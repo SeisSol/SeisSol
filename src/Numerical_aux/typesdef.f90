@@ -1195,8 +1195,9 @@ MODULE TypesDef
      INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic
      REAL, POINTER                          :: Energy(:,:)=> NULL()
      REAL                                   :: PlastCo_0                        !< Cohesion for the Drucker-Prager plasticity, initial constant value
-     REAL, POINTER                          :: PlastCo(:)                       !< Cohesion for the Drucker-Prager plasticity, depth-dependent
-     REAL                                   :: BulkFriction                     !< Bulk friction for the Drucker-Prager plasticity
+     REAL, POINTER                          :: PlastCo(:)                       !< Cohesion for the Drucker-Prager plasticity, element-dependent
+     REAL                                   :: BulkFriction_0                   !< Bulk friction for the Drucker-Prager plasticity, initial constant value
+     REAL,POINTER                           :: BulkFriction(:)                  !< Bulk friction for the Drucker-Prager plasticity, , element-dependent
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
      INTEGER                                :: PlastMethod                      !< method for plasticity: (0) = high-order points, (2) = average of an element
      REAL, POINTER                          :: IniStress(:,:)                   !< Initial stress (loading) for the whole domain, only used for plastic calculations

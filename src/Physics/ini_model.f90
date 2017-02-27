@@ -177,8 +177,10 @@ CONTAINS
 
     IF (EQN%Plasticity .NE. 0) THEN
         ALLOCATE ( EQN%PlastCo(MESH%nElem) )
-        EQN%PlastCo(:) = EQN%PlastCo_0 !assign constant value from parameter file
+        !initialize with constant value from parameter file
         !add element-dependent assignement for special lintypes in the following
+        EQN%BulkFriction(:) = EQN%BulkFriction_0
+        EQN%PlastCo(:) = EQN%PlastCo_0
         allocate(EQN%IniStress(6,MESH%nElem))
         EQN%IniStress(:,:) = 0.0D0
     ENDIF

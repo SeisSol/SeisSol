@@ -2624,7 +2624,7 @@ CONTAINS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
-    real    :: l_plasticParameters(3)
+    real    :: l_plasticParameters(4)
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2643,7 +2643,7 @@ CONTAINS
 
     IF(EQN%Plasticity.EQ.1) THEN
       ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem),&
-               DISC%Galerkin%PlasticParameters(3,1:MESH%nElem), DISC%Galerkin%Strain_Matrix(6,6))
+               DISC%Galerkin%PlasticParameters(4,1:MESH%nElem), DISC%Galerkin%Strain_Matrix(6,6))
         !Initialization
         DISC%Galerkin%DOFStress = 0.
         DISC%Galerkin%pstrain = 0.
@@ -2808,6 +2808,7 @@ CONTAINS
         l_plasticParameters(1) = MESH%Elem%Volume(iElem)
         l_plasticParameters(2) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
         l_plasticParameters(3) = EQN%Rho0    !density
+        l_plasticParameters(4) = EQN%BulkFriction(iElem) !element-dependent bulk friction
 
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
@@ -2815,7 +2816,6 @@ CONTAINS
 
         !initialize parameters in C
         call c_interoperability_setPlasticParameters( i_meshId         = c_loc( iElem), \
-                                                   i_bulkFriction      = EQN%BulkFriction, \
                                                    i_plasticParameters = c_loc( l_plasticParameters ) )
 #endif
 
@@ -2825,6 +2825,7 @@ CONTAINS
           DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
           DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
           DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
+          DISC%Galerkin%plasticParameters(4,iElem) = EQN%BulkFriction(iElem) !element-dependent bulk friction
         ENDIF
 #endif
 

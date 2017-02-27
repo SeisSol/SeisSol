@@ -475,14 +475,14 @@ CONTAINS
                 SELECT CASE(EQN%PlastMethod) !two different implementations
                   CASE(0) !high-order points implementation
                     CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
-                                              EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                              EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
-                                              DISC, EQN%nVar, DISC%Galerkin%nIntGP)
+                                            EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:4,iElem), &
+                                            EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
+                                            DISC, EQN%nVar, DISC%Galerkin%nIntGP)
 
                   CASE(2) !average approach with first dof
                     CALL Plasticity_3D_avg(DISC,DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                            DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                            EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
+                                           DISC%Galerkin%nDegFr, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:4,iElem), &
+                                           EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
                 END SELECT
 
 

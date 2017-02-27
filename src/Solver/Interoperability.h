@@ -194,7 +194,6 @@ class seissol::Interoperability {
     **/
 #ifdef USE_PLASTICITY
    void setPlasticParameters( int    *i_meshId,
-                              double i_bulkFriction,
                               double *i_plasticParameters );
    
    void setTv(double tv);
