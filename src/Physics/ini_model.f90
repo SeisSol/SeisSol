@@ -108,7 +108,7 @@ CONTAINS
     INTEGER, POINTER                :: PertMaterial(:)
     INTEGER, POINTER                :: ElemID(:)
     REAL                            :: Mat_Vert(MESH%nVertexMax,EQN%nBackgroundVar), Mat_Sum(EQN%nBackgroundVar), MaterialTmp(EQN%nAneMaterialVar)
-    REAL                            :: x, y, z, r, rBary, cp, cs, rho, mu, lambda, depths(4), radius, radius_ref
+    REAL                            :: x, y, z, ztest, r, rBary, cp, cs, rho, mu, lambda, depths(4), radius, radius_ref
     REAL, POINTER                   :: xrf(:), yrf(:), zrf(:), pertrf(:,:,:,:)
     REAL, POINTER                   :: PerturbationVar(:,:), P(:,:)
     REAL, POINTER                   :: posx(:), posy(:), posz(:), pert(:)
@@ -1077,9 +1077,16 @@ CONTAINS
 
 
             DO iElem=1, MESH%nElem
-                z = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
+                ztest = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
                 y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
                 x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
+
+                !constant stress above -3000m
+                IF (ztest.GE.-3000) THEN
+                    z = -3000.0
+                ELSE
+                    z = ztest
+                ENDIF
 
                 DO k = 2, nLayers
                    IF (z.GT.zLayers(k)) THEN
@@ -1106,7 +1113,7 @@ CONTAINS
                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
                ELSE IF ((y-yS2).LT.(x-XS2)) THEN
-                   alpha = (y-yS1)/(yS2-yS1)
+                   alpha = ((y-x)-(yS1-xS1))/((yS2-xS2)-(yS1-xS1))
                    ! strike, dip, sigmazz,cohesion,R
                    CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
