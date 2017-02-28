@@ -86,7 +86,7 @@ void seissol::Simulator::simulate() {
 
   // tolerance in time which is neglected
   double l_timeTolerance = seissol::SeisSol::main.timeManager().getTimeTolerance();
-  
+
   // Copy initial dynamic rupture in order to ensure correct initial fault output
   e_interoperability.copyDynamicRuptureState();
 
@@ -133,8 +133,8 @@ void seissol::Simulator::simulate() {
     if( std::abs( m_currentTime - ( m_waveFieldTime + m_waveFieldInterval) ) < l_timeTolerance ) {
   	  seissol::SeisSol::main.waveFieldWriter().write(m_currentTime);
       m_waveFieldTime += m_waveFieldInterval;
-      upcomingTime = std::min(upcomingTime, m_waveFieldTime + m_waveFieldInterval);
     }
+    upcomingTime = std::min(upcomingTime, m_waveFieldTime + m_waveFieldInterval);
 
     // write checkpoint if required
     if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
@@ -144,8 +144,8 @@ void seissol::Simulator::simulate() {
 
       seissol::SeisSol::main.checkPointManager().write(m_currentTime, waveFieldTimeStep, faultTimeStep);
       m_checkPointTime += m_checkPointInterval;
-      upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
     }
+    upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
   }
 
   // stop the communication thread (if applicable)

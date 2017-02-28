@@ -40,6 +40,7 @@
 #ifndef MODULE_H
 #define MODULE_H
 
+#include <cassert>
 #include <climits>
 #include <cmath>
 #include <limits>
@@ -58,8 +59,8 @@ private:
 	/** The synchronization interval for this module */
 	double m_syncInterval;
 
-	/** The last synchronization point for this module */
-	double m_lastSyncPoint;
+	/** The next synchronization point for this module */
+	double m_nextSyncPoint;
 
 public:
 	/**
@@ -83,7 +84,7 @@ public:
 
 public:
 	Module()
-		: m_syncInterval(0), m_lastSyncPoint(0)
+		: m_syncInterval(0), m_nextSyncPoint(0)
 	{ }
 
 	/**
@@ -96,17 +97,12 @@ public:
 	 */
 	double potentialSyncPoint(double currentTime, double timeTolerance)
 	{
-		if (m_syncInterval <= 0)
-			return std::numeric_limits<double>::max();
-
-		if (std::abs(currentTime - (m_lastSyncPoint + m_syncInterval)) < timeTolerance) {
+		if (std::abs(currentTime - m_nextSyncPoint) < timeTolerance) {
 			syncPoint(currentTime);
-
-			m_lastSyncPoint += m_syncInterval;
-			return m_lastSyncPoint;
+			m_nextSyncPoint += m_syncInterval;
 		}
 
-		return m_lastSyncPoint + m_syncInterval;
+		return m_nextSyncPoint;
 	}
 
 	/**
@@ -116,7 +112,8 @@ public:
 	 */
 	void setSimulationStartTime(double time)
 	{
-		m_lastSyncPoint = time;
+		assert(m_syncInterval > 0);
+		m_nextSyncPoint = time + m_syncInterval;
 	}
 
 	//
