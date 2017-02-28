@@ -1011,7 +1011,7 @@ CONTAINS
            END SELECT
         ENDDO
 
-     CASE(1224,1225,1226)     ! T. Ulrich SUMATRA 2 x 1d 13.07.16 and 2 layers below fault, fault in a LVZ (small model)
+     CASE(1224,1225,1226, 1227)     ! T. Ulrich SUMATRA 2 x 1d 13.07.16 and 2 layers below fault, fault in a LVZ (small model)
          ! OCeanic Crust
          ! Layer                   depth    rho     mu          lambda
          BedrockVelModel(1,:) = (/  -6d3, 2550d0,18589500000d0,26571000000d0/)
@@ -1156,6 +1156,8 @@ CONTAINS
                      ELSE
                         EQN%PlastCo(iElem) = 4.0e+06
                      ENDIF
+                CASE(1227)! depth dependent plastic cohesion, related to szz, following Shua Ma (2012)
+                         EQN%PlastCo(iElem) = 0.001* abs(EQN%IniStress(3,iElem))
                 END SELECT
           ENDDO
 

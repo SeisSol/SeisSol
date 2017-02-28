@@ -577,7 +577,7 @@ CONTAINS
       logInfo0(*) 'No material property zones are defined. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       !
-  CASE(122,1221,1222,1223,1224, 1225, 1226) ! SUMATRA T Ulrich 16.02.2016
+  CASE(122,1221,1222,1223,1224, 1225, 1226, 1227) ! SUMATRA T Ulrich 16.02.2016
       !
       logInfo(*) 'Material property zones are defined by SeisSol. '
   CASE DEFAULT
