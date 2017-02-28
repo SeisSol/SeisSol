@@ -2112,7 +2112,12 @@ MODULE ini_model_DR_mod
           IF (zGP.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+              IF (EQN%linType.NE.1223) THEN
+                 DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+              ELSE
+                 !shallow fault breaking with 4d6 instead of 8d6
+                 DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-8.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+              ENDIF
           ELSE
               ! set cohesion
               DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
