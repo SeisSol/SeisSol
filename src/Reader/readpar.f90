@@ -580,6 +580,18 @@ CONTAINS
   CASE(122,1221,1222,1223,1224, 1225, 1226, 1227) ! SUMATRA T Ulrich 16.02.2016
       !
       logInfo(*) 'Material property zones are defined by SeisSol. '
+
+      IF (EQN%Anelasticity .EQ. 1) THEN
+         logInfo0(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
+         logInfo0(*) 'with central frequency ',EQN%FreqCentral
+         logInfo0(*) 'and frequency ratio ',EQN%FreqRatio
+         logInfo0(*) 'Anelastic parameters are defined in inimodel.'
+         EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
+         EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
+         EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms                                                    !
+         EQN%AneMatIni = 4
+      ENDIF
+
   CASE DEFAULT
          logError(*) 'Wrong linearization type.'
       STOP

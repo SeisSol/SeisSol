@@ -1024,7 +1024,33 @@ CONTAINS
                     logError(*) "Material assignment: unknown region", iLayer
               END SELECT
            ENDIF
-        ENDDO
+           !anelastic setup
+           IF (EQN%ANELASTICITY.EQ.1) THEN
+
+               ! Set local anelasticity
+               EQN%LocAnelastic(iElem) = 1
+               !set material parameters as the elastic ones above
+               MaterialTmp(1) = MaterialVal(iElem,1) !rho
+               MaterialTmp(2) = MaterialVal(iElem,2) !mu
+               MaterialTmp(3) = MaterialVal(iElem,3) !lambda
+
+               !calculate p- and s-wave velocties in km/s
+               cs = sqrt(MaterialTmp(2)/MaterialTmp(1))/1000.0D0
+               cp = sqrt((MaterialTmp(3)+2.0D0*MaterialTmp(2))/MaterialTmp(1))/1000.0D0
+
+               !transform into Qp and Qs
+               MaterialTmp(5) = 50.0*cs !Q_s
+               MaterialTmp(4) =  2.0*MaterialTmp(5) !Q_p
+
+               CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)
+
+               DO iMech = 1, EQN%nMechanisms                                      ! Set anelastic coefficients w_freq and theta
+                  MaterialVal(iElem,iMech*4)             = w_freq(iMech)
+                  MaterialVal(iElem,iMech*4+1:iMech*4+3) = Theta(iMech,:)
+               ENDDO
+            ENDIF
+
+        ENDDO !ielem
 
         !assign stress tensor for the whole domain
         !use the same stresses as in ini_model_DR although they are aligned with layers for the fault region
