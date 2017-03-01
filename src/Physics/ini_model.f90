@@ -176,7 +176,7 @@ CONTAINS
     EQN%LocPoroelastic(:) = 0
 
     IF (EQN%Plasticity .NE. 0) THEN
-        ALLOCATE ( EQN%PlastCo(MESH%nElem) )
+        ALLOCATE (EQN%BulkFriction(MESH%nElem), EQN%PlastCo(MESH%nElem))
         !initialize with constant value from parameter file
         !add element-dependent assignement for special lintypes in the following
         EQN%BulkFriction(:) = EQN%BulkFriction_0
