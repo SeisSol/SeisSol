@@ -2115,8 +2115,8 @@ MODULE ini_model_DR_mod
               IF (EQN%linType.NE.1223) THEN
                  DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
               ELSE
-                 !shallow fault breaking with 4d6 instead of 8d6
-                 DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-8.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+                 !shallow fault breaking 8d6 instead of 10d6
+                 DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)-10.0d6*((max(zGP,-5000d0)+5000d0)/(5000d0))
               ENDIF
           ELSE
               ! set cohesion
