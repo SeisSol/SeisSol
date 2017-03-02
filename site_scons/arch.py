@@ -89,7 +89,7 @@ def getFlags(architecture, compiler):
   
   # enable interproc. opts for small cores
   if cpu in ['knc', 'knl']:
-    flags.extend(['-ip', '-ipo'])
+    flags.extend(['-ip'])
               
   return flags
   
