@@ -42,6 +42,7 @@ from gemmgen import DB, Tools, Arch, Kernel
 import numpy as np
 import argparse
 import DynamicRupture
+import Plasticity
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -78,6 +79,7 @@ db.insert(DB.MatrixInfo('AplusT', numberOfReducedQuantities, numberOfReducedQuan
 db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
 
 DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfElasticQuantities, numberOfReducedQuantities)
+Plasticity.addMatrices(db, cmdLineArgs.matricesDir, order)
 
 # Load sparse-, dense-, block-dense-config
 Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
@@ -132,6 +134,7 @@ source = db['mechanism'] * db['ET']
 kernels.append(Kernel.Prototype('source', source))
 
 DynamicRupture.addKernels(db, kernels, 'reducedDofs')
+Plasticity.addKernels(db, kernels)
 
 # Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)
