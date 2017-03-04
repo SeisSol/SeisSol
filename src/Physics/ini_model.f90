@@ -968,35 +968,8 @@ CONTAINS
          BedrockVelModel(7,:) = (/ -5d10, 3330d0,65942325000d0,81235350000d0/)
 
         DO iElem = 1, MESH%nElem
-           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
-           IF (EQN%linType.NE.1223) THEN
-              SELECT CASE (iLayer)
-               CASE(2) !LVZ
-                MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-               CASE(1)
-                MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
-               CASE(3)
-                MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
-               CASE(4)
-                MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-               CASE(5,6)
-               ! Crustal Crust
-                z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
-                IF (z.GT.BedrockVelModel(4,1)) THEN
-                    MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
-                ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
-                    MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
-                ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
-                    MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
-                ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
-                    MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-                ELSE
-                    logError(*) "depth lower than",BedrockVelModel(7,1),iLayer,z
-                ENDIF
-              CASE DEFAULT
-                    logError(*) "Material assignment: unknown region", iLayer
-              END SELECT
-           ELSE
+           iLayer = MESH%ELEM%Reference(0,iElem) ! Zone number is given by reference 0
+           IF (EQN%linType.NE.1224) THEN !fault not intersecting surface
               SELECT CASE (iLayer)
                CASE(2,7) !LVZ
                 MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
@@ -1023,8 +996,37 @@ CONTAINS
               CASE DEFAULT
                     logError(*) "Material assignment: unknown region", iLayer
               END SELECT
+
+           ELSE !for geometry with fault surface intersection
+              SELECT CASE (iLayer)
+               CASE(2) !LVZ
+                MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
+               CASE(1)
+                MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
+               CASE(3)
+                MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
+               CASE(4)
+                MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
+               CASE(5,6)
+               ! Crustal Crust
+                z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
+                IF (z.GT.BedrockVelModel(4,1)) THEN
+                    MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
+                ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
+                    MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
+                ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
+                    MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
+                ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
+                    MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
+                ELSE
+                    logError(*) "depth lower than",BedrockVelModel(7,1),iLayer,z
+                ENDIF
+              CASE DEFAULT
+                    logError(*) "Material assignment: unknown region", iLayer
+              END SELECT
            ENDIF
-           !anelastic setup
+
+           !anelastic setup, material dependent
            IF (EQN%ANELASTICITY.EQ.1) THEN
 
                ! Set local anelasticity
@@ -1139,26 +1141,26 @@ CONTAINS
 
                 !handle plastic cohesion
                 SELECT CASE(EQN%linType)
-                CASE(1224)! depth dependent plastic cohesion, related to szz, following Shua Ma (2012)
-                            EQN%PlastCo(iElem) = 0.1008* abs(EQN%IniStress(3,iElem))
-                CASE(1225) !constant everywhere, following Tan (2012)
-                            EQN%PlastCo(iElem) = 4.0e+06
-                CASE(1226) !lower cohesion and bulk friction for layer around the fault
-                     iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
-                     IF (iLayer.EQ.1) THEN
-                        EQN%PlastCo(iElem) = 1.0e+06
-                     ELSE
-                        EQN%PlastCo(iElem) = 4.0e+06
-                     ENDIF
-                CASE(1227)! depth dependent plastic cohesion, related to szz, following Shua Ma (2012)
-                         EQN%PlastCo(iElem) = 0.001* abs(EQN%IniStress(3,iElem))
-                CASE(1223) !lower cohesion and bulk friction for layer around the fault
+                CASE(1223) !lower cohesion and bulk friction for layer around the fault for the FSI model
                      iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
                      IF ((iLayer.EQ.2).OR.(iLayer.EQ.7)) THEN
                         EQN%PlastCo(iElem) = 1.0e+06
                      ELSE
                         EQN%PlastCo(iElem) = 4.0e+06
                      ENDIF
+                CASE(1224) !lower cohesion and bulk friction for layer around the fault for fault not intersecting surface
+                     iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
+                     IF (iLayer.EQ.1) THEN
+                        EQN%PlastCo(iElem) = 1.0e+06
+                     ELSE
+                        EQN%PlastCo(iElem) = 4.0e+06
+                     ENDIF
+                CASE(1225) !constant everywhere, following Tan (2012)
+                     EQN%PlastCo(iElem) = 4.0e+06
+                CASE(1226) ! depth dependent plastic cohesion, related to szz, following Shua Ma (2012)
+                     EQN%PlastCo(iElem) = 0.1008* abs(EQN%IniStress(3,iElem))
+                CASE(1227)! closer to failure, depth dependent plastic cohesion, related to szz, following Shua Ma (2012)
+                     EQN%PlastCo(iElem) = 0.001* abs(EQN%IniStress(3,iElem))
                 END SELECT
           ENDDO
 
