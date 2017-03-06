@@ -252,41 +252,39 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  if( m_dynamicRuptureFaces == true ) {
-    DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
-    DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
-    real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
-    real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
-    real                                (*godunov)[CONVERGENCE_ORDER][seissol::model::godunovState::reals]  = layerData.var(m_dynRup->godunov);
-    real                                (*imposedStatePlus)[seissol::model::godunovState::reals]            = layerData.var(m_dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[seissol::model::godunovState::reals]           = layerData.var(m_dynRup->imposedStateMinus);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
+  DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
+  DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
+  real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
+  real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
+  real                                (*godunov)[CONVERGENCE_ORDER][seissol::model::godunovState::reals]  = layerData.var(m_dynRup->godunov);
+  real                                (*imposedStatePlus)[seissol::model::godunovState::reals]            = layerData.var(m_dynRup->imposedStatePlus);
+  real                                (*imposedStateMinus)[seissol::model::godunovState::reals]           = layerData.var(m_dynRup->imposedStateMinus);
+  seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
+  seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
-    for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
-      unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
-      m_dynamicRuptureKernel.computeGodunovState( faceInformation[face],
-                                                  m_globalData,
-                                                 &godunovData[face],
-                                                  timeDerivativePlus[face],
-                                                  timeDerivativeMinus[face],
-                                                  godunov[face],
-                                                  timeDerivativePlus[prefetchFace],
-                                                  timeDerivativeMinus[prefetchFace] );
+  for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+    unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
+    m_dynamicRuptureKernel.computeGodunovState( faceInformation[face],
+                                                m_globalData,
+                                               &godunovData[face],
+                                                timeDerivativePlus[face],
+                                                timeDerivativeMinus[face],
+                                                godunov[face],
+                                                timeDerivativePlus[prefetchFace],
+                                                timeDerivativeMinus[prefetchFace] );
 
-      e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
-                                              godunov[face],
-                                              imposedStatePlus[face],
-                                              imposedStateMinus[face],
-                                              m_fullUpdateTime,
-                                              m_dynamicRuptureKernel.timePoints,
-                                              m_dynamicRuptureKernel.timeWeights,
-                                              waveSpeedsPlus[face],
-                                              waveSpeedsMinus[face] );
-    }
+    e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
+                                            godunov[face],
+                                            imposedStatePlus[face],
+                                            imposedStateMinus[face],
+                                            m_fullUpdateTime,
+                                            m_dynamicRuptureKernel.timePoints,
+                                            m_dynamicRuptureKernel.timeWeights,
+                                            waveSpeedsPlus[face],
+                                            waveSpeedsMinus[face] );
   }
 }
 
@@ -712,18 +710,19 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
   testForCopyLayerSends();
 #endif
 
-  if (m_updatable.neighboringInterior) {
-    e_interoperability.copyDynamicRuptureState();
+  if (m_dynamicRuptureFaces == true) {
+    if (m_updatable.neighboringInterior) {
+      e_interoperability.copyDynamicRuptureState();
 
-    computeDynamicRupture(m_dynRupClusterData->child<Interior>());
-    g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawInterior];
-    g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawInterior];
-  }
+      computeDynamicRupture(m_dynRupClusterData->child<Interior>());
+      g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawInterior];
+      g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawInterior];
+    }
     
-  computeDynamicRupture(m_dynRupClusterData->child<Copy>());    
-  g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawCopy];
-  g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawCopy];
-  
+    computeDynamicRupture(m_dynRupClusterData->child<Copy>());    
+    g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawCopy];
+    g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawCopy];
+  }  
 
   computeNeighboringIntegration( m_clusterData->child<Copy>() );
 
@@ -765,7 +764,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
       << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
   }
 
-  if (m_updatable.neighboringCopy) {
+  if (m_dynamicRuptureFaces == true && m_updatable.neighboringCopy == true) {
     e_interoperability.copyDynamicRuptureState();
 
     computeDynamicRupture(m_dynRupClusterData->child<Interior>());

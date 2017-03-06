@@ -39,6 +39,9 @@
  **/
 
 #include "CellLocalMatrices.h"
+
+#include <cassert>
+
 #include <Numerical_aux/Transformation.h>
 #include <Model/Setup.h>
 #include <Model/common.hpp>
@@ -233,6 +236,9 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   std::vector<Element> const& elements = i_meshReader.getElements();
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
   CellMaterialData* material = io_ltsTree->var(i_lts->material);
+#ifndef NEDBUG
+  real** derivatives = io_ltsTree->var(i_lts->derivatives);
+#endif
   
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
   
@@ -268,11 +274,27 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
       /// Time derivative mapping
       if (fault[meshFace].element >= 0) {
+        // Assert element stores derivatives
+        assert( (i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].element).ltsSetup >> 9)%2 == 1 );
+        // Assert face neighbour provides derivatives
+        assert( (i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].element).ltsSetup >> faceInformation[ltsFace].plusSide)%2 == 1 );
+
         timeDerivativePlus[ltsFace] = i_ltsLut->lookup(i_lts->derivatives, fault[meshFace].element);
         timeDerivativeMinus[ltsFace] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[meshFace].element)[ faceInformation[ltsFace].plusSide ];
+
+        // Assert face neighbour pointer points to derivative
+        assert( derivatives[ i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].element).faceNeighborIds[faceInformation[ltsFace].plusSide] ] == timeDerivativeMinus[ltsFace]);
       } else if (fault[meshFace].neighborElement >= 0) {
+        // Assert face neighbour provides derivatives
+        assert( (i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].neighborElement).ltsSetup >> faceInformation[ltsFace].minusSide)%2 == 1 );
+        // Assert element stores derivatives
+        assert( (i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].neighborElement).ltsSetup >> 9)%2 == 1 );
+
         timeDerivativePlus[ltsFace] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[meshFace].neighborElement)[ faceInformation[ltsFace].minusSide ];
         timeDerivativeMinus[ltsFace] = i_ltsLut->lookup(i_lts->derivatives, fault[meshFace].neighborElement);
+
+        // Assert face neighbour pointer points to derivative
+        assert( derivatives[ i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].neighborElement).faceNeighborIds[faceInformation[ltsFace].minusSide] ] == timeDerivativePlus[ltsFace]);
       } else {
         assert(false);
       }
