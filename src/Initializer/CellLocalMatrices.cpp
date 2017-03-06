@@ -236,7 +236,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   std::vector<Element> const& elements = i_meshReader.getElements();
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
   CellMaterialData* material = io_ltsTree->var(i_lts->material);
-#ifndef NEDBUG
+#ifndef NDEBUG
   real** derivatives = io_ltsTree->var(i_lts->derivatives);
 #endif
   
