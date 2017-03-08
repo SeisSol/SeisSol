@@ -451,11 +451,6 @@ private:
     void setReceiverSampling( double i_receiverSampling );
 
     /**
-     * Enables dynamic rupture call-backs in every time step.
-     **/
-    void enableDynamicRupture();
-    
-    /**
      * Set Tv constant for plasticity.
      */
     void setTv(double tv) {

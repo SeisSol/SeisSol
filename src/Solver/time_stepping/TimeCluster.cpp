@@ -159,8 +159,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   m_fullUpdateTime                = 0;
   m_predictionTime                = 0;
 
-  // disable dynamic rupture by default
-  m_dynamicRuptureFaces = false;
+  m_dynamicRuptureFaces = (i_clusterData->child<Ghost>().getNumberOfCells() > 0) || (i_clusterData->child<Copy>().getNumberOfCells() > 0) || (i_clusterData->child<Interior>().getNumberOfCells() > 0);
   
   computeFlops();
 }
@@ -206,10 +205,6 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
       m_receiverTime += m_receiverSampling;
     }
   }
-}
-
-void seissol::time_stepping::TimeCluster::enableDynamicRupture() {
-  m_dynamicRuptureFaces = true;
 }
 
 void seissol::time_stepping::TimeCluster::computeSources() {

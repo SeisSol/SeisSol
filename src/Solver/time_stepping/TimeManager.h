@@ -199,11 +199,6 @@ class seissol::time_stepping::TimeManager {
                       unsigned int i_meshId );
 
     /**
-     * Enables dynamic rupture call-backs.
-     **/
-    void enableDynamicRupture(unsigned dynamicRuptureCluster);
-
-    /**
      * Set Tv constant for plasticity.
      */
     void setTv(double tv);
