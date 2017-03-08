@@ -629,6 +629,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
 
   logInfo() << "Performed a total of" << l_totalMaximumDifference << "reductions" << "for maximum"
             << "difference in" << m_cells.size() << "cells.";
+  logInfo(seissol::MPI::mpi.rank()) << "Dynamic rupture cluster: " << m_dynamicRuptureCluster;
 }
 
 void seissol::initializers::time_stepping::LtsLayout::getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
