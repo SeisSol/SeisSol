@@ -119,7 +119,6 @@ module f_ctof_bind_interoperability
       
       l_domain%disc%DynRup%output_Mu             = l_domain%disc%DynRup%Mu
       l_domain%disc%DynRup%output_StateVar       = l_domain%disc%DynRup%StateVar
-      l_domain%disc%DynRup%output_cohesion       = l_domain%disc%DynRup%cohesion
       l_domain%disc%DynRup%output_Strength       = l_domain%disc%DynRup%Strength
       l_domain%disc%DynRup%output_Slip           = l_domain%disc%DynRup%Slip
       l_domain%disc%DynRup%output_Slip1          = l_domain%disc%DynRup%Slip1

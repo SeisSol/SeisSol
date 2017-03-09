@@ -885,7 +885,6 @@ MODULE TypesDef
   TYPE tDynRup
      real, allocatable                      :: output_Mu(:,:)
      real, allocatable                      :: output_StateVar(:,:)
-     real, allocatable                      :: output_cohesion(:,:)
      real, allocatable                      :: output_Strength(:,:)
      real, allocatable                      :: output_Slip(:,:)
      real, allocatable                      :: output_Slip1(:,:)

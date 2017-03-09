@@ -349,16 +349,6 @@ MODULE ini_model_DR_mod
           ENDDO
     ENDIF
 
-
-    !T. Ulrich 8.2015 initial rupture time array (for Vr calculations)
-    ALLOCATE(DISC%DynRup%rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-    DISC%DynRup%rupture_time(:,:)=0.
-
-    !time at which the shear stress is equal the dynamic stress
-    ALLOCATE(DISC%DynRup%dynStress_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-    DISC%DynRup%dynStress_time(:,:)=0.
-
-
     !frictional parameter initialization
     SELECT CASE(EQN%FL)
     CASE(0)

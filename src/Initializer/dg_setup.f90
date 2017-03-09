@@ -1114,6 +1114,8 @@ CONTAINS
       ALLOCATE(DISC%DynRup%Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%PeakSR(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%dynStress_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       !
       DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
       DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
@@ -1125,10 +1127,11 @@ CONTAINS
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
       DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
       DISC%DynRup%PeakSR        = 0.0D0
+      DISC%DynRup%rupture_time  = 0.0D0
+      DISC%DynRup%dynStress_time = 0.0D0
       
       allocate(disc%DynRup%output_Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       allocate(disc%DynRup%output_StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      allocate(disc%DynRup%output_cohesion(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       allocate(disc%DynRup%output_Strength(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       allocate(disc%DynRup%output_Slip(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       allocate(disc%DynRup%output_Slip1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
@@ -1146,8 +1149,19 @@ CONTAINS
             DISC%DynRup%Slip2(0,0),          &
             DISC%DynRup%Mu(0,0),             &
             DISC%DynRup%StateVar(0,0),       &
-            DISC%DynRup%PeakSR(0,0),       &
-            DISC%DynRup%Strength(0,0))
+            DISC%DynRup%PeakSR(0,0),         &
+            DISC%DynRup%Strength(0,0),       &
+            DISC%DynRup%rupture_time(0,0),   &
+            DISC%DynRup%dynStress_time(0,0)  )
+        allocate(DISC%DynRup%output_Mu(0,0),      &
+            DISC%DynRup%output_StateVar(0,0),     &
+            DISC%DynRup%output_Strength(0,0),     &
+            DISC%DynRup%output_Slip(0,0),         &
+            DISC%DynRup%output_Slip1(0,0),        &
+            DISC%DynRup%output_Slip2(0,0),        &
+            DISC%DynRup%output_rupture_time(0,0), &
+            DISC%DynRup%output_PeakSR(0,0),       &
+            DISC%DynRup%output_dynStress_time(0,0))
     ENDIF
     !
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids

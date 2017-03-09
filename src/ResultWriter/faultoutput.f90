@@ -427,7 +427,7 @@ CONTAINS
           !
           MuVal = DISC%DynRup%output_Mu(iFace,iBndGP)
           LocSV = DISC%DynRup%output_StateVar(iFace,iBndGP) ! load state variable of RS for output
-          cohesion  = DISC%DynRup%output_cohesion(iFace,iBndGP)
+          cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)
           S_XY  = Stress(4)
           S_XZ  = Stress(6)
           P_0   = Stress(1)
