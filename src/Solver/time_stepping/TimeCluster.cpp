@@ -34,21 +34,21 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * 
+ *
  * @section LICENSE
  * Copyright (c) 2013-2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -159,12 +159,14 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   m_fullUpdateTime                = 0;
   m_predictionTime                = 0;
 
-  m_dynamicRuptureFaces = (i_clusterData->child<Ghost>().getNumberOfCells() > 0) || (i_clusterData->child<Copy>().getNumberOfCells() > 0) || (i_clusterData->child<Interior>().getNumberOfCells() > 0);
-  
+  m_dynamicRuptureFaces = (i_dynRupClusterData->child<Ghost>().getNumberOfCells() > 0)
+	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
+	|| (i_dynRupClusterData->child<Interior>().getNumberOfCells() > 0);
+
   computeFlops();
 }
 
-seissol::time_stepping::TimeCluster::~TimeCluster() {  
+seissol::time_stepping::TimeCluster::~TimeCluster() {
 #ifndef NDEBUG
   logInfo() << "#(time steps):" << m_numberOfTimeSteps;
 #endif
@@ -209,7 +211,7 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
 
 void seissol::time_stepping::TimeCluster::computeSources() {
   SCOREP_USER_REGION( "computeSources", SCOREP_USER_REGION_TYPE_FUNCTION )
-  
+
   // Return when point sources not initialised. This might happen if there
   // are no point sources on this rank.
   if (m_numberOfCellToPointSourcesMappings != 0) {
@@ -284,19 +286,19 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 }
 
 
-void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::initializers::Layer& layerData, 
+void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::initializers::Layer& layerData,
                                                                       long long&                    nonZeroFlops,
                                                                       long long&                    hardwareFlops )
 {
   nonZeroFlops = 0;
   hardwareFlops = 0;
-  
+
   DRFaceInformation* faceInformation = layerData.var(m_dynRup->faceInformation);
 
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     long long faceNonZeroFlops, faceHardwareFlops;
     m_dynamicRuptureKernel.flopsGodunovState( faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
-    
+
     nonZeroFlops += faceNonZeroFlops;
     hardwareFlops += faceHardwareFlops;
   }
@@ -438,7 +440,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   // pointer for the call of the ADER-function
   real *l_bufferPointer;
-  
+
   real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
   real**                buffers                       = i_layerData.var(m_lts->buffers);
   real**                derivatives                   = i_layerData.var(m_lts->derivatives);
@@ -493,7 +495,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
 void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
-  
+
   real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
   real*                     (*faceNeighbors)[4]             = i_layerData.var(m_lts->faceNeighbors);
   CellDRMapping             (*drMapping)[4]                 = i_layerData.var(m_lts->drMapping);
@@ -611,7 +613,7 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
 
   // integrate copy layer locally
   computeLocalIntegration( m_clusterData->child<Copy>() );
-                           
+
   g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[LocalCopy];
   g_SeisSolHardwareFlopsLocal += m_flops_hardware[LocalCopy];
 
@@ -713,11 +715,11 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
       g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawInterior];
       g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawInterior];
     }
-    
-    computeDynamicRupture(m_dynRupClusterData->child<Copy>());    
+
+    computeDynamicRupture(m_dynRupClusterData->child<Copy>());
     g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawCopy];
     g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawCopy];
-  }  
+  }
 
   computeNeighboringIntegration( m_clusterData->child<Copy>() );
 
@@ -736,7 +738,7 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
     if (m_dynamicRuptureFaces) {
       e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
     }
-    
+
     m_fullUpdateTime      += m_timeStepWidth;
     m_subTimeStart        += m_timeStepWidth;
     m_numberOfFullUpdates += 1;
@@ -834,7 +836,7 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(  unsi
     hardwareFlops += cellHardware;
     drNonZeroFlops += cellDRNonZero;
     drHardwareFlops += cellDRHardware;
-    
+
     /// \todo add lts time integration
     /// \todo add plasticity
   }
@@ -869,7 +871,7 @@ void seissol::time_stepping::TimeCluster::computeFlops()
                                     m_flops_hardware[NeighborInterior],
                                     m_flops_nonZero[DRNeighborInterior],
                                     m_flops_hardware[DRNeighborInterior] );
-                                    
+
   computeDynamicRuptureFlops( m_dynRupClusterData->child<Copy>(), m_flops_nonZero[DRFrictionLawCopy], m_flops_hardware[DRFrictionLawCopy] );
   computeDynamicRuptureFlops( m_dynRupClusterData->child<Interior>(), m_flops_nonZero[DRFrictionLawInterior], m_flops_hardware[DRFrictionLawInterior] );
 }
