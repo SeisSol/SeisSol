@@ -1,14 +1,14 @@
 import argparse
 parser = argparse.ArgumentParser(description='project ts file')
 parser.add_argument('ts_file', help='ts filename')
-parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='name of the projection (ex EPSG:32646 (UTM46N)')
+parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='string describing its projection (ex: +init=EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
 args = parser.parse_args()
 
 #set projection
 import mpl_toolkits.basemap.pyproj as pyproj
 lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
 if args.proj[0]!='geocent':
-   sProj = "+init=%s" %args.proj[0]
+   sProj = args.proj[0]
    myproj=pyproj.Proj(sProj)
 else:
    myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')

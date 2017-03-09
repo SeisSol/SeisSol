@@ -25,7 +25,7 @@ parser.add_argument('--subsample', nargs=1, type=int, metavar=('onesample_every'
 parser.add_argument('--objectname', nargs=1, metavar=('objectname'), default = (''), help='name of the surface in gocad')
 parser.add_argument('--hole', nargs=4, metavar=(('x0'),('x1'),('y0'),('y1')), default = (''), help='isolate a hole in surface defined by x0<=x<=x1 and y0<=y<=y1 (stl output only)')
 #parser.add_argument('--crop', nargs=4, metavar=(('x0'),('x1'),('y0'),('y1')), default = (''), help='select only surfaces in x0<=x<=x1 and y0<=y<=y1')
-parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='name of the projection (ex EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
+parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='string describing its projection (ex: +init=EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
 args = parser.parse_args()
 
 
@@ -40,7 +40,7 @@ if args.proj!='':
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
    if args.proj[0]!='geocent':
-      sProj = "+init=%s" %args.proj[0]
+      sProj = args.proj[0]
       myproj=pyproj.Proj(sProj)
    else:
       myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
