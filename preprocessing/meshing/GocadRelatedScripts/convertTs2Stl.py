@@ -2,7 +2,7 @@ import numpy as np
 import argparse
 parser = argparse.ArgumentParser(description='project ts file')
 parser.add_argument('ts_file', help='ts filename')
-parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='name of the projection (ex EPSG:32646 (UTM46N)')
+parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='string describing its projection (ex: +init=EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
 parser.add_argument('--debug', dest='debug', action='store_true', help='print additionnal debug info')
 parser.add_argument('--merged', dest='merged', action='store_true', help='if true, each surface is not isolated in a stl solid')
 parser.add_argument('--bstl', dest='bstl', action='store_true', help='if true, write binary stl instead of stl (note that surface will be merged once imported by SimModeler)')
@@ -14,7 +14,7 @@ if args.proj!='':
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
    if args.proj[0]!='geocent':
-      sProj = "+init=%s" %args.proj[0]
+      sProj = args.proj[0]
       myproj=pyproj.Proj(sProj)
    else:
       myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
@@ -110,7 +110,7 @@ with open(args.ts_file) as fid:
 	 logging.debug("done reading %s, found %d nodes and %d triangles" %(surface_name, nnodes,ntriangles))
 	 if args.proj!='':
 	    logging.info("projecting the nodes coordinates")
-	    xyzb = pyproj.transform(myproj,lla, nodes[:,0],nodes[:,1], nodes[:,2], radians=False)
+	    xyzb = pyproj.transform(lla, myproj, nodes[:,0],nodes[:,1], 1e3*nodes[:,2], radians=False)
 	    nodes[:,0]= xyzb[0]
 	    nodes[:,1]= xyzb[1]
 	    nodes[:,2]= xyzb[2]

@@ -79,7 +79,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Convert dxf file to bstl')
 parser.add_argument('dxf_filename', help='dxf filename')
 parser.add_argument('stl_filename', nargs='?',help='stl filname (if not used, stl_filename = dfxbasename.stl)',default='')
-parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='name of the projection (ex EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
+parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='string describing its projection (ex: +init=EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
 parser.add_argument('--isolate', dest='isolate', action='store_true', help='isolate every Gocad surface in a different stl solid (feature currently not supported by simModeler)')
 args = parser.parse_args()
 
@@ -100,7 +100,7 @@ if args.proj!='':
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
    if args.proj[0]!='geocent':
-      sProj = "+init=%s" %args.proj[0]
+      sProj = args.proj[0]
       myproj=pyproj.Proj(sProj)
    else:
       myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
