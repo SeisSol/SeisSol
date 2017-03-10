@@ -149,7 +149,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
       
       for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
         double* target = velocities[component] + offset + face * numberOfSubTriangles;
-        double* source = projection + component * numberOfAlignedSubTriangles;
+        real* source = projection + component * numberOfAlignedSubTriangles;
         for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
           target[subtri] = source[subtri];
         }
@@ -163,7 +163,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
       
       for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
         double* target = displacements[component] + offset + face * numberOfSubTriangles;
-        double* source = projection + component * numberOfAlignedSubTriangles;
+        real* source = projection + component * numberOfAlignedSubTriangles;
         for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
           target[subtri] = source[subtri];
         }
@@ -182,7 +182,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   numberOfSubTriangles = triRefiner.subTris.size();
   numberOfAlignedSubTriangles = seissol::kernels::getNumberOfAlignedReals(numberOfSubTriangles);
   
-  assert(numberOfSubTriangles == (1 << (2*maxRefinementDepth)));
+  assert(numberOfSubTriangles == (1u << (2u*maxRefinementDepth)));
 
   size_t projectionMatrixMemorySize = 4 * numberOfAlignedSubTriangles * NUMBER_OF_BASIS_FUNCTIONS * sizeof(real);
   projectionMatrixMemory = (real*) seissol::memory::allocate(projectionMatrixMemorySize, ALIGNMENT);
