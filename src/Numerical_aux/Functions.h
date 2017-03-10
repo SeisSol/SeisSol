@@ -46,7 +46,7 @@ namespace seissol {
   namespace functions {
     /** Computes n!
      */
-    static unsigned factorial(unsigned n)
+    inline unsigned factorial(unsigned n)
     {
       unsigned f = 1;
       while (n > 0) {
@@ -59,7 +59,7 @@ namespace seissol {
     /** Calculate Jacobi polynomial recursively at x.
      *  See recurrence relation on https://en.wikipedia.org/wiki/Jacobi_polynomials
      */
-    static double JacobiP(unsigned n, unsigned a, unsigned b, double x) {
+    inline double JacobiP(unsigned n, unsigned a, unsigned b, double x) {
       if (n == 0) {
         return 1.0;
       }
@@ -77,7 +77,7 @@ namespace seissol {
     
      /** Calculate first derivative of Jacobi polynomial at x.
      */
-    static double JacobiPFirstDerivative(unsigned n, unsigned a, unsigned b, double x) {
+    inline double JacobiPFirstDerivative(unsigned n, unsigned a, unsigned b, double x) {
       if (n == 0) {
         return 0.0;
       }
@@ -87,7 +87,7 @@ namespace seissol {
     /** Evaluate Dubiner basis on triangle
      *  TODO: Merge this with BasisFunction.h
      */
-    static double TetraDubinerP(unsigned i, unsigned j, unsigned k, double xi, double eta, double zeta) {
+    inline double TetraDubinerP(unsigned i, unsigned j, unsigned k, double xi, double eta, double zeta) {
       double r = 2.0 * xi / (1.0 - eta - zeta) - 1.0;
       double s = 2.0 * eta / (1.0 - zeta) - 1.0;
       double t = 2.0 * zeta - 1.0;

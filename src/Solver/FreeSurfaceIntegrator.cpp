@@ -58,7 +58,7 @@ void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initiali
 }
 
 seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
-  : projectionMatrixMemory(NULL), numberOfSubTriangles(0), numberOfAlignedSubTriangles(0), totalNumberOfTriangles(0), m_enabled(false)
+  : projectionMatrixMemory(NULL), numberOfSubTriangles(0), numberOfAlignedSubTriangles(0), m_enabled(false), totalNumberOfTriangles(0)
 {  
   for (unsigned face = 0; face < 4; ++face) {
     projectionMatrix[face] = NULL;

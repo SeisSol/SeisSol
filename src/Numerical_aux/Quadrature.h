@@ -60,7 +60,7 @@ namespace seissol {
      *  For other intervals use 
      *  int_{a}^{b} f(y)dy = (b-a)/2. * sum_{i=0}^{n-1} f( ((b-a) * points[i] + a + b) / 2.) * weights[i]
      */
-    static void GaussLegendre(double* points, double* weights, unsigned n)
+    inline void GaussLegendre(double* points, double* weights, unsigned n)
     {
       // The polynomials are symmetric, thus we only need to find the first half.
       unsigned nh = (n+1)/2;
@@ -99,7 +99,7 @@ namespace seissol {
      * 
      *  Note: Initial guess ported from Fortran gauss_jacobi routine.
      */     
-    static void GaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b)
+    inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b)
     {
       double weightFactor = -(2.0*n+a+b+2) * functions::factorial(n+a) * functions::factorial(n+b) * (1 << (a+b)) /
                              ((n+a+b+1.0) * functions::factorial(n+a+b) * functions::factorial(n+1));
@@ -124,7 +124,7 @@ namespace seissol {
      *  
      *  n is the polynomial degree. Make sure that points and weights have space for n^2 entries.
      */     
-    static void TriangleQuadrature(double (*points)[2], double* weights, unsigned n)
+    inline void TriangleQuadrature(double (*points)[2], double* weights, unsigned n)
     {
       double* points0  = new double[n];
       double* weights0 = new double[n];
