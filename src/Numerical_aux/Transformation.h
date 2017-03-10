@@ -95,6 +95,8 @@ namespace seissol {
                                          VrtxCoords const i_tangent1,
                                          VrtxCoords const i_tangent2,
                                          DenseMatrixView<6, 6> o_Tinv );
+
+    void chiTau2XiEtaZeta(unsigned face, double const chiTau[2], double xiEtaZeta[3]);
   }
 }
 

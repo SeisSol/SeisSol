@@ -48,10 +48,12 @@
 #ifdef GENERATEDKERNELS
 #include "Solver/time_stepping/TimeManager.h"
 #include "Solver/Simulator.h"
+#include "Solver/FreeSurfaceIntegrator.h"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Checkpoint/Manager.h"
 #include "SourceTerm/Manager.h"
 #include "ResultWriter/PostProcessor.h"
+#include "ResultWriter/FreeSurfaceWriter.h"
 #endif // GENERATEDKERNELS
 
 #include "ResultWriter/AsyncIO.h"
@@ -99,6 +101,13 @@ private:
 
 	/** PostProcessor module **/
         writer::PostProcessor m_postProcessor;
+        
+        
+  /** Free surface integrator module **/
+  solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
+        
+  /** Free surface writer module **/
+  writer::FreeSurfaceWriter m_freeSurfaceWriter;
 
 #endif // GENERATEDKERNELS
 
@@ -162,6 +171,16 @@ public:
 	sourceterm::Manager& sourceTermManager()
 	{
 		return m_sourceTermManager;
+	}
+
+	solver::FreeSurfaceIntegrator& freeSurfaceIntegrator()
+	{
+		return m_freeSurfaceIntegrator;
+	}
+
+	writer::FreeSurfaceWriter& freeSurfaceWriter()
+	{
+		return m_freeSurfaceWriter;
 	}
 
 	/** Get the post processor module

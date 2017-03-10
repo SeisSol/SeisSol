@@ -87,6 +87,7 @@
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Plasticity.h>
+#include <Solver/FreeSurfaceIntegrator.h>
 
 // some check for correct functionality
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
@@ -166,6 +167,9 @@ private:
     seissol::initializers::TimeCluster* m_dynRupClusterData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
+    
+    //! Integrates velocities on free surface
+    solver::FreeSurfaceIntegrator* m_freeSurfaceIntegrator;
 
     //! time step width of the performed time step.
     double m_timeStepWidth;
@@ -398,7 +402,8 @@ private:
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
-                 seissol::initializers::DynamicRupture* i_dynRup);
+                 seissol::initializers::DynamicRupture* i_dynRup,
+                 solver::FreeSurfaceIntegrator*     freeSurfaceIntegrator );
 
     /**
      * Destructor of a LTS cluster.

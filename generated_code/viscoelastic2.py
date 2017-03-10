@@ -43,6 +43,7 @@ import numpy as np
 import argparse
 import DynamicRupture
 import Plasticity
+import SurfaceDisplacement
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -80,6 +81,7 @@ db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQua
 
 DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfElasticQuantities, numberOfReducedQuantities)
 Plasticity.addMatrices(db, cmdLineArgs.matricesDir, order)
+SurfaceDisplacement.addMatrices(db, order)
 
 # Load sparse-, dense-, block-dense-config
 Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
@@ -135,6 +137,7 @@ kernels.append(Kernel.Prototype('source', source))
 
 DynamicRupture.addKernels(db, kernels, 'reducedDofs')
 Plasticity.addKernels(db, kernels)
+SurfaceDisplacement.addKernels(db, kernels)
 
 # Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)

@@ -3,10 +3,10 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2012, SeisSol Group
+# Copyright (c) 2017, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -35,17 +35,13 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# @section DESCRIPTION
-# Definition of the source files.
-#
+
+import os
 
 Import('env')
 
-sourceDirectories = ['Geometry', 'Initializer', 'minimal', 'Numerical_aux', 'Physics', 'Solver']
-
-for sourceDir in sourceDirectories:
-  Export('env')
-  SConscript(sourceDir+'/SConscript', variant_dir='#/'+env['buildDir']+'/tests/'+sourceDir)
-  Import('env')
+if env['generatedKernels']:
+  env.testSourceFiles.append(os.path.abspath('Functions.t.h'))
+  env.testSourceFiles.append(os.path.abspath('Quadrature.t.h'))
 
 Export('env')

@@ -51,6 +51,7 @@
 #include <utils/logger.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
+#include <Solver/FreeSurfaceIntegrator.h>
 #include "TimeCluster.h"
 
 // some check for correct functionality
@@ -157,7 +158,8 @@ class seissol::time_stepping::TimeManager {
     void addClusters( struct TimeStepping&               i_timeStepping,
                       struct MeshStructure*              i_meshStructure,
                       initializers::MemoryManager&       i_memoryManager,
-                      unsigned*                          i_meshToClusters  );
+                      unsigned*                          i_meshToClusters,
+                      solver::FreeSurfaceIntegrator*     freeSurfaceIntegrator  );
 
     /**
      * Starts the communication thread.

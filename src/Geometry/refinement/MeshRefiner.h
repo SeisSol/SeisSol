@@ -45,6 +45,8 @@
 #include "Geometry/MeshReader.h"
 #include "RefinerUtils.h"
 
+namespace seissol
+{
 namespace refinement
 {
 
@@ -293,5 +295,6 @@ std::size_t MeshRefiner<T>::getNumVertices() const {
 //------------------------------------------------------------------------------
 
 } // namespace
+}
 
 #endif // MESH_REFINER_H_

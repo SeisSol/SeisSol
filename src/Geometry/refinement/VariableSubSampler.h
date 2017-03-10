@@ -49,6 +49,8 @@
 #include "Numerical_aux/BasisFunction.h"
 #include "RefinerUtils.h"
 
+namespace seissol
+{
 namespace refinement
 {
 
@@ -145,5 +147,6 @@ void VariableSubsampler<T>::get(const double* inData,  const unsigned int* cellM
 //------------------------------------------------------------------------------
 
 } // namespace
+}
 
 #endif // VARIABLE_SUBSAMPLER_H_

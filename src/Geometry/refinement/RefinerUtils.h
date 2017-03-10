@@ -45,6 +45,7 @@
 #include <glm/vec3.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+namespace seissol {
 namespace refinement {
 
 //------------------------------------------------------------------------------
@@ -276,5 +277,6 @@ public:
 //------------------------------------------------------------------------------
 
 } // namespace
+}
 
 #endif // _REFINER_UTILS_H_

@@ -107,7 +107,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   seissol::initializers::TimeCluster* i_clusterData,
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
-                                                  seissol::initializers::DynamicRupture* i_dynRup  ):
+                                                  seissol::initializers::DynamicRupture* i_dynRup,
+                                                  solver::FreeSurfaceIntegrator*     freeSurfaceIntegrator  ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -127,6 +128,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
  m_dynRup(                  i_dynRup                   ),
+ m_freeSurfaceIntegrator(   freeSurfaceIntegrator      ),
  // cells
  m_cellToPointSources(      NULL                       ),
  m_numberOfCellToPointSourcesMappings(0                ),
@@ -609,7 +611,12 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
 #endif
 
   // MPI checks for receiver writes receivers either in the copy layer or interior
-  if( m_updatable.localInterior ) writeReceivers();
+  if( m_updatable.localInterior ) {  
+    writeReceivers();  
+    if (m_freeSurfaceIntegrator->enabled()) {
+      m_freeSurfaceIntegrator->integrateTimeCluster(m_clusterId, m_timeStepWidth);
+    }
+  }
 
   // integrate copy layer locally
   computeLocalIntegration( m_clusterData->child<Copy>() );
@@ -658,10 +665,18 @@ void seissol::time_stepping::TimeCluster::computeLocalInterior(){
 
   // MPI checks for receiver writes receivers either in the copy layer or interior
 #ifdef USE_MPI
-  if( m_updatable.localCopy ) writeReceivers();
+  if( m_updatable.localCopy ) {
+    writeReceivers();    
+    if (m_freeSurfaceIntegrator->enabled()) {
+      m_freeSurfaceIntegrator->integrateTimeCluster(m_clusterId, m_timeStepWidth);
+    }
+  }
 #else
   // non-MPI checks for write in the interior
   writeReceivers();
+  if (m_freeSurfaceIntegrator->enabled()) {
+    m_freeSurfaceIntegrator->integrateTimeCluster(m_clusterId, m_timeStepWidth);
+  }
 #endif
 
   // integrate interior cells locally
@@ -782,6 +797,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
     if (m_dynamicRuptureFaces) {
       e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
     }
+
     m_fullUpdateTime      += m_timeStepWidth;
     m_subTimeStart        += m_timeStepWidth;
     m_numberOfFullUpdates += 1;

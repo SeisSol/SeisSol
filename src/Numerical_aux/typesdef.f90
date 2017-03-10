@@ -1467,6 +1467,8 @@ MODULE TypesDef
 
      type(tCheckPoint)                      :: checkpoint                       !< Checkpointing configuration
      INTEGER                                :: Refinement
+     integer                                :: SurfaceOutput, SurfaceOutputRefinement
+     real                                   :: SurfaceOutputInterval
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------

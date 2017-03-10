@@ -205,6 +205,35 @@ void seissol::transformations::symmetricTensor2RotationMatrix( VrtxCoords const 
 
 
 
+void seissol::transformations::chiTau2XiEtaZeta(unsigned face, double const chiTau[2], double xiEtaZeta[3]) {
+  switch (face) {
+    case 0:
+      xiEtaZeta[0] = chiTau[1];
+      xiEtaZeta[1] = chiTau[0];
+      xiEtaZeta[2] = 0.0;
+      break;
+    case 1:
+      xiEtaZeta[0] = chiTau[0];
+      xiEtaZeta[1] = 0.0;
+      xiEtaZeta[2] = chiTau[1];
+      break;
+    case 2:
+      xiEtaZeta[0] = 0.0;
+      xiEtaZeta[1] = chiTau[1];
+      xiEtaZeta[2] = chiTau[0];
+      break;
+    case 3:
+      xiEtaZeta[0] = 1.0-chiTau[0]-chiTau[1];
+      xiEtaZeta[1] = chiTau[0];
+      xiEtaZeta[2] = chiTau[1];
+      break;
+    default:
+      break;
+  }
+}
+
+
+
 
 
 

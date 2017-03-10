@@ -181,6 +181,14 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in) :: i_waveFieldFilename
     end subroutine
 
+    subroutine c_interoperability_initializeFreeSurfaceOutput( maxRefinementDepth, interval, filename ) bind( C, name='c_interoperability_initializeFreeSurfaceOutput' )
+      use iso_c_binding
+      implicit none
+      integer(kind=c_int), value :: maxRefinementDepth
+      real(kind=c_double), value :: interval
+      character(kind=c_char), dimension(*), intent(in) :: filename
+    end subroutine
+
     subroutine c_interoperability_enableCheckPointing( i_checkPointInterval, i_checkPointFilename, i_checkPointBackend ) bind( C, name='c_interoperability_enableCheckPointing' )
       use iso_c_binding
       implicit none

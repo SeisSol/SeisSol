@@ -184,6 +184,12 @@ CONTAINS
 
 
 #ifdef GENERATEDKERNELS
+    if (io%surfaceOutput > 0) then
+      call c_interoperability_initializeFreeSurfaceOutput(  maxRefinementDepth = io%SurfaceOutputRefinement, &
+                                                            interval = io%SurfaceOutputInterval, &
+                                                            filename = trim(io%OutputFile)  )
+    end if
+    
     do i = 1, 9
         if ( io%OutputMask(3+i) ) then
             outputMaskInt(i) = 1

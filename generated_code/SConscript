@@ -58,7 +58,8 @@ def generate_code(target, source, env, for_signature):
 env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
 
 if env['generatedKernels']:
-  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'], [env['equations'] + '.py', 'DynamicRupture.py', 'Plasticity.py', Glob('gemmgen/*.py')])
+  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'],
+                           [env['equations'] + '.py', 'DynamicRupture.py', 'Plasticity.py', 'SurfaceDisplacement.py', Glob('gemmgen/*.py')])
   buildDir = '#/' + env['buildDir'] if not os.path.isabs(env['buildDir']) else env['buildDir']
   env.Append(CPPPATH=buildDir)
 

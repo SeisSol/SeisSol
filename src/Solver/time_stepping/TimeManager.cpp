@@ -70,7 +70,8 @@ seissol::time_stepping::TimeManager::~TimeManager() {
 void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&               i_timeStepping,
                                                        struct MeshStructure*              i_meshStructure,
                                                        initializers::MemoryManager&       i_memoryManager,
-                                                       unsigned int*                      i_meshToClusters  ) {
+                                                       unsigned int*                      i_meshToClusters,
+                                                       solver::FreeSurfaceIntegrator*     freeSurfaceIntegrator  ) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
 
   // assert non-zero pointers
@@ -114,7 +115,8 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            &i_memoryManager.getLtsTree()->child(l_cluster),
                                            &i_memoryManager.getDynamicRuptureTree()->child(l_cluster),
                                            i_memoryManager.getLts(),
-                                           i_memoryManager.getDynamicRupture() )
+                                           i_memoryManager.getDynamicRupture(),
+                                           freeSurfaceIntegrator )
                         );
   }
 }

@@ -226,6 +226,14 @@ class seissol::Interoperability {
    void enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename );
 
    /**
+    * Enable free surface plotting.
+    *
+    * @param interval plotting interval
+    * @param filename file name prefix
+    **/
+   void initializeFreeSurfaceOutput( int maxRefinementDepth, double interval, const char *filename );
+
+   /**
     * Enable checkpointing.
     *
     * @param i_checkPointInterval check pointing interval.

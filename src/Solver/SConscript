@@ -52,6 +52,7 @@ solverFiles = [ 'calc_seissol.f90',
 if env['generatedKernels']:
   solverFiles = ['f_ftoc_bind_interoperability.f90',
                  'f_ctof_bind_interoperability.f90',
+                 'FreeSurfaceIntegrator.cpp',
                  'Interoperability.cpp',
                  'time_stepping/TimeCluster.cpp',
                  'time_stepping/TimeManager.cpp',

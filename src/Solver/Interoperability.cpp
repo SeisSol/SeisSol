@@ -156,6 +156,10 @@ extern "C" {
     e_interoperability.enableWaveFieldOutput( i_waveFieldInterval, i_waveFieldFilename );
   }
 
+  void c_interoperability_initializeFreeSurfaceOutput( int maxRefinementDepth, double interval, const char* filename ) {
+    e_interoperability.initializeFreeSurfaceOutput( maxRefinementDepth, interval, filename );
+  }
+
   void c_interoperability_enableCheckPointing( double i_checkPointInterval,
 		  const char* i_checkPointFilename, const char* i_checkPointBackend ) {
     e_interoperability.enableCheckPointing( i_checkPointInterval,
@@ -372,7 +376,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
   seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
                                                     m_meshStructure,
                                                     seissol::SeisSol::main.getMemoryManager(),
-                                                    m_ltsLut.getMeshToClusterLut() );
+                                                    m_ltsLut.getMeshToClusterLut(),
+                                                    &seissol::SeisSol::main.freeSurfaceIntegrator() );
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
@@ -542,6 +547,22 @@ void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterva
   seissol::SeisSol::main.simulator().setWaveFieldInterval( i_waveFieldInterval );
   seissol::SeisSol::main.waveFieldWriter().enable();
   seissol::SeisSol::main.waveFieldWriter().setFilename( i_waveFieldFilename );
+}
+
+
+void seissol::Interoperability::initializeFreeSurfaceOutput( int maxRefinementDepth, double interval, const char *filename )
+{
+  seissol::SeisSol::main.freeSurfaceIntegrator().initialize(  maxRefinementDepth,
+                                                              m_lts,
+                                                              m_ltsTree,
+                                                              &m_ltsLut );
+                                                              
+  seissol::SeisSol::main.freeSurfaceWriter().init(
+    seissol::SeisSol::main.meshReader(),
+    &seissol::SeisSol::main.freeSurfaceIntegrator(),
+    filename,
+    interval
+  );
 }
 
 void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
@@ -719,6 +740,7 @@ void seissol::Interoperability::finalizeIO()
 	seissol::SeisSol::main.waveFieldWriter().close();
 	seissol::SeisSol::main.checkPointManager().close();
 	seissol::SeisSol::main.faultWriter().close();
+	seissol::SeisSol::main.freeSurfaceWriter().close();
 }
 
 void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,
