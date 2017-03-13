@@ -65,9 +65,11 @@ class Architecture(object):
     if self.precision == 'D':
       self.bytesPerReal = 8
       self.typename = 'double'
+      self.epsilon = 2.22e-16
     elif self.precision == 'S':
       self.bytesPerReal = 4
       self.typename = 'float'
+      self.epsilon = 1.19e-7
     else:
       raise ValueError('Unknown precision type ' + self.precision)
     self.alignment = alignment

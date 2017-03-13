@@ -431,4 +431,4 @@ class Generator:
                   test('double diff = ref - result[col*{} + row];'.format(resultBlock.ld))
                   test('error += diff * diff;')
                   test('refNorm += ref * ref;')
-              test('TS_ASSERT_LESS_THAN(sqrt(error/refNorm), 1e-15);')
+              test('TS_ASSERT_LESS_THAN(sqrt(error/refNorm), {});'.format(10. * self.architecture.epsilon))
