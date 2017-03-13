@@ -86,7 +86,7 @@ class seissol::Interoperability {
 
     //! Lookup table relating mesh to cells
     seissol::initializers::Lut        m_ltsLut;
-    
+
     //! Lookup table relating faces to layers
     unsigned*                         m_ltsFaceToMeshFace;
 
@@ -195,7 +195,7 @@ class seissol::Interoperability {
 #ifdef USE_PLASTICITY
    void setPlasticParameters( int    *i_meshId,
                               double *i_plasticParameters );
-   
+
    void setTv(double tv);
 #endif
 
@@ -254,15 +254,8 @@ class seissol::Interoperability {
               double* outputRegionBounds);
 
    /**
-    * Get the current dynamic rupture time step
-    *
-    * @param o_timeStep The dynamic rupture time step
-    */
-   void getDynamicRuptureTimeStep(int &o_timeStep);
-   
-   /**
     * Copy dynamic rupture variables for output.
-    **/   
+    **/
    void copyDynamicRuptureState();
 
    /**
@@ -352,9 +345,9 @@ class seissol::Interoperability {
     *
     * @param i_fullUpdateTime full update time of the respective DOFs.
     * @param i_timeStepWidth time step width of the next full update.
-    **/                               
+    **/
    void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
-                               
+
    void evaluateFrictionLaw(  int face,
                               real   godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
                               real   imposedStatePlus[seissol::model::godunovState::reals],
@@ -364,7 +357,7 @@ class seissol::Interoperability {
                               double timeWeights[CONVERGENCE_ORDER],
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
-   
+
 
    /**
     * Prepare element wise faultoutput

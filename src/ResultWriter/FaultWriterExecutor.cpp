@@ -79,7 +79,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info,
 
 		// TODO get the timestep from the checkpoint
 		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>(rank,
-			outputName.c_str(), variables, 0);
+			outputName.c_str(), variables, param.timestep);
 
 #ifdef USE_MPI
 		m_xdmfWriter->setComm(m_comm);

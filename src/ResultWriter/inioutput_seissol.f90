@@ -81,6 +81,7 @@ CONTAINS
 #ifdef GENERATEDKERNELS
     use iso_c_binding
     use f_ftoc_bind_interoperability
+    use ini_faultoutput_mod
 #else
     use WaveFieldWriter
 #endif
@@ -211,6 +212,11 @@ CONTAINS
         i_refinement= io%Refinement,         &
         i_outputMask= outputMaskInt,         &
         i_outputRegionBounds = io%OutputRegionBounds)
+
+    ! Initialize the fault Xdmf Writer
+    IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
+     CALL ini_fault_xdmfwriter(DISC,IO)
+    ENDIF
 #else
     if (IO%Format .eq. 6) then
         call waveFieldWriterInit(0, disc, eqn, io, mesh, mpi)
