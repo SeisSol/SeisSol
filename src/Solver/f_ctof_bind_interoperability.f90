@@ -69,42 +69,6 @@ module f_ctof_bind_interoperability
     !
     ! C to fortran bindings
     !
-    subroutine f_interoperability_setDynamicRuptureTimeStep( i_domain, i_timeStep ) bind(C, name='f_interoperability_setDynamicRuptureTimeStep')
-      use iso_c_binding
-      use typesDef
-      implicit none
-
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
-
-      type(c_ptr), value                     :: i_timeStep
-      integer, pointer                       :: l_timeStep
-
-      ! convert c to fortran pointers
-      call c_f_pointer( i_domain,   l_domain   )
-      call c_f_pointer( i_timeStep, l_timeStep )
-
-      l_domain%disc%iterationstep = l_timeStep
-    end subroutine
-
-    subroutine f_interoperability_getDynamicRuptureTimeStep( i_domain, o_timeStep ) bind(C, name='f_interoperability_getDynamicRuptureTimeStep')
-      use iso_c_binding
-      use typesDef
-      implicit none
-
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
-
-      type(c_ptr), value                     :: o_timeStep
-      integer, pointer                       :: l_timeStep
-
-      ! convert c to fortran pointers
-      call c_f_pointer( i_domain,   l_domain   )
-      call c_f_pointer( o_timeStep, l_timeStep )
-
-      l_timeStep = l_domain%disc%iterationstep
-    end subroutine  
-
     subroutine f_interoperability_copyDynamicRuptureState( i_domain ) bind (c, name='f_interoperability_copyDynamicRuptureState')
       use iso_c_binding
       use typesDef
@@ -116,7 +80,7 @@ module f_ctof_bind_interoperability
 
       ! convert c to fortran pointers
       call c_f_pointer( i_domain, l_domain)
-      
+
       l_domain%disc%DynRup%output_Mu             = l_domain%disc%DynRup%Mu
       l_domain%disc%DynRup%output_StateVar       = l_domain%disc%DynRup%StateVar
       l_domain%disc%DynRup%output_Strength       = l_domain%disc%DynRup%Strength

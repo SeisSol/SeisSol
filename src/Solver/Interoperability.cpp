@@ -134,7 +134,7 @@ extern "C" {
                                                double *i_plasticParameters ) {
     e_interoperability.setPlasticParameters( i_meshId, i_plasticParameters );
   }
-  
+
   void c_interoperability_setTv(double tv) {
     e_interoperability.setTv(tv);
   }
@@ -235,12 +235,6 @@ extern "C" {
                                                  double *i_fullUpdateTime,
                                                  double *i_timeStepWidth );
 
-  extern void f_interoperability_setDynamicRuptureTimeStep( void *i_domain,
-		   	   	   	   	   	   	   	   	   	   	   	   	    int  *i_timeStep );
-
-  extern void f_interoperability_getDynamicRuptureTimeStep( void *i_domain,
-		  	  	  	  	  	  	  	  	  	  	  	  	    int  *i_timeStep );
-
   extern void f_interoperability_copyDynamicRuptureState(void* domain);
 
   extern void f_interoperability_faultOutput( void   *i_domain,
@@ -333,8 +327,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
 
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
-  
-  
+
+
   unsigned numberOfDRCopyFaces;
   unsigned numberOfDRInteriorFaces;
   // get cell information & mappings
@@ -476,15 +470,15 @@ void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_p
   for( unsigned int l_para = 0; l_para < 4; l_para++ ) {
       plasticity.plasticParameters[l_para] = i_plasticParameters[l_para];
   }
-  
-  
+
+
   double angularFriction = atan(i_plasticParameters[3]);
 
 
   plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[1] * cos(angularFriction);
   plasticity.sinAngularFriction = sin(angularFriction);
   plasticity.mufactor = 1.0 / (2.0 * material.local.mu);
-  
+
 }
 
 
@@ -603,7 +597,7 @@ void seissol::Interoperability::initializeIO(
 				  currentTime, waveFieldTimeStep, faultTimeStep);
 	  if (hasCheckpoint) {
 		  seissol::SeisSol::main.simulator().setCurrentTime(currentTime);
-		  f_interoperability_setDynamicRuptureTimeStep(m_domain, &faultTimeStep);
+		  seissol::SeisSol::main.faultWriter().setTimestep(faultTimeStep);
 	  }
 
 	  // Initialize wave field output
@@ -621,11 +615,6 @@ void seissol::Interoperability::initializeIO(
 	  // I/O initialization is the last step that requires the mesh reader
 	  // (at least at the moment ...)
 	  seissol::SeisSol::main.freeMeshReader();
-}
-
-void seissol::Interoperability::getDynamicRuptureTimeStep(int &o_timeStep)
-{
-	f_interoperability_getDynamicRuptureTimeStep(m_domain, &o_timeStep);
 }
 
 void seissol::Interoperability::copyDynamicRuptureState()

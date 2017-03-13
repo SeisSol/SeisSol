@@ -69,9 +69,14 @@ private:
 	/** Total number of variables */
 	unsigned int m_numVariables;
 
+	/** The current output time step */
+	unsigned int m_timestep;
+
 public:
 	FaultWriter()
-		: m_enabled(false)
+		: m_enabled(false),
+		m_numVariables(0),
+		m_timestep(0)
 	{
 	}
 
@@ -83,11 +88,24 @@ public:
 		setExecutor(m_executor);
 	}
 
+	void setTimestep(unsigned int timestep)
+	{
+		m_timestep = timestep;
+	}
+
 	void init(const int* cells, const double* vertices,
 		unsigned int nCells, unsigned int nVertices,
 		int* outputMask, const double** dataBuffer,
 		const char* outputPrefix,
 		double interval);
+
+	/**
+	 * @return The current time step of the fault output
+	 */
+	unsigned int timestep() const
+	{
+		return m_timestep;
+	}
 
 	void write(double time)
 	{
@@ -109,6 +127,9 @@ public:
 			sendBuffer(FaultWriterExecutor::VARIABLES0 + i);
 
 		call(param);
+
+		// Update the timestep count
+		m_timestep++;
 
 		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
 	}

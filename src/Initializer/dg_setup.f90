@@ -1132,7 +1132,7 @@ CONTAINS
       DISC%DynRup%PeakSR        = 0.0D0
       DISC%DynRup%rupture_time  = 0.0D0
       DISC%DynRup%dynStress_time = 0.0D0
-      
+
       allocate(disc%DynRup%output_Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       allocate(disc%DynRup%output_StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       allocate(disc%DynRup%output_Strength(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
@@ -3500,7 +3500,6 @@ CONTAINS
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
-    use FaultWriter
     use, intrinsic :: iso_c_binding
 
     !-------------------------------------------------------------------!
@@ -3780,10 +3779,6 @@ CONTAINS
             CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
         ENDIF ! DISC%DynRup%OutputPointType
     ENDIF ! end initialize fault output
-    ! Initialize the fault Xdmf Writer (has to be done on all ranks)
-    IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
-     CALL ini_fault_xdmfwriter(DISC,IO)
-    ENDIF
     !
     !
     !

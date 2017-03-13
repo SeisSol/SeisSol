@@ -59,6 +59,7 @@ struct FaultInitParam
 	static const unsigned int OUTPUT_MASK_SIZE = 18;
 
 	bool outputMask[OUTPUT_MASK_SIZE];
+	int timestep;
 };
 
 struct FaultParam

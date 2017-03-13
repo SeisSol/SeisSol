@@ -70,6 +70,7 @@ void seissol::writer::FaultWriter::init(const int* cells, const double* vertices
 	m_enabled = true;
 
 	FaultInitParam param;
+	param.timestep = m_timestep;
 
 	// Create buffer for output prefix
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);
