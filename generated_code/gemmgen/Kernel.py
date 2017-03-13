@@ -270,16 +270,20 @@ class GeneratedKernel(Kernel):
     k1, k2 = self.__intersect(blockA, blockB)
     if k2 > k1:
       if memoryBlockA.sparse:
+        if memoryBlockA.startrow != blockA.startrow:
+          raise NotImplementedError('__gemm: memoryBlockA.startrow != blockA.startrow unsupported.')
         m1 = memoryBlockA.startrow
-        m2 = memoryBlockA.stoprow
+        m2 = blockA.stoprow
         sparsityPattern = memoryBlockA.sparsityPattern(k1, k2)
         mmType = 'sparse'
         spMtxName = nameA
       elif memoryBlockB.sparse:
         m1 = self.arch.getAlignedIndex(blockA.startrow)
         m2 = m1 + self.arch.getAlignedDim(blockA.stoprow - m1)
+        if memoryBlockB.startrow != blockB.startrow:
+          raise NotImplementedError('__gemm: memoryBlockB.startrow != blockB.startrow unsupported.')
         k1 = memoryBlockB.startrow
-        k2 = memoryBlockB.stoprow
+        k2 = blockB.stoprow
         sparsityPattern = memoryBlockB.sparsityPattern(blockB.startcol, blockB.stopcol)
         mmType = 'sparse'
         spMtxName = nameB
