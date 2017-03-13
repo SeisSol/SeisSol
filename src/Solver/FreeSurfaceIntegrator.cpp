@@ -47,6 +47,7 @@
 #include <Numerical_aux/Transformation.h>
 #include <Parallel/MPI.h>
 #include <generated_code/kernels.h>
+#include <utils/logger.h>
 
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializers::LTSTree& surfaceLtsTree)
 {

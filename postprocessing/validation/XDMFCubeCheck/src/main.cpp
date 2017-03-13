@@ -174,7 +174,7 @@ int main(int argc, char* argv[])
 		const glm::dvec3 c = glm::make_vec3(&vertices[cells[i*4 + 2] * 3]);
 		const glm::dvec3 d = glm::make_vec3(&vertices[cells[i*4 + 3] * 3]);
 
-		refinement::Tetrahedron<double> tet(a, b, c, d);
+		seissol::refinement::Tetrahedron<double> tet(a, b, c, d);
 		const glm::dvec3 center = tet.center();
 
 		const double kx = glm::dot(k, center);
