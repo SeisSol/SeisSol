@@ -598,7 +598,51 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
   m_dynRupTree.touchVariables();
 }
 
-void seissol::initializers::MemoryManager::initializeMemoryLayout()
+void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
+{
+  for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+    CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
+    real** displacements = layer->var(m_lts.displacements);
+    
+    unsigned numberOfCells = 0;
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      bool hasFreeSurface = false;
+      for (unsigned face = 0; face < 4; ++face) {
+        hasFreeSurface = hasFreeSurface || (cellInformation[cell].faceTypes[face] == freeSurface);
+      }
+      if (hasFreeSurface) {
+        // We add the base address later when the bucket is allocated
+        // +1 is necessary as we want to reserve the NULL pointer for cell without displacement.
+        displacements[cell] = static_cast<real*>(NULL) + 1 + numberOfCells * NUMBER_OF_ALIGNED_VELOCITY_DOFS;
+        ++numberOfCells;
+      } else {
+        displacements[cell] = NULL;
+      }
+    }
+    layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * NUMBER_OF_ALIGNED_VELOCITY_DOFS * sizeof(real));
+  }
+}
+
+void seissol::initializers::MemoryManager::initializeDisplacements()
+{
+  for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+    real** displacements = layer->var(m_lts.displacements);
+    real* bucket = static_cast<real*>(layer->bucket(m_lts.displacementsBuffer));
+
+    #pragma omp parallel for schedule(static)
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      if (displacements[cell] != NULL) {
+        displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
+        for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_VELOCITY_DOFS; ++dof) {
+          // zero displacements
+          displacements[cell][dof] = static_cast<real>(0.0);
+        }
+      }
+    }
+  }
+}
+
+void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFreeSurfaceIntegration)
 {
   // correct LTS-information in the ghost layer
   correctGhostRegionSetups();
@@ -629,6 +673,11 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout()
     cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
   
+  if (enableFreeSurfaceIntegration) {
+    deriveDisplacementsBucket();
+  }
+  
+  
   m_ltsTree.allocateBuckets();
 
   // initialize the internal state
@@ -651,6 +700,10 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout()
   // initialize the communication structure
   initializeCommunicationStructure();
 #endif
+  
+  if (enableFreeSurfaceIntegration) {
+    initializeDisplacements();
+  }
 }
 
 void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,

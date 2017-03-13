@@ -64,10 +64,11 @@ module f_ftoc_bind_interoperability
   end interface
 
   interface c_interoperability_initializeClusteredLts
-    subroutine c_interoperability_initializeClusteredLts( i_clustering ) bind( C, name='c_interoperability_initializeClusteredLts' )
+    subroutine c_interoperability_initializeClusteredLts( i_clustering, i_enableFreeSurfaceIntegration ) bind( C, name='c_interoperability_initializeClusteredLts' )
       use iso_c_binding
       implicit none
-      integer(kind=c_int), value :: i_clustering
+      integer(kind=c_int), value  :: i_clustering
+      logical(kind=c_bool), value :: i_enableFreeSurfaceIntegration
     end subroutine
   end interface
 

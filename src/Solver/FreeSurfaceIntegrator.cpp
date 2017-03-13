@@ -52,10 +52,10 @@
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializers::LTSTree& surfaceLtsTree)
 {
   seissol::initializers::LayerMask ghostMask(Ghost);
-  surfaceLtsTree.addVar(integratedDofs, ghostMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(  velocityDofs, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(          side, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(        meshId, ghostMask,                 1,      seissol::memory::Standard );
+  surfaceLtsTree.addVar(     velocityDofs, ghostMask,                 1,      seissol::memory::Standard );
+  surfaceLtsTree.addVar( displacementDofs, ghostMask,                 1,      seissol::memory::Standard );
+  surfaceLtsTree.addVar(             side, ghostMask,                 1,      seissol::memory::Standard );
+  surfaceLtsTree.addVar(           meshId, ghostMask,                 1,      seissol::memory::Standard );
 }
 
 seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
@@ -102,30 +102,6 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinement
 	logInfo(rank) << "Initializing free surface integrator. Done.";
 }
 
-void seissol::solver::FreeSurfaceIntegrator::integrateTimeCluster(unsigned timeCluster, double timestepWidth)
-{
-  assert( timeCluster < surfaceLtsTree.numChildren() );
-  
-  seissol::initializers::Layer* layers[] = { &surfaceLtsTree.child(timeCluster).child<Copy>(), &surfaceLtsTree.child(timeCluster).child<Interior>() };
-  for (unsigned layer = 0; layer < 2; ++layer)
-  {    
-    real** velocityDofs                                                                         = layers[layer]->var(surfaceLts.velocityDofs);
-    real (*integratedDofs)[FREESURFACE_NUMBER_OF_COMPONENTS*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]  = layers[layer]->var(surfaceLts.integratedDofs);
-    
-    #pragma omp parallel for schedule(static)
-    for (unsigned face = 0; face < layers[layer]->getNumberOfCells(); ++face) {
-      seissol::kernels::SXtYp(  timestepWidth,
-                                NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                                FREESURFACE_NUMBER_OF_COMPONENTS,
-                                velocityDofs[face],
-                                NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                                integratedDofs[face],
-                                NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
-    }          
-  }
-  
-}
-
 void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 {
   unsigned offset = 0;
@@ -134,8 +110,8 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
         surfaceLayer != surfaceLtsTree.endLeaf();
         ++surfaceLayer)
   {
-    real** velocityDofs                                                                         = surfaceLayer->var(surfaceLts.velocityDofs);
-    real (*integratedDofs)[FREESURFACE_NUMBER_OF_COMPONENTS*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]  = surfaceLayer->var(surfaceLts.integratedDofs);
+    real** velocityDofs     = surfaceLayer->var(surfaceLts.velocityDofs);
+    real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
     unsigned* side = surfaceLayer->var(surfaceLts.side);
     
     #pragma omp parallel for schedule(static)
@@ -158,7 +134,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
       
       seissol::generatedKernels::subTriangleProjection[triRefiner.maxDepth](
         projectionMatrix[ side[face] ],
-        integratedDofs[face],
+        displacementDofs[face],
         projection
       );
       
@@ -286,17 +262,22 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
-    real (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer->var(lts->dofs);
-    real** velocityDofs = surfaceLayer->var(surfaceLts.velocityDofs);
+    real (*dofs)[NUMBER_OF_ALIGNED_DOFS]  = layer->var(lts->dofs);
+    real** displacements                  = layer->var(lts->displacements);
+    real** velocityDofs                   = surfaceLayer->var(surfaceLts.velocityDofs);
+    real** displacementDofs               = surfaceLayer->var(surfaceLts.displacementDofs);
     unsigned* side = surfaceLayer->var(surfaceLts.side);
     unsigned* meshId = surfaceLayer->var(surfaceLts.meshId);
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         if (cellInformation[cell].faceTypes[face] == freeSurface) {
-          velocityDofs[surfaceCell] = dofs[cell] + FREESURFACE_VELOCITY_OFFSET*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
-          side[surfaceCell] = face;
-          meshId[surfaceCell] = ltsToMesh[cell];
+          assert(displacements[cell] != NULL);
+          
+          velocityDofs[surfaceCell]     = dofs[cell] + NUMBER_OF_ALIGNED_STRESS_DOFS;
+          displacementDofs[surfaceCell] = displacements[cell];
+          side[surfaceCell]             = face;
+          meshId[surfaceCell]           = ltsToMesh[cell];
           ++surfaceCell;
         }
       }

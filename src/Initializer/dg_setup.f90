@@ -399,7 +399,7 @@ CONTAINS
     USE MPIExchangeValues_mod
 #endif
 #ifdef GENERATEDKERNELS
-    use iso_c_binding, only: c_loc, c_null_char
+    use iso_c_binding, only: c_loc, c_null_char, c_bool
     use f_ftoc_bind_interoperability
     use calc_deltaT_mod
 #endif
@@ -446,6 +446,8 @@ CONTAINS
     real                            :: l_loads(3), l_scalings(3), l_cuts(2), l_timeScalings(2), l_gts
     integer                         :: iObject, iSide, iNeighbor, MPIIndex
     real, target                    :: materialVal(EQN%nBackgroundVar)
+    logical(kind=c_bool)                        :: enableFreeSurfaceIntegration
+    
 #endif
     ! ------------------------------------------------------------------------!
     !
@@ -537,8 +539,9 @@ CONTAINS
                                               )
     enddo
 
+    enableFreeSurfaceIntegration = (io%surfaceOutput > 0)
     ! put the clusters under control of the time manager
-    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts );
+    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts, i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
 #endif
 
     !

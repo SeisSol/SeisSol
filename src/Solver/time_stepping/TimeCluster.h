@@ -167,9 +167,6 @@ private:
     seissol::initializers::TimeCluster* m_dynRupClusterData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
-    
-    //! Integrates velocities on free surface
-    solver::FreeSurfaceIntegrator* m_freeSurfaceIntegrator;
 
     //! time step width of the performed time step.
     double m_timeStepWidth;
@@ -402,8 +399,7 @@ private:
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
-                 seissol::initializers::DynamicRupture* i_dynRup,
-                 solver::FreeSurfaceIntegrator*     freeSurfaceIntegrator );
+                 seissol::initializers::DynamicRupture* i_dynRup );
 
     /**
      * Destructor of a LTS cluster.

@@ -125,8 +125,9 @@ class seissol::Interoperability {
     *   2+: Fixed rate between clusters
     *
     * @param i_clustering clustering strategy
+    * @param enableFreeSurfaceIntegration
     **/
-   void initializeClusteredLts( int i_clustering );
+   void initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration );
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation

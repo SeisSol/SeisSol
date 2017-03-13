@@ -201,6 +201,16 @@ class seissol::initializers::MemoryManager {
      * Initializes the pointers of the internal state.
      **/
     void initializeBuffersDerivatives();
+    
+    /**
+     * Derives the size of the displacement accumulation buffer.
+     */
+    void deriveDisplacementsBucket();
+    
+    /**
+     * Initializes the displacement accumulation buffer.
+     */
+    void initializeDisplacements();
 
     /**
      * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
@@ -247,10 +257,9 @@ class seissol::initializers::MemoryManager {
     /**
      * Set up the internal structure.
      *
-     * @param i_timeStepping time stepping.
-     * @param io_cellLocalInformation cells local information.
+     * @param enableFreeSurfaceIntegration Create buffers to accumulate displacement.
      **/
-    void initializeMemoryLayout();
+    void initializeMemoryLayout(bool enableFreeSurfaceIntegration);
 
     /**
      * Gets the global data.

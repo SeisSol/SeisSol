@@ -158,8 +158,7 @@ class seissol::time_stepping::TimeManager {
     void addClusters( struct TimeStepping&               i_timeStepping,
                       struct MeshStructure*              i_meshStructure,
                       initializers::MemoryManager&       i_memoryManager,
-                      unsigned*                          i_meshToClusters,
-                      solver::FreeSurfaceIntegrator*     freeSurfaceIntegrator  );
+                      unsigned*                          i_meshToClusters  );
 
     /**
      * Starts the communication thread.

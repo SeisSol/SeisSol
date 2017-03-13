@@ -67,8 +67,8 @@ extern "C" {
                                          i_timeStepWidth );
   }
 
-  void c_interoperability_initializeClusteredLts( int i_clustering ) {
-    e_interoperability.initializeClusteredLts( i_clustering );
+  void c_interoperability_initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration ) {
+    e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
   }
 
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
@@ -316,7 +316,7 @@ void seissol::Interoperability::setTimeStepWidth( int    i_meshId,
   seissol::SeisSol::main.getLtsLayout().setTimeStepWidth( (i_meshId)-1, i_timeStepWidth );
 }
 
-void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
+void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration ) {
   // assert a valid clustering
   assert( i_clustering > 0 );
 
@@ -370,14 +370,13 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                          m_ltsTree->var(m_lts->cellInformation) );
 
   // initialize memory layout
-  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout();
+  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout(enableFreeSurfaceIntegration);
 
   // add clusters
   seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
                                                     m_meshStructure,
                                                     seissol::SeisSol::main.getMemoryManager(),
-                                                    m_ltsLut.getMeshToClusterLut(),
-                                                    &seissol::SeisSol::main.freeSurfaceIntegrator() );
+                                                    m_ltsLut.getMeshToClusterLut() );
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();

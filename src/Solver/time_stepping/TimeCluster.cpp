@@ -107,8 +107,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   seissol::initializers::TimeCluster* i_clusterData,
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
-                                                  seissol::initializers::DynamicRupture* i_dynRup,
-                                                  solver::FreeSurfaceIntegrator*     freeSurfaceIntegrator  ):
+                                                  seissol::initializers::DynamicRupture* i_dynRup ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -128,7 +127,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
  m_dynRup(                  i_dynRup                   ),
- m_freeSurfaceIntegrator(   freeSurfaceIntegrator      ),
  // cells
  m_cellToPointSources(      NULL                       ),
  m_numberOfCellToPointSourcesMappings(0                ),
@@ -448,6 +446,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   real**                derivatives                   = i_layerData.var(m_lts->derivatives);
   LocalIntegrationData* localIntegration              = i_layerData.var(m_lts->localIntegration);
   CellLocalInformation* cellInformation               = i_layerData.var(m_lts->cellInformation);
+  real**                displacements                 = i_layerData.var(m_lts->displacements);
 
 #ifdef _OPENMP
   #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer) schedule(static)
@@ -481,6 +480,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                    &localIntegration[l_cell],
                                    l_bufferPointer,
                                    dofs[l_cell] );
+
+    if (displacements[l_cell] != NULL) {
+      for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_VELOCITY_DOFS; ++dof) {
+        displacements[l_cell][dof] += l_bufferPointer[NUMBER_OF_ALIGNED_STRESS_DOFS + dof];
+      }
+    }
 
     // update lts buffers if required
     // TODO: Integrate this step into the kernel
@@ -613,9 +618,6 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
   // MPI checks for receiver writes receivers either in the copy layer or interior
   if( m_updatable.localInterior ) {  
     writeReceivers();  
-    if (m_freeSurfaceIntegrator->enabled()) {
-      m_freeSurfaceIntegrator->integrateTimeCluster(m_clusterId, m_timeStepWidth);
-    }
   }
 
   // integrate copy layer locally
@@ -667,16 +669,10 @@ void seissol::time_stepping::TimeCluster::computeLocalInterior(){
 #ifdef USE_MPI
   if( m_updatable.localCopy ) {
     writeReceivers();    
-    if (m_freeSurfaceIntegrator->enabled()) {
-      m_freeSurfaceIntegrator->integrateTimeCluster(m_clusterId, m_timeStepWidth);
-    }
   }
 #else
   // non-MPI checks for write in the interior
   writeReceivers();
-  if (m_freeSurfaceIntegrator->enabled()) {
-    m_freeSurfaceIntegrator->integrateTimeCluster(m_clusterId, m_timeStepWidth);
-  }
 #endif
 
   // integrate interior cells locally

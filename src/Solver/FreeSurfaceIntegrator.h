@@ -49,7 +49,6 @@
 #include <Initializer/tree/Lut.hpp>
 
 #define FREESURFACE_MAX_REFINEMENT 3
-#define FREESURFACE_VELOCITY_OFFSET 6
 #define FREESURFACE_MAX_SUBTRIANGLES (1 << (2*FREESURFACE_MAX_REFINEMENT))
 #define FREESURFACE_NUMBER_OF_COMPONENTS 3
 
@@ -64,8 +63,8 @@ namespace seissol
 class seissol::solver::FreeSurfaceIntegrator {
 private:
   struct SurfaceLTS {
-    seissol::initializers::Variable<real[FREESURFACE_NUMBER_OF_COMPONENTS*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]> integratedDofs;
     seissol::initializers::Variable<real*> velocityDofs;
+    seissol::initializers::Variable<real*> displacementDofs;
     seissol::initializers::Variable<unsigned> side;
     seissol::initializers::Variable<unsigned> meshId;
     
@@ -107,7 +106,6 @@ public:
                     seissol::initializers::Lut* ltsLut );
 
   void calculateOutput();
-  void integrateTimeCluster(unsigned timeCluster, double timestepWidth);
   
   bool enabled() const { return m_enabled; }
 };
