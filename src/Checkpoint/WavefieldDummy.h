@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2016, SeisSol Group
+ * Copyright (c) 2014-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,19 +51,25 @@ namespace checkpoint {
 
 class WavefieldDummy : public Dummy, virtual public Wavefield {
 public:
+        WavefieldDummy()
+		: seissol::checkpoint::CheckPoint(0),
+		Wavefield(0)
+	{
+	}
+
 	/**
 	 * @param
 	 * @param
 	 * @return Always false (never finds a valid checkpoint)
 	 */
-	bool init(unsigned long, unsigned int = 1)
+	bool init(size_t, unsigned long, unsigned int = 1)
 	{
 		return false;
 	}
 
-	void load(double&, int&, real*) {}
+	void load(real*) {}
 
-	void write(double, int) {}
+	void write(const void*, size_t) {}
 };
 
 }

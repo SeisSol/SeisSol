@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -73,8 +73,9 @@ private:
 	unsigned int m_numBndGP;
 
 public:
-	Fault()
-		: m_numSides(0), m_numBndGP(0)
+	Fault(unsigned long identifier)
+		: CheckPoint(identifier),
+		  m_numSides(0), m_numBndGP(0)
 	{}
 
 	virtual ~Fault() {}

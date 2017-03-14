@@ -2,10 +2,10 @@
 !! @file
 !! This file is part of SeisSol.
 !!
-!! @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
+!! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2014, SeisSol Group
+!! Copyright (c) 2014-2017, SeisSol Group
 !! All rights reserved.
 !!
 !! Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,7 @@ module WaveFieldWriter
     ! C functions
     interface
         subroutine wavefield_hdf_init(rank, outputPrefix, dofs, pstrain, numVars, order, &
-                numBasisFuncs, refinement, timestep, outputMask) bind(C, name="wavefield_hdf_init")
+                numBasisFuncs, refinement, outputMask) bind(C, name="wavefield_hdf_init")
             use, intrinsic :: iso_c_binding
 
             integer( kind=c_int ), value                       :: rank
@@ -59,7 +59,6 @@ module WaveFieldWriter
             integer( kind=c_int ), value                       :: order
             integer( kind=c_int ), value                       :: numBasisFuncs
             integer( kind=c_int ), value                       :: refinement
-            integer( kind=c_int ), value                       :: timestep
         end subroutine wavefield_hdf_init
 
         subroutine waveFieldWriterClose() bind(C, name="wavefield_hdf_close")
@@ -76,10 +75,9 @@ module WaveFieldWriter
     end interface
 
 contains
-    subroutine waveFieldWriterInit(timestep, disc, eqn, io, mesh, mpi)
+    subroutine waveFieldWriterInit(disc, eqn, io, mesh, mpi)
         implicit none
 
-        integer, intent(in)    :: timestep
         integer                :: i
         integer                :: outputMaskInt(9)
         type (tDiscretization) :: disc
@@ -100,7 +98,7 @@ contains
             disc%galerkin%dgvar(:, :, :, 1), disc%galerkin%pstrain(:,:), &
             eqn%nVarTotal, disc%spaceorder, &
             disc%galerkin%nDegFr, &
-            io%Refinement, timestep, outputMaskInt)
+            io%Refinement, outputMaskInt)
     end subroutine waveFieldWriterInit
 
     subroutine waveFieldWriterWriteStep(time, disc, mesh, mpi)

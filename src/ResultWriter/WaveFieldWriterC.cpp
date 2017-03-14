@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,7 @@ extern "C"
 void wavefield_hdf_init(int rank, const char* outputPrefix,
 		const double* dofs, const double* pstrain,
 		int numVars, int order, int numBasisFuncs,
-        int refinement,  int timestep, int* outputMask, double* outputRegionBounds)
+        int refinement, int* outputMask, double* outputRegionBounds)
 {
 	seissol::SeisSol::main.waveFieldWriter().enable();
 	seissol::SeisSol::main.waveFieldWriter().setFilename(outputPrefix);
@@ -70,7 +70,7 @@ void wavefield_hdf_init(int rank, const char* outputPrefix,
 		cellMap[i] = i;
 
 	seissol::SeisSol::main.waveFieldWriter().init(numVars, order, numBasisFuncs,
-			meshReader,	dofs, pstrain, 0L, cellMap, refinement, timestep, outputMask,
+			meshReader,	dofs, pstrain, 0L, cellMap, refinement, outputMask,
 			outputRegionBounds, 0);
 
 	// I/O is currently the last initialization that requires the mesh reader

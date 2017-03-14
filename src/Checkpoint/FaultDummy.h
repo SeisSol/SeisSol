@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,12 @@ namespace checkpoint {
 
 class FaultDummy : public Dummy, virtual public Fault {
 public:
+        FaultDummy()
+		: seissol::checkpoint::CheckPoint(0),
+		Fault(0)
+	{
+	}
+
 	/**
 	 * @return Always false (never finds a valid checkpoint)
 	 */

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,14 +39,14 @@
 
 #include "Wavefield.h"
 
-bool seissol::checkpoint::posix::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
+bool seissol::checkpoint::posix::Wavefield::init(size_t headerSize, unsigned long numDofs, unsigned int groupSize)
 {
-	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
+	seissol::checkpoint::Wavefield::init(headerSize, numDofs, groupSize);
 
 	return exists();
 }
 
-void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWaveField, real* dofs)
+void seissol::checkpoint::posix::Wavefield::load(real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
@@ -56,10 +56,7 @@ void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWave
 	checkErr(file);
 
 	// Read header
-	WavefieldHeader header;
-	readHeader(file, header);
-	time = header.time;
-	timestepWaveField = header.timestepWaveField;
+	checkErr(read(file, header().data(), header().size()), header().size());
 
 	// Skip other processes before this in the group
 	checkErr(lseek64(file, groupOffset() * sizeof(real), SEEK_CUR));
@@ -81,7 +78,7 @@ void seissol::checkpoint::posix::Wavefield::load(double &time, int &timestepWave
 	checkErr(::close(file));
 }
 
-void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveField)
+void seissol::checkpoint::posix::Wavefield::write(const void* header, size_t headerSize)
 {
 	EPIK_TRACER("CheckPoint_write");
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
@@ -97,10 +94,7 @@ void seissol::checkpoint::posix::Wavefield::write(double time, int timestepWaveF
 	EPIK_USER_START(r_write_header);
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	WavefieldHeader header;
-	header.time = time;
-	header.timestepWaveField = timestepWaveField;
-	writeHeader(file(), header);
+	checkErr(::write(file(), header, headerSize), headerSize);
 
 	EPIK_USER_END(r_write_header);
 	SCOREP_USER_REGION_END(r_write_header);

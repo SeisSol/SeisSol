@@ -58,7 +58,9 @@ class Fault : public CheckPoint, virtual public seissol::checkpoint::Fault
 {
 public:
 	Fault()
-		: CheckPoint(0xA1315)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Fault(IDENTIFIER)
 	{}
 
 	bool init(unsigned int numSides, unsigned int numBndGP,
@@ -79,6 +81,9 @@ public:
 
 		CheckPoint::close();
 	}
+
+private:
+	static const unsigned long IDENTIFIER = 0xA1315;
 };
 
 }

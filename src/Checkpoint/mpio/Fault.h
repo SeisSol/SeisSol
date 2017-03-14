@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -75,7 +75,9 @@ private:
 
 public:
 	Fault()
-		: CheckPoint(0x7A849, sizeof(double)*NUM_VARIABLES)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Fault(IDENTIFIER)
 	{}
 
 	bool init(unsigned int numSides, unsigned int numBndGP,
@@ -99,9 +101,12 @@ public:
 	}
 
 protected:
-	bool validate(MPI_File file) const;
+	bool validate(MPI_File file);
 
 	void writeHeader(int timestepFault);
+
+protected:
+	static const unsigned long IDENTIFIER = 0x7A849;
 };
 
 #endif // USE_MPI

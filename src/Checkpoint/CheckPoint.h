@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,6 +66,9 @@ namespace checkpoint
 class CheckPoint
 {
 private:
+	/** Checkpoint identifier (written to the beginning of the file) */
+	const unsigned long m_identifier;
+
 	/** File name of the symbolic link to the current checkpoint */
 	std::string m_linkFile;
 
@@ -108,8 +111,9 @@ private:
 	bool m_loaded;
 
 public:
-	CheckPoint()
-		: m_rank(0), m_partitions(1), // default for no MPI
+	CheckPoint(unsigned long identifier)
+		: m_identifier(identifier),
+		  m_rank(0), m_partitions(1), // default for no MPI
 #ifdef USE_MPI
 		  m_comm(MPI_COMM_NULL),
 #endif // USE_MPI
@@ -308,6 +312,14 @@ protected:
 	virtual const char* fname() const
 	{
 		return "cp";
+	}
+
+	/**
+	 * @return The identifier of the file
+	 */
+	unsigned long identifier() const
+	{
+		return m_identifier;
 	}
 
 	int rank() const

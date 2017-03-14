@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2015, SeisSol Group
+ * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,114 +35,129 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
+ * Dynamic structure
  */
 
-#ifndef CHECKPOINT_H5_WAVEFIELD_H
-#define CHECKPOINT_H5_WAVEFIELD_H
+#ifndef DYN_STRUCT_H
+#define DYN_STRUCT_H
 
-#ifndef USE_HDF
-#include "Checkpoint/WavefieldDummy.h"
-#else // USE_HDF
+#include "Parallel/MPI.h"
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif // USE_MPI
-
-
-#include <string>
-
-#include <hdf5.h>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
 
 #include "utils/logger.h"
-
-#include "CheckPoint.h"
-#include "Checkpoint/Wavefield.h"
-#include "Initializer/typedefs.hpp"
-
-#endif // USE_HDF
 
 namespace seissol
 {
 
-namespace checkpoint
-{
-
-namespace h5
-{
-
-#ifndef USE_HDF
-typedef WavefieldDummy Wavefield;
-#else // USE_HDF
-
-class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
+/**
+ * @todo Set MPI and HDF5 type
+ */
+class DynStruct
 {
 private:
-	/** Opaque header type */
-	hid_t m_h5headerType;
+	/**
+	 * Component description
+	 */
+	struct Component
+	{
+		size_t offset;
+	};
 
-	/** Identifiers of the HDF5 header attributes */
-	hid_t m_h5header[2];
+	std::vector<Component> m_components;
 
-	/** Identifiers of the main data set in the files */
-	hid_t m_h5data[2];
+	/** Total size of the struct */
+	size_t m_size;
 
-	/** Identifiers for the file space of the data set */
-	hid_t m_h5fSpaceData;
+	void* m_buffer;
 
 public:
-	Wavefield()
-		: seissol::checkpoint::CheckPoint(IDENTIFIER),
-		CheckPoint(IDENTIFIER),
-		seissol::checkpoint::Wavefield(IDENTIFIER),
-		m_h5headerType(-1),
-		m_h5fSpaceData(-1)
-	{
-		m_h5header[0] = m_h5header[1] = -1;
-		m_h5data[0] = m_h5data[1] = -1;
-	}
-
-	~Wavefield()
+	DynStruct()
+		: m_size(0), m_buffer(0L)
 	{ }
 
-	bool init(size_t headerSize, unsigned long numDofs, unsigned int groupSize = 1);
-
-	void load(real* dofs);
-
-	void write(const void* header, size_t headerSize);
-
-	void close()
+	~DynStruct()
 	{
-		if (m_h5headerType >= 0)
-			checkH5Err(H5Tclose(m_h5headerType));
-
-		if (m_h5header[0] >= 0) {
-			for (unsigned int i = 0; i < 2; i++) {
-				checkH5Err(H5Aclose(m_h5header[i]));
-				checkH5Err(H5Dclose(m_h5data[i]));
-			}
-		}
-		if (m_h5fSpaceData >= 0)
-			checkH5Err(H5Sclose(m_h5fSpaceData));
-
-		CheckPoint::close();
+		free(m_buffer);
 	}
 
-protected:
-	bool validate(hid_t h5file) const;
+	/**
+	 * Add a component to the struct
+	 *
+	 * @return The id of the component
+	 */
+	template<typename T>
+	size_t add()
+	{
+		if (m_buffer)
+			logError() << "The dyn struct was already initialized. Could not add an additional component.";
 
-	hid_t initFile(int odd, const char* filename);
+		Component comp;
+		comp.offset = m_size;
+		m_components.push_back(comp);
 
-private:
-	static const unsigned long IDENTIFIER = 0x7A93F;
+		m_size += sizeof(T);
+
+		return m_components.size()-1;
+	}
+
+	void alloc(size_t alignment = 0)
+	{
+		if (m_buffer)
+			logError() << "The dyn struct was already initialized.";
+
+		if (alignment) {
+			m_size = (m_size + alignment - 1) / alignment;
+			m_size *= alignment;
+
+			if (posix_memalign(&m_buffer, alignment, m_size) != 0)
+				logError() << "Could not allocate buffer";
+		} else {
+			m_buffer = malloc(m_size);
+		}
+	}
+
+	template<typename T>
+	T& value(size_t i)
+	{
+		return *static_cast<T*>(m_buffer + m_components[i].offset);
+	}
+
+	template<typename T>
+	const T& value(size_t i) const
+	{
+		return *static_cast<T*>(m_buffer + m_components[i].offset);
+	}
+
+	size_t size() const
+	{
+		return m_size;
+	}
+
+	void* data()
+	{
+		return m_buffer;
+	}
+
+	const void* data() const
+	{
+		return m_buffer;
+	}
+
+	/**
+	 * Set all contents to 0
+	 */
+	void clear()
+	{
+		if (m_buffer)
+			memset(m_buffer, 0, m_size);
+		else
+			logWarning(seissol::MPI::mpi.rank()) << "Trying to clear an unallocated struct.";
+	}
 };
 
-#endif // USE_HDF
-
 }
 
-}
-
-}
-
-#endif // CHECKPOINT_H5_WAVEFIELD_H
-
+#endif // DYN_STRUCT_H

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,12 +47,15 @@
 #include <cstring>
 #include <string>
 
+#include "utils/logger.h"
+
 #include "async/Module.h"
 
 #include "Backend.h"
 #include "ManagerExecutor.h"
 #include "Wavefield.h"
 #include "Fault.h"
+#include "WavefieldHeader.h"
 
 namespace seissol
 {
@@ -76,6 +79,9 @@ private:
 
 	/** Number of DR DOFs */
 	unsigned int m_numDRDofs;
+
+	/** Checkpoint header */
+	WavefieldHeader m_header;
 
 public:
 	Manager()
@@ -112,6 +118,14 @@ public:
 	}
 
 	/**
+	 * The header struct
+	 */
+	WavefieldHeader& header()
+	{
+		return m_header;
+	}
+
+	/**
 	 * Initialize checkpointing and load the last checkpoint if present
 	 *
 	 * @return True is a checkpoint was loaded, false otherwise
@@ -119,16 +133,15 @@ public:
 	bool init(real* dofs, unsigned int numDofs,
 			double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
 			double* state, double* strength, unsigned int numSides, unsigned int numBndGP,
-			double &time, int &waveFieldTimeStep, int &faultTimeStep);
+			int &faultTimeStep);
 
 	/**
 	 * Write a checkpoint for the current time
 	 *
 	 * @param time The current time
-	 * @param waveFieldTimeStep The time step of the wave field writer
 	 * @param faultTimeStep The time step of the fault writer
 	 */
-	void write(double time, int waveFieldTimeStep, int faultTimeStep)
+	void write(double time, int faultTimeStep)
 	{
 		SCOREP_USER_REGION("CheckpointManager_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -136,6 +149,9 @@ public:
 			return;
 
 		const int rank = seissol::MPI::mpi.rank();
+
+		// Set current time
+		m_header.time() = time;
 
 		SCOREP_USER_REGION_DEFINE(r_wait);
 		SCOREP_USER_REGION_BEGIN(r_wait, "checkpointmanager_wait", SCOREP_USER_REGION_TYPE_COMMON);
@@ -146,6 +162,7 @@ public:
 		logInfo(rank) << "Checkpoint: Writing at time" << utils::nospace << time << '.';
 
 		// Send buffers
+		sendBuffer(HEADER);
 		sendBuffer(DOFS, m_numDofs * sizeof(real));
 		for (unsigned int i = 0; i < 8; i++)
 			sendBuffer(DR_DOFS0+i, m_numDRDofs * sizeof(double));
@@ -155,7 +172,6 @@ public:
 		SCOREP_USER_REGION_BEGIN(r_call, "checkpointmanager_call", SCOREP_USER_REGION_TYPE_COMMON);
 		CheckpointParam param;
 		param.time = time;
-		param.waveFieldTimeStep = waveFieldTimeStep;
 		param.faultTimeStep = faultTimeStep;
 		call(param);
 		SCOREP_USER_REGION_END(r_call);
@@ -170,7 +186,7 @@ public:
 	{
 		if (m_backend == DISABLED)
 			return;
-		
+
 		// Terminate the executor
 		wait();
 

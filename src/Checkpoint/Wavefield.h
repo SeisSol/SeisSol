@@ -49,6 +49,7 @@
 #include "utils/logger.h"
 
 #include "CheckPoint.h"
+#include "WavefieldHeader.h"
 
 #include "Initializer/preProcessorMacros.fpp"
 #include "Initializer/typedefs.hpp"
@@ -65,6 +66,9 @@ namespace checkpoint
 class Wavefield : virtual public CheckPoint
 {
 private:
+	/** The header data (only used for loading) */
+	WavefieldHeader* m_header;
+
 	/** Pointer to the degrees of freedom */
 	const real* m_dofs;
 
@@ -81,13 +85,28 @@ private:
 	const unsigned int m_dofsPerIteration;
 
 public:
-	Wavefield()
-		: m_dofs(0L), m_numDofs(0),
+	Wavefield(unsigned long identifier)
+		: CheckPoint(identifier),
+		  m_header(0L),
+		  m_dofs(0L), m_numDofs(0),
 		  m_iterations(0), m_totalIterations(0),
 		  m_dofsPerIteration((1ul<<30) / sizeof(real))
 	{}
 
 	virtual ~Wavefield() {}
+
+	/**
+	 * Set the header for loading checkpoints.
+	 *
+	 * This function can be overwritten to add custom header fields for the back-end
+	 *
+	 * @warning This function is only call on the compute nodes (not on I/O nodes)
+	 * @todo One should probably split the checkpoint reader and writer
+	 */
+	virtual void setHeader(WavefieldHeader &header)
+	{
+		m_header = &header;
+	}
 
 	/**
 	 * Initialize checkpointing
@@ -97,7 +116,7 @@ public:
 	 *
 	 * @return True of a valid checkpoint is available
 	 */
-	virtual bool init(unsigned long numDofs, unsigned int groupSize = 1)
+	virtual bool init(size_t headerSize, unsigned long numDofs, unsigned int groupSize = 1)
 	{
 #ifndef USE_ASYNC_MPI
 		assert(groupSize == 1);
@@ -153,20 +172,27 @@ public:
 	/**
 	 * Load a checkpoint file. Should only be done if init() returned true.
 	 *
-	 * @param[out] time Time of the simulation in the checkpoint
-	 * @param[out] timestepWavefield Time step of the wave field writer in the checkpoint
-	 *  (if the wave field writer was active)
 	 * @param dofs Pointer to the buffer where the degrees of freedom should be stored
 	 */
-	virtual void load(double &time, int &timestepWavefield, real* dofs) = 0;
+	virtual void load(real* dofs) = 0;
+
+	/**
+	 * Initialize all const header data
+	 */
+	virtual void initHeader(WavefieldHeader &header)
+	{
+		header.identifier() = identifier();
+	}
 
 	/**
 	 * Create checkpoint files. Should be called after loading the old checkpoint
 	 */
 	virtual void initLate(const real* dofs)
 	{
+		// Save dof pointer
 		m_dofs = dofs;
 
+		// Create checkpoint files
 		createFiles();
 	}
 
@@ -175,22 +201,30 @@ public:
 	 *
 	 * Overwrite this function to start an asynchronous checkpoint write
 	 *
-	 * @param time The current time
-	 * @param timestepWaveField The current time step of the wave field
+	 * @param headerSize Size of the header in bytes
 	 */
-	virtual void writePrepare(double time, int timestepWaveField)
+	virtual void writePrepare(const void* header, size_t headerSize)
 	{
 	}
 
 	/**
 	 * Write a checkpoint for the current time
 	 *
-	 * @param time The current time
-	 * @param timestepWaveField The current time step of the wave field
+	 * @param headerSize Size of the header in bytes
 	 */
-	virtual void write(double time, int timestepWaveField) = 0;
+	virtual void write(const void* header, size_t headerSize) = 0;
 
 protected:
+	WavefieldHeader& header()
+	{
+		return *m_header;
+	}
+
+	bool hasHeader() const
+	{
+		return m_header != 0L;
+	}
+
 	void setDofs(const real* dofs)
 	{
 		m_dofs = dofs;

@@ -52,13 +52,13 @@ bool seissol::checkpoint::mpio::WavefieldAsync::init(unsigned long numDofs, unsi
 	return exists;
 }
 
-void seissol::checkpoint::mpio::WavefieldAsync::writePrepare(double time, int timestepWaveField)
+void seissol::checkpoint::mpio::WavefieldAsync::writePrepare(const void* header, size_t headerSize)
 {
 	EPIK_TRACER("CheckPoint_writePrepare");
 	SCOREP_USER_REGION("CheckPoint_writePrepare", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 	// Write the header
-	writeHeader(time, timestepWaveField);
+	writeHeader(header, headerSize);
 
 	// Create copy of the dofs
 	memcpy(m_dofsCopy, dofs(), numDofs()*sizeof(real));
@@ -81,7 +81,7 @@ void seissol::checkpoint::mpio::WavefieldAsync::writePrepare(double time, int ti
 	logInfo(rank()) << "Checkpoint backend: Writing. Done.";
 }
 
-void seissol::checkpoint::mpio::WavefieldAsync::write(double time, int timestepWaveField)
+void seissol::checkpoint::mpio::WavefieldAsync::write(const void* header, size_t headerSize)
 {
 	EPIK_TRACER("CheckPoint_write");
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);

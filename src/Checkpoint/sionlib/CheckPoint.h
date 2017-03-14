@@ -71,9 +71,6 @@ namespace sionlib
 class CheckPoint : virtual public seissol::checkpoint::CheckPoint
 {
 private:
-	/** Checkpoint identifier (written to the beginning of the file) */
-	const unsigned long m_identifier;
-
 	/** Number of files that should be used */
 	int m_numFiles;
 
@@ -100,7 +97,7 @@ private:
 
 public:
 	CheckPoint(unsigned long identifier)
-	  : m_identifier(identifier),
+		: seissol::checkpoint::CheckPoint(identifier),
 		m_numFiles(utils::Env::get<int>("SEISSOL_CHECKPOINT_SION_NUM_FILES", 1)),
 		m_blockSize(utils::Env::get<sion_int32>("SEISSOL_CHECKPOINT_BLOCK_SIZE", -1)),
 		m_readMode("rb"), m_writeMode("wb"),
@@ -258,13 +255,6 @@ protected:
 	const std::string dataFile(int odd) const
 	{
 		return m_dataFile[odd];
-	}
-
-	/**
-	 * @return The identifier of the file
-	 */
-	unsigned long identifier() const {
-		return m_identifier;
 	}
 
 	/**

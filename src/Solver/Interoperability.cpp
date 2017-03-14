@@ -549,7 +549,7 @@ void seissol::Interoperability::initializeFreeSurfaceOutput( int maxRefinementDe
                                                               m_lts,
                                                               m_ltsTree,
                                                               &m_ltsLut );
-                                                              
+
   seissol::SeisSol::main.freeSurfaceWriter().init(
     seissol::SeisSol::main.meshReader(),
     &seissol::SeisSol::main.freeSurfaceIntegrator(),
@@ -587,18 +587,17 @@ void seissol::Interoperability::initializeIO(
           double* outputRegionBounds)
 {
 	  // Initialize checkpointing
-	  double currentTime;
-	  int waveFieldTimeStep = 0;
 	  int faultTimeStep;
 	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
 				  m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
 				  mu, slipRate1, slipRate2, slip, slip1, slip2,
 				  state, strength, numSides, numBndGP,
-				  currentTime, waveFieldTimeStep, faultTimeStep);
-	  if (hasCheckpoint) {
-		  seissol::SeisSol::main.simulator().setCurrentTime(currentTime);
-		  seissol::SeisSol::main.faultWriter().setTimestep(faultTimeStep);
-	  }
+				  faultTimeStep);
+	if (hasCheckpoint) {
+		seissol::SeisSol::main.simulator().setCurrentTime(
+			seissol::SeisSol::main.checkPointManager().header().time());
+		seissol::SeisSol::main.faultWriter().setTimestep(faultTimeStep);
+	}
 
 	  // Initialize wave field output
 	  seissol::SeisSol::main.waveFieldWriter().init(
@@ -609,7 +608,7 @@ void seissol::Interoperability::initializeIO(
 			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
               seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
 			  m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			  refinement, waveFieldTimeStep, outputMask, outputRegionBounds,
+			  refinement, outputMask, outputRegionBounds,
 			  seissol::SeisSol::main.timeManager().getTimeTolerance());
 
 	  // I/O initialization is the last step that requires the mesh reader

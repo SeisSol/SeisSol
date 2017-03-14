@@ -138,10 +138,9 @@ void seissol::Simulator::simulate() {
 
     // write checkpoint if required
     if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
-		const unsigned int waveFieldTimeStep = seissol::SeisSol::main.waveFieldWriter().timestep();
 		const unsigned int faultTimeStep = seissol::SeisSol::main.faultWriter().timestep();
 
-      seissol::SeisSol::main.checkPointManager().write(m_currentTime, waveFieldTimeStep, faultTimeStep);
+      seissol::SeisSol::main.checkPointManager().write(m_currentTime, faultTimeStep);
       m_checkPointTime += m_checkPointInterval;
     }
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);

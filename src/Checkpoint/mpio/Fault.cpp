@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,7 @@ bool seissol::checkpoint::mpio::Fault::init(unsigned int numSides, unsigned int 
 		return true;
 
 	// Compute total number of cells and local offset
-	setSumOffset(numSides * numBndGP);
+	setSumOffset(numSides);
 
 	// Create the header data type
 	MPI_Datatype headerType;
@@ -61,7 +61,7 @@ bool seissol::checkpoint::mpio::Fault::init(unsigned int numSides, unsigned int 
 	setHeaderType(headerType);
 
 	// Define the file view
-	defineFileView(sizeof(Header), numSides * numBndGP);
+	defineFileView(sizeof(Header), numBndGP * sizeof(double), numSides, NUM_VARIABLES);
 
 	return exists();
 }
@@ -134,7 +134,7 @@ void seissol::checkpoint::mpio::Fault::write(int timestepFault)
 	logInfo(rank()) << "Checkpoint backend: Writing fault. Done.";
 }
 
-bool seissol::checkpoint::mpio::Fault::validate(MPI_File file) const
+bool seissol::checkpoint::mpio::Fault::validate(MPI_File file)
 {
 	int result = true;
 

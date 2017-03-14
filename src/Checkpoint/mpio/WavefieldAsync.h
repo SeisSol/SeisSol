@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -72,15 +72,17 @@ private:
 
 public:
 	WavefieldAsync()
-		: m_dofsCopy(0L), m_started(false)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Wavefield(IDENTIFIER),
+		m_dofsCopy(0L), m_started(false)
 	{
 	}
 
 	bool init(unsigned long numDofs, unsigned int groupSize = 1);
 
-	void writePrepare(double time, int timestepWaveField);
+	void writePrepare(const void* header, size_t headerSize);
 
-	void write(double time, int timestepWaveField);
+	void write(const void* header, size_t headerSize);
 
 	void close();
 };

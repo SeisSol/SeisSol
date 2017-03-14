@@ -72,9 +72,6 @@ namespace posix
 class CheckPoint : virtual public seissol::checkpoint::CheckPoint
 {
 private:
-	/** Checkpoint identifier (written to the beginning of the file) */
-	const unsigned long m_identifier;
-
 	/** Identifiers of the files */
 	int m_files[2];
 
@@ -88,13 +85,22 @@ private:
 	void* m_header;
 
 public:
+	CheckPoint(unsigned long identifier)
+		: seissol::checkpoint::CheckPoint(identifier),
+		m_headerSize(0), m_header(0L)
+	{
+		m_files[0] = m_files[1] = -1;
+
+		m_alignment = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_ALIGNMENT", 0);
+	}
+
 	CheckPoint(unsigned long identifier, size_t headerSize)
-		: m_identifier(identifier)
+		: seissol::checkpoint::CheckPoint(identifier)
 	{
 		m_files[0] = m_files[1] = -1;
 
 		headerSize += sizeof(unsigned long); // Require additional space for the identifier
-		m_alignment = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_POSIX_ALIGN", 0);
+		m_alignment = utils::Env::get<size_t>("SEISSOL_CHECKPOINT_ALIGNMENT", 0);
 		if (m_alignment) {
 			headerSize = (headerSize + m_alignment - 1) / m_alignment;
 			headerSize *= m_alignment;
@@ -104,6 +110,8 @@ public:
 		} else {
 			m_header = malloc(headerSize);
 		}
+
+		*static_cast<unsigned long*>(m_header) = identifier;
 
 		m_headerSize = headerSize;
 	}
@@ -198,14 +206,6 @@ protected:
 	}
 
 	/**
-	 * @return The identifier of the file
-	 */
-	unsigned long identifier() const
-	{
-		return m_identifier;
-	}
-
-	/**
 	 * @return The alignment used for writes
 	 */
 	size_t alignment() const
@@ -252,6 +252,8 @@ protected:
 
 	/**
 	 * Read the header info from the file
+	 *
+	 * @warning This function only works when the header size is set in the constructor
 	 */
 	template<typename T>
 	void readHeader(int file, T &header)
@@ -266,13 +268,13 @@ protected:
 
 	/**
 	 * Write the header info to the file
+	 *
+	 * @warning This function only works when the header size is set in the constructor
 	 */
 	template<typename T>
 	void writeHeader(int file, const T &header)
 	{
 		assert(sizeof(T)+sizeof(unsigned long) <= m_headerSize);
-
-		*static_cast<unsigned long*>(m_header) = m_identifier;
 
 		T* headStart = reinterpret_cast<T*>(static_cast<unsigned long*>(m_header)+1);
 		*headStart = header;
@@ -283,6 +285,8 @@ protected:
 private:
 	/**
 	 * Validate an existing check point file
+	 *
+	 * This function assumes that the id is the first value in the file
 	 */
 	bool validate(int file) const
 	{

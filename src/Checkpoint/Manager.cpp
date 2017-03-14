@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@
  * @section DESCRIPTION
  */
 
+#include "utils/env.h"
 #include "utils/logger.h"
 
 #include "Manager.h"
@@ -45,7 +46,7 @@
 bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 		double* mu, double* slipRate1, double* slipRate2, double* slip, double* slip1, double* slip2,
 		double* state, double* strength, unsigned int numSides, unsigned int numBndGP,
-		double &time, int &waveFieldTimeStep, int &faultTimeStep)
+		int &faultTimeStep)
 {
 		if (m_backend == DISABLED)
 			return false;
@@ -53,37 +54,45 @@ bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 		// Initialize the asynchronous module
 		async::Module<ManagerExecutor, CheckpointInitParam, CheckpointParam>::init();
 
-		// Buffer for file name
-		unsigned int id = addSyncBuffer(m_filename.c_str(), m_filename.size()+1, true);
-		assert(id == FILENAME); NDBG_UNUSED(id);
-
-		// Buffers for data
-		id = addBuffer(dofs, numDofs * sizeof(real));
-		assert(id == DOFS);
-		id = addBuffer(mu, numSides * numBndGP * sizeof(double));
-		assert(id == DR_DOFS0);
-		addBuffer(slipRate1, numSides * numBndGP * sizeof(double));
-		addBuffer(slipRate2, numSides * numBndGP * sizeof(double));
-		addBuffer(slip, numSides * numBndGP * sizeof(double));
-		addBuffer(slip1, numSides * numBndGP * sizeof(double));
-		addBuffer(slip2, numSides * numBndGP * sizeof(double));
-		addBuffer(state, numSides * numBndGP * sizeof(double));
-		addBuffer(strength, numSides * numBndGP * sizeof(double));
-
-		//
-		// Initialization for loading checkpoints
-		//
-		m_numDofs = numDofs;
-		m_numDRDofs = numSides * numBndGP;
-
 		Wavefield* waveField;
 		Fault* fault;
 		createBackend(m_backend, waveField, fault);
 
+		// Set the header
+		waveField->setHeader(m_header);
+
+		// Buffer for file name
+		unsigned int id = addSyncBuffer(m_filename.c_str(), m_filename.size()+1, true);
+		assert(id == FILENAME); NDBG_UNUSED(id);
+
+		// Buffer for the header
+		m_header.alloc(utils::Env::get<size_t>("SEISSOL_CHECKPOINT_ALIGNMENT", 0));
+		id = addBuffer(m_header.data(), m_header.size(), true);
+		assert(id == HEADER);
+
+		// Buffers for data
+		m_numDofs = numDofs;
+		m_numDRDofs = numSides * numBndGP;
+
+		id = addBuffer(dofs, numDofs * sizeof(real));
+		assert(id == DOFS);
+		id = addBuffer(mu, m_numDRDofs * sizeof(double));
+		assert(id == DR_DOFS0);
+		addBuffer(slipRate1, m_numDRDofs * sizeof(double));
+		addBuffer(slipRate2, m_numDRDofs * sizeof(double));
+		addBuffer(slip, m_numDRDofs * sizeof(double));
+		addBuffer(slip1, m_numDRDofs * sizeof(double));
+		addBuffer(slip2, m_numDRDofs * sizeof(double));
+		addBuffer(state, m_numDRDofs * sizeof(double));
+		addBuffer(strength, m_numDRDofs * sizeof(double));
+
+		//
+		// Initialization for loading checkpoints
+		//
 		waveField->setFilename(m_filename.c_str());
 		fault->setFilename(m_filename.c_str());
 
-		int exists = waveField->init(numDofs, seissol::SeisSol::main.asyncIO().groupSize());
+		int exists = waveField->init(m_header.size(), numDofs, seissol::SeisSol::main.asyncIO().groupSize());
 		exists &= fault->init(numSides, numBndGP,
 			seissol::SeisSol::main.asyncIO().groupSize());
 
@@ -94,9 +103,13 @@ bool seissol::checkpoint::Manager::init(real* dofs, unsigned int numDofs,
 
 		// Load checkpoint?
 		if (exists) {
-			waveField->load(time, waveFieldTimeStep, dofs);
+			waveField->load(dofs);
 			fault->load(faultTimeStep, mu, slipRate1, slipRate2,
 				slip, slip1, slip2, state, strength);
+		} else {
+			// Initialize header information (if not set from checkpoint)
+			m_header.clear();
+			waveField->initHeader(m_header);
 		}
 
 		waveField->close();

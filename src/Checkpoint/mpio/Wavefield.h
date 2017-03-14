@@ -67,31 +67,34 @@ typedef WavefieldDummy Wavefield;
 class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
 {
 private:
-	/** Struct describing the  header information in the file */
-	struct Header {
-		unsigned long identifier;
-		int partitions;
-		double time;
-		int timestepWavefield;
-	};
+	/** Id of the partition in the header */
+	size_t m_partitionId;
 
 	/** MPI-IO supports buffer larger > 2 GB */
 	bool m_useLargeBuffer;
 
 public:
 	Wavefield()
-		: CheckPoint(0x7A3B4, sizeof(real)), m_useLargeBuffer(true)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Wavefield(IDENTIFIER),
+		m_useLargeBuffer(true),
+		m_partitionId(-1)
 	{
 	}
 
-	bool init(unsigned long numDofs, unsigned int groupSize = 1);
+	void setHeader(WavefieldHeader &header);
 
-	void load(double& time, int& timestepWaveField, real* dofs);
+	bool init(size_t headerSize, unsigned long numDofs, unsigned int groupSize = 1);
 
-	void write(double time, int timestepWaveField);
+	void load(real* dofs);
+
+	void initHeader(WavefieldHeader &header);
+
+	void write(const void* header, size_t headerSize);
 
 protected:
-	bool validate(MPI_File file) const;
+	bool validate(MPI_File file);
 
 	/**
 	 * Write the header information to the file
@@ -99,7 +102,10 @@ protected:
 	 * @param time
 	 * @param timestepWaveField
 	 */
-	void writeHeader(double time, int timestepWaveField);
+	void writeHeader(const void* header, size_t headerSize);
+
+protected:
+	static const unsigned long IDENTIFIER = 0x7A3B4;
 };
 
 #endif // USE_MPI

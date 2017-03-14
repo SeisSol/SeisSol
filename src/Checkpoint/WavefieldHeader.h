@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,16 +37,12 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_MPIO_FAULT_ASYNC_H
-#define CHECKPOINT_MPIO_FAULT_ASYNC_H
+#ifndef CHECKPOINT_WAVEFIELDHEADER_H
+#define CHECKPOINT_WAVEFIELDHEADER_H
 
-#ifndef USE_MPI
-#include "Checkpoint/FaultDummy.h"
-#else // USE_MPI
+#include <cassert>
 
-#include "Fault.h"
-
-#endif // USE_MPI
+#include "DynStruct.h"
 
 namespace seissol
 {
@@ -54,47 +50,47 @@ namespace seissol
 namespace checkpoint
 {
 
-namespace mpio
+class WavefieldHeader : public DynStruct
 {
-
-#ifndef USE_MPI
-typedef FaultDummy FaultAsync;
-#else // USE_MPI
-
-class FaultAsync : public Fault
-{
-private:
-	/** Buffer for storing a copy of the data */
-	double* m_dataCopy;
-
-	/** True if a checkpoint was started */
-	bool m_started;
-
 public:
-	FaultAsync()
-		: seissol::checkpoint::CheckPoint(IDENTIFIER),
-		seissol::checkpoint::Fault(IDENTIFIER),
-		m_dataCopy(0L), m_started(false)
+        WavefieldHeader()
 	{
+		// Identifier
+		size_t id = add<unsigned long>();
+		assert(id == IDENTIFIER_ID); NDBG_UNUSED(id);
+
+		// Time
+		id = add<double>();
+		assert(id == TIME_ID); NDBG_UNUSED(id);
 	}
 
-	bool init(unsigned int numSides, unsigned int numBndGP,
-		unsigned int groupSize = 1);
+	unsigned long identifier() const
+	{
+		return value<unsigned long>(IDENTIFIER_ID);
+	}
 
-	void writePrepare(int timestepFault);
+	unsigned long& identifier()
+	{
+		return value<unsigned long>(IDENTIFIER_ID);
+	}
 
-	void write(int timestepFault);
+	double time() const
+	{
+		return value<double>(TIME_ID);
+	}
 
-	void close();
+	double& time()
+	{
+		return value<double>(TIME_ID);
+	}
+
+private:
+	static const size_t IDENTIFIER_ID = 0;
+	static const size_t TIME_ID = 1;
 };
 
-#endif // USE_MPI
-
 }
 
 }
 
-}
-
-#endif // CHECKPOINT_MPIO_FAULT_ASYNC_H
-
+#endif // CHECKPOINT_WAVEFIELDHEADER_H

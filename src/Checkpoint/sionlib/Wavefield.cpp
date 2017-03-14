@@ -40,7 +40,7 @@
 
 #include "Wavefield.h"
 
-bool seissol::checkpoint::sionlib::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
+bool seissol::checkpoint::sionlib::Wavefield::init(size_t headerSize, unsigned long numDofs, unsigned int groupSize)
 {
 	if (groupSize != 1)
 		// TODO To read the sionlib file, we must use the same number of processes
@@ -49,14 +49,14 @@ bool seissol::checkpoint::sionlib::Wavefield::init(unsigned long numDofs, unsign
 
 	setChunkElementCount(numDofs);
 
-	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
+	seissol::checkpoint::Wavefield::init(headerSize, numDofs, groupSize);
 
 	logInfo(rank()) << "Using SIONlib mode" << writeMode() << "for writing checkpoints";
 
 	return exists();
 }
 
-void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWaveField, real* dofs)
+void seissol::checkpoint::sionlib::Wavefield::load(real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
@@ -65,13 +65,8 @@ void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWa
 	int file = open(linkFile(), readMode());
 	checkErr(file);
 
-	// Read identifier
-	unsigned long id;
-	checkErr(sion_coll_fread(&id, sizeof(id), 1, file), 1);
-
 	// Read header
-	checkErr(sion_coll_fread(&time, sizeof(time), 1, file), 1);
-	checkErr(sion_coll_fread(&timestepWaveField, sizeof(timestepWaveField), 1, file), 1);
+	checkErr(sion_coll_fread(header().data(), header().size(), 1, file), 1);
 
 	// Read dofs
 	checkErr(sion_coll_fread(dofs, sizeof(double), numDofs(), file), numDofs());
@@ -80,7 +75,7 @@ void seissol::checkpoint::sionlib::Wavefield::load(double &time, int &timestepWa
 	sionClose(file);
 }
 
-void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWaveField)
+void seissol::checkpoint::sionlib::Wavefield::write(const void* header, size_t headerSize)
 {
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -94,9 +89,7 @@ void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWav
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
 
 	unsigned long id = identifier();
-	checkErr(sion_coll_fwrite(&id, sizeof(id), 1, file), 1);
-	checkErr(sion_coll_fwrite(&time, sizeof(time), 1, file), 1);
-	checkErr(sion_coll_fwrite(&timestepWaveField, sizeof(timestepWaveField), 1, file), 1);
+	checkErr(sion_coll_fwrite(header, headerSize, 1, file), 1);
 
 	SCOREP_USER_REGION_END(r_write_header);
 

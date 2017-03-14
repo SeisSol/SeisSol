@@ -6,7 +6,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,6 @@
 
 #include "CheckPoint.h"
 #include "Checkpoint/Wavefield.h"
-#include <iostream>
 
 namespace seissol
 {
@@ -58,15 +57,19 @@ class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefie
 {
 public:
 	Wavefield()
-		: CheckPoint(0x7A389)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Wavefield(IDENTIFIER)
 	{}
 
-	bool init(unsigned long numDofs, unsigned int groupSize = 1);
+	bool init(size_t headerSize, unsigned long numDofs, unsigned int groupSize = 1);
 
-	void load(double &time, int &timestepWavefield, real* dofs);
+	void load(real* dofs);
 
-	void write(double time, int timestepWaveField);
+	void write(const void* header, size_t headerSize);
 
+private:
+	static const unsigned long IDENTIFIER = 0x7A389;
 };
 
 }

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -74,8 +74,9 @@ private:
 	hid_t m_h5XferList;
 
 public:
-	CheckPoint()
-		: m_h5XferList(-1)
+	CheckPoint(unsigned long identifier)
+		: seissol::checkpoint::CheckPoint(identifier),
+		m_h5XferList(-1)
 	{
 		m_h5files[0] = m_h5files[1] = -1;
 	}

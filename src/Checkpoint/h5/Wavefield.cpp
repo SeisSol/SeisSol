@@ -51,9 +51,14 @@
 #include "Checkpoint/MPIInfo.h"
 #endif // USE_MPI
 
-bool seissol::checkpoint::h5::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
+bool seissol::checkpoint::h5::Wavefield::init(size_t headerSize, unsigned long numDofs, unsigned int groupSize)
 {
-	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
+	seissol::checkpoint::Wavefield::init(headerSize, numDofs, groupSize);
+
+	// Opaque data type for header
+	// We cannot use compound data type on I/O nodes
+	m_h5headerType = H5Tcreate(H5T_OPAQUE, headerSize);
+	checkH5Err(m_h5headerType);
 
 	// Data space for the file
 	hsize_t fileSize = numTotalElems();
@@ -65,7 +70,7 @@ bool seissol::checkpoint::h5::Wavefield::init(unsigned long numDofs, unsigned in
 	return exists();
 }
 
-void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefield, real* dofs)
+void seissol::checkpoint::h5::Wavefield::load(real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
@@ -75,14 +80,9 @@ void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefie
 	checkH5Err(h5file);
 
 	// Attributes
-	hid_t h5attr = H5Aopen(h5file, "time", H5P_DEFAULT);
+	hid_t h5attr = H5Aopen(h5file, "header", H5P_DEFAULT);
 	checkH5Err(h5attr);
-	checkH5Err(H5Aread(h5attr, H5T_NATIVE_DOUBLE, &time));
-	checkH5Err(H5Aclose(h5attr));
-
-	h5attr = H5Aopen(h5file, "timestep_wavefield", H5P_DEFAULT);
-	checkH5Err(h5attr);
-	checkH5Err(H5Aread(h5attr, H5T_NATIVE_INT, &timestepWavefield));
+	checkH5Err(H5Aread(h5attr, m_h5headerType, header().data()));
 	checkH5Err(H5Aclose(h5attr));
 
 	// Get dataset
@@ -129,7 +129,7 @@ void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefie
 	checkH5Err(H5Fclose(h5file));
 }
 
-void seissol::checkpoint::h5::Wavefield::write(double time, int waveFieldTimeStep)
+void seissol::checkpoint::h5::Wavefield::write(const void* header, size_t headerSize)
 {
 	EPIK_TRACER("CheckPoint_write");
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
@@ -141,11 +141,8 @@ void seissol::checkpoint::h5::Wavefield::write(double time, int waveFieldTimeSte
 	EPIK_USER_START(r_header);
 	SCOREP_USER_REGION_BEGIN(r_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	// Time
-	checkH5Err(H5Awrite(m_h5time[odd()], H5T_NATIVE_DOUBLE, &time));
-
-	// Wavefield writer
-	checkH5Err(H5Awrite(m_h5timestepWavefield[odd()], H5T_NATIVE_INT, &waveFieldTimeStep));
+	// Header
+	checkH5Err(H5Awrite(m_h5header[odd()], m_h5headerType, header));
 
 	EPIK_USER_END(r_header);
 	SCOREP_USER_REGION_END(r_header);
@@ -263,13 +260,9 @@ hid_t seissol::checkpoint::h5::Wavefield::initFile(int odd, const char* filename
 		h5file = open(filename, false);
 		checkH5Err(h5file);
 
-		// Time
-		m_h5time[odd] = H5Aopen(h5file, "time", H5P_DEFAULT);
-		checkH5Err(m_h5time[odd]);
-
-		// Wavefield writer
-		m_h5timestepWavefield[odd] = H5Aopen(h5file, "timestep_wavefield", H5P_DEFAULT);
-		checkH5Err(m_h5timestepWavefield[odd]);
+		// Header
+		m_h5header[odd] = H5Aopen(h5file, "header", H5P_DEFAULT);
+		checkH5Err(m_h5header[odd]);
 
 		// Data
 		m_h5data[odd] = H5Dopen(h5file, "values", H5P_DEFAULT);
@@ -295,10 +288,10 @@ hid_t seissol::checkpoint::h5::Wavefield::initFile(int odd, const char* filename
 		hid_t h5spaceScalar = H5Screate(H5S_SCALAR);
 		checkH5Err(h5spaceScalar);
 
-		// Time
-		m_h5time[odd] = H5Acreate(h5file, "time", H5T_IEEE_F64LE, h5spaceScalar,
+		// Header
+		m_h5header[odd] = H5Acreate(h5file, "header", m_h5headerType, h5spaceScalar,
 				H5P_DEFAULT, H5P_DEFAULT);
-		checkH5Err(m_h5time[odd]);
+		checkH5Err(m_h5header[odd]);
 
 		// Partitions
 		hid_t h5partitions = H5Acreate(h5file, "partitions", H5T_STD_I32LE, h5spaceScalar,
@@ -307,13 +300,6 @@ hid_t seissol::checkpoint::h5::Wavefield::initFile(int odd, const char* filename
 		int p = partitions();
 		checkH5Err(H5Awrite(h5partitions, H5T_NATIVE_INT, &p));
 		checkH5Err(H5Aclose(h5partitions));
-
-		// Wavefield writer
-		m_h5timestepWavefield[odd] = H5Acreate(h5file, "timestep_wavefield",
-				H5T_STD_I32LE, h5spaceScalar, H5P_DEFAULT, H5P_DEFAULT);
-		checkH5Err(m_h5timestepWavefield[odd]);
-		int t = 0;
-		checkH5Err(H5Awrite(m_h5timestepWavefield[odd], H5T_NATIVE_INT, &t));
 
 		checkH5Err(H5Sclose(h5spaceScalar));
 

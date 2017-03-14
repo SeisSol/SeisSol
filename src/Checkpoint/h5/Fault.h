@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2016, SeisSol Group
+ * Copyright (c) 2014-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,7 +93,10 @@ private:
 
 public:
 	Fault()
-		: m_h5fSpaceData(-1)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Fault(IDENTIFIER),
+		m_h5fSpaceData(-1)
 	{
 		m_h5timestepFault[0] = m_h5timestepFault[1] = -1;
 		for (unsigned int i = 0; i < NUM_VARIABLES; i++)
@@ -135,6 +138,9 @@ private:
 	bool validate(hid_t h5file) const;
 
 	hid_t initFile(int odd, const char* filename);
+
+private:
+	static const unsigned long IDENTIFIER = 0x7A127;
 };
 
 #endif // USE_HDF

@@ -64,12 +64,6 @@ namespace mpio
 class CheckPoint : virtual public seissol::checkpoint::CheckPoint
 {
 private:
-	/** Checkpoint identifier (written to the beginning of the file) */
-	const unsigned long m_identifier;
-
-	/** The size of an element (in bytes) */
-	const unsigned int m_elemSize;
-
 	/** Identifiers of the files */
 	MPI_File m_mpiFiles[2];
 
@@ -89,9 +83,8 @@ private:
 	MPI_Datatype m_fileDataType;
 
 public:
-	CheckPoint(unsigned long identifier, unsigned int elemSize)
-		: m_identifier(identifier),
-		  m_elemSize(elemSize),
+	CheckPoint(unsigned long identifier)
+		: seissol::checkpoint::CheckPoint(identifier),
 		  m_open(false),
 		  m_headerSize(0), m_headerType(MPI_DATATYPE_NULL),
 		  m_fileHeaderType(MPI_DATATYPE_NULL), m_fileDataType(MPI_DATATYPE_NULL)
@@ -138,9 +131,10 @@ protected:
 	 * Create the file view
 	 *
 	 * @param headerSize The size of the header in bytes
+	 * @param elemSize The element size in bytes
 	 * @param numElem The number of elements in the local part
 	 */
-	void defineFileView(unsigned long headerSize, unsigned long numElem)
+	void defineFileView(unsigned long headerSize, unsigned int elemSize, unsigned long numElem, unsigned int numVars = 1)
 	{
 		// Check header size
 		MPI_Aint lb, size;
@@ -157,21 +151,34 @@ protected:
 
 		// Create element type
 		MPI_Datatype elemType;
-		MPI_Type_contiguous(m_elemSize, MPI_BYTE, &elemType);
+		MPI_Type_contiguous(elemSize, MPI_BYTE, &elemType);
 
 		// Compute the number of blocks, we need to create the data type
 		const unsigned long MAX_INT = 1ul<<30;
 		unsigned int blocks = (numElem + MAX_INT - 1) / MAX_INT;
 
 		// Create data file type
-		int* blockLength = new int[blocks]; //{static_cast<int>(numElem)};
-		MPI_Aint* displ = new MPI_Aint[blocks];
-		for (unsigned int i = 0; i < blocks; i++) {
-			blockLength[i] = MAX_INT;
-			displ[i] = m_headerSize + (fileOffset() + i*MAX_INT) * m_elemSize;
+		int* blockLength = new int[blocks * numVars]; //{static_cast<int>(numElem)};
+		MPI_Aint* displ = new MPI_Aint[blocks * numVars];
+		unsigned long offset = m_headerSize + (fileOffset()-groupOffset()) * numVars * elemSize;
+		for (unsigned int i = 0; i < numVars; i++) {
+			// Jump to this process
+			offset += groupOffset() * elemSize;
+
+			for (unsigned int j = 0; j < blocks-1; j++) {
+				blockLength[i*blocks + j] = MAX_INT;
+				displ[i*blocks + j] = offset;
+				offset += MAX_INT * elemSize;
+			}
+
+			blockLength[(i+1) * blocks - 1] = numElem - (blocks-1) * MAX_INT; // Set correct size for the last block
+			displ[(i+1) * blocks - 1] = offset;
+			offset += blockLength[(i+1) * blocks - 1] * elemSize;
+
+			// Skip other processes after this in the group
+			offset += (numGroupElems() - numElem - groupOffset()) * elemSize;
 		}
-		blockLength[blocks-1] = numElem - (blocks-1) * MAX_INT; // Set correct size for the last block
-		MPI_Type_hindexed(blocks, blockLength, displ, elemType, &m_fileDataType);
+		MPI_Type_create_hindexed(blocks, blockLength, displ, elemType, &m_fileDataType);
 		MPI_Type_commit(&m_fileDataType);
 
 		MPI_Type_free(&elemType);
@@ -302,17 +309,9 @@ protected:
 	}
 
 	/**
-	 * @return The identifier of the file
-	 */
-	unsigned long identifier() const
-	{
-		return m_identifier;
-	}
-
-	/**
 	 * Validate an existing check point file
 	 */
-	virtual bool validate(MPI_File file) const = 0;
+	virtual bool validate(MPI_File file) = 0;
 
 protected:
 	static void checkMPIErr(int ret)
