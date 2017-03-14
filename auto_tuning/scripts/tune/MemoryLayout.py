@@ -97,11 +97,12 @@ def mergeBlock(block1, block2):
 def getGlobalMatrices(order, arch):
   architecture = Arch.getArchitectureByIdentifier(arch)
   stiffnessMatrices = ['kXiDivM', 'kEtaDivM', 'kZetaDivM']
+  groups = {
+    'stiffnessTransposed': map(lambda x: x + 'T', stiffnessMatrices)
+  }
+
   if architecture.name in ['knc', 'knl']:
     blockMerge = 2
-    groups = {
-      'stiffnessTransposed': map(lambda x: x + 'T', stiffnessMatrices)
-    }
     configs = {
       'kXiDivM': [],
       'kEtaDivM': [],
@@ -121,14 +122,11 @@ def getGlobalMatrices(order, arch):
     }
   else:
     blockMerge = 1
-    groups = {}
     configs = {
       'kXiDivM': [ True ],
       'kEtaDivM': [ True ],
       'kZetaDivM': [ True ],
-      'kXiDivMT': [ True ],
-      'kEtaDivMT': [ True ],
-      'kZetaDivMT': [ True ],
+      'stiffnessTransposed': [ True ],
       'fP1': [ True ],
       'fP2': [ True ],
       'fP3': [ True ],
