@@ -225,7 +225,7 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint, &
-                                  MaterialType, RandomField_Flag, nMechanisms
+                                  MaterialType, RandomField_Flag, nMechanisms, SumatraRegions(7)
     REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, &
                                   PlasticCo, BulkFriction, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
@@ -234,7 +234,7 @@ CONTAINS
                                            PlasticCo, BulkFriction, Tv, pmethod, &
                                            Adjoint, MaterialType, rho, mu, lambda, &
                                            MaterialFileName, nMechanisms, FreqCentral, &
-                                           FreqRatio, RandomField_Flag, AdjFileName
+                                           FreqRatio, RandomField_Flag, AdjFileName, SumatraRegions
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -272,9 +272,21 @@ CONTAINS
     MaterialType        = 0
     RandomField_Flag    = 0
     nMechanisms         = 0
+    !big box continental LVZ above L1 L2 L3 L4
+    SumatraRegions = (/0,0,0,0,0,0,0/)
     !
     READ(IO%UNIT%FileIn, nml = Equations)
     !
+    IF ((MaterialType.GE.1220).AND.(MaterialType.LE.1230)) THEN
+    ! Sumatra setup
+       IF (maxval(SumatraRegions).EQ.0) THEN
+          logError(*) 'SumatraRegions not set, setting to LR topo model'
+          SumatraRegions = (/5,1,2,7,4,3,6/)
+       ELSE
+          logInfo0(*) 'SumatraRegions used:', SumatraRegions(1:7)
+       ENDIF
+    ENDIF
+    EQN%SumatraRegions(1:7) = SumatraRegions(1:7)
 
     !
     SELECT CASE(Anisotropy)
@@ -577,7 +589,7 @@ CONTAINS
       logInfo0(*) 'No material property zones are defined. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       !
-  CASE(122,1221,1222,1223,1224, 1225, 1226, 1227) ! SUMATRA T Ulrich 16.02.2016
+  CASE(122,1221,1222,1223, 1225, 1226, 1227) ! SUMATRA T Ulrich 16.02.2016
       !
       logInfo(*) 'Material property zones are defined by SeisSol. '
 

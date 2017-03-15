@@ -951,8 +951,7 @@ CONTAINS
         ENDDO
 
 
-     CASE(1223,1224,1225,1226,1227)     ! T. Ulrich SUMATRA 2 x 1d 13.07.16 and 2 layers below fault, fault in a LVZ (small model)
-                                   ! 1223: idem with fault-topography intersection, i.e. 7 regions instead of 6
+     CASE(1223,1225,1226,1227)     ! SUMATRA: 2 layers below fault, fault in a LVZ, big box
          ! OCeanic Crust
          ! Layer                   depth    rho     mu          lambda
          BedrockVelModel(1,:) = (/  -6d3, 2550d0,18589500000d0,26571000000d0/)
@@ -969,18 +968,19 @@ CONTAINS
 
         DO iElem = 1, MESH%nElem
            iLayer = MESH%ELEM%Reference(0,iElem) ! Zone number is given by reference 0
-           IF (EQN%linType.NE.1224) THEN !fault not intersecting surface
-              SELECT CASE (iLayer)
-               CASE(2,7) !LVZ
+           !1       2           3         4  5  6  7
+           !big box continental LVZ above L1 L2 L3 L4
+           !EQN%SumatraRegions
+           IF ((iLayer.EQ.EQN%SumatraRegions(3)).OR.(iLayer.EQ.EQN%SumatraRegions(4))) THEN
                 MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-               CASE(1)
+           ELSE IF (iLayer.EQ.EQN%SumatraRegions(5)) THEN
                 MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
-               CASE(3)
+           ELSE IF (iLayer.EQ.EQN%SumatraRegions(6)) THEN
                 MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
-               CASE(4)
+           ELSE IF (iLayer.EQ.EQN%SumatraRegions(7)) THEN
                 MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-               CASE(5,6)
-               ! Crustal Crust
+           ELSE IF ((iLayer.EQ.EQN%SumatraRegions(1)).OR.(iLayer.EQ.EQN%SumatraRegions(2))) THEN
+                ! Crustal Crust
                 z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
                 IF (z.GT.BedrockVelModel(4,1)) THEN
                     MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
@@ -993,37 +993,8 @@ CONTAINS
                 ELSE
                     logError(*) "depth lower than",BedrockVelModel(7,1),iLayer,z
                 ENDIF
-              CASE DEFAULT
-                    logError(*) "Material assignment: unknown region", iLayer
-              END SELECT
-
-           ELSE !for geometry with fault surface intersection
-              SELECT CASE (iLayer)
-               CASE(2) !LVZ
-                MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-               CASE(1)
-                MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
-               CASE(3)
-                MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
-               CASE(4)
-                MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-               CASE(5,6)
-               ! Crustal Crust
-                z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
-                IF (z.GT.BedrockVelModel(4,1)) THEN
-                    MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
-                ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
-                    MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
-                ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
-                    MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
-                ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
-                    MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-                ELSE
-                    logError(*) "depth lower than",BedrockVelModel(7,1),iLayer,z
-                ENDIF
-              CASE DEFAULT
-                    logError(*) "Material assignment: unknown region", iLayer
-              END SELECT
+           ELSE
+                logError(*) "Material assignment: unknown region", iLayer
            ENDIF
 
            !anelastic setup, material dependent
@@ -1143,14 +1114,7 @@ CONTAINS
                 SELECT CASE(EQN%linType)
                 CASE(1223) !lower cohesion and bulk friction for layer around the fault for the FSI model
                      iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
-                     IF ((iLayer.EQ.2).OR.(iLayer.EQ.7)) THEN
-                        EQN%PlastCo(iElem) = 1.0e+06
-                     ELSE
-                        EQN%PlastCo(iElem) = 4.0e+06
-                     ENDIF
-                CASE(1224) !lower cohesion and bulk friction for layer around the fault for fault not intersecting surface
-                     iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
-                     IF (iLayer.EQ.1) THEN
+                     IF ((iLayer.EQ.EQN%SumatraRegions(3)).OR.(iLayer.EQ.EQN%SumatraRegions(4))) THEN
                         EQN%PlastCo(iElem) = 1.0e+06
                      ELSE
                         EQN%PlastCo(iElem) = 4.0e+06
