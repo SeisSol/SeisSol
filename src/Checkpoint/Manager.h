@@ -56,6 +56,7 @@
 #include "Wavefield.h"
 #include "Fault.h"
 #include "WavefieldHeader.h"
+#include "Monitoring/Stopwatch.h"
 
 namespace seissol
 {
@@ -82,6 +83,9 @@ private:
 
 	/** Checkpoint header */
 	WavefieldHeader m_header;
+
+	/** Stopwatch for checkpointing frontend */
+	Stopwatch m_stopwatch;
 
 public:
 	Manager()
@@ -148,6 +152,8 @@ public:
 		if (m_backend == DISABLED)
 			return;
 
+		m_stopwatch.start();
+
 		const int rank = seissol::MPI::mpi.rank();
 
 		// Set current time
@@ -176,6 +182,8 @@ public:
 		call(param);
 		SCOREP_USER_REGION_END(r_call);
 
+		m_stopwatch.pause();
+
 		logInfo(rank) << "Checkpoint: Writing at time" << utils::nospace << time << ". Done.";
 	}
 
@@ -190,6 +198,8 @@ public:
 		// Terminate the executor
 		wait();
 
+		m_stopwatch.printTime("Time checkpoint frontend:");
+
 		// Cleanup the asynchronous module
 		async::Module<ManagerExecutor, CheckpointInitParam, CheckpointParam>::finalize();
 	}
@@ -199,9 +209,6 @@ public:
 	 */
 	void tearDown()
 	{
-		if (m_backend == DISABLED)
-			return;
-
 		m_executor.finalize();
 	}
 

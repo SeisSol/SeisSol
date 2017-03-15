@@ -49,6 +49,7 @@
 #include <Modules/Module.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include "Checkpoint/DynStruct.h"
+#include "Monitoring/Stopwatch.h"
 #include "FreeSurfaceWriterExecutor.h"
 
 namespace seissol
@@ -67,6 +68,9 @@ private:
 
 	/** The asynchronous executor */
 	FreeSurfaceWriterExecutor m_executor;
+
+	/** Frontend stopwatch */
+	Stopwatch m_stopwatch;
 
   /** free surface integration module. */
   seissol::solver::FreeSurfaceIntegrator* m_freeSurfaceIntegrator;
@@ -103,15 +107,13 @@ public:
 			return;
     }
 
+		m_stopwatch.printTime("Time free surface writer frontend:");
+
 		wait();
 	}
 
 	void tearDown()
 	{
-		if (!m_enabled) {
-			return;
-    }
-
 		m_executor.finalize();
 	}
 

@@ -6,7 +6,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,11 +42,15 @@
 #ifndef STOPWATCH_H
 #define STOPWATCH_H
 
+#include "Parallel/MPI.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #else // _WIN32
 #include <sys/time.h>
 #endif // _WIN32
+
+#include "utils/logger.h"
 
 /**
  * OS-independent (per Preprocessor) version of a stopwatch
@@ -63,6 +67,9 @@ private:
 	timeval m_begin;
 #endif // _WIN32
 
+	/** Time already spend */
+	double m_time;
+
 public:
 	/**
 	 * Constructor
@@ -70,6 +77,7 @@ public:
 	 * resets the Stopwatch
 	 */
 	Stopwatch()
+		: m_time(0)
 	{
 #ifdef _WIN32
 		QueryPerformanceFrequency(&m_ticksPerSecond);
@@ -81,6 +89,14 @@ public:
 	 */
 	~Stopwatch()
 	{}
+
+	/**
+	 * Reset the stopwatch to zero
+	 */
+	void reset()
+	{
+		m_time = 0;
+	}
 
 	/**
 	 * starts the time measuring
@@ -95,9 +111,9 @@ public:
 	}
 
 	/**
-	 * split time measuring
+	 * get time measuring
 	 *
-	 * @return measured time in seconds
+	 * @return measured time (until now) in seconds
 	 */
 	double split()
 	{
@@ -137,7 +153,71 @@ public:
 		ret += tmp;
 
 		return ret;
+	}
+
+	/**
+	 * pauses the measuring
+	 *
+	 * @return measured time (until now) in seconds
+	 */
+	double pause()
+	{
+		m_time += split();
+		return m_time;
 #endif // _WIN32
+	}
+
+	/**
+	 * stops time measuring
+	 *
+	 * @return measured time in seconds
+	 */
+	double stop()
+	{
+		double time = pause();
+		reset();
+		return time;
+	}
+
+	/**
+	 * Collective operation, printing avg, min and max time
+	 */
+	void printTime(const char* text
+#ifdef USE_MPI
+			, MPI_Comm comm = MPI_COMM_NULL
+#endif // USE_MPI
+	 ) {
+		int rank = 0;
+		double avg = m_time;
+		double min = m_time;
+		double max = m_time;
+
+#ifdef USE_MPI
+		if (comm == MPI_COMM_NULL)
+			comm = seissol::MPI::mpi.comm();
+
+		MPI_Comm_rank(comm, &rank);
+
+		if (rank == 0) {
+			MPI_Reduce(MPI_IN_PLACE, &avg, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+			MPI_Reduce(MPI_IN_PLACE, &min, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+			MPI_Reduce(MPI_IN_PLACE, &max, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+
+			int size;
+			MPI_Comm_size(comm, &size);
+			avg /= size;
+		} else {
+			MPI_Reduce(&avg, 0L, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+			MPI_Reduce(&min, 0L, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+			MPI_Reduce(&max, 0L, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+		}
+#endif // USE_MPI
+
+		logInfo(rank) << text << avg
+#ifdef USE_MPI
+			<< "(min:" << utils::nospace << min << ", max: " << max << ')'
+#endif // USE_MPI
+			;
 	}
 };
 

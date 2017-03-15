@@ -383,6 +383,8 @@ void seissol::writer::WaveFieldWriter::write(double time)
 	if (!m_enabled)
 		return;
 
+	m_stopwatch.start();
+
 	const int rank = seissol::MPI::mpi.rank();
 
 	if (time <= m_lastTimeStep + m_timeTolerance) {
@@ -464,6 +466,8 @@ void seissol::writer::WaveFieldWriter::write(double time)
 #ifdef GENERATEDKERNELS
 	seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
 #endif // GENERATEDKERNELS
+
+	m_stopwatch.pause();
 
 	logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
 }

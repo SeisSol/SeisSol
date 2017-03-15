@@ -43,6 +43,7 @@
 #include "async/ExecInfo.h"
 
 #include "Backend.h"
+#include "Monitoring/Stopwatch.h"
 
 namespace seissol
 {
@@ -85,6 +86,9 @@ private:
 
 	/** The dynamic rupture checkpoint */
 	Fault *m_fault;
+
+	/** Stopwatch for checkpoint backend */
+	Stopwatch m_stopwatch;
 
 public:
 	ManagerExecutor()
@@ -130,6 +134,8 @@ public:
 	 */
 	void exec(const async::ExecInfo &info, const CheckpointParam &param)
 	{
+		m_stopwatch.start();
+
 		m_waveField->write(info.buffer(HEADER), info.bufferSize(HEADER));
 		m_fault->write(param.faultTimeStep);
 
@@ -140,11 +146,15 @@ public:
 		// Prepare next checkpoint (only for async checkpoints)
 		m_waveField->writePrepare(info.buffer(HEADER), info.bufferSize(HEADER));
 		m_fault->writePrepare(param.faultTimeStep);
+
+		m_stopwatch.pause();
 	}
 
 	void finalize()
 	{
 		if (m_waveField) {
+			m_stopwatch.printTime("Time checkpoint backend:");
+
 			m_waveField->close();
 			m_fault->close();
 

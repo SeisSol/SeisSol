@@ -51,6 +51,8 @@
 
 #include "async/ExecInfo.h"
 
+#include "Monitoring/Stopwatch.h"
+
 namespace seissol
 {
 
@@ -108,6 +110,9 @@ private:
 	/** The MPI communicator for the XDMF writer */
 	MPI_Comm m_comm;
 #endif // USE_MPI
+
+	/** Stopwatch for the wave field backend */
+	Stopwatch m_stopwatch;
 
 public:
 	WaveFieldWriterExecutor()
@@ -254,6 +259,8 @@ public:
 	// Execute this function only if m_waveFieldWriter is initialized
 		if (m_waveFieldWriter != 0L) {
 #endif // USE_MPI
+		m_stopwatch.start();
+
 		// High order output
 		m_waveFieldWriter->addTimeStep(param.time);
 
@@ -285,6 +292,8 @@ public:
 
 			m_lowWaveFieldWriter->flush();
 		}
+
+		m_stopwatch.pause();
 #ifdef USE_MPI
 		}
 #endif // USE_MPI
@@ -292,6 +301,18 @@ public:
 
 	void finalize()
 	{
+		if (m_waveFieldWriter
+#ifdef USE_MPI
+			&& (m_comm != MPI_COMM_NULL)
+#endif // USE_MPI
+		) {
+			m_stopwatch.printTime("Time wave field writer backend:"
+#ifdef USE_MPI
+				, m_comm
+#endif // USE_MPI
+			);
+		}
+
 #ifdef USE_MPI
 		if (m_comm != MPI_COMM_NULL) {
 			MPI_Comm_free(&m_comm);

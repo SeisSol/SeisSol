@@ -55,6 +55,7 @@
 #include "Checkpoint/DynStruct.h"
 #endif // GENERATEDKERNELS
 #include "Geometry/refinement/VariableSubSampler.h"
+#include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
 
 namespace seissol
@@ -124,8 +125,8 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/** The tolerance in the time for ignoring duplicate time steps */
 	double m_timeTolerance;
 
-	/** The current output time step */
-// 	unsigned int m_timestep;
+	/** The stopwatch for the frontend */
+	Stopwatch m_stopwatch;
 
 	/** Checks if a vertex given by the vertexCoords lies inside the boxBounds */
 	/*   The boxBounds is in the format: xMin, xMax, yMin, yMax, zMin, zMax */
@@ -216,6 +217,8 @@ public:
 		if (!m_enabled)
 			return;
 
+		m_stopwatch.printTime("Time wave field writer frontend:");
+
 		delete m_variableSubsampler;
 		m_variableSubsampler = 0L;
 		delete [] m_outputFlags;
@@ -230,9 +233,6 @@ public:
 
 	void tearDown()
 	{
-		if (!m_enabled)
-			return;
-
 		m_executor.finalize();
 	}
 };

@@ -49,6 +49,7 @@
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
 #include "Monitoring/instrumentation.fpp"
+#include "Monitoring/Stopwatch.h"
 
 namespace seissol
 {
@@ -71,6 +72,9 @@ private:
 
 	/** The current output time step */
 	unsigned int m_timestep;
+
+	/** Frontend stopwatch */
+	Stopwatch m_stopwatch;
 
 public:
 	FaultWriter()
@@ -114,6 +118,8 @@ public:
 		if (!m_enabled)
 			logError() << "Trying to write fault output, but fault output is not enabled";
 
+		m_stopwatch.start();
+
 		const int rank = seissol::MPI::mpi.rank();
 
 		wait();
@@ -131,6 +137,8 @@ public:
 		// Update the timestep count
 		m_timestep++;
 
+		m_stopwatch.pause();
+
 		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
 	}
 
@@ -139,14 +147,13 @@ public:
 		if (!m_enabled)
 			return;
 
+		m_stopwatch.printTime("Time fault writer frontend:");
+
 		wait();
 	}
 
 	void tearDown()
 	{
-		if (!m_enabled)
-			return;
-
 		m_executor.finalize();
 	}
 

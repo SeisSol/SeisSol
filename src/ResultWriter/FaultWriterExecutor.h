@@ -48,6 +48,8 @@
 
 #include "async/ExecInfo.h"
 
+#include "Monitoring/Stopwatch.h"
+
 namespace seissol
 {
 
@@ -88,6 +90,9 @@ private:
 	/** The number of variables that should be written */
 	unsigned int m_numVariables;
 
+	/** Backend stopwatch */
+	Stopwatch m_stopwatch;
+
 public:
 	FaultWriterExecutor()
 		: m_xdmfWriter(0L),
@@ -108,16 +113,32 @@ public:
 		if (!m_xdmfWriter)
 			return;
 
+		m_stopwatch.start();
+
 		m_xdmfWriter->addTimeStep(param.time);
 
 		for (unsigned int i = 0; i < m_numVariables; i++)
 			m_xdmfWriter->writeData(i, static_cast<const double*>(info.buffer(VARIABLES0 + i)));
 
 		m_xdmfWriter->flush();
+
+		m_stopwatch.pause();
 	}
 
 	void finalize()
 	{
+		if (m_xdmfWriter
+#ifdef USE_MPI
+			&& (m_comm != MPI_COMM_NULL)
+#endif // USE_MPI
+		) {
+			m_stopwatch.printTime("Time fault writer backend:"
+#ifdef USE_MPI
+				, m_comm
+#endif // USE_MPI
+			);
+		}
+
 #ifdef USE_MPI
 		if (m_comm != MPI_COMM_NULL) {
 			MPI_Comm_free(&m_comm);

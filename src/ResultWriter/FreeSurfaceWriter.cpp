@@ -190,6 +190,8 @@ void seissol::writer::FreeSurfaceWriter::write(double time)
 	if (!m_enabled)
 		logError() << "Trying to write free surface output, but it is disabled.";
 
+	m_stopwatch.start();
+
 	int const rank = seissol::MPI::mpi.rank();
 
 	wait();
@@ -207,6 +209,8 @@ void seissol::writer::FreeSurfaceWriter::write(double time)
 
 	// Update the timestep in the checkpoint header
 	seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
+
+	m_stopwatch.pause();
 
 	logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ". Done.";
 }
