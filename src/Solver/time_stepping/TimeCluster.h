@@ -197,6 +197,8 @@ private:
 #endif
       DRFrictionLawCopy,
       DRFrictionLawInterior,
+      PlasticityCheck,
+      PlasticityYield,
       NUM_COMPUTE_PARTS
     };
     

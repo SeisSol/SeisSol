@@ -52,12 +52,19 @@ namespace seissol {
 
 class seissol::kernels::Plasticity {
 public:
-  static void computePlasticity( double                      relaxTime,
-                                 double                      timeStepWidth,
-                                 GlobalData const*           global,
-                                 PlasticityData const*       plasticityData,
-                                 real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ],
-                                 double*                     pstrain);
+  /** Returns 1 if there was plastic yielding otherwise 0.
+   */
+  static unsigned computePlasticity( double                      relaxTime,
+                                     double                      timeStepWidth,
+                                     GlobalData const*           global,
+                                     PlasticityData const*       plasticityData,
+                                     real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ],
+                                     double*                     pstrain);
+
+  static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
+                                long long&  o_hardwareFlopsCheck,
+                                long long&  o_nonZeroFlopsYield,
+                                long long&  o_hardwareFlopsYield );
 };
 
 #endif

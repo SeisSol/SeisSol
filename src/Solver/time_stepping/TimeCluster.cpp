@@ -512,18 +512,17 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   PlasticityData*             plasticity                    = i_layerData.var(m_lts->plasticity);
   real                      (*energy)[3]                    = i_layerData.var(m_lts->energy);
   real                      (*pstrain)[7]                   = i_layerData.var(m_lts->pstrain);
+  unsigned                   numberOTetsWithPlasticYielding = 0;
 #endif
 
   real *l_timeIntegrated[4];
-#ifdef ENABLE_MATRIX_PREFETCH
   real *l_faceNeighbors_prefetch[4];
-#endif
 
 #ifdef _OPENMP
-#ifdef ENABLE_MATRIX_PREFETCH
-  #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch)
+#ifdef USE_PLASTICITY
+  #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch) reduction(+:numberOTetsWithPlasticYielding)
 #else
-  #pragma omp parallel for schedule(static) private(l_timeIntegrated)
+  #pragma omp parallel for schedule(static) private(l_timeIntegrated, l_faceNeighbors_prefetch)
 #endif
 #endif
   for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
@@ -571,19 +570,12 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                dofs[l_cell] );
 
 #ifdef USE_PLASTICITY
-  seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
-                                                   m_timeStepWidth,
-                                                   l_globalData,
-                                                   &plasticity[l_cell],
-                                                   dofs[l_cell],
-                                                   pstrain[l_cell] );
-
-  /*e_interoperability.computePlasticity(  m_timeStepWidth,
-                                         plasticity[l_cell].plasticParameters,
-                                         plasticity[l_cell].initialLoading,
-                                         dofs[l_cell],
-                                         energy[l_cell],
-                                         pstrain[l_cell] );*/
+  numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
+                                                                                     m_timeStepWidth,
+                                                                                     l_globalData,
+                                                                                     &plasticity[l_cell],
+                                                                                     dofs[l_cell],
+                                                                                     pstrain[l_cell] );
 #endif
 #ifdef INTEGRATE_QUANTITIES
   seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
@@ -592,6 +584,11 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                               dofs[l_cell] );
 #endif // INTEGRATE_QUANTITIES
   }
+  
+  #ifdef USE_PLASTICITY
+  g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_nonZero[PlasticityYield];
+  g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_hardware[PlasticityYield];
+  #endif
 }
 
 #ifdef USE_MPI
@@ -886,6 +883,11 @@ void seissol::time_stepping::TimeCluster::computeFlops()
 
   computeDynamicRuptureFlops( m_dynRupClusterData->child<Copy>(), m_flops_nonZero[DRFrictionLawCopy], m_flops_hardware[DRFrictionLawCopy] );
   computeDynamicRuptureFlops( m_dynRupClusterData->child<Interior>(), m_flops_nonZero[DRFrictionLawInterior], m_flops_hardware[DRFrictionLawInterior] );
+  
+  seissol::kernels::Plasticity::flopsPlasticity(  m_flops_nonZero[PlasticityCheck],
+                                                  m_flops_hardware[PlasticityCheck],
+                                                  m_flops_nonZero[PlasticityYield],
+                                                  m_flops_hardware[PlasticityYield] );
 }
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
