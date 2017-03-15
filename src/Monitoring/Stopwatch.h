@@ -189,10 +189,11 @@ public:
 	 ) {
 		int rank = 0;
 		double avg = m_time;
+
+#ifdef USE_MPI
 		double min = m_time;
 		double max = m_time;
 
-#ifdef USE_MPI
 		if (comm == MPI_COMM_NULL)
 			comm = seissol::MPI::mpi.comm();
 
