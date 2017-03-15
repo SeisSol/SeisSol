@@ -236,10 +236,10 @@ CONTAINS
           cycle
        ENDIF
        DO iBndGP=1,DISC%Galerkin%nBndGP
-          averageSR = averageSR + sqrt(DISC%DynRup%SlipRate1(iFace,iBndGP)**2+DISC%DynRup%SlipRate2(iFace,iBndGP)**2)/DISC%Galerkin%nBndGP
+          averageSR = averageSR + sqrt(DISC%DynRup%SlipRate1(iBndGP,iFace)**2+DISC%DynRup%SlipRate2(iBndGP,iFace)**2)/DISC%Galerkin%nBndGP
           !frictional energy, based on the formula by Xu et al. 2012, p. 1333
-          averageFER = averageFER + (DISC%DynRup%TracXY(iFace,iBndGP)*DISC%DynRup%SlipRate1(iFace,iBndGP)&
-                      +DISC%DynRup%TracXZ(iFace,iBndGP)*DISC%DynRup%SlipRate2(iFace,iBndGP))/DISC%Galerkin%nBndGP
+          averageFER = averageFER + (DISC%DynRup%TracXY(iBndGP,iFace)*DISC%DynRup%SlipRate1(iBndGP,iFace)&
+                      +DISC%DynRup%TracXZ(iBndGP,iFace)*DISC%DynRup%SlipRate2(iBndGP,iFace))/DISC%Galerkin%nBndGP
        ENDDO
        ! magnitude = scalar seismic moment = slip per element * element face * shear modulus
        MomentRate = MomentRate + averageSR*DISC%Galerkin%geoSurfaces(iSide,iElem)*MaterialVal(iElem,2)

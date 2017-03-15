@@ -192,7 +192,7 @@ module faultinput_mod
   		! switch for rupture front output: RF
   		if (disc%DynRup%RFtime_on == 1) then
   		  ! rupture front output just for + side elements!
-  		  if (mesh%fault%Face(iFault,1,1) .NE. 0) disc%DynRup%RF(iFault,:) = .TRUE.
+  		  if (mesh%fault%Face(iFault,1,1) .NE. 0) disc%DynRup%RF(:,iFault) = .TRUE.
   		end if
 
         ! Get index of neighbouring element and the neighbour side within that element
@@ -551,9 +551,9 @@ module faultinput_mod
                     end if
             end select
         case (par_cohesion)
-            disc%DynRup%cohesion(iFault,iBndGP) = val
+            disc%DynRup%cohesion(iBndGP,iFault) = val
         case (par_D_C)
-            disc%DynRup%D_C(iFault,iBndGP) = val
+            disc%DynRup%D_C(iBndGP,iFault) = val
         case (par_IniStateVar)
             eqn%IniStateVar(iFault,iBndGP) = val
         case (par_RS_a)
@@ -561,13 +561,13 @@ module faultinput_mod
         case (par_RS_srW)
             disc%DynRup%RS_srW_array(iFault,iBndGP) = val
         case (par_Mu_S)
-            disc%DynRup%Mu_S(iFault,iBndGP) = val
+            disc%DynRup%Mu_S(iBndGP,iFault) = val
         case (par_Mu_D)
-            disc%DynRup%Mu_D(iFault,iBndGP) = val
+            disc%DynRup%Mu_D(iBndGP,iFault) = val
         case (par_IniMu)
-            eqn%IniMu(iFault,iBndGP) = val
+            eqn%IniMu(iBndGP,iFault) = val
         case (par_Strength)
-            disc%DynRup%Strength(iFault,iBndGP) = val
+            disc%DynRup%Strength(iBndGP,iFault) = val
         case default ! unknown parameter
             if ( .not. param_error_thrown ) then
                 logError(*) 'Unknown parameter in heterogeneous distribution block!'

@@ -333,7 +333,7 @@ MODULE ini_model_DR_mod
     !-------------------------------------------------------------------------!
 
     ! Allocation of DR fields
-    ALLOCATE(  EQN%IniMu(MESH%Fault%nSide,DISC%Galerkin%nBndGP),            &
+    ALLOCATE(  EQN%IniMu(DISC%Galerkin%nBndGP,MESH%Fault%nSide),            &
                EQN%IniBulk_xx(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
                EQN%IniBulk_yy(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
                EQN%IniBulk_zz(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
@@ -341,10 +341,10 @@ MODULE ini_model_DR_mod
                EQN%IniShearXY(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
                EQN%IniShearYZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
                EQN%IniShearXZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
-    ALLOCATE(  DISC%DynRup%Strength(MESH%Fault%nSide,DISC%Galerkin%nBndGP)  )
-    ALLOCATE(  DISC%DynRup%RF(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
-    ALLOCATE(  DISC%DynRup%DS(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
-    ALLOCATE(  DISC%DynRup%cohesion(MESH%Fault%nSide,DISC%Galerkin%nBndGP)  )
+    ALLOCATE(  DISC%DynRup%Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide)  )
+    ALLOCATE(  DISC%DynRup%RF(DISC%Galerkin%nBndGP,MESH%Fault%nSide)        )
+    ALLOCATE(  DISC%DynRup%DS(DISC%Galerkin%nBndGP,MESH%Fault%nSide)        )
+    ALLOCATE(  DISC%DynRup%cohesion(DISC%Galerkin%nBndGP,MESH%Fault%nSide)  )
 
     ! Allocate and initialize magnitude output
     ALLOCATE(  DISC%DynRup%magnitude_out(MESH%Fault%nSide)                  )
@@ -367,14 +367,14 @@ MODULE ini_model_DR_mod
        ! Loop over every mesh element
            DO i = 1, MESH%Fault%nSide
               IF (MESH%FAULT%Face(i,1,1) .NE. 0) THEN
-                 DISC%DynRup%RF(i,:) = .TRUE.
-                 DISC%DynRup%DS(i,:) = .TRUE.
+                 DISC%DynRup%RF(:,i) = .TRUE.
+                 DISC%DynRup%DS(:,i) = .TRUE.
               ENDIF
            ENDDO
      ELSEIF ((DISC%DynRup%RFtime_on .EQ. 1) .AND. (DISC%DynRup%DS_output_on .EQ. 0 )) THEN
            DO i = 1, MESH%Fault%nSide
               IF (MESH%FAULT%Face(i,1,1) .NE. 0) THEN
-                 DISC%DynRup%RF(i,:) = .TRUE.
+                 DISC%DynRup%RF(:,i) = .TRUE.
               ENDIF
           ENDDO
     ENDIF
@@ -385,9 +385,9 @@ MODULE ini_model_DR_mod
        CONTINUE
     CASE(1,2,6,16,17)
        ! ini D_C and mu fields to constant on the entire fault (for LSW friction cases)
-       ALLOCATE(  DISC%DynRup%D_C(MESH%Fault%nSide,DISC%Galerkin%nBndGP)       )
-       ALLOCATE(  DISC%DynRup%Mu_S(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
-       ALLOCATE(  DISC%DynRup%Mu_D(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
+       ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
+       ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
+       ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        DISC%DynRup%D_C(:,:)  = DISC%DynRup%D_C_ini
        DISC%DynRup%Mu_S(:,:) = DISC%DynRup%Mu_S_ini
        DISC%DynRup%Mu_D(:,:) = DISC%DynRup%Mu_D_ini
@@ -395,9 +395,9 @@ MODULE ini_model_DR_mod
        !
     CASE(13)!LSW with lower static coefficient of friction inside the nucleation zone needs additional initialisation for Mu_SNuc
        !
-       ALLOCATE(  DISC%DynRup%D_C(MESH%Fault%nSide,DISC%Galerkin%nBndGP)       )
-       ALLOCATE(  DISC%DynRup%Mu_S(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
-       ALLOCATE(  DISC%DynRup%Mu_D(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
+       ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
+       ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
+       ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        DISC%DynRup%D_C(:,:)  = DISC%DynRup%D_C_ini
        DISC%DynRup%Mu_D(:,:) = DISC%DynRup%Mu_D_ini
 
@@ -437,11 +437,11 @@ MODULE ini_model_DR_mod
 
             IF ((xGP.LE. 1500.0D0) .AND. (xGP.GE.-1500.0D0)       &
                   .AND. (zGP.LE.-9093.26674D0) .AND. (zGP.GE.-11691.342951D0)) THEN
-                DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_SNuc_ini
-                EQN%IniMu(i,iBndGP) = DISC%DynRup%Mu_SNuc_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_SNuc_ini
+                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_SNuc_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
             ELSE
-                DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
-                EQN%IniMu(i,iBndGP) = DISC%DynRup%Mu_S_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini
+                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
             ENDIF
 
          ENDDO ! iBndGP
@@ -450,9 +450,9 @@ MODULE ini_model_DR_mod
 
      CASE(30) !smooth forced rupture for benchmarks like TPV29/30 and TPV26/27
 
-       ALLOCATE(  DISC%DynRup%D_C(MESH%Fault%nSide,DISC%Galerkin%nBndGP)       )
-       ALLOCATE(  DISC%DynRup%Mu_S(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
-       ALLOCATE(  DISC%DynRup%Mu_D(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
+       ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
+       ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
+       ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        ALLOCATE(DISC%DynRup%forced_rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
 
        DISC%DynRup%D_C(:,:)  = DISC%DynRup%D_C_ini
@@ -931,9 +931,9 @@ MODULE ini_model_DR_mod
           EQN%IniBulk_zz(i,:)  = 10.0e6
           EQN%IniStateVar(i,:) = DISC%DynRup%NucRS_sv0
 
-          DISC%DynRup%D_C(i,:) = 6.0D0
-          DISC%DynRup%Mu_S(i,:) = 3.0D0
-          DISC%DynRup%Mu_D(i,:) = 3.0D0
+          DISC%DynRup%D_C(:,i) = 6.0D0
+          DISC%DynRup%Mu_S(:,i) = 3.0D0
+          DISC%DynRup%Mu_D(:,i) = 3.0D0
 
       ELSEIF ((sum(yp(:))/3.0D0) .LE. 12200.0D0 .AND. (sum(yp(:))/3.0D0) .GT. 10700.0D0) THEN
           EQN%IniShearXY(i,:)  = 0.0D0
@@ -1529,7 +1529,7 @@ MODULE ini_model_DR_mod
           EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((0.55D0*nstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(i,iBndGP)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
           ! resulting changes in mu ini
           tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(i,iBndGP))
-          EQN%IniMu(i,iBndGP)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
+          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
           ! Nucleation patch: set nucleation case to 0 in dyn file
           ! shear stress=cohesion+(static fric + 0.7)* initial normal stress
           IF ((xGP.LE.1500.0D0) .AND. (xGP.GE.-1500.0D0)       &
@@ -1547,7 +1547,7 @@ MODULE ini_model_DR_mod
 
               !resulting changes in mu ini
               tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(i,iBndGP))
-              EQN%IniMu(i,iBndGP)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
+              EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
           ENDIF
 
       ENDDO ! iBndGP
@@ -1820,9 +1820,9 @@ MODULE ini_model_DR_mod
 
 
             IF (zGP.GE.-5000.0D0) THEN
-               DISC%DynRup%cohesion(i,iBndGP) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
+               DISC%DynRup%cohesion(iBndGP,i) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
             ELSE
-               DISC%DynRup%cohesion(i,iBndGP) = -0.4D6
+               DISC%DynRup%cohesion(iBndGP,i) = -0.4D6
             ENDIF
 
       ENDDO ! iBndGP
@@ -1877,9 +1877,9 @@ MODULE ini_model_DR_mod
      !depth dependent frictional cohesion, negative in seissol, in benchmark positive
 
     IF (zGP.GE.-5000.0D0) THEN
-       DISC%DynRup%cohesion(i,:) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
+       DISC%DynRup%cohesion(:,i) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
     ELSE
-       DISC%DynRup%cohesion(i,:) = -0.4D6
+       DISC%DynRup%cohesion(:,i) = -0.4D6
     ENDIF
 
 
@@ -2133,14 +2133,14 @@ MODULE ini_model_DR_mod
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
               IF (EQN%linType.NE.1223) THEN
-                 DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+                 DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
               ELSE
                  !shallow fault breaking 8d6 instead of 10d6
-                 DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)-10.0d6*((max(zGP,-5000d0)+5000d0)/(5000d0))
+                 DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)-10.0d6*((max(zGP,-5000d0)+5000d0)/(5000d0))
               ENDIF
           ELSE
               ! set cohesion
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
 
@@ -2589,10 +2589,10 @@ MODULE ini_model_DR_mod
           IF (zLocal.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zLocal-zIncreasingCohesion)/(-zIncreasingCohesion)
+              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zLocal-zIncreasingCohesion)/(-zIncreasingCohesion)
           ELSE
               ! set cohesion
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
 
@@ -2811,7 +2811,7 @@ MODULE ini_model_DR_mod
       DO circle = 1,4
           dcpatch_distance = SQRT( (MAXVAL(xp(1:3)) - dcpatch_center(1,circle))**2 + (MAXVAL(yp(1:3)) - dcpatch_center(2,circle))**2 )
           IF (dcpatch_distance .LT. dcpatch_radius) THEN
-              DISC%DynRup%D_C(i,:) = 1.0D0
+              DISC%DynRup%D_C(:,i) = 1.0D0
           ENDIF
       ENDDO
 
@@ -2923,10 +2923,10 @@ MODULE ini_model_DR_mod
           ! manage D_C
           IF (z.GT.-4000.0D0) THEN
               ! higher D_C to surpress supershear rupture at free surface
-              DISC%DynRup%D_C(i,iBndGP) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+              DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
           ELSEIF (z.LT.-12000.0D0) THEN
               ! higher D_C in depth mimic brittle ductile transition
-              DISC%DynRup%D_C(i,iBndGP) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+              DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
           ENDIF
 
           ! overwrite positive z area
@@ -2939,15 +2939,15 @@ MODULE ini_model_DR_mod
               !EQN%IniShearXZ(i,iBndGP)  =  0.0D0
               !EQN%IniStateVar(i,iBndGP) =  0.0D0
 
-              DISC%DynRup%D_C(i,iBndGP) =  2.0D0
+              DISC%DynRup%D_C(iBndGP,i) =  2.0D0
           ENDIF
 
           ! set cohesion
           ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
           IF (z.GT.-DISC%DynRup%cohesion_depth) THEN
-              DISC%DynRup%cohesion(i,iBndGP) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
+              DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
           ELSE
-              DISC%DynRup%cohesion(i,iBndGP) = DISC%DynRup%cohesion_0
+              DISC%DynRup%cohesion(iBndGP,i) = DISC%DynRup%cohesion_0
           ENDIF
 
 
@@ -3151,7 +3151,7 @@ MODULE ini_model_DR_mod
                   ! manage D_C
           IF (z.GT.-4000.0D0) THEN
               ! higher D_C to surpress supershear rupture at free surface
-              DISC%DynRup%D_C(i,iBndGP) = 0.8D0+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+              DISC%DynRup%D_C(iBndGP,i) = 0.8D0+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
           !ELSEIF (z.LT.-12000.0D0) THEN
                   !   ! higher D_C in depth mimic brittle ductile transition
                   !   DISC%DynRup%D_C(i,iBndGP) = 0.8D0+10e-3*(abs(z)-12000.0D0)
@@ -3167,7 +3167,7 @@ MODULE ini_model_DR_mod
               !EQN%IniShearXZ(i,iBndGP)  =  0.0D0
               !EQN%IniStateVar(i,iBndGP) =  0.0D0
 
-              DISC%DynRup%D_C(i,iBndGP) =  2.0D0
+              DISC%DynRup%D_C(iBndGP,i) =  2.0D0
           ENDIF
 
       ENDDO ! iBndGP
@@ -3486,7 +3486,7 @@ MODULE ini_model_DR_mod
                   ! manage D_C
           IF (z.GT.-4000.0D0) THEN
               ! higher D_C to surpress supershear rupture at free surface
-              DISC%DynRup%D_C(i,iBndGP) = 0.8D0+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+              DISC%DynRup%D_C(iBndGP,i) = 0.8D0+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
           !ELSEIF (z.LT.-12000.0D0) THEN
                   !   ! higher D_C in depth mimic brittle ductile transition
                   !   DISC%DynRup%D_C(i,iBndGP) = 0.8D0+10e-3*(abs(z)-12000.0D0)
@@ -3502,7 +3502,7 @@ MODULE ini_model_DR_mod
               !EQN%IniShearXZ(i,iBndGP)  =  0.0D0
               !EQN%IniStateVar(i,iBndGP) =  0.0D0
 
-              DISC%DynRup%D_C(i,iBndGP) = 2.0 ! 2.0D0
+              DISC%DynRup%D_C(iBndGP,i) = 2.0 ! 2.0D0
           ENDIF
           !
       ENDDO ! iBndGP
@@ -4646,7 +4646,7 @@ MODULE ini_model_DR_mod
           EQN%IniStateVar(i,iBndGP) = DISC%DynRup%NucRS_sv0
           !EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((sstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(i,iBndGP)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
           X2  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a)
-          EQN%IniMu(i,iBndGP)=DISC%DynRup%RS_a * LOG(X2 + SQRT(X2**2 + 1.0))
+          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a * LOG(X2 + SQRT(X2**2 + 1.0))
 
       ENDDO ! iBndGP
 
@@ -4724,7 +4724,7 @@ MODULE ini_model_DR_mod
               + (iniSlipRate + DISC%DynRup%RS_sr0)*(DISC%DynRup%RS_f0*EQN%IniBulk_yy(i,iBndGP)-EQN%IniShearXY(i,iBndGP)))) &
               / (DISC%DynRup%RS_a*EQN%IniBulk_yy(i,iBndGP)*iniSlipRate-(iniSlipRate + DISC%DynRup%RS_sr0) &
               * (DISC%DynRup%RS_b*EQN%IniBulk_yy(i,iBndGP)-DISC%DynRup%RS_f0*EQN%IniBulk_yy(i,iBndGP)+EQN%IniShearXY(i,iBndGP)))
-          EQN%IniMu(i,iBndGP)=DISC%DynRup%RS_f0+DISC%DynRup%RS_a*iniSlipRate/(iniSlipRate+DISC%DynRup%RS_sr0)-DISC%DynRup%RS_b*EQN%IniStateVar(i,iBndGP)/(EQN%IniStateVar(i,iBndGP)+DISC%DynRup%RS_sl0)
+          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_f0+DISC%DynRup%RS_a*iniSlipRate/(iniSlipRate+DISC%DynRup%RS_sr0)-DISC%DynRup%RS_b*EQN%IniStateVar(i,iBndGP)/(EQN%IniStateVar(i,iBndGP)+DISC%DynRup%RS_sl0)
       ENDDO ! iBndGP
 
   ENDDO !    MESH%Fault%nSide
@@ -4800,7 +4800,7 @@ MODULE ini_model_DR_mod
           EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%IniShearXY(i,iBndGP)/EQN%IniBulk_yy(i,iBndGP)-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(i,iBndGP)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
           tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(i,iBndGP))
-          EQN%IniMu(i,iBndGP)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
+          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
 
       ENDDO ! iBndGP
 
@@ -4929,7 +4929,7 @@ MODULE ini_model_DR_mod
           EQN%IniStateVar(i,iBndGP)=DISC%DynRup%RS_a_array(i,iBndGP)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
           tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(i,iBndGP)/ DISC%DynRup%RS_a_array(i,iBndGP))
-          EQN%IniMu(i,iBndGP)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0D0))
+          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0D0))
 
       ENDDO ! iBndGP
 
@@ -4999,7 +4999,7 @@ MODULE ini_model_DR_mod
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
 
-          EQN%IniMu(i,iBndGP) = DISC%DynRup%Mu_S(i,iBndGP)
+          EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S(iBndGP,i)
 
       ENDDO ! iBndGP
 
@@ -5067,9 +5067,9 @@ MODULE ini_model_DR_mod
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
 
-          EQN%IniMu(i,iBndGP) = DISC%DynRup%Mu_S(i,iBndGP)
+          EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S(iBndGP,i)
           !Attention: normal stress is here assumed in yy direction
-          DISC%DynRup%Strength(i,iBndGP) = EQN%IniMu(i,iBndGP)*EQN%IniBulk_yy(i,iBndGP)
+          DISC%DynRup%Strength(iBndGP,i) = EQN%IniMu(iBndGP,i)*EQN%IniBulk_yy(i,iBndGP)
 
       ENDDO ! iBndGP
 

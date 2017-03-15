@@ -425,9 +425,9 @@ CONTAINS
           !
           Stress(:)=MATMUL(iT(1:6,1:6),Stress(:))
           !
-          MuVal = DISC%DynRup%output_Mu(iFace,iBndGP)
+          MuVal = DISC%DynRup%output_Mu(iBndGP,iFace)
           LocSV = DISC%DynRup%output_StateVar(iFace,iBndGP) ! load state variable of RS for output
-          cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)
+          cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)
           S_XY  = Stress(4)
           S_XZ  = Stress(6)
           P_0   = Stress(1)
@@ -482,7 +482,7 @@ CONTAINS
             ! exception for bimaterial with LSW case
             ! modify strength according to prakash clifton
             ! in the first step we just take the Strength values of the nearest GP
-            Strength = DISC%DynRup%output_Strength(iFace,iBndGP)
+            Strength = DISC%DynRup%output_Strength(iBndGP,iFace)
           END SELECT
           !
           ! Coulomb's model for obtaining actual traction
@@ -595,9 +595,9 @@ CONTAINS
                   ENDIF
 
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%output_Slip1(iFace,iBndGP) - sin1* DISC%DynRup%output_Slip2(iFace,iBndGP)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%output_Slip1(iBndGP,iFace) - sin1* DISC%DynRup%output_Slip2(iBndGP,iFace)
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%output_Slip1(iFace,iBndGP) + cos1 * DISC%DynRup%output_Slip2(iFace,iBndGP)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%output_Slip1(iBndGP,iFace) + cos1 * DISC%DynRup%output_Slip2(iBndGP,iFace)
               ENDIF
 
               IF (DynRup_output%OutputMask(7).EQ.1) THEN
@@ -608,7 +608,7 @@ CONTAINS
                 ! To compute accurately dt/dxi, all rupture_time have to be defined on the element
                 compute_VR = .TRUE.
                 DO jBndGP = 1,DISC%Galerkin%nBndGP
-                   IF (DISC%DynRup%output_rupture_time(iFace,jBndGP).EQ.0) THEN
+                   IF (DISC%DynRup%output_rupture_time(jBndGP,iFace).EQ.0) THEN
                       compute_VR = .FALSE.
                       Vr = 0d0
                    ENDIF
@@ -649,7 +649,7 @@ CONTAINS
                   DO iDegFr = 1, nDegFr2d
                      call BaseFunc_Tri(phiT,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
                      projected_RT(iDegFr) = projected_RT(iDegFr) + &
-                        DISC%Galerkin%BndGaussW_Tet(jBndGP)*DISC%DynRup%output_rupture_time(iFace,jBndGP)*phiT
+                        DISC%Galerkin%BndGaussW_Tet(jBndGP)*DISC%DynRup%output_rupture_time(jBndGP,iFace)*phiT
                   ENDDO
                 ENDDO
                 DO iDegFr = 1,nDegFr2d
@@ -727,19 +727,19 @@ CONTAINS
               ENDIF
               IF (DynRup_output%OutputMask(8).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_Slip(iFace,iBndGP)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_Slip(iBndGP,iFace)
               ENDIF
               IF (DynRup_output%OutputMask(9).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_PeakSR(iFace,iBndGP)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_PeakSR(iBndGP,iFace)
               ENDIF
               IF (DynRup_output%OutputMask(10).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_rupture_time(iFace,iBndGP)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_rupture_time(iBndGP,iFace)
               ENDIF
               IF (DynRup_output%OutputMask(11).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_dynStress_time(iFace,iBndGP)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_dynStress_time(iBndGP,iFace)
               ENDIF
           ENDIF
 

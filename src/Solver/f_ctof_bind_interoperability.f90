@@ -166,7 +166,7 @@ module f_ctof_bind_interoperability
       REAL        :: XZStressGP(1:i_numberOfPoints,CONVERGENCE_ORDER)
       real        :: subTimeStepWidth
 
-      integer :: iSide, iElem, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, MPIIndex_DR, i, j
+      integer :: iSide, iElem, iObject, MPIIndex, MPIIndex_DR, i, j
 
       ! register scorep region dynamic rupture
       SCOREP_USER_REGION_DEFINE( r_dr )
@@ -181,8 +181,6 @@ module f_ctof_bind_interoperability
 
       iElem               = l_domain%MESH%Fault%Face(i_face,1,1)          ! Remark:
       iSide               = l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
-      iNeighbor           = l_domain%MESH%Fault%Face(i_face,1,2)          ! iNeighbor denotes "-" side
-      iLocalNeighborSide  = l_domain%MESH%Fault%Face(i_face,2,2)
 
       rho = densityPlus
       w_speed(:) = (/ pWaveVelocityPlus, sWaveVelocityPlus, sWaveVelocityPlus /)

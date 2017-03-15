@@ -166,11 +166,11 @@ CONTAINS
 
     ! Write output for positive elements
     IF (MESH%FAULT%Face(iFace,1,1).NE.0) THEN
-       IF (DISC%DynRup%rupture_time(iFace, iBndGP).GT. 0.0) THEN
+       IF (DISC%DynRup%rupture_time(iBndGP,iFace).GT. 0.0) THEN
            IF (DISC%DynRup%DS_output_on .EQ. 1) THEN
-               WRITE(UNIT_RF,*) xGP, yGP, zGP, DISC%DynRup%rupture_time(iFace, iBndGP), DISC%DynRup%dynStress_time(iFace, iBndGP)
+               WRITE(UNIT_RF,*) xGP, yGP, zGP, DISC%DynRup%rupture_time(iBndGP,iFace), DISC%DynRup%dynStress_time(iBndGP,iFace)
            ELSE
-               WRITE(UNIT_RF,*) xGP, yGP, zGP, DISC%DynRup%rupture_time(iFace, iBndGP)
+               WRITE(UNIT_RF,*) xGP, yGP, zGP, DISC%DynRup%rupture_time(iBndGP,iFace)
            ENDIF
        ENDIF
     ENDIF

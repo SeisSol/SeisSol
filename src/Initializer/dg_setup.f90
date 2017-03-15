@@ -1107,18 +1107,20 @@ CONTAINS
     !
     IF(EQN%DR.EQ.1) THEN
 
-      ALLOCATE(DISC%DynRup%SlipRate1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%SlipRate2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%Slip(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%Slip1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%Slip2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%TracXY(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%TracXZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%SlipRate1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%SlipRate2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%TracXY(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%TracXZ(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      
+      ! TODO: Transpose StateVar
       ALLOCATE(DISC%DynRup%StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%PeakSR(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%dynStress_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       !
       DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
       DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
@@ -1133,15 +1135,16 @@ CONTAINS
       DISC%DynRup%rupture_time  = 0.0D0
       DISC%DynRup%dynStress_time = 0.0D0
 
-      allocate(disc%DynRup%output_Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      
       allocate(disc%DynRup%output_StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      allocate(disc%DynRup%output_Strength(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      allocate(disc%DynRup%output_Slip(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      allocate(disc%DynRup%output_Slip1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      allocate(disc%DynRup%output_Slip2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      allocate(disc%DynRup%output_rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      allocate(disc%DynRup%output_PeakSR(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      allocate(disc%DynRup%output_dynStress_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
 
     else
         ! Allocate dummy arrays to avoid debug errors

@@ -273,16 +273,16 @@ MODULE Eval_friction_law_mod
 
     DO iBndGP=1,nBndGP
      !
-     LocMu     = DISC%DynRup%Mu(iFace,iBndGP)
-     LocMu_S   = DISC%DynRup%Mu_S(iFace,iBndGP)
-     LocMu_D   = DISC%DynRup%Mu_D(iFace,iBndGP)
-     LocD_C    = DISC%DynRup%D_C(iFace,iBndGP)
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
-     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
-     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
-     LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
-     LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
-     cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
+     LocMu     = DISC%DynRup%Mu(iBndGP,iFace)
+     LocMu_S   = DISC%DynRup%Mu_S(iBndGP,iFace)
+     LocMu_D   = DISC%DynRup%Mu_D(iBndGP,iFace)
+     LocD_C    = DISC%DynRup%D_C(iBndGP,iFace)
+     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
+     LocSlip1   = DISC%DynRup%Slip1(iBndGP,iFace)
+     LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
+     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
+     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
+     cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)      ! cohesion is negative since negative normal stress is compression
      P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
      !
 #ifndef NUMBER_OF_TEMPORAL_INTEGRATION_POINTS
@@ -352,33 +352,33 @@ MODULE Eval_friction_law_mod
      ! output rupture front
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iBndGP,iFace)=time
+        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
      ENDIF
 
      !output time when shear stress is equal to the dynamic stress after rupture arrived
      !currently only for linear slip weakening
-      IF ( (DISC%DynRup%rupture_time(iFace, iBndGP).GT.0.0) .AND. (DISC%DynRup%rupture_time(iFace, iBndGP) .LE. time)) THEN
-          IF(DISC%DynRup%DS(iFace,iBndGP) .AND. ABS(LocSlip).GE.LocD_C) THEN
-          DISC%DynRup%dynStress_time(iFace, iBndGP)=time
-          DISC%DynRup%DS(iFace,iBndGP) = .FALSE.
+      IF ( (DISC%DynRup%rupture_time(iBndGP,iFace).GT.0.0) .AND. (DISC%DynRup%rupture_time(iBndGP,iFace) .LE. time)) THEN
+          IF(DISC%DynRup%DS(iBndGP,iFace) .AND. ABS(LocSlip).GE.LocD_C) THEN
+          DISC%DynRup%dynStress_time(iBndGP,iFace)=time
+          DISC%DynRup%DS(iBndGP,iFace) = .FALSE.
           ENDIF
       ENDIF
 
      !idem
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
-        DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
+     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
+        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
      ENDIF
      !
-     DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
-     DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
-     DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
-     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY + EQN%InitialStressInFaultCS(4,iBndGP,iFace)
-     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ + EQN%InitialStressInFaultCS(6,iBndGP,iFace)
+     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
+     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
+     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
+     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
+     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
+     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
+     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY + EQN%InitialStressInFaultCS(4,iBndGP,iFace)
+     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ + EQN%InitialStressInFaultCS(6,iBndGP,iFace)
 
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -440,18 +440,18 @@ MODULE Eval_friction_law_mod
 
     DO iBndGP=1,nBndGP
      !
-     LocMu     = DISC%DynRup%Mu(iFace,iBndGP)
-     LocMu_S   = DISC%DynRup%Mu_S(iFace,iBndGP)
-     LocMu_D   = DISC%DynRup%Mu_D(iFace,iBndGP)
-     LocD_C    = DISC%DynRup%D_C(iFace,iBndGP)
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
-     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
-     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
-     LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
-     LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
-     cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
+     LocMu     = DISC%DynRup%Mu(iBndGP,iFace)
+     LocMu_S   = DISC%DynRup%Mu_S(iBndGP,iFace)
+     LocMu_D   = DISC%DynRup%Mu_D(iBndGP,iFace)
+     LocD_C    = DISC%DynRup%D_C(iBndGP,iFace)
+     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
+     LocSlip1   = DISC%DynRup%Slip1(iBndGP,iFace)
+     LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
+     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
+     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
+     cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)      ! cohesion is negative since negative normal stress is compression
      P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
-     Strength_exp = DISC%DynRup%Strength(iFace,iBndGP)
+     Strength_exp = DISC%DynRup%Strength(iBndGP,iFace)
      !
      DO iTimeGP=1,nTimeGP
        LocP   = NorStressGP(iBndGP,iTimeGP)
@@ -514,33 +514,33 @@ MODULE Eval_friction_law_mod
      ! output rupture front 
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iBndGP,iFace)=time
+        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
      ENDIF
 
      !output time when shear stress is equal to the dynamic stress after rupture arrived
      !currently only for linear slip weakening
-      IF ( (DISC%DynRup%rupture_time(iFace, iBndGP).GT.0.0) .AND. (DISC%DynRup%rupture_time(iFace, iBndGP) .LE. time)) THEN
-          IF(DISC%DynRup%DS(iFace,iBndGP) .AND. ABS(LocSlip).GE.LocD_C) THEN
-          DISC%DynRup%dynStress_time(iFace, iBndGP)=time
-          DISC%DynRup%DS(iFace,iBndGP) = .FALSE.
+      IF ( (DISC%DynRup%rupture_time(iBndGP,iFace).GT.0.0) .AND. (DISC%DynRup%rupture_time(iBndGP,iFace) .LE. time)) THEN
+          IF(DISC%DynRup%DS(iBndGP,iFace) .AND. ABS(LocSlip).GE.LocD_C) THEN
+          DISC%DynRup%dynStress_time(iBndGP,iFace)=time
+          DISC%DynRup%DS(iBndGP,iFace) = .FALSE.
           ENDIF
       ENDIF
 
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
-        DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
+     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
+        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
      ENDIF
      !
-     DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
-     DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
-     DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
-     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
-     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
-     DISC%DynRup%Strength(iFace,iBndGP)  = Strength_exp
+     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
+     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
+     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
+     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
+     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
+     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
+     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
+     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
+     DISC%DynRup%Strength(iBndGP,iFace)  = Strength_exp
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 
@@ -596,16 +596,16 @@ MODULE Eval_friction_law_mod
 
     DO iBndGP=1,nBndGP
      !
-     LocMu     = DISC%DynRup%Mu(iFace,iBndGP)
-     LocMu_S   = DISC%DynRup%Mu_S(iFace,iBndGP)
-     LocMu_D   = DISC%DynRup%Mu_D(iFace,iBndGP)
-     LocD_C    = DISC%DynRup%D_C(iFace,iBndGP)
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
-     LocSlip1  = DISC%DynRup%Slip1(iFace,iBndGP)
-     LocSlip2  = DISC%DynRup%Slip2(iFace,iBndGP)
-     LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
-     LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
-     cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
+     LocMu     = DISC%DynRup%Mu(iBndGP,iFace)
+     LocMu_S   = DISC%DynRup%Mu_S(iBndGP,iFace)
+     LocMu_D   = DISC%DynRup%Mu_D(iBndGP,iFace)
+     LocD_C    = DISC%DynRup%D_C(iBndGP,iFace)
+     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
+     LocSlip1  = DISC%DynRup%Slip1(iBndGP,iFace)
+     LocSlip2  = DISC%DynRup%Slip2(iBndGP,iFace)
+     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
+     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
+     cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)      ! cohesion is negative since negative normal stress is compression
      P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
      !
      tn = time
@@ -685,34 +685,34 @@ MODULE Eval_friction_law_mod
      ! output rupture front 
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iBndGP,iFace)=time
+        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
      ENDIF
 
      !output time when shear stress is equal to the dynamic stress after rupture arrived
      !currently only for linear slip weakening
-      IF ( (DISC%DynRup%rupture_time(iFace, iBndGP).GT.0.0) .AND. (DISC%DynRup%rupture_time(iFace, iBndGP) .LE. time)) THEN
-          IF(DISC%DynRup%DS(iFace,iBndGP) .AND. ABS(LocSlip).GE.LocD_C) THEN
-          DISC%DynRup%dynStress_time(iFace, iBndGP)=time
-          DISC%DynRup%DS(iFace,iBndGP) = .FALSE.
+      IF ( (DISC%DynRup%rupture_time(iBndGP,iFace).GT.0.0) .AND. (DISC%DynRup%rupture_time(iBndGP,iFace) .LE. time)) THEN
+          IF(DISC%DynRup%DS(iBndGP,iFace) .AND. ABS(LocSlip).GE.LocD_C) THEN
+          DISC%DynRup%dynStress_time(iBndGP,iFace)=time
+          DISC%DynRup%DS(iBndGP,iFace) = .FALSE.
           ENDIF
       ENDIF
 
 
      !idem
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
-        DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
+     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
+        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
      ENDIF
      !
-     DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
-     DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
-     DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
-     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
-     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
+     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
+     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
+     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
+     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
+     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
+     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
+     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
+     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
 
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -776,14 +776,14 @@ MODULE Eval_friction_law_mod
 
     DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
-     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
-     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
-     LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
-     LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
+     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
+     LocSlip1   = DISC%DynRup%Slip1(iBndGP,iFace)
+     LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
+     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
+     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
      P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
-     cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
+     cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)      ! cohesion is negative since negative normal stress is compression
      !
      !logInfo(*) 'state variable evaluation', DISC%DynRup%StateVar(iFace,iBndGP), EQN%IniStateVar(iFace,iBndGP), 'iGP', iBndGP
      DO iTimeGP=1,nTimeGP
@@ -892,23 +892,23 @@ MODULE Eval_friction_law_mod
      ! output rupture front 
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iBndGP,iFace)=time
+        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
      ENDIF
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
-        DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
+     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
+        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
      ENDIF
      !
-     DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
-     DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
-     DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
+     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
+     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
+     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
+     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
+     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
+     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
-     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
-     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
+     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
+     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
 
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -972,11 +972,11 @@ MODULE Eval_friction_law_mod
 
     DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
-     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
-     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
-     LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
-     LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
+     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
+     LocSlip1   = DISC%DynRup%Slip1(iBndGP,iFace)
+     LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
+     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
+     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
      P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
      !
@@ -1069,22 +1069,22 @@ MODULE Eval_friction_law_mod
      ! output rupture front
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iBndGP,iFace)=time
+        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
      ENDIF
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
-        DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
+     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
+        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
      ENDIF
      !
-     DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
-     DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
-     DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
-     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
-     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
+     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
+     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
+     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
+     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
+     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
+     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
+     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
+     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -1251,11 +1251,11 @@ MODULE Eval_friction_law_mod
     !
     DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
-     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
-     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
-     LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
-     LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
+     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
+     LocSlip1   = DISC%DynRup%Slip1(iBndGP,iFace)
+     LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
+     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
+     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
      P_0       = Stress(1,iBndGP)
      !
@@ -1362,22 +1362,22 @@ MODULE Eval_friction_law_mod
      ! output rupture front
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iBndGP,iFace)=time
+        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
      ENDIF
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
-        DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
+     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
+        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
      ENDIF
      !
-     DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
-     DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
-     DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
-     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
-     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
+     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
+     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
+     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
+     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
+     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
+     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
+     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
+     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -1573,11 +1573,11 @@ MODULE Eval_friction_law_mod
     !
     DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
-     LocSlip1   = DISC%DynRup%Slip1(iFace,iBndGP)
-     LocSlip2   = DISC%DynRup%Slip2(iFace,iBndGP)
-     LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
-     LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
+     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
+     LocSlip1   = DISC%DynRup%Slip1(iBndGP,iFace)
+     LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
+     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
+     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
      P_0       = Stress(1,iBndGP)
      !
@@ -1708,22 +1708,22 @@ MODULE Eval_friction_law_mod
      ! output rupture front
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iFace,iBndGP) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iFace, iBndGP)=time
-        DISC%DynRup%RF(iFace,iBndGP) = .FALSE.
+     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
+        DISC%DynRup%rupture_time(iBndGP,iFace)=time
+        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
      ENDIF
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iFace,iBndGP)) THEN
-        DISC%DynRup%PeakSR(iFace,iBndGP) = LocSR
+     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
+        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
      ENDIF
      !
-     DISC%DynRup%Mu(iFace,iBndGP)        = LocMu
-     DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
-     DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
-     DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
-     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY
-     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ
+     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
+     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
+     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
+     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
+     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
+     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
+     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
+     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
      DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
   !
  ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP

@@ -466,7 +466,7 @@ MODULE Friction_mod
        CALL Eval_friction_law(                                & !
                TractionGP_XY,TractionGP_XZ,                   & ! OUT: updated Traction
                NorStressGP,XYStressGP,XZStressGP,             & ! IN: Godunov status
-               iFace,iSide,iElem,time,DISC%Galerkin%TimeGaussP,iT, & ! IN: element ID, time, inv Trafo
+               iFace,iSide,iElem,time,DISC%Galerkin%TimeGaussP, & ! IN: element ID, time, inv Trafo
                rho,rho_neig,w_speed(1:2),w_speed_neig(1:2),   & ! IN: background values
                EQN,DISC,MESH,MPI,IO,BND                       ) ! global variables
 
