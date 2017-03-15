@@ -186,10 +186,8 @@ CONTAINS
 
 #ifdef GENERATEDKERNELS
     if (io%surfaceOutput > 0) then
-      call c_interoperability_initializeFreeSurfaceOutput(  maxRefinementDepth = io%SurfaceOutputRefinement, &
-                                                            interval = io%SurfaceOutputInterval, &
-                                                            filename = trim(io%OutputFile)  )
-    end if
+        call c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth = io%SurfaceOutputRefinement )
+    endif
 
     do i = 1, 9
         if ( io%OutputMask(3+i) ) then
@@ -211,7 +209,9 @@ CONTAINS
         i_numBndGP  = disc%galerkin%nBndGP,  &
         i_refinement= io%Refinement,         &
         i_outputMask= outputMaskInt,         &
-        i_outputRegionBounds = io%OutputRegionBounds)
+        i_outputRegionBounds = io%OutputRegionBounds, &
+        freeSurfaceInterval = io%SurfaceOutputInterval, &
+        freeSurfaceFilename = trim(io%OutputFile) )
 
     ! Initialize the fault Xdmf Writer
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN

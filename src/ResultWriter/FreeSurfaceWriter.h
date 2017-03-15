@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -59,12 +60,15 @@ private:
 	/** Is enabled? */
 	bool m_enabled;
 
+	/** Checkpoint header id */
+	size_t m_headerId;
+
 	/** The asynchronous executor */
 	FreeSurfaceWriterExecutor m_executor;
-  
+
   /** free surface integration module. */
   seissol::solver::FreeSurfaceIntegrator* m_freeSurfaceIntegrator;
-  
+
   void constructSurfaceMesh(  MeshReader const& meshReader,
                               unsigned*&        cells,
                               double*&          vertices,
@@ -72,7 +76,7 @@ private:
                               unsigned&         nVertices );
 
 public:
-	FreeSurfaceWriter() : m_enabled(false), m_freeSurfaceIntegrator(NULL) {}
+	FreeSurfaceWriter() : m_enabled(false), m_headerId(-1), m_freeSurfaceIntegrator(NULL) {}
 
 	/**
 	 * Called by ASYNC on all ranks
@@ -82,36 +86,14 @@ public:
 		setExecutor(m_executor);
 	}
 
+	void enable();
+
 	void init(  MeshReader const&                       meshReader,
               seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
               char const*                             outputPrefix,
               double                                  interval );
 
-	void write(double time)
-	{
-		SCOREP_USER_REGION("FreeSurfaceWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION)
-
-		if (!m_enabled) {
-      logError() << "Trying to write free surface output, but it is disabled.";
-    }
-
-		int const rank = seissol::MPI::mpi.rank();
-
-		wait();
-
-		logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ".";
-
-		FreeSurfaceParam param;
-		param.time = time;
-
-		for (unsigned i = 0; i < 2*FREESURFACE_NUMBER_OF_COMPONENTS; ++i) {
-			sendBuffer(FreeSurfaceWriterExecutor::VARIABLES0 + i);
-    }
-
-		call(param);
-
-		logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ". Done.";
-	}
+	void write(double time);
 
 	void close()
 	{

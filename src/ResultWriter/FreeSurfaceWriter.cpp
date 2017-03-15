@@ -3,6 +3,7 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -45,6 +46,8 @@
 #include <cstring>
 #include <glm/vec3.hpp>
 
+#include "AsyncCellIDs.h"
+#include "SeisSol.h"
 #include <Geometry/MeshTools.h>
 #include <Modules/Modules.h>
 
@@ -62,15 +65,15 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const
     vertices = NULL;
     return;
   }
-  
+
   cells = new unsigned[3*nCells];
   vertices = new double[3*nVertices];
-  
+
   std::vector<Element> const& meshElements = meshReader.getElements();
   std::vector<Vertex> const& meshVertices = meshReader.getVertices();
-  
+
   unsigned numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
-  
+
   unsigned idx = 0;
   unsigned* meshIds = m_freeSurfaceIntegrator->surfaceLtsTree.var(m_freeSurfaceIntegrator->surfaceLts.meshId);
   unsigned* sides = m_freeSurfaceIntegrator->surfaceLtsTree.var(m_freeSurfaceIntegrator->surfaceLts.side);
@@ -81,20 +84,20 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const
     for (unsigned vertex = 0; vertex < 3; ++vertex) {
       unsigned tetVertex = MeshTools::FACE2NODES[side][vertex];
       VrtxCoords const& coords = meshVertices[ meshElements[meshId].vertices[tetVertex] ].coords;
-      
-      x[vertex][0] = coords[0];      
-      x[vertex][1] = coords[1];      
-      x[vertex][2] = coords[2];      
+
+      x[vertex][0] = coords[0];
+      x[vertex][1] = coords[1];
+      x[vertex][2] = coords[2];
     }
     a = x[1]-x[0];
     b = x[2]-x[0];
-  
+
     for (unsigned tri = 0; tri < numberOfSubTriangles; ++tri) {
       seissol::refinement::Triangle const& subTri = m_freeSurfaceIntegrator->triRefiner.subTris[tri];
       for (unsigned vertex = 0; vertex < 3; ++vertex) {
         glm::dvec3 v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
         vertices[3*idx + 0] = v[0];
-        vertices[3*idx + 1] = v[1];        
+        vertices[3*idx + 1] = v[1];
         vertices[3*idx + 2] = v[2];
         cells[idx] = idx;
         ++idx;
@@ -103,13 +106,24 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(  MeshReader const
   }
 }
 
-void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&                       meshReader, 
+void seissol::writer::FreeSurfaceWriter::enable()
+{
+	m_enabled = true;
+
+	m_headerId = seissol::SeisSol::main.checkPointManager().header().add<int>();
+}
+
+
+void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&                       meshReader,
                                                 seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
                                                 char const*                             outputPrefix,
                                                 double                                  interval )
 {
+	if (!m_enabled)
+		return;
+
   int const rank = seissol::MPI::mpi.rank();
-  
+
   m_freeSurfaceIntegrator = freeSurfaceIntegrator;
 
 	logInfo(rank) << "Initializing free surface output.";
@@ -117,29 +131,29 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 	// Initialize the asynchronous module
 	async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>::init();
 
-	m_enabled = true;
-  
-  unsigned* cells;
-  double* vertices;
-  unsigned nCells;
-  unsigned nVertices;
-  constructSurfaceMesh(meshReader, cells, vertices, nCells, nVertices);
+	unsigned* cells;
+	double* vertices;
+	unsigned nCells;
+	unsigned nVertices;
+	constructSurfaceMesh(meshReader, cells, vertices, nCells, nVertices);
+
+	AsyncCellIDs<3> cellIds(nCells, nVertices, cells);
 
 	// Create buffer for output prefix
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);
 	assert(bufferId == FreeSurfaceWriterExecutor::OUTPUT_PREFIX); NDBG_UNUSED(bufferId);
 
 	// Create mesh buffers
-	bufferId = addSyncBuffer(cells, nCells * 3 * sizeof(unsigned));
+	bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(unsigned));
 	assert(bufferId == FreeSurfaceWriterExecutor::CELLS);
 	bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
 	assert(bufferId == FreeSurfaceWriterExecutor::VERTICES);
 
 	for (unsigned int i = 0; i < FREESURFACE_NUMBER_OF_COMPONENTS; i++) {
-    addBuffer(m_freeSurfaceIntegrator->velocities[i], nCells * sizeof(double));
+		addBuffer(m_freeSurfaceIntegrator->velocities[i], nCells * sizeof(double));
 	}
 	for (unsigned int i = 0; i < FREESURFACE_NUMBER_OF_COMPONENTS; i++) {
-    addBuffer(m_freeSurfaceIntegrator->displacements[i], nCells * sizeof(double));
+		addBuffer(m_freeSurfaceIntegrator->displacements[i], nCells * sizeof(double));
 	}
 
 	//
@@ -152,6 +166,7 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 
 	// Initialize the executor
 	FreeSurfaceInitParam param;
+	param.timestep = seissol::SeisSol::main.checkPointManager().header().value<int>(m_headerId);
 	callInit(param);
 
 	// Remove unused buffers
@@ -163,10 +178,39 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 	Modules::registerHook(*this, SIMULATION_START);
 	Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 	setSyncInterval(interval);
-  
+
   delete[] cells;
   delete[] vertices;
 }
+
+void seissol::writer::FreeSurfaceWriter::write(double time)
+{
+	SCOREP_USER_REGION("FreeSurfaceWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION)
+
+	if (!m_enabled)
+		logError() << "Trying to write free surface output, but it is disabled.";
+
+	int const rank = seissol::MPI::mpi.rank();
+
+	wait();
+
+	logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ".";
+
+	FreeSurfaceParam param;
+	param.time = time;
+
+	for (unsigned i = 0; i < 2*FREESURFACE_NUMBER_OF_COMPONENTS; ++i) {
+		sendBuffer(FreeSurfaceWriterExecutor::VARIABLES0 + i);
+	}
+
+	call(param);
+
+	// Update the timestep in the checkpoint header
+	seissol::SeisSol::main.checkPointManager().header().value<int>(m_headerId)++;
+
+	logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ". Done.";
+}
+
 
 void seissol::writer::FreeSurfaceWriter::simulationStart()
 {

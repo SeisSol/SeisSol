@@ -93,7 +93,7 @@ public:
 		m_timestep = timestep;
 	}
 
-	void init(const int* cells, const double* vertices,
+	void init(const unsigned int* cells, const double* vertices,
 		unsigned int nCells, unsigned int nVertices,
 		int* outputMask, const double** dataBuffer,
 		const char* outputPrefix,

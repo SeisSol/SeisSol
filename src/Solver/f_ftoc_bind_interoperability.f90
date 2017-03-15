@@ -145,14 +145,14 @@ module f_ftoc_bind_interoperability
       type(c_ptr), value :: i_plasticParameters
     end subroutine
   end interface
-  
+
   interface c_interoperability_setTv
     subroutine c_interoperability_setTv( tv ) bind( C, name='c_interoperability_setTv' )
       use iso_c_binding, only: c_double
       real(kind=c_double), value :: tv
     end subroutine
   end interface
-  
+
 
   interface c_interoperability_initializeCellLocalMatrices
     subroutine c_interoperability_initializeCellLocalMatrices() bind( C, name='c_interoperability_initializeCellLocalMatrices' )
@@ -182,12 +182,10 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in) :: i_waveFieldFilename
     end subroutine
 
-    subroutine c_interoperability_initializeFreeSurfaceOutput( maxRefinementDepth, interval, filename ) bind( C, name='c_interoperability_initializeFreeSurfaceOutput' )
+    subroutine c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth ) bind( C, name='c_interoperability_enableFreeSurfaceOutput' )
       use iso_c_binding
       implicit none
       integer(kind=c_int), value :: maxRefinementDepth
-      real(kind=c_double), value :: interval
-      character(kind=c_char), dimension(*), intent(in) :: filename
     end subroutine
 
     subroutine c_interoperability_enableCheckPointing( i_checkPointInterval, i_checkPointFilename, i_checkPointBackend ) bind( C, name='c_interoperability_enableCheckPointing' )
@@ -205,7 +203,8 @@ module f_ftoc_bind_interoperability
     end subroutine
 
     subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
-        i_numSides, i_numBndGP, i_refinement, i_outputMask, i_outputRegionBounds ) &
+        i_numSides, i_numBndGP, i_refinement, i_outputMask, i_outputRegionBounds, &
+        freeSurfaceInterval, freeSurfaceFilename ) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -223,6 +222,8 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), value                    :: i_refinement
       integer(kind=c_int), dimension(*), intent(in) :: i_outputMask
       real(kind=c_double), dimension(*), intent(in) :: i_outputRegionBounds
+      real(kind=c_double), value                    :: freeSurfaceInterval
+      character(kind=c_char), dimension(*), intent(in) :: freeSurfaceFilename
     end subroutine
 
     subroutine c_interoperability_addToDofs( i_meshId, i_update, numberOfQuantities ) bind( C, name='c_interoperability_addToDofs' )
