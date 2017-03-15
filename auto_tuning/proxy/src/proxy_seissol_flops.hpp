@@ -26,8 +26,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 typedef struct seissol_flops {
-  double d_nonZeroFlops;
-  double d_hardwareFlops;
+  long long d_nonZeroFlops;
+  long long d_hardwareFlops;
 } seissol_flops;
 
 seissol_flops flops_localWithoutAder_actual(unsigned int i_timesteps) {
@@ -38,12 +38,12 @@ seissol_flops flops_localWithoutAder_actual(unsigned int i_timesteps) {
   for (unsigned cell = 0; cell < m_cells->numberOfCells; ++cell) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     m_localKernel.flopsIntegral(m_cellInformation[cell].faceTypes, l_nonZeroFlops, l_hardwareFlops);    
-    ret.d_nonZeroFlops  += (double)l_nonZeroFlops;
-    ret.d_hardwareFlops += (double)l_hardwareFlops;
+    ret.d_nonZeroFlops  += l_nonZeroFlops;
+    ret.d_hardwareFlops += l_hardwareFlops;
   }
 
-  ret.d_nonZeroFlops *= (double)i_timesteps;
-  ret.d_hardwareFlops *= (double)i_timesteps;
+  ret.d_nonZeroFlops *= i_timesteps;
+  ret.d_hardwareFlops *= i_timesteps;
   
   return ret;
 }
@@ -58,12 +58,12 @@ seissol_flops flops_ader_actual(unsigned int i_timesteps) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     // get flops
     m_timeKernel.flopsAder( l_nonZeroFlops, l_hardwareFlops );
-    ret.d_nonZeroFlops  += (double)l_nonZeroFlops;
-    ret.d_hardwareFlops += (double)l_hardwareFlops;
+    ret.d_nonZeroFlops  += l_nonZeroFlops;
+    ret.d_hardwareFlops += l_hardwareFlops;
   }
 
-  ret.d_nonZeroFlops *= (double)i_timesteps;
-  ret.d_hardwareFlops *= (double)i_timesteps;
+  ret.d_nonZeroFlops *= i_timesteps;
+  ret.d_hardwareFlops *= i_timesteps;
 
   return ret;
 }
@@ -79,12 +79,12 @@ seissol_flops flops_neigh_actual(unsigned int i_timesteps) {
     long long l_drNonZeroFlops, l_drHardwareFlops;
     // get flops
     m_neighborKernel.flopsNeighborsIntegral( m_cellInformation[l_cell].faceTypes, m_cellInformation[l_cell].faceRelations, l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
-    ret.d_nonZeroFlops  += (double)(l_nonZeroFlops + l_drNonZeroFlops);
-    ret.d_hardwareFlops += (double)(l_hardwareFlops + l_drHardwareFlops);
+    ret.d_nonZeroFlops  += l_nonZeroFlops + l_drNonZeroFlops;
+    ret.d_hardwareFlops += l_hardwareFlops + l_drHardwareFlops;
   }
 
-  ret.d_nonZeroFlops *= (double)i_timesteps;
-  ret.d_hardwareFlops *= (double)i_timesteps;
+  ret.d_nonZeroFlops *= i_timesteps;
+  ret.d_hardwareFlops *= i_timesteps;
 
   return ret;
 }
@@ -100,12 +100,12 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
   for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
     long long l_drNonZeroFlops, l_drHardwareFlops;
     m_dynRupKernel.flopsGodunovState(faceInformation[face], l_drNonZeroFlops, l_drHardwareFlops);
-    ret.d_nonZeroFlops  += (double)(l_drNonZeroFlops);
-    ret.d_hardwareFlops += (double)(l_drHardwareFlops);
+    ret.d_nonZeroFlops  += l_drNonZeroFlops;
+    ret.d_hardwareFlops += l_drHardwareFlops;
   }
 
-  ret.d_nonZeroFlops *= (double)i_timesteps;
-  ret.d_hardwareFlops *= (double)i_timesteps;
+  ret.d_nonZeroFlops *= i_timesteps;
+  ret.d_hardwareFlops *= i_timesteps;
 
   return ret;
 }

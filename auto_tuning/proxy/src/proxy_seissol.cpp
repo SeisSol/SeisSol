@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
-long long libxsmm_num_total_flops = 0;
+long long libxsmm_num_total_flops;
 
 #include <cstdlib>
 #include <cstring>
@@ -212,6 +212,8 @@ int main(int argc, char* argv[]) {
   } else {
     computeLocalWithoutAderIntegration();
   }
+  
+  libxsmm_num_total_flops = 0;
 
   gettimeofday(&start_time, NULL);
 #ifdef __USE_RDTSC
@@ -288,14 +290,15 @@ int main(int argc, char* argv[]) {
   
   seissol_flops actual_flops = (*flop_fun)(i_timesteps);
   double bytes_estimate = (*bytes_fun)(i_timesteps);
-  printf("GFLOP (non-zero) for seissol proxy  : %f\n", actual_flops.d_nonZeroFlops/(1e9));
-  printf("GFLOP (hardware) for seissol proxy  : %f\n", actual_flops.d_hardwareFlops/(1e9));
+  printf("GFLOP (libxsmm)                     : %f\n", libxsmm_num_total_flops      * 1.e-9);
+  printf("GFLOP (non-zero) for seissol proxy  : %f\n", actual_flops.d_nonZeroFlops  * 1.e-9);
+  printf("GFLOP (hardware) for seissol proxy  : %f\n", actual_flops.d_hardwareFlops * 1.e-9);
   printf("GiB (estimate) for seissol proxy    : %f\n\n", bytes_estimate/(1024.0*1024.0*1024.0));
   printf("FLOPS/cycle (non-zero)              : %f\n", actual_flops.d_nonZeroFlops/total_cycles);
   printf("FLOPS/cycle (hardware)              : %f\n", actual_flops.d_hardwareFlops/total_cycles);
   printf("Bytes/cycle (estimate)              : %f\n\n", bytes_estimate/total_cycles);
-  printf("GFLOPS (non-zero) for seissol proxy : %f\n", (actual_flops.d_nonZeroFlops/(1e9))/total);
-  printf("GFLOPS (hardware) for seissol proxy : %f\n", (actual_flops.d_hardwareFlops/(1e9))/total);
+  printf("GFLOPS (non-zero) for seissol proxy : %f\n", (actual_flops.d_nonZeroFlops  * 1.e-9)/total);
+  printf("GFLOPS (hardware) for seissol proxy : %f\n", (actual_flops.d_hardwareFlops * 1.e-9)/total);
   printf("GiB/s (estimate) for seissol proxy  : %f\n", (bytes_estimate/(1024.0*1024.0*1024.0))/total);
   printf("=================================================\n");
   printf("\n");

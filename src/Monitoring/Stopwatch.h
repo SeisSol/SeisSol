@@ -95,11 +95,11 @@ public:
 	}
 
 	/**
-	 * stops time measuring
+	 * split time measuring
 	 *
 	 * @return measured time in seconds
 	 */
-	double stop()
+	double split()
 	{
 #ifdef _WIN32
 		LARGE_INTEGER end;

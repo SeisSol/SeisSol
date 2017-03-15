@@ -132,13 +132,6 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
         o_timeIntegrated,
         NUMBER_OF_ALIGNED_BASIS_FUNCTIONS  );
 
-#ifndef NDEBUG
-#ifdef _OPENMP
-#pragma omp atomic
-#endif
-  libxsmm_num_total_flops += NUMBER_OF_ALIGNED_DOFS;
-#endif
-
   // stream out frist derivative (order 0)
   if ( o_timeDerivatives != NULL ) {
     streamstore(NUMBER_OF_ALIGNED_DOFS, i_degreesOfFreedom, o_timeDerivatives);

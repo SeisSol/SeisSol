@@ -46,6 +46,8 @@
 #include "Interoperability.h"
 #include "time_stepping/TimeManager.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Stopwatch.h"
+#include "Monitoring/FlopCounter.hpp"
 
 extern seissol::Interoperability e_interoperability;
 
@@ -80,6 +82,9 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 
 void seissol::Simulator::simulate() {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
+  
+  Stopwatch stopwatch;
+  stopwatch.start();
 
   // Set start time (required for checkpointing)
   seissol::SeisSol::main.timeManager().setInitialTimes(m_currentTime);
@@ -144,8 +149,13 @@ void seissol::Simulator::simulate() {
       m_checkPointTime += m_checkPointInterval;
     }
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
+    
+    printNodePerformance( stopwatch.split() );
   }
 
   // stop the communication thread (if applicable)
   seissol::SeisSol::main.timeManager().stopCommunicationThread();
+  
+  double wallTime = stopwatch.split();
+  logInfo() << "Wall time (via gettimeofday):" << wallTime << "seconds.";
 }

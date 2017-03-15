@@ -146,7 +146,7 @@ if env['compileMode'] == 'debug':
   flags.extend(['-O0', '-g'])
 else:
   flags.extend(['-O3'])
-env.Append(CPPDEFINES=['NDEBUG'])
+  env.Append(CPPDEFINES=['NDEBUG'])
 
 env.Append( CFLAGS    = flags,
             CXXFLAGS  = flags,
@@ -176,6 +176,9 @@ Import('env')
 
 # build executable
 env.Program(env['execDir']+'/seissol_proxy', env.sourceFiles)
+
+# Disable libxsmm flop counter for remaing programs
+env.Append(CPPDEFINES=['NDEBUG'])
 
 # Anything done here should only affect tests
 env = env.Clone()
