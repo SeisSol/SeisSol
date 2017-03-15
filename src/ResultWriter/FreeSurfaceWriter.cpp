@@ -110,7 +110,7 @@ void seissol::writer::FreeSurfaceWriter::enable()
 {
 	m_enabled = true;
 
-	m_headerId = seissol::SeisSol::main.checkPointManager().header().add<int>();
+	seissol::SeisSol::main.checkPointManager().header().add(m_timestepComp);
 }
 
 
@@ -166,7 +166,7 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 
 	// Initialize the executor
 	FreeSurfaceInitParam param;
-	param.timestep = seissol::SeisSol::main.checkPointManager().header().value<int>(m_headerId);
+	param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
 	callInit(param);
 
 	// Remove unused buffers
@@ -206,7 +206,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time)
 	call(param);
 
 	// Update the timestep in the checkpoint header
-	seissol::SeisSol::main.checkPointManager().header().value<int>(m_headerId)++;
+	seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
 
 	logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ". Done.";
 }

@@ -41,12 +41,14 @@
 #ifndef FREESURFACEWRITER_H
 #define FREESURFACEWRITER_H
 
+#include "Parallel/MPI.h"
+
 #include <Geometry/MeshReader.h>
-#include <Parallel/MPI.h>
 #include <utils/logger.h>
 #include <async/Module.h>
 #include <Modules/Module.h>
 #include <Solver/FreeSurfaceIntegrator.h>
+#include "Checkpoint/DynStruct.h"
 #include "FreeSurfaceWriterExecutor.h"
 
 namespace seissol
@@ -60,8 +62,8 @@ private:
 	/** Is enabled? */
 	bool m_enabled;
 
-	/** Checkpoint header id */
-	size_t m_headerId;
+	/** Timestep component in the checkpoint header */
+	DynStruct::Component<int> m_timestepComp;
 
 	/** The asynchronous executor */
 	FreeSurfaceWriterExecutor m_executor;
@@ -76,7 +78,7 @@ private:
                               unsigned&         nVertices );
 
 public:
-	FreeSurfaceWriter() : m_enabled(false), m_headerId(-1), m_freeSurfaceIntegrator(NULL) {}
+	FreeSurfaceWriter() : m_enabled(false), m_freeSurfaceIntegrator(NULL) {}
 
 	/**
 	 * Called by ASYNC on all ranks

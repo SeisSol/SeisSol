@@ -51,6 +51,9 @@
 
 #include "async/Module.h"
 
+#ifdef GENERATEDKERNELS
+#include "Checkpoint/DynStruct.h"
+#endif // GENERATEDKERNELS
 #include "Geometry/refinement/VariableSubSampler.h"
 #include "WaveFieldWriterExecutor.h"
 
@@ -65,8 +68,10 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/** True if wave field output is enabled */
 	bool m_enabled;
 
-	/** The id in the checkpoint header */
-	size_t m_headerId;
+#ifdef GENERATEDKERNELS
+	/** The timestep component in the checkpoint header */
+	DynStruct::Component<int> m_timestepComp;
+#endif // GENERATEDKERNELS
 
 	/** False if entire region is to be written */
 	bool m_extractRegion;
@@ -137,7 +142,6 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 public:
 	WaveFieldWriter()
 		: m_enabled(false),
-		  m_headerId(0),
 		  m_extractRegion(false),
 		  m_variableSubsampler(0L),
 		  m_numVariables(0),

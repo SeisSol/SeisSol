@@ -47,7 +47,7 @@
 void seissol::checkpoint::mpio::Wavefield::setHeader(seissol::checkpoint::WavefieldHeader &header)
 {
 	seissol::checkpoint::Wavefield::setHeader(header);
-	m_partitionId = header.add<int>();
+	header.add(m_partitionComp);
 }
 
 bool seissol::checkpoint::mpio::Wavefield::init(size_t headerSize, unsigned long numDofs, unsigned int groupSize)
@@ -99,7 +99,7 @@ void seissol::checkpoint::mpio::Wavefield::initHeader(WavefieldHeader &header)
 {
 	seissol::checkpoint::Wavefield::initHeader(header);
 
-	header.value<int>(m_partitionId) = partitions();
+	header.value(m_partitionComp) = partitions();
 }
 
 void seissol::checkpoint::mpio::Wavefield::write(const void* header, size_t headerSize)
@@ -163,7 +163,7 @@ bool seissol::checkpoint::mpio::Wavefield::validate(MPI_File file)
 		if (header().identifier() != identifier()) {
 			logWarning() << "Checkpoint identifier does match";
 			result = false;
-		} else if (header().value<int>(m_partitionId) != partitions()) {
+		} else if (header().value(m_partitionComp) != partitions()) {
 			logWarning() << "Number of partitions in checkpoint does not match";
 			result = false;
 		}

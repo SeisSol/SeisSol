@@ -48,6 +48,7 @@
 
 #include "CheckPoint.h"
 #include "Checkpoint/Wavefield.h"
+#include "Checkpoint/DynStruct.h"
 
 #endif // USE_MPI
 
@@ -67,8 +68,8 @@ typedef WavefieldDummy Wavefield;
 class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
 {
 private:
-	/** Id of the partition in the header */
-	size_t m_partitionId;
+	/** The partition component in the header */
+	DynStruct::Component<int> m_partitionComp;
 
 	/** MPI-IO supports buffer larger > 2 GB */
 	bool m_useLargeBuffer;
@@ -78,7 +79,6 @@ public:
 		: seissol::checkpoint::CheckPoint(IDENTIFIER),
 		seissol::checkpoint::Wavefield(IDENTIFIER),
 		CheckPoint(IDENTIFIER),
-		m_partitionId(-1),
 		m_useLargeBuffer(true)
 	{
 	}

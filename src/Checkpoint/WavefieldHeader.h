@@ -52,41 +52,44 @@ namespace checkpoint
 
 class WavefieldHeader : public DynStruct
 {
+private:
+	/** The identifier handle */
+	Component<unsigned long> m_identifier;
+
+	/** The time handle */
+	Component<double> m_time;
+
 public:
         WavefieldHeader()
 	{
 		// Identifier
-		size_t id = add<unsigned long>();
-		assert(id == IDENTIFIER_ID); NDBG_UNUSED(id);
+		unsigned int id = add(m_identifier);
+		assert(id == 0); NDBG_UNUSED(id);
 
 		// Time
-		id = add<double>();
-		assert(id == TIME_ID); NDBG_UNUSED(id);
+		id = add(m_time);
+		assert(id == 1); NDBG_UNUSED(id);
 	}
 
 	unsigned long identifier() const
 	{
-		return value<unsigned long>(IDENTIFIER_ID);
+		return value(m_identifier);
 	}
 
 	unsigned long& identifier()
 	{
-		return value<unsigned long>(IDENTIFIER_ID);
+		return value(m_identifier);
 	}
 
 	double time() const
 	{
-		return value<double>(TIME_ID);
+		return value(m_time);
 	}
 
 	double& time()
 	{
-		return value<double>(TIME_ID);
+		return value(m_time);
 	}
-
-private:
-	static const size_t IDENTIFIER_ID = 0;
-	static const size_t TIME_ID = 1;
 };
 
 }

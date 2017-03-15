@@ -50,7 +50,7 @@ void seissol::writer::WaveFieldWriter::enable()
 {
 	m_enabled = true;
 #ifdef GENERATEDKERNELS
-	m_headerId = seissol::SeisSol::main.checkPointManager().header().add<int>();
+	seissol::SeisSol::main.checkPointManager().header().add(m_timestepComp);
 #endif // GENERATEDKERNELS
 }
 
@@ -76,7 +76,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	WaveFieldInitParam param;
 
 #ifdef GENERATEDKERNELS
-	param.timestep = seissol::SeisSol::main.checkPointManager().header().value<int>(m_headerId);
+	param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
 #else // GENERATEDKERNELS
 	param.timestep = 0;
 #endif // GENERATEDKERNELS
@@ -462,7 +462,7 @@ void seissol::writer::WaveFieldWriter::write(double time)
 	// Update last time step
 	m_lastTimeStep = time;
 #ifdef GENERATEDKERNELS
-	seissol::SeisSol::main.checkPointManager().header().value<int>(m_headerId)++;
+	seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
 #endif // GENERATEDKERNELS
 
 	logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";

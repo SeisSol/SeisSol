@@ -57,25 +57,34 @@ namespace seissol
  */
 class DynStruct
 {
-private:
+public:
 	/**
 	 * Component description
 	 */
+	template<typename T>
 	struct Component
 	{
+		friend class DynStruct;
+	private:
 		size_t offset;
+	public:
+		Component()
+			: offset(-1)
+		{ }
 	};
 
-	std::vector<Component> m_components;
-
+private:
 	/** Total size of the struct */
 	size_t m_size;
+
+	/** Number of components in the struct */
+	unsigned int m_numComponents;
 
 	void* m_buffer;
 
 public:
 	DynStruct()
-		: m_size(0), m_buffer(0L)
+		: m_size(0), m_numComponents(0), m_buffer(0L)
 	{ }
 
 	~DynStruct()
@@ -86,21 +95,19 @@ public:
 	/**
 	 * Add a component to the struct
 	 *
-	 * @return The id of the component
+	 * @return The component position
 	 */
 	template<typename T>
-	size_t add()
+	unsigned int add(Component<T> &comp)
 	{
 		if (m_buffer)
 			logError() << "The dyn struct was already initialized. Could not add an additional component.";
 
-		Component comp;
 		comp.offset = m_size;
-		m_components.push_back(comp);
 
 		m_size += sizeof(T);
 
-		return m_components.size()-1;
+		return m_numComponents++;
 	}
 
 	void alloc(size_t alignment = 0)
@@ -120,15 +127,15 @@ public:
 	}
 
 	template<typename T>
-	T& value(size_t i)
+	T& value(Component<T> comp)
 	{
-		return *reinterpret_cast<T*>(static_cast<char*>(m_buffer) + m_components[i].offset);
+		return *reinterpret_cast<T*>(static_cast<char*>(m_buffer) + comp.offset);
 	}
 
 	template<typename T>
-	const T& value(size_t i) const
+	const T& value(Component<T> comp) const
 	{
-		return *reinterpret_cast<T*>(static_cast<char*>(m_buffer) + m_components[i].offset);
+		return *reinterpret_cast<T*>(static_cast<char*>(m_buffer) + comp.offset);
 	}
 
 	size_t size() const
