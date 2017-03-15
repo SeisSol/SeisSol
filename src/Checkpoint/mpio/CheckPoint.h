@@ -178,7 +178,7 @@ protected:
 			// Skip other processes after this in the group
 			offset += (numGroupElems() - numElem - groupOffset()) * elemSize;
 		}
-		MPI_Type_create_hindexed(blocks, blockLength, displ, elemType, &m_fileDataType);
+		MPI_Type_create_hindexed(blocks * numVars, blockLength, displ, elemType, &m_fileDataType);
 		MPI_Type_commit(&m_fileDataType);
 
 		MPI_Type_free(&elemType);
@@ -272,7 +272,7 @@ protected:
 	 *
 	 * @return The MPI error code
 	 */
-	int setHeaderView(MPI_File file) const
+	int setHeaderView(MPI_File file)
 	{
 		return MPI_File_set_view(file, 0, MPI_BYTE, m_fileHeaderType, const_cast<char*>("native"), MPI_INFO_NULL);
 	}
@@ -282,7 +282,7 @@ protected:
 	 *
 	 * @return The MPI error code
 	 */
-	int setDataView(MPI_File file) const
+	int setDataView(MPI_File file)
 	{
 		return MPI_File_set_view(file, 0, MPI_BYTE, m_fileDataType, const_cast<char*>("native"), MPI_INFO_NULL);
 	}
