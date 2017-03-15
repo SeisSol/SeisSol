@@ -1223,14 +1223,15 @@ MODULE TypesDef
      !< Dynamic Rupture variables
      INTEGER                                :: DR                               !< (0) = no, (1) = dynamic rupture is present
      INTEGER                                :: FL                               !< Type of friction law used (0) = none, (1) = imposed rup vel, (2) = LSW, (3) = RS
-     REAL, POINTER                          :: IniBulk_xx(:,:)                  !< Initial bulk stress at fault
-     REAL, POINTER                          :: IniBulk_yy(:,:)                  !< Initial bulk stress at fault
-     REAL, POINTER                          :: IniBulk_zz(:,:)                  !< Initial bulk stress at fault
-     REAL, POINTER                          :: IniShearXY(:,:)                  !< Initial shear stress at fault
-     REAL, POINTER                          :: IniShearYZ(:,:)                  !< Initial shear stress at fault
-     REAL, POINTER                          :: IniShearXZ(:,:)                  !< Initial shear stress at fault
-     REAL, POINTER                          :: IniMu(:,:)                       !< Initial friction coefficient at fault
-     REAL, POINTER                          :: IniStateVar(:,:)                 !< Initial state variable value at fault
+     REAL, allocatable                      :: IniBulk_xx(:,:)                  !< Initial bulk stress at fault
+     REAL, allocatable                      :: IniBulk_yy(:,:)                  !< Initial bulk stress at fault
+     REAL, allocatable                      :: IniBulk_zz(:,:)                  !< Initial bulk stress at fault
+     REAL, allocatable                      :: IniShearXY(:,:)                  !< Initial shear stress at fault
+     REAL, allocatable                      :: IniShearYZ(:,:)                  !< Initial shear stress at fault
+     REAL, allocatable                      :: IniShearXZ(:,:)                  !< Initial shear stress at fault
+     real, allocatable                      :: InitialStressInFaultCS(:,:,:)
+     REAL, allocatable                      :: IniMu(:,:)                       !< Initial friction coefficient at fault
+     REAL, allocatable                      :: IniStateVar(:,:)                 !< Initial state variable value at fault
      REAL                                   :: IniSlipRate1                     !< Initial slip rate value at fault
      REAL                                   :: IniSlipRate2                     !< Initial slip rate value at fault
      REAL                                   :: ShearXY_0                        !< Initial shear stress

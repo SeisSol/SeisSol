@@ -117,6 +117,7 @@ MODULE ini_model_DR_mod
   !> Interface to dynamic rupture initial models
   !<
   SUBROUTINE DR_setup(EQN,DISC,MESH,IO,BND)
+    use JacobiNormal_mod, only: RotationMatrix3D
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -125,6 +126,13 @@ MODULE ini_model_DR_mod
     TYPE(tUnstructMesh)            :: MESH
     TYPE(tInputOutput)             :: IO
     TYPE (tBoundary)               :: BND
+    integer                        :: iFace, iBndGP
+    real                           :: normal(3)
+    real                           :: tangent1(3)
+    real                           :: tangent2(3)
+    real                           :: T(9,9)
+    real                           :: iT(9,9)
+    real                           :: Stress(1:6,1:DISC%Galerkin%nBndGP)
     !-------------------------------------------------------------------------!
     INTENT(IN)                      :: MESH, BND
     INTENT(INOUT)                   :: IO, EQN, DISC
@@ -273,6 +281,28 @@ MODULE ini_model_DR_mod
     if (DISC%DynRup%read_fault_file == 1) then
        call faultinput(disc,eqn,mesh,bnd,IO)
     end if
+    
+    
+    ! Rotate initial stresses to fault coordinate system
+    allocate(EQN%InitialStressInFaultCS(6,DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    
+    do iFace = 1, MESH%Fault%nSide
+      normal   = MESH%Fault%geoNormals( 1:3, iFace)
+      tangent1 = MESH%Fault%geoTangent1(1:3, iFace)
+      tangent2 = MESH%Fault%geoTangent2(1:3, iFace)
+      CALL RotationMatrix3D(normal, tangent1, tangent2, T(:,:), iT(:,:), EQN)
+
+      Stress(1,:)=EQN%IniBulk_xx(iFace,:)
+      Stress(2,:)=EQN%IniBulk_yy(iFace,:)
+      Stress(3,:)=EQN%IniBulk_zz(iFace,:) 
+      Stress(4,:)=EQN%IniShearXY(iFace,:)
+      Stress(5,:)=EQN%IniShearYZ(iFace,:)
+      Stress(6,:)=EQN%IniShearXZ(iFace,:)
+      
+      do iBndGP=1,DISC%Galerkin%nBndGP
+         EQN%InitialStressInFaultCS(:,iBndGP,iFace) = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))
+      enddo
+    enddo
 
   END SUBROUTINE DR_setup
 

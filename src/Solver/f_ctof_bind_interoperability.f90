@@ -156,11 +156,6 @@ module f_ctof_bind_interoperability
 
       real(kind=c_double), value             :: densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus
 
-      REAL        :: NormalVect_n(3)
-      REAL        :: NormalVect_s(3)
-      REAL        :: NormalVect_t(3)
-      REAL        :: T(9,9)
-      REAL        :: iT(9,9)
       REAL        :: rho, rho_neig
       REAL        :: w_speed(3),w_speed_neig(3)
 
@@ -189,11 +184,6 @@ module f_ctof_bind_interoperability
       iNeighbor           = l_domain%MESH%Fault%Face(i_face,1,2)          ! iNeighbor denotes "-" side
       iLocalNeighborSide  = l_domain%MESH%Fault%Face(i_face,2,2)
 
-      NormalVect_n = l_domain%MESH%Fault%geoNormals(1:3,i_face)
-      NormalVect_s = l_domain%MESH%Fault%geoTangent1(1:3,i_face)
-      NormalVect_t = l_domain%MESH%Fault%geoTangent2(1:3,i_face)
-      CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),l_domain%EQN)
-
       rho = densityPlus
       w_speed(:) = (/ pWaveVelocityPlus, sWaveVelocityPlus, sWaveVelocityPlus /)
       rho_neig = densityMinus
@@ -209,7 +199,7 @@ module f_ctof_bind_interoperability
 
       call Eval_friction_law( TractionGP_XY,TractionGP_XZ,        & ! OUT: updated Traction
                               NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
-                              i_face,iSide,iElem,l_time,timePoints,iT,          & ! IN: element ID, time, inv Trafo
+                              i_face,iSide,iElem,l_time,timePoints,          & ! IN: element ID, time, inv Trafo
                               rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
                               l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%bnd)
 

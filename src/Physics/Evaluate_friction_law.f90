@@ -74,7 +74,7 @@ MODULE Eval_friction_law_mod
   !<
   SUBROUTINE Eval_friction_law(    TractionGP_XY,TractionGP_XZ,        & ! OUT: updated Traction
                                    NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
-                                   iFace,iSide,iElem,time,timePoints,iT,          & ! IN: element ID, time, inv Trafo
+                                   iFace,iSide,iElem,time,timePoints,          & ! IN: element ID, time, inv Trafo
                                    rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
                                    EQN,DISC,MESH,MPI,IO,BND)             ! global variables
     !-------------------------------------------------------------------------!
@@ -95,7 +95,6 @@ MODULE Eval_friction_law_mod
     REAL        :: NorStressGP(:,:)
     REAL        :: XYStressGP(:,:)
     REAL        :: XZStressGP(:,:)
-    REAL        :: iT(:,:)
     REAL        :: time
     real        :: timePoints(:)
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
@@ -129,7 +128,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                                time,DeltaT,                               & ! IN: time
                                 DISC,EQN,MESH,MPI,IO)                          
                                 
         CASE(3,4) ! Rate-and-state friction
@@ -139,7 +138,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                                time,DeltaT,                               & ! IN: time
                                 DISC,EQN,MESH,MPI,IO)
        
         CASE(6) ! Coulomb model for LSW and bimaterial
@@ -149,7 +148,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                                time,DeltaT,                               & ! IN: time
                                 DISC,EQN,MESH,MPI,IO)
 
         CASE(7) ! severe velocity weakening friction as in Ampuero&Ben-Zion2008
@@ -159,7 +158,7 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                                time,DeltaT,                               & ! IN: time
                                 DISC,EQN,MESH,MPI,IO)
 
         CASE(16,17,29,30) ! Specific conditions for SCEC TPV16/17
@@ -170,31 +169,33 @@ MODULE Eval_friction_law_mod
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                                time,DeltaT,                               & ! IN: time
                                 DISC,EQN,MESH,MPI,IO)                          
         CASE(101) ! Specific conditions for SCEC TPV101
                       ! as case 3 (rate-and-state friction) aging law
                       ! + time and space dependent nucleation
-
-           CALL rate_and_state_nuc101(                                     & !
-                                TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
-                                NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
-                                iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
-                                rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
-                                DISC,EQN,MESH,MPI,IO,BND)
+            
+           logError(*) 'Currently disabled'
+!~            CALL rate_and_state_nuc101(                                     & !
+!~                                 TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
+!~                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
+!~                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
+!~                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
+!~                                 time,DeltaT,iT,                            & ! IN: time, inv Trafo
+!~                                 DISC,EQN,MESH,MPI,IO,BND)
 
         CASE(103) ! Specific conditions for SCEC TPV103
                       ! Fast velocity-weakening friction with slip law
                       ! + time and space dependent nucleation
 
-           CALL rate_and_state_nuc103(                                     & !
-                                TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
-                                NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
-                                iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
-                                rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,DeltaT,iT,                            & ! IN: time, inv Trafo
-                                DISC,EQN,MESH,MPI,IO,BND)
+           logError(*) 'Currently disabled'
+!~            CALL rate_and_state_nuc103(                                     & !
+!~                                 TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
+!~                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
+!~                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
+!~                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
+!~                                 time,DeltaT,iT,                            & ! IN: time, inv Trafo
+!~                                 DISC,EQN,MESH,MPI,IO,BND)
 
 
         CASE DEFAULT
@@ -233,7 +234,7 @@ MODULE Eval_friction_law_mod
                                    NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                    iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                    rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                   time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                                   time,DeltaT,                               & ! IN: time
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -253,8 +254,6 @@ MODULE Eval_friction_law_mod
     REAL        :: XZStressGP(nBndGP,nTimeGP)
     REAL        :: TractionGP_XY(nBndGP,nTimeGP)
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
-    REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
-    REAL        :: Stress(1:6,1:nBndGP)
     REAL        :: tmpSlip
     REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
@@ -272,18 +271,6 @@ MODULE Eval_friction_law_mod
 
     tmpSlip = 0.0D0
 
-    !Background stress rotation to face's reference system
-    Stress(1,:)=EQN%IniBulk_xx(iFace,:)
-    Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-    Stress(3,:)=EQN%IniBulk_zz(iFace,:) 
-    Stress(4,:)=EQN%IniShearXY(iFace,:)
-    Stress(5,:)=EQN%IniShearYZ(iFace,:)
-    Stress(6,:)=EQN%IniShearXZ(iFace,:)
-    !
-    DO iBndGP=1,nBndGP
-       Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))
-    ENDDO
-
     DO iBndGP=1,nBndGP
      !
      LocMu     = DISC%DynRup%Mu(iFace,iBndGP)
@@ -296,7 +283,7 @@ MODULE Eval_friction_law_mod
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
-     P_0       = Stress(1,iBndGP)
+     P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
      !
 #ifndef NUMBER_OF_TEMPORAL_INTEGRATION_POINTS
      DO iTimeGP=1,nTimeGP
@@ -311,18 +298,18 @@ MODULE Eval_friction_law_mod
        ! prevents tension at the fault:
        Strength = -cohesion - LocMu*MIN(P,ZERO)
         
-       ShTest = SQRT((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))**2 + (Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))**2)
+       ShTest = SQRT((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
 
        !Coulomb's law (we use old mu value, as mu, S, SR and Traction are interdependent!)
        IF(ShTest.GT.Strength) THEN
 
          ! 1 evaluate friction
-         LocTracXY = ((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
-         LocTracXZ = ((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
+         LocTracXY = ((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
+         LocTracXZ = ((EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
            
          ! 2 update stress change
-         LocTracXY = LocTracXY - Stress(4,iBndGP)
-         LocTracXZ = LocTracXZ - Stress(6,iBndGP)
+         LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(4,iBndGP,iFace)
+         LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(6,iBndGP,iFace)
            
        ELSE
          LocTracXY = XYStressGP(iBndGP,iTimeGP)
@@ -390,8 +377,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
      DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
      DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
-     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY + Stress(4,iBndGP)
-     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ + Stress(6,iBndGP)
+     DISC%DynRup%TracXY(iFace,iBndGP)    = LocTracXY + EQN%InitialStressInFaultCS(4,iBndGP,iFace)
+     DISC%DynRup%TracXZ(iFace,iBndGP)    = LocTracXZ + EQN%InitialStressInFaultCS(6,iBndGP,iFace)
 
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
@@ -414,7 +401,7 @@ MODULE Eval_friction_law_mod
                                    NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                    iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                    rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                   time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                                   time,DeltaT,                               & ! IN: time
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     USE prak_clif_mod 
@@ -437,8 +424,6 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: Strength_exp
     REAL        :: sigma
-    REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
-    REAL        :: Stress(6,1:nBndGP)
     REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
@@ -453,18 +438,6 @@ MODULE Eval_friction_law_mod
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
 
-    !Background stress rotation to face's reference system
-    Stress(1,:)=EQN%IniBulk_xx(iFace,:)
-    Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-    Stress(3,:)=EQN%IniBulk_zz(iFace,:) 
-    Stress(4,:)=EQN%IniShearXY(iFace,:)
-    Stress(5,:)=EQN%IniShearYZ(iFace,:)
-    Stress(6,:)=EQN%IniShearXZ(iFace,:)
-    !
-    DO iBndGP=1,nBndGP
-       Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))
-    ENDDO
-
     DO iBndGP=1,nBndGP
      !
      LocMu     = DISC%DynRup%Mu(iFace,iBndGP)
@@ -477,7 +450,7 @@ MODULE Eval_friction_law_mod
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
-     P_0       = Stress(1,iBndGP)
+     P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
      Strength_exp = DISC%DynRup%Strength(iFace,iBndGP)
      !
      DO iTimeGP=1,nTimeGP
@@ -489,18 +462,18 @@ MODULE Eval_friction_law_mod
        sigma = LocP+P_0
        CALL prakash_cliff_fric(Strength_exp,sigma,LocSR,DISC%DynRup%v_star,DISC%DynRup%L,LocMu,time_inc)
         
-       ShTest = SQRT((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))**2 + (Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))**2)
+       ShTest = SQRT((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
 
        !Coulomb's law (we use old mu value, as mu, S, SR and Traction are interdependent!)
        IF(ShTest.GT.Strength) THEN
 
          ! 1 evaluate friction
-         LocTracXY = ((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
-         LocTracXZ = ((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
+         LocTracXY = ((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
+         LocTracXZ = ((EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
            
          ! 2 update stress change
-         LocTracXY = LocTracXY - Stress(4,iBndGP)
-         LocTracXZ = LocTracXZ - Stress(6,iBndGP)
+         LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(4,iBndGP,iFace)
+         LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(6,iBndGP,iFace)
            
        ELSE
          LocTracXY = XYStressGP(iBndGP,iTimeGP)
@@ -582,7 +555,7 @@ MODULE Eval_friction_law_mod
                                    NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                    iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                    rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                   time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                                   time,DeltaT,                               & ! IN: time
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -602,8 +575,6 @@ MODULE Eval_friction_law_mod
     REAL        :: XZStressGP(nBndGP,nTimeGP)
     REAL        :: TractionGP_XY(nBndGP,nTimeGP)
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
-    REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
-    REAL        :: Stress(1:6,1:nBndGP)
     REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: tmpSlip
@@ -623,18 +594,6 @@ MODULE Eval_friction_law_mod
     t_0 = DISC%DynRup%t_0
     tmpSlip = 0.0D0
 
-    !Background stress rotation to face's reference system
-    Stress(1,:)=EQN%IniBulk_xx(iFace,:)
-    Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-    Stress(3,:)=EQN%IniBulk_zz(iFace,:) 
-    Stress(4,:)=EQN%IniShearXY(iFace,:)
-    Stress(5,:)=EQN%IniShearYZ(iFace,:)
-    Stress(6,:)=EQN%IniShearXZ(iFace,:)
-    !
-    DO iBndGP=1,nBndGP
-       Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))
-    ENDDO
-
     DO iBndGP=1,nBndGP
      !
      LocMu     = DISC%DynRup%Mu(iFace,iBndGP)
@@ -647,7 +606,7 @@ MODULE Eval_friction_law_mod
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
-     P_0       = Stress(1,iBndGP)
+     P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
      !
      tn = time
      DO iTimeGP=1,nTimeGP
@@ -663,18 +622,18 @@ MODULE Eval_friction_law_mod
        ! prevents tension at the fault:
        Strength = -cohesion - LocMu*MIN(P,ZERO)
         
-       ShTest = SQRT((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))**2 + (Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))**2)
+       ShTest = SQRT((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
 
        !Coulomb's law (we use old mu value, as mu, S, SR and Traction are interdependent!)
        IF(ShTest.GT.Strength) THEN
 
          ! 1 evaluate friction
-         LocTracXY = ((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
-         LocTracXZ = ((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
+         LocTracXY = ((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
+         LocTracXZ = ((EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
            
          ! 2 update stress change
-         LocTracXY = LocTracXY - Stress(4,iBndGP)
-         LocTracXZ = LocTracXZ - Stress(6,iBndGP)
+         LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(4,iBndGP,iFace)
+         LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(6,iBndGP,iFace)
            
        ELSE
          LocTracXY = XYStressGP(iBndGP,iTimeGP)
@@ -776,7 +735,7 @@ MODULE Eval_friction_law_mod
                             NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                            time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                            time,DeltaT,                               & ! IN: time
                             DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -798,8 +757,6 @@ MODULE Eval_friction_law_mod
     REAL        :: XZStressGP(nBndGP,nTimeGP)
     REAL        :: TractionGP_XY(nBndGP,nTimeGP)
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
-    REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
-    REAL        :: Stress(6,1:nBndGP)
     REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
@@ -817,18 +774,6 @@ MODULE Eval_friction_law_mod
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
 
-    !Background stress rotation to face's reference system
-    Stress(1,:)=EQN%IniBulk_xx(iFace,:)
-    Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-    Stress(3,:)=EQN%IniBulk_zz(iFace,:) 
-    Stress(4,:)=EQN%IniShearXY(iFace,:)
-    Stress(5,:)=EQN%IniShearYZ(iFace,:)
-    Stress(6,:)=EQN%IniShearXZ(iFace,:)
-    !
-    DO iBndGP=1,nBndGP
-       Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))
-    ENDDO
-
     DO iBndGP=1,nBndGP
      !
      LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
@@ -837,7 +782,7 @@ MODULE Eval_friction_law_mod
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
-     P_0       = Stress(1,iBndGP)
+     P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
      cohesion  = DISC%DynRup%cohesion(iFace,iBndGP)      ! cohesion is negative since negative normal stress is compression
      !
      !logInfo(*) 'state variable evaluation', DISC%DynRup%StateVar(iFace,iBndGP), EQN%IniStateVar(iFace,iBndGP), 'iGP', iBndGP
@@ -856,7 +801,7 @@ MODULE Eval_friction_law_mod
        !
        ! load traction and normal stress
        P      = LocP+P_0
-       ShTest = SQRT((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))**2 + (Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))**2)
+       ShTest = SQRT((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
        !
        ! We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996)
        ! ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
@@ -919,10 +864,10 @@ MODULE Eval_friction_law_mod
        !LocTrac  = -(ABS(S_0)-LocMu*(LocP+P_0))*(S_0/ABS(S_0))
        !LocTrac  = ABS(LocTrac)*(-SignSR)  !!! line commented as it leads NOT to correct results
        ! update stress change
-       LocTracXY = -((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*(LocMu*P+ABS(cohesion))
-       LocTracXZ = -((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*(LocMu*P+ABS(cohesion))
-       LocTracXY = LocTracXY - Stress(4,iBndGP)
-       LocTracXZ = LocTracXZ - Stress(6,iBndGP)
+       LocTracXY = -((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*(LocMu*P+ABS(cohesion))
+       LocTracXZ = -((EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*(LocMu*P+ABS(cohesion))
+       LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(4,iBndGP,iFace)
+       LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(6,iBndGP,iFace)
        !
        ! Compute slip
        LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
@@ -976,7 +921,7 @@ MODULE Eval_friction_law_mod
                             NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                            time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                            time,DeltaT,                               & ! IN: time
                             DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -998,8 +943,6 @@ MODULE Eval_friction_law_mod
     REAL        :: XZStressGP(nBndGP,nTimeGP)
     REAL        :: TractionGP_XY(nBndGP,nTimeGP)
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
-    REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
-    REAL        :: Stress(6,1:nBndGP)
     REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
@@ -1027,18 +970,6 @@ MODULE Eval_friction_law_mod
     ! Tc tunes between slip-weakening and rate-weakening behavior
     !
 
-    !Background stress rotation to face's reference system
-    Stress(1,:)=EQN%IniBulk_xx(iFace,:)
-    Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-    Stress(3,:)=EQN%IniBulk_zz(iFace,:)
-    Stress(4,:)=EQN%IniShearXY(iFace,:)
-    Stress(5,:)=EQN%IniShearYZ(iFace,:)
-    Stress(6,:)=EQN%IniShearXZ(iFace,:)
-    !
-    DO iBndGP=1,nBndGP
-       Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))
-    ENDDO
-
     DO iBndGP=1,nBndGP
      !
      LocSlip   = DISC%DynRup%Slip(iFace,iBndGP)
@@ -1047,7 +978,7 @@ MODULE Eval_friction_law_mod
      LocSR1    = DISC%DynRup%SlipRate1(iFace,iBndGP)
      LocSR2    = DISC%DynRup%SlipRate2(iFace,iBndGP)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
-     P_0       = Stress(1,iBndGP)
+     P_0       = EQN%InitialStressInFaultCS(1,iBndGP,iFace)
      !
      DO iTimeGP=1,nTimeGP
        LocP   = NorStressGP(iBndGP,iTimeGP)
@@ -1062,7 +993,7 @@ MODULE Eval_friction_law_mod
        !
        ! load traction and normal stress
        P      = LocP+P_0
-       ShTest = SQRT((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))**2 + (Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))**2)
+       ShTest = SQRT((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
        !
        SV0=LocSV    ! Careful, the SV must always be corrected using SV0 and not LocSV!
        !
@@ -1112,10 +1043,10 @@ MODULE Eval_friction_law_mod
        LocMu    = RS_f0+RS_a*LocSR/(LocSR+RS_sr0)-RS_b*LocSV/(LocSV+RS_sl0)
        !
        ! update stress change
-       LocTracXY = -((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
-       LocTracXZ = -((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
-       LocTracXY = LocTracXY - Stress(4,iBndGP)
-       LocTracXZ = LocTracXZ - Stress(6,iBndGP)
+       LocTracXY = -((EQN%InitialStressInFaultCS(4,iBndGP,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
+       LocTracXZ = -((EQN%InitialStressInFaultCS(6,iBndGP,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
+       LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(4,iBndGP,iFace)
+       LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(6,iBndGP,iFace)
        !
        ! Compute slip
        LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
