@@ -133,6 +133,7 @@ MODULE ini_model_DR_mod
     real                           :: T(9,9)
     real                           :: iT(9,9)
     real                           :: Stress(1:6,1:DISC%Galerkin%nBndGP)
+    real                           :: StressinFaultCS(6)
     !-------------------------------------------------------------------------!
     INTENT(IN)                      :: MESH, BND
     INTENT(INOUT)                   :: IO, EQN, DISC
@@ -284,7 +285,7 @@ MODULE ini_model_DR_mod
     
     
     ! Rotate initial stresses to fault coordinate system
-    allocate(EQN%InitialStressInFaultCS(6,DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+    allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
     
     do iFace = 1, MESH%Fault%nSide
       normal   = MESH%Fault%geoNormals( 1:3, iFace)
@@ -300,7 +301,8 @@ MODULE ini_model_DR_mod
       Stress(6,:)=EQN%IniShearXZ(iFace,:)
       
       do iBndGP=1,DISC%Galerkin%nBndGP
-         EQN%InitialStressInFaultCS(:,iBndGP,iFace) = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))
+        StressinFaultCS = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))
+        EQN%InitialStressInFaultCS(iBndGP,:,iFace) = StressinFaultCS
       enddo
     enddo
 
