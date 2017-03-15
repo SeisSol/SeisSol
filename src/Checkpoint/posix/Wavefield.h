@@ -57,8 +57,8 @@ class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefie
 public:
 	Wavefield()
 		: seissol::checkpoint::CheckPoint(IDENTIFIER),
-		CheckPoint(IDENTIFIER),
-		seissol::checkpoint::Wavefield(IDENTIFIER)
+		seissol::checkpoint::Wavefield(IDENTIFIER),
+		CheckPoint(IDENTIFIER)
 	{
 	}
 

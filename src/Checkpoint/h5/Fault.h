@@ -94,8 +94,8 @@ private:
 public:
 	Fault()
 		: seissol::checkpoint::CheckPoint(IDENTIFIER),
-		CheckPoint(IDENTIFIER),
 		seissol::checkpoint::Fault(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
 		m_h5fSpaceData(-1)
 	{
 		m_h5timestepFault[0] = m_h5timestepFault[1] = -1;

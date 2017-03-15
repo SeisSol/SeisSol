@@ -76,8 +76,8 @@ private:
 public:
 	Fault()
 		: seissol::checkpoint::CheckPoint(IDENTIFIER),
-		CheckPoint(IDENTIFIER),
-		seissol::checkpoint::Fault(IDENTIFIER)
+		seissol::checkpoint::Fault(IDENTIFIER),
+		CheckPoint(IDENTIFIER)
 	{}
 
 	bool init(unsigned int numSides, unsigned int numBndGP,

@@ -92,8 +92,8 @@ private:
 public:
 	Wavefield()
 		: seissol::checkpoint::CheckPoint(IDENTIFIER),
-		CheckPoint(IDENTIFIER),
 		seissol::checkpoint::Wavefield(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
 		m_h5headerType(-1),
 		m_h5fSpaceData(-1)
 	{

@@ -122,13 +122,13 @@ public:
 	template<typename T>
 	T& value(size_t i)
 	{
-		return *static_cast<T*>(m_buffer + m_components[i].offset);
+		return *reinterpret_cast<T*>(static_cast<char*>(m_buffer) + m_components[i].offset);
 	}
 
 	template<typename T>
 	const T& value(size_t i) const
 	{
-		return *static_cast<T*>(m_buffer + m_components[i].offset);
+		return *reinterpret_cast<T*>(static_cast<char*>(m_buffer) + m_components[i].offset);
 	}
 
 	size_t size() const

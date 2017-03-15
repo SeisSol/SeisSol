@@ -76,10 +76,10 @@ private:
 public:
 	Wavefield()
 		: seissol::checkpoint::CheckPoint(IDENTIFIER),
-		CheckPoint(IDENTIFIER),
 		seissol::checkpoint::Wavefield(IDENTIFIER),
-		m_useLargeBuffer(true),
-		m_partitionId(-1)
+		CheckPoint(IDENTIFIER),
+		m_partitionId(-1),
+		m_useLargeBuffer(true)
 	{
 	}
 

@@ -6,7 +6,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,7 +88,6 @@ void seissol::checkpoint::sionlib::Wavefield::write(const void* header, size_t h
 	SCOREP_USER_REGION_DEFINE(r_write_header);
 	SCOREP_USER_REGION_BEGIN(r_write_header, "checkpoint_write_header", SCOREP_USER_REGION_TYPE_COMMON);
 
-	unsigned long id = identifier();
 	checkErr(sion_coll_fwrite(header, headerSize, 1, file), 1);
 
 	SCOREP_USER_REGION_END(r_write_header);

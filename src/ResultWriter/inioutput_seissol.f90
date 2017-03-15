@@ -190,7 +190,7 @@ CONTAINS
                                                             interval = io%SurfaceOutputInterval, &
                                                             filename = trim(io%OutputFile)  )
     end if
-    
+
     do i = 1, 9
         if ( io%OutputMask(3+i) ) then
             outputMaskInt(i) = 1
@@ -219,7 +219,7 @@ CONTAINS
     ENDIF
 #else
     if (IO%Format .eq. 6) then
-        call waveFieldWriterInit(0, disc, eqn, io, mesh, mpi)
+        call waveFieldWriterInit(disc, eqn, io, mesh, mpi)
     endif
 
     if (timestep .eq. 0) then
