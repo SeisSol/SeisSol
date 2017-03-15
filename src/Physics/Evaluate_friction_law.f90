@@ -614,7 +614,7 @@ MODULE Eval_friction_law_mod
        time_inc = DeltaT(iTimeGP)
        tn=tn + time_inc
        !
-       !IF (time .GE. DISC%DynRup%forced_rupture_time(iFace,iBndGP)) THEN
+       !IF (time .GE. DISC%DynRup%forced_rupture_time(iBndGP,iFace)) THEN
        !   LocMu = LocMu_D
        !ENDIF
        !
@@ -655,13 +655,13 @@ MODULE Eval_friction_law_mod
        ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
        f1=dmin1(ABS(LocSlip)/LocD_C,1d0)
        IF (t_0.eq.0) THEN
-          IF (tn .GE. DISC%DynRup%forced_rupture_time(iFace,iBndGP)) THEN
+          IF (tn .GE. DISC%DynRup%forced_rupture_time(iBndGP,iFace)) THEN
              f2=1.
           ELSE
              f2=0.
           ENDIF
        ELSE
-          f2=dmax1(0d0,dmin1((time-DISC%DynRup%forced_rupture_time(iFace,iBndGP))/t_0,1d0))
+          f2=dmax1(0d0,dmin1((time-DISC%DynRup%forced_rupture_time(iBndGP,iFace))/t_0,1d0))
        ENDIF
 
        LocMu = LocMu_S - (LocMu_S-LocMu_D)*dmax1(f1,f2)

@@ -453,7 +453,7 @@ MODULE ini_model_DR_mod
        ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
        ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
-       ALLOCATE(DISC%DynRup%forced_rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+       ALLOCATE(DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 
        DISC%DynRup%D_C(:,:)  = DISC%DynRup%D_C_ini
        DISC%DynRup%Mu_S(:,:) = DISC%DynRup%Mu_S_ini
@@ -506,9 +506,9 @@ MODULE ini_model_DR_mod
            r = SQRT((xGP-hypox)**2+(yGP-hypoy)**2+(zGP-hypoz)**2)
 
            IF (r.LE.r_crit) THEN
-              DISC%DynRup%forced_rupture_time(i,iBndGP) = r/(0.7d0*Vs)+(0.081d0*r_crit/(0.7d0*Vs))*(1d0/(1d0-(r/r_crit)*(r/r_crit))-1d0)
+              DISC%DynRup%forced_rupture_time(iBndGP,i) = r/(0.7d0*Vs)+(0.081d0*r_crit/(0.7d0*Vs))*(1d0/(1d0-(r/r_crit)*(r/r_crit))-1d0)
            ELSE
-              DISC%DynRup%forced_rupture_time(i,iBndGP) = 1d9
+              DISC%DynRup%forced_rupture_time(iBndGP,i) = 1d9
            ENDIF
 
        ENDDO !iBndGP
@@ -1674,7 +1674,7 @@ MODULE ini_model_DR_mod
 
   ! OPEN backgroundstress field
   CALL read_scec_stress(DISC,IO)
-  ALLOCATE(DISC%DynRup%forced_rupture_time(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+  ALLOCATE(DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
