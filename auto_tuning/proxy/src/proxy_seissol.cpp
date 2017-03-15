@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
-long long libxsmm_num_total_flops;
+extern long long libxsmm_num_total_flops;
 
 #include <cstdlib>
 #include <cstring>

@@ -177,9 +177,6 @@ Import('env')
 # build executable
 env.Program(env['execDir']+'/seissol_proxy', env.sourceFiles)
 
-# Disable libxsmm flop counter for remaing programs
-env.Append(CPPDEFINES=['NDEBUG'])
-
 # Anything done here should only affect tests
 env = env.Clone()
 env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])

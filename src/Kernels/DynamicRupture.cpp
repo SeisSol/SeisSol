@@ -196,6 +196,10 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
     o_hardwareFlops += 2 * m_numberOfAlignedBasisFunctions[derivative] * NUMBER_OF_QUANTITIES;
   }
   
+  // 2x evaluateTaylorExpansion
+  o_nonZeroFlops *= 2;
+  o_hardwareFlops *= 2;
+  
   o_nonZeroFlops += seissol::flops::godunovState_nonZero[4*faceInfo.plusSide];
   o_hardwareFlops += seissol::flops::godunovState_hardware[4*faceInfo.plusSide];
   

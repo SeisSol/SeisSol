@@ -5,8 +5,6 @@
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
 
-long long libxsmm_num_total_flops = 0;
-
 int main()
 {
   /// ADER-DG Flops

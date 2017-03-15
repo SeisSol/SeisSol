@@ -47,7 +47,7 @@ seissolEquationSourceFiles = [  'Kernels/Time.cpp',
                                 'Kernels/Neighbor.cpp',
                                 'Kernels/Local.cpp']
 
-sourceFiles = [ 'proxy_seissol.cpp' ]
+sourceFiles = [ 'flop_counter.cpp', 'proxy_seissol.cpp' ]
 
 env.sourceFiles.extend([env.Object(source='seissol_src/' + src) for src in seissolSourceFiles])
 env.sourceFiles.extend([env.Object('seissol_src/Equations/{0}/{1}'.format(env['equations'], src)) for src in seissolEquationSourceFiles])
