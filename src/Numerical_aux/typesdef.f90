@@ -976,6 +976,7 @@ MODULE TypesDef
      ! declarate output types
      LOGICAL                                :: DR_output                        !< Dynamic Rupture output just for domains with "+" elements
      INTEGER                                :: OutputPointType                  !< Type of output (3: at certain pickpoint positions, 4: at every element , 5: option 3 + 4)
+     integer                                :: SlipRateOutputType
      TYPE(tDynRup_output)                   :: DynRup_out_atPickpoint           !< Output data at pickpoints for Dynamic Rupture processes
      TYPE(tDynRup_output)                   :: DynRup_out_elementwise           !< Output data at all elements for Dynamic Rupture processes
 #ifdef HDF

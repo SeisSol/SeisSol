@@ -277,7 +277,7 @@ CONTAINS
     REAL    :: rotmat(1:6,1:6)                                                ! Rotation matrix
     REAL    :: TmpMat(EQN%nBackgroundVar)                                     ! temporary material values
     REAL    :: NorDivisor,ShearDivisor,UVelDivisor
-    REAL    :: strike_vector(1:3), crossprod(1:3) !for rotation of Slip from local to strike, dip coordinate
+    REAL    :: strike_vector(1:3), dip_vector(1:3), crossprod(1:3) !for rotation of Slip from local to strike, dip coordinate
     REAL    :: cos1, sin1, scalarprod
     REAL, PARAMETER    :: ZERO = 0.0D0
     ! Parameters used for calculating Vr
@@ -527,10 +527,22 @@ CONTAINS
 
           ! rotate into fault system
           LocMat = MATMUL(rotmat,tmp_mat)
+          
+          ! z must not be +/- (0,0,1) for the following to work (see also create_fault_rotationmatrix)
+          strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
+          strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
+          strike_vector(3) = 0.0D0
+          dip_vector = NormalVect_n .x. strike_vector
+          dip_vector = dip_vector / sqrt(dip_vector(1)**2+dip_vector(2)**2+dip_vector(3)**2)
 
           ! sliprate
-          LocSRs = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(TracMat(4)-LocMat(4))
-          LocSRd = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(TracMat(6)-LocMat(6))
+          if (DISC%DynRup%SlipRateOutputType .eq. 1) then
+            LocSRs = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(TracMat(4)-LocMat(4))
+            LocSRd = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(TracMat(6)-LocMat(6))
+          else
+            LocSRs = dot_product(SideVal2(8) * NormalVect_s + SideVal2(9) * NormalVect_t, strike_vector) - dot_product(SideVal(8) * NormalVect_s + SideVal(9) * NormalVect_t, strike_vector)
+            LocSRd = dot_product(SideVal2(8) * NormalVect_s + SideVal2(9) * NormalVect_t, dip_vector   ) - dot_product(SideVal(8) * NormalVect_s + SideVal(9) * NormalVect_t, dip_vector   )
+          end if
 
 
           ! TU 06.2015: average stress over the element in the considered direction
@@ -579,10 +591,6 @@ CONTAINS
 
               IF (DynRup_output%OutputMask(6).EQ.1) THEN
                   ! TU 07.15 rotate Slip from face reference coordinate to (strike,dip, normal) reference cordinate
-                  strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-                  strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-                  strike_vector(3) = 0.0D0
-
                   cos1 = dot_product(strike_vector(:),NormalVect_s(:))
                   crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
 
