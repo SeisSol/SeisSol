@@ -265,7 +265,7 @@ class GeneratedKernel(Kernel):
 
   def __gemm(self, nameA, blockA, memoryBlockA, nameB, blockB, memoryBlockB, nameC, memoryBlockC, beta, ops):
     if memoryBlockA.sparse and memoryBlockB.sparse:
-      raise NotImplementedError('The generator does not support sparse * sparse multiplications.')
+      raise NotImplementedError('The generator does not support sparse * sparse multiplications ({} = {} . {}).'.format(nameC, nameA, nameB))
 
     k1, k2 = self.__intersect(blockA, blockB)
     if k2 > k1:
