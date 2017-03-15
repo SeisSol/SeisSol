@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
+ * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,29 +37,67 @@
  * @section DESCRIPTION
  */
 
+#ifndef RESULTWRITER_ASYNCCELLIDS_H
+#define RESULTWRITER_ASYNCCELLIDS_H
+
+#ifdef USE_MPI
+#include <mpi.h>
+#endif // USE_MPI
+
 #include "SeisSol.h"
 
-extern "C"
+namespace seissol
 {
 
-void fault_hdf_init(const int* cells, const double* vertices,
-		int nCells, int nVertices,
-		int* outputMask, const double** dataBuffer, const char* outputPrefix,
-		double interval)
+/**
+ * This class can fix cells (vertex ids) in asynchronous mode.
+ *
+ * Sicne cells assume local vertex ids, we have to add an additional
+ * when using the asynchronous MPI mode.
+ *
+ * @tparam CellVertices Number of vertices per cell
+ */
+template<int CellVertices>
+class AsyncCellIDs
 {
-	seissol::SeisSol::main.faultWriter().init(reinterpret_cast<const unsigned int*>(cells),
-		vertices, nCells, nVertices,
-		outputMask, dataBuffer, outputPrefix, interval);
+private:
+	/** Null, if MPI is not enabled */
+	unsigned int* m_cells;
+
+	const unsigned int* m_constCells;
+
+public:
+	AsyncCellIDs(unsigned int nCells, unsigned int nVertices, const unsigned int* cells)
+		: m_cells(0L)
+	{
+#ifdef USE_MPI
+		// Add the offset to the cells
+		MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
+		unsigned int offset = nVertices;
+		MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
+		offset -= nVertices;
+
+		// Add the offset to all cells
+		m_cells = new unsigned int[nCells * CellVertices];
+		for (unsigned int i = 0; i < nCells * CellVertices; i++)
+			m_cells[i] = cells[i] + offset;
+		m_constCells = m_cells;
+#else // USE_MPI
+		m_constCells = cells;
+#endif // USE_MPI
+	}
+
+	~AsyncCellIDs()
+	{
+		delete [] m_cells;
+	}
+
+	const unsigned int* cells() const
+	{
+		return m_constCells;
+	}
+};
+
 }
 
-void fault_hdf_write(double time)
-{
-	seissol::SeisSol::main.faultWriter().write(time);
-}
-
-void fault_hdf_close()
-{
-	seissol::SeisSol::main.faultWriter().close();
-}
-
-}
+#endif // RESULTWRITER_ASYNCCELLIDS_H

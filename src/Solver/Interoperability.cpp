@@ -156,8 +156,8 @@ extern "C" {
     e_interoperability.enableWaveFieldOutput( i_waveFieldInterval, i_waveFieldFilename );
   }
 
-  void c_interoperability_initializeFreeSurfaceOutput( int maxRefinementDepth, double interval, const char* filename ) {
-    e_interoperability.initializeFreeSurfaceOutput( maxRefinementDepth, interval, filename );
+  void c_interoperability_enableFreeSurfaceOutput(int maxRefinementDepth) {
+	e_interoperability.enableFreeSurfaceOutput(maxRefinementDepth);
   }
 
   void c_interoperability_enableCheckPointing( double i_checkPointInterval,
@@ -172,9 +172,11 @@ extern "C" {
 
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds) {
+		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
+		  double freeSurfaceInterval, const char* freeSurfaceFilename) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			  numSides, numBndGP, refinement, outputMask, outputRegionBounds);
+			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
+			freeSurfaceInterval, freeSurfaceFilename);
   }
 
   void c_interoperability_addToDofs( int      i_meshId,
@@ -542,25 +544,16 @@ void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterva
   seissol::SeisSol::main.waveFieldWriter().setFilename( i_waveFieldFilename );
 }
 
-
-void seissol::Interoperability::initializeFreeSurfaceOutput( int maxRefinementDepth, double interval, const char *filename )
+void seissol::Interoperability::enableFreeSurfaceOutput(int maxRefinementDepth)
 {
-  seissol::SeisSol::main.freeSurfaceIntegrator().initialize(  maxRefinementDepth,
-                                                              m_lts,
-                                                              m_ltsTree,
-                                                              &m_ltsLut );
+	seissol::SeisSol::main.freeSurfaceWriter().enable();
 
-  seissol::SeisSol::main.freeSurfaceWriter().init(
-    seissol::SeisSol::main.meshReader(),
-    &seissol::SeisSol::main.freeSurfaceIntegrator(),
-    filename,
-    interval
-  );
+	seissol::SeisSol::main.freeSurfaceIntegrator().initialize( maxRefinementDepth,
+								m_lts,
+								m_ltsTree,
+								&m_ltsLut );
 }
 
-void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
-  seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
-}
 
 void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval,
 		const char *i_checkPointFilename, const char *i_checkPointBackend ) {
@@ -580,40 +573,51 @@ void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval
   	  seissol::SeisSol::main.checkPointManager().setFilename( i_checkPointFilename );
 }
 
+void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
+  seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
+}
+
 void seissol::Interoperability::initializeIO(
-		  double* mu, double* slipRate1, double* slipRate2,
-		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement, int* outputMask,
-          double* outputRegionBounds)
+		double* mu, double* slipRate1, double* slipRate2,
+		double* slip, double* slip1, double* slip2, double* state, double* strength,
+		int numSides, int numBndGP, int refinement, int* outputMask,
+		double* outputRegionBounds,
+		double freeSurfaceInterval, const char* freeSurfaceFilename)
 {
-	  // Initialize checkpointing
-	  int faultTimeStep;
-	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
-				  m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
-				  mu, slipRate1, slipRate2, slip, slip1, slip2,
-				  state, strength, numSides, numBndGP,
-				  faultTimeStep);
+	// Initialize checkpointing
+	int faultTimeStep;
+	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
+			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
+			mu, slipRate1, slipRate2, slip, slip1, slip2,
+			state, strength, numSides, numBndGP,
+			faultTimeStep);
 	if (hasCheckpoint) {
 		seissol::SeisSol::main.simulator().setCurrentTime(
 			seissol::SeisSol::main.checkPointManager().header().time());
 		seissol::SeisSol::main.faultWriter().setTimestep(faultTimeStep);
 	}
 
-	  // Initialize wave field output
-	  seissol::SeisSol::main.waveFieldWriter().init(
-			  NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
-              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-			  seissol::SeisSol::main.meshReader(),
-			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
-			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
-              seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
-			  m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			  refinement, outputMask, outputRegionBounds,
-			  seissol::SeisSol::main.timeManager().getTimeTolerance());
+	// Initialize wave field output
+	seissol::SeisSol::main.waveFieldWriter().init(
+			NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
+			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+			seissol::SeisSol::main.meshReader(),
+			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
+			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
+			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
+			refinement, outputMask, outputRegionBounds,
+			seissol::SeisSol::main.timeManager().getTimeTolerance());
 
-	  // I/O initialization is the last step that requires the mesh reader
-	  // (at least at the moment ...)
-	  seissol::SeisSol::main.freeMeshReader();
+	// Initialize free surface output
+	seissol::SeisSol::main.freeSurfaceWriter().init(
+		seissol::SeisSol::main.meshReader(),
+		&seissol::SeisSol::main.freeSurfaceIntegrator(),
+		freeSurfaceFilename, freeSurfaceInterval);
+
+	// I/O initialization is the last step that requires the mesh reader
+	// (at least at the moment ...)
+	seissol::SeisSol::main.freeMeshReader();
 }
 
 void seissol::Interoperability::copyDynamicRuptureState()

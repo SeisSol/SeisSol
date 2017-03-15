@@ -44,6 +44,7 @@
 #include <cstring>
 
 #include "FaultWriter.h"
+#include "AsyncCellIDs.h"
 #include "SeisSol.h"
 #include "Modules/Modules.h"
 #ifdef GENERATEDKERNELS
@@ -54,7 +55,7 @@
 extern seissol::Interoperability e_interoperability;
 #endif // GENERATEDKERNELS
 
-void seissol::writer::FaultWriter::init(const int* cells, const double* vertices,
+void seissol::writer::FaultWriter::init(const unsigned int* cells, const double* vertices,
 	unsigned int nCells, unsigned int nVertices,
 	int* outputMask, const double** dataBuffer,
 	const char* outputPrefix,
@@ -76,27 +77,10 @@ void seissol::writer::FaultWriter::init(const int* cells, const double* vertices
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);
 	assert(bufferId == FaultWriterExecutor::OUTPUT_PREFIX); NDBG_UNUSED(bufferId);
 
-	// Cells are a bit complicated because the vertex filter will now longer work if we just use the buffer
-	// We will add the offset later
-	const int* const_cells;
-#ifdef USE_MPI
-	// Add the offset to the cells
-	MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
-	unsigned int offset = nVertices;
-	MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-	offset -= nVertices;
-
-	// Add the offset to all cells
-	int* cellsCorrected = new int[nCells * 3];
-	for (unsigned int i = 0; i < nCells * 3; i++)
-		cellsCorrected[i] = cells[i] + offset;
-	const_cells = cellsCorrected;
-#else // USE_MPI
-	const_cells = cells;
-#endif // USE_MPI
+	AsyncCellIDs<3> cellIds(nCells, nVertices, cells);
 
 	// Create mesh buffers
-	bufferId = addSyncBuffer(const_cells, nCells * 3 * sizeof(int));
+	bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(int));
 	assert(bufferId == FaultWriterExecutor::CELLS);
 	bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
 	assert(bufferId == FaultWriterExecutor::VERTICES);
@@ -159,10 +143,6 @@ void seissol::writer::FaultWriter::init(const int* cells, const double* vertices
 	removeBuffer(FaultWriterExecutor::OUTPUT_PREFIX);
 	removeBuffer(FaultWriterExecutor::CELLS);
 	removeBuffer(FaultWriterExecutor::VERTICES);
-
-#ifdef USE_MPI
-	delete [] cellsCorrected;
-#endif // USE_MPI
 
 	// Register for the synchronization point hook
 	Modules::registerHook(*this, SIMULATION_START);

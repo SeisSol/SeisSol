@@ -49,6 +49,7 @@ namespace writer
 {
 struct FreeSurfaceInitParam
 {
+	int timestep;
 };
 
 struct FreeSurfaceParam
@@ -77,7 +78,7 @@ private:
 
 public:
 	FreeSurfaceWriterExecutor()
-		: 
+		:
 #ifdef USE_MPI
 		m_comm(MPI_COMM_NULL),
 #endif // USE_MPI

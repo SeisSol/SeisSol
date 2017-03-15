@@ -227,12 +227,9 @@ class seissol::Interoperability {
    void enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename );
 
    /**
-    * Enable free surface plotting.
-    *
-    * @param interval plotting interval
-    * @param filename file name prefix
-    **/
-   void initializeFreeSurfaceOutput( int maxRefinementDepth, double interval, const char *filename );
+    * Enable free surface output
+    */
+   void enableFreeSurfaceOutput(int maxRefinementDepth);
 
    /**
     * Enable checkpointing.
@@ -250,9 +247,10 @@ class seissol::Interoperability {
    void getIntegrationMask( int* i_integrationMask );
 
    void initializeIO(double* mu, double* slipRate1, double* slipRate2,
-			  double* slip, double* slip1, double* slip2, double* state, double* strength,
-			  int numSides, int numBndGP, int refinement, int* outputMask,
-              double* outputRegionBounds);
+			double* slip, double* slip1, double* slip2, double* state, double* strength,
+			int numSides, int numBndGP, int refinement, int* outputMask,
+			double* outputRegionBounds,
+			double freeSurfaceInterval, const char* freeSurfaceFilename);
 
    /**
     * Copy dynamic rupture variables for output.
