@@ -301,11 +301,7 @@ public:
 
 	void finalize()
 	{
-		if (m_waveFieldWriter
-#ifdef USE_MPI
-			&& (m_comm != MPI_COMM_NULL)
-#endif // USE_MPI
-		) {
+		if (m_waveFieldWriter) {
 			m_stopwatch.printTime("Time wave field writer backend:"
 #ifdef USE_MPI
 				, m_comm

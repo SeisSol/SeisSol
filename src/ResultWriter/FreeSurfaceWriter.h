@@ -103,13 +103,15 @@ public:
 
 	void close()
 	{
-		if (!m_enabled) {
+		if (m_enabled)
+			wait();
+
+		finalize();
+
+		if (!m_enabled)
 			return;
-    }
 
 		m_stopwatch.printTime("Time free surface writer frontend:");
-
-		wait();
 	}
 
 	void tearDown()

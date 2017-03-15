@@ -116,11 +116,7 @@ public:
 
 	void finalize()
 	{
-		if (m_xdmfWriter
-#ifdef USE_MPI
-			&& (m_comm != MPI_COMM_NULL)
-#endif // USE_MPI
-		) {
+		if (m_xdmfWriter) {
 			m_stopwatch.printTime("Time free surface writer backend:"
 #ifdef USE_MPI
 				, m_comm

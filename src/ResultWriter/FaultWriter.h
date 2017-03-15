@@ -144,12 +144,15 @@ public:
 
 	void close()
 	{
+		if (m_enabled)
+			wait();
+
+		finalize();
+
 		if (!m_enabled)
 			return;
 
 		m_stopwatch.printTime("Time fault writer frontend:");
-
-		wait();
 	}
 
 	void tearDown()
