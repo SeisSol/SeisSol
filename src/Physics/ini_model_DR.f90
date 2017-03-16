@@ -2118,7 +2118,16 @@ MODULE ini_model_DR_mod
              ENDIF
           ENDIF
 
-          Pf = -1000D0 * g * zGP * 2d0
+          !ensure that Pf does not exceed sigmazz
+          IF (zGP.GE.-5e3) THEN
+             Pf = -1000D0 * g * zGP * 1d0
+          ELSEIF (zGP.GE.-10e3) THEN
+             alpha = (-5e3-zGP)/5e3
+             Pf = -1000D0 * g * zGP * (1d0+alpha)
+          ELSE
+             Pf = -1000D0 * g * zGP * 2d0
+          ENDIF
+
           EQN%IniBulk_zz(i,iBndGP)  =  sigzz
           EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
           EQN%IniBulk_yy(i,iBndGP)  =  Omega*(b22*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)

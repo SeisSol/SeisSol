@@ -1072,7 +1072,15 @@ CONTAINS
 
                Omega = max(0D0,min(1d0, 1D0-Rz))
 
-               Pf = -1000D0 * g * z * 2d0
+               !ensure that Pf does not exceed sigmazz
+               IF (z.GE.-5e3) THEN
+                  Pf = -1000D0 * g * z * 1d0
+               ELSEIF (z.GE.-10e3) THEN
+                  alpha = (-5e3-z)/5e3
+                  Pf = -1000D0 * g * z * (1d0+alpha)
+               ELSE
+                 Pf = -1000D0 * g * z * 2d0
+               ENDIF
 
                IF ((y-yS1).LT.(x-XS1)) THEN
                    ! strike, dip, sigmazz,cohesion,R
