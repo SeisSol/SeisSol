@@ -387,7 +387,7 @@ void seissol::writer::WaveFieldWriter::write(double time)
 
 	const int rank = seissol::MPI::mpi.rank();
 
-	if (time <= m_lastTimeStep + m_timeTolerance) {
+	if (time >= 0 && time <= m_lastTimeStep + m_timeTolerance) {
 		// Ignore duplicate time steps. Might happen at the end of a simulation
 		logInfo(rank) << "Ignoring duplicate time step at time " << time;
 		return;
