@@ -82,7 +82,7 @@ void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 
 void seissol::Simulator::simulate() {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
-  
+
   Stopwatch stopwatch;
   stopwatch.start();
 
@@ -119,7 +119,7 @@ void seissol::Simulator::simulate() {
   upcomingTime = std::min( upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
 
   while( m_finalTime > m_currentTime + l_timeTolerance ) {
-    if (upcomingTime + l_timeTolerance < m_currentTime)
+    if (upcomingTime < m_currentTime + l_timeTolerance)
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
 
     // update the DOFs
@@ -149,13 +149,13 @@ void seissol::Simulator::simulate() {
       m_checkPointTime += m_checkPointInterval;
     }
     upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
-    
+
     printNodePerformance( stopwatch.split() );
   }
 
   // stop the communication thread (if applicable)
   seissol::SeisSol::main.timeManager().stopCommunicationThread();
-  
+
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Wall time (via gettimeofday):" << wallTime << "seconds.";
 }
