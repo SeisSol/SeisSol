@@ -633,26 +633,32 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
   logInfo(rank) << "Dynamic rupture cluster: " << m_dynamicRuptureCluster;
   
   int* localClusterHistogram = new int[m_numberOfGlobalClusters];
-  for (int cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
+  for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
     localClusterHistogram[cluster] = 0;
   }
   for (unsigned cell = 0; cell < m_cells.size(); ++cell) {
     ++localClusterHistogram[ m_cellClusterIds[cell] ];
   }
   
-  int* globalClusterHistogram;
+  int* globalClusterHistogram = NULL;
+#ifdef USE_MPI
   if (rank == 0) {
     globalClusterHistogram = new int[m_numberOfGlobalClusters];
   }
-  
   MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+#else
+  globalClusterHistogram = localClusterHistogram;
+#endif
   if (rank == 0) {
     logInfo(rank) << "Number of elements in time clusters:";
-    for (int cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
+    for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
       logInfo(rank) << utils::nospace << cluster << ":" << utils::space << globalClusterHistogram[cluster];
     }
+#ifdef USE_MPI
     delete[] globalClusterHistogram;
-  }  
+#endif
+  }
+  delete[] localClusterHistogram;
 }
 
 void seissol::initializers::time_stepping::LtsLayout::getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
