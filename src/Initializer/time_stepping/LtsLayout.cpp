@@ -571,6 +571,7 @@ unsigned int seissol::initializers::time_stepping::LtsLayout::enforceSingleBuffe
 }
 
 void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
+  const int rank = seissol::MPI::mpi.rank();
   // allocate memory for the cluster ids of the ghost layer
   m_plainGhostCellClusterIds = new unsigned int*[ m_plainNeighboringRanks.size() ];
   for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
@@ -629,7 +630,29 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
 
   logInfo() << "Performed a total of" << l_totalMaximumDifference << "reductions" << "for maximum"
             << "difference in" << m_cells.size() << "cells.";
-  logInfo(seissol::MPI::mpi.rank()) << "Dynamic rupture cluster: " << m_dynamicRuptureCluster;
+  logInfo(rank) << "Dynamic rupture cluster: " << m_dynamicRuptureCluster;
+  
+  int* localClusterHistogram = new int[m_numberOfGlobalClusters];
+  for (int cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
+    localClusterHistogram[cluster] = 0;
+  }
+  for (unsigned cell = 0; cell < m_cells.size(); ++cell) {
+    ++localClusterHistogram[ m_cellClusterIds[cell] ];
+  }
+  
+  int* globalClusterHistogram;
+  if (rank == 0) {
+    globalClusterHistogram = new int[m_numberOfGlobalClusters];
+  }
+  
+  MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  if (rank == 0) {
+    logInfo(rank) << "Number of elements in time clusters:";
+    for (int cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
+      logInfo(rank) << utils::nospace << cluster << ":" << utils::space << globalClusterHistogram[cluster];
+    }
+    delete[] globalClusterHistogram;
+  }  
 }
 
 void seissol::initializers::time_stepping::LtsLayout::getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
