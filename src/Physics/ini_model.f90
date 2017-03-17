@@ -1084,18 +1084,18 @@ CONTAINS
 
                IF ((y-yS1).LT.(x-XS1)) THEN
                    ! strike, dip, sigmazz,cohesion,R
-                   CALL STRESS_DIP_SLIP_AM(DISC,309.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                   CALL STRESS_DIP_SLIP_AM(DISC,309.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
                ELSE IF ((y-yS2).LT.(x-XS2)) THEN
                    alpha = ((y-x)-(yS1-xS1))/((yS2-xS2)-(yS1-xS1))
                    ! strike, dip, sigmazz,cohesion,R
-                   CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                   CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
                ELSE
                    ! strike, dip, sigmazz,cohesion,R
-                   CALL STRESS_DIP_SLIP_AM(DISC,330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                   CALL STRESS_DIP_SLIP_AM(DISC,330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
                ENDIF
 

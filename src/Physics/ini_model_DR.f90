@@ -2104,16 +2104,16 @@ MODULE ini_model_DR_mod
 
              IF ((yGP-yS1).LT.(xGP-XS1)) THEN
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,309.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,309.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ELSE IF ((yGP-yS2).LT.(xGP-XS2)) THEN
                 alpha = ((yGP-xGP)-(yS1-xS1))/((yS2-xS2)-(yS1-xS1))
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ELSE
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ENDIF
           ENDIF
@@ -2143,12 +2143,7 @@ MODULE ini_model_DR_mod
           IF (zGP.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              IF (EQN%linType.NE.1223) THEN
-                 DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
-              ELSE
-                 !shallow fault breaking 8d6 instead of 10d6
-                 DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)-10.0d6*((max(zGP,-5000d0)+5000d0)/(5000d0))
-              ENDIF
+              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
           ELSE
               ! set cohesion
               DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
