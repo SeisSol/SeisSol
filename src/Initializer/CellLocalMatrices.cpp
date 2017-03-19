@@ -273,17 +273,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       }
       
       /// Look for time derivative mapping in all duplicates
-      unsigned derivativesMeshId;
-      unsigned derivativesSide;
+      int derivativesMeshId;
+      int derivativesSide;
       if (fault[meshFace].element >= 0) {
         derivativesMeshId = fault[meshFace].element;
         derivativesSide = faceInformation[ltsFace].plusSide;
-      } else if (fault[meshFace].neighborElement >= 0) {
+      } else {
         derivativesMeshId = fault[meshFace].neighborElement;
         derivativesSide = faceInformation[ltsFace].minusSide;
-      } else {
-        assert(false);
-      } 
+      }
       real* timeDerivative1 = NULL;
       real* timeDerivative2 = NULL;
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {

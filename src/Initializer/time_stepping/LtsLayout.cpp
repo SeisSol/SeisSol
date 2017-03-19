@@ -211,6 +211,9 @@ void seissol::initializers::time_stepping::LtsLayout::deriveDynamicRupturePlainC
   for (unsigned face = 0; face < m_fault.size(); ++face) {
     int meshId = (m_fault[face].element >= 0) ? m_fault[face].element : m_fault[face].neighborElement;
     unsigned localCluster = getLocalClusterId( m_cellClusterIds[meshId] );
+    
+    assert(localCluster < m_localClusters.size());
+    
     // Local dynamic rupture face
     if (m_fault[face].element >= 0 && m_fault[face].neighborElement >= 0) {
       m_dynamicRupturePlainInterior[localCluster].push_back(face);
@@ -457,24 +460,29 @@ unsigned seissol::initializers::time_stepping::LtsLayout::enforceDynamicRuptureG
   unsigned reductions = 0;
   
   for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
-    int meshId = (fault->element >= 0) ? fault->element : fault->neighborElement;
-    for (unsigned face = 0; face < 4; ++face) {
-      if (m_cells[meshId].neighborRanks[face] == rank ) {
-        unsigned neighborId = m_cells[meshId].neighbors[face];
-        if (m_cellClusterIds[meshId] != m_cellClusterIds[neighborId]) {
-          unsigned minCluster = std::min(m_cellClusterIds[meshId], m_cellClusterIds[neighborId]);
-          m_cellClusterIds[meshId]     = minCluster;
-          m_cellClusterIds[neighborId] = minCluster;
-          ++reductions;
-        }
-      } else {
-        unsigned region = getPlainRegion( m_cells[meshId].neighborRanks[face] );
-        unsigned localGhostCell = m_cells[meshId].mpiIndices[face];
-        assert( localGhostCell < m_numberOfPlainGhostCells[region] );
-        if (m_cellClusterIds[meshId] > m_plainGhostCellClusterIds[region][localGhostCell]) {
-          m_cellClusterIds[meshId] = m_plainGhostCellClusterIds[region][localGhostCell];
-          ++reductions;
-        }
+    int meshId, face;
+    if (fault->element >= 0) {
+      meshId = fault->element;
+      face = fault->side;
+    } else {
+      meshId = fault->neighborElement;
+      face = fault->neighborSide;
+    }
+    if (m_cells[meshId].neighborRanks[face] == rank ) {
+      unsigned neighborId = m_cells[meshId].neighbors[face];
+      if (m_cellClusterIds[meshId] != m_cellClusterIds[neighborId]) {
+        unsigned minCluster = std::min(m_cellClusterIds[meshId], m_cellClusterIds[neighborId]);
+        m_cellClusterIds[meshId]     = minCluster;
+        m_cellClusterIds[neighborId] = minCluster;
+        ++reductions;
+      }
+    } else {
+      unsigned region = getPlainRegion( m_cells[meshId].neighborRanks[face] );
+      unsigned localGhostCell = m_cells[meshId].mpiIndices[face];
+      assert( localGhostCell < m_numberOfPlainGhostCells[region] );
+      if (m_cellClusterIds[meshId] > m_plainGhostCellClusterIds[region][localGhostCell]) {
+        m_cellClusterIds[meshId] = m_plainGhostCellClusterIds[region][localGhostCell];
+        ++reductions;
       }
     }
   }
