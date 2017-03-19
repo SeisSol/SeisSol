@@ -236,9 +236,9 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   std::vector<Element> const& elements = i_meshReader.getElements();
   CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
   CellMaterialData* material = io_ltsTree->var(i_lts->material);
-#ifndef NDEBUG
   real** derivatives = io_ltsTree->var(i_lts->derivatives);
-#endif
+  real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
+  CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
   
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
   
@@ -271,32 +271,39 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         /// \todo check if this is correct
         faceInformation[ltsFace].faceRelation = elements[ fault[meshFace].neighborElement ].sideOrientations[ fault[meshFace].neighborSide ] + 1;
       }
-
-      /// Time derivative mapping
+      
+      /// Look for time derivative mapping in all duplicates
+      unsigned derivativesMeshId;
+      unsigned derivativesSide;
       if (fault[meshFace].element >= 0) {
-        // Assert element stores derivatives
-        assert( (i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].element).ltsSetup >> 9)%2 == 1 );
-        // Assert face neighbour provides derivatives
-        assert( (i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].element).ltsSetup >> faceInformation[ltsFace].plusSide)%2 == 1 );
-
-        timeDerivativePlus[ltsFace] = i_ltsLut->lookup(i_lts->derivatives, fault[meshFace].element);
-        timeDerivativeMinus[ltsFace] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[meshFace].element)[ faceInformation[ltsFace].plusSide ];
-
-        // Assert face neighbour pointer points to derivative
-        assert( derivatives[ i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].element).faceNeighborIds[faceInformation[ltsFace].plusSide] ] == timeDerivativeMinus[ltsFace]);
+        derivativesMeshId = fault[meshFace].element;
+        derivativesSide = faceInformation[ltsFace].plusSide;
       } else if (fault[meshFace].neighborElement >= 0) {
-        // Assert face neighbour provides derivatives
-        assert( (i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].neighborElement).ltsSetup >> faceInformation[ltsFace].minusSide)%2 == 1 );
-        // Assert element stores derivatives
-        assert( (i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].neighborElement).ltsSetup >> 9)%2 == 1 );
-
-        timeDerivativePlus[ltsFace] = i_ltsLut->lookup(i_lts->faceNeighbors, fault[meshFace].neighborElement)[ faceInformation[ltsFace].minusSide ];
-        timeDerivativeMinus[ltsFace] = i_ltsLut->lookup(i_lts->derivatives, fault[meshFace].neighborElement);
-
-        // Assert face neighbour pointer points to derivative
-        assert( derivatives[ i_ltsLut->lookup(i_lts->cellInformation, fault[meshFace].neighborElement).faceNeighborIds[faceInformation[ltsFace].minusSide] ] == timeDerivativePlus[ltsFace]);
+        derivativesMeshId = fault[meshFace].neighborElement;
+        derivativesSide = faceInformation[ltsFace].minusSide;
       } else {
         assert(false);
+      } 
+      real* timeDerivative1 = NULL;
+      real* timeDerivative2 = NULL;
+      for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
+        unsigned ltsId = i_ltsLut->ltsId(i_lts->cellInformation.mask, derivativesMeshId, duplicate);
+        if (timeDerivative1 == NULL && (cellInformation[ltsId].ltsSetup >> 9)%2 == 1) {
+          timeDerivative1 = derivatives[ i_ltsLut->ltsId(i_lts->derivatives.mask, derivativesMeshId, duplicate) ];
+        }
+        if (timeDerivative2 == NULL && (cellInformation[ltsId].ltsSetup >> derivativesSide)%2 == 1) {
+          timeDerivative2 = faceNeighbors[ i_ltsLut->ltsId(i_lts->faceNeighbors.mask, derivativesMeshId, duplicate) ][ derivativesSide ];
+        }
+      }
+      
+      assert(timeDerivative1 != NULL && timeDerivative2 != NULL);
+      
+      if (fault[meshFace].element >= 0) {
+        timeDerivativePlus[ltsFace] = timeDerivative1;
+        timeDerivativeMinus[ltsFace] = timeDerivative2;
+      } else {
+        timeDerivativePlus[ltsFace] = timeDerivative2;
+        timeDerivativeMinus[ltsFace] = timeDerivative1;
       }
       
       assert(timeDerivativePlus[ltsFace] != NULL && timeDerivativeMinus[ltsFace] != NULL);
