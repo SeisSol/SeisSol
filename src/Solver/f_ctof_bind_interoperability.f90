@@ -66,6 +66,24 @@ module f_ctof_bind_interoperability
   end interface
 
   contains
+    subroutine copyDynamicRuptureState(domain, fromMeshId, toMeshId)
+      use typesDef
+      implicit none
+      type(tUnstructDomainDescript), pointer :: domain
+      integer     :: fromMeshId, toMeshId
+      
+
+      domain%disc%DynRup%output_Mu(:,fromMeshId:toMeshId)             = domain%disc%DynRup%Mu(:,fromMeshId:toMeshId)
+      domain%disc%DynRup%output_StateVar(:,fromMeshId:toMeshId)       = domain%disc%DynRup%StateVar(:,fromMeshId:toMeshId)
+      domain%disc%DynRup%output_Strength(:,fromMeshId:toMeshId)       = domain%disc%DynRup%Strength(:,fromMeshId:toMeshId)
+      domain%disc%DynRup%output_Slip(:,fromMeshId:toMeshId)           = domain%disc%DynRup%Slip(:,fromMeshId:toMeshId)
+      domain%disc%DynRup%output_Slip1(:,fromMeshId:toMeshId)          = domain%disc%DynRup%Slip1(:,fromMeshId:toMeshId)
+      domain%disc%DynRup%output_Slip2(:,fromMeshId:toMeshId)          = domain%disc%DynRup%Slip2(:,fromMeshId:toMeshId)
+      domain%disc%DynRup%output_rupture_time(:,fromMeshId:toMeshId)   = domain%disc%DynRup%rupture_time(:,fromMeshId:toMeshId)
+      domain%disc%DynRup%output_PeakSR(:,fromMeshId:toMeshId)         = domain%disc%DynRup%PeakSR(:,fromMeshId:toMeshId)
+      domain%disc%DynRup%output_dynStress_time(:,fromMeshId:toMeshId) = domain%disc%DynRup%dynStress_time(:,fromMeshId:toMeshId)
+      
+    end subroutine
     !
     ! C to fortran bindings
     !
@@ -80,16 +98,8 @@ module f_ctof_bind_interoperability
 
       ! convert c to fortran pointers
       call c_f_pointer( i_domain, l_domain)
-
-      l_domain%disc%DynRup%output_Mu             = l_domain%disc%DynRup%Mu
-      l_domain%disc%DynRup%output_StateVar       = l_domain%disc%DynRup%StateVar
-      l_domain%disc%DynRup%output_Strength       = l_domain%disc%DynRup%Strength
-      l_domain%disc%DynRup%output_Slip           = l_domain%disc%DynRup%Slip
-      l_domain%disc%DynRup%output_Slip1          = l_domain%disc%DynRup%Slip1
-      l_domain%disc%DynRup%output_Slip2          = l_domain%disc%DynRup%Slip2
-      l_domain%disc%DynRup%output_rupture_time   = l_domain%disc%DynRup%rupture_time
-      l_domain%disc%DynRup%output_PeakSR         = l_domain%disc%DynRup%PeakSR
-      l_domain%disc%DynRup%output_dynStress_time = l_domain%disc%DynRup%dynStress_time
+      
+      call copyDynamicRuptureState(l_domain, 1, l_domain%mesh%Fault%nSide)
     end subroutine
 
     subroutine f_interoperability_faultOutput( i_domain, i_time, i_timeStepWidth ) bind (c, name='f_interoperability_faultOutput')
@@ -178,6 +188,8 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_imposedStatePlus,   l_imposedStatePlus, [i_godunovLd,9])
       call c_f_pointer( i_imposedStateMinus,  l_imposedStateMinus, [i_godunovLd,9])
       call c_f_pointer( i_time,               l_time  )
+      
+      call copyDynamicRuptureState(l_domain, i_face, i_face)
 
       iElem               = l_domain%MESH%Fault%Face(i_face,1,1)          ! Remark:
       iSide               = l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side

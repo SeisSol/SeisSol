@@ -717,8 +717,6 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
 
   if (m_dynamicRuptureFaces == true) {
     if (m_updatable.neighboringInterior) {
-      e_interoperability.copyDynamicRuptureState();
-
       computeDynamicRupture(m_dynRupClusterData->child<Interior>());
       g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawInterior];
       g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawInterior];
@@ -743,7 +741,9 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
 
   // compute dynamic rupture, update simulation time and statistics
   if( !m_updatable.neighboringInterior ) {
-    if (m_dynamicRuptureFaces) {
+    // First cluster calls fault receiver output
+    // TODO: Change from iteration based to time based
+    if (m_clusterId == 0) {
       e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
     }
 
@@ -770,8 +770,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
   }
 
   if (m_dynamicRuptureFaces == true && m_updatable.neighboringCopy == true) {
-    e_interoperability.copyDynamicRuptureState();
-
     computeDynamicRupture(m_dynRupClusterData->child<Interior>());
     g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawInterior];
     g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawInterior];
@@ -786,8 +784,10 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
   g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRNeighborInterior];
 
   // compute dynamic rupture, update simulation time and statistics
-  if( !m_updatable.neighboringCopy ) {
-    if (m_dynamicRuptureFaces) {
+  if( !m_updatable.neighboringCopy ) {    
+    // First cluster calls fault receiver output
+    // TODO: Change from iteration based to time based
+    if (m_clusterId == 0) {
       e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
     }
 

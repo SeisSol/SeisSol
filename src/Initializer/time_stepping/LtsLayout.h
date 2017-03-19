@@ -86,8 +86,6 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! time step rates of all clusters
     unsigned int *m_globalTimeStepRates;
-    
-    unsigned int  m_dynamicRuptureCluster;
 
     //! mpi tags used for communication
     enum mpiTag {
@@ -124,10 +122,10 @@ class seissol::initializers::time_stepping::LtsLayout {
     unsigned int **m_plainGhostCellClusterIds;
     
     //! face ids of interior dr faces
-    std::vector< int > m_dynamicRupturePlainInterior;
+    std::vector< std::vector<int> > m_dynamicRupturePlainInterior;
     
     //! face ids of copy dr faces
-    std::vector< int > m_dynamicRupturePlainCopy;
+    std::vector< std::vector<int> > m_dynamicRupturePlainCopy;
 
     /*
      * Cluster dependent characteristics.
@@ -516,8 +514,8 @@ class seissol::initializers::time_stepping::LtsLayout {
                              unsigned int          &o_numberOfMeshCells );
 
     void getDynamicRuptureInformation(  unsigned*&  ltsToFace,
-                                        unsigned&   numberOfDRCopyFaces,
-                                        unsigned&   numberOfDRInteriorFaces );
+                                        unsigned*&  numberOfDRCopyFaces,
+                                        unsigned*&  numberOfDRInteriorFaces );
 
     /**
      * Get the per cluster mesh structure.
@@ -525,13 +523,6 @@ class seissol::initializers::time_stepping::LtsLayout {
      * @param mesh structure.
      **/
     void getMeshStructure( MeshStructure *&o_meshStructure );
-    
-    /**
-     * All dynamic rupture faces reside in this cluster.
-     */
-    unsigned getDynamicRuptureCluster() const {
-      return m_dynamicRuptureCluster;
-    }
 };
 
 #endif

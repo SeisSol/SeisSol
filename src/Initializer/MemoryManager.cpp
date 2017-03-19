@@ -543,9 +543,8 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
 
 void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
                                                           struct MeshStructure*       i_meshStructure,
-                                                          unsigned                    globalDynamicRuptureTimeCluster,
-                                                          unsigned                    numberOfDRCopyFaces,
-                                                          unsigned                    numberOfDRInteriorFaces )
+                                                          unsigned*                   numberOfDRCopyFaces,
+                                                          unsigned*                   numberOfDRInteriorFaces )
 {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
@@ -574,24 +573,11 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
   m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
   m_dynRupTree.fixate();
 
-  unsigned localDynamicRuptureTimeCluster = std::numeric_limits<unsigned>::max();
-  assert( i_timeStepping.numberOfLocalClusters < localDynamicRuptureTimeCluster);
-  for (unsigned cluster = 0; cluster < i_timeStepping.numberOfLocalClusters; ++cluster) {
-    if (i_timeStepping.clusterIds[cluster] == globalDynamicRuptureTimeCluster) {
-      localDynamicRuptureTimeCluster = cluster;
-    }
-  }
-
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    if (tc == localDynamicRuptureTimeCluster) {
-      cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces);
-      cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces);
-    } else {
-      cluster.child<Copy>().setNumberOfCells(0);
-      cluster.child<Interior>().setNumberOfCells(0);
-    }
+    cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+    cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
   }
   
   m_dynRupTree.allocateVariables();

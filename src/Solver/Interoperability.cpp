@@ -331,8 +331,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
 
 
-  unsigned numberOfDRCopyFaces;
-  unsigned numberOfDRInteriorFaces;
+  unsigned* numberOfDRCopyFaces;
+  unsigned* numberOfDRInteriorFaces;
   // get cell information & mappings
   seissol::SeisSol::main.getLtsLayout().getDynamicRuptureInformation( m_ltsFaceToMeshFace,
                                                                       numberOfDRCopyFaces,
@@ -340,9 +340,11 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
 
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
                                                             m_meshStructure,
-                                                            seissol::SeisSol::main.getLtsLayout().getDynamicRuptureCluster(),
                                                             numberOfDRCopyFaces,
                                                             numberOfDRInteriorFaces );
+
+  delete[] numberOfDRCopyFaces;
+  delete[] numberOfDRInteriorFaces;
 
   m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
   m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
