@@ -222,6 +222,36 @@ void seissol::initializers::time_stepping::LtsLayout::deriveDynamicRupturePlainC
       m_dynamicRupturePlainCopy[localCluster].push_back(face);
     }
   }
+
+  int* localClusterHistogram = new int[m_numberOfGlobalClusters];
+  for (unsigned gc = 0; gc < m_numberOfGlobalClusters; ++gc) {
+    localClusterHistogram[gc] = 0;
+  }
+  for (unsigned cluster = 0; cluster < m_localClusters.size(); ++cluster) {
+    unsigned gc = m_localClusters[cluster];
+    localClusterHistogram[gc] = m_dynamicRupturePlainInterior[cluster].size() + m_dynamicRupturePlainCopy[cluster].size();
+  }
+
+  const int rank = seissol::MPI::mpi.rank();
+  int* globalClusterHistogram = NULL;
+#ifdef USE_MPI
+  if (rank == 0) {
+    globalClusterHistogram = new int[m_numberOfGlobalClusters];
+  }
+  MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+#else
+  globalClusterHistogram = localClusterHistogram;
+#endif
+  if (rank == 0) {
+    logInfo(rank) << "Number of elements in dynamic rupture time clusters:";
+    for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
+      logInfo(rank) << utils::nospace << cluster << " (dr):" << utils::space << globalClusterHistogram[cluster];
+    }
+#ifdef USE_MPI
+    delete[] globalClusterHistogram;
+#endif
+  }
+  delete[] localClusterHistogram;
 }
 
 void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
