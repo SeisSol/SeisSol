@@ -77,6 +77,9 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! cluster ids of the cells
     unsigned int *m_cellClusterIds;
+    
+    //! dynamic rupture indicator of the cells
+    unsigned* m_cellDynamicRuptureIndicator;
 
     //! number of clusters in the global domain
     unsigned int  m_numberOfGlobalClusters;
@@ -122,6 +125,9 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! cluster ids of the cells in the ghost layer
     unsigned int **m_plainGhostCellClusterIds;
+
+    //! dynamic rupture indicator of the cells in the ghost layer
+    unsigned** m_plainGhostCellDynamicRuptureIndicator;
 
     /*
      * Cluster dependent characteristics.
@@ -233,11 +239,21 @@ class seissol::initializers::time_stepping::LtsLayout {
      *   vector containing the cell ids in the neighboring computational domain is derived.
      **/
     void normalizeMpiIndices();
+    
+    /**
+     * Helper function for synchronization.
+     */
+    void synchronizePlainGhostData(unsigned* cellData, unsigned** plainGhostData);
  
     /**
      * Synchronizes the cluster ids of the cells in the plain ghost layer.
      **/
     void synchronizePlainGhostClusterIds();
+    
+    /**
+     * Synchronizes the dynamic rupture indicator of the cells in the plain ghost layer.
+     **/
+    void synchronizePlainGhostDynamicRuptureIndicator();
     
     /**
      * Enforces the same time step for all cells with dynamic rupture faces.
