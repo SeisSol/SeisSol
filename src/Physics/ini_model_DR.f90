@@ -52,6 +52,7 @@ MODULE ini_model_DR_mod
   USE DGBasis_mod
   USE read_backgroundstress_mod
   USE faultinput_mod
+  use StressReader
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
   PRIVATE
@@ -61,10 +62,14 @@ MODULE ini_model_DR_mod
   INTERFACE DR_setup
      MODULE PROCEDURE DR_setup
   END INTERFACE
+  INTERFACE STRESS_DIP_SLIP_AM
+    MODULE PROCEDURE STRESS_DIP_SLIP_AM
+  END INTERFACE
   !---------------------------------------------------------------------------!
   PUBLIC  :: DR_setup
   PRIVATE :: DR_basic_ini
   !---------------------------------------------------------------------------!
+  PUBLIC  :: STRESS_DIP_SLIP_AM
   PRIVATE :: background_HOM
   PRIVATE :: background_TPV5
   PRIVATE :: background_STEP
@@ -1920,7 +1925,7 @@ MODULE ini_model_DR_mod
   bii(6) = Stress_cartesian_norm(1,3)
   END SUBROUTINE
 
-  !> SUMATRA test case
+ !> SUMATRA test case
   !> T. ULRICH 06.2015
   !> tpv29 used as a model
   !<
@@ -1954,7 +1959,7 @@ MODULE ini_model_DR_mod
   !-------------------------------------------------------------------------! 
   INTENT(IN)    :: MESH, BND 
   INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------! 
+  !-------------------------------------------------------------------------!
   ! TPV29
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
@@ -1975,25 +1980,25 @@ MODULE ini_model_DR_mod
      !4
   ENDIF
 
-  g = 9.8D0    
+  g = 9.8D0
   zIncreasingCohesion = -10000.
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
 
-      ! element ID    
+      ! element ID
       iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)  
-      
+      iSide = MESH%Fault%Face(i,2,1)
+
       EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
       EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
       EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
       EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
       EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
       EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
-            
+
       ! ini frictional parameters
       !EQN%IniStateVar(i,:) =  EQN%RS_sv0
-                
+
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
       IF (MESH%Fault%Face(i,1,1) == 0) THEN
@@ -2022,7 +2027,7 @@ MODULE ini_model_DR_mod
           tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-      
+
           ! for possible variation
           !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
           !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
@@ -2073,21 +2078,30 @@ MODULE ini_model_DR_mod
 
              IF ((yGP-yS1).LT.(xGP-XS1)) THEN
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,309.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,309.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ELSE IF ((yGP-yS2).LT.(xGP-XS2)) THEN
-                alpha = (yGP-yS1)/(yS2-yS1)
+                alpha = ((yGP-xGP)-(yS1-xS1))/((yS2-xS2)-(yS1-xS1))
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ELSE
                 ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_DIP_SLIP_AM(DISC,330.0, 12.0, 555562000.0, 0.4e6, 0.6, bii)
+                CALL STRESS_DIP_SLIP_AM(DISC,330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ENDIF
           ENDIF
 
-          Pf = -1000D0 * g * zGP * 2d0
+          !ensure that Pf does not exceed sigmazz
+          IF (zGP.GE.-5e3) THEN
+             Pf = -1000D0 * g * zGP * 1d0
+          ELSEIF (zGP.GE.-10e3) THEN
+             alpha = (-5e3-zGP)/5e3
+             Pf = -1000D0 * g * zGP * (1d0+alpha)
+          ELSE
+             Pf = -1000D0 * g * zGP * 2d0
+          ENDIF
+
           EQN%IniBulk_zz(i,iBndGP)  =  sigzz
           EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
           EQN%IniBulk_yy(i,iBndGP)  =  Omega*(b22*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
@@ -2097,23 +2111,23 @@ MODULE ini_model_DR_mod
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
           EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
-          
+
 
           ! manage cohesion
           IF (zGP.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
           ELSE
               ! set cohesion
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
-                
-  ENDDO !    MESH%Fault%nSide   
+
+  ENDDO !    MESH%Fault%nSide
 
   END SUBROUTINE background_SUMATRA
-                
+
 !> SUMATRA test case with RS friction
   !> T. ULRICH 07.2016
   !<
@@ -2145,10 +2159,10 @@ MODULE ini_model_DR_mod
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
   REAL                           :: zBoStartTapering, zToStartTapering, zBoStopTapering, zToStopTapering
   REAL                           :: zTotaperingWidth, zBotaperingWidth, RS_a_inc, RS_srW_inc, Boxx, Boxz, tmp
-  !-------------------------------------------------------------------------! 
-  INTENT(IN)    :: MESH, BND 
+  !-------------------------------------------------------------------------!
+  INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------! 
+  !-------------------------------------------------------------------------!
   ! TPV29
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
@@ -2203,14 +2217,14 @@ MODULE ini_model_DR_mod
      yS1 = 442127.3902531094
   ENDIF
 
-  g = 9.8D0    
+  g = 9.8D0
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-      
-      ! element ID    
+
+      ! element ID
       iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)  
-      
+      iSide = MESH%Fault%Face(i,2,1)
+
       EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
       EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
       EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
@@ -2221,10 +2235,10 @@ MODULE ini_model_DR_mod
       ! ini frictional parameters
       EQN%IniStateVar(i,:) =  EQN%RS_sv0
       DISC%DynRup%RS_a_array(i,:) = DISC%DynRup%RS_a
-            
+
       ! ini frictional parameters
       !EQN%IniStateVar(i,:) =  EQN%RS_sv0
-                
+
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
       IF (MESH%Fault%Face(i,1,1) == 0) THEN
@@ -2253,7 +2267,7 @@ MODULE ini_model_DR_mod
           tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-      
+
           ! for possible variation
           !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
           !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
@@ -2336,7 +2350,7 @@ MODULE ini_model_DR_mod
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
           EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
-          
+
 
           IF ( ((zGP.GT.zToStartTapering).AND.(zGP.LT.zToStopTapering))      &
               .OR.((zGP.LT.zBoStartTapering).AND.(zGP.GT.zBoStopTapering))) THEN
@@ -2382,9 +2396,9 @@ MODULE ini_model_DR_mod
           ! Nucleation in Evaluate friction special case
 
       ENDDO ! iBndGP
-                
-  ENDDO !    MESH%Fault%nSide   
-                
+
+  ENDDO !    MESH%Fault%nSide
+
   END SUBROUTINE background_SUMATRA_RS
 
   !> SUMATRA test case
@@ -2413,12 +2427,12 @@ MODULE ini_model_DR_mod
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
   REAL                           :: b11, b22, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion
-  REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20) 
+  REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
   REAL                           :: zLocal, ux(3),uy(3),uz(3),LocalStress(6),T(eqn%nVar,eqn%nVar), iT(eqn%nVar,eqn%nVar)
-  !-------------------------------------------------------------------------! 
-  INTENT(IN)    :: MESH, BND 
+  !-------------------------------------------------------------------------!
+  INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------! 
+  !-------------------------------------------------------------------------!
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
 
@@ -2429,25 +2443,25 @@ MODULE ini_model_DR_mod
   b13 = 0.1259
   b23 = 0.1555
 
-  g = 9.8D0    
+  g = 9.8D0
   zIncreasingCohesion = -10000.
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-      
-      ! element ID    
+
+      ! element ID
       iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)  
-      
+      iSide = MESH%Fault%Face(i,2,1)
+
       EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
       EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
       EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
       EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
       EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
       EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
-            
+
       ! ini frictional parameters
       !EQN%IniStateVar(i,:) =  EQN%RS_sv0
-                
+
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
       IF (MESH%Fault%Face(i,1,1) == 0) THEN
@@ -2476,7 +2490,7 @@ MODULE ini_model_DR_mod
           tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-      
+
           ! for possible variation
           !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
           !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
@@ -2508,7 +2522,7 @@ MODULE ini_model_DR_mod
           ENDIF
 
           Omega = max(0D0,min(1d0, 1D0-Rz))
-          
+
           Pf = -1000D0 * g * zLocal
 
           EQN%IniBulk_zz(i,iBndGP)  =  sigzz
@@ -2520,15 +2534,15 @@ MODULE ini_model_DR_mod
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
           EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
-          
+
           uz = (/xGP,yGP,zGP/)
           uz = uz/sqrt(uz(1)**2+uz(2)**2+uz(3)**2)
 
-          ux(1) = - uz(2) 
+          ux(1) = - uz(2)
           ux(2) =   uz(1)
           ux(3) =   0.
           ux = ux/sqrt(ux(1)**2+ux(2)**2+ux(3)**2)
-          
+
           uy(1) = uz(2)*ux(3) - uz(3)*ux(2)
           uy(2) = uz(3)*ux(1) - uz(1)*ux(3)
           uy(3) = uz(1)*ux(2) - uz(2)*ux(1)
@@ -2538,7 +2552,7 @@ MODULE ini_model_DR_mod
 
         ! compute & store rotation matrices:
         !   xyz to face-aligned coordinate system
-        !   face-aligned coordinate system to xyz 
+        !   face-aligned coordinate system to xyz
         call RotationMatrix3D( ux, uy, uz, T(:,:), iT(:,:),EQN )
 
 
@@ -2555,15 +2569,15 @@ MODULE ini_model_DR_mod
           IF (zLocal.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zLocal-zIncreasingCohesion)/(-zIncreasingCohesion)
+              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zLocal-zIncreasingCohesion)/(-zIncreasingCohesion)
           ELSE
               ! set cohesion
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
-                
-  ENDDO !    MESH%Fault%nSide   
-                
+
+  ENDDO !    MESH%Fault%nSide
+
   END SUBROUTINE background_SUMATRA_GEO
 
   !> SCEC TPV33 test case : strike slip rupture in wave guide zone

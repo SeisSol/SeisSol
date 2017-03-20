@@ -1151,6 +1151,7 @@ MODULE TypesDef
      INTEGER                                :: nVAr_rot                         !< number of rotation variables
      INTEGER                                :: nBackgroundVar                   !< Number of background variables
      INTEGER                                :: LinType                          !< Type of linearization: 0=global,1=local
+     INTEGER                                :: SumatraRegions(7)                !< model dependant region labelling, /big box continental LVZ above L1 L2 L3 L4/
      INTEGER                                :: Dimension                        !< Number of space dimensions (currently 3)
      INTEGER                                :: HexaDimension                    !< Nr. of dimensions can be explicitly reduced on hexahedrons
      REAL                                   :: Pi                               !< Constant Pi

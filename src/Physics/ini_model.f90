@@ -7,21 +7,21 @@
 !! @section LICENSE
 !! Copyright (c) 2008, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -52,10 +52,10 @@ MODULE ini_MODEL_mod
   END INTERFACE
   INTERFACE ini_ATTENUATION
      MODULE PROCEDURE ini_ATTENUATION
-  END INTERFACE 
+  END INTERFACE
   INTERFACE ModelDefinition_new
      MODULE PROCEDURE ModelDefinition_new
-  END INTERFACE  
+  END INTERFACE
   INTERFACE generate_FacetList
      MODULE PROCEDURE generate_FacetList
   END INTERFACE
@@ -71,13 +71,13 @@ MODULE ini_MODEL_mod
   !----------------------------------------------------------------------------
   integer,  parameter, private :: rk=kind(1.)
   real(rk), parameter, private :: fx_large=1.d30
-    
+
 CONTAINS
 
 
   SUBROUTINE ini_MODEL(MaterialVal,OptionalFields,EQN,MESH,IC,IO,DISC,BND)
     !--------------------------------------------------------------------------
-    
+
     USE COMMON_operators_mod, ONLY: OpenFile, XYinTriangle
     USE QuadPoints_mod
     USE DGBasis_mod
@@ -107,7 +107,7 @@ CONTAINS
     INTEGER, POINTER                :: PertMaterial(:)
     INTEGER, POINTER                :: ElemID(:)
     REAL                            :: Mat_Vert(MESH%nVertexMax,EQN%nBackgroundVar), Mat_Sum(EQN%nBackgroundVar), MaterialTmp(EQN%nAneMaterialVar)
-    REAL                            :: x, y, z, r, rBary, cp, cs, rho, mu, lambda, depths(4), radius, radius_ref
+    REAL                            :: x, y, z, ztest, r, rBary, cp, cs, rho, mu, lambda, depths(4), radius, radius_ref
     REAL, POINTER                   :: xrf(:), yrf(:), zrf(:), pertrf(:,:,:,:)
     REAL, POINTER                   :: PerturbationVar(:,:), P(:,:)
     REAL, POINTER                   :: posx(:), posy(:), posz(:), pert(:)
@@ -125,6 +125,12 @@ CONTAINS
     REAL                            :: ZoneIns, ZoneTrans, xG, yG, X2, LocX(3), LocY(3), tmp
     REAL                            :: BedrockVelModel(10,4)
     INTEGER                         :: eType
+    REAL                            :: Pf                                     ! fluid pressure
+    REAL                            :: b11, b22, b12, b13, b23, b33           ! coefficients for special loading
+    REAL                            :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
+    REAL                            :: nLayers, zLayers(20), rhoLayers(20)
+    REAL                            :: sigzz, Rz, g
+    REAL                            :: bii(6)
     INTEGER         :: nTens3GP
     REAL,POINTER    :: Tens3GaussP(:,:)
     REAL,POINTER    :: Tens3GaussW(:)
@@ -145,10 +151,9 @@ CONTAINS
     REAL, POINTER                   :: BaseFuncVal_quad(:,:) => NULL()        ! Basis functions for quads at Gauss points (iPhi,iIntGp)
     REAL, POINTER                   :: BaseFuncVal_tri(:,:)  => NULL()        ! Basis functions for tria at Gauss points (iPhi,iIntGp)
     REAL, POINTER                   :: BaseFuncVal(:,:) => NULL()             ! Pointer to the corresponding set of basis functions
-    
+
     REAL, POINTER                   :: iMassMatrix(:,:) => NULL()             ! Pointer to the corresponding mass matrix
     INTEGER                         :: LocElemType                            ! Type of element
-    REAL                            :: Pf, b13, b33, b11                      ! fluid pressure and coeffcients for special initial loading in TPV26/TPV27
     INTEGER                         :: InterpolationScheme = 1                ! Select the interpolation scheme (linear=1, cubic=else)
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: MESH,IC
@@ -167,9 +172,6 @@ CONTAINS
     EQN%LocPoroelastic(:) = 0
 
     IF (EQN%Plasticity .NE. 0) THEN
-        ALLOCATE ( EQN%PlastCo(MESH%nElem) )
-        EQN%PlastCo(:) = EQN%PlastCo_0 !assign constant value from parameter file
-        !add element-dependent assignement for special lintypes in the following
         allocate(EQN%IniStress(6,MESH%nElem))
         EQN%IniStress(:,:) = 0.0D0
     ENDIF
@@ -187,46 +189,46 @@ CONTAINS
       CASE(1)
         IF(EQN%Anelasticity.EQ.0.AND.EQN%Poroelasticity.EQ.0)THEN
            DO iElem = 1, MESH%nElem
-              iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
+              iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
               MaterialVal(iElem,:) = EQN%MODEL(iLayer,:)   ! Set material properties for this zone.
-           ENDDO 
+           ENDDO
 
         ELSEIF(EQN%Anelasticity.EQ.1.AND.EQN%Poroelasticity.EQ.0)THEN
            DO iElem = 1, MESH%nElem
-              iLayer = MESH%ELEM%Reference(0,iElem)                                  ! Zone number is given by reference 0 
+              iLayer = MESH%ELEM%Reference(0,iElem)                                  ! Zone number is given by reference 0
               MaterialTmp(:) = EQN%MODEL(iLayer,:)                                   ! Get material properties (temporary)
               MaterialVal(iElem,1:3) = EQN%MODEL(iLayer,1:3)                         ! Set elastic properties for this zone.
-              !  
+              !
               ! Check for anelastic material by evaluating Qp and Qs of the parameter file.
               IF(     (MaterialTmp(EQN%nAneMaterialVar-1).LT.9999.) &                 !
-                  .OR.(MaterialTmp(EQN%nAneMaterialVar)  .LT.9999.) )THEN             !  
+                  .OR.(MaterialTmp(EQN%nAneMaterialVar)  .LT.9999.) )THEN             !
                                                                                      !
                   EQN%LocAnelastic(iElem) = 1                                        ! Mark element with anelastic material
                                                                                      !
-                  CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)    ! Initialize anelastic coefficients for this zone     
+                  CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)    ! Initialize anelastic coefficients for this zone
                   !
                   MaterialVal(iElem,2:EQN%AneMatIni-1) = Material_INF(:)             ! Set unrelaxed material properties for this zone.                                                                      !
-                  ! Fill MaterialVal vector for each element with anelastic coefficients w_freq and theta 
+                  ! Fill MaterialVal vector for each element with anelastic coefficients w_freq and theta
                   DO iMech = 1, EQN%nMechanisms
                      MaterialVal(iElem,EQN%AneMatIni+4*(iMech-1))             = w_freq(iMech)
                      MaterialVal(iElem,EQN%AneMatIni+4*(iMech-1)+1:EQN%AneMatIni+4*(iMech-1)+3) = Theta(iMech,:)
                   ENDDO
               ELSE
                   MaterialVal(iElem,EQN%AneMatIni:EQN%nBackgroundVar) = 0.                       ! otherwise set all anelastic coefficients to zero
-              ENDIF   
+              ENDIF
            ENDDO
         ENDIF
         ! Poroelastic case
-        IF(EQN%Anelasticity.EQ.0.AND.EQN%Poroelasticity.NE.0) THEN         
+        IF(EQN%Anelasticity.EQ.0.AND.EQN%Poroelasticity.NE.0) THEN
            DO iElem = 1, MESH%nElem
-              iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
+              iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
               MaterialVal(iElem,:) = EQN%MODEL(iLayer,:)   ! Set material properties for this zone.
               IF(MaterialVal(iElem,27).GE.1.0e-8) THEN
                   EQN%LocPoroelastic(iElem) = EQN%Poroelasticity
               ELSE
                   MaterialVal(iElem,27) = 0.
               ENDIF
-           ENDDO 
+           ENDDO
         ENDIF
       CASE(2,11)     !special case for radially symmetric PREM data
         IF(EQN%Anelasticity.EQ.0)THEN
@@ -255,10 +257,10 @@ CONTAINS
                     DO iLayer = 1, EQN%nLayers
                        IF( (r.GE.EQN%MODEL(iLayer,1)).AND.(r.LE.EQN%MODEL(iLayer+1,1)) ) THEN
                           IF( r.EQ.EQN%MODEL(iLayer+1,1) ) THEN
-                             IF(rBary.LT.r) THEN 
-                                Mat_Vert(iVertex,1:nVar) = EQN%MODEL(iLayer+1,2:nVar+1) 
-                             ELSE 
-                                Mat_Vert(iVertex,1:nVar) = EQN%MODEL(iLayer+2,2:nVar+1) 
+                             IF(rBary.LT.r) THEN
+                                Mat_Vert(iVertex,1:nVar) = EQN%MODEL(iLayer+1,2:nVar+1)
+                             ELSE
+                                Mat_Vert(iVertex,1:nVar) = EQN%MODEL(iLayer+2,2:nVar+1)
                              ENDIF
                           ELSE
                              Mat_Vert(iVertex,1:nVar) = EQN%MODEL(iLayer,2:nVar+1) + ( EQN%MODEL(iLayer+1,2:nVar+1) - &
@@ -318,7 +320,7 @@ CONTAINS
            x = MESH%ELEM%xyBary(1,iElem)
            y = MESH%ELEM%xyBary(2,iElem)
            z = MESH%ELEM%xyBary(3,iElem)
-           FoundLayer = .FALSE. 
+           FoundLayer = .FALSE.
            DO iLayer = 1, EQN%nLayers - 1
              IF( (z.LE.EQN%MODEL(iLayer,1)).AND.(z.GE.EQN%MODEL(iLayer+1,1)) ) THEN
                FoundLayer = .TRUE.
@@ -327,75 +329,75 @@ CONTAINS
                                                                 ( z - EQN%MODEL(iLayer,1) )
                EXIT
              ENDIF
-           ENDDO   
+           ENDDO
            IF(.NOT.FoundLayer) THEN
              logError(*) 'Layered Medium Error: No layer found for depth', z
              STOP
-           ENDIF        
+           ENDIF
         ENDDO
 
       CASE(4)     !special case for Sismovalp 2D benchmark test (model M2)
         DO iElem = 1, MESH%nElem
-           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
+           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
            IF(iLayer.GE.6) THEN                         ! Bedrock properties
-               MaterialVal(iElem,:) = (/ 2500. , 1.96e10 , 2.84e10 /) 
+               MaterialVal(iElem,:) = (/ 2500. , 1.96e10 , 2.84e10 /)
            ELSE
                y = -1.*MESH%ELEM%xyBary(2,iElem)
                MaterialVal(iElem,1) = 1600. + 59.5*(y)**(1./3.)
                MaterialVal(iElem,2) = (260. + 30*SQRT(y))**2. * MaterialVal(iElem,1)
                MaterialVal(iElem,3) = (525. + 60*SQRT(y))**2. * MaterialVal(iElem,1) - 2*MaterialVal(iElem,2)
-           ENDIF       
+           ENDIF
         ENDDO
       CASE(5)     !special case for Sismovalp 2D benchmark test (model M2 SH-wave)
         DO iElem = 1, MESH%nElem
-           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
+           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
            IF(iLayer.GE.6) THEN                         ! Bedrock properties
-               MaterialVal(iElem,:) = (/ 2500. , 0.0 , 1.96e10 /) 
+               MaterialVal(iElem,:) = (/ 2500. , 0.0 , 1.96e10 /)
            ELSE
                y = -1.*MESH%ELEM%xyBary(2,iElem)
                MaterialVal(iElem,1) = 1600. + 59.5*(y)**(1./3.)
                MaterialVal(iElem,2) = 0.0
                MaterialVal(iElem,3) = (260. + 30*SQRT(y))**2. * MaterialVal(iElem,1)
-           ENDIF       
+           ENDIF
         ENDDO
 
       CASE(6)     !special case for Sismovalp 3D benchmark test
                   !layered bedrock with linear variation of material parameters
                   !sediment rock with depth dependent material parameters
                   ! interpolated linearly
-        
+
         allocate( BaryDist(MESH%nElem) )
         CALL calc_BaryDist(BaryDist,OptionalFields,EQN,MESH,IO)
 
          DO iElem = 1, MESH%nElem
-            
-            iLayer = MESH%ELEM%Reference(0,iElem)                                   ! Zone number is given by reference 0 
+
+            iLayer = MESH%ELEM%Reference(0,iElem)                                   ! Zone number is given by reference 0
 
             z = BaryDist(iElem)
             depths = (/ MESH%ELEM%xyBary(3,iElem)+z , -3000. , -27000. , -35000. /) ! Depths of top of layers that are
-                                                        
+
             IF(iLayer.EQ.1) THEN                                                    ! Sediment properties
 
                EQN%LocAnelastic(iElem) = 1                                          ! Set local anelasticity
 
                cs  = 300.0  + 19.0  * SQRT(z)                                       ! Set sediment properties
-               cp  = 1450.0 + 1.2   * (z) 
-               rho = 2140.0 + 0.125 * (z) 
+               cp  = 1450.0 + 1.2   * (z)
+               rho = 2140.0 + 0.125 * (z)
                MaterialTmp(1) = rho
                MaterialTmp(2) = cs**2 * rho
                MaterialTmp(3) = cp**2 * rho - 2*MaterialTmp(2)
-               MaterialTmp(4) = 50. * 3./4. / ((cs/cp)**2) 
+               MaterialTmp(4) = 50. * 3./4. / ((cs/cp)**2)
                MaterialTmp(5) = 50.
 
                CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)
-               
-               MaterialVal(iElem,1:3) = MaterialTmp(1:3)                          ! Set elastic properties  
-               DO iMech = 1, EQN%nMechanisms                                      ! Set anelastic coefficients w_freq and theta 
+
+               MaterialVal(iElem,1:3) = MaterialTmp(1:3)                          ! Set elastic properties
+               DO iMech = 1, EQN%nMechanisms                                      ! Set anelastic coefficients w_freq and theta
                   MaterialVal(iElem,iMech*4)             = w_freq(iMech)
                   MaterialVal(iElem,iMech*4+1:iMech*4+3) = Theta(iMech,:)
                ENDDO
             ELSE                                                                  ! Bedrock properties
-               FoundLayer = .FALSE.    
+               FoundLayer = .FALSE.
                DO i = 1, 3
                  IF( (MESH%ELEM%xyBary(3,iElem).LE.depths(i)).AND.(MESH%ELEM%xyBary(3,iElem).GE.depths(i+1)) ) THEN
                     FoundLayer = .TRUE.
@@ -405,13 +407,13 @@ CONTAINS
                     MaterialVal(iElem,4:EQN%nBackgroundVar) = 0.
                     EXIT
                  ENDIF
-               ENDDO 
+               ENDDO
                IF(.NOT.FoundLayer) THEN
                  logError(*) 'Layered Medium Error: No layer found for depth', MESH%ELEM%xyBary(3,iElem)
                  STOP
-               ENDIF        
+               ENDIF
             ENDIF
-             
+
          ENDDO
          deallocate( BaryDist )
 
@@ -429,7 +431,7 @@ CONTAINS
          !
          DO iElem = 1, MESH%nElem
             EQN%LocAnelastic(iElem) = 1                                             ! Anelastic material everywhere
-            iLayer = MESH%ELEM%Reference(0,iElem)                                   ! Zone number is given by reference 0 
+            iLayer = MESH%ELEM%Reference(0,iElem)                                   ! Zone number is given by reference 0
             !
             IF(iLayer.GE.4)THEN
 
@@ -451,8 +453,8 @@ CONTAINS
                !
                MaterialVal(iElem,1) = MaterialTmp(1)                              ! Set rho
                MaterialVal(iElem,2:EQN%AneMatIni-1) = Material_INF(:)             ! Set unrelaxed material properties for this zone.                                                                      !
-               ! Fill MaterialVal vector for each element with anelastic coefficients w_freq and theta 
-               DO iMech = 1, EQN%nMechanisms                                      ! Set anelastic coefficients w_freq and theta 
+               ! Fill MaterialVal vector for each element with anelastic coefficients w_freq and theta
+               DO iMech = 1, EQN%nMechanisms                                      ! Set anelastic coefficients w_freq and theta
                   MaterialVal(iElem,EQN%AneMatIni+4*(iMech-1))                               = w_freq(iMech)
                   MaterialVal(iElem,EQN%AneMatIni+4*(iMech-1)+1:EQN%AneMatIni+4*(iMech-1)+3) = Theta(iMech,:)
                ENDDO
@@ -467,28 +469,28 @@ CONTAINS
                !Basin structure consists of three constant zones
                MaterialTmp(:) = EQN%MODEL(iLayer,:)                               ! Get material properties (temporary)
                !
-               CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)    ! Initialize anelastic coefficients for this zone     
+               CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)    ! Initialize anelastic coefficients for this zone
                !
                MaterialVal(iElem,1) = MaterialTmp(1)                              ! Set rho
                MaterialVal(iElem,2:EQN%AneMatIni-1) = Material_INF(:)             ! Set unrelaxed material properties for this zone.                                                                      !
-               ! Fill MaterialVal vector for each element with anelastic coefficients w_freq and theta 
+               ! Fill MaterialVal vector for each element with anelastic coefficients w_freq and theta
                DO iMech = 1, EQN%nMechanisms
                   MaterialVal(iElem,EQN%AneMatIni+4*(iMech-1))                               = w_freq(iMech)
                   MaterialVal(iElem,EQN%AneMatIni+4*(iMech-1)+1:EQN%AneMatIni+4*(iMech-1)+3) = Theta(iMech,:)
                ENDDO
-            ENDIF   
+            ENDIF
             !
          ENDDO
          !
       CASE(8)     !special case for Sonic logging
                                                                                     ! interpolated linearly
          DO iElem = 1, MESH%nElem
-               iLayer = MESH%ELEM%Reference(0,iElem) 
+               iLayer = MESH%ELEM%Reference(0,iElem)
                radius = SQRT(MESH%ELEM%xyBary(1,iElem)**2+MESH%ELEM%xyBary(2,iElem)**2) ! Radial distance from origin
                IF( (radius.GT.0.10795).AND.(radius.LT.2.0) ) THEN
-                    
+
                     MaterialVal(iElem,1:3) = EQN%MODEL(2,1:3) + (EQN%MODEL(iLayer,1:3) - EQN%MODEL(2,1:3)) / &
-                                            (2.0-0.10795) * (radius-0.10795) 
+                                            (2.0-0.10795) * (radius-0.10795)
                ELSE
                     MaterialVal(iElem,1:3) = EQN%MODEL(iLayer,1:3)
                ENDIF
@@ -506,7 +508,7 @@ CONTAINS
                MaterialVal(iElem,1:3) = EQN%MODEL(1,:)
             ELSE
                MaterialVal(iElem,1:3) = EQN%MODEL(2,:)
-            ENDIF         
+            ENDIF
          ENDDO
          !
       CASE(10)
@@ -531,7 +533,7 @@ CONTAINS
                         EQN%IniStress(4,iElem)  = 0.0  !shear stress components
                         EQN%IniStress(5,iElem)  = 0.0  !shear stress components
                         EQN%IniStress(6,iElem)  = 0.0  !shear stress components
-                        ! 
+                        !
                         !
                 ELSE !down dip distance more than 13 800m
                         EQN%IniStress(1,iElem)  = -16660 * abs(z) !xx, sigma_2
@@ -540,7 +542,7 @@ CONTAINS
                         EQN%IniStress(4,iElem)  = 0.0  !shear stress components
                         EQN%IniStress(5,iElem)  = 0.0  !shear stress components
                         EQN%IniStress(6,iElem)  = 0.0  !shear stress components
-                     ! 
+                     !
               ENDIF
         ENDDO
         !
@@ -596,18 +598,18 @@ CONTAINS
 
       CASE(33)     ! T. Ulrich TPV33 14.01.16
         DO iElem = 1, MESH%nElem
-           !iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
+           !iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
            y = MESH%ELEM%xyBary(2,iElem) !average y inside an element
            IF(y.LT.-800d0) THEN                         ! zone -800
-               MaterialVal(iElem,1) = 2670. 
+               MaterialVal(iElem,1) = 2670.
                MaterialVal(iElem,2) = 2.816717568E+10
                MaterialVal(iElem,3) = 2.817615756E+10
            ELSEIF ((y.GE.-800d0).AND.(y.LE.800d0)) THEN                     ! zone central
-               MaterialVal(iElem,1) = 2670. 
+               MaterialVal(iElem,1) = 2670.
                MaterialVal(iElem,2) = 1.251489075E+10
                MaterialVal(iElem,3) = 1.251709350E+10
            ELSEIF(y.GT.800d0) THEN                                          ! zone + 800
-               MaterialVal(iElem,1) = 2670. 
+               MaterialVal(iElem,1) = 2670.
                MaterialVal(iElem,2) = 3.203812032E+10
                MaterialVal(iElem,3) = 3.204375936E+10
            ELSE
@@ -680,14 +682,14 @@ CONTAINS
          DO iElem=1, MESH%nElem
 
                 z = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
-          
+
                 EQN%IniStress(1,iElem)  = -10.6723e6*(abs(z-2000.0D0))/1000.0D0
                 EQN%IniStress(2,iElem)  = -29.3277e6*(abs(z-2000.0D0))/1000.0D0
                 EQN%IniStress(3,iElem)  = -20.0000e6*(abs(z-2000.0D0))/1000.0D0
                 EQN%IniStress(4,iElem)  = -3.7687e6*(abs(z-2000.0D0))/1000.0D0
                 EQN%IniStress(5,iElem)  =  0.0D0
                 EQN%IniStress(6,iElem)  =  0.0D0
-                        !    
+                        !
         ENDDO
       ENDIF !Plasticity
       !
@@ -764,7 +766,7 @@ CONTAINS
          !
          ! Layer                   depth    rho     mu          lambda
          BedrockVelModel(1,:) = (/ 10000.0, 1700.0, 1.53e08, 7.82e08/)
-         !BedrockVelModel(2,:) = (/ -100.0, 1800.0, 4.5e08, 1.692e09/) 
+         !BedrockVelModel(2,:) = (/ -100.0, 1800.0, 4.5e08, 1.692e09/)
          BedrockVelModel(2,:) = (/ -250.0, 1950.0, 1.097e+09, 2.4911e+09/)! include for 250-mesh
          !BedrockVelModel(2,:) = (/ -300.0, 2100.0, 2.1e09, 3.381e09/)
          BedrockVelModel(3,:) = (/ -500.0, 2400.0, 9.60e09, 1.920e10/)
@@ -847,7 +849,7 @@ CONTAINS
 	 BedrockVelModel(7,:) = (/ -5d10, 3330d0,65942325000d0,81235350000d0/)
 
         DO iElem = 1, MESH%nElem
-           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
+           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
            SELECT CASE (iLayer)
             CASE(1)
             ! OCeanic Crust
@@ -881,7 +883,7 @@ CONTAINS
            CASE(2)
             MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
            CASE DEFAULT
-                 logError(*) "Material assignement: unkown region", iLayer
+                 logError(*) "Material assignment: unknown region", iLayer
            END SELECT
         ENDDO
 
@@ -900,7 +902,7 @@ CONTAINS
          BedrockVelModel(7,:) = (/ -5d10, 3330d0,65942325000d0,81235350000d0/)
 
         DO iElem = 1, MESH%nElem
-           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
+           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
            SELECT CASE (iLayer)
             CASE(1)
              MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
@@ -935,72 +937,12 @@ CONTAINS
            CASE(4)
             MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
            CASE DEFAULT
-                 logError(*) "Material assignement: unkown region", iLayer
+                 logError(*) "Material assignment: unknown region", iLayer
            END SELECT
         ENDDO
 
-     CASE(1223)     ! T. Ulrich SUMATRA 2 x 1d 16.02.16 and 3 layers below fault, 1 layer above: 7 regions
-         ! OCeanic Crust
-         ! Layer                   depth    rho     mu          lambda
-         !BedrockVelModel(1,:) = (/  -6d3, 2550d0,18589500000d0,26571000000d0/)
-         BedrockVelModel(1,:) = (/  -6d3, 2310d0, 7401471000d0,13494558000d0/)
-         BedrockVelModel(2,:) = (/  -8d3, 2850d0,39016500000d0,42379500000d0/)
-         BedrockVelModel(3,:) = (/ -12d3, 3050d0,50027625000d0,53695250000d0/)
-         ! Crustal Crust
-         ! Layer                   depth    rho     mu          lambda
-         BedrockVelModel(4,:) = (/-6d3,2720d0,33320000000d0,31280000000d0/)
-         BedrockVelModel(5,:) = (/-12d3,2860d0,41298400000d0,41984800000d0/)
-         BedrockVelModel(6,:) = (/-23d3,3050d0,46390500000d0,60969500000d0/)
-         !below 1d layers
-         BedrockVelModel(7,:) = (/ -5d10, 3330d0,65942325000d0,81235350000d0/)
 
-        DO iElem = 1, MESH%nElem
-           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
-           SELECT CASE (iLayer)
-            CASE(5)
-             MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-            CASE(6)
-             MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-            CASE(4)
-             MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
-            CASE(7)
-             MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
-            CASE(3)
-            ! OCeanic Crust
-             z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
-             IF (z.GT.BedrockVelModel(1,1)) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(1,1)).AND.(z.GE.BedrockVelModel(2,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(2,1)).AND.(z.GE.BedrockVelModel(3,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(3,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-             ELSE
-                 logError(*) "depth lower than",BedrockVelModel(7,1),iLayer,z
-             ENDIF
-           CASE(1)
-            ! Crustal Crust
-             z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
-             IF (z.GT.BedrockVelModel(4,1)) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-             ELSE
-                 logError(*) "depth lower than",BedrockVelModel(7,1),iLayer,z
-             ENDIF
-           CASE(2) !below 80km
-            MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-           CASE DEFAULT
-                 logError(*) "Material assignement: unkown region", iLayer
-           END SELECT
-        ENDDO
-
-     CASE(1224)     ! T. Ulrich SUMATRA 2 x 1d 13.07.16 and 2 layers below fault, fault in a LVZ (small model)
+     CASE(1223,1225,1226,1227)     ! SUMATRA: 2 layers below fault, fault in a LVZ, big box
          ! OCeanic Crust
          ! Layer                   depth    rho     mu          lambda
          BedrockVelModel(1,:) = (/  -6d3, 2550d0,18589500000d0,26571000000d0/)
@@ -1016,36 +958,177 @@ CONTAINS
          BedrockVelModel(7,:) = (/ -5d10, 3330d0,65942325000d0,81235350000d0/)
 
         DO iElem = 1, MESH%nElem
-           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
-           SELECT CASE (iLayer)
-            CASE(2) !LVZ
-             MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-            CASE(1)
-             MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
-            CASE(3)
-             MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
-            CASE(4)
-             MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-           CASE(6)
-            ! Crustal Crust
-             z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
-             IF (z.GT.BedrockVelModel(4,1)) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
-                 MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-             ELSE
-                 logError(*) "depth lower than",BedrockVelModel(7,1),iLayer,z
-             ENDIF
-           CASE(5) !below 80km
-            MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-           CASE DEFAULT
-                 logError(*) "Material assignement: unkown region", iLayer
-           END SELECT
-        ENDDO
+           iLayer = MESH%ELEM%Reference(0,iElem) ! Zone number is given by reference 0
+           !1       2           3         4  5  6  7
+           !big box continental LVZ above L1 L2 L3 L4
+           !EQN%SumatraRegions
+           IF ((iLayer.EQ.EQN%SumatraRegions(3)).OR.(iLayer.EQ.EQN%SumatraRegions(4))) THEN
+                MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
+           ELSE IF (iLayer.EQ.EQN%SumatraRegions(5)) THEN
+                MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
+           ELSE IF (iLayer.EQ.EQN%SumatraRegions(6)) THEN
+                MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
+           ELSE IF (iLayer.EQ.EQN%SumatraRegions(7)) THEN
+                MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
+           ELSE IF ((iLayer.EQ.EQN%SumatraRegions(1)).OR.(iLayer.EQ.EQN%SumatraRegions(2))) THEN
+                ! Crustal Crust
+                z = MESH%ELEM%xyBary(3,iElem) ! supported by Sebs new mesh reader
+                IF (z.GT.BedrockVelModel(4,1)) THEN
+                    MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
+                ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
+                    MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
+                ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
+                    MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
+                ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
+                    MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
+                ELSE
+                    logError(*) "depth lower than",BedrockVelModel(7,1),iLayer,z
+                ENDIF
+           ELSE
+                logError(*) "Material assignment: unknown region", iLayer
+           ENDIF
+
+           !anelastic setup, material dependent
+           IF (EQN%ANELASTICITY.EQ.1) THEN
+
+               ! Set local anelasticity
+               EQN%LocAnelastic(iElem) = 1
+               !set material parameters as the elastic ones above
+               MaterialTmp(1) = MaterialVal(iElem,1) !rho
+               MaterialTmp(2) = MaterialVal(iElem,2) !mu
+               MaterialTmp(3) = MaterialVal(iElem,3) !lambda
+
+               !calculate p- and s-wave velocties in km/s
+               cs = sqrt(MaterialTmp(2)/MaterialTmp(1))/1000.0D0
+               cp = sqrt((MaterialTmp(3)+2.0D0*MaterialTmp(2))/MaterialTmp(1))/1000.0D0
+
+               !transform into Qp and Qs
+               MaterialTmp(5) = 50.0*cs !Q_s
+               MaterialTmp(4) =  2.0*MaterialTmp(5) !Q_p
+
+               CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)
+
+               DO iMech = 1, EQN%nMechanisms                                      ! Set anelastic coefficients w_freq and theta
+                  MaterialVal(iElem,iMech*4)             = w_freq(iMech)
+                  MaterialVal(iElem,iMech*4+1:iMech*4+3) = Theta(iMech,:)
+               ENDDO
+            ENDIF
+
+        ENDDO !ielem
+
+        !assign stress tensor for the whole domain
+        !use the same stresses as in ini_model_DR although they are aligned with layers for the fault region
+        IF (EQN%Plasticity.EQ.1) THEN
+            xS1 = 5.0000000000e+05
+            yS1 = 4.4212739025e+05
+            xS2 = 4.4461626476e+05
+            ys2 = 6.0795713230e+05
+
+            g = 9.8D0
+            ! TO BE USED WITH 1d Layered medium
+            !free surface assumed at z=-2000m
+            !properties of continental crust
+            nLayers = 6
+            zLayers (1:6) = (/ 0d0,-2000d0, -6000d0, -12000d0, -23000d0,-600d6 /)
+            rhoLayers (1:6) = (/ 1000d0, 2720d0, 2860d0, 3050d0, 3300d0, 3375d0 /)
+            sigzz = 0d0
+
+
+            DO iElem=1, MESH%nElem
+                ztest = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
+                y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
+                x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
+
+                !constant stress above -3000m
+                IF (ztest.GE.-3000) THEN
+                    z = -3000.0
+                ELSE
+                    z = ztest
+                ENDIF
+
+                DO k = 2, nLayers
+                   IF (z.GT.zLayers(k)) THEN
+                      sigzz = sigzz + rhoLayers(k-1)*(z-zLayers(k-1))*g
+                      EXIT
+                   ELSE
+                      sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
+                   ENDIF
+               ENDDO
+
+               IF (z.LT.-25000D0) THEN
+                  Rz = (-z - 25000D0)/150e3
+               ELSE
+                  Rz = 0.
+               ENDIF
+
+               Omega = max(0D0,min(1d0, 1D0-Rz))
+
+               !ensure that Pf does not exceed sigmazz
+               IF (z.GE.-5e3) THEN
+                  Pf = -1000D0 * g * z * 1d0
+               ELSEIF (z.GE.-10e3) THEN
+                  alpha = (-5e3-z)/5e3
+                  Pf = -1000D0 * g * z * (1d0+alpha)
+               ELSE
+                 Pf = -1000D0 * g * z * 2d0
+               ENDIF
+
+               IF ((y-yS1).LT.(x-XS1)) THEN
+                   ! strike, dip, sigmazz,cohesion,R
+                   CALL STRESS_DIP_SLIP_AM(DISC,309.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                   b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+
+               ELSE IF ((y-yS2).LT.(x-XS2)) THEN
+                   alpha = ((y-x)-(yS1-xS1))/((yS2-xS2)-(yS1-xS1))
+                   ! strike, dip, sigmazz,cohesion,R
+                   CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                   b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+
+               ELSE
+                   ! strike, dip, sigmazz,cohesion,R
+                   CALL STRESS_DIP_SLIP_AM(DISC,330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                   b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+               ENDIF
+
+               ! stress tensor for plasticity, elementwise assignement
+
+                !sigma_zz
+                EQN%IniStress(3,iElem)  = sigzz
+                !sigma_xx
+                EQN%IniStress(1,iElem)  = Omega*(b11*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+                !sigma_yy
+                EQN%IniStress(2,iElem)  = Omega*(b22*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+                !sigma_xy
+                EQN%IniStress(4,iElem)  = Omega*(b12*(sigzz + Pf))
+                !sigma_yz
+                EQN%IniStress(5,iElem)  = Omega*(b23*(sigzz + Pf))
+                !sigma_xz
+                EQN%IniStress(6,iElem)  = Omega*(b13*(sigzz + Pf))
+                !add fluid pressure
+                EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+                EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+                EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+                !handle plastic cohesion
+                SELECT CASE(EQN%linType)
+                CASE(1223) !lower cohesion and bulk friction for layer around the fault for the FSI model
+                     iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
+                     IF ((iLayer.EQ.EQN%SumatraRegions(3)).OR.(iLayer.EQ.EQN%SumatraRegions(4))) THEN
+                        EQN%PlastCo(iElem) = 1.0e+06
+                     ELSE
+                        EQN%PlastCo(iElem) = 4.0e+06
+                     ENDIF
+                CASE(1225) !constant everywhere, following Tan (2012)
+                     EQN%PlastCo(iElem) = 4.0e+06
+                CASE(1226) ! depth dependent plastic cohesion, related to szz, following Shua Ma (2012)
+                     EQN%PlastCo(iElem) = 0.1008* abs(EQN%IniStress(3,iElem))
+                CASE(1227)! closer to failure, depth dependent plastic cohesion, related to szz, following Shua Ma (2012)
+                     EQN%PlastCo(iElem) = 0.001* abs(EQN%IniStress(3,iElem))
+                END SELECT
+          ENDDO
+
+       ENDIF !Plasticity
+
 
      CASE(1221)     ! T. Ulrich SUMATRA 2 x 1d 09.03.2016 GEO MESH
 	 ! OCeanic Crust
@@ -1062,7 +1145,7 @@ CONTAINS
 	 BedrockVelModel(7,:) = (/ -5d10, 3330d0,65942325000d0,81235350000d0/)
 
         DO iElem = 1, MESH%nElem
-           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0 
+           iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
            SELECT CASE (iLayer)
             CASE(1)
             ! OCeanic Crust
@@ -1112,14 +1195,14 @@ CONTAINS
       !###################################################################################!
 
       IF (EQN%RandomField_Flag.GT.0) THEN
-          
+
           DO iRFFlag = 1,EQN%RandomField_Flag
              logInfo(*) 'Random Field perturbation is read from file : ',TRIM(IO%RF_Files(iRFFlag))
-             CALL OpenFile(                                        &                        
-                   UnitNr       = IO%UNIT%other01                , &                        
+             CALL OpenFile(                                        &
+                   UnitNr       = IO%UNIT%other01                , &
                    Name         = IO%RF_Files(iRFFlag)           , &
                    create       = .FALSE.                          )
-             
+
              READ(IO%UNIT%other01,*) zoneNum, nPert               ! zoneNum specifies on which zone this perturbation is applied
              IF(zoneNum.GT.EQN%nLayers) THEN
                  logError(*) 'Zone ',zoneNum,' of random field ',TRIM(IO%RF_Files(iRFFlag)),   &
@@ -1128,7 +1211,7 @@ CONTAINS
              ENDIF
              ALLOCATE( PertMaterial(nPert) )                      ! nPert   specifies on how many material parameters it is applied
                                                                   ! PertMaterial are the indices of the material parameters as
-             READ(IO%UNIT%other01,*) NX, NY, NZ, PertMaterial(:)  ! ordered in MaterialVal  
+             READ(IO%UNIT%other01,*) NX, NY, NZ, PertMaterial(:)  ! ordered in MaterialVal
 
              ALLOCATE( xrf(NX), yrf(NY), zrf(NZ), pertrf(NX,NY,NZ,nPert) )
              pertrf = 0.0d0
@@ -1140,7 +1223,7 @@ CONTAINS
                  ENDDO
                ENDDO
              ENDDO
-             
+
              CLOSE(IO%UNIT%other01)
 
              xrf_max = MAXVAL(xrf(:))
@@ -1152,7 +1235,7 @@ CONTAINS
              DO i = 1,nPert
                 k = PertMaterial(i)
                 pert_max = MAXVAL(pertrf(:,:,:,i))
-                pert_min = MINVAL(pertrf(:,:,:,i))         
+                pert_min = MINVAL(pertrf(:,:,:,i))
                 logInfo(*) 'Perturbation_max for MaterialValue ',k, ': ',pert_max
                 logInfo(*) 'Perturbation_min for MaterialValue ',k, ': ',pert_min
              ENDDO
@@ -1167,7 +1250,7 @@ CONTAINS
 
              ! If we use constant material apply perturbation to barycenter
              IF(DISC%Galerkin%nPolyMatOrig.EQ.0) THEN
-             
+
                  ALLOCATE( posx(MESH%nElem), posy(MESH%nElem), posz(MESH%nElem), pert(MESH%nElem) )
                  counter = 0
 
@@ -1197,11 +1280,11 @@ CONTAINS
                  ALLOCATE( PerturbationVar(counter,nPert) )
                  logInfo(*) 'Interpolating random field ... for zone  ', zoneNum
                  !
-                 ! Interpolation of the material perturbation of the 
-                 ! given random field onto the barycenter of the element 
+                 ! Interpolation of the material perturbation of the
+                 ! given random field onto the barycenter of the element
                  !
                  DO iMaterial = 1,nPert
-               
+
                    IF (InterpolationScheme.EQ.1) THEN
                        ! Linear interpolation
                        CALL TrilinearFromRaster(pert(1:counter),posx(1:counter),posy(1:counter),posz(1:counter),       &
@@ -1211,9 +1294,9 @@ CONTAINS
                        CALL var3Dipol(pertrf(:,:,:,iMaterial),xrf,yrf,zrf,NX,NY,NZ,       &
                                       posx(1:counter),posy(1:counter),posz(1:counter),pert(1:counter),counter)
                    ENDIF
-               
+
                    PerturbationVar(1:counter,iMaterial) = pert(1:counter)
-             
+
                  ENDDO
                  !
                  counter = 0
@@ -1231,23 +1314,23 @@ CONTAINS
                        ENDDO
                     ENDIF
                  ENDDO
-     
+
                  DEALLOCATE( posx, posy, posz, pert )
                  DEALLOCATE( PertMaterial, PerturbationVar )
 
              ENDIF ! DISC%Galerkin%nPolyMatOrig.EQ.0
-             
+
              DEALLOCATE( xrf, yrf, zrf, pertrf )
           ENDDO ! iRFFlag = 1,EQN%RandomField_Flag
-           
+
       ENDIF ! EQN%RandomField_Flag.GT.0
 
       !###################################################################################!
       !  Dynamic Rupture setup
       !###################################################################################!
-      
+
       IF(EQN%DR.EQ.1) THEN
-      
+
         CALL DR_setup(EQN,DISC,MESH,IO,BND)
 
       ENDIF ! EQN%DR.EQ.1
@@ -1256,7 +1339,7 @@ CONTAINS
 
 
   SUBROUTINE ini_ATTENUATION(Theta,w_out,MatVal_INF,MaterialTmp,EQN)
-    !--------------------------------------------------------------------------    
+    !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
     ! Argument list declaration
@@ -1284,9 +1367,9 @@ CONTAINS
     INTENT(IN)               :: MaterialTmp,EQN
     INTENT(OUT)              :: Theta, w_out, MatVal_INF
     ! -------------------------------------------------------------------------
-    
-    kmax    = 2.*EQN%nMechanisms - 1            
-    
+
+    kmax    = 2.*EQN%nMechanisms - 1
+
     ALLOCATE( AP(kmax,EQN%nMechanisms),                  &
               AS(kmax,EQN%nMechanisms),                  &
               QPInv(kmax),                               &
@@ -1299,7 +1382,7 @@ CONTAINS
 
     ! Selection of the logarithmically equispaced frequencies
     ! i.e.: log(w) = log(wmin) + (i-1)*log(f_ratio)/(2*(n-1))
-    
+
     w0     = 2.* EQN%Pi * EQN%FreqCentral
     wmin   = w0 / SQRT(EQN%FreqRatio)
 
@@ -1310,7 +1393,7 @@ CONTAINS
     ELSE
        w(:) = w0
     ENDIF
-    
+
     QPLocVal = MaterialTmp(EQN%nAneMaterialVar-1)
     QSLocVal = MaterialTmp(EQN%nAneMaterialVar)
 
@@ -1320,7 +1403,7 @@ CONTAINS
        counter = counter + 1
     ENDDO
 
-    ! Build the system matrices 
+    ! Build the system matrices
     DO i = 1, kmax
        DO j = 1, EQN%nMechanisms
            AP(i,j) = (w(2*j-1)*w(i)+w(2*j-1)**2 / QPLocVal) / (w(2*j-1)**2+w(i)**2)
@@ -1333,19 +1416,19 @@ CONTAINS
        ENDDO
     ENDDO
 
-    ! Build the right hand sides 
+    ! Build the right hand sides
     DO i = 1, kmax
        QPInv(i) = 1./QPLocVal                 !Desired values of Q for each mechanism inverted (P wave)
     ENDDO
 
     DO i = 1, kmax
-       QSInv(i) = 1./QSLocVal                 !Desired values of Q for each mechanism inverted (S wave)  
+       QSInv(i) = 1./QSLocVal                 !Desired values of Q for each mechanism inverted (S wave)
     ENDDO
-      
+
     ! Solving the overdetermined system for the anelastic coefficients Y_alpha and Y_beta
     VM = 0.
     WM = 0.
-    
+
     CALL svdecomp(WM,VM,AP)                          ! Decompose matrix AP
     CALL svbacksb(WM,VM,AP,QPInv,Y_alpha)
 
@@ -1353,14 +1436,14 @@ CONTAINS
     CALL svbacksb(WM,VM,AS,QSInv,Y_beta)
 
     SELECT CASE(EQN%Anisotropy)
-    CASE(0) 
-      !   
-      ! Computing unrelaxed moduli lambda and mu that give the 
+    CASE(0)
+      !
+      ! Computing unrelaxed moduli lambda and mu that give the
       ! specified wave velocities at the corresponding frequency
       !
       PSI1P = 1.
       PSI2P = 0.
-      DO i = 1, EQN%nMechanisms 
+      DO i = 1, EQN%nMechanisms
          PSI1P = PSI1P - Y_alpha(i) / (1+(w0/w(2*i-1))**2)
          PSI2P = PSI2P + Y_alpha(i) *     w0/w(2*i-1)/(1+(w0/w(2*i-1))**2)
       ENDDO
@@ -1369,25 +1452,25 @@ CONTAINS
       !
       PSI1S = 1.
       PSI2S = 0.
-      DO i = 1, EQN%nMechanisms 
+      DO i = 1, EQN%nMechanisms
          PSI1S = PSI1S - Y_beta(i)  / (1+(w0/w(2*i-1))**2)
          PSI2S = PSI2S + Y_beta(i)  *     w0/w(2*i-1)/(1+(w0/w(2*i-1))**2)
       ENDDO
-      R    = SQRT(PSI1S**2 + PSI2S**2) 
+      R    = SQRT(PSI1S**2 + PSI2S**2)
       ! unrelaxed moduli
       mu_INF     = MaterialTmp(2) * (R + PSI1S)/(2*R**2)
       Lambda_INF = P_INF - 2*mu_INF
       !
       MatVal_INF(1) = mu_INF
       MatVal_INF(2) = Lambda_INF
-      ! 
+      !
       ! Compute Thetas for source term E
       DO i=1,EQN%nMechanisms
          ! Note to future self: Y_alpha != Y_lambda
          Theta(i,1) = - (Lambda_INF+2.d0*mu_INF) * Y_alpha(i)
          Theta(i,2) = - (Lambda_INF+2.d0*mu_INF) * Y_alpha(i) + 2.d0*mu_INF * Y_beta(i)
          Theta(i,3) = -2.d0 * mu_INF * Y_beta(i)
-      ENDDO  
+      ENDDO
       !
     CASE(1)
       !
@@ -1401,14 +1484,14 @@ CONTAINS
            Theta(i,1) = - (AvP) * Y_alpha(i)
            Theta(i,2) = - (AvP) * Y_alpha(i) + 2.d0*AvMu * Y_beta(i)
            Theta(i,3) = - 2.d0*AvMu * Y_beta(i) !Remember that will have to be multiplied either by c44, c55 or c66 (in 3D)!!
-      ENDDO  
+      ENDDO
     END SELECT
 
   END SUBROUTINE ini_ATTENUATION
 
 
   SUBROUTINE generate_FacetList(iObject,iBNDType,OptionalFields,EQN,MESH,IO)
-    
+
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1501,7 +1584,7 @@ CONTAINS
   END SUBROUTINE generate_FacetList
 
   SUBROUTINE calc_baryDist(BaryDist,OptionalFields,EQN,MESH,IO)
-    
+
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1552,7 +1635,7 @@ CONTAINS
     !
     DO iElem = 1, MESH%nElem
       Node1(:) = MESH%ELEM%xyBary(:,iElem)
-      nearestFacet = -1       
+      nearestFacet = -1
       DO iFacet = 1, OptionalFields%nFacet
         Node2(:) = OptionalFields%FacetBary(iFacet,:)
         distance(iFacet) = (Node1(1)-Node2(1))**2 + (Node1(2)-Node2(2))**2
@@ -1565,7 +1648,7 @@ CONTAINS
          logError(*) 'Facet Error in calc_BaryDepth for element ', iElem
          STOP
       ENDIF
-      ! 
+      !
       BaryDist(iElem) = ABS(OptionalFields%FacetBary(nearestFacet,3)-MESH%ELEM%xyBary(3,iElem))
       !
       IF(MESH%nElem.GT.20) THEN
@@ -1573,7 +1656,7 @@ CONTAINS
              logInfo(*) iElem,' elements done...'
          END IF
       ENDIF
-      ! 
+      !
     ENDDO
     !
     DEALLOCATE(OptionalFields%FacetList, OptionalFields%FacetBary, Distance)
@@ -1582,11 +1665,11 @@ CONTAINS
 
   SUBROUTINE var3Dipol(model,x,y,z,NX,NY,NZ,posx,posy,posz,perturbation,NRES)
     IMPLICIT NONE
-    ! Argument list declaration  
-    integer :: i,j,NX,NY,NZ,NRES   
+    ! Argument list declaration
+    integer :: i,j,NX,NY,NZ,NRES
     real :: model(NX,NY,NZ),x(NX),y(NY),z(NZ),posx(NRES),posy(NRES),posz(NRES)
     real :: perturbation(NRES),y2a(NX,NY,NZ),za(NZ),y2(NZ)
-    INTENT(OUT):: perturbation    
+    INTENT(OUT):: perturbation
     DO i=1,NZ
        y2a(:,:,i) = spline_deriv2(x,y,model(:,:,i))
     ENDDO
@@ -1605,7 +1688,7 @@ CONTAINS
     integer :: j
     forall(j=1:size(x1))dfx(j,:)=spline_deriv(fx_large,fx_large,x2,fx(j,:))
   end function spline_deriv2
-  
+
   pure function spline_interp2(x_1,x_2,x1,x2,fx,fx2)result(sfx)
     implicit none
     real(rk),intent(in)::x_1,x_2,x1(:),x2(:),fx2(size(x1),size(x2)),fx(size(x1),size(x2))
@@ -1622,17 +1705,17 @@ CONTAINS
     integer  :: i,n
     n=size(x)
     if(dfx1 < fx_large)then ;
-       W(1)=(3._rk/(x(2)-x(1)))*((fx(2)-fx(1))/(x(2)-x(1))-dfx1); dfx(1)=-0.5_rk; 
+       W(1)=(3._rk/(x(2)-x(1)))*((fx(2)-fx(1))/(x(2)-x(1))-dfx1); dfx(1)=-0.5_rk;
     else; W(1)=0._rk;dfx(1)=0._rk;
     end if
     do i=2,n-1
        coeff=(x(i)-x(i-1))/(x(i+1)-x(i-1)); C=dfx(i-1)*coeff+2._rk;dfx(i)=(coeff-1._rk)/C
-       W(i)=(6._rk*((fx(i+1)-fx(i))/(x(i+1)-x(i)) & 
+       W(i)=(6._rk*((fx(i+1)-fx(i))/(x(i+1)-x(i)) &
             &      -(fx(i)-fx(i-1))/(x(i)-x(i-1)))/(x(i+1)-x(i-1))-coeff*W(i-1))/C
     enddo
-    if(dfxn < fx_large)then; 
+    if(dfxn < fx_large)then;
        W1=(3._rk/(x(n)-x(n-1)))*(dfxn-(fx(n)-fx(n-1))/(x(n)-x(n-1)));CN=0.5_rk;
-    else; W1=0._rk;CN=0._rk;  
+    else; W1=0._rk;CN=0._rk;
     end if
     dfx(n) = (W1 - CN*W(n-1))/(1._rk + CN*dfx(n-1))
     do i=n-1,1,-1
@@ -1643,7 +1726,7 @@ CONTAINS
   pure function spline_interp(x1,x,fx,fx2)result(sfx)
     implicit none
     real(rk), intent(in)::x1,x(:),fx2(size(x)),fx(size(x))
-    real(rk) :: sfx,der1,der2,dx 
+    real(rk) :: sfx,der1,der2,dx
     integer :: myi,i2,i1
     real(rk),parameter :: one_o_6=real(1,rk)/real(6,rk)
     i1=1;i2=size(x)
@@ -1655,23 +1738,23 @@ CONTAINS
     enddo
     dx = x(i2)-x(i1); !if(abs(dx)<epsilon(1._rk))stop 'error: spline_interp: wrong dx'
     der1 = (x(i2)-x1)/dx; der2 = (x1-x(i1))/dx
-    sfx = fx(i1)*der1 + fx(i2)*der2 & 
-         &  + (dx*dx*one_o_6)*((der1*der1*der1-der1)*fx2(i1) & 
+    sfx = fx(i1)*der1 + fx(i2)*der2 &
+         &  + (dx*dx*one_o_6)*((der1*der1*der1-der1)*fx2(i1) &
          &  +                  (der2*der2*der2-der2)*fx2(i2))
   end function spline_interp
 
  SUBROUTINE ModelDefinition_new(A,B,C,E,xGP,yGP,zGP,MaterialVal,                   &
                                 LocAnelastic,LocPoroelastic,EQN,MESH,DISC,SOURCE,IO)
-    
+
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
-    ! Argument list declaration  
+    ! Argument list declaration
     TYPE(tEquations)                :: EQN
     TYPE(tUnstructMesh)             :: MESH
     TYPE(tDiscretization)           :: DISC
     TYPE(tSource)                   :: Source
-    TYPE(tInputOutput)              :: IO 
+    TYPE(tInputOutput)              :: IO
     REAL                            :: A(:,:)
     REAL                            :: B(:,:)
     REAL                            :: C(:,:)
@@ -1685,10 +1768,10 @@ CONTAINS
     REAL                            :: rho,lambda,mu,cp
     REAL                            :: AvMu
     REAL                            :: ce(6,6)                                ! Elastic material constants
-    REAL                            :: K_F, K_S, K_Mean, MM, Poro, Alpha(6)   !Porous parameters 
-    REAL                            :: rho_F, rho_S, nu, Kappa(3), Tor(3)     !Porous parameters 
-    REAL                            :: Rho1(3), Rho2(3), Beta1(3), Beta2(3)   !Porous parameters 
-    
+    REAL                            :: K_F, K_S, K_Mean, MM, Poro, Alpha(6)   !Porous parameters
+    REAL                            :: rho_F, rho_S, nu, Kappa(3), Tor(3)     !Porous parameters
+    REAL                            :: Rho1(3), Rho2(3), Beta1(3), Beta2(3)   !Porous parameters
+
     INTEGER                         :: i, j, k
 
     !--------------------------------------------------------------------------
@@ -1703,13 +1786,13 @@ CONTAINS
         A = 0.
         B = 0.
         C = 0.
-        E = 0. 
+        E = 0.
 
         rho    = EQN%rho0  ! rho = 1, mu = 2, lambda = 3
         mu     = EQN%mu
         lambda = EQN%lambda
-        cp     = SQRT((lambda+2*mu)/rho)  
-        ! 
+        cp     = SQRT((lambda+2*mu)/rho)
+        !
         ! Jacobian in x-direction
         !
         A(1,7) = -lambda-2*mu
@@ -1734,7 +1817,7 @@ CONTAINS
         !
         ! Jacobian in z-direction
         !
-        C(1,9) = -lambda      
+        C(1,9) = -lambda
         C(2,9) = -lambda
         C(3,9) = -lambda-2*mu
         C(5,8) = -mu
@@ -1743,9 +1826,9 @@ CONTAINS
         C(8,5) = -1./rho
         C(9,3) = -1./rho
         !
-        kx = SOURCE%CS%k1(1) 
-        ky = SOURCE%CS%k1(2) 
-        kz = SOURCE%CS%k1(3) 
+        kx = SOURCE%CS%k1(1)
+        ky = SOURCE%CS%k1(2)
+        kz = SOURCE%CS%k1(3)
         !
         A(:,:) = A(:,:)*( 1. + SOURCE%CS%U0(1)*SIN(kx*xGP+ky*yGP+kz*zGP) )
         B(:,:) = B(:,:)*( 1. + SOURCE%CS%U0(2)*SIN(kx*xGP+ky*yGP+kz*zGP) )
@@ -1758,8 +1841,8 @@ CONTAINS
         rho    = MaterialVal(1)  ! rho = 1, mu = 2, lambda = 3
         mu     = MaterialVal(2)
         lambda = MaterialVal(3)
-        cp     = SQRT((lambda+2*mu)/rho)  
-        ! 
+        cp     = SQRT((lambda+2*mu)/rho)
+        !
         ! Jacobian in x-direction
         !
         A(1,7) = -lambda-2*mu
@@ -1784,7 +1867,7 @@ CONTAINS
         !
         ! Jacobian in z-direction
         !
-        C(1,9) = -lambda      
+        C(1,9) = -lambda
         C(2,9) = -lambda
         C(3,9) = -lambda-2*mu
         C(5,8) = -mu
@@ -1818,7 +1901,7 @@ CONTAINS
             ce(5,5) = MaterialVal(20)
             ce(5,6) = MaterialVal(21)
             ce(6,6) = MaterialVal(22)
-            ! 
+            !
             ! Jacobian in x-direction
             !
             A(1,7:9) = (/ -ce(1,1), -ce(1,6), -ce(1,5) /)
@@ -1898,7 +1981,7 @@ CONTAINS
             Alpha(5) = - (ce(1,5)+ce(2,5)+ce(3,5)) / (3.*K_S)
             Alpha(6) = - (ce(1,6)+ce(2,6)+ce(3,6)) / (3.*K_S)
             Rho1(:)  = rho - (rho_F**2 / (rho_F * Tor(:) / Poro))
-            Rho2(:)  = rho_F - (rho_F * Tor(:) / Poro) * rho / rho_F 
+            Rho2(:)  = rho_F - (rho_F * Tor(:) / Poro) * rho / rho_F
             Beta1(:) = rho_F / (rho_F * Tor(:) / Poro)
             Beta2(:)  = rho / rho_F
             !
@@ -1908,7 +1991,7 @@ CONTAINS
                 ce(i,j) = ce(i,j) + MM * Alpha(i)*Alpha(j)
               ENDDO
             ENDDO
-            ! 
+            !
             ! Jacobian in x-direction
             !
             A(1,7:9) = (/ -ce(1,1), -ce(1,6), -ce(1,5) /)
@@ -1994,7 +2077,7 @@ CONTAINS
         END SELECT
     ENDIF !IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0)
     !
-    IF(LocAnelastic.EQ.1) THEN 
+    IF(LocAnelastic.EQ.1) THEN
         !
         !Enlargening of the anelastic jacobians (ONLY used in the ADER time integration)
         !
@@ -2044,7 +2127,7 @@ CONTAINS
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
-    ! Argument list declaration  
+    ! Argument list declaration
     REAL                            :: FL(:,:)
     REAL                            :: FR(:,:)
     REAL                            :: A(:,:)
@@ -2072,7 +2155,7 @@ CONTAINS
     INTEGER                         :: nVar
     INTEGER                         :: iVar
     !--------------------------------------------------------------------------
-    
+
     ! Left material
     rhoL    = MaterialValLeft(1)
     muL     = MaterialValLeft(2)
@@ -2092,7 +2175,7 @@ CONTAINS
         ALLOCATE(S(nVar,nVar))
         S = 0.0d0
         S(1,1) = -1.      ! (xx) Normal stress vanishes
-        S(2,2) =  1.      ! (yy) 
+        S(2,2) =  1.      ! (yy)
         S(3,3) =  1.      ! (zz)
         S(4,4) = -1.      ! (xy) Shear in normal direction vanishes
         S(5,5) =  1.      ! (yz)
@@ -2106,7 +2189,7 @@ CONTAINS
     CASE(0) ! Godunov flux
         ConstP  = cpL*(lambdaR+2.0d0*muR)+cpR*(lambdaL+2.0d0*muL)
         ConstS  = csL*muR+csR*muL
-        
+
         FR(:,:) = 0.0d0;
         FR(1,1) = cpR * (lambdaL+2.0d0*muL) / ConstP
         FR(2,1) = cpR *  lambdaL            / ConstP
@@ -2137,7 +2220,7 @@ CONTAINS
             FR(6,9) = FR(4,8)
             FR(9,9) = FR(8,8)
         ENDIF
-        
+
         FL(:,:) = -FR(:,:)
         DO iVar=1,9
             IF (muR.EQ.0.0d0 .AND. (iVar.GE.4 .AND. iVar.LE.6)) THEN
@@ -2166,15 +2249,15 @@ CONTAINS
         STOP
     END SELECT
   END SUBROUTINE SolveRiemannProblem
-  
+
   SUBROUTINE prem_iso(r_vert,r,nVar,MaterialVal,Ani)
 !   subroutine prem_iso(rho,drhodr,mu,lambda,Qkappa,Qmu)
-  
+
   IMPLICIT NONE
 
 ! given a normalized radius x, gives the non-dimensionalized density rho,
 ! speeds vp and vs, and the quality factors Qkappa and Qmu
-  
+
   REAL              :: MaterialVal(nVar)
   REAL              :: r_vert, r, rho, drhodr, vp, vs, Qkappa, Qmu, x,&
   RICB, RCMB, RTOPDDOUBLEPRIME, R600, R670, R220, R771, R400, &
@@ -2198,7 +2281,7 @@ CONTAINS
   RTOPDDOUBLEPRIME = 3630000.0
   RCMB = 3480000.0
   RICB = 1221000.0
-  
+
   x = r_vert/R_EARTH
 
 !  DO i=1,6371
@@ -2320,10 +2403,10 @@ CONTAINS
   rho = rho*1000.00
   vp = vp*1000.00
   vs = vs*1000.00
-  
+
   mu = (vs*vs)*rho
   lambda = ((vp*vp)*rho)-2.0*mu
-  
+
 !  open(unit=20,file='model.dat',status='old',action='write',position='append',iostat=io_error)
 !  write(20,'(6(E15.8))') r,rho,mu,lambda,vp,vs
 !  close(unit=20)
@@ -2333,12 +2416,12 @@ CONTAINS
   MaterialVal(1) = rho
   MaterialVal(2) = mu
   MaterialVal(3) = lambda
-  
+
   IF( Ani .EQ. 1 ) THEN
     MaterialVal(4) = Qkappa
     MaterialVal(5) = Qmu
   ENDIF
-  
+
   END SUBROUTINE prem_iso
 
 
@@ -2347,7 +2430,7 @@ CONTAINS
     real :: usvd(:,:),vsvd(:,:),wsvd(:),b(:),x(:),t(size(x))
     t=0.0; where(abs(wsvd)>=1e-10)t=matmul(b,usvd)/wsvd; x=matmul(vsvd,t)
   end subroutine svbacksb
-  
+
   subroutine svdecomp(wsvd,vsvd,usvd)
     !perform singular velue decomposition
     use, intrinsic :: iso_fortran_env, only: error_unit
@@ -2403,10 +2486,10 @@ CONTAINS
           svdrv(k)=f1;wsvd(k)=v1
        end do
     end do
-  contains    
+  contains
     integer function isub0(in)
       integer :: in
-      vc=zero; vs=one;isub0=in; 
+      vc=zero; vs=one;isub0=in;
       do i=ic,k
          f1=vs*svdrv(i); svdrv(i)=vc*svdrv(i)
          if ((abs(f1)+dist) == dist) exit
@@ -2455,7 +2538,7 @@ CONTAINS
       if (abs(f2)>l2) then
          f2=one/f2
          n2pt(ic:n2)=(matmul(usvd(ic:n1,i),usvd(ic:n1,ic:n2))/usvd(i,i))*f2
-         usvd(i:n1,ic:n2) = usvd(i:n1,ic:n2)  & 
+         usvd(i:n1,ic:n2) = usvd(i:n1,ic:n2)  &
               & + spread(usvd(i:n1,i),dim=2,ncopies=size(n2pt(ic:n2))) * &
               &   spread(n2pt(ic:n2),dim=1,ncopies=size(usvd(i:n1,i)))
          usvd(i:n1,i)=usvd(i:n1,i)*f2
@@ -2477,7 +2560,7 @@ CONTAINS
      f1=((v1-v3)*(v1+v3)+f3*((v2/(f1+sign(f2,f1)))-f3))/v1
      vc=one; vs=one
    end function isub5
-   integer function isub6(in)     
+   integer function isub6(in)
      integer :: in
      do j=ic,non
         i=j+1; v2=wsvd(i)
@@ -2498,15 +2581,15 @@ CONTAINS
         usvd(1:n1,i)=-n1pt(1:n1)*vs+usvd(1:n1,i)*vc
      end do
    end function isub6
-   elemental real function ss(x,y) 
-     real , intent(in) :: x,y 
+   elemental real function ss(x,y)
+     real , intent(in) :: x,y
      ss = sign(sqrt(x),y)
    end function ss
    real function ar(x)
      real :: x(:)
      ar=sum(abs(x))
-   end function ar   
+   end function ar
  end subroutine svdecomp
 
- 
+
 END MODULE ini_MODEL_mod
