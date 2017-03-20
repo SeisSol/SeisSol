@@ -2116,10 +2116,10 @@ MODULE ini_model_DR_mod
           IF (zGP.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
           ELSE
               ! set cohesion
-              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
 
@@ -2568,10 +2568,10 @@ MODULE ini_model_DR_mod
           IF (zLocal.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zLocal-zIncreasingCohesion)/(-zIncreasingCohesion)
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zLocal-zIncreasingCohesion)/(-zIncreasingCohesion)
           ELSE
               ! set cohesion
-              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
 
