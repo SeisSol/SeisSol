@@ -238,7 +238,7 @@ void seissol::initializers::time_stepping::LtsLayout::deriveDynamicRupturePlainC
   if (rank == 0) {
     globalClusterHistogram = new int[m_numberOfGlobalClusters];
   }
-  MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
 #else
   globalClusterHistogram = localClusterHistogram;
 #endif
@@ -655,7 +655,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
   if (rank == 0) {
     globalClusterHistogram = new int[m_numberOfGlobalClusters];
   }
-  MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+  MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
 #else
   globalClusterHistogram = localClusterHistogram;
 #endif
