@@ -47,9 +47,10 @@ nfacets=0
 with open(args.ts_file) as fid:
    while True:
       xyzl=[]
-      vid=[]
+      vid={}
       trl=[]
       prev_vert=-1
+      ivertex=0
       line=fid.readline()
       if not line:
          break
@@ -73,10 +74,8 @@ with open(args.ts_file) as fid:
 	    if line.startswith('VRTX'):
 	       val=[float(val) for val in line.split()[1:5]]
 	       newVid = int(val[0])
-	       if prev_vert>=newVid:
-		  print "vertex id not sorted"
-		  exit()
-	       vid.append(int(val[0]))
+	       vid[newVid] =  ivertex
+               ivertex=ivertex+1
 	       xyzl.append(val[1:4])
 	    elif line.startswith('TRGL'):
 	       val=[int(val) for val in line.split()[1:4]]
@@ -90,22 +89,21 @@ with open(args.ts_file) as fid:
                   sid=sid+1
 	    elif line.startswith('ATOM'):
 	       val=[int(val) for val in line.split()[1:3]]
-	       vid0 = np.searchsorted(vid, val[1])
+               vid0 = vid[val[1]]
 	       xyzl.append(xyzl[vid0])
-	       newVid  = val[0]
-	       if prev_vert>=newVid:
-		  print "vertex id not sorted"
-		  exit()
-	       vid.append(int(val[0]))  
+	       vid[val[0]] =  ivertex
+               ivertex=ivertex+1
 	    elif line.startswith('END'):
 	       break
 	 nodes = np.asarray(xyzl)
-	 triangles_ts = np.asarray(trl)
-	 vid=np.asarray(vid)
+	 triangles = np.asarray(trl)
+         ntriangles = np.shape(triangles)[0]
 	 logging.debug("reindexing triangles...")
-	 triangles = np.searchsorted(vid, triangles_ts)
+         for itr in range(ntriangles):
+            for iv in range(3):
+               triangles[itr,iv] = vid[triangles[itr,iv]]
+
 	 nnodes=np.shape(nodes)[0]
-	 ntriangles=np.shape(triangles)[0]
          nfacets = nfacets + ntriangles
 	 logging.debug("done reading %s, found %d nodes and %d triangles" %(surface_name, nnodes,ntriangles))
 	 if args.proj!='':
