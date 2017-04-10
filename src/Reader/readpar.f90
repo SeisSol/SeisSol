@@ -1668,7 +1668,7 @@ CONTAINS
                  logInfo0(*) 'elementwise initialization. '
              ENDIF
 
-           CASE(16,17,1500) ! 1500 = ASAGI
+           CASE(16,17)
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise
              EQN%XRef = XRef
@@ -1791,6 +1791,19 @@ CONTAINS
              DISC%DynRup%NucRS_sv0 = NucRS_sv0
            CASE(28,29) ! nucleation patch initialized in ini_model.f90
              CONTINUE
+           case(1500,1501) ! ASAGI
+             IO%FileName_BackgroundStress = FileName_BackgroundStress
+             EQN%GPwise = GPwise
+             EQN%XRef = XRef
+             EQN%YRef = YRef
+             EQN%ZRef = ZRef
+             EQN%refPointMethod = refPointMethod
+             DISC%DynRup%RS_srW = RS_srW
+             DISC%DynRup%RS_a = RS_a
+             DISC%DynRup%cohesion_0 = cohesion_0
+             DISC%DynRup%D_C_ini = D_C_ini
+             DISC%DynRup%Mu_S_ini = Mu_S_ini
+             DISC%DynRup%Mu_D_ini = Mu_D_ini
            CASE DEFAULT
              logError(*) 'Unknown nucleation type ',DISC%DynRup%Nucleation
              STOP
@@ -3293,7 +3306,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       !! @warning When using an asynchronous back-end (mpio_async), you might lose
       !!  2 * checkPointInterval of your computation.
       !! @more_info https://github.com/SeisSol/SeisSol/wiki/Parameter-File
-      !! 
+      !!
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
@@ -3334,7 +3347,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%OutputFile = OutputFile                                                   ! read output field file
 
       IO%OutputFile  = TRIM(IO%OutputFile)
-      
+
       IO%SurfaceOutput = SurfaceOutput
       IO%SurfaceOutputRefinement = SurfaceOutputRefinement
       IO%SurfaceOutputInterval = SurfaceOutputInterval

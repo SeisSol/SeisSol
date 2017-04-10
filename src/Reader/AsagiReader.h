@@ -123,10 +123,12 @@ public:
 	}
 
 	/**
+	 *
+	 * @param varname The variable name in the netCDF file
 	 * @param sparse Set to true to use the cache grid (sparse load) in ASAGI
-	 * @return Number of variables found in the dataset
+	 * @return Number of variables found in the dataset (0, if the dataset was not found)
 	 */
-	unsigned int open(const char* file, bool sparse = false
+	unsigned int open(const char* file, const char* varname = "data", bool sparse = false
 #ifdef USE_MPI
 			  , MPI_Comm comm = seissol::MPI::mpi.comm()
 #endif // USE_MPI
@@ -193,7 +195,7 @@ public:
 		std::string cacheSize = utils::Env::get((m_envPrefix  + "_CACHE_SIZE").c_str(), "128");
 		m_grid->setParam("CACHE_SIZE", cacheSize.c_str());
 
-		m_grid->setParam("VARIABLE", "data");
+		m_grid->setParam("VARIABLE", varname);
 
 		// Read the data
 		//SCOREP_RECORDING_OFF();
@@ -203,7 +205,7 @@ public:
 		{
 			::asagi::Grid::Error err = m_grid->open(file);
 			if (err != ::asagi::Grid::SUCCESS)
-				logError() << "Could not open ASAGI grid:" << err;
+				return 0;
 		}
 		//SCOREP_RECORDING_ON();
 
