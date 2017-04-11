@@ -1676,6 +1676,8 @@ CONTAINS
              EQN%ZRef = ZRef
              EQN%refPointMethod = refPointMethod
            case(1500,1501) ! ASAGI
+             ! TODO We also have FL parameter, maybe can reduce this case to a single one
+             ! and select the correct ASAGI initialization from FL.
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise
              EQN%XRef = XRef

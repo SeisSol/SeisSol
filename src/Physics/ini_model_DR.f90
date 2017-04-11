@@ -4078,8 +4078,8 @@ MODULE ini_model_DR_mod
        frictionDefaultValues(1) = DISC%DynRup%RS_srW
        frictionDefaultValues(2) = DISC%DynRup%RS_a
      case(1) ! linear slip weakening
-       ALLOCATE(DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-       ! Not sure where those array get allocated ...
+       ! Already allocated with FL = 30
+!        ALLOCATE(DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 !        ALLOCATE(DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 !        ALLOCATE(DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 
