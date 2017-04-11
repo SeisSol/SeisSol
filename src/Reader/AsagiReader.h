@@ -197,17 +197,20 @@ public:
 
 		m_grid->setParam("VARIABLE", varname);
 
+		bool abort = false;
 		// Read the data
 		//SCOREP_RECORDING_OFF();
 #ifdef _OPENMP
-		#pragma omp parallel num_threads(m_asagiThreads)
+		#pragma omp parallel shared(abort) num_threads(m_asagiThreads)
 #endif // _OPENMP
 		{
 			::asagi::Grid::Error err = m_grid->open(file);
 			if (err != ::asagi::Grid::SUCCESS)
-				return 0;
+				abort = true;
 		}
 		//SCOREP_RECORDING_ON();
+		if (abort)
+			return 0;
 
 		// Grid dimensions
 		m_min = glm::dvec3(m_grid->getMin(0), m_grid->getMin(1), m_grid->getMin(2));

@@ -68,7 +68,6 @@ struct Setter
 	{
 	}
 
-
 	void set(const float* material)
 	{
 		materialValues[i] = material[0];

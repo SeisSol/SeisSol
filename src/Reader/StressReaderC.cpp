@@ -109,9 +109,9 @@ struct FrictionSetter
 	/** Destination buffer for stress values */
 	double * const buffer;
 
-	const double * const defaultValues;
+	const float * const defaultValues;
 
-	FrictionSetter(unsigned int numValues, unsigned int maxValues, double* buffer, const double* defaultValues)
+	FrictionSetter(unsigned int numValues, unsigned int maxValues, double* buffer, const float* defaultValues)
 		: numValues(numValues), maxValues(maxValues), buffer(buffer), defaultValues(defaultValues)
 	{
 	}
@@ -164,7 +164,7 @@ void open_stress_field(const char* file, int friction)
 		, seissol::MPI::mpi.fault.comm()
 #endif // USE_MPI
 	);
-	switch (numVariables) {
+	switch (numStressVariables) {
 	case 6:
 	case 7:
 		break;
@@ -177,6 +177,8 @@ void open_stress_field(const char* file, int friction)
 		, seissol::MPI::mpi.fault.comm()
 #endif // USE_MPI
 	);
+	if (numFrictionVariables == 0)
+		logInfo(rank) << "No friction data found, using default";
 
 	double time = stopwatch.stop();
 	logInfo(rank) << "Stress field opened in" << time << "sec.";
@@ -237,8 +239,7 @@ void close_stress_field()
 	logInfo(rank) << "Stress field initialized in" << time << "sec.";
 
 	stressReader.close();
-	if (numFrictionVariables > 0)
-		frictionReader.close();
+	frictionReader.close();
 
 	logInfo(rank) << "Initializing stress field. Done.";
 #else // USE_ASAGI
