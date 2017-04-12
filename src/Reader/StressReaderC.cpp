@@ -91,10 +91,10 @@ struct StressSetter
 		for (unsigned int i = 0; i < 6; i++)
 			buffer[i] = stressValues[i];
 		if (numValues > 6) {
-			// Substract the p from sxx, syy, szz
-			buffer[0] -= stressValues[6];
-			buffer[1] -= stressValues[6];
-			buffer[2] -= stressValues[6];
+			// Add p to sxx, syy, szz
+			buffer[0] += stressValues[6];
+			buffer[1] += stressValues[6];
+			buffer[2] += stressValues[6];
 		}
 	}
 };
