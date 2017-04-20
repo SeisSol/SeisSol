@@ -56,7 +56,7 @@ with open(args.ts_file) as fid:
          break
       title = line.split()
       #Skip everything not Surface
-      if title[1]!='TSurf':
+      if title[1].lower()!='tsurf':
 	 logging.info("skipping %s" %(title[1]))
          while True:
             line=fid.readline()

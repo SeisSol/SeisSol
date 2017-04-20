@@ -192,10 +192,11 @@ for iPartition=1:nPartition
        receivers = vertcat(receivers,receivers_part);       
    end
 end
-
-disp(sprintf('!!!removing %f in normal direction!!!!!!', depthdecrement));
-for i =1:size(receivers,1)
-    receivers(i,:) = receivers(i,:)-depthdecrement*normal;
+if SufaceId==1
+    disp(sprintf('!!!removing %f in normal direction!!!!!!', depthdecrement));
+    for i =1:size(receivers,1)
+        receivers(i,:) = receivers(i,:)-depthdecrement*normal;
+    end
 end
 disp(sprintf(' %d/%d receiver(s) could be located on the fault', size(receivers,1), size(st,1)));
  
