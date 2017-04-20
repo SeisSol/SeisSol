@@ -81,7 +81,8 @@ end
 
 % load receiver stations
 eval(['load ',rec_filename,'.dat']);
-eval(['st = ',rec_filename,';']);
+[trash,recprefix,trash] = fileparts(rec_filename);
+eval(['st = ',recprefix,';']);
 
 filename = sprintf('%s.nc',filename0);
 
