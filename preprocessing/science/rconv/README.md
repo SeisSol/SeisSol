@@ -9,7 +9,7 @@ You need to have the proj.4 and the NetCDF libraries installed and make sure tha
 Here is a way to configure your installation before running scons:   
 `export CC='icc'`   
 `export CXX='icpc'`   
-`export LIBRARY_PATH=Path-to-proj4/lib:Path-to-netcdf/lib:$LIBRARY\_PATH`   
+`export LIBRARY_PATH=Path-to-proj4/lib:Path-to-netcdf/lib:$LIBRARY_PATH`   
 `export CPATH=Path-to-proj4/include:Path-to-netcdf/include:Path-to-SeisSol/SeisSol/src:Path-to-SeisSol/SeisSol/submodules$CPATH`
 
 ## Using rconv
