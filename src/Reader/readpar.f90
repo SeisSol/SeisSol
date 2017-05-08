@@ -221,6 +221,7 @@ CONTAINS
     REAL                       :: relDummy
     INTEGER                    :: label                                      ! Used in READ statement
     INTEGER                    :: lines, ix,iy,iz
+    INTEGER                    :: readStat
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
@@ -275,7 +276,11 @@ CONTAINS
     !big box continental LVZ above L1 L2 L3 L4
     SumatraRegions = (/0,0,0,0,0,0,0/)
     !
-    READ(IO%UNIT%FileIn, nml = Equations)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Equations'
+        stop
+    ENDIF
     !
     IF ((MaterialType.GE.1220).AND.(MaterialType.LE.1230)) THEN
     ! Sumatra setup
@@ -652,12 +657,17 @@ CONTAINS
     TYPE (tInputOutput)                               :: IO
     INTENT(INOUT)                                     :: IO
     INTEGER                                           :: number
+    INTEGER                                           :: readStat
     CHARACTER(600), DIMENSION(:), ALLOCATABLE         :: RF_Files
     NAMELIST                                         /RFFile/ RF_Files
     !------------------------------------------------------------------------
     ALLOCATE(RF_Files(number))
-    READ(IO%UNIT%FileIn, nml = RFFile)      ! Write in namelistfile RF_File(1) = ... and in the next line RF_Files(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = RFFile)      ! Write in namelistfile RF_File(1) = ... and in the next line RF_Files(2) = ...
                                             ! according to the number of Random Fields
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist RFFile'
+        stop
+    ENDIF
   END SUBROUTINE
     !------------------------------------------------------------------------
      !Adjoint set to yes
@@ -887,6 +897,7 @@ CONTAINS
     CHARACTER(Len=600)         :: cICType, IniConditionFile
     REAL                       :: xc(3), amplitude, hwidth(3)
     INTEGER                    :: nZones, variable
+    INTEGER                    :: readStat
     NAMELIST                   /IniCondition/ cICType, variable, xc, amplitude, hwidth, &
                                               IniConditionFile, nZones
     !------------------------------------------------------------------------
@@ -904,7 +915,11 @@ CONTAINS
     amplitude = 0.0
     hwidth(:) = 5.0e3           ! in inputfile you can choose different values for x,y,z
     !
-    READ(IO%UNIT%FileIn, nml = IniCondition)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = IniCondition)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist IniCondition'
+        stop
+    ENDIF
 
     ! Renaming all variables in the beginning
      IC%cICType = cICType
@@ -1231,6 +1246,7 @@ CONTAINS
     INTEGER                    :: allocStat, OutputMask(5), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
+    INTEGER                    :: readStat
     REAL, DIMENSION(:), ALLOCATABLE ::X, Y, Z
     CHARACTER(LEN=600)         :: PPFileName
     !------------------------------------------------------------------------
@@ -1245,7 +1261,11 @@ CONTAINS
     OutputMask(1:3) = 1
     OutputMask(4:5) = 0
     !
-    READ(IO%UNIT%FileIn, nml = Pickpoint)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Pickpoint)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Pickpoint'
+        stop
+    ENDIF
     !
      DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
      DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:5) =  OutputMask(1:5)      ! read info of desired output 1/ yes, 0/ no
@@ -1309,6 +1329,7 @@ CONTAINS
     INTEGER                    :: printtimeinterval
     INTEGER                    :: printIntervalCriterion
     INTEGER                    :: refinement_strategy, refinement
+    INTEGER                    :: readStat
     REAL                       :: printtimeinterval_sec
     !-----------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IO, DISC
@@ -1324,7 +1345,11 @@ CONTAINS
     refinement_strategy = 2
     refinement = 2
     !
-    READ(IO%UNIT%FileIn, nml = Elementwise)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Elementwise)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Elementwise'
+        stop
+    ENDIF
     !
     DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
     if (printIntervalCriterion.EQ.1) THEN
@@ -1402,6 +1427,7 @@ CONTAINS
     INTEGER                    :: stat
     INTEGER                    :: allocStat
     INTEGER                    :: BC_fs, BC_nc, BC_dr, BC_if, BC_of, BC_pe
+    INTEGER                    :: readStat
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IO, DISC
     INTENT(INOUT)              :: BND
@@ -1423,7 +1449,11 @@ CONTAINS
     BC_of = 0
     BC_pe = 0
     !
-    READ (IO%UNIT%FileIn, nml = Boundaries)
+    READ (IO%UNIT%FileIn, IOSTAT=readStat, nml = Boundaries)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Boundaries'
+        stop
+    ENDIF
     !
       !
       BND%NoBndObjects(:) = 0
@@ -1539,6 +1569,7 @@ CONTAINS
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, SlipRateOutputType
+    INTEGER                                :: readStat
 
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
@@ -1633,7 +1664,11 @@ CONTAINS
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
 
            ! Read-in dynamic rupture parameters
-           READ(IO%UNIT%FileIn, nml = DynamicRupture)
+           READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = DynamicRupture)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist DynamicRupture'
+        stop
+    ENDIF
            logInfo(*) 'Beginning dynamic rupture initialization. '
 
            ! Read fault parameters from Par_file_faults?
@@ -1871,7 +1906,11 @@ CONTAINS
     NAMELIST                               /InflowBound/ setvar, char_option, &
                                                          PWFileName
     !------------------------------------------------------------------------
-    READ(IO%UNIT%FileIn, nml = InflowBound)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBound)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist InflowBound'
+        stop
+    ENDIF
 
       DO i=1,n4
          j = 1
@@ -2003,12 +2042,17 @@ CONTAINS
     TYPE (tInputOutput)                    :: IO
     INTENT(INOUT)                          :: IO
     INTEGER                                :: number
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: varfield
     NAMELIST                               /InflowBoundPWFile/ varfield
     !-----------------------------------------------------------------------
     ALLOCATE(varfield(number))
-    READ(IO%UNIT%FileIn, nml = InflowBoundPWFile) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBoundPWFile) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for u0_in
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist InflowBoundPWFile'
+        stop
+    ENDIF
   END SUBROUTINE
     !------------------------------------------------------------------------
      !Reading u0_in
@@ -2019,11 +2063,16 @@ CONTAINS
     TYPE (tEquations)                      :: EQN
     INTENT(INOUT)                          :: IO, EQN
     REAL, DIMENSION(:), ALLOCATABLE        :: u0_in
+    INTEGER                                :: readStat
     NAMELIST                               /InflowBounduin/u0_in
     !-----------------------------------------------------------------------
     ALLOCATE(u0_in(EQN%nVar))
 
-    READ(IO%UNIT%FileIn, nml = InflowBounduin) ! Write in namelistfile u0_in(1) = ... and in the next line u0_in(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBounduin) ! Write in namelistfile u0_in(1) = ... and in the next line u0_in(2) = ...
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist InflowBounduin'
+        stop
+    ENDIF
 
   END SUBROUTINE
 
@@ -2060,6 +2109,7 @@ CONTAINS
                                        l2, T, t0, Width, A0
    REAL,DIMENSION(:),ALLOCATABLE    :: SpacePositionx, SpacePositiony, SpacePositionz
    CHARACTER(Len=600)               :: FileName
+   INTEGER                          :: readStat
    NAMELIST                        /SourceType/ Type, Rtype, nDirac, nPulseSource, FileName, nRicker
 
    !------------------------------------------------------------------------
@@ -2073,7 +2123,11 @@ CONTAINS
     ! Setting default values
     Type = 0
     !
-    READ(IO%UNIT%FileIn, nml = SourceType)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = SourceType)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist SourceType'
+        stop
+    ENDIF
     SOURCE%Type = Type
    SELECT CASE(SOURCE%Type)                                                 !
 
@@ -2678,11 +2732,16 @@ CONTAINS
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     REAL                                   :: U0(3), l1(3)
+    INTEGER                                :: readStat
     NAMELIST                               /Source110/ U0, l1
     !-----------------------------------------------------------------------
 
-    READ(IO%UNIT%FileIn, nml = Source110) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source110) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
                                                   ! and the same for l1
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Source110'
+        stop
+    ENDIF
   END SUBROUTINE
 
  SUBROUTINE readsource15(IO, nDirac, SpacePositionx, SpacePositiony, SpacePositionz, TimePosition, Intensity, EqnNr)
@@ -2690,6 +2749,7 @@ CONTAINS
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: nDirac
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: SpacePositionx, SpacePositiony, SpacePositionz, TimePosition, &
                                               Intensity, EqnNr
     NAMELIST                               /Source15/SpacePositionx, SpacePositiony, SpacePositionz, &
@@ -2702,8 +2762,12 @@ ALLOCATE( SpacePositionx(nDirac), &
           Intensity(nDirac),       &
           EqnNr(nDirac))
 
-    READ(IO%UNIT%FileIn, nml = Source15) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source15) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
                                                   ! and the same for SpacePositiony, SpacePositionz,...
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Source15'
+        stop
+    ENDIF
   END SUBROUTINE
 
  SUBROUTINE readsource1618(IO, nRicker, SpacePositionx, SpacePositiony, SpacePositionz, Delay, a1, f, EqnNr)
@@ -2711,6 +2775,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: nRicker
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: SpacePositionx, SpacePositiony, SpacePositionz, Delay, &
                                               a1, f, EqnNr
     NAMELIST                               /Source1618/ SpacePositionx, SpacePositiony, SpacePositionz, Delay, &
@@ -2724,8 +2789,12 @@ ALLOCATE( SpacePositionx(nDirac), &
                f(nRicker),               &
                EqnNr(nRicker))
 
-    READ(IO%UNIT%FileIn, nml = Source1618) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source1618) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
                                                   ! and the same for SpacePositiony, ...
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Source1618'
+        stop
+    ENDIF
   END SUBROUTINE
 
  SUBROUTINE readsource17(EQN, IO, U0, l1, l2, T)
@@ -2735,6 +2804,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTENT(INOUT)                          :: EQN
     INTENT(IN)                             :: IO
     REAL, DIMENSION(:), ALLOCATABLE        :: U0, l1, l2, T
+    INTEGER                                :: readStat
     NAMELIST                               /Source17/ U0, l1, l2, T
     !-----------------------------------------------------------------------
     ALLOCATE(U0(EQN%nVar), &
@@ -2742,8 +2812,12 @@ ALLOCATE( SpacePositionx(nDirac), &
              l2(EQN%nVar), &
              T(EQN%nVar))
 
-    READ(IO%UNIT%FileIn, nml = Source17) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source17) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
                                                   ! and the same for l1, l2, ...
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Source17'
+        stop
+    ENDIF
   END SUBROUTINE
 
  SUBROUTINE readsource19(IO, nPulseSource, EqnNr, SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0)
@@ -2751,6 +2825,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                          :: IO
     INTEGER                                :: nPulseSource
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: EqnNr, SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0
     NAMELIST                               /Source19/ SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0
     !----------------------------------------------------------------------
@@ -2762,8 +2837,12 @@ ALLOCATE( SpacePositionx(nDirac), &
              Width(nPulseSource), &
              A0(nPulseSource))
 
-    READ(IO%UNIT%FileIn, nml = Source19) ! Write in namelistfile EqnNr(1) = ... and in the next line EqnNr(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source19) ! Write in namelistfile EqnNr(1) = ... and in the next line EqnNr(2) = ...
                                                   ! and the same for Spacepositionx, ...
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Source19'
+        stop
+    ENDIF
   END SUBROUTINE
   !
   !============================================================================
@@ -2782,6 +2861,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)        :: IO
     INTEGER                    :: iSponge
     INTEGER                    :: intDummy
+    INTEGER                    :: readStat
     !--------------------------------------------------------------------------
     INTENT(INOUT)              :: SOURCE, DISC,EQN
     INTENT(IN)                 :: IO
@@ -2802,7 +2882,11 @@ ALLOCATE( SpacePositionx(nDirac), &
     !Setting default values
     enabled = 0
     !
-    READ (IO%UNIT%FileIn, nml = SpongeLayer)
+    READ (IO%UNIT%FileIn, IOSTAT=readStat, nml = SpongeLayer)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist SpongeLayer'
+        stop
+    ENDIF
     SOURCE%Sponge%enabled = enabled
 
     SELECT CASE(SOURCE%Sponge%enabled)
@@ -2854,6 +2938,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: nDGSponge
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: SpongeDelta, SpongePower, SigmaMax
     NAMELIST                               /Sponges/ SpongeDelta, SpongePower, SigmaMax
     !----------------------------------------------------------------------
@@ -2861,8 +2946,12 @@ ALLOCATE( SpacePositionx(nDirac), &
                 SpongePower(nDGSponge), &
                 SigmaMax(nDGSponge))
 
-    READ(IO%UNIT%FileIn, nml = Sponges) ! Write in namelistfile SpongeDelta(1) = ... and in the next line SpongeDelta(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Sponges) ! Write in namelistfile SpongeDelta(1) = ... and in the next line SpongeDelta(2) = ...
                                                   ! and the same for SpongePower, ...
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Sponges'
+        stop
+    ENDIF
    END SUBROUTINE
   !
   !============================================================================
@@ -2885,6 +2974,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     REAL                       :: periodic_direction(3)
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
+    INTEGER                    :: readStat
     CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
@@ -2922,7 +3012,11 @@ ALLOCATE( SpacePositionx(nDirac), &
     periodic = 0
     periodic_direction(:) = 0
     !
-    READ(IO%UNIT%FileIn, nml = MeshNml)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = MeshNml)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist MeshNml'
+        stop
+    ENDIF
 
     IO%MeshFile = MeshFile                               ! mesh input (mesh file name, no_file)
 
@@ -3098,6 +3192,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)        :: IO
     ! localVariables
     INTEGER                    :: intDummy, stat, i
+    INTEGER                    :: readStat
     CHARACTER(LEN=5)           :: cInput
     CHARACTER(LEN=300)         :: cDummy
 
@@ -3137,7 +3232,11 @@ ALLOCATE( SpacePositionx(nDirac), &
     Material = 1
     FixTimeStep = 5000
     !                                                              ! DGM :
-    READ(IO%UNIT%FileIn, nml = Discretization)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Discretization)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Discretization'
+        stop
+    ENDIF
     DISC%Galerkin%DGFineOut1D = DGFineOut1D                        ! No. of red-refinements
     !                                                              ! for 2-D fine output
     IF(DISC%Galerkin%DGFineOut1D.GT.0) THEN
@@ -3274,6 +3373,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                       :: allocstat
       INTEGER                       :: iOutputMask(29)
       INTEGER                       :: idimensionMask(3)
+      INTEGER                       :: readStat
       CHARACTER(LEN=620)            :: Name
       REAL,DIMENSION(:),ALLOCATABLE :: X, Y, Z
       !------------------------------------------------------------------------
@@ -3330,7 +3430,11 @@ ALLOCATE( SpacePositionx(nDirac), &
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
       !
-      READ(IO%UNIT%FileIn, nml = Output)
+      READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Output'
+        stop
+    ENDIF
       IO%OutputFile = OutputFile                                                   ! read output field file
 
       IO%OutputFile  = TRIM(IO%OutputFile)
@@ -3857,6 +3961,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTENT(INOUT)              :: DISC,IO
     !------------------------------------------------------------------------
     INTEGER                          :: MaxIteration
+    INTEGER                          :: readStat
     REAL                             :: EndTime, MaxTolerance, MaxTolCriterion, WallTime_h, Delay_h
     NAMELIST                         /AbortCriteria/ EndTime, MaxIteration, MaxTolerance, &
                                                       MaxTolCriterion, WallTime_h, Delay_h
@@ -3874,7 +3979,11 @@ ALLOCATE( SpacePositionx(nDirac), &
     WallTime_h = 1e20
     Delay_h = 0.
 
-   READ(IO%UNIT%FileIn, nml = AbortCriteria)
+   READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = AbortCriteria)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist AbortCriteria'
+        stop
+    ENDIF
 
     DISC%EndTime =  EndTime                                         ! time required
 
@@ -3919,6 +4028,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     COMPLEX                    :: IU
     REAL                       :: Im, Re
     INTEGER                    :: I,J,allocStat
+    INTEGER                    :: readStat
     !------------------------------------------------------------------------
     INTENT(IN)                 :: EQN,IO
     INTENT(OUT)                :: ANALYSE
@@ -3937,7 +4047,11 @@ ALLOCATE( SpacePositionx(nDirac), &
     !Setting default values
     typ = 0                                                                   !Read which variables are to be analyzed
 
-   READ(IO%UNIT%FileIn, nml = Analysis)
+   READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Analysis)
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist Analysis'
+        stop
+    ENDIF
     ANALYSE%typ = typ
 
    ANALYSE%AnalyseDataPerIteration = .FALSE.
@@ -4044,6 +4158,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: setvar
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: varfield, ampfield
     CHARACTER(LEN=600)                     :: EigenVecValName
     NAMELIST                               /AnalysisFields/ varfield, ampfield, EigenVecValName
@@ -4051,8 +4166,12 @@ ALLOCATE( SpacePositionx(nDirac), &
        ALLOCATE(varfield(setvar), &
                 ampfield(setvar))
 
-    READ(IO%UNIT%FileIn, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for ampfield, ...
+    IF (readStat.NE.0) THEN
+        logError(*) 'Error reading namelist AnalysisFields'
+        stop
+    ENDIF
    END SUBROUTINE
 
   !============================================================================
