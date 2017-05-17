@@ -56,7 +56,7 @@ with open(args.ts_file) as fid:
          break
       title = line.split()
       #Skip everything not Surface
-      if title[1]!='TSurf':
+      if title[1].lower()!='tsurf':
 	 logging.info("skipping %s" %(title[1]))
          while True:
             line=fid.readline()
@@ -117,7 +117,11 @@ with open(args.ts_file) as fid:
 	 #compute efficiently the normals
 	 logging.debug("computing the normals")
 	 normal = np.cross(nodes[triangles[:,1],:]-nodes[triangles[:,0],:],nodes[triangles[:,2],:]-nodes[triangles[:,0],:])
-	 norm=np.linalg.norm(normal, axis=1)
+
+	 #small change to make it compatible with older version of Python
+	 #norm=np.linalg.norm(normal, axis=1)
+	 norm=np.apply_along_axis(np.linalg.norm, 1, normal)
+
 	 normal = normal/norm.reshape((ntriangles,1))
 
 	 logging.debug("Writing solid %s" %surface_name)
