@@ -176,7 +176,6 @@ module f_ctof_bind_interoperability
       REAL        :: XYStressGP(1:i_numberOfPoints,CONVERGENCE_ORDER)
       REAL        :: XZStressGP(1:i_numberOfPoints,CONVERGENCE_ORDER)
       real        :: subTimeStepWidth
-
       integer :: iSide, iElem, iObject, MPIIndex, MPIIndex_DR, i, j
 
       ! register scorep region dynamic rupture

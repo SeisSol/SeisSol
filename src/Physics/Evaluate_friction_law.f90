@@ -188,14 +188,13 @@ MODULE Eval_friction_law_mod
                       ! Fast velocity-weakening friction with slip law
                       ! + time and space dependent nucleation
 
-           logError(*) 'Currently disabled'
-!~            CALL rate_and_state_nuc103(                                     & !
-!~                                 TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
-!~                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
-!~                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
-!~                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-!~                                 time,DeltaT,iT,                            & ! IN: time, inv Trafo
-!~                                 DISC,EQN,MESH,MPI,IO,BND)
+            CALL rate_and_state_nuc103(                                     & !
+                                 TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
+                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
+                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
+                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
+                                 time,DeltaT,                               & ! IN: time, inv Trafo
+                                 DISC,EQN,MESH,MPI,IO,BND)
 
 
         CASE DEFAULT
@@ -1342,6 +1341,7 @@ MODULE Eval_friction_law_mod
 
   END SUBROUTINE rate_and_state_nuc101
 
+
   !> special friction case for SCEC TPV103: rate and state friction
   !> slip law with strong weakening
   !< with time and space dependent nucleation
@@ -1349,7 +1349,7 @@ MODULE Eval_friction_law_mod
                             NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                            time,DeltaT,iT,                            & ! IN: time, inv Trafo
+                            time,DeltaT,                               & ! IN: time
                             DISC,EQN,MESH,MPI,IO,BND)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -1375,8 +1375,6 @@ MODULE Eval_friction_law_mod
     REAL        :: XZStressGP(nBndGP,nTimeGP)
     REAL        :: TractionGP_XY(nBndGP,nTimeGP)
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
-    REAL        :: iT(:,:)                                      ! inverse Transformation matrix    !
-    REAL        :: Stress(6,1:nBndGP)
     REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
     REAL        :: LocMu_S, LocMu_D
     REAL        :: LocSR1,LocSR2
@@ -1390,7 +1388,7 @@ MODULE Eval_friction_law_mod
     REAL        :: RS_fw,RS_srW,flv,fss,SVss
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
     REAL        :: hypox, hypoy, hypoz
-    REAL        :: Rnuc, Tnuc, radius, Gnuc, Fnuc, invZ, AlmostZero, aTolF
+    REAL        :: Rnuc, Tnuc, radius, Gnuc, invZ, AlmostZero, aTolF
     REAL        :: prevtime,dt
     LOGICAL     :: has_converged
     LOGICAL     :: nodewise=.FALSE.
@@ -1407,11 +1405,7 @@ MODULE Eval_friction_law_mod
 
     !Apply time dependent nucleation at global time step not sub time steps for simplicity
     !initialize time and space dependent nucleation
-    Rnuc = DISC%DynRup%R_crit
     Tnuc = DISC%DynRup%t_0
-    hypox = DISC%DynRup%XHypo
-    hypoy = DISC%DynRup%YHypo
-    hypoz = DISC%DynRup%ZHypo
 
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
@@ -1437,97 +1431,15 @@ MODULE Eval_friction_law_mod
     ELSE
         Gnuc=0.0D0
     ENDIF
-    IF (nodewise) THEN
-     !
-         ! Gauss node coordinate definition and stress assignment
-         ! get vertices of complete tet
-            IF (MESH%Fault%Face(iFace,1,1) == 0) THEN
-                ! iElem is in the neighbor domain
-                ! The neighbor element belongs to a different MPI domain
-                iNeighbor           = MESH%Fault%Face(iFace,1,2)          ! iNeighbor denotes "-" side
-                iLocalNeighborSide  = MESH%Fault%Face(iFace,2,2)
-                iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-                MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-                !
-                xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-                yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-                zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-            ELSE
-                !
-                ! get vertices
-                xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-                yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-                zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-            ENDIF
-            !
-            DO iBndGP = 1,nBndGP
-                !
-                ! Transformation of boundary GP's into XYZ coordinate system
-                chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-                tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-                CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-                CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-                !
-                !radial distance to hypocenter
-                radius=SQRT((xGP-hypox)**2+(yGP-hypoy)**2+(zGP-hypoz)**2)
-                ! Inside nucleation patch add shear stress perturbation of 45 MPa along strike
-                IF (radius.LT.Rnuc) THEN
-                    Fnuc=EXP(radius**2/(radius**2-Rnuc**2))
-                    EQN%IniBulk_xx(iFace,iBndGP)=EQN%IniBulk_xx(iFace,iBndGP)+DISC%DynRup%NucBulk_xx_0*Fnuc*Gnuc
-                    EQN%IniBulk_yy(iFace,iBndGP)=EQN%IniBulk_yy(iFace,iBndGP)+DISC%DynRup%NucBulk_yy_0*Fnuc*Gnuc
-                    EQN%IniBulk_zz(iFace,iBndGP)=EQN%IniBulk_zz(iFace,iBndGP)+DISC%DynRup%NucBulk_zz_0*Fnuc*Gnuc
-                    EQN%IniShearXY(iFace,iBndGP)=EQN%IniShearXY(iFace,iBndGP)+DISC%DynRup%NucShearXY_0*Fnuc*Gnuc
-                    EQN%IniShearXZ(iFace,iBndGP)=EQN%IniShearXZ(iFace,iBndGP)+DISC%DynRup%NucShearXZ_0*Fnuc*Gnuc
-                    EQN%IniShearYZ(iFace,iBndGP)=EQN%IniShearYZ(iFace,iBndGP)+DISC%DynRup%NucShearYZ_0*Fnuc*Gnuc
-                ENDIF ! Rnuc
-                !
-            ENDDO ! iBndGP
-        !
-    ELSE
-        ! get coordinates needed for nucleation zone
-            IF (iElem .NE. 0) THEN
-                !
-                DO j=1,3
-                    xp(j) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(VertexSide(iSide,j),iElem))
-                    yp(j) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(VertexSide(iSide,j),iElem))
-                    zp(j) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(VertexSide(iSide,j),iElem))
-                ENDDO
-            ELSEIF (iElem == 0) THEN ! in case "+" element is not present in the local domain
-                !
-                iLocalNeighborSide = MESH%Fault%Face(iFace,2,2)
-                DO j=1,3
-                    xp(j) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(VertexSide(iLocalNeighborSide,j),MESH%Fault%Face(iFace,1,2)))
-                    yp(j) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(VertexSide(iLocalNeighborSide,j),MESH%Fault%Face(iFace,1,2)))
-                    zp(j) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(VertexSide(iLocalNeighborSide,j),MESH%Fault%Face(iFace,1,2)))
-                ENDDO
-            ENDIF
-            !max radial distance to hypocenter
-            radius=SQRT((MAXVAL(xp(1:3))-hypox)**2+(MAXVAL(yp(1:3))-hypoy)**2+(MAXVAL(zp(1:3))-hypoz)**2)
-                    ! Inside nucleation patch add shear stress perturbation of 45 MPa along strike
-        IF (radius.LT.Rnuc) THEN
-            Fnuc=EXP(radius**2/(radius**2-Rnuc**2))
-            EQN%IniBulk_xx(iFace,:)=EQN%IniBulk_xx(iFace,:)+DISC%DynRup%NucBulk_xx_0*Fnuc*Gnuc
-            EQN%IniBulk_yy(iFace,:)=EQN%IniBulk_yy(iFace,:)+DISC%DynRup%NucBulk_yy_0*Fnuc*Gnuc
-            EQN%IniBulk_zz(iFace,:)=EQN%IniBulk_zz(iFace,:)+DISC%DynRup%NucBulk_zz_0*Fnuc*Gnuc
-            EQN%IniShearXY(iFace,:)=EQN%IniShearXY(iFace,:)+DISC%DynRup%NucShearXY_0*Fnuc*Gnuc
-            EQN%IniShearXZ(iFace,:)=EQN%IniShearXZ(iFace,:)+DISC%DynRup%NucShearXZ_0*Fnuc*Gnuc
-            EQN%IniShearYZ(iFace,:)=EQN%IniShearYZ(iFace,:)+DISC%DynRup%NucShearYZ_0*Fnuc*Gnuc
-            ENDIF ! Rnuc
-    ENDIF ! nodewise
+    !DISC%DynRup%NucBulk_** is already in fault coordinate system
+    EQN%InitialStressInFaultCS(:,1,iFace)=EQN%InitialStressInFaultCS(:,1,iFace)+EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
+    EQN%InitialStressInFaultCS(:,2,iFace)=EQN%InitialStressInFaultCS(:,2,iFace)+EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
+    EQN%InitialStressInFaultCS(:,3,iFace)=EQN%InitialStressInFaultCS(:,3,iFace)+EQN%NucleationStressInFaultCS(:,3,iFace)*Gnuc
+    EQN%InitialStressInFaultCS(:,4,iFace)=EQN%InitialStressInFaultCS(:,4,iFace)+EQN%NucleationStressInFaultCS(:,4,iFace)*Gnuc
+    EQN%InitialStressInFaultCS(:,5,iFace)=EQN%InitialStressInFaultCS(:,5,iFace)+EQN%NucleationStressInFaultCS(:,5,iFace)*Gnuc
+    EQN%InitialStressInFaultCS(:,6,iFace)=EQN%InitialStressInFaultCS(:,6,iFace)+EQN%NucleationStressInFaultCS(:,6,iFace)*Gnuc
+
     ENDIF ! Tnuc
-    !
-    !Background stress rotation to face's reference system
-    !
-    Stress(1,:)=EQN%IniBulk_xx(iFace,:)
-    Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-    Stress(3,:)=EQN%IniBulk_zz(iFace,:)
-    Stress(4,:)=EQN%IniShearXY(iFace,:)
-    Stress(5,:)=EQN%IniShearYZ(iFace,:)
-    Stress(6,:)=EQN%IniShearXZ(iFace,:)
-    !
-    DO iBndGP=1,nBndGP
-       Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))
-    ENDDO
     !
     DO iBndGP=1,nBndGP
      !
@@ -1537,7 +1449,7 @@ MODULE Eval_friction_law_mod
      LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
      LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
      LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
-     P_0       = Stress(1,iBndGP)
+     P_0       = EQN%InitialStressInFaultCS(iBndGP,1,iFace)
      !
      DO iTimeGP=1,nTimeGP
          !
@@ -1560,7 +1472,7 @@ MODULE Eval_friction_law_mod
          !
          ! load traction and normal stress
          P      = LocP+P_0
-         ShTest = SQRT((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))**2 + (Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))**2)
+         ShTest = SQRT((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
          !
          SV0=LocSV    ! Careful, the SV must always be corrected using SV0 and not LocSV!
          !
@@ -1619,7 +1531,7 @@ MODULE Eval_friction_law_mod
              !
          ENDDO !  j=1,nSVupdates   !This loop corrects SV values
          if (.NOT.has_converged) THEN
-            logError(*) 'nonConvergence RS Newton', time, i, j, abs(NR),SRtest,LocSR,iFace,iBndGP
+            logError(*) 'nonConvergence RS Newton', time, Shtest, SQRT(LocSR1**2 + LocSR2**2), P, NR ,SRtest,DISC%DynRup%StateVar(iFace,iBndGP), time_inc
          ENDIF
          !
          ! 5. get final theta, mu, traction and slip
@@ -1633,10 +1545,10 @@ MODULE Eval_friction_law_mod
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
          ! update stress change
 
-         LocTracXY = -((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
-         LocTracXZ = -((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
-         LocTracXY = LocTracXY - Stress(4,iBndGP)
-         LocTracXZ = LocTracXZ - Stress(6,iBndGP)
+         LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
+         LocTracXZ = -((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
+         LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
+         LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(iBndGP,6,iFace)
          !
          ! Compute slip
          LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
