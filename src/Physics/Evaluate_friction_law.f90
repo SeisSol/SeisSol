@@ -1520,7 +1520,7 @@ MODULE Eval_friction_law_mod
                  ENDIF
                  dNR          = -invZ * (ABS(P)*RS_a/SQRT(1d0+tmp2**2)*tmp) -1.0
                  tmp3 = NR/dNR
-                 SRtest = max(AlmostZero,ABS(SRtest - tmp3))
+                 SRtest = max(AlmostZero,SRtest - tmp3)
              ENDDO
              !
              ! 3. update theta, now using V=(Vnew+Vold)/2
