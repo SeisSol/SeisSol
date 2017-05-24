@@ -1369,23 +1369,23 @@ MODULE Eval_friction_law_mod
     INTEGER     :: MPIIndex, iObject
     REAL        :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
     REAL        :: time
-    REAL        :: LocTracXY,LocTracXZ
+    REAL        :: LocTracXY(nBndGP),LocTracXZ(nBndGP)
     REAL        :: NorStressGP(nBndGP,nTimeGP)
     REAL        :: XYStressGP(nBndGP,nTimeGP)
     REAL        :: XZStressGP(nBndGP,nTimeGP)
     REAL        :: TractionGP_XY(nBndGP,nTimeGP)
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
-    REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
+    REAL        :: LocMu(nBndGP), LocD_C(nBndGP), LocSlip(nBndGP), LocSlip1(nBndGP), LocSlip2(nBndGP), LocP(nBndGP), P(nBndGP), LocSR(nBndGP), ShTest(nBndGP)
     REAL        :: LocMu_S, LocMu_D
-    REAL        :: LocSR1,LocSR2
-    REAL        :: P_0,Strength,cohesion
+    REAL        :: LocSR1(nBndGP),LocSR2(nBndGP)
+    REAL        :: P_0(nBndGP),Strength(nBndGP),cohesion(nBndGP)
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
-    REAL        :: SV0, tmp, tmp2, tmp3, SRtest, NR, dNR
-    REAL        :: LocSV
-    REAL        :: RS_f0,RS_a,RS_b,RS_sl0,RS_sr0
-    REAL        :: RS_fw,RS_srW,flv,fss,SVss
+    REAL        :: SV0(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP), SRtest(nBndGP), NR(nBndGP), dNR(nBndGP)
+    REAL        :: LocSV(nBndGP)
+    REAL        :: RS_f0,RS_a(nBndGP),RS_b,RS_sl0,RS_sr0
+    REAL        :: RS_fw,RS_srW(nBndGP),flv(nBndGP),fss(nBndGP),SVss(nBndGP)
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
     REAL        :: hypox, hypoy, hypoz
     REAL        :: Rnuc, Tnuc, radius, Gnuc, invZ, AlmostZero, aTolF
@@ -1441,15 +1441,14 @@ MODULE Eval_friction_law_mod
 
     ENDIF ! Tnuc
     !
-    DO iBndGP=1,nBndGP
      !
-     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
-     LocSlip1   = DISC%DynRup%Slip1(iBndGP,iFace)
-     LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
-     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
-     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
-     LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
-     P_0       = EQN%InitialStressInFaultCS(iBndGP,1,iFace)
+     LocSlip   = DISC%DynRup%Slip(:,iFace)
+     LocSlip1   = DISC%DynRup%Slip1(:,iFace)
+     LocSlip2   = DISC%DynRup%Slip2(:,iFace)
+     LocSR1    = DISC%DynRup%SlipRate1(:,iFace)
+     LocSR2    = DISC%DynRup%SlipRate2(:,iFace)
+     LocSV     = DISC%DynRup%StateVar(:,iFace)
+     P_0       = EQN%InitialStressInFaultCS(:,1,iFace)
      !
      DO iTimeGP=1,nTimeGP
          !
@@ -1459,20 +1458,20 @@ MODULE Eval_friction_law_mod
          !                                      mu_ss = mu_w + [mu_lv - mu_w] / [ 1 + (V/Vw)^8 ] ^ (1/8) ]
          !                                      mu_lv = mu_0 - (b-a) ln (V/V0)
          !
-         LocP   = NorStressGP(iBndGP,iTimeGP)
+         LocP   = NorStressGP(:,iTimeGP)
          time_inc = DeltaT(iTimeGP)
          !
          RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
          RS_sr0 = DISC%DynRup%RS_sr0    ! V0, reference velocity scale
          RS_fw  = DISC%DynRup%Mu_w      ! mu_w, weakening friction coefficient
-         RS_srW = DISC%DynRup%RS_srW_array(iFace,iBndGP)    ! Vw, weakening sliding velocity, space dependent
-         RS_a   = DISC%DynRup%RS_a_array(iFace,iBndGP) ! a, direct effect, space dependent
+         RS_srW = DISC%DynRup%RS_srW_array(:,iFace)    ! Vw, weakening sliding velocity, space dependent
+         RS_a   = DISC%DynRup%RS_a_array(:,iFace) ! a, direct effect, space dependent
          RS_b   = DISC%DynRup%RS_b       ! b, evolution effect
          RS_sl0 = DISC%DynRup%RS_sl0     ! L, char. length scale
          !
          ! load traction and normal stress
          P      = LocP+P_0
-         ShTest = SQRT((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
+         ShTest = SQRT((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))**2 + (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))**2)
          !
          SV0=LocSV    ! Careful, the SV must always be corrected using SV0 and not LocSV!
          !
@@ -1514,7 +1513,7 @@ MODULE Eval_friction_law_mod
                  ! for convenience
                  tmp2         = tmp*SRtest != X in ASINH(X) for mu calculation
                  NR           = -invZ * (ABS(P)*RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))-ShTest)-SRtest
-                 IF (abs(NR)<atolF) THEN
+                 IF (maxval(abs(NR))<atolF) THEN
                     has_converged = .TRUE.
                     EXIT
                  ENDIF
@@ -1531,7 +1530,7 @@ MODULE Eval_friction_law_mod
              !
          ENDDO !  j=1,nSVupdates   !This loop corrects SV values
          if (.NOT.has_converged) THEN
-            logError(*) 'nonConvergence RS Newton', time, Shtest, SQRT(LocSR1**2 + LocSR2**2), P, NR ,SRtest,DISC%DynRup%StateVar(iFace,iBndGP), time_inc
+            logError(*) 'nonConvergence RS Newton', time
          ENDIF
          !
          ! 5. get final theta, mu, traction and slip
@@ -1545,24 +1544,24 @@ MODULE Eval_friction_law_mod
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
          ! update stress change
 
-         LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
-         LocTracXZ = -((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
-         LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
-         LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(iBndGP,6,iFace)
+         LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*P
+         LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*P
+         LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(:,4,iFace)
+         LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(:,6,iFace)
          !
          ! Compute slip
          LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
          !
          !Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-         LocSR1     = -invZ*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
-         LocSR2     = -invZ*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
+         LocSR1     = -invZ*(LocTracXY-XYStressGP(:,iTimeGP))
+         LocSR2     = -invZ*(LocTracXZ-XZStressGP(:,iTimeGP))
 
          !TU 07.07.16: correct LocSR1_2 to avoid numerical errors
          tmp = sqrt(LocSR1**2+LocSR2**2)
-         if( tmp.NE.0d0) THEN
+         where ( tmp.NE.0d0) 
             LocSR1 = LocSR*LocSR1/tmp
             LocSR2 = LocSR*LocSR2/tmp
-         ENDIF
+         endwhere
 
          LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
          LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
@@ -1570,33 +1569,32 @@ MODULE Eval_friction_law_mod
          !LocSR2     = SignSR2*ABS(LocSR2)
          !
          !Save traction for flux computation
-         TractionGP_XY(iBndGP,iTimeGP) = LocTracXY
-         TractionGP_XZ(iBndGP,iTimeGP) = LocTracXZ
+         TractionGP_XY(:,iTimeGP) = LocTracXY
+         TractionGP_XZ(:,iTimeGP) = LocTracXZ
          !
      ENDDO ! iTimeGP=1,DISC%Galerkin%nTimeGP
      !
      ! output rupture front
      ! outside of iTimeGP loop in order to safe an 'if' in a loop
      ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iBndGP,iFace)=time
-        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
-     ENDIF
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
-        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
-     ENDIF
+     where (DISC%DynRup%RF(:,iFace) .AND. LocSR .GT. 0.001D0)
+        DISC%DynRup%rupture_time(:,iFace)=time
+        DISC%DynRup%RF(:,iFace) = .FALSE.
+     endwhere
+     where (LocSR.GT.DISC%DynRup%PeakSR(:,iFace))
+        DISC%DynRup%PeakSR(:,iFace) = LocSR
+     endwhere
      !
-     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
-     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
-     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
-     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
-     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
-     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
-     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
-     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
-     DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
+     DISC%DynRup%Mu(:,iFace)        = LocMu
+     DISC%DynRup%SlipRate1(:,iFace) = LocSR1
+     DISC%DynRup%SlipRate2(:,iFace) = LocSR2
+     DISC%DynRup%Slip(:,iFace)      = LocSlip
+     DISC%DynRup%Slip1(:,iFace)     = LocSlip1
+     DISC%DynRup%Slip2(:,iFace)     = LocSlip2
+     DISC%DynRup%TracXY(:,iFace)    = LocTracXY
+     DISC%DynRup%TracXZ(:,iFace)    = LocTracXZ
+     DISC%DynRup%StateVar(:,iFace)  = LocSV
   !
- ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 
  END SUBROUTINE rate_and_state_nuc103
 

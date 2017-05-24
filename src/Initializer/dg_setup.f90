@@ -427,7 +427,7 @@ CONTAINS
     INTEGER                         :: iCurElem
     INTEGER                         :: nDGWorkVar
     INTEGER                         :: allocstat
-    INTEGER                         :: iIntGP,iTimeGP,NestSize,BlockSize
+    INTEGER                         :: iIntGP,iTimeGP,NestSize,BlockSize,iFace
     INTEGER                         :: iDegFr_xi,iDegFr_tau,iDegFr_tau2
     REAL                            :: x,y,z
     REAL                            :: pi_const, earth_rad
@@ -1120,7 +1120,7 @@ CONTAINS
       ALLOCATE(DISC%DynRup%dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       
       ! TODO: Transpose StateVar
-      ALLOCATE(DISC%DynRup%StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       !
       DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
       DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
@@ -1130,7 +1130,9 @@ CONTAINS
       DISC%DynRup%TracXY        = 0.0D0
       DISC%DynRup%TracXZ        = 0.0D0
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
-      DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
+      do iFace=1,MESH%Fault%nSide
+         DISC%DynRup%StateVar(:,iFace) = EQN%IniStateVar(iFace,:)
+      enddo
       DISC%DynRup%PeakSR        = 0.0D0
       DISC%DynRup%rupture_time  = 0.0D0
       DISC%DynRup%dynStress_time = 0.0D0

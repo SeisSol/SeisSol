@@ -4878,7 +4878,7 @@ MODULE ini_model_DR_mod
 
   IF(.NOT.ALLOCATED(DISC%DynRup%RS_a_array)) THEN
      logWarning(*) 'RS_a_array not allocated before call of friction_RSF103. Allocating now.'
-     ALLOCATE(DISC%DynRup%RS_a_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP),STAT=allocstat)
+     ALLOCATE(DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),STAT=allocstat)
      IF (allocStat .NE. 0) THEN
         logError(*) 'friction_RSF103: could not allocate all variables!'
         STOP
@@ -4887,7 +4887,7 @@ MODULE ini_model_DR_mod
   ENDIF
   IF(.NOT.ALLOCATED(DISC%DynRup%RS_srW_array)) THEN
      logWarning(*) 'RS_srW_array not allocated before call of friction_RSF103. Allocating now.'
-     ALLOCATE(DISC%DynRup%RS_srW_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP),STAT=allocstat)
+     ALLOCATE(DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),STAT=allocstat)
      IF (allocStat .NE. 0) THEN
         logError(*) 'friction_RSF103: could not allocate all variables!'
         STOP
@@ -4953,11 +4953,11 @@ MODULE ini_model_DR_mod
           CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
           ! SINH(X)=(EXP(X)-EXP(-X))/2
           !tmp = ABS(EQN%IniShearXY(i,iBndGP)/(DISC%DynRup%RS_a_array(i,iBndGP)*EQN%IniBulk_yy(i,iBndGP)))
-          tmp = ABS(SQRT(Stress(4,iBndGP)**2+Stress(6,iBndGP)**2)/(DISC%DynRup%RS_a_array(i,iBndGP)*Stress(1,iBndGP)))
-          EQN%IniStateVar(i,iBndGP)=DISC%DynRup%RS_a_array(i,iBndGP)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
+          tmp = ABS(SQRT(Stress(4,iBndGP)**2+Stress(6,iBndGP)**2)/(DISC%DynRup%RS_a_array(iBndGP,i)*Stress(1,iBndGP)))
+          EQN%IniStateVar(i,iBndGP)=DISC%DynRup%RS_a_array(iBndGP,i)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
-          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(i,iBndGP)/ DISC%DynRup%RS_a_array(i,iBndGP))
-          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0D0))
+          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(i,iBndGP)/ DISC%DynRup%RS_a_array(iBndGP,i))
+          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(iBndGP,i) * LOG(tmp + SQRT(tmp**2 + 1.0D0))
 
       ENDDO ! iBndGP
 
