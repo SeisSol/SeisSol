@@ -1458,7 +1458,7 @@ MODULE ini_model_DR_mod
   ! fault reaches the surface at depth 0km
   ! units of mesh in meter
 
-  ALLOCATE(  DISC%DynRup%RS_a_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
+  ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
 
   DISC%DynRup%cohesion = -1.0e6
 
@@ -1482,7 +1482,7 @@ MODULE ini_model_DR_mod
 
       ! ini frictional parameters
       EQN%IniStateVar(i,:) =  EQN%RS_sv0
-      DISC%DynRup%RS_a_array(i,:) = DISC%DynRup%RS_a
+      DISC%DynRup%RS_a_array(:,i) = DISC%DynRup%RS_a
 
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
@@ -1528,10 +1528,10 @@ MODULE ini_model_DR_mod
           ! effective normal stress
           nstress = 7378D0*abs(average)/0.866025404D0
 
-          EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((0.55D0*nstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(i,iBndGP)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
+          EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((0.55D0*nstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(iBndGP,i)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
           ! resulting changes in mu ini
-          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(i,iBndGP))
-          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
+          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(iBndGP,i))
+          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(iBndGP,i) * LOG(tmp + SQRT(tmp**2 + 1.0))
           ! Nucleation patch: set nucleation case to 0 in dyn file
           ! shear stress=cohesion+(static fric + 0.7)* initial normal stress
           IF ((xGP.LE.1500.0D0) .AND. (xGP.GE.-1500.0D0)       &
@@ -1545,11 +1545,11 @@ MODULE ini_model_DR_mod
               sstress = -1.0e6 + (0.6D0+0.8D0)*nstress
 
               ! resulting changes in SV_ini
-              EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((sstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(i,iBndGP)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
+              EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((sstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(iBndGP,i)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
 
               !resulting changes in mu ini
-              tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(i,iBndGP))
-              EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
+              tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(iBndGP,i))
+              EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(iBndGP,i) * LOG(tmp + SQRT(tmp**2 + 1.0))
           ENDIF
 
       ENDDO ! iBndGP
@@ -2216,8 +2216,8 @@ MODULE ini_model_DR_mod
   ! depth dependent stress function (gravity)
   ! NOTE: z negative is depth, free surface is at z=0
 
-  ALLOCATE(  DISC%DynRup%RS_a_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
-  ALLOCATE(  DISC%DynRup%RS_srW_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
+  ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
+  ALLOCATE(  DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)      )
 
   zToStartTapering = -10d3
   zBoStartTapering = -25d3
@@ -2282,7 +2282,7 @@ MODULE ini_model_DR_mod
 
       ! ini frictional parameters
       EQN%IniStateVar(i,:) =  EQN%RS_sv0
-      DISC%DynRup%RS_a_array(i,:) = DISC%DynRup%RS_a
+      DISC%DynRup%RS_a_array(:,i) = DISC%DynRup%RS_a
 
       ! ini frictional parameters
       !EQN%IniStateVar(i,:) =  EQN%RS_sv0
@@ -2427,17 +2427,17 @@ MODULE ini_model_DR_mod
               ENDIF
               Boxx  =1d0
               ! smooth boxcar
-              DISC%DynRup%RS_a_array(i,iBndGP) = DISC%DynRup%RS_a+RS_a_inc*(1.0D0-(Boxx*Boxz))
-              DISC%DynRup%RS_srW_array(i,iBndGP) = DISC%DynRup%RS_srW+RS_srW_inc*(1.0D0-(Boxx*Boxz))
+              DISC%DynRup%RS_a_array(iBndGP,i) = DISC%DynRup%RS_a+RS_a_inc*(1.0D0-(Boxx*Boxz))
+              DISC%DynRup%RS_srW_array(iBndGP,i) = DISC%DynRup%RS_srW+RS_srW_inc*(1.0D0-(Boxx*Boxz))
           ELSEIF ((zGP.GE.zToStopTapering) .OR. (zGP.LE.zBoStopTapering)) THEN
               ! velocity strengthening in exterior region (3km)
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+RS_a_inc
-              DISC%DynRup%RS_srW_array(i,iBndGP) = DISC%DynRup%RS_srW+RS_srW_inc
+              DISC%DynRup%RS_a_array(iBndGP,i)=DISC%DynRup%RS_a+RS_a_inc
+              DISC%DynRup%RS_srW_array(iBndGP,i) = DISC%DynRup%RS_srW+RS_srW_inc
               !
           ELSE
               ! velocity-weakening in interior fault region (30 km * 15 km)
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a
-              DISC%DynRup%RS_srW_array(i,iBndGP) = DISC%DynRup%RS_srW
+              DISC%DynRup%RS_a_array(iBndGP,i)=DISC%DynRup%RS_a
+              DISC%DynRup%RS_srW_array(iBndGP,i) = DISC%DynRup%RS_srW
               !
           ENDIF
           ! resulting changes in SV_ini done in friction_RSF103
@@ -3784,7 +3784,7 @@ MODULE ini_model_DR_mod
   ! Gauss node wise stress and friction properties assignment
   ! fault normal reference point at +y
 
-  ALLOCATE(  DISC%DynRup%RS_a_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
+  ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
 
   ! cohesion 0MPa
   DISC%DynRup%cohesion = 0.0
@@ -3809,7 +3809,7 @@ MODULE ini_model_DR_mod
 
       ! ini frictional parameters
       EQN%IniStateVar(i,:) =  EQN%RS_sv0
-      DISC%DynRup%RS_a_array(i,:) = DISC%DynRup%RS_a
+      DISC%DynRup%RS_a_array(:,i) = DISC%DynRup%RS_a
 
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
@@ -3853,19 +3853,19 @@ MODULE ini_model_DR_mod
               tmp = 3000.0D0/(ABS(zGP)-3000.0D0)+3000.0D0/ABS(zGP)
               Boxz = 0.5D0*(1.0D0+((1.0D0-EXP(-2.0D0*tmp))/(1.0D0+EXP(-2.0D0*tmp))))
               ! smooth boxcar
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+0.008D0*(1.0D0-(Boxx*Boxz))
+              DISC%DynRup%RS_a_array(iBndGP,i)=DISC%DynRup%RS_a+0.008D0*(1.0D0-(Boxx*Boxz))
           ELSEIF ((xGP.GE.18000.0D0) .OR. (xGP.LE.-18000.0D0)        &
               .OR. (zGP.LE.-18000.0D0)) THEN
               ! velocity strengthening in exterior region (3km)
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+0.008D0
+              DISC%DynRup%RS_a_array(iBndGP,i)=DISC%DynRup%RS_a+0.008D0
               !
           ELSE
               ! velocity-weakening in interior fault region (30 km * 15 km)
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a
+              DISC%DynRup%RS_a_array(iBndGP,i)=DISC%DynRup%RS_a
               !
           ENDIF
           ! resulting changes in SV_ini
-          EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%ShearXY_0/EQN%Bulk_yy_0-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(i,iBndGP)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
+          EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%ShearXY_0/EQN%Bulk_yy_0-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(iBndGP,i)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
                 ! Nucleation in Evaluate friction special case
 
       ENDDO ! iBndGP
@@ -3914,8 +3914,8 @@ MODULE ini_model_DR_mod
   ! Gauss node wise stress and friction properties assignment
   ! fault normal reference point at +y
 
-  ALLOCATE(  DISC%DynRup%RS_a_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
-  ALLOCATE(  DISC%DynRup%RS_srW_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP)      )
+  ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
+  ALLOCATE(  DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)      )
 
   xLeStartTapering = -15d3
   xRiStartTapering =  15d3
@@ -3954,7 +3954,7 @@ MODULE ini_model_DR_mod
 
       ! ini frictional parameters
       EQN%IniStateVar(i,:) =  EQN%RS_sv0
-      DISC%DynRup%RS_a_array(i,:) = DISC%DynRup%RS_a
+      DISC%DynRup%RS_a_array(:,i) = DISC%DynRup%RS_a
 
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
@@ -4030,18 +4030,18 @@ MODULE ini_model_DR_mod
                  Boxz =1d0
               ENDIF
               ! smooth boxcar
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+RS_a_inc*(1.0D0-(Boxx*Boxz))
-              DISC%DynRup%RS_srW_array(i,iBndGP)=DISC%DynRup%RS_srW+RS_srW_inc*(1.0D0-(Boxx*Boxz))
+              DISC%DynRup%RS_a_array(iBndGP,i)=DISC%DynRup%RS_a+RS_a_inc*(1.0D0-(Boxx*Boxz))
+              DISC%DynRup%RS_srW_array(iBndGP,i)=DISC%DynRup%RS_srW+RS_srW_inc*(1.0D0-(Boxx*Boxz))
           ELSEIF ((xGP.GE.xRiStopTapering) .OR. (xGP.LE.xLeStopTapering)        &
               .OR. (zGP.LE.zStopTapering)) THEN
               ! velocity strengthening in exterior region (3km)
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+RS_a_inc
-              DISC%DynRup%RS_srW_array(i,iBndGP) = DISC%DynRup%RS_srW+RS_srW_inc
+              DISC%DynRup%RS_a_array(iBndGP,i)=DISC%DynRup%RS_a+RS_a_inc
+              DISC%DynRup%RS_srW_array(iBndGP,i) = DISC%DynRup%RS_srW+RS_srW_inc
               !
           ELSE
               ! velocity-weakening in interior fault region (30 km * 15 km)
-              DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a
-              DISC%DynRup%RS_srW_array(i,iBndGP) = DISC%DynRup%RS_srW
+              DISC%DynRup%RS_a_array(iBndGP,i)=DISC%DynRup%RS_a
+              DISC%DynRup%RS_srW_array(iBndGP,i) = DISC%DynRup%RS_srW
               !
           ENDIF
           ! resulting changes in SV_ini done in friction_RSF103
@@ -4672,7 +4672,7 @@ MODULE ini_model_DR_mod
           CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
           !
           EQN%IniStateVar(i,iBndGP) = DISC%DynRup%NucRS_sv0
-          !EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((sstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(i,iBndGP)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
+          !EQN%IniStateVar(i,iBndGP) = DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0*EXP((sstress/(nstress*DISC%DynRup%RS_b))-DISC%DynRup%RS_f0/DISC%DynRup%RS_b-DISC%DynRup%RS_a_array(iBndGP,i)/DISC%DynRup%RS_b*LOG(iniSlipRate/DISC%DynRup%RS_sr0))
           X2  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a)
           EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a * LOG(X2 + SQRT(X2**2 + 1.0))
 
@@ -4825,10 +4825,10 @@ MODULE ini_model_DR_mod
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
                !
-          EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%IniShearXY(i,iBndGP)/EQN%IniBulk_yy(i,iBndGP)-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(i,iBndGP)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
+          EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%IniShearXY(i,iBndGP)/EQN%IniBulk_yy(i,iBndGP)-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(iBndGP,i)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
-          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(i,iBndGP))
-          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(i,iBndGP) * LOG(tmp + SQRT(tmp**2 + 1.0))
+          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP((DISC%DynRup%RS_f0 + DISC%DynRup%RS_b*LOG(DISC%DynRup%RS_sr0*EQN%IniStateVar(i,iBndGP)/DISC%DynRup%RS_sl0)) / DISC%DynRup%RS_a_array(iBndGP,i))
+          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(iBndGP,i) * LOG(tmp + SQRT(tmp**2 + 1.0))
 
       ENDDO ! iBndGP
 
@@ -4952,7 +4952,7 @@ MODULE ini_model_DR_mod
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
           ! SINH(X)=(EXP(X)-EXP(-X))/2
-          !tmp = ABS(EQN%IniShearXY(i,iBndGP)/(DISC%DynRup%RS_a_array(i,iBndGP)*EQN%IniBulk_yy(i,iBndGP)))
+          !tmp = ABS(EQN%IniShearXY(i,iBndGP)/(DISC%DynRup%RS_a_array(iBndGP,i)*EQN%IniBulk_yy(i,iBndGP)))
           tmp = ABS(SQRT(Stress(4,iBndGP)**2+Stress(6,iBndGP)**2)/(DISC%DynRup%RS_a_array(iBndGP,i)*Stress(1,iBndGP)))
           EQN%IniStateVar(i,iBndGP)=DISC%DynRup%RS_a_array(iBndGP,i)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
