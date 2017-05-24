@@ -1420,7 +1420,8 @@ MODULE Eval_friction_law_mod
     nSRupdates = 60
     nSVupdates = 2
 
-    dt = DISC%Galerkin%TimeGaussP(nTimeGP) + DeltaT(1)
+    !dt = DISC%Galerkin%TimeGaussP(nTimeGP) + DeltaT(1)
+    dt = sum(DeltaT(:))
     IF (time.LE.Tnuc) THEN
     IF (time.GT.0.0D0) THEN
         Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
@@ -1431,6 +1432,7 @@ MODULE Eval_friction_law_mod
     ELSE
         Gnuc=0.0D0
     ENDIF
+
     !DISC%DynRup%NucBulk_** is already in fault coordinate system
     EQN%InitialStressInFaultCS(:,1,iFace)=EQN%InitialStressInFaultCS(:,1,iFace)+EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
     EQN%InitialStressInFaultCS(:,2,iFace)=EQN%InitialStressInFaultCS(:,2,iFace)+EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc

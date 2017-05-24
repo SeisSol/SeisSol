@@ -3879,6 +3879,7 @@ MODULE ini_model_DR_mod
   SUBROUTINE background_TPV103(DISC,EQN,MESH,BND)
   !-------------------------------------------------------------------------!
   USE DGBasis_mod
+  use JacobiNormal_mod, only: RotationMatrix3D
   !-------------------------------------------------------------------------!
   IMPLICIT NONE
   !-------------------------------------------------------------------------!
@@ -3899,6 +3900,13 @@ MODULE ini_model_DR_mod
   REAL                           :: xLeStartTapering, xRiStartTapering, xLeStopTapering, xRiStopTapering, xtaperingWidth
   REAL                           :: zStartTapering, zStopTapering, ztaperingWidth
   REAL                           :: RS_a_inc,RS_srW_inc
+  REAL                           :: Rnuc, radius, ShapeNucleation
+  REAL                           :: hypox,hypoy,hypoz
+  real                           :: normal(3)
+  real                           :: tangent1(3)
+  real                           :: tangent2(3)
+  real                           :: T(9,9),bii(6),bii2(6)
+  real                           :: iT(9,9)
   !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
@@ -3914,8 +3922,14 @@ MODULE ini_model_DR_mod
   ! Gauss node wise stress and friction properties assignment
   ! fault normal reference point at +y
 
+  Rnuc = DISC%DynRup%R_crit
+  hypox = DISC%DynRup%XHypo
+  hypoy = DISC%DynRup%YHypo
+  hypoz = DISC%DynRup%ZHypo
+
   ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
   ALLOCATE(  DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)      )
+  allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
 
   xLeStartTapering = -15d3
   xRiStartTapering =  15d3
@@ -3984,6 +3998,27 @@ MODULE ini_model_DR_mod
           tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
+
+          ShapeNucleation=0d0
+          radius=SQRT((xGP-hypox)**2+(yGP-hypoy)**2+(zGP-hypoz)**2)
+          IF (radius.LT.Rnuc) THEN
+             ShapeNucleation=EXP(radius**2/(radius**2-Rnuc**2))
+          ENDIF
+         
+         !Rotate nucleation stress in fault coordinate system
+          normal   = MESH%Fault%geoNormals( 1:3, i)
+          tangent1 = MESH%Fault%geoTangent1(1:3, i)
+          tangent2 = MESH%Fault%geoTangent2(1:3, i)
+          CALL RotationMatrix3D(normal, tangent1, tangent2, T(:,:), iT(:,:), EQN)
+          bii(1)=DISC%DynRup%NucBulk_xx_0
+          bii(2)=DISC%DynRup%NucBulk_yy_0
+          bii(3)=DISC%DynRup%NucBulk_zz_0
+          bii(4)=DISC%DynRup%NucShearXY_0
+          bii(5)=DISC%DynRup%NucShearYZ_0
+          bii(6)=DISC%DynRup%NucShearXZ_0
+          bii = MATMUL(iT(1:6,1:6), bii(:)) * ShapeNucleation
+          EQN%NucleationStressInFaultCS(iBndGP,:,i) = bii
+
           ! friction law changes in a
           ! smoothed Boxcar function in transition region (3km)
           IF ( ((xGP.GT.xRiStartTapering).AND.(xGP.LT.xRiStopTapering))      &

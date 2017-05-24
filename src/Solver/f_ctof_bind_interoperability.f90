@@ -70,7 +70,7 @@ module f_ctof_bind_interoperability
       use typesDef
       implicit none
       type(tUnstructDomainDescript), pointer :: domain
-      integer     :: fromMeshId, toMeshId
+      integer     :: fromMeshId, toMeshId,iFace
       
 
       domain%disc%DynRup%output_Mu(:,fromMeshId:toMeshId)             = domain%disc%DynRup%Mu(:,fromMeshId:toMeshId)
@@ -81,9 +81,9 @@ module f_ctof_bind_interoperability
       domain%disc%DynRup%output_rupture_time(:,fromMeshId:toMeshId)   = domain%disc%DynRup%rupture_time(:,fromMeshId:toMeshId)
       domain%disc%DynRup%output_PeakSR(:,fromMeshId:toMeshId)         = domain%disc%DynRup%PeakSR(:,fromMeshId:toMeshId)
       domain%disc%DynRup%output_dynStress_time(:,fromMeshId:toMeshId) = domain%disc%DynRup%dynStress_time(:,fromMeshId:toMeshId)
-        
-      domain%disc%DynRup%output_StateVar(fromMeshId:toMeshId,:)       = domain%disc%DynRup%StateVar(fromMeshId:toMeshId,:)
-      
+      do iFace=fromMeshId,toMeshId
+         domain%disc%DynRup%output_StateVar(iFace,:)       = domain%disc%DynRup%StateVar(:, iFace)
+      enddo 
     end subroutine
     !
     ! C to fortran bindings

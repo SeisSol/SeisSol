@@ -426,7 +426,7 @@ CONTAINS
           Stress(:)=MATMUL(iT(1:6,1:6),Stress(:))
           !
           MuVal = DISC%DynRup%output_Mu(iBndGP,iFace)
-          LocSV = DISC%DynRup%output_StateVar(iFace,iBndGP) ! load state variable of RS for output
+          LocSV = DISC%DynRup%output_StateVar(iFace, iBndGP) ! load state variable of RS for output
           cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)
           S_XY  = Stress(4)
           S_XZ  = Stress(6)
