@@ -152,6 +152,8 @@ void seissol::Simulator::simulate() {
 
     printNodePerformance( stopwatch.split() );
   }
+  
+  seissol::SeisSol::main.timeManager().printComputationTime();
 
   // stop the communication thread (if applicable)
   seissol::SeisSol::main.timeManager().stopCommunicationThread();

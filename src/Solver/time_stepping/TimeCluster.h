@@ -88,6 +88,7 @@
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
+#include <Monitoring/Stopwatch.h>
 
 // some check for correct functionality
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
@@ -210,6 +211,9 @@ private:
     
     //! Relax time for plasticity
     double m_relaxTime;
+    
+    //! Stopwatch of TimeManager
+    Stopwatch* m_stopwatch;
 
 #ifdef USE_MPI
     /**
@@ -401,7 +405,8 @@ private:
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
-                 seissol::initializers::DynamicRupture* i_dynRup );
+                 seissol::initializers::DynamicRupture* i_dynRup,
+                 Stopwatch*                             i_stopwatch );
 
     /**
      * Destructor of a LTS cluster.

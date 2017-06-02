@@ -4,6 +4,7 @@
  *
  * @author Alexander Heinecke (Alexander.Heinecke@mytum.de)
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2016-2017, SeisSol Group
@@ -42,33 +43,33 @@
 #ifndef STOPWATCH_H
 #define STOPWATCH_H
 
-#include "Parallel/MPI.h"
-
-#ifdef _WIN32
-#include <windows.h>
-#else // _WIN32
 #include <sys/time.h>
-#endif // _WIN32
-
+#include "Parallel/MPI.h"
 #include "utils/logger.h"
 
 /**
- * OS-independent (per Preprocessor) version of a stopwatch
+ * Stopwatch
  *
  * Part of SeisSol, so you can easily calculate the needed time of SeisSol computations with a high precision
  */
 class Stopwatch
 {
 private:
-#ifdef _WIN32
-	LARGE_INTEGER m_ticksPerSecond;
-	LARGE_INTEGER m_begin;
-#else // _WIN32
-	timeval m_begin;
-#endif // _WIN32
+	struct timeval m_begin;
 
-	/** Time already spend */
-	double m_time;
+	/** Time already spent */
+	long long m_time;
+  
+  /** Returns the time difference in microseconds. */
+  long long difftime(struct timeval const& end)
+  {
+    return (end.tv_sec * 1000000 + end.tv_usec) - (m_begin.tv_sec * 1000000 + m_begin.tv_usec);
+  }
+  
+  double seconds(long long time) 
+  {
+    return 1.0e-6 * time;
+  }
 
 public:
 	/**
@@ -76,13 +77,8 @@ public:
 	 *
 	 * resets the Stopwatch
 	 */
-	Stopwatch()
-		: m_time(0)
-	{
-#ifdef _WIN32
-		QueryPerformanceFrequency(&m_ticksPerSecond);
-#endif // _WIN32
-	}
+	Stopwatch() : m_time(0)
+  {}
 
 	/**
 	 * Destructor
@@ -103,11 +99,7 @@ public:
 	 */
 	void start()
 	{
-#ifdef _WIN32
-		QueryPerformanceCounter(&m_begin);
-#else // _WIN32
 		gettimeofday(&m_begin,(struct timezone *)0);
-#endif // _WIN32
 	}
 
 	/**
@@ -117,42 +109,10 @@ public:
 	 */
 	double split()
 	{
-#ifdef _WIN32
-		LARGE_INTEGER end;
-		QueryPerformanceCounter(&end);
-
-		double ret, ticksps;
-
-		end.QuadPart -= m_begin.QuadPart;
-		ret = (double)(end.QuadPart);
-		ticksps = (double)(m_ticksPerSecond.QuadPart);
-		ret /= ticksps;
-
-		return ret;
-#else // _WIN32
-		timeval end;
-
+		struct timeval end;
 		gettimeofday(&end, (struct timezone *) 0);
-		double seconds, useconds;
-		double ret, tmp;
-
-		if (end.tv_usec >= m_begin.tv_usec) {
-			seconds = (double) end.tv_sec - (double) m_begin.tv_sec;
-			useconds = (double) end.tv_usec - (double) m_begin.tv_usec;
-		} else {
-			seconds = (double) end.tv_sec - (double) m_begin.tv_sec;
-			seconds -= 1;                                   // Correction
-			useconds = (double) end.tv_usec - (double) m_begin.tv_usec;
-			useconds += 1000000;                    // Correction
-		}
-
-		// get time in seconds
-		tmp = (double) useconds;
-		ret = (double) seconds;
-		tmp /= 1000000;
-		ret += tmp;
-
-		return ret;
+    
+    return seconds(difftime(end));
 	}
 
 	/**
@@ -162,9 +122,11 @@ public:
 	 */
 	double pause()
 	{
-		m_time += split();
-		return m_time;
-#endif // _WIN32
+		struct timeval end;
+		gettimeofday(&end, (struct timezone *) 0);
+
+		m_time += difftime(end);
+		return seconds(m_time);
 	}
 
 	/**
@@ -188,11 +150,11 @@ public:
 #endif // USE_MPI
 	 ) {
 		int rank = 0;
-		double avg = m_time;
+		double avg = seconds(m_time);
 
 #ifdef USE_MPI
-		double min = m_time;
-		double max = m_time;
+		double min = seconds(m_time);
+		double max = seconds(m_time);
 
 		if (comm == MPI_COMM_NULL)
 			comm = seissol::MPI::mpi.comm();
