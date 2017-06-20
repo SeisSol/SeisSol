@@ -172,6 +172,9 @@ CONTAINS
     EQN%LocPoroelastic(:) = 0
 
     IF (EQN%Plasticity .NE. 0) THEN
+        ALLOCATE (EQN%PlastCo(MESH%nElem))
+        !initialize with constant value from parameter file
+        EQN%PlastCo(:) = EQN%PlastCo_0
         allocate(EQN%IniStress(6,MESH%nElem))
         EQN%IniStress(:,:) = 0.0D0
     ENDIF
