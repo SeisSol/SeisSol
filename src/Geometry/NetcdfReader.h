@@ -260,10 +260,8 @@ public:
 		ElemMPIIndices* elemMPIIndices = new ElemMPIIndices[maxSize];
 		ElemMaterial* elemMaterial = new ElemMaterial[maxSize];
 
-		EPIK_USER_REG(r_read_elements, "read_elements");
-		SCOREP_USER_REGION_DEFINE( r_read_elements )
-		EPIK_USER_START(r_read_elements);
-		SCOREP_USER_REGION_BEGIN( r_read_elements, "read_elements", SCOREP_USER_REGION_TYPE_COMMON )
+//		SCOREP_USER_REGION_DEFINE( r_read_elements )
+//		SCOREP_USER_REGION_BEGIN( r_read_elements, "read_elements", SCOREP_USER_REGION_TYPE_COMMON )
 
 		// Read element buffers from netcdf
 		if (masterRank >= 0) {
@@ -332,8 +330,7 @@ public:
 			m_elements[i].material = elemMaterial[i];
 		}
 
-		EPIK_USER_END(r_read_elements);
-		SCOREP_USER_REGION_END( r_read_elements )
+//		SCOREP_USER_REGION_END( r_read_elements )
 
 		delete [] elemVertices;
 		delete [] elemNeighbors;
@@ -378,10 +375,8 @@ public:
 		m_vertices.resize(sizes[0]);
 		VrtxCoords* vrtxCoords = new VrtxCoords[maxSize];
 
-		EPIK_USER_REG(r_read_vertices, "read_vertices");
-		SCOREP_USER_REGION_DEFINE( r_read_vertices )
-		EPIK_USER_START(r_read_vertices);
-		SCOREP_USER_REGION_BEGIN( r_read_vertices, "read_vertices", SCOREP_USER_REGION_TYPE_COMMON )
+//		SCOREP_USER_REGION_DEFINE( r_read_vertices )
+//		SCOREP_USER_REGION_BEGIN( r_read_vertices, "read_vertices", SCOREP_USER_REGION_TYPE_COMMON )
 
 		// Read vertex buffer from netcdf
 		if (masterRank >= 0) {
@@ -413,8 +408,7 @@ public:
 #endif // USE_MPI
 		}
 
-		EPIK_USER_END(r_read_vertices);
-		SCOREP_USER_REGION_END( r_read_vertices )
+//		SCOREP_USER_REGION_END( r_read_vertices )
 
 		// Copy buffers to vertices
 		for (int i = 0; i < sizes[0]; i++) {
@@ -458,10 +452,8 @@ public:
 		//MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm());
 		int* bndElemLocalIds = new int[bndElemSize];
 
-		EPIK_USER_REG(r_read_boundaries, "read_boundaries");
-		SCOREP_USER_REGION_DEFINE( r_read_boundaries );
-		EPIK_USER_START(r_read_boundaries);
-		SCOREP_USER_REGION_BEGIN( r_read_boundaries, "read_boundaries", SCOREP_USER_REGION_TYPE_COMMON );
+//		SCOREP_USER_REGION_DEFINE( r_read_boundaries );
+//		SCOREP_USER_REGION_BEGIN( r_read_boundaries, "read_boundaries", SCOREP_USER_REGION_TYPE_COMMON );
 
 		size_t bndStart[3] = {0, 0, 0};
 		for (int i = 0; i < maxNeighbors; i++) {
@@ -520,8 +512,7 @@ public:
 
 		delete [] bndElemLocalIds;
 
-		EPIK_USER_END(r_read_boundaries);
-		SCOREP_USER_REGION_END( r_read_boundaries )
+//		SCOREP_USER_REGION_END( r_read_boundaries )
 
 		delete [] sizes;
 
