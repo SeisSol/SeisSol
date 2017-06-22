@@ -6,7 +6,7 @@
 # @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2013, SeisSol Group
+# Copyright (c) 2013-2017, SeisSol Group
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,8 @@
 # @section DESCRIPTION
 # Finds netCDF and add inlcude pathes, libs and library pathes
 #
+
+import utils.checks
 
 netcdf_prog_src_serial = """
 #include <netcdf.h>
@@ -73,7 +75,9 @@ def CheckNetcdfLinking(context, parallel, message):
     return ret
 
 def generate(env, **kw):
-    conf = env.Configure(custom_tests = {'CheckNetcdfLinking' : CheckNetcdfLinking})
+    conf = env.Configure(custom_tests = {'CheckLib': utils.checks.CheckLib,
+                                         'CheckLibWithHeader': utils.checks.CheckLibWithHeader,
+                                         'CheckNetcdfLinking' : CheckNetcdfLinking})
     
     if 'parallel' in kw and kw['parallel']:
         parallel = True
