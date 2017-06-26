@@ -37,17 +37,17 @@
  * @section LICENSE
  * Copyright (c) 2013-2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -99,7 +99,7 @@ void seissol::initializers::MemoryManager::initialize()
   unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
   logInfo(0) << "Number of GlobalData copies: " << l_numberOfCopies;
 
-  m_globalDataCopies = new GlobalData[l_numberOfCopies]; 
+  m_globalDataCopies = new GlobalData[l_numberOfCopies];
 
   // initialize in parallel to obtain best possible NUMA placement
   #pragma omp parallel
@@ -165,7 +165,7 @@ void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalDa
 
   o_globalData.integrationBufferLTS = m_integrationBufferLTS;
 
-  // Dynamic Rupture global matrices  
+  // Dynamic Rupture global matrices
   real* drGlobalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
   for (unsigned matrix = 0; matrix < seissol::model::dr_numGlobalMatrices; ++matrix) {
     memcpy(
@@ -180,7 +180,7 @@ void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalDa
       o_globalData.faceToNodalMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[16 + 4*face+h] ];
     }
   }
-  
+
   real* plasticityGlobalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::plasticity_globalMatrixOffsets[seissol::model::plasticity_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
   for (unsigned matrix = 0; matrix < seissol::model::plasticity_numGlobalMatrices; ++matrix) {
     memcpy(
@@ -226,7 +226,7 @@ void seissol::initializers::MemoryManager::correctGhostRegionSetups()
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     Layer& ghost = m_ltsTree.child(tc).child<Ghost>();
     CellLocalInformation* cellInformation = ghost.var(m_lts.cellInformation);
-    
+
     unsigned int l_offset = 0;
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       // iterate over ghost cells
@@ -380,7 +380,7 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
 
   /*
    * copy layer
-   */   
+   */
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     Layer& copy = m_ltsTree.child(tc).child<Copy>();
     real** buffers = copy.var(m_lts.buffers);
@@ -426,14 +426,14 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 #else
   assert(layer.getLayerType() == Interior);
 #endif
-  
+
   // iterate over clusters
-  
+
   real** buffers = m_ltsTree.var(m_lts.buffers);          // faceNeighborIds are ltsIds and not layer-local
   real** derivatives = m_ltsTree.var(m_lts.derivatives);  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
-    
+
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned face = 0; face < 4; ++face) {
       if (  cellInformation[cell].faceTypes[face] == regular
@@ -548,7 +548,7 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
 {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
-  
+
   // Setup tree variables
   m_lts.addTo(m_ltsTree);
   seissol::SeisSol::main.postProcessor().allocateMemory(&m_ltsTree);
@@ -556,7 +556,7 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
 
   /// From this point, the tree layout, variables, and buckets cannot be changed anymore
   m_ltsTree.fixate();
-  
+
   // Set number of cells and bucket sizes in ltstree
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
@@ -567,8 +567,8 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
 
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();
-  
-  /// Dynamic rupture tree  
+
+  /// Dynamic rupture tree
   m_dynRup.addTo(m_dynRupTree);
   m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
   m_dynRupTree.fixate();
@@ -579,7 +579,7 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
     cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
     cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
   }
-  
+
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
 }
@@ -589,7 +589,7 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
   for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
     CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
     real** displacements = layer->var(m_lts.displacements);
-    
+
     unsigned numberOfCells = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       bool hasFreeSurface = false;
@@ -615,7 +615,9 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
     real** displacements = layer->var(m_lts.displacements);
     real* bucket = static_cast<real*>(layer->bucket(m_lts.displacementsBuffer));
 
+#ifdef _OPENMP
     #pragma omp parallel for schedule(static)
+#endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (displacements[cell] != NULL) {
         displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
@@ -653,17 +655,17 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
 #endif // USE_MPI
     l_interiorSize += sizeof(real) * NUMBER_OF_ALIGNED_DOFS * m_numberOfInteriorBuffers[tc];
     l_interiorSize += sizeof(real) * NUMBER_OF_ALIGNED_DERS * m_numberOfInteriorDerivatives[tc];
-    
+
     cluster.child<Ghost>().setBucketSize(m_lts.buffersDerivatives, l_ghostSize);
     cluster.child<Copy>().setBucketSize(m_lts.buffersDerivatives, l_copySize);
     cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
-  
+
   if (enableFreeSurfaceIntegration) {
     deriveDisplacementsBucket();
   }
-  
-  
+
+
   m_ltsTree.allocateBuckets();
 
   // initialize the internal state
@@ -686,7 +688,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
   // initialize the communication structure
   initializeCommunicationStructure();
 #endif
-  
+
   if (enableFreeSurfaceIntegration) {
     initializeDisplacements();
   }
