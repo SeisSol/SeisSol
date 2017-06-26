@@ -8,21 +8,21 @@
 # @section LICENSE
 # Copyright (c) 2014-2016, SeisSol Group
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice,
 #    this list of conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice,
 #    this list of conditions and the following disclaimer in the documentation
 #    and/or other materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its
 #    contributors may be used to endorse or promote products derived from this
 #    software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -53,7 +53,7 @@ def CheckHDF5FortranInclude(context):
     context.Message("Checking for Fortran HDF5 module... ")
     ret = context.TryCompile(hdf5_fortran_prog_src, '.f90')
     context.Result(ret)
-    
+
     return ret
 
 def CheckV18API(context, h5cc):
@@ -64,7 +64,7 @@ def CheckV18API(context, h5cc):
         # FIXME currently assuming the default if the h5cc does not exist
         ret = True
     context.Result(ret)
-    
+
     return ret
 
 def generate(env, required = False, parallel = False, fortran = False, **kw):
@@ -75,7 +75,7 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
                                          'CheckLibWithHeader': utils.checks.CheckLibWithHeader,
                                          'CheckHDF5FortranInclude' : CheckHDF5FortranInclude,
                                          'CheckV18API' : CheckV18API})
-    
+
     # Find h5cc or h5pcc
     h5ccs = ['h5cc', 'h5pcc']
     if parallel:
@@ -114,7 +114,7 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
 
     # Add the lib path
     env.AppendUnique(LIBPATH=flags['LIBPATH'])
-    
+
     if fortran:
         # Fortran module file
         ret = conf.CheckHDF5FortranInclude()
@@ -125,7 +125,7 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
             else:
                 conf.Finish()
                 return
-            
+
         # Fortran library
         ret = conf.CheckLib('hdf5_fortran')
         if not ret:
@@ -135,7 +135,7 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
             else:
                 conf.Finish()
                 return
-        
+
     ret = conf.CheckLibWithHeader(flags['LIBS'][0], 'hdf5.h', 'c', extra_libs=flags['LIBS'][1:])
     if not ret:
         if required:
@@ -144,16 +144,18 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
         else:
             conf.Finish()
             return
-        
+
     # Check API Mapping
     if not conf.CheckV18API(h5cc):
         # TODO We might need to extent this list
         conf.env.Append(CPPDEFINES=['H5Dcreate_vers=2',
                                     'H5Dopen_vers=2',
+                                    'H5Gcreate_vers=2',
+                                    'H5Gopen_vers=2',
                                     'H5Acreate_vers=2',
                                     'H5Eget_auto_vers=2',
                                     'H5Eset_auto_vers=2'])
-            
+
     conf.Finish()
 
 def exists(env):
