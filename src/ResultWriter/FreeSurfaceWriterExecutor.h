@@ -75,7 +75,7 @@ private:
 	MPI_Comm m_comm;
 #endif // USE_MPI
 
-	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>* m_xdmfWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>* m_xdmfWriter;
   unsigned m_numVariables;
 
 	/** Backend stopwatch */
@@ -87,8 +87,8 @@ public:
 #ifdef USE_MPI
 		m_comm(MPI_COMM_NULL),
 #endif // USE_MPI
-    m_xdmfWriter(0L),
-    m_numVariables(0) {}
+		m_xdmfWriter(0L),
+		m_numVariables(0) {}
 
 	/**
 	 * Initialize the XDMF writer
@@ -106,7 +106,7 @@ public:
 		m_xdmfWriter->addTimeStep(param.time);
 
 		for (unsigned int i = 0; i < m_numVariables; i++) {
-			m_xdmfWriter->writeData(i, static_cast<const double*>(info.buffer(VARIABLES0 + i)));
+			m_xdmfWriter->writeCellData(i, static_cast<const double*>(info.buffer(VARIABLES0 + i)));
     }
 
 		m_xdmfWriter->flush();

@@ -77,16 +77,23 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info,
 		}
 		m_numVariables = variables.size();
 
+		xdmfwriter::BackendType type = xdmfwriter::POSIX;
+#ifdef USE_HDF
+		type = xdmfwriter::H5;
+#endif // USE_HDF
+
 		// TODO get the timestep from the checkpoint
-		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>(rank,
-			outputName.c_str(), variables, param.timestep);
+		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>(type,
+			outputName.c_str(), param.timestep);
 
 #ifdef USE_MPI
 		m_xdmfWriter->setComm(m_comm);
 #endif // USE_MPI
 
-		m_xdmfWriter->init(nCells, static_cast<const unsigned int*>(info.buffer(CELLS)),
-			nVertices, static_cast<const double*>(info.buffer(VERTICES)), true);
+		m_xdmfWriter->init(variables, std::vector<const char*>());
+		m_xdmfWriter->setMesh(nCells, static_cast<const unsigned int*>(info.buffer(CELLS)),
+			nVertices, static_cast<const double*>(info.buffer(VERTICES)),
+			param.timestep != 0);
 
 		logInfo(rank) << "Initializing XDMF fault output. Done.";
 	}

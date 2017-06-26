@@ -80,7 +80,7 @@ public:
 	};
 
 private:
-	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>* m_xdmfWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>* m_xdmfWriter;
 
 #ifdef USE_MPI
 	/** The MPI communicator for the writer */
@@ -118,7 +118,7 @@ public:
 		m_xdmfWriter->addTimeStep(param.time);
 
 		for (unsigned int i = 0; i < m_numVariables; i++)
-			m_xdmfWriter->writeData(i, static_cast<const double*>(info.buffer(VARIABLES0 + i)));
+			m_xdmfWriter->writeCellData(i, static_cast<const double*>(info.buffer(VARIABLES0 + i)));
 
 		m_xdmfWriter->flush();
 

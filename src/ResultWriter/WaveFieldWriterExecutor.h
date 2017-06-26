@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,10 +89,10 @@ class WaveFieldWriterExecutor
 {
 private:
 	/** The XMDF Writer used for the wave field */
-	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_waveFieldWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double>* m_waveFieldWriter;
 
 	/** The XDMF Writer for low order data */
-	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>* m_lowWaveFieldWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double>* m_lowWaveFieldWriter;
 
 	/** Buffer id for the first variable for high and low order output */
 	unsigned int m_variableBufferIds[2];
@@ -136,6 +136,11 @@ public:
 
 		int rank = seissol::MPI::mpi.rank();
 
+		xdmfwriter::BackendType type = xdmfwriter::POSIX;
+#ifdef USE_HDF
+		type = xdmfwriter::H5;
+#endif // USE_HDF
+
 		const char* outputPrefix = static_cast<const char*>(info.buffer(param.bufferIds[OUTPUT_PREFIX]));
 
 		//
@@ -176,19 +181,20 @@ public:
 #endif // USE_MPI
 
 		// Initialize the I/O handler and write the mesh
-		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
-			rank, outputPrefix, variables, param.timestep);
+		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double>(
+			type, outputPrefix, param.timestep);
 
 #ifdef USE_MPI
 		m_waveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
 
-		m_waveFieldWriter->init(
+		m_waveFieldWriter->init(variables, std::vector<const char*>());
+		m_waveFieldWriter->setMesh(
 			info.bufferSize(param.bufferIds[CELLS]) / (4*sizeof(unsigned int)),
 			static_cast<const unsigned int*>(info.buffer(param.bufferIds[CELLS])),
 			info.bufferSize(param.bufferIds[VERTICES]) / (3*sizeof(double)),
 			static_cast<const double*>(info.buffer(param.bufferIds[VERTICES])),
-			true);
+			param.timestep != 0);
 
 		logInfo(rank) << "High order output initialized";
 
@@ -225,19 +231,20 @@ public:
 				}
 			}
 
-			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON>(
-				rank, (std::string(outputPrefix)+"-low").c_str(), lowVariables, param.timestep);
+			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double>(
+				type, (std::string(outputPrefix)+"-low").c_str());
 
 #ifdef USE_MPI
 		m_lowWaveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
 
-			m_lowWaveFieldWriter->init(
+			m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
+			m_lowWaveFieldWriter->setMesh(
 				info.bufferSize(param.bufferIds[LOWCELLS]) / (4*sizeof(unsigned int)),
 				static_cast<const unsigned int*>(info.buffer(param.bufferIds[LOWCELLS])),
 				info.bufferSize(param.bufferIds[LOWVERTICES]) / (3*sizeof(double)),
 				static_cast<const double*>(info.buffer(param.bufferIds[LOWVERTICES])),
-				true);
+				param.timestep != 0);
 
 			logInfo(rank) << "Low order output initialized";
 		}
@@ -267,7 +274,7 @@ public:
 		unsigned int nextId = 0;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
 			if (m_outputFlags[i]) {
-				m_waveFieldWriter->writeData(nextId,
+				m_waveFieldWriter->writeCellData(nextId,
 					static_cast<const double*>(info.buffer(m_variableBufferIds[0]+nextId)));
 
 				nextId++;
@@ -283,7 +290,7 @@ public:
 		nextId = 0;
 		for (unsigned int i = 0; i < NUM_LOWVARIABLES; i++) {
 			if (m_lowOutputFlags[i]) {
-				m_lowWaveFieldWriter->writeData(nextId,
+				m_lowWaveFieldWriter->writeCellData(nextId,
 					static_cast<const double*>(info.buffer(m_variableBufferIds[1]+nextId)));
 
 			nextId++;
