@@ -10,13 +10,14 @@ import os
 parser = argparse.ArgumentParser(description='create surface from a structured grid of nodes')
 parser.add_argument('--lon', nargs=2, metavar=(('lonmin'),('lonmax')), default = (''), help='lonmin: minimum longitude, lonmax: maximum longitude')
 parser.add_argument('--lat', nargs=2, metavar=(('latmin'),('latmax')), default = (''), help='latmin: minimum latitude, lonmax: maximum latitude')
-parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='name of the projection (ex EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
+parser.add_argument('--proj', nargs=1, metavar=('projname'), default = (''), help='name of the projection (ex +init=EPSG:32646 (UTM46N), or geocent (cartesian global)) if a projection is considered')
+parser.add_argument('--resolution', nargs=1, metavar=('resolution'), default = ('i'), help='resolution of the coastline,  (f)ull, (h)igh, (i)ntermediate, (l)ow, and (c)rude')
 args = parser.parse_args()
 
 if args.proj!='':
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
-   sProj = "+init=%s" %args.proj[0]
+   sProj = args.proj[0]
    myproj=pyproj.Proj(sProj)
    print("using pyproj to project the coordinates...Please check that the projection used corresponds with your lat/lon range") 
 
@@ -35,7 +36,7 @@ else:
    latmax = float(args.lat[1])
 
 #export cordinates from GMT
-command = "module load gmt;gmt pscoast -R%f/%f/%f/%f -Di -M -W > coastline.dat" %(lonmin, lonmax, latmin, latmax)
+command = "module load gmt;gmt pscoast -R%f/%f/%f/%f -D%s -M -W > coastline.dat" %(lonmin, lonmax, latmin, latmax, args.resolution[0])
 os.system(command)
 
 #Read GMT file
