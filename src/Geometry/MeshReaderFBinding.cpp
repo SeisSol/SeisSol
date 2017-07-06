@@ -48,9 +48,9 @@
 #ifdef USE_NETCDF
 #include "NetcdfReader.h"
 #endif // USE_NETCDF
-#ifdef USE_MPI
+#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 #include "PUMLReader.h"
-#endif // USE_MPI
+#endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 
@@ -280,15 +280,15 @@ void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displace
 
 	const int rank = seissol::MPI::mpi.rank();
 
-#if defined(USE_MPI) && defined(USE_METIS)
+#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
 	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile));
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
-#else // defined(USE_MPI) && defined(USE_METIS)
+#else // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	logError() << "PUML is currently only supported for MPI";
-#endif // defined(USE_MPI) && defined(USE_METIS)
+#endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 }
 
 }

@@ -51,7 +51,7 @@ geometryFiles = [ 'GambitReader.cpp',
                   'MeshTools.cpp' ]
 
 # PUML
-if env['metis'] and env['parallelization'] in ['mpi', 'hybrid']:
+if env['metis'] and env['hdf5'] and env['parallelization'] in ['mpi', 'hybrid']:
 	geometryFiles.append('PUMLReader.cpp')
 
 # source files for mpi parallelizazion

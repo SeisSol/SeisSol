@@ -3042,11 +3042,11 @@ ALLOCATE( SpacePositionx(nDirac), &
             logInfo0(*) 'Read a netCDF mesh ...'
             Name = trim(IO%MeshFile) // '.nc'
           elseif (IO%meshgenerator .eq. 'PUML') then
-#ifdef USE_METIS
+#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
             Name = trim(IO%MeshFile)
             logInfo0(*) 'Read a PUML mesh file'
 #else
-            logError(*) 'PUML requires METIS'
+            logError(*) 'PUML requires METIS and HDF5'
 #endif
           else
             logInfo0(*) 'Read a Gambit 3-D neutral mesh ... '
