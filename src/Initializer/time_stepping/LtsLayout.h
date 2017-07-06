@@ -47,6 +47,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 
+#include <array>
 #include <limits>
 #include <cassert>
 
