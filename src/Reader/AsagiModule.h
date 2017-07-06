@@ -115,8 +115,10 @@ public:
 	 */
 	void preModel()
 	{
+#ifdef USE_MPI
 		// TODO check if ASAGI is required for model setup
 		::asagi::Grid::startCommThread();
+#endif // USE_MPI
 	}
 
 	/**
@@ -124,8 +126,10 @@ public:
 	 */
 	void postModel()
 	{
+#ifdef USE_MPI
 		// TODO check if ASAGI is required for model setup
 		::asagi::Grid::stopCommThread();
+#endif // USE_MPI
 	}
 
 private:

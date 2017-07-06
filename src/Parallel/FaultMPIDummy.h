@@ -46,7 +46,7 @@
 namespace seissol
 {
 
-class FaultMPIDummy : FaultMPIBasic
+class FaultMPIDummy : public FaultMPIBasic
 {
 public:
 	void init(bool hasFault)
