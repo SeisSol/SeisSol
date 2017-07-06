@@ -7,21 +7,21 @@
 !! @section LICENSE
 !! Copyright (c) 2013-2016, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -79,6 +79,15 @@ module MeshReaderCBinding
             real(kind=c_double), dimension(*), intent(in)      :: displacement
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
         end subroutine
+
+        subroutine read_mesh_puml_c(meshfile, hasFault, displacement, scalingMatrix) bind(C, name="read_mesh_puml_c")
+            use, intrinsic :: iso_c_binding
+
+            character( kind=c_char ), dimension(*), intent(in) :: meshfile
+            logical( kind=c_bool ), value                      :: hasFault
+            real(kind=c_double), dimension(*), intent(in)      :: displacement
+            real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
+        end subroutine
     end interface
 
 contains
@@ -120,6 +129,8 @@ contains
 #else
             call read_mesh_netcdf_c(0, 1, trim(io%MeshFile) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
 #endif
+        elseif (io%meshgenerator .eq. 'PUML') then
+            call read_mesh_puml_c( trim(io%MeshFile) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
         else
             logError(*) 'Unknown mesh reader'
             stop
@@ -143,7 +154,7 @@ contains
                 eqn%DR = 0
             endif
         endif
-        
+
 #ifdef USE_DR_CELLAVERAGE
         DISC%Galerkin%nBndGP = 4**ceiling(log( real((DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2) / 2) )/log(4.))
 #else

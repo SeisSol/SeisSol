@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2013-2016, SeisSol Group
+ * Copyright (c) 2013-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,9 @@
 #ifdef USE_NETCDF
 #include "NetcdfReader.h"
 #endif // USE_NETCDF
+#ifdef USE_MPI
+#include "PUMLReader.h"
+#endif // USE_MPI
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 
@@ -268,6 +271,24 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 #else // USE_NETCDF
 	logError() << "netCDF not supported";
 #endif // USE_NETCDF
+}
+
+
+void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
+{
+	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+	const int rank = seissol::MPI::mpi.rank();
+
+#if defined(USE_MPI) && defined(USE_METIS)
+	logInfo(rank) << "Reading PUML mesh" << meshfile;
+
+	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile));
+
+	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
+#else // defined(USE_MPI) && defined(USE_METIS)
+	logError() << "PUML is currently only supported for MPI";
+#endif // defined(USE_MPI) && defined(USE_METIS)
 }
 
 }

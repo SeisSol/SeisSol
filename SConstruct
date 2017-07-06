@@ -126,6 +126,8 @@ vars.AddVariables(
 	        'no',
 	        allowed_values=('yes', 'no', 'passive') ),
 
+  BoolVariable( 'metis', 'use Metis for partitioning', False ),
+
   BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
 
   BoolVariable( 'asagi', 'use asagi for material input', False ),
@@ -187,6 +189,11 @@ vars.AddVariables(
 
   PathVariable( 'zlibDir',
                 'zlib installation directory',
+                None,
+                PathVariable.PathAccept ),
+
+  PathVariable( 'metisDir',
+                '(Par)Metis installation directory',
                 None,
                 PathVariable.PathAccept ),
 
@@ -444,6 +451,9 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
     if env['compiler'] == 'intel':
         env.Append(F90FLAGS = ['-fno-alias'])
 
+# C++ Standard
+env.Append(CXXFLAGS=['-std=c++11'])
+
 #
 # Basic preprocessor defines
 #
@@ -529,8 +539,8 @@ env.Tool('LibxsmmTool', required=True)
 env.Tool('DirTool', fortran=True)
 
 # GLM
-# Workaround for wrong C++11 detection
-env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
+# Some C++ GLM features are not working with the Intel Compiler
+env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
 # HDF5
 if env['hdf5']:
@@ -548,6 +558,11 @@ if env['netcdf'] == 'yes':
     env.Append(CPPDEFINES=['USE_NETCDF'])
 elif env['netcdf'] == 'passive':
     env.Append(CPPDEFINES=['USE_NETCDF', 'NETCDF_PASSIVE'])
+
+# Metis
+if env['metis'] and env['parallelization'] in ['hybrid', 'mpi']:
+	libs.find(env, 'metis', required=(not helpMode), parallel=True)
+	env.Append(CPPDEFINES=['USE_METIS'])
 
 # sionlib still need to create a Tool for autoconfiguration
 if env['sionlib']:

@@ -19,3 +19,6 @@
 [submodule "submodules/scons-tools"]
 	path = submodules/scons-tools
 	url = https://github.com/TUM-I5/scons-tools.git
+[submodule "submodules/PUML"]
+	path = submodules/PUML
+	url = https://github.com/TUM-I5/PUML2.git

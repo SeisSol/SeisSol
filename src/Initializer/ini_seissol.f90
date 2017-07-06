@@ -8,21 +8,21 @@
 !! @section LICENSE
 !! Copyright (c) 2007-2016, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -54,18 +54,18 @@ MODULE ini_SeisSol_mod
 
 CONTAINS
 
-  SUBROUTINE ini_SeisSol(time,timestep,pvar,cvar,EQN,IC,MESH,MPI,      &         
+  SUBROUTINE ini_SeisSol(time,timestep,pvar,cvar,EQN,IC,MESH,MPI,      &
        SOURCE,DISC,BND,OptionalFields,IO,Analyse, &
        programTitle) !
     !--------------------------------------------------------------------------
     USE COMMON_readpar_mod
-    USE read_mesh_mod                                                          
+    USE read_mesh_mod
     USE ini_OptionalFields_mod
     USE ini_calcSeisSol_mod
     USE dg_setup_mod
-    USE ini_MODEL_mod     
-    USE data_output_mod     
-    USE analyse_SeisSol_mod   
+    USE ini_MODEL_mod
+    USE data_output_mod
+    USE analyse_SeisSol_mod
  !   USE DGSponge_mod
     USE calc_deltaT_mod
 
@@ -113,7 +113,7 @@ CONTAINS
     INTEGER, POINTER               :: MetisWeight(:)                           !
     REAL                           :: AnelasticFactor(7,10)                    ! Factor of additional cost due to anelasticity
     REAL                           :: OrderFactor(7)                           ! Factor of additional cost due to order
-    CHARACTER(LEN=256)             :: outfile   
+    CHARACTER(LEN=256)             :: outfile
     CHARACTER(LEN=5)               :: cmyrank
     CHARACTER(LEN=600)             :: Filename, InFileName, OutFileName
     LOGICAL                        :: exists
@@ -124,11 +124,11 @@ CONTAINS
      CHARACTER(LEN=100) :: file_name = "" ! File name
      CHARACTER(LEN=8) :: dsetname   ! Dataset name
 
-     INTEGER(HID_T) :: file_id       ! File identifier 
-     INTEGER(HID_T) :: dset_id       ! Dataset identifier 
-     INTEGER(HID_T) :: filespace     ! Dataspace identifier in file 
+     INTEGER(HID_T) :: file_id       ! File identifier
+     INTEGER(HID_T) :: dset_id       ! Dataset identifier
+     INTEGER(HID_T) :: filespace     ! Dataspace identifier in file
      INTEGER(HID_T) :: memspace      ! Dataspace identifier in memory
-     INTEGER(HID_T) :: plist_id      ! Property list identifier 
+     INTEGER(HID_T) :: plist_id      ! Property list identifier
 
      INTEGER(HSIZE_T), DIMENSION(2) :: dimsf ! Dataset dimensions.
      INTEGER(HSIZE_T), DIMENSION(2) :: dimsfi
@@ -136,7 +136,7 @@ CONTAINS
      INTEGER(HSIZE_T), DIMENSION(2) :: count
      INTEGER(HSSIZE_T), DIMENSION(2) :: offset
      REAL (4), ALLOCATABLE :: data (:,:)  ! Data to write
-     INTEGER :: rank = 2 ! Dataset rank 
+     INTEGER :: rank = 2 ! Dataset rank
 #endif
      INTEGER :: error, error_n  ! Error flags
      INTEGER  :: t1, t2, clock_max      ! needed for dwalltime
@@ -175,7 +175,7 @@ CONTAINS
     MESH%nZones              = 1                                               ! Default values
     !                                                                          !
     IO%ContourFile = 'contour'                                                 ! File for plot body contour
-    !  
+    !
     !
     CALL readpar(                                         &                    ! read the parameter file
          EQN          = EQN                             , &                    !
@@ -193,7 +193,7 @@ CONTAINS
     IF(MPI%nCPU.GT.1) THEN
      DISC%IterationCriterion = 3 ! Associated to local time step
     ENDIF
-    !  
+    !
 
 #ifdef GENERATEDKERNELS
     ! Set ouput and checkpoint parameters
@@ -225,7 +225,7 @@ CONTAINS
     ! Start mesh reading/computing section
     EPIK_USER_START(r_read_compute_mesh)
     SCOREP_USER_REGION_BEGIN( r_read_compute_mesh, "read_compute_mesh", SCOREP_USER_REGION_TYPE_COMMON )
-    if (IO%meshgenerator .eq. 'Gambit3D-fast' .or. IO%meshgenerator .eq. 'Netcdf') then
+    if (IO%meshgenerator .eq. 'Gambit3D-fast' .or. IO%meshgenerator .eq. 'Netcdf' .or. IO%meshgenerator .eq. 'PUML') then
         call read_mesh_fast(IO,EQN,DISC,MESH,BND,MPI)
     else
         CALL read_mesh(IO,EQN,DISC,MESH,BND,MPI)
@@ -233,7 +233,7 @@ CONTAINS
     !                                                                          !
     ! output neighbour list
     !OPEN(UNIT=999,FILE='Neighbourhood.dat')
-    !   DO iElem = 1,MESH%nElem    
+    !   DO iElem = 1,MESH%nElem
     !         WRITE(999,*) MESH%ELEM%SideNeighbor(:,iElem)
     !   ENDDO
     !CLOSE(999)
@@ -241,7 +241,7 @@ CONTAINS
     logInfo(*) '<--------------------------------------------------------->' !
     logInfo(*) '<           Calling DG Initialization level 1             >' !
     logInfo(*) '<--------------------------------------------------------->' !
-                                                 
+
     CALL iniGalerkin3D_us_level1_new(                 &              !
         EQN    = EQN                                , &              !
         DISC   = DISC                               , &              !
@@ -252,15 +252,15 @@ CONTAINS
         OptionalFields = OptionalFields             , &              !
         MPI    = MPI                                , &              !
         IO     = IO                                   )              !
-    
+
     SELECT CASE(EQN%LinType) ! nothing done for hybrids yet
     CASE(6)
         CALL generate_FacetList(1,1,OptionalFields,EQN,MESH,IO)
     END SELECT
 
-#ifdef PARALLEL 
+#ifdef PARALLEL
     ! nothing done for hybrids yet
-    if (IO%meshgenerator .ne. 'Gambit3D-fast' .and. IO%meshgenerator .ne. 'Netcdf') then
+    if (IO%meshgenerator .ne. 'Gambit3D-fast' .and. IO%meshgenerator .ne. 'Netcdf' .and. IO%meshgenerator .ne. 'PUML') then
         CALL MPIExtractMesh( EQN   = EQN,  &                                       !
                              DISC  = DISC, &                                       !
                              BND   = BND,  &                                       !
@@ -286,13 +286,14 @@ CONTAINS
             .and. ( mesh%elem%reference( iSide, iElem ) .ne. 1 )& ! free surface boundary conditions
             .and. ( mesh%elem%reference( iSide, iElem ) .ne. 3 )& ! dynamic rupture boundary conditions
           ) then
-          logError(*) 'boundary conditions not supported, expect undefined behavior'
+          logError(*) 'boundary conditions not supported'
+          stop
         endif
       enddo
     enddo
 #endif
 
-    !                                                                               ! 
+    !                                                                               !
     DISC%NGP = 1                                                               !
     !                                                                          !
     !                                                                          !
@@ -308,7 +309,7 @@ CONTAINS
     !                                                                          !
     pvar(:,:)  = 0.                                                            ! Initialize
     cvar(:,:)  = 0.                                                            ! Initialize
-    !                                                                          !    
+    !                                                                          !
     !                                                                          ! Compute the number of background variables
     CALL ini_OptionalFields(                              &                    ! Allociert: OptionalFields%dt
          OptionalFields = OptionalFields                , &                    !            OptionalFields%RK_k
@@ -320,7 +321,7 @@ CONTAINS
     !                                                                          !
     !
     !T. Ulrich 08.2015 Read 2D basis Function for Vr output
-    CALL Read2dGF(DISC,IO)                         
+    CALL Read2dGF(DISC,IO)
     !
     IF (EQN%linearized) THEN                                                   !
        CALL ini_MODEL(                                      &                  ! Initialize Local Linearized calculation
@@ -366,7 +367,7 @@ CONTAINS
         ENDIF
 
         ALLOCATE(MetisWeight(MESH%nElem))
-    
+
         !OrderFactor(:)       = (/4.34, 5.36, 8.39, 16.69, 37.08, 83.69, 180.70/)
         OrderFactor(:)       = (/1.00, 1.07, 1.29, 1.60, 2.62, 5.07, 10.29/)
 
@@ -384,7 +385,7 @@ CONTAINS
 !                  MetisWeight(iElem) = CEILING( (OrderFactor(LocPoly+1)                            &
 !                                              * (AnelasticFactor(LocPoly+1,EQN%nMechanisms))) *100 )
 !           ELSE
-                  MetisWeight(iElem) = CEILING( OrderFactor(LocPoly+1) *100 ) 
+                  MetisWeight(iElem) = CEILING( OrderFactor(LocPoly+1) *100 )
 !           ENDIF
 
         ENDDO
@@ -419,13 +420,13 @@ CONTAINS
         ENDIF
 
         CLOSE(998)
-        CLOSE(999)   
-        
+        CLOSE(999)
+
         logInfo(*) 'Metis weights computed successfully!'
         logInfo(*) 'weighted graph file written to ',TRIM(IO%MetisFile) // '.dgraph.weighted'
         logInfo(*) 'Terminating Programm !'
         STOP
-    ENDIF    
+    ENDIF
 #endif
 
     ! TODO do we need to call this function when we read a checkpoint?? (SR)
@@ -434,7 +435,7 @@ CONTAINS
  !   CALL NonConformingGPEvaluation3D(DISC, MESH, IO, BND)
  !   CALL DGSponge(0., EQN, DISC, MESH, BND, IC, SOURCE, IO) ! not yet done for hybrids/unified version
     !
-  
+
     logInfo(*) 'Galerkin3D module initialized correctly.'     !
     logInfo(*) ' '                                             !
                                                                               !
@@ -452,13 +453,13 @@ CONTAINS
 
       ! [quantity][quantity][minus/plus][face]
       allocate( mesh%fault%fluxSolver( eqn%nvar, eqn%nvar, 2, mesh%fault%nSide) )
-      
+
       allocate( MaterialVals(EQN%nBackgroundVar), WaveSpeeds(EQN%nNonZeroEV) )
 
       do l_ruptureFace = 1, mesh%fault%nSide
         ! compute & store rotation matrices:
         !   xyz to face-aligned coordinate system
-        !   face-aligned coordinate system to xyz 
+        !   face-aligned coordinate system to xyz
         call rotationMatrix3D( n1  = mesh%fault%geoNormals(       1:3,    l_ruptureFace ),\
                                n2  = mesh%fault%geoTangent1(      1:3,    l_ruptureFace ),\
                                n3  = mesh%fault%geoTangent2(      1:3,    l_ruptureFace ),\
@@ -516,12 +517,12 @@ CONTAINS
           endif
         enddo
       enddo
-      
+
       deallocate( MaterialVals, WaveSpeeds )
     endif
 #endif
 
-    !                                                                          ! 
+    !                                                                          !
     logInfo(*) '<--------------------------------------------------------->'  !
     logInfo(*) '<     ini_SeisSol finished successfully                   >'  !
     logInfo(*) '<--------------------------------------------------------->'  !

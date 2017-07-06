@@ -3037,12 +3037,19 @@ ALLOCATE( SpacePositionx(nDirac), &
        END SELECT
 
        SELECT CASE(IO%meshgenerator)
-       CASE('Gambit3D-Tetra','Gambit3D-Mixed','Gambit3D-fast','Netcdf')
+       CASE('Gambit3D-Tetra','Gambit3D-Mixed','Gambit3D-fast','Netcdf','PUML')
           if (IO%meshgenerator .eq. 'Netcdf') then
-            logInfo(*) 'Read a netCDF mesh ...'
+            logInfo0(*) 'Read a netCDF mesh ...'
             Name = trim(IO%MeshFile) // '.nc'
+          elseif (IO%meshgenerator .eq. 'PUML') then
+#ifdef USE_METIS
+            Name = trim(IO%MeshFile)
+            logInfo0(*) 'Read a PUML mesh file'
+#else
+            logError(*) 'PUML requires METIS'
+#endif
           else
-            logInfo(*) 'Read a Gambit 3-D neutral mesh ... '
+            logInfo0(*) 'Read a Gambit 3-D neutral mesh ... '
             Name = TRIM(IO%MeshFile)//'.neu'
           endif
 
@@ -3121,7 +3128,7 @@ ALLOCATE( SpacePositionx(nDirac), &
        END SELECT
     ! specify element type (3-d = tetrahedrons)
 
-      IF(IO%meshgenerator.EQ.'Gambit3D-Tetra' .or. IO%meshgenerator.eq.'Gambit3D-fast' .or. IO%meshgenerator.eq.'Netcdf')THEN
+      IF(IO%meshgenerator.EQ.'Gambit3D-Tetra' .or. IO%meshgenerator.eq.'Gambit3D-fast' .or. IO%meshgenerator.eq.'Netcdf' .or. IO%meshgenerator.eq.'PUML')THEN
           MESH%GlobalElemType = 4
           MESH%GlobalSideType = 3
           MESH%GlobalVrtxType = 4
@@ -3393,7 +3400,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       !! @warning When using an asynchronous back-end (mpio_async), you might lose
       !!  2 * checkPointInterval of your computation.
       !! @more_info https://github.com/SeisSol/SeisSol/wiki/Parameter-File
-      !! 
+      !!
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
@@ -3438,7 +3445,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%OutputFile = OutputFile                                                   ! read output field file
 
       IO%OutputFile  = TRIM(IO%OutputFile)
-      
+
       IO%SurfaceOutput = SurfaceOutput
       IO%SurfaceOutputRefinement = SurfaceOutputRefinement
       IO%SurfaceOutputInterval = SurfaceOutputInterval
