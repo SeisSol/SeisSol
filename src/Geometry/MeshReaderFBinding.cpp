@@ -278,9 +278,9 @@ void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displace
 {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
+#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	const int rank = seissol::MPI::mpi.rank();
 
-#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
 	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile));
