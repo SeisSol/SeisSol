@@ -4135,10 +4135,10 @@ MODULE ini_model_DR_mod
               DISC%DynRup%RS_srW_array(i,iBndGP) = frictionValues(1)
               DISC%DynRup%RS_a_array(i,iBndGP) = frictionValues(2)
             case(1)
-              DISC%DynRup%cohesion(i,iBndGP) = frictionValues(1)
-              DISC%DynRup%D_C(i,iBndGP) = frictionValues(2)
-              DISC%DynRup%Mu_S(i,iBndGP) = frictionValues(3)
-              DISC%DynRup%Mu_D(i,iBndGP) = frictionValues(4)
+              DISC%DynRup%cohesion(iBndGP,i) = frictionValues(1)
+              DISC%DynRup%D_C(iBndGP,i) = frictionValues(2)
+              DISC%DynRup%Mu_S(iBndGP,i) = frictionValues(3)
+              DISC%DynRup%Mu_D(iBndGP,i) = frictionValues(4)
             endselect
          ENDDO ! iBndGP
      end do
