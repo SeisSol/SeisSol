@@ -241,7 +241,7 @@ MODULE Plasticity_mod
        !Update
        dudt_plastic(1:nDegFr,1:6) = dgvar(1:nDegFr,1:6)- dgvar_new(1:nDegFr,1:6)
        !just the first dof
-       dudt_pstrain(1:6) = (1/2*mu)*dudt_plastic(1,1:6)
+       dudt_pstrain(1:6) = (1.0/(2.0*mu))*dudt_plastic(1,1:6)
        !both mu and 2*mu (= tensor formulation) are used in literature
 
 
@@ -395,7 +395,7 @@ MODULE Plasticity_mod
        dgvar(1:nDegFr,1:6) = Stress(1:nDegFr,1:6) - DOFStress(1:nDegFr,1:6)
 
        !just the first dof
-       dudt_pstrain(1:6) = ((1-yldfac)/(2*mu))*devStress(1, 1:6)
+       dudt_pstrain(1:6) = ((1.0-yldfac)/(2.0*mu))*devStress(1, 1:6)
        !both mu and 2*mu (= tensor formulation) are used in literature
 
         
