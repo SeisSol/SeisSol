@@ -4,6 +4,7 @@
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
+#include <Kernels/Plasticity.h>
 
 int main()
 {
@@ -84,5 +85,25 @@ int main()
   printf("Dynamic rupture face non-zero flops (average, w/o friction law): %.1lf\n", drNonZeroFlops / 48.0 + neighborDRNonZeroFlops / 12.0 / 4.0);
   printf("Dynamic rupture face hardware flops (average, w/o friction law): %.1lf\n", drHardwareFlops / 48.0 + neighborDRHardwareFlops / 12.0 / 4.0);
   
+
+  /// Plasticity flops
+
+  long long PlNonZeroFlopsCheck = 0, PlHardwareFlopsCheck = 0;
+  long long PlNonZeroFlopsYield = 0, PlHardwareFlopsYield = 0;
+  long long kernelNonZeroFlopsCheck, kernelHardwareFlopsCheck;
+  long long kernelNonZeroFlopsYield, kernelHardwareFlopsYield;
+
+  seissol::kernels::Plasticity::flopsPlasticity(kernelNonZeroFlopsCheck, kernelHardwareFlopsCheck, kernelNonZeroFlopsYield, kernelHardwareFlopsYield);
+
+  PlNonZeroFlopsCheck += kernelNonZeroFlopsCheck;
+  PlHardwareFlopsCheck += kernelHardwareFlopsCheck;
+  PlNonZeroFlopsYield += kernelNonZeroFlopsYield;
+  PlHardwareFlopsYield += kernelHardwareFlopsYield;
+
+  printf("Plasticity non-zero min flops : %.lld\n", PlNonZeroFlopsCheck );
+  printf("Plasticity hardware min flops : %.lld\n", PlHardwareFlopsCheck );
+  printf("Plasticity non-zero max flops : %.lld\n", PlNonZeroFlopsCheck + PlNonZeroFlopsYield );
+  printf("Plasticity hardware max flops : %.lld\n", PlHardwareFlopsCheck+ PlHardwareFlopsYield );
+
   return 0;
 }

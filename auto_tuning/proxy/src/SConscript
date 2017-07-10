@@ -42,7 +42,8 @@ Import('env')
 
 seissolSourceFiles = [  'Initializer/MemoryAllocator.cpp',
                         'Kernels/TimeCommon.cpp',
-                        'Kernels/DynamicRupture.cpp' ]
+                        'Kernels/DynamicRupture.cpp',
+                        'Kernels/Plasticity.cpp' ]
 seissolEquationSourceFiles = [  'Kernels/Time.cpp',
                                 'Kernels/Neighbor.cpp',
                                 'Kernels/Local.cpp']
