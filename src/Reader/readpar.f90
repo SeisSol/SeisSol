@@ -1710,13 +1710,28 @@ CONTAINS
                  logInfo0(*) 'elementwise initialization. '
              ENDIF
 
-           CASE(16,17,1500) ! 1500 = ASAGI
+           CASE(16,17)
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise
              EQN%XRef = XRef
              EQN%YRef = YRef
              EQN%ZRef = ZRef
              EQN%refPointMethod = refPointMethod
+           case(1500,1501) ! ASAGI
+             ! TODO We also have FL parameter, maybe can reduce this case to a single one
+             ! and select the correct ASAGI initialization from FL.
+             IO%FileName_BackgroundStress = FileName_BackgroundStress
+             EQN%GPwise = GPwise
+             EQN%XRef = XRef
+             EQN%YRef = YRef
+             EQN%ZRef = ZRef
+             EQN%refPointMethod = refPointMethod
+             DISC%DynRup%RS_srW = RS_srW
+             DISC%DynRup%RS_a = RS_a
+             DISC%DynRup%cohesion_0 = cohesion_0
+             DISC%DynRup%D_C_ini = D_C_ini
+             DISC%DynRup%Mu_S_ini = Mu_S_ini
+             DISC%DynRup%Mu_D_ini = Mu_D_ini
            CASE DEFAULT
              logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
              STOP

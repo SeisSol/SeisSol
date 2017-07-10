@@ -5,7 +5,7 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2016, SeisSol Group
+!! Copyright (c) 2016-2017, SeisSol Group
 !! All rights reserved.
 !!
 !! Redistribution and use in source and binary forms, with or without
@@ -45,20 +45,23 @@ module StressReader
 
 	! C function
 	interface
-		subroutine open_stress_field(file) bind (C, name="open_stress_field")
+		subroutine open_stress_field(file, friction) bind (C, name="open_stress_field")
 			use, intrinsic :: iso_c_binding
 
 			character( kind=c_char ), dimension(*), intent(in) :: file
+			integer( kind=c_int ), value                       :: friction
 		end subroutine open_stress_field
 
-		subroutine readStress(x, y, z, values, defaultValues) bind(C, name="read_stress")
+		subroutine readStress(x, y, z, stressValues, frictionValues, stressDefaultValues, frictionDefaultValues) bind(C, name="read_stress")
 			use, intrinsic :: iso_c_binding
 
 			real( kind=c_double ), value :: x
 			real( kind=c_double ), value :: y
 			real( kind=c_double ), value :: z
-			real( kind=c_double ), dimension(*), intent(out) :: values
-			real( kind=c_float ), dimension(*), intent(in)  :: defaultValues
+			real( kind=c_double ), dimension(*), intent(out) :: stressValues
+			real( kind=c_double ), dimension(*), intent(out) :: frictionValues
+			real( kind=c_float ), dimension(*), intent(in)  :: stressDefaultValues
+			real( kind=c_float ), dimension(*), intent(in)  :: frictionDefaultValues
 		end subroutine readStress
 
 		subroutine closeStressField() bind(C, name="close_stress_field")
@@ -67,11 +70,13 @@ module StressReader
 	end interface
 
 	contains
-	subroutine openStressField(io)
+	subroutine openStressField(io, friction)
+		use, intrinsic :: iso_c_binding
 		implicit none
 
 		type(tInputOutput)             :: io
+		integer                        :: friction
 
-		call open_stress_field(trim(io%FileName_BackgroundStress) // c_null_char)
+		call open_stress_field(trim(io%FileName_BackgroundStress) // c_null_char, friction)
 	end subroutine openStressField
 end module

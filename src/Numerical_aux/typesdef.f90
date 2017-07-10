@@ -891,7 +891,7 @@ MODULE TypesDef
      real, allocatable                      :: output_Slip2(:,:)
      real, allocatable                      :: output_rupture_time(:,:)
      real, allocatable                      :: output_PeakSR(:,:)
-     real, allocatable                      :: output_dynStress_time(:,:)  
+     real, allocatable                      :: output_dynStress_time(:,:)
      REAL, allocatable                      :: Slip(:,:)               !< Slip path at given fault node
      REAL, allocatable                      :: Slip1(:,:)                      !< Slip at given fault node along loc dir 1
      REAL, allocatable                      :: Slip2(:,:)                      !< Slip at given fault node along loc dir 2
@@ -936,7 +936,7 @@ MODULE TypesDef
      REAL                                   :: Mu_SNuc_ini                      !< Static friction coefficient inside the nucleation zone ini scalar value
      REAL                                   :: Mu_D_ini                         !< Dynamic friction coefficient ini scalar value
      REAL                                   :: D_C_ini                          !< Critical slip read-in variable for constant value over the entire fault
-     REAL, POINTER                          :: D_C(:,:) => NULL()                         !< Critical slip at given fault node
+     REAL, allocatable                      :: D_C(:,:)                         !< Critical slip at given fault node
      INTEGER                                :: Nucleation                       !< Nucleation
      INTEGER                                :: NucDirX                          !< Axis for locating nucleation patch (1: x, 2: y)
      INTEGER                                :: NucDirY                          !< Axis for locating nucleation patch (1: x, 2: y)

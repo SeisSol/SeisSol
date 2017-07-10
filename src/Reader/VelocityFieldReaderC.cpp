@@ -68,7 +68,6 @@ struct Setter
 	{
 	}
 
-
 	void set(const float* material)
 	{
 		materialValues[i] = material[0];
@@ -108,7 +107,7 @@ void read_velocity_field(const char* file, int numElements, const seissol::asagi
 	logInfo(rank) << "Initializing velocity field.";
 	unsigned int variables = reader.open(file);
 	if (variables != 3)
-		logError() << "Invalid number of variables in material file";
+		logError() << "Invalid number of variables in material file, found" << variables;
 
 	double time = stopwatch.stop();
 	logInfo(rank) << "Velocity field opened in" << time << "sec.";

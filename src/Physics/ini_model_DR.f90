@@ -215,8 +215,8 @@ MODULE ini_model_DR_mod
        CALL background_SUMATRA_GEO(DISC,EQN,MESH,BND)
     CASE(1202)
        CALL background_SUMATRA_RS(DISC,EQN,MESH,BND)
-    case(1500)
-       call background_asagi(io, disc, eqn, mesh, bnd)
+    case(1500,1501) ! 1500 = rsf; 1501 = lsw
+       call background_asagi(io, disc, eqn, mesh, bnd, DISC%DynRup%BackgroundType - 1500)
     !
     ! Add your background stress model subroutine call here
     !
@@ -282,11 +282,11 @@ MODULE ini_model_DR_mod
     if (DISC%DynRup%read_fault_file == 1) then
        call faultinput(disc,eqn,mesh,bnd,IO)
     end if
-    
-    
+
+
     ! Rotate initial stresses to fault coordinate system
     allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-    
+
     do iFace = 1, MESH%Fault%nSide
       normal   = MESH%Fault%geoNormals( 1:3, iFace)
       tangent1 = MESH%Fault%geoTangent1(1:3, iFace)
@@ -295,11 +295,11 @@ MODULE ini_model_DR_mod
 
       Stress(1,:)=EQN%IniBulk_xx(iFace,:)
       Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-      Stress(3,:)=EQN%IniBulk_zz(iFace,:) 
+      Stress(3,:)=EQN%IniBulk_zz(iFace,:)
       Stress(4,:)=EQN%IniShearXY(iFace,:)
       Stress(5,:)=EQN%IniShearYZ(iFace,:)
       Stress(6,:)=EQN%IniShearXZ(iFace,:)
-      
+
       do iBndGP=1,DISC%Galerkin%nBndGP
         StressinFaultCS = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))
         EQN%InitialStressInFaultCS(iBndGP,:,iFace) = StressinFaultCS
@@ -1910,7 +1910,7 @@ MODULE ini_model_DR_mod
   !most favorable direction (A4, AM2003)
   Phi = pi/4d0-0.5d0*atan(mu_st)
   s2=sin(2d0*Phi)
-  c2=cos(2d0*Phi) 
+  c2=cos(2d0*Phi)
   strike_rad = strike*pi/180d0
   dip_rad = dip*pi/180d0
 
@@ -1935,18 +1935,18 @@ MODULE ini_model_DR_mod
   ELSE
       c2bis = c2 - cos(2d0*(Phi-dip_rad))
 
-      !ds (delta_sigma) is deduced from R (A5, Aochi and Madariaga 2003), 
+      !ds (delta_sigma) is deduced from R (A5, Aochi and Madariaga 2003),
       !assuming that sig1 and sig3 are in the yz plane
       !sigzz and sigma_ini are then related by a phi+dip rotation (using A3, AM03)
       !sigmazz = sm  - ds * cos(2.*(Phi+dip_rad))
-      !Now we have to assume that P = sm (not any more equal to sigmazz) 
+      !Now we have to assume that P = sm (not any more equal to sigmazz)
       !and we can obtain the new expression of ds:
       ds =  (mu_dy * sigmazz + R*(cohesion + (mu_st-mu_dy)*sigmazz)) / (s2 + mu_dy*c2bis + R*(mu_st-mu_dy)*c2bis)
       sm =  sigmazz + ds * cos(2d0*(Phi-dip_rad))
 
       sii(1)= sm + ds
       !could be any value between sig1 and sig3
-      sii(2)= sm 
+      sii(2)= sm
       sii(3)= sm - ds
 
       Stress = transpose(reshape((/ sii(1), 0.0, 0.0, 0.0, sii(2), 0.0, 0.0, 0.0, sii(3) /), shape(Stress)))
@@ -2004,8 +2004,8 @@ MODULE ini_model_DR_mod
   REAL                           :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
   REAL                           :: bii(6)
-  !-------------------------------------------------------------------------! 
-  INTENT(IN)    :: MESH, BND 
+  !-------------------------------------------------------------------------!
+  INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
   !-------------------------------------------------------------------------!
   ! TPV29
@@ -2020,10 +2020,10 @@ MODULE ini_model_DR_mod
      b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
   ELSE
      !93 4
-     xS1 = 5.0000000000e+05 
-     yS1 = 4.4212739025e+05 
+     xS1 = 5.0000000000e+05
+     yS1 = 4.4212739025e+05
      !92.5 5.5
-     xS2 = 4.4461626476e+05 
+     xS2 = 4.4461626476e+05
      ys2 = 6.0795713230e+05
      !4
   ENDIF
@@ -4004,7 +4004,7 @@ MODULE ini_model_DR_mod
           IF (radius.LT.Rnuc) THEN
              ShapeNucleation=EXP(radius**2/(radius**2-Rnuc**2))
           ENDIF
-         
+
          !Rotate nucleation stress in fault coordinate system
           normal   = MESH%Fault%geoNormals( 1:3, i)
           tangent1 = MESH%Fault%geoTangent1(1:3, i)
@@ -4088,7 +4088,7 @@ MODULE ini_model_DR_mod
   END SUBROUTINE background_TPV103       !  SCEC TPV103 test with velocity weakening friction (based on slip law)
 
   ! Initialize background stress via ASAGI
-  subroutine background_asagi(io, disc, eqn, mesh, bnd)
+  subroutine background_asagi(io, disc, eqn, mesh, bnd, friction)
   !-------------------------------------------------------------------------!
   USE DGBasis_mod
   use, intrinsic :: iso_c_binding
@@ -4100,6 +4100,7 @@ MODULE ini_model_DR_mod
   TYPE(tEquations)               :: EQN
   TYPE(tUnstructMesh)            :: MESH
   TYPE (tBoundary)               :: BND
+  integer                        :: friction
   !-------------------------------------------------------------------------!
   ! Local variable declaration
   INTEGER                        :: i
@@ -4109,20 +4110,41 @@ MODULE ini_model_DR_mod
   REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
-  real, dimension(1:6)           :: values
-  real( kind=c_float ), dimension(1:7) :: defaultValues
+  real, dimension(1:6)           :: stressValues
+  real, dimension(1:4)           :: frictionValues
+  real( kind=c_float ), dimension(1:7) :: stressDefaultValues
+  real( kind=c_float ), dimension(1:4) :: frictionDefaultValues
   !-------------------------------------------------------------------------!
 
-     call openStressField(io)
+     call openStressField(io, friction)
 
-     ! Default values
-     defaultValues(1) = EQN%Bulk_xx_0
-     defaultValues(2) = EQN%Bulk_yy_0
-     defaultValues(3) = EQN%Bulk_zz_0
-     defaultValues(4) = EQN%ShearXY_0
-     defaultValues(5) = EQN%ShearXZ_0
-     defaultValues(6) = EQN%ShearYZ_0
-     defaultValues(7) = 0.0 ! p
+     ! Default stress values
+     stressDefaultValues(1) = EQN%Bulk_xx_0
+     stressDefaultValues(2) = EQN%Bulk_yy_0
+     stressDefaultValues(3) = EQN%Bulk_zz_0
+     stressDefaultValues(4) = EQN%ShearXY_0
+     stressDefaultValues(5) = EQN%ShearXZ_0
+     stressDefaultValues(6) = EQN%ShearYZ_0
+     stressDefaultValues(7) = 0.0 ! p
+
+     select case(friction)
+     case(0) ! rate & state friction
+       ALLOCATE(DISC%DynRup%RS_srW_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+       ALLOCATE(DISC%DynRup%RS_a_array(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+
+       frictionDefaultValues(1) = DISC%DynRup%RS_srW
+       frictionDefaultValues(2) = DISC%DynRup%RS_a
+     case(1) ! linear slip weakening
+       ! Already allocated with FL = 30
+!        ALLOCATE(DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+!        ALLOCATE(DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+!        ALLOCATE(DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+
+       frictionDefaultValues(1) = DISC%DynRup%cohesion_0
+       frictionDefaultValues(2) = DISC%DynRup%D_C_ini
+       frictionDefaultValues(3) = DISC%DynRup%Mu_S_ini
+       frictionDefaultValues(4) = DISC%DynRup%Mu_D_ini
+     endselect
 
      DO i = 1, MESH%Fault%nSide
         ! element ID
@@ -4155,14 +4177,26 @@ MODULE ini_model_DR_mod
             CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
             CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
 
-            call readStress(xGp, yGp, zGp, values, defaultValues)
-            EQN%IniBulk_xx(i,iBndGP) = values(1)
-            EQN%IniBulk_yy(i,iBndGP) = values(2)
-            EQN%IniBulk_zz(i,iBndGP) = values(3)
-            EQN%IniShearXY(i,iBndGP) = values(4)
-            EQN%IniShearXZ(i,iBndGP) = values(5)
-            EQN%IniShearYZ(i,iBndGP) = values(6)
+            call readStress(xGp, yGp, zGp, stressValues, frictionValues, stressDefaultValues, frictionDefaultValues)
+            EQN%IniBulk_xx(i,iBndGP) = stressValues(1)
+            EQN%IniBulk_yy(i,iBndGP) = stressValues(2)
+            EQN%IniBulk_zz(i,iBndGP) = stressValues(3)
+            EQN%IniShearXY(i,iBndGP) = stressValues(4)
+            EQN%IniShearXZ(i,iBndGP) = stressValues(5)
+            EQN%IniShearYZ(i,iBndGP) = stressValues(6)
 
+            ! TODO This select case is not really nice in the inner loop
+            ! On the other side ... it is I/O
+            select case(friction)
+            case(0)
+              DISC%DynRup%RS_srW_array(i,iBndGP) = frictionValues(1)
+              DISC%DynRup%RS_a_array(i,iBndGP) = frictionValues(2)
+            case(1)
+              DISC%DynRup%cohesion(i,iBndGP) = frictionValues(1)
+              DISC%DynRup%D_C(i,iBndGP) = frictionValues(2)
+              DISC%DynRup%Mu_S(i,iBndGP) = frictionValues(3)
+              DISC%DynRup%Mu_D(i,iBndGP) = frictionValues(4)
+            endselect
          ENDDO ! iBndGP
      end do
 

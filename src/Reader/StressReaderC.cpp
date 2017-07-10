@@ -49,11 +49,17 @@
 #include "Monitoring/Stopwatch.h"
 
 #ifdef USE_ASAGI
-/** The ASAGI reader */
-static seissol::asagi::AsagiReader reader("SEISSOL_ASAGI_STRESS");
+/** The ASAGI reader(s) */
+static seissol::asagi::AsagiReader stressReader("SEISSOL_ASAGI_STRESS");
+static seissol::asagi::AsagiReader frictionReader("SEISSOL_ASAGI_STRESS");
 
 /** The number of variables found in ASAGI */
-static unsigned int numVariables;
+static unsigned int numStressVariables;
+static unsigned int numFrictionVariables;
+
+/** Friction setting */
+static const char* frictionVarName;
+static unsigned int maxFrictionVariables;
 
 /** Counter for values outside the box */
 static unsigned long outside = 0;
@@ -68,14 +74,14 @@ namespace seissol
 namespace stress_reader
 {
 
-struct Setter
+struct StressSetter
 {
 	const unsigned int numValues;
 
 	/** Destination buffer for stress values */
 	double * const buffer;
 
-	Setter(unsigned int numValues, double * const buffer)
+	StressSetter(unsigned int numValues, double* buffer)
 		: numValues(numValues), buffer(buffer)
 	{
 	}
@@ -85,11 +91,38 @@ struct Setter
 		for (unsigned int i = 0; i < 6; i++)
 			buffer[i] = stressValues[i];
 		if (numValues > 6) {
-			// Substract the p from sxx, syy, szz
-			buffer[0] -= stressValues[6];
-			buffer[1] -= stressValues[6];
-			buffer[2] -= stressValues[6];
+			// Add p to sxx, syy, szz
+			buffer[0] += stressValues[6];
+			buffer[1] += stressValues[6];
+			buffer[2] += stressValues[6];
 		}
+	}
+};
+
+struct FrictionSetter
+{
+	const unsigned int numValues;
+
+	/** Maximum number of values */
+	const unsigned int maxValues;
+
+	/** Destination buffer for stress values */
+	double * const buffer;
+
+	const float * const defaultValues;
+
+	FrictionSetter(unsigned int numValues, unsigned int maxValues, double* buffer, const float* defaultValues)
+		: numValues(numValues), maxValues(maxValues), buffer(buffer), defaultValues(defaultValues)
+	{
+	}
+
+	void set(const float* stressValues)
+	{
+		unsigned int i = 0;
+		for (; i < numValues; i++)
+			buffer[i] = stressValues[i];
+		for (; i < maxValues; i++)
+			buffer[i] = defaultValues[i];
 	}
 };
 
@@ -101,13 +134,23 @@ extern "C"
 {
 
 /**
+ * @param friction The fricition type (0 = rate & state friction, 1 = linear slip weakening)
+ *
  * @warning Instrumentation does not work with ASAGI. We use the stopwatch to messure time.
  *
  * @todo Support stress initialization for the whole domain
  */
-void open_stress_field(const char* file)
+void open_stress_field(const char* file, int friction)
 {
 #ifdef USE_ASAGI
+	if (friction == 0) {
+		frictionVarName = "rsf";
+		maxFrictionVariables = 2;
+	} else {
+		frictionVarName = "lsw";
+		maxFrictionVariables = 4;
+	}
+
 	const int rank = seissol::MPI::mpi.fault.rank();
 
 	// Use manual timing since Score-P does not work
@@ -116,18 +159,26 @@ void open_stress_field(const char* file)
 	bool sparse = utils::Env::get<bool>("SEISSOL_ASAGI_STRESS_SPARSE", false);
 
 	logInfo(rank) << "Initializing stress field.";
-	numVariables = reader.open(file, sparse
+	numStressVariables = stressReader.open(file, "stress", sparse
 #ifdef USE_MPI
 		, seissol::MPI::mpi.fault.comm()
 #endif // USE_MPI
 	);
-	switch (numVariables) {
+	switch (numStressVariables) {
 	case 6:
 	case 7:
 		break;
 	default:
 		logError() << "Invalid number of variables in stress input";
 	}
+
+	numFrictionVariables = frictionReader.open(file, frictionVarName, sparse
+#ifdef USE_MPI
+		, seissol::MPI::mpi.fault.comm()
+#endif // USE_MPI
+	);
+	if (numFrictionVariables == 0)
+		logInfo(rank) << "No friction data found, using default";
 
 	double time = stopwatch.stop();
 	logInfo(rank) << "Stress field opened in" << time << "sec.";
@@ -143,13 +194,22 @@ void open_stress_field(const char* file)
 /**
  * @warning Instrumentation does not work with ASAGI. We use the stopwatch to messure time.
  */
-void read_stress(double x, double y, double z, double values[6], const float defaultValues[7])
+void read_stress(double x, double y, double z, double* stressValues, double* frictionValues,
+		const float stressDefaultValues[7], const float* frictionDefaultValues)
 {
 #ifdef USE_ASAGI
 	const seissol::asagi::vertex_t coord = {x, y, z};
 
-	seissol::stress_reader::Setter setter(numVariables, values);
-	outside += reader.readValue(coord, setter, defaultValues);
+	seissol::stress_reader::StressSetter setter(numStressVariables, stressValues);
+	outside += stressReader.readValue(coord, setter, stressDefaultValues);
+	if (numFrictionVariables > 0) {
+		seissol::stress_reader::FrictionSetter setter(numFrictionVariables, maxFrictionVariables,
+			frictionValues, frictionDefaultValues);
+		frictionReader.readValue(coord, setter, frictionDefaultValues);
+	} else {
+		for (unsigned int i = 0; i < maxFrictionVariables; i++)
+			frictionValues[i] = frictionDefaultValues[i];
+	}
 
 #else // USE_ASAGI
 	logError() << "This version does not support ASAGI";
@@ -178,7 +238,8 @@ void close_stress_field()
 	double time = stopwatch.stop();
 	logInfo(rank) << "Stress field initialized in" << time << "sec.";
 
-	reader.close();
+	stressReader.close();
+	frictionReader.close();
 
 	logInfo(rank) << "Initializing stress field. Done.";
 #else // USE_ASAGI
