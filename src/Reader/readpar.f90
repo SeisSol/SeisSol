@@ -329,6 +329,13 @@ CONTAINS
 #else
        logInfo0(*) '(Drucker-Prager) plasticity assumed .'
 
+#if defined(USE_PLASTIC_IP)
+       logInfo0(*) 'Integration Points approach used for plasticity.'
+#elif defined(USE_PLASTIC_NB)
+       logInfo0(*) 'Nodal Basis approach used for plasticity.'
+
+#endif
+
 #endif
         EQN%Plasticity = Plasticity
         !first constant, can be overwritten in ini_model

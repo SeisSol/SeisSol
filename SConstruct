@@ -167,6 +167,12 @@ vars.AddVariables(
                 'Use quadrature here, cellaverage is EXPERIMENTAL.',
                 'quadrature',
                 allowed_values=('quadrature', 'cellaverage')
+              ),
+
+  EnumVariable( 'PlasticityMethod',
+                'choose between two plasticity methods, nodal one in general faster',
+                'nb',
+                allowed_values=('ip', 'nb')
               )
 )
 
@@ -481,6 +487,10 @@ if env['parallelization'] in ['omp', 'hybrid']:
 
 if( env['plasticity'] ):
   env.Append(CPPDEFINES=['USE_PLASTICITY'])
+  if env['PlasticityMethod'] == 'ip':
+     env.Append(CPPDEFINES=['USE_PLASTIC_IP'])
+  elif env['PlasticityMethod'] == 'nb':
+     env.Append(CPPDEFINES=['USE_PLASTIC_NB'])
 
 if( env['integrateQuants'] ):
   env.Append(CPPDEFINES=['INTEGRATE_QUANTITIES'])

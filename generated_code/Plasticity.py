@@ -41,12 +41,12 @@
 from gemmgen import DB, Tools, Arch, Kernel
 import numpy as np
 
-def addMatrices(db, matricesDir, order):
+def addMatrices(db, matricesDir, PlasticityMethod, order):
   numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
   clones = dict()
 
   # Load matrices
-  db.update(Tools.parseMatrixFile('{}/plasticity_matrices_{}.xml'.format(matricesDir, order), clones))
+  db.update(Tools.parseMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, order), clones))
 
   # force Aligned in order to be compatible with regular DOFs.
   db.insert(DB.MatrixInfo('stressDOFS', numberOfBasisFunctions, 6, forceAligned=True))

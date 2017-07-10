@@ -43,7 +43,7 @@ Import('env')
 import os
 
 def generate_code(target, source, env, for_signature):
-  return 'python {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --generator {} --memLayout {} --dynamicRuptureMethod {}'.format(
+  return 'python {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --generator {} --memLayout {} --dynamicRuptureMethod {} --PlasticityMethod {}'.format(
     source[0],
     os.path.join(os.path.split(str(source[0]))[0], 'matrices'),
     os.path.split(str(target[0]))[0],
@@ -52,7 +52,8 @@ def generate_code(target, source, env, for_signature):
     env['numberOfMechanisms'],
     env['libxsmmGenerator'],
     env['memLayout'],
-    env['dynamicRuptureMethod']
+    env['dynamicRuptureMethod'],
+    env['PlasticityMethod']
   )
 
 env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
