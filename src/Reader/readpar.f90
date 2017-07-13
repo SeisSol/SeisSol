@@ -3023,7 +3023,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
     ! Setting default values
     MeshFile = 'LOH1'
-    meshgenerator = 'Gambit3D'
+    meshgenerator = 'Gambit3D-fast'
     displacement(:) = 0.
     ScalingMatrixX(:) = 0.0
     ScalingMatrixX(1) = 1.0
@@ -3048,18 +3048,11 @@ ALLOCATE( SpacePositionx(nDirac), &
     MESH%iniSquareMesh = .FALSE.
     MESH%iniDiscMesh   = .FALSE.
 
-    IO%meshgenerator = meshgenerator
+    IO%meshgenerator = trim(meshgenerator)
 
        EQN%HexaDimension = 3
-       SELECT CASE(TRIM(IO%meshgenerator))
-       CASE('Gambit3D')
-            IO%meshgenerator = TRIM('Gambit3D-Tetra')
-       CASE('Gambit3D-Mixed')
-            IO%meshgenerator = TRIM('Gambit3D-Mixed')
-       END SELECT
-
        SELECT CASE(IO%meshgenerator)
-       CASE('Gambit3D-Tetra','Gambit3D-Mixed','Gambit3D-fast','Netcdf','PUML')
+       CASE('Gambit3D-fast','Netcdf','PUML')
           if (IO%meshgenerator .eq. 'Netcdf') then
             logInfo0(*) 'Read a netCDF mesh ...'
             Name = trim(IO%MeshFile) // '.nc'
@@ -3110,64 +3103,18 @@ ALLOCATE( SpacePositionx(nDirac), &
             logInfo(*) 'Periodic boundary in z-direction. '
           ENDIF
 
-       CASE('ICEMCFD3D-Tetra')
-          !
-          logInfo(*) 'Read an ICEM CFD 3-D neutral mesh ... '
-          !
-          Name = TRIM(IO%MeshFile)//'.neu'
-          IO%MeshFile=Name(1:35)
-          !
-          logInfo(*) 'Mesh is READ from file      ',    IO%MeshFile
-          !
-          BND%periodic = periodic
-          !
-          IF(BND%periodic.EQ.0) THEN
-             BND%DirPeriodic(:) = .FALSE.
-             logInfo(*) 'No periodic boundary conditions specified.    '
-          ELSE
-             WHERE(periodic_direction(:).EQ.1)
-                BND%DirPeriodic(:) = .TRUE.
-             ELSEWHERE
-                BND%DirPeriodic(:) = .FALSE.
-             ENDWHERE
-             BND%Periodic = SUM(periodic_direction)
-          ENDIF
-          !
-          IF(BND%DirPeriodic(1)) THEN
-            logInfo(*) 'Periodic boundary in x-direction. '
-          ENDIF
-          IF(BND%DirPeriodic(2)) THEN
-            logInfo(*) 'Periodic boundary in y-direction. '
-          ENDIF
-          IF(BND%DirPeriodic(3)) THEN
-            logInfo(*) 'Periodic boundary in z-direction. '
-          ENDIF
-
-
        CASE DEFAULT
           logError(*) 'Meshgenerator ', TRIM(IO%meshgenerator), ' is unknown!'
           STOP
        END SELECT
     ! specify element type (3-d = tetrahedrons)
 
-      IF(IO%meshgenerator.EQ.'Gambit3D-Tetra' .or. IO%meshgenerator.eq.'Gambit3D-fast' .or. IO%meshgenerator.eq.'Netcdf' .or. IO%meshgenerator.eq.'PUML')THEN
+      IF(IO%meshgenerator.eq.'Gambit3D-fast' .or. IO%meshgenerator.eq.'Netcdf' .or. IO%meshgenerator.eq.'PUML') THEN
           MESH%GlobalElemType = 4
           MESH%GlobalSideType = 3
           MESH%GlobalVrtxType = 4
           MESH%nVertexMax = 4
           MESH%nSideMax = 4
-       ELSEIF(IO%meshgenerator.EQ.'ICEMCFD3D-Tetra')THEN
-          MESH%GlobalElemType = 4
-          MESH%GlobalSideType = 3
-          MESH%GlobalVrtxType = 4
-          MESH%nVertexMax = 4
-          MESH%nSideMax = 4
-       ELSEIF(IO%meshgenerator.EQ.'Gambit3D-Mixed')THEN
-          MESH%GlobalElemType = 7
-          MESH%nVertexMax = 8
-          MESH%nSideMax = 6
-          MESH%GlobalVrtxType = 8 ! should be removed later
-          MESH%GlobalSideType = 4 ! should be removed later
        ELSE
           logError(*) 'Wrong definition of meshgenerator.'
           STOP
@@ -3176,9 +3123,6 @@ ALLOCATE( SpacePositionx(nDirac), &
        SELECT CASE (MESH%GlobalElemType)
        CASE(4)
           logInfo(*) 'Mesh consits of TETRAHEDRAL elements.'
-          logInfo(*) 'Mesh type is', MESH%GlobalElemType
-       CASE(7)
-          logInfo(*) 'Mesh consits of HEXAHEDRAL or/and TETRAHEDRAL elements.'
           logInfo(*) 'Mesh type is', MESH%GlobalElemType
        CASE DEFAULT
           logError(*) 'MESH%GlobalElemType must be {4}, {6} or {7} '

@@ -47,10 +47,8 @@ numericalAuxFiles = [ 'gauss.f90',
                       'operators.f90',
                       'convertxieta2xy.f90',
                       'dgbasis.f90',
-                      'ini_quadfreedg.f90',
                       'jacobinormal.f90',
                       'quadpoints.f90',
-                      'sp_matmul.f90',
                       'trilinearinterpolation.f90' ]
 
 if env['generatedKernels']:

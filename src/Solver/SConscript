@@ -44,7 +44,6 @@ Import('env')
 solverFiles = [ 'calc_seissol.f90',
                 'close_seissol.f90',
                 'calc_deltat.f90',
-                'cauchykovalewski.f90',
                 'plasticity.f90',
                 'prak_clif_mod.f90' ]
 
@@ -57,8 +56,6 @@ if env['generatedKernels']:
                  'time_stepping/TimeCluster.cpp',
                  'time_stepping/TimeManager.cpp',
                  'Simulator.cpp' ] + solverFiles
-else:
-  solverFiles = solverFiles + ['dgsponge.f90', 'friction.f90', 'galerkin3d_solver.f90']
 
 # source files for mpi parallelizazion
 if env['parallelization'] in ['mpi', 'hybrid']:

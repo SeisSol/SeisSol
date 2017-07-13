@@ -42,7 +42,6 @@ Import('env')
 
 # physics source files
 physicsFiles = [ 'Evaluate_friction_law.f90',
-                 'galerkin_source.f90',
                  'ini_model.f90',
                  'ini_model_DR.f90',
                  'initialfield.f90' ]

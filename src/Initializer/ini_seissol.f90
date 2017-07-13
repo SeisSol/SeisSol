@@ -59,7 +59,6 @@ CONTAINS
        programTitle) !
     !--------------------------------------------------------------------------
     USE COMMON_readpar_mod
-    USE read_mesh_mod
     USE ini_OptionalFields_mod
     USE ini_calcSeisSol_mod
     USE dg_setup_mod
@@ -70,9 +69,6 @@ CONTAINS
     USE calc_deltaT_mod
 
     use MeshReaderCBinding
-#ifdef PARALLEL
-    USE MPIExtractMesh_mod
-#endif
 #ifdef HDF
     USE HDF5
 #endif
@@ -225,11 +221,7 @@ CONTAINS
     ! Start mesh reading/computing section
     EPIK_USER_START(r_read_compute_mesh)
     SCOREP_USER_REGION_BEGIN( r_read_compute_mesh, "read_compute_mesh", SCOREP_USER_REGION_TYPE_COMMON )
-    if (IO%meshgenerator .eq. 'Gambit3D-fast' .or. IO%meshgenerator .eq. 'Netcdf' .or. IO%meshgenerator .eq. 'PUML') then
-        call read_mesh_fast(IO,EQN,DISC,MESH,BND,MPI)
-    else
-        CALL read_mesh(IO,EQN,DISC,MESH,BND,MPI)
-    endif
+    call read_mesh_fast(IO,EQN,DISC,MESH,BND,MPI)
     !                                                                          !
     ! output neighbour list
     !OPEN(UNIT=999,FILE='Neighbourhood.dat')
@@ -257,18 +249,6 @@ CONTAINS
     CASE(6)
         CALL generate_FacetList(1,1,OptionalFields,EQN,MESH,IO)
     END SELECT
-
-#ifdef PARALLEL
-    ! nothing done for hybrids yet
-    if (IO%meshgenerator .ne. 'Gambit3D-fast' .and. IO%meshgenerator .ne. 'Netcdf' .and. IO%meshgenerator .ne. 'PUML') then
-        CALL MPIExtractMesh( EQN   = EQN,  &                                       !
-                             DISC  = DISC, &                                       !
-                             BND   = BND,  &                                       !
-                             MESH  = MESH, &                                       !
-                             IO    = IO,   &                                       !
-                             MPI   = MPI   )                                       !
-    endif
-#endif
 
     ! End mesh reading/computing section
     EPIK_USER_END(r_read_compute_mesh)

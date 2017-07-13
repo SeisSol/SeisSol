@@ -45,9 +45,5 @@ Import('env')
 
 # Tests
 env.mpiTestSourceFiles[2].append(os.path.abspath('MeshReader.t.h'))
-    
-# Additional files
-if env['parallelization'] in ['mpi', 'hybrid']:
-    env.sourceFiles.append(env.Object('MeshReaderTestTools.f90'))
 
 Export('env')

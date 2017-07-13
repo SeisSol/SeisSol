@@ -43,8 +43,6 @@ Import('env')
 
 # geometry source files
 geometryFiles = [ 'GambitReader.cpp',
-                  'read_mesh.f90',
-                  'compute_mesh_info.f90',
                   'allocate_mesh.f90',
                   'MeshReaderCBinding.f90',
                   'MeshReaderFBinding.cpp',
@@ -53,10 +51,6 @@ geometryFiles = [ 'GambitReader.cpp',
 # PUML
 if env['metis'] and env['hdf5'] and env['parallelization'] in ['mpi', 'hybrid']:
 	geometryFiles.append('PUMLReader.cpp')
-
-# source files for mpi parallelizazion
-if env['parallelization'] in ['mpi', 'hybrid']:
-  geometryFiles.append('mpiextractmesh.f90')
 
 for i in geometryFiles:
   env.sourceFiles.append(env.Object(i))
