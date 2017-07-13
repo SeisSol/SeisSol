@@ -48,12 +48,6 @@
 
 #define CUBE_SIZE 4
 
-extern "C" {
-// Functions implemented in fortran
-void readcubeold(int rank);
-void readdrboxold(int rank);
-}
-
 std::ostream& operator<<(std::ostream& o, const Fault& f)
 {
 	o << f.element << ' ' << f.side << ' ' << f.neighborElement << ' '  << f.neighborSide;
@@ -325,7 +319,6 @@ public:
 		GambitReader meshReader(seissol::MPI::mpi.rank(),
 				SEISSOL_TESTS "Geometry/cube4.neu", SEISSOL_TESTS "Geometry/cube4.met.epart.2");
 
-		readcubeold(seissol::MPI::mpi.rank());
 		if (seissol::MPI::mpi.rank() == 0)
 			testMeshReader0(meshReader);
 		else
@@ -337,7 +330,6 @@ public:
 #ifdef USE_NETCDF
 		NetcdfReader meshReader(seissol::MPI::mpi.rank(), 2, SEISSOL_TESTS "Geometry/cube4.nc");
 
-		readcubeold(seissol::MPI::mpi.rank());
 		if (seissol::MPI::mpi.rank() == 0)
 			testMeshReader0(meshReader);
 		else
@@ -350,7 +342,6 @@ public:
 		GambitReader meshReader0(0, SEISSOL_TESTS "Geometry/scec.neu", SEISSOL_TESTS "Geometry/scec.met.epart.2");
 		//GambitReader meshReader1(1, "src/tests/Geometry/scec.neu", "src/tests/Geometry/scec.met.epart.2");
 
-		readdrboxold(0);
 		testMeshReader0(meshReader0, true);
 		//readdrboxold(1);
 		// Does not work for this scenario because one element can have multiple neighbors in the same domain

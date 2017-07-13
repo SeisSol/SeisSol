@@ -44,6 +44,6 @@ import os
 Import('env')
 
 # Tests
-env.mpiTestSourceFiles[2].append(os.path.abspath('MeshReader.t.h'))
+#env.mpiTestSourceFiles[2].append(os.path.abspath('MeshReader.t.h'))
 
 Export('env')
