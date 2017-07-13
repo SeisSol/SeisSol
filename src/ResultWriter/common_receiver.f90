@@ -252,158 +252,27 @@ CONTAINS
   !
   !< cauchy kovalewski 3d for receiver output
   !
-  SUBROUTINE common_receiver_ck(EQN,MESH,DISC,IO,j,TaylorDof,dt,time,localpicktime,dt_op,time_op)
-    !--------------------------------------------------------------------------
-    USE DGBasis_mod
-    USE CauchyKovalewski_mod
-    !--------------------------------------------------------------------------
+  SUBROUTINE common_receiver_ck(EQN,DISC,IO,j,TaylorDof)
 #ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_ptr
 #endif
     IMPLICIT NONE
     !--------------------------------------------------------------------------
     TYPE (tEquations)              :: EQN
-    TYPE (tUnstructMesh)           :: MESH
     TYPE (tDiscretization)         :: DISC
     TYPE (tInputOutput)            :: IO
-    REAL                           :: dt, time, localpicktime
     REAL                           :: TaylorDOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal,0:DISC%Galerkin%nPolyRec)
-    REAL,OPTIONAL                  :: dt_op, time_op
     INTEGER                        :: j
-    !--------------------------------------------------------------------------
-    REAL                           :: DOF(DISC%Galerkin%nDegFrRec,EQN%nVarTotal)
-    !--------------------------------------------------------------------------
-    TYPE(tSparseTensor3), POINTER  :: AStar_Sp_ptr => NULL()                  ! Pointer to tSparseTensor3
-    TYPE(tSparseTensor3), POINTER  :: BStar_Sp_ptr => NULL()                  !
-    TYPE(tSparseTensor3), POINTER  :: CStar_Sp_ptr => NULL()                  !
-    TYPE(tSparseTensor3), POINTER  :: EStar_Sp_ptr => NULL()                  !
-    !--------------------------------------------------------------------------
-    TYPE(tSparseTensor3b), POINTER :: Tens_xi_Sp_ptr   => NULL()              ! Pointer to tSparseTensor3b
-    TYPE(tSparseTensor3b), POINTER :: Tens_eta_Sp_ptr  => NULL()              !
-    TYPE(tSparseTensor3b), POINTER :: Tens_zeta_Sp_ptr => NULL()              !
-    TYPE(tSparseTensor3b), POINTER :: Tens_klm_Sp_ptr  => NULL()              !
-    !--------------------------------------------------------------------------
-    INTEGER                        :: LocElemType                             !
-    INTEGER                        :: LocnVar                                 !
-    INTEGER                        :: LocnPoly                                !
-    INTEGER                        :: LocnDegFr                               !
-    INTEGER                        :: LocnPolyMat                             !
-    INTEGER                        :: LocnDegFrMat                            !
-    INTEGER                        :: ReactionTerm                            !
     INTEGER                        :: iElem                                   !
     !--------------------------------------------------------------------------
-    INTENT(IN)                     :: EQN,MESH,DISC,j,time_op,dt_op
-#ifdef GENERATEDKERNELS
+    INTENT(IN)                     :: EQN,DISC,j
     intent(out)                    :: taylorDOF
-#else
-    INTENT(OUT)                    :: TaylorDOF,time,dt,localpicktime
-#endif
     !--------------------------------------------------------------------------
     !
     iElem = IO%UnstructRecPoint(j)%index
     !
-#ifndef GENERATEDKERNELS
-    SELECT CASE(DISC%Galerkin%DGMethod)
-    CASE(3)
-      localpicktime = IO%LocalPickTime(j)
-      time          = DISC%LocalTime(iElem)
-      dt            = DISC%LocalDt(iElem)
-    CASE DEFAULT
-      localpicktime = IO%picktime
-      time          = time_op
-      dt            = dt_op
-    END SELECT
-    !
-!?  ! usually the receiver are in the refined mesh area and all have equally small timesteps.
-!?  ! are there any cases where receivers are located in the coarse part of the mesh, where the timesteps are larger than the
-!?  ! sampling rate required in the refined part of the mesh?
-    ! exception handling
-    IF(IO%pickdt.LT.dt) THEN
-      logError(*) ' '
-      logError(*) '|   Receiver sampling ', IO%pickdt,'s smaller than timestep ', dt,'s'
-      logError(*) '|   Please increase receiver sampling rate'
-      logError(*) ' '
-      stop
-    ENDIF
-    !
-    IF(EQN%LocAnelastic(iElem).EQ.1.OR.EQN%LocPoroelastic(iElem).EQ.1.OR.EQN%LocPoroelastic(iElem).EQ.2)THEN
-      IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-        ReactionTerm = 0
-      ELSE
-        ReactionTerm = 1
-      ENDIF
-    ELSE
-      ReactionTerm = 0
-    ENDIF
-    !
-    ! GTS, LTS ADER-DG
-    DOF = DISC%Galerkin%dgvar(:,:,iElem,1)
-    !
-    LocnPoly     = DISC%Galerkin%nPoly
-    LocnDegFr    = (LocnPoly+1)*(LocnPoly+2)*(LocnPoly+3)/6
-    LocnPolyMat  = DISC%Galerkin%nPolyMat
-    LocnDegFrMat = (LocnPolyMat+1)*(LocnPolyMat+2)*(LocnPolyMat+3)/6
-    LocnVar      = EQN%nVar
-    LocElemType  = MESH%LocalElemType(iElem)
-    !
-    AStar_Sp_ptr    => DISC%Galerkin%AStar_Sp(iElem)                      ! Star matrices in sparse version
-    BStar_Sp_ptr    => DISC%Galerkin%BStar_Sp(iElem)                      !
-    CStar_Sp_ptr    => DISC%Galerkin%CStar_Sp(iElem)                      !
-    EStar_Sp_ptr    => DISC%Galerkin%EStar_Sp(iElem)                      !
-
-    SELECT CASE(LocElemType)
-    CASE(4) ! Tetra
-        Tens_xi_Sp_ptr   => DISC%Galerkin%ADGxi_Tet_Sp                    ! Stiff CK tensors for tetras
-        Tens_eta_Sp_ptr  => DISC%Galerkin%ADGeta_Tet_Sp
-        Tens_zeta_Sp_ptr => DISC%Galerkin%ADGzeta_Tet_Sp
-        Tens_klm_sp_ptr  => DISC%Galerkin%ADGklm_Tet_Sp                   ! Tensor for space dependent reaction term
-    CASE(6) ! Hexa
-        Tens_xi_Sp_ptr   => DISC%Galerkin%ADGxi_Hex_Sp                    ! Stiff CK tensors for hexas
-        Tens_eta_Sp_ptr  => DISC%Galerkin%ADGeta_Hex_Sp
-        Tens_zeta_Sp_ptr => DISC%Galerkin%ADGzeta_Hex_Sp
-        Tens_klm_sp_ptr  => DISC%Galerkin%ADGzeta_Hex_Sp !Temporary assignment We need to create the correct tensor. Used for space dependent reaction term
-    CASE DEFAULT
-        logError('(" ERROR in ADERGalerkin3D: MESH%LocalElemType(",I5,")=",I2," unknown!!!")') iElem, MESH%LocalElemType(iElem)
-        STOP
-    END SELECT ! LocElemType
-
-    IF(DISC%Galerkin%CKMethod.EQ.1.AND.EQN%LocPoroelastic(iElem).NE.0) THEN
-      ! NOT IMPLEMENTED
-      !CALL FastSpaceTimeDG_TimeExpansion(                                                            &
-      !                         TaylorDOF     = TaylorDOF,                                            &
-      !                         IC_DOF        = DOF,                                                  &
-      !                         SpInvSystem   = DISC%Galerkin%InvSystemMatrix(iElem),                 &
-      !                         EQN           = EQN,                                                  &
-      !                         DISC          = DISC                                                  )
-      !
-      logError(*) 'Error in SUBROUTINE receiver'
-      logError(*) 'FastSpaceTimeDG_TimeExpansion not implemented in unified version'
-      STOP
-    ELSE
-      CALL CauchyKovalewski3D(                                            & !
-                             TimeDerDof    = TaylorDof,                   & ! Output
-                             Dof           = Dof,                         & ! Input
-                             Dt            = Dt,                          & ! Input
-                             A_Sp          = AStar_Sp_ptr,                & ! Input
-                             B_Sp          = BStar_Sp_ptr,                & ! Input
-                             C_Sp          = CStar_Sp_ptr,                & ! Input
-                             E_Sp          = EStar_Sp_ptr,                & ! Input
-                             ADGxi_Sp      = Tens_xi_Sp_ptr,              & ! Input
-                             ADGeta_Sp     = Tens_eta_Sp_ptr,             & ! Input
-                             ADGzeta_Sp    = Tens_zeta_Sp_ptr,            & ! Input
-                             Mklm_Sp       = Tens_klm_sp_ptr,             & ! Input
-                             ReactionTerm  = ReactionTerm,                & ! Input
-                             LocDegFr      = LocnDegFr,                   & ! Input
-                             LocDegFrMat   = LocnDegFrMat,                & ! Input
-                             LocPoly       = LocnPoly,                    & ! Input
-                             nVar          = LocnVar                      ) ! Input
-      NULLIFY(AStar_Sp_ptr, BStar_Sp_ptr, CStar_Sp_ptr, EStar_Sp_ptr)
-      NULLIFY(Tens_xi_Sp_ptr, Tens_eta_Sp_ptr, Tens_zeta_Sp_ptr, Tens_klm_sp_ptr)
-    ENDIF
-#else
      call c_interoperability_getTimeDerivatives( i_meshId         = iElem, \
                                                  o_timeDerivatives = taylorDof(:,:,0) )
-#endif
     !
   END SUBROUTINE common_receiver_ck
   !

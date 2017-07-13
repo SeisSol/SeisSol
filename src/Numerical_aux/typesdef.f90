@@ -421,8 +421,6 @@ MODULE TypesDef
     !              "Because its elements do not need to be contiguous in memory, a Fortran pointer target or assumed-shape array cannot be passed to C.
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
     real*8, allocatable   :: dgvar(:,:,:,:)                     !< storage of all unknowns (solution).
-#else
-    REAL, POINTER         :: dgvar(:,:,:,:)  => NULL()          !< Data-array for expansion
 #endif
     REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: plasticParameters(:,:) => NULL()
@@ -432,8 +430,6 @@ MODULE TypesDef
 !    integer              :: nSourceTermElems !< number of elemens having a source term
 !    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
 !    integer, allocatable :: indicesOfSourceTermsElems(:) !< indices of elements having a source term
-#else
-    REAL, POINTER     :: DGwork(:,:,:) => NULL()     !< Work array for DG method
 #endif
     REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
     real              :: totcputime
@@ -981,18 +977,6 @@ MODULE TypesDef
      TYPE(tDynRup_output)                   :: DynRup_out_elementwise           !< Output data at all elements for Dynamic Rupture processes
 #ifdef HDF
      TYPE(thd_fault_receiver)           , POINTER :: hd_rec  => NULL()                         !< HDF5 file handle for fault hdf5 outpu
-#endif
-
-#ifndef GENERATEDKERNELS
-    integer              :: nDRElems !< number of DR Elems
-    real*8, allocatable  :: DRupdates(:,:,:)            !< shadow storage of receiver elemes
-    integer, allocatable :: indicesOfDRElems(:) !< indices of elements having a pickpoint
-    integer, allocatable :: DRupdatesPosition(:,:) !< helper array to determine the position inside DRupdates in friction routine
-
-    integer              :: nDRElemsMIC !< number of DR Elems
-    real*8, allocatable  :: DRupdatesMIC(:,:,:)            !< shadow storage of receiver elemes
-    integer, allocatable :: indicesOfDRElemsMIC(:) !< indices of elements having a pickpoint
-    integer, allocatable :: indicesOfDRElemsInCPUupdates(:) !< indices of elements having a pickpoint
 #endif
 
      type(tDynRun_constants),pointer         :: DynRup_Constants(:), DynRup_Constants_globInd(:) => NULL()

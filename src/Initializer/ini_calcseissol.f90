@@ -98,10 +98,6 @@ CONTAINS
    ! CALL ini_hdf_wavefield(MESH, IO, DISC)
 #endif
 
-#ifndef GENERATEDKERNELS
-    CALL ini_calc_deltaT(     EQN%EqType,OptionalFields, EQN, MESH     ,IO)! ok
-#endif
-
   END SUBROUTINE ini_calc
 
   SUBROUTINE close_calc(OptionalFields,IO,MPI)

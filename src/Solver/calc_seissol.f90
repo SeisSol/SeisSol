@@ -69,9 +69,6 @@ CONTAINS
 #endif
     USE data_output_mod
     USE ini_SeisSol_mod
-#ifndef GENERATEDKERNELS
-    USE Galerkin3D_solver_mod
-#endif
     USE magnitude_output_mod
     USE output_rupturefront_mod
     USE COMMON_operators_mod
@@ -109,7 +106,7 @@ CONTAINS
     REAL, POINTER                 :: cvar(  : , :  )     
     ! local variables declaration
     INTEGER                       :: k_index(4)
-    INTEGER                       :: plotNr, minl(1), nIter, iter
+    INTEGER                       :: plotNr, minl(1), iter
     INTEGER                       :: iElem, iSide, i, iObject, MPIIndex
     INTEGER*4                     :: now(3)
     REAL                          :: tol, InitBegin, InitEnd, LoopBegin, LoopEnd
@@ -123,7 +120,7 @@ CONTAINS
     INTEGER                       :: nNonZeros(MESH%nElem)
     INTEGER                       :: MaxnNonZeros, LocnNonZeros
     REAL                          :: JT(3,3,10),DIF,x(4),y(4),z(4),JacobiT(3,3)
-    INTEGER                       :: counter, counter2,iType,j, countside, cnt, UpdType
+    INTEGER                       :: counter, counter2,iType,j, countside, UpdType
 #ifdef GENERATEDKERNELS
     real*8 :: l_synchronizationPoint;
     INTEGER                       :: iDRupdate
@@ -162,36 +159,10 @@ CONTAINS
        logInfo(*) separator                !
        !
     ENDIF
-#ifdef PARALLEL
-
-#ifndef GENERATEDKERNELS
-    logInfo0(*) 'communicating star matrices and flux solvers in sparse format' 
-    CALL MPIExchangeJacobians_new(DISC,EQN,BND,MESH,IO,OptionalFields,MPI)
-#endif
-    ! initialize counters for load balance
-    cnt   = 0
-    nIter = 10
-
-#ifndef GENERATEDKERNELS
-    IF (DISC%Galerkin%DGMethod.NE.3) THEN
-            CALL MPIExchangeValues_GTS_Init(DISC           = DISC,             &
-                                            EQN            = EQN,              &
-                                            BND            = BND,              &
-                                            MPI            = MPI)
-
-      logInfo0(*) 'GTS communicaition was initialized'
-    ENDIF
-#endif
-
-#endif
-
-#ifdef GENERATEDKERNELS
 
 #ifdef USE_MPI
        ! sync all redundant data from the initialization
        call c_interoperability_synchronizeCopyLayerDofs()
-#endif
-
 #endif
 
 #ifdef PARALLEL
@@ -200,7 +171,6 @@ CONTAINS
 #endif
     DISC%StartCPUTime = dwalltime()
 
-#ifdef GENERATEDKERNELS
     ! enable dynamic rupture if requested
     if( eqn%dr==1 ) then
       call c_interoperability_enableDynamicRupture()
@@ -210,269 +180,6 @@ CONTAINS
     call c_interoperability_simulate( i_finalTime = disc%endTime );
     ! End time is currently the only supported abort criteria by GK
     time = disc%endTime
-#else
-    !
-    !                                                   !
-    !---------------------------------------------------!
-    !----------------START TIME LOOP -------------------!
-    !---------------------------------------------------!
-    !
-    !
-    IF((timestep.LT.DISC%MaxIteration).AND.(time.LT.DISC%EndTime)) THEN
-        ContinueLoop = .TRUE.
-    ELSE
-        ContinueLoop = .FALSE.
-    ENDIF
-
-    call itime(now)
-    logInfo0('(A,I2,A,I2,A,I2)') ' iterating over time loop             system-time: ', now(1), ':', now(2), ':', now(3)
-
-    ! start epik/scorep region for time stepping loop
-    EPIK_USER_START(r_time_stepping)
-    SCOREP_USER_REGION_BEGIN(r_time_stepping, "time_stepping", SCOREP_USER_REGION_TYPE_COMMON)
-    !                                                   !
-    DO  WHILE(ContinueLoop)                             ! Time marching GO
-     !
-     DISC%time = time                                        !
-
-     ! compute the maximum allowed time step width acoording to the CFL-condition for this rank.
-     CALL calc_deltaT(                              & ! calc_deltaT
-          OptionalFields = OptionalFields         , & ! calc_deltaT
-          EQN            = EQN                    , & ! calc_deltaT
-          MESH           = MESH                   , & ! calc_deltaT
-          DISC           = DISC                   , & ! calc_deltaT
-          SOURCE         = SOURCE                 , & ! calc_deltaT
-          IO             = IO                     , & ! calc_deltaT
-          time           = time                   , & ! calc_deltaT
-          printTime      = DISC%printTime           ) ! calc_deltaT   
-
-#ifdef PARALLEL
-     IF(MPI%nCPU.GT.1) THEN
-        ! get the minimum allowed time step width over all ranks (unstructured grid, so dt may differ in domains)
-        CALL MPI_ALLREDUCE(OptionalFields%dt(1),MPIdt,1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI%commWorld,iErr)
-        OptionalFields%dt(:) = MPIdt
-        !
-     ENDIF
-#endif
-
-       ! write receiver and energy output
-     if(DISC%Galerkin%DGMethod.ne.3) then
-#ifdef HDF
-          CALL receiver_hdf(                     &
-               EQN       = EQN                  ,&
-               MESH      = MESH                 ,&
-               DISC      = DISC                 ,&
-               MPI       = MPI                  ,&
-               IO        = IO                   ,&
-               time_op   = time                 ,&
-               dt_op     = OptionalFields%dt(1)  )
-#else
-          CALL receiver(                         &
-               EQN       = EQN                  ,&
-               MESH      = MESH                 ,&
-               DISC      = DISC                 ,&
-               MPI       = MPI                  ,&
-               IO        = IO                   ,&
-               time_op   = time                 ,&
-               dt_op     = OptionalFields%dt(1)  )
-
-           ! write energy output (time series)
-        IF (IO%energy_output_on .EQ. 1) THEN
-           CALL energies_output(                 &
-               DISC      = DISC                 ,&
-               EQN       = EQN                  ,&
-               MESH      = MESH                 ,&
-               MPI       = MPI                  ,&
-               IO        = IO                   ,&
-               time_op   = time                 ,&
-               dt_op     = OptionalFields%dt(1)  )
-        ENDIF
-#endif
-     endif
-
-    ! 
-    IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-        CALL CKProcedureForEveryoneLTSUni(                    &  ! Before MPIExchange in the first timestep,                
-            time           = time                           , &  ! do CK procedure for everybody in the local timestepping case 
-            dt             = OptionalFields%dt(1)           , &  
-            iteration      = timestep                       , &  
-            MaterialVal    = OptionalFields%BackgroundValue , &  
-            OptionalFields = OptionalFields,                  &  
-            EQN            = EQN,                             &  
-            MESH           = MESH,                            &  
-            DISC           = DISC,                            &  
-            IC             = IC,                              &  
-            SOURCE         = SOURCE,                          &  
-            BND            = BND,                             &  
-            MPI            = MPI,                             &  
-            IO             = IO                               )
-    ELSE
-        CALL CKProcedureForEveryoneGTSUni(                  &  ! Do the CK procedure 
-          time           = time                           , &  ! for all elements in the domain. 
-          dt             = OptionalFields%dt(1)           , &  ! Time-integrate the DOF and save 
-          iteration      = timestep                       , &  ! the result in dgwork.
-          MaterialVal    = OptionalFields%BackgroundValue , &  !  
-          OptionalFields = OptionalFields,                  &  !  
-          EQN            = EQN,                             &  !  
-          MESH           = MESH,                            &  !  
-          DISC           = DISC,                            &  !  
-          IC             = IC,                              &  !  
-          SOURCE         = SOURCE,                          &  !  
-          BND            = BND,                             &  !  
-          MPI            = MPI,                             &  !  
-          IO             = IO                               )  !      
-    ENDIF
-
-#ifdef PARALLEL
-    ! start epik/scorep region for communication of the degrees of freedom
-    EPIK_USER_START( r_dofs_communication )
-    SCOREP_USER_REGION_BEGIN(r_dofs_communication, "dofs_communication", SCOREP_USER_REGION_TYPE_COMMON)
-
-    IF(MPI%nCPU.GT.1) THEN
-        IF (DISC%Galerkin%DGMethod.EQ.3) THEN
-            !
-            !   For the parallel version of Seissol:
-            !   exchange MPI boundary values before discretization
-            !
-            CALL MPIExchangeValues_LTS(DISC           = DISC,             &
-                                       EQN            = EQN,              &
-                                       BND            = BND,              &
-                                       MESH           = MESH,             &
-                                       IO             = IO,               &
-                                       OptionalFields = OptionalFields,   &
-                                       MPI            = MPI               )
-        ELSE
-            CALL MPIExchangeValues_GTS(DISC           = DISC,             &
-                                       EQN            = EQN,              &
-                                       BND            = BND               )
-        ENDIF
-       !
-    ENDIF
-
-    ! end epik/scorep region for communication of the degrees of freedom
-    EPIK_USER_END( r_dofs_communication )
-    SCOREP_USER_REGION_END(r_dofs_communication)
-#endif
-
-       IF(timestep.EQ.0) THEN
-            logInfo(*) '-----------------------------------------------------------'
-            logInfo(*) '    Minimum timestep is ', OptionalFields%dt(1)
-            logInfo(*) '-----------------------------------------------------------'
-       ENDIF
-
-       ! do computations
-       SELECT CASE(DISC%Galerkin%DGMethod)
-       CASE(1) ! Global time step
-            CALL ADERGalerkin3D_GTS(                              &  ! Quadfree ADER-DG
-                time           = time                           , &  ! Quadfree ADER-DG
-                dt             = OptionalFields%dt(1)           , &  ! Quadfree ADER-DG
-                iteration      = timestep                       , &  ! Quadfree ADER-DG
-                MaterialVal    = OptionalFields%BackgroundValue , &  ! Quadfree ADER-DG
-                OptionalFields = OptionalFields,                  &  ! Quadfree ADER-DG
-                EQN            = EQN,                             &  ! Quadfree ADER-DG
-                MESH           = MESH,                            &  ! Quadfree ADER-DG
-                DISC           = DISC,                            &  ! Quadfree ADER-DG
-                IC             = IC,                              &  ! Quadfree ADER-DG
-                SOURCE         = SOURCE,                          &  ! Quadfree ADER-DG
-                BND            = BND,                             &  ! Quadfree ADER-DG
-                MPI            = MPI,                             &  ! Quadfree ADER-DG
-                IO             = IO  							  )
-
-       CASE(3) ! Local time step
-            CALL ADERGalerkin3D_LTS(                              &  ! Quadfree ADER-DG
-                time           = time                           , &  ! Quadfree ADER-DG
-                dt             = OptionalFields%dt(1)           , &  ! Quadfree ADER-DG
-                iteration      = timestep                       , &  ! Quadfree ADER-DG
-                MaterialVal    = OptionalFields%BackgroundValue , &  ! Quadfree ADER-DG
-                OptionalFields = OptionalFields,                  &  ! Quadfree ADER-DG
-                EQN            = EQN,                             &  ! Quadfree ADER-DG
-                MESH           = MESH,                            &  ! Quadfree ADER-DG
-                DISC           = DISC,                            &  ! Quadfree ADER-DG
-                IC             = IC,                              &  ! Quadfree ADER-DG
-                SOURCE         = SOURCE,                          &  ! Quadfree ADER-DG
-                BND            = BND,                             &  ! Quadfree ADER-DG
-                MPI            = MPI,                             &  ! Quadfree ADER-DG
-                IO             = IO                               )  ! Quadfree ADER-DG
-
-       END SELECT
-
-       !
-       timestep = timestep + 1                          ! advance time step number 
-       DISC%iterationstep = DISC%iterationstep + 1      ! advance iteration number
-       !                                                !  
-       time      = time + OptionalFields%dt(1)           
-       DISC%time = DISC%time + OptionalFields%dt(1) 
-       MPITime   = time
-
-       IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-         time    = MINVAL( DISC%LocalTime(:) )
-         MPITime = time
-#ifdef PARALLEL
-         IF(MPI%nCPU.GT.1) THEN
-            CALL MPI_ALLREDUCE(time,MPItime,1,MPI%MPI_AUTO_REAL,MPI_MIN,MPI%commWorld,iErr)
-         ENDIF
-#endif
-       ENDIF
-
-       !                                            
-       CALL CalcPrintThisTimeStep(                    & ! Check if this timestep must be printed
-            tol               = tol                 , &
-            MaxTolerance      = DISC%MaxTolerance   , &
-            timestep          = timestep            , &
-            time              = MPITime             , &
-            printTime         = DISC%printTime      , &
-            printThisTimeStep = printThisTimeStep   , &
-            EndTime           = DISC%EndTime        , &
-            IO                = IO                    )
-       !                                                ! 
-       IF ( PrintThisTimeStep ) THEN
-          !                                             ! 
-          IF (IO%OutInterval%PlotNrGiven) THEN          !
-             plotNr = IO%OutInterval%plotNumber         ! If called from Kop
-          ELSE                                          !
-             plotNr = timestep                          ! If called from seissol
-          END IF                                        !
-          !                                             !
-          CALL data_output(                           & ! data_output
-               dt         = OptionalFields%dt(:)    , & ! data_output
-               time       = time                    , & ! data_output
-               timestep   = plotNr                  , & ! data_output
-               EQN        = EQN                     , & ! data_output
-               MESH       = MESH                    , & ! data_output
-               DISC       = DISC                    , & ! data_output
-               SOURCE     = SOURCE                  , & ! data_output
-               BND        = BND                     , & ! data_output
-               MPI        = MPI                     , & ! data_output
-               IO         = IO                      , & ! data_output
-               ANALYSE    = ANALYSE                 , & ! data_output
-           OptionalFields = OptionalFields            ) ! data_output
-       ENDIF                                            !
-
-       IF(modulo(timestep,50).EQ.0) THEN 
-           call itime(now)
-           logInfo0('(A,I12,A,I2,A,I2,A,I2)') ' done with time step: ', timestep, '    system-time: ', now(1), ':', now(2), ':', now(3)
-       ENDIF
-
-       IF((timestep.LT.DISC%MaxIteration).AND.(time.LT.DISC%EndTime)) THEN
-            ContinueLoop = .TRUE.
-       ELSE
-            ContinueLoop = .FALSE.
-       ENDIF
-       !
-#ifdef PARALLEL
-       IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-           IF(MPI%nCPU.GT.1) THEN
-              IF(MPItime.LT.DISC%EndTime) THEN
-                 ContinueLoop = .TRUE.
-              ELSE
-                 ContinueLoop = .FALSE.
-              ENDIF
-           ENDIF
-       ENDIF
-#endif
-       !  
-    ENDDO ! end of time marching    !
-#endif
 !no generated kernel
 
     !---------------------------------------------------!

@@ -160,12 +160,6 @@ CONTAINS
                RETURN
             ENDIF
          ENDIF
-#ifndef GENERATEDKERNELS
-         ! DR output at each element
-         CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
-         CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
-         logInfo(*) 'Faultoutput successfully written at time', time
-#endif
          ! remember that fault output was written here
          isOnElementwise=.TRUE.
        ! combines option 3 and 4: output at individual stations and at complete fault
@@ -203,14 +197,6 @@ CONTAINS
            CALL write_FaultOutput_atPickpoint(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
          ENDIF
          !
-#ifndef GENERATEDKERNELS
-         IF (isOnElementwise) THEN
-           DISC%DynRup%OutputPointType=4
-           CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
-           CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
-           DISC%DynRup%OutputPointType=5
-         ENDIF
-#endif
        CASE DEFAULT
           ! no output
           CONTINUE
@@ -288,14 +274,8 @@ CONTAINS
     REAL    :: xV(4), yV(4), zV(4)
     REAL    :: xab(3), xac(3), grad2d(2,2), JacobiT2d(2,2)
     REAL, ALLOCATABLE  :: projected_RT(:)
-
-#ifndef GENERATEDKERNELS
-    REAL, POINTER     :: DOFiElem_ptr(:,:)  => NULL()                         ! Actual dof
-    REAL, POINTER     :: DOFiNeigh_ptr(:,:) => NULL()                         ! Actual dof
-#else
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiElem_ptr ! no: it's not a pointer..
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiNeigh_ptr ! no pointer again
-#endif
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: BND, DISC, EQN, MESH, MaterialVal, time
     INTENT(INOUT) :: DynRup_output
@@ -335,22 +315,12 @@ CONTAINS
           rho             = MaterialVal(iElem,1)
           !
           if( iElem == 0 ) then
-#ifndef GENERATEDKERNELS
-            iObject     = mesh%elem%boundaryToObject( iLocalNeighborSide, iNeighbor )
-            mpiindex_dr = mesh%elem%mpiNumber_dr(     iLocalNeighborSide, iNeighbor )
-            dofiElem_ptr => bnd%objMpi(iObject)%mpi_dr_dgvar(:, :, mpiIndex_dr)
-#else
             call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = iNeighbor, \
                                                                     i_faceId = iLocalNeighborSide, \
                                                                     o_dofs   = dofiElem_ptr )
-#endif
           else
-#ifndef GENERATEDKERNELS
-            dofiElem_ptr => disc%galerkin%dgvar( :, :, iElem,1)
-#else
             call c_interoperability_getDofsFromDerivatives( i_meshId = iElem, \
                                                             o_dofs   = DOFiElem_ptr)
-#endif
           endif
 
           IF (iNeighbor == 0) THEN
@@ -358,15 +328,9 @@ CONTAINS
             ! The neighbor element belongs to a different MPI domain
             iObject  = MESH%ELEM%BoundaryToObject(iSide,iElem)
             MPIIndex = MESH%ELEM%MPINumber(iSide,iElem)
-#ifndef GENERATEDKERNELS
-            MPIIndex_DR = MESH%ELEM%MPINumber_DR(iSide,iElem)
-
-            DOFiNeigh_ptr   => BND%ObjMPI(iObject)%MPI_DR_dgvar(:,:,MPIIndex_DR)
-#else
             call c_interoperability_getNeighborDofsFromDerivatives( i_meshId = iElem, \
                                                                     i_faceId = iSide, \
                                                                     o_dofs   = DOFiNeigh_ptr )
-#endif
 
             ! Bimaterial case only possible for elastic isotropic materials
             TmpMat(:)   = BND%ObjMPI(iObject)%NeighborBackground(:,MPIIndex)
@@ -378,12 +342,8 @@ CONTAINS
             w_speed_neig(3) = w_speed_neig(2)
           ELSE
             ! normal case: iNeighbor present in local domain
-#ifndef GENERATEDKERNELS
-            DOFiNeigh_ptr   => DISC%Galerkin%dgvar(:,:,iNeighbor,1)
-#else
             call c_interoperability_getDofsFromDerivatives( i_meshId = iNeighbor, \
                                                             o_dofs   = DOFiNeigh_ptr )
-#endif
             w_speed_neig(:) = DISC%Galerkin%WaveSpeed(iNeighbor,iLocalNeighborSide,:)
             rho_neig        = MaterialVal(iNeighbor,1)
           ENDIF
@@ -763,10 +723,6 @@ CONTAINS
           ENDIF
           DynRup_output%TmpState(iOutPoints,DynRup_output%CurrentPick(iOutPoints),:) = DynRup_output%OutVal(iOutPoints,1,:)
           !
-#ifndef GENERATEDKERNELS
-          NULLIFY(DOFiNeigh_ptr)
-#endif
-
     ENDDO ! iOutPoints = 1,nOutPoints
     !
     CONTINUE

@@ -538,10 +538,10 @@ CONTAINS
         SELECT CASE(DISC%Galerkin%DGMethod)
         CASE(3)
           ! LTS
-          CALL common_receiver_ck(EQN,MESH,DISC,IO,j,TaylorDof,dt,time,localpicktime)
+          CALL common_receiver_ck(EQN,DISC,IO,j,TaylorDof)
         CASE DEFAULT
           ! GTS
-          CALL common_receiver_ck(EQN,MESH,DISC,IO,j,TaylorDof,dt,time,localpicktime,dt_op,time_op)
+          CALL common_receiver_ck(EQN,DISC,IO,j,TaylorDof)
         END SELECT
         !
             !

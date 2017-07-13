@@ -522,14 +522,14 @@ CONTAINS
       SELECT CASE(DISC%Galerkin%DGMethod)
       CASE(3)
         ! LTS
-        CALL common_receiver_ck(EQN,MESH,DISC,IO,jGlob,TaylorDOF,dt,time,localpicktime)
+        CALL common_receiver_ck(EQN,DISC,IO,jGlob,TaylorDOF)
         write_out     = .true.                              ! write data whenever buffer is full
         io_flag       = 0                                   ! independent io
         chunk_size    = 1
         rec_start     = j
       CASE DEFAULT
         ! GTS
-        CALL common_receiver_ck(EQN,MESH,DISC,IO,jGlob,TaylorDOF,dt,time,localpicktime,dt_op,time_op)
+        CALL common_receiver_ck(EQN,DISC,IO,jGlob,TaylorDOF)
         write_out     = .false.
         IF(j.EQ.IO%nlocalRecordPoint) THEN
           write_out   = .true.                              ! write data when last local receiver is reached

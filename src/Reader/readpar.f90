@@ -2598,10 +2598,6 @@ CONTAINS
     case(42) ! Netcdf rupture format
       logInfo(*) 'Netcdf rupture format chosen.'
       SOURCE%NRFFileName = FileName
-#ifndef GENERATEDKERNELS
-      logError(*) 'NRF unsupported in classic.'
-      stop
-#endif
 #ifndef USE_NETCDF
       logError(*) 'NRF sources require netcdf support.'
       stop
@@ -3848,13 +3844,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       io%checkpoint%interval = checkPointInterval
       io%checkpoint%filename = checkPointFile
       io%checkpoint%backend = checkPointBackend
-
-#ifndef GENERATEDKERNELS
-      if (io%checkpoint%interval .gt. 0) then
-        logError(*) 'This version does not support checkpoints'
-        stop
-      endif
-#endif
 
       IO%Refinement = Refinement
       SELECT CASE(Refinement)
