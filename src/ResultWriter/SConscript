@@ -61,12 +61,10 @@ writerFiles = [ 'analyse_seissol.f90',
                 'FaultWriterC.cpp',
                 'FaultWriterF.f90',
                 'FaultWriter.cpp',
-                'FaultWriterExecutor.cpp' ]
-
-if env['generatedKernels']:
-	writerFiles += [  'FreeSurfaceWriter.cpp',
-                    'FreeSurfaceWriterExecutor.cpp',
-                    'PostProcessor.cpp' ]
+                'FaultWriterExecutor.cpp',
+                'FreeSurfaceWriter.cpp',
+                'FreeSurfaceWriterExecutor.cpp',
+                'PostProcessor.cpp' ]
 
 for i in writerFiles:
   env.sourceFiles.append(env.Object(i))

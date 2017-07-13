@@ -49,10 +49,8 @@ numericalAuxFiles = [ 'gauss.f90',
                       'dgbasis.f90',
                       'jacobinormal.f90',
                       'quadpoints.f90',
-                      'trilinearinterpolation.f90' ]
-
-if env['generatedKernels']:
-  numericalAuxFiles = [ 'Transformation.cpp' ] + numericalAuxFiles
+                      'trilinearinterpolation.f90',
+                      'Transformation.cpp' ]
 
 for i in numericalAuxFiles:
   env.sourceFiles.append(env.Object(i))

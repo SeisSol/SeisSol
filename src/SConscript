@@ -42,11 +42,8 @@
 
 Import('env')
 
-sourceDirectories = ['Monitoring', 'Geometry', 'Kernels', 'Initializer', 'Equations', 'Model', 'Modules',
+sourceDirectories = ['Checkpoint', 'Monitoring', 'Geometry', 'Kernels', 'Initializer', 'Equations', 'Model', 'Modules',
 		     'Numerical_aux', 'Physics', 'Reader', 'ResultWriter', 'Solver', 'SourceTerm', 'Parallel']
-
-if env['generatedKernels']:
-  sourceDirectories = sourceDirectories + ['Checkpoint']
 
 for sourceDir in sourceDirectories:
   Export('env')

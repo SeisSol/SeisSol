@@ -40,10 +40,7 @@
 
 import os
 
-def guessMemoryLayout(env):
-  if not env['generatedKernels']:
-    return ''
-    
+def guessMemoryLayout(env):    
   path = os.path.join('auto_tuning', 'config')
   
   # TODO: enable tuned memory layouts after auto-tuning for flux decomposition

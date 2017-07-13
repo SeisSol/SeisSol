@@ -720,7 +720,6 @@ CONTAINS
     !-------------------------------------------------------------------------!
 
     USE DGBasis_mod
-    USE ini_QuadFreeDG_mod
     USE COMMON_operators_mod
     USE QuadPoints_mod
     USE JacobiNormal_mod

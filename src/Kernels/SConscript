@@ -39,10 +39,9 @@
 
 Import('env')
   
-if env['generatedKernels']:
-  solverFiles = [ 'TimeCommon.cpp', 'DynamicRupture.cpp', 'Plasticity.cpp' ]
-  for i in solverFiles:
-    env.sourceFiles.append(env.Object(i))
+solverFiles = [ 'TimeCommon.cpp', 'DynamicRupture.cpp', 'Plasticity.cpp' ]
+for i in solverFiles:
+  env.sourceFiles.append(env.Object(i))
 
 Export('env')
 

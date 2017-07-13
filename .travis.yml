@@ -25,29 +25,23 @@ install:
  - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
 
 script:
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid netcdf=yes arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid netcdf=yes arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=yes parallelization=none arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=yes parallelization=none arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=debug order=6 generatedKernels=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=debug order=6 generatedKernels=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=no parallelization=mpi arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=no parallelization=mpi arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=no parallelization=mpi netcdf=yes arch=dsnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=no parallelization=mpi netcdf=yes arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=no parallelization=none arch=dsnb compiler=gcc unitTests=fast -j2
-# - scons compileMode=release order=6 generatedKernels=no parallelization=none arch=dsnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 generatedKernels=yes parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast check
- - scons compileMode=debug order=6 generatedKernels=yes parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
- - scons compileMode=debug order=6 generatedKernels=yes parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
+ - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release order=6 parallelization=hybrid netcdf=yes arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release order=6 parallelization=hybrid netcdf=yes arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release order=6 parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release order=6 parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release order=6 parallelization=none arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release order=6 parallelization=none arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
+ - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast check
+ - scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check

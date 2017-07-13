@@ -40,10 +40,9 @@
 
 Import('env')
 
-if env['generatedKernels']:
-  modelFiles = ['common.cpp']
+modelFiles = ['common.cpp']
 
-  for i in modelFiles:
-    env.sourceFiles.append(env.Object(i))
+for i in modelFiles:
+  env.sourceFiles.append(env.Object(i))
 
 Export('env')

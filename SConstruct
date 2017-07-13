@@ -116,8 +116,6 @@ vars.AddVariables(
                 allowed_values=('none', 'omp', 'mpi', 'hybrid')
               ),
 
-  BoolVariable( 'generatedKernels', 'use generated kernels', False ),
-
   BoolVariable( 'vecReport', 'print verbose vectorization report when using Intel Compiler suite', False ),
 
   BoolVariable( 'hdf5', 'use hdf5 library for data output', False ),
@@ -267,9 +265,6 @@ if env['equations'] in ['elastic', 'viscoelastic2']:
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
   print "*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available."
-
-if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['parallelization'] == 'hybrid' ):
-  ConfigurationError("*** Classic version does not support hybrid parallelization")
 
 if not env.has_key('memLayout'):
   env['memLayout'] = memlayout.guessMemoryLayout(env)
@@ -496,8 +491,7 @@ if( env['integrateQuants'] ):
   env.Append(CPPDEFINES=['INTEGRATE_QUANTITIES'])
 
 # set pre compiler flags for matrix optimizations
-if env['generatedKernels']:
-  env.Append(CPPDEFINES=['GENERATEDKERNELS', 'CLUSTERED_LTS'])
+env.Append(CPPDEFINES=['GENERATEDKERNELS', 'CLUSTERED_LTS'])
 
 # set pre compiler flags commuincation thread
 # pthread is linked after the other libraries
@@ -607,7 +601,7 @@ env.Append(F90PATH=['#/src/Equations/' + env['equations'] + '/generated_code'])
 if env['programName'] == 'none':
   program_suffix = '%s_%s_%s_%s_%s_%s_%s' %(
     env['compileMode'],
-    'generatedKernels' if env['generatedKernels'] else 'classic',
+    'generatedKernels',
     env['arch'],
     env['parallelization'],
     'scalasca' if env['scalasca'] != 'none' else 'none',

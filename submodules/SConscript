@@ -43,8 +43,7 @@ Import('env')
 submoduleFiles = []
 
 # solver using generated kernels
-if env['generatedKernels']:
-  submoduleFiles.append('pugixml/src/pugixml.cpp')
+submoduleFiles.append('pugixml/src/pugixml.cpp')
 
 for i in submoduleFiles:
   env.sourceFiles.append(env.Object(i))

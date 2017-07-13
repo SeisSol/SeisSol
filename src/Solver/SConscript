@@ -45,17 +45,14 @@ solverFiles = [ 'calc_seissol.f90',
                 'close_seissol.f90',
                 'calc_deltat.f90',
                 'plasticity.f90',
-                'prak_clif_mod.f90' ]
-
-# solver using generated kernels
-if env['generatedKernels']:
-  solverFiles = ['f_ftoc_bind_interoperability.f90',
-                 'f_ctof_bind_interoperability.f90',
-                 'FreeSurfaceIntegrator.cpp',
-                 'Interoperability.cpp',
-                 'time_stepping/TimeCluster.cpp',
-                 'time_stepping/TimeManager.cpp',
-                 'Simulator.cpp' ] + solverFiles
+                'prak_clif_mod.f90',
+                'f_ftoc_bind_interoperability.f90',
+                'f_ctof_bind_interoperability.f90',
+                'FreeSurfaceIntegrator.cpp',
+                'Interoperability.cpp',
+                'time_stepping/TimeCluster.cpp',
+                'time_stepping/TimeManager.cpp',
+                'Simulator.cpp' ]
 
 # source files for mpi parallelizazion
 if env['parallelization'] in ['mpi', 'hybrid']:

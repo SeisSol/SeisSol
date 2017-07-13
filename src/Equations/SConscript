@@ -40,8 +40,7 @@
 
 Import('env')
   
-if env['generatedKernels']:
-  SConscript(env['equations']+'/SConscript')
+SConscript(env['equations']+'/SConscript')
 
 Export('env')
 

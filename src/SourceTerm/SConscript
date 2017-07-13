@@ -40,13 +40,12 @@
 Import('env')
 
 # parameter reader source file
-if env['generatedKernels']:
-  sourceTermFiles = [ 'PointSource.cpp',
-                      'Manager.cpp' ]
-  if env['netcdf'] == 'yes':
-    sourceTermFiles.append('NRFReader.cpp')
+sourceTermFiles = [ 'PointSource.cpp',
+                    'Manager.cpp' ]
+if env['netcdf'] == 'yes':
+  sourceTermFiles.append('NRFReader.cpp')
 
-  for i in sourceTermFiles:
-    env.sourceFiles.append(env.Object(i))
+for i in sourceTermFiles:
+  env.sourceFiles.append(env.Object(i))
 
 Export('env')

@@ -44,16 +44,13 @@ Import('env')
 initializeFiles = [ 'ini_seissol.f90',
                     'ini_optionalfields.f90',
                     'dg_setup.f90',
-                    'ini_calcseissol.f90' ]
-
-# generated kernels specific initializers
-if env['generatedKernels']:
-  initializeFiles = [ 'InternalState.cpp',
-                      'MemoryAllocator.cpp',
-                      'MemoryManager.cpp',
-                      'time_stepping/LtsLayout.cpp',
-                      'CellLocalMatrices.cpp',
-                      'tree/Lut.cpp' ] + initializeFiles
+                    'ini_calcseissol.f90',
+                    'InternalState.cpp',
+                    'MemoryAllocator.cpp',
+                    'MemoryManager.cpp',
+                    'time_stepping/LtsLayout.cpp',
+                    'CellLocalMatrices.cpp',
+                    'tree/Lut.cpp' ]
 
 for i in initializeFiles:
   env.sourceFiles.append(env.Object(i))
