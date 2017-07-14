@@ -471,11 +471,6 @@ void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_p
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
   CellMaterialData& material = m_ltsLut.lookup(m_lts->material, (*i_meshId) - 1);
 
-  for( unsigned int l_para = 0; l_para < 4; l_para++ ) {
-      plasticity.plasticParameters[l_para] = i_plasticParameters[l_para];
-  }
-
-
   double angularFriction = atan(i_plasticParameters[3]);
 
 
