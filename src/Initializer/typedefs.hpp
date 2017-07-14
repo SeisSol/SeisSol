@@ -381,20 +381,6 @@ struct PlasticityData {
   real mufactor;
 };
 
-/**
- * Cell local data (material dependent).
- **/
-struct CellData {
-  // local integration data
-  struct LocalIntegrationData       *localIntegration;
-  // neighboring integration data
-  struct NeighboringIntegrationData *neighboringIntegration;
-  // local and neighbor material data
-  CellMaterialData                  *material;
-  // Plasticity
-  PlasticityData                    *plasticity;
-};
-
 /** A piecewise linear function.
  * 
  *  Say t \in I_j, then

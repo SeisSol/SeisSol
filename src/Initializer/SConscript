@@ -50,7 +50,8 @@ initializeFiles = [ 'ini_seissol.f90',
                     'MemoryManager.cpp',
                     'time_stepping/LtsLayout.cpp',
                     'CellLocalMatrices.cpp',
-                    'tree/Lut.cpp' ]
+                    'tree/Lut.cpp',
+                    'ParameterDB.cpp' ]
 
 for i in initializeFiles:
   env.sourceFiles.append(env.Object(i))

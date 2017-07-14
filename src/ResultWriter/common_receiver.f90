@@ -325,22 +325,9 @@ CONTAINS
     ! Interpolate in time using Taylor series (or Legendre basis, for ST-DG)
     InterpDOF(:,:) = 0.
     !
-    IF(EQN%LocPoroelastic(iElem).NE.2) THEN
-      DO i = 0, DISC%Galerkin%nPoly
-          InterpDOF(:,:) = InterpDOF(:,:) + TaylorDOF(:,:,i)*tau**i/DISC%Galerkin%Faculty(i)
-      ENDDO
-    ELSE
-      dtk(:) = 0.d0
-      DO i=0,DISC%Galerkin%nPoly
-        DO k=0,DISC%Galerkin%nPoly
-          dtk(i) = dtk(i) + (tau**k)*DISC%Galerkin%cTimePoly(k,i,DISC%Galerkin%nPoly)
-        ENDDO
-      ENDDO
-      !
-      DO i = 0, DISC%Galerkin%nPoly
-           InterpDOF(:,:) = InterpDOF(:,:) + TaylorDOF(:,:,i)*dtk(i)
-      ENDDO
-    ENDIF
+    DO i = 0, DISC%Galerkin%nPoly
+        InterpDOF(:,:) = InterpDOF(:,:) + TaylorDOF(:,:,i)*tau**i/DISC%Galerkin%Faculty(i)
+    ENDDO
     !
     SELECT CASE(LocElemType)
     CASE(4) ! Tetra

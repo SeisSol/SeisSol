@@ -699,9 +699,6 @@ MODULE TypesDef
     TYPE(tSparseTensor3), POINTER     :: BSpHexa(:) => NULL()        !< Sparse star tensor B
     TYPE(tSparseTensor3), POINTER     :: CSpHexa(:) => NULL()        !< Sparse star tensor C
     TYPE(tSparseTensor3), POINTER     :: ESpHexa(:) => NULL()        !< Sparse star tensor E
-    !<
-    INTEGER                           :: VarCoefRiemannSolv = 0  !< Selector for computing Riemann problems with
-                                                            !<  discontinuous material or not.
 
 
     !<
@@ -1146,31 +1143,12 @@ MODULE TypesDef
      INTEGER                                :: nVAr_rot                         !< number of rotation variables
      INTEGER                                :: nBackgroundVar                   !< Number of background variables
      INTEGER                                :: LinType                          !< Type of linearization: 0=global,1=local
-     INTEGER                                :: SumatraRegions(7)                !< model dependant region labelling, /big box continental LVZ above L1 L2 L3 L4/
      INTEGER                                :: Dimension                        !< Number of space dimensions (currently 3)
      INTEGER                                :: HexaDimension                    !< Nr. of dimensions can be explicitly reduced on hexahedrons
      REAL                                   :: Pi                               !< Constant Pi
-     REAL                                   :: a,b                              !< Wavespeeds for Advection
      REAL                                   :: mu                               !< viscosity or Lame constant
-     REAL                                   :: bulk                             !< bulk modulus for acoustic
      REAL                                   :: lambda                           !< Lame constant
-     REAL                                   :: omega                            !< Angular Velocity of Rigid-Body-Vortex
-     REAL                                   :: circ                             !< Circulation of Potential-Vortex
      REAL                                   :: rho0                             !< Mean/reference density
-     REAL                                   :: u0                               !< Mean/reference x-velocity
-     REAL                                   :: v0                               !< Mean/reference y-velocity
-     REAL                                   :: w0                               !< Mean/reference z-velocity
-     REAL                                   :: p0                               !< Mean/reference pressure
-     REAL                                   :: c0                               !< Mean/reference sound speed
-     REAL                                   :: T0                               !< Mean/reference Temperature
-     REAL                                   :: Ma                               !< Mach number
-     REAL                                   :: k(3)                             !< Values a,b,c for advection-diffusion-dispersion
-     REAL                                   :: rho1, mu1, lambda1               !< Jump of material constants
-     INTEGER                                :: nLayers                          !< Number of MODEL layers
-     REAL, POINTER                          :: MODEL(:,:)                       !< Model data
-     REAL, POINTER                          :: ModelVariable(:,:,:)             !< Model variable data (1:iElem,1:ModelVarDOF,1:nBackgroundVar)
-     INTEGER                                :: ModelVarnPoly                    !< Order of model variable data
-     INTEGER                                :: ModelVarnDegFr                   !< DOF of model variable data
      LOGICAL                                :: CartesianCoordSystem             !< .TRUE. = cartesian
      INTEGER                                :: nAneMaterialVar                  !< Number of material variables for anelasticity
      INTEGER                                :: Advection                        !< (0) = no, (1) = overlaid advection
@@ -1179,9 +1157,7 @@ MODULE TypesDef
      INTEGER                                :: Poroelasticity                   !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
      INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic
      REAL, POINTER                          :: Energy(:,:)=> NULL()
-     REAL                                   :: PlastCo_0                        !< Cohesion for the Drucker-Prager plasticity, initial constant value
      REAL, POINTER                          :: PlastCo(:)                       !< Cohesion for the Drucker-Prager plasticity, element-dependent
-     REAL                                   :: BulkFriction_0                   !< Bulk friction for the Drucker-Prager plasticity, initial constant value
      REAL,POINTER                           :: BulkFriction(:)                  !< Bulk friction for the Drucker-Prager plasticity, , element-dependent
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
      INTEGER                                :: PlastMethod                      !< method for plasticity: (0) = high-order points, (2) = average of an element
@@ -1190,14 +1166,10 @@ MODULE TypesDef
      INTEGER                                :: EndIteration                     !< The index of the last iteration in the simulation
      REAL                                   :: FinalTime                        !< The time at which a simulation ends (limited by DISC%EndTime or max. iterations)
      REAL                                   :: FinalPick                        !< The time at which a the last receiver has been outputted
-     INTEGER, POINTER                       :: LocAnelastic(:)                  !< (0) = local elastic, (1) local anelastic
-     INTEGER, POINTER                       :: LocPoroelastic(:)                !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
      !
      INTEGER                                :: nMechanisms                      !< Number of attenuation mechanisms in each layer
      INTEGER                                :: nAneFuncperMech                  !< Number of anelastic functions per mechanisms
-     INTEGER                                :: AneMatIni                        !< indicates where in MaterialVal begin the anelastic parameters
      INTEGER                                :: nNonZeroEV                       !< number of non-zero eigenvalues
-     INTEGER                                :: RandomField_Flag                 !< Flag for number of used random fields
      INTEGER                                :: refPointMethod                   !< fault orientation: (0) using a reference point (1) using a reference vector
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
@@ -1372,7 +1344,6 @@ MODULE TypesDef
      INTEGER(8)                             :: meta_plotter                     !< output handle for fault output pvd wrapper
      CHARACTER(LEN=3)                       :: Extension                        !< .dat for IDL and Tecplot, .dx for IBM DX
      CHARACTER(LEN=20), POINTER             :: TitleMask(:)                     !< Variable names for output
-     CHARACTER(LEN=600),POINTER             :: RF_Files(:)                      !< Names for random field parameter files
      CHARACTER(LEN=600)                     :: title                            !< title for Tecplot output
      CHARACTER(LEN=200)                     :: Path                             !< Output path
      CHARACTER(LEN=60)                      :: OutputFile                       !< Output filename

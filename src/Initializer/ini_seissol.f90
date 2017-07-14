@@ -167,7 +167,6 @@ CONTAINS
     DISC%LoopCPUTime         = 0.0                                             ! Initialize CPU-time-measurement
     EQN%pi                   = ACOS(-1.)                                       ! Initialize
     MESH%MaxElementsOnVertex = 20                                              ! Initialize
-    EQN%nLayers              = 1                                               ! Default values
     MESH%nZones              = 1                                               ! Default values
     !                                                                          !
     IO%ContourFile = 'contour'                                                 ! File for plot body contour
@@ -245,11 +244,6 @@ CONTAINS
         MPI    = MPI                                , &              !
         IO     = IO                                   )              !
 
-    SELECT CASE(EQN%LinType) ! nothing done for hybrids yet
-    CASE(6)
-        CALL generate_FacetList(1,1,OptionalFields,EQN,MESH,IO)
-    END SELECT
-
     ! End mesh reading/computing section
     EPIK_USER_END(r_read_compute_mesh)
     SCOREP_USER_REGION_END( r_read_compute_mesh )
@@ -306,10 +300,8 @@ CONTAINS
     IF (EQN%linearized) THEN                                                   !
        CALL ini_MODEL(                                      &                  ! Initialize Local Linearized calculation
             MaterialVal    = OptionalFields%BackgroundValue,&                  ! Initialize Local Linearized calculation
-            OptionalFields = OptionalFields               , &                  ! Initialize Local Linearized calculation
             EQN            = EQN                          , &                  ! Initialize Local Linearized calculation
             MESH           = MESH                         , &                  ! Initialize Local Linearized calculation
-            IC             = IC                           , &                  ! Initialize Local Linearized calculation
             IO             = IO                           , &                  ! Initialize Local Linearized calculation
             DISC           = DISC                         , &                  ! Initialize Local Linearized calculation
             BND            = BND                            )                  ! Initialize Local Linearized calculation

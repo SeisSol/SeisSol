@@ -225,17 +225,14 @@ CONTAINS
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint, &
-                                  MaterialType, RandomField_Flag, nMechanisms, SumatraRegions(7)
-    REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, &
-                                  PlasticCo, BulkFriction, Tv
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
+    REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
-    CHARACTER(LEN=600), DIMENSION(:), ALLOCATABLE  :: RF_Files
-    NAMELIST                   /Equations/ Anisotropy, Anelasticity, Plasticity, &
-                                           PlasticCo, BulkFriction, Tv, pmethod, &
-                                           Adjoint, MaterialType, rho, mu, lambda, &
-                                           MaterialFileName, nMechanisms, FreqCentral, &
-                                           FreqRatio, RandomField_Flag, AdjFileName, SumatraRegions
+    NAMELIST                   /Equations/ Anisotropy, Plasticity, &
+                                           Tv, pmethod, &
+                                           Adjoint, rho, mu, lambda, &
+                                           MaterialFileName, FreqCentral, &
+                                           FreqRatio, AdjFileName
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -263,36 +260,21 @@ CONTAINS
     mu                  = 1.
     lambda              = 1.
     Anisotropy          = 0
+#if NUMBER_OF_RELAXATION_MECHANISMS != 0
+    Anelasticity        = 1
+#else
     Anelasticity        = 0
+#endif
     Plasticity          = 0
-    BulkFriction        = 0.
-    PlasticCo           = 0.
     Tv                  = 0.03  !standard value from SCEC benchmarks
     pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
-    MaterialType        = 0
-    RandomField_Flag    = 0
-    nMechanisms         = 0
-    !big box continental LVZ above L1 L2 L3 L4
-    SumatraRegions = (/0,0,0,0,0,0,0/)
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
     IF (readStat.NE.0) THEN
         logError(*) 'Error reading namelist Equations'
         stop
     ENDIF
-    !
-    IF ((MaterialType.GE.1220).AND.(MaterialType.LE.1230)) THEN
-    ! Sumatra setup
-       IF (maxval(SumatraRegions).EQ.0) THEN
-          logError(*) 'SumatraRegions not set, setting to LR topo model'
-          SumatraRegions = (/5,1,2,7,4,3,6/)
-       ELSE
-          logInfo0(*) 'SumatraRegions used:', SumatraRegions(1:7)
-       ENDIF
-    ENDIF
-    EQN%SumatraRegions(1:7) = SumatraRegions(1:7)
-
     !
     SELECT CASE(Anisotropy)
     CASE(0)
@@ -339,8 +321,6 @@ CONTAINS
 #endif
         EQN%Plasticity = Plasticity
         !first constant, can be overwritten in ini_model
-        EQN%PlastCo_0 = PlasticCo
-        EQN%BulkFriction_0 = BulkFriction
         EQN%Tv = Tv
         EQN%PlastMethod = pmethod
         SELECT CASE (EQN%PlastMethod) !two different methods for plasticity
@@ -360,27 +340,29 @@ CONTAINS
     END SELECT
 
 
+    EQN%Anelasticity = Anelasticity
     SELECT CASE(Anelasticity)
     CASE(0)
       logInfo(*) 'No attenuation assumed. '
-      EQN%Anelasticity = Anelasticity
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
-      EQN%nVarTotal = EQN%nVar                                                     !
+      EQN%nVarTotal = EQN%nVar
+      EQN%nBackgroundVar = 3
     CASE(1)
        logInfo(*) 'Viscoelastic attenuation assumed ... '
-        EQN%Anelasticity = Anelasticity
-         IF(EQN%Anisotropy.NE.2)   THEN
-           EQN%nAneFuncperMech = 6                                                    !
-           logInfo(*) '... using ', EQN%nAneFuncperMech,' anelastic functions per Mechanism.'                                                   !
-         ENDIF
+       EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
+       EQN%nMechanisms = NUMBER_OF_RELAXATION_MECHANISMS
+       IF(EQN%Anisotropy.NE.2)   THEN
+         EQN%nAneFuncperMech = 6                                                    !
+         logInfo(*) '... using ', EQN%nAneFuncperMech,' anelastic functions per Mechanism.'                                                   !
+       ENDIF
+       EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms
+       EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as anelasticity assumption. '
       STOP
     END SELECT
-    !
-
 
     DISC%Galerkin%CKMethod = 0
     !
@@ -400,243 +382,12 @@ CONTAINS
      call readadjoint(IO, DISC, SOURCE, AdjFileName)
     END IF
     !
-    EQN%linType = MaterialType
-    !
-    IF((EQN%Anisotropy.NE.0.OR.EQN%Anelasticity.EQ.1.OR.EQN%Poroelasticity.NE.0).AND.(EQN%linType.EQ.0)) THEN
-      logError(*) 'For the rheology type chosen, material constants must be read from file. '
-      STOP
-    ENDIF
-    !
-    IF((EQN%Plasticity.EQ.1).AND.(EQN%LinType.EQ.0)) THEN
-      logError(*) 'For plasticity an initial stress for the whole domain must be assigned. Please use a special MaterialType for the initial stress '
-      STOP
-    ENDIF
-    !
     EQN%rho0 = rho
     EQN%mu = mu
     EQN%lambda = lambda
     EQN%MaterialFileName = MaterialFileName
-    EQN%nMechanisms = nMechanisms
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
-    !
-    SELECT CASE(EQN%linType)
-    CASE(0)         ! use constant material properties
-      logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
-      logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
-      logInfo0(*) ' mu = ', EQN%mu       ! (2)
-      logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
-      !
-    CASE(1,11)          ! get material properties from file
-      call readmaterial(IO, EQN, DISC )
-    !
-    CASE(2)                !special case for radially symmetric PREM data
-      SELECT CASE(EQN%Anelasticity)
-      CASE(0)
-         logInfo0(*) 'The Jacobians are based on the PREM model. '
-      CASE(1)
-         logInfo0(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
-         logInfo0(*) 'with central frequency ',EQN%FreqCentral
-         logInfo0(*) 'and frequency ratio ',EQN%FreqRatio
-         EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
-         EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
-         EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms                                                    !
-         EQN%AneMatIni = 4
-      END SELECT
-      !
-    CASE(3)                !special case for layered medium linear variation of material parameters
-
-      logInfo0(*) 'Material property is defined by linear spline. '
-      logInfo0(*) 'Linear spline data are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) '|   Reading linear spline file ...  '
-      READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy         ! Number of different material zones
-      ALLOCATE(EQN%MODEL(1:EQN%nLayers,4))
-      DO i = 1, EQN%nLayers
-         READ(IO%UNIT%other01,*) EQN%MODEL(i,:)                   ! Read depth, rho, mu, lambda for each interface
-      ENDDO
-      CLOSE(IO%UNIT%other01)
-      logInfo(*) 'The Jacobians are based on layered model with linear variation. '
-      logInfo(*) 'Linear spline data are read from file.     '
-      !
-    CASE(4)  !special case for Sismovalp 2D benchmark test (model M2)
-      logInfo0(*) 'Material property zones are defined by the mesh generator. '
-      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) 'Reading material property file ...  '
-      READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
-      ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nBackgroundVar))
-      DO i = 1, EQN%nLayers
-          READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
-      ENDDO
-      !
-      CLOSE(IO%UNIT%other01)
-      logInfo(*) 'Model data read.  '
-      logInfo(*) 'Model contains    ', EQN%nLayers, ' different material zones. '
-      logInfo(*) 'Reference values for IC are  '
-      logInfo(*) '   ', EQN%rho0     ! (1)
-      logInfo(*) '   ', EQN%mu       ! (2)
-      logInfo(*) '   ', EQN%lambda   ! (3)
-      !
-    CASE(5)  !special case for Sismovalp 2D benchmark test (model M2 SH-wave)
-      logInfo0(*) 'Material property zones are defined by the mesh generator. '
-      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) '|   Reading material property file ...  '
-      READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
-      ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nBackgroundVar))
-      DO i = 1, EQN%nLayers
-          READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
-      ENDDO
-      !
-      CLOSE(IO%UNIT%other01)
-      logInfo(*) 'Model data read.  '
-      logInfo(*) 'Model contains    ', EQN%nLayers, ' different material zones. '
-      logInfo(*) 'Reference values for IC are  '
-      logInfo(*) '   ', EQN%rho0     ! (1)
-      logInfo(*) '   ', EQN%mu       ! (2)
-      logInfo(*) '   ', EQN%lambda   ! (3)
-      !
-    CASE(6,7)  !special case for (6) Grenoble benchmark test
-               !                 (7) Euroseistest benchmark (Volvi Lake)
-      logInfo0(*) 'Material property zones are defined by the mesh generator. '
-      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) 'Reading material property file ...  '
-      READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
-      READ(IO%UNIT%other01,'(i10,a)') EQN%nMechanisms, cdummy         ! Number of different attenuation mechanisms
-      logInfo(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
-      READ(IO%UNIT%other01,*) EQN%FreqCentral                             ! Central frequency of the absorption band (in Hertz)
-      logInfo(*) 'with central frequency ',EQN%FreqCentral
-      READ(IO%UNIT%other01,*) EQN%FreqRatio                               ! The ratio between the maximum and minimum frequencies of our bandwidth
-      logInfo(*) 'and frequency ratio ',EQN%FreqRatio
-
-      EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
-      EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
-      EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech*EQN%nMechanisms                                                    !
-      EQN%AneMatIni = 4                                                  ! indicates where in MaterialVal begin the anelastic parameters
-
-      ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nAneMaterialVar))
-      DO i = 1,EQN%nLayers
-           READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
-      ENDDO
-      CLOSE(IO%UNIT%other01)
-      !
-    CASE(8)  !special case for Sonic logging
-      !
-      logInfo0(*) 'Material property zones are defined by the mesh generator. '
-      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) 'Reading material property file ...  '
-      READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
-      !
-      EQN%nBackgroundVar  = 3
-      EQN%nVarTotal = EQN%nVar       ! indicates where in MaterialVal begin the anelastic parameters
-
-      ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nBackgroundVar))
-      DO i = 1,EQN%nLayers
-           READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
-      ENDDO
-      CLOSE(IO%UNIT%other01)
-      !
-    CASE(9)  ! special case for a hemisphere with different material properties at the top of a box
-      !
-      logInfo0(*) 'Material property zones are defined by SeisSol. '
-      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) 'Reading material property file ...  '
-      READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
-      !
-      EQN%nBackgroundVar  = 3
-      EQN%nVarTotal = EQN%nVar       ! indicates where in MaterialVal begin the anelastic parameters
-
-      ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nBackgroundVar))
-      DO i = 1,EQN%nLayers
-           READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
-      ENDDO
-      CLOSE(IO%UNIT%other01)
-      !
-  CASE(12, 26) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
-               ! special case for TPV13 and TPV27, add other cases that use plasticity with different initial stress values here
-      IF (EQN%Plasticity.EQ.1)THEN
-        logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
-        logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
-        logInfo0(*) ' mu = ', EQN%mu       ! (2)
-        logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
-      ELSE
-        logInfo(*) '| ERROR: This material type is only used when plasticity is on.'
-      ENDIF
-      !
-  CASE(60,61,62) ! special case of 1D landers example
-      !
-      logInfo0(*) 'Material property zones are defined by SeisSol. '
-  CASE(33) ! special case of TPV33, T Ulrich 14.01.2016
-      !
-      logInfo0(*) 'Material property zones are defined by SeisSol. '
-  CASE(99,100) ! special case of 1D layered medium, imposed without meshed layers
-      !
-      logInfo0(*) 'Material property zones are defined by SeisSol. '
-
-  CASE(101) ! special case of 3D complex medium, imposed without meshed layers
-      ! e.g. SCEC 3D velocity model surrounding the Northridge fault
-      !
-      logInfo0(*) 'No material property zones are defined. '
-      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      !
-  CASE(122,1221,1222,1223, 1225, 1226, 1227) ! SUMATRA T Ulrich 16.02.2016
-      !
-      logInfo(*) 'Material property zones are defined by SeisSol. '
-
-      IF (EQN%Anelasticity .EQ. 1) THEN
-         logInfo0(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
-         logInfo0(*) 'with central frequency ',EQN%FreqCentral
-         logInfo0(*) 'and frequency ratio ',EQN%FreqRatio
-         logInfo0(*) 'Anelastic parameters are defined in inimodel.'
-         EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
-         EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
-         EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms                                                    !
-         EQN%AneMatIni = 4
-      ENDIF
-
-  CASE DEFAULT
-         logError(*) 'Wrong linearization type.'
-      STOP
-    END SELECT
-    !
-    !
-    EQN%RandomField_Flag = RandomField_Flag
-        IF (EQN%RandomField_Flag.EQ.0) THEN
-            ! No random field parameters are used
-            logInfo(*) 'No Random Field material used.  '
-        ELSE
-            ! At least in one zone a random distribution of material parameters is chosen
-            IF (EQN%RandomField_Flag.GT.EQN%nLayers) THEN
-               logError(*) 'More random field materials than material zones specified!'
-               STOP
-            ENDIF
-            logInfo(*) 'Number of Material Random Fields:'  ,EQN%RandomField_Flag
-            ALLOCATE( IO%RF_Files(EQN%RandomField_Flag) )
-            call readrffiles (IO, RandomField_Flag, RF_Files)
-               IO%RF_Files(:) = RF_Files(:)
-        ENDIF
     !
     intDummy = 1                                                  ! coordinate type index
     !                                                             ! (1=cartesian)
@@ -750,132 +501,7 @@ CONTAINS
       CLOSE(IO%UNIT%other01)
 
   END SUBROUTINE
-    !------------------------------------------------------------------------
-     !linType set to 1 or 11; get material from file
-    !------------------------------------------------------------------------
-  SUBROUTINE readmaterial(IO, EQN, DISC )
-    IMPLICIT NONE
-    TYPE (tInputOutput)                               :: IO
-    TYPE (tEquations)                                 :: EQN
-    TYPE (tDiscretization)                            :: DISC
-    INTENT(INOUT)                                     :: IO, EQN, DISC
-    ! local variables
-    INTEGER                                           :: i, cdummy, intDummy
-    REAL                                              :: nx,ny,nz,sx,sy,sz,tx,ty,tz
-    !------------------------------------------------------------------------
-      DISC%Galerkin%VarCoefRiemannSolv = 0
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) 'Reading material property file ...  '
-      READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy        ! Number of different material zones
-      !
-      SELECT CASE(EQN%Anelasticity)
-      CASE(0)
-        ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nBackgroundVar))
-      CASE(1)
-        CONTINUE                                                  ! Allocation depends on the amount of mechanisms assumed
-      CASE DEFAULT
-        logError(*) 'Anelasticity can only be assigned 0 or 1 values. '
-        STOP
-      END SELECT
-      !
-      SELECT CASE(EQN%Anelasticity)
-      CASE(0)
-        !
-        DO i = 1, EQN%nLayers
-          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0) THEN
-            READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
-          ENDIF
 
-          IF(EQN%Anisotropy.EQ.1.AND.EQN%Poroelasticity.EQ.0) THEN
-
-            READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:),    &      ! Read zone number dummy, rho, the (upper half) voigt matrix c(:,:)
-                                    nx,ny,nz,sx,sy,sz,tx,ty,tz          ! and the local coordinate system nx,ny,nz etc.
-            CALL iniVoigtMatrix(i, EQN, nx,ny,nz,sx,sy,sz,tx,ty,tz)
-            !
-          ENDIF
-          !
-          IF(EQN%Poroelasticity.NE.0) THEN  ! Poroelastic material have ALWAYS to be defined specifying the full c_ij entries!
-            READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:),    &      ! Read zone number dummy, rho, the (upper half) voigt matrix c(:,:)
-                                    nx,ny,nz,sx,sy,sz,tx,ty,tz          ! and the local coordinate system nx,ny,nz etc.
-            CALL iniVoigtMatrix(i, EQN, nx,ny,nz,sx,sy,sz,tx,ty,tz)
-            !
-          ENDIF
-          !
-          IF(EQN%Anisotropy.NE.0.AND.EQN%Anisotropy.NE.1) THEN
-              logError(*) 'Choose 0 or 1 as anisotropy assumption. '
-              STOP
-          ENDIF
-          !
-          !
-        ENDDO
-        !
-      CASE(1)
-          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0) THEN
-            READ(IO%UNIT%other01,'(i10,a)') EQN%nMechanisms, cdummy             ! Number of different attenuation mechanisms
-            logInfo(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
-            READ(IO%UNIT%other01,*) EQN%FreqCentral                             ! Central frequency of the absorption band (in Hertz)
-            logInfo(*) 'with central frequency ',EQN%FreqCentral
-            READ(IO%UNIT%other01,*) EQN%FreqRatio                               ! The ratio between the maximum and minimum frequencies of our bandwidth
-            logInfo(*) 'and frequency ratio ',EQN%FreqRatio
-
-            EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
-            EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
-            EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech*EQN%nMechanisms                                                    !
-            EQN%AneMatIni = 4                                                  ! indicates where in MaterialVal begin the anelastic parameters
-
-            ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nAneMaterialVar))
-            DO i = 1,EQN%nLayers
-                READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
-            ENDDO
-          ENDIF
-          !
-          IF(EQN%Anisotropy.EQ.1.AND.EQN%Poroelasticity.EQ.0) THEN
-            READ(IO%UNIT%other01,'(i10,a)') EQN%nMechanisms, cdummy             ! Number of different attenuation mechanisms
-            logInfo(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
-            READ(IO%UNIT%other01,*) EQN%FreqCentral                             ! Central frequency of the absorption band (in Hertz)
-            logInfo(*) '|   with central frequency ',EQN%FreqCentral
-            READ(IO%UNIT%other01,*) EQN%FreqRatio                               ! The ratio between the maximum and minimum frequencies of our bandwidth
-            logInfo(*) '|   and frequency ratio ',EQN%FreqRatio
-            EQN%nBackgroundVar  = 22 + EQN%nMechanisms * 4
-            EQN%nAneMaterialVar = 24        ! rho + 21 x c(i,j) entries + Qp + Qs
-            EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech*EQN%nMechanisms
-            EQN%AneMatIni = 23                                                  ! indicates where in MaterialVal begin the anelastic parameters
-
-            ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nAneMaterialVar))
-            DO i = 1,EQN%nLayers
-                READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,1:EQN%nAneMaterialVar-2),    &      ! Read zone number dummy, rho, the (upper half) voigt matrix c(:,:),
-                                    nx,ny,nz,sx,sy,sz,tx,ty,tz,                            &      ! the local coordinate system nx,ny,nz etc., Qp and Qs.
-                                    EQN%MODEL(i,EQN%nAneMaterialVar-1:EQN%nAneMaterialVar)
-
-                 CALL iniVoigtMatrix(i,EQN, nx,ny,nz,sx,sy,sz,tx,ty,tz)
-            ENDDO
-
-          ENDIF
-          !
-          IF(EQN%Anisotropy.NE.0.AND.EQN%Anisotropy.NE.1) THEN
-              logError(*) 'Choose 0 or 1 as anisotropy assumption. '
-              STOP
-          ENDIF
-
-      CASE DEFAULT
-          logError(*) 'Choose 0 or 1 as anelasticity assumption. '
-          STOP
-      END SELECT
-      !
-      CLOSE(IO%UNIT%other01)
-      logInfo(*) 'Model data read.  '
-      logInfo(*) 'Model contains    ', EQN%nLayers, ' different material zones. '
-      logInfo(*) 'Reference values for IC are  '
-      logInfo(*) '   ', EQN%rho0     ! (1)
-      logInfo(*) '   ', EQN%mu       ! (2)
-      logInfo(*) '   ', EQN%lambda   ! (3)
-
-  END SUBROUTINE
   !
   !============================================================================
   ! INITIAL CONDITION
@@ -4179,142 +3805,5 @@ ALLOCATE( SpacePositionx(nDirac), &
     !
   END SUBROUTINE analyse_readpar
   !END SUBROUTINE analyse_readpar_unstruct
-
-   !>
-   !! normalize vectors and initialize the Voigt matrix
-   !<
-   SUBROUTINE iniVoigtMatrix(i, EQN, nx,ny,nz,sx,sy,sz,tx,ty,tz)
-    IMPLICIT NONE
-    !------------------------------------------------------------------------
-    INTEGER                                        :: i
-    TYPE (tEquations)                              :: EQN
-    REAL                                           :: nx,ny,nz,sx,sy,sz,tx,ty,tz
-    ! localVariables
-    REAL                                           :: iT(6,6), iTT(6,6)
-    REAL                                           :: c(6,6), Voigt_rot(6,6)
-    REAL                                           :: length
-    INTEGER                                        :: j, k
-    !------------------------------------------------------------------------
-    INTENT(IN)                                     :: i
-    INTENT(INOUT)                                  :: EQN,nx,ny,nz,sx,sy,sz,tx,ty,tz
-
-    !------------------------------------------------------------------------
-            ! Normalize normal vectors
-            length = SQRT(nx*nx+ny*ny+nz*nz)
-            nx=nx/length
-            ny=ny/length
-            nz=nz/length
-            length = SQRT(sx*sx+sy*sy+sz*sz)
-            sx=sx/length
-            sy=sy/length
-            sz=sz/length
-            length = SQRT(tx*tx+ty*ty+tz*tz)
-            tx=tx/length
-            ty=ty/length
-            tz=tz/length
-            !
-            ! Matrix for transformation of the Voigt matrix into the global xyz system
-            !
-            iT(1,1) = nx**2
-            iT(1,2) = sx**2
-            iT(1,3) = tx**2
-            iT(1,4) = 2*sx*tx
-            iT(1,5) = 2*nx*tx
-            iT(1,6) = 2*nx*sx
-            iT(2,1) = ny**2
-            iT(2,2) = sy**2
-            iT(2,3) = ty**2
-            iT(2,4) = 2*sy*ty
-            iT(2,5) = 2*ny*ty
-            iT(2,6) = 2*ny*sy
-            iT(3,1) = nz**2
-            iT(3,2) = sz**2
-            iT(3,3) = tz**2
-            iT(3,4) = 2*sz*tz
-            iT(3,5) = 2*nz*tz
-            iT(3,6) = 2*nz*sz
-            iT(4,1) = nz*ny
-            iT(4,2) = sz*sy
-            iT(4,3) = tz*ty
-            iT(4,4) = sz*ty+sy*tz
-            iT(4,5) = nz*ty+ny*tz
-            iT(4,6) = nz*sy+ny*sz
-            iT(5,1) = nz*nx
-            iT(5,2) = sz*sx
-            iT(5,3) = tz*tx
-            iT(5,4) = sz*tx+sx*tz
-            iT(5,5) = nz*tx+nx*tz
-            iT(5,6) = nz*sx+nx*sz
-            iT(6,1) = ny*nx
-            iT(6,2) = sy*sx
-            iT(6,3) = ty*tx
-            iT(6,4) = sy*tx+sx*ty
-            iT(6,5) = ny*tx+nx*ty
-            iT(6,6) = ny*sx+nx*sy
-            ! Transpose of trafo matrix.
-            DO j = 1, 6
-              DO k = 1, 6
-                iTT(j,k) = iT(k,j)
-              ENDDO
-            ENDDO
-            !
-            c(:,:) = 0.
-            c(1,1) = EQN%MODEL(i, 2)
-            c(1,2) = EQN%MODEL(i, 3)
-            c(1,3) = EQN%MODEL(i, 4)
-            c(1,4) = EQN%MODEL(i, 5)
-            c(1,5) = EQN%MODEL(i, 6)
-            c(1,6) = EQN%MODEL(i, 7)
-            c(2,2) = EQN%MODEL(i, 8)
-            c(2,3) = EQN%MODEL(i, 9)
-            c(2,4) = EQN%MODEL(i,10)
-            c(2,5) = EQN%MODEL(i,11)
-            c(2,6) = EQN%MODEL(i,12)
-            c(3,3) = EQN%MODEL(i,13)
-            c(3,4) = EQN%MODEL(i,14)
-            c(3,5) = EQN%MODEL(i,15)
-            c(3,6) = EQN%MODEL(i,16)
-            c(4,4) = EQN%MODEL(i,17)
-            c(4,5) = EQN%MODEL(i,18)
-            c(4,6) = EQN%MODEL(i,19)
-            c(5,5) = EQN%MODEL(i,20)
-            c(5,6) = EQN%MODEL(i,21)
-            c(6,6) = EQN%MODEL(i,22)
-            !
-            ! Initialize lower half of Voigt matrix using the symmetry property
-            !
-            DO j = 1, 6
-              DO k = 1, j-1
-                c(j,k) = c(k,j)
-              ENDDO
-            ENDDO
-            !
-            ! Initialize and rotate Voigt matrix to get the material properties in the xyz system
-            !
-            Voigt_rot(:,:) = MATMUL( iT(:,:), MATMUL(c(:,:),iTT(:,:)) )
-            c(:,:) = Voigt_rot(:,:)
-            !
-            EQN%MODEL(i, 2) = c(1,1)
-            EQN%MODEL(i, 3) = c(1,2)
-            EQN%MODEL(i, 4) = c(1,3)
-            EQN%MODEL(i, 5) = c(1,4)
-            EQN%MODEL(i, 6) = c(1,5)
-            EQN%MODEL(i, 7) = c(1,6)
-            EQN%MODEL(i, 8) = c(2,2)
-            EQN%MODEL(i, 9) = c(2,3)
-            EQN%MODEL(i,10) = c(2,4)
-            EQN%MODEL(i,11) = c(2,5)
-            EQN%MODEL(i,12) = c(2,6)
-            EQN%MODEL(i,13) = c(3,3)
-            EQN%MODEL(i,14) = c(3,4)
-            EQN%MODEL(i,15) = c(3,5)
-            EQN%MODEL(i,16) = c(3,6)
-            EQN%MODEL(i,17) = c(4,4)
-            EQN%MODEL(i,18) = c(4,5)
-            EQN%MODEL(i,19) = c(4,6)
-            EQN%MODEL(i,20) = c(5,5)
-            EQN%MODEL(i,21) = c(5,6)
-            EQN%MODEL(i,22) = c(6,6)
-    END SUBROUTINE iniVoigtMatrix
 
 END MODULE COMMON_readpar_mod

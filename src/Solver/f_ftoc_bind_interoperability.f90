@@ -99,6 +99,12 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), dimension(*), intent(in) :: timeHistories
     end subroutine
   end interface
+  
+!~   interface
+!~     subroutine c_interoperability_initializeModel(anelasticity, plasticity, materialVal, bulkFriction, plastCo, iniStress)
+!~       use iso_c_binding, only: c_double, c_int
+!~     end subroutine
+!~   end interface
 
   interface c_interoperability_addReceiver
     subroutine c_interoperability_addReceiver( i_receiverId, i_meshId ) bind( C, name='c_interoperability_addReceiver' )
