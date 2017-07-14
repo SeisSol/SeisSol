@@ -78,18 +78,12 @@ CONTAINS
     TYPE (tDiscretization)          :: DISC
     TYPE (tBoundary)                :: BND
     REAL                            :: MaterialVal(MESH%nElem,EQN%nBackgroundVar)
-    ! Local variable declaration
-    INTEGER, POINTER                :: PertMaterial(:)
-    REAL, POINTER                   :: xrf(:), yrf(:), zrf(:), pertrf(:,:,:,:)
-    INTEGER                         :: i, j, k, ielem, iVertex, iLayer, iMech, iRFFlag, iMaterial, nVar, mu_ct, la_ct
-    INTEGER                         :: NX, NY, NZ, zoneNum, nPert, counter
-    REAL, POINTER                   :: PerturbationVar(:,:), P(:,:)
-    REAL, POINTER                   :: posx(:), posy(:), posz(:), pert(:)
-    REAL                            :: xrf_max,xrf_min,yrf_max,yrf_min,zrf_max,zrf_min
-    REAL                            :: posx_max,posx_min,posy_max,posy_min,posz_max,posz_min
-    REAL                            :: pert_max, pert_min
-    ! ------------------------------------------------------------------------!
-    INTEGER                         :: InterpolationScheme = 1                ! Select the interpolation scheme (linear=1, cubic=else)
+    !--------------------------------------------------------------------------
+    integer                         :: iElem, iMech
+    real                            :: MaterialTmp(EQN%nAneMaterialVar)
+    real                            :: Material_INF(2)
+    real                            :: Theta(EQN%nMechanisms,3)
+    real                            :: w_freq(EQN%nMechanisms)
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: MESH
     INTENT(OUT)                     :: MaterialVal
@@ -108,7 +102,19 @@ CONTAINS
       ALLOCATE (EQN%BulkFriction(MESH%nElem), EQN%PlastCo(MESH%nElem), EQN%IniStress(6,MESH%nElem))
     ENDIF
 
-!~     call c_interoperability_initializeModel(EQN%Anelasticity, EQN%Plasticity, MaterialVal, EQN%BulkFriction, EQN%PlastCo, EQN%IniStress)
+    call c_interoperability_initializeModel(trim(EQN%MaterialFileName) // c_null_char, EQN%Anelasticity, EQN%Plasticity, MaterialVal, EQN%BulkFriction, EQN%PlastCo, EQN%IniStress)
+    
+    if (EQN%Anelasticity == 1) then
+      do iElem=1, MESH%nElem
+        MaterialTmp(:) = MaterialVal(iElem,:)
+        call ini_ATTENUATION(Theta, w_freq, Material_INF, MaterialTmp, EQN)
+        MaterialVal(iElem,2:3) = Material_INF(:)
+        do iMech=1, EQN%nMechanisms
+          MaterialVal(iElem,4+4*(iMech-1)) = w_freq(iMech)
+          MaterialVal(iElem,4+4*(iMech-1)+1:4+4*(iMech-1)+3) = Theta(iMech,:)
+        end do
+      end do
+    end if
 
       !###################################################################################!
       !  Dynamic Rupture setup

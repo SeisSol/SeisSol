@@ -46,6 +46,7 @@
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
+#include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
@@ -101,6 +102,23 @@ extern "C" {
                                               timestep,
                                               numberOfSamples,
                                               timeHistories );
+  }
+
+  void c_interoperability_initializeModel(  char*   materialFileName,
+                                            int     anelasticity,
+                                            int     plasticity,
+                                            double* materialVal,
+                                            double* bulkFriction,
+                                            double* plastCo,
+                                            double* iniStress )
+  {
+    e_interoperability.initializeModel( materialFileName,
+                                        anelasticity,
+                                        plasticity,
+                                        materialVal,
+                                        bulkFriction,
+                                        plastCo,
+                                        iniStress );
   }
 
   void c_interoperability_addReceiver( int i_receiverId,
@@ -424,6 +442,40 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
     &m_ltsLut,
     seissol::SeisSol::main.timeManager()
   );
+}
+
+void seissol::Interoperability::initializeModel(  char*   materialFileName,
+                                                  int     anelasticity,
+                                                  int     plasticity,
+                                                  double* materialVal,
+                                                  double* bulkFriction,
+                                                  double* plastCo,
+                                                  double* iniStress )
+{
+  auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
+
+  seissol::initializers::ParameterDB parameterDB(seissol::initializers::ParameterDB::ELEMENTS);
+  parameterDB.addParameter("rho",    materialVal);
+  parameterDB.addParameter("mu",     materialVal + nElements);
+  parameterDB.addParameter("lambda", materialVal + nElements*2);
+  
+  if (anelasticity == 1) {
+    parameterDB.addParameter("Qp",  materialVal + nElements*3);
+    parameterDB.addParameter("Qs",  materialVal + nElements*4);
+  }
+
+  if (plasticity == 1) {
+    parameterDB.addParameter("bulkFriction", bulkFriction);
+    parameterDB.addParameter("plastCo",      plastCo);
+    parameterDB.addParameter("s_xx",         iniStress+0, 6);
+    parameterDB.addParameter("s_yy",         iniStress+1, 6);
+    parameterDB.addParameter("s_zz",         iniStress+2, 6);
+    parameterDB.addParameter("s_xy",         iniStress+3, 6);
+    parameterDB.addParameter("s_yz",         iniStress+4, 6);
+    parameterDB.addParameter("s_xz",         iniStress+5, 6);
+  }
+  
+  parameterDB.evaluateModel(std::string(materialFileName), seissol::SeisSol::main.meshReader());
 }
 
 void seissol::Interoperability::addReceiver( int i_receiverId,

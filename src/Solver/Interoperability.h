@@ -147,6 +147,15 @@ class seissol::Interoperability {
                                int           numberOfSamples,
                                double const* timeHistories );
 
+    //! \todo Documentation
+    void initializeModel( char*   materialFileName,
+                          int     anelasticity,
+                          int     plasticity,
+                          double* materialVal,
+                          double* bulkFriction,
+                          double* plastCo,
+                          double* iniStress );
+
    /**
     * Adds a receiver at the specified mesh id.
     *

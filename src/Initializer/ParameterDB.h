@@ -59,18 +59,13 @@ public:
   };
 
   ParameterDB(Mode mode) : m_mode(mode) {}
-  ~ParameterDB();
   
-  void addParameter(std::string const& parameter) { m_parameters[parameter] = std::vector<double>(); }
+  void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
   void evaluateModel(std::string const& fileName, MeshReader const& meshReader);
-  
-  std::vector<double>::const_iterator begin(std::string const& parameter) const { return m_parameters.at(parameter).cbegin(); }
-  std::vector<double>::const_iterator end(std::string const& parameter)   const { return m_parameters.at(parameter).cend(); }
-  
   
 private:
   Mode m_mode;
-  std::unordered_map<std::string, std::vector<double>> m_parameters;
+  std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
 };
 
 #endif

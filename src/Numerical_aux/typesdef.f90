@@ -1142,7 +1142,6 @@ MODULE TypesDef
      INTEGER                                :: nVar_vel                         !< number of velocity variables
      INTEGER                                :: nVAr_rot                         !< number of rotation variables
      INTEGER                                :: nBackgroundVar                   !< Number of background variables
-     INTEGER                                :: LinType                          !< Type of linearization: 0=global,1=local
      INTEGER                                :: Dimension                        !< Number of space dimensions (currently 3)
      INTEGER                                :: HexaDimension                    !< Nr. of dimensions can be explicitly reduced on hexahedrons
      REAL                                   :: Pi                               !< Constant Pi

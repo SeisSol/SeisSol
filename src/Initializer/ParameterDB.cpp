@@ -53,8 +53,7 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
   
   easi::ArraysAdapter adapter;
   for (auto& kv : m_parameters) {
-    kv.second.resize(elements.size());
-    adapter.addBindingPoint(kv.first, kv.second.data());
+    adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
   }
   
   easi::Query query(elements.size(), 3);

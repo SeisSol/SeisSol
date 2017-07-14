@@ -100,11 +100,20 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
   
-!~   interface
-!~     subroutine c_interoperability_initializeModel(anelasticity, plasticity, materialVal, bulkFriction, plastCo, iniStress)
-!~       use iso_c_binding, only: c_double, c_int
-!~     end subroutine
-!~   end interface
+  ! Don't forget to add // c_null_char to materialFileName when using this interface
+  interface
+    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, materialVal, bulkFriction, plastCo, iniStress) bind( C, name='c_interoperability_initializeModel' )
+      use iso_c_binding, only: c_double, c_int, c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in)  :: materialFileName
+      integer(kind=c_int), value                        :: anelasticity
+      integer(kind=c_int), value                        :: plasticity
+      real(kind=c_double), dimension(*), intent(out)    :: materialVal
+      real(kind=c_double), dimension(*), intent(out)    :: bulkFriction
+      real(kind=c_double), dimension(*), intent(out)    :: plastCo
+      real(kind=c_double), dimension(*), intent(out)    :: iniStress
+    end subroutine
+  end interface
 
   interface c_interoperability_addReceiver
     subroutine c_interoperability_addReceiver( i_receiverId, i_meshId ) bind( C, name='c_interoperability_addReceiver' )

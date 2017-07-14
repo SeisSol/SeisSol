@@ -213,18 +213,12 @@ CONTAINS
     TYPE (tInitialCondition)   :: IC
     TYPE (tInputOutput)        :: IO
     ! localVariables
-    INTEGER                    :: intDummy, i,j,k
-    CHARACTER(LEN=300)         :: cDummy
-    CHARACTER(LEN=600)         :: name
-    REAL                       :: iT(6,6), iTT(6,6)
-    REAL                       :: c(6,6), Voigt_rot(6,6), K1,K2,K3,T1,T2,T3
-    REAL                       :: relDummy
-    INTEGER                    :: label                                      ! Used in READ statement
-    INTEGER                    :: lines, ix,iy,iz
+    INTEGER                    :: intDummy
     INTEGER                    :: readStat
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
+    LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
     REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
@@ -269,6 +263,7 @@ CONTAINS
     Tv                  = 0.03  !standard value from SCEC benchmarks
     pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
+    MaterialFileName    = ''
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
     IF (readStat.NE.0) THEN
@@ -381,6 +376,12 @@ CONTAINS
     IF(EQN%Adjoint.EQ.1) THEN
      call readadjoint(IO, DISC, SOURCE, AdjFileName)
     END IF
+    !
+    inquire(file=MaterialFileName , exist=fileExists)
+    if (.NOT. fileExists) then
+     logError(*) 'Material file "', trim(MaterialFileName), '" does not exist.'
+     STOP
+    endif
     !
     EQN%rho0 = rho
     EQN%mu = mu
