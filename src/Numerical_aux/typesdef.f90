@@ -1155,12 +1155,12 @@ MODULE TypesDef
      INTEGER                                :: Anelasticity                     !< (0) = elastic, (1) = anelastic
      INTEGER                                :: Poroelasticity                   !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
      INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic
-     REAL, POINTER                          :: Energy(:,:)=> NULL()
-     REAL, POINTER                          :: PlastCo(:)                       !< Cohesion for the Drucker-Prager plasticity, element-dependent
-     REAL,POINTER                           :: BulkFriction(:)                  !< Bulk friction for the Drucker-Prager plasticity, , element-dependent
+     REAL, POINTER                          :: Energy(:,:) => NULL()
+     REAL, POINTER                          :: PlastCo(:) => NULL()             !< Cohesion for the Drucker-Prager plasticity, element-dependent
+     REAL,POINTER                           :: BulkFriction(:) => NULL()        !< Bulk friction for the Drucker-Prager plasticity, , element-dependent
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
      INTEGER                                :: PlastMethod                      !< method for plasticity: (0) = high-order points, (2) = average of an element
-     REAL, POINTER                          :: IniStress(:,:)                   !< Initial stress (loading) for the whole domain, only used for plastic calculations
+     REAL, POINTER                          :: IniStress(:,:) => NULL()         !< Initial stress (loading) for the whole domain, only used for plastic calculations
      INTEGER                                :: Adjoint                          !< (0) = no adjoint, (1) = adjoint reverse-time field is generated simultaneously to forward field
      INTEGER                                :: EndIteration                     !< The index of the last iteration in the simulation
      REAL                                   :: FinalTime                        !< The time at which a simulation ends (limited by DISC%EndTime or max. iterations)

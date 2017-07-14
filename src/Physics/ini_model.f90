@@ -99,7 +99,9 @@ CONTAINS
     call call_hook_pre_model()
     
     IF (EQN%Plasticity .NE. 0) THEN
-      ALLOCATE (EQN%BulkFriction(MESH%nElem), EQN%PlastCo(MESH%nElem), EQN%IniStress(6,MESH%nElem))
+      allocate (EQN%BulkFriction(MESH%nElem), EQN%PlastCo(MESH%nElem), EQN%IniStress(6,MESH%nElem))
+    else
+      allocate (EQN%BulkFriction(0), EQN%PlastCo(0), EQN%IniStress(0,0))
     ENDIF
 
     call c_interoperability_initializeModel(trim(EQN%MaterialFileName) // c_null_char, EQN%Anelasticity, EQN%Plasticity, MaterialVal, EQN%BulkFriction, EQN%PlastCo, EQN%IniStress)
