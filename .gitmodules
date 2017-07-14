@@ -22,3 +22,12 @@
 [submodule "submodules/PUML"]
 	path = submodules/PUML
 	url = https://github.com/TUM-I5/PUML2.git
+[submodule "submodules/easi"]
+	path = submodules/easi
+	url = https://github.com/SeisSol/easi.git
+[submodule "submodules/yaml-cpp"]
+	path = submodules/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git
+[submodule "submodules/ImpalaJIT"]
+	path = submodules/ImpalaJIT
+	url = https://github.com/Manuel1605/ImpalaJIT.git
