@@ -99,6 +99,7 @@ MODULE ini_model_DR_mod
 
   PRIVATE :: background_SUMATRA
   PRIVATE :: background_SUMATRA_B
+  PRIVATE :: background_SUMATRA_EGU2017
   PRIVATE :: background_SUMATRA_RS
   PRIVATE :: background_SUMATRA_GEO
 
@@ -212,8 +213,10 @@ MODULE ini_model_DR_mod
        CALL background_TPV103(DISC,EQN,MESH,BND)
     CASE(120)
        CALL background_SUMATRA(DISC,EQN,MESH,BND)
-    CASE(129)
+    CASE(128)
        CALL background_SUMATRA_B(DISC,EQN,MESH,BND)
+    CASE(129)
+       CALL background_SUMATRA_EGU2017(DISC,EQN,MESH,BND)
     CASE(1201)
        CALL background_SUMATRA_GEO(DISC,EQN,MESH,BND)
     CASE(1202)
