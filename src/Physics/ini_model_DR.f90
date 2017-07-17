@@ -98,6 +98,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: nucleation_TPV28
 
   PRIVATE :: background_SUMATRA
+  PRIVATE :: background_SUMATRA_B
   PRIVATE :: background_SUMATRA_RS
   PRIVATE :: background_SUMATRA_GEO
 
@@ -211,6 +212,8 @@ MODULE ini_model_DR_mod
        CALL background_TPV103(DISC,EQN,MESH,BND)
     CASE(120)
        CALL background_SUMATRA(DISC,EQN,MESH,BND)
+    CASE(129)
+       CALL background_SUMATRA_B(DISC,EQN,MESH,BND)
     CASE(1201)
        CALL background_SUMATRA_GEO(DISC,EQN,MESH,BND)
     CASE(1202)
@@ -2175,6 +2178,532 @@ MODULE ini_model_DR_mod
   ENDDO !    MESH%Fault%nSide
 
   END SUBROUTINE background_SUMATRA
+
+!> SUMATRA test case
+  !> T. ULRICH 06.2015
+  !> tpv29 used as a model
+  !<
+  SUBROUTINE background_SUMATRA_B (DISC,EQN,MESH,BND)
+  !-------------------------------------------------------------------------!
+  USE DGBasis_mod
+  !-------------------------------------------------------------------------!
+  IMPLICIT NONE
+  !-------------------------------------------------------------------------!
+  TYPE(tDiscretization), target  :: DISC
+  TYPE(tEquations)               :: EQN
+  TYPE(tUnstructMesh)            :: MESH
+  TYPE (tBoundary)               :: BND
+  !-------------------------------------------------------------------------!
+  ! Local variable declaration
+  INTEGER                        :: i,j
+  INTEGER                        :: iSide,iElem,iBndGP
+  INTEGER                        :: iLocalNeighborSide,iNeighbor
+  INTEGER                        :: MPIIndex, iObject
+  INTEGER                        :: k, nLayers, Laterally_homogenous_Stress
+  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
+  REAL                           :: chi,tau
+  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp, Ry, rho
+  REAL                           :: b11, b22, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion, zIncreasingCohesionD
+  REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
+  REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
+  REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
+  REAL                           :: yN1, yN2, yS1, yS2, alpha
+  REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
+  !-------------------------------------------------------------------------! 
+  INTENT(IN)    :: MESH, BND
+  INTENT(INOUT) :: DISC,EQN
+  !-------------------------------------------------------------------------! 
+  ! TPV29
+  ! stress is assigned to each Gaussian node
+  ! depth dependent stress function (gravity)
+  ! NOTE: z negative is depth, free surface is at z=0
+  Laterally_homogenous_Stress = 1
+
+  IF (Laterally_homogenous_Stress.EQ.1) THEN
+     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds
+     b11 = 1.1854
+     b22 = 1.3162
+     b12 = 0.3076
+     b13 = 0.1259
+     b23 = 0.1555
+  ELSE
+     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  South (strike = 25+90+180)
+     b11_S = 1.0487
+     b22_S = 1.4529
+     b12_S = 0.2409
+     b13_S = 0.0846
+     b23_S = 0.1814
+  
+     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 40+90+180)
+     b11_C = 1.1962
+     b22_C = 1.3054
+     b12_C = 0.3097
+     b13_C = 0.1286
+     b23_C = 0.1533
+  
+     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 75+90+180)
+     b11_N = 1.5231
+     b22_N = 0.9785
+     b12_N = 0.1572
+     b13_N = 0.1933
+     b23_N = 0.0518
+
+     ! 10.5/8.5/5/4
+     yN2 = 1160695.0941260615
+     yN1 = 939574.3060454715
+     yS2 = 552664.2968779367
+     yS1 = 442127.3902531094
+  ENDIF
+
+  g = 9.8D0
+  zIncreasingCohesion = -15000.
+  zIncreasingCohesionD = -35000.
+  !zIncreasingCohesion = -10000.
+  ! Loop over every mesh element
+  DO i = 1, MESH%Fault%nSide
+
+      ! element ID    
+      iElem = MESH%Fault%Face(i,1,1)
+      iSide = MESH%Fault%Face(i,2,1)
+
+      EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
+      EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
+      EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
+      EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
+      EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
+      EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
+
+      ! ini frictional parameters
+      !EQN%IniStateVar(i,:) =  EQN%RS_sv0
+  
+  ! Gauss node coordinate definition and stress assignment
+      ! get vertices of complete tet
+      IF (MESH%Fault%Face(i,1,1) == 0) THEN
+          ! iElem is in the neighbor domain
+          ! The neighbor element belongs to a different MPI domain
+          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
+          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
+          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+          !
+          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+      ELSE
+          !
+          ! get vertices
+          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+      ENDIF
+
+      DO iBndGP = 1,DISC%Galerkin%nBndGP
+          !
+          ! Transformation of boundary GP's into XYZ coordinate system
+          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
+          CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
+
+          ! for possible variation
+          !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
+          !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
+          !DISC%DynRup%Mu_D(i,iBndGP) = DISC%DynRup%Mu_D_ini
+          !
+
+          !! TO BE USED WITH 1d Layered medium
+          !!free surface assumed at z=-2000m
+          !!properties of continental crust
+          !nLayers = 6
+          !zLayers (1:6) = (/ 0d0,-2000d0, -6000d0, -12000d0, -23000d0,-600d6 /)
+          !rhoLayers (1:6) = (/ 1000d0, 2720d0, 2860d0, 3050d0, 3300d0, 3375d0 /)
+          !sigzz = 0d0
+
+          !DO k=2,nLayers
+          !   IF (zGP.GT.zLayers(k)) THEN
+          !      sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
+          !      EXIT
+          !   ELSE
+          !      sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
+          !   ENDIF
+          !ENDDO
+
+          !IF (zGP.LT.-25000D0) THEN
+          !   Rz = (-zGp - 25000D0)/150e3
+          !   !Rz = (-zGp - 25000D0)/50e3
+          !   !Rz = 0d0
+          !ELSE
+             Rz = 0.
+          !ENDIF
+          !Rz = max(0D0,min(0.99999999999d0, Rz))
+          !DISC%DynRup%Mu_D(i,iBndGP) = (1d0-Rz)*DISC%DynRup%Mu_D_ini + Rz*DISC%DynRup%Mu_S_ini
+          !Rz = 0d0
+
+          IF (yGP.LT.-280000D0) THEN
+             Ry = (-yGp - 280000D0)/40e3
+          ELSEIF (yGP.GT.280000D0) THEN
+             Ry = (yGp - 280000D0)/40e3
+          ELSE
+             Ry = 0.
+          ENDIF
+
+          !Omega = max(0D0,min(1d0, 1D0-Rz))
+
+          !Omega = max(0D0,1D0-sqrt(Ry**2+Rz**2))
+          Omega = 1
+
+          IF (Laterally_homogenous_Stress.EQ.0) THEN
+             ! The stress varies along y (along lon=cst)
+             ! cst_N
+             !**yN2
+             ! lin from cst_N to cst_C
+             !**yN1
+             ! cst_C
+             !**yS2
+             ! lin from cst_C to cst_S
+             !**yS1
+             ! cst_S
+
+             IF (yGP.GE.yN2) THEN
+                b11 = b11_N
+                b22 = b22_N
+                b12 = b12_N
+                b13 = b13_N
+                b23 = b23_N
+             ELSE IF ((yGP.GE.yN1).AND.(yGP.LT.yN2)) THEN
+                alpha = (yGP-yN1)/(yN2-yN1)
+                b11 = alpha * b11_N + (1d0-alpha)* b11_C
+                b22 = alpha * b22_N + (1d0-alpha)* b22_C
+                b12 = alpha * b12_N + (1d0-alpha)* b12_C
+                b13 = alpha * b13_N + (1d0-alpha)* b13_C
+                b23 = alpha * b23_N + (1d0-alpha)* b23_C
+             ELSE IF ((yGP.GE.yS2).AND.(yGP.LT.yN1)) THEN
+                b11 = b11_C
+                b22 = b22_C
+                b12 = b12_C
+                b13 = b13_C
+                b23 = b23_C
+             ELSE IF ((yGP.GE.yS1).AND.(yGP.LT.yS2)) THEN
+                alpha = (yGP-yS1)/(yS2-yS1)
+                b11 = alpha * b11_C + (1d0-alpha)* b11_S
+                b22 = alpha * b22_C + (1d0-alpha)* b22_S
+                b12 = alpha * b12_C + (1d0-alpha)* b12_S
+                b13 = alpha * b13_C + (1d0-alpha)* b13_S
+                b23 = alpha * b23_C + (1d0-alpha)* b23_S
+             ELSE
+                b11 = b11_S
+                b22 = b22_S
+                b12 = b12_S
+                b13 = b13_s
+                b23 = b23_s
+             ENDIF
+          ENDIF
+
+          Pf = -1000D0 * g * zGP
+          rho = EQN%rho0
+          sigzz = rho * g * zGP
+
+          EQN%IniBulk_zz(i,iBndGP)  =  sigzz
+          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(EQN%IniBulk_xx(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
+          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(EQN%IniBulk_yy(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
+          EQN%IniShearXY(i,iBndGP)  =  Omega*(EQN%IniShearXY(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniShearXZ(i,iBndGP)  =  Omega*(EQN%IniShearXZ(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniShearYZ(i,iBndGP)  =  Omega*(EQN%IniShearYZ(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
+          EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
+          EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
+
+          !! manage cohesion
+          !IF (zGP.GE.zIncreasingCohesion) THEN
+          !    ! higher cohesion near free surface
+          !    !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
+          !    DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+          !ELSE
+          !    ! set cohesion
+          !    DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+          !ENDIF
+
+          !! manage cohesion
+          IF (zGP.GT.zIncreasingCohesion) THEN
+              ! higher cohesion near free surface
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(3.9d3*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)*(3.9d3*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)))
+          ELSEIF (zGP.LT.zIncreasingCohesionD) THEN
+              ! higher cohesion near bottom of fault 
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)*(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)))
+          ELSE
+              ! set cohesion otherwise (also in .par file)
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+          ENDIF
+
+      ENDDO ! iBndGP
+
+  ENDDO !    MESH%Fault%nSide   
+
+  END SUBROUTINE background_SUMATRA_B  
+
+
+  !> SUMATRA test case
+  !> T. ULRICH 06.2015
+  !> tpv29 used as a model
+  !<
+  SUBROUTINE background_SUMATRA_EGU2017 (DISC,EQN,MESH,BND)
+  !-------------------------------------------------------------------------!
+  USE DGBasis_mod
+  !-------------------------------------------------------------------------!
+  IMPLICIT NONE
+  !-------------------------------------------------------------------------!
+  TYPE(tDiscretization), target  :: DISC
+  TYPE(tEquations)               :: EQN
+  TYPE(tUnstructMesh)            :: MESH
+  TYPE (tBoundary)               :: BND
+  !-------------------------------------------------------------------------!
+  ! Local variable declaration
+  INTEGER                        :: i,j
+  INTEGER                        :: iSide,iElem,iBndGP
+  INTEGER                        :: iLocalNeighborSide,iNeighbor
+  INTEGER                        :: MPIIndex, iObject
+  INTEGER                        :: k, nLayers, Laterally_homogenous_Stress
+  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
+  REAL                           :: chi,tau
+  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp, Ry, rho
+  REAL                           :: b11, b22, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion, zIncreasingCohesionD
+  REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
+  REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
+  REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
+  REAL                           :: yN1, yN2, yS1, yS2, alpha
+  REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
+  !-------------------------------------------------------------------------! 
+  INTENT(IN)    :: MESH, BND
+  INTENT(INOUT) :: DISC,EQN
+  !-------------------------------------------------------------------------! 
+  ! TPV29
+  ! stress is assigned to each Gaussian node
+  ! depth dependent stress function (gravity)
+  ! NOTE: z negative is depth, free surface is at z=0
+  Laterally_homogenous_Stress = 1
+
+  IF (Laterally_homogenous_Stress.EQ.1) THEN
+     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds
+     b11 = 1.1854
+     b22 = 1.3162
+     b12 = 0.3076
+     b13 = 0.1259
+     b23 = 0.1555
+  ELSE
+     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  South (strike = 25+90+180)
+     b11_S = 1.0487
+     b22_S = 1.4529
+     b12_S = 0.2409
+     b13_S = 0.0846
+     b23_S = 0.1814
+  
+     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 40+90+180)
+     b11_C = 1.1962
+     b22_C = 1.3054
+     b12_C = 0.3097
+     b13_C = 0.1286
+     b23_C = 0.1533
+  
+     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 75+90+180)
+     b11_N = 1.5231
+     b22_N = 0.9785
+     b12_N = 0.1572
+     b13_N = 0.1933
+     b23_N = 0.0518
+
+     ! 10.5/8.5/5/4
+     yN2 = 1160695.0941260615
+     yN1 = 939574.3060454715
+     yS2 = 552664.2968779367
+     yS1 = 442127.3902531094
+  ENDIF
+
+  g = 9.8D0
+  zIncreasingCohesion = -15000.
+  zIncreasingCohesionD = -35000.
+  !zIncreasingCohesion = -10000.
+  ! Loop over every mesh element
+  DO i = 1, MESH%Fault%nSide
+
+      ! element ID    
+      iElem = MESH%Fault%Face(i,1,1)
+      iSide = MESH%Fault%Face(i,2,1)
+
+      EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
+      EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
+      EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
+      EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
+      EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
+      EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
+
+      ! ini frictional parameters
+      !EQN%IniStateVar(i,:) =  EQN%RS_sv0
+  
+  ! Gauss node coordinate definition and stress assignment
+      ! get vertices of complete tet
+      IF (MESH%Fault%Face(i,1,1) == 0) THEN
+          ! iElem is in the neighbor domain
+          ! The neighbor element belongs to a different MPI domain
+          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
+          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
+          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+          !
+          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+      ELSE
+          !
+          ! get vertices
+          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+      ENDIF
+
+      DO iBndGP = 1,DISC%Galerkin%nBndGP
+          !
+          ! Transformation of boundary GP's into XYZ coordinate system
+          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
+          CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
+
+          ! for possible variation
+          !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
+          !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
+          !DISC%DynRup%Mu_D(i,iBndGP) = DISC%DynRup%Mu_D_ini
+          !
+
+          !! TO BE USED WITH 1d Layered medium
+          !!free surface assumed at z=-2000m
+          !!properties of continental crust
+          !nLayers = 6
+          !zLayers (1:6) = (/ 0d0,-2000d0, -6000d0, -12000d0, -23000d0,-600d6 /)
+          !rhoLayers (1:6) = (/ 1000d0, 2720d0, 2860d0, 3050d0, 3300d0, 3375d0 /)
+          !sigzz = 0d0
+
+          !DO k=2,nLayers
+          !   IF (zGP.GT.zLayers(k)) THEN
+          !      sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
+          !      EXIT
+          !   ELSE
+          !      sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
+          !   ENDIF
+          !ENDDO
+
+          !IF (zGP.LT.-25000D0) THEN
+          !   Rz = (-zGp - 25000D0)/150e3
+          !   !Rz = (-zGp - 25000D0)/50e3
+          !   !Rz = 0d0
+          !ELSE
+             Rz = 0.
+          !ENDIF
+          !Rz = max(0D0,min(0.99999999999d0, Rz))
+          !DISC%DynRup%Mu_D(i,iBndGP) = (1d0-Rz)*DISC%DynRup%Mu_D_ini + Rz*DISC%DynRup%Mu_S_ini
+          !Rz = 0d0
+
+          IF (yGP.LT.-280000D0) THEN
+             Ry = (-yGp - 280000D0)/40e3
+          ELSEIF (yGP.GT.280000D0) THEN
+             Ry = (yGp - 280000D0)/40e3
+          ELSE
+             Ry = 0.
+          ENDIF
+
+          !Omega = max(0D0,min(1d0, 1D0-Rz))
+
+          !Omega = max(0D0,1D0-sqrt(Ry**2+Rz**2))
+          Omega = 1
+
+          IF (Laterally_homogenous_Stress.EQ.0) THEN
+             ! The stress varies along y (along lon=cst)
+             ! cst_N
+             !**yN2
+             ! lin from cst_N to cst_C
+             !**yN1
+             ! cst_C
+             !**yS2
+             ! lin from cst_C to cst_S
+             !**yS1
+             ! cst_S
+
+             IF (yGP.GE.yN2) THEN
+                b11 = b11_N
+                b22 = b22_N
+                b12 = b12_N
+                b13 = b13_N
+                b23 = b23_N
+             ELSE IF ((yGP.GE.yN1).AND.(yGP.LT.yN2)) THEN
+                alpha = (yGP-yN1)/(yN2-yN1)
+                b11 = alpha * b11_N + (1d0-alpha)* b11_C
+                b22 = alpha * b22_N + (1d0-alpha)* b22_C
+                b12 = alpha * b12_N + (1d0-alpha)* b12_C
+                b13 = alpha * b13_N + (1d0-alpha)* b13_C
+                b23 = alpha * b23_N + (1d0-alpha)* b23_C
+             ELSE IF ((yGP.GE.yS2).AND.(yGP.LT.yN1)) THEN
+                b11 = b11_C
+                b22 = b22_C
+                b12 = b12_C
+                b13 = b13_C
+                b23 = b23_C
+             ELSE IF ((yGP.GE.yS1).AND.(yGP.LT.yS2)) THEN
+                alpha = (yGP-yS1)/(yS2-yS1)
+                b11 = alpha * b11_C + (1d0-alpha)* b11_S
+                b22 = alpha * b22_C + (1d0-alpha)* b22_S
+                b12 = alpha * b12_C + (1d0-alpha)* b12_S
+                b13 = alpha * b13_C + (1d0-alpha)* b13_S
+                b23 = alpha * b23_C + (1d0-alpha)* b23_S
+             ELSE
+                b11 = b11_S
+                b22 = b22_S
+                b12 = b12_S
+                b13 = b13_s
+                b23 = b23_s
+             ENDIF
+          ENDIF
+
+          Pf = -1000D0 * g * zGP
+          rho = EQN%rho0
+          sigzz = rho * g * zGP
+
+          EQN%IniBulk_zz(i,iBndGP)  =  sigzz
+          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(EQN%IniBulk_xx(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
+          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(EQN%IniBulk_yy(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
+          EQN%IniShearXY(i,iBndGP)  =  Omega*(EQN%IniShearXY(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniShearXZ(i,iBndGP)  =  Omega*(EQN%IniShearXZ(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniShearYZ(i,iBndGP)  =  Omega*(EQN%IniShearYZ(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
+          EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
+          EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
+
+          !! manage cohesion
+          !IF (zGP.GE.zIncreasingCohesion) THEN
+          !    ! higher cohesion near free surface
+          !    !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
+          !    DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+          !ELSE
+          !    ! set cohesion
+          !    DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+          !ENDIF
+
+          !! manage cohesion
+          IF (zGP.GT.zIncreasingCohesion) THEN
+              ! higher cohesion near free surface
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(3.9d3*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)*(3.9d3*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)))
+          ELSEIF (zGP.LT.zIncreasingCohesionD) THEN
+              ! higher cohesion near bottom of fault 
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)*(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)))
+          ELSE
+              ! set cohesion otherwise (also in .par file)
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+          ENDIF
+
+      ENDDO ! iBndGP
+
+  ENDDO !    MESH%Fault%nSide   
+
+  END SUBROUTINE background_SUMATRA_EGU2017
+
 
 !> SUMATRA test case with RS friction
   !> T. ULRICH 07.2016
