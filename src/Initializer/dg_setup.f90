@@ -1918,7 +1918,7 @@ CONTAINS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
-    real    :: l_plasticParameters(4)
+    real    :: l_plasticParameters(2)
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2064,10 +2064,8 @@ CONTAINS
 
 #ifdef USE_PLASTICITY
         ! initialize the element dependent plastic parameters
-        l_plasticParameters(1) = MESH%Elem%Volume(iElem)
-        l_plasticParameters(2) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
-        l_plasticParameters(3) = EQN%Rho0    !density
-        l_plasticParameters(4) = EQN%BulkFriction(iElem) !element-dependent bulk friction
+        l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
+        l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
 
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
