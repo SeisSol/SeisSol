@@ -1687,7 +1687,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,70,100,101,103,119,120,1201,1202,121)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,70,100,101,103,119,120,128,129,1201,1202,121)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
