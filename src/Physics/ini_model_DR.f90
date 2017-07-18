@@ -2468,13 +2468,9 @@ MODULE ini_model_DR_mod
   INTEGER                        :: k, nLayers, Laterally_homogenous_Stress
   REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
   REAL                           :: chi,tau
-  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp, Ry, rho
+  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp, rho
   REAL                           :: b11, b22, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion, zIncreasingCohesionD
-  REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
-  REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
-  REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
-  REAL                           :: yN1, yN2, yS1, yS2, alpha
-  REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
+  REAL                           :: sigzz
   !-------------------------------------------------------------------------! 
   INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
@@ -2483,48 +2479,9 @@ MODULE ini_model_DR_mod
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
   ! NOTE: z negative is depth, free surface is at z=0
-  Laterally_homogenous_Stress = 1
-
-  IF (Laterally_homogenous_Stress.EQ.1) THEN
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds
-     b11 = 1.1854
-     b22 = 1.3162
-     b12 = 0.3076
-     b13 = 0.1259
-     b23 = 0.1555
-  ELSE
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  South (strike = 25+90+180)
-     b11_S = 1.0487
-     b22_S = 1.4529
-     b12_S = 0.2409
-     b13_S = 0.0846
-     b23_S = 0.1814
   
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 40+90+180)
-     b11_C = 1.1962
-     b22_C = 1.3054
-     b12_C = 0.3097
-     b13_C = 0.1286
-     b23_C = 0.1533
-  
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 75+90+180)
-     b11_N = 1.5231
-     b22_N = 0.9785
-     b12_N = 0.1572
-     b13_N = 0.1933
-     b23_N = 0.0518
-
-     ! 10.5/8.5/5/4
-     yN2 = 1160695.0941260615
-     yN1 = 939574.3060454715
-     yS2 = 552664.2968779367
-     yS1 = 442127.3902531094
-  ENDIF
-
   g = 9.8D0
-  zIncreasingCohesion = -15000.
-  zIncreasingCohesionD = -35000.
-  !zIncreasingCohesion = -10000.
+  
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
 
@@ -2575,131 +2532,36 @@ MODULE ini_model_DR_mod
           !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
           !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
           !DISC%DynRup%Mu_D(i,iBndGP) = DISC%DynRup%Mu_D_ini
-          !
-
-          !! TO BE USED WITH 1d Layered medium
-          !!free surface assumed at z=-2000m
-          !!properties of continental crust
-          !nLayers = 6
-          !zLayers (1:6) = (/ 0d0,-2000d0, -6000d0, -12000d0, -23000d0,-600d6 /)
-          !rhoLayers (1:6) = (/ 1000d0, 2720d0, 2860d0, 3050d0, 3300d0, 3375d0 /)
-          !sigzz = 0d0
-
-          !DO k=2,nLayers
-          !   IF (zGP.GT.zLayers(k)) THEN
-          !      sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
-          !      EXIT
-          !   ELSE
-          !      sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
-          !   ENDIF
-          !ENDDO
-
-          !IF (zGP.LT.-25000D0) THEN
-          !   Rz = (-zGp - 25000D0)/150e3
-          !   !Rz = (-zGp - 25000D0)/50e3
-          !   !Rz = 0d0
-          !ELSE
-             Rz = 0.
-          !ENDIF
-          !Rz = max(0D0,min(0.99999999999d0, Rz))
-          !DISC%DynRup%Mu_D(i,iBndGP) = (1d0-Rz)*DISC%DynRup%Mu_D_ini + Rz*DISC%DynRup%Mu_S_ini
-          !Rz = 0d0
-
-          IF (yGP.LT.-280000D0) THEN
-             Ry = (-yGp - 280000D0)/40e3
-          ELSEIF (yGP.GT.280000D0) THEN
-             Ry = (yGp - 280000D0)/40e3
-          ELSE
-             Ry = 0.
-          ENDIF
-
-          !Omega = max(0D0,min(1d0, 1D0-Rz))
-
-          !Omega = max(0D0,1D0-sqrt(Ry**2+Rz**2))
+          
           Omega = 1
-
-          IF (Laterally_homogenous_Stress.EQ.0) THEN
-             ! The stress varies along y (along lon=cst)
-             ! cst_N
-             !**yN2
-             ! lin from cst_N to cst_C
-             !**yN1
-             ! cst_C
-             !**yS2
-             ! lin from cst_C to cst_S
-             !**yS1
-             ! cst_S
-
-             IF (yGP.GE.yN2) THEN
-                b11 = b11_N
-                b22 = b22_N
-                b12 = b12_N
-                b13 = b13_N
-                b23 = b23_N
-             ELSE IF ((yGP.GE.yN1).AND.(yGP.LT.yN2)) THEN
-                alpha = (yGP-yN1)/(yN2-yN1)
-                b11 = alpha * b11_N + (1d0-alpha)* b11_C
-                b22 = alpha * b22_N + (1d0-alpha)* b22_C
-                b12 = alpha * b12_N + (1d0-alpha)* b12_C
-                b13 = alpha * b13_N + (1d0-alpha)* b13_C
-                b23 = alpha * b23_N + (1d0-alpha)* b23_C
-             ELSE IF ((yGP.GE.yS2).AND.(yGP.LT.yN1)) THEN
-                b11 = b11_C
-                b22 = b22_C
-                b12 = b12_C
-                b13 = b13_C
-                b23 = b23_C
-             ELSE IF ((yGP.GE.yS1).AND.(yGP.LT.yS2)) THEN
-                alpha = (yGP-yS1)/(yS2-yS1)
-                b11 = alpha * b11_C + (1d0-alpha)* b11_S
-                b22 = alpha * b22_C + (1d0-alpha)* b22_S
-                b12 = alpha * b12_C + (1d0-alpha)* b12_S
-                b13 = alpha * b13_C + (1d0-alpha)* b13_S
-                b23 = alpha * b23_C + (1d0-alpha)* b23_S
-             ELSE
-                b11 = b11_S
-                b22 = b22_S
-                b12 = b12_S
-                b13 = b13_s
-                b23 = b23_s
-             ENDIF
-          ENDIF
-
           Pf = -1000D0 * g * zGP
           rho = EQN%rho0
           sigzz = rho * g * zGP
 
-          EQN%IniBulk_zz(i,iBndGP)  =  sigzz
-          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(EQN%IniBulk_xx(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
-          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(EQN%IniBulk_yy(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
-          EQN%IniShearXY(i,iBndGP)  =  Omega*(EQN%IniShearXY(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
-          EQN%IniShearXZ(i,iBndGP)  =  Omega*(EQN%IniShearXZ(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
-          EQN%IniShearYZ(i,iBndGP)  =  Omega*(EQN%IniShearYZ(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(EQN%IniBulk_xx(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
+          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(EQN%IniBulk_yy(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
+          EQN%IniBulk_zz(i,iBndGP)  =  Omega*(EQN%IniBulk_zz(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
+          EQN%IniShearXY(i,iBndGP)  =  Omega*(EQN%IniShearXY(i,iBndGP)*(sigzz+Pf))
+          EQN%IniShearXZ(i,iBndGP)  =  Omega*(EQN%IniShearXZ(i,iBndGP)*(sigzz+Pf))
+          EQN%IniShearYZ(i,iBndGP)  =  Omega*(EQN%IniShearYZ(i,iBndGP)*(sigzz+Pf))
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
           EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
 
-          !! manage cohesion
-          !IF (zGP.GE.zIncreasingCohesion) THEN
-          !    ! higher cohesion near free surface
-          !    !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-          !    DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
-          !ELSE
-          !    ! set cohesion
-          !    DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
-          !ENDIF
 
-          !! manage cohesion
-          IF (zGP.GT.zIncreasingCohesion) THEN
-              ! higher cohesion near free surface
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(3.9d3*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)*(3.9d3*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)))
-          ELSEIF (zGP.LT.zIncreasingCohesionD) THEN
-              ! higher cohesion near bottom of fault 
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)*(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)))
-          ELSE
-              ! set cohesion otherwise (also in .par file)
-              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
-          ENDIF
+         ! !! manage cohesion
+         ! zIncreasingCohesion = -15000.
+         ! zIncreasingCohesionD = -35000.         
+         ! IF (zGP.GT.zIncreasingCohesion) THEN
+         !     ! higher cohesion near free surface
+         !     DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(3.9d3*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)*(3.9d3*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)))
+         ! ELSEIF (zGP.LT.zIncreasingCohesionD) THEN
+         !     ! higher cohesion near bottom of fault 
+         !     DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)*(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)))
+         ! ELSE
+         !     ! set cohesion otherwise (also in .par file)
+         !     DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+         ! ENDIF
 
       ENDDO ! iBndGP
 
