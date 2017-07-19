@@ -98,7 +98,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: nucleation_TPV28
 
   PRIVATE :: background_SUMATRA
-  PRIVATE :: background_SUMATRA_B
+  PRIVATE :: background_SUMATRA_BijPf
   PRIVATE :: background_SUMATRA_EGU2017
   PRIVATE :: background_SUMATRA_RS
   PRIVATE :: background_SUMATRA_GEO
@@ -214,7 +214,7 @@ MODULE ini_model_DR_mod
     CASE(120)
        CALL background_SUMATRA(DISC,EQN,MESH,BND)
     CASE(128)
-       CALL background_SUMATRA_B(DISC,EQN,MESH,BND)
+       CALL background_SUMATRA_BijPf(DISC,EQN,MESH,BND)
     CASE(129)
        CALL background_SUMATRA_EGU2017(DISC,EQN,MESH,BND)
     CASE(1201)
@@ -2186,7 +2186,7 @@ MODULE ini_model_DR_mod
   !> T. ULRICH 06.2015
   !> tpv29 used as a model
   !<
-  SUBROUTINE background_SUMATRA_B (DISC,EQN,MESH,BND)
+  SUBROUTINE background_SUMATRA_BijPf
   !-------------------------------------------------------------------------!
   USE DGBasis_mod
   !-------------------------------------------------------------------------!
@@ -2210,39 +2210,27 @@ MODULE ini_model_DR_mod
   REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
   REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
   REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
-  REAL                           :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
+  REAL                           :: yN1, yN2, yS1, yS2, alpha
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
-  REAL                           :: bii(6)
-  !-------------------------------------------------------------------------!
+  !-------------------------------------------------------------------------! 
   INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------!
+  !-------------------------------------------------------------------------! 
   ! TPV29
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
   ! NOTE: z negative is depth, free surface is at z=0
-  Laterally_homogenous_Stress = 0
 
-  IF (Laterally_homogenous_Stress.EQ.1) THEN
-     ! strike, dip, sigmazz,cohesion,R
-     CALL STRESS_STR_DIP_SLIP_AM(DISC,309.0, 19.0, 555562000.0, 0.4e6, 0.6, .True., bii)
-     b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
-  ELSE
-     !93 4
-     xS1 = 5.0000000000e+05
-     yS1 = 4.4212739025e+05
-     !92.5 5.5
-     xS2 = 4.4461626476e+05
-     ys2 = 6.0795713230e+05
-     !4
-  ENDIF
-
-  g = 9.8D0
-  zIncreasingCohesion = -10000.
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
 
-      ! element ID
+      ! switch for rupture front output: RF
+      IF (DISC%DynRup%RF_output_on == 1) THEN
+          ! rupture front output just for + side elements!
+          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
+      ENDIF
+
+      ! element ID    
       iElem = MESH%Fault%Face(i,1,1)
       iSide = MESH%Fault%Face(i,2,1)
 
@@ -2285,105 +2273,48 @@ MODULE ini_model_DR_mod
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
 
-          ! for possible variation
           !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
           !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
           !DISC%DynRup%Mu_D(i,iBndGP) = DISC%DynRup%Mu_D_ini
-          !
 
-          ! TO BE USED WITH 1d Layered medium
-          !free surface assumed at z=-2000m
-          !properties of continental crust
-          nLayers = 6
-          zLayers (1:6) = (/ 0d0,-2000d0, -6000d0, -12000d0, -23000d0,-600d6 /)
-          rhoLayers (1:6) = (/ 1000d0, 2720d0, 2860d0, 3050d0, 3300d0, 3375d0 /)
-          sigzz = 0d0
+          g = 9.8D0
+          sigzz = 2670D0*g*zGP ! + * - = -
+          Pf = -1800D0*g*zGP ! - * - = +
 
-          DO k=2,nLayers
-             IF (zGP.GT.zLayers(k)) THEN
-                sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
-                EXIT
-             ELSE
-                sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
-             ENDIF
-          ENDDO
-
-          IF (zGP.LT.-25000D0) THEN
-             Rz = (-zGp - 25000D0)/150e3
-             !Rz = (-zGp - 25000D0)/50e3
-             !Rz = 0d0
-          ELSE
-             Rz = 0.
+          IF (zGP.GT.-24500.0D0) THEN
+             Omega = 1.0D0
           ENDIF
-          !Rz = max(0D0,min(0.99999999999d0, Rz))
-          !DISC%DynRup%Mu_D(i,iBndGP) = (1d0-Rz)*DISC%DynRup%Mu_D_ini + Rz*DISC%DynRup%Mu_S_ini
-          !Rz = 0d0
-
-          Omega = max(0D0,min(1d0, 1D0-Rz))
-
-          IF (Laterally_homogenous_Stress.EQ.0) THEN
-             ! The stress varies along y (along lon=cst)
-             ! cst_N
-             !**yN2
-             ! lin from cst_N to cst_C
-             !**yN1
-             ! cst_C
-             !**yS2
-             ! lin from cst_C to cst_S
-             !**yS1
-             ! cst_S
-
-             IF ((yGP-yS1).LT.(xGP-XS1)) THEN
-                ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_STR_DIP_SLIP_AM(DISC,309.0, 8.0, 555562000.0, 0.4e6, 0.7, .True., bii)
-                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
-             ELSE IF ((yGP-yS2).LT.(xGP-XS2)) THEN
-                alpha = ((yGP-xGP)-(yS1-xS1))/((yS2-xS2)-(yS1-xS1))
-                ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_STR_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 8.0, 555562000.0, 0.4e6, 0.7, .True., bii)
-                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
-             ELSE
-                ! strike, dip, sigmazz,cohesion,R
-                CALL STRESS_STR_DIP_SLIP_AM(DISC,330.0, 8.0, 555562000.0, 0.4e6, 0.7, .True., bii)
-                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
-             ENDIF
+          IF (zGP.LT.-49000.0D0) THEN
+             Omega = 0.0D0
+          ENDIF
+          IF ((zGP.GE.-49000.0D0) .AND. (zGP.LE.-24500.0D0)) THEN
+             Omega = (-49000.0D0-zGP)/(-49000.0D0+24500.0D0)
           ENDIF
 
-          !ensure that Pf does not exceed sigmazz
-          IF (zGP.GE.-5e3) THEN
-             Pf = -1000D0 * g * zGP * 1d0
-          ELSEIF (zGP.GE.-10e3) THEN
-             alpha = (-5e3-zGP)/5e3
-             Pf = -1000D0 * g * zGP * (1d0+alpha)
-          ELSE
-             Pf = -1000D0 * g * zGP * 2d0
-          ENDIF
-
-          EQN%IniBulk_zz(i,iBndGP)  =  sigzz
-          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
-          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(b22*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
-          EQN%IniShearXY(i,iBndGP)  =  Omega*(b12*(EQN%IniBulk_zz(i,iBndGP)+Pf))
-          EQN%IniShearXZ(i,iBndGP)  =  Omega*(b13*(EQN%IniBulk_zz(i,iBndGP)+Pf))
-          EQN%IniShearYZ(i,iBndGP)  =  Omega*(b23*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(EQN%IniBulk_xx(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
+          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(EQN%IniBulk_yy(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
+          EQN%IniBulk_zz(i,iBndGP)  =  Omega*(EQN%IniBulk_zz(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
+          EQN%IniShearXY(i,iBndGP)  =  Omega*(EQN%IniShearXY(i,iBndGP)*(sigzz+Pf))
+          EQN%IniShearXZ(i,iBndGP)  =  Omega*(EQN%IniShearXZ(i,iBndGP)*(sigzz+Pf))
+          EQN%IniShearYZ(i,iBndGP)  =  Omega*(EQN%IniShearYZ(i,iBndGP)*(sigzz+Pf))
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
           EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
 
-
           ! manage cohesion
+          zIncreasingCohesion = -10000.
           IF (zGP.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
-              !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
           ELSE
               ! set cohesion
-              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
- 
-   ENDDO !    MESH%Fault%nSide
 
-  END SUBROUTINE background_SUMATRA_B  
+  ENDDO !    MESH%Fault%nSide   
+  
+  END SUBROUTINE background_SUMATRA_BijPf  
 
 
   !> SUMATRA test case
