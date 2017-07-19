@@ -2479,15 +2479,22 @@ MODULE ini_model_DR_mod
           rho = EQN%rho0
           sigzz = rho * g * zGP
 
-          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(EQN%IniBulk_xx(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
-          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(EQN%IniBulk_yy(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
-          EQN%IniBulk_zz(i,iBndGP)  =  Omega*(EQN%IniBulk_zz(i,iBndGP)*(sigzz+Pf)-Pf)+(1d0-Omega)*sigzz
-          EQN%IniShearXY(i,iBndGP)  =  Omega*(EQN%IniShearXY(i,iBndGP)*(sigzz+Pf))
-          EQN%IniShearXZ(i,iBndGP)  =  Omega*(EQN%IniShearXZ(i,iBndGP)*(sigzz+Pf))
-          EQN%IniShearYZ(i,iBndGP)  =  Omega*(EQN%IniShearYZ(i,iBndGP)*(sigzz+Pf))
-          EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
-          EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
-          EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
+          EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP)*(sigzz+Pf)
+          EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP)*(sigzz+Pf)
+          EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP)*(sigzz+Pf)
+          EQN%IniShearXY(i,iBndGP)  =  EQN%IniShearXY(i,iBndGP)*(sigzz+Pf)
+          EQN%IniShearXZ(i,iBndGP)  =  EQN%IniShearXZ(i,iBndGP)*(sigzz+Pf)
+          EQN%IniShearYZ(i,iBndGP)  =  EQN%IniShearYZ(i,iBndGP)*(sigzz+Pf)
+          !! with omega = 1, above should be the same as below
+          !EQN%IniBulk_zz(i,iBndGP)  =  sigzz
+          !EQN%IniBulk_xx(i,iBndGP)  =  Omega*(EQN%IniBulk_xx(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
+          !EQN%IniBulk_yy(i,iBndGP)  =  Omega*(EQN%IniBulk_yy(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
+          !EQN%IniShearXY(i,iBndGP)  =  Omega*(EQN%IniShearXY(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          !EQN%IniShearXZ(i,iBndGP)  =  Omega*(EQN%IniShearXZ(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          !EQN%IniShearYZ(i,iBndGP)  =  Omega*(EQN%IniShearYZ(i,iBndGP)*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          !EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
+          !EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
+          !EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
 
 
          ! !! manage cohesion
@@ -2501,7 +2508,7 @@ MODULE ini_model_DR_mod
          !     DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)*(13d3*(zGP-zIncreasingCohesionD)/(-zIncreasingCohesionD)))
          ! ELSE
          !     ! set cohesion otherwise (also in .par file)
-         !     DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
+              DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
          ! ENDIF
 
       ENDDO ! iBndGP
