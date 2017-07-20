@@ -52,7 +52,7 @@ MODULE ini_model_DR_mod
   USE DGBasis_mod
   USE read_backgroundstress_mod
   USE faultinput_mod
-  use StressReader
+  !use StressReader
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
   PRIVATE
@@ -101,7 +101,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: background_SUMATRA_RS
   PRIVATE :: background_SUMATRA_GEO
 
-  private :: background_asagi
+  !private :: background_asagi
 
   !---------------------------------------------------------------------------!
   PRIVATE :: friction_RSF34
@@ -215,8 +215,8 @@ MODULE ini_model_DR_mod
        CALL background_SUMATRA_GEO(DISC,EQN,MESH,BND)
     CASE(1202)
        CALL background_SUMATRA_RS(DISC,EQN,MESH,BND)
-    case(1500,1501) ! 1500 = rsf; 1501 = lsw
-       call background_asagi(io, disc, eqn, mesh, bnd, DISC%DynRup%BackgroundType - 1500)
+!~     case(1500,1501) ! 1500 = rsf; 1501 = lsw
+!~        call background_asagi(io, disc, eqn, mesh, bnd, DISC%DynRup%BackgroundType - 1500)
     !
     ! Add your background stress model subroutine call here
     !
@@ -4087,6 +4087,7 @@ MODULE ini_model_DR_mod
 
   END SUBROUTINE background_TPV103       !  SCEC TPV103 test with velocity weakening friction (based on slip law)
 
+#if 0
   ! Initialize background stress via ASAGI
   subroutine background_asagi(io, disc, eqn, mesh, bnd, friction)
   !-------------------------------------------------------------------------!
@@ -4202,6 +4203,7 @@ MODULE ini_model_DR_mod
 
      call closeStressField()
   end subroutine background_asagi
+#endif
 
   !---------------------------------------------------------------------------!
   !---------------------------------------------------------------------------!

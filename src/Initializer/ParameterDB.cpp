@@ -42,6 +42,9 @@
 
 #include <easi/YAMLParser.h>
 #include <easi/ResultAdapter.h>
+#ifdef USE_ASAGI
+#include <Reader/AsagiReader.h>
+#endif
 
 void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, MeshReader const& meshReader) {
   if (m_mode == FAULT) {
@@ -74,7 +77,12 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
     query.group(elem) = elements[elem].material;
   }
   
+#ifdef USE_ASAGI
+  seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
+  easi::YAMLParser parser(3, &asagiReader);
+#else
   easi::YAMLParser parser(3);
+#endif
   easi::Component* model = parser.parse(fileName);
   model->evaluate(query, adapter);
   
