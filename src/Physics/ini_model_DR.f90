@@ -2186,7 +2186,7 @@ MODULE ini_model_DR_mod
   !> T. ULRICH 06.2015
   !> tpv29 used as a model
   !<
-  SUBROUTINE background_SUMATRA_BijPf
+  SUBROUTINE background_SUMATRA_BijPf (DISC,EQN,MESH,BND)
   !-------------------------------------------------------------------------!
   USE DGBasis_mod
   !-------------------------------------------------------------------------!
