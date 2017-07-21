@@ -42,22 +42,14 @@
 
 #include <easi/YAMLParser.h>
 #include <easi/ResultAdapter.h>
+#include <Numerical_aux/Transformation.h>
 #ifdef USE_ASAGI
 #include <Reader/AsagiReader.h>
 #endif
 
-void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, MeshReader const& meshReader) {
-  if (m_mode == FAULT) {
-    throw std::runtime_error("Not implemented.");
-  }
-  
+easi::Query seissol::initializers::ElementBarycentreGenerator::generate(MeshReader const& meshReader) const {
   std::vector<Element> const& elements = meshReader.getElements();
   std::vector<Vertex> const& vertices = meshReader.getVertices();
-  
-  easi::ArraysAdapter adapter;
-  for (auto& kv : m_parameters) {
-    adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
-  }
   
   easi::Query query(elements.size(), 3);
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
@@ -76,7 +68,87 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
     // Group
     query.group(elem) = elements[elem].material;
   }
+  return query;
+}
+
+easi::Query seissol::initializers::FaultBarycentreGenerator::generate(MeshReader const& meshReader) const {
+  std::vector<Fault> const& fault = meshReader.getFault();
+  std::vector<Element> const& elements = meshReader.getElements();
+  std::vector<Vertex> const& vertices = meshReader.getVertices();
+
+  easi::Query query(m_numberOfPoints * fault.size(), 3);
+  unsigned q = 0;
+  for (Fault const& f : fault) {
+    int element, side;
+    if (f.element >= 0) {
+      element = f.element;
+      side = f.side;
+    } else {
+      element = f.neighborElement;
+      side = f.neighborSide;
+    }
+
+    double barycentre[3] = {0.0, 0.0, 0.0};
+    // Compute barycentre
+    for (unsigned vertex = 0; vertex < 3; ++vertex) {
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        barycentre[dim] += vertices[ elements[element].vertices[ MeshTools::FACE2NODES[side][vertex] ] ].coords[dim];
+      }
+    }
+    for (unsigned dim = 0; dim < 3; ++dim) {
+      barycentre[dim] /= 3.0;
+    }
+    for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        query.x(q,dim) = barycentre[dim];
+      }
+      query.group(q) = 0;
+    }
+  }
+  return query;
+}
+
+easi::Query seissol::initializers::FaultGPGenerator::generate(MeshReader const& meshReader) const {
+  std::vector<Fault> const& fault = meshReader.getFault();
+  std::vector<Element> const& elements = meshReader.getElements();
+  std::vector<Vertex> const& vertices = meshReader.getVertices();
+
+  easi::Query query(m_numberOfPoints * fault.size(), 3);
+  unsigned q = 0;
+  for (Fault const& f : fault) {
+    int element, side;
+    if (f.element >= 0) {
+      element = f.element;
+      side = f.side;
+    } else {
+      element = f.neighborElement;
+      side = f.neighborSide;
+    }
+
+    double const* coords[4];
+    for (unsigned v = 0; v < 4; ++v) {
+      coords[v] = vertices[ elements[element].vertices[ v ] ].coords;
+    }
+    for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
+      double xiEtaZeta[3], xyz[3];
+      seissol::transformations::chiTau2XiEtaZeta(side, m_points[n], xiEtaZeta);
+      seissol::transformations::tetrahedronReferenceToGlobal(coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        query.x(q,dim) = xyz[dim];
+      }
+      query.group(q) = 0;
+    }
+  }
+  return query;
+}
+
+void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen, MeshReader const& meshReader) {
+  easi::ArraysAdapter adapter;
+  for (auto& kv : m_parameters) {
+    adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
+  }
   
+  easi::Query query = queryGen.generate(meshReader);
 #ifdef USE_ASAGI
   seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
   easi::YAMLParser parser(3, &asagiReader);

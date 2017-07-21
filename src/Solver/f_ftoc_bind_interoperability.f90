@@ -108,10 +108,18 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in)  :: materialFileName
       integer(kind=c_int), value                        :: anelasticity
       integer(kind=c_int), value                        :: plasticity
-      real(kind=c_double), dimension(*), intent(out)    :: materialVal
-      real(kind=c_double), dimension(*), intent(out)    :: bulkFriction
-      real(kind=c_double), dimension(*), intent(out)    :: plastCo
-      real(kind=c_double), dimension(*), intent(out)    :: iniStress
+      real(kind=c_double), dimension(*), intent(out)    :: materialVal, bulkFriction, plastCo, iniStress
+    end subroutine
+  end interface
+
+  ! Don't forget to add // c_null_char to modelFileName when using this interface
+  interface
+    subroutine c_interoperability_initializeFault(modelFileName, frictionLaw, gpwise, bndPoints, numberOfBndPoints, sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz, d_c, mu_s, mu_d, cohesion, forced_rupture_time) bind( C, name='c_interoperability_initializeFault' )
+      use iso_c_binding, only: c_double, c_int, c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in)  :: modelFileName
+      integer(kind=c_int), value                        :: frictionLaw, gpwise, numberOfBndPoints
+      real(kind=c_double), dimension(*), intent(out)    :: bndPoints, sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz, d_c, mu_s, mu_d, cohesion, forced_rupture_time
     end subroutine
   end interface
 

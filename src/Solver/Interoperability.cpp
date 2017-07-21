@@ -120,6 +120,49 @@ extern "C" {
                                         plastCo,
                                         iniStress );
   }
+  void c_interoperability_initializeFault(  char*   modelFileName,
+                                            int     frictionLaw,
+                                            int     gpwise,
+                                            double* bndPoints,
+                                            int     numberOfBndPoints,
+                                            double* sigma_xx,
+                                            double* sigma_yy,
+                                            double* sigma_zz,
+                                            double* sigma_xy,
+                                            double* sigma_yz,
+                                            double* sigma_xz,
+                                            double* d_c,
+                                            double* mu_s,
+                                            double* mu_d,
+                                            double* cohesion,
+                                            double* forced_rupture_time ) {
+    std::unordered_map<std::string, double*> parameters;
+    switch (frictionLaw) {
+      case 16:
+      case 17:
+      case 29:
+      case 30:
+        parameters["forced_rupture_time"] = forced_rupture_time;
+      case 2:
+      case 6:
+      case 13:
+        parameters["d_c"] = d_c;
+        parameters["mu_s"] = mu_s;
+        parameters["mu_d"] = mu_d;
+        break;
+      default:
+        break;
+    }
+    parameters["s_xx"] = sigma_xx;
+    parameters["s_yy"] = sigma_yy;
+    parameters["s_zz"] = sigma_zz;
+    parameters["s_xy"] = sigma_xy;
+    parameters["s_yz"] = sigma_yz;
+    parameters["s_xz"] = sigma_xz;
+    parameters["cohesion"] = cohesion;
+    
+    e_interoperability.initializeFault(modelFileName, frictionLaw, gpwise, bndPoints, numberOfBndPoints, parameters);
+  }
 
   void c_interoperability_addReceiver( int i_receiverId,
                                        int i_meshId ) {
@@ -454,7 +497,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
 {
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
 
-  seissol::initializers::ParameterDB parameterDB(seissol::initializers::ParameterDB::ELEMENTS);
+  seissol::initializers::ParameterDB parameterDB;
   parameterDB.addParameter("rho",    materialVal);
   parameterDB.addParameter("mu",     materialVal + nElements);
   parameterDB.addParameter("lambda", materialVal + nElements*2);
@@ -475,7 +518,29 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     parameterDB.addParameter("s_xz",         iniStress+5, 6);
   }
   
-  parameterDB.evaluateModel(std::string(materialFileName), seissol::SeisSol::main.meshReader());
+  seissol::initializers::ElementBarycentreGenerator queryGen;
+  parameterDB.evaluateModel(std::string(materialFileName), queryGen, seissol::SeisSol::main.meshReader());
+}
+
+void seissol::Interoperability::initializeFault( char*   modelFileName,
+                                                 int     frictionLaw,
+                                                 int     gpwise,
+                                                 double* bndPoints,
+                                                 int     numberOfBndPoints,
+                                                 std::unordered_map<std::string, double*> const& parameters )
+{
+  seissol::initializers::ParameterDB parameterDB;
+  for (auto const& kv : parameters) {
+    parameterDB.addParameter(kv.first, kv.second);
+  }
+  
+  if (gpwise != 0) {
+    seissol::initializers::FaultGPGenerator queryGen(reinterpret_cast<double(*)[2]>(bndPoints), numberOfBndPoints);
+    parameterDB.evaluateModel(std::string(modelFileName), queryGen, seissol::SeisSol::main.meshReader());
+  } else {
+    seissol::initializers::FaultBarycentreGenerator queryGen(numberOfBndPoints);
+    parameterDB.evaluateModel(std::string(modelFileName), queryGen, seissol::SeisSol::main.meshReader());
+  }
 }
 
 void seissol::Interoperability::addReceiver( int i_receiverId,

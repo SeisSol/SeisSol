@@ -40,6 +40,17 @@
 
 #include "Transformation.h"
 
+void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
+                                                             double const v1[3],
+                                                             double const v2[3],
+                                                             double const v3[3],
+                                                             double const xiEtaZeta[3],
+                                                             double       xyz[3] ) {
+  for (unsigned i = 0; i < 3; ++i) {
+    xyz[i] = v0[i] + (v1[i]-v0[i])*xiEtaZeta[0] + (v2[i]-v0[i])*xiEtaZeta[1] + (v3[i]-v0[i])*xiEtaZeta[2];
+  }
+}
+
 void seissol::transformations::tetrahedronGlobalToReferenceJacobian( real const i_x[4],
                                                                      real const i_y[4],
                                                                      real const i_z[4],
@@ -231,15 +242,3 @@ void seissol::transformations::chiTau2XiEtaZeta(unsigned face, double const chiT
       break;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-

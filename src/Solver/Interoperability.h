@@ -42,6 +42,7 @@
 #ifndef INTEROPERABILITY_H_
 #define INTEROPERABILITY_H_
 
+#include <unordered_map>
 #include <vector>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
@@ -155,6 +156,14 @@ class seissol::Interoperability {
                           double* bulkFriction,
                           double* plastCo,
                           double* iniStress );
+
+    //! \todo Documentation
+    void initializeFault( char*   modelFileName,
+                          int     frictionLaw,
+                          int     gpwise,
+                          double* bndPoints,
+                          int     numberOfBndPoints,
+                          std::unordered_map<std::string, double*> const& parameters );
 
    /**
     * Adds a receiver at the specified mesh id.

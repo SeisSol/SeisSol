@@ -47,6 +47,16 @@
 namespace seissol {
   namespace transformations {
     /**
+     * Calculates the global coordinates from
+     * reference tetrahedron coordinates.
+     */
+    void tetrahedronReferenceToGlobal( double const v0[3],
+                                       double const v1[3],
+                                       double const v2[3],
+                                       double const v3[3],
+                                       double const xiEtaZeta[3],
+                                       double       xyz[3] );
+    /**
      * Calculates the Jacobian for the coordinate transformation
      * xi(x, y, z), eta(x, y, z), zeta(x, y, z)
      * from a global tetrahedron to the reference tetrahedron.

@@ -1195,12 +1195,12 @@ MODULE Eval_friction_law_mod
     !
     !Background stress rotation to face's reference system
     !
-    Stress(1,:)=EQN%IniBulk_xx(iFace,:)
-    Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-    Stress(3,:)=EQN%IniBulk_zz(iFace,:)
-    Stress(4,:)=EQN%IniShearXY(iFace,:)
-    Stress(5,:)=EQN%IniShearYZ(iFace,:)
-    Stress(6,:)=EQN%IniShearXZ(iFace,:)
+    Stress(1,:)=EQN%IniBulk_xx(:,iFace)
+    Stress(2,:)=EQN%IniBulk_yy(:,iFace)
+    Stress(3,:)=EQN%IniBulk_zz(:,iFace)
+    Stress(4,:)=EQN%IniShearXY(:,iFace)
+    Stress(5,:)=EQN%IniShearYZ(:,iFace)
+    Stress(6,:)=EQN%IniShearXZ(:,iFace)
     !
     DO iBndGP=1,nBndGP
        Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))

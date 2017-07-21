@@ -1204,8 +1204,10 @@ CONTAINS
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, SlipRateOutputType
     INTEGER                                :: readStat
+    LOGICAL                                :: fileExists
 
     CHARACTER(600)                         :: FileName_BackgroundStress
+    CHARACTER(LEN=600)                     :: ModelFileName
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
                                               Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
                                               RS_sv0, XRef, YRef, ZRef, GPwise, Rupspeed, &
@@ -1228,7 +1230,7 @@ CONTAINS
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
-                                                cohesion_max, cohesion_depth, read_fault_file, SlipRateOutputType
+                                                cohesion_max, cohesion_depth, read_fault_file, SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
 
     ! Setting default values
@@ -1294,6 +1296,7 @@ CONTAINS
     cohesion_depth = 0
 
     read_fault_file = 0
+    ModelFileName = ''
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
 
@@ -1304,6 +1307,14 @@ CONTAINS
         stop
     ENDIF
            logInfo(*) 'Beginning dynamic rupture initialization. '
+           
+    inquire(file=ModelFileName , exist=fileExists)
+    if (.NOT. fileExists) then
+     logError(*) 'Dynamic rupture model file "', trim(ModelFileName), '" does not exist.'
+     STOP
+    endif
+    !
+    DISC%DynRup%ModelFileName = ModelFileName
 
            ! Read fault parameters from Par_file_faults?
            DISC%DynRup%read_fault_file = read_fault_file

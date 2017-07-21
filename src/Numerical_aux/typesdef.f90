@@ -876,6 +876,7 @@ MODULE TypesDef
   END TYPE tDynRup_output
 
   TYPE tDynRup
+     character(LEN=600)                     :: ModelFileName
      real, allocatable                      :: output_Mu(:,:)
      real, allocatable                      :: output_StateVar(:,:)
      real, allocatable                      :: output_Strength(:,:)
