@@ -250,7 +250,7 @@ MODULE ini_model_DR_mod
 
     ! Initialize model dependent (space dependent) friction law parameters
     SELECT CASE(EQN%FL)
-    CASE(1,2,13,16,17)
+    CASE(1,2,13,16,17,29,30)
       ! Initialization of friction for linear slip weakening
       CALL friction_LSW(DISC,EQN,MESH,BND)
     CASE(3,4)
@@ -363,6 +363,7 @@ MODULE ini_model_DR_mod
        ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
        ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
+       call c_interoperability_addFaultParameter("cohesion", DISC%DynRup%cohesion)
        call c_interoperability_addFaultParameter("d_c", DISC%DynRup%D_C)
        call c_interoperability_addFaultParameter("mu_s", DISC%DynRup%Mu_S)
        call c_interoperability_addFaultParameter("mu_d", DISC%DynRup%Mu_D)
