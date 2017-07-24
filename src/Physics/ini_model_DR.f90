@@ -430,7 +430,7 @@ MODULE ini_model_DR_mod
     real                                :: StressinFaultCSTmp(6)
     !-------------------------------------------------------------------------!
     intent(in)                          :: EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz
-    intent(out)                         :: stressInFaultCS
+    intent(inout)                       :: stressInFaultCS
     
     do iFace = 1, MESH%Fault%nSide
       normal   = MESH%Fault%geoNormals( 1:3, iFace)
