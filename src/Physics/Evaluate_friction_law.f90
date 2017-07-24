@@ -738,11 +738,11 @@ MODULE Eval_friction_law_mod
      LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
      LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
      LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
-     LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
+     LocSV     = DISC%DynRup%StateVar(iBndGP,iFace)
      P_0       = EQN%InitialStressInFaultCS(iBndGP,1,iFace)
      cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)      ! cohesion is negative since negative normal stress is compression
      !
-     !logInfo(*) 'state variable evaluation', DISC%DynRup%StateVar(iFace,iBndGP), EQN%IniStateVar(iFace,iBndGP), 'iGP', iBndGP
+     !logInfo(*) 'state variable evaluation', DISC%DynRup%StateVar(iBndGP,iFace), EQN%IniStateVar(iBndGP,iFace), 'iGP', iBndGP
      DO iTimeGP=1,nTimeGP
        LocP   = NorStressGP(iBndGP,iTimeGP)
        time_inc = DeltaT(iTimeGP)
@@ -863,7 +863,7 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
      DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
      DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
-     DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
+     DISC%DynRup%StateVar(iBndGP,iFace)  = LocSV
      DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
      DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
 
@@ -934,7 +934,7 @@ MODULE Eval_friction_law_mod
      LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
      LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
      LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
-     LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
+     LocSV     = DISC%DynRup%StateVar(iBndGP,iFace)
      P_0       = EQN%InitialStressInFaultCS(iBndGP,1,iFace)
      !
      DO iTimeGP=1,nTimeGP
@@ -1042,7 +1042,7 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
      DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
      DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
-     DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
+     DISC%DynRup%StateVar(iBndGP,iFace)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 
@@ -1213,7 +1213,7 @@ MODULE Eval_friction_law_mod
      LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
      LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
      LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
-     LocSV     = DISC%DynRup%StateVar(iFace,iBndGP)
+     LocSV     = DISC%DynRup%StateVar(iBndGP,iFace)
      P_0       = Stress(1,iBndGP)
      !
      DO iTimeGP=1,nTimeGP
@@ -1335,7 +1335,7 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
      DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY
      DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ
-     DISC%DynRup%StateVar(iFace,iBndGP)  = LocSV
+     DISC%DynRup%StateVar(iBndGP,iFace)  = LocSV
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 

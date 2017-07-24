@@ -659,9 +659,7 @@ CONTAINS
       DISC%DynRup%TracXY        = 0.0D0
       DISC%DynRup%TracXZ        = 0.0D0
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
-      do iFace=1,MESH%Fault%nSide
-         DISC%DynRup%StateVar(:,iFace) = EQN%IniStateVar(iFace,:)
-      enddo
+      DISC%DynRup%StateVar(:,:) = EQN%IniStateVar
       DISC%DynRup%PeakSR        = 0.0D0
       DISC%DynRup%rupture_time  = 0.0D0
       DISC%DynRup%dynStress_time = 0.0D0
@@ -673,9 +671,8 @@ CONTAINS
       allocate(disc%DynRup%output_Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      
-      allocate(disc%DynRup%output_StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))      
+      allocate(disc%DynRup%output_StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 
     else
         ! Allocate dummy arrays to avoid debug errors

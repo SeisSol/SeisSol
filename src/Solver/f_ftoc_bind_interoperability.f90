@@ -114,12 +114,12 @@ module f_ftoc_bind_interoperability
 
   ! Don't forget to add // c_null_char to modelFileName when using this interface
   interface
-    subroutine c_interoperability_initializeFault(modelFileName, frictionLaw, gpwise, bndPoints, numberOfBndPoints, sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz, d_c, mu_s, mu_d, cohesion, forced_rupture_time) bind( C, name='c_interoperability_initializeFault' )
+    subroutine c_interoperability_initializeFault(modelFileName, frictionLaw, gpwise, bndPoints, numberOfBndPoints, sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz, d_c, mu_s, mu_d, cohesion, forced_rupture_time, RS_a_array, RS_srW_array) bind( C, name='c_interoperability_initializeFault' )
       use iso_c_binding, only: c_double, c_int, c_char
       implicit none
       character(kind=c_char), dimension(*), intent(in)  :: modelFileName
       integer(kind=c_int), value                        :: frictionLaw, gpwise, numberOfBndPoints
-      real(kind=c_double), dimension(*), intent(out)    :: bndPoints, sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz, d_c, mu_s, mu_d, cohesion, forced_rupture_time
+      real(kind=c_double), dimension(*), intent(out)    :: bndPoints, sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz, d_c, mu_s, mu_d, cohesion, forced_rupture_time, RS_a_array, RS_srW_array
     end subroutine
   end interface
 

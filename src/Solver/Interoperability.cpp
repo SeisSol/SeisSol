@@ -135,7 +135,9 @@ extern "C" {
                                             double* mu_s,
                                             double* mu_d,
                                             double* cohesion,
-                                            double* forced_rupture_time ) {
+                                            double* forced_rupture_time,
+                                            double* rs_a,
+                                            double* rs_srW ) {
     std::unordered_map<std::string, double*> parameters;
     switch (frictionLaw) {
       case 16:
@@ -149,6 +151,12 @@ extern "C" {
         parameters["d_c"] = d_c;
         parameters["mu_s"] = mu_s;
         parameters["mu_d"] = mu_d;
+        parameters["cohesion"] = cohesion;
+        break;
+      case 103:
+        parameters["rs_srW"] = rs_srW;
+      case 101:
+        parameters["rs_a"] = rs_a;
         break;
       default:
         break;
@@ -159,7 +167,6 @@ extern "C" {
     parameters["s_xy"] = sigma_xy;
     parameters["s_yz"] = sigma_yz;
     parameters["s_xz"] = sigma_xz;
-    parameters["cohesion"] = cohesion;
     
     e_interoperability.initializeFault(modelFileName, frictionLaw, gpwise, bndPoints, numberOfBndPoints, parameters);
   }
