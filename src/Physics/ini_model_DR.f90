@@ -68,6 +68,7 @@ MODULE ini_model_DR_mod
   !---------------------------------------------------------------------------!
   PUBLIC  :: DR_setup
   PRIVATE :: DR_basic_ini
+  private :: rotateStressToFaultCS
   !---------------------------------------------------------------------------!
   PUBLIC  :: STRESS_STR_DIP_SLIP_AM
   PRIVATE :: background_HOM
@@ -117,9 +118,6 @@ MODULE ini_model_DR_mod
   !> Interface to dynamic rupture initial models
   !<
   SUBROUTINE DR_setup(EQN,DISC,MESH,IO,BND)
-    use JacobiNormal_mod, only: RotationMatrix3D
-    use f_ftoc_bind_interoperability
-    use iso_c_binding, only: c_null_char
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -128,14 +126,6 @@ MODULE ini_model_DR_mod
     TYPE(tUnstructMesh)            :: MESH
     TYPE(tInputOutput)             :: IO
     TYPE (tBoundary)               :: BND
-    integer                        :: iFace, iBndGP
-    real                           :: normal(3)
-    real                           :: tangent1(3)
-    real                           :: tangent2(3)
-    real                           :: T(9,9)
-    real                           :: iT(9,9)
-    real                           :: Stress(1:6,1:DISC%Galerkin%nBndGP)
-    real                           :: StressinFaultCS(6)
     !-------------------------------------------------------------------------!
     INTENT(IN)                      :: MESH, BND
     INTENT(INOUT)                   :: IO, EQN, DISC
@@ -143,25 +133,6 @@ MODULE ini_model_DR_mod
 
     ! Basic DR setup, valid for all models
     CALL DR_basic_ini(DISC,EQN,MESH,BND)
-    
-    call c_interoperability_initializeFault(  trim(DISC%DynRup%ModelFileName) // c_null_char, &
-                                              EQN%FL,                                         &
-                                              EQN%GPwise,                                     &
-                                              MESH%ELEM%BndGP_Tri,                            &
-                                              DISC%Galerkin%nBndGP,                           &
-                                              EQN%IniBulk_xx,                                 &
-                                              EQN%IniBulk_yy,                                 &
-                                              EQN%IniBulk_zz,                                 &
-                                              EQN%IniShearXY,                                 &
-                                              EQN%IniShearYZ,                                 &
-                                              EQN%IniShearXZ,                                 &
-                                              DISC%DynRup%D_C,                                &
-                                              DISC%DynRup%Mu_S,                               &
-                                              DISC%DynRup%Mu_D,                               &
-                                              DISC%DynRup%cohesion,                           &
-                                              DISC%DynRup%forced_rupture_time,                &
-                                              DISC%DynRup%RS_a_array,                         &
-                                              DISC%DynRup%RS_srW_array                        )
     !-------------------------------------------------------------------------!
 !~ 
 !~     ! Initialize background stress type
@@ -277,28 +248,6 @@ MODULE ini_model_DR_mod
 !~     !-------------------------------------------------------------------------!
 !~ 
 
-    ! Rotate initial stresses to fault coordinate system
-    allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-
-    do iFace = 1, MESH%Fault%nSide
-      normal   = MESH%Fault%geoNormals( 1:3, iFace)
-      tangent1 = MESH%Fault%geoTangent1(1:3, iFace)
-      tangent2 = MESH%Fault%geoTangent2(1:3, iFace)
-      CALL RotationMatrix3D(normal, tangent1, tangent2, T(:,:), iT(:,:), EQN)
-
-      Stress(1,:)=EQN%IniBulk_xx(:,iFace)
-      Stress(2,:)=EQN%IniBulk_yy(:,iFace)
-      Stress(3,:)=EQN%IniBulk_zz(:,iFace)
-      Stress(4,:)=EQN%IniShearXY(:,iFace)
-      Stress(5,:)=EQN%IniShearYZ(:,iFace)
-      Stress(6,:)=EQN%IniShearXZ(:,iFace)
-
-      do iBndGP=1,DISC%Galerkin%nBndGP
-        StressinFaultCS = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))
-        EQN%InitialStressInFaultCS(iBndGP,:,iFace) = StressinFaultCS
-      enddo
-    enddo
-
     ! Initialize model dependent (space dependent) friction law parameters
     SELECT CASE(EQN%FL)
     CASE(1,2,13,16,17)
@@ -333,6 +282,9 @@ MODULE ini_model_DR_mod
   !> Initialization of basic dynamic rupture setup
   !<
   SUBROUTINE DR_basic_ini(DISC,EQN,MESH,BND)                 ! global variables
+    use JacobiNormal_mod, only: RotationMatrix3D
+    use f_ftoc_bind_interoperability
+    use iso_c_binding, only: c_null_char
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -342,14 +294,8 @@ MODULE ini_model_DR_mod
     TYPE (tBoundary)               :: BND
     !-------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER			   :: i
-    INTEGER                        :: iSide,iElem,iBndGP
-    INTEGER                        :: iLocalNeighborSide,iNeighbor
-    INTEGER                        :: MPIIndex, iObject
-    REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-    REAL                           :: chi,tau
-    REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
-    REAL                           :: r, Vs, r_crit, hypox, hypoy, hypoz
+    integer                             :: i
+    real, allocatable, dimension(:,:)   :: nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: MESH, BND
     INTENT(INOUT) :: EQN,DISC
@@ -401,6 +347,13 @@ MODULE ini_model_DR_mod
               ENDIF
           ENDDO
     ENDIF
+    
+    call c_interoperability_addFaultParameter("s_xx", EQN%IniBulk_xx)
+    call c_interoperability_addFaultParameter("s_yy", EQN%IniBulk_yy)
+    call c_interoperability_addFaultParameter("s_zz", EQN%IniBulk_zz)
+    call c_interoperability_addFaultParameter("s_xy", EQN%IniShearXY)
+    call c_interoperability_addFaultParameter("s_yz", EQN%IniShearYZ)
+    call c_interoperability_addFaultParameter("s_xz", EQN%IniShearXZ)
 
     !frictional parameter initialization
     SELECT CASE(EQN%FL)
@@ -410,21 +363,94 @@ MODULE ini_model_DR_mod
        ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
        ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
+       call c_interoperability_addFaultParameter("d_c", DISC%DynRup%D_C)
+       call c_interoperability_addFaultParameter("mu_s", DISC%DynRup%Mu_S)
+       call c_interoperability_addFaultParameter("mu_d", DISC%DynRup%Mu_D)
        if (EQN%FL >= 16 .and. EQN%FL <= 30) then
          ALLOCATE(  DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+         call c_interoperability_addFaultParameter("forced_rupture_time", DISC%DynRup%forced_rupture_time)
        end if
 
     CASE(101,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
+      call c_interoperability_addFaultParameter("rs_a", DISC%DynRup%RS_a_array)
       if (EQN%FL == 103) then
-        ALLOCATE(  DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)      )
+        allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
+                  nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+        call c_interoperability_addFaultParameter("rs_srW", DISC%DynRup%RS_srW_array)
+        call c_interoperability_addFaultParameter("nuc_xx", nuc_xx)
+        call c_interoperability_addFaultParameter("nuc_yy", nuc_yy)
+        call c_interoperability_addFaultParameter("nuc_zz", nuc_zz)
+        call c_interoperability_addFaultParameter("nuc_xy", nuc_xy)
+        call c_interoperability_addFaultParameter("nuc_yz", nuc_yz)
+        call c_interoperability_addFaultParameter("nuc_xz", nuc_xz)        
       end if
     END SELECT
-  END SUBROUTINE DR_basic_ini
 
-  !---------------------------------------------------------------------------!
-  !---------------------------------------------------------------------------!
-  !---------------------------------------------------------------------------!
+    call c_interoperability_initializeFault(  trim(DISC%DynRup%ModelFileName) // c_null_char, &
+                                              EQN%GPwise,                                     &
+                                              MESH%ELEM%BndGP_Tri,                            &
+                                              DISC%Galerkin%nBndGP                            )
+
+    ! Rotate initial stresses to fault coordinate system
+    allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))    
+    call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS)
+    
+    if (EQN%FL == 103) then
+      allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
+      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS)
+      deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
+    end if
+  END SUBROUTINE DR_basic_ini
+  
+  SUBROUTINE rotateStressToFaultCS(EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz,stressInFaultCS)
+    use JacobiNormal_mod, only: RotationMatrix3D
+    !-------------------------------------------------------------------------!
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------!
+    TYPE(tEquations)                      :: EQN
+    TYPE(tUnstructMesh)                   :: MESH
+    integer                               :: nBndGP
+    real, allocatable, dimension(:,:)     :: s_xx,s_yy,s_zz,s_xy,s_yz,s_xz
+    real, allocatable, dimension(:,:,:)   :: stressInFaultCS
+    !-------------------------------------------------------------------------!
+    ! Local variable declaration
+    integer                             :: iFace, iBndGP
+    real                                :: normal(3)
+    real                                :: tangent1(3)
+    real                                :: tangent2(3)
+    real                                :: T(9,9)
+    real                                :: iT(9,9)
+    real                                :: Stress(1:6,1:nBndGP)
+    real                                :: StressinFaultCSTmp(6)
+    !-------------------------------------------------------------------------!
+    intent(in)                          :: EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz
+    intent(out)                         :: stressInFaultCS
+    
+    do iFace = 1, MESH%Fault%nSide
+      normal   = MESH%Fault%geoNormals( 1:3, iFace)
+      tangent1 = MESH%Fault%geoTangent1(1:3, iFace)
+      tangent2 = MESH%Fault%geoTangent2(1:3, iFace)
+      CALL RotationMatrix3D(normal, tangent1, tangent2, T(:,:), iT(:,:), EQN)
+
+      Stress(1,:) = s_xx(:,iFace)
+      Stress(2,:) = s_yy(:,iFace)
+      Stress(3,:) = s_zz(:,iFace)
+      Stress(4,:) = s_xy(:,iFace)
+      Stress(5,:) = s_yz(:,iFace)
+      Stress(6,:) = s_xz(:,iFace)
+
+      do iBndGP=1,nBndGP
+        StressinFaultCSTmp = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))
+        stressInFaultCS(iBndGP,:,iFace) = StressinFaultCSTmp
+      enddo
+    enddo
+  END SUBROUTINE rotateStressToFaultCS
 
   !> Homogeneous background stress field
   !<

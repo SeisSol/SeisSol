@@ -112,14 +112,23 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface
+    subroutine c_interoperability_addFaultParameter(parameterName, memory) bind( C, name='c_interoperability_addFaultParameter' )
+      use iso_c_binding, only: c_double, c_int, c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in)  :: parameterName
+      real(kind=c_double), dimension(*), intent(in)    :: memory
+    end subroutine
+  end interface
+  
   ! Don't forget to add // c_null_char to modelFileName when using this interface
   interface
-    subroutine c_interoperability_initializeFault(modelFileName, frictionLaw, gpwise, bndPoints, numberOfBndPoints, sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz, d_c, mu_s, mu_d, cohesion, forced_rupture_time, RS_a_array, RS_srW_array) bind( C, name='c_interoperability_initializeFault' )
+    subroutine c_interoperability_initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints) bind( C, name='c_interoperability_initializeFault' )
       use iso_c_binding, only: c_double, c_int, c_char
       implicit none
       character(kind=c_char), dimension(*), intent(in)  :: modelFileName
-      integer(kind=c_int), value                        :: frictionLaw, gpwise, numberOfBndPoints
-      real(kind=c_double), dimension(*), intent(out)    :: bndPoints, sigma_xx, sigma_yy, sigma_zz, sigma_xy, sigma_yz, sigma_xz, d_c, mu_s, mu_d, cohesion, forced_rupture_time, RS_a_array, RS_srW_array
+      integer(kind=c_int), value                        :: gpwise, numberOfBndPoints
+      real(kind=c_double), dimension(*), intent(in )    :: bndPoints
     end subroutine
   end interface
 

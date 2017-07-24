@@ -120,55 +120,17 @@ extern "C" {
                                         plastCo,
                                         iniStress );
   }
+  
+  void c_interoperability_addFaultParameter(  char* name,
+                                              double* memory  ) {
+    e_interoperability.addFaultParameter(name, memory);
+  }
+  
   void c_interoperability_initializeFault(  char*   modelFileName,
-                                            int     frictionLaw,
                                             int     gpwise,
                                             double* bndPoints,
-                                            int     numberOfBndPoints,
-                                            double* sigma_xx,
-                                            double* sigma_yy,
-                                            double* sigma_zz,
-                                            double* sigma_xy,
-                                            double* sigma_yz,
-                                            double* sigma_xz,
-                                            double* d_c,
-                                            double* mu_s,
-                                            double* mu_d,
-                                            double* cohesion,
-                                            double* forced_rupture_time,
-                                            double* rs_a,
-                                            double* rs_srW ) {
-    std::unordered_map<std::string, double*> parameters;
-    switch (frictionLaw) {
-      case 16:
-      case 17:
-      case 29:
-      case 30:
-        parameters["forced_rupture_time"] = forced_rupture_time;
-      case 2:
-      case 6:
-      case 13:
-        parameters["d_c"] = d_c;
-        parameters["mu_s"] = mu_s;
-        parameters["mu_d"] = mu_d;
-        parameters["cohesion"] = cohesion;
-        break;
-      case 103:
-        parameters["rs_srW"] = rs_srW;
-      case 101:
-        parameters["rs_a"] = rs_a;
-        break;
-      default:
-        break;
-    }
-    parameters["s_xx"] = sigma_xx;
-    parameters["s_yy"] = sigma_yy;
-    parameters["s_zz"] = sigma_zz;
-    parameters["s_xy"] = sigma_xy;
-    parameters["s_yz"] = sigma_yz;
-    parameters["s_xz"] = sigma_xz;
-    
-    e_interoperability.initializeFault(modelFileName, frictionLaw, gpwise, bndPoints, numberOfBndPoints, parameters);
+                                            int     numberOfBndPoints ) {    
+    e_interoperability.initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints);
   }
 
   void c_interoperability_addReceiver( int i_receiverId,
@@ -530,14 +492,12 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
 }
 
 void seissol::Interoperability::initializeFault( char*   modelFileName,
-                                                 int     frictionLaw,
                                                  int     gpwise,
                                                  double* bndPoints,
-                                                 int     numberOfBndPoints,
-                                                 std::unordered_map<std::string, double*> const& parameters )
+                                                 int     numberOfBndPoints )
 {
   seissol::initializers::ParameterDB parameterDB;
-  for (auto const& kv : parameters) {
+  for (auto const& kv : m_faultParameters) {
     parameterDB.addParameter(kv.first, kv.second);
   }
   

@@ -90,6 +90,9 @@ class seissol::Interoperability {
 
     //! Lookup table relating faces to layers
     unsigned*                         m_ltsFaceToMeshFace;
+    
+    //! Set of parameters that have to be initialized for dynamic rupture
+    std::unordered_map<std::string, double*> m_faultParameters;
 
  public:
    /**
@@ -157,13 +160,16 @@ class seissol::Interoperability {
                           double* plastCo,
                           double* iniStress );
 
+    void addFaultParameter( std::string const& name,
+                           double* memory) {
+      m_faultParameters[name] = memory;
+    }
+    
     //! \todo Documentation
     void initializeFault( char*   modelFileName,
-                          int     frictionLaw,
                           int     gpwise,
                           double* bndPoints,
-                          int     numberOfBndPoints,
-                          std::unordered_map<std::string, double*> const& parameters );
+                          int     numberOfBndPoints );
 
    /**
     * Adds a receiver at the specified mesh id.
