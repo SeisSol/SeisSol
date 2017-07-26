@@ -590,8 +590,9 @@ if env['asagi']:
 yaml_cpp = env.CMake( source=[Glob(path + '*/.cpp') for path, dirs, files in os.walk('submodules/yaml-cpp/src')],
                       target=['#/{}/external/yaml-cpp/libyaml-cpp.a'.format(env['buildDir'])],
                       CMakeProject = Dir('submodules/yaml-cpp'),
-                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no',
-                                   '-DCMAKE_CXX_COMPILER=' + env['CXX']])
+                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no'],
+                      cc = env['CC'],
+                      cxx = env['CXX'])
 env.Append(CPPPATH=['#/submodules/yaml-cpp/include'])
 env.Append(LIBS=yaml_cpp)
 
@@ -600,7 +601,8 @@ impalajit = env.CMake( source=[Glob(path + '*/.cc') for path, dirs, files in os.
                        target=['submodules/ImpalaJIT/lib/libimpalajit.a'.format(env['buildDir'])],
                        CMakeProject = Dir('submodules/ImpalaJIT'),
                        CMakeBuildDir = Dir('#/{}/external/impalajit/'.format(env['buildDir'])),
-                       CMakeOpts = ['-DCMAKE_CXX_COMPILER=' + env['CXX']])
+                       cc = env['CC'],
+                       cxx = env['CXX'])
 env.Append(CPPPATH=['#/submodules/ImpalaJIT/include'])
 env.Append(LIBS=impalajit)
 
