@@ -30,4 +30,4 @@
 	url = https://github.com/jbeder/yaml-cpp.git
 [submodule "submodules/ImpalaJIT"]
 	path = submodules/ImpalaJIT
-	url = https://github.com/Manuel1605/ImpalaJIT.git
+	url = https://github.com/uphoffc/ImpalaJIT.git
