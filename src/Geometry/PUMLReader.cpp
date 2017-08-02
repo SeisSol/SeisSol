@@ -70,24 +70,32 @@ public:
 seissol::PUMLReader::PUMLReader(const char *meshFile)
 	: MeshReader(MPI::mpi.rank())
 {
-	const int rank = MPI::mpi.rank();
-
-	std::string file(meshFile);
-
 	PUML::TETPUML puml;
 	puml.setComm(MPI::mpi.comm());
 
-	SCOREP_USER_REGION_DEFINE( r_read );
-	SCOREP_USER_REGION_BEGIN( r_read, "PUMLReader_read", SCOREP_USER_REGION_TYPE_COMMON );
+	read(puml, meshFile);
+
+	partition(puml);
+
+	generatePUML(puml);
+
+	getMesh(puml);
+}
+
+void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
+{
+	SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+	std::string file(meshFile);
 
 	puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
 	puml.addData((file + ":/group").c_str(), PUML::CELL);
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
+}
 
-	SCOREP_USER_REGION_END( r_read );
-
-	SCOREP_USER_REGION_DEFINE( r_partition );
-	SCOREP_USER_REGION_BEGIN( r_partition, "PUMLReader_partition", SCOREP_USER_REGION_TYPE_COMMON );
+void seissol::PUMLReader::partition(PUML::TETPUML &puml)
+{
+	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 	PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 	int* partition = new int[puml.numOriginalCells()];
@@ -95,18 +103,20 @@ seissol::PUMLReader::PUMLReader(const char *meshFile)
 
 	puml.partition(partition);
 	delete [] partition;
+}
 
-	SCOREP_USER_REGION_END( r_partition );
-
-	SCOREP_USER_REGION_DEFINE( r_generate );
-	SCOREP_USER_REGION_BEGIN( r_generate, "PUMLReader_generate", SCOREP_USER_REGION_TYPE_COMMON );
+void seissol::PUMLReader::generatePUML(PUML::TETPUML &puml)
+{
+	SCOREP_USER_REGION("PUMLReader_generate", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 	puml.generateMesh();
+}
 
-	SCOREP_USER_REGION_END( r_generate );
+void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
+{
+	SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	SCOREP_USER_REGION_DEFINE( r_toseissol );
-	SCOREP_USER_REGION_BEGIN( r_toseissol, "PUMLReader_toseissol", SCOREP_USER_REGION_TYPE_COMMON );
+	const int rank = MPI::mpi.rank();
 
 	const std::vector<PUML::TETPUML::cell_t> &cells = puml.cells();
 	const std::vector<PUML::TETPUML::face_t> &faces = puml.faces();
@@ -280,8 +290,6 @@ seissol::PUMLReader::PUMLReader(const char *meshFile)
 
 		PUML::Upward::cells(puml, vertices[i], m_vertices[i].elements);
 	}
-
-	SCOREP_USER_REGION_END( r_toseissol );
 }
 
 void seissol::PUMLReader::addMPINeighor(const PUML::TETPUML &puml, int rank, const std::vector<unsigned int> &faces)

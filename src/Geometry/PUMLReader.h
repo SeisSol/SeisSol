@@ -57,6 +57,26 @@ public:
         PUMLReader(const char* meshFile);
 
 private:
+	/**
+	 * Read the mesh
+	 */
+	void read(PUML::TETPUML &puml, const char* meshFile);
+
+	/**
+	 * Create the partitioning
+	 */
+	void partition(PUML::TETPUML &puml);
+
+	/**
+	 * Generate the PUML data structure
+	 */
+	void generatePUML(PUML::TETPUML &puml);
+
+	/**
+	 * Get the mesh
+	 */
+	void getMesh(const PUML::TETPUML &puml);
+
 	void addMPINeighor(const PUML::TETPUML &puml, int rank, const std::vector<unsigned int> &faces);
 
 private:
