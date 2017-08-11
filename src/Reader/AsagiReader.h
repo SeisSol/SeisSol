@@ -308,7 +308,7 @@ public:
 
 			double c1[2];
 			for (unsigned int k = 0; k < 2; k++)
-				c1[k] = c0[k]*(1-d.y) + c0[k+1]*d.y;
+				c1[k] = c0[k]*(1-d.y) + c0[k+2]*d.y;
 
 			tmpInterpolValues[i] = c1[0]*(1-d.z) + c1[1]*d.z;
 		}
