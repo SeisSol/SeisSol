@@ -68,17 +68,6 @@ struct ProxyCells {
   CellDRMapping (*drMapping)[4];
 };
 
-struct CellData {
-  // local integration data
-  struct LocalIntegrationData       *localIntegration;
-  // neighboring integration data
-  struct NeighboringIntegrationData *neighboringIntegration;
-  // local and neighbor material data
-  CellMaterialData                  *material;
-  // Plasticity
-  PlasticityData                    *plasticity;
-};
-
 seissol::initializers::LTSTree               m_dynRupTree;
 seissol::initializers::DynamicRupture        m_dynRup;
 
