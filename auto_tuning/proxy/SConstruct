@@ -79,6 +79,11 @@ vars.AddVariables(
                 'Use quadrature here, cellaverage is EXPERIMENTAL.',
                 'quadrature',
                 allowed_values=('quadrature', 'cellaverage')
+              ),
+  EnumVariable( 'PlasticityMethod',
+                'choose between two plasticity methods, nodal one in general faster',
+                'nb',
+                allowed_values=('ip', 'nb')
               )
 )
 
