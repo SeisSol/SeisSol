@@ -2934,7 +2934,7 @@ MODULE ini_model_DR_mod
           ! N11 , grad2:
           !
           ! highest fault point is appr at z=1390m, offset 2000 is obtained by testing to shift the gradient up
-          ! original setup
+          ! original setup, SC14
           !EQN%IniBulk_xx(i,iBndGP)  =  -10.6723e6*(abs(z-2000.0D0))/1000.0D0
           !EQN%IniBulk_yy(i,iBndGP)  =  -29.3277e6*(abs(z-2000.0D0))/1000.0D0
           !EQN%IniBulk_zz(i,iBndGP)  =  -20.0000e6*(abs(z-2000.0D0))/1000.0D0
@@ -2948,30 +2948,28 @@ MODULE ini_model_DR_mod
           EQN%IniShearXZ(i,iBndGP)  =  EQN%ShearXZ_0
           EQN%IniStateVar(i,iBndGP) =  EQN%RS_sv0
 
-          ! manage D_C
-          IF (z.GT.-4000.0D0) THEN
-              ! higher D_C to surpress supershear rupture at free surface
-              DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
-          ELSEIF (z.LT.-12000.0D0) THEN
-              ! higher D_C in depth mimic brittle ductile transition
-              DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+
+          ! manage D_C only if desired
+          ! SC 14 setup: change Dc
+          IF (DISC%DynRup%change_D_c.EQ.1) THEN
+             !
+             IF (z.GT.-4000.0D0) THEN
+                 ! higher D_C to surpress supershear rupture at free surface
+                 DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+             ELSEIF (z.LT.-12000.0D0) THEN
+                 ! higher D_C in depth mimic brittle ductile transition
+                 DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+             ENDIF
           ENDIF
 
           ! overwrite positive z area
           IF(z .GT. 0.0) THEN
-              !EQN%IniBulk_xx(i,iBndGP)  =  0.0D0
-              !EQN%IniBulk_yy(i,iBndGP)  =  0.0D0
-              !EQN%IniBulk_zz(i,iBndGP)  =  0.0D0
-              !EQN%IniShearXY(i,iBndGP)  =  0.0D0
-              !EQN%IniShearYZ(i,iBndGP)  =  0.0D0
-              !EQN%IniShearXZ(i,iBndGP)  =  0.0D0
-              !EQN%IniStateVar(i,iBndGP) =  0.0D0
-
               DISC%DynRup%D_C(iBndGP,i) =  2.0D0
           ENDIF
 
           ! set cohesion
-          ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
+          ! depth dependent, constant for cohesion_max = 0 (default is 0 if not otherwise declared in the parameter file)
+          ! SC 14 setup: constant cohesion 2 MPa
           IF (z.GT.-DISC%DynRup%cohesion_depth) THEN
               DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
           ELSE

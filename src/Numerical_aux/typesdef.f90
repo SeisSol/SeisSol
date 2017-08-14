@@ -901,9 +901,10 @@ MODULE TypesDef
      REAL, allocatable                      :: Mu_D(:,:)                       !< Dynamic friction coefficient at given fault node
      REAL, allocatable                      :: StateVar(:,:)                   !< State variable used at Rate-and-state friction laws
      REAL, allocatable                      :: cohesion(:,:)                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
-     REAL                                   :: cohesion_0                                !< Default cohesion value
-     REAL                                   :: cohesion_max                              !< maximum added cohesion for linear increasing cohesion
-     REAL                                   :: cohesion_depth                            !< depth at which cohesion is increased
+     REAL                                   :: cohesion_0                      !< Default cohesion value
+     REAL                                   :: cohesion_max                    !< maximum added cohesion for linear increasing cohesion
+     REAL                                   :: cohesion_depth                  !< depth at which cohesion is increased
+     INTEGER                                :: change_D_C                       !< changes Dc in ini_model if defined there., otherwise value from Parameterfile
      REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
      REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
      REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress

@@ -629,6 +629,7 @@ CONTAINS
       CASE(60) ! special case of 1D layered medium, imposed without meshed layers for Landers 1992
                ! after Wald and Heaton 1994, Table 1
                ! Note that mesh coordinates are in km, but the scaling matrix is used in read_mesh
+               ! used in SC 14 paper
 
          ! Layer                   depth    rho     mu          lambda
          BedrockVelModel(1,:) = (/ -1500.0, 2300.0, 0.9017e10, 1.5178e10/)
@@ -703,7 +704,7 @@ CONTAINS
       ENDIF !Plasticity
       !
       CASE(62)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
-              ! the thickness of the layer, added more layers in depth
+              ! the thickness of the layer, added more layers in depth, used in Plasticity paper
 
          ! Layer                   depth    rho     mu          lambda
          BedrockVelModel(1,:) = (/ -300.0, 2349.3, 0.5868e10, 1.1728e10/) ! not correctly averaged value to respect the low velocities somehow
@@ -717,26 +718,26 @@ CONTAINS
          BedrockVelModel(9,:) = (/ -31000.0, 2950.0, 4.2598e10, 5.1212e10/)
          BedrockVelModel(10,:) = (/ -50000.0, 3200.0, 6.4800e10, 6.5088e10/)
          !
-
+         ! shift it up because the fault is at 1390m above NN
          DO iElem = 1, MESH%nElem
              z = MESH%ELEM%xyBary(3,iElem)
-             IF (z.GT.BedrockVelModel(1,1)) THEN
+             IF (z.GT.(BedrockVelModel(1,1)+1400D0)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(1,1)).AND.(z.GE.BedrockVelModel(2,1))) THEN
+             ELSEIF ((z.LT.(BedrockVelModel(1,1)+1400D0)).AND.(z.GE.(BedrockVelModel(2,1)+1400D0))) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(2,1)).AND.(z.GE.BedrockVelModel(3,1))) THEN
+             ELSEIF ((z.LT.(BedrockVelModel(2,1)+1400D0)).AND.(z.GE.(BedrockVelModel(3,1)+1400D0))) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(3,1)).AND.(z.GE.BedrockVelModel(4,1))) THEN
+             ELSEIF ((z.LT.(BedrockVelModel(3,1)+1400D0)).AND.(z.GE.(BedrockVelModel(4,1)+1400D0))) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
+             ELSEIF ((z.LT.(BedrockVelModel(4,1)+1400D0)).AND.(z.GE.(BedrockVelModel(5,1)+1400D0))) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
+             ELSEIF ((z.LT.(BedrockVelModel(5,1)+1400D0)).AND.(z.GE.(BedrockVelModel(6,1)+1400D0))) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
+             ELSEIF ((z.LT.(BedrockVelModel(6,1)+1400D0)).AND.(z.GE.(BedrockVelModel(7,1)+1400D0))) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(7,1)).AND.(z.GE.BedrockVelModel(8,1))) THEN
+             ELSEIF ((z.LT.(BedrockVelModel(7,1)+1400D0)).AND.(z.GE.(BedrockVelModel(8,1)+1400D0))) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(8,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(8,1)).AND.(z.GE.BedrockVelModel(9,1))) THEN
+             ELSEIF ((z.LT.(BedrockVelModel(8,1)+1400D0)).AND.(z.GE.(BedrockVelModel(9,1)+1400D0))) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(9,2:4)
              ELSE
                  MaterialVal(iElem,1:3) =   BedrockVelModel(10,2:4)
@@ -762,8 +763,18 @@ CONTAINS
                     EQN%IniStress(6,iElem)  =  0.0D0
                 ENDIF   !
 
-                ! depth dependent plastic cohesion
-                EQN%PlastCo(iElem) = MaterialVal(iElem,2)/10000.0D0
+                !depth dependent plastic cohesion used in the plasticity paper, based on Roten(2015)
+                !aligned with velocity structure and also shifted by 1400.0
+                IF (z.GE. 1100.0) THEN !first layer until -300+1400
+                    EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 1100.0).AND.(z.GE.400.0)) THEN !second layer between -300+1400 and -1000+1400
+                    EQN%PlastCo(iElem) = 6.0e+06
+                ELSEIF ((z.LT. 400.0).AND.(z.GE.-1400.0)) THEN !between -1000+1500 and -3000+1400
+                    EQN%PlastCo(iElem) = 10.0e+06
+                ELSE
+                    EQN%PlastCo(iElem) = 12.0e+06
+                ENDIF !cohesion
+
             ENDIF !Plasticity
 
 
