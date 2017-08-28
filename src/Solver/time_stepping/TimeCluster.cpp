@@ -108,7 +108,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
-                                                  Stopwatch*                             i_stopwatch ):
+                                                  Stopwatch*                             i_stopwatch,
+                                                  Stopwatch*                             i_stopwatchDR ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -133,7 +134,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_numberOfCellToPointSourcesMappings(0                ),
  m_pointSources(            NULL                       ),
 
- m_stopwatch(               i_stopwatch                )
+ m_stopwatch(               i_stopwatch                ),
+ m_stopwatchDR(             i_stopwatchDR              )
 {
     // assert all pointers are valid
     assert( m_meshStructure                            != NULL );
@@ -253,6 +255,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_stopwatch->start();
+  m_stopwatchDR->start();
 
   DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
@@ -289,6 +292,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             waveSpeedsMinus[face] );
   }
 
+  m_stopwatchDR->pause();
   m_stopwatch->pause();
 }
 
