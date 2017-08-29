@@ -109,9 +109,8 @@ void error(std::string const& errMessage)
   exit(-1);
 }
 
-unsigned boundary_code(std::string const& regionName)
+unsigned boundary_code(std::string name)
 {
-  auto name = regionName.substr(1, regionName.size()-2);
   std::transform(name.begin(), name.end(),name.begin(), ::toupper);
   return boundary_codes[name];
 }

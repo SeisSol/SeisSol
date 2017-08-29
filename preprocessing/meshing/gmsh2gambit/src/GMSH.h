@@ -70,6 +70,16 @@ struct Boundary {
   unsigned side;
 };
 
+struct Region {
+  Region(unsigned id, unsigned type, std::string name)
+    : id(id), type(type), name(name) {}
+  Region() : Region(-1, -1, "") {};
+
+  unsigned id;
+  unsigned type;
+  std::string name;
+};
+
 template<unsigned DIM>
 struct GMSH {
   typedef Simplex<DIM> Tetrahedron;
@@ -84,7 +94,7 @@ struct GMSH {
 
   std::unordered_map<unsigned, std::vector<unsigned> > materialGroups;
   std::unordered_map<unsigned, std::vector<Boundary> > boundaryConditions;
-  std::unordered_map<unsigned, unsigned> regions;
+  std::unordered_map<unsigned, Region> regions;
 
   explicit GMSH(char const* filename);
 
@@ -95,7 +105,7 @@ struct GMSH {
 };
 
 void error(std::string const& errMessage);
-unsigned boundary_code(std::string const& name);
+unsigned boundary_code(std::string name);
 
 template<unsigned DIM>
 GMSH<DIM>::GMSH(char const* filename)
@@ -122,8 +132,9 @@ GMSH<DIM>::GMSH(char const* filename)
         unsigned dim, id;
         std::string name;
         in >> dim >> id >> name;
+        name = name.substr(1, name.size()-2);
 
-        regions[id] = boundary_code(name);
+        regions[id] = Region(id, boundary_code(name), name);
       }
     } else if (block.compare("$Nodes") == 0) {
       in >> numVertices;

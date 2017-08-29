@@ -110,7 +110,8 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
     fprintf(file, "       BOUNDARY CONDITIONS 2.0.0\n");
     // collect members in group
     auto region = msh.regions.find(boundaryCondition->first);
-    fprintf(file, "%32d%8d%8lu%8d%8d\n", boundaryCondition->first, 1, boundaryCondition->second.size(), 0, region != msh.regions.end() ? region->second : 6);
+    fprintf(file, "%32s%8d%8lu%8d%8d\n", region != msh.regions.end() ? region->second.name.c_str() : std::to_string(boundaryCondition->first).c_str(),
+            1, boundaryCondition->second.size(), 0, region != msh.regions.end() ? region->second.type : 6);
     for (auto boundary = boundaryCondition->second.begin(); boundary < boundaryCondition->second.end(); ++boundary) {
       fprintf(file, "%10d %5d %5d\n", boundary->element+1, GambitInfo<DIM>::Type, boundary->side+1);
     }
