@@ -7,17 +7,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -36,8 +36,8 @@
  *
  * @section DESCRIPTION
  **/
-#ifndef GAMBITWRITER_H_
-#define GAMBITWRITER_H_
+#pragma once
+
 #include <cstdio>
 #include <ctime>
 
@@ -64,9 +64,9 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
   strftime(datestring, sizeof(datestring), "%c", timeinfo);
   fprintf(file, "%s\n", datestring);
   fprintf(file, "     NUMNP     NELEM     NGRPS    NBSETS     NDFCD     NDFVL\n");
-  fprintf(file, " %9d %9d %9d %9d %9d %9d\n", msh.numVertices, msh.numElements, msh.materialGroups.size(), msh.boundaryConditions.size(), DIM, DIM);
+  fprintf(file, " %9d %9d %9lu %9lu %9d %9d\n", msh.numVertices, msh.numTetrahedra, msh.materialGroups.size(), msh.boundaryConditions.size(), DIM, DIM);
   fprintf(file, "ENDOFSECTION\n");
-  
+
   // Vertices
   fprintf(file, "   NODAL COORDINATES 2.0.0\n");
   for (unsigned vertex = 0; vertex < msh.numVertices; ++vertex) {
@@ -77,22 +77,22 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
     fprintf(file, "\n");
   }
   fprintf(file, "ENDOFSECTION\n");
-  
-  // Elements
+
+  // Tetrahedrons
   fprintf(file, "      ELEMENTS/CELLS 2.0.0\n");
-  for (unsigned element = 0; element < msh.numElements; ++element) {
-    fprintf(file, "%8d %2d %2d ", element+1, GambitInfo<DIM>::Type, GMSH<DIM>::Element::NumNodes);
-    for (unsigned n = 0; n < GMSH<DIM>::Element::NumNodes; ++n) {
-      fprintf(file, "%8d", msh.elements[element].nodes[n]+1);
+  for (unsigned tet = 0; tet < msh.numTetrahedra; ++tet) {
+    fprintf(file, "%8d %2d %2d ", tet+1, GambitInfo<DIM>::Type, GMSH<DIM>::Tetrahedron::NumNodes);
+    for (unsigned n = 0; n < GMSH<DIM>::Tetrahedron::NumNodes; ++n) {
+      fprintf(file, "%8d", msh.tetrahedra[tet].nodes[n]+1);
     }
     fprintf(file, "\n");
   }
   fprintf(file, "ENDOFSECTION\n");
-  
+
   // Material groups
   for (auto group = msh.materialGroups.cbegin(); group != msh.materialGroups.cend(); ++group) {
     fprintf(file, "       ELEMENT GROUP 2.0.0\n");
-    fprintf(file, "GROUP: %10d ELEMENTS: %10d MATERIAL: %10d NFLAGS: %10d\n", group->first, group->second.size(), 2, 1);
+    fprintf(file, "GROUP: %10d ELEMENTS: %10lu MATERIAL: %10d NFLAGS: %10d\n", group->first, group->second.size(), 2, 1);
     fprintf(file, "Material group %d\n", group->first);
     fprintf(file, "       0");
     for (unsigned gm = 0; gm < group->second.size(); ++gm) {
@@ -104,21 +104,18 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
     fprintf(file, "\n");
     fprintf(file, "ENDOFSECTION\n");
   }
-  
+
   // Boundary conditions
   for (auto boundaryCondition = msh.boundaryConditions.cbegin(); boundaryCondition != msh.boundaryConditions.cend(); ++boundaryCondition) {
     fprintf(file, "       BOUNDARY CONDITIONS 2.0.0\n");
     // collect members in group
-    fprintf(file, "%32d%8d%8d%8d%8d\n", boundaryCondition->first, 1, boundaryCondition->second.size(), 0, 6);
+    auto region = msh.regions.find(boundaryCondition->first);
+    fprintf(file, "%32d%8d%8lu%8d%8d\n", boundaryCondition->first, 1, boundaryCondition->second.size(), 0, region != msh.regions.end() ? region->second : 6);
     for (auto boundary = boundaryCondition->second.begin(); boundary < boundaryCondition->second.end(); ++boundary) {
       fprintf(file, "%10d %5d %5d\n", boundary->element+1, GambitInfo<DIM>::Type, boundary->side+1);
     }
     fprintf(file, "ENDOFSECTION\n");
   }
-  
+
   fclose(file);
 }
-
-
-
-#endif

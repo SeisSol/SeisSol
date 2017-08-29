@@ -7,17 +7,17 @@
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -36,8 +36,7 @@
  *
  * @section DESCRIPTION
  **/
-#ifndef GMSH_H_
-#define GMSH_H_
+#pragma once
 
 #include <fstream>
 #include <algorithm>
@@ -49,12 +48,12 @@
 template<unsigned N>
 struct Simplex {
   /* According to MSH mesh format documentation:
-   * 1 = 2-node line. 
-   * 2 = 3-node triangle. 
+   * 1 = 2-node line.
+   * 2 = 3-node triangle.
    * 4 = 4-node tetrahedron.
    * Will not work for other types (e.g. 11 = 10-node second order tetrahedron).
    */
-  static unsigned const Type = 1 << (N-1);
+  static unsigned const Type = N <= 1 ? 1 : 1 << (N-1);
   static unsigned const NumNodes = N+1;
   static unsigned const NumFaces = N+1;
   /* Each N-simplex includes N+1 (N-1)-simplices where each has DIM nodes
@@ -73,44 +72,60 @@ struct Boundary {
 
 template<unsigned DIM>
 struct GMSH {
-  typedef Simplex<DIM> Element;
+  typedef Simplex<DIM> Tetrahedron;
   typedef Simplex<DIM-1> Face;
-  
+  typedef Simplex<DIM-2> Line;
+
   double (*vertices)[3];
-  Element* elements;
+  Tetrahedron* tetrahedra;
+
   unsigned numVertices;
-  unsigned numElements;
-  std::unordered_map< unsigned, std::vector<unsigned> > materialGroups;
-  std::unordered_map< unsigned, std::vector<Boundary> > boundaryConditions;
-  
+  unsigned numTetrahedra;
+
+  std::unordered_map<unsigned, std::vector<unsigned> > materialGroups;
+  std::unordered_map<unsigned, std::vector<Boundary> > boundaryConditions;
+  std::unordered_map<unsigned, unsigned> regions;
+
   explicit GMSH(char const* filename);
-  
-  ~GMSH() {
+
+  virtual ~GMSH() {
     delete[] vertices;
-    delete[] elements;
+    delete[] tetrahedra;
   }
 };
 
 void error(std::string const& errMessage);
+unsigned boundary_code(std::string const& name);
 
 template<unsigned DIM>
 GMSH<DIM>::GMSH(char const* filename)
 {
   numVertices = 0;
-  numElements = 0;
+  numTetrahedra = 0;
 
   Face* faces = NULL;
   unsigned numFaces = 0;
-  
+
   std::ifstream in(filename, std::ifstream::in);
-  
+
   unsigned tags[MAX_NUMBER_OF_TAGS];
 
   // Parse MSH
   while (in.good()) {
     std::string block;
     in >> block;
-    if (block.compare("$Nodes") == 0) {
+    if (block.compare("$PhysicalNames") == 0) {
+      unsigned numRegions;
+      in >> numRegions;
+
+      for (auto i = 0; i < numRegions; ++i) {
+        unsigned dim, id;
+        std::string name;
+        in >> dim >> id >> name;
+
+        regions[id] = boundary_code(name);
+      }
+    } else if (block.compare("$Nodes") == 0) {
       in >> numVertices;
       vertices = new double[numVertices][3];
       for (unsigned vertex = 0; vertex < numVertices; ++vertex) {
@@ -128,59 +143,63 @@ GMSH<DIM>::GMSH(char const* filename)
       unsigned numGeoShapes;
       in >> numGeoShapes;
       faces = new Face[numGeoShapes];
-      elements = new Element[numGeoShapes];
-      
+      tetrahedra = new Tetrahedron[numGeoShapes];
+
       for (unsigned geoShape = 0; geoShape < numGeoShapes; ++geoShape) {
         unsigned id, type, numTags;
         in >> id >> type >> numTags;
-        if (type != Face::Type && type != Element::Type) {
-          error("Unsuported type. Must be 1 (line, 2D), 2 (triangle, 2D and 3D), or 4 (tetrahedron, 3D).");
-        }
         if (numTags > MAX_NUMBER_OF_TAGS) {
           error("Too many tags. Increase MAX_NUMBER_OF_TAGS.");
         }
         for (unsigned tag = 0; tag < numTags; ++tag) {
           in >> tags[tag];
         }
-        if (type == Face::Type) {
+        if (type == Tetrahedron::Type) {
+          Tetrahedron& tet = tetrahedra[numTetrahedra];
+          for (unsigned node = 0; node < Tetrahedron::NumNodes; ++node) {
+            in >> tet.nodes[node];
+            --tet.nodes[node];
+          }
+          tet.group = tags[0];
+          materialGroups[tet.group].push_back(numTetrahedra);
+          ++numTetrahedra;
+        } else if (type == Face::Type) {
           Face& face = faces[numFaces++];
           for (unsigned node = 0; node < Face::NumNodes; ++node) {
             in >> face.nodes[node];
             --face.nodes[node];
           }
           face.group = tags[0];
-        } else if (type == Element::Type) {
-          Element& element = elements[numElements];
-          for (unsigned node = 0; node < Element::NumNodes; ++node) {
-            in >> element.nodes[node];
-            --element.nodes[node];
+        } else if (type == Line::Type) {
+          unsigned dummy;
+          for (unsigned node = 0; node < Line::NumNodes; ++node) {
+            in >> dummy;
           }
-          element.group = tags[0];
-          materialGroups[element.group].push_back(numElements);
-          ++numElements;
+        } else {
+          error("Unsupported type. Must be 1 (line, 2D), 2 (triangle, 2D and 3D), or 4 (tetrahedron, 3D).");
         }
       }
     }
   }
-  
+
   in.close();
 
   // vertex to triangle map
-  std::vector<unsigned>* vertex2face = vertex2face = new std::vector<unsigned>[numVertices];  
+  std::vector<unsigned>* vertex2face = vertex2face = new std::vector<unsigned>[numVertices];
   for (unsigned face = 0; face < numFaces; ++face) {
     for (unsigned node = 0; node < Face::NumNodes; ++node) {
       vertex2face[faces[face].nodes[node]].push_back(face);
     }
-  }  
+  }
   for (unsigned vertex = 0; vertex < numVertices; ++vertex) {
     std::sort(vertex2face[vertex].begin(), vertex2face[vertex].end());
   }
-  
-  for (unsigned element = 0; element < numElements; ++element) {
-    for (unsigned elmtFace = 0; elmtFace < Element::NumFaces; ++elmtFace) {
+
+  for (unsigned tet = 0; tet < numTetrahedra; ++tet) {
+    for (unsigned elmtFace = 0; elmtFace < Tetrahedron::NumFaces; ++elmtFace) {
       unsigned nodes[Face::NumNodes];
       for (unsigned node = 0; node < Face::NumNodes; ++node) {
-        nodes[node] = elements[element].nodes[ Element::Face2Nodes[elmtFace][node] ];
+        nodes[node] = tetrahedra[tet].nodes[Tetrahedron::Face2Nodes[elmtFace][node]];
       }
       std::vector<unsigned> intersect[Face::NumNodes-1];
       std::set_intersection( vertex2face[ nodes[0] ].begin(), vertex2face[ nodes[0] ].end(),
@@ -193,19 +212,17 @@ GMSH<DIM>::GMSH(char const* filename)
       }
       if (!intersect[Face::NumNodes-2].empty()) {
         if (intersect[Face::NumNodes-2].size() > 1) {
-          error("A face of an element exists multiple times in the surface mesh.");
+          error("A face of an tet exists multiple times in the surface mesh.");
         }
         Face& face = faces[ intersect[Face::NumNodes-2][0] ];
         Boundary bnd;
-        bnd.element = element;
+        bnd.element = tet;
         bnd.side = elmtFace;
         boundaryConditions[face.group].push_back(bnd);
       }
     }
   }
-  
+
   delete[] vertex2face;
   delete[] faces;
 }
-
-#endif
