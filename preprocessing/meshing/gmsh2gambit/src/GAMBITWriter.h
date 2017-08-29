@@ -78,7 +78,7 @@ void writeNEU(char const* filename, GMSH<DIM> const& msh) {
   }
   fprintf(file, "ENDOFSECTION\n");
 
-  // Tetrahedrons
+  // Tetrahedra
   fprintf(file, "      ELEMENTS/CELLS 2.0.0\n");
   for (unsigned tet = 0; tet < msh.numTetrahedra; ++tet) {
     fprintf(file, "%8d %2d %2d ", tet+1, GambitInfo<DIM>::Type, GMSH<DIM>::Tetrahedron::NumNodes);

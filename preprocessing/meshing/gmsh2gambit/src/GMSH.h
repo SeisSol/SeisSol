@@ -43,7 +43,13 @@
 #include <vector>
 #include <unordered_map>
 
-#define MAX_NUMBER_OF_TAGS 16
+namespace
+{
+  #define MAX_NUMBER_OF_TAGS 16
+}
+
+void error(std::string const& errMessage);
+unsigned boundary_code(std::string name);
 
 template<unsigned N>
 struct Simplex {
@@ -71,9 +77,9 @@ struct Boundary {
 };
 
 struct Region {
-  Region(unsigned id, unsigned type, std::string name)
-    : id(id), type(type), name(name) {}
-  Region() : Region(-1, -1, "") {};
+  explicit Region(unsigned id, unsigned type, std::string name);
+  explicit Region();
+  virtual ~Region() = default;
 
   unsigned id;
   unsigned type;
@@ -103,9 +109,6 @@ struct GMSH {
     delete[] tetrahedra;
   }
 };
-
-void error(std::string const& errMessage);
-unsigned boundary_code(std::string name);
 
 template<unsigned DIM>
 GMSH<DIM>::GMSH(char const* filename)

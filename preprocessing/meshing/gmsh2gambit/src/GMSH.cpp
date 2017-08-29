@@ -115,6 +115,10 @@ unsigned boundary_code(std::string name)
   return boundary_codes[name];
 }
 
+Region::Region(unsigned id, unsigned type, std::string name)
+  : id(id), type(type), name(name) {}
+Region::Region() : Region(-1, -1, "") {};
+
 // Uses GAMBIT neu conventions. See GAMBIT NEUTRAL FILE FORMAT Appendix C.2.
 template<> unsigned const Simplex<2>::Face2Nodes[][2] = {{0, 1}, {1, 2}, {2, 0}};
 template<> unsigned const Simplex<3>::Face2Nodes[][3] = {{1, 0, 2}, {0, 1, 3}, {1, 2, 3}, {2, 0, 3}};
