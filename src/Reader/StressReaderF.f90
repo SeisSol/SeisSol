@@ -58,8 +58,8 @@ module StressReader
 			real( kind=c_double ), value :: x
 			real( kind=c_double ), value :: y
 			real( kind=c_double ), value :: z
-			real( kind=c_double ), dimension(*), intent(out) :: stressValues
-			real( kind=c_double ), dimension(*), intent(out) :: frictionValues
+			real( kind=c_double ), dimension(*), intent(inout) :: stressValues
+			real( kind=c_double ), dimension(*), intent(inout) :: frictionValues
 			real( kind=c_float ), dimension(*), intent(in)  :: stressDefaultValues
 			real( kind=c_float ), dimension(*), intent(in)  :: frictionDefaultValues
 		end subroutine readStress

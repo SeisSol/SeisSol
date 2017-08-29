@@ -118,6 +118,9 @@ class seissol::time_stepping::TimeManager {
     //! Stopwatch
     Stopwatch m_stopwatch;
 
+    //! Stopwatch dynamic rupture
+    Stopwatch m_stopwatchDR;
+
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
      * If this is true:

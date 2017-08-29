@@ -215,6 +215,9 @@ private:
     //! Stopwatch of TimeManager
     Stopwatch* m_stopwatch;
 
+    //! Dynamic rupture stopwatch of TimeManager
+    Stopwatch* m_stopwatchDR;
+
 #ifdef USE_MPI
     /**
      * Receives the copy layer data from relevant neighboring MPI clusters.
@@ -406,7 +409,8 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 Stopwatch*                             i_stopwatch );
+                 Stopwatch*                             i_stopwatch,
+                 Stopwatch*                             i_stopwatchDR );
 
     /**
      * Destructor of a LTS cluster.

@@ -1384,6 +1384,7 @@ MODULE Eval_friction_law_mod
     REAL        :: Deltat(1:nTimeGP)
     REAL        :: SV0(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP), SRtest(nBndGP), NR(nBndGP), dNR(nBndGP)
     REAL        :: LocSV(nBndGP)
+    REAL        :: tmpSlip(nBndGP)
     REAL        :: RS_f0,RS_a(nBndGP),RS_b,RS_sl0,RS_sr0
     REAL        :: RS_fw,RS_srW(nBndGP),flv(nBndGP),fss(nBndGP),SVss(nBndGP)
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
@@ -1402,6 +1403,7 @@ MODULE Eval_friction_law_mod
     !-------------------------------------------------------------------------!
     ! switch for Gauss node wise stress assignment
     nodewise = .TRUE.
+    tmpSlip = 0.0D0
 
     !Apply time dependent nucleation at global time step not sub time steps for simplicity
     !initialize time and space dependent nucleation
@@ -1564,6 +1566,7 @@ MODULE Eval_friction_law_mod
             LocSR1 = LocSR*LocSR1/tmp
             LocSR2 = LocSR*LocSR2/tmp
          endwhere
+         tmpSlip = tmpSlip(:) + tmp(:)*time_inc
 
          LocSlip1   = LocSlip1  + (LocSR1)*time_inc 
          LocSlip2   = LocSlip2  + (LocSR2)*time_inc 
@@ -1596,6 +1599,10 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%TracXY(:,iFace)    = LocTracXY
      DISC%DynRup%TracXZ(:,iFace)    = LocTracXZ
      DISC%DynRup%StateVar(:,iFace)  = LocSV
+
+     IF (DISC%DynRup%magnitude_out(iFace)) THEN
+        DISC%DynRup%averaged_Slip(iFace) = DISC%DynRup%averaged_Slip(iFace) + sum(tmpSlip)/nBndGP
+     ENDIF
   !
 
  END SUBROUTINE rate_and_state_nuc103

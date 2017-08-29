@@ -38,6 +38,8 @@ import glob
 import numpy as np
 import argparse
 from math import log10
+import subprocess
+import sys
 
 parser = argparse.ArgumentParser(description='concatenate fault energy rate files, write the result in a file and if asked plot it')
 parser.add_argument('prefix', help='folder/prefix')
@@ -47,17 +49,36 @@ args = parser.parse_args()
 filelist = glob.glob(args.prefix+'-EnF_t*')
 print '%d files found' %len(filelist)
 
-En_conc = np.loadtxt(filelist[0], skiprows=1)
-ndt0 = np.shape(En_conc)[0]
+tmax = sys.float_info.max
+dt=np.zeros(len(filelist))
+for i, fname in enumerate(filelist):
+   #check for tmax
+   line = subprocess.check_output(['tail', '-1', fname])
+   tmax = min(tmax, float(line.split()[0]))
+   #check for dt
+   fid = open(fname)
+   fid.readline()
+   line = fid.readline()
+   line = fid.readline()
+   fid.close()
+   dt[i] = float(line.split()[0])
 
-for fid in filelist[1:]:
-   En = np.loadtxt(fid, skiprows=1)
-   ndt = np.shape(En)[0]
-   ndt0 = min(ndt ,ndt0) 
-   En_conc[0:ndt0,1] = En_conc[0:ndt0,1] + En[0:ndt0,1]
-   En_conc[0:ndt0,2] = En_conc[0:ndt0,2] + En[0:ndt0,2]
+dt0 = min(dt)
+print 'tfmin=%f, dtmin=%f' %(tmax,dt0)
+print 'dt/dt0', dt/dt0
 
-En_conc = En_conc[0:ndt0,:]
+ndt = int(round(tmax/dt0+1))
+En_conc = np.zeros((ndt,3))
+
+En_conc[:,0]=np.linspace(0, tmax, ndt)
+
+#####now loading the data
+for i, fname in enumerate(filelist):
+   print "loading... %s" %fname
+   En = np.loadtxt(fname, skiprows=1)
+   En_conc[:,1] = En_conc[:,1] + np.repeat(En[:,1], int(round(dt[i]/dt0)))[0:ndt]
+   En_conc[:,2] = En_conc[:,2] + np.repeat(En[:,2], int(round(dt[i]/dt0)))[0:ndt]
+
 print 'Moment rate:'
 print En_conc[:,1]
 
@@ -73,9 +94,9 @@ print 'Moment magnitude: %f (M0 = %e)' % (Mw, M0)
 FricEn_total = np.trapz(En_conc[:,2], x=En_conc[:,0])
 print 'Frictional energy release: %f ' % (FricEn_total)
 
-FricEn = np.zeros(ndt0)
-dt = En_conc[2,0]-En_conc[1,0]
-for idt in range(ndt0):
+FricEn = np.zeros(ndt)
+dt = dt0
+for idt in range(ndt):
     FricEn[idt] = FricEn[idt-1] + dt*En_conc[idt,2]
 
 print 'Frictional energy over time:  ' 
@@ -84,7 +105,7 @@ print FricEn
 #save data
 #time moment-rate frictional-energy-rate frictional-energy
 output = np.c_[En_conc[:,0], En_conc[:,1], En_conc[:,2],  FricEn[:]]
-np.savetxt(args.prefix+'-EnF_t-all.dat', output)
+np.savetxt(args.prefix+'-EnF_0t-all.dat', output)
 
 if args.display_plot:
    import matplotlib.pyplot as plt
