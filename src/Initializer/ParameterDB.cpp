@@ -38,6 +38,8 @@
  * 
  **/
 
+#include <PUML/PUML.h>
+#include <PUML/Downward.h>
 #include "ParameterDB.h"
 
 #include <easi/YAMLParser.h>
@@ -47,9 +49,9 @@
 #include <Reader/AsagiReader.h>
 #endif
 
-easi::Query seissol::initializers::ElementBarycentreGenerator::generate(MeshReader const& meshReader) const {
-  std::vector<Element> const& elements = meshReader.getElements();
-  std::vector<Vertex> const& vertices = meshReader.getVertices();
+easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
+  std::vector<Element> const& elements = m_meshReader.getElements();
+  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
   
   easi::Query query(elements.size(), 3);
   for (unsigned elem = 0; elem < elements.size(); ++elem) {
@@ -71,10 +73,40 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate(MeshRead
   return query;
 }
 
-easi::Query seissol::initializers::FaultBarycentreGenerator::generate(MeshReader const& meshReader) const {
-  std::vector<Fault> const& fault = meshReader.getFault();
-  std::vector<Element> const& elements = meshReader.getElements();
-  std::vector<Vertex> const& vertices = meshReader.getVertices();
+
+
+easi::Query seissol::initializers::ElementBarycentreGeneratorPUML::generate() const {
+  std::vector<PUML::TETPUML::cell_t> const& cells = m_mesh.cells();
+	std::vector<PUML::TETPUML::vertex_t> const& vertices = m_mesh.vertices();
+  int const* material = m_mesh.cellData(0);
+  
+  easi::Query query(cells.size(), 3);
+  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+    unsigned vertLids[4];
+    PUML::Downward::vertices(m_mesh, cells[cell], vertLids);
+    
+    // Compute barycentre for each element
+    for (unsigned dim = 0; dim < 3; ++dim) {
+      query.x(cell,dim) = vertices[ vertLids[0] ].coordinate()[dim];
+    }
+    for (unsigned vertex = 1; vertex < 4; ++vertex) {
+      for (unsigned dim = 0; dim < 3; ++dim) {
+        query.x(cell,dim) += vertices[ vertLids[vertex] ].coordinate()[dim];
+      }
+    }
+    for (unsigned dim = 0; dim < 3; ++dim) {
+      query.x(cell,dim) *= 0.25;
+    }
+    // Group
+    query.group(cell) = material[cell];
+  }
+  return query;
+}
+
+easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
+  std::vector<Fault> const& fault = m_meshReader.getFault();
+  std::vector<Element> const& elements = m_meshReader.getElements();
+  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
 
   easi::Query query(m_numberOfPoints * fault.size(), 3);
   unsigned q = 0;
@@ -108,10 +140,10 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate(MeshReader
   return query;
 }
 
-easi::Query seissol::initializers::FaultGPGenerator::generate(MeshReader const& meshReader) const {
-  std::vector<Fault> const& fault = meshReader.getFault();
-  std::vector<Element> const& elements = meshReader.getElements();
-  std::vector<Vertex> const& vertices = meshReader.getVertices();
+easi::Query seissol::initializers::FaultGPGenerator::generate() const {
+  std::vector<Fault> const& fault = m_meshReader.getFault();
+  std::vector<Element> const& elements = m_meshReader.getElements();
+  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
 
   easi::Query query(m_numberOfPoints * fault.size(), 3);
   unsigned q = 0;
@@ -142,13 +174,13 @@ easi::Query seissol::initializers::FaultGPGenerator::generate(MeshReader const& 
   return query;
 }
 
-void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen, MeshReader const& meshReader) {
+void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
   easi::ArraysAdapter adapter;
   for (auto& kv : m_parameters) {
     adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
   }
   
-  easi::Query query = queryGen.generate(meshReader);
+  easi::Query query = queryGen.generate();
 #ifdef USE_ASAGI
   seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
   easi::YAMLParser parser(3, &asagiReader);

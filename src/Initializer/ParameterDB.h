@@ -46,10 +46,18 @@
 #include <Geometry/MeshReader.h>
 #include <easi/Query.h>
 
+#ifndef PUML_PUML_H
+namespace PUML
+{
+	class TETPUML;
+}
+#endif // PUML_PUML_H
+
 namespace seissol {
   namespace initializers {
     class QueryGenerator;
     class ElementBarycentreGenerator;
+    class ElementBarycentreGeneratorPUML;
     class FaultBarycentreGenerator;
     class FaultGPGenerator;
     class ParameterDB;
@@ -58,28 +66,41 @@ namespace seissol {
 
 class seissol::initializers::QueryGenerator {
 public:
-  virtual easi::Query generate(MeshReader const& meshReader) const = 0;
+  virtual easi::Query generate() const = 0;
 };
 
 class seissol::initializers::ElementBarycentreGenerator : public seissol::initializers::QueryGenerator {
 public:
-  virtual easi::Query generate(MeshReader const& meshReader) const;
+  ElementBarycentreGenerator(MeshReader const& meshReader) : m_meshReader(meshReader) {}
+  virtual easi::Query generate() const;
+private:
+  MeshReader const& m_meshReader;
+};
+
+class seissol::initializers::ElementBarycentreGeneratorPUML : public seissol::initializers::QueryGenerator {
+public:
+  ElementBarycentreGeneratorPUML(PUML::TETPUML const& mesh) : m_mesh(mesh) {}
+  virtual easi::Query generate() const;
+private:
+  PUML::TETPUML const& m_mesh;
 };
 
 class seissol::initializers::FaultBarycentreGenerator : public seissol::initializers::QueryGenerator {
 public:
-  FaultBarycentreGenerator(unsigned numberOfPoints) : m_numberOfPoints(numberOfPoints) {}
-  virtual easi::Query generate(MeshReader const& meshReader) const;
+  FaultBarycentreGenerator(MeshReader const& meshReader, unsigned numberOfPoints) : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
+  virtual easi::Query generate() const;
 
 private:
+  MeshReader const& m_meshReader;
   unsigned m_numberOfPoints;
 };
 
 class seissol::initializers::FaultGPGenerator : public seissol::initializers::QueryGenerator {
 public:
-  FaultGPGenerator(double (*points)[2], unsigned numberOfPoints) : m_points(points), m_numberOfPoints(numberOfPoints) {}
-  virtual easi::Query generate(MeshReader const& meshReader) const;
+  FaultGPGenerator(MeshReader const& meshReader, double (*points)[2], unsigned numberOfPoints) : m_meshReader(meshReader), m_points(points), m_numberOfPoints(numberOfPoints) {}
+  virtual easi::Query generate() const;
 private:
+  MeshReader const& m_meshReader;
   double (*m_points)[2];
   unsigned m_numberOfPoints;
 };
@@ -87,7 +108,7 @@ private:
 class seissol::initializers::ParameterDB {
 public:  
   void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
-  void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen, MeshReader const& meshReader);
+  void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
   
 private:
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;

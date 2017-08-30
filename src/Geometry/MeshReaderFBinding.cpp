@@ -284,7 +284,7 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 }
 
 
-void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
+void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3], char const* easiVelocityModel, int clusterRate)
 {
 	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -296,7 +296,8 @@ void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displace
 	Stopwatch watch;
 	watch.start();
 
-	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile));
+  seissol::initializers::time_stepping::LtsWeights ltsWeights(easiVelocityModel, clusterRate);
+	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile, &ltsWeights));
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
 

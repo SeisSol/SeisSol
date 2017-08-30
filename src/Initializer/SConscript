@@ -49,6 +49,7 @@ initializeFiles = [ 'ini_seissol.f90',
                     'MemoryAllocator.cpp',
                     'MemoryManager.cpp',
                     'time_stepping/LtsLayout.cpp',
+                    'time_stepping/LtsWeights.cpp',
                     'CellLocalMatrices.cpp',
                     'tree/Lut.cpp',
                     'ParameterDB.cpp' ]

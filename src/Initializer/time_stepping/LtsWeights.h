@@ -2,22 +2,22 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
  * All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- *
+ * 
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- *
+ * 
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -33,19 +33,18 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- */
+ *
+ * @section DESCRIPTION
+ * Class for calculating weights for load balancing
+ **/
 
-#ifndef PUMLREADER_H
-#define PUMLREADER_H
+#ifndef INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
+#define INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
 
-#include "MeshReader.h"
-#include "Parallel/MPI.h"
+#include <string>
 
 #ifndef PUML_PUML_H
-namespace PUML
-{
-	class TETPUML;
-}
+namespace PUML { class TETPUML; }
 #endif // PUML_PUML_H
 
 namespace seissol {
@@ -56,42 +55,34 @@ namespace seissol {
   }
 }
 
-namespace seissol
-{
-class PUMLReader : public MeshReader
-{
-public:
-        PUMLReader(const char* meshFile, initializers::time_stepping::LtsWeights const* ltsWeights = nullptr);
+class seissol::initializers::time_stepping::LtsWeights {
+public:  
+  LtsWeights(std::string const& velocityModel, unsigned rate) : m_velocityModel(velocityModel), m_rate(rate) {}
+
+  ~LtsWeights() {
+    delete[] m_vertexWeights;
+  }
+  
+  void computeWeights(PUML::TETPUML const& mesh);
+  
+  int* vertexWeights() const { return m_vertexWeights; }
 
 private:
-	/**
-	 * Read the mesh
-	 */
-	void read(PUML::TETPUML &puml, const char* meshFile);
+  void computeMaxTimesteps( PUML::TETPUML const&  mesh,
+                            double const*         lambda,
+                            double const*         mu,
+                            double const*         rho,
+                            double*               timestep );
 
-	/**
-	 * Create the partitioning
-	 */
-	void partition(PUML::TETPUML &puml, int* vertexWeights = nullptr);
+  int getCluster( double    timestep,
+                  double    globalMinTimestep,
+                  unsigned  rate  );
+                        
+  int ipow(int x, int y);
 
-	/**
-	 * Generate the PUML data structure
-	 */
-	void generatePUML(PUML::TETPUML &puml);
-
-	/**
-	 * Get the mesh
-	 */
-	void getMesh(const PUML::TETPUML &puml);
-
-	void addMPINeighor(const PUML::TETPUML &puml, int rank, const std::vector<unsigned int> &faces);
-
-private:
-	static int FACE_PUML2SEISSOL[4];
-	static int FACEVERTEX2ORIENTATION[4][4];
-	static int FIRST_FACE_VERTEX[4];
+  std::string m_velocityModel;
+  unsigned m_rate;
+  int* m_vertexWeights = nullptr;
 };
 
-}
-
-#endif // PUMLREADER_H
+#endif

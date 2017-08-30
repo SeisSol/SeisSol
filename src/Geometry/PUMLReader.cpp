@@ -48,6 +48,8 @@
 #include "PUMLReader.h"
 #include "Monitoring/instrumentation.fpp"
 
+#include "Initializer/LtsWeights.h"
+
 class GlobalFaceSorter
 {
 private:
@@ -67,15 +69,21 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile)
+seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights const* ltsWeights)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
 	puml.setComm(MPI::mpi.comm());
 
 	read(puml, meshFile);
-
-	partition(puml);
+  
+  if (ltsWeights != nullptr) {
+    generatePUML(puml);
+    ltsWeights->computeWeights(puml);
+    partition(puml, ltsWeights->vertexWeights());
+  } else {
+    partition(puml);
+  }
 
 	generatePUML(puml);
 
@@ -93,13 +101,13 @@ void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
 }
 
-void seissol::PUMLReader::partition(PUML::TETPUML &puml)
+void seissol::PUMLReader::partition(PUML::TETPUML &puml, int* vertexWeights = nullptr)
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 	PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 	int* partition = new int[puml.numOriginalCells()];
-	metis.partition(partition);
+	metis.partition(partition, vertexWeights);
 
 	puml.partition(partition);
 	delete [] partition;

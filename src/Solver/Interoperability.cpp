@@ -487,8 +487,8 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     parameterDB.addParameter("s_xz",         iniStress+5, 6);
   }
   
-  seissol::initializers::ElementBarycentreGenerator queryGen;
-  parameterDB.evaluateModel(std::string(materialFileName), queryGen, seissol::SeisSol::main.meshReader());
+  seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
+  parameterDB.evaluateModel(std::string(materialFileName), queryGen);
 }
 
 void seissol::Interoperability::initializeFault( char*   modelFileName,
@@ -502,11 +502,14 @@ void seissol::Interoperability::initializeFault( char*   modelFileName,
   }
   
   if (gpwise != 0) {
-    seissol::initializers::FaultGPGenerator queryGen(reinterpret_cast<double(*)[2]>(bndPoints), numberOfBndPoints);
-    parameterDB.evaluateModel(std::string(modelFileName), queryGen, seissol::SeisSol::main.meshReader());
+    seissol::initializers::FaultGPGenerator queryGen( seissol::SeisSol::main.meshReader(),
+                                                      reinterpret_cast<double(*)[2]>(bndPoints),
+                                                      numberOfBndPoints );
+    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
   } else {
-    seissol::initializers::FaultBarycentreGenerator queryGen(numberOfBndPoints);
-    parameterDB.evaluateModel(std::string(modelFileName), queryGen, seissol::SeisSol::main.meshReader());
+    seissol::initializers::FaultBarycentreGenerator queryGen( seissol::SeisSol::main.meshReader(),
+                                                              numberOfBndPoints );
+    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
   }
 }
 

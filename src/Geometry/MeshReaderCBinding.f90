@@ -80,13 +80,14 @@ module MeshReaderCBinding
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
         end subroutine
 
-        subroutine read_mesh_puml_c(meshfile, hasFault, displacement, scalingMatrix) bind(C, name="read_mesh_puml_c")
+        subroutine read_mesh_puml_c(meshfile, hasFault, displacement, scalingMatrix, easiVelocityModel, clusterRate) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
-            character( kind=c_char ), dimension(*), intent(in) :: meshfile
+            character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel
             logical( kind=c_bool ), value                      :: hasFault
             real(kind=c_double), dimension(*), intent(in)      :: displacement
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
+            integer(kind=c_int), value, intent(in)                :: clusterRate
         end subroutine
     end interface
 
@@ -130,7 +131,12 @@ contains
             call read_mesh_netcdf_c(0, 1, trim(io%MeshFile) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
 #endif
         elseif (io%meshgenerator .eq. 'PUML') then
-            call read_mesh_puml_c( trim(io%MeshFile) // c_null_char, hasFault, MESH%Displacement(:), m_mesh%ScalingMatrix(:,:))
+            call read_mesh_puml_c(  trim(io%MeshFile) // c_null_char,           &
+                                    hasFault,                                   &
+                                    MESH%Displacement(:),                       &
+                                    m_mesh%ScalingMatrix(:,:),                  &
+                                    trim(EQN%MaterialFileName) // c_null_char,  &
+                                    disc%galerkin%clusteredLts                  )
         else
             logError(*) 'Unknown mesh reader'
             stop
