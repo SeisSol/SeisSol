@@ -146,9 +146,11 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   globalMinTimestep = localMinTimestep;
   globalMaxTimestep = localMaxTimestep;
 #endif
-  
+
   delete[] m_vertexWeights;
-  m_vertexWeights = new int[cells.size()];
+  //m_ncon = 2;
+  m_ncon = 1;
+  m_vertexWeights = new int[cells.size() * m_ncon];
   int maxCluster = getCluster(globalMaxTimestep, globalMinTimestep, m_rate);
   int drToCellRatio = 1;
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
@@ -156,10 +158,11 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
     
     int dynamicRupture = 0;
     for (unsigned face = 0; face < 4; ++face) {
-      dynamicRupture += ( (boundaryCond[cell] >> (face*8)) & 0xFF == 3) ? 1 : 0;
+      dynamicRupture += ( ((boundaryCond[cell] >> (face*8)) & 0xFF) == 3) ? 1 : 0;
     }
     
-    m_vertexWeights[cell] = (1 + drToCellRatio*dynamicRupture) * ipow(m_rate, maxCluster - cluster);
+    m_vertexWeights[m_ncon * cell] = (1 + drToCellRatio*dynamicRupture) * ipow(m_rate, maxCluster - cluster);
+    //m_vertexWeights[m_ncon * cell + 1] = (dynamicRupture > 0) ? 1 : 0;
   }
   
   delete[] timestep;

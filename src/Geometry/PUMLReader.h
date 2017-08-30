@@ -72,7 +72,7 @@ private:
 	/**
 	 * Create the partitioning
 	 */
-	void partition(PUML::TETPUML &puml, int* vertexWeights = nullptr);
+	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights);
 
 	/**
 	 * Generate the PUML data structure

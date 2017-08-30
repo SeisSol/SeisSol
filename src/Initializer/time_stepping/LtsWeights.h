@@ -66,6 +66,7 @@ public:
   void computeWeights(PUML::TETPUML const& mesh);
   
   int* vertexWeights() const { return m_vertexWeights; }
+  int nWeightsPerVertex() const { return m_ncon; }
 
 private:
   void computeMaxTimesteps( PUML::TETPUML const&  mesh,
@@ -83,6 +84,7 @@ private:
   std::string m_velocityModel;
   unsigned m_rate;
   int* m_vertexWeights = nullptr;
+  int m_ncon = 1;
 };
 
 #endif

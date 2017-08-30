@@ -80,10 +80,8 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_steppin
   if (ltsWeights != nullptr) {
     generatePUML(puml);
     ltsWeights->computeWeights(puml);
-    partition(puml, ltsWeights->vertexWeights());
-  } else {
-    partition(puml);
   }
+  partition(puml, ltsWeights);
 
 	generatePUML(puml);
 
@@ -101,13 +99,13 @@ void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
 }
 
-void seissol::PUMLReader::partition(PUML::TETPUML &puml, int* vertexWeights)
+void seissol::PUMLReader::partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights)
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 	PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 	int* partition = new int[puml.numOriginalCells()];
-	metis.partition(partition, vertexWeights);
+	metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), 1.01);
 
 	puml.partition(partition);
 	delete [] partition;
