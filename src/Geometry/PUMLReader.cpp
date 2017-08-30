@@ -48,7 +48,7 @@
 #include "PUMLReader.h"
 #include "Monitoring/instrumentation.fpp"
 
-#include "Initializer/LtsWeights.h"
+#include "Initializer/time_stepping/LtsWeights.h"
 
 class GlobalFaceSorter
 {
@@ -69,7 +69,7 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights const* ltsWeights)
+seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights* ltsWeights)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
@@ -101,7 +101,7 @@ void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
 }
 
-void seissol::PUMLReader::partition(PUML::TETPUML &puml, int* vertexWeights = nullptr)
+void seissol::PUMLReader::partition(PUML::TETPUML &puml, int* vertexWeights)
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 

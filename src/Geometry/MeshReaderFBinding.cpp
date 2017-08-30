@@ -54,6 +54,7 @@
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
+#include "Initializer/time_stepping/LtsWeights.h"
 
 void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {

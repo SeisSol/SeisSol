@@ -61,7 +61,7 @@ namespace seissol
 class PUMLReader : public MeshReader
 {
 public:
-        PUMLReader(const char* meshFile, initializers::time_stepping::LtsWeights const* ltsWeights = nullptr);
+        PUMLReader(const char* meshFile, initializers::time_stepping::LtsWeights* ltsWeights = nullptr);
 
 private:
 	/**
