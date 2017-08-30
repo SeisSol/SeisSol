@@ -18,9 +18,9 @@ before_install:
  - wget https://github.com/hfp/libxsmm/archive/master.zip
 
 install:
- - sudo apt-get install -qq g++-4.9 gfortran openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-7 libhdf5-openmpi-dev python-numpy python-scipy python-lxml
- - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 50 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9
- - sudo update-alternatives --set gcc /usr/bin/gcc-4.9
+ - sudo apt-get install -qq g++-4.7 gfortran openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-7 libhdf5-openmpi-dev python-numpy python-scipy python-lxml
+ - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.7 50 --slave /usr/bin/g++ g++ /usr/bin/g++-4.7
+ - sudo update-alternatives --set gcc /usr/bin/gcc-4.7
  - tar -xaf netcdf-4.3.1.1.tar.gz
  - cd netcdf-4.3.1.1 && CC=mpicc ./configure --prefix=/usr && make && sudo make install && cd ..
  - unzip master.zip
