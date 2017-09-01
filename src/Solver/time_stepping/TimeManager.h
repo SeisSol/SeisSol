@@ -116,10 +116,7 @@ class seissol::time_stepping::TimeManager {
     std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_neighboringInteriorQueue;
     
     //! Stopwatch
-    Stopwatch m_stopwatch;
-
-    //! Stopwatch dynamic rupture
-    Stopwatch m_stopwatchDR;
+    LoopStatistics m_loopStatistics;
 
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.

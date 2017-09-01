@@ -58,6 +58,9 @@ pthread_t g_commThread;
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
 {
+  m_loopStatistics.addRegion("computeLocalIntegration");
+  m_loopStatistics.addRegion("computeNeighboringIntegration");
+  m_loopStatistics.addRegion("computeDynamicRupture");
 }
 
 seissol::time_stepping::TimeManager::~TimeManager() {
@@ -115,8 +118,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            &i_memoryManager.getDynamicRuptureTree()->child(l_cluster),
                                            i_memoryManager.getLts(),
                                            i_memoryManager.getDynamicRupture(),
-                                           &m_stopwatch,
-                                           &m_stopwatchDR )
+                                           &m_loopStatistics )
                         );
   }
 }
@@ -375,15 +377,10 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
 
 void seissol::time_stepping::TimeManager::printComputationTime()
 {
-  char const text[] = "Computation time:";
-  char const textDR[] = "Comp. time (only DR):";
 #ifdef USE_MPI
-  m_stopwatch.printTime(text, MPI::mpi.comm());
-  m_stopwatchDR.printTime(textDR, MPI::mpi.comm());
-#else
-  m_stopwatch.printTime(text);
-  m_stopwatchDR.printTime(textDR);
+  m_loopStatistics.printSummary(MPI::mpi.comm());
 #endif
+  m_loopStatistics.writeSamplesToCSV();
 }
 
 double seissol::time_stepping::TimeManager::getTimeTolerance() {
