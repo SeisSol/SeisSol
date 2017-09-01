@@ -163,6 +163,20 @@ CONTAINS
     !                                                                        !
   END SUBROUTINE readpar                                                     !
 
+  SUBROUTINE RaiseErrorNml(FID, NMLname)
+    INTEGER                    :: FID
+    CHARACTER(LEN=*)         :: NMLname
+    CHARACTER(LEN=600)         :: line
+    INTENT(IN)                 :: FID, NMLname
+
+    backspace(FID)
+    read(FID,fmt='(A)') line
+    logError(*) 'invalid line in namelist '//trim(NMLname)//': '//trim(line)
+    stop
+    RETURN
+
+  END SUBROUTINE
+
   !============================================================================
   ! H E A D E R
   !============================================================================
@@ -278,8 +292,7 @@ CONTAINS
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Equations'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Equations")
     ENDIF
     !
     IF ((MaterialType.GE.1220).AND.(MaterialType.LE.1230)) THEN
@@ -672,8 +685,7 @@ CONTAINS
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = RFFile)      ! Write in namelistfile RF_File(1) = ... and in the next line RF_Files(2) = ...
                                             ! according to the number of Random Fields
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist RFFile'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "RFFile")
     ENDIF
   END SUBROUTINE
     !------------------------------------------------------------------------
@@ -924,8 +936,7 @@ CONTAINS
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = IniCondition)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist IniCondition'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "IniCondition")
     ENDIF
 
     ! Renaming all variables in the beginning
@@ -1270,8 +1281,7 @@ CONTAINS
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Pickpoint)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Pickpoint'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Pickpoint")
     ENDIF
     !
      DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
@@ -1354,8 +1364,7 @@ CONTAINS
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Elementwise)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Elementwise'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Elementwise")
     ENDIF
     !
     DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
@@ -1458,8 +1467,7 @@ CONTAINS
     !
     READ (IO%UNIT%FileIn, IOSTAT=readStat, nml = Boundaries)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Boundaries'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Boundaries")
     ENDIF
     !
       !
@@ -1675,8 +1683,7 @@ CONTAINS
            ! Read-in dynamic rupture parameters
            READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = DynamicRupture)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist DynamicRupture'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "DynamicRupture")
     ENDIF
            logInfo(*) 'Beginning dynamic rupture initialization. '
 
@@ -1933,8 +1940,7 @@ CONTAINS
     !------------------------------------------------------------------------
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBound)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist InflowBound'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "InflowBound")
     ENDIF
 
       DO i=1,n4
@@ -2075,8 +2081,7 @@ CONTAINS
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBoundPWFile) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for u0_in
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist InflowBoundPWFile'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "InflowBoundPWFile")
     ENDIF
   END SUBROUTINE
     !------------------------------------------------------------------------
@@ -2095,8 +2100,7 @@ CONTAINS
 
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBounduin) ! Write in namelistfile u0_in(1) = ... and in the next line u0_in(2) = ...
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist InflowBounduin'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "InflowBounduin")
     ENDIF
 
   END SUBROUTINE
@@ -2150,8 +2154,7 @@ CONTAINS
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = SourceType)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist SourceType'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "SourceType")
     ENDIF
     SOURCE%Type = Type
    SELECT CASE(SOURCE%Type)                                                 !
@@ -2760,8 +2763,7 @@ CONTAINS
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source110) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
                                                   ! and the same for l1
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Source110'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source110")
     ENDIF
   END SUBROUTINE
 
@@ -2786,8 +2788,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source15) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
                                                   ! and the same for SpacePositiony, SpacePositionz,...
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Source15'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source15")
     ENDIF
   END SUBROUTINE
 
@@ -2813,8 +2814,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source1618) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
                                                   ! and the same for SpacePositiony, ...
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Source1618'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source1618")
     ENDIF
   END SUBROUTINE
 
@@ -2836,8 +2836,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source17) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
                                                   ! and the same for l1, l2, ...
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Source17'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source17")
     ENDIF
   END SUBROUTINE
 
@@ -2861,8 +2860,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source19) ! Write in namelistfile EqnNr(1) = ... and in the next line EqnNr(2) = ...
                                                   ! and the same for Spacepositionx, ...
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Source19'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source19")
     ENDIF
   END SUBROUTINE
   !
@@ -2905,8 +2903,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     !
     READ (IO%UNIT%FileIn, IOSTAT=readStat, nml = SpongeLayer)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist SpongeLayer'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "SpongeLayer")
     ENDIF
     SOURCE%Sponge%enabled = enabled
 
@@ -2970,8 +2967,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Sponges) ! Write in namelistfile SpongeDelta(1) = ... and in the next line SpongeDelta(2) = ...
                                                   ! and the same for SpongePower, ...
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Sponges'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Sponges")
     ENDIF
    END SUBROUTINE
   !
@@ -3035,8 +3031,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = MeshNml)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist MeshNml'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "MeshNml")
     ENDIF
 
     IO%MeshFile = MeshFile                               ! mesh input (mesh file name, no_file)
@@ -3206,8 +3201,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     !                                                              ! DGM :
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Discretization)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Discretization'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Discretization")
     ENDIF
     DISC%Galerkin%DGFineOut1D = DGFineOut1D                        ! No. of red-refinements
     !                                                              ! for 2-D fine output
@@ -3404,8 +3398,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       !
       READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Output'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Output")
     ENDIF
       IO%OutputFile = OutputFile                                                   ! read output field file
 
@@ -3946,8 +3939,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = AbortCriteria)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist AbortCriteria'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "AbortCriteria")
     ENDIF
 
     DISC%EndTime =  EndTime                                         ! time required
@@ -4014,8 +4006,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Analysis)
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist Analysis'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Analysis")
     ENDIF
     ANALYSE%typ = typ
 
@@ -4134,8 +4125,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for ampfield, ...
     IF (readStat.NE.0) THEN
-        logError(*) 'Error reading namelist AnalysisFields'
-        stop
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "AnalysisFields")
     ENDIF
    END SUBROUTINE
 
