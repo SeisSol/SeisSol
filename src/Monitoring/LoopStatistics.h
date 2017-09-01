@@ -87,51 +87,58 @@ public:
         y  += sample.time;
       }
       double det = N*x2 - x*x;
-      
-      regressionCoeffs[2*region + 0] = (x2*y - x*xy) / det;
-      regressionCoeffs[2*region + 1] = (-x*y + N*xy) / det;
+      if (det != 0.0) {
+        regressionCoeffs[2*region + 0] = (x2*y - x*xy) / det;
+        regressionCoeffs[2*region + 1] = (-x*y + N*xy) / det;
+      } else {
+        regressionCoeffs[2*region + 0] = NAN;
+        regressionCoeffs[2*region + 1] = NAN;
+      }
     }
+    
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
 
-    int rank;
-		MPI_Comm_rank(comm, &rank);
-
-		if (rank == 0) {
-      double* regressionCoeffsMin = new double[2*nRegions];
-      double* regressionCoeffsMax = new double[2*nRegions];
-      double* regressionCoeffsAvg = new double[2*nRegions];
-			MPI_Reduce(regressionCoeffs, regressionCoeffsMin, 2*nRegions, MPI_DOUBLE, MPI_MIN, 0, comm);
-			MPI_Reduce(regressionCoeffs, regressionCoeffsMax, 2*nRegions, MPI_DOUBLE, MPI_MAX, 0, comm);
-			MPI_Reduce(regressionCoeffs, regressionCoeffsAvg, 2*nRegions, MPI_DOUBLE, MPI_SUM, 0, comm);
-
-			int size;
-			MPI_Comm_size(comm, &size);
-			
+    double* regressionCoeffsWorld = nullptr;
+    if (rank == 0) {
+      regressionCoeffsWorld = new double[2*nRegions*size];
+    }
+    
+    MPI_Gather(regressionCoeffs, 2*nRegions, MPI_DOUBLE, regressionCoeffsWorld, 2*nRegions, MPI_DOUBLE, 0, comm);    
+    delete[] regressionCoeffs;
+    
+    if (rank == 0) {
       char const* names[] = { "constant", "per element"};
       logInfo(rank) << "Regression analysis of compute kernels:";
       for (unsigned region = 0; region < nRegions; ++region) {
         for (unsigned c = 0; c < 2; ++c) {
+          double avg = 0.0, min = std::numeric_limits<double>::infinity(), max = -std::numeric_limits<double>::infinity();
+          unsigned nValid = 0;
+          for (int rk = 0; rk < size; ++rk) {
+            double val = regressionCoeffsWorld[2*nRegions*rk + 2*nRegions*region + c];
+            if (!std::isnan(val)) {
+              avg += val;
+              min = std::min(min, val);
+              max = std::max(max, val);
+              ++nValid;
+            }
+          }
+          avg /= nValid;
+          
           logInfo(rank) << utils::nospace
                         << m_regions[region]
                         << " (" << names[c] << "): "
-                        << regressionCoeffsAvg[2*region + 0] / size
+                        << avg
                         << " (min:"
-                        << regressionCoeffsMin[2*region + 0]
+                        << min
                         << ", max: "
-                        << regressionCoeffsMax[2*region + 0]
+                        << max
                         << ')';
         }
       }
-      
-      delete[] regressionCoeffsAvg;
-      delete[] regressionCoeffsMin;
-      delete[] regressionCoeffsMax;
-		} else {
-			MPI_Reduce(regressionCoeffs, 0L, 2*nRegions, MPI_DOUBLE, MPI_SUM, 0, comm);
-			MPI_Reduce(regressionCoeffs, 0L, 2*nRegions, MPI_DOUBLE, MPI_MIN, 0, comm);
-			MPI_Reduce(regressionCoeffs, 0L, 2*nRegions, MPI_DOUBLE, MPI_MAX, 0, comm);
-		}
-    
-    delete[] regressionCoeffs;
+      delete[] regressionCoeffsWorld;
+    }
   }
 #endif
   
