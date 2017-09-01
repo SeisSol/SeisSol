@@ -75,70 +75,61 @@ public:
 #ifdef USE_MPI  
   void printSummary(MPI_Comm comm) {
     unsigned nRegions = m_times.size();
-    double* regressionCoeffs = new double[2*nRegions];
+    double* sums = new double[5*nRegions];
     for (unsigned region = 0; region < nRegions; ++region) {
       double x = 0.0, x2 = 0.0, xy = 0.0, y = 0.0;
-      unsigned N = m_times[region].size();
+      unsigned N = 0;
     
       for (auto const& sample : m_times[region]) {
-        x  += sample.numIters;
-        x2 += sample.numIters * sample.numIters;
-        xy += sample.numIters * sample.time;
-        y  += sample.time;
-      }
-      double det = N*x2 - x*x;
-      if (det != 0.0) {
-        regressionCoeffs[2*region + 0] = (x2*y - x*xy) / det;
-        regressionCoeffs[2*region + 1] = (-x*y + N*xy) / det;
-      } else {
-        regressionCoeffs[2*region + 0] = NAN;
-        regressionCoeffs[2*region + 1] = NAN;
-      }
-    }
-    
-    int rank, size;
-    MPI_Comm_rank(comm, &rank);
-    MPI_Comm_size(comm, &size);
-
-    double* regressionCoeffsWorld = nullptr;
-    if (rank == 0) {
-      regressionCoeffsWorld = new double[2*nRegions*size];
-    }
-    
-    MPI_Gather(regressionCoeffs, 2*nRegions, MPI_DOUBLE, regressionCoeffsWorld, 2*nRegions, MPI_DOUBLE, 0, comm);    
-    delete[] regressionCoeffs;
-    
-    if (rank == 0) {
-      char const* names[] = { "constant", "per element"};
-      logInfo(rank) << "Regression analysis of compute kernels:";
-      for (unsigned region = 0; region < nRegions; ++region) {
-        for (unsigned c = 0; c < 2; ++c) {
-          double avg = 0.0, min = std::numeric_limits<double>::infinity(), max = -std::numeric_limits<double>::infinity();
-          unsigned nValid = 0;
-          for (int rk = 0; rk < size; ++rk) {
-            double val = regressionCoeffsWorld[2*nRegions*rk + 2*nRegions*region + c];
-            if (!std::isnan(val)) {
-              avg += val;
-              min = std::min(min, val);
-              max = std::max(max, val);
-              ++nValid;
-            }
-          }
-          avg /= nValid;
-          
-          logInfo(rank) << utils::nospace
-                        << m_regions[region]
-                        << " (" << names[c] << "): "
-                        << avg
-                        << " (min:"
-                        << min
-                        << ", max: "
-                        << max
-                        << ')';
+        if (sample.numIters > 0) {
+          x  += sample.numIters;
+          x2 += static_cast<double>(sample.numIters) * static_cast<double>(sample.numIters);
+          xy += static_cast<double>(sample.numIters) * sample.time;
+          y  += sample.time;
+          ++N;
         }
       }
-      delete[] regressionCoeffsWorld;
+
+      sums[5*region + 0] = x;
+      sums[5*region + 1] = x2;
+      sums[5*region + 2] = xy;
+      sums[5*region + 3] = y;
+      sums[5*region + 4] = N;
     }
+
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    if (rank == 0) {
+      MPI_Reduce(MPI_IN_PLACE, sums, 5*nRegions, MPI_DOUBLE, MPI_SUM, 0, comm);
+    } else {
+      MPI_Reduce(sums, 0L, 5*nRegions, MPI_DOUBLE, MPI_SUM, 0, comm);
+    }
+
+    if (rank == 0) {
+      logInfo(rank) << "Regression analysis of compute kernels:";
+      for (unsigned region = 0; region < nRegions; ++region) {
+        double x  = sums[5*region + 0];
+        double x2 = sums[5*region + 1];
+        double xy = sums[5*region + 2];
+        double y  = sums[5*region + 3];
+        double N  = sums[5*region + 4];
+
+        double det = N*x2 - x*x;
+        double regressionCoeffs[2];
+        regressionCoeffs[0] = (x2*y - x*xy) / det;
+        regressionCoeffs[1] = (-x*y + N*xy) / det;
+      
+        char const* names[] = { "constant", "per element"};
+        for (unsigned c = 0; c < 2; ++c) {
+          logInfo(rank) << m_regions[region]
+                        << "(" << names[c] << "):"
+                        << regressionCoeffs[c];
+        }
+      }
+    }
+
+    delete[] sums;
   }
 #endif
   
