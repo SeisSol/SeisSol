@@ -192,9 +192,9 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
     m_vertexWeights[m_ncon * cell] = (1 + drToCellRatio*dynamicRupture) * ipow(m_rate, maxCluster - cluster[cell]);
     //m_vertexWeights[m_ncon * cell + 1] = (dynamicRupture > 0) ? 1 : 0;
   }
-  
+
   delete[] cluster;
-  
+
   logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights. Done. " << utils::nospace << '(' << totalNumberOfReductions << " reductions.)";
 }
 
@@ -284,7 +284,7 @@ int seissol::initializers::time_stepping::LtsWeights::enforceMaximumDifferenceLo
     for (unsigned n = 0; n < exchangeSize; ++n) {
       copy[ex][n] = cluster[ localFaceIdToLocalCellId[ exchange->second[n] ] ];
     }
-		MPI_Isend( copy[ex], exchangeSize, MPI_INT, exchange->first, 0, seissol::MPI::mpi.comm(), &requests[ex]);
+    MPI_Isend( copy[ex], exchangeSize, MPI_INT, exchange->first, 0, seissol::MPI::mpi.comm(), &requests[ex]);
     MPI_Irecv(ghost[ex], exchangeSize, MPI_INT, exchange->first, 0, seissol::MPI::mpi.comm(), &requests[numExchanges + ex]);
     ++exchange;
   }
@@ -301,8 +301,14 @@ int seissol::initializers::time_stepping::LtsWeights::enforceMaximumDifferenceLo
       int cellIds[2];
       PUML::Upward::cells(mesh, faces[ exchange->second[n] ], cellIds);
       int cell = (cellIds[0] >= 0) ? cellIds[0] : cellIds[1];
+
+      unsigned int faceids[4];
+      PUML::Downward::faces(mesh, cells[cell], faceids);
+      unsigned f = 0;
+      for (; f < 4 && faceids[f] != exchange->second[n]; ++f);
+      assert(f != 4);
       
-      int boundary = getBoundaryCondition(boundaryCond, cell, exchange->second[n]);
+      int boundary = getBoundaryCondition(boundaryCond, cell, f);
       if (boundary == 3) {
         difference = 0;
       }
