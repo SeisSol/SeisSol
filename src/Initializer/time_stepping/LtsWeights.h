@@ -78,8 +78,19 @@ private:
   int getCluster( double    timestep,
                   double    globalMinTimestep,
                   unsigned  rate  );
+
+  int getBoundaryCondition( int const* boundaryCond,
+                            unsigned cell,
+                            unsigned face );
                         
   int ipow(int x, int y);
+  
+  int enforceMaximumDifference( PUML::TETPUML const& mesh,
+                                int* cluster );
+
+  int enforceMaximumDifferenceLocal(  PUML::TETPUML const& mesh,
+                                      int* cluster,
+                                      int maxDifference = 1 );
 
   std::string m_velocityModel;
   unsigned m_rate;
