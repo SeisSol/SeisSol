@@ -134,6 +134,8 @@ int seissol::initializers::time_stepping::LtsWeights::ipow(int x, int y) {
 }
 
 void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
+  logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights.";
+
   std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
   int const* boundaryCond = mesh.cellData(1);
 
@@ -173,7 +175,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   } 
   delete[] timestep;
   
-  enforceMaximumDifference(mesh, cluster);
+  int totalNumberOfReductions = enforceMaximumDifference(mesh, cluster);
 
   delete[] m_vertexWeights;
   //m_ncon = 2;
@@ -192,6 +194,8 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   }
   
   delete[] cluster;
+  
+  logInfo(seissol::MPI::mpi.rank()) << "Computing LTS weights. Done. " << utils::nospace << '(' << totalNumberOfReductions << " reductions.)";
 }
 
 int seissol::initializers::time_stepping::LtsWeights::enforceMaximumDifference(PUML::TETPUML const& mesh, int* cluster) {
