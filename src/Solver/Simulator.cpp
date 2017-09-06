@@ -159,5 +159,5 @@ void seissol::Simulator::simulate() {
   seissol::SeisSol::main.timeManager().stopCommunicationThread();
 
   double wallTime = stopwatch.split();
-  logInfo(seissol::MPI::mpi.rank()) << "Wall time (via gettimeofday):" << wallTime << "seconds.";
+  logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
 }
