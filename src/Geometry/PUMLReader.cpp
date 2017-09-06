@@ -69,7 +69,7 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights* ltsWeights)
+seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
@@ -81,7 +81,7 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_steppin
     generatePUML(puml);
     ltsWeights->computeWeights(puml);
   }
-  partition(puml, ltsWeights);
+  partition(puml, ltsWeights, tpwgt);
 
 	generatePUML(puml);
 
@@ -99,16 +99,36 @@ void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
 }
 
-void seissol::PUMLReader::partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights)
+void seissol::PUMLReader::partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt)
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
+  
+#ifdef USE_MPI
+  double* nodeWeights = new double[seissol::MPI::mpi.size()];
+  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
+  double sum = 0.0;
+  for (unsigned rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
+    sum += nodeWeights[rk];
+  }
+  for (unsigned rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
+    nodeWeights[rk] /= sum;
+  }
+#else
+  tpwgt = 1.0;
+  double* nodeWeights = &tpwgt;
+#endif
+
 
 	PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 	int* partition = new int[puml.numOriginalCells()];
-	metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), 1.01);
+	metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), nodeWeights, 1.01);
 
 	puml.partition(partition);
 	delete [] partition;
+
+#ifdef USE_MPI
+  delete[] nodeWeights;
+#endif
 }
 
 void seissol::PUMLReader::generatePUML(PUML::TETPUML &puml)

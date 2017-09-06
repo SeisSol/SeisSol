@@ -61,7 +61,7 @@ namespace seissol
 class PUMLReader : public MeshReader
 {
 public:
-        PUMLReader(const char* meshFile, initializers::time_stepping::LtsWeights* ltsWeights = nullptr);
+        PUMLReader(const char* meshFile, initializers::time_stepping::LtsWeights* ltsWeights = nullptr, double tpwgt = 1.0);
 
 private:
 	/**
@@ -72,7 +72,7 @@ private:
 	/**
 	 * Create the partitioning
 	 */
-	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights);
+	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt);
 
 	/**
 	 * Generate the PUML data structure

@@ -55,6 +55,7 @@
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
 #include "Initializer/time_stepping/LtsWeights.h"
+#include "Solver/time_stepping/MiniSeisSol.h"
 
 void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
@@ -291,6 +292,9 @@ void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displace
 
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	const int rank = seissol::MPI::mpi.rank();
+  
+  logInfo(rank) << "Running mini SeisSol to determine node weight";
+  double tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager());
 
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
@@ -298,7 +302,7 @@ void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displace
 	watch.start();
 
   seissol::initializers::time_stepping::LtsWeights ltsWeights(easiVelocityModel, clusterRate);
-	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile, &ltsWeights));
+	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile, &ltsWeights, tpwgt));
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
 
