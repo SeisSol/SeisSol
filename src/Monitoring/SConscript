@@ -43,7 +43,8 @@ Import('env')
 
 # monitoring source files
 monitoringFiles = [ 'bindMonitoring.f90',
-                    'FlopCounter.cpp']
+                    'FlopCounter.cpp',
+                    'LoopStatistics.cpp' ]
 
 for i in monitoringFiles:
   env.sourceFiles.append(env.Object(i))

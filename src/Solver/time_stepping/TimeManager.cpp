@@ -380,7 +380,7 @@ void seissol::time_stepping::TimeManager::printComputationTime()
 #ifdef USE_MPI
   m_loopStatistics.printSummary(MPI::mpi.comm());
 #endif
-  m_loopStatistics.writeSamplesToCSV();
+  m_loopStatistics.writeSamples();
 }
 
 double seissol::time_stepping::TimeManager::getTimeTolerance() {
