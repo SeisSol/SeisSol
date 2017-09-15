@@ -114,7 +114,7 @@ static void check_err(const int stat, const int line, const char *file) {
 #endif
   
 void seissol::LoopStatistics::writeSamples() {
-  std::string loopStatFile = utils::Env::get("SEISSOL_LOOP_STAT_PREFIX", "");
+  std::string loopStatFile = utils::Env::get<std::string>("SEISSOL_LOOP_STAT_PREFIX", "");
   if (!loopStatFile.empty()) {
 #if defined(USE_NETCDF) && defined(USE_MPI)
     unsigned nRegions = m_times.size();
