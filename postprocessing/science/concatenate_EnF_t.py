@@ -40,10 +40,25 @@ import argparse
 from math import log10
 import subprocess
 import sys
+from multiprocessing import Pool,cpu_count,Manager
+import time
+
+def loadEnF(args):
+#####function used for loading the data using pool_async
+   i,q  = args
+   En = np.loadtxt(filelist[i], skiprows=1)
+   myres = np.zeros((2*ndt,))
+   myres[0:ndt] =  np.repeat(En[:,1], int(round(dt[i]/dt0)))[0:ndt]
+   myres[ndt:2*ndt] =  np.repeat(En[:,2], int(round(dt[i]/dt0)))[0:ndt]
+   if q!=0:
+      q.put(i)
+   return myres
+
 
 parser = argparse.ArgumentParser(description='concatenate fault energy rate files, write the result in a file and if asked plot it')
 parser.add_argument('prefix', help='folder/prefix')
 parser.add_argument('--plot', dest='display_plot', action='store_true', help='display a plot of the moment rate')
+parser.add_argument('--MP', nargs=1, metavar=('ncpu'), default=([1]), help='use np.pool to speed-up calculations' ,type=int)
 args = parser.parse_args()
 
 filelist = glob.glob(args.prefix+'-EnF_t*')
@@ -72,12 +87,26 @@ En_conc = np.zeros((ndt,3))
 
 En_conc[:,0]=np.linspace(0, tmax, ndt)
 
-#####now loading the data
-for i, fname in enumerate(filelist):
-   print "loading... %s" %fname
-   En = np.loadtxt(fname, skiprows=1)
-   En_conc[:,1] = En_conc[:,1] + np.repeat(En[:,1], int(round(dt[i]/dt0)))[0:ndt]
-   En_conc[:,2] = En_conc[:,2] + np.repeat(En[:,2], int(round(dt[i]/dt0)))[0:ndt]
+nprocs  = args.MP[0]
+assert(nprocs<=cpu_count())
+pool = Pool(processes=nprocs)
+m = Manager()
+q = m.Queue()
+N=len(filelist)
+inputs = range(0,N)
+args2 = [(i, q) for i in inputs]
+Result = pool.map_async(loadEnF, args2)
+pool.close()
+while (True):
+  if (Result.ready()): break
+  remaining = N+1 - q.qsize()
+  print "Waiting for", remaining, "tasks to complete..."
+  time.sleep(2.0)
+a = np.sum(np.array(Result.get()),axis=0)
+print a
+print ndt, a.shape
+a = a.reshape((ndt,2),order='F')
+En_conc[:,1:3] = En_conc[:,1:3] + a
 
 print 'Moment rate:'
 print En_conc[:,1]
