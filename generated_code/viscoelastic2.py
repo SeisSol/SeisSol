@@ -54,6 +54,7 @@ cmdLineParser.add_argument('--numberOfMechanisms')
 cmdLineParser.add_argument('--generator')
 cmdLineParser.add_argument('--memLayout')
 cmdLineParser.add_argument('--dynamicRuptureMethod')
+cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineArgs = cmdLineParser.parse_args()
 
 architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
@@ -80,7 +81,7 @@ db.insert(DB.MatrixInfo('AplusT', numberOfReducedQuantities, numberOfReducedQuan
 db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
 
 DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfElasticQuantities, numberOfReducedQuantities)
-Plasticity.addMatrices(db, cmdLineArgs.matricesDir, order)
+Plasticity.addMatrices(db, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod, order)
 SurfaceDisplacement.addMatrices(db, order)
 
 # Load sparse-, dense-, block-dense-config
