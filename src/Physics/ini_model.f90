@@ -1051,7 +1051,6 @@ CONTAINS
             nLayers = 6
             zLayers (1:6) = (/ 0d0,-2000d0, -6000d0, -12000d0, -23000d0,-600d6 /)
             rhoLayers (1:6) = (/ 1000d0, 2720d0, 2860d0, 3050d0, 3300d0, 3375d0 /)
-            sigzz = 0d0
 
 
             DO iElem=1, MESH%nElem
@@ -1059,13 +1058,14 @@ CONTAINS
                 y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
                 x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
 
-                !constant stress above -3000m
-                IF (ztest.GE.-3000) THEN
-                    z = -3000.0
+                !constant stress above -500m, basically above the fault
+                IF (ztest.GT.-500.0D0) THEN
+                    z = -500.0D0
                 ELSE
                     z = ztest
                 ENDIF
 
+                sigzz = 0d0
                 DO k = 2, nLayers
                    IF (z.GT.zLayers(k)) THEN
                       sigzz = sigzz + rhoLayers(k-1)*(z-zLayers(k-1))*g

@@ -2090,6 +2090,11 @@ MODULE ini_model_DR_mod
           rhoLayers (1:6) = (/ 1000d0, 2720d0, 2860d0, 3050d0, 3300d0, 3375d0 /)
           sigzz = 0d0
 
+          !constant stress above -500m (consistent with off-fault stress loading)
+          IF (zGP.GT.-500.0D0) THEN
+              zGP = -500.0D0
+          ENDIF
+
           DO k=2,nLayers
              IF (zGP.GT.zLayers(k)) THEN
                 sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
