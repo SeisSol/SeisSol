@@ -153,11 +153,11 @@ void seissol::Simulator::simulate() {
     printNodePerformance( stopwatch.split() );
   }
   
-  seissol::SeisSol::main.timeManager().printComputationTime();
-
   // stop the communication thread (if applicable)
   seissol::SeisSol::main.timeManager().stopCommunicationThread();
 
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
+
+  seissol::SeisSol::main.timeManager().printComputationTime();
 }
