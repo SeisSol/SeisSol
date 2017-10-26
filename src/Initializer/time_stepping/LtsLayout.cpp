@@ -639,7 +639,7 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeClustering() {
 #endif
   }
 
-  logInfo() << "Performed a total of" << l_totalMaximumDifference << "reductions (max. diff.) for" << m_cells.size() << "cells," << l_totalDynamicRupture << "reductions (dyn. rup.) for" << m_fault.size() << "faces.";
+  //logInfo() << "Performed a total of" << l_totalMaximumDifference << "reductions (max. diff.) for" << m_cells.size() << "cells," << l_totalDynamicRupture << "reductions (dyn. rup.) for" << m_fault.size() << "faces.";
   
   int* localClusterHistogram = new int[m_numberOfGlobalClusters];
   for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {

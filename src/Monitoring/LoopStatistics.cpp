@@ -79,6 +79,7 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
   }
 
   if (rank == 0) {
+    double totalTime = 0.0;
     logInfo(rank) << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
       double x  = sums[5*region + 0];
@@ -98,7 +99,10 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
                       << "(" << names[c] << "):"
                       << regressionCoeffs[c];
       }
+      totalTime += y;
     }
+
+    logInfo(rank) << "Total time spent in compute kernels:" << totalTime;
   }
 
   delete[] sums;

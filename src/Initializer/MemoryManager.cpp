@@ -97,7 +97,7 @@ void seissol::initializers::MemoryManager::initialize()
   unsigned int l_numberOfThreads = omp_get_max_threads();
   unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
   unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
-  logInfo(0) << "Number of GlobalData copies: " << l_numberOfCopies;
+  logInfo(seissol::MPI::mpi.rank()) << "Number of GlobalData copies: " << l_numberOfCopies;
 
   m_globalDataCopies = new GlobalData[l_numberOfCopies];
 
