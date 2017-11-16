@@ -22,7 +22,7 @@ def RW_3DFACE():
 	fid.readline()
 	surfname = fid.readline().strip()
         if not surfname in lsurfname:
-                 print "Reading surface : %s" %surfname
+                 print("Reading surface : %s" %surfname)
                  if args.isolate:
                     if len(lsurfname)!=0:
 	               fout.write("endsolid %s\n" %(lsurfname[-1]))
@@ -58,7 +58,7 @@ def RW_ENDSEC():
 
 def RW_POLYLINE():
         fid.readline()
-        print "Reading polyline: %s" %fid.readline().strip()
+        print("Reading polyline: %s" %fid.readline().strip())
         for i in range(0,10):
                 fid.readline()
 
@@ -88,10 +88,10 @@ fid = open(args.dxf_filename)
 fout = open(args.stl_filename,'w')
 
 if args.isolate:
-   print "Isolating every Gocad surface in a different stl solid"
+   print("Isolating every Gocad surface in a different stl solid")
 
 if args.proj!='':
-   print "Projecting the nodes coordinates"
+   print("Projecting the nodes coordinates")
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
    if args.proj[0]!='geocent':
@@ -101,13 +101,13 @@ if args.proj!='':
       myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
 
 else:
-   print "no projection carried out"
+   print("no projection carried out")
 
 while fid.readline():  #0
 	sId = fid.readline().strip() #eg 3DFACE
 	
 	if not sId in ["SECTION","POINT","3DFACE","ENDSEC","POLYLINE","VERTEX","SEQEND"]:
-		print sId
+		print(sId)
 		print("unknown format file")
 		break
 

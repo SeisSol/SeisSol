@@ -1,5 +1,4 @@
 import numpy as np
-from netCDF4 import Dataset
 
 #Author: Thomas Ulrich, LMU 
 #(inspired from a script by J. Klicpera)
@@ -35,7 +34,7 @@ else:
    args.objectname = args.objectname[0]
 
 if args.proj!='':
-   print "Projecting the nodes coordinates"
+   print("Projecting the nodes coordinates")
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
    if args.proj[0]!='geocent':
@@ -45,12 +44,12 @@ if args.proj!='':
       myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
 
 if args.hole!='':
-   print "a hole will be isolated in the surface (stl only)"
+   print("a hole will be isolated in the surface (stl only)")
    x0hole = float(args.hole[0])
    x1hole = float(args.hole[1])
    y0hole = float(args.hole[2])
    y1hole = float(args.hole[3])
-   print "hole coordinates %f %f %f %f" %(x0hole,x1hole,y0hole,y1hole)
+   print("hole coordinates %f %f %f %f" %(x0hole,x1hole,y0hole,y1hole))
    if args.proj!='':
       xy = pyproj.transform(lla, myproj, x0hole, y0hole, 0, radians=False)
       x0hole = xy[0]
@@ -58,7 +57,7 @@ if args.hole!='':
       xy = pyproj.transform(lla, myproj, x1hole, y1hole, 0, radians=False)
       x1hole = xy[0]
       y1hole = xy[1]
-      print "hole coordinates (projected) %f %f %f %f" %(x0hole,x1hole,y0hole,y1hole)
+      print("hole coordinates (projected) %f %f %f %f" %(x0hole,x1hole,y0hole,y1hole))
 
 fh = open(args.input_file)
 NX = int(fh.readline().split()[1])
@@ -72,26 +71,26 @@ lon =  np.arange(xbotleft, xbotleft + NX*dx, dx)
 lat =  np.arange(ybotleft, ybotleft + NY*dx, dx)
 #reverse array
 lat = lat[::-1]
-print lon, lat
-print "reading elevation"
+print(lon, lat)
+print("reading elevation")
 #using pandas rather than loadtxt because much faster
 #elevation = np.loadtxt(fh)
 import pandas as pd
 elevation = pd.read_csv(fh, delimiter = " ", dtype=np.float64, header=None).values[:,:-1]
 #elevation = pd.read_csv(fh, delimiter = " ", nrows=20, dtype=np.float64, header=None).values[:,:-1]
-print elevation
-print elevation.shape
-print "done reading"
+print(elevation)
+print(elevation.shape)
+print("done reading")
 fh.close()
 
 
 if args.crop!='':
-   print "croping the surface"
+   print("croping the surface")
    x0c = float(args.crop[0])
    x1c = float(args.crop[1])
    y0c = float(args.crop[2])
    y1c = float(args.crop[3])
-   print "crop coordinates %f %f %f %f" %(x0c,x1c,y0c,y1c)
+   print("crop coordinates %f %f %f %f" %(x0c,x1c,y0c,y1c))
    if args.proj!='':
       xy = pyproj.transform(lla, myproj, x0c, y0c, 0, radians=False)
       x0c = xy[0]
@@ -99,13 +98,13 @@ if args.crop!='':
       xy = pyproj.transform(lla, myproj, x1c, y1c, 0, radians=False)
       x1c = xy[0]
       y1c = xy[1]
-      print "crop coordinates (projected) %f %f %f %f" %(x0c,x1c,y0c,y1c)
+      print("crop coordinates (projected) %f %f %f %f" %(x0c,x1c,y0c,y1c))
    indexesXc = np.where((lon >= x0c) & (lon <= x1c))[0]
    indexesYc = np.where((lat >= y0c) & (lat <= y1c))[0]
-   print indexesXc
-   print indexesXc.shape
-   print indexesYc
-   print indexesYc.shape
+   print(indexesXc)
+   print(indexesXc.shape)
+   print(indexesYc)
+   print(indexesYc.shape)
    lon = lon[indexesXc]
    lat = lat[indexesYc]
    #elevation = elevation[indexesXc,indexesYc]
@@ -116,10 +115,10 @@ if args.crop!='':
 lat = lat[0::args.subsample[0]]
 lon = lon[0::args.subsample[0]]
 elevation =  elevation[0::args.subsample[0],0::args.subsample[0]]
-print elevation
+print(elevation)
 
 NY,NX = elevation.shape
-print NX,NY, lat.shape, lon.shape
+print(NX,NY, lat.shape, lon.shape)
 
 nnodes = NX*NY
 ntriangles=2*(NX-1)*(NY-1)
@@ -173,14 +172,14 @@ elif ext=='.stl':
       fout.write("solid %s%d\n" %(args.objectname, sid))
       idtr = np.where(solid_id==sid)[0]
       for k in idtr:
-	   normal = np.cross(nodes[triangles[k,1],:]-nodes[triangles[k,0],:],nodes[triangles[k,2],:]-nodes[triangles[k,0],:])
-	   norm=np.linalg.norm(normal)
-	   fout.write('facet normal %e %e %e\n' %tuple(normal/norm))
-	   fout.write('outer loop\n')
-	   for i in range(0,3):
-	      fout.write('vertex %.10e %.10e %.10e\n' % tuple(nodes[triangles[k,i],:]))
-	   fout.write("endloop\n")
-	   fout.write("endfacet\n")
+         normal = np.cross(nodes[triangles[k,1],:]-nodes[triangles[k,0],:],nodes[triangles[k,2],:]-nodes[triangles[k,0],:])
+      norm=np.linalg.norm(normal)
+      fout.write('facet normal %e %e %e\n' %tuple(normal/norm))
+      fout.write('outer loop\n')
+      for i in range(0,3):
+         fout.write('vertex %.10e %.10e %.10e\n' % tuple(nodes[triangles[k,i],:]))
+      fout.write("endloop\n")
+      fout.write("endfacet\n")
       fout.write("endsolid %s%d\n" %(args.objectname, sid))
 elif ext=='.bstl':
    import struct
@@ -198,6 +197,6 @@ elif ext=='.bstl':
             fout.write(struct.pack('<3f', *nodes[triangles[k,i],:]))
          fout.write(struct.pack('<H', sid))  
 else:
-   print "only bsl, stl and ts are valid output formats"
+   print("only bsl, stl and ts are valid output formats")
 
 fout.close()

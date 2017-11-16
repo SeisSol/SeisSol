@@ -36,7 +36,7 @@ else:
    args.objectname = args.objectname[0]
 
 if args.proj!='':
-   print "Projecting the nodes coordinates"
+   print("Projecting the nodes coordinates")
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
    if args.proj[0]!='geocent':
@@ -46,12 +46,12 @@ if args.proj!='':
       myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
 
 if args.hole!='':
-   print "a hole will be isolated in the surface (stl only)"
+   print("a hole will be isolated in the surface (stl only)")
    x0hole = float(args.hole[0])
    x1hole = float(args.hole[1])
    y0hole = float(args.hole[2])
    y1hole = float(args.hole[3])
-   print "hole coordinates %f %f %f %f" %(x0hole,x1hole,y0hole,y1hole)
+   print("hole coordinates %f %f %f %f" %(x0hole,x1hole,y0hole,y1hole))
 
 
 fh = Dataset(args.input_file, mode='r')
@@ -122,14 +122,14 @@ elif ext=='.stl':
       fout.write("solid %s%d\n" %(args.objectname, sid))
       idtr = np.where(solid_id==sid)[0]
       for k in idtr:
-	   normal = np.cross(nodes[triangles[k,1],:]-nodes[triangles[k,0],:],nodes[triangles[k,2],:]-nodes[triangles[k,0],:])
-	   norm=np.linalg.norm(normal)
-	   fout.write('facet normal %e %e %e\n' %tuple(normal/norm))
-	   fout.write('outer loop\n')
-	   for i in range(0,3):
-	      fout.write('vertex %.10e %.10e %.10e\n' % tuple(nodes[triangles[k,i],:]))
-	   fout.write("endloop\n")
-	   fout.write("endfacet\n")
+         normal = np.cross(nodes[triangles[k,1],:]-nodes[triangles[k,0],:],nodes[triangles[k,2],:]-nodes[triangles[k,0],:])
+      norm=np.linalg.norm(normal)
+      fout.write('facet normal %e %e %e\n' %tuple(normal/norm))
+      fout.write('outer loop\n')
+      for i in range(0,3):
+         fout.write('vertex %.10e %.10e %.10e\n' % tuple(nodes[triangles[k,i],:]))
+      fout.write("endloop\n")
+      fout.write("endfacet\n")
       fout.write("endsolid %s%d\n" %(args.objectname, sid))
 elif ext=='.bstl':
    import struct
@@ -147,6 +147,6 @@ elif ext=='.bstl':
             fout.write(struct.pack('<3f', *nodes[triangles[k,i],:]))
          fout.write(struct.pack('<H', sid))  
 else:
-   print "only bsl, stl and ts are valid output formats"
+   print("only bsl, stl and ts are valid output formats")
 
 fout.close()
