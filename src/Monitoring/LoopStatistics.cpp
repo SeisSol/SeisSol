@@ -48,6 +48,7 @@
 void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
   unsigned nRegions = m_times.size();
   double* sums = new double[5*nRegions];
+  double totalTimePerRank = 0.0;
   for (unsigned region = 0; region < nRegions; ++region) {
     double x = 0.0, x2 = 0.0, xy = 0.0, y = 0.0;
     unsigned N = 0;
@@ -67,10 +68,13 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
     sums[5*region + 2] = xy;
     sums[5*region + 3] = y;
     sums[5*region + 4] = N;
+    totalTimePerRank += y;
   }
 
   int rank;
   MPI_Comm_rank(comm, &rank);
+
+  logInfo() << "Time spent in compute kernels on rank" << rank << ":" << totalTimePerRank;
 
   if (rank == 0) {
     MPI_Reduce(MPI_IN_PLACE, sums, 5*nRegions, MPI_DOUBLE, MPI_SUM, 0, comm);
