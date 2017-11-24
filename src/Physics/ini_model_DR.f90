@@ -348,12 +348,12 @@ MODULE ini_model_DR_mod
           ENDDO
     ENDIF
     
-    call c_interoperability_addFaultParameter("s_xx", EQN%IniBulk_xx)
-    call c_interoperability_addFaultParameter("s_yy", EQN%IniBulk_yy)
-    call c_interoperability_addFaultParameter("s_zz", EQN%IniBulk_zz)
-    call c_interoperability_addFaultParameter("s_xy", EQN%IniShearXY)
-    call c_interoperability_addFaultParameter("s_yz", EQN%IniShearYZ)
-    call c_interoperability_addFaultParameter("s_xz", EQN%IniShearXZ)
+    call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
+    call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
+    call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
+    call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
+    call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
+    call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
 
     !frictional parameter initialization
     SELECT CASE(EQN%FL)
@@ -363,18 +363,18 @@ MODULE ini_model_DR_mod
        ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
        ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
-       call c_interoperability_addFaultParameter("cohesion", DISC%DynRup%cohesion)
-       call c_interoperability_addFaultParameter("d_c", DISC%DynRup%D_C)
-       call c_interoperability_addFaultParameter("mu_s", DISC%DynRup%Mu_S)
-       call c_interoperability_addFaultParameter("mu_d", DISC%DynRup%Mu_D)
+       call c_interoperability_addFaultParameter("cohesion" // c_null_char, DISC%DynRup%cohesion)
+       call c_interoperability_addFaultParameter("d_c" // c_null_char, DISC%DynRup%D_C)
+       call c_interoperability_addFaultParameter("mu_s" // c_null_char, DISC%DynRup%Mu_S)
+       call c_interoperability_addFaultParameter("mu_d" // c_null_char, DISC%DynRup%Mu_D)
        if (EQN%FL >= 16 .and. EQN%FL <= 30) then
          ALLOCATE(  DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-         call c_interoperability_addFaultParameter("forced_rupture_time", DISC%DynRup%forced_rupture_time)
+         call c_interoperability_addFaultParameter("forced_rupture_time" // c_null_char, DISC%DynRup%forced_rupture_time)
        end if
 
     CASE(101,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
-      call c_interoperability_addFaultParameter("rs_a", DISC%DynRup%RS_a_array)
+      call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
       if (EQN%FL == 103) then
         allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
                   nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
@@ -383,13 +383,13 @@ MODULE ini_model_DR_mod
                   nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
-        call c_interoperability_addFaultParameter("rs_srW", DISC%DynRup%RS_srW_array)
-        call c_interoperability_addFaultParameter("nuc_xx", nuc_xx)
-        call c_interoperability_addFaultParameter("nuc_yy", nuc_yy)
-        call c_interoperability_addFaultParameter("nuc_zz", nuc_zz)
-        call c_interoperability_addFaultParameter("nuc_xy", nuc_xy)
-        call c_interoperability_addFaultParameter("nuc_yz", nuc_yz)
-        call c_interoperability_addFaultParameter("nuc_xz", nuc_xz)        
+        call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
+        call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
+        call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
+        call c_interoperability_addFaultParameter("nuc_zz" // c_null_char, nuc_zz)
+        call c_interoperability_addFaultParameter("nuc_xy" // c_null_char, nuc_xy)
+        call c_interoperability_addFaultParameter("nuc_yz" // c_null_char, nuc_yz)
+        call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)        
       end if
     END SELECT
 

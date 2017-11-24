@@ -104,7 +104,8 @@ faceType seissol::initializers::time_stepping::LtsLayout::getFaceType( int i_mes
   else if( i_meshFaceType == 3 ) return dynamicRupture;
   else if( i_meshFaceType == 5 ) return outflow;
   else if( i_meshFaceType == 6 ) return periodic;
-  else logError() << "face type" << i_meshFaceType << "not supported."; return regular;
+  else logError() << "face type" << i_meshFaceType << "not supported.";
+  return regular;
 }
 
 void seissol::initializers::time_stepping::LtsLayout::derivePlainCopyInterior() {

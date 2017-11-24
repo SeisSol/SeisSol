@@ -108,7 +108,7 @@ CONTAINS
     
     if (EQN%Anelasticity == 1) then
       do iElem=1, MESH%nElem
-        MaterialTmp(:) = MaterialVal(iElem,:)
+        MaterialTmp(:) = MaterialVal(iElem,1:EQN%nAneMaterialVar)
         call ini_ATTENUATION(Theta, w_freq, Material_INF, MaterialTmp, EQN)
         MaterialVal(iElem,2:3) = Material_INF(:)
         do iMech=1, EQN%nMechanisms

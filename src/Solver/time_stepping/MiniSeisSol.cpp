@@ -75,8 +75,6 @@ void seissol::localIntegration( struct GlobalData* globalData,
 
 void seissol::fillWithStuff(  real* buffer,
                               unsigned nValues) {
-  static unsigned long const x = 123456789, y = 362436069, z = 521288629;
-
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif

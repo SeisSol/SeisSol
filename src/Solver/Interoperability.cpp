@@ -654,7 +654,7 @@ void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval
 	  seissol::SeisSol::main.checkPointManager().setBackend(checkpoint::SIONLIB);
   else
 	  logError() << "Unknown checkpoint backend";
-  	  seissol::SeisSol::main.checkPointManager().setFilename( i_checkPointFilename );
+  seissol::SeisSol::main.checkPointManager().setFilename( i_checkPointFilename );
 }
 
 void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
