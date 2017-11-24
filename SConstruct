@@ -598,7 +598,7 @@ env.Append(LIBS=yaml_cpp)
 
 # impalajit
 impalajit = env.CMake( source=[Glob(path + '*/.cc') for path, dirs, files in os.walk('submodules/ImpalaJIT')],
-                       target=['submodules/ImpalaJIT/lib/libimpalajit.a'.format(env['buildDir'])],
+                       target=['#/{}/external/impalajit/libimpalajit.a'.format(env['buildDir'])],
                        CMakeProject = Dir('submodules/ImpalaJIT'),
                        CMakeBuildDir = Dir('#/{}/external/impalajit/'.format(env['buildDir'])),
                        cc = env['CC'],
