@@ -105,6 +105,7 @@ kernels = list()
 db.insert(DB.MatrixInfo('reducedTimeIntegratedDofs', numberOfBasisFunctions, numberOfReducedQuantities))
 db.insert(DB.MatrixInfo('reducedDofs', numberOfBasisFunctions, numberOfReducedQuantities))
 db.insert(DB.MatrixInfo('mechanism', numberOfBasisFunctions, numberOfMechanismQuantities))
+db.insert(DB.MatrixInfo('timeDerivative0_elastic', numberOfBasisFunctions, numberOfElasticQuantities))
 
 volume = db['kXiDivM'] * db['reducedTimeIntegratedDofs'] * db['AstarT'] \
        + db['kEtaDivM'] * db['reducedTimeIntegratedDofs'] * db['BstarT'] \
@@ -136,7 +137,7 @@ kernels.append(Kernel.Prototype('derivative', derivative, beta=0))
 source = db['mechanism'] * db['ET']
 kernels.append(Kernel.Prototype('source', source))
 
-DynamicRupture.addKernels(db, kernels, 'reducedDofs')
+DynamicRupture.addKernels(db, kernels, 'timeDerivative0_elastic')
 Plasticity.addKernels(db, kernels)
 SurfaceDisplacement.addKernels(db, kernels)
 
