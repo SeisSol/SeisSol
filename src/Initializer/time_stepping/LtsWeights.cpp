@@ -242,7 +242,7 @@ int seissol::initializers::time_stepping::LtsWeights::enforceMaximumDifferenceLo
           int cellIds[2];
           PUML::Upward::cells(mesh, face, cellIds);
 
-          int neighbourCell = (cellIds[0] == cell) ? cellIds[1] : cellIds[0];
+          int neighbourCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
           int otherTimeCluster = cluster[neighbourCell];
           
           if (boundary == 3) {
@@ -305,7 +305,7 @@ int seissol::initializers::time_stepping::LtsWeights::enforceMaximumDifferenceLo
       unsigned int faceids[4];
       PUML::Downward::faces(mesh, cells[cell], faceids);
       unsigned f = 0;
-      for (; f < 4 && faceids[f] != exchange->second[n]; ++f);
+      for (; f < 4 && static_cast<int>(faceids[f]) != exchange->second[n]; ++f);
       assert(f != 4);
       
       int boundary = getBoundaryCondition(boundaryCond, cell, f);
