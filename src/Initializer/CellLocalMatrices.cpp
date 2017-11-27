@@ -225,8 +225,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
 {
-  real TData[seissol::model::godunovMatrix::rows * seissol::model::godunovMatrix::cols];
-  real TinvData[seissol::model::godunovMatrix::rows * seissol::model::godunovMatrix::cols];
+  real TData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
+  real TinvData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
   real QgodLocalData[9*9];
   real QgodNeighborData[9*9];
   real APlusData[seissol::model::AstarT::reals];
@@ -340,8 +340,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       }
 
       /// Transformation matrix
-      DenseMatrixView<seissol::model::godunovMatrix::rows, seissol::model::godunovMatrix::cols> T(TData);
-      DenseMatrixView<seissol::model::godunovMatrix::cols, seissol::model::godunovMatrix::rows> Tinv(TinvData);
+      DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> T(TData);
+      DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> Tinv(TinvData);
       seissol::model::getFaceRotationMatrix(fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, T, Tinv);
 
       /// Materials
