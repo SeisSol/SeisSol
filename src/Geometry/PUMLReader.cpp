@@ -107,10 +107,10 @@ void seissol::PUMLReader::partition(PUML::TETPUML &puml, initializers::time_step
   double* nodeWeights = new double[seissol::MPI::mpi.size()];
   MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
   double sum = 0.0;
-  for (unsigned rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
+  for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
     sum += nodeWeights[rk];
   }
-  for (unsigned rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
+  for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
     nodeWeights[rk] /= sum;
   }
 #else

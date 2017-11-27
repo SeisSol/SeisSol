@@ -38,8 +38,10 @@
  * 
  **/
 
+#ifdef USE_HDF
 #include <PUML/PUML.h>
 #include <PUML/Downward.h>
+#endif
 #include "ParameterDB.h"
 
 #include <easi/YAMLParser.h>
@@ -73,8 +75,7 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
   return query;
 }
 
-
-
+#ifdef USE_HDF
 easi::Query seissol::initializers::ElementBarycentreGeneratorPUML::generate() const {
   std::vector<PUML::TETPUML::cell_t> const& cells = m_mesh.cells();
 	std::vector<PUML::TETPUML::vertex_t> const& vertices = m_mesh.vertices();
@@ -102,6 +103,7 @@ easi::Query seissol::initializers::ElementBarycentreGeneratorPUML::generate() co
   }
   return query;
 }
+#endif
 
 easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
   std::vector<Fault> const& fault = m_meshReader.getFault();

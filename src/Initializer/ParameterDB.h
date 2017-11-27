@@ -77,6 +77,7 @@ private:
   MeshReader const& m_meshReader;
 };
 
+#ifdef USE_HDF
 class seissol::initializers::ElementBarycentreGeneratorPUML : public seissol::initializers::QueryGenerator {
 public:
   ElementBarycentreGeneratorPUML(PUML::TETPUML const& mesh) : m_mesh(mesh) {}
@@ -84,6 +85,7 @@ public:
 private:
   PUML::TETPUML const& m_mesh;
 };
+#endif
 
 class seissol::initializers::FaultBarycentreGenerator : public seissol::initializers::QueryGenerator {
 public:
