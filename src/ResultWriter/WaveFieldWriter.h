@@ -146,7 +146,7 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
   
   refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
   
-  unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
+  unsigned const* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
 
 public:
 	WaveFieldWriter()

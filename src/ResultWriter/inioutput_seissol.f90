@@ -95,13 +95,13 @@ CONTAINS
 #ifdef PARALLEL
     INCLUDE 'mpif.h'
 #endif
+    TYPE (tEquations)              :: EQN                                      !
     REAL                           :: time,x,y,Variable(8),k1,k2               !
     INTEGER                        :: timestep                                 !
     INTEGER                        :: i                                        !
-    INTEGER                        :: outputMaskInt(9)                         !
+    INTEGER                        :: outputMaskInt(EQN%nVarTotal)             !
     REAL,POINTER                   :: pvar(:,:)                                ! @TODO, breuera: remove not used
     REAL,POINTER                   :: cvar(:,:)                                !
-    TYPE (tEquations)              :: EQN                                      !
     TYPE (tInitialCondition)       :: IC                                       !
     TYPE (tUnstructMesh)           :: MESH                                     !
     TYPE (tMPI), OPTIONAL          :: MPI                                      !
@@ -189,12 +189,15 @@ CONTAINS
         call c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth = io%SurfaceOutputRefinement )
     endif
 
-    do i = 1, 9
+    do i = 1, EQN%nVar
         if ( io%OutputMask(3+i) ) then
             outputMaskInt(i) = 1
         else
             outputMaskInt(i) = 0
         end if
+    end do
+    do i = EQN%nVar+1, EQN%nVarTotal
+      outputMaskInt(i) = 0
     end do
     call c_interoperability_initializeIO(    &
         i_mu        = disc%DynRup%mu,        &

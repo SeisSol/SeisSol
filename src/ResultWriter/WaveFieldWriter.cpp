@@ -85,8 +85,8 @@ seissol::refinement::TetrahedronRefiner<double>* seissol::writer::WaveFieldWrite
   return tetRefiner;
 }
 
-unsigned* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::MeshRefiner<double>* meshRefiner) {
-  unsigned* const_cells;
+unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::MeshRefiner<double>* meshRefiner) {
+  unsigned const* const_cells;
 // Cells are a bit complicated because the vertex filter will now longer work if we just use the buffer
 // We will add the offset later
 #ifdef USE_MPI
