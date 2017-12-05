@@ -171,8 +171,10 @@ void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& 
           /*if (contained[source] != 0) {
              logError() << "source with id " << source << " was already found in a different element!";
           }*/
-          contained[source] = 1;
-          meshIds[source] = elem;
+          if (contained[source] == 0 || meshIds[source] > elem) {
+            contained[source] = 1;
+            meshIds[source] = elem;
+          }
 #ifdef _OPENMP
         }
 #endif
