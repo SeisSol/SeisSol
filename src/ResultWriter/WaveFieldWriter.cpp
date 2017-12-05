@@ -54,6 +54,60 @@ void seissol::writer::WaveFieldWriter::enable()
 #endif // GENERATEDKERNELS
 }
 
+seissol::refinement::TetrahedronRefiner<double>* seissol::writer::WaveFieldWriter::createRefiner(int refinement) {
+  int const rank = seissol::MPI::mpi.rank();
+  refinement::TetrahedronRefiner<double>* tetRefiner = 0L;
+  switch (refinement) {
+	case 0:
+		logInfo(rank) << "Refinement is turned off.";
+		tetRefiner = new refinement::IdentityRefiner<double>();
+		break;
+	case 1:
+		logInfo(rank) << "Refinement Startegy is \"Divide by 4\"";
+		tetRefiner = new refinement::DivideTetrahedronBy4<double>();
+		break;
+	case 2:
+		logInfo(rank) << "Refinement Startegy is \"Divide by 8\"";
+		tetRefiner = new refinement::DivideTetrahedronBy8<double>();
+		break;
+	case 3:
+		logInfo(rank) << "Refinement Startegy is \"Divide by 32\"";
+		tetRefiner = new refinement::DivideTetrahedronBy32<double>();
+		break;
+	default:
+		logError() << "Refinement Strategy is invalid!" << std::endl
+			<< "Current value : " << refinement << std::endl
+			<< "Valid options are :" << std::endl << "0 - No Refinement"
+			<< std::endl << "1 - Refinement by 4" << std::endl
+			<< "2 - Refinement by 8" << std::endl
+			<< "3 - Refinement by 32";
+	}
+  return tetRefiner;
+}
+
+unsigned* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::MeshRefiner<double>* meshRefiner) {
+  unsigned* const_cells;
+// Cells are a bit complicated because the vertex filter will now longer work if we just use the buffer
+// We will add the offset later
+#ifdef USE_MPI
+	// Add the offset to the cells
+	MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
+	unsigned int offset = meshRefiner->getNumVertices();
+	MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
+	offset -= meshRefiner->getNumVertices();
+
+	// Add the offset to all cells
+	unsigned int* cells = new unsigned int[meshRefiner->getNumCells() * 4];
+	for (unsigned int i = 0; i < meshRefiner->getNumCells() * 4; i++) {
+		cells[i] = meshRefiner->getCellData()[i] + offset;
+  }
+	const_cells = cells;
+#else // USE_MPI
+	const_cells = meshRefiner->getCellData();
+#endif // USE_MPI
+  return const_cells;
+}
+
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		int order, int numAlignedDOF,
 		const MeshReader &meshReader,
@@ -96,32 +150,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	param.bufferIds[OUTPUT_FLAGS] = addSyncBuffer(m_outputFlags, numVars*sizeof(bool), true);
 
 	// Setup the tetrahedron refinement strategy
-	refinement::TetrahedronRefiner<double>* tetRefiner = 0L;
-	switch (refinement) {
-	case 0:
-		logInfo(rank) << "Refinement is turned off.";
-		tetRefiner = new refinement::IdentityRefiner<double>();
-		break;
-	case 1:
-		logInfo(rank) << "Refinement Startegy is \"Divide by 4\"";
-		tetRefiner = new refinement::DivideTetrahedronBy4<double>();
-		break;
-	case 2:
-		logInfo(rank) << "Refinement Startegy is \"Divide by 8\"";
-		tetRefiner = new refinement::DivideTetrahedronBy8<double>();
-		break;
-	case 3:
-		logInfo(rank) << "Refinement Startegy is \"Divide by 32\"";
-		tetRefiner = new refinement::DivideTetrahedronBy32<double>();
-		break;
-	default:
-		logError() << "Refinement Strategy is invalid!" << std::endl
-			<< "Current value : " << refinement << std::endl
-			<< "Valid options are :" << std::endl << "0 - No Refinement"
-			<< std::endl << "1 - Refinement by 4" << std::endl
-			<< "2 - Refinement by 8" << std::endl
-			<< "3 - Refinement by 32";
-	}
+	refinement::TetrahedronRefiner<double>* tetRefiner = createRefiner(refinement);
 
 	unsigned int numElems = meshReader.getElements().size();
 	unsigned int numVerts = meshReader.getVertices().size();
@@ -214,24 +243,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	// Delete the tetRefiner since it is no longer required
 	delete tetRefiner;
 
-	// Cells are a bit complicated because the vertex filter will now longer work if we just use the buffer
-	// We will add the offset later
-	const unsigned int* const_cells;
-#ifdef USE_MPI
-	// Add the offset to the cells
-	MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
-	unsigned int offset = meshRefiner->getNumVertices();
-	MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-	offset -= meshRefiner->getNumVertices();
-
-	// Add the offset to all cells
-	unsigned int* cells = new unsigned int[meshRefiner->getNumCells() * 4];
-	for (unsigned int i = 0; i < meshRefiner->getNumCells() * 4; i++)
-		cells[i] = meshRefiner->getCellData()[i] + offset;
-	const_cells = cells;
-#else // USE_MPI
-	const_cells = meshRefiner->getCellData();
-#endif // USE_MPI
+	const unsigned int* const_cells = adjustOffsets(meshRefiner);
 
 	// Create mesh buffers
 	param.bufferIds[CELLS] = addSyncBuffer(const_cells, meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
@@ -265,9 +277,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	//  Low order I/O
 	//
 	refinement::MeshRefiner<double>* pLowMeshRefiner = 0L;
-#ifdef USE_MPI
-	unsigned int* lowCells = 0L;
-#endif // USE_MPI
 	const unsigned int* const_lowCells;
 	if (pstrain || integrals) {
 		logInfo(rank) << "Initialize low order output";
@@ -283,21 +292,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 			pLowMeshRefiner = new refinement::MeshRefiner<double>(meshReader, lowTetRefiner);
 		}
 
-#ifdef USE_MPI
-		// Same offset issue for the normal mesh
-		MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
-		unsigned int offset = pLowMeshRefiner->getNumVertices();
-		MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-		offset -= pLowMeshRefiner->getNumVertices();
-
-		// Add the offset to all cells
-		lowCells = new unsigned int[pLowMeshRefiner->getNumCells() * 4];
-		for (unsigned int i = 0; i < pLowMeshRefiner->getNumCells() * 4; i++)
-			lowCells[i] = pLowMeshRefiner->getCellData()[i] + offset;
-		const_lowCells = lowCells;
-#else // USE_MPI
-		const_lowCells = pLowMeshRefiner->getCellData();
-#endif // USE_MPI
+    const_lowCells = adjustOffsets(pLowMeshRefiner);
 
 		// Create mesh buffers
 		param.bufferIds[LOWCELLS] = addSyncBuffer(const_lowCells,
@@ -358,8 +353,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		delete pLowMeshRefiner;
 
 #ifdef USE_MPI
-	delete [] cells;
-	delete [] lowCells;
+	delete [] const_cells;
+	delete [] const_lowCells;
 #endif // USE_MPI
 
 	// Save dof/map pointer

@@ -60,6 +60,10 @@
 
 namespace seissol
 {
+namespace refinement {
+  template<typename T>
+  class MeshRefiner;
+}
 
 namespace writer
 {
@@ -139,6 +143,10 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 			return false;
 		}
 	}
+  
+  refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
+  
+  unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
 
 public:
 	WaveFieldWriter()
