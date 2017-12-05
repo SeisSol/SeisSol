@@ -286,17 +286,17 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 #ifdef USE_MPI
 		// Same offset issue for the normal mesh
 		MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
-		unsigned int offset = meshRefiner->getNumVertices();
+		unsigned int offset = pLowMeshRefiner->getNumVertices();
 		MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-		offset -= meshRefiner->getNumVertices();
+		offset -= pLowMeshRefiner->getNumVertices();
 
 		// Add the offset to all cells
-		lowCells = new unsigned int[meshRefiner->getNumCells() * 4];
-		for (unsigned int i = 0; i < meshRefiner->getNumCells() * 4; i++)
-			cells[i] = meshRefiner->getCellData()[i] + offset;
-		const_lowCells = cells;
+		lowCells = new unsigned int[pLowMeshRefiner->getNumCells() * 4];
+		for (unsigned int i = 0; i < pLowMeshRefiner->getNumCells() * 4; i++)
+			lowCells[i] = pLowMeshRefiner->getCellData()[i] + offset;
+		const_lowCells = lowCells;
 #else // USE_MPI
-		const_lowCells = meshRefiner->getCellData();
+		const_lowCells = pLowMeshRefiner->getCellData();
 #endif // USE_MPI
 
 		// Create mesh buffers
