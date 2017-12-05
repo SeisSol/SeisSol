@@ -149,7 +149,7 @@ CONTAINS
 #ifdef OMP
   !$omp critical
 #endif
-            if (IO%UnstructRecpoint(i)%inside == .false. .OR. IO%UnstructRecPoint(i)%index > iElem) then
+            if (IO%UnstructRecpoint(i)%inside .eqv. .false. .OR. IO%UnstructRecPoint(i)%index > iElem) then
               IO%UnstructRecpoint(i)%inside=.true.  ! Point is localized in an element
               IO%UnstructRecPoint(i)%index = iElem  ! Element number
               SELECT CASE(MESH%LocalElemType(iElem))
