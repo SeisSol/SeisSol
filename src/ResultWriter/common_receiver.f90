@@ -149,23 +149,25 @@ CONTAINS
 #ifdef OMP
   !$omp critical
 #endif
-            IO%UnstructRecpoint(i)%inside=.true.  ! Point is localized in an element
-            IO%UnstructRecPoint(i)%index = iElem  ! Element number
-            SELECT CASE(MESH%LocalElemType(iElem))
-            CASE(4)
-              xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-              yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-              zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-            CASE(6)
-              xV(:) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(:,iElem))
-              yV(:) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(:,iElem))
-              zV(:) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(:,iElem))
-            END SELECT
-            CALL TrafoXYZ2XiEtaZeta(xi,eta,zeta,io_x,io_y,io_z,xV,yV,zV,MESH%LocalVrtxType(iElem))
-            IO%UnstructRecpoint(i)%xi   = xi
-            IO%UnstructRecpoint(i)%eta  = eta
-            IO%UnstructRecpoint(i)%zeta = zeta
-            IO%nlocalRecordPoint = IO%nlocalRecordPoint + 1
+            if (IO%UnstructRecpoint(i)%inside == .false. .OR. IO%UnstructRecPoint(i)%index > iElem) then
+              IO%UnstructRecpoint(i)%inside=.true.  ! Point is localized in an element
+              IO%UnstructRecPoint(i)%index = iElem  ! Element number
+              SELECT CASE(MESH%LocalElemType(iElem))
+              CASE(4)
+                xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+                yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+                zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+              CASE(6)
+                xV(:) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(:,iElem))
+                yV(:) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(:,iElem))
+                zV(:) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(:,iElem))
+              END SELECT
+              CALL TrafoXYZ2XiEtaZeta(xi,eta,zeta,io_x,io_y,io_z,xV,yV,zV,MESH%LocalVrtxType(iElem))
+              IO%UnstructRecpoint(i)%xi   = xi
+              IO%UnstructRecpoint(i)%eta  = eta
+              IO%UnstructRecpoint(i)%zeta = zeta
+              IO%nlocalRecordPoint = IO%nlocalRecordPoint + 1
+            end if
 #ifdef OMP
   !$omp end critical
 #else
