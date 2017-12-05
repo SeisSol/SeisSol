@@ -277,7 +277,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 	//  Low order I/O
 	//
 	refinement::MeshRefiner<double>* pLowMeshRefiner = 0L;
-	const unsigned int* const_lowCells;
+	const unsigned int* const_lowCells = 0L;
 	if (pstrain || integrals) {
 		logInfo(rank) << "Initialize low order output";
 
