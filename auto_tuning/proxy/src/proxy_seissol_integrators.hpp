@@ -34,7 +34,7 @@ void computeAderIntegration() {
 #endif
   for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
     m_timeKernel.computeAder(              m_timeStepWidthSimulation,
-                                           m_globalData,
+                                           &m_globalData,
                                            &m_cellData->localIntegration[l_cell],
                                            m_cells->dofs[l_cell],
                                            m_cells->buffers[l_cell],
@@ -53,7 +53,7 @@ void computeLocalWithoutAderIntegration() {
 #endif
   for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
     m_localKernel.computeIntegral(  m_cellInformation[l_cell].faceTypes,
-                                    m_globalData,
+                                    &m_globalData,
                                     &m_cellData->localIntegration[l_cell],
                                     m_cells->buffers[l_cell],
                                     m_cells->dofs[l_cell] );
@@ -71,14 +71,14 @@ void computeLocalIntegration() {
 #endif
   for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
     m_timeKernel.computeAder(      (double)m_timeStepWidthSimulation,
-                                           m_globalData,
+                                           &m_globalData,
                                            &m_cellData->localIntegration[l_cell],
                                            m_cells->dofs[l_cell],
                                            m_cells->buffers[l_cell],
                                            m_cells->derivatives[l_cell] );
 
     m_localKernel.computeIntegral(        m_cellInformation[l_cell].faceTypes,
-                                          m_globalData,
+                                          &m_globalData,
                                            &m_cellData->localIntegration[l_cell],
                                            m_cells->buffers[l_cell],
                                            m_cells->dofs[l_cell] );
@@ -131,7 +131,7 @@ void computeNeighboringIntegration() {
     m_neighborKernel.computeNeighborsIntegral( m_cellInformation[l_cell].faceTypes,
                                                m_cellInformation[l_cell].faceRelations,
                                                m_cells->drMapping[l_cell],
-                                               m_globalData,
+                                               &m_globalData,
                                                &m_cellData->neighboringIntegration[l_cell],
                                                l_timeIntegrated,
 #ifdef ENABLE_MATRIX_PREFETCH
@@ -160,7 +160,7 @@ void computeDynRupGodunovState()
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
     m_dynRupKernel.computeGodunovState( faceInformation[face],
-                                        m_globalData,
+                                        &m_globalData,
                                        &godunovData[face],
                                         timeDerivativePlus[face],
                                         timeDerivativeMinus[face],

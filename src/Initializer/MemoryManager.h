@@ -146,9 +146,6 @@ class seissol::initializers::MemoryManager {
     /*
      * Cross-cluster
      */
-    //! thread local LTS integration buffer
-    real*                 m_integrationBufferLTS;
-
     //! global data
     struct GlobalData     m_globalData;
 
@@ -158,18 +155,6 @@ class seissol::initializers::MemoryManager {
     
     LTSTree               m_dynRupTree;
     DynamicRupture        m_dynRup;
-    
-    
-
-    /**
-     * Allocates memory for the global matrices and initializes it.
-     **/
-    void initializeGlobalData( struct GlobalData &o_globalData );
-
-    /**
-     * Allocate the thread local LTS integration buffer
-     **/
-    void allocateIntegrationBufferLTS();
 
     /**
      * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
@@ -220,12 +205,12 @@ class seissol::initializers::MemoryManager {
     /**
      * Constructor
      **/
-    MemoryManager();
+    MemoryManager() {}
 
     /**
-     * Destructor, which frees all allocated memory.
+     * Destructor, memory is freed by managed allocator
      **/
-    ~MemoryManager();
+    ~MemoryManager() {}
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.

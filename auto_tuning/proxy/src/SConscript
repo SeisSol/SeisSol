@@ -40,7 +40,8 @@
 
 Import('env')
 
-seissolSourceFiles = [  'Initializer/MemoryAllocator.cpp',
+seissolSourceFiles = [  'Initializer/GlobalData.cpp',
+                        'Initializer/MemoryAllocator.cpp',
                         'Kernels/TimeCommon.cpp',
                         'Kernels/DynamicRupture.cpp',
                         'Kernels/Plasticity.cpp' ]

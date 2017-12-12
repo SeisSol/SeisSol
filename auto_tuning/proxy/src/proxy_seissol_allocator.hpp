@@ -58,6 +58,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/GlobalData.h>
  
 struct ProxyCells {
   unsigned int numberOfCells;
@@ -78,8 +79,7 @@ struct CellData {
 seissol::initializers::LTSTree               m_dynRupTree;
 seissol::initializers::DynamicRupture        m_dynRup;
 
-GlobalData **m_globalDataArray;
-GlobalData *m_globalData; 
+GlobalData m_globalData; 
 CellLocalInformation *m_cellInformation;
 CellData *m_cellData;
 ProxyCells *m_cells;
@@ -109,12 +109,9 @@ real* m_ders;
 real** m_ptdofs;
 real** m_pder;
 real* m_faceNeighbors;
-real** m_globalPointerArray;
-real** m_drGlobalPointerArray;
-real* m_globalPointer;
 real* m_fakeDerivatives;
 
-void allocateEverything(unsigned i_cells, unsigned globalDataCopies)
+void allocateEverything(unsigned i_cells)
 {
   m_cellInformation = (CellLocalInformation*) m_allocator.allocateMemory(i_cells * sizeof(CellLocalInformation));
   m_dofs = (real*) m_allocator.allocateMemory(i_cells * NUMBER_OF_ALIGNED_DOFS * sizeof(real), PAGESIZE_HEAP, HBM_DOFS);
@@ -131,20 +128,6 @@ void allocateEverything(unsigned i_cells, unsigned globalDataCopies)
   m_neighboringIntegration = (NeighboringIntegrationData*) m_allocator.allocateMemory(i_cells * sizeof(NeighboringIntegrationData), PAGESIZE_HEAP, HBM_CELLLOCAL_NEIGH);
   
   m_cells->drMapping = (CellDRMapping(*)[4]) m_allocator.allocateMemory(i_cells * sizeof(CellDRMapping[4]));
-  
-  // global data
-  m_globalPointerArray = (real**) m_allocator.allocateMemory(globalDataCopies * sizeof(real*));
-  m_drGlobalPointerArray = (real**) m_allocator.allocateMemory(globalDataCopies * sizeof(real*));
-  m_globalDataArray = (GlobalData**) m_allocator.allocateMemory(globalDataCopies * sizeof(GlobalData*));
-  for (unsigned int global = 0; global < globalDataCopies; ++global) {
-    m_globalPointerArray[global] = (real*) m_allocator.allocateMemory(  seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real),
-                                                                        PAGESIZE_HEAP,
-                                                                        HBM_GLOBALDATA  );
-    m_drGlobalPointerArray[global] = (real*) m_allocator.allocateMemory(  seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real),
-                                                                          PAGESIZE_HEAP,
-                                                                          HBM_GLOBALDATA  );
-    m_globalDataArray[global] = (GlobalData*) m_allocator.allocateMemory(sizeof(GlobalData));
-  }
 }
 
 unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRupture)
@@ -165,7 +148,8 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
 #endif
   unsigned int l_numberOfCopies = 1;
 
-  allocateEverything(i_cells, l_numberOfCopies);
+  allocateEverything(i_cells);
+  seissol::initializers::initializeGlobalData(m_globalData, m_allocator, HBM_GLOBALDATA);
   
   if (enableDynamicRupture) {
     m_dynRup.addTo(m_dynRupTree);
@@ -331,57 +315,6 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   m_cellData->localIntegration = m_localIntegration;
   m_cellData->neighboringIntegration = m_neighboringIntegration;
 
-  // Global matrices
-  // @TODO: for NUMA we need to bind this
-  for (unsigned int l_globalDataCount = 0; l_globalDataCount < l_numberOfCopies; l_globalDataCount++) {
-    m_globalPointer = m_globalPointerArray[l_globalDataCount];
-    m_globalData =  m_globalDataArray[l_globalDataCount];
-   
-    for (unsigned int i = 0; i < seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices]; i++) {
-      m_globalPointer[i] = (real)drand48();
-    }
-
-    // stiffnes for time integration
-    for( unsigned int l_transposedStiffnessMatrix = 0; l_transposedStiffnessMatrix < 3; l_transposedStiffnessMatrix++ ) {
-      m_globalData->stiffnessMatricesTransposed[l_transposedStiffnessMatrix] = m_globalPointer + seissol::model::globalMatrixOffsets[l_transposedStiffnessMatrix];
-    }
-
-    // stiffnes for volume integration
-    for( unsigned int l_stiffnessMatrix = 0; l_stiffnessMatrix < 3; l_stiffnessMatrix++ ) {
-      m_globalData->stiffnessMatrices[l_stiffnessMatrix] = m_globalPointer + seissol::model::globalMatrixOffsets[3 + l_stiffnessMatrix];
-    }
-
-    // flux matrices for boundary integration
-    for (unsigned cob = 0; cob < 4; ++cob) {
-      m_globalData->changeOfBasisMatrices[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[6 + cob];
-    }
-    for (unsigned cob = 0; cob < 4; ++cob) {
-      m_globalData->neighbourChangeOfBasisMatricesTransposed[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[10 + cob];
-    }
-    for (unsigned cob = 0; cob < 4; ++cob) {
-      m_globalData->localChangeOfBasisMatricesTransposed[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[14 + cob];
-    }
-    for (unsigned flux = 0; flux < 3; ++flux) {
-      m_globalData->neighbourFluxMatrices[flux] = m_globalPointer + seissol::model::globalMatrixOffsets[18 + flux];
-    }
-    
-    m_globalPointer = m_drGlobalPointerArray[l_globalDataCount];   
-    for (unsigned int i = 0; i < seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices]; i++) {
-      m_globalPointer[i] = (real)drand48();
-    }
-    
-    for (unsigned face = 0; face < 4; ++face) {
-      for (unsigned h = 0; h < 4; ++h) {
-        m_globalData->nodalFluxMatrices[face][h] = m_globalPointer + seissol::model::dr_globalMatrixOffsets[4*face+h];
-        m_globalData->faceToNodalMatrices[face][h] = m_globalPointer + seissol::model::dr_globalMatrixOffsets[16 + 4*face+h];
-      }
-    }
-  }
-
-  // set default to first chunk
-  m_globalPointer = m_globalPointerArray[0];
-  m_globalData = m_globalDataArray[0];
-  
   if (enableDynamicRupture) {  
     seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
     real (*imposedStatePlus)[seissol::model::godunovState::reals] = interior.var(m_dynRup.imposedStatePlus);
@@ -403,7 +336,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
         drMapping.fluxKernel = 4*side + orientation;
         drMapping.godunov = imposedStatePlus[drFace];
         // @TODO: for NUMA we need to bind this
-        drMapping.fluxMatrix = m_globalData->nodalFluxMatrices[side][orientation];
+        drMapping.fluxMatrix = m_globalData.nodalFluxMatrices[side][orientation];
         drMapping.fluxSolver = fluxSolverPlus[drFace];
       }
     }
