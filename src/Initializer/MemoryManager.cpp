@@ -90,39 +90,10 @@ void seissol::initializers::MemoryManager::initialize()
   allocateIntegrationBufferLTS();
 
   // initialize global matrices
-#ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   initializeGlobalData( m_globalData );
-#else
-  // determine the number of threads
-  unsigned int l_numberOfThreads = omp_get_max_threads();
-  unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
-  unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
-  logInfo(seissol::MPI::mpi.rank()) << "Number of GlobalData copies: " << l_numberOfCopies;
-
-  m_globalDataCopies = new GlobalData[l_numberOfCopies];
-
-  // initialize in parallel to obtain best possible NUMA placement
-  #pragma omp parallel
-  {
-    if (omp_get_thread_num()%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) {
-      // @TODO check why initializeGlobalMatrices is not thread-safe
-      #pragma omp critical
-      {
-        initializeGlobalData( m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY] );
-      }
-    }
-  }
-
-  // set master structure
-  m_globalData = m_globalDataCopies[0];
-#endif
 }
 
 seissol::initializers::MemoryManager::~MemoryManager() {
-  // free members
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-  delete[] m_globalDataCopies;
-#endif
 }
 
 void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalData &o_globalData )
@@ -697,13 +668,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
 void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,
                                                             struct MeshStructure          *&o_meshStructure,
                                                             struct GlobalData             *&o_globalData
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                                            ,struct GlobalData             *&o_globalDataCopies
-#endif
                                                           ) {
   o_meshStructure           =  m_meshStructure + i_cluster;
   o_globalData              = &m_globalData;
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-  o_globalDataCopies        =  m_globalDataCopies;
-#endif
 }

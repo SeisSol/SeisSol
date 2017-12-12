@@ -101,9 +101,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   kernels::Neighbor             &i_neighborKernel,
                                                   struct MeshStructure          *i_meshStructure,
                                                   struct GlobalData             *i_globalData,
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                                  struct GlobalData             *i_globalDataCopies,
-#endif
                                                   seissol::initializers::TimeCluster* i_clusterData,
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
@@ -120,10 +117,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_meshStructure(           i_meshStructure            ),
  // global data
  m_globalData(              i_globalData               ),
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
- // global data copies
- m_globalDataCopies(        i_globalDataCopies         ),
-#endif
  m_clusterData(             i_clusterData              ),
  m_dynRupClusterData(       i_dynRupClusterData        ),
  m_lts(                     i_lts                      ),
@@ -138,9 +131,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
     // assert all pointers are valid
     assert( m_meshStructure                            != NULL );
     assert( m_globalData                               != NULL );
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-    assert( m_globalDataCopies                         != NULL );
-#endif
     assert( m_clusterData                              != NULL );
 
   // default: no updates are allowed
@@ -555,11 +545,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                     *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(m_globalData->integrationBufferLTS),
 #endif
                                                     l_timeIntegrated );
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-    GlobalData* l_globalData = &(m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY]);
-#else
-    GlobalData* l_globalData = m_globalData;
-#endif
 
 #ifdef ENABLE_MATRIX_PREFETCH
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
@@ -578,7 +563,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
     m_neighborKernel.computeNeighborsIntegral( cellInformation[l_cell].faceTypes,
                                                cellInformation[l_cell].faceRelations,
                                                drMapping[l_cell],
-                                               l_globalData,
+                                               m_globalData,
                                                &neighboringIntegration[l_cell],
                                                l_timeIntegrated,
 #ifdef ENABLE_MATRIX_PREFETCH
@@ -589,7 +574,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 #ifdef USE_PLASTICITY
   numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
                                                                                      m_timeStepWidth,
-                                                                                     l_globalData,
+                                                                                     m_globalData,
                                                                                      &plasticity[l_cell],
                                                                                      dofs[l_cell],
                                                                                      pstrain[l_cell] );

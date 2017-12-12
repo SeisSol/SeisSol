@@ -30,19 +30,11 @@ void computeAderIntegration() {
 #ifdef _OPENMP
   #pragma omp parallel 
   {
-#if NUMBER_OF_GLOBAL_DATA_COPIES>1
-  //GlobalData* l_globalData = m_globalDataArray[(omp_get_thread_num()/NUMBER_OF_COMPACT_THREADS_PER_GLOBAL_DATA_COPY)%NUMBER_OF_GLOBAL_DATA_COPIES];
-  GlobalData* l_globalData = m_globalDataArray[0];
-#else
-  GlobalData* l_globalData = m_globalData;
-#endif
   #pragma omp for schedule(static)
-#else
-  GlobalData* l_globalData = m_globalData;
 #endif
   for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
     m_timeKernel.computeAder(              m_timeStepWidthSimulation,
-                                           l_globalData,
+                                           m_globalData,
                                            &m_cellData->localIntegration[l_cell],
                                            m_cells->dofs[l_cell],
                                            m_cells->buffers[l_cell],
@@ -57,19 +49,11 @@ void computeLocalWithoutAderIntegration() {
 #ifdef _OPENMP
   #pragma omp parallel 
   {
-#if NUMBER_OF_GLOBAL_DATA_COPIES>1
-  //GlobalData* l_globalData = m_globalDataArray[(omp_get_thread_num()/NUMBER_OF_COMPACT_THREADS_PER_GLOBAL_DATA_COPY)%NUMBER_OF_GLOBAL_DATA_COPIES];
-  GlobalData* l_globalData = m_globalDataArray[0];
-#else
-  GlobalData* l_globalData = m_globalData;
-#endif
   #pragma omp for schedule(static)
-#else
-  GlobalData* l_globalData = m_globalData;
 #endif
   for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
     m_localKernel.computeIntegral(  m_cellInformation[l_cell].faceTypes,
-                                    l_globalData,
+                                    m_globalData,
                                     &m_cellData->localIntegration[l_cell],
                                     m_cells->buffers[l_cell],
                                     m_cells->dofs[l_cell] );
@@ -83,26 +67,18 @@ void computeLocalIntegration() {
 #ifdef _OPENMP
   #pragma omp parallel
   {
-#if NUMBER_OF_GLOBAL_DATA_COPIES>1
-  //GlobalData* l_globalData = m_globalDataArray[(omp_get_thread_num()/NUMBER_OF_COMPACT_THREADS_PER_GLOBAL_DATA_COPY)%NUMBER_OF_GLOBAL_DATA_COPIES];
-  GlobalData* l_globalData = m_globalDataArray[0];
-#else
-  GlobalData* l_globalData = m_globalData;
-#endif
   #pragma omp for schedule(static)
-#else
-  GlobalData* l_globalData = m_globalData;
 #endif
   for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
     m_timeKernel.computeAder(      (double)m_timeStepWidthSimulation,
-                                           l_globalData,
+                                           m_globalData,
                                            &m_cellData->localIntegration[l_cell],
                                            m_cells->dofs[l_cell],
                                            m_cells->buffers[l_cell],
                                            m_cells->derivatives[l_cell] );
 
     m_localKernel.computeIntegral(        m_cellInformation[l_cell].faceTypes,
-                                          l_globalData,
+                                          m_globalData,
                                            &m_cellData->localIntegration[l_cell],
                                            m_cells->buffers[l_cell],
                                            m_cells->dofs[l_cell] );
@@ -126,14 +102,7 @@ void computeNeighboringIntegration() {
   #pragma omp parallel private(l_integrationBuffer, l_timeIntegrated)
 #  endif
   {
-#if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY < 512
-  GlobalData* l_globalData = m_globalDataArray[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY];
-#else
-  GlobalData* l_globalData = m_globalData;
-#endif
   #pragma omp for schedule(static)
-#else
-  GlobalData* l_globalData = m_globalData;
 #endif
   for( int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
     seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
@@ -162,7 +131,7 @@ void computeNeighboringIntegration() {
     m_neighborKernel.computeNeighborsIntegral( m_cellInformation[l_cell].faceTypes,
                                                m_cellInformation[l_cell].faceRelations,
                                                m_cells->drMapping[l_cell],
-                                               l_globalData,
+                                               m_globalData,
                                                &m_cellData->neighboringIntegration[l_cell],
                                                l_timeIntegrated,
 #ifdef ENABLE_MATRIX_PREFETCH

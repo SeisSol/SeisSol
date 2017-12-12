@@ -68,6 +68,13 @@ struct ProxyCells {
   CellDRMapping (*drMapping)[4];
 };
 
+struct CellData {
+  struct LocalIntegrationData       *localIntegration;
+  struct NeighboringIntegrationData *neighboringIntegration;
+  CellMaterialData                  *material;
+  PlasticityData                    *plasticity;
+};
+
 seissol::initializers::LTSTree               m_dynRupTree;
 seissol::initializers::DynamicRupture        m_dynRup;
 
@@ -85,13 +92,6 @@ seissol::kernels::Neighbor  m_neighborKernel;
 seissol::kernels::DynamicRupture m_dynRupKernel;
 
 seissol::memory::ManagedAllocator m_allocator;
-
-
-/* This option is needed to avoid polution of low-level caches */
-#define NUMBER_OF_THREADS_PER_GLOBALDATA_COPY 4
-#ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY 
-#define NUMBER_OF_THREADS_PER_GLOBALDATA_COPY 16383
-#endif
 
 #define HBM_DOFS seissol::memory::HighBandwidth
 #define HBM_TDOFS seissol::memory::HighBandwidth
@@ -113,59 +113,6 @@ real** m_globalPointerArray;
 real** m_drGlobalPointerArray;
 real* m_globalPointer;
 real* m_fakeDerivatives;
-
-unsigned int readScenarioSize(std::string const& scenario)
-{
-  unsigned cells;
-  unsigned reads;
-  std::string file;
-  std::ifstream data;
-
-  file = scenario + ".size";
-  data.open(file.c_str());
-  if (!data) {
-    printf("size of scenario couldn't be read!\n");
-    exit(-1);
-  }
-  reads = 0;
-  while (data >> cells) {
-      printf("scenario name is: %s\n", scenario.c_str());
-      printf("scenario has %i cells\n", cells);
-      ++reads;
-  }
-  if (reads != 1) {
-    printf("wrong number of sizes (%i) in scenario were read!\n", reads);
-    exit(-1);
-  }
-  
-  return cells;
-}
-
-void readQuadruples(std::string const& fileName, unsigned cells, unsigned (*target)[4])
-{
-  std::ifstream data;
-  unsigned reads;
-  unsigned value;
-  
-  target = new unsigned[cells][4];
-  
-  data.open(fileName.c_str());
-  if (!data) {
-    printf("scenario file %s couldn't be read!\n", fileName.c_str());
-    exit(-1);
-  }
-    
-  reads = 0;
-  while (data >> value) {
-    target[reads/4][reads%4] = value;
-    reads++;
-  }
-  data.close();
-  if (reads != cells*4) {
-    printf("wrong (%i) in scenario file %s were read!\n", reads, fileName.c_str());
-    exit(-1);
-  }
-}
 
 void allocateEverything(unsigned i_cells, unsigned globalDataCopies)
 {
@@ -202,27 +149,6 @@ void allocateEverything(unsigned i_cells, unsigned globalDataCopies)
 
 unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRupture)
 {
-  char* pScenario;
-  std::string s_scenario;
-  bool bUseScenario = false;
-  unsigned int (*scenario_faceType)[4];
-  unsigned int (*scenario_neighbor)[4];
-  unsigned int (*scenario_side)[4];
-  unsigned int (*scenario_orientation)[4];
-
-  pScenario = getenv ("SEISSOL_PROXY_SCENARIO");
-  if (pScenario !=NULL ) {
-    bUseScenario = true;
-    s_scenario.assign(pScenario);
-    
-    i_cells = readScenarioSize(s_scenario);
-
-    readQuadruples(s_scenario + ".neigh", i_cells, scenario_neighbor);
-    readQuadruples(s_scenario + ".bound", i_cells, scenario_faceType);
-    readQuadruples(s_scenario + ".sides", i_cells, scenario_side);
-    readQuadruples(s_scenario + ".orient", i_cells, scenario_orientation);
-  }
-
   // init RNG
   srand48(i_cells);  
   
@@ -237,8 +163,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
     }
   }
 #endif
-  unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
-  unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
+  unsigned int l_numberOfCopies = 1;
 
   allocateEverything(i_cells, l_numberOfCopies);
   
@@ -269,37 +194,10 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   /* cell information */
   for (unsigned int l_cell = 0; l_cell < i_cells; l_cell++) {
     for (unsigned int f = 0; f < 4; f++) {
-      if (bUseScenario == true ) {
-        switch (scenario_faceType[l_cell][f]) {
-          case 0: 
-            m_cellInformation[l_cell].faceTypes[f] = regular;
-            break;
-          case 1:
-            m_cellInformation[l_cell].faceTypes[f] = freeSurface;
-            break;
-          case 3:
-            m_cellInformation[l_cell].faceTypes[f] = dynamicRupture;
-            break;
-          case 5:
-            m_cellInformation[l_cell].faceTypes[f] = outflow;
-            break;
-          case 6:
-            m_cellInformation[l_cell].faceTypes[f] = periodic;
-            break;
-          default:
-            printf("unsupported faceType (%i)!\n", scenario_faceType[l_cell][f]); 
-            exit(-1);
-            break;
-        }
-        m_cellInformation[l_cell].faceRelations[f][0] = scenario_side[l_cell][f];
-        m_cellInformation[l_cell].faceRelations[f][1] = scenario_orientation[l_cell][f];
-        m_cellInformation[l_cell].faceNeighborIds[f] =  scenario_neighbor[l_cell][f];
-      } else {
-        m_cellInformation[l_cell].faceTypes[f] = (enableDynamicRupture) ? dynamicRupture : regular;
-        m_cellInformation[l_cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
-        m_cellInformation[l_cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
-        m_cellInformation[l_cell].faceNeighborIds[f] = ((unsigned int)lrand48() % i_cells);
-      }
+      m_cellInformation[l_cell].faceTypes[f] = (enableDynamicRupture) ? dynamicRupture : regular;
+      m_cellInformation[l_cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
+      m_cellInformation[l_cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
+      m_cellInformation[l_cell].faceNeighborIds[f] = ((unsigned int)lrand48() % i_cells);
     }
 #ifdef __USE_DERS
     m_cellInformation[l_cell].ltsSetup = 4095;
@@ -524,14 +422,6 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
       faceInformation[face].minusSide = (unsigned int)lrand48() % 4;
       faceInformation[face].faceRelation = (unsigned int)lrand48() % 3;
     }
-  }
-  
-
-  if (bUseScenario == true ) {
-    delete[] scenario_faceType;
-    delete[] scenario_neighbor;
-    delete[] scenario_side;
-    delete[] scenario_orientation;
   }
   
   return i_cells;

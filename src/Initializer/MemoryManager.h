@@ -151,17 +151,7 @@ class seissol::initializers::MemoryManager {
 
     //! global data
     struct GlobalData     m_globalData;
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-#ifndef _OPENMP
-#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY requires OpenMP to be enabled
-#endif
-#if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY > 0
-    struct GlobalData     *m_globalDataCopies;
-#else
-#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY needs to be larger than 0 if defined
-#endif
-#endif
-    
+
     //! Memory organisation tree
     LTSTree               m_ltsTree;
     LTS                   m_lts;
@@ -278,9 +268,6 @@ class seissol::initializers::MemoryManager {
     void getMemoryLayout( unsigned int                    i_cluster,
                           struct MeshStructure          *&o_meshStructure,
                           struct GlobalData             *&o_globalData
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                          ,struct GlobalData             *&o_globalDataCopies
-#endif
                         );
                           
     inline LTSTree* getLtsTree() {

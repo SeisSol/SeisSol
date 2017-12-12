@@ -90,13 +90,6 @@
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
 
-// some check for correct functionality
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-#ifndef _OPENMP
-#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY requires OpenMP to be enabled
-#endif
-#endif
-
 namespace seissol {
   namespace time_stepping {
     class TimeCluster;
@@ -146,13 +139,6 @@ private:
      */
      //! global data structures
     struct GlobalData *m_globalData;
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-#if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY > 0
-    struct GlobalData *m_globalDataCopies;
-#else
-#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY needs to be larger than 0 if defined
-#endif
-#endif
 
     /*
      * element data and mpi queues
@@ -402,9 +388,6 @@ private:
                  kernels::Neighbor             &i_neighborKernel,
                  struct MeshStructure          *i_meshStructure,
                  struct GlobalData             *i_globalData,
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                 struct GlobalData             *i_globalDataCopies,
-#endif
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
