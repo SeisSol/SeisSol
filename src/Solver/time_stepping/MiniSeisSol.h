@@ -52,7 +52,8 @@ namespace seissol {
                       unsigned nValues );
 
   void fakeData(  initializers::LTS& lts,
-                  initializers::Layer& layer );
+                  initializers::Layer& layer,
+                  enum faceType faceTp = regular);
   
   double miniSeisSol(initializers::MemoryManager& memoryManager);
 }

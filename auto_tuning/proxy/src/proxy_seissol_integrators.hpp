@@ -27,18 +27,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 void computeAderIntegration() {
+  auto&                 layer           = m_ltsTree.child(0).child<Interior>();
+  unsigned              nrOfCells       = layer.getNumberOfCells();
+  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(m_lts.dofs);
+  real**                buffers                       = layer.var(m_lts.buffers);
+  real**                derivatives                   = layer.var(m_lts.derivatives);
+  LocalIntegrationData* localIntegration              = layer.var(m_lts.localIntegration);
+  
 #ifdef _OPENMP
   #pragma omp parallel 
   {
   #pragma omp for schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
+  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     m_timeKernel.computeAder(              m_timeStepWidthSimulation,
                                            &m_globalData,
-                                           &m_cellData->localIntegration[l_cell],
-                                           m_cells->dofs[l_cell],
-                                           m_cells->buffers[l_cell],
-                                           m_cells->derivatives[l_cell] );
+                                           &localIntegration[l_cell],
+                                           dofs[l_cell],
+                                           buffers[l_cell],
+                                           derivatives[l_cell] );
   }
 #ifdef _OPENMP
   }
@@ -46,17 +53,24 @@ void computeAderIntegration() {
 }
 
 void computeLocalWithoutAderIntegration() {
+  auto&                 layer           = m_ltsTree.child(0).child<Interior>();
+  unsigned              nrOfCells       = layer.getNumberOfCells();
+  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(m_lts.dofs);
+  real**                buffers                       = layer.var(m_lts.buffers);
+  LocalIntegrationData* localIntegration              = layer.var(m_lts.localIntegration);
+  CellLocalInformation* cellInformation               = layer.var(m_lts.cellInformation);
+
 #ifdef _OPENMP
   #pragma omp parallel 
   {
   #pragma omp for schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
-    m_localKernel.computeIntegral(  m_cellInformation[l_cell].faceTypes,
+  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+    m_localKernel.computeIntegral(  cellInformation[l_cell].faceTypes,
                                     &m_globalData,
-                                    &m_cellData->localIntegration[l_cell],
-                                    m_cells->buffers[l_cell],
-                                    m_cells->dofs[l_cell] );
+                                    &localIntegration[l_cell],
+                                    buffers[l_cell],
+                                    dofs[l_cell] );
   }
 #ifdef _OPENMP
   }
@@ -64,24 +78,32 @@ void computeLocalWithoutAderIntegration() {
 }
 
 void computeLocalIntegration() {
+  auto&                 layer           = m_ltsTree.child(0).child<Interior>();
+  unsigned              nrOfCells       = layer.getNumberOfCells();
+  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(m_lts.dofs);
+  real**                buffers                       = layer.var(m_lts.buffers);
+  real**                derivatives                   = layer.var(m_lts.derivatives);
+  LocalIntegrationData* localIntegration              = layer.var(m_lts.localIntegration);
+  CellLocalInformation* cellInformation               = layer.var(m_lts.cellInformation);
+
 #ifdef _OPENMP
   #pragma omp parallel
   {
   #pragma omp for schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
+  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     m_timeKernel.computeAder(      (double)m_timeStepWidthSimulation,
                                            &m_globalData,
-                                           &m_cellData->localIntegration[l_cell],
-                                           m_cells->dofs[l_cell],
-                                           m_cells->buffers[l_cell],
-                                           m_cells->derivatives[l_cell] );
+                                           &localIntegration[l_cell],
+                                           dofs[l_cell],
+                                           buffers[l_cell],
+                                           derivatives[l_cell] );
 
-    m_localKernel.computeIntegral(        m_cellInformation[l_cell].faceTypes,
+    m_localKernel.computeIntegral(        cellInformation[l_cell].faceTypes,
                                           &m_globalData,
-                                           &m_cellData->localIntegration[l_cell],
-                                           m_cells->buffers[l_cell],
-                                           m_cells->dofs[l_cell] );
+                                          &localIntegration[l_cell],
+                                           buffers[l_cell],
+                                           dofs[l_cell] );
   }
 #ifdef _OPENMP
   }
@@ -89,7 +111,14 @@ void computeLocalIntegration() {
 }
 
 void computeNeighboringIntegration() {
-  real  l_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(4096)));
+  auto&                     layer                           = m_ltsTree.child(0).child<Interior>();
+  unsigned                  nrOfCells                       = layer.getNumberOfCells();
+  real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(m_lts.dofs);
+  real*                     (*faceNeighbors)[4]             = layer.var(m_lts.faceNeighbors);
+  CellDRMapping             (*drMapping)[4]                 = layer.var(m_lts.drMapping);
+  NeighboringIntegrationData* neighboringIntegration        = layer.var(m_lts.neighboringIntegration);
+  CellLocalInformation*       cellInformation               = layer.var(m_lts.cellInformation);
+  
   real *l_timeIntegrated[4];
 #ifdef ENABLE_MATRIX_PREFETCH
   real *l_faceNeighbors_prefetch[4];
@@ -97,47 +126,51 @@ void computeNeighboringIntegration() {
 
 #ifdef _OPENMP
 #  ifdef ENABLE_MATRIX_PREFETCH
-  #pragma omp parallel private(l_integrationBuffer, l_timeIntegrated, l_faceNeighbors_prefetch)
+  #pragma omp parallel private(l_timeIntegrated, l_faceNeighbors_prefetch)
 #  else
-  #pragma omp parallel private(l_integrationBuffer, l_timeIntegrated)
+  #pragma omp parallel private(l_timeIntegrated)
 #  endif
   {
   #pragma omp for schedule(static)
 #endif
-  for( int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
-    seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
-                                              m_cellInformation[l_cell].ltsSetup,
-                                               m_cellInformation[l_cell].faceTypes,
-                                               0.0,
-                                       (double)m_timeStepWidthSimulation,
-                                               m_cells->faceNeighbors[l_cell],
-                                               l_integrationBuffer,
-                                               l_timeIntegrated );
+  for( int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
+    seissol::kernels::TimeCommon::computeIntegrals( m_timeKernel,
+                                                    cellInformation[l_cell].ltsSetup,
+                                                    cellInformation[l_cell].faceTypes,
+                                                    0.0,
+                                            (double)m_timeStepWidthSimulation,
+                                                    faceNeighbors[l_cell],
+#ifdef _OPENMP
+                                                    *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(&(m_globalData.integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
+#else
+                                                    *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(m_globalData.integrationBufferLTS),
+#endif
+                                                    l_timeIntegrated );
 
 #ifdef ENABLE_MATRIX_PREFETCH
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-    l_faceNeighbors_prefetch[0] = (m_cellInformation[l_cell].faceTypes[1] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][1] : m_cells->drMapping[l_cell][1].godunov;
-    l_faceNeighbors_prefetch[1] = (m_cellInformation[l_cell].faceTypes[2] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][2] : m_cells->drMapping[l_cell][2].godunov;
-    l_faceNeighbors_prefetch[2] = (m_cellInformation[l_cell].faceTypes[3] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][3] : m_cells->drMapping[l_cell][3].godunov;
+    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != dynamicRupture) ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
+    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != dynamicRupture) ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
+    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != dynamicRupture) ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
 
     // fourth face's prefetches
-    if (l_cell < (m_cells->numberOfCells-1) ) {
-      l_faceNeighbors_prefetch[3] = (m_cellInformation[l_cell+1].faceTypes[0] != dynamicRupture) ? m_cells->faceNeighbors[l_cell+1][0] : m_cells->drMapping[l_cell+1][0].godunov;
+    if (l_cell < (nrOfCells-1) ) {
+      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != dynamicRupture) ? faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
     } else {
-      l_faceNeighbors_prefetch[3] = m_cells->faceNeighbors[l_cell][3];
+      l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
     }
 #endif
 
-    m_neighborKernel.computeNeighborsIntegral( m_cellInformation[l_cell].faceTypes,
-                                               m_cellInformation[l_cell].faceRelations,
-                                               m_cells->drMapping[l_cell],
+    m_neighborKernel.computeNeighborsIntegral( cellInformation[l_cell].faceTypes,
+                                               cellInformation[l_cell].faceRelations,
+                                               drMapping[l_cell],
                                                &m_globalData,
-                                               &m_cellData->neighboringIntegration[l_cell],
+                                               &neighboringIntegration[l_cell],
                                                l_timeIntegrated,
 #ifdef ENABLE_MATRIX_PREFETCH
                                                l_faceNeighbors_prefetch,
 #endif
-                                               m_cells->dofs[l_cell]);
+                                               dofs[l_cell]);
   }
 
 #ifdef _OPENMP
