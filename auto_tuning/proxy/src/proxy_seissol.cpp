@@ -58,16 +58,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
 extern long long libxsmm_num_total_flops;
 
-#include <cstdlib>
-#include <cstring>
-#include <cstdio>
-#include <ctime>
-#include <cmath>
-#include <cassert>
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <immintrin.h>
 #include <sys/time.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -75,59 +65,13 @@ extern long long libxsmm_num_total_flops;
 
 #ifdef USE_MEMKIND
 #include <hbwmalloc.h>
-//#define USE_HBM_DOFS
-//#define USE_HBM_TDOFS
-//#define USE_HBM_DERS
-//#define USE_HBM_CELLLOCAL_LOCAL
-//#define USE_HBM_CELLLOCAL_NEIGH
-//#define USE_HBM_GLOBALDATA
 #endif
+
+#include <utils/args.h>
 
 #ifdef __MIC__
 #define __USE_RDTSC
 #endif
-
-double derive_cycles_from_time(double time) {
-  // first try to read proxy env variable with freq
-  char* p_freq;
-  double d_freq;
-  double cycles = 1.0;
-  p_freq = getenv ("SEISSOL_PROXY_FREQUENCY");
-  if (p_freq !=NULL ) {
-    d_freq = atof(p_freq);
-    printf("detected frequency (SEISSOL_PROXY_FREQUENCY): %f\n", d_freq);
-    cycles = time * d_freq * 1.0e6;
-  } else {
-    FILE* fp;
-    fp = popen("lscpu | grep MHz | awk '{print $3}'", "r");
-    if(fp > 0) {
-      char tmp_buffer[20];
-      fread(tmp_buffer, 20, 1, fp);
-      d_freq = atof(tmp_buffer);
-      printf("detected frequency (lscpu): %f\n", d_freq);
-      cycles = time * d_freq * 1.0e6;
-      pclose(fp);
-    } else {
-      cycles = 1.0;
-      printf("detected frequency (lscpu) FAILED!\n");
-    }
-  }
-  return cycles;
-}
-
-void print_hostname() {
-  FILE* fp = popen("hostname", "r");
-  if (fp > 0) {
-    char buffer[256];
-    fread(buffer, 255, 1, fp);
-    printf("Host: %s\n", buffer);
-  }
-}
-
-#include <generated_code/init.h>
-#include <generated_code/flops.h>
-#include <Initializer/typedefs.hpp>
-#include <Initializer/MemoryAllocator.h>
 
 #include <Kernels/TimeCommon.h>
 #include <Kernels/Time.h>
@@ -135,61 +79,97 @@ void print_hostname() {
 #include <Kernels/Neighbor.h>
 #include <Kernels/DynamicRupture.h>
 
-#include <omp.h>
-
 // seissol_kernel includes
+#include "proxy_seissol_tools.hpp"
 #include "proxy_seissol_allocator.hpp"
 #include "proxy_seissol_flops.hpp"
 #include "proxy_seissol_bytes.hpp"
 #include "proxy_seissol_integrators.hpp"
 
-inline double sec(struct timeval start, struct timeval end) {
-  return ((double)(((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)))) / 1.0e6;
-}
 
-void printUsage()
-{
-  printf("Wrong parameters!\n");
-  printf(" #cells #timesteps kernel\n");
-  printf("   kernel-values: all, local, neigh, ader, localwoader, neigh_dr, godunov_dr\n");
+enum Kernel { all = 0, local, neigh, ader, localwoader, neigh_dr, godunov_dr };
+char const* Kernels[] = {"all", "local", "neigh", "ader", "localwoader", "neigh_dr", "godunov_dr"};
+
+void testKernel(unsigned kernel, unsigned timesteps) {
+  unsigned t = 0;
+  switch (kernel) {
+    case all:
+      for (; t < timesteps; ++t) {
+        computeLocalIntegration();
+        computeNeighboringIntegration();
+      }
+      break;
+    case local:
+      for (; t < timesteps; ++t) {
+        computeLocalIntegration();
+      }
+      break;
+    case neigh:
+    case neigh_dr:
+      for (; t < timesteps; ++t) {
+        computeNeighboringIntegration();
+      }
+      break;
+    case ader:
+      for (; t < timesteps; ++t) {
+        computeAderIntegration();
+      }
+      break;
+    case localwoader:
+      for (; t < timesteps; ++t) {
+        computeLocalWithoutAderIntegration();
+      }
+      break;    
+    case godunov_dr:
+      for (; t < timesteps; ++t) {
+        computeLocalIntegration();
+        computeDynRupGodunovState();
+      }
+      break;
+    default:
+      break;
+  }
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 4) {
-    printUsage();
-    return -1;
+  std::stringstream kernelHelp;
+  kernelHelp << "Kernel: " << Kernels[0];
+  for (int k = 1; k < sizeof(Kernels)/sizeof(char*); ++k) {
+    kernelHelp << ", " << Kernels[k];
   }
 
-  unsigned int i_cells = atoi(argv[1]);
-  unsigned int i_timesteps = atoi(argv[2]);
-  std::string s_part;
-  s_part.assign(argv[3]);
-
-  // double-check if the selected kernel exists
-  if ( (s_part.compare("all") != 0) &&
-       (s_part.compare("local") != 0) &&
-       (s_part.compare("neigh") != 0) &&
-       (s_part.compare("neigh_dr") != 0) &&
-       (s_part.compare("ader") != 0) &&
-       (s_part.compare("localwoader") != 0) &&
-       (s_part.compare("godunov_dr") != 0) )
-  {
-    printUsage();
+  utils::Args args;
+  args.addAdditionalOption("cells", "Number of cells");
+  args.addAdditionalOption("timesteps", "Number of timesteps");
+  args.addAdditionalOption("kernel", kernelHelp.str());
+  
+  if (args.parse(argc, argv) != utils::Args::Success) {
+    return -1;
+  }
+  
+  unsigned cells = args.getAdditionalArgument<unsigned>("cells");
+  unsigned timesteps = args.getAdditionalArgument<unsigned>("timesteps");
+  std::string kernelStr = args.getAdditionalArgument<std::string>("kernel");
+  unsigned kernel = 0;
+  for (; kernel < sizeof(Kernels)/sizeof(char*); ++kernel) {
+    if (kernelStr.compare(Kernels[kernel]) == 0) {
+      break;
+    }
+  }
+  if (kernel >= sizeof(Kernels)/sizeof(char*)) {
+    std::cerr << "Unknown kernel " << kernelStr << std::endl;
     return -1;
   }
   
   bool enableDynamicRupture = false;
-  if (s_part.compare("neigh_dr") == 0 || s_part.compare("godunov_dr") == 0) {
+  if (kernel == neigh_dr || kernel == godunov_dr) {
     enableDynamicRupture = true;
   }
 
-  char* hostname = getenv("HOSTNAME");
-  if (hostname != NULL) {
-    printf("Running on %s.\n", hostname);
-  }
+  print_hostname();
 
   printf("Allocating fake data...\n");
-  i_cells = init_data_structures(i_cells, enableDynamicRupture);
+  cells = init_data_structures(cells, enableDynamicRupture);
   printf("...done\n\n");
 
   struct timeval start_time, end_time;
@@ -198,20 +178,7 @@ int main(int argc, char* argv[]) {
   double total_cycles = 0.0;
 
   // init OpenMP and LLC
-  if (s_part.compare("all") == 0) {
-    computeLocalIntegration();
-    computeNeighboringIntegration();
-  } else if (s_part.compare("local") == 0) {
-    computeLocalIntegration();
-  } else if (s_part.compare("neigh") == 0 || s_part.compare("neigh_dr") == 0) {
-    computeNeighboringIntegration();
-  } else if (s_part.compare("ader") == 0) {
-    computeAderIntegration();
-  } else if (s_part.compare("godunov_dr") == 0) {
-    computeDynRupGodunovState();
-  } else {
-    computeLocalWithoutAderIntegration();
-  }
+  testKernel(kernel, 1);
   
   libxsmm_num_total_flops = 0;
 
@@ -220,32 +187,8 @@ int main(int argc, char* argv[]) {
   cycles_start = __rdtsc();
 #endif
 
-  if (s_part.compare("all") == 0) {
-    for (unsigned int t = 0; t < i_timesteps; t++) {
-      computeLocalIntegration();
-      computeNeighboringIntegration();
-    }
-  } else if (s_part.compare("local") == 0) {
-    for (unsigned int t = 0; t < i_timesteps; t++) {
-      computeLocalIntegration();
-    }
-  } else if (s_part.compare("neigh") == 0 || s_part.compare("neigh_dr") == 0) {
-    for (unsigned int t = 0; t < i_timesteps; t++) {
-      computeNeighboringIntegration();
-    }
-  } else if (s_part.compare("ader") == 0) {
-    for (unsigned int t = 0; t < i_timesteps; t++) {
-      computeAderIntegration();
-    }
-  } else if (s_part.compare("godunov_dr") == 0) {
-    for (unsigned int t = 0; t < i_timesteps; t++) {
-      computeDynRupGodunovState();
-    }
-  } else {
-    for (unsigned int t = 0; t < i_timesteps; t++) {
-      computeLocalWithoutAderIntegration();
-    }
-  }
+  testKernel(kernel, timesteps);
+
 #ifdef __USE_RDTSC  
   cycles_end = __rdtsc();
 #endif
@@ -258,38 +201,45 @@ int main(int argc, char* argv[]) {
   total_cycles = derive_cycles_from_time(total);
 #endif
 
-  print_hostname();
+  seissol_flops (*flop_fun)(unsigned);
+  double (*bytes_fun)(unsigned);
+  switch (kernel) {
+    case all:
+      flop_fun = &flops_all_actual;
+      bytes_fun = &bytes_all;
+      break;
+    case local:
+      flop_fun = &flops_local_actual;
+      bytes_fun = &bytes_local;
+      break;
+    case neigh:
+    case neigh_dr:
+      flop_fun = &flops_neigh_actual;
+      bytes_fun = &bytes_neigh;
+      break;
+    case ader:
+      flop_fun = &flops_ader_actual;
+      bytes_fun = &noestimate;
+      break;
+    case localwoader:
+      flop_fun = &flops_localWithoutAder_actual;
+      bytes_fun = &noestimate;
+      break;
+    case godunov_dr:
+      flop_fun = &flops_drgod_actual;
+      bytes_fun = &noestimate;
+      break;
+  }
+  
+  seissol_flops actual_flops = (*flop_fun)(timesteps);
+  double bytes_estimate = (*bytes_fun)(timesteps);
+
   printf("=================================================\n");
   printf("===            PERFORMANCE SUMMARY            ===\n");
   printf("=================================================\n");
-  printf("seissol proxy mode                  : %s\n", s_part.c_str());
+  printf("seissol proxy mode                  : %s\n", kernelStr.c_str());
   printf("time for seissol proxy              : %f\n", total);
   printf("cycles                              : %f\n\n", total_cycles);
-
-  seissol_flops (*flop_fun)(unsigned);
-  double (*bytes_fun)(unsigned);
-  if (s_part.compare("all") == 0) {
-    flop_fun = &flops_all_actual;
-    bytes_fun = &bytes_all;
-  } else if (s_part.compare("local") == 0) {
-    flop_fun = &flops_local_actual;
-    bytes_fun = &bytes_local;
-  } else if (s_part.compare("neigh") == 0 || s_part.compare("neigh_dr") == 0) {
-    flop_fun = &flops_neigh_actual;
-    bytes_fun = &bytes_neigh;
-  } else if (s_part.compare("ader") == 0) {
-    flop_fun = &flops_ader_actual;
-    bytes_fun = &noestimate;
-  } else if (s_part.compare("godunov_dr") == 0) {
-    flop_fun = &flops_drgod_actual;
-    bytes_fun = &noestimate;
-  } else {
-    flop_fun = &flops_localWithoutAder_actual;
-    bytes_fun = &noestimate;
-  }
-  
-  seissol_flops actual_flops = (*flop_fun)(i_timesteps);
-  double bytes_estimate = (*bytes_fun)(i_timesteps);
   printf("GFLOP (libxsmm)                     : %f\n", libxsmm_num_total_flops      * 1.e-9);
   printf("GFLOP (non-zero) for seissol proxy  : %f\n", actual_flops.d_nonZeroFlops  * 1.e-9);
   printf("GFLOP (hardware) for seissol proxy  : %f\n", actual_flops.d_hardwareFlops * 1.e-9);
