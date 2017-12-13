@@ -88,7 +88,8 @@ void print_hostname() {
   FILE* fp = popen("hostname", "r");
   if (fp > 0) {
     char buffer[256];
-    fread(buffer, 255, 1, fp);
+    fgets(buffer, 256, fp);
+    strtok(buffer, "\n");
     printf("Running on %s.\n", buffer);
   }
 }
