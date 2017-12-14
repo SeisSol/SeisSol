@@ -122,7 +122,6 @@ void testKernel(unsigned kernel, unsigned timesteps) {
       break;    
     case godunov_dr:
       for (; t < timesteps; ++t) {
-        computeLocalIntegration();
         computeDynRupGodunovState();
       }
       break;
