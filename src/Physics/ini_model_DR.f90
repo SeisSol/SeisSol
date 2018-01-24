@@ -1195,20 +1195,19 @@ MODULE ini_model_DR_mod
                     CASE(13) ! S.Wollherr 2014 TPV12/13
                       ! depth dependent smooth initial stresses; fault normal reference point at +y
                       !
-                      ! shear stress=0.549847*normal stress and normal stress=7390.01Pa*down-dip distance
-                      ! fault stresses rotated by 30 degree clockwise, shear stress positive
                      IF (zGP.GE. -11951.15D0) THEN !down dip distance less than 13 800m
-                         EQN%IniBulk_yy(i,iBndGP)  = -2023.521673446745D0 * abs(average)/0.866025404D0
-                         EQN%IniBulk_zz(i,iBndGP)  = -5366.488326553255D0 * abs(average)/0.866025404D0
-                         EQN%IniShearYZ(i,iBndGP)  = 5231.655611345521D0 * abs(average)/0.866025404D0
+                         EQN%IniBulk_xx(i,iBndGP)  = -11242.17D0 * abs(zGP) !xx, sigma_2 = 0.5*(sigma_3 + sigma_1)
+                         EQN%IniBulk_yy(i,iBndGP)  = -5824.34D0 * abs(zGP) !yy, sigma_3 = 0.3496*sigma_1
+                         EQN%IniBulk_zz(i,iBndGP)  = -16660.0D0 * abs(zGP) !zz,sigma_1 from the benchmark description minus the fluid pressure of 9800
+                         EQN%IniShearYZ(i,iBndGP)  = 0.0D0 
 
 
-                      ! shear stress=0 and normal stress=14427.98Pa*down-dip distance
-                      ! fault stresses rotated by 30 degree clockwise, shear stress positive
+                     !sigma_1=sigma_2=sigma_3
                      ELSE
-                          EQN%IniBulk_yy(i,iBndGP)  =   -10820.985D0* abs(average)/0.866025404D0
-                          EQN%IniBulk_zz(i,iBndGP)  =   -3606.995D0* abs(average)/0.866025404D0
-                          EQN%IniShearYZ(i,iBndGP)  =   6247.49860264690D0* abs(average)/0.866025404D0
+                          EQN%IniBulk_xx(i,iBndGP)  =   -16660.0D0 * abs(zGP)
+                          EQN%IniBulk_yy(i,iBndGP)  =   -16660.0D0 * abs(zGP) 
+                          EQN%IniBulk_zz(i,iBndGP)  =   -16660.0D0 * abs(zGP) 
+                          EQN%IniShearYZ(i,iBndGP)  =   0.0D0
                      ENDIF
                 ENDSELECT
 
@@ -1240,20 +1239,19 @@ MODULE ini_model_DR_mod
 
               CASE(13) !TPV12/13
                 ! depth dependent smooth initial stresses; fault normal reference point at +y
-                ! shear stress=0.549847*normal stress and normal stress=7390.01Pa*down-dip distance
-                ! fault stresses rotated by 30 degree clockwise, shear stress positive
-                IF (zGP.GE. -11951.15D0) THEN !down dip distance less than 13 800m
-                     EQN%IniBulk_yy(i,iBndGP)  = -2023.521673446745D0 * abs(average)/0.866025404D0
-                     EQN%IniBulk_zz(i,iBndGP)  = -5366.488326553255D0 * abs(average)/0.866025404D0
-                     EQN%IniShearYZ(i,iBndGP)  = 5231.655611345521D0 * abs(average)/0.866025404D0
+                IF (average.GE. -11951.15D0) THEN !down dip distance less than 13 800m
+                         EQN%IniBulk_xx(i,:)  = -11242.17D0 * abs(average) !xx, sigma_2 = 0.5*(sigma_3 + sigma_1)
+                         EQN%IniBulk_yy(i,:)  = -5824.34D0 * abs(average) !yy, sigma_3 = 0.3496*sigma_1
+                         EQN%IniBulk_zz(i,:)  = -16660.0D0 * abs(average) !zz,sigma_1 from the benchmark description minus the fluid pressure of 9800
+                         EQN%IniShearYZ(i,:)  = 0.0
 
-                ! shear stress=0 and normal stress=14427.98Pa*down-dip distance
-                ! fault stresses rotated by 30 degree clockwise, shear stress positive
+               !sigma_1=sigma_2=sigma_3
                ELSE
-                    EQN%IniBulk_yy(i,iBndGP)  =   -10820.985D0* abs(average)/0.866025404D0
-                    EQN%IniBulk_zz(i,iBndGP)  =   -3606.995D0* abs(average)/0.866025404D0
-                    EQN%IniShearYZ(i,iBndGP)  =   6247.49860264690D0* abs(average)/0.866025404D0
-              ENDIF
+                          EQN%IniBulk_xx(i,:)  =   -16660.0D0 * abs(average)
+                          EQN%IniBulk_yy(i,:)  =   -16660.0D0 * abs(average) 
+                          EQN%IniBulk_zz(i,:)  =   -16660.0D0 * abs(average) 
+                          EQN%IniShearYZ(i,:)  =   0.0D0 * abs(average) 
+               ENDIF 
           ENDSELECT
       ENDIF
 
