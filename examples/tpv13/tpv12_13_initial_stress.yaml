@@ -1,0 +1,28 @@
+!Switch
+[s_xy, s_yz, s_xz]: !ConstantMap
+  map:
+    s_xy: 0
+    s_yz: 0
+    s_xz: 0
+[s_xx, s_yy, s_zz]: !FunctionMap
+  map:
+    depth: return abs(z);
+    s_max_minus_Pf: return 9.8 * (2700.0 - 1000.0);
+  components:
+    # Upper region (includes fault)
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        depth:          [0, 11951.15]
+        s_max_minus_Pf: [-.inf, .inf]
+      components: !FunctionMap
+        map:
+          # Round to two significant digits as in benchmark description
+          s_xx: return -0.01 * round(100.0 * (0.5 * (1.0 + 0.3496) * s_max_minus_Pf)) * depth;
+          s_yy: return -0.01 * round(100.0 *               (0.3496 * s_max_minus_Pf)) * depth;
+          s_zz: return -s_max_minus_Pf * depth;
+    # Lower region (excludes fault)
+    - !FunctionMap
+      map:
+        s_xx: return -s_max_minus_Pf * depth;
+        s_yy: return -s_max_minus_Pf * depth;
+        s_zz: return -s_max_minus_Pf * depth;

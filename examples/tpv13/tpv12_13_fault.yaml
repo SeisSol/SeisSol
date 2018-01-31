@@ -1,0 +1,23 @@
+!Switch
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz]: !Include tpv12_13_initial_stress.yaml
+[mu_s, mu_d, d_c, cohesion]: !IdentityMap
+  components:
+    # Inside nucleation patch
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-1500, 1500]
+        y: [-.inf, .inf]
+        z: [-11691.34295108992, -9093.266739736605]
+      components: !ConstantMap
+        map:
+          mu_s:        0.54
+          mu_d:        0.10
+          d_c:         0.50
+          cohesion: -200000
+    # Outside nucleation patch
+    - !ConstantMap
+      map:
+        mu_s:        0.70
+        mu_d:        0.10
+        d_c:         0.50
+        cohesion: -200000
