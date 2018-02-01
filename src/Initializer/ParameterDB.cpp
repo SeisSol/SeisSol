@@ -150,13 +150,15 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   easi::Query query(m_numberOfPoints * fault.size(), 3);
   unsigned q = 0;
   for (Fault const& f : fault) {
-    int element, side;
+    int element, side, sideOrientation;
     if (f.element >= 0) {
       element = f.element;
       side = f.side;
+      sideOrientation = -1;
     } else {
       element = f.neighborElement;
       side = f.neighborSide;
+      sideOrientation = elements[f.neighborElement].sideOrientations[f.neighborSide];
     }
 
     double const* coords[4];
@@ -165,7 +167,7 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
     }
     for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
       double xiEtaZeta[3], xyz[3];
-      seissol::transformations::chiTau2XiEtaZeta(side, m_points[n], xiEtaZeta);
+      seissol::transformations::chiTau2XiEtaZeta(side, m_points[n], xiEtaZeta, sideOrientation);
       seissol::transformations::tetrahedronReferenceToGlobal(coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = xyz[dim];
