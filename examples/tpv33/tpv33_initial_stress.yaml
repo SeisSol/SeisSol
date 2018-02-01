@@ -1,0 +1,54 @@
+!Switch
+[mu_d, mu_s, d_c, cohesion]: !ConstantMap
+  map:
+    mu_d: 0.45
+    mu_s: 0.55
+    d_c: 0.18
+    cohesion: 0.0
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz]: !EvalModel
+  parameters: [Rt,radius]
+  model: !FunctionMap
+    map:
+      Rt: |
+        if (x<-9800.) {
+          Rx = (-x - 9800.0)/10000.;
+        } else { 
+          if (x>1100.0) {
+            Rx = (x - 1100.0)/10000.;
+          } else {
+          Rx = 0.;
+          }
+        }
+        if (z<-8000.) {
+          Rz = (-z - 8000.0)/10000.;
+        } else {
+          if (z>-2300.0) {
+            Rz = (z + 2300.0)/10000.;
+          } else {
+            Rz = 0.;
+          }
+        }
+        return min(1.0,sqrt(Rx*Rx+Rz*Rz));
+      radius: |
+        xHypo = -6000.0;
+        zHypo = -6000.0;
+        return sqrt( ((x-xHypo)*(x-xHypo))+((z-zHypo)*(z-zHypo)));
+  components: !FunctionMap
+    map:
+      s_xx:     return -60000000.0;
+      s_yy:     return -60000000.0;
+      s_zz:     return  0.0;
+      s_xy: |
+        pi = 4.0 * atan (1.0);
+        s_xy0 = 30000000.0*(1.0-Rt);
+        s_xy1 = 0.0;
+        if (radius<=550.0) {
+          s_xy1 = 3150000;
+        } else {
+          if (radius<=800.0) {
+            s_xy1 = 1575000.*(1.0+cos(pi*(radius-550.0)/250.0));
+          }
+        }
+        return s_xy0 + s_xy1;
+      s_yz:     return 0.0;
+      s_xz:     return 0.0;

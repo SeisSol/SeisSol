@@ -48,7 +48,7 @@ refinement = 2
 printtimeinterval = 1       ! Index of printed info at timesteps
 OutputMask = 1 1 1 0      ! output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable                            ! 5/ background values
 nOutpoints = 10
-PPFileName = 'Faultreceiverlist.dat'
+PPFileName = 'tpv13_faultreceivers.dat'
 /
 
 &SourceType
@@ -66,7 +66,7 @@ meshgenerator = 'PUML'       ! Name of meshgenerator (format)
 Material = 1                         ! Material order
 CFL = 0.5                            ! CFL number (<=1.0)
 FixTimeStep = 5                      ! Manualy chosen minimum time
-ClusteredLTS=2
+ClusteredLTS = 2                     ! This enables local time stepping
 /
 
 &Output
@@ -84,7 +84,7 @@ pickdt = 0.005                       ! Pickpoint Sampling
 pickDtType = 1                       ! Pickpoint Type
 FaultOutputFlag = 1                  ! DR output (add this line only if DR is active)
 nRecordPoints = 12                   ! number of Record points which are read from file
-RFileName = 'RecPoints.dat'          ! Record Points in extra file
+RFileName = 'tpv13_receivers.dat'          ! Record Points in extra file
 /
             
 &AbortCriteria

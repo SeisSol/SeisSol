@@ -1,0 +1,106 @@
+&equations
+MaterialType = 33
+/
+
+&IniCondition
+/
+
+&Boundaries
+BC_fs = 1
+BC_dr = 1                               ! Fault boundaries
+BC_of = 1                               ! Absorbing boundaries
+/
+
+&DynamicRupture
+FL = 2                      ! Friction law (0: none, 1:self-similar crack, 2:LSW, 3:RS (aging), 4:RS (slip))
+BackgroundType = 33         ! Type of background model
+
+Mu_S_ini = 0.55                     ! static friction coefficient
+Mu_D_ini = 0.45                     ! dynamic friction coefficient
+D_C_ini =  0.18                       ! D_c value
+
+XRef = 0.0                  ! Reference point
+YRef = -1.0e5 
+ZRef = 0 
+
+RF_output_on = 0            ! RF on      
+magnitude_output_on = 1                 
+OutputPointType = 5         ! Type (0: no output, 1: take GP's 2: 4 points per surface triangle, 3: output at certain pickpoints, 5: 3+4)
+/
+
+&Elementwise
+printIntervalCriterion = 2       ! 1=iteration, 2=time
+printtimeinterval_sec = 2.0      ! Time interval at which output will be written
+OutputMask = 1 1 1 1 1 1 1 1 1 1 1   ! OutputMask is described more in detail here https://github.com/SeisSol/SeisSol/wiki/Fault-output
+refinement_strategy = 2
+refinement = 1
+/
+
+&Pickpoint
+printtimeinterval = 1       ! Index of printed info at timesteps
+OutputMask = 1 1 1 0        ! output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable ! 5/ background values
+nOutpoints = 28
+PPFileName = 'tpv33_faultreceivers.dat'
+/
+
+&SourceType
+/
+
+&SpongeLayer
+/
+            
+&MeshNml
+!MeshFile = tpv33_gmsh         ! Name of mesh file
+!meshgenerator = PUML       ! Name of meshgenerator (format)
+MeshFile = tpv33_gmsh.32         ! Name of mesh file
+meshgenerator = Netcdf       ! Name of meshgenerator (format)
+/
+
+
+&Discretization
+CFL = 0.5                            ! CFL number (<=1.0)
+FixTimeStep = 5                      ! Manualy chosen minimum time
+ClusteredLTS = 2                     ! This enables local time stepping
+/
+
+
+&Output
+FaultOutputFlag = 1                  ! DR output (add this line only if DR is active)
+
+OutputFile = 'output/data'
+Format = 6                          ! Format (10= no output, 6=hdf5 output)
+!             |stress     |vel  |plastic strain output (if any)
+iOutputMask = 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1
+printIntervalCriterion = 2           ! Criterion for index of printed info: 1=timesteps,2=time,3=timesteps+time
+TimeInterval = 2.                    ! Index of printed info at time
+refinement = 1
+OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3
+
+nRecordPoints = 85                    ! number of Record points which are read from file
+RFileName = 'tpv33_receivers.dat'      ! Record Points in extra file
+pickdt = 0.005                       ! Pickpoint Sampling
+pickDtType = 1                       ! Pickpoint Type
+
+
+SurfaceOutput = 1
+SurfaceOutputRefinement = 1
+SurfaceOutputInterval = 2.0
+
+!checkPointFile = 'checkpoint/checkpoint'
+!checkPointBackend = 'mpio'           ! Checkpoint backend
+!checkPointInterval = 6
+/
+ 
+
+
+           
+&AbortCriteria
+EndTime = 12.0
+/
+
+&Analysis
+/
+
+&Debugging
+/
+
