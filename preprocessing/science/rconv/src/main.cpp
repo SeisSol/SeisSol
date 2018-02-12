@@ -52,7 +52,7 @@ int main(int argc, char** argv)
 	args.addOption("mcs", 'm', "Proj.4 string that describes the mesh coordinate system (e.g. \"+proj=utm +zone=10 +datum=WGS84 +units=m +no_defs\").", utils::Args::Required, false);
   args.addOption("output", 'o', "Output file (.nrf)", utils::Args::Required, false);
   args.addOption("normalize-onset", 'n', "Subtract the minimum onset time from all onsets.", utils::Args::No, false);
-	args.addOption("vcs", 'v', "Proj.4 string that describes the coordinate system for visualisation (defaults to geocentric, i.e. \"+proj=geocent +datum=WGS84 +units=m +no_def\").", utils::Args::Required, false);
+	args.addOption("vcs", 'v', "Proj.4 string that describes the coordinate system for visualisation (defaults to geocentric if mcs not given, i.e. \"+proj=geocent +datum=WGS84 +units=m +no_def\").", utils::Args::Required, false);
   args.addOption("xdmf", 'x', "Output for visualisation (.xmf)", utils::Args::Required, false);
   
   args.setCustomHelpMessage("\nWith rconv you may either convert a SRF file to a NRF file, which you can use as input in SeisSol.\n"
@@ -66,8 +66,14 @@ int main(int argc, char** argv)
     std::string mcs = args.getArgument<std::string>("mcs", "");
     std::string out = args.getArgument<std::string>("output", "");
     bool normalizeOnset = args.isSet("normalize-onset");
-    std::string vcs = args.getArgument<std::string>("vcs", "+proj=geocent +datum=WGS84 +units=m +no_defs");
+    std::string vcs = args.getArgument<std::string>("vcs", "");
     std::string xdmf = args.getArgument<std::string>("xdmf", "");
+    
+    if (mcs.empty() && vcs.empty()) {
+      vcs = "+proj=geocent +datum=WGS84 +units=m +no_defs";
+    } else if (vcs.empty()) {
+      vcs = mcs;
+    }
     
     std::cout << "Reading SRF..." << std::flush;
     std::vector<SRFPointSource> srf = parseSRF(in.c_str());
