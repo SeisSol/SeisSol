@@ -15,6 +15,7 @@ import numpy as np
 # parsing python arguments
 import argparse
 import os
+import pdb
 parser = argparse.ArgumentParser(description='create surface from a structured grid of nodes')
 parser.add_argument('input_file', help='x y z, one node coordinate by line')
 parser.add_argument('output_file', help='gocad output file')
@@ -39,7 +40,7 @@ if args.crop!='':
    if args.NX!='':
       print("uncompatible inputs")
       exit()
-   print "croping the surface"
+   print ("croping the surface")
    x0c = float(args.crop[0])
    x1c = float(args.crop[1])
    y0c = float(args.crop[2])
@@ -54,7 +55,7 @@ if args.crop!='':
 
 
 if args.NX=='':
-   print "NX not defined: trying to guess it..."
+   print ("NX not defined: trying to guess it...")
    rowdiff = dataxyz[1,:]-dataxyz[0,:]
    ix = -1
    ids = np.where(abs(rowdiff)<1e-16)[0]
@@ -66,10 +67,10 @@ if args.NX=='':
             NX = i
             assert (nvertex%NX==0), "nvertex%%NX!=0 nvertex/NX = %f" %(float(nvertex)/NX)
             NY = nvertex/NX
-            print "NX,NY = %d,%d" %(NX,NY)
+            print ("NX,NY = %d,%d") %(NX,NY)
             break
    elif len(ids)>1:
-      print "2 columns starts with constant values"
+      print ("2 columns starts with constant values")
       nx =[]
       #find other dimension
       for ix in range(0,3):
@@ -86,32 +87,32 @@ if args.NX=='':
       NX = min(nx)
 
       if NX==1e10:
-         print "unable to guess NX and NY"
+         print ("unable to guess NX and NY")
          exit()
 
       assert (nvertex%NX==0), "nvertex%%NX!=0 nvertex/NX = %f" %(float(nvertex)/NX)
-      NY = nvertex/NX
-      print "NX,NY = %d,%d" %(NX,NY)
+      NY = int(nvertex/NX)
+      print ("NX,NY = %d,%d") %(NX,NY)
    else:
-      print "unable to guess NX and NY"
+      print ("unable to guess NX and NY")
       exit()
 else:
-   print "using user defined NX"
+   print ("using user defined NX")
    NX=int(args.NX[0])
    assert (nvertex%NX==0), "nvertex%%NX!=0 nvertex/NX = %f" %(float(nvertex)/NX)
-   NY = nvertex/NX
+   NY = int(nvertex/NX)
 
 if args.hole!='':
-   print "a hole will be left in the surface"
+   print ("a hole will be left in the surface")
    x0hole = float(args.hole[0])
    x1hole = float(args.hole[1])
    y0hole = float(args.hole[2])
    y1hole = float(args.hole[3])
-   print "hole coordinates %f %f %f %f" %(x0hole,x1hole,y0hole,y1hole)
+   print ("hole coordinates %f %f %f %f") %(x0hole,x1hole,y0hole,y1hole)
 
 if args.subsample!='':
    onesample_every = int(args.subsample[0])
-   print "subsampling : 1/%d" %onesample_every
+   print ("subsampling : 1/%d") %onesample_every
 else:
    onesample_every = 1
 
@@ -137,7 +138,7 @@ for j in range(NY-1):
          triangles.append([i+j*NX,i+1+(j+1)*NX,i+(j+1)*NX])
 
 if args.proj!='':
-   print "Projecting the nodes coordinates"
+   print ("Projecting the nodes coordinates")
    import mpl_toolkits.basemap.pyproj as pyproj
    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
    if args.proj[0]!='geocent':
@@ -146,7 +147,7 @@ if args.proj!='':
    else:
       myproj = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
 else:
-   print "no projection carried out"
+   print ("no projection carried out")
 
 
 
