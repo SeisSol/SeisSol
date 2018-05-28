@@ -180,7 +180,7 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 					m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = faces[faceids[j]].shared()[0];
 				}
 			} else {
-				assert(neighbors[j] < cells.size());
+				assert(neighbors[j] >= 0 && static_cast<unsigned>(neighbors[j]) < cells.size());
 
 				m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = neighbors[j];
 
@@ -282,8 +282,8 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 			assert(cellIds[1] < 0);
 
 			int side = copySide[k][i];
-
-			m_elements[cellIds[0]].neighborSides[FACE_PUML2SEISSOL[side]] = FACE_PUML2SEISSOL[ghostSide[k][i]];
+			int gSide = ghostSide[k][i];
+			m_elements[cellIds[0]].neighborSides[FACE_PUML2SEISSOL[side]] = FACE_PUML2SEISSOL[gSide];
 
 			// Set side sideOrientation
 			unsigned long nvertices[4];
