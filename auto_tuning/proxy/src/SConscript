@@ -55,6 +55,7 @@ env.sourceFiles.extend([env.Object(source='seissol_src/' + src) for src in seiss
 env.sourceFiles.extend([env.Object('seissol_src/Equations/{0}/{1}'.format(env['equations'], src)) for src in seissolEquationSourceFiles])
 env.sourceFiles.extend([env.Object(src) for src in sourceFiles])
 
-env.flopsPerCellSourceFiles.append(env.Object('flops_per_cell.cpp'))
+if env['tools'] != 'none':
+  env.flopsPerCellSourceFiles.append(env.Object('flops_per_cell.cpp'))
 
 Export('env')

@@ -84,7 +84,10 @@ vars.AddVariables(
                 'choose between two plasticity methods, nodal one in general faster',
                 'nb',
                 allowed_values=('ip', 'nb')
-              )
+              ),
+  EnumVariable( 'tools', 'builds additional tests and tools',
+                'all',
+                allowed_values=('none', 'all') )
 )
 
 # set environment
@@ -186,17 +189,18 @@ Import('env')
 # build executable
 env.Program(env['execDir']+'/seissol_proxy', env.sourceFiles)
 
-# Anything done here should only affect tests
-env = env.Clone()
-env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])
-env['CXXTEST'] = '../../submodules/cxxtest'
-env.Tool('cxxtest')
-sourceFiles = []
-for sourceFile in env.sourceFiles:
-  sourceFiles.append(sourceFile[0])
-sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles)
+if env['tools'] != 'none':
+  # Anything done here should only affect tests
+  env = env.Clone()
+  env.Append(CPPDEFINES=['CXXTEST_HAVE_EH', 'CXXTEST_ABORT_TEST_ON_FAIL'])
+  env['CXXTEST'] = '../../submodules/cxxtest'
+  env.Tool('cxxtest')
+  sourceFiles = []
+  for sourceFile in env.sourceFiles:
+    sourceFiles.append(sourceFile[0])
+  sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles)
 
-env.Program(env['execDir']+'/flops_per_cell', sourceFiles + env.flopsPerCellSourceFiles)
+  env.Program(env['execDir']+'/flops_per_cell', sourceFiles + env.flopsPerCellSourceFiles)
 
-if env.generatedTestSourceFiles:
-  env.CxxTest(target=env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)
+  if env.generatedTestSourceFiles:
+    env.CxxTest(target=env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)

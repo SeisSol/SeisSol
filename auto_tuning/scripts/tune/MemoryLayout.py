@@ -82,11 +82,11 @@ def generateTuningLayoutFiles(memoryLayouts):
     for idx, layout in enumerate(layouts):
       writeConfig('{}{}{}.xml'.format(prefix, name, idx), memoryLayouts[0], { name: layout })
 
-def generateLayoutFile(configNames, memoryLayouts):
+def generateLayoutFile(fileName, configNames, memoryLayouts):
   selection = dict()
-  for name, idx in configNames:
+  for name, idx in configNames.iteritems():
     selection[name] = memoryLayouts[1][name][idx]
-  writeConfig('tuned_layout.xml', memoryLayouts[0], selection)
+  writeConfig(fileName, memoryLayouts[0], selection)
   
 def mergeBlock(block1, block2):
   return  ( min(block1[0], block2[0]),
