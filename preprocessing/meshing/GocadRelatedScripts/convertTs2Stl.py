@@ -129,6 +129,7 @@ with open(args.ts_file) as fid:
          ids_flat_triangles = np.where(norm>0)
          norm = norm[ids_flat_triangles]
          normal = normal[ids_flat_triangles]
+         triangles = triangles[ids_flat_triangles]
          ntriangles = np.shape(norm)[0]
 
          normal = normal/norm.reshape((ntriangles,1))
