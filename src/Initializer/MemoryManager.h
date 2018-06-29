@@ -146,40 +146,15 @@ class seissol::initializers::MemoryManager {
     /*
      * Cross-cluster
      */
-    //! thread local LTS integration buffer
-    real*                 m_integrationBufferLTS;
-
     //! global data
     struct GlobalData     m_globalData;
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-#ifndef _OPENMP
-#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY requires OpenMP to be enabled
-#endif
-#if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY > 0
-    struct GlobalData     *m_globalDataCopies;
-#else
-#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY needs to be larger than 0 if defined
-#endif
-#endif
-    
+
     //! Memory organisation tree
     LTSTree               m_ltsTree;
     LTS                   m_lts;
     
     LTSTree               m_dynRupTree;
     DynamicRupture        m_dynRup;
-    
-    
-
-    /**
-     * Allocates memory for the global matrices and initializes it.
-     **/
-    void initializeGlobalData( struct GlobalData &o_globalData );
-
-    /**
-     * Allocate the thread local LTS integration buffer
-     **/
-    void allocateIntegrationBufferLTS();
 
     /**
      * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
@@ -230,12 +205,12 @@ class seissol::initializers::MemoryManager {
     /**
      * Constructor
      **/
-    MemoryManager();
+    MemoryManager() {}
 
     /**
-     * Destructor, which frees all allocated memory.
+     * Destructor, memory is freed by managed allocator
      **/
-    ~MemoryManager();
+    ~MemoryManager() {}
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
@@ -278,9 +253,6 @@ class seissol::initializers::MemoryManager {
     void getMemoryLayout( unsigned int                    i_cluster,
                           struct MeshStructure          *&o_meshStructure,
                           struct GlobalData             *&o_globalData
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                          ,struct GlobalData             *&o_globalDataCopies
-#endif
                         );
                           
     inline LTSTree* getLtsTree() {

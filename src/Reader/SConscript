@@ -44,11 +44,11 @@ Import('env')
 readerFiles = [ 'read_backgroundstress.f90',
                 'readpar.f90',
                 'readparC.cpp',
-                'faultinput.f90',
-                'VelocityFieldReaderF.f90',
-                'VelocityFieldReaderC.cpp',
-                'StressReaderC.cpp',
-                'StressReaderF.f90' ]
+                'faultinput.f90']
+                #'VelocityFieldReaderF.f90',
+                #'VelocityFieldReaderC.cpp',
+                #'StressReaderC.cpp',
+                #'StressReaderF.f90' ]
 
 if env['asagi']:
 	readerFiles.extend(['AsagiModule.cpp'])

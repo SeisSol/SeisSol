@@ -43,7 +43,7 @@
 #ifndef STOPWATCH_H
 #define STOPWATCH_H
 
-#include <sys/time.h>
+#include <time.h>
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
 
@@ -55,20 +55,20 @@
 class Stopwatch
 {
 private:
-	struct timeval m_begin;
+	struct timespec m_start;
 
 	/** Time already spent */
 	long long m_time;
   
-  /** Returns the time difference in microseconds. */
-  long long difftime(struct timeval const& end)
+  /** Returns the time difference in nanoseconds. */
+  long long difftime(struct timespec const& end)
   {
-    return (end.tv_sec * 1000000 + end.tv_usec) - (m_begin.tv_sec * 1000000 + m_begin.tv_usec);
+    return 1000000000L * (end.tv_sec - m_start.tv_sec) + end.tv_nsec - m_start.tv_nsec;
   }
   
   double seconds(long long time) 
   {
-    return 1.0e-6 * time;
+    return 1.0e-9 * time;
   }
 
 public:
@@ -99,7 +99,7 @@ public:
 	 */
 	void start()
 	{
-		gettimeofday(&m_begin,(struct timezone *)0);
+		clock_gettime(CLOCK_MONOTONIC, &m_start);
 	}
 
 	/**
@@ -109,8 +109,8 @@ public:
 	 */
 	double split()
 	{
-		struct timeval end;
-		gettimeofday(&end, (struct timezone *) 0);
+		struct timespec end;
+		clock_gettime(CLOCK_MONOTONIC, &end);
     
     return seconds(difftime(end));
 	}
@@ -122,8 +122,8 @@ public:
 	 */
 	double pause()
 	{
-		struct timeval end;
-		gettimeofday(&end, (struct timezone *) 0);
+		struct timespec end;
+		clock_gettime(CLOCK_MONOTONIC, &end);
 
 		m_time += difftime(end);
 		return seconds(m_time);

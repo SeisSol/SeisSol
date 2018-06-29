@@ -376,17 +376,17 @@ CONTAINS
           iBndGP = DynRup_output%OutInt(iOutPoints,1)
 
           !Background stress rotation to face's reference system
-          Stress(1)=EQN%IniBulk_xx(iFace,iBndGP)
-          Stress(2)=EQN%IniBulk_yy(iFace,iBndGP)
-          Stress(3)=EQN%IniBulk_zz(iFace,iBndGP)
-          Stress(4)=EQN%IniShearXY(iFace,iBndGP)
-          Stress(5)=EQN%IniShearYZ(iFace,iBndGP)
-          Stress(6)=EQN%IniShearXZ(iFace,iBndGP)
+          Stress(1)=EQN%IniBulk_xx(iBndGP,iFace)
+          Stress(2)=EQN%IniBulk_yy(iBndGP,iFace)
+          Stress(3)=EQN%IniBulk_zz(iBndGP,iFace)
+          Stress(4)=EQN%IniShearXY(iBndGP,iFace)
+          Stress(5)=EQN%IniShearYZ(iBndGP,iFace)
+          Stress(6)=EQN%IniShearXZ(iBndGP,iFace)
           !
           Stress(:)=MATMUL(iT(1:6,1:6),Stress(:))
           !
           MuVal = DISC%DynRup%output_Mu(iBndGP,iFace)
-          LocSV = DISC%DynRup%output_StateVar(iFace, iBndGP) ! load state variable of RS for output
+          LocSV = DISC%DynRup%output_StateVar(iBndGP,iFace) ! load state variable of RS for output
           cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)
           S_XY  = Stress(4)
           S_XZ  = Stress(6)

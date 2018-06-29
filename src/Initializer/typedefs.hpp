@@ -376,25 +376,9 @@ struct CellMaterialData {
 struct PlasticityData {
   // initial loading (stress tensor)
   real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
-  // cell dependent plastic parameters
-  real plasticParameters[3];
   real cohesionTimesCosAngularFriction;
   real sinAngularFriction;
   real mufactor;
-};
-
-/**
- * Cell local data (material dependent).
- **/
-struct CellData {
-  // local integration data
-  struct LocalIntegrationData       *localIntegration;
-  // neighboring integration data
-  struct NeighboringIntegrationData *neighboringIntegration;
-  // local and neighbor material data
-  CellMaterialData                  *material;
-  // Plasticity
-  PlasticityData                    *plasticity;
 };
 
 /** A piecewise linear function.

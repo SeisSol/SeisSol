@@ -58,26 +58,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
- 
-struct ProxyCells {
-  unsigned int numberOfCells;
-  real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
-  real **buffers;
-  real **derivatives;
-  real *(*faceNeighbors)[4];
-  CellDRMapping (*drMapping)[4];
-};
+#include <Initializer/GlobalData.h>
+#include <Solver/time_stepping/MiniSeisSol.cpp>
 
+seissol::initializers::LTSTree               m_ltsTree;
+seissol::initializers::LTS                   m_lts;
 seissol::initializers::LTSTree               m_dynRupTree;
 seissol::initializers::DynamicRupture        m_dynRup;
 
-GlobalData **m_globalDataArray;
-GlobalData *m_globalData; 
-CellLocalInformation *m_cellInformation;
-CellData *m_cellData;
-ProxyCells *m_cells;
-LocalIntegrationData *m_localIntegration;
-NeighboringIntegrationData * m_neighboringIntegration;
+GlobalData m_globalData;
+
+real* m_fakeDerivatives = nullptr;
 
 seissol::kernels::Time      m_timeKernel;
 seissol::kernels::Local     m_localKernel;
@@ -86,161 +77,30 @@ seissol::kernels::DynamicRupture m_dynRupKernel;
 
 seissol::memory::ManagedAllocator m_allocator;
 
-
-/* This option is needed to avoid polution of low-level caches */
-#define NUMBER_OF_THREADS_PER_GLOBALDATA_COPY 4
-#ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY 
-#define NUMBER_OF_THREADS_PER_GLOBALDATA_COPY 16383
-#endif
-
-#define HBM_DOFS seissol::memory::HighBandwidth
-#define HBM_TDOFS seissol::memory::HighBandwidth
-#define HBM_DERS seissol::memory::HighBandwidth
-#define HBM_CELLLOCAL_LOCAL seissol::memory::HighBandwidth
-#define HBM_CELLLOCAL_NEIGH seissol::memory::HighBandwidth
-#define HBM_GLOBALDATA seissol::memory::HighBandwidth
-
 real m_timeStepWidthSimulation = (real)1.0;
-real* m_dofs;
-real* m_tdofs;
-#ifdef __USE_DERS
-real* m_ders;
-#endif
-real** m_ptdofs;
-real** m_pder;
-real* m_faceNeighbors;
-real** m_globalPointerArray;
-real** m_drGlobalPointerArray;
-real* m_globalPointer;
-real* m_fakeDerivatives;
-
-unsigned int readScenarioSize(std::string const& scenario)
-{
-  unsigned cells;
-  unsigned reads;
-  std::string file;
-  std::ifstream data;
-
-  file = scenario + ".size";
-  data.open(file.c_str());
-  if (!data) {
-    printf("size of scenario couldn't be read!\n");
-    exit(-1);
-  }
-  reads = 0;
-  while (data >> cells) {
-      printf("scenario name is: %s\n", scenario.c_str());
-      printf("scenario has %i cells\n", cells);
-      ++reads;
-  }
-  if (reads != 1) {
-    printf("wrong number of sizes (%i) in scenario were read!\n", reads);
-    exit(-1);
-  }
-  
-  return cells;
-}
-
-void readQuadruples(std::string const& fileName, unsigned cells, unsigned (*target)[4])
-{
-  std::ifstream data;
-  unsigned reads;
-  unsigned value;
-  
-  target = new unsigned[cells][4];
-  
-  data.open(fileName.c_str());
-  if (!data) {
-    printf("scenario file %s couldn't be read!\n", fileName.c_str());
-    exit(-1);
-  }
-    
-  reads = 0;
-  while (data >> value) {
-    target[reads/4][reads%4] = value;
-    reads++;
-  }
-  data.close();
-  if (reads != cells*4) {
-    printf("wrong (%i) in scenario file %s were read!\n", reads, fileName.c_str());
-    exit(-1);
-  }
-}
-
-void allocateEverything(unsigned i_cells, unsigned globalDataCopies)
-{
-  m_cellInformation = (CellLocalInformation*) m_allocator.allocateMemory(i_cells * sizeof(CellLocalInformation));
-  m_dofs = (real*) m_allocator.allocateMemory(i_cells * NUMBER_OF_ALIGNED_DOFS * sizeof(real), PAGESIZE_HEAP, HBM_DOFS);
-  m_tdofs = (real*) m_allocator.allocateMemory(i_cells * NUMBER_OF_ALIGNED_DOFS * sizeof(real), PAGESIZE_HEAP, HBM_TDOFS);
-#ifdef __USE_DERS
-  m_ders = (real*) m_allocator.allocateMemory(i_cells * NUMBER_OF_ALIGNED_DERS * sizeof(real), PAGESIZE_HEAP, HBM_DERS);
-#endif
-  m_ptdofs = (real**) m_allocator.allocateMemory(i_cells * sizeof(real*));
-  m_pder = (real**) m_allocator.allocateMemory(i_cells * sizeof(real*));
-  m_faceNeighbors = (real*) m_allocator.allocateMemory(i_cells * sizeof(real*[4]));
-  m_cells = (ProxyCells*) m_allocator.allocateMemory(sizeof(ProxyCells));
-  m_cellData = (CellData*) m_allocator.allocateMemory(sizeof(CellData));
-  m_localIntegration = (LocalIntegrationData*) m_allocator.allocateMemory(i_cells * sizeof(LocalIntegrationData), PAGESIZE_HEAP, HBM_CELLLOCAL_LOCAL);
-  m_neighboringIntegration = (NeighboringIntegrationData*) m_allocator.allocateMemory(i_cells * sizeof(NeighboringIntegrationData), PAGESIZE_HEAP, HBM_CELLLOCAL_NEIGH);
-  
-  m_cells->drMapping = (CellDRMapping(*)[4]) m_allocator.allocateMemory(i_cells * sizeof(CellDRMapping[4]));
-  
-  // global data
-  m_globalPointerArray = (real**) m_allocator.allocateMemory(globalDataCopies * sizeof(real*));
-  m_drGlobalPointerArray = (real**) m_allocator.allocateMemory(globalDataCopies * sizeof(real*));
-  m_globalDataArray = (GlobalData**) m_allocator.allocateMemory(globalDataCopies * sizeof(GlobalData*));
-  for (unsigned int global = 0; global < globalDataCopies; ++global) {
-    m_globalPointerArray[global] = (real*) m_allocator.allocateMemory(  seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real),
-                                                                        PAGESIZE_HEAP,
-                                                                        HBM_GLOBALDATA  );
-    m_drGlobalPointerArray[global] = (real*) m_allocator.allocateMemory(  seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real),
-                                                                          PAGESIZE_HEAP,
-                                                                          HBM_GLOBALDATA  );
-    m_globalDataArray[global] = (GlobalData*) m_allocator.allocateMemory(sizeof(GlobalData));
-  }
-}
 
 unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRupture)
 {
-  char* pScenario;
-  std::string s_scenario;
-  bool bUseScenario = false;
-  unsigned int (*scenario_faceType)[4];
-  unsigned int (*scenario_neighbor)[4];
-  unsigned int (*scenario_side)[4];
-  unsigned int (*scenario_orientation)[4];
-
-  pScenario = getenv ("SEISSOL_PROXY_SCENARIO");
-  if (pScenario !=NULL ) {
-    bUseScenario = true;
-    s_scenario.assign(pScenario);
-    
-    i_cells = readScenarioSize(s_scenario);
-
-    readQuadruples(s_scenario + ".neigh", i_cells, scenario_neighbor);
-    readQuadruples(s_scenario + ".bound", i_cells, scenario_faceType);
-    readQuadruples(s_scenario + ".sides", i_cells, scenario_side);
-    readQuadruples(s_scenario + ".orient", i_cells, scenario_orientation);
-  }
-
   // init RNG
-  srand48(i_cells);  
-  
-  // determine number of global data copies
-  unsigned int l_numberOfThreads = 1;
-#ifdef _OPENMP
-  #pragma omp parallel
-  {
-    #pragma omp master
-    {
-      l_numberOfThreads = omp_get_num_threads();
-    }
-  }
-#endif
-  unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
-  unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
+  srand48(i_cells);
 
-  allocateEverything(i_cells, l_numberOfCopies);
+  seissol::initializers::initializeGlobalData(m_globalData, m_allocator, MEMKIND_GLOBAL);
+  
+  m_lts.addTo(m_ltsTree);
+  m_ltsTree.setNumberOfTimeClusters(1);
+  m_ltsTree.fixate();
+  
+  seissol::initializers::TimeCluster& cluster = m_ltsTree.child(0);
+  cluster.child<Ghost>().setNumberOfCells(0);
+  cluster.child<Copy>().setNumberOfCells(0);
+  cluster.child<Interior>().setNumberOfCells(i_cells);
+  
+  seissol::initializers::Layer& layer = cluster.child<Interior>();
+  layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * NUMBER_OF_ALIGNED_DOFS * layer.getNumberOfCells());
+  
+  m_ltsTree.allocateVariables();
+  m_ltsTree.touchVariables();
+  m_ltsTree.allocateBuckets();
   
   if (enableDynamicRupture) {
     m_dynRup.addTo(m_dynRupTree);
@@ -255,7 +115,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
     m_dynRupTree.allocateVariables();
     m_dynRupTree.touchVariables();
     
-    m_fakeDerivatives = (real*) m_allocator.allocateMemory(i_cells * NUMBER_OF_ALIGNED_DERS * sizeof(real), PAGESIZE_HEAP, HBM_DERS);
+    m_fakeDerivatives = (real*) m_allocator.allocateMemory(i_cells * NUMBER_OF_ALIGNED_DERS * sizeof(real), PAGESIZE_HEAP, MEMKIND_TIMEDOFS);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
@@ -266,225 +126,14 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
     }
   }
 
-  /* cell information */
-  for (unsigned int l_cell = 0; l_cell < i_cells; l_cell++) {
-    for (unsigned int f = 0; f < 4; f++) {
-      if (bUseScenario == true ) {
-        switch (scenario_faceType[l_cell][f]) {
-          case 0: 
-            m_cellInformation[l_cell].faceTypes[f] = regular;
-            break;
-          case 1:
-            m_cellInformation[l_cell].faceTypes[f] = freeSurface;
-            break;
-          case 3:
-            m_cellInformation[l_cell].faceTypes[f] = dynamicRupture;
-            break;
-          case 5:
-            m_cellInformation[l_cell].faceTypes[f] = outflow;
-            break;
-          case 6:
-            m_cellInformation[l_cell].faceTypes[f] = periodic;
-            break;
-          default:
-            printf("unsupported faceType (%i)!\n", scenario_faceType[l_cell][f]); 
-            exit(-1);
-            break;
-        }
-        m_cellInformation[l_cell].faceRelations[f][0] = scenario_side[l_cell][f];
-        m_cellInformation[l_cell].faceRelations[f][1] = scenario_orientation[l_cell][f];
-        m_cellInformation[l_cell].faceNeighborIds[f] =  scenario_neighbor[l_cell][f];
-      } else {
-        m_cellInformation[l_cell].faceTypes[f] = (enableDynamicRupture) ? dynamicRupture : regular;
-        m_cellInformation[l_cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
-        m_cellInformation[l_cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
-        m_cellInformation[l_cell].faceNeighborIds[f] = ((unsigned int)lrand48() % i_cells);
-      }
-    }
-#ifdef __USE_DERS
-    m_cellInformation[l_cell].ltsSetup = 4095;
-#else
-    m_cellInformation[l_cell].ltsSetup = 0;
-#endif
-  }
+  /* cell information and integration data*/
+  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? dynamicRupture : regular);
 
-  /* init dofs */
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-  for (unsigned int l_cell = 0; l_cell < i_cells; l_cell++) {
-    for (unsigned int i = 0; i < NUMBER_OF_ALIGNED_DOFS; i++) {
-      m_dofs[(l_cell*NUMBER_OF_ALIGNED_DOFS)+i] = (real)drand48();
-    }
-    for (unsigned int i = 0; i < NUMBER_OF_ALIGNED_DOFS; i++) {
-      m_tdofs[(l_cell*NUMBER_OF_ALIGNED_DOFS)+i] = (real)drand48();
-    }
-  }
+  if (enableDynamicRupture) {
+    // From lts tree
+    CellDRMapping (*drMapping)[4] = m_ltsTree.var(m_lts.drMapping);
 
-  /* init ders */
-#ifdef __USE_DERS
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-  for (unsigned int l_cell = 0; l_cell < i_cells; l_cell++) {
-    for (unsigned int i = 0; i < NUMBER_OF_ALIGNED_DERS; i++) {
-      m_ders[(l_cell*NUMBER_OF_ALIGNED_DERS)+i] = (real)drand48();
-    }
-  }
-#endif
-
-  /* init dof pointers */
-  for (unsigned int l_cell = 0; l_cell < i_cells; l_cell++) {
-    m_ptdofs[l_cell] = &(m_tdofs[(l_cell*NUMBER_OF_ALIGNED_DOFS)]);
-#ifdef __USE_DERS
-    m_pder[l_cell] = &(m_ders[(l_cell*NUMBER_OF_ALIGNED_DERS)]);
-#else
-    m_pder[l_cell] = NULL; 
-#endif
-  }
-
-  /* init cell local information */
-  m_cells->numberOfCells = i_cells;
-  m_cells->dofs = (real(*)[NUMBER_OF_ALIGNED_DOFS])m_dofs;
-  m_cells->buffers = m_ptdofs;
-  m_cells->derivatives = m_pder;
-  m_cells->faceNeighbors = (real*(*)[4])m_faceNeighbors;
-
-  for (unsigned int l_cell = 0; l_cell < i_cells; l_cell++) {
-    for (unsigned int f = 0; f < 4; f++) {
-      if (m_cellInformation[l_cell].faceTypes[f] == outflow) {
-        m_cells->faceNeighbors[l_cell][f] = NULL;
-      } else if (m_cellInformation[l_cell].faceTypes[f] == freeSurface) {
-#ifdef __USE_DERS
-        m_cells->faceNeighbors[l_cell][f] = m_cells->derivatives[l_cell];
-#else
-        m_cells->faceNeighbors[l_cell][f] = m_cells->buffers[l_cell];
-#endif
-      } else if (m_cellInformation[l_cell].faceTypes[f] == periodic || m_cellInformation[l_cell].faceTypes[f] == regular) {
-#ifdef __USE_DERS
-        m_cells->faceNeighbors[l_cell][f] = m_cells->derivatives[m_cellInformation[l_cell].faceNeighborIds[f]];
-#else
-        m_cells->faceNeighbors[l_cell][f] = m_cells->buffers[m_cellInformation[l_cell].faceNeighborIds[f]];
-#endif
-      } else if (m_cellInformation[l_cell].faceTypes[f] == dynamicRupture) {
-        m_cells->faceNeighbors[l_cell][f] = NULL;
-      } else {
-        printf("unsupported boundary type -> exit\n");
-        exit(-1);
-      }
-    }
-  }
-
-  /* init local integration data */
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-  for (unsigned int l_cell = 0; l_cell < i_cells; l_cell++) {
-    // init star matrices
-    for (size_t m = 0; m < 3; m++) { 
-      for (size_t j = 0; j < seissol::model::AstarT::reals; j++) { 
-        m_localIntegration[l_cell].starMatrices[m][j] = (real)drand48();
-      }
-    }
-    // init flux solver
-    for (size_t m = 0; m < 4; m++) { 
-      for (size_t j = 0; j < seissol::model::AplusT::reals; j++) { 
-        m_localIntegration[l_cell].nApNm1[m][j] = (real)drand48();
-      }
-    }
-#ifdef EQUATIONS_VISCOELASTIC
-    // init source matrix
-    for (size_t j = 0; j < seissol::model::source::reals; j++) { 
-      m_localIntegration[l_cell].specific.sourceMatrix[j] = (real)drand48();
-    }
-#endif
-#ifdef EQUATIONS_VISCOELASTIC2
-    // init source matrix
-    for (size_t j = 0; j < NUMBER_OF_RELAXATION_MECHANISMS * seissol::model::ET::reals; j++) { 
-      m_localIntegration[l_cell].specific.ET[j] = (real)drand48();
-    }
-    // init omega
-    for (size_t j = 0; j < NUMBER_OF_RELAXATION_MECHANISMS; j++) { 
-      m_localIntegration[l_cell].specific.omega[j] = (real)drand48();
-    }
-#endif
-  }
-
-  /* init neighbor integration data */
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
-  for (unsigned int l_cell = 0; l_cell < i_cells; l_cell++) {
-    // init flux solver
-    for (size_t m = 0; m < 4; m++) { 
-      for (size_t j = 0; j < seissol::model::AminusT::reals; j++) { 
-        m_neighboringIntegration[l_cell].nAmNm1[m][j] = (real)drand48();
-      }      
-#ifdef EQUATIONS_VISCOELASTIC2
-      // init omega
-      for (size_t j = 0; j < NUMBER_OF_RELAXATION_MECHANISMS; j++) { 
-        m_neighboringIntegration[l_cell].specific.omega[j] = (real)drand48();
-      }
-#endif
-    }
-  }
-
-  // CellData
-  m_cellData->localIntegration = m_localIntegration;
-  m_cellData->neighboringIntegration = m_neighboringIntegration;
-
-  // Global matrices
-  // @TODO: for NUMA we need to bind this
-  for (unsigned int l_globalDataCount = 0; l_globalDataCount < l_numberOfCopies; l_globalDataCount++) {
-    m_globalPointer = m_globalPointerArray[l_globalDataCount];
-    m_globalData =  m_globalDataArray[l_globalDataCount];
-   
-    for (unsigned int i = 0; i < seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices]; i++) {
-      m_globalPointer[i] = (real)drand48();
-    }
-
-    // stiffnes for time integration
-    for( unsigned int l_transposedStiffnessMatrix = 0; l_transposedStiffnessMatrix < 3; l_transposedStiffnessMatrix++ ) {
-      m_globalData->stiffnessMatricesTransposed[l_transposedStiffnessMatrix] = m_globalPointer + seissol::model::globalMatrixOffsets[l_transposedStiffnessMatrix];
-    }
-
-    // stiffnes for volume integration
-    for( unsigned int l_stiffnessMatrix = 0; l_stiffnessMatrix < 3; l_stiffnessMatrix++ ) {
-      m_globalData->stiffnessMatrices[l_stiffnessMatrix] = m_globalPointer + seissol::model::globalMatrixOffsets[3 + l_stiffnessMatrix];
-    }
-
-    // flux matrices for boundary integration
-    for (unsigned cob = 0; cob < 4; ++cob) {
-      m_globalData->changeOfBasisMatrices[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[6 + cob];
-    }
-    for (unsigned cob = 0; cob < 4; ++cob) {
-      m_globalData->neighbourChangeOfBasisMatricesTransposed[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[10 + cob];
-    }
-    for (unsigned cob = 0; cob < 4; ++cob) {
-      m_globalData->localChangeOfBasisMatricesTransposed[cob] = m_globalPointer + seissol::model::globalMatrixOffsets[14 + cob];
-    }
-    for (unsigned flux = 0; flux < 3; ++flux) {
-      m_globalData->neighbourFluxMatrices[flux] = m_globalPointer + seissol::model::globalMatrixOffsets[18 + flux];
-    }
-    
-    m_globalPointer = m_drGlobalPointerArray[l_globalDataCount];   
-    for (unsigned int i = 0; i < seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices]; i++) {
-      m_globalPointer[i] = (real)drand48();
-    }
-    
-    for (unsigned face = 0; face < 4; ++face) {
-      for (unsigned h = 0; h < 4; ++h) {
-        m_globalData->nodalFluxMatrices[face][h] = m_globalPointer + seissol::model::dr_globalMatrixOffsets[4*face+h];
-        m_globalData->faceToNodalMatrices[face][h] = m_globalPointer + seissol::model::dr_globalMatrixOffsets[16 + 4*face+h];
-      }
-    }
-  }
-
-  // set default to first chunk
-  m_globalPointer = m_globalPointerArray[0];
-  m_globalData = m_globalDataArray[0];
-  
-  if (enableDynamicRupture) {  
+    // From dynamic rupture tree
     seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
     real (*imposedStatePlus)[seissol::model::godunovState::reals] = interior.var(m_dynRup.imposedStatePlus);
     real (*fluxSolverPlus)[seissol::model::fluxSolver::reals]     = interior.var(m_dynRup.fluxSolverPlus);
@@ -498,15 +147,14 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
 #endif
     for (unsigned cell = 0; cell < i_cells; ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        CellDRMapping& drMapping = m_cells->drMapping[cell][face];
+        CellDRMapping& drm = drMapping[cell][face];
         unsigned side = (unsigned int)lrand48() % 4;
         unsigned orientation = (unsigned int)lrand48() % 3;
         unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
-        drMapping.fluxKernel = 4*side + orientation;
-        drMapping.godunov = imposedStatePlus[drFace];
-        // @TODO: for NUMA we need to bind this
-        drMapping.fluxMatrix = m_globalData->nodalFluxMatrices[side][orientation];
-        drMapping.fluxSolver = fluxSolverPlus[drFace];
+        drm.fluxKernel = 4*side + orientation;
+        drm.godunov = imposedStatePlus[drFace];
+        drm.fluxMatrix = m_globalData.nodalFluxMatrices[side][orientation];
+        drm.fluxSolver = fluxSolverPlus[drFace];
       }
     }
 
@@ -524,14 +172,6 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
       faceInformation[face].minusSide = (unsigned int)lrand48() % 4;
       faceInformation[face].faceRelation = (unsigned int)lrand48() % 3;
     }
-  }
-  
-
-  if (bUseScenario == true ) {
-    delete[] scenario_faceType;
-    delete[] scenario_neighbor;
-    delete[] scenario_side;
-    delete[] scenario_orientation;
   }
   
   return i_cells;

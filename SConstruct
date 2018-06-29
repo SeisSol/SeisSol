@@ -258,6 +258,8 @@ if env['order'] == 'none':
 if env['equations'].startswith('viscoelastic'):
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
+elif env['numberOfMechanisms'] != '0':
+  ConfigurationError("*** Number of mechanisms must be 0 for elastic equations.")
 
 if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
@@ -536,6 +538,8 @@ env.Append( CPPPATH=['#/submodules', '#/submodules/glm'] )
 # add libraries
 #
 
+env.Tool('cmake')
+
 # Libxsmm
 env.Tool('LibxsmmTool', required=True)
 
@@ -581,6 +585,29 @@ if env['asagi']:
 
     env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
+
+# yaml-cpp
+yaml_cpp = env.CMake( source=[Glob(path + '*/.cpp') for path, dirs, files in os.walk('submodules/yaml-cpp/src')],
+                      target=['#/{}/external/yaml-cpp/libyaml-cpp.a'.format(env['buildDir'])],
+                      CMakeProject = Dir('submodules/yaml-cpp'),
+                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no'],
+                      cc = env['CC'],
+                      cxx = env['CXX'])
+env.Append(CPPPATH=['#/submodules/yaml-cpp/include'])
+env.Append(LIBS=yaml_cpp)
+
+# impalajit
+impalajit = env.CMake( source=[Glob(path + '*/.cc') for path, dirs, files in os.walk('submodules/ImpalaJIT')],
+                       target=['#/{}/external/impalajit/libimpalajit.a'.format(env['buildDir'])],
+                       CMakeProject = Dir('submodules/ImpalaJIT'),
+                       CMakeBuildDir = Dir('#/{}/external/impalajit/'.format(env['buildDir'])),
+                       cc = env['CC'],
+                       cxx = env['CXX'])
+env.Append(CPPPATH=['#/submodules/ImpalaJIT/include'])
+env.Append(LIBS=impalajit)
+
+# easi
+env.Append(CPPPATH=['#/submodules/easi/include'])
 
 # ASYNC I/O
 env.Append(CPPPATH=['#/submodules/async'])
@@ -654,7 +681,9 @@ env.AppendUnique(F90PATH=map(lambda x: '#/' + x, modDirectories))
 #print env.Dump()
 
 # build standard version
-env.Program('#/'+env['programFile'], sourceFiles)
+seissol_build = env.Program('#/'+env['programFile'], sourceFiles)
+env.Depends(seissol_build, yaml_cpp)
+env.Depends(seissol_build, impalajit)
 
 # build unit tests
 if env['unitTests'] != 'none':

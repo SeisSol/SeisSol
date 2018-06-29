@@ -143,6 +143,9 @@ env.Append( CFLAGS    = archFlags,
             LINKFLAGS = archFlags )
 env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['arch'].upper()])
 
+# c++ standard
+env.Append(CXXFLAGS=['-std=c++11'])
+
 if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
@@ -152,6 +155,7 @@ if env['compileMode'] == 'debug':
 else:
   flags.extend(['-O3'])
   env.Append(CPPDEFINES=['NDEBUG'])
+  
 
 env.Append( CFLAGS    = flags,
             CXXFLAGS  = flags,

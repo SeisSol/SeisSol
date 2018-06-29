@@ -139,7 +139,7 @@ class seissol::initializers::time_stepping::MultiRate {
                                      unsigned int  i_numberOfCells,
                                const double       *i_cellTimeStepWidths,
                                      unsigned int *o_cellClusterIds ) {
-      logInfo() << "Deriving clusters ids for min. time step width / multiRate:" << i_minimumTimeStepWidth << "/"
+      logInfo(seissol::MPI::mpi.rank()) << "Deriving clusters ids for min. time step width / multiRate:" << i_minimumTimeStepWidth << "/"
                                                                                  << i_multiRate;
       // iterate over all cells
       for( unsigned int l_cell = 0; l_cell < i_numberOfCells; l_cell++ ) {

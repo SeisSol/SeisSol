@@ -2,7 +2,7 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -33,65 +33,62 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @section DESCRIPTION
  */
 
-#ifndef PUMLREADER_H
-#define PUMLREADER_H
+#ifndef MONITORING_LOOPSTATISTICS_H_
+#define MONITORING_LOOPSTATISTICS_H_
 
-#include "MeshReader.h"
-#include "Parallel/MPI.h"
+#include <unordered_map>
+#include <fstream>
+#include <iomanip>
+#include <utils/env.h>
 
-#ifndef PUML_PUML_H
-namespace PUML
-{
-	class TETPUML;
-}
-#endif // PUML_PUML_H
+#include "Stopwatch.h"
 
 namespace seissol {
-  namespace initializers {
-    namespace time_stepping {
-      class LtsWeights;
-    }
-  }
-}
-
-namespace seissol
-{
-class PUMLReader : public MeshReader
-{
+class LoopStatistics {
 public:
-        PUMLReader(const char* meshFile, initializers::time_stepping::LtsWeights* ltsWeights = nullptr, double tpwgt = 1.0);
+  void addRegion(std::string const& name) {
+    m_regions.push_back(name);
+    m_stopwatch.push_back(Stopwatch());
+    m_times.push_back(std::vector<Sample>());
+  }
+  
+  unsigned getRegion(std::string const& name) {
+    auto first = m_regions.cbegin();
+    auto it = std::find(first, m_regions.cend(), name);
+    return std::distance(first, it);
+  }
+  
+  void begin(unsigned region) {
+    m_stopwatch[region].start();
+  }
+  
+  void end(unsigned region, unsigned numIterations) {
+    Sample sample;
+    sample.time = m_stopwatch[region].stop();
+    sample.numIters = numIterations;
+    m_times[region].push_back(sample);
+  }
 
+#ifdef USE_MPI  
+  void printSummary(MPI_Comm comm);
+#endif
+
+  void writeSamples();
+  
 private:
-	/**
-	 * Read the mesh
-	 */
-	void read(PUML::TETPUML &puml, const char* meshFile);
-
-	/**
-	 * Create the partitioning
-	 */
-	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt);
-
-	/**
-	 * Generate the PUML data structure
-	 */
-	void generatePUML(PUML::TETPUML &puml);
-
-	/**
-	 * Get the mesh
-	 */
-	void getMesh(const PUML::TETPUML &puml);
-
-	void addMPINeighor(const PUML::TETPUML &puml, int rank, const std::vector<unsigned int> &faces);
-
-private:
-	static int FACE_PUML2SEISSOL[4];
-	static int FACEVERTEX2ORIENTATION[4][4];
-	static int FIRST_FACE_VERTEX[4];
+  struct Sample {
+    double time;
+    unsigned numIters;
+  };
+  
+  std::vector<Stopwatch> m_stopwatch;
+  std::vector<std::string> m_regions;
+  std::vector<std::vector<Sample>> m_times;
 };
-
 }
 
-#endif // PUMLREADER_H
+#endif // MONITORING_LOOPSTATISTICS_H_

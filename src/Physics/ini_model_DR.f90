@@ -52,7 +52,7 @@ MODULE ini_model_DR_mod
   USE DGBasis_mod
   USE read_backgroundstress_mod
   USE faultinput_mod
-  use StressReader
+  !use StressReader
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
   PRIVATE
@@ -68,6 +68,7 @@ MODULE ini_model_DR_mod
   !---------------------------------------------------------------------------!
   PUBLIC  :: DR_setup
   PRIVATE :: DR_basic_ini
+  private :: rotateStressToFaultCS
   !---------------------------------------------------------------------------!
   PUBLIC  :: STRESS_STR_DIP_SLIP_AM
   PRIVATE :: background_HOM
@@ -101,7 +102,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: background_SUMATRA_RS
   PRIVATE :: background_SUMATRA_GEO
 
-  private :: background_asagi
+  !private :: background_asagi
 
   !---------------------------------------------------------------------------!
   PRIVATE :: friction_RSF34
@@ -117,7 +118,6 @@ MODULE ini_model_DR_mod
   !> Interface to dynamic rupture initial models
   !<
   SUBROUTINE DR_setup(EQN,DISC,MESH,IO,BND)
-    use JacobiNormal_mod, only: RotationMatrix3D
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -126,14 +126,6 @@ MODULE ini_model_DR_mod
     TYPE(tUnstructMesh)            :: MESH
     TYPE(tInputOutput)             :: IO
     TYPE (tBoundary)               :: BND
-    integer                        :: iFace, iBndGP
-    real                           :: normal(3)
-    real                           :: tangent1(3)
-    real                           :: tangent2(3)
-    real                           :: T(9,9)
-    real                           :: iT(9,9)
-    real                           :: Stress(1:6,1:DISC%Galerkin%nBndGP)
-    real                           :: StressinFaultCS(6)
     !-------------------------------------------------------------------------!
     INTENT(IN)                      :: MESH, BND
     INTENT(INOUT)                   :: IO, EQN, DISC
@@ -142,122 +134,123 @@ MODULE ini_model_DR_mod
     ! Basic DR setup, valid for all models
     CALL DR_basic_ini(DISC,EQN,MESH,BND)
     !-------------------------------------------------------------------------!
-
-    ! Initialize background stress type
-    SELECT CASE(DISC%DynRup%BackgroundType)
-    CASE(0)
-       ! homogeneous case of background stress field
-       CALL background_HOM(DISC,EQN,MESH)
-    CASE(1)
-       ! SCEC TPV5 test
-       CALL background_TPV5(DISC,EQN,MESH)
-    CASE(2)
-       ! Depth dependence of stresses - step function
-       CALL background_STEP(DISC,EQN,MESH)
-    CASE(3)
-       ! Depth dependence of stresses - smooth transition
-       CALL background_SMOOTH(DISC,EQN,MESH)
-    CASE(4)
-       ! depth dependence of stresses and frictional LSW parameters - step function
-       CALL background_STEP2(DISC,EQN,MESH)
-    CASE(5)
-       ! smooth depth dependence of stresses
-       ! in contrast to type 3, in type 5 the stress is assigned to each Gaussian node
-       CALL background_SMOOTH_GP(DISC,EQN,MESH,BND)
-    CASE(10,13)
-       ! SCEC TPV10 test dipping fault subshear, SCEC TPV12/TPV13 dipping fault
-       CALL background_TPV10(DISC,EQN,MESH,BND)
-    CASE(11)
-       ! SCEC TPV11 test dipping fault supershear
-       CALL background_TPV11(DISC,EQN,MESH,BND)
-    CASE(12)
-       ! Dipping fault with rate-and-state friction
-       CALL background_DIP_RSF(DISC,EQN,MESH,BND)
-    CASE(14,15)
-       !  SCEC TPV14/15 test branching faults
-       CALL background_TPV1415(DISC,EQN,MESH)
-   CASE(16,17)
-       !  SCEC TPV16/17 with heterogeneous initial stress field
-       CALL background_TPV1617(EQN,MESH,IO,DISC,BND)
-   CASE(26)
-       !  26 = SCEC TPV26/27 with heterogeneous/depth dependent initial stress field
-       CALL background_TPV2627(EQN,MESH,DISC,BND)
-   CASE(33)
-       !  SCEC TPV3132 test case : strike slip rupture in layered medium
-       CALL background_TPV33 (DISC,EQN,MESH,BND)
-    CASE(50)
-       ! Tohoku 1
-       CALL background_TOH1(DISC,EQN,MESH)
-    CASE(60)
-       ! Landers full fault system
-       CALL background_LAN1(DISC,EQN,MESH,BND)
-    CASE(61)
-       ! Landers segmented fault system 1
-       CALL background_LAN2(DISC,EQN,MESH,BND)
-    CASE(62)
-       ! Landers segmented fault system 2
-       CALL background_LAN3(DISC,EQN,MESH,BND)
-    CASE(70)
-       ! Alaska background stress model
-       CALL background_ALA(DISC,EQN,MESH,BND)
-    CASE(100)
-       ! Northridge background stress model
-       CALL background_NORTH(DISC,EQN,MESH,BND)
-    CASE(101)
-       ! SCEC TPV101 test with rate-and-state friction (ageing law)
-       CALL background_TPV101(DISC,EQN,MESH,BND)
-    CASE(103)
-       ! SCEC TPV103 test with velocity weakening friction (based on slip law)
-       CALL background_TPV103(DISC,EQN,MESH,BND)
-    CASE(120)
-       CALL background_SUMATRA(DISC,EQN,MESH,BND)
-    CASE(1201)
-       CALL background_SUMATRA_GEO(DISC,EQN,MESH,BND)
-    CASE(1202)
-       CALL background_SUMATRA_RS(DISC,EQN,MESH,BND)
-    case(1500,1501) ! 1500 = rsf; 1501 = lsw
-       call background_asagi(io, disc, eqn, mesh, bnd, DISC%DynRup%BackgroundType - 1500)
-    !
-    ! Add your background stress model subroutine call here
-    !
-    CASE DEFAULT
-       logError(*) 'Chosen BackgroundType value ',DISC%DynRup%BackgroundType,' is not valid in present version of the code!'
-       STOP
-    END SELECT ! Initialize background stress type
-    !-------------------------------------------------------------------------!
-
-    ! Initialize Nucleation type
-    SELECT CASE(DISC%DynRup%Nucleation)
-    CASE(0)
-       ! 0=No nucleation zone
-       CONTINUE
-    CASE(1)
-       ! Nucleation by discontinuous jump on properties at [NucXMin,NucXMax] x [NucYMin,NucYMax]
-       CALL nucleation_STEP(DISC,EQN,MESH)
-    CASE(2)
-       ! Nucleation by smooth jump on properties assigned to each Gaussian node
-       CALL nucleation_SMOOTH_GP(DISC,EQN,MESH,BND)
-    CASE(3)
-       ! Nucleation by discontinuous elliptic nucleation zone
-       CALL nucleation_ELLIPSE(DISC,EQN,MESH)
-    CASE(28)
-       ! Nucleation as in  SCEC TPV28 test assigned to each Gaussian node
-       CALL nucleation_TPV28_GP(DISC,EQN,MESH,BND)
-    CASE(29)
-       ! Nucleation as in  SCEC TPV28 test assigned to each element
-       CALL nucleation_TPV28(DISC,EQN,MESH)
-    !
-    ! Add your nucleation model subroutine call here
-    !
-    CASE DEFAULT
-       logError(*) 'Chosen DISC%DynRup%Nucleation type ',DISC%DynRup%Nucleation,' is not implemented in present version of the code!'
-       STOP
-    END SELECT  ! Initialize Nucleation type
-    !-------------------------------------------------------------------------!
+!~ 
+!~     ! Initialize background stress type
+!~     SELECT CASE(DISC%DynRup%BackgroundType)
+!~     CASE(0)
+!~        ! homogeneous case of background stress field
+!~        CALL background_HOM(DISC,EQN,MESH)
+!~     CASE(1)
+!~        ! SCEC TPV5 test
+!~        CALL background_TPV5(DISC,EQN,MESH)
+!~     CASE(2)
+!~        ! Depth dependence of stresses - step function
+!~        CALL background_STEP(DISC,EQN,MESH)
+!~     CASE(3)
+!~        ! Depth dependence of stresses - smooth transition
+!~        CALL background_SMOOTH(DISC,EQN,MESH)
+!~     CASE(4)
+!~        ! depth dependence of stresses and frictional LSW parameters - step function
+!~        CALL background_STEP2(DISC,EQN,MESH)
+!~     CASE(5)
+!~        ! smooth depth dependence of stresses
+!~        ! in contrast to type 3, in type 5 the stress is assigned to each Gaussian node
+!~        CALL background_SMOOTH_GP(DISC,EQN,MESH,BND)
+!~     CASE(10,13)
+!~        ! SCEC TPV10 test dipping fault subshear, SCEC TPV12/TPV13 dipping fault
+!~        CALL background_TPV10(DISC,EQN,MESH,BND)
+!~     CASE(11)
+!~        ! SCEC TPV11 test dipping fault supershear
+!~        CALL background_TPV11(DISC,EQN,MESH,BND)
+!~     CASE(12)
+!~        ! Dipping fault with rate-and-state friction
+!~        CALL background_DIP_RSF(DISC,EQN,MESH,BND)
+!~     CASE(14,15)
+!~        !  SCEC TPV14/15 test branching faults
+!~        CALL background_TPV1415(DISC,EQN,MESH)
+!~    CASE(16,17)
+!~        !  SCEC TPV16/17 with heterogeneous initial stress field
+!~        CALL background_TPV1617(EQN,MESH,IO,DISC,BND)
+!~    CASE(26)
+!~        !  26 = SCEC TPV26/27 with heterogeneous/depth dependent initial stress field
+!~        CALL background_TPV2627(EQN,MESH,DISC,BND)
+!~    CASE(33)
+!~        !  SCEC TPV3132 test case : strike slip rupture in layered medium
+!~        CALL background_TPV33 (DISC,EQN,MESH,BND)
+!~     CASE(50)
+!~        ! Tohoku 1
+!~        CALL background_TOH1(DISC,EQN,MESH)
+!~     CASE(60)
+!~        ! Landers full fault system
+!~        CALL background_LAN1(DISC,EQN,MESH,BND)
+!~     CASE(61)
+!~        ! Landers segmented fault system 1
+!~        CALL background_LAN2(DISC,EQN,MESH,BND)
+!~     CASE(62)
+!~        ! Landers segmented fault system 2
+!~        CALL background_LAN3(DISC,EQN,MESH,BND)
+!~     CASE(70)
+!~        ! Alaska background stress model
+!~        CALL background_ALA(DISC,EQN,MESH,BND)
+!~     CASE(100)
+!~        ! Northridge background stress model
+!~        CALL background_NORTH(DISC,EQN,MESH,BND)
+!~     CASE(101)
+!~        ! SCEC TPV101 test with rate-and-state friction (ageing law)
+!~        CALL background_TPV101(DISC,EQN,MESH,BND)
+!~     CASE(103)
+!~        ! SCEC TPV103 test with velocity weakening friction (based on slip law)
+!~        CALL background_TPV103(DISC,EQN,MESH,BND)
+!~     CASE(120)
+!~        CALL background_SUMATRA(DISC,EQN,MESH,BND)
+!~     CASE(1201)
+!~        CALL background_SUMATRA_GEO(DISC,EQN,MESH,BND)
+!~     CASE(1202)
+!~        CALL background_SUMATRA_RS(DISC,EQN,MESH,BND)
+!~     case(1500,1501) ! 1500 = rsf; 1501 = lsw
+!~        call background_asagi(io, disc, eqn, mesh, bnd, DISC%DynRup%BackgroundType - 1500)
+!~     !
+!~     ! Add your background stress model subroutine call here
+!~     !
+!~     CASE DEFAULT
+!~        logError(*) 'Chosen BackgroundType value ',DISC%DynRup%BackgroundType,' is not valid in present version of the code!'
+!~        STOP
+!~     END SELECT ! Initialize background stress type
+!~     !-------------------------------------------------------------------------!
+!~ 
+!~     ! Initialize Nucleation type
+!~     SELECT CASE(DISC%DynRup%Nucleation)
+!~     CASE(0)
+!~        ! 0=No nucleation zone
+!~        CONTINUE
+!~     CASE(1)
+!~        ! Nucleation by discontinuous jump on properties at [NucXMin,NucXMax] x [NucYMin,NucYMax]
+!~        CALL nucleation_STEP(DISC,EQN,MESH)
+!~     CASE(2)
+!~        ! Nucleation by smooth jump on properties assigned to each Gaussian node
+!~        CALL nucleation_SMOOTH_GP(DISC,EQN,MESH,BND)
+!~     CASE(3)
+!~        ! Nucleation by discontinuous elliptic nucleation zone
+!~        CALL nucleation_ELLIPSE(DISC,EQN,MESH)
+!~     CASE(28)
+!~        ! Nucleation as in  SCEC TPV28 test assigned to each Gaussian node
+!~        CALL nucleation_TPV28_GP(DISC,EQN,MESH,BND)
+!~     CASE(29)
+!~        ! Nucleation as in  SCEC TPV28 test assigned to each element
+!~        CALL nucleation_TPV28(DISC,EQN,MESH)
+!~     !
+!~     ! Add your nucleation model subroutine call here
+!~     !
+!~     CASE DEFAULT
+!~        logError(*) 'Chosen DISC%DynRup%Nucleation type ',DISC%DynRup%Nucleation,' is not implemented in present version of the code!'
+!~        STOP
+!~     END SELECT  ! Initialize Nucleation type
+!~     !-------------------------------------------------------------------------!
+!~ 
 
     ! Initialize model dependent (space dependent) friction law parameters
     SELECT CASE(EQN%FL)
-    CASE(1,2,13,16,17)
+    CASE(1,2,13,16,17,29,30)
       ! Initialization of friction for linear slip weakening
       CALL friction_LSW(DISC,EQN,MESH,BND)
     CASE(3,4)
@@ -276,35 +269,12 @@ MODULE ini_model_DR_mod
      ! Initialization of initial slip rate and friction for SCEC TPV103
      CALL friction_RSF103(DISC,EQN,MESH,BND)
     END SELECT  ! Initialize model dependent rate-and-state friction law parameters type
-    !-------------------------------------------------------------------------!
-
-    ! Read fault parameters from Par_file_faults
-    if (DISC%DynRup%read_fault_file == 1) then
-       call faultinput(disc,eqn,mesh,bnd,IO)
-    end if
-
-
-    ! Rotate initial stresses to fault coordinate system
-    allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-
-    do iFace = 1, MESH%Fault%nSide
-      normal   = MESH%Fault%geoNormals( 1:3, iFace)
-      tangent1 = MESH%Fault%geoTangent1(1:3, iFace)
-      tangent2 = MESH%Fault%geoTangent2(1:3, iFace)
-      CALL RotationMatrix3D(normal, tangent1, tangent2, T(:,:), iT(:,:), EQN)
-
-      Stress(1,:)=EQN%IniBulk_xx(iFace,:)
-      Stress(2,:)=EQN%IniBulk_yy(iFace,:)
-      Stress(3,:)=EQN%IniBulk_zz(iFace,:)
-      Stress(4,:)=EQN%IniShearXY(iFace,:)
-      Stress(5,:)=EQN%IniShearYZ(iFace,:)
-      Stress(6,:)=EQN%IniShearXZ(iFace,:)
-
-      do iBndGP=1,DISC%Galerkin%nBndGP
-        StressinFaultCS = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))
-        EQN%InitialStressInFaultCS(iBndGP,:,iFace) = StressinFaultCS
-      enddo
-    enddo
+!~     !-------------------------------------------------------------------------!
+!~ 
+!~     ! Read fault parameters from Par_file_faults
+!~     if (DISC%DynRup%read_fault_file == 1) then
+!~        call faultinput(disc,eqn,mesh,bnd,IO)
+!~     end if
 
   END SUBROUTINE DR_setup
 
@@ -312,6 +282,9 @@ MODULE ini_model_DR_mod
   !> Initialization of basic dynamic rupture setup
   !<
   SUBROUTINE DR_basic_ini(DISC,EQN,MESH,BND)                 ! global variables
+    use JacobiNormal_mod, only: RotationMatrix3D
+    use f_ftoc_bind_interoperability
+    use iso_c_binding, only: c_null_char
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -321,14 +294,8 @@ MODULE ini_model_DR_mod
     TYPE (tBoundary)               :: BND
     !-------------------------------------------------------------------------!
     ! Local variable declaration
-    INTEGER			   :: i
-    INTEGER                        :: iSide,iElem,iBndGP
-    INTEGER                        :: iLocalNeighborSide,iNeighbor
-    INTEGER                        :: MPIIndex, iObject
-    REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-    REAL                           :: chi,tau
-    REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
-    REAL                           :: r, Vs, r_crit, hypox, hypoy, hypoz
+    integer                             :: i
+    real, allocatable, dimension(:,:)   :: nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: MESH, BND
     INTENT(INOUT) :: EQN,DISC
@@ -336,13 +303,13 @@ MODULE ini_model_DR_mod
 
     ! Allocation of DR fields
     ALLOCATE(  EQN%IniMu(DISC%Galerkin%nBndGP,MESH%Fault%nSide),            &
-               EQN%IniBulk_xx(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
-               EQN%IniBulk_yy(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
-               EQN%IniBulk_zz(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
-               EQN%IniStateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP),      &
-               EQN%IniShearXY(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
-               EQN%IniShearYZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP),       &
-               EQN%IniShearXZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP)        )
+               EQN%IniBulk_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),       &
+               EQN%IniBulk_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),       &
+               EQN%IniBulk_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),       &
+               EQN%IniStateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide),      &
+               EQN%IniShearXY(DISC%Galerkin%nBndGP,MESH%Fault%nSide),       &
+               EQN%IniShearYZ(DISC%Galerkin%nBndGP,MESH%Fault%nSide),       &
+               EQN%IniShearXZ(DISC%Galerkin%nBndGP,MESH%Fault%nSide)        )
     ALLOCATE(  DISC%DynRup%Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide)  )
     ALLOCATE(  DISC%DynRup%RF(DISC%Galerkin%nBndGP,MESH%Fault%nSide)        )
     ALLOCATE(  DISC%DynRup%DS(DISC%Galerkin%nBndGP,MESH%Fault%nSide)        )
@@ -380,160 +347,111 @@ MODULE ini_model_DR_mod
               ENDIF
           ENDDO
     ENDIF
+    
+    call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
+    call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
+    call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
+    call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
+    call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
+    call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
 
     !frictional parameter initialization
     SELECT CASE(EQN%FL)
     CASE(0)
        CONTINUE
-    CASE(1,2,6,16,17)
-       ! ini D_C and mu fields to constant on the entire fault (for LSW friction cases)
+    CASE(2,6,13,16,17,29,30)
        ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
        ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
-       DISC%DynRup%D_C(:,:)  = DISC%DynRup%D_C_ini
-       DISC%DynRup%Mu_S(:,:) = DISC%DynRup%Mu_S_ini
-       DISC%DynRup%Mu_D(:,:) = DISC%DynRup%Mu_D_ini
-       EQN%IniMu(:,:)    =  DISC%DynRup%Mu_S_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
-       !
-    CASE(13)!LSW with lower static coefficient of friction inside the nucleation zone needs additional initialisation for Mu_SNuc
-       !
-       ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
-       ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
-       ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
-       DISC%DynRup%D_C(:,:)  = DISC%DynRup%D_C_ini
-       DISC%DynRup%Mu_D(:,:) = DISC%DynRup%Mu_D_ini
+       call c_interoperability_addFaultParameter("cohesion" // c_null_char, DISC%DynRup%cohesion)
+       call c_interoperability_addFaultParameter("d_c" // c_null_char, DISC%DynRup%D_C)
+       call c_interoperability_addFaultParameter("mu_s" // c_null_char, DISC%DynRup%Mu_S)
+       call c_interoperability_addFaultParameter("mu_d" // c_null_char, DISC%DynRup%Mu_D)
+       if (EQN%FL >= 16 .and. EQN%FL <= 30) then
+         ALLOCATE(  DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+         call c_interoperability_addFaultParameter("forced_rupture_time" // c_null_char, DISC%DynRup%forced_rupture_time)
+       end if
 
-       !Mu_S is different inside a specified nucleation patch (patch is read in in nucleation case 13)
-       ! Loop over every mesh element
-     DO i = 1, MESH%Fault%nSide
-
-        ! element ID
-        iElem = MESH%Fault%Face(i,1,1)
-        iSide = MESH%Fault%Face(i,2,1)
-
-        ! get vertices of complete tet
-        IF (MESH%Fault%Face(i,1,1) == 0) THEN
-          ! iElem is in the neighbor domain
-          ! The neighbor element belongs to a different MPI domain
-            iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
-            iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
-            iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-            MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-
-            xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-            yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-            zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-        ELSE
-           ! get vertices
-            xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-            yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-            zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-        ENDIF
-
-        DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-           ! Transformation of boundary GP's into XYZ coordinate system
-            chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-            tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-            CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-            CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
-
-            IF ((xGP.LE. 1500.0D0) .AND. (xGP.GE.-1500.0D0)       &
-                  .AND. (zGP.LE.-9093.26674D0) .AND. (zGP.GE.-11691.342951D0)) THEN
-                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_SNuc_ini
-                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_SNuc_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
-            ELSE
-                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini
-                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
-            ENDIF
-
-         ENDDO ! iBndGP
-
-     ENDDO !    MESH%Fault%nSide
-
-     CASE(30) !smooth forced rupture for benchmarks like TPV29/30 and TPV26/27
-
-       ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
-       ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
-       ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
-       ALLOCATE(DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-
-       DISC%DynRup%D_C(:,:)  = DISC%DynRup%D_C_ini
-       DISC%DynRup%Mu_S(:,:) = DISC%DynRup%Mu_S_ini
-       DISC%DynRup%Mu_D(:,:) = DISC%DynRup%Mu_D_ini
-       EQN%IniMu(:,:)        =  DISC%DynRup%Mu_S_ini ! will be mapped to DISC%DynRup%Mu in dg_setup
-
-       Vs = DISC%DynRup%Vs_nucl
-       IF (abs(Vs).LE.1d-6) THEN
-          Vs = SQRT(EQN%mu/EQN%rho0)
-       ENDIF
-
-       r_crit = DISC%DynRup%R_crit
-       hypox = DISC%DynRup%XHypo
-       hypoy = DISC%DynRup%YHypo
-       hypoz = DISC%DynRup%ZHypo
-
-       !calculate time of forced rupture for every BndGP, dependent of the distance to the hypocenter
-       DO i = 1, MESH%Fault%nSide
-
-        ! element ID
-        iElem = MESH%Fault%Face(i,1,1)
-        iSide = MESH%Fault%Face(i,2,1)
-
-        ! get vertices of complete tet
-        IF (MESH%Fault%Face(i,1,1) == 0) THEN
-          ! iElem is in the neighbor domain
-          ! The neighbor element belongs to a different MPI domain
-            iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
-            iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
-            iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-            MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-
-            xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-            yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-            zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-        ELSE
-           ! get vertices
-            xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-            yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-            zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-        ENDIF
-
-        DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-           ! Transformation of boundary GP's into XYZ coordinate system
-            chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-            tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-            CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-            CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
-
-           r = SQRT((xGP-hypox)**2+(yGP-hypoy)**2+(zGP-hypoz)**2)
-
-           IF (r.LE.r_crit) THEN
-              DISC%DynRup%forced_rupture_time(iBndGP,i) = r/(0.7d0*Vs)+(0.081d0*r_crit/(0.7d0*Vs))*(1d0/(1d0-(r/r_crit)*(r/r_crit))-1d0)
-           ELSE
-              DISC%DynRup%forced_rupture_time(iBndGP,i) = 1d9
-           ENDIF
-
-       ENDDO !iBndGP
-      ENDDO !i
-
-    CASE(3,4,7,12,101,103)
-       ! ini initial slip rate fields to zero (for rate and state friction cases)
-       EQN%IniSlipRate1 = ZERO
-       EQN%IniSlipRate2 = ZERO
-       ! ini friction coefficient (will be copied on DISC%DynRup%Mu in dg_setup.f90 iniGalerkin3D_us_level2_new)
-       EQN%IniMu(:,:)    =  DISC%DynRup%RS_f0
+    CASE(101,103)
+      ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
+      call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
+      if (EQN%FL == 103) then
+        allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
+                  nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+        call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
+        call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
+        call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
+        call c_interoperability_addFaultParameter("nuc_zz" // c_null_char, nuc_zz)
+        call c_interoperability_addFaultParameter("nuc_xy" // c_null_char, nuc_xy)
+        call c_interoperability_addFaultParameter("nuc_yz" // c_null_char, nuc_yz)
+        call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)        
+      end if
     END SELECT
 
+    call c_interoperability_initializeFault(  trim(DISC%DynRup%ModelFileName) // c_null_char, &
+                                              EQN%GPwise,                                     &
+                                              MESH%ELEM%BndGP_Tri,                            &
+                                              DISC%Galerkin%nBndGP                            )
 
-    ! ini of bimaterial case (simple planar case)
-    ! ALICE: The following line from original ini_model needs to be confirmed
-    !DISC%DynRup%Strength(i,:) = EQN%IniMu(i,:)*EQN%IniBulk_yy(i,:)
-
+    ! Rotate initial stresses to fault coordinate system
+    allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))    
+    call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS)
+    
+    if (EQN%FL == 103) then
+      allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
+      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS)
+      deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
+    end if
   END SUBROUTINE DR_basic_ini
+  
+  SUBROUTINE rotateStressToFaultCS(EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz,stressInFaultCS)
+    use JacobiNormal_mod, only: RotationMatrix3D
+    !-------------------------------------------------------------------------!
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------!
+    TYPE(tEquations)                      :: EQN
+    TYPE(tUnstructMesh)                   :: MESH
+    integer                               :: nBndGP
+    real, allocatable, dimension(:,:)     :: s_xx,s_yy,s_zz,s_xy,s_yz,s_xz
+    real, allocatable, dimension(:,:,:)   :: stressInFaultCS
+    !-------------------------------------------------------------------------!
+    ! Local variable declaration
+    integer                             :: iFace, iBndGP
+    real                                :: normal(3)
+    real                                :: tangent1(3)
+    real                                :: tangent2(3)
+    real                                :: T(9,9)
+    real                                :: iT(9,9)
+    real                                :: Stress(1:6,1:nBndGP)
+    real                                :: StressinFaultCSTmp(6)
+    !-------------------------------------------------------------------------!
+    intent(in)                          :: EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz
+    intent(inout)                       :: stressInFaultCS
+    
+    do iFace = 1, MESH%Fault%nSide
+      normal   = MESH%Fault%geoNormals( 1:3, iFace)
+      tangent1 = MESH%Fault%geoTangent1(1:3, iFace)
+      tangent2 = MESH%Fault%geoTangent2(1:3, iFace)
+      CALL RotationMatrix3D(normal, tangent1, tangent2, T(:,:), iT(:,:), EQN)
 
-  !---------------------------------------------------------------------------!
-  !---------------------------------------------------------------------------!
-  !---------------------------------------------------------------------------!
+      Stress(1,:) = s_xx(:,iFace)
+      Stress(2,:) = s_yy(:,iFace)
+      Stress(3,:) = s_zz(:,iFace)
+      Stress(4,:) = s_xy(:,iFace)
+      Stress(5,:) = s_yz(:,iFace)
+      Stress(6,:) = s_xz(:,iFace)
+
+      do iBndGP=1,nBndGP
+        StressinFaultCSTmp = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))
+        stressInFaultCS(iBndGP,:,iFace) = StressinFaultCSTmp
+      enddo
+    enddo
+  END SUBROUTINE rotateStressToFaultCS
 
   !> Homogeneous background stress field
   !<
@@ -2937,7 +2855,7 @@ MODULE ini_model_DR_mod
           ! N11 , grad2:
           !
           ! highest fault point is appr at z=1390m, offset 2000 is obtained by testing to shift the gradient up
-          ! original setup, SC14
+          ! original setup
           !EQN%IniBulk_xx(i,iBndGP)  =  -10.6723e6*(abs(z-2000.0D0))/1000.0D0
           !EQN%IniBulk_yy(i,iBndGP)  =  -29.3277e6*(abs(z-2000.0D0))/1000.0D0
           !EQN%IniBulk_zz(i,iBndGP)  =  -20.0000e6*(abs(z-2000.0D0))/1000.0D0
@@ -2951,28 +2869,30 @@ MODULE ini_model_DR_mod
           EQN%IniShearXZ(i,iBndGP)  =  EQN%ShearXZ_0
           EQN%IniStateVar(i,iBndGP) =  EQN%RS_sv0
 
-
-          ! manage D_C only if desired
-          ! SC 14 setup: change Dc
-          IF (DISC%DynRup%change_D_c.EQ.1) THEN
-             !
-             IF (z.GT.-4000.0D0) THEN
-                 ! higher D_C to surpress supershear rupture at free surface
-                 DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
-             ELSEIF (z.LT.-12000.0D0) THEN
-                 ! higher D_C in depth mimic brittle ductile transition
-                 DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
-             ENDIF
+          ! manage D_C
+          IF (z.GT.-4000.0D0) THEN
+              ! higher D_C to surpress supershear rupture at free surface
+              DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+          ELSEIF (z.LT.-12000.0D0) THEN
+              ! higher D_C in depth mimic brittle ductile transition
+              DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
           ENDIF
 
           ! overwrite positive z area
           IF(z .GT. 0.0) THEN
+              !EQN%IniBulk_xx(i,iBndGP)  =  0.0D0
+              !EQN%IniBulk_yy(i,iBndGP)  =  0.0D0
+              !EQN%IniBulk_zz(i,iBndGP)  =  0.0D0
+              !EQN%IniShearXY(i,iBndGP)  =  0.0D0
+              !EQN%IniShearYZ(i,iBndGP)  =  0.0D0
+              !EQN%IniShearXZ(i,iBndGP)  =  0.0D0
+              !EQN%IniStateVar(i,iBndGP) =  0.0D0
+
               DISC%DynRup%D_C(iBndGP,i) =  2.0D0
           ENDIF
 
           ! set cohesion
-          ! depth dependent, constant for cohesion_max = 0 (default is 0 if not otherwise declared in the parameter file)
-          ! SC 14 setup: constant cohesion 2 MPa
+          ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
           IF (z.GT.-DISC%DynRup%cohesion_depth) THEN
               DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
           ELSE
@@ -4088,6 +4008,7 @@ MODULE ini_model_DR_mod
 
   END SUBROUTINE background_TPV103       !  SCEC TPV103 test with velocity weakening friction (based on slip law)
 
+#if 0
   ! Initialize background stress via ASAGI
   subroutine background_asagi(io, disc, eqn, mesh, bnd, friction)
   !-------------------------------------------------------------------------!
@@ -4193,16 +4114,17 @@ MODULE ini_model_DR_mod
               DISC%DynRup%RS_srW_array(i,iBndGP) = frictionValues(1)
               DISC%DynRup%RS_a_array(i,iBndGP) = frictionValues(2)
             case(1)
-              DISC%DynRup%cohesion(iBndGP,i) = frictionValues(1)
-              DISC%DynRup%D_C(iBndGP,i) = frictionValues(2)
-              DISC%DynRup%Mu_S(iBndGP,i) = frictionValues(3)
-              DISC%DynRup%Mu_D(iBndGP,i) = frictionValues(4)
+              DISC%DynRup%cohesion(i,iBndGP) = frictionValues(1)
+              DISC%DynRup%D_C(i,iBndGP) = frictionValues(2)
+              DISC%DynRup%Mu_S(i,iBndGP) = frictionValues(3)
+              DISC%DynRup%Mu_D(i,iBndGP) = frictionValues(4)
             endselect
          ENDDO ! iBndGP
      end do
 
      call closeStressField()
   end subroutine background_asagi
+#endif
 
   !---------------------------------------------------------------------------!
   !---------------------------------------------------------------------------!
@@ -4921,21 +4843,8 @@ MODULE ini_model_DR_mod
   TYPE (tBoundary)               :: BND
   !-------------------------------------------------------------------------!
   ! Local variable declaration
-  INTEGER                        :: i
-  INTEGER                        :: iSide,iElem,iBndGP
-  INTEGER                        :: iLocalNeighborSide,iNeighbor
-  INTEGER                        :: MPIIndex, iObject
-  INTEGER                        :: allocstat            ! Allocation status return int.   !
-  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-  REAL                           :: chi,tau
-  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
+  INTEGER                        :: iFace, iBndGP
   REAL                           :: iniSlipRate, tmp
-  REAL                           :: Stress(6,1:DISC%Galerkin%nBndGP)
-  REAL                           :: NormalVect_n(3)                                            ! Normal vector components         !
-  REAL                           :: NormalVect_s(3)                                            ! Normal vector components         !
-  REAL                           :: NormalVect_t(3)                                            ! Normal vector components         !
-  REAL                           :: T(EQN%nVar,EQN%nVar)                                       ! Transformation matrix            !
-  REAL                           :: iT(EQN%nVar,EQN%nVar)                                      ! inverse Transformation matrix    !
 
   !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH,BND
@@ -4946,91 +4855,16 @@ MODULE ini_model_DR_mod
   EQN%IniSlipRate2 = DISC%DynRup%RS_iniSlipRate2
   iniSlipRate = SQRT(EQN%IniSlipRate1**2 + EQN%IniSlipRate2**2)
 
-  IF(.NOT.ALLOCATED(DISC%DynRup%RS_a_array)) THEN
-     logWarning(*) 'RS_a_array not allocated before call of friction_RSF103. Allocating now.'
-     ALLOCATE(DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),STAT=allocstat)
-     IF (allocStat .NE. 0) THEN
-        logError(*) 'friction_RSF103: could not allocate all variables!'
-        STOP
-     END IF
-     DISC%DynRup%RS_a_array(:,:) = DISC%DynRup%RS_a
-  ENDIF
-  IF(.NOT.ALLOCATED(DISC%DynRup%RS_srW_array)) THEN
-     logWarning(*) 'RS_srW_array not allocated before call of friction_RSF103. Allocating now.'
-     ALLOCATE(DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),STAT=allocstat)
-     IF (allocStat .NE. 0) THEN
-        logError(*) 'friction_RSF103: could not allocate all variables!'
-        STOP
-     END IF
-     DISC%DynRup%RS_srW_array(:,:) = DISC%DynRup%RS_srW
-  ENDIF
-
 
   ! Loop over every mesh element
-  DO i = 1, MESH%Fault%nSide
-
-      ! element ID
-      iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)
-
-      ! get vertices of complete tet
-      IF (MESH%Fault%Face(i,1,1) == 0) THEN
-          ! iElem is in the neighbor domain
-          ! The neighbor element belongs to a different MPI domain
-          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
-          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
-          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-          !
-          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-      ELSE
-          !
-          ! get vertices
-          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-      ENDIF
-      !
-
-      !Background stress rotation to face's reference system
-      !
-      Stress(1,:)=EQN%IniBulk_xx(i,:)
-      Stress(2,:)=EQN%IniBulk_yy(i,:)
-      Stress(3,:)=EQN%IniBulk_zz(i,:)
-      Stress(4,:)=EQN%IniShearXY(i,:)
-      Stress(5,:)=EQN%IniShearYZ(i,:)
-      Stress(6,:)=EQN%IniShearXZ(i,:)
-
-      ! Local side's normal vector from "+" side = iElem
-      NormalVect_n = MESH%Fault%geoNormals(1:3,i)
-      NormalVect_s = MESH%Fault%geoTangent1(1:3,i)
-      NormalVect_t = MESH%Fault%geoTangent2(1:3,i)
-      !
-      CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),EQN)
-
-      DO iBndGP=1, DISC%Galerkin%nBndGP
-         Stress(:,iBndGP)=MATMUL(iT(1:6,1:6),Stress(:,iBndGP))
-      ENDDO
-
+  DO iFace = 1, MESH%Fault%nSide
       DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-          !
-          ! Transformation of boundary GP's into XYZ coordinate system
-          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-          CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
-          ! SINH(X)=(EXP(X)-EXP(-X))/2
-          !tmp = ABS(EQN%IniShearXY(i,iBndGP)/(DISC%DynRup%RS_a_array(iBndGP,i)*EQN%IniBulk_yy(i,iBndGP)))
-          tmp = ABS(SQRT(Stress(4,iBndGP)**2+Stress(6,iBndGP)**2)/(DISC%DynRup%RS_a_array(iBndGP,i)*Stress(1,iBndGP)))
-          EQN%IniStateVar(i,iBndGP)=DISC%DynRup%RS_a_array(iBndGP,i)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
+          tmp = ABS(SQRT(EQN%InitialStressInFaultCS(iBndGP,4,iFace)**2+EQN%InitialStressInFaultCS(iBndGP,6,iFace)**2)/(DISC%DynRup%RS_a_array(iBndGP,iFace)*EQN%InitialStressInFaultCS(iBndGP,1,iFace)))
+          EQN%IniStateVar(iBndGP,iFace)=DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
-          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(i,iBndGP)/ DISC%DynRup%RS_a_array(iBndGP,i))
-          EQN%IniMu(iBndGP,i)=DISC%DynRup%RS_a_array(iBndGP,i) * LOG(tmp + SQRT(tmp**2 + 1.0D0))
-
+          tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(iBndGP,iFace)/ DISC%DynRup%RS_a_array(iBndGP,iFace))
+          EQN%IniMu(iBndGP,iFace)=DISC%DynRup%RS_a_array(iBndGP,iFace) * LOG(tmp + SQRT(tmp**2 + 1.0D0))
       ENDDO ! iBndGP
-
   ENDDO !    MESH%Fault%nSide
 
   END SUBROUTINE friction_RSF103      ! Initialization of initial slip rate and friction for SCEC TPV103
@@ -5048,60 +4882,11 @@ MODULE ini_model_DR_mod
   TYPE(tUnstructMesh)            :: MESH
   TYPE (tBoundary)               :: BND
   !-------------------------------------------------------------------------!
-  ! Local variable declaration
-  INTEGER                        :: i
-  INTEGER                        :: iSide,iElem,iBndGP
-  INTEGER                        :: iLocalNeighborSide,iNeighbor
-  INTEGER                        :: MPIIndex, iObject
-  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-  REAL                           :: chi,tau
-  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
-  REAL                           :: iniSlipRate, tmp
-  !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH,BND
   INTENT(INOUT) :: DISC,EQN
   !-------------------------------------------------------------------------!
 
-  ! Loop over every mesh element
-  DO i = 1, MESH%Fault%nSide
-
-      ! element ID
-      iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)
-
-      ! get vertices of complete tet
-      IF (MESH%Fault%Face(i,1,1) == 0) THEN
-          ! iElem is in the neighbor domain
-          ! The neighbor element belongs to a different MPI domain
-          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
-          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
-          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-          !
-          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-      ELSE
-          !
-          ! get vertices
-          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-      ENDIF
-      !
-      DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-          !
-          ! Transformation of boundary GP's into XYZ coordinate system
-          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-          CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
-
-          EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S(iBndGP,i)
-
-      ENDDO ! iBndGP
-
-  ENDDO !    MESH%Fault%nSide
+  EQN%IniMu(:,:) = DISC%DynRup%Mu_S(:,:)
 
   END SUBROUTINE friction_LSW
 
@@ -5117,61 +4902,18 @@ MODULE ini_model_DR_mod
   TYPE (tBoundary)               :: BND
   !-------------------------------------------------------------------------!
   ! Local variable declaration
-  INTEGER                        :: i
-  INTEGER                        :: iSide,iElem,iBndGP
-  INTEGER                        :: iLocalNeighborSide,iNeighbor
-  INTEGER                        :: MPIIndex, iObject
-  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-  REAL                           :: chi,tau
-  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
-  REAL                           :: iniSlipRate, tmp
+  INTEGER                        :: iFace,iBndGP
   !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH,BND
   INTENT(INOUT) :: DISC,EQN
   !-------------------------------------------------------------------------!
-
-  ! Loop over every mesh element
-  DO i = 1, MESH%Fault%nSide
-
-      ! element ID
-      iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)
-
-      ! get vertices of complete tet
-      IF (MESH%Fault%Face(i,1,1) == 0) THEN
-          ! iElem is in the neighbor domain
-          ! The neighbor element belongs to a different MPI domain
-          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
-          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
-          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-          !
-          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-      ELSE
-          !
-          ! get vertices
-          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-      ENDIF
-      !
-      DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-          !
-          ! Transformation of boundary GP's into XYZ coordinate system
-          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
-          CALL TetraTrafoXiEtaZeta2XYZ(xGp,yGp,zGp,xi,eta,zeta,xV,yV,zV)
-
-          EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S(iBndGP,i)
-          !Attention: normal stress is here assumed in yy direction
-          DISC%DynRup%Strength(iBndGP,i) = EQN%IniMu(iBndGP,i)*EQN%IniBulk_yy(i,iBndGP)
-
-      ENDDO ! iBndGP
-
-  ENDDO !    MESH%Fault%nSide
+  
+  EQN%IniMu(:,:) = DISC%DynRup%Mu_S(:,:)
+  do iFace = 1, MESH%Fault%nSide
+    do iBndGP = 1,DISC%Galerkin%nBndGP
+      DISC%DynRup%Strength(iBndGP,iFace) = EQN%IniMu(iBndGP,iFace) * EQN%InitialStressInFaultCS(iBndGP,1,iFace)
+    enddo
+  enddo
 
   END SUBROUTINE friction_LSW6    ! Initialization of friction for bimaterial linear slip weakening
 

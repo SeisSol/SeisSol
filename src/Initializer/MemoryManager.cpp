@@ -70,155 +70,18 @@
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
+#include "GlobalData.h"
 
 #include <Kernels/common.hpp>
-
-#include <generated_code/init.h>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-seissol::initializers::MemoryManager::MemoryManager()
-  : m_integrationBufferLTS(NULL)
-{
-}
-
 void seissol::initializers::MemoryManager::initialize()
 {
-  // allocate thread-local LTS integration buffers
-  allocateIntegrationBufferLTS();
-
   // initialize global matrices
-#ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-  initializeGlobalData( m_globalData );
-#else
-  // determine the number of threads
-  unsigned int l_numberOfThreads = omp_get_max_threads();
-  unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
-  unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
-  logInfo(0) << "Number of GlobalData copies: " << l_numberOfCopies;
-
-  m_globalDataCopies = new GlobalData[l_numberOfCopies];
-
-  // initialize in parallel to obtain best possible NUMA placement
-  #pragma omp parallel
-  {
-    if (omp_get_thread_num()%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) {
-      // @TODO check why initializeGlobalMatrices is not thread-safe
-      #pragma omp critical
-      {
-        initializeGlobalData( m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY] );
-      }
-    }
-  }
-
-  // set master structure
-  m_globalData = m_globalDataCopies[0];
-#endif
-}
-
-seissol::initializers::MemoryManager::~MemoryManager() {
-  // free members
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-  delete[] m_globalDataCopies;
-#endif
-}
-
-void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalData &o_globalData )
-{
-  // DG global matrices
-  real* globalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
-  for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
-    memcpy(
-      &globalMatrixMem[ seissol::model::globalMatrixOffsets[matrix] ],
-      seissol::model::globalMatrixValues[matrix],
-      (seissol::model::globalMatrixOffsets[matrix+1] - seissol::model::globalMatrixOffsets[matrix]) * sizeof(real)
-    );
-  }
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    o_globalData.stiffnessMatricesTransposed[transposedStiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
-  }
-  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    o_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[3 + stiffness] ];
-  }
-  for (unsigned cob = 0; cob < 4; ++cob) {
-    o_globalData.changeOfBasisMatrices[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + cob] ];
-  }
-  for (unsigned cob = 0; cob < 4; ++cob) {
-    o_globalData.neighbourChangeOfBasisMatricesTransposed[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[10 + cob] ];
-  }
-  for (unsigned cob = 0; cob < 4; ++cob) {
-    o_globalData.localChangeOfBasisMatricesTransposed[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[14 + cob] ];
-  }
-  for (unsigned flux = 0; flux < 3; ++flux) {
-    o_globalData.neighbourFluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[18 + flux] ];
-  }
-
-  // @TODO Integrate this step into the code generator
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    real* matrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
-    for (unsigned i = 0; i < seissol::model::globalMatrixOffsets[transposedStiffness+1]-seissol::model::globalMatrixOffsets[transposedStiffness]; ++i) {
-      matrix[i] *= -1.0;
-    }
-  }
-
-  o_globalData.integrationBufferLTS = m_integrationBufferLTS;
-
-  // Dynamic Rupture global matrices
-  real* drGlobalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
-  for (unsigned matrix = 0; matrix < seissol::model::dr_numGlobalMatrices; ++matrix) {
-    memcpy(
-      &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[matrix] ],
-      seissol::model::dr_globalMatrixValues[matrix],
-      (seissol::model::dr_globalMatrixOffsets[matrix+1] - seissol::model::dr_globalMatrixOffsets[matrix]) * sizeof(real)
-    );
-  }
-  for (unsigned face = 0; face < 4; ++face) {
-    for (unsigned h = 0; h < 4; ++h) {
-      o_globalData.nodalFluxMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[4*face+h] ];
-      o_globalData.faceToNodalMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[16 + 4*face+h] ];
-    }
-  }
-
-  real* plasticityGlobalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::plasticity_globalMatrixOffsets[seissol::model::plasticity_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
-  for (unsigned matrix = 0; matrix < seissol::model::plasticity_numGlobalMatrices; ++matrix) {
-    memcpy(
-      &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[matrix] ],
-      seissol::model::plasticity_globalMatrixValues[matrix],
-      (seissol::model::plasticity_globalMatrixOffsets[matrix+1] - seissol::model::plasticity_globalMatrixOffsets[matrix]) * sizeof(real)
-    );
-  }
-  o_globalData.vandermondeMatrix = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[0] ];
-  o_globalData.vandermondeMatrixInverse = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[1] ];
-}
-
-void seissol::initializers::MemoryManager::allocateIntegrationBufferLTS() {
-  /*
-   *  (thread-local) LTS integration buffers, allocate
-   */
-  int l_numberOfThreads = 1;
-#ifdef _OPENMP
-  l_numberOfThreads = omp_get_max_threads();
-#endif
-  m_integrationBufferLTS = (real*) m_memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, MEMKIND_GLOBAL ) ;
-
-  /*
-   *  (thread-local) LTS integration buffers, initialize
-   */
-#ifdef _OPENMP
-  #pragma omp parallel
-  {
-    size_t l_threadOffset = omp_get_thread_num()*(4*NUMBER_OF_ALIGNED_DOFS);
-#else
-    size_t l_threadOffset = 0;
-#endif
-    for ( unsigned int l_dof = 0; l_dof < (4*NUMBER_OF_ALIGNED_DOFS); l_dof++ ) {
-      m_integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
-    }
-#ifdef _OPENMP
-  }
-#endif
+  initializeGlobalData( m_globalData, m_memoryAllocator, MEMKIND_GLOBAL );
 }
 
 void seissol::initializers::MemoryManager::correctGhostRegionSetups()
@@ -697,13 +560,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
 void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,
                                                             struct MeshStructure          *&o_meshStructure,
                                                             struct GlobalData             *&o_globalData
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                                                            ,struct GlobalData             *&o_globalDataCopies
-#endif
                                                           ) {
   o_meshStructure           =  m_meshStructure + i_cluster;
   o_globalData              = &m_globalData;
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-  o_globalDataCopies        =  m_globalDataCopies;
-#endif
 }

@@ -99,6 +99,38 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), dimension(*), intent(in) :: timeHistories
     end subroutine
   end interface
+  
+  ! Don't forget to add // c_null_char to materialFileName when using this interface
+  interface
+    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, materialVal, bulkFriction, plastCo, iniStress) bind( C, name='c_interoperability_initializeModel' )
+      use iso_c_binding, only: c_double, c_int, c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in)  :: materialFileName
+      integer(kind=c_int), value                        :: anelasticity
+      integer(kind=c_int), value                        :: plasticity
+      real(kind=c_double), dimension(*), intent(out)    :: materialVal, bulkFriction, plastCo, iniStress
+    end subroutine
+  end interface
+
+  interface
+    subroutine c_interoperability_addFaultParameter(parameterName, memory) bind( C, name='c_interoperability_addFaultParameter' )
+      use iso_c_binding, only: c_double, c_int, c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in)  :: parameterName
+      real(kind=c_double), dimension(*), intent(in)    :: memory
+    end subroutine
+  end interface
+  
+  ! Don't forget to add // c_null_char to modelFileName when using this interface
+  interface
+    subroutine c_interoperability_initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints) bind( C, name='c_interoperability_initializeFault' )
+      use iso_c_binding, only: c_double, c_int, c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in)  :: modelFileName
+      integer(kind=c_int), value                        :: gpwise, numberOfBndPoints
+      real(kind=c_double), dimension(*), intent(in )    :: bndPoints
+    end subroutine
+  end interface
 
   interface c_interoperability_addReceiver
     subroutine c_interoperability_addReceiver( i_receiverId, i_meshId ) bind( C, name='c_interoperability_addReceiver' )

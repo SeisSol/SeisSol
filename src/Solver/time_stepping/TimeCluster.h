@@ -88,14 +88,7 @@
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
-#include <Monitoring/Stopwatch.h>
-
-// some check for correct functionality
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-#ifndef _OPENMP
-#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY requires OpenMP to be enabled
-#endif
-#endif
+#include <Monitoring/LoopStatistics.h>
 
 namespace seissol {
   namespace time_stepping {
@@ -146,13 +139,6 @@ private:
      */
      //! global data structures
     struct GlobalData *m_globalData;
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-#if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY > 0
-    struct GlobalData *m_globalDataCopies;
-#else
-#error NUMBER_OF_THREADS_PER_GLOBALDATA_COPY needs to be larger than 0 if defined
-#endif
-#endif
 
     /*
      * element data and mpi queues
@@ -213,10 +199,10 @@ private:
     double m_relaxTime;
     
     //! Stopwatch of TimeManager
-    Stopwatch* m_stopwatch;
-
-    //! Dynamic rupture stopwatch of TimeManager
-    Stopwatch* m_stopwatchDR;
+    LoopStatistics* m_loopStatistics;
+    unsigned        m_regionComputeLocalIntegration;
+    unsigned        m_regionComputeNeighboringIntegration;
+    unsigned        m_regionComputeDynamicRupture;
 
 #ifdef USE_MPI
     /**
@@ -402,15 +388,11 @@ private:
                  kernels::Neighbor             &i_neighborKernel,
                  struct MeshStructure          *i_meshStructure,
                  struct GlobalData             *i_globalData,
-#ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-                 struct GlobalData             *i_globalDataCopies,
-#endif
                  seissol::initializers::TimeCluster* i_clusterData,
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 Stopwatch*                             i_stopwatch,
-                 Stopwatch*                             i_stopwatchDR );
+                 LoopStatistics*                        i_loopStatistics );
 
     /**
      * Destructor of a LTS cluster.

@@ -79,7 +79,7 @@ void* seissol::memory::allocate(size_t i_size, size_t i_alignment, enum Memkind 
 
     /* handle zero allocation */
     if ( i_size == 0 ) {
-      logWarning() << "allocation of size 0 requested, returning NULL; (alignment: " << i_alignment << ", memkind: " << i_memkind << ").";
+      //logWarning() << "allocation of size 0 requested, returning NULL; (alignment: " << i_alignment << ", memkind: " << i_memkind << ").";
       l_ptrBuffer = NULL;
       return l_ptrBuffer;
     }

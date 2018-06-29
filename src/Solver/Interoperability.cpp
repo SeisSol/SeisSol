@@ -46,6 +46,7 @@
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
+#include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
@@ -101,6 +102,35 @@ extern "C" {
                                               timestep,
                                               numberOfSamples,
                                               timeHistories );
+  }
+
+  void c_interoperability_initializeModel(  char*   materialFileName,
+                                            int     anelasticity,
+                                            int     plasticity,
+                                            double* materialVal,
+                                            double* bulkFriction,
+                                            double* plastCo,
+                                            double* iniStress )
+  {
+    e_interoperability.initializeModel( materialFileName,
+                                        anelasticity,
+                                        plasticity,
+                                        materialVal,
+                                        bulkFriction,
+                                        plastCo,
+                                        iniStress );
+  }
+  
+  void c_interoperability_addFaultParameter(  char* name,
+                                              double* memory  ) {
+    e_interoperability.addFaultParameter(name, memory);
+  }
+  
+  void c_interoperability_initializeFault(  char*   modelFileName,
+                                            int     gpwise,
+                                            double* bndPoints,
+                                            int     numberOfBndPoints ) {    
+    e_interoperability.initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints);
   }
 
   void c_interoperability_addReceiver( int i_receiverId,
@@ -426,6 +456,63 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
   );
 }
 
+void seissol::Interoperability::initializeModel(  char*   materialFileName,
+                                                  int     anelasticity,
+                                                  int     plasticity,
+                                                  double* materialVal,
+                                                  double* bulkFriction,
+                                                  double* plastCo,
+                                                  double* iniStress )
+{
+  auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
+
+  seissol::initializers::ParameterDB parameterDB;
+  parameterDB.addParameter("rho",    materialVal);
+  parameterDB.addParameter("mu",     materialVal + nElements);
+  parameterDB.addParameter("lambda", materialVal + nElements*2);
+  
+  if (anelasticity == 1) {
+    parameterDB.addParameter("Qp",  materialVal + nElements*3);
+    parameterDB.addParameter("Qs",  materialVal + nElements*4);
+  }
+
+  if (plasticity == 1) {
+    parameterDB.addParameter("bulkFriction", bulkFriction);
+    parameterDB.addParameter("plastCo",      plastCo);
+    parameterDB.addParameter("s_xx",         iniStress+0, 6);
+    parameterDB.addParameter("s_yy",         iniStress+1, 6);
+    parameterDB.addParameter("s_zz",         iniStress+2, 6);
+    parameterDB.addParameter("s_xy",         iniStress+3, 6);
+    parameterDB.addParameter("s_yz",         iniStress+4, 6);
+    parameterDB.addParameter("s_xz",         iniStress+5, 6);
+  }
+  
+  seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
+  parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+}
+
+void seissol::Interoperability::initializeFault( char*   modelFileName,
+                                                 int     gpwise,
+                                                 double* bndPoints,
+                                                 int     numberOfBndPoints )
+{
+  seissol::initializers::ParameterDB parameterDB;
+  for (auto const& kv : m_faultParameters) {
+    parameterDB.addParameter(kv.first, kv.second);
+  }
+  
+  if (gpwise != 0) {
+    seissol::initializers::FaultGPGenerator queryGen( seissol::SeisSol::main.meshReader(),
+                                                      reinterpret_cast<double(*)[2]>(bndPoints),
+                                                      numberOfBndPoints );
+    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
+  } else {
+    seissol::initializers::FaultBarycentreGenerator queryGen( seissol::SeisSol::main.meshReader(),
+                                                              numberOfBndPoints );
+    parameterDB.evaluateModel(std::string(modelFileName), queryGen);
+  }
+}
+
 void seissol::Interoperability::addReceiver( int i_receiverId,
                                              int i_meshId ) {
   seissol::SeisSol::main.timeManager().addReceiver( i_receiverId, i_meshId );
@@ -471,15 +558,10 @@ void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_p
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
   CellMaterialData& material = m_ltsLut.lookup(m_lts->material, (*i_meshId) - 1);
 
-  for( unsigned int l_para = 0; l_para < 4; l_para++ ) {
-      plasticity.plasticParameters[l_para] = i_plasticParameters[l_para];
-  }
+  double angularFriction = atan(i_plasticParameters[1]);
 
 
-  double angularFriction = atan(i_plasticParameters[3]);
-
-
-  plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[1] * cos(angularFriction);
+  plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[0] * cos(angularFriction);
   plasticity.sinAngularFriction = sin(angularFriction);
   plasticity.mufactor = 1.0 / (2.0 * material.local.mu);
 
@@ -572,7 +654,7 @@ void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval
 	  seissol::SeisSol::main.checkPointManager().setBackend(checkpoint::SIONLIB);
   else
 	  logError() << "Unknown checkpoint backend";
-  	  seissol::SeisSol::main.checkPointManager().setFilename( i_checkPointFilename );
+  seissol::SeisSol::main.checkPointManager().setFilename( i_checkPointFilename );
 }
 
 void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {

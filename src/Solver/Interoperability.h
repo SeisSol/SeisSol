@@ -42,6 +42,7 @@
 #ifndef INTEROPERABILITY_H_
 #define INTEROPERABILITY_H_
 
+#include <unordered_map>
 #include <vector>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
@@ -89,6 +90,9 @@ class seissol::Interoperability {
 
     //! Lookup table relating faces to layers
     unsigned*                         m_ltsFaceToMeshFace;
+    
+    //! Set of parameters that have to be initialized for dynamic rupture
+    std::unordered_map<std::string, double*> m_faultParameters;
 
  public:
    /**
@@ -146,6 +150,26 @@ class seissol::Interoperability {
                                double        timestep,
                                int           numberOfSamples,
                                double const* timeHistories );
+
+    //! \todo Documentation
+    void initializeModel( char*   materialFileName,
+                          int     anelasticity,
+                          int     plasticity,
+                          double* materialVal,
+                          double* bulkFriction,
+                          double* plastCo,
+                          double* iniStress );
+
+    void addFaultParameter( std::string const& name,
+                           double* memory) {
+      m_faultParameters[name] = memory;
+    }
+    
+    //! \todo Documentation
+    void initializeFault( char*   modelFileName,
+                          int     gpwise,
+                          double* bndPoints,
+                          int     numberOfBndPoints );
 
    /**
     * Adds a receiver at the specified mesh id.

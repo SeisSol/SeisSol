@@ -659,9 +659,7 @@ CONTAINS
       DISC%DynRup%TracXY        = 0.0D0
       DISC%DynRup%TracXZ        = 0.0D0
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
-      do iFace=1,MESH%Fault%nSide
-         DISC%DynRup%StateVar(:,iFace) = EQN%IniStateVar(iFace,:)
-      enddo
+      DISC%DynRup%StateVar(:,:) = EQN%IniStateVar
       DISC%DynRup%PeakSR        = 0.0D0
       DISC%DynRup%rupture_time  = 0.0D0
       DISC%DynRup%dynStress_time = 0.0D0
@@ -673,9 +671,8 @@ CONTAINS
       allocate(disc%DynRup%output_Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
       allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
-      
-      allocate(disc%DynRup%output_StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))      
+      allocate(disc%DynRup%output_StateVar(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
 
     else
         ! Allocate dummy arrays to avoid debug errors
@@ -1918,7 +1915,7 @@ CONTAINS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
-    real    :: l_plasticParameters(4)
+    real    :: l_plasticParameters(2)
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2064,10 +2061,8 @@ CONTAINS
 
 #ifdef USE_PLASTICITY
         ! initialize the element dependent plastic parameters
-        l_plasticParameters(1) = MESH%Elem%Volume(iElem)
-        l_plasticParameters(2) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
-        l_plasticParameters(3) = EQN%Rho0    !density
-        l_plasticParameters(4) = EQN%BulkFriction(iElem) !element-dependent bulk friction
+        l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
+        l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
 
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
@@ -2544,404 +2539,13 @@ CONTAINS
     !
     DISC%Galerkin%WaveSpeed(:,:,:) = 0.
     !
-    IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0) THEN
-      ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem,MESH%nSideMax) )
-      DO j=1,MESH%nSideMax
-        DISC%Galerkin%WaveSpeed(:,j,1)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
-        DISC%Galerkin%WaveSpeed(:,j,2)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
-        DISC%Galerkin%WaveSpeed(:,j,3)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
-        DISC%Galerkin%MaxWaveSpeed(:,j)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
-      ENDDO
-      !
-    ELSE
-
-      ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem,MESH%nSideMax) )
-
-      DISC%Galerkin%WaveSpeed(:,:,:) = 0.
-
-      DO iElem = 1, MESH%nElem
-
-       SELECT CASE(EQN%LocPoroelastic(iElem))
-       CASE(0)                  ! Triclinic system
-         !
-         DO iSide = 1, MESH%LocalElemType(iElem)
-            !
-            T(:,:)          = 0.
-            TT(:,:)         = 0.
-            !
-            nx = DISC%Galerkin%geoNormals(1,iSide,iElem)
-            ny = DISC%Galerkin%geoNormals(2,iSide,iElem)
-            nz = DISC%Galerkin%geoNormals(3,iSide,iElem)
-            sx = DISC%Galerkin%geoTangent1(1,iSide,iElem)
-            sy = DISC%Galerkin%geoTangent1(2,iSide,iElem)
-            sz = DISC%Galerkin%geoTangent1(3,iSide,iElem)
-            tx = DISC%Galerkin%geoTangent2(1,iSide,iElem)
-            ty = DISC%Galerkin%geoTangent2(2,iSide,iElem)
-            tz = DISC%Galerkin%geoTangent2(3,iSide,iElem)
-            !
-            ! Rotation matrices for the transformation of the Voigt matrix
-            ! C' = T*C*T^T
-            !
-            ! Transformation matrix TO the rotated system
-            T(1,1) = nx**2
-            T(1,2) = ny**2
-            T(1,3) = nz**2
-            T(1,4) = 2*nz*ny
-            T(1,5) = 2*nz*nx
-            T(1,6) = 2*ny*nx
-            T(2,1) = sx**2
-            T(2,2) = sy**2
-            T(2,3) = sz**2
-            T(2,4) = 2*sz*sy
-            T(2,5) = 2*sz*sx
-            T(2,6) = 2*sy*sx
-            T(3,1) = tx**2
-            T(3,2) = ty**2
-            T(3,3) = tz**2
-            T(3,4) = 2*tz*ty
-            T(3,5) = 2*tz*tx
-            T(3,6) = 2*ty*tx
-            T(4,1) = sx*tx
-            T(4,2) = sy*ty
-            T(4,3) = sz*tz
-            T(4,4) = sz*ty+sy*tz
-            T(4,5) = sz*tx+sx*tz
-            T(4,6) = sy*tx+sx*ty
-            T(5,1) = nx*tx
-            T(5,2) = ny*ty
-            T(5,3) = nz*tz
-            T(5,4) = nz*ty+ny*tz
-            T(5,5) = nz*tx+nx*tz
-            T(5,6) = ny*tx+nx*ty
-            T(6,1) = nx*sx
-            T(6,2) = ny*sy
-            T(6,3) = nz*sz
-            T(6,4) = nz*sy+ny*sz
-            T(6,5) = nz*sx+nx*sz
-            T(6,6) = ny*sx+nx*sy
-            !
-            ! Transpose of Transformation matrix
-            !
-            DO i = 1, 6
-              DO j = 1, 6
-                TT(i,j) = T(j,i)
-              ENDDO
-            ENDDO
-            !
-            ! Material constants in the global xyz system
-            !
-            rho    = MaterialVal(iElem, 1)
-            c(1,1) = MaterialVal(iElem, 2)
-            c(1,2) = MaterialVal(iElem, 3)
-            c(1,3) = MaterialVal(iElem, 4)
-            c(1,4) = MaterialVal(iElem, 5)
-            c(1,5) = MaterialVal(iElem, 6)
-            c(1,6) = MaterialVal(iElem, 7)
-            c(2,2) = MaterialVal(iElem, 8)
-            c(2,3) = MaterialVal(iElem, 9)
-            c(2,4) = MaterialVal(iElem,10)
-            c(2,5) = MaterialVal(iElem,11)
-            c(2,6) = MaterialVal(iElem,12)
-            c(3,3) = MaterialVal(iElem,13)
-            c(3,4) = MaterialVal(iElem,14)
-            c(3,5) = MaterialVal(iElem,15)
-            c(3,6) = MaterialVal(iElem,16)
-            c(4,4) = MaterialVal(iElem,17)
-            c(4,5) = MaterialVal(iElem,18)
-            c(4,6) = MaterialVal(iElem,19)
-            c(5,5) = MaterialVal(iElem,20)
-            c(5,6) = MaterialVal(iElem,21)
-            c(6,6) = MaterialVal(iElem,22)
-            !
-            ! Initialize lower half of Voigt matrix using the symmetry property
-            !
-            DO i = 1, 6
-              DO j = 1, i-1
-                c(i,j) = c(j,i)
-              ENDDO
-            ENDDO
-            !
-            ! Initialize and rotate Voigt matrix to get local material properties
-            !
-            Voigt_rot(:,:) = MATMUL( T(:,:), MATMUL(c(:,:),TT(:,:)) )
-            !
-            c(:,:) = Voigt_rot(:,:)
-            !
-            ! Eigenvalues of Jacobian in normal direction
-            !
-            coefficients(1) = rho**3
-            coefficients(2) = (-rho**2*c(1,1)-c(5,5)*rho**2-rho**2*c(6,6))
-            coefficients(3) = (-c(1,5)**2*rho+rho*c(6,6)*c(1,1)+c(5,5)*c(6,6)*rho-c(5,6)**2*rho- &
-                              c(1,6)**2*rho+c(5,5)*rho*c(1,1))
-            coefficients(4) = -c(5,5)*c(6,6)*c(1,1)+c(1,6)**2*c(5,5)-2*c(5,6)*c(1,5)*c(1,6)+         &
-                               c(5,6)**2*c(1,1)+c(1,5)**2*c(6,6)
-            !
-            ! Normalize all coeffs w.r.t. c_11^2 (is always different from 0) to get more accurate root values (verify)
-            coefficients(:) = coefficients(:)/(c(1,1)**2)
-            !
-           CALL ZerosPolyO3(solution,coefficients)
-            !
-            DO i = 1, 3
-              Re_solution(i) = REAL(solution(i))
-              Im_solution(i) = AIMAG(solution(i))
-              IF( (Re_solution(i).LT.0.) ) THEN
-                logError(*) 'Imaginary wave speed. System is not hyperbolic. '
-                logError(*) ' Probably your material does not exist.'
-                STOP
-              ENDIF
-              IF( ABS(Im_solution(i))/Re_solution(i).GT.1.e-6 ) THEN   !Roundoff error can produce larger imaginary parts than expected!
-                logWarning(*) ' Imaginary wave speed. System is not hyperbolic. Wave i=', i
-                logWarning(*) ' Probably your material does not exist. Im(lambda) = ', Im_solution(i)
-              ENDIF
-            ENDDO
-            !
-            !Re_Solution(:) = Re_solution(:) + Im_solution(:) !Adding the complex residues (verify)
-            !
-            amax         = MAXVAL( SQRT(Re_solution(:)) )
-            !
-            DISC%Galerkin%maxWaveSpeed(iElem,iSide) = amax
-            !
-            ! Descending sorting of the wavespeeds
-            DO j=2,3
-              a=Re_solution(j)
-              DO i=j-1,1,-1
-                IF (Re_solution(i) >= a) EXIT
-                Re_solution(i+1)=Re_solution(i)
-              ENDDO
-              Re_solution(i+1)=a
-            ENDDO
-            !
-            DISC%Galerkin%WaveSpeed(iElem,iSide,1:3) = SQRT(Re_solution(1:3))
-            !
-       ENDDO
-
-
-      CASE(1,2,3)    !Porous case
-       !
-       DO iSide = 1, MESH%LocalElemType(iElem)
-            !
-            T(:,:)          = 0.
-            TT(:,:)         = 0.
-            !
-            nx = DISC%Galerkin%geoNormals(1,iSide,iElem)
-            ny = DISC%Galerkin%geoNormals(2,iSide,iElem)
-            nz = DISC%Galerkin%geoNormals(3,iSide,iElem)
-            sx = DISC%Galerkin%geoTangent1(1,iSide,iElem)
-            sy = DISC%Galerkin%geoTangent1(2,iSide,iElem)
-            sz = DISC%Galerkin%geoTangent1(3,iSide,iElem)
-            tx = DISC%Galerkin%geoTangent2(1,iSide,iElem)
-            ty = DISC%Galerkin%geoTangent2(2,iSide,iElem)
-            tz = DISC%Galerkin%geoTangent2(3,iSide,iElem)
-            !
-            ! Rotation matrices for the transformation of the Voigt matrix
-            ! C' = T*C*T^T
-            !
-            ! Transformation matrix TO the rotated system
-            T(1,1) = nx**2
-            T(1,2) = ny**2
-            T(1,3) = nz**2
-            T(1,4) = 2*nz*ny
-            T(1,5) = 2*nz*nx
-            T(1,6) = 2*ny*nx
-            T(2,1) = sx**2
-            T(2,2) = sy**2
-            T(2,3) = sz**2
-            T(2,4) = 2*sz*sy
-            T(2,5) = 2*sz*sx
-            T(2,6) = 2*sy*sx
-            T(3,1) = tx**2
-            T(3,2) = ty**2
-            T(3,3) = tz**2
-            T(3,4) = 2*tz*ty
-            T(3,5) = 2*tz*tx
-            T(3,6) = 2*ty*tx
-            T(4,1) = sx*tx
-            T(4,2) = sy*ty
-            T(4,3) = sz*tz
-            T(4,4) = sz*ty+sy*tz
-            T(4,5) = sz*tx+sx*tz
-            T(4,6) = sy*tx+sx*ty
-            T(5,1) = nx*tx
-            T(5,2) = ny*ty
-            T(5,3) = nz*tz
-            T(5,4) = nz*ty+ny*tz
-            T(5,5) = nz*tx+nx*tz
-            T(5,6) = ny*tx+nx*ty
-            T(6,1) = nx*sx
-            T(6,2) = ny*sy
-            T(6,3) = nz*sz
-            T(6,4) = nz*sy+ny*sz
-            T(6,5) = nz*sx+nx*sz
-            T(6,6) = ny*sx+nx*sy
-            !
-            ! Transpose of Transformation matrix
-            !
-            DO i = 1, 6
-              DO j = 1, 6
-                TT(i,j) = T(j,i)
-              ENDDO
-            ENDDO
-            !
-            ! Material constants in the global xyz system
-            !
-            rho_S  = MaterialVal(iElem, 1)
-            c(1,1) = MaterialVal(iElem, 2)
-            c(1,2) = MaterialVal(iElem, 3)
-            c(1,3) = MaterialVal(iElem, 4)
-            c(1,4) = MaterialVal(iElem, 5)
-            c(1,5) = MaterialVal(iElem, 6)
-            c(1,6) = MaterialVal(iElem, 7)
-            c(2,2) = MaterialVal(iElem, 8)
-            c(2,3) = MaterialVal(iElem, 9)
-            c(2,4) = MaterialVal(iElem,10)
-            c(2,5) = MaterialVal(iElem,11)
-            c(2,6) = MaterialVal(iElem,12)
-            c(3,3) = MaterialVal(iElem,13)
-            c(3,4) = MaterialVal(iElem,14)
-            c(3,5) = MaterialVal(iElem,15)
-            c(3,6) = MaterialVal(iElem,16)
-            c(4,4) = MaterialVal(iElem,17)
-            c(4,5) = MaterialVal(iElem,18)
-            c(4,6) = MaterialVal(iElem,19)
-            c(5,5) = MaterialVal(iElem,20)
-            c(5,6) = MaterialVal(iElem,21)
-            c(6,6) = MaterialVal(iElem,22)
-            rho_F  = MaterialVal(iElem,23)
-            K_F    = MaterialVal(iElem,24)
-            nu     = MaterialVal(iElem,25)
-            K_S    = MaterialVal(iElem,26)
-            Poro   = MaterialVal(iElem,27)
-            ! Permeabilities and tortuosities are rotated assuming that they represent an ellipsoid in the reference system!
-            ! The ellipsoid is aligned with the mesh reference system (no rotation in .par file)
-            Kappa(1) = SQRT((MaterialVal(iElem,28)*nx)**2+(MaterialVal(iElem,29)*ny)**2+(MaterialVal(iElem,30)*nz)**2)
-            Tor(1)   = SQRT((MaterialVal(iElem,31)*nx)**2+(MaterialVal(iElem,32)*ny)**2+(MaterialVal(iElem,33)*nz)**2)
-            !
-            ! Initialize lower half of Voigt matrix using the symmetry property
-            !
-            DO i = 1, 6
-              DO j = 1, i-1
-                c(i,j) = c(j,i)
-              ENDDO
-            ENDDO
-            !
-            ! Initialize and rotate Voigt matrix to get local material properties
-            !
-            Voigt_rot(:,:) = MATMUL( T(:,:), MATMUL(c(:,:),TT(:,:)) )
-            !
-            c(:,:) = Voigt_rot(:,:)
-            !
-            ! Derived constants for the jacobians
-            rho    = rho_S * (1 - Poro) + Poro * rho_F
-            K_Mean = 1./9.*(c(1,1)+c(2,2)+c(3,3)+2*(c(1,2)+c(1,3)+c(2,3)))
-            MM     = K_S / ((1 - K_Mean/K_S) - Poro*(1 - K_S/K_F))
-            Alpha(1) = 1 - (c(1,1)+c(1,2)+c(1,3)) / (3.*K_S)
-            Alpha(2) = 1 - (c(1,2)+c(2,2)+c(2,3)) / (3.*K_S)
-            Alpha(3) = 1 - (c(1,3)+c(2,3)+c(3,3)) / (3.*K_S)
-            Alpha(4) = - (c(1,4)+c(2,4)+c(3,4)) / (3.*K_S)
-            Alpha(5) = - (c(1,5)+c(2,5)+c(3,5)) / (3.*K_S)
-            Alpha(6) = - (c(1,6)+c(2,6)+c(3,6)) / (3.*K_S)
-            Rho1     = rho - (rho_F**2 / (rho_F * Tor(1) / Poro))
-            Rho2     = rho_F - (rho_F * Tor(1) / Poro) * rho /rho_F
-            Beta1    = rho_F / (rho_F * Tor(1) / Poro)
-            Beta2    = rho / rho_F
-            !
-            ! Computation of undrained c(i,j) coeffs
-            DO i=1,6
-              DO j=1,6
-                c(i,j) = c(i,j) + MM * Alpha(i)*Alpha(j)
-              ENDDO
-            ENDDO
-            !
-            ! Eigenvalues of Jacobian in normal direction
-            !
-            IF((c(6,6)/c(1,1)).GE.1e-10) THEN
-
-              coefficients2(1) = Rho1**3*Rho2
-              coefficients2(2) = Rho1**2*(-c(6,6)*Rho2+Alpha(1)*MM*Rho2*Beta1+Beta2*Rho1*MM-c(5,5)*Rho2-c(1,1)*Rho2-Rho1*Alpha(1)*MM)
-              coefficients2(3) = Rho1*(Beta2*Rho1*Alpha(5)**2*MM**2-Beta2*Rho1*c(5,5)*MM+Beta2*Rho1*Alpha(6)**2*MM**2- &
-                                 Rho1*c(1,5)*Alpha(5)*MM-Beta2*c(1,1)*Rho1*MM+c(1,1)*Rho1*MM*Beta1+c(1,1)*c(5,5)*Rho2+c(1,1)*c(6,6)*Rho2 &
-                                 +Beta2*Alpha(1)**2*MM**2*Rho1-Alpha(1)**2*MM**2*Rho1*Beta1+Rho1*c(6,6)*Alpha(1)*MM-Rho1* &
-                                 c(1,6)*MM*Alpha(6)-c(1,5)**2*Rho2+c(1,5)*Alpha(5)*MM*Rho2*Beta1+c(6,6)*c(5,5)*Rho2-c(1,6)**2*Rho2- &
-                                 Alpha(1)*MM*c(5,5)*Rho2*Beta1+Rho1*c(5,5)*Alpha(1)*MM-c(5,6)**2*Rho2-Beta2*Rho1*c(6,6)*MM+ &
-                                 c(1,6)*Alpha(6)*MM*Rho2*Beta1-Alpha(1)*MM*c(6,6)*Rho2*Beta1)
-              coefficients2(4) = c(1,1)*c(5,6)**2*Rho2+c(1,6)**2*c(5,5)*Rho2+c(6,6)*c(1,5)**2*Rho2+2*Beta2*c(1,5)*Rho1*Alpha(5)* &
-                                 MM**2*Alpha(1)+2*Beta2*Rho1*c(5,6)*Alpha(5)*MM**2*Alpha(6)-2*c(1,5)*Rho1*Alpha(5)*MM**2  &
-                                 *Alpha(1)*Beta1+Alpha(1)*MM*c(6,6)*c(5,5)*Rho2*Beta1+Beta2*Rho1*c(6,6)*c(5,5)*MM+c(1,6)*c(5,6)* &
-                                 Alpha(5)*MM*Rho2*Beta1-c(1,1)*c(6,6)*Rho1*MM*Beta1-Beta2*Alpha(1)**2*MM**2*Rho1*c(5,5)+ &
-                                 Alpha(1)**2*MM**2*Rho1*c(5,5)*Beta1+Rho1*c(1,6)*MM*Alpha(6)*c(5,5)-c(1,6)*Alpha(6)*MM*c(5,5)* &
-                                 Rho2*Beta1+Beta2*c(1,1)*c(6,6)*Rho1*MM+Alpha(1)**2*MM**2*c(6,6)*Rho1*Beta1-2*c(1,6)*Alpha(6) &
-                                 *MM**2*Rho1*Alpha(1)*Beta1+c(1,1)*Rho1*Alpha(5)**2*MM**2*Beta1-c(1,5)*c(6,6)*Alpha(5)*MM*Rho2* &
-                                 Beta1+2*Beta2*c(1,6)*Alpha(6)*MM**2*Rho1*Alpha(1)-c(1,1)*Rho1*c(5,5)*MM*Beta1-Beta2*Rho1* &
-                                 c(6,6)*Alpha(5)**2*MM**2+c(1,1)*Alpha(6)**2*MM**2*Rho1*Beta1-Beta2*Alpha(1)**2*MM**2*c(6,6)*Rho1 &
-                                 +c(1,5)*Alpha(6)*MM*c(5,6)*Rho2*Beta1-Rho1*c(5,6)*c(1,5)*Alpha(6)*MM+Rho1*c(6,6)*c(1,5)*Alpha(5)*MM- &
-                                 Rho1*c(6,6)*c(5,5)*Alpha(1)*MM-Rho1*c(1,6)*MM*c(5,6)*Alpha(5)-Beta2*Rho1*Alpha(6)**2*MM**2*c(5,5)- &
-                                 Alpha(1)*MM*c(5,6)**2*Rho2*Beta1-Beta2*c(1,1)*Rho1*Alpha(5)**2*MM**2+Beta2*c(1,1)*Rho1*c(5,5)*MM- &
-                                 Beta2*c(1,1)*Alpha(6)**2*MM**2*Rho1-Beta2*c(1,6)**2*Rho1*MM-Beta2*Rho1*c(1,5)**2*MM+Rho1 &
-                                 *c(1,5)**2*MM*Beta1-Beta2*Rho1*c(5,6)**2*MM+c(1,6)**2*Rho1*MM*Beta1-c(1,1)*c(6,6)*c(5,5)*Rho2+ &
-                                 Rho1*c(5,6)**2*Alpha(1)*MM-2*c(1,6)*c(5,6)*c(1,5)*Rho2
-              coefficients2(5) = (Beta2-Beta1)*(-Alpha(1)**2*MM*c(5,6)**2-c(1,6)**2*Alpha(5)**2*MM+c(6,6)*c(1,5)**2+c(1,1)*c(5,6)**2+ &
-                                 c(1,6)**2*c(5,5)-Alpha(6)**2*MM*c(1,5)**2-2*c(1,1)*c(5,6)*Alpha(5)*MM*Alpha(6)-2*c(1,5)*c(6,6)*Alpha(5)*MM* &
-                                 Alpha(1)+2*c(1,5)*Alpha(6)*MM*c(5,6)*Alpha(1)-2*c(1,6)*c(5,6)*c(1,5)+c(1,1)*Alpha(6)**2*MM*c(5,5)+2*c(1,6)*c(5,6)* &
-                                 Alpha(5)*MM*Alpha(1)+2*c(1,6)*Alpha(6)*MM*c(1,5)*Alpha(5)-2*c(1,6)*Alpha(6)*MM*c(5,5)*Alpha(1)+c(1,1)*c(6,6)* &
-                                 Alpha(5)**2*MM+Alpha(1)**2*MM*c(6,6)*c(5,5)-c(1,1)*c(6,6)*c(5,5))*MM
-              !
-              CALL ZerosPolyO4(solution2,coefficients2)
-              !
-              DO i = 1, 4
-                IF( (solution2(i).LT.0.AND.ABS(solution2(i)).GE.MAXVAL(solution2)*1.0e-6) ) THEN
-                  logError(*) 'Imaginary wave speed. System is not hyperbolic. '
-                  logError(*) 'Probably your material does not exist.'
-                  STOP
-                ENDIF
-              ENDDO
-              !
-              solution2 = SQRT(ABS(solution2))
-              !
-              amax         = MAXVAL( solution2(:) )
-              !
-              DISC%Galerkin%maxWaveSpeed(iElem,iSide) = amax
-              !
-              ! Descending sorting of the wavespeeds
-              DO j=2,4
-                a=solution2(j)
-                DO i=j-1,1,-1
-                  IF (solution2(i) >= a) EXIT
-                  solution2(i+1)=solution2(i)
-                ENDDO
-                solution2(i+1)=a
-              ENDDO
-              !
-              DISC%Galerkin%WaveSpeed(iElem,iSide,:) = solution2(:)
-              !
-            ELSE
-              !Isotropic-poroacoustic: We assume K = c(1,1) and Alpha(1)=Alpha(2)=Alpha(3)
-              !Solving quadratic polynomial
-              coefficients2(1)=Rho2*Rho1
-              coefficients2(2)=(-Rho2*c(1,1)-MM*Rho1*Alpha(1)+MM*Rho1*Beta2+Rho2*Alpha(1)*MM*Beta1)
-              coefficients2(3)=-MM*Beta2*c(1,1)+Beta2*Alpha(1)**2*MM**2+MM*c(1,1)*Beta1-Alpha(1)**2*MM**2*Beta1
-              !
-              Re_solution(1)=SQRT(ABS((-coefficients2(2)+SQRT(coefficients2(2)**2-4*coefficients2(1)*coefficients2(3)))/(2*coefficients2(1))))
-              Re_solution(2)=SQRT(ABS((-coefficients2(2)-SQRT(coefficients2(2)**2-4*coefficients2(1)*coefficients2(3)))/(2*coefficients2(1))))
-              !
-              DISC%Galerkin%maxWaveSpeed(iElem,iSide)=MAXVAL( Re_solution(1:2) )
-              !
-              IF (Re_solution(2) >= Re_solution(1)) THEN
-                  a = Re_solution(2)
-                  Re_solution(2) = Re_solution(1)
-                  Re_solution(1) = a
-              ENDIF
-              !
-              DISC%Galerkin%WaveSpeed(iElem,iSide,1:2) = Re_solution(1:2)
-              !
-           ENDIF
-           !
-       ENDDO
-       !
-     END SELECT
-
-     ENDDO
-
-    ENDIF !Ends the anisotropy IF
+    ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem,MESH%nSideMax) )
+    DO j=1,MESH%nSideMax
+      DISC%Galerkin%WaveSpeed(:,j,1)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
+      DISC%Galerkin%WaveSpeed(:,j,2)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
+      DISC%Galerkin%WaveSpeed(:,j,3)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
+      DISC%Galerkin%MaxWaveSpeed(:,j)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
+    ENDDO
     !
     CONTINUE
     !

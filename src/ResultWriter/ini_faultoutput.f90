@@ -275,12 +275,12 @@ CONTAINS
       !
       ! create tmp_mat = full tensor for rotation
       tmp_mat = 0.0D0
-      tmp_mat(1) = EQN%IniBulk_xx(iFault,iBndGP)
-      tmp_mat(2) = EQN%IniBulk_yy(iFault,iBndGP)
-      tmp_mat(3) = EQN%IniBulk_zz(iFault,iBndGP)
-      tmp_mat(4) = EQN%IniShearXY(iFault,iBndGP)
-      tmp_mat(5) = EQN%IniShearYZ(iFault,iBndGP)
-      tmp_mat(6) = EQN%IniShearXZ(iFault,iBndGP)
+      tmp_mat(1) = EQN%IniBulk_xx(iBndGP,iFault)
+      tmp_mat(2) = EQN%IniBulk_yy(iBndGP,iFault)
+      tmp_mat(3) = EQN%IniBulk_zz(iBndGP,iFault)
+      tmp_mat(4) = EQN%IniShearXY(iBndGP,iFault)
+      tmp_mat(5) = EQN%IniShearYZ(iBndGP,iFault)
+      tmp_mat(6) = EQN%IniShearXZ(iBndGP,iFault)
       !
       ! rotate into fault system
       tmp_mat(:) = MATMUL(rotmat(1:6,1:6),tmp_mat(:))
@@ -1239,12 +1239,12 @@ CONTAINS
          DISC%DynRup%DynRup_out_elementwise%rotmat((iOutPoints-1)/(SubElem)+1,1:6,1:6) = rotmat
          !
          tmp_mat = 0.0D0
-         tmp_mat(1) = EQN%IniBulk_xx(iFault,iBndGP)
-         tmp_mat(2) = EQN%IniBulk_yy(iFault,iBndGP)
-         tmp_mat(3) = EQN%IniBulk_zz(iFault,iBndGP)
-         tmp_mat(4) = EQN%IniShearXY(iFault,iBndGP)
-         tmp_mat(5) = EQN%IniShearYZ(iFault,iBndGP)
-         tmp_mat(6) = EQN%IniShearXZ(iFault,iBndGP)
+         tmp_mat(1) = EQN%IniBulk_xx(iBndGP,iFault)
+         tmp_mat(2) = EQN%IniBulk_yy(iBndGP,iFault)
+         tmp_mat(3) = EQN%IniBulk_zz(iBndGP,iFault)
+         tmp_mat(4) = EQN%IniShearXY(iBndGP,iFault)
+         tmp_mat(5) = EQN%IniShearYZ(iBndGP,iFault)
+         tmp_mat(6) = EQN%IniShearXZ(iBndGP,iFault)
          ! rotate into fault system
          tmp_mat(:) = MATMUL(rotmat(1:6,1:6),tmp_mat(:))
          !

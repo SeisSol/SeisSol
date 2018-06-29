@@ -35,9 +35,12 @@ seissol_flops flops_localWithoutAder_actual(unsigned int i_timesteps) {
   ret.d_nonZeroFlops = 0.0;
   ret.d_hardwareFlops = 0.0;
 
-  for (unsigned cell = 0; cell < m_cells->numberOfCells; ++cell) {
+  auto&                 layer           = m_ltsTree.child(0).child<Interior>();
+  unsigned              nrOfCells       = layer.getNumberOfCells();
+  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
+  for (unsigned cell = 0; cell < nrOfCells; ++cell) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
-    m_localKernel.flopsIntegral(m_cellInformation[cell].faceTypes, l_nonZeroFlops, l_hardwareFlops);    
+    m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, l_nonZeroFlops, l_hardwareFlops);    
     ret.d_nonZeroFlops  += l_nonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops;
   }
@@ -54,7 +57,8 @@ seissol_flops flops_ader_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
   
   // iterate over cells
-  for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
+  unsigned nrOfCells = m_ltsTree.child(0).child<Interior>().getNumberOfCells();
+  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     // get flops
     m_timeKernel.flopsAder( l_nonZeroFlops, l_hardwareFlops );
@@ -74,11 +78,14 @@ seissol_flops flops_neigh_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
   
   // iterate over cells
-  for( unsigned int l_cell = 0; l_cell < m_cells->numberOfCells; l_cell++ ) {
+  auto&                 layer           = m_ltsTree.child(0).child<Interior>();
+  unsigned              nrOfCells       = layer.getNumberOfCells();
+  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
+  for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     long long l_drNonZeroFlops, l_drHardwareFlops;
     // get flops
-    m_neighborKernel.flopsNeighborsIntegral( m_cellInformation[l_cell].faceTypes, m_cellInformation[l_cell].faceRelations, l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
+    m_neighborKernel.flopsNeighborsIntegral( cellInformation[l_cell].faceTypes, cellInformation[l_cell].faceRelations, l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
     ret.d_nonZeroFlops  += l_nonZeroFlops + l_drNonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops + l_drHardwareFlops;
   }
