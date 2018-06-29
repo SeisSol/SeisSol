@@ -99,7 +99,7 @@ else:
    print("using user defined NX")
    NX=int(args.NX[0])
    assert (nvertex%NX==0), "nvertex%%NX!=0 nvertex/NX = %f" %(float(nvertex)/NX)
-   NY = nvertex/NX
+   NY = int(nvertex/NX)
 
 if args.hole!='':
    print("a hole will be left in the surface")
