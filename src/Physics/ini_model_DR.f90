@@ -377,6 +377,7 @@ MODULE ini_model_DR_mod
       call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
       if (EQN%FL == 103) then
         allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
+                  DISC%DynRup%RS_sl0_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),  &
                   nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
@@ -384,6 +385,7 @@ MODULE ini_model_DR_mod
                   nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
         call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
+        call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
         call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
         call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
         call c_interoperability_addFaultParameter("nuc_zz" // c_null_char, nuc_zz)

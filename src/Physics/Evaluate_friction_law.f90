@@ -1385,7 +1385,7 @@ MODULE Eval_friction_law_mod
     REAL        :: SV0(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP), SRtest(nBndGP), NR(nBndGP), dNR(nBndGP)
     REAL        :: LocSV(nBndGP)
     REAL        :: tmpSlip(nBndGP)
-    REAL        :: RS_f0,RS_a(nBndGP),RS_b,RS_sl0,RS_sr0
+    REAL        :: RS_f0,RS_a(nBndGP),RS_b,RS_sl0(nBndGP),RS_sr0
     REAL        :: RS_fw,RS_srW(nBndGP),flv(nBndGP),fss(nBndGP),SVss(nBndGP)
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
     REAL        :: hypox, hypoy, hypoz
@@ -1471,7 +1471,7 @@ MODULE Eval_friction_law_mod
          RS_srW = DISC%DynRup%RS_srW_array(:,iFace)    ! Vw, weakening sliding velocity, space dependent
          RS_a   = DISC%DynRup%RS_a_array(:,iFace) ! a, direct effect, space dependent
          RS_b   = DISC%DynRup%RS_b       ! b, evolution effect
-         RS_sl0 = DISC%DynRup%RS_sl0     ! L, char. length scale
+         RS_sl0 = DISC%DynRup%RS_sl0_array(:,iFace)     ! L, char. length scale
          !
          ! load traction and normal stress
          P      = LocP+P_0
