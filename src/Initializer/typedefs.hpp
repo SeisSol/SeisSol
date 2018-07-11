@@ -270,9 +270,9 @@ struct GlobalData {
   /**
    * Addresses of the global flux matrices:
    * 
-   *    0: \f$ F^{+,1] \f$
-   *    1: \f$ F^{+,2] \f$
-   *    2: \f$ F^{+,3] \f$
+   *    0: \f$ F^{+,1} \f$
+   *    1: \f$ F^{+,2} \f$
+   *    2: \f$ F^{+,3} \f$
    **/
   real* neighbourFluxMatrices[3];
 
