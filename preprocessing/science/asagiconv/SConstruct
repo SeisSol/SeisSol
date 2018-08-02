@@ -166,7 +166,8 @@ else:
 #env.Append(LINKFLAGS= ['-fopenmp'])
 
 # compiler flags for generated kernels
-env.Append(CXXFLAGS = ['-Wall', '-ansi', '-std=c++0x'])
+env.Append(CXXFLAGS = ['-Wall', '-ansi', '-std=c++11'])
+env.Append(CPPDEFINES = ['GLM_FORCE_CXX98'])
 if env['compileMode'] == 'debug':
   env.Append(CXXFLAGS=['-O0','-g'])
 elif env['compileMode'] == 'release':
