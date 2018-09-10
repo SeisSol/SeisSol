@@ -58,7 +58,7 @@ MODULE output_rupturefront_mod
 
 CONTAINS
 
-    SUBROUTINE output_rupturefront(DISC,MESH,MPI,IO)
+    SUBROUTINE output_rupturefront(DISC,MESH,MPI,IO, BND)
     !< routine outputs the rupture front arrival time for each GP node for an iFace
     !-------------------------------------------------------------------------!
     USE DGBasis_mod
@@ -70,10 +70,13 @@ CONTAINS
     TYPE(tUnstructMesh)             :: MESH
     TYPE(tMPI)                      :: MPI
     TYPE(tInputOutput)              :: IO
+    TYPE (tBoundary)                :: BND
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER                         :: iFace, iBndGP, iElem, iSide
     INTEGER                         :: stat, UNIT_RF, lines
+    INTEGER                         :: iLocalNeighborSide,iNeighbor
+    INTEGER                         :: MPIIndex, iObject
 #ifdef OMP
     INTEGER                         :: TID,omp_get_thread_num
     CHARACTER (LEN=2)               :: c_TID
@@ -152,10 +155,28 @@ CONTAINS
     iSide               = MESH%Fault%Face(iFace,2,1)          ! iElem denotes "+" side
     DO iBndGP=1,DISC%Galerkin%nBndGP
 
+        IF (MESH%Fault%Face(iFace,1,1) == 0) THEN
+          ! iElem is in the neighbor domain
+          ! The neighbor element belongs to a different MPI domain
+            iNeighbor           = MESH%Fault%Face(iFace,1,2)          ! iNeighbor denotes "-" side
+            iLocalNeighborSide  = MESH%Fault%Face(iFace,2,2)
+            iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+            MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+
+            xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+            yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+            zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+        ELSE
+           ! get vertices
+            xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+            yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+            zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+        ENDIF
+
     ! get vertices of complete tet
-    xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-    yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-    zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+    !xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+    !yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+    !zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
     !
     ! Transformation of boundary GP's into XYZ coordinate system
     chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)

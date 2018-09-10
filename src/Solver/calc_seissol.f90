@@ -236,7 +236,7 @@ CONTAINS
     ! output magnitude for dynamic rupture simulations
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO)
     ! output GP-wise RF in extra files
-    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%RF_output_on.EQ.1) CALL output_rupturefront(DISC,MESH,MPI,IO)
+    IF (EQN%DR.EQ.1 .AND. DISC%DynRup%RF_output_on.EQ.1) CALL output_rupturefront(DISC,MESH,MPI,IO, BND)
 
     logInfo(*)'<--------------------------------------------------------->'  !
     logInfo(*)'<     calc_SeisSol successfully finished                  >'  !
