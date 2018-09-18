@@ -42,6 +42,7 @@
 
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
+#include <generated_code/tensor.h>
 
 #if CONVERGENCE_ORDER < 2 || CONVERGENCE_ORDER > 8
 #error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
@@ -71,7 +72,7 @@ namespace seissol {
 }
 
 struct seissol::initializers::LTS {
-  Variable<real[NUMBER_OF_ALIGNED_DOFS]>  dofs;
+  Variable<real[tensor::Q::Size]>         dofs;
   Variable<real*>                         buffers;
   Variable<real*>                         derivatives;
   Variable<CellLocalInformation>          cellInformation;

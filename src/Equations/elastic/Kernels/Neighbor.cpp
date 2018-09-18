@@ -94,18 +94,18 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
 {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
-    assert( ((uintptr_t)global->changeOfBasisMatrices[l_neighbor]) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed[l_neighbor]) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed[l_neighbor]) % ALIGNMENT == 0 );
+    //~ assert( ((uintptr_t)global->changeOfBasisMatrices[l_neighbor]) % ALIGNMENT == 0 );
+    //~ assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed[l_neighbor]) % ALIGNMENT == 0 );
+    //~ assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed[l_neighbor]) % ALIGNMENT == 0 );
     // alignment of the time integrated dofs
     if( i_faceTypes[l_neighbor] != outflow && i_faceTypes[l_neighbor] != dynamicRupture ) { // no alignment for outflow and DR boundaries required
       assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % ALIGNMENT == 0 );
     }
   }
   
-  for( int h = 0; h < 3; ++h ) {
-    assert( ((uintptr_t)global->neighbourFluxMatrices[h]) % ALIGNMENT == 0 );
-  }
+  //~ for( int h = 0; h < 3; ++h ) {
+    //~ assert( ((uintptr_t)global->neighbourFluxMatrices[h]) % ALIGNMENT == 0 );
+  //~ }
 #endif
 
   // alignment of the degrees of freedom

@@ -53,6 +53,7 @@ cmdLineParser.add_argument('--arch')
 cmdLineParser.add_argument('--order')
 cmdLineParser.add_argument('--numberOfMechanisms')
 cmdLineParser.add_argument('--memLayout')
+cmdLineParser.add_argument('--multipleSimulations')
 cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineArgs = cmdLineParser.parse_args()
@@ -63,20 +64,31 @@ order = int(cmdLineArgs.order)
 numberOf2DBasisFunctions = order*(order+1)//2
 numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
 numberOfQuantities = 9
+multipleSimulations = bool(cmdLineArgs.multipleSimulations)
+
+# Quantities
+if multipleSimulations:
+  qShape = (arch.alignedReals, numberOf3DBasisFunctions, numberOfQuantities)
+  qi = lambda x: 's' + x
+  alignStride=False
+  transpose=True
+  t = lambda x: x[::-1]
+else:
+  qShape = (numberOf3DBasisFunctions, numberOfQuantities)
+  qi = lambda x: x
+  alignStride=True
+  transpose=False
+  t = lambda x: x
 
 clones = {
   'star': ['star[0]', 'star[1]', 'star[2]'],
 }
-db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), transpose=False, alignStride=True)
+db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), transpose=transpose, alignStride=alignStride)
 db.update( parseXMLMatrixFile('{}/star.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
 
-# Quantities
-qShape = (numberOf3DBasisFunctions, numberOfQuantities)
-qi = lambda x: x
-t = lambda x: x
-Q = Tensor('Q', qShape, alignStride=True)
-I = Tensor('I', qShape, alignStride=True)
-Ineigh = [Tensor('Ineigh[{}]'.format(i), qShape, alignStride=True) for i in range(4)]
+Q = Tensor('Q', qShape, alignStride=alignStride)
+I = Tensor('I', qShape, alignStride=alignStride)
+Ineigh = [Tensor('Ineigh[{}]'.format(i), qShape, alignStride=alignStride) for i in range(4)]
 
 # Flux solver
 AplusT = [Tensor('AplusT[{}]'.format(dim), (numberOfQuantities, numberOfQuantities)) for dim in range(4)]

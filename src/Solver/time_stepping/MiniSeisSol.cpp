@@ -50,7 +50,7 @@ void seissol::localIntegration( struct GlobalData* globalData,
   kernels::Local localKernel;
   kernels::Time  timeKernel;
 
-  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(lts.dofs);
+  real                (*dofs)[tensor::Q::Size]        = layer.var(lts.dofs);
   real**                buffers                       = layer.var(lts.buffers);
   LocalIntegrationData* localIntegration              = layer.var(lts.localIntegration);
   CellLocalInformation* cellInformation               = layer.var(lts.cellInformation);
@@ -87,7 +87,7 @@ void seissol::fillWithStuff(  real* buffer,
 void seissol::fakeData( initializers::LTS& lts,
                         initializers::Layer& layer,
                         enum faceType faceTp ) {
-  real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(lts.dofs);
+  real                      (*dofs)[tensor::Q::Size]        = layer.var(lts.dofs);
   real**                      buffers                       = layer.var(lts.buffers);
   real**                      derivatives                   = layer.var(lts.derivatives);
   real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighbors);

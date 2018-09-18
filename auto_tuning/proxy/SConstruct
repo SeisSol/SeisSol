@@ -74,6 +74,8 @@ vars.AddVariables(
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
 
   PathVariable( 'memLayout', 'memory layout xml file', '', PathVariable.PathIsFile),
+  
+  BoolVariable( 'multipleSimulations', 'Fuse multiple simulations in one run.', 'off' ),
 
   EnumVariable( 'dynamicRuptureMethod',
                 'Use quadrature here, cellaverage is EXPERIMENTAL.',

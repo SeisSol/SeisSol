@@ -61,13 +61,13 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
 {
   // assert alignments
 #ifndef NDEBUG
-  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( ((uintptr_t)global->stiffnessMatrices[stiffness]) % ALIGNMENT == 0 );
-  }
-  for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed[flux]) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->changeOfBasisMatrices[flux]) % ALIGNMENT == 0 );
-  }
+  //~ for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
+    //~ assert( ((uintptr_t)global->stiffnessMatrices[stiffness]) % ALIGNMENT == 0 );
+  //~ }
+  //~ for (unsigned flux = 0; flux < 4; ++flux) {
+    //~ assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed[flux]) % ALIGNMENT == 0 );
+    //~ assert( ((uintptr_t)global->changeOfBasisMatrices[flux]) % ALIGNMENT == 0 );
+  //~ }
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
   assert( ((uintptr_t)io_degreesOfFreedom)              % ALIGNMENT == 0 );
 #endif

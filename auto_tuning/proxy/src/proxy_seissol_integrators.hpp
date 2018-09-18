@@ -25,11 +25,14 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <generated_code/tensor.h>
+
+namespace tensor = seissol::tensor;
 
 void computeAderIntegration() {
   auto&                 layer           = m_ltsTree.child(0).child<Interior>();
   unsigned              nrOfCells       = layer.getNumberOfCells();
-  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(m_lts.dofs);
+  real                (*dofs)[tensor::Q::Size]        = layer.var(m_lts.dofs);
   real**                buffers                       = layer.var(m_lts.buffers);
   real**                derivatives                   = layer.var(m_lts.derivatives);
   LocalIntegrationData* localIntegration              = layer.var(m_lts.localIntegration);
@@ -55,7 +58,7 @@ void computeAderIntegration() {
 void computeLocalWithoutAderIntegration() {
   auto&                 layer           = m_ltsTree.child(0).child<Interior>();
   unsigned              nrOfCells       = layer.getNumberOfCells();
-  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(m_lts.dofs);
+  real                (*dofs)[tensor::Q::Size]        = layer.var(m_lts.dofs);
   real**                buffers                       = layer.var(m_lts.buffers);
   LocalIntegrationData* localIntegration              = layer.var(m_lts.localIntegration);
   CellLocalInformation* cellInformation               = layer.var(m_lts.cellInformation);
@@ -80,7 +83,7 @@ void computeLocalWithoutAderIntegration() {
 void computeLocalIntegration() {
   auto&                 layer           = m_ltsTree.child(0).child<Interior>();
   unsigned              nrOfCells       = layer.getNumberOfCells();
-  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(m_lts.dofs);
+  real                (*dofs)[tensor::Q::Size]        = layer.var(m_lts.dofs);
   real**                buffers                       = layer.var(m_lts.buffers);
   real**                derivatives                   = layer.var(m_lts.derivatives);
   LocalIntegrationData* localIntegration              = layer.var(m_lts.localIntegration);
@@ -113,7 +116,7 @@ void computeLocalIntegration() {
 void computeNeighboringIntegration() {
   auto&                     layer                           = m_ltsTree.child(0).child<Interior>();
   unsigned                  nrOfCells                       = layer.getNumberOfCells();
-  real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = layer.var(m_lts.dofs);
+  real                      (*dofs)[tensor::Q::Size]        = layer.var(m_lts.dofs);
   real*                     (*faceNeighbors)[4]             = layer.var(m_lts.faceNeighbors);
   CellDRMapping             (*drMapping)[4]                 = layer.var(m_lts.drMapping);
   NeighboringIntegrationData* neighboringIntegration        = layer.var(m_lts.neighboringIntegration);
@@ -141,9 +144,9 @@ void computeNeighboringIntegration() {
                                             (double)m_timeStepWidthSimulation,
                                                     faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                    *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(&(m_globalData.integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
+                                                    *reinterpret_cast<real (*)[4][tensor::Q::Size]>(&(m_globalData.integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
 #else
-                                                    *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(m_globalData.integrationBufferLTS),
+                                                    *reinterpret_cast<real (*)[4][tensor::Q::Size]>(m_globalData.integrationBufferLTS),
 #endif
                                                     l_timeIntegrated );
 

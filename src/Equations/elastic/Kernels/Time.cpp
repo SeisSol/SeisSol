@@ -106,9 +106,9 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
    * assert alignments.
    */
   assert( ((uintptr_t)i_degreesOfFreedom)     % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed[0]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed[1]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed[2]) % ALIGNMENT == 0 );
+  //~ assert( ((uintptr_t)global->stiffnessMatricesTransposed[0]) % ALIGNMENT == 0 );
+  //~ assert( ((uintptr_t)global->stiffnessMatricesTransposed[1]) % ALIGNMENT == 0 );
+  //~ assert( ((uintptr_t)global->stiffnessMatricesTransposed[2]) % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 

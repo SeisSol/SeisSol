@@ -108,17 +108,17 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
 #ifdef _OPENMP
   l_numberOfThreads = omp_get_max_threads();
 #endif
-  real* integrationBufferLTS = (real*) memoryAllocator.allocateMemory( l_numberOfThreads*(4*NUMBER_OF_ALIGNED_DOFS)*sizeof(real), PAGESIZE_STACK, memkind ) ;
+  real* integrationBufferLTS = (real*) memoryAllocator.allocateMemory( l_numberOfThreads*(4*tensor::Q::Size)*sizeof(real), PAGESIZE_STACK, memkind ) ;
 
   // initialize w.r.t. NUMA
 #ifdef _OPENMP
   #pragma omp parallel
   {
-    size_t l_threadOffset = omp_get_thread_num()*(4*NUMBER_OF_ALIGNED_DOFS);
+    size_t l_threadOffset = omp_get_thread_num()*(4*tensor::Q::Size);
 #else
     size_t l_threadOffset = 0;
 #endif
-    for ( unsigned int l_dof = 0; l_dof < (4*NUMBER_OF_ALIGNED_DOFS); l_dof++ ) {
+    for ( unsigned int l_dof = 0; l_dof < (4*tensor::Q::Size); l_dof++ ) {
       integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
     }
 #ifdef _OPENMP
