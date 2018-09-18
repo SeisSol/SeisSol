@@ -202,10 +202,10 @@ env.Tool('cxxtest')
 sourceFiles = []
 for sourceFile in env.sourceFiles:
   sourceFiles.append(sourceFile[0])
-sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles)
+sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles))
 
 env.Program(env['execDir']+'/flops_per_cell', sourceFiles + env.flopsPerCellSourceFiles)
 
 if env.generatedTestSourceFiles:
-  sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'flop_counter.o', sourceFiles)
+  sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'flop_counter.o', sourceFiles))
   env.CxxTest(target=env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)
