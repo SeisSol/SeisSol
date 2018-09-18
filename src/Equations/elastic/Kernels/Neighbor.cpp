@@ -75,8 +75,8 @@
 #pragma message "compiling boundary kernel with assertions"
 #endif
 
-#include <generated_code/kernels.h>
-#include <generated_code/flops.h>
+#include <generated_code/kernel.h>
+#include <yateto.h>
 
 #include <cassert>
 #include <stdint.h>
@@ -111,49 +111,53 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
   // alignment of the degrees of freedom
   assert( ((uintptr_t)io_degreesOfFreedom) % ALIGNMENT == 0 );
 
+  kernel::neighboringFlux krnl;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::Ineigh>(); ++i) {
+    krnl.Ineigh[i] = i_timeIntegrated[i];
+  }
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::AminusT>(); ++i) {
+    krnl.AminusT[i] = neighbor->nAmNm1[i];
+  }
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::rDivM>(); ++i) {
+    krnl.rDivM[i] = global->changeOfBasisMatrices[i];
+  }
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::rT>(); ++i) {
+    krnl.rT[i] = global->neighbourChangeOfBasisMatricesTransposed[i];
+  }
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::fP>(); ++i) {
+    krnl.fP[i] = global->neighbourFluxMatrices[i];
+  }
+  krnl.Q = io_degreesOfFreedom;
+
   // iterate over faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
     if( i_faceTypes[l_face] != outflow && i_faceTypes[l_face] != dynamicRupture ) {
       // compute the neighboring elements flux matrix id.
       if( i_faceTypes[l_face] != freeSurface ) {
-        // derive memory and kernel index
-        unsigned l_id = l_face*12                          // jump over index \f$i\f$
-                      + i_neighboringIndices[l_face][0]*3  // jump over index \f$j\f$
-                      + i_neighboringIndices[l_face][1];   // jump over index \f$h\f$
-        
-        // assert we have a valid index.
-        assert( l_id < 48 );
-        
-        seissol::generatedKernels::neighboringFlux[l_id](
-          neighbor->nAmNm1[l_face],
-          global->neighbourFluxMatrices[ i_neighboringIndices[l_face][1] ],
-          global->changeOfBasisMatrices[ l_face ],
-          global->neighbourChangeOfBasisMatricesTransposed[ i_neighboringIndices[l_face][0] ],
-          i_timeIntegrated[l_face],
-          io_degreesOfFreedom,
-          faceNeighbors_prefetch[l_face]
-        );
+        assert(i_neighboringIndices[l_face][0] < 4 && i_neighboringIndices[l_face][1] < 3);
+
+        (krnl.*krnl.findExecute(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face))();
       } else { // fall back to local matrices in case of free surface boundary conditions
-        seissol::generatedKernels::localFlux[l_face](
-          neighbor->nAmNm1[l_face],
-          global->localChangeOfBasisMatricesTransposed[l_face],
-          global->changeOfBasisMatrices[l_face],
-          i_timeIntegrated[l_face],
-          io_degreesOfFreedom,
-          faceNeighbors_prefetch[l_face]
-        );
+        //~ seissol::generatedKernels::localFlux[l_face](
+          //~ neighbor->nAmNm1[l_face],
+          //~ global->localChangeOfBasisMatricesTransposed[l_face],
+          //~ global->changeOfBasisMatrices[l_face],
+          //~ i_timeIntegrated[l_face],
+          //~ io_degreesOfFreedom,
+          //~ faceNeighbors_prefetch[l_face]
+        //~ );
       }
     } else if (i_faceTypes[l_face] == dynamicRupture) {
-      assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
-      assert(((uintptr_t)cellDrMapping[l_face].fluxMatrix) % ALIGNMENT == 0);
-      seissol::generatedKernels::nodalFlux[cellDrMapping[l_face].fluxKernel](
-        cellDrMapping[l_face].fluxSolver,
-        cellDrMapping[l_face].godunov,
-        cellDrMapping[l_face].fluxMatrix,
-        io_degreesOfFreedom,
-        faceNeighbors_prefetch[l_face]
-      );
+      //~ assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+      //~ assert(((uintptr_t)cellDrMapping[l_face].fluxMatrix) % ALIGNMENT == 0);
+      //~ seissol::generatedKernels::nodalFlux[cellDrMapping[l_face].fluxKernel](
+        //~ cellDrMapping[l_face].fluxSolver,
+        //~ cellDrMapping[l_face].godunov,
+        //~ cellDrMapping[l_face].fluxMatrix,
+        //~ io_degreesOfFreedom,
+        //~ faceNeighbors_prefetch[l_face]
+      //~ );
     }
   }
 }
@@ -173,23 +177,17 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_
     if( i_faceTypes[l_face] != outflow && i_faceTypes[l_face] != dynamicRupture ) {
       // compute the neighboring elements flux matrix id.
       if( i_faceTypes[l_face] != freeSurface ) {
-        // derive memory and kernel index
-        unsigned l_id = l_face*12                          // jump over index \f$i\f$
-                      + i_neighboringIndices[l_face][0]*3  // jump over index \f$j\f$
-                      + i_neighboringIndices[l_face][1];   // jump over index \f$h\f$
+        assert(i_neighboringIndices[l_face][0] < 4 && i_neighboringIndices[l_face][1] < 3);
         
-        // assert we have a valid index.
-        assert( l_id < 48 );
-        
-        o_nonZeroFlops  += seissol::flops::neighboringFlux_nonZero[l_id];
-        o_hardwareFlops += seissol::flops::neighboringFlux_hardware[l_id];
+        o_nonZeroFlops  += seissol::kernel::neighboringFlux::nonZeroFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
+        o_hardwareFlops += seissol::kernel::neighboringFlux::hardwareFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
       } else { // fall back to local matrices in case of free surface boundary conditions
-        o_nonZeroFlops  += seissol::flops::localFlux_nonZero[l_face];
-        o_hardwareFlops += seissol::flops::localFlux_hardware[l_face];
+        //~ o_nonZeroFlops  += seissol::flops::localFlux_nonZero[l_face];
+        //~ o_hardwareFlops += seissol::flops::localFlux_hardware[l_face];
       }
     } else if (i_faceTypes[l_face] == dynamicRupture) {
-      o_drNonZeroFlops += seissol::flops::nodalFlux_nonZero[l_face];
-      o_drHardwareFlops += seissol::flops::nodalFlux_hardware[l_face];
+      //~ o_drNonZeroFlops += seissol::flops::nodalFlux_nonZero[l_face];
+      //~ o_drHardwareFlops += seissol::flops::nodalFlux_hardware[l_face];
     }
   }
 }
@@ -202,7 +200,7 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   // 4 * tElasticDOFS load, DOFs load, DOFs write
   reals += 6 * NUMBER_OF_ALIGNED_DOFS;
   // flux solvers load
-  reals += 4 * seissol::model::AminusT::reals;
+  reals += 4 * yateto::computeFamilySize<tensor::AminusT>();
   
   return reals * sizeof(real);
 }

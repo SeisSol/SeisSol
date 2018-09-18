@@ -77,7 +77,7 @@ extern long long libxsmm_num_total_flops;
 #include <Kernels/Time.h>
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
-#include <Kernels/DynamicRupture.h>
+//~ #include <Kernels/DynamicRupture.h>
 
 // seissol_kernel includes
 #include "proxy_seissol_tools.hpp"

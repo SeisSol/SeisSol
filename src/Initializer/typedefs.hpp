@@ -50,7 +50,7 @@
 #include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
 #include <Model/datastructures.hpp>
-#include <generated_code/sizes.h>
+#include <generated_code/tensor.h>
 
 #include <cstddef>
 
@@ -348,10 +348,10 @@ struct GlobalData {
 // data for the cell local integration
 struct LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::model::AstarT::reals];
+  real starMatrices[3][seissol::tensor::star::Size[0]];
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::model::AplusT::reals];
+  real nApNm1[4][seissol::tensor::AplusT::Size[0]];
 
   // equation-specific data
   seissol::model::LocalData specific;
@@ -360,7 +360,7 @@ struct LocalIntegrationData {
 // data for the neighboring boundary integration
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::model::AminusT::reals];
+  real nAmNm1[4][seissol::tensor::AminusT::Size[0]];
 
   // equation-specific data
   seissol::model::NeighborData specific;
@@ -416,8 +416,8 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  real godunovMatrixPlus[seissol::model::godunovMatrix::reals];
-  real godunovMatrixMinus[seissol::model::godunovMatrix::reals];
+  //~ real godunovMatrixPlus[seissol::model::godunovMatrix::reals];
+  //~ real godunovMatrixMinus[seissol::model::godunovMatrix::reals];
 };
 
 struct CellDRMapping {

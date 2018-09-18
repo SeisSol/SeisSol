@@ -145,6 +145,8 @@ env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['
 
 # c++ standard
 env.Append(CXXFLAGS=['-std=c++11'])
+if env['compiler'] == 'gcc':
+  env.Append(CXXFLAGS = ['-Werror=vla'])
 
 if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
@@ -168,7 +170,11 @@ env.Append(CPPDEFINES=[ 'GENERATEDKERNELS',
                         'EQUATIONS_' + env['equations'].upper() ])
 
 # add pathname to the list of directories which are search for include
-env.Append(CPPPATH=['#../../src', '#../../submodules', '#../../src/Equations/' + env['equations'], '#../../src/Equations/' + env['equations'] + '/generated_code'])
+env.Append(CPPPATH=[
+  '#../../src',
+  '#../../submodules',
+  '#../../submodules/yateto/include',
+  '#../../src/Equations/' + env['equations'], '#../../src/Equations/' + env['equations'] + '/generated_code'])
 
 # build directory
 env['execDir'] = env['buildDir']+'/bin'
@@ -199,4 +205,5 @@ sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', 
 env.Program(env['execDir']+'/flops_per_cell', sourceFiles + env.flopsPerCellSourceFiles)
 
 if env.generatedTestSourceFiles:
+  sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'flop_counter.o', sourceFiles)
   env.CxxTest(target=env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)

@@ -39,51 +39,45 @@
 
 #include "GlobalData.h"
 #include <generated_code/init.h>
+#include <yateto.h>
 
 #ifdef _OPENMP
 #  include <omp.h>
 #endif
 
+namespace init = seissol::init;
+
 void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory::ManagedAllocator& memoryAllocator, enum seissol::memory::Memkind memkind)
-{
-  // DG global matrices
-  real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, memkind ));
-  for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
-    memcpy(
-      &globalMatrixMem[ seissol::model::globalMatrixOffsets[matrix] ],
-      seissol::model::globalMatrixValues[matrix],
-      (seissol::model::globalMatrixOffsets[matrix+1] - seissol::model::globalMatrixOffsets[matrix]) * sizeof(real)
-    );
-  }
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    globalData.stiffnessMatricesTransposed[transposedStiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
-  }
-  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[3 + stiffness] ];
-  }
-  for (unsigned cob = 0; cob < 4; ++cob) {
-    globalData.changeOfBasisMatrices[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + cob] ];
-  }
-  for (unsigned cob = 0; cob < 4; ++cob) {
-    globalData.neighbourChangeOfBasisMatricesTransposed[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[10 + cob] ];
-  }
-  for (unsigned cob = 0; cob < 4; ++cob) {
-    globalData.localChangeOfBasisMatricesTransposed[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[14 + cob] ];
-  }
-  for (unsigned flux = 0; flux < 3; ++flux) {
-    globalData.neighbourFluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[18 + flux] ];
-  }
+{  
+  unsigned globalMatrixMemSize = 0;
+  globalMatrixMemSize += yateto::computeFamilySize<init::kDivM>();
+  globalMatrixMemSize += yateto::computeFamilySize<init::kDivMT>();
+  globalMatrixMemSize += yateto::computeFamilySize<init::rDivM>();
+  globalMatrixMemSize += yateto::computeFamilySize<init::rT>();
+  globalMatrixMemSize += yateto::computeFamilySize<init::fMrT>();
+  globalMatrixMemSize += yateto::computeFamilySize<init::fP>();
+  globalMatrixMemSize *= sizeof(real);
+  
+  real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( globalMatrixMemSize, PAGESIZE_HEAP, memkind ));
+
+  real* globalMatrixMemPtr = globalMatrixMem;
+  yateto::copyFamilyToMemAndSetPtr<init::kDivMT, real>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed);
+  yateto::copyFamilyToMemAndSetPtr<init::kDivM,  real>(globalMatrixMemPtr, globalData.stiffnessMatrices);
+  yateto::copyFamilyToMemAndSetPtr<init::rDivM,  real>(globalMatrixMemPtr, globalData.changeOfBasisMatrices);
+  yateto::copyFamilyToMemAndSetPtr<init::rT,     real>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed);
+  yateto::copyFamilyToMemAndSetPtr<init::fMrT,   real>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed);
+  yateto::copyFamilyToMemAndSetPtr<init::fP,     real>(globalMatrixMemPtr, globalData.neighbourFluxMatrices);
 
   // @TODO Integrate this step into the code generator
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    real* matrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[transposedStiffness] ];
-    for (unsigned i = 0; i < seissol::model::globalMatrixOffsets[transposedStiffness+1]-seissol::model::globalMatrixOffsets[transposedStiffness]; ++i) {
+    real* matrix = globalData.stiffnessMatricesTransposed[transposedStiffness];
+    for (unsigned i = 0; i < init::kDivMT::Size[i]; ++i) {
       matrix[i] *= -1.0;
     }
   }
 
   // Dynamic Rupture global matrices
-  real* drGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, memkind ));
+  /*real* drGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, memkind ));
   for (unsigned matrix = 0; matrix < seissol::model::dr_numGlobalMatrices; ++matrix) {
     memcpy(
       &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[matrix] ],
@@ -107,7 +101,7 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
     );
   }
   globalData.vandermondeMatrix = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[0] ];
-  globalData.vandermondeMatrixInverse = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[1] ];
+  globalData.vandermondeMatrixInverse = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[1] ];*/
   
   // thread-local LTS integration buffers  
   int l_numberOfThreads = 1;

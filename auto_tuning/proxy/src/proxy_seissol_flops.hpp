@@ -102,7 +102,7 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
   ret.d_hardwareFlops = 0.0;
   
   // iterate over cells
-  seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
+  /*seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
   DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
   for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
     long long l_drNonZeroFlops, l_drHardwareFlops;
@@ -112,7 +112,7 @@ seissol_flops flops_drgod_actual(unsigned int i_timesteps) {
   }
 
   ret.d_nonZeroFlops *= i_timesteps;
-  ret.d_hardwareFlops *= i_timesteps;
+  ret.d_hardwareFlops *= i_timesteps;*/
 
   return ret;
 }

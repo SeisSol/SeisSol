@@ -72,7 +72,6 @@
 #define KERNELS_NEIGHBOR_H_
 
 #include <Initializer/typedefs.hpp>
-#include <generated_code/sizes.h>
 
 namespace seissol {
   namespace kernels {

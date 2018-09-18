@@ -3,7 +3,7 @@
 #include <Kernels/Time.h>
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
-#include <Kernels/DynamicRupture.h>
+//~ #include <Kernels/DynamicRupture.h>
 #include <Kernels/Plasticity.h>
 
 int main()
@@ -65,7 +65,7 @@ int main()
   
   /// Dynamic rupture flops
 
-  long long drNonZeroFlops = 0, drHardwareFlops = 0;
+  /*long long drNonZeroFlops = 0, drHardwareFlops = 0;
   long long neighborDRNonZeroFlops = 0, neighborDRHardwareFlops = 0;
   
   seissol::kernels::DynamicRupture dynRupKernel;
@@ -125,7 +125,7 @@ int main()
   printf("Plasticity non-zero min vs elastic average: %.2lf %\n", 100.0 * PlNonZeroFlopsCheck / avgNonZeroFlops);
   printf("Plasticity hardware min vs elastic average: %.2lf %\n", 100.0 * PlHardwareFlopsCheck / avgHardwareFlops);
   printf("Plasticity non-zero max vs elastic average: %.2lf %\n", 100.0 * (PlNonZeroFlopsCheck + PlNonZeroFlopsYield) / avgNonZeroFlops);
-  printf("Plasticity hardware max vs elastic average: %.2lf %\n", 100.0 * (PlHardwareFlopsCheck + PlHardwareFlopsYield) / avgHardwareFlops);
+  printf("Plasticity hardware max vs elastic average: %.2lf %\n", 100.0 * (PlHardwareFlopsCheck + PlHardwareFlopsYield) / avgHardwareFlops);*/
 
   return 0;
 }

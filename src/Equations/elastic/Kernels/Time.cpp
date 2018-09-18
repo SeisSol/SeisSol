@@ -77,22 +77,20 @@ extern long long libxsmm_num_total_flops;
 #endif
 
 #include <Kernels/denseMatrixOps.hpp>
-#include <generated_code/kernels.h>
-#include <generated_code/flops.h>
+#include <generated_code/tensor.h>
+#include <generated_code/kernel.h>
+#include <yateto.h>
 
 #include <cstring>
 #include <cassert>
 #include <stdint.h>
 
 seissol::kernels::Time::Time() {
-  // compute the aligned number of basis functions and offsets of the derivatives
   m_derivativesOffsets[0] = 0;
-  for( int l_order = 0; l_order < CONVERGENCE_ORDER; l_order++ ) {
-    m_numberOfAlignedBasisFunctions[l_order] = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER-l_order, ALIGNMENT );
-
-    if( l_order > 0 ) {
-      m_derivativesOffsets[l_order]  =  m_numberOfAlignedBasisFunctions[l_order-1] * NUMBER_OF_QUANTITIES;
-      m_derivativesOffsets[l_order] +=  m_derivativesOffsets[l_order-1];
+  for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
+    m_numberOfAlignedBasisFunctions[order] = getNumberOfAlignedBasisFunctions(CONVERGENCE_ORDER-order, ALIGNMENT);
+    if (order > 0) {
+      m_derivativesOffsets[order] = tensor::dQ::Size[order-1] + m_derivativesOffsets[order-1];
     }
   }
 }
@@ -121,7 +119,19 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   real l_scalar = i_timeStepWidth;
 
   // temporary result
-  real l_derivativesBuffer[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(PAGESIZE_STACK)));
+  real l_derivativesBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
+
+  kernel::derivative krnl;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::kDivMT>(); ++i) {
+    krnl.kDivMT[i] = global->stiffnessMatricesTransposed[i];
+  }
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    krnl.star[i] = local->starMatrices[i];
+  }
+  krnl.Q = i_degreesOfFreedom;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    krnl.dQ[i] = l_derivativesBuffer + (m_derivativesOffsets[i+1]-m_derivativesOffsets[1]);
+  }
 
   // initialize time integrated DOFs
   SXt(  l_scalar,
@@ -137,36 +147,25 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
     streamstore(NUMBER_OF_ALIGNED_DOFS, i_degreesOfFreedom, o_timeDerivatives);
   }
   
-  real const* lastDerivative = i_degreesOfFreedom;
-  for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    real* currentDerivative = l_derivativesBuffer + m_derivativesOffsets[l_derivative];
-    seissol::generatedKernels::derivative[l_derivative](
-      local->starMatrices[0],
-      local->starMatrices[1],
-      local->starMatrices[2],
-      global->stiffnessMatricesTransposed[1],
-      global->stiffnessMatricesTransposed[0],
-      global->stiffnessMatricesTransposed[2],
-      lastDerivative,
-      currentDerivative
-    );
-    lastDerivative = currentDerivative;
+  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
+    (krnl.*krnl.findExecute(der-1))();
+    real* currentDerivative = krnl.dQ[der-1];
 
     // update scalar for this derivative
-    l_scalar *= i_timeStepWidth / real(l_derivative+1);
+    l_scalar *= i_timeStepWidth / real(der+1);
 
     // stream out derivatives if not NULL
     real* derivativesStore = NULL;
     if (o_timeDerivatives != NULL) {
-      derivativesStore = o_timeDerivatives + m_derivativesOffsets[l_derivative];
+      derivativesStore = o_timeDerivatives + NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_QUANTITIES + m_derivativesOffsets[der];
     }
 
     // update time integrated DOFs
     SXtYp(  l_scalar,
-            m_numberOfAlignedBasisFunctions[l_derivative],
+            m_numberOfAlignedBasisFunctions[der],
             NUMBER_OF_QUANTITIES,
             currentDerivative,
-            m_numberOfAlignedBasisFunctions[l_derivative],
+            m_numberOfAlignedBasisFunctions[der],
             o_timeIntegrated,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
             derivativesStore );
@@ -184,8 +183,8 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
 
   // interate over derivatives
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    o_nonZeroFlops  += seissol::flops::derivative_nonZero[l_derivative];
-    o_hardwareFlops += seissol::flops::derivative_hardware[l_derivative];
+    o_nonZeroFlops  += seissol::kernel::derivative::nonZeroFlops(l_derivative-1);
+    o_hardwareFlops += seissol::kernel::derivative::hardwareFlops(l_derivative-1);
 
     // update of time integrated DOFs
     o_nonZeroFlops  += seissol::kernels::getNumberOfBasisFunctions(        CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
@@ -201,9 +200,7 @@ unsigned seissol::kernels::Time::bytesAder()
   // DOFs load, tDOFs load, tDOFs write
   reals += 3 * NUMBER_OF_ALIGNED_DOFS;
   // star matrices, source matrix
-  reals += seissol::model::AstarT::reals
-           + seissol::model::BstarT::reals
-           + seissol::model::CstarT::reals;
+  reals += yateto::computeFamilySize<tensor::star>();
            
   /// \todo incorporate derivatives
 

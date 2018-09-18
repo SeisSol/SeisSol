@@ -180,7 +180,7 @@ void computeNeighboringIntegration() {
 
 void computeDynRupGodunovState()
 {
-  seissol::initializers::Layer& layerData = m_dynRupTree.child(0).child<Interior>();
+  /*seissol::initializers::Layer& layerData = m_dynRupTree.child(0).child<Interior>();
   DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup.faceInformation);
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup.godunovData);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup.timeDerivativePlus);
@@ -200,6 +200,6 @@ void computeDynRupGodunovState()
                                         godunov[face],
                                         timeDerivativePlus[prefetchFace],
                                         timeDerivativeMinus[prefetchFace] );
-  }
+  }*/
 }
 

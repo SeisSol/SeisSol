@@ -75,7 +75,7 @@
 #include <limits>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/common.hpp>
-#include <generated_code/sizes.h>
+#include <generated_code/tensor.h>
 
 namespace seissol {
   namespace kernels {

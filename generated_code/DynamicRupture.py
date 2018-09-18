@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2016, SeisSol Group
+# Copyright (c) 2016-2018, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,12 +38,11 @@
 # @section DESCRIPTION
 #
 
-from gemmgen import DB, Tools, Arch, Kernel
-import numpy as np
-import math
+from yateto import *
+from yateto.input import parseJSONMatrixFile
 
-def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
-  numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
+def addKernels(generator, Q, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
+  numberOfBasisFunctions = order*(order+1)*(order+2)//6
 
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (order+1)**2
@@ -55,35 +54,24 @@ def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQua
   clones = dict()
 
   # Load matrices
-  db.update(Tools.parseMatrixFile('{}/dr_{}_matrices_{}.xml'.format(matricesDir, dynamicRuptureMethod, order), clones))
+  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, order), clones)
 
-  # Determine matrices
+  # Determine matrices  
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
-  db.insert(DB.MatrixInfo('godunovMatrix', numberOfElasticQuantities, numberOfElasticQuantities)) 
-  db.insert(DB.MatrixInfo('fluxSolver', numberOfElasticQuantities, numberOfQuantities))
-  db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfElasticQuantities))
+  godunovMatrix = Tensor('godunovMatrix', (numberOfElasticQuantities, numberOfElasticQuantities))
+  fluxSolver    = Tensor('fluxSolver', (numberOfElasticQuantities, numberOfQuantities))
+  godunovState  = Tensor('godunovState', (numberOfPoints, numberOfElasticQuantities), alignStride=True)
 
-  stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
-  globalMatrixIdRules = [
-    (r'^pP(\d{1})$', lambda x: (int(x[0])-1)*4),
-    (r'^pM(\d{1})(\d{1})$', lambda x: (int(x[0])-1)*4 + int(x[1])),
-    (r'^nP(\d{1})$', lambda x: 16 + (int(x[0])-1)*4),
-    (r'^nM(\d{1})(\d{1})$', lambda x: 16 + (int(x[0])-1)*4 + int(x[1]))
-  ]
-  DB.determineGlobalMatrixIds(globalMatrixIdRules, db, 'dr')
+  def godunovStateGenerator(i, h):
+    if h == 0:
+      return Q['kp'] <= godunovState['kp'] <= db.nP[i]['kl'] * Q['lq'] * godunovMatrix['qp']
+    return Q['kp'] <= godunovState['kp'] <= godunovState['kp'] + db.nM[i+4*(h-1)]['kl'] * Q['lq'] * godunovMatrix['qp']
 
-def addKernels(db, kernels, dofMatrixName):
-  # Kernels
-  for i in range(0,4):
-    godunovStatePlus = db['nP{}'.format(i+1)] * db[dofMatrixName] * db['godunovMatrix']
-    kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4), godunovStatePlus, beta=0, prefetch=godunovStatePlus))
-    
-    flux = db['pP{}'.format(i+1)] * db['godunovState'] * db['fluxSolver']
-    kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4), flux, prefetch=db['godunovState']))
-    
-    for h in range(1,4):
-      godunovStateMinus = db['nM{}{}'.format(i+1,h)] * db[dofMatrixName] * db['godunovMatrix']
-      kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4+h), godunovStateMinus, beta=1, prefetch=godunovStateMinus))
+  generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator)
 
-      flux = db['pM{}{}'.format(i+1,h)] * db['godunovState'] * db['fluxSolver']
-      kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4+h), flux, prefetch=db['godunovState']))
+  def nodalFluxGenerator(i, h):
+    if h == 0:
+      return Q['kp'] <= db.pP[i]['kl'] * godunovState['lq'] * fluxSolver['qp']
+    return Q['kp'] <= db.pM[i+4*(h-1)]['kl'] * godunovState['lq'] * fluxSolver['qp']
+  
+  generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator)
