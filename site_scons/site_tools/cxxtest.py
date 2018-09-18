@@ -92,7 +92,7 @@ def multiget(dictlist, key, default = None):
     dictionaries, the default is returned.
     """
     for dict in dictlist:
-        if dict.has_key(key):
+        if key in dict:
             return dict[key]
     else:
         return default
@@ -281,7 +281,7 @@ def generate(env, **kwargs):
     ... and all others that Program() accepts, like CPPPATH etc.
     """
 
-    print "Loading CxxTest tool..."
+    print("Loading CxxTest tool...")
 
     #
     # Expected behaviour: keyword arguments override environment variables;
@@ -307,11 +307,11 @@ def generate(env, **kwargs):
     env.SetDefault( CXXTEST_CXXTESTGEN_SCRIPT_NAME = 'cxxtestgen' )
 
     #Here's where keyword arguments are applied
-    apply(env.Replace, (), kwargs)
+    env.Replace(**kwargs)
 
     #If the user specified the path to CXXTEST, make sure it is correct
     #otherwise, search for and set the default toolpath.
-    if (not kwargs.has_key('CXXTEST') or not isValidScriptPath(kwargs['CXXTEST']) ):
+    if ('CXXTEST' not in kwargs or not isValidScriptPath(kwargs['CXXTEST']) ):
         env["CXXTEST"] = findCxxTestGen(env)
 
     # find and add the CxxTest headers to the path.
