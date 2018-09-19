@@ -122,9 +122,6 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   /*
    * compute ADER scheme.
    */
-  // scalars in the taylor-series expansion
-  real l_scalar = i_timeStepWidth;
-
   // temporary result
   real l_derivativesBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
 
@@ -137,41 +134,38 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
     krnl.dQ[i] = l_derivativesBuffer + m_derivativesOffsets[i];
   }
 
-  // initialize time integrated DOFs
-  SXt(  l_scalar,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-        NUMBER_OF_QUANTITIES,
-        i_degreesOfFreedom,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-        o_timeIntegrated,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS  );
+  kernel::integrateDerivative intKrnl;
+  intKrnl.I = o_timeIntegrated;
+  intKrnl.dQ[0] = i_degreesOfFreedom;
+  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ[i] = l_derivativesBuffer + m_derivativesOffsets[i];
+  }
+  
+  // powers in the taylor-series expansion
+  intKrnl.power = i_timeStepWidth;
+
+  intKrnl.execute0();
 
   // stream out frist derivative (order 0)
-  if ( o_timeDerivatives != NULL ) {
+  // TODO: fix
+  /*if ( o_timeDerivatives != NULL ) {
     streamstore(NUMBER_OF_ALIGNED_DOFS, i_degreesOfFreedom, o_timeDerivatives);
-  }
+  }*/
   
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
     (krnl.*krnl.findExecute(der))();
 
     // update scalar for this derivative
-    l_scalar *= i_timeStepWidth / real(der+1);
+    intKrnl.power *= i_timeStepWidth / real(der+1);
 
     // stream out derivatives if not NULL
-    real* derivativesStore = NULL;
+    // TODO: fix
+    /*real* derivativesStore = NULL;
     if (o_timeDerivatives != NULL) {
       derivativesStore = o_timeDerivatives + NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_QUANTITIES + m_derivativesOffsets[der];
-    }
-
-    // update time integrated DOFs
-    SXtYp(  l_scalar,
-            m_numberOfAlignedBasisFunctions[der],
-            NUMBER_OF_QUANTITIES,
-            krnl.dQ[der],
-            m_numberOfAlignedBasisFunctions[der],
-            o_timeIntegrated,
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-            derivativesStore );
+    }*/
+    
+    (intKrnl.*intKrnl.findExecute(der))();
   }
 }
 

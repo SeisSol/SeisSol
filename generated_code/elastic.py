@@ -109,7 +109,9 @@ g.addFamily('localFlux', simpleParameterSpace(4), localFlux)
 neighbourFlux = lambda h,j,i: Q[qi('kp')] <= Q[qi('kp')] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I[qi('lq')] * AminusT['qp']
 g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux)
 
+power = Scalar('power')
 lastDQ = dQ0
+g.add('integrateDerivative[0]'.format(i), I[qi('kp')] <= power * dQ0[qi('kp')])
 for i in range(1,order):
   derivativeSum = Add()
   for j in range(3):
@@ -118,6 +120,7 @@ for i in range(1,order):
   derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
   dQ = Tensor('dQ[{}]'.format(i), qShape, spp=derivativeSum.eqspp(), alignStride=True)
   g.add('derivative[{}]'.format(i), dQ[qi('kp')] <= derivativeSum)
+  g.add('integrateDerivative[{}]'.format(i), I[qi('kp')] <= I[qi('kp')] + power * dQ[qi('kp')])
   lastDQ = dQ
 
 #DynamicRupture.addKernels(g, Q, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
