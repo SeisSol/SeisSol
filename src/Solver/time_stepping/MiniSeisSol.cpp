@@ -48,7 +48,9 @@ void seissol::localIntegration( struct GlobalData* globalData,
                                 initializers::LTS& lts,
                                 initializers::Layer& layer ) {
   kernels::Local localKernel;
+  localKernel.setGlobalData(globalData);
   kernels::Time  timeKernel;
+  timeKernel.setGlobalData(globalData);
 
   real                (*dofs)[tensor::Q::Size]        = layer.var(lts.dofs);
   real**                buffers                       = layer.var(lts.buffers);
@@ -60,13 +62,11 @@ void seissol::localIntegration( struct GlobalData* globalData,
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     timeKernel.computeAder( 1.0,
-                            globalData,
                             &localIntegration[cell],
                             dofs[cell],
                             buffers[cell],
                             nullptr );
     localKernel.computeIntegral( cellInformation[cell].faceTypes,
-                                 globalData,
                                  &localIntegration[cell],
                                  buffers[cell],
                                  dofs[cell] );
@@ -100,7 +100,7 @@ void seissol::fakeData( initializers::LTS& lts,
   #pragma omp parallel for schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    buffers[cell] = bucket + cell * NUMBER_OF_ALIGNED_DOFS;
+    buffers[cell] = bucket + cell * tensor::I::Size;
     derivatives[cell] = nullptr;
     
     for (unsigned f = 0; f < 4; ++f) {
@@ -132,8 +132,8 @@ void seissol::fakeData( initializers::LTS& lts,
     }
   }
   
-  fillWithStuff(reinterpret_cast<real*>(dofs),   NUMBER_OF_ALIGNED_DOFS * layer.getNumberOfCells());
-  fillWithStuff(bucket, NUMBER_OF_ALIGNED_DOFS * layer.getNumberOfCells());
+  fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::Size * layer.getNumberOfCells());
+  fillWithStuff(bucket, tensor::I::Size * layer.getNumberOfCells());
   fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells());
   fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells());
 }
@@ -158,7 +158,7 @@ double seissol::miniSeisSol(initializers::MemoryManager& memoryManager) {
   
   initializers::Layer& layer = cluster.child<Interior>();
   
-  layer.setBucketSize(lts.buffersDerivatives, sizeof(real) * NUMBER_OF_ALIGNED_DOFS * layer.getNumberOfCells());
+  layer.setBucketSize(lts.buffersDerivatives, sizeof(real) * tensor::I::Size * layer.getNumberOfCells());
   ltsTree.allocateBuckets();
   
   fakeData(lts, layer);

@@ -87,12 +87,12 @@ db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, num
 db.update( parseXMLMatrixFile('{}/star.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
 
 Q = Tensor('Q', qShape, alignStride=alignStride)
+dQ0 = Tensor('dQ[0]', qShape, alignStride=alignStride)
 I = Tensor('I', qShape, alignStride=alignStride)
-Ineigh = [Tensor('Ineigh[{}]'.format(i), qShape, alignStride=alignStride) for i in range(4)]
 
 # Flux solver
-AplusT = [Tensor('AplusT[{}]'.format(dim), (numberOfQuantities, numberOfQuantities)) for dim in range(4)]
-AminusT = [Tensor('AminusT[{}]'.format(dim), (numberOfQuantities, numberOfQuantities)) for dim in range(4)]
+AplusT = Tensor('AplusT', (numberOfQuantities, numberOfQuantities))
+AminusT = Tensor('AminusT', (numberOfQuantities, numberOfQuantities))
 
 # Kernels
 g = Generator(arch)
@@ -103,20 +103,20 @@ for i in range(3):
 volume = (Q[qi('kp')] <= volumeSum)
 g.add('volume', volume)
 
-localFlux = lambda i: (Q[qi('kp')] <= db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I[qi('lq')] * AplusT[i]['qp'])
+localFlux = lambda i: (Q[qi('kp')] <= db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I[qi('lq')] * AplusT['qp'])
 g.addFamily('localFlux', simpleParameterSpace(4), localFlux)
 
-neighbourFlux = lambda h,j,i: Q[qi('kp')] <= Q[qi('kp')] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * Ineigh[i][qi('lq')] * AminusT[i]['qp']
+neighbourFlux = lambda h,j,i: Q[qi('kp')] <= Q[qi('kp')] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I[qi('lq')] * AminusT['qp']
 g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux)
 
-lastDQ = Q
-for i in range(order-1):
+lastDQ = dQ0
+for i in range(1,order):
   derivativeSum = Add()
   for j in range(3):
     derivativeSum += db.kDivMT[j][t('kl')] * lastDQ[qi('lq')] * db.star[j]['qp']
   derivativeSum = DeduceIndices( Q[qi('kp')].indices ).visit(derivativeSum)
   derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
-  dQ = Tensor('dQ[{0}]'.format(i), qShape, spp=derivativeSum.eqspp(), alignStride=True)
+  dQ = Tensor('dQ[{}]'.format(i), qShape, spp=derivativeSum.eqspp(), alignStride=True)
   g.add('derivative[{}]'.format(i), dQ[qi('kp')] <= derivativeSum)
   lastDQ = dQ
 

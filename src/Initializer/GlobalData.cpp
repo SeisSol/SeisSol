@@ -48,25 +48,29 @@
 namespace init = seissol::init;
 
 void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory::ManagedAllocator& memoryAllocator, enum seissol::memory::Memkind memkind)
-{  
-  unsigned globalMatrixMemSize = 0;
-  globalMatrixMemSize += yateto::computeFamilySize<init::kDivM>();
-  globalMatrixMemSize += yateto::computeFamilySize<init::kDivMT>();
-  globalMatrixMemSize += yateto::computeFamilySize<init::rDivM>();
-  globalMatrixMemSize += yateto::computeFamilySize<init::rT>();
-  globalMatrixMemSize += yateto::computeFamilySize<init::fMrT>();
-  globalMatrixMemSize += yateto::computeFamilySize<init::fP>();
-  globalMatrixMemSize *= sizeof(real);
+{
+  // We ensure that global matrices always start at an aligned memory address,
+  // such that mixed cases with aligned and non-aligned global matrices do also work.  
   
-  real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( globalMatrixMemSize, PAGESIZE_HEAP, memkind ));
+  unsigned globalMatrixMemSize = 0;
+  globalMatrixMemSize += yateto::computeFamilySize<init::kDivM>(yateto::alignedReals<real>(ALIGNMENT));
+  globalMatrixMemSize += yateto::computeFamilySize<init::kDivMT>(yateto::alignedReals<real>(ALIGNMENT));
+  globalMatrixMemSize += yateto::computeFamilySize<init::rDivM>(yateto::alignedReals<real>(ALIGNMENT));
+  globalMatrixMemSize += yateto::computeFamilySize<init::rT>(yateto::alignedReals<real>(ALIGNMENT));
+  globalMatrixMemSize += yateto::computeFamilySize<init::fMrT>(yateto::alignedReals<real>(ALIGNMENT));
+  globalMatrixMemSize += yateto::computeFamilySize<init::fP>(yateto::alignedReals<real>(ALIGNMENT));
+  
+  real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( globalMatrixMemSize * sizeof(real), PAGESIZE_HEAP, memkind ));
 
   real* globalMatrixMemPtr = globalMatrixMem;
-  yateto::copyFamilyToMemAndSetPtr<init::kDivMT, real>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed);
-  yateto::copyFamilyToMemAndSetPtr<init::kDivM,  real>(globalMatrixMemPtr, globalData.stiffnessMatrices);
-  yateto::copyFamilyToMemAndSetPtr<init::rDivM,  real>(globalMatrixMemPtr, globalData.changeOfBasisMatrices);
-  yateto::copyFamilyToMemAndSetPtr<init::rT,     real>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed);
-  yateto::copyFamilyToMemAndSetPtr<init::fMrT,   real>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed);
-  yateto::copyFamilyToMemAndSetPtr<init::fP,     real>(globalMatrixMemPtr, globalData.neighbourFluxMatrices);
+  yateto::copyFamilyToMemAndSetPtr<init::kDivMT, real>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, ALIGNMENT);
+  yateto::copyFamilyToMemAndSetPtr<init::kDivM,  real>(globalMatrixMemPtr, globalData.stiffnessMatrices, ALIGNMENT);
+  yateto::copyFamilyToMemAndSetPtr<init::rDivM,  real>(globalMatrixMemPtr, globalData.changeOfBasisMatrices, ALIGNMENT);
+  yateto::copyFamilyToMemAndSetPtr<init::rT,     real>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, ALIGNMENT);
+  yateto::copyFamilyToMemAndSetPtr<init::fMrT,   real>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, ALIGNMENT);
+  yateto::copyFamilyToMemAndSetPtr<init::fP,     real>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, ALIGNMENT);
+  
+  assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
 
   // @TODO Integrate this step into the code generator
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
@@ -108,17 +112,17 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
 #ifdef _OPENMP
   l_numberOfThreads = omp_get_max_threads();
 #endif
-  real* integrationBufferLTS = (real*) memoryAllocator.allocateMemory( l_numberOfThreads*(4*tensor::Q::Size)*sizeof(real), PAGESIZE_STACK, memkind ) ;
+  real* integrationBufferLTS = (real*) memoryAllocator.allocateMemory( l_numberOfThreads*(4*tensor::I::Size)*sizeof(real), PAGESIZE_STACK, memkind ) ;
 
   // initialize w.r.t. NUMA
 #ifdef _OPENMP
   #pragma omp parallel
   {
-    size_t l_threadOffset = omp_get_thread_num()*(4*tensor::Q::Size);
+    size_t l_threadOffset = omp_get_thread_num()*(4*tensor::I::Size);
 #else
     size_t l_threadOffset = 0;
 #endif
-    for ( unsigned int l_dof = 0; l_dof < (4*tensor::Q::Size); l_dof++ ) {
+    for ( unsigned int l_dof = 0; l_dof < (4*tensor::I::Size); l_dof++ ) {
       integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
     }
 #ifdef _OPENMP

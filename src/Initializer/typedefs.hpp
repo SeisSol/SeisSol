@@ -351,7 +351,7 @@ struct LocalIntegrationData {
   real starMatrices[3][seissol::tensor::star::Size[0]];
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::tensor::AplusT::Size[0]];
+  real nApNm1[4][seissol::tensor::AplusT::Size];
 
   // equation-specific data
   seissol::model::LocalData specific;
@@ -360,7 +360,7 @@ struct LocalIntegrationData {
 // data for the neighboring boundary integration
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::tensor::AminusT::Size[0]];
+  real nAmNm1[4][seissol::tensor::AminusT::Size];
 
   // equation-specific data
   seissol::model::NeighborData specific;

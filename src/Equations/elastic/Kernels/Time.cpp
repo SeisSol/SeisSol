@@ -77,13 +77,14 @@ extern long long libxsmm_num_total_flops;
 #endif
 
 #include <Kernels/denseMatrixOps.hpp>
-#include <generated_code/tensor.h>
-#include <generated_code/kernel.h>
-#include <yateto.h>
 
 #include <cstring>
 #include <cassert>
 #include <stdint.h>
+#include <omp.h>
+
+#include <generated_code/tensor.h>
+#include <yateto.h>
 
 seissol::kernels::Time::Time() {
   m_derivativesOffsets[0] = 0;
@@ -95,8 +96,17 @@ seissol::kernels::Time::Time() {
   }
 }
 
+void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[0]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[1]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed[2]) % ALIGNMENT == 0 );
+
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::kDivMT>(); ++i) {
+    m_krnlPrototype.kDivMT[i] = global->stiffnessMatricesTransposed[i];
+  }
+}
+
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
-                                          GlobalData const*           global,
                                           LocalIntegrationData const* local,
                                           real const*                 i_degreesOfFreedom,
                                           real*                       o_timeIntegrated,
@@ -106,9 +116,6 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
    * assert alignments.
    */
   assert( ((uintptr_t)i_degreesOfFreedom)     % ALIGNMENT == 0 );
-  //~ assert( ((uintptr_t)global->stiffnessMatricesTransposed[0]) % ALIGNMENT == 0 );
-  //~ assert( ((uintptr_t)global->stiffnessMatricesTransposed[1]) % ALIGNMENT == 0 );
-  //~ assert( ((uintptr_t)global->stiffnessMatricesTransposed[2]) % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
@@ -121,16 +128,13 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   // temporary result
   real l_derivativesBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
 
-  kernel::derivative krnl;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::kDivMT>(); ++i) {
-    krnl.kDivMT[i] = global->stiffnessMatricesTransposed[i];
-  }
+  kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star[i] = local->starMatrices[i];
   }
-  krnl.Q = i_degreesOfFreedom;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ[i] = l_derivativesBuffer + (m_derivativesOffsets[i+1]-m_derivativesOffsets[1]);
+  krnl.dQ[0] = const_cast<real*>(i_degreesOfFreedom);
+  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    krnl.dQ[i] = l_derivativesBuffer + m_derivativesOffsets[i];
   }
 
   // initialize time integrated DOFs
@@ -148,8 +152,7 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   }
   
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
-    (krnl.*krnl.findExecute(der-1))();
-    real* currentDerivative = krnl.dQ[der-1];
+    (krnl.*krnl.findExecute(der))();
 
     // update scalar for this derivative
     l_scalar *= i_timeStepWidth / real(der+1);
@@ -164,7 +167,7 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
     SXtYp(  l_scalar,
             m_numberOfAlignedBasisFunctions[der],
             NUMBER_OF_QUANTITIES,
-            currentDerivative,
+            krnl.dQ[der],
             m_numberOfAlignedBasisFunctions[der],
             o_timeIntegrated,
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,

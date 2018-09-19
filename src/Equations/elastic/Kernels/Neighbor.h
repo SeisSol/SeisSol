@@ -72,6 +72,7 @@
 #define KERNELS_NEIGHBOR_H_
 
 #include <Initializer/typedefs.hpp>
+#include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
@@ -80,13 +81,18 @@ namespace seissol {
 }
 
 class seissol::kernels::Neighbor {
+  private:
+    kernel::localFlux m_lfKrnlPrototype;
+    kernel::neighboringFlux m_nfKrnlPrototype;
+
   public:
     Neighbor() {}
+
+    void setGlobalData(GlobalData const* global);
 
     void computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
                                     int const                         i_neighboringIndices[4][2],
                                     CellDRMapping const             (&cellDrMapping)[4],
-                                    GlobalData const*                 global,
                                     NeighboringIntegrationData const* neighbor,
                                     real*                             i_timeIntegrated[4],
                                     real*                             faceNeighbors_prefetch[4],

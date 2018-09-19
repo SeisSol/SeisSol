@@ -44,6 +44,7 @@
 #include <Initializer/typedefs.hpp>
 #include <cassert>
 #include <Kernels/common.hpp>
+#include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
@@ -52,11 +53,16 @@ namespace seissol {
 }
 
 class seissol::kernels::Local {
+  private:
+    kernel::volume m_volKrnlPrototype;
+    kernel::localFlux m_lfKrnlPrototype;
+    
   public:
     Local() {}
 
+    void setGlobalData(GlobalData const* global);
+
     void computeIntegral( enum faceType const         i_faceTypes[4],
-                          GlobalData const*           global,
                           LocalIntegrationData const* local,
                           real*                       i_timeIntegratedDegreesOfFreedom,
                           real*                       io_degreesOfFreedom );

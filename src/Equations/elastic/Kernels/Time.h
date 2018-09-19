@@ -75,7 +75,7 @@
 #include <limits>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/common.hpp>
-#include <generated_code/tensor.h>
+#include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
@@ -98,15 +98,18 @@ class seissol::kernels::Time {
      * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
      */
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
+    
+    kernel::derivative m_krnlPrototype;
 
   public:
     /**
      * Constructor, which initializes the time kernel.
      **/
     Time();
+    
+    void setGlobalData(GlobalData const* global);
 
     void computeAder( double                      i_timeStepWidth,
-                      GlobalData const*           global,
                       LocalIntegrationData const* local,
                       real const*                 i_degreesOfFreedom,
                       real*                       o_timeIntegrated,

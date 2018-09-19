@@ -44,7 +44,6 @@ void computeAderIntegration() {
 #endif
   for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     m_timeKernel.computeAder(              m_timeStepWidthSimulation,
-                                           &m_globalData,
                                            &localIntegration[l_cell],
                                            dofs[l_cell],
                                            buffers[l_cell],
@@ -70,7 +69,6 @@ void computeLocalWithoutAderIntegration() {
 #endif
   for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     m_localKernel.computeIntegral(  cellInformation[l_cell].faceTypes,
-                                    &m_globalData,
                                     &localIntegration[l_cell],
                                     buffers[l_cell],
                                     dofs[l_cell] );
@@ -96,14 +94,12 @@ void computeLocalIntegration() {
 #endif
   for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     m_timeKernel.computeAder(      (double)m_timeStepWidthSimulation,
-                                           &m_globalData,
                                            &localIntegration[l_cell],
                                            dofs[l_cell],
                                            buffers[l_cell],
                                            derivatives[l_cell] );
 
     m_localKernel.computeIntegral(        cellInformation[l_cell].faceTypes,
-                                          &m_globalData,
                                           &localIntegration[l_cell],
                                            buffers[l_cell],
                                            dofs[l_cell] );
@@ -144,9 +140,9 @@ void computeNeighboringIntegration() {
                                             (double)m_timeStepWidthSimulation,
                                                     faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                    *reinterpret_cast<real (*)[4][tensor::Q::Size]>(&(m_globalData.integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
+                                                    *reinterpret_cast<real (*)[4][tensor::I::Size]>(&(m_globalData.integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
 #else
-                                                    *reinterpret_cast<real (*)[4][tensor::Q::Size]>(m_globalData.integrationBufferLTS),
+                                                    *reinterpret_cast<real (*)[4][tensor::I::Size]>(m_globalData.integrationBufferLTS),
 #endif
                                                     l_timeIntegrated );
 
@@ -167,7 +163,6 @@ void computeNeighboringIntegration() {
     m_neighborKernel.computeNeighborsIntegral( cellInformation[l_cell].faceTypes,
                                                cellInformation[l_cell].faceRelations,
                                                drMapping[l_cell],
-                                               &m_globalData,
                                                &neighboringIntegration[l_cell],
                                                l_timeIntegrated,
 #ifdef ENABLE_MATRIX_PREFETCH
