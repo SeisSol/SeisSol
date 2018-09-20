@@ -175,17 +175,17 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   o_nonZeroFlops = 0; o_hardwareFlops =0;
 
   // initialization
-  o_nonZeroFlops  += NUMBER_OF_DOFS;
-  o_hardwareFlops += NUMBER_OF_ALIGNED_DOFS;
+  o_nonZeroFlops  += kernel::integrateDerivative::nonZeroFlops(0);
+  o_hardwareFlops += kernel::integrateDerivative::hardwareFlops(0);
 
   // interate over derivatives
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    o_nonZeroFlops  += seissol::kernel::derivative::nonZeroFlops(l_derivative-1);
-    o_hardwareFlops += seissol::kernel::derivative::hardwareFlops(l_derivative-1);
+    o_nonZeroFlops  += kernel::derivative::nonZeroFlops(l_derivative);
+    o_hardwareFlops += kernel::derivative::hardwareFlops(l_derivative);
 
     // update of time integrated DOFs
-    o_nonZeroFlops  += seissol::kernels::getNumberOfBasisFunctions(        CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
-    o_hardwareFlops += seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
+    o_nonZeroFlops  += kernel::integrateDerivative::nonZeroFlops(l_derivative);
+    o_hardwareFlops += kernel::integrateDerivative::hardwareFlops(l_derivative);
   }
 
 }

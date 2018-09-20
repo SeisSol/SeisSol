@@ -64,7 +64,7 @@ order = int(cmdLineArgs.order)
 numberOf2DBasisFunctions = order*(order+1)//2
 numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
 numberOfQuantities = 9
-multipleSimulations = bool(cmdLineArgs.multipleSimulations)
+multipleSimulations = cmdLineArgs.multipleSimulations.lower() in ['true', 'on', '1', 'y', 'yes']
 
 # Quantities
 if multipleSimulations:
