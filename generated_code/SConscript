@@ -72,7 +72,10 @@ env.Append(CPPPATH=buildDir)
 
 cppFiles = filter(lambda t: str(t).endswith('.cpp'), generated)
 for cpp in cppFiles:
-  obj = env.Object(cpp)
+  if str(cpp) == 'subroutine.cpp':
+    obj = env.Object(cpp, CXXFLAGS=env['CXXFLAGS'] + '-mno-red-zone')
+  else:
+    obj = env.Object(cpp)
   env.Depends(obj, generated)
   env.sourceFiles.append(obj)
 

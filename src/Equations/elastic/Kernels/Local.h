@@ -44,6 +44,7 @@
 #include <Initializer/typedefs.hpp>
 #include <cassert>
 #include <Kernels/common.hpp>
+#include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 
 namespace seissol {
@@ -64,8 +65,8 @@ class seissol::kernels::Local {
 
     void computeIntegral( enum faceType const         i_faceTypes[4],
                           LocalIntegrationData const* local,
-                          real*                       i_timeIntegratedDegreesOfFreedom,
-                          real*                       io_degreesOfFreedom );
+                          real                        i_timeIntegratedDegreesOfFreedom[tensor::I::Size],
+                          real                        io_degreesOfFreedom[tensor::Q::Size] );
 
     void flopsIntegral( enum faceType const i_faceTypes[4],
                         unsigned int        &o_nonZeroFlops,

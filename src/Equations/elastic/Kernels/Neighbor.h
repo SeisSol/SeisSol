@@ -96,7 +96,7 @@ class seissol::kernels::Neighbor {
                                     NeighboringIntegrationData const* neighbor,
                                     real*                             i_timeIntegrated[4],
                                     real*                             faceNeighbors_prefetch[4],
-                                    real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] );
+                                    real                              io_degreesOfFreedom[ tensor::Q::Size ] );
 
     void flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                  const int            i_neighboringIndices[4][2],

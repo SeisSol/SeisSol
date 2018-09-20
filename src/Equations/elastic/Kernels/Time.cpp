@@ -83,7 +83,6 @@ extern long long libxsmm_num_total_flops;
 #include <stdint.h>
 #include <omp.h>
 
-#include <generated_code/tensor.h>
 #include <yateto.h>
 
 seissol::kernels::Time::Time() {
@@ -108,8 +107,8 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
                                           LocalIntegrationData const* local,
-                                          real const*                 i_degreesOfFreedom,
-                                          real*                       o_timeIntegrated,
+                                          real const                  i_degreesOfFreedom[tensor::Q::Size],
+                                          real                        o_timeIntegrated[tensor::I::Size],
                                           real*                       o_timeDerivatives )
 {
   /*

@@ -118,7 +118,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
                                                             NeighboringIntegrationData const* neighbor,
                                                             real*                             i_timeIntegrated[4],
                                                             real*                             faceNeighbors_prefetch[4],
-                                                            real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] )
+                                                            real                              io_degreesOfFreedom[ tensor::Q::Size ] )
 {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {

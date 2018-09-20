@@ -75,6 +75,7 @@
 #include <limits>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/common.hpp>
+#include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 
 namespace seissol {
@@ -111,8 +112,8 @@ class seissol::kernels::Time {
 
     void computeAder( double                      i_timeStepWidth,
                       LocalIntegrationData const* local,
-                      real const*                 i_degreesOfFreedom,
-                      real*                       o_timeIntegrated,
+                      real const                  i_degreesOfFreedom[tensor::Q::Size],
+                      real                        o_timeIntegrated[tensor::I::Size],
                       real*                       o_timeDerivatives = NULL );
 
     void flopsAder( unsigned int &o_nonZeroFlops,

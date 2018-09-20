@@ -76,8 +76,8 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Local::computeIntegral(  enum faceType const         i_faceTypes[4],
                                                 LocalIntegrationData const* local,
-                                                real*                       i_timeIntegratedDegreesOfFreedom,
-                                                real*                       io_degreesOfFreedom )
+                                                real                        i_timeIntegratedDegreesOfFreedom[tensor::I::Size],
+                                                real                        io_degreesOfFreedom[tensor::Q::Size] )
 {
   // assert alignments
 #ifndef NDEBUG
