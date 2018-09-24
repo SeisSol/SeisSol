@@ -145,11 +145,13 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
         
         nfKrnl.I = i_timeIntegrated[l_face];
         nfKrnl.AminusT = neighbor->nAmNm1[l_face];
+        nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
         (nfKrnl.*nfKrnl.findExecute(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face))();
       } else { // fall back to local matrices in case of free surface boundary conditions
         kernel::localFlux lfKrnl = m_lfKrnlPrototype;
         lfKrnl.Q = io_degreesOfFreedom;
         lfKrnl.AplusT = neighbor->nAmNm1[l_face];
+        lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
         (lfKrnl.*lfKrnl.findExecute(l_face))();
       }
     } else if (i_faceTypes[l_face] == dynamicRupture) {

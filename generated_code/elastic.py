@@ -40,7 +40,7 @@
   
 import argparse
 from yateto import *
-from yateto.input import parseXMLMatrixFile
+from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
@@ -85,6 +85,7 @@ clones = {
 }
 db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), transpose=transpose, alignStride=alignStride)
 db.update( parseXMLMatrixFile('{}/star.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
+memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
 Q = Tensor('Q', qShape, alignStride=alignStride)
 dQ0 = Tensor('dQ[0]', qShape, alignStride=alignStride)
@@ -104,10 +105,12 @@ volume = (Q[qi('kp')] <= volumeSum)
 g.add('volume', volume)
 
 localFlux = lambda i: (Q[qi('kp')] <= db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I[qi('lq')] * AplusT['qp'])
-g.addFamily('localFlux', simpleParameterSpace(4), localFlux)
+localFluxPrefetch = lambda i: I if i == 0 else (Q if i == 1 else None)
+g.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
 neighbourFlux = lambda h,j,i: Q[qi('kp')] <= Q[qi('kp')] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I[qi('lq')] * AminusT['qp']
-g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux)
+neighbourFluxPrefetch = lambda h,j,i: I
+g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
 
 power = Scalar('power')
 lastDQ = dQ0

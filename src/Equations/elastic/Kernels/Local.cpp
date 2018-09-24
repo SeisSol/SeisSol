@@ -95,16 +95,12 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
   kernel::localFlux lfKrnl = m_lfKrnlPrototype;
   lfKrnl.Q = io_degreesOfFreedom;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
+  lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::Size;
+  lfKrnl._prefetch.Q = io_degreesOfFreedom + tensor::Q::Size;
   
   volKrnl.execute();
   
   for( unsigned int face = 0; face < 4; face++ ) {
-    real const* prefetch = NULL;
-    if (face == 0) {
-      prefetch = i_timeIntegratedDegreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
-    } else if (face == 1) {
-      prefetch = io_degreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
-    }
     // no element local contribution in the case of dynamic rupture boundary conditions
     if( i_faceTypes[face] != dynamicRupture ) {
       lfKrnl.AplusT = local->nApNm1[face];
