@@ -3,7 +3,12 @@
 Rconv is a small tool which transforms file given in the Standard Rupture Format (SRF) to the intermediate NetCDF Rupture Format (NRF) which is required by SeisSol for simulating kinematic rupture models.
 
 ## Building rconv
-You need to have the proj.4 and the NetCDF libraries installed and make sure that the system is able to find them. Then just enter
+You need to have the proj.4 and the NetCDF libraries installed and make sure that the system is able to find them. 
+
+Make sure to add this line to ~/.bashrc file:
+`export LD_LIBRARY_PATH=path-to-proj.4/build/lib:$LD_LIBRARY_PATH`
+
+Then just enter
 `scons` in the main folder in order to compile rconv.
 
 Here is a way to configure your installation before running scons:   
