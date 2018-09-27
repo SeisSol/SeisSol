@@ -72,7 +72,7 @@ namespace seissol {
 }
 
 struct seissol::initializers::LTS {
-  Variable<real[tensor::Q::Size]>         dofs;
+  Variable<real[tensor::Q::size()]>       dofs;
   Variable<real*>                         buffers;
   Variable<real*>                         derivatives;
   Variable<CellLocalInformation>          cellInformation;

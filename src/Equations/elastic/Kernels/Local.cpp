@@ -63,21 +63,15 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   }
 #endif
 
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::kDivM>(); ++i) {
-    m_volKrnlPrototype.kDivM[i] = global->stiffnessMatrices[i];
-  }
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::rDivM>(); ++i) {
-    m_lfKrnlPrototype.rDivM[i] = global->changeOfBasisMatrices[i];
-  }
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::rDivM>(); ++i) {
-    m_lfKrnlPrototype.fMrT[i] = global->localChangeOfBasisMatricesTransposed[i];
-  }
+  m_volKrnlPrototype.kDivM = global->stiffnessMatrices;
+  m_lfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
+  m_lfKrnlPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
 }
 
 void seissol::kernels::Local::computeIntegral(  enum faceType const         i_faceTypes[4],
                                                 LocalIntegrationData const* local,
-                                                real                        i_timeIntegratedDegreesOfFreedom[tensor::I::Size],
-                                                real                        io_degreesOfFreedom[tensor::Q::Size] )
+                                                real                        i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                                real                        io_degreesOfFreedom[tensor::Q::size()] )
 {
   // assert alignments
 #ifndef NDEBUG
@@ -89,14 +83,14 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
   volKrnl.Q = io_degreesOfFreedom;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star[i] = local->starMatrices[i];
+    volKrnl.star(i) = local->starMatrices[i];
   }
   
   kernel::localFlux lfKrnl = m_lfKrnlPrototype;
   lfKrnl.Q = io_degreesOfFreedom;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::Size;
-  lfKrnl._prefetch.Q = io_degreesOfFreedom + tensor::Q::Size;
+  lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl._prefetch.Q = io_degreesOfFreedom + tensor::Q::size();
   
   volKrnl.execute();
   
@@ -104,7 +98,7 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
     // no element local contribution in the case of dynamic rupture boundary conditions
     if( i_faceTypes[face] != dynamicRupture ) {
       lfKrnl.AplusT = local->nApNm1[face];
-      (lfKrnl.*lfKrnl.findExecute(face))();
+      lfKrnl.execute(face);
     }
   }
 }
@@ -131,7 +125,7 @@ unsigned seissol::kernels::Local::bytesIntegral()
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>();
   // flux solvers
-  reals += 4 * tensor::AplusT::Size;
+  reals += 4 * tensor::AplusT::size();
 
   // DOFs write
   reals += NUMBER_OF_ALIGNED_DOFS;

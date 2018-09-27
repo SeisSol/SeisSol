@@ -44,7 +44,7 @@ from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
-#import DynamicRupture
+import DynamicRupture
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -81,14 +81,14 @@ else:
   t = lambda x: x
 
 clones = {
-  'star': ['star[0]', 'star[1]', 'star[2]'],
+  'star': ['star(0)', 'star(1)', 'star(2)'],
 }
 db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), transpose=transpose, alignStride=alignStride)
 db.update( parseXMLMatrixFile('{}/star.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
 memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
 Q = Tensor('Q', qShape, alignStride=alignStride)
-dQ0 = Tensor('dQ[0]', qShape, alignStride=alignStride)
+dQ0 = Tensor('dQ(0)', qShape, alignStride=alignStride)
 I = Tensor('I', qShape, alignStride=alignStride)
 
 # Flux solver
@@ -104,7 +104,7 @@ for i in range(3):
 volume = (Q[qi('kp')] <= volumeSum)
 g.add('volume', volume)
 
-localFlux = lambda i: (Q[qi('kp')] <= db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I[qi('lq')] * AplusT['qp'])
+localFlux = lambda i: Q[qi('kp')] <= db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I[qi('lq')] * AplusT['qp']
 localFluxPrefetch = lambda i: I if i == 0 else (Q if i == 1 else None)
 g.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
@@ -114,19 +114,19 @@ g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neigh
 
 power = Scalar('power')
 lastDQ = dQ0
-g.add('integrateDerivative[0]'.format(i), I[qi('kp')] <= power * dQ0[qi('kp')])
+g.add('integrateDerivative(0)'.format(i), I[qi('kp')] <= power * dQ0[qi('kp')])
 for i in range(1,order):
   derivativeSum = Add()
   for j in range(3):
     derivativeSum += db.kDivMT[j][t('kl')] * lastDQ[qi('lq')] * db.star[j]['qp']
   derivativeSum = DeduceIndices( Q[qi('kp')].indices ).visit(derivativeSum)
   derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
-  dQ = Tensor('dQ[{}]'.format(i), qShape, spp=derivativeSum.eqspp(), alignStride=True)
-  g.add('derivative[{}]'.format(i), dQ[qi('kp')] <= derivativeSum)
-  g.add('integrateDerivative[{}]'.format(i), I[qi('kp')] <= I[qi('kp')] + power * dQ[qi('kp')])
+  dQ = Tensor('dQ({})'.format(i), qShape, spp=derivativeSum.eqspp(), alignStride=True)
+  g.add('derivative({})'.format(i), dQ[qi('kp')] <= derivativeSum)
+  g.add('integrateDerivative({})'.format(i), I[qi('kp')] <= I[qi('kp')] + power * dQ[qi('kp')])
   lastDQ = dQ
 
-#DynamicRupture.addKernels(g, Q, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
+DynamicRupture.addKernels(g, Q, qi, qShape, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
 
 # Generate code
 g.generate(cmdLineArgs.outputDir, 'seissol')

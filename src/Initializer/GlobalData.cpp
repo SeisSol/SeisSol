@@ -74,8 +74,8 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
 
   // @TODO Integrate this step into the code generator
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    real* matrix = globalData.stiffnessMatricesTransposed[transposedStiffness];
-    for (unsigned i = 0; i < init::kDivMT::Size[i]; ++i) {
+    real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
+    for (unsigned i = 0; i < init::kDivMT::size(i); ++i) {
       matrix[i] *= -1.0;
     }
   }
@@ -112,17 +112,17 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
 #ifdef _OPENMP
   l_numberOfThreads = omp_get_max_threads();
 #endif
-  real* integrationBufferLTS = (real*) memoryAllocator.allocateMemory( l_numberOfThreads*(4*tensor::I::Size)*sizeof(real), PAGESIZE_STACK, memkind ) ;
+  real* integrationBufferLTS = (real*) memoryAllocator.allocateMemory( l_numberOfThreads*(4*tensor::I::size())*sizeof(real), PAGESIZE_STACK, memkind ) ;
 
   // initialize w.r.t. NUMA
 #ifdef _OPENMP
   #pragma omp parallel
   {
-    size_t l_threadOffset = omp_get_thread_num()*(4*tensor::I::Size);
+    size_t l_threadOffset = omp_get_thread_num()*(4*tensor::I::size());
 #else
     size_t l_threadOffset = 0;
 #endif
-    for ( unsigned int l_dof = 0; l_dof < (4*tensor::I::Size); l_dof++ ) {
+    for ( unsigned int l_dof = 0; l_dof < (4*tensor::I::size()); l_dof++ ) {
       integrationBufferLTS[l_dof + l_threadOffset] = (real)0.0;
     }
 #ifdef _OPENMP

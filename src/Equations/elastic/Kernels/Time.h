@@ -112,8 +112,8 @@ class seissol::kernels::Time {
 
     void computeAder( double                      i_timeStepWidth,
                       LocalIntegrationData const* local,
-                      real const                  i_degreesOfFreedom[tensor::Q::Size],
-                      real                        o_timeIntegrated[tensor::I::Size],
+                      real const                  i_degreesOfFreedom[tensor::Q::size()],
+                      real                        o_timeIntegrated[tensor::I::size()],
                       real*                       o_timeDerivatives = NULL );
 
     void flopsAder( unsigned int &o_nonZeroFlops,

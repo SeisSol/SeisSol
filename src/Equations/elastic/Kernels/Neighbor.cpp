@@ -94,22 +94,11 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
     assert( ((uintptr_t)global->neighbourFluxMatrices[h]) % ALIGNMENT == 0 );
   }
 #endif
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::rDivM>(); ++i) {
-    m_lfKrnlPrototype.rDivM[i] = global->changeOfBasisMatrices[i];
-  }
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::rDivM>(); ++i) {
-    m_lfKrnlPrototype.fMrT[i] = global->localChangeOfBasisMatricesTransposed[i];
-  }
-
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::rDivM>(); ++i) {
-    m_nfKrnlPrototype.rDivM[i] = global->changeOfBasisMatrices[i];
-  }
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::rT>(); ++i) {
-    m_nfKrnlPrototype.rT[i] = global->neighbourChangeOfBasisMatricesTransposed[i];
-  }
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::fP>(); ++i) {
-    m_nfKrnlPrototype.fP[i] = global->neighbourFluxMatrices[i];
-  }
+  m_lfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
+  m_lfKrnlPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
+  m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
 }
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
@@ -118,7 +107,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
                                                             NeighboringIntegrationData const* neighbor,
                                                             real*                             i_timeIntegrated[4],
                                                             real*                             faceNeighbors_prefetch[4],
-                                                            real                              io_degreesOfFreedom[ tensor::Q::Size ] )
+                                                            real                              io_degreesOfFreedom[ tensor::Q::size() ] )
 {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
@@ -146,13 +135,13 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
         nfKrnl.I = i_timeIntegrated[l_face];
         nfKrnl.AminusT = neighbor->nAmNm1[l_face];
         nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-        (nfKrnl.*nfKrnl.findExecute(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face))();
+        nfKrnl.execute(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
       } else { // fall back to local matrices in case of free surface boundary conditions
         kernel::localFlux lfKrnl = m_lfKrnlPrototype;
         lfKrnl.Q = io_degreesOfFreedom;
         lfKrnl.AplusT = neighbor->nAmNm1[l_face];
         lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-        (lfKrnl.*lfKrnl.findExecute(l_face))();
+        lfKrnl.execute(l_face);
       }
     } else if (i_faceTypes[l_face] == dynamicRupture) {
       //~ assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
@@ -206,7 +195,7 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   // 4 * tElasticDOFS load, DOFs load, DOFs write
   reals += 6 * NUMBER_OF_ALIGNED_DOFS;
   // flux solvers load
-  reals += 4 * tensor::AminusT::Size;
+  reals += 4 * tensor::AminusT::size();
   
   return reals * sizeof(real);
 }

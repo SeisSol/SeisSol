@@ -102,7 +102,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   cluster.child<Interior>().setNumberOfCells(i_cells);
   
   seissol::initializers::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::Size * layer.getNumberOfCells());
+  layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
   
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();

@@ -41,7 +41,7 @@
 from yateto import *
 from yateto.input import parseJSONMatrixFile
 
-def addKernels(generator, Q, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
+def addKernels(generator, Q, qi, qShape, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
   numberOfBasisFunctions = order*(order+1)*(order+2)//6
 
   if dynamicRuptureMethod == 'quadrature':
@@ -60,18 +60,13 @@ def addKernels(generator, Q, matricesDir, order, dynamicRuptureMethod, numberOfE
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
   godunovMatrix = Tensor('godunovMatrix', (numberOfElasticQuantities, numberOfElasticQuantities))
   fluxSolver    = Tensor('fluxSolver', (numberOfElasticQuantities, numberOfQuantities))
-  godunovState  = Tensor('godunovState', (numberOfPoints, numberOfElasticQuantities), alignStride=True)
+  
+  bPos = qi('lq').find('l')
+  gShape = tuple(numberOfPoints if i == bPos else q for i,q in enumerate(qShape))
+  godunovState  = Tensor('godunovState', gShape, alignStride=True)
 
-  def godunovStateGenerator(i, h):
-    if h == 0:
-      return Q['kp'] <= godunovState['kp'] <= db.nP[i]['kl'] * Q['lq'] * godunovMatrix['qp']
-    return Q['kp'] <= godunovState['kp'] <= godunovState['kp'] + db.nM[i+4*(h-1)]['kl'] * Q['lq'] * godunovMatrix['qp']
-
+  godunovStateGenerator = lambda i,h: godunovState['kp'] <= godunovState['kp'] + db.V3mTo2n[i,h]['kl'] * Q[qi('lq')] * godunovMatrix['qp']
   generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator)
 
-  def nodalFluxGenerator(i, h):
-    if h == 0:
-      return Q['kp'] <= db.pP[i]['kl'] * godunovState['lq'] * fluxSolver['qp']
-    return Q['kp'] <= db.pM[i+4*(h-1)]['kl'] * godunovState['lq'] * fluxSolver['qp']
-  
+  nodalFluxGenerator = lambda i,h: Q[qi('kp')] <= db.V3mTo2nTWDivM[i,h]['kl'] * godunovState[qi('lq')] * fluxSolver['qp']
   generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator)

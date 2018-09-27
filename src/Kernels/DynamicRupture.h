@@ -74,7 +74,7 @@ class seissol::kernels::DynamicRupture {
                               DRGodunovData const*        godunovData,
                               real const*                 timeDerivativePlus,
                               real const*                 timeDerivativeMinus,
-                              real                        godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::Size],
+                              real                        godunov[CONVERGENCE_ORDER][tensor::godunovState::size()],
                               real const*                 timeDerivativePlus_prefetch, 
                               real const*                 timeDerivativeMinus_prefetch);
 

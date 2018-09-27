@@ -78,7 +78,7 @@ namespace seissol {
                               const double                      i_currentTime[5],
                               double                            i_timeStepWidth,
                               real * const                      i_timeDofs[4],
-                              real                              o_integrationBuffer[4][tensor::Q::Size],
+                              real                              o_integrationBuffer[4][tensor::Q::size()],
                               real *                            o_timeIntegrated[4] );
 
       /**
@@ -98,7 +98,7 @@ namespace seissol {
                               const double                      i_timeStepStart,
                               const double                      i_timeStepWidth,
                               real * const                      i_timeDofs[4],
-                              real                              o_integrationBuffer[4][tensor::Q::Size],
+                              real                              o_integrationBuffer[4][tensor::Q::size()],
                               real *                            o_timeIntegrated[4] );
     }
   }
