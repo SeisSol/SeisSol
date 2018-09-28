@@ -79,23 +79,21 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
       matrix[i] *= -1.0;
     }
   }
-
+  
   // Dynamic Rupture global matrices
-  /*real* drGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, memkind ));
-  for (unsigned matrix = 0; matrix < seissol::model::dr_numGlobalMatrices; ++matrix) {
-    memcpy(
-      &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[matrix] ],
-      seissol::model::dr_globalMatrixValues[matrix],
-      (seissol::model::dr_globalMatrixOffsets[matrix+1] - seissol::model::dr_globalMatrixOffsets[matrix]) * sizeof(real)
-    );
-  }
-  for (unsigned face = 0; face < 4; ++face) {
-    for (unsigned h = 0; h < 4; ++h) {
-      globalData.nodalFluxMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[4*face+h] ];
-      globalData.faceToNodalMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[16 + 4*face+h] ];
-    }
-  }
+  unsigned drGlobalMatrixMemSize = 0;
+  drGlobalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2nTWDivM>(yateto::alignedReals<real>(ALIGNMENT));
+  drGlobalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2n>(yateto::alignedReals<real>(ALIGNMENT));
+  
+  real* drGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( drGlobalMatrixMemSize  * sizeof(real), PAGESIZE_HEAP, memkind ));
+  
+  real* drGlobalMatrixMemPtr = drGlobalMatrixMem;
+  yateto::copyFamilyToMemAndSetPtr<init::V3mTo2nTWDivM, real>(drGlobalMatrixMemPtr, globalData.nodalFluxMatrices, ALIGNMENT);
+  yateto::copyFamilyToMemAndSetPtr<init::V3mTo2n,       real>(drGlobalMatrixMemPtr, globalData.faceToNodalMatrices, ALIGNMENT);
+  
+  assert(drGlobalMatrixMemPtr == drGlobalMatrixMem + drGlobalMatrixMemSize);
 
+  /*
   real* plasticityGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( seissol::model::plasticity_globalMatrixOffsets[seissol::model::plasticity_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, memkind ));
   for (unsigned matrix = 0; matrix < seissol::model::plasticity_numGlobalMatrices; ++matrix) {
     memcpy(

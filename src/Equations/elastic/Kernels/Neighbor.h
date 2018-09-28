@@ -84,6 +84,7 @@ class seissol::kernels::Neighbor {
   private:
     kernel::localFlux m_lfKrnlPrototype;
     kernel::neighboringFlux m_nfKrnlPrototype;
+    kernel::nodalFlux m_drKrnlPrototype;
 
   public:
     Neighbor() {}
@@ -100,6 +101,7 @@ class seissol::kernels::Neighbor {
 
     void flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                  const int            i_neighboringIndices[4][2],
+                                 CellDRMapping const (&cellDrMapping)[4],
                                  unsigned int        &o_nonZeroFlops,
                                  unsigned int        &o_hardwareFlops,
                                  long long&           o_drNonZeroFlops,

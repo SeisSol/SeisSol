@@ -85,13 +85,19 @@
 void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
-    assert( ((uintptr_t)global->changeOfBasisMatrices[l_neighbor]) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed[l_neighbor]) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed[l_neighbor]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->changeOfBasisMatrices(l_neighbor)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
   }
   
   for( int h = 0; h < 3; ++h ) {
-    assert( ((uintptr_t)global->neighbourFluxMatrices[h]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->neighbourFluxMatrices(h)) % ALIGNMENT == 0 );
+  }
+  
+  for (int i = 0; i < 4; ++i) {
+    for(int h = 0; h < 3; ++h) {
+      assert( ((uintptr_t)global->nodalFluxMatrices(i,h)) % ALIGNMENT == 0 );
+    }
   }
 #endif
   m_lfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
@@ -99,6 +105,7 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
+  m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
 }
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
@@ -144,21 +151,21 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
         lfKrnl.execute(l_face);
       }
     } else if (i_faceTypes[l_face] == dynamicRupture) {
-      //~ assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
-      //~ assert(((uintptr_t)cellDrMapping[l_face].fluxMatrix) % ALIGNMENT == 0);
-      //~ seissol::generatedKernels::nodalFlux[cellDrMapping[l_face].fluxKernel](
-        //~ cellDrMapping[l_face].fluxSolver,
-        //~ cellDrMapping[l_face].godunov,
-        //~ cellDrMapping[l_face].fluxMatrix,
-        //~ io_degreesOfFreedom,
-        //~ faceNeighbors_prefetch[l_face]
-      //~ );
+      assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+
+      kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+      drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
+      drKrnl.godunovState = cellDrMapping[l_face].godunov;
+      drKrnl.Q = io_degreesOfFreedom;
+      drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
+      drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
     }
   }
 }
 
 void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                                          const int            i_neighboringIndices[4][2],
+                                                         CellDRMapping const (&cellDrMapping)[4],
                                                          unsigned int        &o_nonZeroFlops,
                                                          unsigned int        &o_hardwareFlops,
                                                          long long&           o_drNonZeroFlops,
@@ -181,8 +188,8 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral( const enum faceType  i_
         o_hardwareFlops += seissol::kernel::localFlux::hardwareFlops(l_face);
       }
     } else if (i_faceTypes[l_face] == dynamicRupture) {
-      //~ o_drNonZeroFlops += seissol::flops::nodalFlux_nonZero[l_face];
-      //~ o_drHardwareFlops += seissol::flops::nodalFlux_hardware[l_face];
+      o_drNonZeroFlops += kernel::nodalFlux::nonZeroFlops(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
+      o_drHardwareFlops += kernel::nodalFlux::hardwareFlops(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
     }
   }
 }

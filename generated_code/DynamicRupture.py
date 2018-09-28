@@ -41,7 +41,7 @@
 from yateto import *
 from yateto.input import parseJSONMatrixFile
 
-def addKernels(generator, Q, qi, qShape, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
+def addKernels(generator, Q, I, qi, qShape, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
   numberOfBasisFunctions = order*(order+1)*(order+2)//6
 
   if dynamicRuptureMethod == 'quadrature':
@@ -54,7 +54,7 @@ def addKernels(generator, Q, qi, qShape, matricesDir, order, dynamicRuptureMetho
   clones = dict()
 
   # Load matrices
-  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, order), clones)
+  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, order), clones, alignStride=alignStride)
 
   # Determine matrices  
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
@@ -65,8 +65,15 @@ def addKernels(generator, Q, qi, qShape, matricesDir, order, dynamicRuptureMetho
   gShape = tuple(numberOfPoints if i == bPos else q for i,q in enumerate(qShape))
   godunovState  = Tensor('godunovState', gShape, alignStride=True)
 
-  godunovStateGenerator = lambda i,h: godunovState[qi('kp')] <= godunovState[qi('kp')] + db.V3mTo2n[i,h]['kl'] * Q[qi('lq')] * godunovMatrix['qp']
-  generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator)
+  def godunovStateGenerator(i,h):
+    target = godunovState[qi('kp')]
+    term = db.V3mTo2n[i,h]['kl'] * Q[qi('lq')] * godunovMatrix['qp']
+    if h == 0:
+      return target <= term
+    return target <= target + term
+  godunovStatePrefetch = lambda i,h: godunovState
+  generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator, godunovStatePrefetch)
 
   nodalFluxGenerator = lambda i,h: Q[qi('kp')] <= db.V3mTo2nTWDivM[i,h]['kl'] * godunovState[qi('lq')] * fluxSolver['qp']
-  generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator)
+  nodalFluxPrefetch = lambda i,h: I
+  generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)

@@ -88,7 +88,6 @@ extern long long libxsmm_num_total_flops;
 seissol::kernels::Time::Time() {
   m_derivativesOffsets[0] = 0;
   for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
-    m_numberOfAlignedBasisFunctions[order] = getNumberOfAlignedBasisFunctions(CONVERGENCE_ORDER-order, ALIGNMENT);
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
     }
@@ -131,7 +130,7 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
     krnl.dQ(i) = l_derivativesBuffer + m_derivativesOffsets[i];
   }
 
-  kernel::integrateDerivative intKrnl;
+  kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = o_timeIntegrated;
   intKrnl.dQ(0) = i_degreesOfFreedom;
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -172,8 +171,8 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   o_nonZeroFlops = 0; o_hardwareFlops =0;
 
   // initialization
-  o_nonZeroFlops  += kernel::integrateDerivative::nonZeroFlops(0);
-  o_hardwareFlops += kernel::integrateDerivative::hardwareFlops(0);
+  o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
+  o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
 
   // interate over derivatives
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
@@ -181,8 +180,8 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
     o_hardwareFlops += kernel::derivative::hardwareFlops(l_derivative);
 
     // update of time integrated DOFs
-    o_nonZeroFlops  += kernel::integrateDerivative::nonZeroFlops(l_derivative);
-    o_hardwareFlops += kernel::integrateDerivative::hardwareFlops(l_derivative);
+    o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(l_derivative);
+    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(l_derivative);
   }
 
 }
@@ -231,23 +230,22 @@ void seissol::kernels::Time::computeIntegral( double                            
   real l_firstTerm  = (real) 1;
   real l_secondTerm = (real) 1;
   real l_factorial  = (real) 1;
-  real l_scalar;
+  
+  kernel::derivativeTaylorExpansion intKrnl;
+  intKrnl.I = o_timeIntegrated;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = i_timeDerivatives + m_derivativesOffsets[i];
+  }
  
   // iterate over time derivatives
-  for(int l_derivative = 0; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
+  for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
     l_secondTerm *= l_deltaTLower;
-    l_factorial  *= (real)(l_derivative+1);
+    l_factorial  *= (real)(der+1);
 
-    l_scalar  = l_firstTerm - l_secondTerm;
-    l_scalar /= l_factorial;
+    intKrnl.power  = l_firstTerm - l_secondTerm;
+    intKrnl.power /= l_factorial;
 
-    SXtYp(  l_scalar,
-            m_numberOfAlignedBasisFunctions[l_derivative],
-            NUMBER_OF_QUANTITIES,
-            i_timeDerivatives + m_derivativesOffsets[l_derivative],
-            m_numberOfAlignedBasisFunctions[l_derivative],
-            o_timeIntegrated,
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
+    intKrnl.execute(der);
   }
 }

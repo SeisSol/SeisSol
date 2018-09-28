@@ -114,7 +114,7 @@ g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neigh
 
 power = Scalar('power')
 lastDQ = dQ0
-g.add('integrateDerivative(0)'.format(i), I[qi('kp')] <= power * dQ0[qi('kp')])
+g.add('derivativeTaylorExpansion(0)'.format(i), I[qi('kp')] <= power * dQ0[qi('kp')])
 for i in range(1,order):
   derivativeSum = Add()
   for j in range(3):
@@ -123,10 +123,10 @@ for i in range(1,order):
   derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
   dQ = Tensor('dQ({})'.format(i), qShape, spp=derivativeSum.eqspp(), alignStride=True)
   g.add('derivative({})'.format(i), dQ[qi('kp')] <= derivativeSum)
-  g.add('integrateDerivative({})'.format(i), I[qi('kp')] <= I[qi('kp')] + power * dQ[qi('kp')])
+  g.add('derivativeTaylorExpansion({})'.format(i), I[qi('kp')] <= I[qi('kp')] + power * dQ[qi('kp')])
   lastDQ = dQ
 
-DynamicRupture.addKernels(g, Q, qi, qShape, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
+DynamicRupture.addKernels(g, Q, I, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
 
 # Generate code
 g.generate(cmdLineArgs.outputDir, 'seissol')

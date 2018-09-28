@@ -51,21 +51,21 @@ namespace seissol {
 }
 
 struct seissol::initializers::DynamicRupture {
-  /*Variable<real*>                                       timeDerivativePlus;
-  Variable<real*>                                       timeDerivativeMinus;
-  Variable<real[CONVERGENCE_ORDER][seissol::model::godunovState::reals]>   godunov;
-  Variable<real[seissol::model::godunovState::reals]>   imposedStatePlus;
-  Variable<real[seissol::model::godunovState::reals]>   imposedStateMinus;
-  Variable<DRGodunovData>                               godunovData;
-  Variable<real[seissol::model::fluxSolver::reals]>     fluxSolverPlus;
-  Variable<real[seissol::model::fluxSolver::reals]>     fluxSolverMinus;
-  Variable<DRFaceInformation>                           faceInformation;
-  Variable<seissol::model::IsotropicWaveSpeeds>         waveSpeedsPlus;
-  Variable<seissol::model::IsotropicWaveSpeeds>         waveSpeedsMinus;*/
+  Variable<real*>                                                   timeDerivativePlus;
+  Variable<real*>                                                   timeDerivativeMinus;
+  Variable<real[CONVERGENCE_ORDER][tensor::godunovState::size()]>   godunov;
+  Variable<real[tensor::godunovState::size()]>                      imposedStatePlus;
+  Variable<real[tensor::godunovState::size()]>                      imposedStateMinus;
+  Variable<DRGodunovData>                                           godunovData;
+  Variable<real[tensor::fluxSolver::size()]>                        fluxSolverPlus;
+  Variable<real[tensor::fluxSolver::size()]>                        fluxSolverMinus;
+  Variable<DRFaceInformation>                                       faceInformation;
+  Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
+  Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
   
   
   void addTo(LTSTree& tree) {
-    /*LayerMask mask = LayerMask(Ghost);
+    LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(                 godunov,             mask,     PAGESIZE_HEAP,      seissol::memory::Standard );
@@ -76,7 +76,7 @@ struct seissol::initializers::DynamicRupture {
     tree.addVar(         fluxSolverMinus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );*/
+    tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
   }
 };
 #endif

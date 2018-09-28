@@ -178,12 +178,12 @@ void computeNeighboringIntegration() {
 
 void computeDynRupGodunovState()
 {
-  /*seissol::initializers::Layer& layerData = m_dynRupTree.child(0).child<Interior>();
-  DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup.faceInformation);
-  DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup.godunovData);
-  real**                                timeDerivativePlus                                                = layerData.var(m_dynRup.timeDerivativePlus);
-  real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup.timeDerivativeMinus);
-  real                                (*godunov)[CONVERGENCE_ORDER][seissol::model::godunovState::reals]  = layerData.var(m_dynRup.godunov);
+  seissol::initializers::Layer& layerData = m_dynRupTree.child(0).child<Interior>();
+  DRFaceInformation*                    faceInformation                                                     = layerData.var(m_dynRup.faceInformation);
+  DRGodunovData*                        godunovData                                                         = layerData.var(m_dynRup.godunovData);
+  real**                                timeDerivativePlus                                                  = layerData.var(m_dynRup.timeDerivativePlus);
+  real**                                timeDerivativeMinus                                                 = layerData.var(m_dynRup.timeDerivativeMinus);
+  real                                (*godunov)[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()]  = layerData.var(m_dynRup.godunov);
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
@@ -198,6 +198,6 @@ void computeDynRupGodunovState()
                                         godunov[face],
                                         timeDerivativePlus[prefetchFace],
                                         timeDerivativeMinus[prefetchFace] );
-  }*/
+  }
 }
 

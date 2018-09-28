@@ -31,6 +31,7 @@ int main()
   hardwareFlops += kernelHardwareFlops;
   
   int faceRelations[4][2];
+  CellDRMapping dummyDRMapping[4];
 
   unsigned numConfs = 12*12*12*12;
   for (unsigned conf = 0; conf < 12*12*12*12; ++conf) {
@@ -41,7 +42,7 @@ int main()
       faceRelations[side][1] = confSide / 4;
       m *= 12;
     }
-    neighborKernel.flopsNeighborsIntegral( faceTypes, faceRelations, kernelNonZeroFlops, kernelHardwareFlops, kernelDRNonZeroFlops, kernelDRHardwareFlops );
+    neighborKernel.flopsNeighborsIntegral( faceTypes, faceRelations, dummyDRMapping, kernelNonZeroFlops, kernelHardwareFlops, kernelDRNonZeroFlops, kernelDRHardwareFlops );
     minNeighborNonZeroFlops = std::min(minNeighborNonZeroFlops, static_cast<long long>(kernelNonZeroFlops));
     maxNeighborNonZeroFlops = std::max(maxNeighborNonZeroFlops, static_cast<long long>(kernelNonZeroFlops));
     minNeighborHardwareFlops = std::min(minNeighborHardwareFlops, static_cast<long long>(kernelHardwareFlops));

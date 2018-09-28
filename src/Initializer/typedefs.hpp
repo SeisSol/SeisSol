@@ -411,15 +411,15 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  //~ real godunovMatrixPlus[seissol::model::godunovMatrix::reals];
-  //~ real godunovMatrixMinus[seissol::model::godunovMatrix::reals];
+  real godunovMatrixPlus[seissol::tensor::godunovMatrix::size()];
+  real godunovMatrixMinus[seissol::tensor::godunovMatrix::size()];
 };
 
 struct CellDRMapping {
-  unsigned fluxKernel;
+  unsigned side;
+  unsigned faceRelation;
   real* godunov;
   real* fluxSolver;
-  real* fluxMatrix;
 };
 
 #endif

@@ -86,9 +86,6 @@ namespace seissol {
 
 class seissol::kernels::Time {
   private:
-    //! aligned number of basis functions in decreasing order.
-    unsigned int m_numberOfAlignedBasisFunctions[CONVERGENCE_ORDER];
-
     /*
      *! Offsets of the derivatives.
      *

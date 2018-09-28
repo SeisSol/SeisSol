@@ -74,7 +74,7 @@ real* m_fakeDerivatives = nullptr;
 seissol::kernels::Time      m_timeKernel;
 seissol::kernels::Local     m_localKernel;
 seissol::kernels::Neighbor  m_neighborKernel;
-//~ seissol::kernels::DynamicRupture m_dynRupKernel;
+seissol::kernels::DynamicRupture m_dynRupKernel;
 
 seissol::memory::ManagedAllocator m_allocator;
 
@@ -135,20 +135,20 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   /* cell information and integration data*/
   seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? dynamicRupture : regular);
 
-  /*if (enableDynamicRupture) {
+  if (enableDynamicRupture) {
     // From lts tree
     CellDRMapping (*drMapping)[4] = m_ltsTree.var(m_lts.drMapping);
 
     // From dynamic rupture tree
     seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
-    real (*imposedStatePlus)[seissol::model::godunovState::reals] = interior.var(m_dynRup.imposedStatePlus);
-    real (*fluxSolverPlus)[seissol::model::fluxSolver::reals]     = interior.var(m_dynRup.fluxSolverPlus);
+    real (*imposedStatePlus)[seissol::tensor::godunovState::size()] = interior.var(m_dynRup.imposedStatePlus);
+    real (*fluxSolverPlus)[seissol::tensor::fluxSolver::size()]     = interior.var(m_dynRup.fluxSolverPlus);
     real** timeDerivativePlus = interior.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = interior.var(m_dynRup.timeDerivativeMinus);
-    DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);*/
+    DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
     
     /* init drMapping */
-/*#ifdef _OPENMP
+#ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned cell = 0; cell < i_cells; ++cell) {
@@ -157,15 +157,15 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
         unsigned side = (unsigned int)lrand48() % 4;
         unsigned orientation = (unsigned int)lrand48() % 3;
         unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
-        drm.fluxKernel = 4*side + orientation;
+        drm.side = side;
+        drm.faceRelation = orientation;
         drm.godunov = imposedStatePlus[drFace];
-        drm.fluxMatrix = m_globalData.nodalFluxMatrices[side][orientation];
         drm.fluxSolver = fluxSolverPlus[drFace];
       }
-    }*/
+    }
 
     /* init dr godunov state */
-    /*#ifdef _OPENMP
+    #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
@@ -178,7 +178,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
       faceInformation[face].minusSide = (unsigned int)lrand48() % 4;
       faceInformation[face].faceRelation = (unsigned int)lrand48() % 3;
     }
-  }*/
+  }
   
   return i_cells;
 }

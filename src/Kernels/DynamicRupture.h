@@ -52,7 +52,6 @@ namespace seissol {
 
 class seissol::kernels::DynamicRupture {
   private:
-    unsigned int m_numberOfAlignedBasisFunctions[CONVERGENCE_ORDER];
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
     double m_timeFactors[CONVERGENCE_ORDER][CONVERGENCE_ORDER];
     
