@@ -67,8 +67,8 @@ numberOfQuantities = 9
 multipleSimulations = cmdLineArgs.multipleSimulations.lower() in ['true', 'on', '1', 'y', 'yes']
 
 # Quantities
-if multipleSimulations:
-  qShape = (arch.alignedReals, numberOf3DBasisFunctions, numberOfQuantities)
+if multipleSimulations > 1:
+  qShape = (multipleSimulations, numberOf3DBasisFunctions, numberOfQuantities)
   qi = lambda x: 's' + x
   alignStride=False
   transpose=True

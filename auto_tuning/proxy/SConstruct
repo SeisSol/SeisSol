@@ -40,6 +40,21 @@
 
 import os
 import arch
+import sys
+
+# Check if we the user wants to show help only
+if '-h' in sys.argv or '--help' in sys.argv:
+  helpMode = True
+else:
+  helpMode = False
+
+def ConfigurationError(msg):
+    """Print the error message and exit. Continue only
+    if the user wants to show the help message"""
+
+    if not helpMode:
+        print(msg)
+        Exit(1)
 
 #
 # set possible variables
@@ -75,7 +90,7 @@ vars.AddVariables(
 
   PathVariable( 'memLayout', 'memory layout xml file', '', PathVariable.PathIsFile),
   
-  BoolVariable( 'multipleSimulations', 'Fuse multiple simulations in one run.', 'off' ),
+  ( 'multipleSimulations', 'Fuse multiple simulations in one run.', '1' ),
 
   EnumVariable( 'dynamicRuptureMethod',
                 'Use quadrature here, cellaverage is EXPERIMENTAL.',
@@ -104,6 +119,9 @@ elif env['compiler'] == 'gcc':
 if env['equations'].startswith('viscoelastic'):
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
+
+if int(env['multipleSimulations']) != 1 and int(env['multipleSimulations']) % arch.getAlignedReals(env['arch']) != 0:
+  ConfigurationError("*** multipleSimulations must be a multiple of {}.".format(arch.getAlignedReals(env['arch'])))
 
 # generate help text
 Help(vars.GenerateHelpText(env))

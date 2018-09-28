@@ -61,6 +61,10 @@ def getAlignment(architecture):
       'knl': 64
   }
   return alignments[ getCpu(architecture) ]
+
+def getAlignedReals(architecture):
+  bytesPerReal = 8 if architecture[0] == 'd' else 4
+  return getAlignment(architecture) // bytesPerReal
   
 def getFlags(architecture, compiler):
   if architecture not in getArchitectures():

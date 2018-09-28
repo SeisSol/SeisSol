@@ -65,7 +65,7 @@ def addKernels(generator, Q, qi, qShape, matricesDir, order, dynamicRuptureMetho
   gShape = tuple(numberOfPoints if i == bPos else q for i,q in enumerate(qShape))
   godunovState  = Tensor('godunovState', gShape, alignStride=True)
 
-  godunovStateGenerator = lambda i,h: godunovState['kp'] <= godunovState['kp'] + db.V3mTo2n[i,h]['kl'] * Q[qi('lq')] * godunovMatrix['qp']
+  godunovStateGenerator = lambda i,h: godunovState[qi('kp')] <= godunovState[qi('kp')] + db.V3mTo2n[i,h]['kl'] * Q[qi('lq')] * godunovMatrix['qp']
   generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator)
 
   nodalFluxGenerator = lambda i,h: Q[qi('kp')] <= db.V3mTo2nTWDivM[i,h]['kl'] * godunovState[qi('lq')] * fluxSolver['qp']
