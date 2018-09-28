@@ -38,29 +38,21 @@
 # @section DESCRIPTION
 #
 
-from gemmgen import DB, Tools, Arch, Kernel
-import numpy as np
+from yateto import *
+from yateto.input import parseXMLMatrixFile
 
-def addMatrices(db, matricesDir, PlasticityMethod, order):
-  numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
-  clones = dict()
-
+def addKernels(generator, qi, qShape, alignStride, matricesDir, order, PlasticityMethod):
   # Load matrices
-  db.update(Tools.parseMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, order), clones))
+  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, order), clones=dict(), alignStride=alignStride)
+  numberOfNodes = db.v.shape()[0]
 
-  # force Aligned in order to be compatible with regular DOFs.
-  db.insert(DB.MatrixInfo('stressDOFS', numberOfBasisFunctions, 6, forceAligned=True))
+  qPos = qi('lq').find('q')
+  sShape = tuple(6 if i == qPos else q for i,q in enumerate(qShape))
+  stressDOFS  = Tensor('stressDOFS', sShape, alignStride=alignStride)
 
-  matrixOrder = { 'v': 0, 'vInv': 1 }
-  globalMatrixIdRules = [
-    (r'^(v|vInv)$', lambda x: matrixOrder[x[0]])
-  ]
-  DB.determineGlobalMatrixIds(globalMatrixIdRules, db, 'plasticity')
-
-def addKernels(db, kernels):
-  evaluateAtNodes = db['v'] * db['stressDOFS']
-  db.insert(evaluateAtNodes.flat('interpolationDOFS'))
-  kernels.append(Kernel.Prototype('evaluateAtNodes', evaluateAtNodes, beta=0))
-
-  convertToModal = db['vInv'] * db['interpolationDOFS']
-  kernels.append(Kernel.Prototype('convertToModal', convertToModal, beta=0))
+  bPos = qi('lq').find('l')
+  iShape = tuple(numberOfNodes if i == bPos else q for i,q in enumerate(sShape))
+  interpolationDOFS = Tensor('interpolationDOFS', iShape, alignStride=alignStride)
+  
+  generator.add('interpolationDOFS', interpolationDOFS['kp'] <= db.v['kl'] * stressDOFS[qi('lp')])
+  generator.add('convertToModal', stressDOFS['kp'] <= db.vInv['kl'] * interpolationDOFS[qi('lp')])

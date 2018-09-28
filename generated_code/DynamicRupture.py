@@ -42,8 +42,6 @@ from yateto import *
 from yateto.input import parseJSONMatrixFile
 
 def addKernels(generator, Q, I, qi, qShape, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
-  numberOfBasisFunctions = order*(order+1)*(order+2)//6
-
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (order+1)**2
   elif dynamicRuptureMethod == 'cellaverage':

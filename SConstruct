@@ -101,6 +101,8 @@ vars.AddVariables(
               ),
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
+  
+  ( 'multipleSimulations', 'Fuse multiple simulations in one run.', '1' ),
 
   ( 'memLayout', 'Path to memory layout file.' ),
 
@@ -260,6 +262,9 @@ if env['equations'].startswith('viscoelastic'):
     ConfigurationError("*** Number of mechanisms not set.")
 elif env['numberOfMechanisms'] != '0':
   ConfigurationError("*** Number of mechanisms must be 0 for elastic equations.")
+
+if int(env['multipleSimulations']) != 1 and int(env['multipleSimulations']) % arch.getAlignedReals(env['arch']) != 0:
+  ConfigurationError("*** multipleSimulations must be a multiple of {}.".format(arch.getAlignedReals(env['arch'])))
 
 if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
@@ -532,7 +537,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules', '#/submodules/glm'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include'] )
 
 #
 # add libraries

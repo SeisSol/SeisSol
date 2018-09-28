@@ -93,17 +93,16 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   
   assert(drGlobalMatrixMemPtr == drGlobalMatrixMem + drGlobalMatrixMemSize);
 
-  /*
-  real* plasticityGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( seissol::model::plasticity_globalMatrixOffsets[seissol::model::plasticity_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, memkind ));
-  for (unsigned matrix = 0; matrix < seissol::model::plasticity_numGlobalMatrices; ++matrix) {
-    memcpy(
-      &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[matrix] ],
-      seissol::model::plasticity_globalMatrixValues[matrix],
-      (seissol::model::plasticity_globalMatrixOffsets[matrix+1] - seissol::model::plasticity_globalMatrixOffsets[matrix]) * sizeof(real)
-    );
-  }
-  globalData.vandermondeMatrix = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[0] ];
-  globalData.vandermondeMatrixInverse = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[1] ];*/
+  // Plasticity global matrices
+  unsigned plasticityGlobalMatrixMemSize = tensor::v::size() + tensor::vInv::size();
+
+  real* plasticityGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( plasticityGlobalMatrixMemSize * sizeof(real), PAGESIZE_HEAP, memkind ));
+  
+  real* plasticityGlobalMatrixMemPtr = plasticityGlobalMatrixMem;
+  yateto::copyTensorToMemAndSetPtr<init::v,    real>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrix, ALIGNMENT);
+  yateto::copyTensorToMemAndSetPtr<init::vInv, real>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrixInverse, ALIGNMENT);
+  
+  assert(plasticityGlobalMatrixMemPtr == plasticityGlobalMatrixMem + plasticityGlobalMatrixMemSize);
   
   // thread-local LTS integration buffers  
   int l_numberOfThreads = 1;

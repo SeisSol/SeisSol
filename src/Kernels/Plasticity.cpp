@@ -44,18 +44,18 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-#include <generated_code/kernels.h>
-#include <generated_code/flops.h>
+#include <generated_code/kernel.h>
 
 unsigned seissol::kernels::Plasticity::computePlasticity( double                      relaxTime,
                                                       double                      timeStepWidth,
                                                       GlobalData const*           global,
                                                       PlasticityData const*       plasticityData,
-                                                      real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ],
+                                                      real                        degreesOfFreedom[tensor::Q::size()],
                                                       double*                     pstrain)
 {
-  real interpolationDofs[seissol::model::interpolationDOFS::reals] __attribute__((aligned(ALIGNMENT)));
-  real meanStress[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
+  // TODO
+  /*real interpolationDofs[seissol::tensor::interpolationDOFS::size()] __attribute__((aligned(ALIGNMENT)));
+  real meanStress[seissol::tensor::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   real tau[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   real taulim[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
   real yieldFactor[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
@@ -144,7 +144,7 @@ unsigned seissol::kernels::Plasticity::computePlasticity( double                
 			+ dudt_pstrain[4]*dudt_pstrain[4] + dudt_pstrain[5]*dudt_pstrain[5]);
       
     return 1;
-  }
+  }*/
   
   return 0;
 }
@@ -154,8 +154,9 @@ void seissol::kernels::Plasticity::flopsPlasticity( long long&  o_nonZeroFlopsCh
                                                     long long&  o_nonZeroFlopsYield,
                                                     long long&  o_hardwareFlopsYield )
 {
+  // TODO
   // reset flops
-  o_nonZeroFlopsCheck = 0; o_hardwareFlopsCheck = 0;
+  /*o_nonZeroFlopsCheck = 0; o_hardwareFlopsCheck = 0;
   o_nonZeroFlopsYield = 0; o_hardwareFlopsYield = 0;
   
   // flops from checking, i.e. outside if (adjust) {}
@@ -194,5 +195,5 @@ void seissol::kernels::Plasticity::flopsPlasticity( long long&  o_nonZeroFlopsCh
 
   // adjust 3 shear stresses (1 adds, 1 mul)
   o_nonZeroFlopsYield  += 3 * 2 * seissol::model::interpolationDOFS::rows;
-  o_hardwareFlopsYield += 3 * 2 * seissol::model::interpolationDOFS::ld;
+  o_hardwareFlopsYield += 3 * 2 * seissol::model::interpolationDOFS::ld;*/
 }

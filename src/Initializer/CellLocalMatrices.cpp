@@ -46,7 +46,7 @@
 #include <Model/Setup.h>
 #include <Model/common.hpp>
 #include <Geometry/MeshTools.h>
-#include <generated_code/init.h>
+#include <generated_code/tensor.h>
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,
@@ -54,15 +54,15 @@ void setStarMatrix( real* i_AT,
                     real  i_grad[3],
                     real* o_starMatrix )
 {
-  for (unsigned idx = 0; idx < seissol::model::AstarT::reals; ++idx) {
+  for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     o_starMatrix[idx] = i_grad[0] * i_AT[idx];
   }
 
-  for (unsigned idx = 0; idx < seissol::model::BstarT::reals; ++idx) {
+  for (unsigned idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
     o_starMatrix[idx] += i_grad[1] * i_BT[idx];
   }
 
-  for (unsigned idx = 0; idx < seissol::model::CstarT::reals; ++idx) {
+  for (unsigned idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
     o_starMatrix[idx] += i_grad[2] * i_CT[idx];
   }
 }

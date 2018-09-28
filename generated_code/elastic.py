@@ -45,6 +45,7 @@ from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 import DynamicRupture
+import Plasticity
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -127,6 +128,7 @@ for i in range(1,order):
   lastDQ = dQ
 
 DynamicRupture.addKernels(g, Q, I, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
+Plasticity.addKernels(g, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
 
 # Generate code
 g.generate(cmdLineArgs.outputDir, 'seissol')
