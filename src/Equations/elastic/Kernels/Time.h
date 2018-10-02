@@ -122,7 +122,7 @@ class seissol::kernels::Time {
                           double                                      i_integrationStart,
                           double                                      i_integrationEnd,
                           real const*                                 i_timeDerivatives,
-                          real                                        o_timeIntegrated[tensor::Q::size()] );
+                          real                                        o_timeIntegrated[tensor::I::size()] );
 
     template<typename real_from, typename real_to>
     static void convertAlignedCompressedTimeDerivatives( const real_from *i_compressedDerivatives,

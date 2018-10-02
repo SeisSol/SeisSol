@@ -54,5 +54,5 @@ def addKernels(generator, qi, qShape, alignStride, matricesDir, order, Plasticit
   iShape = tuple(numberOfNodes if i == bPos else q for i,q in enumerate(sShape))
   interpolationDOFS = Tensor('interpolationDOFS', iShape, alignStride=alignStride)
   
-  generator.add('interpolationDOFS', interpolationDOFS['kp'] <= db.v['kl'] * stressDOFS[qi('lp')])
-  generator.add('convertToModal', stressDOFS['kp'] <= db.vInv['kl'] * interpolationDOFS[qi('lp')])
+  generator.add('interpolationDOFS', interpolationDOFS[qi('kp')] <= db.v['kl'] * stressDOFS[qi('lp')])
+  generator.add('convertToModal', stressDOFS[qi('kp')] <= db.vInv['kl'] * interpolationDOFS[qi('lp')])

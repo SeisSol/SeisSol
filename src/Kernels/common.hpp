@@ -44,6 +44,7 @@
 
 #include <algorithm>
 #include <Initializer/typedefs.hpp>
+#include <generated_code/init.h>
 #include <cassert>
 
 namespace seissol {
@@ -92,9 +93,25 @@ namespace seissol {
     template<typename real_from, typename real_to>
     void convertAlignedDofs( const real_from i_alignedDofs[   NUMBER_OF_ALIGNED_DOFS],
                                           real_to   o_unalignedDofs[ NUMBER_OF_DOFS] ) {
-      for( unsigned int l_quantity = 0; l_quantity < NUMBER_OF_QUANTITIES; l_quantity++ ) {
-        for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
-          o_unalignedDofs[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction] = i_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction];
+      auto Q = init::Q::view::create(const_cast<real_from*>(i_alignedDofs));
+      if (Q.dim() == 3) {
+        unsigned entry[3];
+        entry[0] = 0;
+        for (unsigned q = 0; q < tensor::Q::Shape[2]; ++q) {
+          entry[2] = q;
+          for (unsigned b = 0; b < tensor::Q::Shape[1]; ++b) {
+            entry[1] = b;
+            o_unalignedDofs[q*NUMBER_OF_BASIS_FUNCTIONS + b] = Q[entry];
+          }
+        }
+      } else {
+        unsigned entry[2];
+        for (unsigned q = 0; q < tensor::Q::Shape[1]; ++q) {
+          entry[1] = q;
+          for (unsigned b = 0; b < tensor::Q::Shape[0]; ++b) {
+            entry[0] = b;
+            o_unalignedDofs[q*NUMBER_OF_BASIS_FUNCTIONS + b] = Q[entry];
+          }
         }
       }
     }
@@ -126,9 +143,27 @@ namespace seissol {
     void addToAlignedDofs(  real_from const*  i_unalignedUpdate,
                             real_to*          o_alignedDofs,
                             unsigned          numberOfQuantities ) {
-      for( unsigned int l_quantity = 0; l_quantity < numberOfQuantities; l_quantity++ ) {
-        for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
-          o_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction] += i_unalignedUpdate[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction];
+      auto Q = init::Q::view::create(o_alignedDofs);
+      if (Q.dim() == 3) {
+        unsigned entry[3];
+        for (unsigned q = 0; q < numberOfQuantities; ++q) {
+          entry[2] = q;
+          for (unsigned b = 0; b < NUMBER_OF_BASIS_FUNCTIONS; ++b) {
+            entry[1] = b;
+            for (unsigned s = 0; s < tensor::Q::Shape[0]; ++s) {
+              entry[0] = s;
+              Q[entry] += i_unalignedUpdate[q*NUMBER_OF_BASIS_FUNCTIONS + b];
+            }
+          }
+        }
+      } else {
+        unsigned entry[2];
+        for (unsigned q = 0; q < numberOfQuantities; ++q) {
+          entry[1] = q;
+          for (unsigned b = 0; b < NUMBER_OF_BASIS_FUNCTIONS; ++b) {
+            entry[0] = b;
+            Q[entry] += i_unalignedUpdate[q*NUMBER_OF_BASIS_FUNCTIONS + b];
+          }
         }
       }
     }

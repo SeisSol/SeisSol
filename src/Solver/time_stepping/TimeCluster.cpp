@@ -442,7 +442,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   // pointer for the call of the ADER-function
   real *l_bufferPointer;
 
-  real                (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
+  real                (*dofs)[tensor::Q::size()]      = i_layerData.var(m_lts->dofs);
   real**                buffers                       = i_layerData.var(m_lts->buffers);
   real**                derivatives                   = i_layerData.var(m_lts->derivatives);
   LocalIntegrationData* localIntegration              = i_layerData.var(m_lts->localIntegration);
@@ -506,7 +506,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 
-  real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
+  real                      (*dofs)[tensor::Q::size()]      = i_layerData.var(m_lts->dofs);
   real*                     (*faceNeighbors)[4]             = i_layerData.var(m_lts->faceNeighbors);
   CellDRMapping             (*drMapping)[4]                 = i_layerData.var(m_lts->drMapping);
   NeighboringIntegrationData* neighboringIntegration        = i_layerData.var(m_lts->neighboringIntegration);
@@ -536,9 +536,9 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                     m_timeStepWidth,
                                                     faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                    *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
+                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
 #else
-                                                    *reinterpret_cast<real (*)[4][NUMBER_OF_ALIGNED_DOFS]>(m_globalData->integrationBufferLTS),
+                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
 #endif
                                                     l_timeIntegrated );
 

@@ -197,7 +197,7 @@ void seissol::kernels::Time::computeIntegral( double                            
                                               double                            i_integrationStart,
                                               double                            i_integrationEnd,
                                               const real*                       i_timeDerivatives,
-                                              real                              o_timeIntegrated[tensor::Q::size()] )
+                                              real                              o_timeIntegrated[tensor::I::size()] )
 {
   /*
    * assert alignments.

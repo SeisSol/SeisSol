@@ -697,6 +697,7 @@ void seissol::Interoperability::copyDynamicRuptureState()
 void seissol::Interoperability::addToDofs( int      i_meshId,
                                            double*  i_update,
                                            int      numberOfQuantities ) {
+  /// @yateto_todo: Multiple updates?
   seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numberOfQuantities) );
 }
 
@@ -722,6 +723,7 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
 
 void seissol::Interoperability::getDofs( int    i_meshId,
                                          double o_dofs[NUMBER_OF_DOFS] ) {
+  /// @yateto_todo: multiple sims?
   seissol::kernels::convertAlignedDofs( m_ltsLut.lookup(m_lts->dofs, i_meshId-1), o_dofs );
 }
 
