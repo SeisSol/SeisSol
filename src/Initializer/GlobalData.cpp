@@ -75,11 +75,11 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   // @TODO Integrate this step into the code generator
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
-    for (unsigned i = 0; i < init::kDivMT::size(i); ++i) {
+    for (unsigned i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
       matrix[i] *= -1.0;
     }
   }
-  
+
   // Dynamic Rupture global matrices
   unsigned drGlobalMatrixMemSize = 0;
   drGlobalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2nTWDivM>(yateto::alignedReals<real>(ALIGNMENT));

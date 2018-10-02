@@ -116,7 +116,7 @@ for i in range(3):
 volume = (Q[qi('kp')] <= volumeSum)
 g.add('volume', volume)
 
-localFlux = lambda i: Q[qi('kp')] <= db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I[qi('lq')] * AplusT['qp']
+localFlux = lambda i: Q[qi('kp')] <= Q[qi('kp')] + db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I[qi('lq')] * AplusT['qp']
 localFluxPrefetch = lambda i: I if i == 0 else (Q if i == 1 else None)
 g.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 

@@ -82,21 +82,11 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   o_T.setZero();
   o_Tinv.setZero();
   
-  unsigned origin0[]{0, 0};
-  unsigned shape6[]{6, 6};
-  auto TBlock0 = o_T.block(origin0, shape6);
-  auto TinvBlock0 = o_Tinv.block(origin0, shape6);
+  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 0, 0);
+  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 6, 6);
   
-  unsigned origin6[]{0, 0};
-  unsigned shape3[]{3, 3};
-  auto TBlock1 = o_T.block(origin6, shape3);
-  auto TinvBlock1 = o_Tinv.block(origin6, shape3);
-  
-  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, TBlock0);
-  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, TBlock1);
-  
-  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, TinvBlock0);
-  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, TinvBlock1);
+  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 0, 0);
+  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
 }
 
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const&,
