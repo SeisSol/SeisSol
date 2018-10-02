@@ -96,9 +96,6 @@ extern seissol::Interoperability e_interoperability;
 
 seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
                                                   unsigned int                   i_globalClusterId,
-                                                  kernels::Time                 &i_timeKernel,
-                                                  kernels::Local                &i_localKernel,
-                                                  kernels::Neighbor             &i_neighborKernel,
                                                   struct MeshStructure          *i_meshStructure,
                                                   struct GlobalData             *i_globalData,
                                                   seissol::initializers::TimeCluster* i_clusterData,
@@ -109,10 +106,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
- // kernels
- m_timeKernel(              i_timeKernel               ),
- m_localKernel(             i_localKernel              ),
- m_neighborKernel(          i_neighborKernel           ),
  // mesh structure
  m_meshStructure(           i_meshStructure            ),
  // global data
@@ -155,6 +148,11 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   m_dynamicRuptureFaces = (i_dynRupClusterData->child<Ghost>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Interior>().getNumberOfCells() > 0);
+  
+  m_timeKernel.setGlobalData(m_globalData);
+  m_localKernel.setGlobalData(m_globalData);
+  m_neighborKernel.setGlobalData(m_globalData);
+  m_dynamicRuptureKernel.setGlobalData(m_globalData);
 
   computeFlops();
 
@@ -252,9 +250,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
   real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
-  real                                (*godunov)[CONVERGENCE_ORDER][seissol::model::godunovState::reals]  = layerData.var(m_dynRup->godunov);
-  real                                (*imposedStatePlus)[seissol::model::godunovState::reals]            = layerData.var(m_dynRup->imposedStatePlus);
-  real                                (*imposedStateMinus)[seissol::model::godunovState::reals]           = layerData.var(m_dynRup->imposedStateMinus);
+  real                                (*godunov)[CONVERGENCE_ORDER][tensor::godunovState::size()]         = layerData.var(m_dynRup->godunov);
+  real                                (*imposedStatePlus)[tensor::godunovState::size()]                   = layerData.var(m_dynRup->imposedStatePlus);
+  real                                (*imposedStateMinus)[tensor::godunovState::size()]                  = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
 
@@ -473,13 +471,11 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     }
 
     m_timeKernel.computeAder( m_timeStepWidth,
-                              m_globalData,
                               &localIntegration[l_cell],
                               dofs[l_cell],
                               l_bufferPointer,
                               derivatives[l_cell] );
     m_localKernel.computeIntegral( cellInformation[l_cell].faceTypes,
-                                   m_globalData,
                                    &localIntegration[l_cell],
                                    l_bufferPointer,
                                    dofs[l_cell] );
@@ -563,7 +559,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
     m_neighborKernel.computeNeighborsIntegral( cellInformation[l_cell].faceTypes,
                                                cellInformation[l_cell].faceRelations,
                                                drMapping[l_cell],
-                                               m_globalData,
                                                &neighboringIntegration[l_cell],
                                                l_timeIntegrated,
 #ifdef ENABLE_MATRIX_PREFETCH
@@ -826,6 +821,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops( unsigned
 
 void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(  unsigned                    numberOfCells,
                                                                             CellLocalInformation const* cellInformation,
+                                                                            CellDRMapping const       (*drMapping)[4],
                                                                             long long&                  nonZeroFlops,
                                                                             long long&                  hardwareFlops,
                                                                             long long&                  drNonZeroFlops,
@@ -841,6 +837,7 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(  unsi
     long long cellDRNonZero, cellDRHardware;
     m_neighborKernel.flopsNeighborsIntegral(  cellInformation[cell].faceTypes,
                                               cellInformation[cell].faceRelations,
+                                              drMapping[cell],
                                               cellNonZero,
                                               cellHardware,
                                               cellDRNonZero,
@@ -872,6 +869,7 @@ void seissol::time_stepping::TimeCluster::computeFlops()
 #ifdef USE_MPI
   computeNeighborIntegrationFlops(  m_meshStructure->numberOfCopyCells,
                                     m_clusterData->child<Copy>().var(m_lts->cellInformation),
+                                    m_clusterData->child<Copy>().var(m_lts->drMapping),
                                     m_flops_nonZero[NeighborCopy],
                                     m_flops_hardware[NeighborCopy],
                                     m_flops_nonZero[DRNeighborCopy],
@@ -880,6 +878,7 @@ void seissol::time_stepping::TimeCluster::computeFlops()
 
   computeNeighborIntegrationFlops(  m_meshStructure->numberOfInteriorCells,
                                     m_clusterData->child<Interior>().var(m_lts->cellInformation),
+                                    m_clusterData->child<Interior>().var(m_lts->drMapping),
                                     m_flops_nonZero[NeighborInterior],
                                     m_flops_hardware[NeighborInterior],
                                     m_flops_nonZero[DRNeighborInterior],

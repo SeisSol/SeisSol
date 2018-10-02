@@ -63,6 +63,19 @@ seissol::kernels::DynamicRupture::DynamicRupture() {
   }
 }
 
+void seissol::kernels::DynamicRupture::setGlobalData(GlobalData const* global) {
+#ifndef NDEBUG
+  for (unsigned face = 0; face < 4; ++face) {
+    for (unsigned h = 0; h < 4; ++h) {
+      assert( ((uintptr_t const)global->faceToNodalMatrices(face, h)) % ALIGNMENT == 0 );
+    }
+  }
+#endif
+
+  m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
+}
+
+
 void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
 {
 #ifdef USE_DR_CELLAVERAGE
@@ -112,11 +125,6 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
                                                             real const*                 timeDerivativeMinus_prefetch ) {
   // assert alignments
 #ifndef NDEBUG
-  for (unsigned face = 0; face < 4; ++face) {
-    for (unsigned h = 0; h < 4; ++h) {
-      assert( ((uintptr_t)global->faceToNodalMatrices[face][h]) % ALIGNMENT == 0 );
-    }
-  }
   assert( ((uintptr_t)timeDerivativePlus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)&godunov[0])         % ALIGNMENT == 0 );
@@ -137,8 +145,7 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
   }
   taylorKrnlMinus.I = degreesOfFreedomMinus;
 
-  kernel::godunovState krnl;
-  krnl.V3mTo2n = global->faceToNodalMatrices;
+  kernel::godunovState krnl = m_krnlPrototype;
 
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {    
     for (unsigned der = 0; der < yateto::numFamilyMembers<tensor::dQ>(); ++der) {

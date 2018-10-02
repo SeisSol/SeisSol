@@ -83,7 +83,7 @@ void seissol::transformations::tetrahedronGlobalToReferenceJacobian( real const 
 void seissol::transformations::inverseTensor1RotationMatrix( VrtxCoords const i_normal,
                                                              VrtxCoords const i_tangent1,
                                                              VrtxCoords const i_tangent2,
-                                                             DenseMatrixView<3, 3> o_Tinv )
+                                                             yateto::DenseTensorView<2,real,unsigned>& o_Tinv )
 {
   real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
   real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
@@ -103,7 +103,7 @@ void seissol::transformations::inverseTensor1RotationMatrix( VrtxCoords const i_
 void seissol::transformations::tensor1RotationMatrix( VrtxCoords const i_normal,
                                                       VrtxCoords const i_tangent1,
                                                       VrtxCoords const i_tangent2,
-                                                      DenseMatrixView<3, 3> o_T )
+                                                      yateto::DenseTensorView<2,real,unsigned>& o_T )
 {
   real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
   real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
@@ -123,7 +123,7 @@ void seissol::transformations::tensor1RotationMatrix( VrtxCoords const i_normal,
 void seissol::transformations::inverseSymmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                                                       VrtxCoords const i_tangent1,
                                                                       VrtxCoords const i_tangent2,
-                                                                      DenseMatrixView<6, 6> o_Tinv )
+                                                                      yateto::DenseTensorView<2,real,unsigned>& o_Tinv )
 {
   real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
   real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
@@ -170,7 +170,7 @@ void seissol::transformations::inverseSymmetricTensor2RotationMatrix( VrtxCoords
 void seissol::transformations::symmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                                                VrtxCoords const i_tangent1,
                                                                VrtxCoords const i_tangent2,
-                                                               DenseMatrixView<6, 6> o_T )
+                                                               yateto::DenseTensorView<2,real,unsigned>& o_T )
 {
   real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
   real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];

@@ -41,21 +41,22 @@
 #define MODEL_COMMON_HPP_
 
 #include <Initializer/typedefs.hpp>
-#include <Numerical_aux/MatrixView.h>
+#include <generated_code/init.h>
 
 namespace seissol {
   namespace model {
-    void getTransposedElasticCoefficientMatrix( ElasticMaterial const& i_material,
-                                                unsigned i_dim,
-                                                MatrixView o_M );
+    void getTransposedElasticCoefficientMatrix( ElasticMaterial const&          i_material,
+                                                unsigned                        i_dim,
+                                                init::star::view<0>::type&      o_M );
 
-    void getTransposedElasticGodunovState( ElasticMaterial const& local,
-                                           ElasticMaterial const& neighbor,
-                                           DenseMatrixView<9, 9> QgodLocal,
-                                           DenseMatrixView<9, 9> QgodNeighbor );
+    void getTransposedElasticGodunovState( Material const&                      local,
+                                           Material const&                      neighbor,
+                                           enum ::faceType                      faceType,
+                                           init::QgodLocal::view::type&         QgodLocal,
+                                           init::QgodNeighbor::view::type&      QgodNeighbor );
                                            
     void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    DenseMatrixView<9, seissol::model::AminusT::cols> Fneighbor );
+                                                    init::QgodNeighbor::view::type& QgodNeighbor );
   }
 }
 

@@ -46,7 +46,7 @@
 #include <Numerical_aux/Quadrature.h>
 #include <Numerical_aux/Transformation.h>
 #include <Parallel/MPI.h>
-#include <generated_code/kernels.h>
+#include <generated_code/kernel.h>
 #include <utils/logger.h>
 
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializers::LTSTree& surfaceLtsTree)
@@ -120,11 +120,12 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
       real projection[FREESURFACE_MAX_SUBTRIANGLES * FREESURFACE_NUMBER_OF_COMPONENTS] __attribute__((aligned(PAGESIZE_STACK)));
 
-      seissol::generatedKernels::subTriangleProjection[triRefiner.maxDepth](
+      /// @yateto_todo
+      /*seissol::generatedKernels::subTriangleProjection[triRefiner.maxDepth](
         projectionMatrix[ side[face] ],
         velocityDofs[face],
         projection
-      );
+      );*/
 
       for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
         double* target = velocities[component] + offset + face * numberOfSubTriangles;
@@ -134,11 +135,12 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
         }
       }
 
-      seissol::generatedKernels::subTriangleProjection[triRefiner.maxDepth](
+      /// @yateto_todo
+      /*seissol::generatedKernels::subTriangleProjection[triRefiner.maxDepth](
         projectionMatrix[ side[face] ],
         displacementDofs[face],
         projection
-      );
+      );*/
 
       for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
         double* target = displacements[component] + offset + face * numberOfSubTriangles;

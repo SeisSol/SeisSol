@@ -314,25 +314,6 @@ class seissol::Interoperability {
                             double  o_timeDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] );
 
    /**
-    * Gets the time derivatives and integrated DOFs of two face neighbors.
-    *
-    * @param i_meshId mesh id.
-    * @param i_localFaceId local id of the face neighbor.
-    * @param i_timeStepWidth time step width used for the time integration.
-    * @param o_timeDerivativesCell time derivatives of the cell in deprecated full storage scheme (including zero blocks).
-    * @param o_timeDerivativesNeighbor time derivatives of the cell neighbor in deprecated full storage scheme (including zero blocks).
-    * @param o_timeIntegratedCell time integrated degrees of freem of the cell.
-    * @param o_timeIntegratedNeighbor time integrated degrees of free of the neighboring cell.
-    **/
-   void getFaceDerInt( int    _meshId,
-                       int    i_localFaceId,
-                       double i_timeStepWidth,
-                       double o_timeDerivativesCell[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                       double o_timeDerivativesNeighbor[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                       double o_timeIntegratedCell[NUMBER_OF_DOFS],
-                       double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] );
-
-   /**
     * Gets the DOFs.
     *
     * @param i_meshId mesh id.
@@ -372,9 +353,9 @@ class seissol::Interoperability {
    void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
 
    void evaluateFrictionLaw(  int face,
-                              real   godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
-                              real   imposedStatePlus[seissol::model::godunovState::reals],
-                              real   imposedStateMinus[seissol::model::godunovState::reals],
+                              real   godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
+                              real   imposedStatePlus[seissol::tensor::godunovState::size()],
+                              real   imposedStateMinus[seissol::tensor::godunovState::size()],
                               double i_fullUpdateTime,
                               double timePoints[CONVERGENCE_ORDER],
                               double timeWeights[CONVERGENCE_ORDER],

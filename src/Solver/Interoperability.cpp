@@ -221,22 +221,6 @@ extern "C" {
                                            o_timeDerivatives );
   }
 
-  void c_interoperability_getFaceDerInt( int    i_meshId,
-                                         int    i_localFaceId,
-                                         double i_timeStepWidth,
-                                         double o_timeDerivativesCell[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                                         double o_timeDerivativesNeighbor[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                                         double o_timeIntegratedCell[NUMBER_OF_DOFS],
-                                         double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
-    e_interoperability.getFaceDerInt( i_meshId,
-                                      i_localFaceId,
-                                      i_timeStepWidth,
-                                      o_timeDerivativesCell,
-                                      o_timeDerivativesNeighbor,
-                                      o_timeIntegratedCell,
-                                      o_timeIntegratedNeighbor );
-  }
-
   void c_interoperability_getDofs( int    i_meshId,
                                    double o_timeDerivatives[NUMBER_OF_DOFS] ) {
     e_interoperability.getDofs( i_meshId, o_timeDerivatives );
@@ -722,7 +706,8 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
 
   unsigned nonZeroFlops, hardwareFlops;
 
-  m_timeKernel.computeAder( 0,
+  /// @yateto_todo
+  /*m_timeKernel.computeAder( 0,
                             m_globalData,
                             &m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1),
                             m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
@@ -733,52 +718,7 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
   g_SeisSolNonZeroFlopsOther += nonZeroFlops;
   g_SeisSolHardwareFlopsOther += hardwareFlops;
 
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );
-}
-
-void seissol::Interoperability::getFaceDerInt( int    i_meshId,
-                                               int    i_localFaceId,
-                                               double i_timeStepWidth,
-                                               double o_timeDerivativesCell[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                                               double o_timeDerivativesNeighbor[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                                               double o_timeIntegratedCell[NUMBER_OF_DOFS],
-                                               double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
-  // assert that the cell provides derivatives
-  assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
-
-  real*&    derivatives       = m_ltsLut.lookup(m_lts->derivatives, i_meshId-1);
-  real*   (&faceNeighbors)[4] = m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1);
-
-  unsigned face = i_localFaceId-1;
-
-  // get cells derivatives
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives(  derivatives,
-                                                                    o_timeDerivativesCell );
-
-  // get neighbors derivatives
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives(  faceNeighbors[face],
-                                                                    o_timeDerivativesNeighbor );
-
-  real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
-
-  // compute time integrated DOFs of the cell
-  m_timeKernel.computeIntegral( 0,
-                                0,
-                                i_timeStepWidth,
-                                derivatives,
-                                l_timeIntegrated );
-
-  seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedCell );
-
-  // compute time integrated dofs of the neighbor
-
-  m_timeKernel.computeIntegral( 0,
-                                0,
-                                i_timeStepWidth,
-                                faceNeighbors[face],
-                                l_timeIntegrated );
-
-  seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedNeighbor );
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );*/
 }
 
 void seissol::Interoperability::getDofs( int    i_meshId,
@@ -846,9 +786,9 @@ void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
 }
 
 void seissol::Interoperability::evaluateFrictionLaw(  int face,
-                                                      real godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
-                                                      real imposedStatePlus[seissol::model::godunovState::reals],
-                                                      real imposedStateMinus[seissol::model::godunovState::reals],
+                                                      real godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
+                                                      real imposedStatePlus[seissol::tensor::godunovState::size()],
+                                                      real imposedStateMinus[seissol::tensor::godunovState::size()],
                                                       double i_fullUpdateTime,
                                                       double timePoints[CONVERGENCE_ORDER],
                                                       double timeWeights[CONVERGENCE_ORDER],
@@ -856,8 +796,8 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                                       seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
 {
   int fFace = face + 1;
-  int numberOfPoints = seissol::model::godunovState::rows;
-  int godunovLd = seissol::model::godunovState::ld;
+  int numberOfPoints = tensor::godunovState::Shape[0];
+  int godunovLd = init::godunovState::Stop[0] - init::godunovState::Start[0];
 
   f_interoperability_evaluateFrictionLaw( m_domain,
                                           fFace,

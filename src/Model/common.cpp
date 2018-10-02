@@ -40,9 +40,9 @@
 #include <Model/common.hpp>
 #include <cmath>
 
-void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::ElasticMaterial const& i_material,
-                                                            unsigned i_dim,
-                                                            MatrixView o_M )
+void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::ElasticMaterial const&  i_material,
+                                                            unsigned                                i_dim,
+                                                            init::star::view<0>::type&              o_M )
 {
   o_M.setZero();
 
@@ -89,10 +89,11 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
   }
 }
 
-void seissol::model::getTransposedElasticGodunovState( seissol::model::ElasticMaterial const& local,
-                                                       seissol::model::ElasticMaterial const& neighbor,
-                                                       DenseMatrixView<9, 9> QgodLocal,
-                                                       DenseMatrixView<9, 9> QgodNeighbor )
+void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
+                                                       Material const&                      neighbor,
+                                                       enum ::faceType                      faceType,
+                                                       init::QgodLocal::view::type&         QgodLocal,
+                                                       init::QgodNeighbor::view::type&      QgodNeighbor )
 {
   QgodNeighbor.setZero();
   
@@ -122,24 +123,28 @@ void seissol::model::getTransposedElasticGodunovState( seissol::model::ElasticMa
   QgodNeighbor(8,8) = QgodNeighbor(7,7);
 
   // QgodLocal = I - QgodNeighbor
-  for (unsigned idx = 0; idx < QgodLocal.rows() * QgodLocal.cols(); ++idx) {
-    QgodLocal.data[idx] = -QgodNeighbor.data[idx];
+  for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
+    for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
+      QgodLocal(i,j) = -QgodNeighbor(i,j);
+    }
   }  
-  for (unsigned idx = 0; idx < QgodLocal.rows() && idx < QgodLocal.cols(); ++idx) {
-    QgodLocal(idx, idx) += 1.0;
+  for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
+    QgodLocal(idx,idx) += 1.0;
   }
+  
+  applyBoundaryConditionToElasticFluxSolver(faceType, QgodNeighbor);
 }
 
 void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                DenseMatrixView<9, seissol::model::AminusT::cols> Fneighbor )
+                                                                init::QgodNeighbor::view::type& QgodNeighbor )
 {
   if (type == freeSurface) {
     // Gamma is a diagonal matrix
     real Gamma[] = { -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0 };
     // Gamma^T * Fneighbor
-    for (unsigned j = 0; j < Fneighbor.cols(); ++j) {
+    for (unsigned j = 0; j < QgodNeighbor.shape(1); ++j) {
       for (unsigned i = 0; i < 9; ++i) {
-        Fneighbor(i,j) *= Gamma[i];
+        QgodNeighbor(i,j) *= Gamma[i];
       }
     }
   }

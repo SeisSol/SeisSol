@@ -47,6 +47,7 @@
 #include <Model/common.hpp>
 #include <Geometry/MeshTools.h>
 #include <generated_code/tensor.h>
+#include <generated_code/kernel.h>
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,
@@ -75,17 +76,9 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
-  assert(seissol::model::AplusT::rows == seissol::model::AminusT::rows);
-  assert(seissol::model::AplusT::cols == seissol::model::AminusT::cols);
-  assert(seissol::model::AplusT::rows == seissol::model::AplusT::cols);
-
-  real AT[seissol::model::AstarT::reals];
-  real BT[seissol::model::BstarT::reals];
-  real CT[seissol::model::CstarT::reals];
-  real FlocalData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
-  real FneighborData[seissol::model::AminusT::rows * seissol::model::AminusT::cols];
-  real TData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
-  real TinvData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
+  assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0]);
+  assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1]);
+  assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AplusT::Shape[1]);
 
   unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
@@ -103,7 +96,28 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     CellLocalInformation*       cellInformation         = it->var(i_lts->cellInformation);
 
 #ifdef _OPENMP
-  #pragma omp parallel for private(AT, BT, CT, FlocalData, FneighborData, TData, TinvData) schedule(static)
+  #pragma omp parallel
+    {
+#endif
+    real ATData[tensor::star::size(0)];
+    real BTData[tensor::star::size(1)];
+    real CTData[tensor::star::size(2)];
+    auto AT = init::star::view<0>::create(ATData);
+    auto BT = init::star::view<0>::create(BTData);
+    auto CT = init::star::view<0>::create(CTData);
+
+    real TData[seissol::tensor::T::size()];
+    real TinvData[seissol::tensor::Tinv::size()];
+    auto T = init::T::view::create(TData);
+    auto Tinv = init::Tinv::view::create(TinvData);
+
+    real QgodLocalData[tensor::QgodLocal::size()];
+    real QgodNeighborData[tensor::QgodNeighbor::size()];
+    auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
+    auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+    
+#ifdef _OPENMP
+    #pragma omp for schedule(static)
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
       unsigned meshId = ltsToMesh[cell];
@@ -128,24 +142,18 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, AT );
       seissol::model::getTransposedCoefficientMatrix( material[cell].local, 1, BT );
       seissol::model::getTransposedCoefficientMatrix( material[cell].local, 2, CT );
-      setStarMatrix(AT, BT, CT, gradXi, localIntegration[cell].starMatrices[0]);
-      setStarMatrix(AT, BT, CT, gradEta, localIntegration[cell].starMatrices[1]);
-      setStarMatrix(AT, BT, CT, gradZeta, localIntegration[cell].starMatrices[2]);
+      setStarMatrix(ATData, BTData, CTData, gradXi, localIntegration[cell].starMatrices[0]);
+      setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
+      setStarMatrix(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
 
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
-        DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> Flocal(FlocalData);
-        DenseMatrixView<seissol::model::AminusT::rows, seissol::model::AminusT::cols> Fneighbor(FneighborData);
-        DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> T(TData);
-        DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> Tinv(TinvData);
-
-        seissol::model::getTransposedRiemannSolver( material[cell].local,
+        seissol::model::getTransposedGodunovState(  material[cell].local,
                                                     material[cell].neighbor[side],
                                                     cellInformation[cell].faceTypes[side],
-                                                    //AT,
-                                                    Flocal,
-                                                    Fneighbor );
+                                                    QgodLocal,
+                                                    QgodNeighbor );
 
         VrtxCoords normal;
         VrtxCoords tangent1;
@@ -159,30 +167,27 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         // Calculate transposed T instead
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
 
-        MatrixView nApNm1(localIntegration[cell].nApNm1[side], seissol::model::AplusT::reals, seissol::model::AplusT::index);
-        MatrixView nAmNm1(neighboringIntegration[cell].nAmNm1[side], seissol::model::AminusT::reals, seissol::model::AminusT::index);
-
-        nApNm1.setZero();
-        nAmNm1.setZero();
-
         // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
-        // \todo Generate a kernel for this
-        // Calculates  Tinv^T * F * T^T
-        for (unsigned j = 0; j < seissol::model::AplusT::cols; ++j) {
-          for (unsigned i = 0; i < 9; ++i) {
-            for (unsigned k = 0; k < seissol::model::AplusT::rows; ++k) {
-              for (unsigned l = 0; l < seissol::model::AplusT::cols; ++l) {
-                nApNm1(i, j) += Tinv(k, i) * Flocal(k, l) * T(j, l);
-                nAmNm1(i, j) += Tinv(k, i) * Fneighbor(k, l) * T(j, l);
-              }
-            }
-            nApNm1(i, j) *= fluxScale;
-            nAmNm1(i, j) *= fluxScale;
-          }
-        }
+        kernel::computeFluxSolverLocal localKrnl;
+        localKrnl.fluxScale = fluxScale;
+        localKrnl.AplusT = localIntegration[cell].nApNm1[side];
+        localKrnl.QgodLocal = QgodLocalData;
+        localKrnl.T = TData;
+        localKrnl.Tinv = TinvData;
+        localKrnl.star(0) = ATData;
+        localKrnl.execute();
+        
+        kernel::computeFluxSolverNeighbor neighKrnl;
+        neighKrnl.fluxScale = fluxScale;
+        neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+        neighKrnl.QgodNeighbor = QgodNeighborData;
+        neighKrnl.T = TData;
+        neighKrnl.Tinv = TinvData;
+        neighKrnl.star(0) = ATData;
+        neighKrnl.execute();
       }
 
       seissol::model::initializeSpecificLocalData(  material[cell].local,
@@ -192,7 +197,9 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
                                                       material[cell].neighbor,
                                                       &neighboringIntegration[cell].specific );
     }
-
+#ifdef _OPENMP
+    }
+#endif
     ltsToMesh += it->getNumberOfCells();
   }
 }
@@ -225,7 +232,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
 {
-  real TData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
+  /// @yateto_todo
+  /*real TData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
   real TinvData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
   real QgodLocalData[9*9];
   real QgodNeighborData[9*9];
@@ -424,5 +432,5 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     }
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
-  }
+  }*/
 }

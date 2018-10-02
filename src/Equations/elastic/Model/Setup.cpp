@@ -43,48 +43,22 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 
-#include <generated_code/sizes.h>
 #include <generated_code/init.h>
 
-void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
-                                                     unsigned        i_dim,
-                                                     real            o_M[seissol::model::AstarT::reals] )
+void seissol::model::getTransposedCoefficientMatrix( Material const&                i_material,
+                                                     unsigned                       i_dim,
+                                                     init::star::view<0>::type&     AT )
 {
-  MatrixView M(o_M, seissol::model::AstarT::reals, seissol::model::AstarT::index);
-  seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, M);
+  seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, AT);
 }
 
-void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&                        local,
-                                                 seissol::model::Material const&                        neighbor,
-                                                 enum ::faceType                                        type,
-                                                 //real const                                             Atransposed[STAR_NNZ],
-                                                 DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> Flocal,
-                                                 DenseMatrixView<seissol::model::AminusT::rows, seissol::model::AminusT::cols> Fneighbor )
+void seissol::model::getTransposedGodunovState( Material const&                   local,
+                                                Material const&                   neighbor,
+                                                enum ::faceType                   faceType,
+                                                init::QgodLocal::view::type&      QgodLocal,
+                                                init::QgodNeighbor::view::type&   QgodNeighbor )
 {
-  real QgodNeighborData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  real QgodLocalData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  
-  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> QgodNeighbor(QgodNeighborData);
-  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> QgodLocal(QgodLocalData);
-  
-  seissol::model::getTransposedElasticGodunovState(local, neighbor, QgodLocal, QgodNeighbor);
-  
-  // \todo Generate a kernel for this and use Atransposed instead of the following.
-  real AtData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  MatrixView At(AtData, sizeof(AtData)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
-  seissol::model::getTransposedElasticCoefficientMatrix(local, 0, At);
-  Flocal.setZero();
-  Fneighbor.setZero();
-  for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-    for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-      for (unsigned k = 0; k < NUMBER_OF_QUANTITIES; ++k) {
-        Flocal(i,j) += QgodLocal(i,k) * At(k,j);
-        Fneighbor(i,j) += QgodNeighbor(i,k) * At(k,j);
-      }
-    }
-  }
-  
-  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<9, seissol::model::AminusT::cols>(0, 0));
+  seissol::model::getTransposedElasticGodunovState(local, neighbor, faceType, QgodLocal, QgodNeighbor);
 }
 
 void seissol::model::setMaterial( double* i_materialVal,
@@ -102,17 +76,27 @@ void seissol::model::setMaterial( double* i_materialVal,
 void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
                                             VrtxCoords const i_tangent1,
                                             VrtxCoords const i_tangent2,
-                                            DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> o_T,
-                                            DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> o_Tinv )
+                                            init::T::view::type&    o_T,
+                                            init::Tinv::view::type& o_Tinv )
 {
   o_T.setZero();
   o_Tinv.setZero();
   
-  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<6,6>(0, 0));
-  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<3,3>(6, 6));
+  unsigned origin0[]{0, 0};
+  unsigned shape6[]{6, 6};
+  auto TBlock0 = o_T.block(origin0, shape6);
+  auto TinvBlock0 = o_Tinv.block(origin0, shape6);
   
-  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<6,6>(0, 0));
-  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<3,3>(6, 6));
+  unsigned origin6[]{0, 0};
+  unsigned shape3[]{3, 3};
+  auto TBlock1 = o_T.block(origin6, shape3);
+  auto TinvBlock1 = o_Tinv.block(origin6, shape3);
+  
+  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, TBlock0);
+  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, TBlock1);
+  
+  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, TinvBlock0);
+  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, TinvBlock1);
 }
 
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const&,

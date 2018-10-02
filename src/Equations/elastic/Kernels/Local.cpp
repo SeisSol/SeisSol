@@ -55,11 +55,11 @@
 void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( ((uintptr_t)global->stiffnessMatrices[stiffness]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
   }
   for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed[flux]) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->changeOfBasisMatrices[flux]) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % ALIGNMENT == 0 );
   }
 #endif
 

@@ -65,7 +65,7 @@ order = int(cmdLineArgs.order)
 numberOf2DBasisFunctions = order*(order+1)//2
 numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
 numberOfQuantities = 9
-multipleSimulations = cmdLineArgs.multipleSimulations.lower() in ['true', 'on', '1', 'y', 'yes']
+multipleSimulations = int(cmdLineArgs.multipleSimulations)
 
 # Quantities
 if multipleSimulations > 1:
@@ -95,9 +95,20 @@ I = Tensor('I', qShape, alignStride=alignStride)
 # Flux solver
 AplusT = Tensor('AplusT', (numberOfQuantities, numberOfQuantities))
 AminusT = Tensor('AminusT', (numberOfQuantities, numberOfQuantities))
+T = Tensor('T', (numberOfQuantities, numberOfQuantities))
+Tinv = Tensor('Tinv', (numberOfQuantities, numberOfQuantities))
+QgodLocal = Tensor('QgodLocal', (numberOfQuantities, numberOfQuantities))
+QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
 
 # Kernels
 g = Generator(arch)
+
+fluxScale = Scalar('fluxScale')
+computeFluxSolverLocal = AplusT['ij'] <= fluxScale * Tinv['ki'] * QgodLocal['kq'] * db.star[0]['ql'] * T['jl']
+g.add('computeFluxSolverLocal', computeFluxSolverLocal)
+
+computeFluxSolverNeighbor = AminusT['ij'] <= fluxScale * Tinv['ki'] * QgodNeighbor['kq'] * db.star[0]['ql'] * T['jl']
+g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
 volumeSum = Q[qi('kp')]
 for i in range(3):

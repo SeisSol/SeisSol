@@ -43,6 +43,7 @@
 
 #include <Initializer/typedefs.hpp>
 #include <generated_code/tensor.h>
+#include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
@@ -52,6 +53,8 @@ namespace seissol {
 
 class seissol::kernels::DynamicRupture {
   private:
+    kernel::godunovState m_krnlPrototype;
+
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
     double m_timeFactors[CONVERGENCE_ORDER][CONVERGENCE_ORDER];
     
@@ -65,6 +68,8 @@ class seissol::kernels::DynamicRupture {
     double timeWeights[CONVERGENCE_ORDER];
 
     DynamicRupture();
+    
+    void setGlobalData(GlobalData const* global);
     
     void setTimeStepWidth(double timestep);
 
