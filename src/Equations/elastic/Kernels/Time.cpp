@@ -119,22 +119,24 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
    * compute ADER scheme.
    */
   // temporary result
-  real l_derivativesBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
+  real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
+  real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = local->starMatrices[i];
   }
+
   krnl.dQ(0) = const_cast<real*>(i_degreesOfFreedom);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = l_derivativesBuffer + m_derivativesOffsets[i];
+    krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
 
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = o_timeIntegrated;
   intKrnl.dQ(0) = i_degreesOfFreedom;
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = l_derivativesBuffer + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
   
   // powers in the taylor-series expansion
@@ -143,24 +145,15 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   intKrnl.execute0();
 
   // stream out frist derivative (order 0)
-  // TODO: fix
-  /*if ( o_timeDerivatives != NULL ) {
-    streamstore(NUMBER_OF_ALIGNED_DOFS, i_degreesOfFreedom, o_timeDerivatives);
-  }*/
+  if (o_timeDerivatives != nullptr) {
+    streamstore(tensor::dQ::size(0), i_degreesOfFreedom, o_timeDerivatives);
+  }
   
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
     krnl.execute(der);
 
     // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / real(der+1);
-
-    // stream out derivatives if not NULL
-    // TODO: fix
-    /*real* derivativesStore = NULL;
-    if (o_timeDerivatives != NULL) {
-      derivativesStore = o_timeDerivatives + NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_QUANTITIES + m_derivativesOffsets[der];
-    }*/
-    
+    intKrnl.power *= i_timeStepWidth / real(der+1);    
     intKrnl.execute(der);
   }
 }

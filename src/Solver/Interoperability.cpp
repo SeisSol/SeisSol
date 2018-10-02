@@ -392,6 +392,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+  m_timeKernel.setGlobalData(m_globalData);
 }
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -706,9 +707,7 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
 
   unsigned nonZeroFlops, hardwareFlops;
 
-  /// @yateto_todo
-  /*m_timeKernel.computeAder( 0,
-                            m_globalData,
+  m_timeKernel.computeAder( 0,
                             &m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1),
                             m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
                             l_timeIntegrated,
@@ -718,7 +717,7 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
   g_SeisSolNonZeroFlopsOther += nonZeroFlops;
   g_SeisSolHardwareFlopsOther += hardwareFlops;
 
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );*/
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );
 }
 
 void seissol::Interoperability::getDofs( int    i_meshId,
