@@ -702,8 +702,8 @@ void seissol::Interoperability::addToDofs( int      i_meshId,
 
 void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
                                                     double  o_timeDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] ) {
-  real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
-  real l_timeDerivatives[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(ALIGNMENT)));
+  real l_timeIntegrated[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
+  real l_timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
 
   unsigned nonZeroFlops, hardwareFlops;
 

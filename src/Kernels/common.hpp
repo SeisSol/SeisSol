@@ -170,50 +170,6 @@ namespace seissol {
         }
       }
     }
-
-    /**
-     * Converts a full star matrix (including zeros) to a compressed star matrix containing the 24 possible non-zeros.
-     *
-     * @param i_fullStarMatrix star matrix in full format.
-     * @param o_compressedStarMatrix compressed star matrix.
-     **/
-    template<typename real_from, typename real_to>
-    void convertStarMatrix( const real_from *i_fullStarMatrix,
-                                         real_to   *o_compressedStarMatrix ) {
-      o_compressedStarMatrix[ 0] = i_fullStarMatrix[0*9 + 6];
-      o_compressedStarMatrix[ 1] = i_fullStarMatrix[0*9 + 7];
-      o_compressedStarMatrix[ 2] = i_fullStarMatrix[0*9 + 8];
-
-      o_compressedStarMatrix[ 3] = i_fullStarMatrix[1*9 + 6];
-      o_compressedStarMatrix[ 4] = i_fullStarMatrix[1*9 + 7];
-      o_compressedStarMatrix[ 5] = i_fullStarMatrix[1*9 + 8];
-
-      o_compressedStarMatrix[ 6] = i_fullStarMatrix[2*9 + 6];
-      o_compressedStarMatrix[ 7] = i_fullStarMatrix[2*9 + 7];
-      o_compressedStarMatrix[ 8] = i_fullStarMatrix[2*9 + 8];
-
-      o_compressedStarMatrix[ 9] = i_fullStarMatrix[3*9 + 6];
-      o_compressedStarMatrix[10] = i_fullStarMatrix[3*9 + 7];
-
-      o_compressedStarMatrix[11] = i_fullStarMatrix[4*9 + 7];
-      o_compressedStarMatrix[12] = i_fullStarMatrix[4*9 + 8];
-
-      o_compressedStarMatrix[13] = i_fullStarMatrix[5*9 + 6];
-      o_compressedStarMatrix[14] = i_fullStarMatrix[5*9 + 8];
-
-      o_compressedStarMatrix[15] = i_fullStarMatrix[6*9 + 0];
-      o_compressedStarMatrix[16] = i_fullStarMatrix[6*9 + 3];
-      o_compressedStarMatrix[17] = i_fullStarMatrix[6*9 + 5];
-
-      o_compressedStarMatrix[18] = i_fullStarMatrix[7*9 + 1];
-      o_compressedStarMatrix[19] = i_fullStarMatrix[7*9 + 3];
-      o_compressedStarMatrix[20] = i_fullStarMatrix[7*9 + 4];
-
-      o_compressedStarMatrix[21] = i_fullStarMatrix[8*9 + 2];
-      o_compressedStarMatrix[22] = i_fullStarMatrix[8*9 + 4];
-      o_compressedStarMatrix[23] = i_fullStarMatrix[8*9 + 5];
-    }
-
   }
 }
 

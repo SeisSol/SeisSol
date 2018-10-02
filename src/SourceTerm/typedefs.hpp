@@ -42,6 +42,7 @@
 #define SOURCETERM_TYPEDEFS_HPP_
 
 #include <Initializer/typedefs.hpp>
+#include <generated_code/tensor.h>
 
 namespace seissol {
   namespace sourceterm {    
@@ -95,7 +96,7 @@ namespace seissol {
 
     struct CellToPointSourcesMapping {
       //! Pointer to DOFs
-      real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
+      real (*dofs)[tensor::Q::size()];
       //! First point source that has an effect on the cell
       unsigned pointSourcesOffset;
       /** The point sources buffer is ordered by cells, hence the point sources
