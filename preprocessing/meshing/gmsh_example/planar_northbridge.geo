@@ -1,0 +1,76 @@
+lc = 1000;
+lc_fault = 100;
+
+faultlength = 20e3;
+faultwidth = 25e3 ;
+region = 500e3 ;
+depth = 100e3;
+dip_angle = 40;
+strike_angle = 122 ;
+
+dip = (90-dip_angle)*Pi/180;
+stk = (180-strike_angle)*Pi/180;
+
+Point(1) = {0.5*faultlength*Sin(stk),  -0.5*faultlength*Cos(stk), 0, lc_fault};
+Point(4) = {-0.5*faultlength*Sin(stk), 0.5*faultlength*Cos(stk), 0, lc_fault};
+Point(5) = {-0.5*faultlength*Sin(stk)-faultwidth*Sin(dip)*Sin(stk), 0.5*faultlength*Cos(stk)-faultwidth*Sin(stk)*Sin(dip), -1*faultwidth*Cos(dip), lc_fault};
+Point(6) = {0.5*faultlength*Sin(stk)-faultwidth*Sin(dip)*Sin(stk), -0.5*faultlength*Cos(stk)-faultwidth*Sin(stk)*Sin(dip),  -1*faultwidth*Cos(dip), lc_fault};
+
+Point(7) = {0.5*region, 0.5*region, -depth, lc};
+Point(8) = {0.5*region, -0.5*region, -depth, lc};
+Point(9) = {-0.5*region, -0.5*region, -depth, lc};
+Point(10) = {-0.5*region, 0.5*region, -depth, lc};
+Point(11) = {-0.5*region, 0.5*region, 0, lc};
+Point(13) = {0.5*region, 0.5*region, 0, lc};
+Point(14) = {0.5*region, -0.5*region, 0, lc};
+Point(15) = {-0.5*region, -0.5*region, 0, lc};
+Line(1) = {4, 5};
+Line(2) = {5, 6};
+Line(3) = {6, 1};
+Line(4) = {1, 4};
+Line(7) = {7, 8};
+Line(8) = {8, 9};
+Line(9) = {9, 10};
+Line(10) = {10, 7};
+Line(11) = {7, 13};
+Line(12) = {13, 14};
+Line(13) = {14, 15};
+Line(14) = {15, 9};
+Line(15) = {15, 11};
+Line(16) = {11, 10};
+Line(17) = {11, 13};
+Line(18) = {8, 14};
+Line Loop(6) = {4, 1, 2, 3};
+Ruled Surface(6) = {6};
+Line Loop(20) = {8, 9, 10, 7};
+Plane Surface(20) = {20};
+Line Loop(22) = {9, -16, -15, 14};
+Plane Surface(22) = {22};
+Line Loop(24) = {10, 11, -17, 16};
+Plane Surface(24) = {24};
+Line Loop(26) = {7, 18, -12, -11};
+Plane Surface(26) = {26};
+Line Loop(28) = {8, -14, -13, -18};
+Plane Surface(28) = {28};
+Line Loop(30) = {13, 15, 17, 12};
+Plane Surface(30) = {30};
+Line {4} In Surface {30};
+Recombine Surface {30};
+Surface Loop(32) = {26, 20, 28, 22, 24, 30};
+Line{4} In Surface{30};
+Volume(32) = {32};
+
+Field[1] = Attractor;
+Field[1].FacesList = {6};
+Field[1].FieldX = -1;
+Field[1].FieldY = -1;
+Field[1].FieldZ = -1;
+Field[1].NNodesByEdge = 30;
+Field[2] = MathEval;
+Field[2].F = Sprintf("0.001*F1 +(F1/5.0e3)^2 + %g", lc_fault);
+Background Field = 2;
+
+Physical Surface(33) = {30};
+Physical Surface(34) = {20, 22, 24, 26, 28};
+Physical Surface(35) = {6};
+Physical Volume(36) = {32};
