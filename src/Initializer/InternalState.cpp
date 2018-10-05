@@ -139,7 +139,7 @@ void seissol::initializers::InternalState::setUpLayerPointers(       unsigned in
       // set pointers and increase conunters
       if( (i_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ) {
         o_buffers[l_cell] = i_layerMemory + l_offset
-                                          + l_bufferCounter * NUMBER_OF_ALIGNED_DOFS;
+                                          + l_bufferCounter * tensor::I::size();
         l_bufferCounter++;
       }
       else o_buffers[l_cell] = NULL;

@@ -437,7 +437,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
   // local integration buffer
-  real l_integrationBuffer[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
+  real l_integrationBuffer[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
 
   // pointer for the call of the ADER-function
   real *l_bufferPointer;
@@ -492,7 +492,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       // assert presence of the buffer
       assert( buffers[l_cell] != NULL );
 
-      for( unsigned int l_dof = 0; l_dof < NUMBER_OF_ALIGNED_DOFS; l_dof++ ) {
+      for( unsigned int l_dof = 0; l_dof < tensor::I::size(); l_dof++ ) {
         buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
       }
     }
