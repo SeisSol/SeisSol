@@ -45,6 +45,7 @@
 #include <algorithm>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
+#include <generated_code/kernel.h>
 #include <cassert>
 
 namespace seissol {
@@ -91,45 +92,22 @@ namespace seissol {
      * @param o_unalignedDofs unaligned degrees of freedom.
      **/
     template<typename real_from, typename real_to>
-    void convertAlignedDofs( const real_from i_alignedDofs[   NUMBER_OF_ALIGNED_DOFS],
-                                          real_to   o_unalignedDofs[ NUMBER_OF_DOFS] ) {
-      auto Q = init::Q::view::create(const_cast<real_from*>(i_alignedDofs));
-      if (Q.dim() == 3) {
-        unsigned entry[3];
-        entry[0] = 0;
-        for (unsigned q = 0; q < tensor::Q::Shape[2]; ++q) {
-          entry[2] = q;
-          for (unsigned b = 0; b < tensor::Q::Shape[1]; ++b) {
-            entry[1] = b;
-            o_unalignedDofs[q*NUMBER_OF_BASIS_FUNCTIONS + b] = Q[entry];
-          }
-        }
-      } else {
-        unsigned entry[2];
-        for (unsigned q = 0; q < tensor::Q::Shape[1]; ++q) {
-          entry[1] = q;
-          for (unsigned b = 0; b < tensor::Q::Shape[0]; ++b) {
-            entry[0] = b;
-            o_unalignedDofs[q*NUMBER_OF_BASIS_FUNCTIONS + b] = Q[entry];
-          }
-        }
-      }
-    }
+    void convertAlignedDofs( const real_from i_alignedDofs[tensor::Q::size()],
+                                   real_to   o_unalignedDofs[tensor::QFortran::size()] ) {      
+      kernel::copyQToQFortran krnl;
+      krnl.Q = i_alignedDofs;
+#ifdef MULTIPLE_SIMULATIONS
+      krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
+#endif
 
-    /**
-     * Converts unaligned degrees of freedom (compressed, without zero padding) to aligned storage (with zero padding).
-     *   Remark: It is assumed that the overhead of the alignment is initialized with zero.
-     *
-     * @param i_unalignedDofs unaligned degrees of freedom.
-     * @param o_alignedDofs aligned degrees of freedom (zero paddin in the basis functions / columns).
-     **/
-    template<typename real_from, typename real_to>
-    void convertUnalignedDofs( const real_from i_unalignedDofs[ NUMBER_OF_DOFS ],
-                                            real_to   o_alignedDofs[   NUMBER_OF_ALIGNED_DOFS ] ) {
-      for( unsigned int l_quantity = 0; l_quantity < NUMBER_OF_QUANTITIES; l_quantity++ ) {
-        for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
-          o_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction] = i_unalignedDofs[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction];
-        }
+      if (std::is_same<real_from, real_to>::value) {
+        krnl.QFortran = o_unalignedDofs;
+        krnl.execute();
+      } else {
+        real_from unalignedDofs[tensor::QFortran::size()];
+        krnl.QFortran = unalignedDofs;
+        krnl.execute();
+        std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);      
       }
     }
 
@@ -142,67 +120,48 @@ namespace seissol {
     template<typename real_from, typename real_to>
     void addToAlignedDofs(  real_from const*  i_unalignedUpdate,
                             real_to*          o_alignedDofs,
-                            unsigned          numberOfQuantities ) {
-      auto Q = init::Q::view::create(o_alignedDofs);
-      if (Q.dim() == 3) {
-        unsigned entry[3];
-        for (unsigned q = 0; q < numberOfQuantities; ++q) {
-          entry[2] = q;
-          for (unsigned b = 0; b < NUMBER_OF_BASIS_FUNCTIONS; ++b) {
-            entry[1] = b;
-            for (unsigned s = 0; s < tensor::Q::Shape[0]; ++s) {
-              entry[0] = s;
-              Q[entry] += i_unalignedUpdate[q*NUMBER_OF_BASIS_FUNCTIONS + b];
-            }
-          }
-        }
+                            unsigned          numUpdateEntries ) {
+      assert(numUpdateEntries == tensor::QFortran::size());
+      
+      kernel::addQFortran krnl;
+      krnl.Q = o_alignedDofs;
+#ifdef MULTIPLE_SIMULATIONS
+      krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+#endif
+
+      if (std::is_same<real_from, real_to>::value) {
+        krnl.QFortran = i_unalignedUpdate;
+        krnl.execute();
       } else {
-        unsigned entry[2];
-        for (unsigned q = 0; q < numberOfQuantities; ++q) {
-          entry[1] = q;
-          for (unsigned b = 0; b < NUMBER_OF_BASIS_FUNCTIONS; ++b) {
-            entry[0] = b;
-            Q[entry] += i_unalignedUpdate[q*NUMBER_OF_BASIS_FUNCTIONS + b];
-          }
-        }
+        real_to update[tensor::QFortran::size()];
+        std::copy(i_unalignedUpdate, i_unalignedUpdate + tensor::QFortran::size(), update);
+        krnl.QFortran = update;
+        krnl.execute();        
       }
     }
 
-    /**
-     * Copies a submatrix of A (sizes of B) to B.
-     * If B doesn't fit in A zeros are set.
-     *
-     * @param i_A values of matrix A.
-     * @param i_aNumberOfRows number of rows of A.
-     * @param i_aNumberOfColumns number of columns of A.
-     * @param i_aLeadingDimension leading dimension of A.
-     * @param o_B values of matrix B, which will be set.
-     * @param i_bNumberOfRows number of rows of matrix B.
-     * @param i_bNumberOfColumns number of columns of matrix B.
-     * @param i_bLeadingDimension leading dimension of B.
-     */
     template<typename real_from, typename real_to>
-    void copySubMatrix( const real_from    *i_A,
-                               const unsigned int  i_aNumberOfRows,
-                               const unsigned int  i_aNumberOfColumns,
-                               const unsigned int  i_aLeadingDimension,
-                                     real_to      *o_B,
-                               const unsigned int  i_bNumberOfRows,
-                               const unsigned int  i_bNumberOfColumns,
-                               const unsigned int  i_bLeadingDimension ) {
-      // set matrix B to zero
-      for( unsigned int l_index = 0; l_index < i_bLeadingDimension*i_bNumberOfColumns; l_index++ ) {
-        o_B[l_index] = (real) 0;
-      }
-
-      // copy the entries
-      for( unsigned int l_column = 0; l_column < std::min( i_aNumberOfColumns, i_bNumberOfColumns ); l_column++ ) {
-        for( unsigned int l_row = 0; l_row < std::min( i_aNumberOfRows, i_bNumberOfRows ); l_row++ ) {
-          unsigned int l_aIndex = l_column * i_aLeadingDimension + l_row;
-          unsigned int l_bIndex = l_column * i_bLeadingDimension + l_row;
-
-          o_B[l_bIndex] = i_A[l_aIndex];
+    static void convertAlignedCompressedTimeDerivatives( const real_from  i_compressedDerivatives[yateto::computeFamilySize<tensor::dQ>()],
+                                                               real_to    o_fullDerivatives[CONVERGENCE_ORDER][tensor::QFortran::Size] )
+    {
+      kernel::copyDQToDQFortran krnl;
+#ifdef MULTIPLE_SIMULATIONS
+      krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
+#endif
+      real_from const* der = i_compressedDerivatives;
+      for (unsigned degree = 0; degree < CONVERGENCE_ORDER; ++degree) {
+        krnl.dQ(degree) = der;
+        if (std::is_same<real_from, real_to>::value) {
+          krnl.QFortran = &o_fullDerivatives[degree][0];
+          krnl.execute(degree);
+        } else {
+          real_from unalignedDofs[tensor::QFortran::size()];
+          krnl.QFortran = unalignedDofs;
+          krnl.execute(degree);
+          std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), &o_fullDerivatives[degree][0]);      
         }
+
+        der += tensor::dQ::size(degree);
       }
     }
   }

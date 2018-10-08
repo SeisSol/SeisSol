@@ -2057,7 +2057,7 @@ CONTAINS
         ! write the update back
         call c_interoperability_addToDofs(  i_meshId           = iElem, \
                                             i_update           = l_dofsUpdate, \
-                                            numberOfQuantities = eqn%nVarTotal )
+                                            numUpdateEntries   = size(l_dofsUpdate) )
 
 #ifdef USE_PLASTICITY
         ! initialize the element dependent plastic parameters

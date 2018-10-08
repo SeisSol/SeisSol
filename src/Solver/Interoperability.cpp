@@ -211,8 +211,8 @@ extern "C" {
 
   void c_interoperability_addToDofs( int      i_meshId,
                                      double*  i_update,
-                                     int      numberOfQuantities ) {
-    e_interoperability.addToDofs( i_meshId, i_update, numberOfQuantities );
+                                     int      numUpdateEntries ) {
+    e_interoperability.addToDofs( i_meshId, i_update, numUpdateEntries );
   }
 
   void c_interoperability_getTimeDerivatives( int    i_meshId,
@@ -696,13 +696,13 @@ void seissol::Interoperability::copyDynamicRuptureState()
 
 void seissol::Interoperability::addToDofs( int      i_meshId,
                                            double*  i_update,
-                                           int      numberOfQuantities ) {
+                                           int      numUpdateEntries ) {
   /// @yateto_todo: Multiple updates?
-  seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numberOfQuantities) );
+  seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numUpdateEntries) );
 }
 
 void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
-                                                    double  o_timeDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] ) {
+                                                    double  o_timeDerivatives[CONVERGENCE_ORDER][tensor::QFortran::size()] ) {
   real l_timeIntegrated[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
   real l_timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
 
@@ -718,7 +718,7 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
   g_SeisSolNonZeroFlopsOther += nonZeroFlops;
   g_SeisSolHardwareFlopsOther += hardwareFlops;
 
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );
+  seissol::kernels::convertAlignedCompressedTimeDerivatives<real, double>( l_timeDerivatives, o_timeDerivatives );
 }
 
 void seissol::Interoperability::getDofs( int    i_meshId,

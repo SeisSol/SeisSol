@@ -89,6 +89,7 @@ db.update( parseXMLMatrixFile('{}/star.xml'.format(cmdLineArgs.matricesDir, numb
 memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
 Q = Tensor('Q', qShape, alignStride=alignStride)
+QFortran = Tensor('QFortran', (numberOf3DBasisFunctions, numberOfQuantities))
 dQ0 = Tensor('dQ(0)', qShape, alignStride=alignStride)
 I = Tensor('I', qShape, alignStride=alignStride)
 
@@ -103,13 +104,7 @@ QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
 # Kernels
 g = Generator(arch)
 
-fluxScale = Scalar('fluxScale')
-computeFluxSolverLocal = AplusT['ij'] <= fluxScale * Tinv['ki'] * QgodLocal['kq'] * db.star[0]['ql'] * T['jl']
-g.add('computeFluxSolverLocal', computeFluxSolverLocal)
-
-computeFluxSolverNeighbor = AminusT['ij'] <= fluxScale * Tinv['ki'] * QgodNeighbor['kq'] * db.star[0]['ql'] * T['jl']
-g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
-
+## Main kernels
 volumeSum = Q[qi('kp')]
 for i in range(3):
   volumeSum += db.kDivM[i][t('kl')] * I[qi('lq')] * db.star[i]['qp']
@@ -125,18 +120,45 @@ neighbourFluxPrefetch = lambda h,j,i: I
 g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
 
 power = Scalar('power')
-lastDQ = dQ0
+derivatives = [dQ0]
 g.add('derivativeTaylorExpansion(0)'.format(i), I[qi('kp')] <= power * dQ0[qi('kp')])
 for i in range(1,order):
   derivativeSum = Add()
   for j in range(3):
-    derivativeSum += db.kDivMT[j][t('kl')] * lastDQ[qi('lq')] * db.star[j]['qp']
+    derivativeSum += db.kDivMT[j][t('kl')] * derivatives[-1][qi('lq')] * db.star[j]['qp']
   derivativeSum = DeduceIndices( Q[qi('kp')].indices ).visit(derivativeSum)
   derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
   dQ = Tensor('dQ({})'.format(i), qShape, spp=derivativeSum.eqspp(), alignStride=True)
   g.add('derivative({})'.format(i), dQ[qi('kp')] <= derivativeSum)
   g.add('derivativeTaylorExpansion({})'.format(i), I[qi('kp')] <= I[qi('kp')] + power * dQ[qi('kp')])
-  lastDQ = dQ
+  derivatives.append(dQ)
+
+## Initialization kernels
+fluxScale = Scalar('fluxScale')
+computeFluxSolverLocal = AplusT['ij'] <= fluxScale * Tinv['ki'] * QgodLocal['kq'] * db.star[0]['ql'] * T['jl']
+g.add('computeFluxSolverLocal', computeFluxSolverLocal)
+
+computeFluxSolverNeighbor = AminusT['ij'] <= fluxScale * Tinv['ki'] * QgodNeighbor['kq'] * db.star[0]['ql'] * T['jl']
+g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
+
+if multipleSimulations > 1:
+  oneSimToMultSim = Tensor('oneSimToMultSim', (multipleSimulations,), spp={(i,): '1.0' for i in range(multipleSimulations)})
+  addQFortran = Q[qi('kp')] <= Q[qi('kp')] + QFortran['kp'] * oneSimToMultSim['s']
+
+  multSimToFirstSim = Tensor('multSimToFirstSim', (multipleSimulations,), spp={(0,): '1.0'})
+  copyQToQFortran = QFortran['kp'] <= Q[qi('kp')] * multSimToFirstSim['s']
+
+  copyDQToDQFortran = lambda degree: QFortran['kp'] <= derivatives[degree][qi('kp')] * multSimToFirstSim['s']
+  g.addFamily('copyDQToDQFortran', simpleParameterSpace(order), copyDQToDQFortran)
+else:
+  addQFortran = Q[qi('kp')] <= Q[qi('kp')] + QFortran['kp']
+  copyQToQFortran = QFortran['kp'] <= Q[qi('kp')]
+
+  copyDQToDQFortran = lambda degree: QFortran['kp'] <= derivatives[degree][qi('kp')]
+  g.addFamily('copyDQToDQFortran', simpleParameterSpace(order), copyDQToDQFortran)
+
+g.add('addQFortran', addQFortran)
+g.add('copyQToQFortran', copyQToQFortran)
 
 DynamicRupture.addKernels(g, Q, I, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
 Plasticity.addKernels(g, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
