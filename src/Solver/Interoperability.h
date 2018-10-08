@@ -311,7 +311,7 @@ class seissol::Interoperability {
     * @param o_timeDerivatives time derivatives in deprecated full storage scheme (including zero blocks).
     **/
    void getTimeDerivatives( int    i_meshId,
-                            double  o_timeDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] );
+                            double  o_timeDerivatives[CONVERGENCE_ORDER][tensor::QFortran::size()] );
 
    /**
     * Gets the DOFs.
@@ -320,7 +320,7 @@ class seissol::Interoperability {
     * @param o_dofs degrees of freedom.
     **/
    void getDofs( int    i_meshId,
-                 double o_dofs[NUMBER_OF_DOFS] );
+                 double o_dofs[tensor::QFortran::size()] );
 
    /**
     * Gets the DOFs from the derivatives.
@@ -330,7 +330,7 @@ class seissol::Interoperability {
     * @param o_dofs degrees of freedom.
     **/
    void getDofsFromDerivatives( int    i_meshId,
-                                double o_dofs[NUMBER_OF_DOFS] );
+                                double o_dofs[tensor::QFortran::size()] );
 
    /**
     * Gets the neighboring DOFs from the derivatives.
@@ -342,7 +342,7 @@ class seissol::Interoperability {
     **/
    void getNeighborDofsFromDerivatives( int    i_meshId,
                                         int    i_localFaceId,
-                                        double o_dofs[NUMBER_OF_DOFS] );
+                                        double o_dofs[tensor::QFortran::size()] );
 
    /**
     * Compute fault output.

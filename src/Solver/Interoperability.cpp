@@ -216,24 +216,24 @@ extern "C" {
   }
 
   void c_interoperability_getTimeDerivatives( int    i_meshId,
-                                              double  o_timeDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] ) {
+                                              double  o_timeDerivatives[CONVERGENCE_ORDER][seissol::tensor::QFortran::size()] ) {
     e_interoperability.getTimeDerivatives( i_meshId,
                                            o_timeDerivatives );
   }
 
   void c_interoperability_getDofs( int    i_meshId,
-                                   double o_timeDerivatives[NUMBER_OF_DOFS] ) {
+                                   double o_timeDerivatives[seissol::tensor::QFortran::size()] ) {
     e_interoperability.getDofs( i_meshId, o_timeDerivatives );
   }
 
   void c_interoperability_getDofsFromDerivatives( int    i_meshId,
-                                                  double o_dofs[NUMBER_OF_DOFS] ) {
+                                                  double o_dofs[seissol::tensor::QFortran::size()] ) {
     e_interoperability.getDofsFromDerivatives( i_meshId, o_dofs );
   }
 
   void c_interoperability_getNeighborDofsFromDerivatives( int    i_meshId,
                                                           int    i_localFaceId,
-                                                          double o_dofs[NUMBER_OF_DOFS] ) {
+                                                          double o_dofs[seissol::tensor::QFortran::size()] ) {
     e_interoperability.getNeighborDofsFromDerivatives( i_meshId, i_localFaceId, o_dofs );
   }
 
@@ -656,7 +656,7 @@ void seissol::Interoperability::initializeIO(
 	// Initialize checkpointing
 	int faultTimeStep;
 	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
-			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
+			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * tensor::Q::size(),
 			mu, slipRate1, slipRate2, slip, slip1, slip2,
 			state, strength, numSides, numBndGP,
 			faultTimeStep);
@@ -722,13 +722,13 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
 }
 
 void seissol::Interoperability::getDofs( int    i_meshId,
-                                         double o_dofs[NUMBER_OF_DOFS] ) {
+                                         double o_dofs[tensor::QFortran::size()] ) {
   /// @yateto_todo: multiple sims?
   seissol::kernels::convertAlignedDofs( m_ltsLut.lookup(m_lts->dofs, i_meshId-1), o_dofs );
 }
 
 void seissol::Interoperability::getDofsFromDerivatives( int    i_meshId,
-                                                        double o_dofs[NUMBER_OF_DOFS] ) {
+                                                        double o_dofs[tensor::QFortran::size()] ) {
   // assert that the cell provides derivatives
   assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
 
@@ -738,7 +738,7 @@ void seissol::Interoperability::getDofsFromDerivatives( int    i_meshId,
 
 void seissol::Interoperability::getNeighborDofsFromDerivatives( int    i_meshId,
                                                                 int    i_localFaceId,
-                                                                double  o_dofs[NUMBER_OF_DOFS] ) {
+                                                                double  o_dofs[tensor::QFortran::size()] ) {
 
   // get DOFs from 0th neighbors derivatives
   seissol::kernels::convertAlignedDofs(  m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1)[ i_localFaceId-1 ],

@@ -93,7 +93,7 @@ namespace seissol {
      **/
     template<typename real_from, typename real_to>
     void convertAlignedDofs( const real_from i_alignedDofs[tensor::Q::size()],
-                                   real_to   o_unalignedDofs[tensor::QFortran::size()] ) {      
+                                   real_to   o_unalignedDofs[tensor::QFortran::size()] ) {
       kernel::copyQToQFortran krnl;
       krnl.Q = i_alignedDofs;
 #ifdef MULTIPLE_SIMULATIONS
@@ -107,7 +107,7 @@ namespace seissol {
         real_from unalignedDofs[tensor::QFortran::size()];
         krnl.QFortran = unalignedDofs;
         krnl.execute();
-        std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);      
+        std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
       }
     }
 
@@ -122,7 +122,7 @@ namespace seissol {
                             real_to*          o_alignedDofs,
                             unsigned          numUpdateEntries ) {
       assert(numUpdateEntries == tensor::QFortran::size());
-      
+
       kernel::addQFortran krnl;
       krnl.Q = o_alignedDofs;
 #ifdef MULTIPLE_SIMULATIONS
@@ -136,7 +136,7 @@ namespace seissol {
         real_to update[tensor::QFortran::size()];
         std::copy(i_unalignedUpdate, i_unalignedUpdate + tensor::QFortran::size(), update);
         krnl.QFortran = update;
-        krnl.execute();        
+        krnl.execute();
       }
     }
 
@@ -158,7 +158,7 @@ namespace seissol {
           real_from unalignedDofs[tensor::QFortran::size()];
           krnl.QFortran = unalignedDofs;
           krnl.execute(degree);
-          std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), &o_fullDerivatives[degree][0]);      
+          std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), &o_fullDerivatives[degree][0]);
         }
 
         der += tensor::dQ::size(degree);

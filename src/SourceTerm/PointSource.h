@@ -130,7 +130,7 @@ namespace seissol {
                                           PiecewiseLinearFunction1D const slipRates[3],
                                           double i_fromTime,
                                           double i_toTime,
-                                          real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] );
+                                          real o_dofUpdate[tensor::Q::size()] );
     /**
      * Point sources in SeisSol (\delta(x-x_s) * S(t)).
      * 
@@ -144,7 +144,7 @@ namespace seissol {
                                            PiecewiseLinearFunction1D const* i_pwLF,
                                            double i_fromTime,
                                            double i_toTime,
-                                           real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] );
+                                           real o_dofUpdate[tensor::Q::size()] );
   }
 }
 

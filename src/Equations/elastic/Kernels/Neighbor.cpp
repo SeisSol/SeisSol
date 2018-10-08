@@ -200,7 +200,7 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   unsigned reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
-  reals += 6 * NUMBER_OF_ALIGNED_DOFS;
+  reals += 4 * tensor::I::size() + 2 * tensor::Q::size();
   // flux solvers load
   reals += 4 * tensor::AminusT::size();
   

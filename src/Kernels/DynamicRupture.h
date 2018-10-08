@@ -57,10 +57,6 @@ class seissol::kernels::DynamicRupture {
 
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
     double m_timeFactors[CONVERGENCE_ORDER][CONVERGENCE_ORDER];
-    
-    void evaluateTaylorExpansion( unsigned timeInterval,
-                                  real const* timeDerivatives,
-                                  real degreesOfFreedom[NUMBER_OF_ALIGNED_DOFS] );
 
   public:
     double timePoints[CONVERGENCE_ORDER];

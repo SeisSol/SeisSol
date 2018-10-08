@@ -184,7 +184,7 @@ unsigned seissol::kernels::Time::bytesAder()
   unsigned reals = 0;
   
   // DOFs load, tDOFs load, tDOFs write
-  reals += 3 * NUMBER_OF_ALIGNED_DOFS;
+  reals += tensor::Q::size() + 2 * tensor::I::size();
   // star matrices, source matrix
   reals += yateto::computeFamilySize<tensor::star>();
            

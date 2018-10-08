@@ -128,10 +128,11 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
   assert( ((uintptr_t)timeDerivativePlus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)&godunov[0])         % ALIGNMENT == 0 );
+  assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
-  real degreesOfFreedomPlus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-  real degreesOfFreedomMinus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
+  real degreesOfFreedomPlus[tensor::Q::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  real degreesOfFreedomMinus[tensor::Q::size()] __attribute__((aligned(PAGESIZE_STACK)));
 
   kernel::derivativeTaylorExpansion taylorKrnlPlus;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {

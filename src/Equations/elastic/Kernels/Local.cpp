@@ -128,7 +128,7 @@ unsigned seissol::kernels::Local::bytesIntegral()
   reals += 4 * tensor::AplusT::size();
 
   // DOFs write
-  reals += NUMBER_OF_ALIGNED_DOFS;
+  reals += tensor::Q::size();
   
   return reals * sizeof(real);
 }

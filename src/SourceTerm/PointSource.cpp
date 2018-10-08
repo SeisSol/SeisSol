@@ -133,7 +133,7 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
                                                            PiecewiseLinearFunction1D const slipRates[3],
                                                            double i_fromTime,
                                                            double i_toTime,
-                                                           real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] )
+                                                           real o_dofUpdate[tensor::Q::size()] )
 {  
   real slip[] = { 0.0, 0.0, 0.0};
   for (unsigned i = 0; i < 3; ++i) {
@@ -174,7 +174,7 @@ void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJIn
                                                             PiecewiseLinearFunction1D const* i_pwLF,
                                                             double i_fromTime,
                                                             double i_toTime,
-                                                            real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] )
+                                                            real o_dofUpdate[tensor::Q::size()] )
 {
   real l_integral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);  
 
