@@ -47,7 +47,14 @@ def getArchitectures():
   cpus = ['noarch', 'wsm', 'snb', 'knc', 'hsw', 'knl']
   precisions = ['s', 'd']
   return [p + c for c in cpus for p in precisions]
-  
+
+def getRealSize(architecture):
+  realSize = {
+    's': 4,
+    'd': 8
+  }
+  return realSize[ architecture[0].lower() ]
+
 def getCpu(architecture):
   return architecture[1:]
   
@@ -92,4 +99,8 @@ def getFlags(architecture, compiler):
     flags.extend(['-ip'])
               
   return flags
-  
+
+def getDefines(architecture):
+  alignment = 'ALIGNMENT={}'.format(getAlignment(architecture))
+  precision = 'REAL_SIZE={}'.format(getRealSize(architecture))
+  return [alignment, precision]
