@@ -171,8 +171,8 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
     for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
       unsigned plusCell = (unsigned int)lrand48() % i_cells;
       unsigned minusCell = (unsigned int)lrand48() % i_cells;
-      timeDerivativePlus[face] = &m_fakeDerivatives[plusCell * NUMBER_OF_ALIGNED_DERS];
-      timeDerivativeMinus[face] = &m_fakeDerivatives[minusCell * NUMBER_OF_ALIGNED_DERS];
+      timeDerivativePlus[face] = &m_fakeDerivatives[plusCell * yateto::computeFamilySize<tensor::dQ>()];
+      timeDerivativeMinus[face] = &m_fakeDerivatives[minusCell * yateto::computeFamilySize<tensor::dQ>()];
       
       faceInformation[face].plusSide = (unsigned int)lrand48() % 4;
       faceInformation[face].minusSide = (unsigned int)lrand48() % 4;

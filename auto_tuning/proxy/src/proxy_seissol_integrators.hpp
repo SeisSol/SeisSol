@@ -140,7 +140,7 @@ void computeNeighboringIntegration() {
                                             (double)m_timeStepWidthSimulation,
                                                     faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData.integrationBufferLTS[omp_get_thread_num()*4*NUMBER_OF_ALIGNED_DOFS])),
+                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData.integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
 #else
                                                     *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData.integrationBufferLTS),
 #endif
