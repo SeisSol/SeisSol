@@ -71,7 +71,7 @@ multipleSimulations = int(cmdLineArgs.multipleSimulations)
 if multipleSimulations > 1:
   qShape = (multipleSimulations, numberOf3DBasisFunctions, numberOfQuantities)
   qi = lambda x: 's' + x
-  alignStride=False
+  alignStride=set(['fP({})'.format(i) for i in range(3)])
   transpose=True
   t = lambda x: x[::-1]
 else:
