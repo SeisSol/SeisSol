@@ -375,6 +375,7 @@ class seissol::Interoperability {
                               real   godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
                               real   imposedStatePlus[seissol::model::godunovState::reals],
                               real   imposedStateMinus[seissol::model::godunovState::reals],
+                              real   absoluteSlip[seissol::model::godunovState::rows],
                               double i_fullUpdateTime,
                               double timePoints[CONVERGENCE_ORDER],
                               double timeWeights[CONVERGENCE_ORDER],

@@ -73,17 +73,23 @@ def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQua
   DB.determineGlobalMatrixIds(globalMatrixIdRules, db, 'dr')
 
 def addKernels(db, kernels, dofMatrixName):
+  godunovStatePlus = db['godunovState'] * db['godunovMatrix']
+  kernels.append(Kernel.Prototype('godunovStatePlus', godunovStatePlus, beta=0))
+
+  godunovStateMinus = db['godunovState'] * db['godunovMatrix']
+  kernels.append(Kernel.Prototype('godunovStateMinus', godunovStateMinus, beta=1))
+
   # Kernels
   for i in range(0,4):
-    godunovStatePlus = db['nP{}'.format(i+1)] * db[dofMatrixName] * db['godunovMatrix']
-    kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4), godunovStatePlus, beta=0, prefetch=godunovStatePlus))
-    
+    evaluateAtQuadraturePoints = db['nP{}'.format(i+1)] * db[dofMatrixName]
+    kernels.append(Kernel.Prototype('evaluateAtQuadraturePoints[{}]'.format(i*4), evaluateAtQuadraturePoints, beta=0, prefetch=db['godunovState']))
+
     flux = db['pP{}'.format(i+1)] * db['godunovState'] * db['fluxSolver']
     kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4), flux, prefetch=db['godunovState']))
-    
+
     for h in range(1,4):
-      godunovStateMinus = db['nM{}{}'.format(i+1,h)] * db[dofMatrixName] * db['godunovMatrix']
-      kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4+h), godunovStateMinus, beta=1, prefetch=godunovStateMinus))
+      evaluateAtQuadraturePoints = db['nM{}{}'.format(i+1,h)] * db[dofMatrixName]
+      kernels.append(Kernel.Prototype('evaluateAtQuadraturePoints[{}]'.format(i*4+h), evaluateAtQuadraturePoints, beta=0, prefetch=db['godunovState']))
 
       flux = db['pM{}{}'.format(i+1,h)] * db['godunovState'] * db['fluxSolver']
       kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4+h), flux, prefetch=db['godunovState']))
