@@ -62,6 +62,15 @@ def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQua
   db.insert(DB.MatrixInfo('godunovMatrix', numberOfElasticQuantities, numberOfElasticQuantities)) 
   db.insert(DB.MatrixInfo('fluxSolver', numberOfElasticQuantities, numberOfQuantities))
   db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfElasticQuantities))
+  
+  tractionMatrixSpp = np.matlib.zeros((6, 3), dtype=np.float64)
+  for i in range(3):
+    tractionMatrixSpp[i,i] = 1.0
+    tractionMatrixSpp[i+3,i] = 1.0
+    tractionMatrixSpp[i+3,(i+1)%3] = 1.0
+  db.insert(DB.MatrixInfo('tractionMatrix', 6, 3, matrix=tractionMatrixSpp))
+  db.insert(DB.MatrixInfo('godunovStateStress', numberOfPoints, 6))
+  
 
   stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
   globalMatrixIdRules = [
@@ -78,6 +87,9 @@ def addKernels(db, kernels, dofMatrixName):
 
   godunovStateMinus = db['godunovState'] * db['godunovMatrix']
   kernels.append(Kernel.Prototype('godunovStateMinus', godunovStateMinus, beta=1))
+  
+  computeTraction = db['godunovStateStress'] * db['tractionMatrix']
+  kernels.append(Kernel.Prototype('computeTraction', computeTraction, beta=0))
 
   # Kernels
   for i in range(0,4):

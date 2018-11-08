@@ -418,6 +418,7 @@ struct DRFaceInformation {
 struct DRGodunovData {
   real godunovMatrixPlus[seissol::model::godunovMatrix::reals];
   real godunovMatrixMinus[seissol::model::godunovMatrix::reals];
+  real tractionMatrix[seissol::model::tractionMatrix::reals];
 };
 
 struct CellDRMapping {
