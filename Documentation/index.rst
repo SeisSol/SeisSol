@@ -20,10 +20,69 @@ Characteristics of the SeisSol simulation software are:
 - to produce reliable and sufficiently accurate synthetic seismograms or other seismological data set
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents
+  :maxdepth: 2
+  :caption: Introduction
 
-   compilation
-   first_example
-   issues
+  introduction
+  compilation
+  a-first-example
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Structural models
+
+  cad-models
+  meshing
+  gmsh
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Invoking SeisSol
+  
+  configuration
+  parameter-file
+  easi
+  fault-tagging
+  environment-variables
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Output
+  
+  fault-output
+  free-surface-output
+  off-fault-receivers
+  postprocessing-and-visualization
+  wave-field-output
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Further documentation
+
+  asagi
+  standard-rupture-format
+  point-source-older-implementation
+  dynamic-rupture
+  computing-time-vs-order-of-accuracy
+  performance-measurement
+  attenuation
+  2018-student-cluster-competition
+  basic-code-structure
+  known-issues
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Unsorted
+
+  generating-a-cad-model-using-gocad-basic-tutorial
+  meshing-partionning-with-pumgen-deprecated
+  remeshing-the-topography
+  building-seissol-on-stampede-knl-test-system
+  meshing-with-simmodeler
+  adapting-the-cad-model-resolution-using-gocad
+  left-lateral-right-lateral-normal-reverse
+  optimization-for-non-intel-architectures
+  home
+  manually-fixing-an-intersection-in-gocad
+
    

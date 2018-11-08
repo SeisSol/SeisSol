@@ -1,4 +1,4 @@
-Known issues
+Known Issues
 ============
 
 Download
@@ -24,7 +24,7 @@ Installation
 -  **The build process fails because of missing files.** SeisSol
    requires some external libraries which are integrated via git
    submodules. For some of the libraries it is important to have the
-   correct version (e.g. the XMDF Writer) because of changes in the
+   correct version (e.g. the XMDF Writer) because of changes in the
    interface of the library. If you clone the submodules with git, you
    should always get the correct version. However, downloading the
    SeisSol and its submodules directly from the Github homepage might
@@ -38,11 +38,10 @@ Installation
 -  | **The SCons configuration step fails, although all dependencies are
      installed and all variables are correct.**
    | SCons maintains a cache in the root directory. When you build
-     different versions of SeisSol or your environment changes
-     (e.g. compiler update), the cache might not be evicted correctly.
-     You can use the option ``--config=force`` in when running SCons or
-     delete the hidden cache folder ``.sconf_temp`` in SeisSol root
-     directory.
+     different versions of SeisSol or your environment changes (e.g.
+     compiler update), the cache might not be evicted correctly. You can
+     use the option ``--config=force`` in when running SCons or delete
+     the hidden cache folder ``.sconf_temp`` in SeisSol root directory.
 
 Asynchronous output
 -------------------
@@ -53,6 +52,8 @@ locking. This can lead to crashes or deadlocks when using the
 asynchronous output. A simple workaround is to use the POSIX back-end of
 the XDMF writer, this is compiling SeisSol without HDF5. For
 checkpointing one should also switch to POSIX or SIONlib.
+
+.. _easi-and-intel/16.0:
 
 easi and Intel/16.0
 -------------------
@@ -65,9 +66,11 @@ initialization (you can see the inprint of some partitions in the
 initial stress). The bugs are not showing off with latest Intel/17.0
 module.
 
-“Holes” in the fault output
+.. _"holes"-in-the-fault-output:
+
+"Holes" in the fault output
 ---------------------------
 
-“Holes” in the fault output may appear if the reference point or
+"Holes" in the fault output may appear if the reference point or
 reference vector, defined by (Xref, Yref and Zref) is wrongly located
 (point exactly on the fault, or null vector).
