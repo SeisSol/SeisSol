@@ -25,4 +25,5 @@ Characteristics of the SeisSol simulation software are:
 
    compilation
    first_example
+   issues
    

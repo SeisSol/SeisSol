@@ -204,8 +204,13 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 				m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = rank;
 			}
 
-			m_elements[i].boundaries[FACE_PUML2SEISSOL[j]] = (boundaryCond[i] >> (j*8)) & 0xFF;
-
+			int bcCurrentFace = (boundaryCond[i] >> (j*8)) & 0xFF;
+			int faultTag = bcCurrentFace;
+			if (bcCurrentFace > 6) {
+				bcCurrentFace = 3;
+			}
+			m_elements[i].boundaries[FACE_PUML2SEISSOL[j]] = bcCurrentFace;
+			m_elements[i].faultTags[FACE_PUML2SEISSOL[j]] = faultTag;
 			m_elements[i].mpiIndices[FACE_PUML2SEISSOL[j]] = 0;
 		}
 

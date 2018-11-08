@@ -136,7 +136,7 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = barycentre[dim];
       }
-      query.group(q) = 0;
+      query.group(q) = elements[element].faultTags[side];
     }
   }
   return query;
@@ -172,7 +172,7 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = xyz[dim];
       }
-      query.group(q) = 0;
+      query.group(q) = elements[element].faultTags[side];
     }
   }
   return query;
