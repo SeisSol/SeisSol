@@ -62,6 +62,7 @@ struct seissol::initializers::DynamicRupture {
   Variable<DRFaceInformation>                           faceInformation;
   Variable<seissol::model::IsotropicWaveSpeeds>         waveSpeedsPlus;
   Variable<seissol::model::IsotropicWaveSpeeds>         waveSpeedsMinus;
+  Variable<real[seissol::model::godunovState::rows]>    absoluteSlip;
   
   
   void addTo(LTSTree& tree) {
@@ -77,6 +78,7 @@ struct seissol::initializers::DynamicRupture {
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
+    tree.addVar(            absoluteSlip,             mask,         ALIGNMENT,      seissol::memory::Standard );
   }
 };
 #endif

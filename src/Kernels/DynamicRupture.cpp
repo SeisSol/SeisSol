@@ -139,7 +139,8 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
                                                             real const*                 timeDerivativeMinus,
                                                             real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
                                                             real const*                 timeDerivativePlus_prefetch,
-                                                            real const*                 timeDerivativeMinus_prefetch ) {
+                                                            real const*                 timeDerivativeMinus_prefetch,
+                                                            real                        absoluteSlip[seissol::model::godunovState::rows] ) {
   // assert alignments
 #ifndef NDEBUG
   for (unsigned face = 0; face < 4; ++face) {
@@ -159,23 +160,47 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
     evaluateTaylorExpansion(timeInterval, timeDerivativeMinus, degreesOfFreedomMinus);
 
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativePlus_prefetch;
-    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativeMinus_prefetch;
-    
-    seissol::generatedKernels::godunovState[4*faceInfo.plusSide](
-      godunovData->godunovMatrixPlus,
+    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativeMinus_prefetch;        
+
+    real atQPPointsPlus[seissol::model::godunovState::reals] __attribute__((aligned(PAGESIZE_STACK)));
+    real atQPPointsMinus[seissol::model::godunovState::reals] __attribute__((aligned(PAGESIZE_STACK)));
+
+    seissol::generatedKernels::evaluateAtQuadraturePoints[4*faceInfo.plusSide](
       global->faceToNodalMatrices[faceInfo.plusSide][0],
       degreesOfFreedomPlus,
-      &godunov[timeInterval][0],
+      atQPPointsPlus,
       plusPrefetch
     );
-  
-    seissol::generatedKernels::godunovState[4*faceInfo.minusSide + faceInfo.faceRelation](
-      godunovData->godunovMatrixMinus,
+
+    seissol::generatedKernels::evaluateAtQuadraturePoints[4*faceInfo.minusSide + faceInfo.faceRelation](
       global->faceToNodalMatrices[faceInfo.minusSide][faceInfo.faceRelation],
       degreesOfFreedomMinus,
-      &godunov[timeInterval][0],
+      atQPPointsMinus,
       minusPrefetch
-    ); 
+    );
+
+    seissol::generatedKernels::godunovStatePlus(
+      godunovData->godunovMatrixPlus,
+      atQPPointsPlus,
+      &godunov[timeInterval][0]
+    );
+
+    seissol::generatedKernels::godunovStateMinus(
+      godunovData->godunovMatrixMinus,
+      atQPPointsMinus,
+      &godunov[timeInterval][0]
+    );
+
+    double norm[seissol::model::godunovState::rows] __attribute__((aligned(ALIGNMENT))) = {};
+    for (unsigned d = 0; d < 3; ++d) {
+      for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
+        double diff = atQPPointsMinus[(6+d)*seissol::model::godunovState::rows + i] - atQPPointsPlus[(6+d)*seissol::model::godunovState::rows + i];
+        norm[i] += diff*diff;
+      }
+    }
+    for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
+      absoluteSlip[i] += timeWeights[timeInterval] * sqrt(norm[i]);
+    }
   }
 }
 
@@ -199,12 +224,18 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
   // 2x evaluateTaylorExpansion
   o_nonZeroFlops *= 2;
   o_hardwareFlops *= 2;
+
+  o_nonZeroFlops += seissol::flops::evaluateAtQuadraturePoints_nonZero[4*faceInfo.plusSide];
+  o_hardwareFlops += seissol::flops::evaluateAtQuadraturePoints_hardware[4*faceInfo.plusSide];
   
-  o_nonZeroFlops += seissol::flops::godunovState_nonZero[4*faceInfo.plusSide];
-  o_hardwareFlops += seissol::flops::godunovState_hardware[4*faceInfo.plusSide];
+  o_nonZeroFlops += seissol::flops::evaluateAtQuadraturePoints_nonZero[4*faceInfo.minusSide + faceInfo.faceRelation];
+  o_hardwareFlops += seissol::flops::evaluateAtQuadraturePoints_hardware[4*faceInfo.minusSide + faceInfo.faceRelation];
   
-  o_nonZeroFlops += seissol::flops::godunovState_nonZero[4*faceInfo.minusSide + faceInfo.faceRelation];
-  o_hardwareFlops += seissol::flops::godunovState_hardware[4*faceInfo.minusSide + faceInfo.faceRelation];
+  o_nonZeroFlops += seissol::flops::godunovStatePlus_nonZero;
+  o_hardwareFlops += seissol::flops::godunovStatePlus_hardware;
+
+  o_nonZeroFlops += seissol::flops::godunovStateMinus_nonZero;
+  o_hardwareFlops += seissol::flops::godunovStateMinus_hardware;
   
   o_nonZeroFlops *= CONVERGENCE_ORDER;
   o_hardwareFlops *= CONVERGENCE_ORDER;

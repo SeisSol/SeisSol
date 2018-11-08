@@ -126,7 +126,7 @@ module f_ctof_bind_interoperability
       l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
     end subroutine
 
-    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_godunov, i_imposedStatePlus, i_imposedStateMinus, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
+    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_godunov, i_imposedStatePlus, i_imposedStateMinus, i_absoluteSlip, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -149,6 +149,9 @@ module f_ctof_bind_interoperability
 
       type(c_ptr), value                     :: i_imposedStateMinus
       REAL_TYPE, pointer                     :: l_imposedStateMinus(:,:)
+
+      type(c_ptr), value                     :: i_absoluteSlip
+      REAL_TYPE, pointer                     :: l_absoluteSlip(:)
 
       type(c_ptr), value                     :: i_time
       real*8, pointer                        :: l_time
@@ -178,9 +181,11 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_godunov,            l_godunov, [i_godunovLd,9,CONVERGENCE_ORDER])
       call c_f_pointer( i_imposedStatePlus,   l_imposedStatePlus, [i_godunovLd,9])
       call c_f_pointer( i_imposedStateMinus,  l_imposedStateMinus, [i_godunovLd,9])
+      call c_f_pointer( i_absoluteSlip,       l_absoluteSlip, [i_godunovLd])
       call c_f_pointer( i_time,               l_time  )
       
       call copyDynamicRuptureState(l_domain, i_face, i_face)
+      l_domain%disc%DynRup%output_Slip(:,i_face) = l_absoluteSlip(:)
 
       iElem               = l_domain%MESH%Fault%Face(i_face,1,1)          ! Remark:
       iSide               = l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
