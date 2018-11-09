@@ -33,11 +33,11 @@ double seissol::writer::computeStaticWork(  GlobalData const*           global,
   dynRupKernel.computeTractionAndSlipRate(godunovData, atQPPointsPlus, atQPPointsMinus, tractionAndSlipRate);
   
   for (unsigned d = 0; d < 3; ++d) {
-    for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
+    for (unsigned i = 0; i < seissol::model::godunovState::ld; ++i) {
       tractionAndSlipRate[(3+d)*seissol::model::godunovState::ld + i] = slip[d*seissol::model::godunovState::ld + i];
     }
   }
-  
+
   return -0.5 * dynRupKernel.energySpaceIntegral(godunovData, tractionAndSlipRate);
 }
 
@@ -57,7 +57,7 @@ void seissol::writer::printEnergies(  GlobalData const*                       gl
     DROutput*           drOutput            = it->var(dynRup->drOutput);
 
 #ifdef _OPENMP
-    #pragma omp parallel for reduction(+: totalWorkLocal) reduction(+: staticWorkLocal)
+    #pragma omp parallel for reduction(+:totalWorkLocal) reduction(+:staticWorkLocal)
 #endif
     for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
@@ -86,8 +86,8 @@ void seissol::writer::printEnergies(  GlobalData const*                       gl
 #endif
   
   if (rank == 0) {
-    logInfo(rank) << "Total work:" << totalWorkLocal;
-    logInfo(rank) << "Static work:" << staticWorkLocal;
-    logInfo(rank) << "Radiated energy:" << totalWorkLocal - staticWorkLocal;
+    logInfo(rank) << "Total work:" << totalWorkGlobal;
+    logInfo(rank) << "Static work:" << staticWorkGlobal;
+    logInfo(rank) << "Radiated energy:" << totalWorkGlobal - staticWorkGlobal;
   }
 }
