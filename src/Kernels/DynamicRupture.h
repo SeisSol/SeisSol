@@ -43,6 +43,8 @@
 
 #include <Initializer/typedefs.hpp>
 
+#define NUMBER_OF_SPACE_QUADRATURE_POINTS ((CONVERGENCE_ORDER+1)*(CONVERGENCE_ORDER+1))
+
 namespace seissol {
   namespace kernels {
     class DynamicRupture;
@@ -63,6 +65,7 @@ class seissol::kernels::DynamicRupture {
     double timePoints[CONVERGENCE_ORDER];
     double timeSteps[CONVERGENCE_ORDER];
     double timeWeights[CONVERGENCE_ORDER];
+    double spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS];
 
     DynamicRupture();
     
@@ -70,13 +73,21 @@ class seissol::kernels::DynamicRupture {
 
     void computeGodunovState( DRFaceInformation const&    faceInfo,
                               GlobalData const*           global,
-                              DRGodunovData const*        godunovData,
+                              DRGodunovData const&        godunovData,
                               real const*                 timeDerivativePlus,
                               real const*                 timeDerivativeMinus,
                               real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
                               real const*                 timeDerivativePlus_prefetch, 
                               real const*                 timeDerivativeMinus_prefetch,
-                              real                        absoluteSlip[seissol::model::godunovState::rows] );
+                              DROutput&                   drOutput );
+
+    void computeTractionAndSlipRate(  DRGodunovData const&  godunovData,
+                                      real const            atQPPointsPlus[seissol::model::godunovState::reals],
+                                      real const            atQPPointsMinus[seissol::model::godunovState::reals],
+                                      real                  tractionAndSlipRate[seissol::model::godunovState::ld*seissol::model::tractionAndSlipRateMatrix::cols] );
+
+    double energySpaceIntegral( DRGodunovData const&  godunovData,
+                                real                  tractionAndSlipRate[seissol::model::godunovState::ld*seissol::model::tractionAndSlipRateMatrix::cols] );
 
     void flopsGodunovState( DRFaceInformation const&  faceInfo,
                             long long&                o_nonZeroFlops,

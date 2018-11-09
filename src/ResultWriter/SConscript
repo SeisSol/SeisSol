@@ -59,7 +59,8 @@ writerFiles = [ 'inioutput_seissol.f90',
                 'FreeSurfaceWriter.cpp',
                 'FreeSurfaceWriterExecutor.cpp',
                 'PostProcessor.cpp',
-                'ReceiverWriter.cpp' ]
+                'ReceiverWriter.cpp',
+                'EnergyOutput.cpp' ]
 
 for i in writerFiles:
   env.sourceFiles.append(env.Object(i))

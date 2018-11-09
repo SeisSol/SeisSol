@@ -69,6 +69,9 @@ seissol::kernels::DynamicRupture::DynamicRupture() {
       m_derivativesOffsets[l_order] +=  m_derivativesOffsets[l_order-1];
     }
   }
+  
+  double points[NUMBER_OF_SPACE_QUADRATURE_POINTS][2];  
+  seissol::quadrature::TriangleQuadrature(points, spaceWeights, CONVERGENCE_ORDER+1);
 }
 
 void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
@@ -134,13 +137,13 @@ void seissol::kernels::DynamicRupture::evaluateTaylorExpansion( unsigned timeInt
 
 void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation const&    faceInfo,
                                                             GlobalData const*           global,
-                                                            DRGodunovData const*        godunovData,
+                                                            DRGodunovData const&        godunovData,
                                                             real const*                 timeDerivativePlus,
                                                             real const*                 timeDerivativeMinus,
                                                             real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
                                                             real const*                 timeDerivativePlus_prefetch,
                                                             real const*                 timeDerivativeMinus_prefetch,
-                                                            real                        absoluteSlip[seissol::model::godunovState::rows] ) {
+                                                            DROutput&                   drOutput ) {
   // assert alignments
 #ifndef NDEBUG
   for (unsigned face = 0; face < 4; ++face) {
@@ -180,45 +183,66 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
     );
 
     seissol::generatedKernels::godunovStatePlus(
-      godunovData->godunovMatrixPlus,
+      godunovData.godunovMatrixPlus,
       atQPPointsPlus,
       &godunov[timeInterval][0]
     );
 
     seissol::generatedKernels::godunovStateMinus(
-      godunovData->godunovMatrixMinus,
+      godunovData.godunovMatrixMinus,
       atQPPointsMinus,
       &godunov[timeInterval][0]
     );
     
-    real slipRate[seissol::model::godunovState::rows*3] __attribute__((aligned(ALIGNMENT)));
-    for (unsigned d = 0; d < 3; ++d) {
-      for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
-        slipRate[d*seissol::model::godunovState::rows + i] = atQPPointsMinus[(6+d)*seissol::model::godunovState::rows + i] - atQPPointsPlus[(6+d)*seissol::model::godunovState::rows + i];
-      }
-    }
-    
-    real stress[seissol::model::godunovState::rows*6] __attribute__((aligned(ALIGNMENT)));
-    for (unsigned d = 0; d < 6; ++d) {
-      for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
-        stress[d*seissol::model::godunovState::rows + i] = 0.5 * (atQPPointsMinus[d*seissol::model::godunovState::rows + i] + atQPPointsPlus[d*seissol::model::godunovState::rows + i]);
-      }
-    }
+    real tractionAndSlipRate[seissol::model::godunovState::ld*seissol::model::tractionAndSlipRateMatrix::cols] __attribute__((aligned(ALIGNMENT)));
+    computeTractionAndSlipRate(godunovData, atQPPointsPlus, atQPPointsMinus, tractionAndSlipRate);    
 
-    double norm[seissol::model::godunovState::rows] __attribute__((aligned(ALIGNMENT))) = {};
+    double norm[seissol::model::godunovState::ld] __attribute__((aligned(ALIGNMENT))) = {};
     for (unsigned d = 0; d < 3; ++d) {
       for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
-        norm[i] += slipRate[i]*slipRate[i];
+        auto sr = tractionAndSlipRate[(3+d)*seissol::model::godunovState::ld + i];
+        drOutput.slip[d*seissol::model::godunovState::ld + i] += timeWeights[timeInterval] * sr;
+        norm[i] += sr*sr;
       }
     }
     for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
-      absoluteSlip[i] += timeWeights[timeInterval] * sqrt(norm[i]);
+      drOutput.absoluteSlip[i] += timeWeights[timeInterval] * sqrt(norm[i]);
     }
-    
-    real traction[seissol::model::godunovState::rows*seissol::model::tractionMatrix::cols] __attribute__((aligned(ALIGNMENT)));
-    seissol::generatedKernels::computeTraction(stress, godunovData->tractionMatrix, traction);
 
+    drOutput.frictionalEnergy += - timeWeights[timeInterval] * energySpaceIntegral(godunovData, tractionAndSlipRate);
   }
+}
+
+void seissol::kernels::DynamicRupture::computeTractionAndSlipRate(  DRGodunovData const&  godunovData,
+                                                                    real const            atQPPointsPlus[seissol::model::godunovState::reals],
+                                                                    real const            atQPPointsMinus[seissol::model::godunovState::reals],
+                                                                    real                  tractionAndSlipRate[seissol::model::godunovState::ld*seissol::model::tractionAndSlipRateMatrix::cols] )
+{
+  real stressAndSlipRate[seissol::model::godunovState::reals] __attribute__((aligned(ALIGNMENT)));
+  for (unsigned d = 0; d < 6; ++d) {
+    for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
+      stressAndSlipRate[d*seissol::model::godunovState::ld + i] = 0.5 * (atQPPointsMinus[d*seissol::model::godunovState::ld + i] + atQPPointsPlus[d*seissol::model::godunovState::ld + i]);
+    }
+  }
+  for (unsigned d = 0; d < 3; ++d) {
+    for (unsigned i = 0; i < seissol::model::godunovState::rows; ++i) {
+      stressAndSlipRate[(6+d)*seissol::model::godunovState::ld + i] = atQPPointsMinus[(6+d)*seissol::model::godunovState::ld + i] - atQPPointsPlus[(6+d)*seissol::model::godunovState::ld + i];
+    }
+  }
+
+  seissol::generatedKernels::computeTractionAndRotateSlipRate(stressAndSlipRate, godunovData.tractionAndSlipRateMatrix, tractionAndSlipRate);
+}
+
+double seissol::kernels::DynamicRupture::energySpaceIntegral( DRGodunovData const&  godunovData,
+                                                              real                  tractionAndSlipRate[seissol::model::godunovState::ld*seissol::model::tractionAndSlipRateMatrix::cols] )
+{
+  double energy = 0.0;
+  for (unsigned d = 0; d < 3; ++d) {
+    for (unsigned i = 0; i < NUMBER_OF_SPACE_QUADRATURE_POINTS; ++i) {
+      energy += spaceWeights[i] * tractionAndSlipRate[d*seissol::model::godunovState::ld + i] * tractionAndSlipRate[(3+d)*seissol::model::godunovState::ld + i];
+    }
+  }
+  return godunovData.doubledSurfaceArea * energy;
 }
 
 void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation const&  faceInfo,

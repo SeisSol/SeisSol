@@ -241,7 +241,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   real                                (*imposedStateMinus)[seissol::model::godunovState::reals]           = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
-  real                                (*absoluteSlip)[seissol::model::godunovState::rows]                 = layerData.var(m_dynRup->absoluteSlip);
+  DROutput*                             drOutput                                                          = layerData.var(m_dynRup->drOutput);
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
@@ -250,19 +250,19 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
     m_dynamicRuptureKernel.computeGodunovState( faceInformation[face],
                                                 m_globalData,
-                                               &godunovData[face],
+                                                godunovData[face],
                                                 timeDerivativePlus[face],
                                                 timeDerivativeMinus[face],
                                                 godunov[face],
                                                 timeDerivativePlus[prefetchFace],
                                                 timeDerivativeMinus[prefetchFace],
-                                                absoluteSlip[face] );
+                                                drOutput[face] );
 
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             godunov[face],
                                             imposedStatePlus[face],
                                             imposedStateMinus[face],
-                                            absoluteSlip[face],
+                                            drOutput[face],
                                             m_fullUpdateTime,
                                             m_dynamicRuptureKernel.timePoints,
                                             m_dynamicRuptureKernel.timeWeights,
