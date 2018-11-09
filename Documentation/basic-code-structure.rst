@@ -1,6 +1,9 @@
 Basic code structure
 ====================
 
+src/
+----
+
 ============= =============
 Folder        Description
 ============= =============
@@ -20,4 +23,28 @@ ResultWriter  Fault, element, and surface output.
 Solver        Time-stepping and code executed during a simulation.
 SourceTerm    Everything related to kinematic rupture models.
 tests         Unit tests.
+============= =============
+
+preprocessing/
+--------------
+
+============= =============
+Folder        Description
+============= =============
+meshing       Cube generator; gmsh converter; various scripts.
+partitioning  *deprecated*
+science       ASAGI converter; standard rupture format converter; various scripts.
+workflow      *deprecated*
+============= =============
+
+postprocessing/
+---------------
+
+============= =============
+Folder        Description
+============= =============
+performance   *deprecated*
+science       Various scripts processing simulation output.
+validation    Cube mesh validation.
+visualisation Receiver viewer; scripts.
 ============= =============

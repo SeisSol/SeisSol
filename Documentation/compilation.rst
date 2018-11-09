@@ -122,6 +122,8 @@ Installing ParMetis (Optional:PUML mesh format)
 (Make sure parmetis/include contains metis.h and parmetis/lib contains
 libmetis.a. Ortherwise, compile error: cannot find parmetis.)
 
+.. _compiling-seissol:
+
 Compiling SeisSol
 -----------------
 

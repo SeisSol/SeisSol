@@ -23,7 +23,6 @@ Characteristics of the SeisSol simulation software are:
   :maxdepth: 2
   :caption: Introduction
 
-  introduction
   compilation
   a-first-example
 

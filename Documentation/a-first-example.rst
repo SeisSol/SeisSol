@@ -6,7 +6,7 @@ simulation. We will use the `SCEC TPV33
 benchmark <http://scecdata.usc.edu/cvws/tpv33docs.html>`__ as an example
 in this tutorial. We assume that you have successfully compiled SeisSol
 with the options ``parallelization=hybrid`` and ``generatedKernels=yes``
-(see [[compilation documentation|compilation]]).
+(see :ref:`compiling-seissol`).
 
 Setup
 -----
