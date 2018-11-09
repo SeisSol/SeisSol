@@ -267,9 +267,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
       if (fault[meshFace].element >= 0) {
         faceInformation[ltsFace].faceRelation = elements[ fault[meshFace].element ].sideOrientations[ fault[meshFace].side ] + 1;
+        faceInformation[ltsFace].plusSideOnThisRank = true;
       } else {
         /// \todo check if this is correct
         faceInformation[ltsFace].faceRelation = elements[ fault[meshFace].neighborElement ].sideOrientations[ fault[meshFace].neighborSide ] + 1;
+        faceInformation[ltsFace].plusSideOnThisRank = false;
       }
 
       /// Look for time derivative mapping in all duplicates
@@ -394,15 +396,17 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       MatrixView fluxSolverPlusView(fluxSolverPlus[ltsFace], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
       MatrixView fluxSolverMinusView(fluxSolverMinus[ltsFace], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
 
-      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
+      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea;
       if (fault[meshFace].element >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
+        surfaceArea = plusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
         plusSurfaceArea = 1.e99; plusVolume = 1.0;
       }
       if (fault[meshFace].neighborElement >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
+        surfaceArea = minusSurfaceArea;
       } else {
         /// Blow up solution on purpose if used by mistake
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
@@ -421,13 +425,20 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           fluxSolverMinusView(i, j) *= fluxScaleMinus;
         }
       }
+      
+      godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
-      MatrixView tractionMatrix(godunovData[ltsFace].tractionMatrix, seissol::model::tractionMatrix::reals, seissol::model::tractionMatrix::index);
-      tractionMatrix.setZero();
+      MatrixView tractionAndSlipRateMatrix( godunovData[ltsFace].tractionAndSlipRateMatrix,
+                                            seissol::model::tractionAndSlipRateMatrix::reals,
+                                            seissol::model::tractionAndSlipRateMatrix::index );
+      tractionAndSlipRateMatrix.setZero();
       for (unsigned d = 0; d < 3; ++d) {
-        tractionMatrix(d,d) = fault[meshFace].normal[d];
-        tractionMatrix(d+3,d) = fault[meshFace].normal[(d+1)%3];
-        tractionMatrix(d+3,(d+1)%3) = fault[meshFace].normal[d];
+        tractionAndSlipRateMatrix(d,d) = fault[meshFace].normal[d];
+        tractionAndSlipRateMatrix(d+3,d) = fault[meshFace].normal[(d+1)%3];
+        tractionAndSlipRateMatrix(d+3,(d+1)%3) = fault[meshFace].normal[d];
+        tractionAndSlipRateMatrix(d+6,3) = fault[meshFace].normal[d];
+        tractionAndSlipRateMatrix(d+6,4) = fault[meshFace].tangent1[d];
+        tractionAndSlipRateMatrix(d+6,5) = fault[meshFace].tangent2[d];
       }
     }
 

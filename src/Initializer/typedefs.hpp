@@ -413,12 +413,20 @@ struct DRFaceInformation {
   unsigned plusSide;
   unsigned minusSide;
   unsigned faceRelation;
+  bool     plusSideOnThisRank;
 };
 
 struct DRGodunovData {
   real godunovMatrixPlus[seissol::model::godunovMatrix::reals];
   real godunovMatrixMinus[seissol::model::godunovMatrix::reals];
-  real tractionMatrix[seissol::model::tractionMatrix::reals];
+  real tractionAndSlipRateMatrix[seissol::model::tractionAndSlipRateMatrix::reals];
+  double doubledSurfaceArea;
+};
+
+struct DROutput {
+  real slip[3*seissol::model::godunovState::ld];
+  real absoluteSlip[seissol::model::godunovState::ld];
+  double frictionalEnergy;
 };
 
 struct CellDRMapping {
