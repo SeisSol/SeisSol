@@ -64,12 +64,12 @@ def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQua
   db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfElasticQuantities))
   
   tractionAndSlipRateMatrixSpp = np.matlib.zeros((9, 6), dtype=np.float64)
-  for i in range(3):
-    tractionAndSlipRateMatrixSpp[i,i] = 1.0
-    tractionAndSlipRateMatrixSpp[i+3,i] = 1.0
-    tractionAndSlipRateMatrixSpp[i+3,(i+1)%3] = 1.0
-    for d in range(3,6):
-      tractionAndSlipRateMatrixSpp[i+6,d] = 1.0
+  for i in range(6):
+    for j in range(3):
+      tractionAndSlipRateMatrixSpp[i,j] = 1.0
+  for i in range(6,9):
+    for j in range(3,6):
+      tractionAndSlipRateMatrixSpp[i,j] = 1.0
   db.insert(DB.MatrixInfo('tractionAndSlipRateMatrix', 9, 6, matrix=tractionAndSlipRateMatrixSpp))
   
 

@@ -396,7 +396,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       MatrixView fluxSolverPlusView(fluxSolverPlus[ltsFace], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
       MatrixView fluxSolverMinusView(fluxSolverMinus[ltsFace], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
 
-      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea;
+      double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume, surfaceArea = 1.e99;
       if (fault[meshFace].element >= 0) {
         surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
         surfaceArea = plusSurfaceArea;
@@ -432,13 +432,15 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                             seissol::model::tractionAndSlipRateMatrix::reals,
                                             seissol::model::tractionAndSlipRateMatrix::index );
       tractionAndSlipRateMatrix.setZero();
-      for (unsigned d = 0; d < 3; ++d) {
-        tractionAndSlipRateMatrix(d,d) = fault[meshFace].normal[d];
-        tractionAndSlipRateMatrix(d+3,d) = fault[meshFace].normal[(d+1)%3];
-        tractionAndSlipRateMatrix(d+3,(d+1)%3) = fault[meshFace].normal[d];
-        tractionAndSlipRateMatrix(d+6,3) = fault[meshFace].normal[d];
-        tractionAndSlipRateMatrix(d+6,4) = fault[meshFace].tangent1[d];
-        tractionAndSlipRateMatrix(d+6,5) = fault[meshFace].tangent2[d];
+      for (unsigned i = 0; i < 6; ++i) {
+        tractionAndSlipRateMatrix(i,0) = Tinv(0,i);
+        tractionAndSlipRateMatrix(i,1) = Tinv(3,i);
+        tractionAndSlipRateMatrix(i,2) = Tinv(5,i);
+      }
+      for (unsigned i = 6; i < 9; ++i) {
+        tractionAndSlipRateMatrix(i,3) = Tinv(6,i);
+        tractionAndSlipRateMatrix(i,4) = Tinv(7,i);
+        tractionAndSlipRateMatrix(i,5) = Tinv(8,i);
       }
     }
 
