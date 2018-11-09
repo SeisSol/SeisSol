@@ -7,7 +7,7 @@ Gocad.
 A simple tutorial
 -----------------
 
-[[generating a CAD model using GOCAD: basic tutorial]]
+See :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
 
 Useful scripts
 --------------
@@ -37,8 +37,8 @@ the time available. Processing this large amount of data can really be a
 challenge. For example in Gocad, intersecting such surface with other
 surfaces can be time consuming and error prone. To overcome these kind
 of difficulties, an idea is to coarsen the meshed topography where a
-fine resolution is not necessary. For further details: [[Remeshing the
-topography]]. The same procedure can be also useful when the
+fine resolution is not necessary. For further details: :doc:`remeshing-the-topography`.
+The same procedure can be also useful when the
 intersection between 2 surfaces fails in gocad. In fact, remeshing one
 of the surfaces can make easier the intersection in Gocad. In such a
 case, all surface already intersected with the surface that we want to
@@ -50,16 +50,16 @@ keep unaffected by the remeshing.
 Alternative using Gocad
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-It can occur that the procedure described in [[Remeshing the
-topography]] is not applicable. For example if a first model with fine
+It can occur that the procedure described in :doc:`remeshing-the-topography`
+is not applicable. For example if a first model with fine
 topography has been compiled, and we want to extend it without starting
 from scratch. In this case, an alternative procedure can be used:
-[[adapting the CAD model resolution using Gocad]].
+:doc:`adapting-the-cad-model-resolution-using-gocad`.
 
 Dealing with intersection artefacts
 -----------------------------------
 
-[[Manually fixing an intersection in Gocad]]
+:doc:`manually-fixing-an-intersection-in-gocad`
 
 On the use of projections
 -------------------------

@@ -1,16 +1,15 @@
 Meshing with SimModeler
 =======================
 
-| The meshing workflow is presented through a simple example, by meshing
-  the CAD model obtained on this page:
-| `https://github.com/SeisSol/SeisSol/wiki/Generating-a-CAD-model-using-GOCAD:-basic-tutorial <https://github.com/SeisSol/SeisSol/wiki/Generating-a-CAD-model-using-GOCAD:-basic-tutorial>`__.
-| The created stl -file is imported via File > Import Discrete Data.
+The meshing workflow is presented through a simple example, by meshing
+the CAD model obtained from :doc:`generating-a-cad-model-using-gocad-basic-tutorial`.
+The created stl-file is imported via ``File > Import Discrete Data``.
 
 Prerequisite
 ------------
 
 To be able to properly define the boundary conditions and to be able to
-export the mesh in the proper format, `SimModeler have to be SeisSol
+export the mesh in the proper format, `SimModeler has to be SeisSol
 customized <https://github.com/SeisSol/Meshing/tree/master/SimModelerCustomization>`__.
 In particular your SimModeler path should contains the folders
 attDefs/simSeisSol, attDefs/seisSol.adi, simSeisSol and
@@ -32,14 +31,14 @@ the latest version of SimModeler.
 Analysis tab
 ------------
 
-| tab Analysis > Click twice on "New Case" on the Analysis Attributes
-  panel. give a name. If your SimModeler is set for SeisSol, the solver
-  seisSol should appear in the drop down menu.
-| Select the top surface (several surfaces can be selected by holding
-  Shift), click on the + sign > Boundary conditions > Free Surface. And
-  then on Apply-close (no need to enter a name).
-| Process similarly for the Absorbing and Dynamic rupture boundary
-  conditions.
+tab Analysis > Click twice on "New Case" on the Analysis Attributes panel.
+give a name. If your SimModeler is set for SeisSol, the solver
+seisSol should appear in the drop down menu.
+
+Select the top surface (several surfaces can be selected by holding
+Shift), click on the + sign > Boundary conditions > Free Surface. And
+then on Apply-close (no need to enter a name).
+Process similarly for the Absorbing and Dynamic rupture boundary conditions.
 
 Meshing tab
 -----------

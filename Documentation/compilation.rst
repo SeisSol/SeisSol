@@ -7,37 +7,33 @@ In order to run SeisSol, you need to first install:
 -  SCons (for instructions see below)
 -  hdf5 (for instructions see below)
 -  netcdf (C-Release) (for instructions see below)
--  Intel 2017 Compiler (icc/icpc/ifort) Suite (GCC support can be added
-   manually)
+-  Intel compiler (icc, icpc, ifort) or GCC (gcc, g++, gfortran)
 -  Some MPI implementation
--  ParMetis/Metis for partitioning
--  Libxsmm package for small matrix multiplications
--  cmake for compiling ImpalaJIT
+-  ParMETIS for partitioning
+-  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
+-  CMake for compiling ImpalaJIT
 
 Inital Adjustments to .bashrc
 -----------------------------
 
-1. add following lines to your .bashrc (vi ~/.bashrc), which should be
-   on the NAS
+Add the following lines to your .bashrc (vi ~/.bashrc).
 
-   ::
+.. code-block:: bash
 
-      # These are the versions we validated against
-      source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
+  source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
 
-      # User specific aliases and functions
-      export PATH=$HOME/bin:$PATH
-      export LD_LIBRARY_PATH=$HOME/lib:$HOME/lib64:$LD_LIBRARY_PATH
-      export EDITOR=vi
-      export SCONS_LIB_DIR=$HOME/lib64/scons-2.2.0/
-      export PATH=$HOME/../libxsmm/bin:$PATH
-      #This 2 lines have been suggested by @yzs981130 (not sure they are really necessary)
-      export C_INCLUDE_PATH=$HOME/include:$C_INCLUDE_PATH 
-      export CPLUS_INCLUDE_PATH=$HOME/include:$CPLUS_INCLUDE_PATH
+  # User specific aliases and functions
+  export PATH=$HOME/bin:$PATH
+  export LD_LIBRARY_PATH=$HOME/lib:$HOME/lib64:$LD_LIBRARY_PATH
+  export EDITOR=vi
+  export SCONS_LIB_DIR=$HOME/lib64/scons-2.2.0/
+  export PATH=$HOME/../libxsmm/bin:$PATH
+  export C_INCLUDE_PATH=$HOME/include:$C_INCLUDE_PATH 
+  export CPLUS_INCLUDE_PATH=$HOME/include:$CPLUS_INCLUDE_PATH
 
-      ######  ParMetis library necessary (Optional) ##############
-      export PARMETIS_BASE='path_to_parmetis'
-      export PARMETIS_LIBDIR='path_to_parmetis/lib'
+  ######  ParMetis library necessary (Optional) ##############
+  export PARMETIS_BASE='path_to_parmetis'
+  export PARMETIS_LIBDIR='path_to_parmetis/lib'
 
 Installing SCons
 ----------------
@@ -132,9 +128,8 @@ including all submodules:
 
 ::
 
-   git clone --recursive https://github.com/SeisSol/SeisSol.git
-
-(Don't forget --recursive, otherwise the submodules are not cloned!)
+   git clone https://github.com/SeisSol/SeisSol.git
+   git submodule update --init
 
 Add the following build variables to the file
 build/options/supermuc_mac_cluster.py

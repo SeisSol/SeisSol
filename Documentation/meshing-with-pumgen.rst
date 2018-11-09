@@ -1,18 +1,8 @@
-Meshing
-=======
+Meshing with PUMGen
+===================
 
-meshing with the GUI of SimModeler
-----------------------------------
-
-`https://github.com/SeisSol/SeisSol/wiki/meshing-with-SimModeler <https://github.com/SeisSol/SeisSol/wiki/meshing-with-SimModeler>`__
-
-.. _meshing-with-seissol/pumgen:
-
-meshing with SeisSol/PUMGen
----------------------------
-
-mesh format
-~~~~~~~~~~~
+Mesh format
+-----------
 
 SeisSol has recently gained in flexibility and user-friendliness through
 a new mesh format. Previously, SeisSol used a netcdf mesh format which
@@ -30,7 +20,7 @@ described here: [[meshing partionning with PUMgen (deprecated)]]. Note
 that netcdf can be easily converted to the new mesh format using PUMGen.
 
 PUMGen
-~~~~~~
+------
 
 | PUMGen
   (`https://github.com/SeisSol/PUMGen/wiki <https://github.com/SeisSol/PUMGen/wiki>`__)

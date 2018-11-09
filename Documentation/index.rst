@@ -31,7 +31,8 @@ Characteristics of the SeisSol simulation software are:
   :caption: Structural models
 
   cad-models
-  meshing
+  meshing-with-simmodeler
+  meshing-with-pumgen
   gmsh
 
 .. toctree::
@@ -71,17 +72,21 @@ Characteristics of the SeisSol simulation software are:
 
 .. toctree::
   :maxdepth: 2
+  :caption: Tutorials
+  
+  generating-a-cad-model-using-gocad-basic-tutorial
+  remeshing-the-topography
+  adapting-the-cad-model-resolution-using-gocad
+  manually-fixing-an-intersection-in-gocad
+
+.. toctree::
+  :maxdepth: 2
   :caption: Unsorted
 
-  generating-a-cad-model-using-gocad-basic-tutorial
   meshing-partionning-with-pumgen-deprecated
-  remeshing-the-topography
   building-seissol-on-stampede-knl-test-system
-  meshing-with-simmodeler
-  adapting-the-cad-model-resolution-using-gocad
   left-lateral-right-lateral-normal-reverse
   optimization-for-non-intel-architectures
   home
-  manually-fixing-an-intersection-in-gocad
 
    

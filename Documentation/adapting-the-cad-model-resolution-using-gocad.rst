@@ -1,4 +1,4 @@
-adapting the CAD model resolution using Gocad
+Adapting the CAD model resolution using Gocad
 =============================================
 
 In this example, a finely sampled topography (yellow) has already
