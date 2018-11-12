@@ -13,7 +13,7 @@ n>6. It is then possible to initialized fault parameters segment-wise
 easily. For example, if we have 2 segments, and we want them to have
 different dynamic friction, we can tag them with 3 and 10 and then use:
 
-.. code:: yaml
+.. code-block:: yaml
 
    [mu_d]: !Any
      components:
@@ -33,7 +33,7 @@ pumgen is to compile pumgen in the xml branch and make use of the xml
 feature. For example to tag face 2 as 3 and face 8 and 9 as 15, we would
 use:
 
-.. code:: xml
+.. code-block:: xml
 
    <boundaryCondition tag="3">2</boundaryCondition>
    <boundaryCondition tag="15">8,9</boundaryCondition>

@@ -4,18 +4,19 @@ Free surface output
 Introduction
 ------------
 
-velocities and ground deformations can be imaged as a surface
+Velocities and ground deformations can be imaged as a surface
 representation, in a file that can be opened in paraview. Threads or
-nodes can be dedicated to write this output (see `asynchronous
-output <https://github.com/SeisSol/SeisSol/wiki/Environment-Variables#asynchronous-output>`__),
+nodes can be dedicated to write this output (see :ref:`asynchronous-output`),
 but it is usually not necessary. The output to enabled in the Output
 namelist:
 
-   | &Output
-   | SurfaceOutput = 1
-   | SurfaceOutputRefinement = 1
-   | SurfaceOutputInterval = 0.5
-   | /
+.. code-block:: Fortran
+
+  &Output
+  SurfaceOutput = 1
+  SurfaceOutputRefinement = 1
+  SurfaceOutputInterval = 0.5
+  /
 
 If ``SurfaceOutputRefinement = 0``, one triangle is outputted for each
 mesh cell. The unknowns are evaluated at the center of each cell.

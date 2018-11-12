@@ -6,8 +6,7 @@ Introduction
 
 The wavefield can be written in a hdf5 file, in order to visualize it in
 paraview. To speed-up the process, it is recommanded to dedicate a few
-nodes to the writing tasks (see `asynchronous
-output <https://github.com/SeisSol/SeisSol/wiki/Environment-Variables#asynchronous-output>`__).
+nodes to the writing tasks (see :ref:`asynchronous-output`).
 
 Refinement
 ----------
@@ -19,6 +18,8 @@ Refinement
 | 3: Refinement strategy is Equal Face Area and Face Extraction : 32
   subcells per cell
 | The unknowns are always evaluated at the centre of the subcell.
+
+.. _wavefield-iouputmask:
 
 iOutputMask
 -----------

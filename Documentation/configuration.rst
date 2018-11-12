@@ -23,7 +23,7 @@ your are in the root directory of the code repository):
 
        echo $PWD/Maple/ > launch_SeisSol/DGPATH
 
-4. Create your [[parameter file]]
+4. Create your :doc:`parameter-file`
 
 5. Copy any additional input files referenced in the parameter file (for
    example file with receiver coordinates) to your launch directory
@@ -33,7 +33,7 @@ your are in the root directory of the code repository):
 
 7. Make sure output and checkpoint directories exist
 
-8. Optional: set [[environment variables]] for tuning
+8. Optional: set :doc:`environment-variables` for tuning
 
 Checklist for required files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -42,12 +42,13 @@ Necessary files
 ^^^^^^^^^^^^^^^
 
 -  SeisSol executable (compiled on the system where the job will run)
--  DGPATH as described in 3.
--  Parameterfile as described in
+-  DGPATH
+-  Parameter file
 
 Optional files depending on settings in the parameter file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 -  receiver files in \*.dat format (if nRecordPoints >0 in the parameter
    file)
--  fault receiver files in \*dat format (in the parameter file)
+-  fault receiver files in \*.dat format (in the parameter file)
+-  \*.yaml files for setting model parameters

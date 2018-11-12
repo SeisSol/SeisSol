@@ -12,6 +12,8 @@ for the `XdmfWriter <https://github.com/TUM-I5/XdmfWriter>`__ are listed
 in the corresponding
 `wiki <https://github.com/TUM-I5/XdmfWriter/wiki>`__.
 
+.. _asynchronous-output:
+
 Asynchronous Output
 ~~~~~~~~~~~~~~~~~~~
 
