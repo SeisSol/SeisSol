@@ -284,7 +284,7 @@ MODULE ini_model_DR_mod
   SUBROUTINE DR_basic_ini(DISC,EQN,MESH,BND)                 ! global variables
     use JacobiNormal_mod, only: RotationMatrix3D
     use f_ftoc_bind_interoperability
-    use iso_c_binding, only: c_null_char
+    use iso_c_binding, only: c_null_char, c_bool
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -296,6 +296,7 @@ MODULE ini_model_DR_mod
     ! Local variable declaration
     integer                             :: i
     real, allocatable, dimension(:,:)   :: nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz
+    logical(kind=c_bool)                :: faultParameterizedByTraction
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: MESH, BND
     INTENT(INOUT) :: EQN,DISC
@@ -347,13 +348,24 @@ MODULE ini_model_DR_mod
               ENDIF
           ENDDO
     ENDIF
+
+    faultParameterizedByTraction = c_interoperability_faultParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
     
-    call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
-    call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
-    call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
-    call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
-    call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
-    call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
+    if (faultParameterizedByTraction) then
+      call c_interoperability_addFaultParameter("T_n" // c_null_char, EQN%IniBulk_xx)
+      call c_interoperability_addFaultParameter("T_s" // c_null_char, EQN%IniShearXY)
+      call c_interoperability_addFaultParameter("T_d" // c_null_char, EQN%IniShearXZ)
+      EQN%IniBulk_yy(:,:) = 0.0d0
+      EQN%IniBulk_zz(:,:) = 0.0d0
+      EQN%IniShearYZ(:,:) = 0.0d0
+    else
+      call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
+      call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
+      call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
+      call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
+      call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
+      call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
+    endif
 
     !frictional parameter initialization
     SELECT CASE(EQN%FL)
@@ -386,12 +398,21 @@ MODULE ini_model_DR_mod
                   nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
         call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
         call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
-        call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
-        call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
-        call c_interoperability_addFaultParameter("nuc_zz" // c_null_char, nuc_zz)
-        call c_interoperability_addFaultParameter("nuc_xy" // c_null_char, nuc_xy)
-        call c_interoperability_addFaultParameter("nuc_yz" // c_null_char, nuc_yz)
-        call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)        
+        if (faultParameterizedByTraction) then
+          call c_interoperability_addFaultParameter("Tnuc_n" // c_null_char, nuc_xx)
+          call c_interoperability_addFaultParameter("Tnuc_s" // c_null_char, nuc_xy)
+          call c_interoperability_addFaultParameter("Tnuc_d" // c_null_char, nuc_xz)
+          nuc_yy(:,:) = 0.0d0
+          nuc_zz(:,:) = 0.0d0
+          nuc_yz(:,:) = 0.0d0
+        else
+          call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
+          call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
+          call c_interoperability_addFaultParameter("nuc_zz" // c_null_char, nuc_zz)
+          call c_interoperability_addFaultParameter("nuc_xy" // c_null_char, nuc_xy)
+          call c_interoperability_addFaultParameter("nuc_yz" // c_null_char, nuc_yz)
+          call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)
+        endif
       end if
     END SELECT
 
@@ -401,18 +422,20 @@ MODULE ini_model_DR_mod
                                               DISC%Galerkin%nBndGP                            )
 
     ! Rotate initial stresses to fault coordinate system
-    allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))    
-    call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS)
+    allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
+    call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS,faultParameterizedByTraction)
     
     if (EQN%FL == 103) then
       allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS)
+      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,faultParameterizedByTraction)
       deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
     end if
   END SUBROUTINE DR_basic_ini
   
-  SUBROUTINE rotateStressToFaultCS(EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz,stressInFaultCS)
+  SUBROUTINE rotateStressToFaultCS(EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz,stressInFaultCS,faultParameterizedByTraction)
     use JacobiNormal_mod, only: RotationMatrix3D
+    use iso_c_binding, only: c_bool
+    use create_fault_rotationmatrix_mod, only: create_fault_rotationmatrix
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -421,6 +444,7 @@ MODULE ini_model_DR_mod
     integer                               :: nBndGP
     real, allocatable, dimension(:,:)     :: s_xx,s_yy,s_zz,s_xy,s_yz,s_xz
     real, allocatable, dimension(:,:,:)   :: stressInFaultCS
+    logical(kind=c_bool)                  :: faultParameterizedByTraction
     !-------------------------------------------------------------------------!
     ! Local variable declaration
     integer                             :: iFace, iBndGP
@@ -429,10 +453,13 @@ MODULE ini_model_DR_mod
     real                                :: tangent2(3)
     real                                :: T(9,9)
     real                                :: iT(9,9)
+    real                                :: rotmat(6,6)
+    real                                :: iRotmat(6,6)
     real                                :: Stress(1:6,1:nBndGP)
     real                                :: StressinFaultCSTmp(6)
     !-------------------------------------------------------------------------!
-    intent(in)                          :: EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz
+    intent(in)                          :: EQN,MESH,nBndGP
+    intent(inout)                       :: s_xx,s_yy,s_zz,s_xy,s_yz,s_xz
     intent(inout)                       :: stressInFaultCS
     
     do iFace = 1, MESH%Fault%nSide
@@ -447,6 +474,20 @@ MODULE ini_model_DR_mod
       Stress(4,:) = s_xy(:,iFace)
       Stress(5,:) = s_yz(:,iFace)
       Stress(6,:) = s_xz(:,iFace)
+      
+      if (faultParameterizedByTraction) then
+        call create_fault_rotationmatrix(rotmat,iFace,EQN,MESH,iRotmat)
+        do iBndGP=1,nBndGP
+          StressinFaultCSTmp = MATMUL(iRotmat, Stress(:,iBndGP))
+          Stress(:,iBndGP) = StressinFaultCSTmp
+        enddo
+        s_xx(:,iFace) = Stress(1,:)
+        s_yy(:,iFace) = Stress(2,:)
+        s_zz(:,iFace) = Stress(3,:)
+        s_xy(:,iFace) = Stress(4,:)
+        s_yz(:,iFace) = Stress(5,:)
+        s_xz(:,iFace) = Stress(6,:)
+      endif
 
       do iBndGP=1,nBndGP
         StressinFaultCSTmp = MATMUL(iT(1:6,1:6), Stress(:,iBndGP))

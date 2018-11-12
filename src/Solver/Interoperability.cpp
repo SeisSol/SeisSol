@@ -125,7 +125,11 @@ extern "C" {
                                               double* memory  ) {
     e_interoperability.addFaultParameter(name, memory);
   }
-  
+
+  bool c_interoperability_faultParameterizedByTraction( char* modelFileName ) {
+    return seissol::initializers::ParameterDB::faultParameterizedByTraction( std::string(modelFileName) );
+  }
+
   void c_interoperability_initializeFault(  char*   modelFileName,
                                             int     gpwise,
                                             double* bndPoints,

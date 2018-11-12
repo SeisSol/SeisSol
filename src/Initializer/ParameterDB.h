@@ -64,6 +64,10 @@ namespace seissol {
   }
 }
 
+namespace easi {
+  class Component;
+};
+
 class seissol::initializers::QueryGenerator {
 public:
   virtual easi::Query generate() const = 0;
@@ -111,8 +115,10 @@ class seissol::initializers::ParameterDB {
 public:  
   void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
   void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
+  static bool faultParameterizedByTraction(std::string const& fileName);
   
 private:
+  static easi::Component* loadModel(std::string const& fileName);
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
 };
 
