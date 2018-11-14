@@ -619,7 +619,7 @@ env.Append(LIBS=['pthread'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
-env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equations/' + env['equations'] + '/generated_code'])
+env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations']])
 env.Append(F90PATH=['#/src/Equations/' + env['equations'] + '/generated_code'])
 
 #

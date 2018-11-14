@@ -214,7 +214,7 @@ CONTAINS
 	end do
 
 	call c_interoperability_getIntegrationMask( i_integrationMask = IntegrationMask(1:9) )
-#endif // INTEGRATE_QUANTITIES
+#endif
 #endif
 
     ! Start mesh reading/computing section

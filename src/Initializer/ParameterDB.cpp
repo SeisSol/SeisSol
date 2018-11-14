@@ -50,6 +50,7 @@
 #ifdef USE_ASAGI
 #include <Reader/AsagiReader.h>
 #endif
+#include <utils/logger.h>
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
