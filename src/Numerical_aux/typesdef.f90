@@ -103,11 +103,6 @@ MODULE TypesDef
      REAL, POINTER                          :: NonZero(:)                       !<Values
   END TYPE tSparseTensor4
 
-  !< General pointer to a OneD field
-  TYPE tPointerToField
-     REAL                         , POINTER :: PTR(:)
-  END TYPE tPointerToField
-
   TYPE tVector
      INTEGER                                :: VecLength
      REAL                         , POINTER :: x(:)
@@ -1813,7 +1808,6 @@ MODULE TypesDef
 !     REAL                         , POINTER :: rotB(:,:)                       ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: divB(:)                         ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: grd(:,:,:)                      ! aheineck @TODO not referenced in the code -> commented
-     TYPE(tPointerToField)        , POINTER :: FieldMask(:) => NULL()
      !< calc_deltaT
      real, dimension(:), allocatable        :: vel
      real, dimension(:), allocatable        :: sound
@@ -1822,8 +1816,6 @@ MODULE TypesDef
      logical, dimension(:), allocatable     :: mask
      real, dimension(:), allocatable        :: dtmin
      !< FaceAdjustment und
-     !< Viscous Part
-     REAL                         , POINTER :: pvar_n(:,:) => NULL()
      !< Viscous Part
      REAL                         , POINTER :: rh(:) => NULL()
      !< Spatial Disc

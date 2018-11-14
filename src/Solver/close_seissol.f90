@@ -56,7 +56,6 @@ CONTAINS
     !--------------------------------------------------------------------------
     USE TypesDef
     USE ini_OptionalFields_mod,  ONLY: close_OptionalFields
-    USE ini_calcSeisSol_mod     , ONLY: close_calcSeisSol
     USE dg_setup_mod
     USE common_receiver_mod,          ONLY: common_receiver_close
     USE plot_fields_mod 
@@ -65,6 +64,7 @@ CONTAINS
 #ifdef GENERATEDKERNELS
     use f_ftoc_bind_interoperability
 #endif
+    USE calc_deltaT_mod,       ONLY : close_calc_deltaT
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
@@ -85,9 +85,7 @@ CONTAINS
     INTENT(IN)                     :: EQN, MPI
     INTENT(INOUT)                  :: MESH,DISC, IO, SOURCE
     !--------------------------------------------------------------------------
-    !                                                   !
-    CALL close_calcSeisSol(OptionalFields,IO,MPI)       ! close_calc
-    !                                                   !
+    CALL close_calc_DeltaT(OptionalFields)
     !
     ! Call only the necessary deallocate subroutines for 3D unstruct. ADER-DG !!
     ! Only very few of the Finite Volume Mesh information is needed, 
