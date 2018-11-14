@@ -2,10 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
+ * Copyright (c) 2018, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,44 +24,47 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- */
+ * Common kernel-level functions
+ **/
 
-#include "SeisSol.h"
-#include "common.hpp"
+#ifndef RESULTWRITER_COMMON_HPP_
+#define RESULTWRITER_COMMON_HPP_
 
-extern "C"
+#include <xdmfwriter/backends/Backend.h>
+namespace seissol
+{
+namespace writer
 {
 
-void fault_hdf_init(const int* cells, const double* vertices,
-		int nCells, int nVertices,
-		int* outputMask, const double** dataBuffer, const char* outputPrefix,
-		double interval, char const* xdmfWriterBackend)
-{
-  auto type = seissol::writer::backendType(xdmfWriterBackend);
-	seissol::SeisSol::main.faultWriter().init(reinterpret_cast<const unsigned int*>(cells),
-		vertices, nCells, nVertices,
-		outputMask, dataBuffer, outputPrefix, interval, type);
-}
-
-void fault_hdf_write(double time)
-{
-	seissol::SeisSol::main.faultWriter().write(time);
-}
-
-void fault_hdf_close()
-{
-	seissol::SeisSol::main.faultWriter().close();
+static xdmfwriter::BackendType backendType(char const* xdmfWriterBackend) {
+  xdmfwriter::BackendType type;
+  if (strcmp(xdmfWriterBackend, "hdf5") == 0) {
+#ifdef USE_HDF
+    type = xdmfwriter::H5;
+#else
+    logError() << "SeisSol is not compiled with hdf5 support.";
+#endif
+  } else if (strcmp(xdmfWriterBackend, "posix") == 0) {
+    type = xdmfwriter::POSIX;
+  } else {
+    logError() << "Unknown backend type: " << xdmfWriterBackend;
+  }
+  
+  return type;
 }
 
 }
+}
+
+#endif // RESULTWRITER_COMMON_HPP_

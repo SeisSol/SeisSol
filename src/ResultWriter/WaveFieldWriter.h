@@ -204,7 +204,8 @@ public:
 			const double* dofs,  const double* pstrain, const double* integrals,
 			unsigned int* map,
 			int refinement, int* outputMask, double* outputRegionBounds,
-			double timeTolerance);
+			double timeTolerance,
+      xdmfwriter::BackendType backend);
 
 	/**
 	 * Write a time step

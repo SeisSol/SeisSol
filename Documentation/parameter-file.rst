@@ -152,6 +152,12 @@ Output
    The default is ``0 0 0 0 0 0`` and means that the entire domain
    should be written.
 
+-  **xdmfWriterBackend** (*optional*): The backend used in fault, wavefield,
+   and free-surface output.
+   Valid options are ``posix`` and ``hdf5``.
+   The HDF5 backend is only supported when SeisSol is compiled with
+   HDF5 support.
+
 Checkpoints
 ^^^^^^^^^^^
 

@@ -62,6 +62,7 @@ struct FaultInitParam
 
 	bool outputMask[OUTPUT_MASK_SIZE];
 	int timestep;
+  xdmfwriter::BackendType backend;
 };
 
 struct FaultParam

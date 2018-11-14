@@ -114,7 +114,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		const double* dofs,  const double* pstrain, const double* integrals,
 		unsigned int* map,
 		int refinement, int* outputMask, double* outputRegionBounds,
-		double timeTolerance)
+		double timeTolerance,
+    xdmfwriter::BackendType backend)
 {
 	if (!m_enabled)
 		return;
@@ -137,6 +138,8 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	/** List of all buffer ids */
 	param.bufferIds[OUTPUT_PREFIX] = addSyncBuffer(m_outputPrefix.c_str(), m_outputPrefix.size()+1, true);
+
+  param.backend = backend;
 
 	//
 	// High order I/O

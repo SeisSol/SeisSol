@@ -214,7 +214,8 @@ CONTAINS
         i_outputMask= outputMaskInt,         &
         i_outputRegionBounds = io%OutputRegionBounds, &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
-        freeSurfaceFilename = trim(io%OutputFile) // c_null_char )
+        freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
+        xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char )
 
     ! Initialize the fault Xdmf Writer
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN

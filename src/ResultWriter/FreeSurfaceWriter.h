@@ -97,7 +97,8 @@ public:
 	void init(  MeshReader const&                       meshReader,
               seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
               char const*                             outputPrefix,
-              double                                  interval );
+              double                                  interval,
+              xdmfwriter::BackendType                 backend );
 
 	void write(double time);
 

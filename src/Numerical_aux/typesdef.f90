@@ -1429,6 +1429,7 @@ MODULE TypesDef
      INTEGER                                :: Refinement
      integer                                :: SurfaceOutput, SurfaceOutputRefinement
      real                                   :: SurfaceOutputInterval
+     character(len=64)                      :: xdmfWriterBackend                !< Check point backend
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------

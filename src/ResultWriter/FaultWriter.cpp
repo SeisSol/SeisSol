@@ -59,7 +59,8 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 	unsigned int nCells, unsigned int nVertices,
 	int* outputMask, const double** dataBuffer,
 	const char* outputPrefix,
-	double interval)
+	double interval,
+  xdmfwriter::BackendType backend)
 {
 	const int rank = seissol::MPI::mpi.rank();
 
@@ -72,6 +73,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 
 	FaultInitParam param;
 	param.timestep = m_timestep;
+  param.backend = backend;
 
 	// Create buffer for output prefix
 	unsigned int bufferId = addSyncBuffer(outputPrefix, strlen(outputPrefix)+1, true);

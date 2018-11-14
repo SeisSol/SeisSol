@@ -2996,12 +2996,13 @@ ALLOCATE( SpacePositionx(nDirac), &
       !! @more_info https://github.com/SeisSol/SeisSol/wiki/Parameter-File
       !!
       character(LEN=64)                :: checkPointBackend
+      character(LEN=64)                :: xdmfWriterBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
                                                 checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask, &
-                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval
+                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend
     !------------------------------------------------------------------------
     !
       logInfo(*) '<--------------------------------------------------------->'
@@ -3027,6 +3028,11 @@ ALLOCATE( SpacePositionx(nDirac), &
       FaultOutputFlag = 0
       checkPointInterval = 0
       checkPointBackend = 'none'
+#ifdef USE_HDF
+      xdmfWriterBackend = 'hdf5'
+#else
+      xdmfWriterBackend = 'posix'
+#endif
       SurfaceOutput = 0
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
@@ -3171,7 +3177,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          stop
 #endif
       case(6)
-         logInfo0(*) 'Output data is in XDMF format (new implemantation)'
+         logInfo0(*) 'Output data is in XDMF format (new implementation)'
       case(10)
          logInfo0(*) 'Output data is disabled'
       CASE DEFAULT
@@ -3466,6 +3472,22 @@ ALLOCATE( SpacePositionx(nDirac), &
         END SELECT
 
       ENDIF
+
+      ! xdmf writer backend
+      io%xdmfWriterBackend = xdmfWriterBackend
+      select case (io%xdmfWriterBackend)
+        case ("posix")
+          logInfo0(*) 'Use POSIX XdmfWriter backend'
+        case ("hdf5")
+#ifndef USE_HDF
+          logError(*) 'This version does not support HDF5 backends'
+          stop
+#endif
+          logInfo0(*) 'Use HDF5 XdmfWriter backend'
+        case default
+          logError(*) 'Unknown XdmfWriter backend ', io%xdmfWriterBackend
+          stop
+      end select
 
       ! Check point config
       if (checkPointInterval .lt. 0) then
