@@ -57,12 +57,6 @@ class seissol::Simulator {
     //! final time of the simulation
     double m_finalTime;
 
-    //! last time a wave field was written
-    double m_waveFieldTime;
-
-    //! time interval of the wave field output
-    double m_waveFieldInterval;
-
     //! last time a checkpoint was written
     double m_checkPointTime;
 
@@ -99,13 +93,6 @@ class seissol::Simulator {
      * Activates checkpoint loading at the beginning of the simulation
      */
     void loadCheckPoint();
-
-    /**
-     * Sets the interval for wave field output.
-     *
-     * @param i_waveFieldInterval wave field interval.
-     **/
-    void setWaveFieldInterval( double i_waveFieldInterval );
 
     /**
      * Sets the interval for checkpointing.

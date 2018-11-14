@@ -110,7 +110,7 @@ CONTAINS
     SCOREP_USER_FUNC_BEGIN("data_output")
 
     if (IO%Format .eq. 6) then
-        call WaveFieldWriterWriteStep(time, disc, mesh, mpi)
+        !call WaveFieldWriterWriteStep(time, disc, mesh, mpi)
     else
         if (IO%Format .eq. 10) then
             ! Output is disabled
