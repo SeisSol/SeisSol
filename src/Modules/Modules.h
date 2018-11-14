@@ -126,13 +126,13 @@ private:
 		m_nextHook = static_cast<Hook>(hook + 1);
 	}
 
-	double _callSyncHook(double currentTime, double timeTolerance)
+	double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint)
 	{
 		double nextSyncTime = std::numeric_limits<double>::max();
 
 		for (std::multimap<int, Module*>::iterator it = m_hooks[SYNCHRONIZATION_POINT].begin();
 				it != m_hooks[SYNCHRONIZATION_POINT].end(); it++) {
-			nextSyncTime = std::min(nextSyncTime, it->second->potentialSyncPoint(currentTime, timeTolerance));
+			nextSyncTime = std::min(nextSyncTime, it->second->potentialSyncPoint(currentTime, timeTolerance, forceSyncPoint));
 		}
 
 		return nextSyncTime;
@@ -192,9 +192,9 @@ public:
 	 *
 	 * @todo The time tolerance is global constant, maybe not necessary to pass it here
 	 */
-	static double callSyncHook(double currentTime, double timeTolerance)
+	static double callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint = false)
 	{
-		return instance()._callSyncHook(currentTime, timeTolerance);
+		return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
 	}
 
 	/**

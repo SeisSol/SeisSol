@@ -153,6 +153,8 @@ void seissol::Simulator::simulate() {
     printNodePerformance( stopwatch.split() );
   }
   
+  Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
+
   // stop the communication thread (if applicable)
   seissol::SeisSol::main.timeManager().stopCommunicationThread();
 
