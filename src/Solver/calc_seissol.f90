@@ -67,7 +67,6 @@ CONTAINS
     USE receiver_mod
     USE energies_output_mod
 #endif
-    USE data_output_mod
     USE ini_SeisSol_mod
     USE magnitude_output_mod
     USE output_rupturefront_mod
@@ -217,21 +216,6 @@ CONTAINS
         CALL PGM_output(IO,MPI)
 #endif
     ENDIF
-
-    ! Print iteration information after the time loop
-    CALL data_output(                           & ! data_output
-         dt         = OptionalFields%dt(:)    , & ! data_output
-         time       = time                    , & ! data_output
-         timestep   = timestep                , & ! data_output
-         EQN        = EQN                     , & ! data_output
-         MESH       = MESH                    , & ! data_output
-         DISC       = DISC                    , & ! data_output
-         SOURCE     = SOURCE                  , & ! data_output
-         BND        = BND                     , & ! data_output
-         MPI        = MPI                     , & ! data_output
-         IO         = IO                      , & ! data_output
-         ANALYSE    = ANALYSE                 , & ! data_output
-     OptionalFields = OptionalFields            ) ! data_output
 
     ! output magnitude for dynamic rupture simulations
     IF (EQN%DR.EQ.1 .AND. DISC%DynRup%magnitude_output_on.EQ.1) CALL magnitude_output(OptionalFields%BackgroundValue,DISC,MESH,MPI,IO)
