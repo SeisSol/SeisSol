@@ -56,7 +56,6 @@ CONTAINS
        SOURCE,IO,Analyse,OptionalFields,MPI)
     !--------------------------------------------------------------------------
     USE TypesDef
-    USE plot_fields_mod
     USE dg_setup_mod
     USE ini_OptionalFields_mod
     USE COMMON_operators_mod
@@ -126,10 +125,6 @@ CONTAINS
                 MPI            = MPI                                             ) ! Analyse DG
     ENDIF                    
     !                                                                          !
-    IF ((timestep.eq.DISC%MaxIteration).OR.(time .eq.DISC%EndTime)) THEN   !
-      CALL close_plot_fields(OptionalFields,IO)                                  !
-    END IF
-    !
 
     logInfo(*) '<--------------------------------------------------------->'  !
     logInfo(*) '<     analyse_SeisSol successfully finished               >'  !

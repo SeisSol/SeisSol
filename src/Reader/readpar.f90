@@ -3014,7 +3014,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       iOutputMaskMaterial(:) =  0
 	  IntegrationMask(:) = 0
       Rotation = 0
-      Format = 1
+      Format = 10
       Refinement = 0
       pickdt = 0.1
       pickDtType = 1
@@ -3166,22 +3166,12 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%Format = Format                                                       ! Plot format
       !                                                                        !
       SELECT CASE(IO%Format)
-      CASE(1)
-         logInfo0(*) 'Output data are in TEC-PLOT format '
-         IO%Extension = 'dat'
-      case(5)
-#ifdef HDF
-         logInfo0(*) 'Output data are in XDMF format'
-#else
-         logError(*) 'This version does not support HDF5'
-         stop
-#endif
       case(6)
          logInfo0(*) 'Output data is in XDMF format (new implementation)'
       case(10)
          logInfo0(*) 'Output data is disabled'
       CASE DEFAULT
-         logError(*) 'print_format must be {1,5,6,10}'
+         logError(*) 'print_format must be {6,10}'
          STOP
       END SELECT
 

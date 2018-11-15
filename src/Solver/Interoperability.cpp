@@ -628,7 +628,7 @@ void seissol::Interoperability::synchronizeCopyLayerDofs() {
 }
 
 void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename ) {
-  seissol::SeisSol::main.simulator().setWaveFieldInterval( i_waveFieldInterval );
+  seissol::SeisSol::main.waveFieldWriter().setWaveFieldInterval( i_waveFieldInterval );
   seissol::SeisSol::main.waveFieldWriter().enable();
   seissol::SeisSol::main.waveFieldWriter().setFilename( i_waveFieldFilename );
 }
@@ -699,7 +699,6 @@ void seissol::Interoperability::initializeIO(
 			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
 			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
 			refinement, outputMask, outputRegionBounds,
-			seissol::SeisSol::main.timeManager().getTimeTolerance(),
       type);
 
 	// Initialize free surface output

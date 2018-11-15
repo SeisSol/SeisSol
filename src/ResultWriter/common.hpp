@@ -48,7 +48,7 @@ namespace writer
 {
 
 static xdmfwriter::BackendType backendType(char const* xdmfWriterBackend) {
-  xdmfwriter::BackendType type;
+  xdmfwriter::BackendType type = xdmfwriter::POSIX;
   if (strcmp(xdmfWriterBackend, "hdf5") == 0) {
 #ifdef USE_HDF
     type = xdmfwriter::H5;
@@ -60,7 +60,7 @@ static xdmfwriter::BackendType backendType(char const* xdmfWriterBackend) {
   } else {
     logError() << "Unknown backend type: " << xdmfWriterBackend;
   }
-  
+
   return type;
 }
 

@@ -54,16 +54,9 @@ extern seissol::Interoperability e_interoperability;
 seissol::Simulator::Simulator():
   m_currentTime(        0 ),
   m_finalTime(          0 ),
-  m_waveFieldTime(      0 ),
-  m_waveFieldInterval(  std::numeric_limits< double >::max() ),
   m_checkPointTime(     0 ),
   m_checkPointInterval( std::numeric_limits< double >::max() ),
   m_loadCheckPoint( false ) {};
-
-void seissol::Simulator::setWaveFieldInterval( double i_waveFieldInterval ) {
-  assert( m_waveFieldInterval > 0 );
-  m_waveFieldInterval = i_waveFieldInterval;
-}
 
 void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
   assert( m_checkPointInterval > 0 );
@@ -97,12 +90,10 @@ void seissol::Simulator::simulate() {
 
   // Write initial wave field snapshot
   if (m_currentTime == 0.0) {
-	seissol::SeisSol::main.waveFieldWriter().write(0.0);
-	Modules::callHook<SIMULATION_START>();
+    Modules::callHook<SIMULATION_START>();
   }
 
   // intialize wave field and checkpoint time
-  m_waveFieldTime  = m_currentTime;
   m_checkPointTime = m_currentTime;
   Modules::setSimulationStartTime(m_currentTime);
 
@@ -115,7 +106,6 @@ void seissol::Simulator::simulate() {
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
   upcomingTime = std::min( upcomingTime, Modules::callSyncHook(m_currentTime, 0.0) );
-  upcomingTime = std::min( upcomingTime, std::abs(m_waveFieldTime  + m_waveFieldInterval ) );
   upcomingTime = std::min( upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
 
   while( m_finalTime > m_currentTime + l_timeTolerance ) {
@@ -134,17 +124,9 @@ void seissol::Simulator::simulate() {
     // Check all synchronization point hooks
     upcomingTime = std::min(upcomingTime, Modules::callSyncHook(m_currentTime, l_timeTolerance));
 
-    // write wave field output if required
-    if( std::abs( m_currentTime - ( m_waveFieldTime + m_waveFieldInterval) ) < l_timeTolerance ) {
-  	  seissol::SeisSol::main.waveFieldWriter().write(m_currentTime);
-      m_waveFieldTime += m_waveFieldInterval;
-    }
-    upcomingTime = std::min(upcomingTime, m_waveFieldTime + m_waveFieldInterval);
-
     // write checkpoint if required
     if( std::abs( m_currentTime - ( m_checkPointTime + m_checkPointInterval ) ) < l_timeTolerance ) {
-		const unsigned int faultTimeStep = seissol::SeisSol::main.faultWriter().timestep();
-
+      const unsigned int faultTimeStep = seissol::SeisSol::main.faultWriter().timestep();
       seissol::SeisSol::main.checkPointManager().write(m_currentTime, faultTimeStep);
       m_checkPointTime += m_checkPointInterval;
     }
@@ -153,6 +135,8 @@ void seissol::Simulator::simulate() {
     printNodePerformance( stopwatch.split() );
   }
   
+  Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
+
   // stop the communication thread (if applicable)
   seissol::SeisSol::main.timeManager().stopCommunicationThread();
 

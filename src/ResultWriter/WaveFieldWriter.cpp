@@ -45,6 +45,7 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/refinement/MeshRefiner.h"
 #include "Monitoring/instrumentation.fpp"
+#include <Modules/Modules.h>
 
 void seissol::writer::WaveFieldWriter::enable()
 {
@@ -114,7 +115,6 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 		const double* dofs,  const double* pstrain, const double* integrals,
 		unsigned int* map,
 		int refinement, int* outputMask, double* outputRegionBounds,
-		double timeTolerance,
     xdmfwriter::BackendType backend)
 {
 	if (!m_enabled)
@@ -122,6 +122,9 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Initialize the asynchronous module
 	async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::init();
+
+  Modules::registerHook(*this, SIMULATION_START);
+  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 
 	const int rank = seissol::MPI::mpi.rank();
 
@@ -385,12 +388,6 @@ void seissol::writer::WaveFieldWriter::write(double time)
 
 	const int rank = seissol::MPI::mpi.rank();
 
-	if (time >= 0 && time <= m_lastTimeStep + m_timeTolerance) {
-		// Ignore duplicate time steps. Might happen at the end of a simulation
-		logInfo(rank) << "Ignoring duplicate time step at time " << time;
-		return;
-	}
-
 	SCOREP_USER_REGION_DEFINE(r_wait);
 	SCOREP_USER_REGION_BEGIN(r_wait, "wavfieldwriter_wait", SCOREP_USER_REGION_TYPE_COMMON);
 	logInfo(rank) << "Waiting for last wave field.";
@@ -460,7 +457,6 @@ void seissol::writer::WaveFieldWriter::write(double time)
 	call(param);
 
 	// Update last time step
-	m_lastTimeStep = time;
 #ifdef GENERATEDKERNELS
 	seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
 #endif // GENERATEDKERNELS
@@ -468,4 +464,14 @@ void seissol::writer::WaveFieldWriter::write(double time)
 	m_stopwatch.pause();
 
 	logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
+}
+
+void seissol::writer::WaveFieldWriter::simulationStart()
+{
+	syncPoint(0.0);
+}
+
+void seissol::writer::WaveFieldWriter::syncPoint(double currentTime)
+{
+	write(currentTime);
 }
