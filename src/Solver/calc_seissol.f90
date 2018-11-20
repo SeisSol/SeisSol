@@ -58,7 +58,6 @@ CONTAINS
                          OptionalFields,IO,MPI,Analyse)
     !--------------------------------------------------------------------------
     USE TypesDef
-    USE COMMON_printThisTimeStep_mod
     USE dg_setup_mod
     USE calc_deltaT_mod
 #ifdef HDF

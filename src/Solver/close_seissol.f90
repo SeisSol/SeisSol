@@ -58,9 +58,7 @@ CONTAINS
     USE ini_OptionalFields_mod,  ONLY: close_OptionalFields
     USE dg_setup_mod
     USE common_receiver_mod,          ONLY: common_receiver_close
-    USE plot_fields_mod 
     USE allocate_mesh_mod 
-    use WaveFieldWriter
 #ifdef GENERATEDKERNELS
     use f_ftoc_bind_interoperability
 #endif
