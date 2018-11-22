@@ -51,7 +51,6 @@ MODULE ini_model_DR_mod
   USE TypesDef
   USE DGBasis_mod
   USE read_backgroundstress_mod
-  USE faultinput_mod
   !use StressReader
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
