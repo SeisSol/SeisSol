@@ -1,43 +1,27 @@
 <memory_layouts>
 
-<group name="stiffnessTransposed">
-<matrix name="kDivMT(0)"/>
-<matrix name="kDivMT(1)"/>
-<matrix name="kDivMT(2)"/>
-</group>
+<matrix name="kDivMT(0)" sparse="True"/>
+<matrix name="kDivMT(1)" sparse="True"/>
+<matrix name="kDivMT(2)" sparse="True"/>
 
-<group name="stiffness">
-<matrix name="kDivM(0)"/>
-<matrix name="kDivM(1)"/>
-<matrix name="kDivM(2)"/>
-</group>
+<matrix name="kDivM(0)" sparse="True"/>
+<matrix name="kDivM(1)" sparse="True"/>
+<matrix name="kDivM(2)" sparse="True"/>
 
-<group name="fMrT">
-<matrix name="fMrT(0)"/>
-<matrix name="fMrT(1)"/>
-<matrix name="fMrT(2)"/>
-<matrix name="fMrT(3)"/>
-</group>
+<matrix name="fMrT(0)" sparse="True"/>
+<matrix name="fMrT(1)" sparse="True"/>
+<matrix name="fMrT(2)" sparse="True"/>
+<matrix name="fMrT(3)" sparse="True"/>
 
-<group name="rDivM">
-<matrix name="rDivM(0)"/>
-<matrix name="rDivM(1)"/>
-<matrix name="rDivM(2)"/>
-<matrix name="rDivM(3)"/>
-</group>
+<matrix name="rDivM(0)" sparse="True"/>
+<matrix name="rDivM(1)" sparse="True"/>
+<matrix name="rDivM(2)" sparse="True"/>
+<matrix name="rDivM(3)" sparse="True"/>
 
-<group name="rT">
-<matrix name="rT(0)"/>
-<matrix name="rT(1)"/>
-<matrix name="rT(2)"/>
-<matrix name="rT(3)"/>
-</group>
+<matrix name="rT(0)" sparse="True"/>
+<matrix name="rT(1)" sparse="True"/>
+<matrix name="rT(2)" sparse="True"/>
+<matrix name="rT(3)" sparse="True"/>
 
 <matrix name="star" sparse="True"/>
-<matrix group="stiffness" sparse="True"/>
-<matrix group="stiffnessTransposed" sparse="True"/>
-<matrix group="fMrT" sparse="True"/>
-<matrix group="rDivM" sparse="True"/>
-<matrix group="rT" sparse="True"/>
 </memory_layouts>
-
