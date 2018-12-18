@@ -164,4 +164,6 @@ DynamicRupture.addKernels(g, Q, I, qi, qShape, alignStride, cmdLineArgs.matrices
 Plasticity.addKernels(g, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
 
 # Generate code
-g.generate(cmdLineArgs.outputDir, 'seissol')
+gemmTool = DefaultGeneratorCollection(arch)
+g.generate(cmdLineArgs.outputDir, 'seissol', gemmTool)
+
