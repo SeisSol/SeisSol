@@ -234,11 +234,11 @@ CONTAINS
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
-    REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, Tv
+    REAL                       :: FreqCentral, FreqRatio, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, pmethod, &
-                                           Adjoint, rho, mu, lambda, &
+                                           Adjoint,  &
                                            MaterialFileName, FreqCentral, &
                                            FreqRatio, AdjFileName
     !------------------------------------------------------------------------
@@ -264,9 +264,6 @@ CONTAINS
     ! aheineck, @TODO these values are used, but not initialized < End
 
     ! Setting the default values
-    rho                 = 1.
-    mu                  = 1.
-    lambda              = 1.
     Anisotropy          = 0
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     Anelasticity        = 1
@@ -396,9 +393,6 @@ CONTAINS
      STOP
     endif
     !
-    EQN%rho0 = rho
-    EQN%mu = mu
-    EQN%lambda = lambda
     EQN%MaterialFileName = MaterialFileName
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
