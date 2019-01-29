@@ -41,6 +41,7 @@
 import argparse
 from yateto import *
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from yateto.gemm_configuration import *
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
@@ -164,6 +165,6 @@ DynamicRupture.addKernels(g, Q, I, qi, qShape, alignStride, cmdLineArgs.matrices
 Plasticity.addKernels(g, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
 
 # Generate code
-gemmTool = DefaultGeneratorCollection(arch)
-g.generate(cmdLineArgs.outputDir, 'seissol', gemmTool)
+gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
+g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools)
 
