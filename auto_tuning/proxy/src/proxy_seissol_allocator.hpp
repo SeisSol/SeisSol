@@ -148,9 +148,6 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
     DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
     
     /* init drMapping */
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
     for (unsigned cell = 0; cell < i_cells; ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
@@ -165,9 +162,6 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
     }
 
     /* init dr godunov state */
-    #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
     for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
       unsigned plusCell = (unsigned int)lrand48() % i_cells;
       unsigned minusCell = (unsigned int)lrand48() % i_cells;

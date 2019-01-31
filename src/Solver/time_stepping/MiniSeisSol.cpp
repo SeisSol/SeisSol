@@ -95,14 +95,11 @@ void seissol::fakeData( initializers::LTS& lts,
   NeighboringIntegrationData* neighboringIntegration        = layer.var(lts.neighboringIntegration);
   CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
   real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives));
-  
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
+ 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
     derivatives[cell] = nullptr;
-    
+
     for (unsigned f = 0; f < 4; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
@@ -111,7 +108,7 @@ void seissol::fakeData( initializers::LTS& lts,
     }    
     cellInformation[cell].ltsSetup = 0;
   }
-  
+
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
