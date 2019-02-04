@@ -101,7 +101,7 @@ namespace seissol {
 #endif
 
       if (std::is_same<real_from, real_to>::value) {
-        krnl.QFortran = o_unalignedDofs;
+        krnl.QFortran = reinterpret_cast<real_from*>(o_unalignedDofs);
         krnl.execute();
       } else {
         real_from unalignedDofs[tensor::QFortran::size()];
@@ -130,7 +130,7 @@ namespace seissol {
 #endif
 
       if (std::is_same<real_from, real_to>::value) {
-        krnl.QFortran = i_unalignedUpdate;
+        krnl.QFortran = reinterpret_cast<real_to const*>(i_unalignedUpdate);
         krnl.execute();
       } else {
         real_to update[tensor::QFortran::size()];
@@ -152,7 +152,7 @@ namespace seissol {
       for (unsigned degree = 0; degree < CONVERGENCE_ORDER; ++degree) {
         krnl.dQ(degree) = der;
         if (std::is_same<real_from, real_to>::value) {
-          krnl.QFortran = &o_fullDerivatives[degree][0];
+          krnl.QFortran = reinterpret_cast<real_from*>(&o_fullDerivatives[degree][0]);
           krnl.execute(degree);
         } else {
           real_from unalignedDofs[tensor::QFortran::size()];
