@@ -225,5 +225,7 @@ sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol
 env.Program(env['execDir']+'/flops_per_cell', sourceFiles + env.flopsPerCellSourceFiles)
 
 if env.generatedTestSourceFiles:
+  env['CXXTEST_OPTS'] = '--template=' + Dir('.').srcnode().abspath + '/src/seissol_src/tests/custom_traits.tpl'
+
   sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'flop_counter.o', sourceFiles))
   env.CxxTest(target=env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)
