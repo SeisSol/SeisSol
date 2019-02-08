@@ -53,7 +53,7 @@ enablePrefetch = {
   'wsm':    False,
   'snb':    False,
   'hsw':    False,
-  'skx':    False,
+  'skx':    True,
   'knc':    False,
   'knl':    True
 }
