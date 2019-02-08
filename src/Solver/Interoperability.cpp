@@ -50,6 +50,7 @@
 #include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
+#include <ResultWriter/common.hpp>
 
 seissol::Interoperability e_interoperability;
 
@@ -125,7 +126,11 @@ extern "C" {
                                               double* memory  ) {
     e_interoperability.addFaultParameter(name, memory);
   }
-  
+
+  bool c_interoperability_faultParameterizedByTraction( char* modelFileName ) {
+    return seissol::initializers::ParameterDB::faultParameterizedByTraction( std::string(modelFileName) );
+  }
+
   void c_interoperability_initializeFault(  char*   modelFileName,
                                             int     gpwise,
                                             double* bndPoints,
@@ -203,10 +208,10 @@ extern "C" {
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename) {
+		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
 			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
-			freeSurfaceInterval, freeSurfaceFilename);
+			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend);
   }
 
   void c_interoperability_addToDofs( int      i_meshId,
@@ -608,7 +613,7 @@ void seissol::Interoperability::synchronizeCopyLayerDofs() {
 }
 
 void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename ) {
-  seissol::SeisSol::main.simulator().setWaveFieldInterval( i_waveFieldInterval );
+  seissol::SeisSol::main.waveFieldWriter().setWaveFieldInterval( i_waveFieldInterval );
   seissol::SeisSol::main.waveFieldWriter().enable();
   seissol::SeisSol::main.waveFieldWriter().setFilename( i_waveFieldFilename );
 }
@@ -651,8 +656,11 @@ void seissol::Interoperability::initializeIO(
 		double* slip, double* slip1, double* slip2, double* state, double* strength,
 		int numSides, int numBndGP, int refinement, int* outputMask,
 		double* outputRegionBounds,
-		double freeSurfaceInterval, const char* freeSurfaceFilename)
+		double freeSurfaceInterval, const char* freeSurfaceFilename,
+    char const* xdmfWriterBackend)
 {
+  auto type = writer::backendType(xdmfWriterBackend);
+  
 	// Initialize checkpointing
 	int faultTimeStep;
 	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
@@ -676,13 +684,13 @@ void seissol::Interoperability::initializeIO(
 			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
 			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
 			refinement, outputMask, outputRegionBounds,
-			seissol::SeisSol::main.timeManager().getTimeTolerance());
+      type);
 
 	// Initialize free surface output
 	seissol::SeisSol::main.freeSurfaceWriter().init(
 		seissol::SeisSol::main.meshReader(),
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
-		freeSurfaceFilename, freeSurfaceInterval);
+		freeSurfaceFilename, freeSurfaceInterval, type);
 
 	// I/O initialization is the last step that requires the mesh reader
 	// (at least at the moment ...)

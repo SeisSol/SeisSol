@@ -409,7 +409,7 @@ env.Append( CFLAGS    = archFlags,
             CXXFLAGS  = archFlags,
             F90FLAGS  = archFlags,
             LINKFLAGS = archFlags )
-env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['arch'].upper()])
+env.Append(CPPDEFINES=arch.getDefines(env['arch']))
 
 #
 # Compile mode settings
@@ -612,8 +612,7 @@ env.Append(LIBS=['pthread'])
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
-env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equations/' + env['equations'] + '/generated_code'])
-env.Append(F90PATH=['#/src/Equations/' + env['equations'] + '/generated_code'])
+env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations']])
 
 #
 # setup the program name and the build directory

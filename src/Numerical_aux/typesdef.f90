@@ -103,11 +103,6 @@ MODULE TypesDef
      REAL, POINTER                          :: NonZero(:)                       !<Values
   END TYPE tSparseTensor4
 
-  !< General pointer to a OneD field
-  TYPE tPointerToField
-     REAL                         , POINTER :: PTR(:)
-  END TYPE tPointerToField
-
   TYPE tVector
      INTEGER                                :: VecLength
      REAL                         , POINTER :: x(:)
@@ -899,18 +894,10 @@ MODULE TypesDef
      REAL, allocatable                      :: Mu_D(:,:)                       !< Dynamic friction coefficient at given fault node
      REAL, allocatable                      :: StateVar(:,:)                   !< State variable used at Rate-and-state friction laws
      REAL, allocatable                      :: cohesion(:,:)                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
-     REAL                                   :: cohesion_0                                !< Default cohesion value
-     REAL                                   :: cohesion_max                              !< maximum added cohesion for linear increasing cohesion
-     REAL                                   :: cohesion_depth                            !< depth at which cohesion is increased
      REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
      REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
      REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress
-     REAL                                   :: XHypo                            !< x-coordinate of the forced rupture patch
-     REAL                                   :: YHypo                            !< y-coordinate of the forced rupture circle
-     REAL                                   :: ZHypo                            !< z-coordinate of the forced rupture circle
-     REAL                                   :: R_crit                           !< radius for the forced rupture nucleation patch
      REAL                                   :: t_0                              !< forced rupture decay time
-     REAL                                   :: Vs_nucl                          !< Vs at nucleation (used only by time-forced rupture nucleation)
      REAL, ALLOCATABLE                      :: BndBF_GP_Tet(:,:,:)              !< Basis functions of '-' element at fault surface with matching GP (nDegFr,nBndGP,nSide)
      REAL, ALLOCATABLE                      :: FluxInt(:,:,:)                   !< corresponding flux integration matrix (nDegFr,nDegFr,nSide))
      REAL, ALLOCATABLE                      :: RS_srW_array(:,:)                !< velocity weakening scale, array of spatial dependency
@@ -925,20 +912,11 @@ MODULE TypesDef
      REAL                                   :: RS_iniSlipRate2                  !< initial slip rate for rate and state friction
      REAL                                   :: Mu_W                             !< velocity weakening friction coefficient
      REAL                                   :: RS_srW                           !< velocity weakening scale
-     REAL                                   :: H_Length                         !< Characteristic length (Self-similar crack)
-     REAL                                   :: RupSpeed                         !< Rupture speed (Self-similar crack)
      REAL                                   :: Mu_S_ini                         !< Static friction coefficient ini scalar value
      REAL                                   :: Mu_SNuc_ini                      !< Static friction coefficient inside the nucleation zone ini scalar value
      REAL                                   :: Mu_D_ini                         !< Dynamic friction coefficient ini scalar value
      REAL                                   :: D_C_ini                          !< Critical slip read-in variable for constant value over the entire fault
      REAL, allocatable                      :: D_C(:,:)                         !< Critical slip at given fault node
-     INTEGER                                :: Nucleation                       !< Nucleation
-     INTEGER                                :: NucDirX                          !< Axis for locating nucleation patch (1: x, 2: y)
-     INTEGER                                :: NucDirY                          !< Axis for locating nucleation patch (1: x, 2: y)
-     REAL                                   :: NucXmin                          !< Lower boundary of nucleation patch
-     REAL                                   :: NucXmax                          !< Upper boundary of nucleation patch
-     REAL                                   :: NucYmin                          !< Lower boundary of nucleation patch
-     REAL                                   :: NucYmax                          !< Upper boundary of nucleation patch
      REAL                                   :: NucBulk_xx_0                     !< Nucleation bulk stress
      REAL                                   :: NucBulk_yy_0                     !< Nucleation bulk stress
      REAL                                   :: NucBulk_zz_0                     !< Nucleation bulk stress
@@ -947,7 +925,6 @@ MODULE TypesDef
      REAL                                   :: NucShearXZ_0                     !< Nucleation shear stress
      REAL                                   :: NucRS_sv0                        !< Nucleation state variable
      REAL                                   :: r_s                              !< width of the smooth transition
-     INTEGER                                :: read_fault_file                  !< Switch for reading in fault parameters from Par_file_faults (1: on, 0: off)
      INTEGER                                :: BackgroundType                   !< Type of background stresses (0: homogeneous)
      TYPE(tbackground_stress)               :: bg_stress                        !< includes background stress information for dynamic rupture
      INTEGER                                :: inst_healing                     !< instantaneous healing switch (1: on, 0: off)
@@ -1429,6 +1406,7 @@ MODULE TypesDef
      INTEGER                                :: Refinement
      integer                                :: SurfaceOutput, SurfaceOutputRefinement
      real                                   :: SurfaceOutputInterval
+     character(len=64)                      :: xdmfWriterBackend                !< Check point backend
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------
@@ -1812,7 +1790,6 @@ MODULE TypesDef
 !     REAL                         , POINTER :: rotB(:,:)                       ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: divB(:)                         ! aheineck @TODO not referenced in the code -> commented
 !     REAL                         , POINTER :: grd(:,:,:)                      ! aheineck @TODO not referenced in the code -> commented
-     TYPE(tPointerToField)        , POINTER :: FieldMask(:) => NULL()
      !< calc_deltaT
      real, dimension(:), allocatable        :: vel
      real, dimension(:), allocatable        :: sound
@@ -1821,8 +1798,6 @@ MODULE TypesDef
      logical, dimension(:), allocatable     :: mask
      real, dimension(:), allocatable        :: dtmin
      !< FaceAdjustment und
-     !< Viscous Part
-     REAL                         , POINTER :: pvar_n(:,:) => NULL()
      !< Viscous Part
      REAL                         , POINTER :: rh(:) => NULL()
      !< Spatial Disc

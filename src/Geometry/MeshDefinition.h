@@ -53,6 +53,8 @@ typedef int ElemNeighborRanks[4];
 typedef int ElemMPIIndices[4];
 typedef int ElemMaterial;
 
+typedef int ElemFaultTags[4];
+
 struct Element {
 	int localId;
 	ElemVertices vertices;
@@ -67,6 +69,7 @@ struct Element {
 	ElemMPIIndices mpiFaultIndices;
 	/** Material of the element */
 	ElemMaterial material;
+   ElemFaultTags faultTags; // member of struct Element
 };
 
 typedef double VrtxCoords[3];

@@ -972,7 +972,8 @@ CONTAINS
         DISC%DynRup%DynRup_out_elementwise%OutputMask, &
         DISC%DynRup%DynRup_out_elementwise%TmpState, &
         IO%OutputFile, &
-        DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec)
+        DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec, &
+        IO%xdmfWriterBackend)
 
   END SUBROUTINE
 !

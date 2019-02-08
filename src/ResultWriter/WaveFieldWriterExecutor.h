@@ -78,6 +78,7 @@ struct WaveFieldInitParam
 	int timestep;
 
 	int bufferIds[BUFFERTAG_MAX+1];
+  xdmfwriter::BackendType backend;
 };
 
 struct WaveFieldParam
@@ -136,10 +137,7 @@ public:
 
 		int rank = seissol::MPI::mpi.rank();
 
-		xdmfwriter::BackendType type = xdmfwriter::POSIX;
-#ifdef USE_HDF
-		type = xdmfwriter::H5;
-#endif // USE_HDF
+		xdmfwriter::BackendType type = param.backend;
 
 		const char* outputPrefix = static_cast<const char*>(info.buffer(param.bufferIds[OUTPUT_PREFIX]));
 

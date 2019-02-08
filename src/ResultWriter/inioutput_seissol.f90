@@ -74,9 +74,7 @@ CONTAINS
 #else
     USE receiver_mod
 #endif
-    USE ini_calcSeisSol_mod
     USE dg_setup_mod
-    USE data_output_mod
 
 #ifdef GENERATEDKERNELS
     use iso_c_binding
@@ -113,7 +111,6 @@ CONTAINS
     TYPE (tAnalyse)                :: Analyse                                  !
     CHARACTER(LEN=100)             :: programTitle                             !
     ! local variable declaration                                               !
-    CHARACTER(LEN=256)             :: outfile
     CHARACTER(LEN=5)               :: cmyrank
     integer                     :: timestepWavefield
     integer                     :: mkdirRet
@@ -155,36 +152,6 @@ CONTAINS
     !                                                                          !
 #endif
 
-#ifdef PARALLEL
-    WRITE(cmyrank,'(I5.5)') MPI%myrank     ! myrank -> cmyrank
-    outfile = TRIM(IO%OutputFile )//'.'//TRIM(cmyrank)  ! mshfile Name
-#else
-    outfile = TRIM(IO%OutputFile )                      ! mshfile Name
-#endif
-    !                                                                          !
-    logInfo(*) '<--------------------------------------------------------->'  !
-    logInfo(*) '<      Initializing calcSeisSol (OptionalFields)          >'  !
-    logInfo(*) '<--------------------------------------------------------->'  !
-    !                                                                          !
-    CALL ini_calcSeisSol(                                 &                    ! ini_calc
-         pvar           = pvar                          , &                    ! ini_calc
-         EQN            = EQN                           , &                    ! ini_calc
-         MESH           = MESH                          , &                    ! ini_calc
-         DISC           = DISC                          , &                    ! ini_calc
-         OptionalFields = OptionalFields                , &                    ! ini_calc
-         IO             = IO                              )                    ! ini_calc
-         !                                                                     !
-
-#ifdef PARALLEL
-    if (IO%Format .ne. 5 .and. IO%Format .ne. 6 .and. IO%Format .ne. 10) then
-        logInfo0(*) 'Creating output folders'
-        WRITE(cmyrank,'(I5.5)') MPI%myrank
-        mkdirRet = mkdir(TRIM(IO%OutputFile )//'-'//TRIM(cmyrank)//c_null_char, int(o'777',c_int16_t))
-    endif
-#endif
-
-
-#ifdef GENERATEDKERNELS
     if (io%surfaceOutput > 0) then
         call c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth = io%SurfaceOutputRefinement )
     endif
@@ -214,35 +181,13 @@ CONTAINS
         i_outputMask= outputMaskInt,         &
         i_outputRegionBounds = io%OutputRegionBounds, &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
-        freeSurfaceFilename = trim(io%OutputFile) // c_null_char )
+        freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
+        xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char )
 
     ! Initialize the fault Xdmf Writer
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
      CALL ini_fault_xdmfwriter(DISC,IO)
     ENDIF
-#else
-    if (IO%Format .eq. 6) then
-        call waveFieldWriterInit(disc, eqn, io, mesh, mpi)
-    endif
-
-    if (timestep .eq. 0) then
-        ! Only write initial data when we don't start from a check point
-        logInfo(*) 'Write initial data: '!
-        CALL data_output(                                     &                    ! data_output
-            dt         = OptionalFields%dt(:)              , &                    ! data_output
-            time       = time                              , &                    ! data_output
-            timestep   = timestep                          , &                    ! data_output
-            EQN        = EQN                               , &                    ! data_output
-            MESH       = MESH                              , &                    ! data_output
-            DISC       = DISC                              , &                    ! data_output
-            SOURCE     = SOURCE                            , &                    ! data_output
-            BND        = BND                               , &                    ! data_output
-            MPI        = MPI                               , &                    ! data_output
-            IO         = IO                                , &                    ! data_output
-            ANALYSE    = ANALYSE                           , &                    ! data_output
-            OptionalFields = OptionalFields                  )                    ! data_output
-    endif
-#endif
 
     ! end epik/scorep function
     EPIK_FUNC_END()

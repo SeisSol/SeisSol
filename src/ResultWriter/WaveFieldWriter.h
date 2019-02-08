@@ -57,6 +57,7 @@
 #include "Geometry/refinement/VariableSubSampler.h"
 #include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
+#include <Modules/Module.h>
 
 namespace seissol
 {
@@ -68,7 +69,7 @@ namespace refinement {
 namespace writer
 {
 
-class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>
+class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>, public seissol::Module
 {
 	/** True if wave field output is enabled */
 	bool m_enabled;
@@ -123,12 +124,6 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/** Mapping from the cell order to dofs order */
 	unsigned int* m_map;
 
-	/** Time of the last output (makes sure output is not written twice at the end) */
-	double m_lastTimeStep;
-
-	/** The tolerance in the time for ignoring duplicate time steps */
-	double m_timeTolerance;
-
 	/** The stopwatch for the frontend */
 	Stopwatch m_stopwatch;
 
@@ -158,9 +153,7 @@ public:
 		  m_lowOutputFlags(0L),
 		  m_numCells(0), m_numLowCells(0),
 		  m_dofs(0L), m_pstrain(0L), m_integrals(0L),
-		  m_map(0L),
-		  m_lastTimeStep(-1),
-		  m_timeTolerance(0)
+		  m_map(0L)
 	{
 	}
 
@@ -193,6 +186,10 @@ public:
 		setExecutor(m_executor);
 	}
 
+  void setWaveFieldInterval(double interval) {
+    setSyncInterval(interval);
+  }
+
 	/**
 	 * Initialize the wave field ouput
 	 *
@@ -204,7 +201,7 @@ public:
 			const double* dofs,  const double* pstrain, const double* integrals,
 			unsigned int* map,
 			int refinement, int* outputMask, double* outputRegionBounds,
-			double timeTolerance);
+      xdmfwriter::BackendType backend);
 
 	/**
 	 * Write a time step
@@ -243,6 +240,13 @@ public:
 	{
 		m_executor.finalize();
 	}
+
+	//
+	// Hooks
+	//
+	void simulationStart();
+
+	void syncPoint(double currentTime);
 };
 
 }

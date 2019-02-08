@@ -46,6 +46,7 @@
 #include <limits>
 
 #include "utils/logger.h"
+#include "Parallel/MPI.h"
 
 namespace seissol
 {
@@ -61,6 +62,9 @@ private:
 
 	/** The next synchronization point for this module */
 	double m_nextSyncPoint;
+
+  /** The last time when syncPoint was called */
+	double m_lastSyncPoint;
 
 public:
 	/**
@@ -84,7 +88,7 @@ public:
 
 public:
 	Module()
-		: m_syncInterval(0), m_nextSyncPoint(0)
+		: m_syncInterval(0), m_nextSyncPoint(0), m_lastSyncPoint(-std::numeric_limits<double>::infinity())
 	{ }
 
 	/**
@@ -95,10 +99,14 @@ public:
 	 *
 	 * @return The next synchronization point for this module
 	 */
-	double potentialSyncPoint(double currentTime, double timeTolerance)
+	double potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint)
 	{
-		if (std::abs(currentTime - m_nextSyncPoint) < timeTolerance) {
+    if (std::abs(currentTime - m_lastSyncPoint) < timeTolerance) {
+      int const rank = seissol::MPI::mpi.rank();
+      logInfo(rank) << "Ignoring duplicate synchronisation point at time" << currentTime << "; the last sync point was at " << m_lastSyncPoint;
+    } else if (forceSyncPoint || std::abs(currentTime - m_nextSyncPoint) < timeTolerance) {
 			syncPoint(currentTime);
+      m_lastSyncPoint = currentTime;
 			m_nextSyncPoint += m_syncInterval;
 		}
 
@@ -113,6 +121,7 @@ public:
 	void setSimulationStartTime(double time)
 	{
 		assert(m_syncInterval > 0);
+		m_lastSyncPoint = time;
 		m_nextSyncPoint = time + m_syncInterval;
 	}
 

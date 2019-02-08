@@ -120,7 +120,16 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), dimension(*), intent(in)    :: memory
     end subroutine
   end interface
-  
+
+  ! Don't forget to add // c_null_char to modelFileName when using this interface
+  interface
+    logical(kind=c_bool) function c_interoperability_faultParameterizedByTraction(modelFileName) bind( C, name='c_interoperability_faultParameterizedByTraction' )
+      use iso_c_binding, only: c_char, c_bool
+      implicit none
+      character(kind=c_char), dimension(*), intent(in)  :: modelFileName
+    end function
+  end interface
+
   ! Don't forget to add // c_null_char to modelFileName when using this interface
   interface
     subroutine c_interoperability_initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints) bind( C, name='c_interoperability_initializeFault' )
@@ -236,7 +245,7 @@ module f_ftoc_bind_interoperability
 
     subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
         i_numSides, i_numBndGP, i_refinement, i_outputMask, i_outputRegionBounds, &
-        freeSurfaceInterval, freeSurfaceFilename ) &
+        freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend ) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -256,6 +265,7 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), dimension(*), intent(in) :: i_outputRegionBounds
       real(kind=c_double), value                    :: freeSurfaceInterval
       character(kind=c_char), dimension(*), intent(in) :: freeSurfaceFilename
+      character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
     end subroutine
 
     subroutine c_interoperability_addToDofs( i_meshId, i_update, numUpdateEntries ) bind( C, name='c_interoperability_addToDofs' )

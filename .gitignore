@@ -37,6 +37,7 @@ src/version.h
 # Build
 build/build_*
 build/SeisSol_*
+Documentation/_build/*
 preprocessing/meshing/cube_c/build
 preprocessing/science/asagiconv/build
 postprocessing/validation/XDMFCubeCheck/build

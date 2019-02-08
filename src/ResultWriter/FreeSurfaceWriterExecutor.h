@@ -52,6 +52,7 @@ namespace writer
 struct FreeSurfaceInitParam
 {
 	int timestep;
+  xdmfwriter::BackendType backend;
 };
 
 struct FreeSurfaceParam

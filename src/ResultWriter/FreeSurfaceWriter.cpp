@@ -117,7 +117,8 @@ void seissol::writer::FreeSurfaceWriter::enable()
 void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&                       meshReader,
                                                 seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
                                                 char const*                             outputPrefix,
-                                                double                                  interval )
+                                                double                                  interval,
+                                                xdmfwriter::BackendType                 backend )
 {
 	if (!m_enabled)
 		return;
@@ -167,6 +168,7 @@ void seissol::writer::FreeSurfaceWriter::init(  MeshReader const&               
 	// Initialize the executor
 	FreeSurfaceInitParam param;
 	param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
+  param.backend = backend;
 	callInit(param);
 
 	// Remove unused buffers

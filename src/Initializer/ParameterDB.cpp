@@ -50,6 +50,7 @@
 #ifdef USE_ASAGI
 #include <Reader/AsagiReader.h>
 #endif
+#include <utils/logger.h>
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
@@ -136,7 +137,7 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = barycentre[dim];
       }
-      query.group(q) = 0;
+      query.group(q) = elements[element].faultTags[side];
     }
   }
   return query;
@@ -172,10 +173,21 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = xyz[dim];
       }
-      query.group(q) = 0;
+      query.group(q) = elements[element].faultTags[side];
     }
   }
   return query;
+}
+
+easi::Component* seissol::initializers::ParameterDB::loadModel(std::string const& fileName) {
+#ifdef USE_ASAGI
+  seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
+  easi::YAMLParser parser(3, &asagiReader);
+#else
+  easi::YAMLParser parser(3);
+#endif
+  easi::Component* model = parser.parse(fileName);
+  return model;
 }
 
 void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
@@ -185,14 +197,25 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
   }
   
   easi::Query query = queryGen.generate();
-#ifdef USE_ASAGI
-  seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
-  easi::YAMLParser parser(3, &asagiReader);
-#else
-  easi::YAMLParser parser(3);
-#endif
-  easi::Component* model = parser.parse(fileName);
-  model->evaluate(query, adapter);
-  
+  easi::Component* model = ParameterDB::loadModel(fileName);
+  model->evaluate(query, adapter);  
   delete model;
+}
+
+bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::string const& fileName) {
+  easi::Component* model = ParameterDB::loadModel(fileName);
+  std::set<std::string> supplied = model->suppliedParameters();
+  delete model;
+
+  std::set<std::string> stress = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
+  std::set<std::string> traction =  {"T_n", "T_s", "T_d"};
+
+  bool containsStress = std::includes(supplied.begin(), supplied.end(), stress.begin(), stress.end());
+  bool containsTraction = std::includes(supplied.begin(), supplied.end(), traction.begin(), traction.end());
+
+  if (containsStress == containsTraction) {
+    logError() << "Both stress (s_xx, s_yy, s_zz, s_xy, s_yz, s_xz) and traction (T_n, T_s, T_d) are defined (or are missing), but only either of them must be defined.";
+  }
+
+  return containsTraction;
 }

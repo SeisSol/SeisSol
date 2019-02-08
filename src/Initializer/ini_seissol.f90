@@ -60,10 +60,8 @@ CONTAINS
     !--------------------------------------------------------------------------
     USE COMMON_readpar_mod
     USE ini_OptionalFields_mod
-    USE ini_calcSeisSol_mod
     USE dg_setup_mod
     USE ini_MODEL_mod
-    USE data_output_mod
     USE analyse_SeisSol_mod
  !   USE DGSponge_mod
     USE calc_deltaT_mod
@@ -214,7 +212,7 @@ CONTAINS
 	end do
 
 	call c_interoperability_getIntegrationMask( i_integrationMask = IntegrationMask(1:9) )
-#endif // INTEGRATE_QUANTITIES
+#endif
 #endif
 
     ! Start mesh reading/computing section

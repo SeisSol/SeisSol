@@ -38,6 +38,7 @@
  */
 
 #include "SeisSol.h"
+#include "common.hpp"
 
 extern "C"
 {
@@ -45,11 +46,12 @@ extern "C"
 void fault_hdf_init(const int* cells, const double* vertices,
 		int nCells, int nVertices,
 		int* outputMask, const double** dataBuffer, const char* outputPrefix,
-		double interval)
+		double interval, char const* xdmfWriterBackend)
 {
+  auto type = seissol::writer::backendType(xdmfWriterBackend);
 	seissol::SeisSol::main.faultWriter().init(reinterpret_cast<const unsigned int*>(cells),
 		vertices, nCells, nVertices,
-		outputMask, dataBuffer, outputPrefix, interval);
+		outputMask, dataBuffer, outputPrefix, interval, type);
 }
 
 void fault_hdf_write(double time)

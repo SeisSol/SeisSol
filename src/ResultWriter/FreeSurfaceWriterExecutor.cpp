@@ -77,13 +77,8 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(const async::ExecInfo 
       variables.push_back(LABELS[i]);
 		}
 
-		xdmfwriter::BackendType type = xdmfwriter::POSIX;
-#ifdef USE_HDF
-		type = xdmfwriter::H5;
-#endif // USE_HDF
-
 		// TODO get the timestep from the checkpoint
-		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>(type, outputName.c_str(), param.timestep);
+		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>(param.backend, outputName.c_str(), param.timestep);
 
 #ifdef USE_MPI
 		m_xdmfWriter->setComm(m_comm);

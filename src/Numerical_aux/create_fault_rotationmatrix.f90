@@ -54,7 +54,7 @@ MODULE create_fault_rotationmatrix_mod
 
 CONTAINS
 
-  SUBROUTINE create_fault_rotationmatrix (rotmat,iFace,EQN,MESH)
+  SUBROUTINE create_fault_rotationmatrix(rotmat,iFace,EQN,MESH,iRotmat)
     !> routine creates rotationmatrix for a particular point on the fault that
     !> rotates the tangential fault vectors in strike and dip direction 
     !-------------------------------------------------------------------------!
@@ -67,6 +67,7 @@ CONTAINS
     ! Local variable declaration                                              !
     INTEGER                         :: iFace                                  !< fault face index
     REAL                            :: rotmat(1:6,1:6)                        !< rotation matrix for individual fault receiver
+    REAL,optional                   :: iRotmat(1:6,1:6)                       !
     REAL                            :: T(EQN%nVar,EQN%nVar)                   !< Transformation matrix
     REAL                            :: iT(EQN%nVar,EQN%nVar)                  !< inverse Transformation matrix
     REAL                            :: n(1:3)                                 !< normal vector to fault, pointing away from reference point
@@ -74,7 +75,8 @@ CONTAINS
     REAL                            :: dip_vector(1:3)                        !< dip vector
     REAL                            :: norm                                   !< norm
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: MESH, EQN                                                !< global variables
+    INTENT(IN)    :: iFace,MESH, EQN                                                !
+    intent(out)   :: rotmat,iRotmat
     !-------------------------------------------------------------------------!
  
     ! Works only with following right-handed coordinate system:
@@ -103,7 +105,10 @@ CONTAINS
     
     CALL RotationMatrix3D(n,strike_vector,dip_vector,T(:,:),iT(:,:),EQN)
     rotmat = iT(1:6,1:6)
-  
+
+    if(present(iRotmat)) then
+      iRotmat = T(1:6,1:6)
+    endif  
   END SUBROUTINE create_fault_rotationmatrix
   
 END MODULE create_fault_rotationmatrix_mod

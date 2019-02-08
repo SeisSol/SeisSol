@@ -40,14 +40,11 @@
 !! C++/Fortran-interoperability: Fortran-bindings
 
 #include "Initializer/preProcessorMacros.fpp"
-#include "initialization/precision.h"
 
-#if defined(DOUBLE_PRECISION)
-#define REAL_TYPE real*8
-#elif defined(SINGLE_PRECISION)
-#define REAL_TYPE real*4
+#if defined(REAL_SIZE)
+#define REAL_TYPE real*REAL_SIZE
 #else
-#error Unknown floating point precision type.
+#error Unknown real size.
 #endif
 
 module f_ctof_bind_interoperability

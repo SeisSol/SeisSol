@@ -101,7 +101,8 @@ public:
 		unsigned int nCells, unsigned int nVertices,
 		int* outputMask, const double** dataBuffer,
 		const char* outputPrefix,
-		double interval);
+		double interval,
+    xdmfwriter::BackendType backend);
 
 	/**
 	 * @return The current time step of the fault output

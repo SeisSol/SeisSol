@@ -121,7 +121,7 @@ MODULE Eval_friction_law_mod
         
            CALL no_fault(TractionGP_XY,TractionGP_XZ,XYStressGP,XZStressGP)
            
-        CASE(2,13) ! Coulomb model for LSW, 13=LSW with lower static coefficient inside a specified nucleation patch, used for TPV12 and TPV13
+        CASE(2) ! Coulomb model for LSW
 
            CALL Linear_slip_weakening(                                     & !
                                 TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
@@ -161,7 +161,7 @@ MODULE Eval_friction_law_mod
                                 time,DeltaT,                               & ! IN: time
                                 DISC,EQN,MESH,MPI,IO)
 
-        CASE(16,17,29,30) ! Specific conditions for SCEC TPV16/17
+        CASE(16) ! Specific conditions for SCEC TPV16/17/29 or 30
                     ! basically, introduction of a time dependent forced rupture
 
            CALL Linear_slip_weakening_TPV1617(                             & !

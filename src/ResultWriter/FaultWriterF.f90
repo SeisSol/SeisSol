@@ -48,7 +48,7 @@ module FaultWriter
     ! C functions
     interface
         subroutine fault_hdf_init(cells, vertices, nCells, nVertices, &
-                outputMask, dataBuffer, outputPrefix, interval) bind(C, name="fault_hdf_init")
+                outputMask, dataBuffer, outputPrefix, interval, xdmfWriterBackend) bind(C, name="fault_hdf_init")
             use, intrinsic :: iso_c_binding
 
             integer( kind=c_int ), dimension(*), intent(in)    :: cells
@@ -59,6 +59,7 @@ module FaultWriter
             type(c_ptr), dimension(*), intent(in)              :: dataBuffer
             character( kind=c_char ), dimension(*), intent(in) :: outputPrefix
             real( kind=c_double ), value                       :: interval
+            character(kind=c_char), dimension(*), intent(in)   :: xdmfWriterBackend
         end subroutine fault_hdf_init
 
         subroutine fault_hdf_close() bind(C, name="fault_hdf_close")
@@ -73,7 +74,7 @@ module FaultWriter
     end interface
 
 contains
-    subroutine initFaultOutput(points, outputMask, dataBuffer, outputPrefix, interval)
+    subroutine initFaultOutput(points, outputMask, dataBuffer, outputPrefix, interval, xdmfWriterBackend)
         implicit none
 
         type(tUnstructPoint), dimension(:)  :: points
@@ -81,6 +82,7 @@ contains
         real, dimension(:,:,:), target      :: dataBuffer
         character(len=60)                   :: outputPrefix
         real                                :: interval
+        character(len=64)                   :: xdmfWriterBackend
 
         integer, dimension(:,:), allocatable :: cells
         real, dimension(:,:), allocatable :: vertices
@@ -117,7 +119,8 @@ contains
             nCells, nVertices, &
             outputMask, cDataBuffer, &
             trim(outputPrefix) // c_null_char, &
-            interval)
+            interval, &
+            trim(xdmfWriterBackend) // c_null_char)
 
         deallocate(cells, vertices)
     end subroutine initFaultOutput

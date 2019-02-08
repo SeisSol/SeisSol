@@ -274,7 +274,7 @@ class seissol::Interoperability {
 			double* slip, double* slip1, double* slip2, double* state, double* strength,
 			int numSides, int numBndGP, int refinement, int* outputMask,
 			double* outputRegionBounds,
-			double freeSurfaceInterval, const char* freeSurfaceFilename);
+			double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend);
 
    /**
     * Copy dynamic rupture variables for output.

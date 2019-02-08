@@ -117,7 +117,11 @@ int seissol::initializers::time_stepping::LtsWeights::getCluster( double    time
 int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition( int const* boundaryCond,
                                                                             unsigned cell,
                                                                             unsigned face ) {
-  return ((boundaryCond[cell] >> (face*8)) & 0xFF);
+  int bcCurrentFace = ((boundaryCond[cell] >> (face*8)) & 0xFF);
+  if (bcCurrentFace > 6) {
+     bcCurrentFace = 3;
+  }
+  return bcCurrentFace;
 }
 
 int seissol::initializers::time_stepping::LtsWeights::ipow(int x, int y) {

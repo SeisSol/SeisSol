@@ -234,11 +234,11 @@ CONTAINS
     !------------------------------------------------------------------------
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
-    REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, Tv
+    REAL                       :: FreqCentral, FreqRatio, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, pmethod, &
-                                           Adjoint, rho, mu, lambda, &
+                                           Adjoint,  &
                                            MaterialFileName, FreqCentral, &
                                            FreqRatio, AdjFileName
     !------------------------------------------------------------------------
@@ -264,9 +264,6 @@ CONTAINS
     ! aheineck, @TODO these values are used, but not initialized < End
 
     ! Setting the default values
-    rho                 = 1.
-    mu                  = 1.
-    lambda              = 1.
     Anisotropy          = 0
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     Anelasticity        = 1
@@ -396,9 +393,6 @@ CONTAINS
      STOP
     endif
     !
-    EQN%rho0 = rho
-    EQN%mu = mu
-    EQN%lambda = lambda
     EQN%MaterialFileName = MaterialFileName
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
@@ -1216,34 +1210,26 @@ CONTAINS
 
     CHARACTER(600)                         :: FileName_BackgroundStress
     CHARACTER(LEN=600)                     :: ModelFileName
-    REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
-                                              Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
-                                              RS_sv0, XRef, YRef, ZRef, GPwise, Rupspeed, &
-                                              Mu_D_ini, Mu_S_ini, Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
-                                              RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
-                                              RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW,  &
-                                              NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
-                                              NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, cohesion_max, cohesion_depth, energy_rate_printtimeinterval
+    REAL                                   :: RS_sv0, XRef, YRef, ZRef, GPwise,  &
+                                              Mu_SNuc_ini, H_Length, RS_f0, &
+                                              RS_sr0, RS_b, RS_iniSlipRate1, &
+                                              RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
+                                              NucRS_sv0, r_s, energy_rate_printtimeinterval
 
     !------------------------------------------------------------------------
-    NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
-                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
+    NAMELIST                              /DynamicRupture/ FL, BackgroundType, &
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
-                                                GPwise, inst_healing, Rupspeed, &
-                                                Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
-                                                RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
-                                                RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW, Nucleation, &
-                                                NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
-                                                NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                                NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
-                                                OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
-                                                cohesion_max, cohesion_depth, read_fault_file, SlipRateOutputType, ModelFileName
+                                                GPwise, inst_healing, &
+                                                Mu_SNuc_ini, H_Length, RS_f0, &
+                                                RS_sr0, RS_b, RS_iniSlipRate1, &
+                                                RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
+                                                NucRS_sv0, r_s, RF_output_on, DS_output_on, &
+                                                OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
+                                                SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
 
     ! Setting default values
     BackgroundType = 0
-    Nucleation = 0
     FL = 0
     RF_output_on = 0
     DS_output_on = 0
@@ -1252,12 +1238,6 @@ CONTAINS
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
     SlipRateOutputType = 0
-    Bulk_xx_0 = 0
-    Bulk_yy_0 = 0
-    Bulk_zz_0 = 0
-    ShearXY_0 = 0
-    ShearYZ_0 = 0
-    ShearXZ_0 = 0
     RS_sv0 = 0
     XRef = 0
     YRef = 0
@@ -1265,45 +1245,19 @@ CONTAINS
     refPointMethod=0
     GPwise = 1 !1=GPwise and 0=elementwise
     inst_healing = 0
-    Rupspeed = 0
-    Mu_D_ini = 1.0
-    Mu_S_ini = 1.0
     Mu_SNuc_ini=1.0
     H_Length = 0
-    D_C_ini = 1.0
     RS_f0 = 0
     RS_sr0 = 0
-    RS_a = 0
     RS_b = 0
-    RS_sl0 = 0
     RS_iniSlipRate1 = 0
     RS_iniSlipRate2 = 0
     v_star = 0
-    R_crit = 0
     t_0 = 0
-    Vs_nucl = 0
     L = 0
     Mu_W = 0
-    RS_srW = 0
-    NucDirX = 0
-    NucXmin = 0
-    NucXmax = 0
-    NucDirY = 0
-    NucYmin = 0
-    NucYmax = 0
-    NucBulk_xx_0 = 0
-    NucBulk_yy_0 = 0
-    NucBulk_zz_0 = 0
-    NucShearXY_0 = 0
-    NucShearYZ_0 = 0
-    NucShearXZ_0 = 0
     NucRS_sv0 = 0
     r_s = 0
-    cohesion_0 = 0
-    cohesion_max = 0
-    cohesion_depth = 0
-
-    read_fault_file = 0
     ModelFileName = ''
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
@@ -1323,60 +1277,25 @@ CONTAINS
     !
     DISC%DynRup%ModelFileName = ModelFileName
 
-           ! Read fault parameters from Par_file_faults?
-           DISC%DynRup%read_fault_file = read_fault_file
-
            !FRICTION LAW CHOICE
            EQN%FL = FL
+           EQN%GPwise = GPwise
+           EQN%refPointMethod = refPointMethod
+           EQN%XRef = XRef
+           EQN%YRef = YRef
+           EQN%ZRef = ZRef
+
+           IF (EQN%GPwise .EQ.1) THEN
+               logInfo0(*) 'GPwise initialization. '
+           ELSE
+               logInfo0(*) 'elementwise initialization. '
+           ENDIF
 
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,70,100,101,103,119,120,1201,1202,121)
-             EQN%Bulk_xx_0 = Bulk_xx_0
-             EQN%Bulk_yy_0 = Bulk_yy_0
-             EQN%Bulk_zz_0 = Bulk_zz_0
-             EQN%ShearXY_0 = ShearXY_0
-             EQN%ShearYZ_0 = ShearYZ_0
-             EQN%ShearXZ_0 = ShearXZ_0
+           CASE(0)
              EQN%RS_sv0 = RS_sv0
-             EQN%XRef = XRef
-             EQN%YRef = YRef
-             EQN%ZRef = ZRef
-             EQN%refPointMethod = refPointMethod
-             DISC%DynRup%cohesion_0 = cohesion_0
-             DISC%DynRup%cohesion_max = cohesion_max
-             DISC%DynRup%cohesion_depth = cohesion_depth
-
-             EQN%GPwise = GPwise
-             IF (EQN%GPwise .EQ.1) THEN
-                 logInfo0(*) 'GPwise initialization. '
-             ELSE
-                 logInfo0(*) 'elementwise initialization. '
-             ENDIF
-
-           CASE(16,17)
-             IO%FileName_BackgroundStress = FileName_BackgroundStress
-             EQN%GPwise = GPwise
-             EQN%XRef = XRef
-             EQN%YRef = YRef
-             EQN%ZRef = ZRef
-             EQN%refPointMethod = refPointMethod
-           case(1500,1501) ! ASAGI
-             ! TODO We also have FL parameter, maybe can reduce this case to a single one
-             ! and select the correct ASAGI initialization from FL.
-             IO%FileName_BackgroundStress = FileName_BackgroundStress
-             EQN%GPwise = GPwise
-             EQN%XRef = XRef
-             EQN%YRef = YRef
-             EQN%ZRef = ZRef
-             EQN%refPointMethod = refPointMethod
-             DISC%DynRup%RS_srW = RS_srW
-             DISC%DynRup%RS_a = RS_a
-             DISC%DynRup%cohesion_0 = cohesion_0
-             DISC%DynRup%D_C_ini = D_C_ini
-             DISC%DynRup%Mu_S_ini = Mu_S_ini
-             DISC%DynRup%Mu_D_ini = Mu_D_ini
            CASE DEFAULT
              logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
              STOP
@@ -1386,115 +1305,26 @@ CONTAINS
            SELECT CASE(EQN%FL)
            CASE(0)
              CONTINUE
-           CASE(1)
-             DISC%DynRup%Rupspeed = Rupspeed
-             DISC%DynRup%Mu_D_ini = Mu_D_ini
-             DISC%DynRup%Mu_S_ini = Mu_S_ini
-             DISC%DynRup%H_Length = H_Length
            CASE(2)
-             DISC%DynRup%Mu_D_ini = Mu_D_ini
-             DISC%DynRup%Mu_S_ini = Mu_S_ini
-             DISC%DynRup%D_C_ini = D_C_ini
              DISC%DynRup%inst_healing = inst_healing ! instantaneous healing switch (1: on, 0: off)
-           CASE(3,4,7,12,101)
-             DISC%DynRup%RS_f0 = RS_f0
-             DISC%DynRup%RS_sr0 = RS_sr0
-             DISC%DynRup%RS_a = RS_a
-             DISC%DynRup%RS_b = RS_b
-             DISC%DynRup%RS_sl0 = RS_sl0
-             DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1
-             DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2
            CASE(6) ! bimaterial with LSW
-             DISC%DynRup%Mu_D_ini = Mu_D_ini
-             DISC%DynRup%Mu_S_ini = Mu_S_ini
-             DISC%DynRup%D_C_ini = D_C_ini
              DISC%DynRup%v_star = v_star
              DISC%DynRup%L = L
-           CASE(13) !LSW with lower static coefficient of friction inside the nucleation patch
-             DISC%DynRup%Mu_D_ini = Mu_D_ini
-             DISC%DynRup%Mu_S_ini = Mu_S_ini
-             DISC%DynRup%Mu_SNuc_ini = Mu_SNuc_ini
-             DISC%DynRup%D_C_ini = D_C_ini
-             DISC%DynRup%inst_healing = inst_healing ! instantaneous healing switch (1: on, 0: off)
-           CASE(16,17) ! SCEC TPV 16/17
+           CASE(16) ! SCEC TPV 16/17
              ! all parameters are defined in input file of INITIAL VALUES
              DISC%DynRup%inst_healing = 0
-             CONTINUE
-           CASE(30) !LSW with a smoothed rupture in a circular patch, used for example in TPV29/TPV30 and TPV26/TPV27
-             DISC%DynRup%Mu_D_ini = Mu_D_ini
-             DISC%DynRup%Mu_S_ini = Mu_S_ini
-             DISC%DynRup%D_C_ini  = D_C_ini
-             DISC%DynRup%XHypo  = XHypo
-             DISC%DynRup%YHypo  = YHypo
-             DISC%DynRup%ZHypo  = ZHypo
-             DISC%DynRup%R_crit   = R_crit    ! radius of the nucleation patch
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
-             DISC%DynRup%Vs_nucl     = Vs_nucl       ! forced rupture decay time
-           CASE(103)
+             CONTINUE
+           CASE(3,4,7,101,103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
-             DISC%DynRup%RS_a = RS_a    ! a, direct effect
              DISC%DynRup%RS_b = RS_b    ! b, evolution effect
-             DISC%DynRup%RS_sl0 = RS_sl0   ! L, charact. length
              DISC%DynRup%Mu_W = Mu_W    ! mu_w, weakening friction coefficient
-             DISC%DynRup%RS_srW = RS_srW  ! Vw, weakening sliding velocity
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
-             DISC%DynRup%XHypo  = XHypo
-             DISC%DynRup%YHypo  = YHypo
-             DISC%DynRup%ZHypo  = ZHypo
-             DISC%DynRup%R_crit   = R_crit    ! radius of the nucleation patch
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
-             DISC%DynRup%NucBulk_xx_0 = NucBulk_xx_0
-             DISC%DynRup%NucBulk_yy_0 = NucBulk_yy_0
-             DISC%DynRup%NucBulk_zz_0 = NucBulk_zz_0
-             DISC%DynRup%NucShearXY_0 = NucShearXY_0
-             DISC%DynRup%NucShearYZ_0 = NucShearYZ_0
-             DISC%DynRup%NucShearXZ_0 = NucShearXZ_0
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
-             STOP
-           END SELECT
-
-           !NUCLEATION
-           DISC%DynRup%Nucleation = Nucleation
-           SELECT CASE (DISC%DynRup%Nucleation)
-           CASE(0) ! no specific nucleation patch
-             CONTINUE
-           CASE(1) ! box shape nucleation patch
-             DISC%DynRup%NucDirX = NucDirX
-             DISC%DynRup%NucXmin = NucXmin
-             DISC%DynRup%NucXmax = NucXmax
-             DISC%DynRup%NucDirY = NucDirY
-             DISC%DynRup%NucYmin = NucYmin
-             DISC%DynRup%NucYmax = NucYmax
-             DISC%DynRup%NucBulk_xx_0 = NucBulk_xx_0
-             DISC%DynRup%NucBulk_yy_0 = NucBulk_yy_0
-             DISC%DynRup%NucBulk_zz_0 = NucBulk_zz_0
-             DISC%DynRup%NucShearXY_0 = NucShearXY_0
-             DISC%DynRup%NucShearYZ_0 = NucShearYZ_0
-             DISC%DynRup%NucShearXZ_0 = NucShearXZ_0
-             DISC%DynRup%NucRS_sv0 = NucRS_sv0
-
-           CASE(2,3) ! smooth (2) and discontinuous (3) elliptic nucleation zone
-             DISC%DynRup%NucDirX = NucDirX
-             DISC%DynRup%NucXmin = NucXmin ! x_hc = x coordinate of the hypocenter
-             DISC%DynRup%NucXmax = NucXmax ! r_a = major semi-axis
-             DISC%DynRup%NucDirY = NucDirY
-             DISC%DynRup%NucYmin = NucYmin ! y_hc = y coordinate of the hypocenter
-             DISC%DynRup%NucYmax = NucYmax ! r_b = minor semi-axis
-             DISC%DynRup%r_s = r_s     ! width of the smooth transition
-             DISC%DynRup%NucBulk_xx_0 = NucBulk_xx_0
-             DISC%DynRup%NucBulk_yy_0 = NucBulk_yy_0
-             DISC%DynRup%NucBulk_zz_0 = NucBulk_zz_0
-             DISC%DynRup%NucShearXY_0 = NucShearXY_0
-             DISC%DynRup%NucShearYZ_0 = NucShearYZ_0
-             DISC%DynRup%NucShearXZ_0 = NucShearXZ_0
-             DISC%DynRup%NucRS_sv0 = NucRS_sv0
-           CASE(28,29) ! nucleation patch initialized in ini_model.f90
-             CONTINUE
-           CASE DEFAULT
-             logError(*) 'Unknown nucleation type ',DISC%DynRup%Nucleation
              STOP
            END SELECT
 
@@ -2996,12 +2826,13 @@ ALLOCATE( SpacePositionx(nDirac), &
       !! @more_info https://github.com/SeisSol/SeisSol/wiki/Parameter-File
       !!
       character(LEN=64)                :: checkPointBackend
+      character(LEN=64)                :: xdmfWriterBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
                                                 checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask, &
-                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval
+                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend
     !------------------------------------------------------------------------
     !
       logInfo(*) '<--------------------------------------------------------->'
@@ -3013,7 +2844,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       iOutputMaskMaterial(:) =  0
 	  IntegrationMask(:) = 0
       Rotation = 0
-      Format = 1
+      Format = 10
       Refinement = 0
       pickdt = 0.1
       pickDtType = 1
@@ -3027,6 +2858,11 @@ ALLOCATE( SpacePositionx(nDirac), &
       FaultOutputFlag = 0
       checkPointInterval = 0
       checkPointBackend = 'none'
+#ifdef USE_HDF
+      xdmfWriterBackend = 'hdf5'
+#else
+      xdmfWriterBackend = 'posix'
+#endif
       SurfaceOutput = 0
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
@@ -3160,22 +2996,12 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%Format = Format                                                       ! Plot format
       !                                                                        !
       SELECT CASE(IO%Format)
-      CASE(1)
-         logInfo0(*) 'Output data are in TEC-PLOT format '
-         IO%Extension = 'dat'
-      case(5)
-#ifdef HDF
-         logInfo0(*) 'Output data are in XDMF format'
-#else
-         logError(*) 'This version does not support HDF5'
-         stop
-#endif
       case(6)
-         logInfo0(*) 'Output data is in XDMF format (new implemantation)'
+         logInfo0(*) 'Output data is in XDMF format (new implementation)'
       case(10)
          logInfo0(*) 'Output data is disabled'
       CASE DEFAULT
-         logError(*) 'print_format must be {1,5,6,10}'
+         logError(*) 'print_format must be {6,10}'
          STOP
       END SELECT
 
@@ -3466,6 +3292,22 @@ ALLOCATE( SpacePositionx(nDirac), &
         END SELECT
 
       ENDIF
+
+      ! xdmf writer backend
+      io%xdmfWriterBackend = xdmfWriterBackend
+      select case (io%xdmfWriterBackend)
+        case ("posix")
+          logInfo0(*) 'Use POSIX XdmfWriter backend'
+        case ("hdf5")
+#ifndef USE_HDF
+          logError(*) 'This version does not support HDF5 backends'
+          stop
+#endif
+          logInfo0(*) 'Use HDF5 XdmfWriter backend'
+        case default
+          logError(*) 'Unknown XdmfWriter backend ', io%xdmfWriterBackend
+          stop
+      end select
 
       ! Check point config
       if (checkPointInterval .lt. 0) then
