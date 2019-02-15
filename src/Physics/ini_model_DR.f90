@@ -72,6 +72,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: friction_RSF103
   PRIVATE :: friction_LSW
   PRIVATE :: friction_LSW6
+  PRIVATE :: thermalPress_init
   !---------------------------------------------------------------------------!
 
   CONTAINS
@@ -116,6 +117,10 @@ MODULE ini_model_DR_mod
     CASE(103)
      ! Initialization of initial slip rate and friction for SCEC TPV103
      CALL friction_RSF103(DISC,EQN,MESH,BND)
+     ! Initialization of initial temperature and pressure for TP
+     IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+         CALL thermalPress_init(DISC,EQN)
+     ENDIF
     END SELECT  ! Initialize model dependent rate-and-state friction law parameters type
 
   END SUBROUTINE DR_setup
@@ -136,7 +141,7 @@ MODULE ini_model_DR_mod
     TYPE (tBoundary)               :: BND
     !-------------------------------------------------------------------------!
     ! Local variable declaration
-    integer                             :: i
+    integer                             :: i, nz
     real, allocatable, dimension(:,:)   :: nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz
     logical(kind=c_bool)                :: faultParameterizedByTraction
     !-------------------------------------------------------------------------!
@@ -255,6 +260,28 @@ MODULE ini_model_DR_mod
           call c_interoperability_addFaultParameter("nuc_yz" // c_null_char, nuc_yz)
           call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)
         endif
+      end if
+      if (DISC%DynRup%ThermalPress.EQ.1) THEN
+         nz = DISC%DynRup%TP_nz !number of grid points for the advection equation perpendicular to the fault, currently fixed to 60.0 but requires more testing
+        allocate(DISC%DynRup%TP_grid(nz), DISC%DynRup%TP_DFinv(nz), &
+                 DISC%DynRup%TP_Theta(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
+                 DISC%DynRup%TP_Sigma(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
+                 DISC%DynRup%TP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2), &
+                 DISC%DynRup%IniTP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2))
+        !call c_interoperability_addFaultParameter("TP_grid" // c_null_char, DISC%DynRup%TP_grid)
+        !call c_interoperability_addFaultParameter("TP_DFinv" // c_null_char, DISC%DynRup%TP_DFinv)
+        !call c_interoperability_addFaultParameter("TP_Theta" // c_null_char, DISC%DynRup%TP_Theta)
+        !call c_interoperability_addFaultParameter("TP_Sigma" // c_null_char, DISC%DynRup%TP_Sigma)
+        !call c_interoperability_addFaultParameter("TP" // c_null_char, DISC%DynRup%TP)
+        call c_interoperability_addFaultParameter("IniTP" // c_null_char, DISC%DynRup%IniTP)
+
+        DISC%DynRup%TP_grid(:) = 0.0d0
+        DISC%DynRup%TP_DFinv(:) = 0.0d0
+        DISC%DynRup%TP_Theta(:,:,:) = 0.0d0
+        DISC%DynRup%TP_Sigma(:,:,:) = 0.0d0
+        DISC%DynRup%TP(:,:,:) = 0.0d0
+        DISC%DynRup%IniTP(:,:,:) = 0.0d0
+
       end if
     END SELECT
 
@@ -659,6 +686,53 @@ MODULE ini_model_DR_mod
 
   END SUBROUTINE friction_LSW6    ! Initialization of friction for bimaterial linear slip weakening
 
+!> Initialization of TP grid, Fourier coefficients and initial temperature/pressure for TP
+  !<
+  SUBROUTINE thermalPress_init(DISC,EQN)
+  !-------------------------------------------------------------------------!
+  IMPLICIT NONE
+  !-------------------------------------------------------------------------!
+  TYPE(tDiscretization), target  :: DISC
+  TYPE(tEquations)               :: EQN
+  !-------------------------------------------------------------------------!
+  ! Local variable declaration
+  INTEGER                        :: j
+  REAL                           :: dlDwn, hwid, Dwnmax, Dwnmax_norm
+  REAL, PARAMETER                :: pi=3.141592653589793
+  !-------------------------------------------------------------------------!
+  INTENT(INOUT) :: DISC,EQN
+  !-------------------------------------------------------------------------!
 
+  !values currently from bicycle code -> how can we optimize that?
+  dlDwn = DISC%DynRup%TP_dlDwn !grid space distance, currently set to 0.3
+  hwid = DISC%DynRup%TP_hwid !half width of the shearing layer
+  Dwnmax = DISC%DynRup%TP_Dwnmax !max. wavenumber, currently set to 10.0
+  Dwnmax_norm = Dwnmax/hwid
+
+  !Initialization of grid points
+  DO j=1,DISC%DynRup%TP_nz
+     !use here Dwnmax and then always Dwn(j)/w (like in the SBIEM code)
+     !or use here Dwnmax/w and then only Dwn(j) in the following
+     DISC%DynRup%TP_grid(j) = Dwnmax*exp(-dlDwn*(DISC%DynRup%TP_nz-j)); !function l_i(x,z) in eq. (14) in Noda/Lapusta 2010 (take exp of 14)
+  END DO
+
+  !Initialization of Fourier coefficients
+  !coefficients from eq. (17) Noda/Lapusta 2010
+  DO j=1,DISC%DynRup%TP_nz
+     IF (j .EQ. 1) THEN
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*(1.d0+dlDwn*0.5d0)
+     ELSEIF(j .EQ. DISC%DynRup%TP_nz) THEN
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*dlDwn*0.5d0
+     ELSE
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*dlDwn
+     END IF
+  END DO !nz
+
+  !Initialization of IniTemp, currently constant from readpar, but could be a gradient from easi
+  DISC%DynRup%IniTP(:,:,1) = EQN%Temp_0
+  DISC%DynRup%IniTP(:,:,2) = EQN%Pressure_0
+
+
+  END SUBROUTINE thermalPress_init
 
   END MODULE ini_model_DR_mod
