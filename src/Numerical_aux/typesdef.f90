@@ -931,7 +931,21 @@ MODULE TypesDef
      ! case(6) bimaterial with LSW
      REAL                                   :: v_Star                           !< reference velocity of prakash-cliff regularization
      REAL                                   :: L                                !< reference length of prakash-cliff regularization
-     REAL, POINTER                          :: Strength(:,:) => NULL()                   !< save strength since it is used for bimaterial
+     REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
+     INTEGER                                :: thermalPress                     !< thermal pressurization switch
+     REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP
+     REAL                                   :: alpha_hy                         !< hydraulic diffusion parameter for TP
+     REAL                                   :: rho_c                            !< heat capacity for TP
+     REAL                                   :: TP_nz                            !< number of grid points to solve advection for TP
+     REAL                                   :: TP_dlDwn                         !< grid space distance for TP_grid
+     REAL                                   :: TP_hwid                          !< half width of the shearing layer for TP
+     REAL                                   :: TP_Dwnmax                        !< max. wavenumber for TP
+     REAL, ALLOCATABLE                      :: TP_grid(:)                       !< grid for TP
+     REAL, ALLOCATABLE                      :: TP_DFinv(:)                      !< inverse Fourier coefficients
+     REAL, ALLOCATABLE                      :: TP_Theta(:,:,:)                  !< Fourier transformed pressure
+     REAL, ALLOCATABLE                      :: TP_Sigma(:,:,:)                  !< Fourier transformed temperature
+     REAL, ALLOCATABLE                      :: TP(:,:,:)                          !< Temperature and Pressure for TP along each fault point
+     REAL, ALLOCATABLE                      :: IniTP(:,:,:)                     !< Initial temperature and pressure for TP along each fault point
      !RF output handled in tDynRup as it has to be computed in the friction solver
      INTEGER                                :: RF_output_on                     !< rupture front output on = 1, off = 0
      INTEGER                                :: RFtime_on                        !< collect rupture time for Vr or RF output on=1, off=0
@@ -1178,6 +1192,8 @@ MODULE TypesDef
      REAL                                   :: Bulk_xx_0                        !< Initial bulk stress
      REAL                                   :: Bulk_yy_0                        !< Initial bulk stress
      REAL                                   :: Bulk_zz_0                        !< Initial bulk stress
+     REAL                                   :: Temp_0                           !< Initial temperature for TP
+     REAL                                   :: Pressure_0                       !< Initial pressure for TP
      REAL                                   :: XRef, YRef, ZRef                 !< Location of reference point, which is used for fault orientation
      INTEGER                                :: GPwise                           !< Switch for heterogeneous background field distribution: elementwise =0 ; GPwise =1
 
