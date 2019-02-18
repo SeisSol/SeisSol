@@ -786,7 +786,8 @@ MODULE TypesDef
      REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP
      REAL                                   :: alpha_hy                         !< hydraulic diffusion parameter for TP
      REAL                                   :: rho_c                            !< heat capacity for TP
-     REAL                                   :: TP_nz                            !< number of grid points to solve advection for TP
+     REAL                                   :: TP_lambda                        !< pore pressure increase per unit increase
+     INTEGER                                :: TP_nz                            !< number of grid points to solve advection for TP
      REAL                                   :: TP_dlDwn                         !< grid space distance for TP_grid
      REAL                                   :: TP_hwid                          !< half width of the shearing layer for TP
      REAL                                   :: TP_Dwnmax                        !< max. wavenumber for TP

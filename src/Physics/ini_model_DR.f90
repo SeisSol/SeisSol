@@ -268,12 +268,8 @@ MODULE ini_model_DR_mod
                  DISC%DynRup%TP_Sigma(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
                  DISC%DynRup%TP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2), &
                  DISC%DynRup%IniTP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2))
-        !call c_interoperability_addFaultParameter("TP_grid" // c_null_char, DISC%DynRup%TP_grid)
-        !call c_interoperability_addFaultParameter("TP_DFinv" // c_null_char, DISC%DynRup%TP_DFinv)
-        !call c_interoperability_addFaultParameter("TP_Theta" // c_null_char, DISC%DynRup%TP_Theta)
-        !call c_interoperability_addFaultParameter("TP_Sigma" // c_null_char, DISC%DynRup%TP_Sigma)
-        !call c_interoperability_addFaultParameter("TP" // c_null_char, DISC%DynRup%TP)
-        call c_interoperability_addFaultParameter("IniTP" // c_null_char, DISC%DynRup%IniTP)
+        ! use this for advanced initialization
+        ! call c_interoperability_addFaultParameter("IniTP" // c_null_char, DISC%DynRup%IniTP)
 
         DISC%DynRup%TP_grid(:) = 0.0d0
         DISC%DynRup%TP_DFinv(:) = 0.0d0

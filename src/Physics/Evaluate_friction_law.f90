@@ -1196,6 +1196,8 @@ MODULE Eval_friction_law_mod
                             time,DeltaT,                               & ! IN: time
                             DISC,EQN,MESH,MPI,IO,BND)
     !-------------------------------------------------------------------------!
+    USE Thermalpressure_mod
+    !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
@@ -1220,9 +1222,10 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XY(nBndGP,nTimeGP)
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: LocMu(nBndGP), LocD_C(nBndGP), LocSlip(nBndGP), LocSlip1(nBndGP), LocSlip2(nBndGP), LocP(nBndGP), P(nBndGP), LocSR(nBndGP), ShTest(nBndGP)
-    REAL        :: LocMu_S, LocMu_D
+    REAL        :: LocMu_S, LocMu_D, S(nBndGP)
+    REAL        :: Theta_tmp(DISC%dynRup%TP_nz), Sigma_tmp(DISC%dynRup%TP_nz)
     REAL        :: LocSR1(nBndGP),LocSR2(nBndGP)
-    REAL        :: P_0(nBndGP),Strength(nBndGP),cohesion(nBndGP)
+    REAL        :: P_0(nBndGP),Strength(nBndGP),cohesion(nBndGP), n_stress(nBndGP), P_f(nBndGP)
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
@@ -1333,12 +1336,28 @@ MODULE Eval_friction_law_mod
 
          DO j=1,nSVupdates   !This loop corrects SV values
              !
-             !1. update SV using Vold from the previous time step
+             !fault strength using LocMu and P_f from previous timestep/iteration
+             S = LocMu*(P - P_f)
+             !1.update SV using Vold from the previous time step
              CALL update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSR, LocSV, LocMu)
+             IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+                 DO iBndGP = 1, nBndGP
+                         !recover original values as it gets overwritten in the ThermalPressure routine
+                         Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
+                         Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
+                         CALL Calc_ThermalPressure(time_inc, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                              DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, &
+                              DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), &
+                              DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2) )
+                         P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
+                 ENDDO
+             ENDIF
 
              !2. solve for Vnew , applying the Newton-Raphson algorithm
+             !effective normal stress including initial stresses and pore fluid pressure
+             n_stress = P - P_f
              CALL Newton_Raphson (EQN%FL, nBndGP, nSRupdates, 5d-14, LocSR, RS_sr0, LocSV, RS_a, &
-                                  P, Shtest, invZ, SRtest, NR, has_converged)
+                                  n_stress, Shtest, invZ, SRtest, NR, has_converged)
 
              ! 3. update theta, now using V=(Vnew+Vold)/2
              SR_tmp=0.5d0*(LocSR+ABS(SRtest))  ! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
@@ -1358,6 +1377,16 @@ MODULE Eval_friction_law_mod
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
          CALL update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSR, LocSV, LocMu)
+         IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+             DO i = 1, nBndGP
+                          !use Theta/Sigma from last call in this update, dt/2 and new SR from NS
+                          CALL Calc_ThermalPressure(time_inc/2.0, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, &
+                               DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), &
+                               DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2))
+                          P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
+             ENDDO
+         ENDIF
 
 
          ! update stress change
