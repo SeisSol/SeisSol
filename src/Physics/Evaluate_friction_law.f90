@@ -1520,7 +1520,7 @@ MODULE Eval_friction_law_mod
              !2. solve for Vnew , applying the Newton-Raphson algorithm
              !effective normal stress including initial stresses and pore fluid pressure
              n_stress = P - P_f
-             CALL Newton_Raphson (EQN%FL, nBndGP, nSRupdates, 5d-14, LocSR, RS_sr0, LocSV, RS_a, &
+             CALL Newton_Raphson (EQN%FL, nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
                                   n_stress, Shtest, invZ, SRtest, NR, has_converged)
 
              ! 3. update theta, now using V=(Vnew+Vold)/2
@@ -1652,7 +1652,7 @@ MODULE Eval_friction_law_mod
 
   END SUBROUTINE update_RSF
 
-  SUBROUTINE Newton_Raphson (FL, nBndGP, nSRupdates, tol, LocSR, RS_sr0, LocSV, RS_a, &
+  SUBROUTINE Newton_Raphson (FL, nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
                              n_stress, sh_stress, invZ, SRtest, NR, has_converged)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -1663,12 +1663,11 @@ MODULE Eval_friction_law_mod
     REAL          :: RS_sr0, RS_a(nBndGP)                                     !constants
     REAL          :: SRtest(nBndGP), LocSR(nBndGP), LocSV(nBndGP)
     REAL          :: n_stress(nBndGP), sh_stress(nBndGP), invZ
-    REAL          :: tol                                                      !tolerance for convergence
     REAL          :: NR(nBndGP), dNR(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP)
     REAL          :: mu_f(nBndGP), dmu_f(nBndGP)                              !calculated here in routine
     REAL          :: AlmostZero = 1D-45, aTolF = 1e-8
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: FL, nSRupdates, tol, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
+    INTENT(IN)    :: FL, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
                      sh_stress, invZ
     INTENT(OUT)   :: SRtest, NR, has_converged
     !-------------------------------------------------------------------------!
