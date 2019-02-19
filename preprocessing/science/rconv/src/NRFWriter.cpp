@@ -93,7 +93,14 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
     sf.tinit = source.tinit - minTinit;
     sf.timestep = source.dt;
     
+#ifdef noproj
+    centre.x = source.longitude;
+    centre.y= source.latitude;
+    centre.z=source.depth;
+#else
     map.map(source.longitude, source.latitude, source.depth, &centre.x, &centre.y, &centre.z);
+#endif
+
     map.toMCS(source.strike, source.dip, source.rake, 1.0, 0.0, 0.0, &sf.tan1.x, &sf.tan1.y, &sf.tan1.z);
     map.toMCS(source.strike, source.dip, source.rake, 0.0, 1.0, 0.0, &sf.tan2.x, &sf.tan2.y, &sf.tan2.z);
     map.toMCS(source.strike, source.dip, source.rake, 0.0, 0.0, 1.0, &sf.normal.x, &sf.normal.y, &sf.normal.z);
