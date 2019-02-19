@@ -96,9 +96,6 @@ void seissol::fakeData( initializers::LTS& lts,
   CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
   real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives));
   
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     buffers[cell] = bucket + cell * NUMBER_OF_ALIGNED_DOFS;
     derivatives[cell] = nullptr;

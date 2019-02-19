@@ -58,7 +58,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 double derive_cycles_from_time(double time) {
   // first try to read proxy env variable with freq
-  char* p_freq;
+  /*char* p_freq;
   double d_freq;
   double cycles = 1.0;
   p_freq = getenv ("SEISSOL_PROXY_FREQUENCY");
@@ -81,17 +81,18 @@ double derive_cycles_from_time(double time) {
       printf("detected frequency (lscpu) FAILED!\n");
     }
   }
-  return cycles;
+  return cycles;*/
+  return 0;
 }
 
 void print_hostname() {
-  FILE* fp = popen("hostname", "r");
+  /*FILE* fp = popen("hostname", "r");
   if (fp > 0) {
     char buffer[256];
     fgets(buffer, 256, fp);
     strtok(buffer, "\n");
     printf("Running on %s.\n", buffer);
-  }
+  }*/
 }
 
 double sec(struct timeval start, struct timeval end) {
