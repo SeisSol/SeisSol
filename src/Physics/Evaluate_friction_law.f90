@@ -1643,7 +1643,7 @@ MODULE Eval_friction_law_mod
        STOP
     ENDIF
 
-    !update LocMu for next strength determination
+    !update LocMu for next strength determination, only needed for last update
     ! X in Asinh(x) for mu calculation
     tmp = 0.5D0/RS_sr0 * EXP(LocSV/RS_a)
     tmp2 = LocSR*tmp
@@ -1699,7 +1699,7 @@ MODULE Eval_friction_law_mod
        tmp2  = tmp*SRtest
        mu_f  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
        dmu_f = RS_a/SQRT(1.0D0+tmp2**2)*tmp
-       NR    = -invZ * (ABS(n_stress)*mu_f-ABS(sh_stress))-SRtest
+       NR    = -invZ * (ABS(n_stress)*mu_f-sh_stress)-SRtest
 
        IF (maxval(abs(NR))<atolF) THEN
            has_converged = .TRUE.
@@ -1712,7 +1712,7 @@ MODULE Eval_friction_law_mod
        tmp3 = NR/dNR
 
        !update SRtest
-       SRtest = max(AlmostZero,ABS(SRtest-tmp3))
+       SRtest = max(AlmostZero,SRtest-tmp3)
 
     ENDDO
 
