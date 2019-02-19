@@ -38,87 +38,86 @@ Add the following lines to your .bashrc (vi ~/.bashrc).
 Installing SCons
 ----------------
 
-0. (wget
-   `http://prdownloads.sourceforge.net/scons/scons-2.2.0.tar.gz <http://prdownloads.sourceforge.net/scons/scons-2.2.0.tar.gz>`__)
-1. tar -xaf scons-2.2.0.tar.gz
-2. cd scons-2.2.0
-3. python setup.py install --prefix=$HOME
-4. cd ..
+.. code-block:: bash
+
+  wget http://prdownloads.sourceforge.net/scons/scons-2.2.0.tar.gz
+  tar -xaf scons-2.2.0.tar.gz
+  cd scons-2.2.0
+  python setup.py install --prefix=$HOME
+  cd ..
+
 
 Installing HDF5
 ---------------
 
-0. (wget
-   `https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.11/src/hdf5-1.8.11.tar.bz2 <https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.11/src/hdf5-1.8.11.tar.bz2>`__)
-1. tar -xaf hdf5-1.8.11.tar.bz2
-2. cd hdf5-1.8.11
-3. CC=mpiicc FC=mpiifort ./configure --enable-parallel --prefix=$HOME
-   --with-zlib --disable-shared --enable-fortran NOTE: This is with
-   Intel MPI, if you have to use a different MPI, please adjust mpiicc
-   and mpiifort accordingly to the scripts that call icc and ifort!
-   MPICH note: CC=mpicc FC=mpif90 ./configure --enable-parallel
-   --prefix=$HOME --with-zlib --disable-shared --enable-fortran
-4. make
-5. make install
-6. cd ..
+.. code-block:: bash
+
+  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.11/src/hdf5-1.8.11.tar.bz2
+  tar -xaf hdf5-1.8.11.tar.bz2
+  cd hdf5-1.8.11
+  CC=mpiicc FC=mpiifort ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran 
+  #NOTE: This is with Intel MPI, if you have to use a different MPI, please adjust mpiicc and mpiifort accordingly to the scripts that call icc and ifort!
+  #MPICH note: CC=mpicc FC=mpif90 ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran
+  make
+  make install
+  cd ..
 
 Installing netCDF
 -----------------
 
-0. (wget
-   `ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.1.1.tar.gz <ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.1.1.tar.gz>`__)
-1. tar -xaf netcdf-4.3.0.tar.gz
-2. cd netcdf-4.3.0
-3. CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpiicc ./configure
-   --enable-shared=no --prefix=$HOME MPICH note:
-   CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpicc ./configure
-   --enable-shared=no --prefix=$HOME NOTE: Check for this line to make
-   sure netCDF is build with parallel I/O: "checking whether parallel
-   I/O features are to be included... yes" This line comes at the very
-   end (last 50 lines of configure run)!
-4. make
-5. make install
-6. cd ..
+.. code-block:: bash
+
+  wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.1.1.tar.gz
+  tar -xaf netcdf-4.3.0.tar.gz
+  cd netcdf-4.3.0
+  CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpiicc ./configure --enable-shared=no --prefix=$HOME 
+  #MPICH note: CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpicc ./configure --enable-shared=no --prefix=$HOME 
+  #NOTE: Check for this line to make sure netCDF is build with parallel I/O: 
+  #"checking whether parallel I/O features are to be included... yes" This line comes at the very end (last 50 lines of configure run)!
+  make
+  make install
+  cd ..
+
 
 Installing Libxsmm
 ------------------
 
-0. git clone
-   `https://github.com/hfp/libxsmm <https://github.com/hfp/libxsmm>`__
-1. cd libxsmm
-2. make generator
-3. add libxsmm/bin to path
+.. code-block:: bash
 
-.. _f.-installing-metis-(optional:puml-mesh-format):
+   git clone https://github.com/hfp/libxsmm
+   cd libxsmm
+   make generator
+   #add libxsmm/bin to path
+
 
 Installing Metis (Optional:PUML mesh format)
 --------------------------------------------
 
-1. tar -xvf metis-5.1.0.tar.gz
-2. cd metis-5.1.0
-3. edit ./include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-4. make config cc=mpiicc cxx=mpiicpc prefix=$HOME (must confirm
-   compiler!!!)
-5. make install
-6. cd ..
+.. code-block:: bash
 
-.. _g.-installing-parmetis-(optional:puml-mesh-format):
+   tar -xvf metis-5.1.0.tar.gz
+   cd metis-5.1.0
+   #edit ./include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
+   make config cc=mpiicc cxx=mpiicpc prefix=$HOME #(must confirm compiler!!!)
+   make install
+   cd ..
+
 
 Installing ParMetis (Optional:PUML mesh format)
 -----------------------------------------------
 
-1. tar -xvf parmetis-4.0.3
-2. cd parmetis-4.0.3
-3. edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-4. make config cc=mpiicc cxx=mpiicpc prefix=$HOME (must confirm
-   compiler! Better use the same path as metis!)
-5. make install
-6. cd ..
+.. code-block:: bash
+
+  tar -xvf parmetis-4.0.3
+  cd parmetis-4.0.3
+  #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
+  make config cc=mpiicc cxx=mpiicpc prefix=$HOME 
+  #must confirm compiler! Better use the same path as metis!)
+  make install
+  cd ..
 
 (Make sure parmetis/include contains metis.h and parmetis/lib contains
 libmetis.a. Ortherwise, compile error: cannot find parmetis.)
-
-.. _compiling-seissol:
 
 Compiling SeisSol
 -----------------
@@ -126,7 +125,7 @@ Compiling SeisSol
 Get the latest version of SeisSol on git by cloning the whole repository
 including all submodules:
 
-::
+.. code-block:: bash
 
    git clone https://github.com/SeisSol/SeisSol.git
    git submodule update --init
@@ -134,7 +133,7 @@ including all submodules:
 Add the following build variables to the file
 build/options/supermuc_mac_cluster.py
 
-::
+.. code-block:: python
 
    compileMode='release' 
    parallelization='hybrid' 
@@ -156,14 +155,21 @@ build/options/supermuc_mac_cluster.py
    ##  optional for ASAGI 
    zlibDir = 'path_to_ASAGI/lib'
 
-with: compileMode - release / debug; parallelization - mpi / hybrid
-(mpi/openmp); logLevel - info/ debug, warning or error; ARCH - target
-architecture; ORDER - convergence order you want to use;
-generatedKernels - yes/no; netcdfDir - path to netcdf; hdf5Dir - path to
-hdf5; metisDir - path to parmetis; zlibDir - path to ASAGI lib
-(optional) Get your executable with
+| with: 
+| compileMode - release / debug
+| parallelization - mpi / hybrid (mpi/openmp)
+| logLevel - info/ debug, warning or error 
+| ARCH - target architecture 
+| ORDER - convergence order you want to use
+| generatedKernels - yes/no
+| netcdfDir - path to netcdf 
+| hdf5Dir - path to hdf5
+| metisDir - path to parmetis
+| zlibDir - path to ASAGI lib (optional) 
 
-::
+Get your executable with
+
+.. code-block:: bash
 
    scons -j 32 buildVariablesFile=build/options/supermuc_mac_cluster.py
 
@@ -187,4 +193,4 @@ Running SeisSol
    ``./SeisSol_release_.... PARAMETER.PAR``
 
 Further information regarding meshing and parameter files etc. can be
-found in the documentation folder. See also [[A first example]].
+found in the documentation folder. See also :ref:`A first example <a_first_example>`.
