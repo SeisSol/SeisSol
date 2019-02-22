@@ -31,3 +31,6 @@
 [submodule "submodules/ImpalaJIT"]
 	path = submodules/ImpalaJIT
 	url = https://github.com/uphoffc/ImpalaJIT.git
+[submodule "submodules/pythonXdmfReader"]
+	path = submodules/pythonXdmfReader
+	url = https://gitlab.lrz.de/thomas.ulrich/pythonXdmfReader

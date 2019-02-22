@@ -41,31 +41,42 @@ import numpy as np
 
 #INPUT: PLEASE CHANGE! 
 #example from Landers simulation
-#elastic(0) or plastic(1)?
-pla = 0
+import argparse
+parser = argparse.ArgumentParser(description='compute expected errors on a range of fault output, using Wollherr et al. (2018) convergence study')
+parser.add_argument('--pla',  dest='pla', action='store_true' , default = False, help='use if Plasticity is enabled in the model')
+parser.add_argument('order',  help='order of accuracy used' ,type=int)
+parser.add_argument('dx',  help='on-fault mesh size (m)' ,type=float)
+parser.add_argument('coh',  help='minimum cohesive zone width (in m) (estimated in paraview using (RF-DS)*Vr, or using the python script estimateMinimumCohesiveZone.py. Very important, the on-fault mesh size should be small enough to resolve it!!!)' ,type=int)
+args = parser.parse_args()
 
+#elastic(0) or plastic(1)?
+if args.pla:
+   pla=1
+   print('plasticity was enabled')
+else:
+   pla=0
+   print('plasticity was not enabled')
 #cohesive zone width in m: make sure that it converged
 #how to calculate the cohesive zone width? 
 #run the simulation with fault output for Vr, DS and RF with refining mesh size until the minimum cohesive zone width does not change anymore (very important!)
 #formula for the cohesive zone width: (RF-DS)*Vr 
-coh = 760.0
-
+#coh = 760.0
+coh = args.coh
 #mesh element size
-dx = 400.0
-
+dx = args.dx
 #order of accuracy (what you use to compile SeisSol)
-order = 4
+order = args.order
 
 print('your minimum cohesive zone is resolved by %f mesh elements' %(coh/dx))
 print('your minimum cohesive zone is resolved by %f GPs' %(coh/dx*(order+1)))
 
 #set resolution in context with convergence tests (
 # minimum cohesive zone width of 162m (elastic) and 325 (plastic) in convergence tests
+
 if pla==0:
 	mincoh = 162.0
-elif pla==1:
+else:
 	mincoh = 325.0
-
 reso = (dx*mincoh)/coh
 
 #Error slopes for each order, values
@@ -109,9 +120,9 @@ error_PSR_time = 10**( polycoef_0[2]*np.log10(reso)+polycoef_1[2] )
 error_Slip = 10**( polycoef_0[3]*np.log10(reso)+polycoef_1[3] )
 
 #output
-print 'Expected average error (in %) is:'
-print 'Rupture arrival ', error_RA
-print 'Peak slip rate ', error_PSR
-print 'Peak slip rate time ', error_PSR_time
-print 'Final slip ', error_Slip
-print 'RA below 0.2%, PSR below 7% and Final slip below 1% are sufficiently small errors after Day et al. 2005'
+print('Expected average error (in %) is:')
+print('Rupture arrival ', error_RA)
+print('Peak slip rate ', error_PSR)
+print('Peak slip rate time ', error_PSR_time)
+print('Final slip ', error_Slip)
+print('RA below 0.2%, PSR below 7% and Final slip below 1% are sufficiently small errors after Day et al. 2005')
