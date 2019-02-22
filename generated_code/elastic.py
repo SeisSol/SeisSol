@@ -74,12 +74,15 @@ if multipleSimulations > 1:
   qi = lambda x: 's' + x
   alignStride=set(['fP({})'.format(i) for i in range(3)])
   transpose=True
-  t = lambda x: x[::-1]
 else:
   qShape = (numberOf3DBasisFunctions, numberOfQuantities)
   qi = lambda x: x
   alignStride=True
   transpose=False
+
+if transpose:
+  t = lambda x: x[::-1]
+else:
   t = lambda x: x
 
 clones = {
@@ -122,7 +125,7 @@ g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neigh
 
 power = Scalar('power')
 derivatives = [dQ0]
-g.add('derivativeTaylorExpansion(0)'.format(i), I[qi('kp')] <= power * dQ0[qi('kp')])
+g.add('derivativeTaylorExpansion(0)', I[qi('kp')] <= power * dQ0[qi('kp')])
 for i in range(1,order):
   derivativeSum = Add()
   for j in range(3):
