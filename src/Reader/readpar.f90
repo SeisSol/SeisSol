@@ -1043,6 +1043,7 @@ CONTAINS
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
              DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
+                 logInfo0(*) 'Thermal pressurization assumed'
                  !pyhsical
                  DISC%DynRup%TP_hwid = TP_hwid
                  DISC%DynRup%alpha_th = alpha_th

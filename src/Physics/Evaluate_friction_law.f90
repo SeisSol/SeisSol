@@ -1334,6 +1334,13 @@ MODULE Eval_friction_law_mod
          SR_tmp = LocSR
          invZ = (1.0d0/w_speed(2)/rho+1.0d0/w_speed_neig(2)/rho_neig)
 
+
+         IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+             P_f = DISC%DynRup%TP(:,iFace,2)
+         ELSE
+              P_f = 0.0
+         ENDIF
+
          DO j=1,nSVupdates   !This loop corrects SV values
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
