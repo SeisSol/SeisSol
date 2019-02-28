@@ -33,4 +33,4 @@
 	url = https://github.com/uphoffc/ImpalaJIT.git
 [submodule "submodules/pythonXdmfReader"]
 	path = submodules/pythonXdmfReader
-	url = https://gitlab.lrz.de/thomas.ulrich/pythonXdmfReader
+	url = https://github.com/Thomas-Ulrich/pythonXdmfReader
