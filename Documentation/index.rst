@@ -59,6 +59,7 @@ Characteristics of the SeisSol simulation software are:
   :maxdepth: 2
   :caption: Further documentation
 
+  PUML-mesh-format
   asagi
   standard-rupture-format
   point-source-older-implementation
