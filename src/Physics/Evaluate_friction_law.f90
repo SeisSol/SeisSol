@@ -1463,6 +1463,7 @@ MODULE Eval_friction_law_mod
      LocSR1    = DISC%DynRup%SlipRate1(:,iFace)
      LocSR2    = DISC%DynRup%SlipRate2(:,iFace)
      LocSV     = DISC%DynRup%StateVar(:,iFace)
+     LocMu     = DISC%DynRup%Mu(:,iFace)
      P_0       = EQN%InitialStressInFaultCS(:,1,iFace)
      !
      DO iTimeGP=1,nTimeGP
