@@ -254,7 +254,7 @@ CONTAINS
     REAL    :: phi(2),rho, rho_neig, mu, mu_neig, lambda, lambda_neig
     REAL    :: LocXYStress, LocXZStress, TracXY, TracXZ, LocSRs, LocSRd
     REAL    :: w_speed(EQN%nNonZeroEV), TracEla, Trac, Strength, LocU, LocP, w_speed_neig(EQN%nNonZeroEV)
-    REAL    :: S_0,P_0,S_XY,S_XZ
+    REAL    :: S_0,P_0,S_XY,S_XZ,P_f
     REAL    :: MuVal, cohesion, LocSV
     REAL    :: LocYY, LocZZ, LocYZ                                            ! temporary stress values
     REAL    :: tmp_mat(1:6), LocMat(1:6), TracMat(1:6)                        ! temporary stress tensors
@@ -382,6 +382,11 @@ CONTAINS
           S_XY  = Stress(4)
           S_XZ  = Stress(6)
           P_0   = Stress(1)
+          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+             P_f = DISC%DynRup%TP(iBndGP, iFace, 2)
+          ELSE
+             P_f = 0.0
+          ENDIF
           !
           ! Obtain values at output points
           SideVal  = 0.
@@ -425,10 +430,10 @@ CONTAINS
           SELECT CASE(EQN%FL)
           CASE DEFAULT
             ! linear slip weakening
-            Strength = -MuVal*MIN(LocP+P_0,ZERO) - cohesion
+            Strength = -MuVal*MIN(LocP+P_0-P_f,ZERO) - cohesion
           CASE(3,4)
              ! rate and state (once everything is tested and cohesion works for RS, this option could be merged to default)
-             Strength = -MuVal*(LocP+P_0)
+             Strength = -MuVal*(LocP+P_0 -P_f)
           CASE(6)
             ! exception for bimaterial with LSW case
             ! modify strength according to prakash clifton
@@ -517,7 +522,7 @@ CONTAINS
               OutVars = OutVars + 1
               DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6) !OutVars =4
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP !OutVars =5
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP-P_f !OutVars =5
           ENDIF
           IF (DynRup_output%OutputMask(3).EQ.1) THEN
               OutVars = OutVars + 1
@@ -535,7 +540,7 @@ CONTAINS
               OutVars = OutVars + 1
               DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6)+DISC%DynRup%DynRup_Constants(iOutPoints)%td0 !OutVars =10
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 !OutVars =11
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 - P_f !OutVars =11
           ENDIF
 
           IF (DISC%DynRup%OutputPointType.EQ.4) THEN
