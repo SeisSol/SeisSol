@@ -58,7 +58,7 @@ MODULE Thermalpressure_mod
 CONTAINS
 
   SUBROUTINE Calc_ThermalPressure(dt, nz, hwid, alpha_th, alpha_hy, rho_c, &
-             Lambda, theta, sigma, Sh, SR, Dwn, DFinv, temp_ini, pressure_ini, pressure, temp)
+             Lambda, theta, sigma, Sh, SR, Dwn, DFinv, temp_ini, pressure_ini, temp, pressure)
     !-------------------------------------------------------------------------!
 
     !-------------------------------------------------------------------------!

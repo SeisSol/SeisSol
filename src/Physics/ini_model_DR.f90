@@ -115,12 +115,12 @@ MODULE ini_model_DR_mod
      ! Initialization of initial slip rate and friction for SCEC TPV103
      CALL friction_RSF101(DISC,EQN,MESH,BND)
     CASE(103)
-     ! Initialization of initial slip rate and friction for SCEC TPV103
-     CALL friction_RSF103(DISC,EQN,MESH,BND)
      ! Initialization of initial temperature and pressure for TP
      IF (DISC%DynRup%ThermalPress.EQ.1) THEN
          CALL thermalPress_init(DISC,EQN)
      ENDIF
+     ! Initialization of initial slip rate and friction for SCEC TPV103
+     CALL friction_RSF103(DISC,EQN,MESH,BND)
     END SELECT  ! Initialize model dependent rate-and-state friction law parameters type
 
   END SUBROUTINE DR_setup
@@ -610,6 +610,7 @@ MODULE ini_model_DR_mod
   ! Local variable declaration
   INTEGER                        :: iFace, iBndGP
   REAL                           :: iniSlipRate, tmp
+  REAL                           :: P_f(DISC%Galerkin%nBndGP, MESH%Fault%nSide)
 
   !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH,BND
@@ -620,11 +621,16 @@ MODULE ini_model_DR_mod
   EQN%IniSlipRate2 = DISC%DynRup%RS_iniSlipRate2
   iniSlipRate = SQRT(EQN%IniSlipRate1**2 + EQN%IniSlipRate2**2)
 
+  IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+     P_f = DISC%DynRup%IniTP(:,:,2)
+  ELSE
+     P_f = 0.0
+  ENDIF
 
   ! Loop over every mesh element
   DO iFace = 1, MESH%Fault%nSide
       DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-          tmp = ABS(SQRT(EQN%InitialStressInFaultCS(iBndGP,4,iFace)**2+EQN%InitialStressInFaultCS(iBndGP,6,iFace)**2)/(DISC%DynRup%RS_a_array(iBndGP,iFace)*EQN%InitialStressInFaultCS(iBndGP,1,iFace)))
+          tmp = ABS(SQRT(EQN%InitialStressInFaultCS(iBndGP,4,iFace)**2+EQN%InitialStressInFaultCS(iBndGP,6,iFace)**2)/(DISC%DynRup%RS_a_array(iBndGP,iFace)*(EQN%InitialStressInFaultCS(iBndGP,1,iFace)-P_f(iBndGP, iFace))))
           EQN%IniStateVar(iBndGP,iFace)=DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
           tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(iBndGP,iFace)/ DISC%DynRup%RS_a_array(iBndGP,iFace))
