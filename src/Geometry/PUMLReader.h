@@ -72,8 +72,9 @@ private:
 	/**
 	 * Create the partitioning
 	 */
-	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt);
-
+	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, const char *meshFile);
+	int readPartition(PUML::TETPUML &puml, int* partition, const char *meshFile);
+	void writePartition(PUML::TETPUML &puml, int* partition, const char *meshFile);
 	/**
 	 * Generate the PUML data structure
 	 */
