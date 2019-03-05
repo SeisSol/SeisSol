@@ -54,6 +54,7 @@ Characteristics of the SeisSol simulation software are:
   off-fault-receivers
   postprocessing-and-visualization
   wave-field-output
+  checkpointing
 
 .. toctree::
   :maxdepth: 2
