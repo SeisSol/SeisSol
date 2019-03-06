@@ -119,6 +119,14 @@ Installing ParMetis (Optional:PUML mesh format)
 (Make sure parmetis/include contains metis.h and parmetis/lib contains
 libmetis.a. Ortherwise, compile error: cannot find parmetis.)
 
+
+Installing ASAGI (Optional)
+---------------------------
+
+See section :ref:`Installing ASAGI <installing_ASAGI>`.
+
+.. _compiling-seissol:
+
 Compiling SeisSol
 -----------------
 
@@ -146,26 +154,23 @@ build/options/supermuc_mac_cluster.py
    netcdf='yes' 
    netcdfDir='path_to_netcdf' 
    hdf5='yes'
-   hdf5Dir='path_to_netcdf'
+   hdf5Dir='path_to_hdf5'
 
    ##  additionally for puml mesh format
    metis = 'yes'
    metisDir='path_to_parmetis'
 
-   ##  optional for ASAGI 
-   zlibDir = 'path_to_ASAGI/lib'
+   ##  optional for ASAGI
+   asagi = 'yes'
+   zlibDir = 'path_to_asagi' #e.g. <path_to_ASAGI>/build/lib/
 
 | with: 
-| compileMode - release / debug
-| parallelization - mpi / hybrid (mpi/openmp)
+| compileMode - release / relWithDebInfo/ debug
+| parallelization - omp/ mpi / hybrid (mpi/openmp)
 | logLevel - info/ debug, warning or error 
 | ARCH - target architecture 
-| ORDER - convergence order you want to use
+| ORDER - convergence order (=max polynomial order +1)
 | generatedKernels - yes/no
-| netcdfDir - path to netcdf 
-| hdf5Dir - path to hdf5
-| metisDir - path to parmetis
-| zlibDir - path to ASAGI lib (optional) 
 
 Get your executable with
 
@@ -187,9 +192,8 @@ maintained anymore in the near future.
 Running SeisSol
 ---------------
 
-1. Follow the instructions on:
-   `https://github.com/SeisSol/SeisSol/wiki/Configuration <https://github.com/SeisSol/SeisSol/wiki/Configuration>`__
-2. run SeisSol version of interest 2a. To run the example:
+1. Follow the instructions on :ref:`Configuration <Configuration>`.
+2. run SeisSol version of interest. To run the example:
    ``./SeisSol_release_.... PARAMETER.PAR``
 
 Further information regarding meshing and parameter files etc. can be

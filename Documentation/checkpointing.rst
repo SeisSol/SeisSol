@@ -12,13 +12,20 @@ It is parametrized within 'output' namelist of the parameter file by setting up 
    checkPointBackend = 'mpio'
    checkPointInterval = 0.4
 
-| checkPointFile defines the path and prefix to the chechpointfile.
-| checkPointBackend defines the implementation used ('posix', 'hdf5', 'mpio', 'mpio_async', 'sionlib', 'none').
-| checkPointInterval the time interval at which checkpointing is done. 
-| Warning: When using an asynchronous back-end (mpio_async), you might lose 2 * checkPointInterval of your computation
+| **checkPointFile** defines the path and prefix to the chechpointfile.
+| **checkPointBackend** defines the implementation used ('posix', 'hdf5', 'mpio', 'mpio_async', 'sionlib', 'none'). If 'none' is specified, checkpoints are disabled. To use the HDF5, MPI-IO or SIONlib back-ends you need to compile SeisSol with HDF5, MPI or SIONlib respectively.
+| **checkPointInterval** defines the (simulated) time interval at which checkpointing is done.  0 (default value) disables checkpointing. When using an asynchronous back-end (mpio_async), you might lose 2 * checkPointInterval of your computation.
+
+
+If the active checkpoint back-end finds a valid checkpoint during the initialization, it will load it automatically. (You cannot explicitly specify to load a checkpoint)
+
+Hint: Currently only the output of the wave field is designed to work with checkpoints. Other outputs such as receivers and fault output might require an additional post-processing when SeisSol is restarted from a checkpoint.
+
 
 Checkpointing Environment variables
 -----------------------------------
+
+The parallel checkpoint back-ends (HDF5, MPI-IO, SIONlib) support several tuning environment variables:
 
 -  **SEISSOL_CHECKPOINT_BLOCK_SIZE** Optimize the checkpoints for a
    specific file system block size. Set to 1 to disable the

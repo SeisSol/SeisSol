@@ -5,9 +5,9 @@ Using a higher order implies using smaller time steps and using more
 basis functions.
 The expected increase in computed time can then be estimated as follow:
 
-| Decrease of the time steps width by a factor: (2N+1)/(2n+1)
+| Decrease of the time steps width by a factor: :math:`(2N+1)/(2n+1)`
 | Increase of the number of basis functions by a factor:
-  (N+1)(N+2)(N+3)/((n+1)(n+2)(n+3))
+  :math:`(N+1)(N+2)(N+3)/((n+1)(n+2)(n+3))`
 | with:
 | n: initial order of accuracy -1
 | N: ne w order of accuracy -1

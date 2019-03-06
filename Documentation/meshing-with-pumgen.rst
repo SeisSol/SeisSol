@@ -16,7 +16,7 @@ optimized partitioning for local time stepping is not yet available on
 the 'master' branch, but only on the 'easi' branch, which is our current
 development branch (that we strongly encourage to use). The workflow
 allowing generating partitionned mesh in the older netcdf format is
-described here: [[meshing partionning with PUMgen (deprecated)]]. Note
+described here: :doc:`meshing-partionning-with-pumgen-deprecated`. Note
 that netcdf can be easily converted to the new mesh format using PUMGen.
 
 PUMGen
@@ -28,7 +28,11 @@ PUMGen
   We recommand using PUMGen, in particular for large meshes. The meshing
   is done through SimModeler libraries and the partition through Metis.
   Here is a basic example of use:
-| ``pumgen -s simmodsuite -l SimModelerLib.lic --mesh "Mesh case 1" --analysis "Analysis case 1" test.smd test``
+
+.. code-block:: bash
+
+   pumgen -s simmodsuite -l SimModelerLib.lic --mesh "Mesh case 1" --analysis "Analysis case 1" test.smd test
+
 | The Analysis and meshing attributes of the model file test.smd have
   been first defined using the GUI of SimModeler, as previously
   presented. In particular, the --mesh and --analysis attributes are set
@@ -46,12 +50,24 @@ similarly to SimModeler GUI (require branch 'xml').
 
 | PUMGen can be used to convert an ASCII \*.neu mesh file (for instance
   from gmsh) to the xmdf mesh format:
-| ``pumgen test.neu test``
+
+.. code-block:: bash
+
+   pumgen test.neu test
+
 | PUMGen can be also used to convert an netcdf mesh file (older SeisSol
   mesh file format) to the xmdf mesh format:
-| ``pumgen -s netcdf test.nc test``
+
+.. code-block:: bash
+
+   pumgen -s netcdf test.nc test
+
 | Mpirun can be use to speed up the process:
-| ``mpirun -n 4 pumgen -s netcdf test.nc test``
+
+.. code-block:: bash
+
+   mpirun -n 4 pumgen -s netcdf test.nc test
+
 | Note that version < 10 of Simulation Modeling Suite do not support
   parallel volume meshing.
 
@@ -65,10 +81,12 @@ Parametrizing PUMGen with a xml file
   branch of PUMGen offers a way to tag surfaces with the correct
   boundary condition, and to set the various mesh attributes using a xml
   file. In addition, this allows keeping track of the meshing parameters
-  in a small ASCII file. A typical xml file can be found here:
-| `https://github.com/TUM-I5/PUML/blob/drlts/XmlExample/meshAttributes.xml <https://github.com/TUM-I5/PUML/blob/drlts/XmlExample/meshAttributes.xml>`__
+  in a small ASCII file. A typical xml file can be found `here <https://github.com/TUM-I5/PUML/blob/drlts/XmlExample/meshAttributes.xml>`__.
 | A typical use of the parametrisation through xml file could be:
-| ``pumgen -s simmodsuite -l SimModelerLib.lic --xml meshAttributes.xml test.smd test``
+
+.. code-block:: bash
+
+   pumgen -s simmodsuite -l SimModelerLib.lic --xml meshAttributes.xml test.smd test
 
 To determine which surface correspond to which id, the simple way of
 proceeding is to use SimModeler GUI. Another option could be using the

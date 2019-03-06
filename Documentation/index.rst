@@ -89,6 +89,3 @@ Characteristics of the SeisSol simulation software are:
   building-seissol-on-stampede-knl-test-system
   left-lateral-right-lateral-normal-reverse
   optimization-for-non-intel-architectures
-  home
-
-   
