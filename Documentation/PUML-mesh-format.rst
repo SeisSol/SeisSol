@@ -1,3 +1,5 @@
+.. _PUML_mesh_format:
+
 PUML Mesh format
 ================
 
@@ -5,6 +7,9 @@ seissol mesh format is xdmf + h5 file format.
 The h5 file contains the data (arrays) in binary format and the xdmf describes it.
 The content of an hdf5 file can be view using h5dump.
 The mesh file can be visualized using paraview.
+The boundary conditions can be extracted from a PUML mesh and vizualised in paraview using this 
+`script <https://github.com/SeisSol/Meshing/blob/master/vizualizeBoundaryConditions/vizualizeBoundaryConditions.py>`_.
+
 
 here is an example of xdmf file (describing the hdf5 content):
 
