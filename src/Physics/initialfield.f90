@@ -297,6 +297,9 @@ CONTAINS
        ! Variable(:) = Variable(:) + IC%GP%Um(:)
        !                                                                   
     CASE('Planarwave')                                                     ! Planarwave
+       EQN%rho0 = 1
+       EQN%mu = 1
+       EQN%lambda = 2
        !
        Variable(:) = IC%PW%Um(:)                                           ! Init. with homogeneous background  
        Variable_ANE(:) = 0.                                                !
