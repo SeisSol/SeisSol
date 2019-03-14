@@ -6,7 +6,7 @@ extern "C" {
   void initial_field_planarwave(double time, double x, double y, double z, double* variables) {
 
     std::fill_n(variables, NUMBER_OF_QUANTITIES, 0.0);
-    double raData[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {0.0};
+    real raData[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {0.0};
       
     auto ra = DenseMatrixView<NUMBER_OF_QUANTITIES,NUMBER_OF_QUANTITIES>(raData);
 
@@ -14,13 +14,13 @@ extern "C" {
     const auto rho0 = 1.0;
     const auto mu = 1.0;
     const auto lambda = 2.0;
-    const auto n = std::array<double, 3>{0.577350269189626,
+    const auto n = std::array<real, 3>{0.577350269189626,
 					 0.577350269189626,
 					 0.577350269189626};
     const auto setVar = 2;
     const auto varField = std::array<int, 2>{1, 8};
-    const auto ampField = std::array<double, 2>{1.0, 1.0};
-    const auto kVec = std::array<double, 3>{6.283185307179587E-002,
+    const auto ampField = std::array<real, 2>{1.0, 1.0};
+    const auto kVec = std::array<real, 3>{6.283185307179587E-002,
 					    6.283185307179587E-002,
 					    6.283185307179587E-002};
 
@@ -123,7 +123,7 @@ extern "C" {
     ra(8,7) = 0;
     ra(8,8) = std::sqrt(rho0*(lambda+2*mu))*n[2];
 
-    double kVecNorm = 0.0;
+    real kVecNorm = 0.0;
     for (auto k: kVec) {
       kVecNorm += k * k;
     }
