@@ -73,7 +73,7 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt)
+seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, bool readPartitionFromFile)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
@@ -85,7 +85,7 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_steppin
 		generatePUML(puml);
 		ltsWeights->computeWeights(puml);
 	}
-	partition(puml, ltsWeights, tpwgt, meshFile);
+	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile);
 
 	generatePUML(puml);
 
@@ -143,7 +143,7 @@ int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, cons
 
 	std::ifstream ifile(fname.c_str());
 	if (!ifile) { 
-		logInfo() <<fname.c_str()<<"does not exists";
+		logInfo(rank) <<fname.c_str()<<"does not exist";
 		return -1;
 	}
 
@@ -171,7 +171,7 @@ int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, cons
 	H5Dclose(dataset);
 	H5Fclose(file);
 
-	logInfo()<<"partitionning was read successfully from "<<fname.c_str();
+	logInfo(rank)<<"partitionning was read successfully from "<<fname.c_str();
 	return 0;
 }
 
@@ -242,40 +242,52 @@ void seissol::PUMLReader::writePartition(PUML::TETPUML &puml, int* partition, co
 	H5Fclose(file);
 }
 
-void seissol::PUMLReader::partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, const char *meshFile)
+void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
+                                      initializers::time_stepping::LtsWeights* ltsWeights,
+                                      double tpwgt,
+                                      const char *meshFile,
+                                      bool readPartitionFromFile  )
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
-  
+
+	int* partition = new int[puml.numOriginalCells()];
+
+  auto partitionMetis = [&] {
+    PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 #ifdef USE_MPI
-  double* nodeWeights = new double[seissol::MPI::mpi.size()];
-  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
-  double sum = 0.0;
-  for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
-	 sum += nodeWeights[rk];
-  }
-  for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
-	 nodeWeights[rk] /= sum;
-  }
+    double* nodeWeights = new double[seissol::MPI::mpi.size()];
+    MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
+    double sum = 0.0;
+    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
+     sum += nodeWeights[rk];
+    }
+    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
+     nodeWeights[rk] /= sum;
+    }
 #else
-  tpwgt = 1.0;
-  double* nodeWeights = &tpwgt;
+    tpwgt = 1.0;
+    double* nodeWeights = &tpwgt;
 #endif
 
+    metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), nodeWeights, 1.01);
 
-	PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
-	int* partition = new int[puml.numOriginalCells()];
-	int status = readPartition(puml, &partition[0], meshFile);
-	if (status<0) {
-		metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), nodeWeights, 1.01);
-		writePartition(puml, partition, meshFile);
-	}
+#ifdef USE_MPI
+    delete[] nodeWeights;
+#endif
+  };
+
+  if (readPartitionFromFile) {
+    int status = readPartition(puml, &partition[0], meshFile);
+    if (status < 0) {
+      partitionMetis();
+      writePartition(puml, partition, meshFile);
+    }
+  } else {
+    partitionMetis();
+  }
 
 	puml.partition(partition);
 	delete [] partition;
-
-#ifdef USE_MPI
-  delete[] nodeWeights;
-#endif
 }
 
 void seissol::PUMLReader::generatePUML(PUML::TETPUML &puml)
