@@ -571,6 +571,8 @@ CONTAINS
        !
    SELECT CASE(IC%cICType)
    !
+   CASE('Zero')
+       logInfo(*) 'Zero initial condition'
    CASE('Gauss_Puls_Rad')                                                           ! Gauss Pulses for arbitrary 3D Systems
        logInfo(*) 'Use the initial condition ',TRIM(IC%cICType), ' with:'
        !
