@@ -38,6 +38,9 @@
 # @section DESCRIPTION
 # Finds netCDF and add inlcude pathes, libs and library pathes
 #
+import sys
+sys.path.append('../../../site_scons')
+
 
 import utils.checks
 

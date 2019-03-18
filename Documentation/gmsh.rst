@@ -23,7 +23,7 @@ Surface" used only for that feature. The rate of coarsening is defined
 empirically by combining a linear increase of the mesh size in the near
 field and a quadratic increase in the far size. Example:
 
-.. code-block:: YAML
+.. code-block:: bash
 
   Field[2].F = Sprintf("0.1*F1 +(F1/5.0e3)^2 + %g", lc_fault);
 
@@ -35,7 +35,7 @@ conditions are set using Physical Surfaces 101 (resp. 103, resp. 105).
 The volumes should also be put into Physical Volume to be exported into
 the mesh.Here is an example from tpv33:
 
-.. code-block:: YAML
+.. code-block:: bash
 
   Physical Surface(101) = {252, 258, 260, 262};
   Physical Surface(105) = {242, 244, 246, 248, 250, 254, 256};
@@ -49,7 +49,7 @@ Generating the mesh
 | Once the geometry and boundary conditions are set, the mesh can be
   obtained using the following command:
 
-.. code-block:: YAML
+.. code-block:: bash
 
   gmsh test.geo -3 -optimize -format neu
 
@@ -57,14 +57,12 @@ Note that the '-format neu' is only possible since gmsh 4.0
 For previous versions, we used `gmsh2gambit <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing/gmsh2gambit>`_
 on the msh mesh generated with:
 
-.. code-block:: YAML
+.. code-block:: bash
 
   gmsh test.geo -3 -optimize
 
 | The optimize option is very important. If not used, mesh of very poor
-  quality are generated. Optimizing the mesh using "gmsh optimize", then
-  "net_gen optimize" and finally "gmsh optimize" may allow getting
-  meshes of higher quality.
+  quality may be obtained. 
 
 gmsh to SimModeler
 ------------------
@@ -86,7 +84,7 @@ mirroring a mesh
 
 In order to get a maximum accuracy, it is sometimes necessary (e.g. for
 benchmarks) to mirror a mesh. To get a mirrored mesh, a half mesh is
-first generated. Then it is converted to netcdf format (one partition),
-using PUMgen. Finally, this
-`matlab script <https://github.com/SeisSol/SeisSol/blob/master/preprocessing/meshing/mirror_mesh.m>`_
+first generated. The half mesh is then converted to PUML format
+using PUMGen (if not already in this format). Finally, this
+`script <https://github.com/SeisSol/Meshing/blob/master/mirrorMesh/mirrorMesh.py>`_
 allows creating the mirrored mesh.

@@ -1,3 +1,5 @@
+.. _a_first_example:
+
 A first example
 ===============
 

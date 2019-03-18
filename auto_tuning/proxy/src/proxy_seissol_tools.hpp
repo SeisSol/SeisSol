@@ -80,7 +80,8 @@ double derive_cycles_from_time(double time) {
       cycles = 1.0;
       printf("detected frequency (lscpu) FAILED!\n");
     }
-  }*/
+  }
+  return cycles;*/
   return 0;
 }
 

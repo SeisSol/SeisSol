@@ -1589,6 +1589,15 @@ MODULE Eval_friction_law_mod
      where (LocSR.GT.DISC%DynRup%PeakSR(:,iFace))
         DISC%DynRup%PeakSR(:,iFace) = LocSR
      endwhere
+    !output time when shear stress is equal to the dynamic stress after rupture arrived
+    !currently only for linear slip weakening
+    where ( (DISC%DynRup%rupture_time(:,iFace) .GT. 0.0) .AND. &
+            (DISC%DynRup%rupture_time(:,iFace) .LE. time) .AND. &
+             DISC%DynRup%DS(:,iFace) .AND. &
+             DISC%DynRup%Mu(:,iFace) .LE. (RS_fw+0.05*(RS_f0-RS_fw)))
+      DISC%DynRup%dynStress_time(:,iFace)=time
+      DISC%DynRup%DS(:,iFace) = .FALSE.
+    end where
      !
      DISC%DynRup%Mu(:,iFace)        = LocMu
      DISC%DynRup%SlipRate1(:,iFace) = LocSR1
@@ -1604,7 +1613,6 @@ MODULE Eval_friction_law_mod
         DISC%DynRup%averaged_Slip(iFace) = DISC%DynRup%averaged_Slip(iFace) + sum(tmpSlip)/nBndGP
      ENDIF
   !
-
  END SUBROUTINE rate_and_state_nuc103
 
  END MODULE

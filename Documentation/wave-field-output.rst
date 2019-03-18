@@ -37,18 +37,23 @@ the parameter.par file the user can define the region for which the
 output is to be written. This region is provided in the following
 format:
 
-``OutputRegionBounds = xMin xMax yMin yMax zMin zMax``
+.. code-block:: Fortran
+
+   OutputRegionBounds = xMin xMax yMin yMax zMin zMax
 
 Example
 -------
 
 | Here is an example of wavefield output parametrisation:
-| ``&Output``
-| ``OutputFile = '/output/prefix'``
-| ``iOutputMask = 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1``
-| ``OutputRegionBounds = -5e3 5e3 -10e3 10e3 -8e3 0e0``
-| ``Format = 6                          ! Format (6=hdf5, 10= no output)``
-| ``TimeInterval = 5.0                  ! Index of printed info at time``
-| ``printIntervalCriterion = 2          ! Criterion for index of printed info: 1=timesteps,2=time,3=timesteps+time``
-| ``refinement = 1``
-| ``/``
+
+.. code-block:: Fortran
+
+   &Output
+   OutputFile = '/output/prefix'
+   iOutputMask = 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1
+   OutputRegionBounds = -5e3 5e3 -10e3 10e3 -8e3 0e0
+   Format = 6                          ! Format (6=hdf5, 10= no output)
+   TimeInterval = 5.0                  ! Index of printed info at time
+   printIntervalCriterion = 2          ! Criterion for index of printed info: 1=timesteps,2=time,3=timesteps+time
+   refinement = 1
+   /

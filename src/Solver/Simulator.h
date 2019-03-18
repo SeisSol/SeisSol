@@ -102,6 +102,11 @@ class seissol::Simulator {
     void setCheckPointInterval( double i_checkPointInterval );
 
     /**
+     * Returns if the simulator is going to write check points.
+     */
+    bool checkPointingEnabled();
+
+    /**
      * Simulates until finished.
      **/
     void simulate();

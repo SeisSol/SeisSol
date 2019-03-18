@@ -1,3 +1,5 @@
+.. _meshing-partionning-with-pumgen-deprecated:
+
 meshing partionning with PUMgen (deprecated)
 ============================================
 

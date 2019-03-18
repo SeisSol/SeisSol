@@ -31,7 +31,7 @@ Performance
 -----------
 
 One important value, which we usually publish in our papers, is the
-performance in GFLOP/s/node. You can compute it with HW-(NZ-)GFLOP /
-#nodes / elapsed-time, e.g. in your case 185196 / 64 / 26.7048 = 108.4.
+performance in GFLOP/s/node. You can compute it with 
+:math:`HW-(NZ-)GFLOP / #nodes / elapsed-time`.
 You can compare this value with the publications in order to see if your
 performance is ok.

@@ -19,3 +19,7 @@ Here is a way to configure your installation before running scons:
 
 ## Using rconv
 Starting rconv without arguments gives you a short introduction for using the tool. You may furthermore consult the [Wiki entry](https://github.com/SeisSol/SeisSol/wiki/Standard-Rupture-Format) about the Standard Rupture Format.
+
+## Dealing with projected data
+If the SRF data are already projected, the projection within rconv can be by-passed compiling rconv with the 'noproj' flag.
+This is enabled by uncommenting `#env.Append(CPPDEFINES=['noproj'])` in SConstruct.

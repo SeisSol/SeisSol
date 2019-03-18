@@ -549,7 +549,7 @@ CONTAINS
     SOURCE%Type = 0         ! set dummy value, sources are specified later in readpar_sourceterm
                                           ! <------>
     ! Setting the default values = no source acting since amplitude is zero
-    cICType = 'Gauss_Puls_Rad'
+    cICType = 'Zero'
     variable = 1
     xc(:) = 0.0                 ! x,y,z - coordinate, in inputfile you can choose different values vor x,y,z
     amplitude = 0.0
@@ -571,6 +571,8 @@ CONTAINS
        !
    SELECT CASE(IC%cICType)
    !
+   CASE('Zero')
+       logInfo(*) 'Zero initial condition'
    CASE('Gauss_Puls_Rad')                                                           ! Gauss Pulses for arbitrary 3D Systems
        logInfo(*) 'Use the initial condition ',TRIM(IC%cICType), ' with:'
        !
@@ -1021,7 +1023,7 @@ CONTAINS
     !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
     IF (OutputMask(11).EQ.1) THEN
         SELECT CASE (EQN%FL)
-               CASE(2,6,13,16,17,29,30) !LSW friction law cases
+               CASE(2,6,13,16,17,29,30,103) !LSW friction law cases
                     !use only if RF_output=1
                     IF (OutputMask(10).EQ.1) THEN
                         ! set 'collecting DS time' to 1

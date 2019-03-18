@@ -95,7 +95,7 @@ void seissol::fakeData( initializers::LTS& lts,
   NeighboringIntegrationData* neighboringIntegration        = layer.var(lts.neighboringIntegration);
   CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
   real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives));
- 
+
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
     derivatives[cell] = nullptr;

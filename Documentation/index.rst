@@ -54,11 +54,13 @@ Characteristics of the SeisSol simulation software are:
   off-fault-receivers
   postprocessing-and-visualization
   wave-field-output
+  checkpointing
 
 .. toctree::
   :maxdepth: 2
   :caption: Further documentation
 
+  PUML-mesh-format
   asagi
   standard-rupture-format
   point-source-older-implementation
@@ -87,6 +89,3 @@ Characteristics of the SeisSol simulation software are:
   building-seissol-on-stampede-knl-test-system
   left-lateral-right-lateral-normal-reverse
   optimization-for-non-intel-architectures
-  home
-
-   

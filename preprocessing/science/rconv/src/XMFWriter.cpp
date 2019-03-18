@@ -80,7 +80,13 @@ void writeXMF(char const* filename, std::vector<SRFPointSource> const& sources, 
 
   for (std::vector<SRFPointSource>::const_iterator source = sources.begin(); source != sources.end(); ++source) {
     double x, y, z;
+#ifdef noproj
+    x = source->longitude;
+    y = source->latitude;
+    z = source->depth;
+#else
     map.map(source->longitude, source->latitude, source->depth, &x, &y, &z);
+#endif
     xdmfFile << x << " " << y << " " << z << std::endl;
   }
 

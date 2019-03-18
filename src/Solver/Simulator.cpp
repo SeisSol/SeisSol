@@ -63,6 +63,10 @@ void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
   m_checkPointInterval = i_checkPointInterval;
 }
 
+bool seissol::Simulator::checkPointingEnabled() {
+  return m_checkPointInterval < std::numeric_limits<double>::max();
+}
+
 void seissol::Simulator::setFinalTime( double i_finalTime ) {
   assert( i_finalTime > 0 );
   m_finalTime = i_finalTime;

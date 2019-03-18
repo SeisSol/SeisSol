@@ -301,6 +301,8 @@ void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displace
 	Stopwatch watch;
 	watch.start();
 
+  bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
+
   seissol::initializers::time_stepping::LtsWeights ltsWeights(easiVelocityModel, clusterRate);
 	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile, &ltsWeights, tpwgt));
 
