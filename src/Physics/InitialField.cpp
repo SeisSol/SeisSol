@@ -1,14 +1,16 @@
 #include <cmath>
 #include <array>
 
-#include <Numerical_aux/MatrixView.h>
+#include <Kernels/precision.hpp>
+#include <yateto/TensorView.h>
+
 extern "C" {
   void initial_field_planarwave(double time, double x, double y, double z, double* variables) {
 
     std::fill_n(variables, NUMBER_OF_QUANTITIES, 0.0);
     real raData[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] = {0.0};
       
-    auto ra = DenseMatrixView<NUMBER_OF_QUANTITIES,NUMBER_OF_QUANTITIES>(raData);
+    auto ra = yateto::DenseTensorView<2,real>(raData, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
 
     // Constants
     const auto rho0 = 1.0;
