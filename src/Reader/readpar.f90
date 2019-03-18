@@ -549,7 +549,7 @@ CONTAINS
     SOURCE%Type = 0         ! set dummy value, sources are specified later in readpar_sourceterm
                                           ! <------>
     ! Setting the default values = no source acting since amplitude is zero
-    cICType = 'Gauss_Puls_Rad'
+    cICType = 'Zero'
     variable = 1
     xc(:) = 0.0                 ! x,y,z - coordinate, in inputfile you can choose different values vor x,y,z
     amplitude = 0.0

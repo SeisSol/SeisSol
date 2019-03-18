@@ -100,6 +100,9 @@ CONTAINS
        Variable_ANE(:) = 0.
 
        CALL InitialFieldPlanarWave(time,x,y,z,variable)
+    CASE('Zero')
+      Variable(:) = 0.
+      Variable_ANE(:) = 0.
     CASE DEFAULT
        logError(*) 'InitialField: none of the possible initial conditions was chosen'
        logError(*) TRIM(IC%cICType),'|'
