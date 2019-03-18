@@ -37,12 +37,17 @@
 # @section DESCRIPTION
 #
 
-import lxml.etree
 import DB
 import Expr
 import Generator
 import numpy
 import scipy.sparse
+
+import importlib
+try:
+  etree = importlib.import_module('lxml.etree')
+except:
+  etree = importlib.import_module('xml.etree.ElementTree')
 
 def __complain(child):
   raise ValueError('Unknown tag ' + child.tag)
@@ -91,7 +96,7 @@ def __parseMatrix(node, clones):
   return dbUpdate
 
 def parseMatrixFile(xmlFile, clones):
-  tree = lxml.etree.parse(xmlFile)
+  tree = etree.parse(xmlFile)
   root = tree.getroot()
   
   matrices = DB.DB()
@@ -105,7 +110,7 @@ def parseMatrixFile(xmlFile, clones):
   return matrices
   
 def memoryLayoutFromFile(xmlFile, db, clones):
-  tree = lxml.etree.parse(xmlFile)
+  tree = etree.parse(xmlFile)
   root = tree.getroot()
   strtobool = ['yes', 'true', '1']
   nofits = dict()
