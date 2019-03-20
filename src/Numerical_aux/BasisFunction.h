@@ -140,6 +140,7 @@ public:
         return std::inner_product(m_data.begin(), m_data.end(), iter, static_cast<T>(0));
     }
 
+    template<typename T>
     T evalWithCoefs(const T const *coeffs, const size_t size) {
         T value = T(0);
 	for (int i = 0; i < size; ++i) {
