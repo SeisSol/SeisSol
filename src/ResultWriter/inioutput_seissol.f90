@@ -132,6 +132,7 @@ CONTAINS
 
     timestepWavefield = 0
 
+#if 0
 #ifdef HDF
     CALL ini_receiver_hdf(                                &                    ! Initialize receivers
          EQN    = EQN                                   , &                    ! Initialize receivers
@@ -151,6 +152,11 @@ CONTAINS
          MPI    = MPI                                     )                    ! Initialize receivers
     !                                                                          !
 #endif
+#endif
+    call c_interoperability_setReceiverSampling( io%pickdt )
+    do i=1, IO%ntotalRecordPoint
+      call c_interoperability_addRecPoint(IO%UnstructRecpoint(i)%x, IO%UnstructRecpoint(i)%y, IO%UnstructRecpoint(i)%z)
+    end do
 
     if (io%surfaceOutput > 0) then
         call c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth = io%SurfaceOutputRefinement )

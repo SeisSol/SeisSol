@@ -44,6 +44,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <glm/vec3.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
 #include <SourceTerm/NRF.h>
@@ -93,6 +94,8 @@ class seissol::Interoperability {
     
     //! Set of parameters that have to be initialized for dynamic rupture
     std::unordered_map<std::string, double*> m_faultParameters;
+
+    std::vector<glm::dvec3>           m_recPoints;
 
  public:
    /**
@@ -179,6 +182,10 @@ class seissol::Interoperability {
     **/
    void addReceiver( int i_receiverId,
                      int i_meshId );
+
+   void addRecPoint(double x, double y, double z) {
+     m_recPoints.emplace_back(glm::dvec3(x, y, z));
+   }
 
    /**
     * Sets the sampling of the receivers.

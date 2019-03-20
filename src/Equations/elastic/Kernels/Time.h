@@ -123,6 +123,11 @@ class seissol::kernels::Time {
                           real const*                                 i_timeDerivatives,
                           real                                        o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] );
 
+    void computeTaylorExpansion( real         time,
+                                 real         expansionPoint,
+                                 real const*  timeDerivatives,
+                                 real         timeEvaluated[NUMBER_OF_ALIGNED_DOFS] );
+
     template<typename real_from, typename real_to>
     static void convertAlignedCompressedTimeDerivatives( const real_from *i_compressedDerivatives,
                                                                real_to    o_fullDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] )

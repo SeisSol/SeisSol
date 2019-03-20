@@ -149,6 +149,14 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface c_interoperability_addRecPoint
+    subroutine c_interoperability_addRecPoint( x, y, z ) bind( C, name='c_interoperability_addRecPoint' )
+      use iso_c_binding, only: c_double
+      implicit none
+      real(kind=c_double), value :: x,y,z
+    end subroutine
+  end interface
+
   interface c_interoperability_setReceiverSampling
     subroutine c_interoperability_setReceiverSampling( i_receiverSampling ) bind( C, name='c_interoperability_setReceiverSampling' )
       use iso_c_binding, only: c_double

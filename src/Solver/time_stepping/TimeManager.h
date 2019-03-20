@@ -52,6 +52,7 @@
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
 #include <Solver/FreeSurfaceIntegrator.h>
+#include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
 
@@ -110,6 +111,9 @@ class seissol::time_stepping::TimeManager {
     
     //! Stopwatch
     LoopStatistics m_loopStatistics;
+    
+    //! Receiver writer
+    writer::ReceiverWriter m_receiverWriter;
 
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
@@ -195,6 +199,10 @@ class seissol::time_stepping::TimeManager {
      **/
     void addReceiver( unsigned int i_receiverId,
                       unsigned int i_meshId );
+
+    writer::ReceiverWriter& receiverWriter() {
+      return m_receiverWriter;
+    }
 
     /**
      * Set Tv constant for plasticity.

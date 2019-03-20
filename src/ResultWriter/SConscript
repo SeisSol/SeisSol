@@ -59,7 +59,8 @@ writerFiles = [ 'analyse_seissol.f90',
                 'FaultWriterExecutor.cpp',
                 'FreeSurfaceWriter.cpp',
                 'FreeSurfaceWriterExecutor.cpp',
-                'PostProcessor.cpp' ]
+                'PostProcessor.cpp',
+                'ReceiverWriter.cpp' ]
 
 for i in writerFiles:
   env.sourceFiles.append(env.Object(i))

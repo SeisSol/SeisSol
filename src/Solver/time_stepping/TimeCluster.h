@@ -94,6 +94,10 @@ namespace seissol {
   namespace time_stepping {
     class TimeCluster;
   }
+
+  namespace writer {
+    class ReceiverWriter;
+  }
 }
 
 /**
@@ -203,6 +207,8 @@ private:
     unsigned        m_regionComputeLocalIntegration;
     unsigned        m_regionComputeNeighboringIntegration;
     unsigned        m_regionComputeDynamicRupture;
+
+    writer::ReceiverWriter* m_receiverWriter;
 
 #ifdef USE_MPI
     /**
@@ -392,7 +398,8 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 LoopStatistics*                        i_loopStatistics );
+                 LoopStatistics*                        i_loopStatistics,
+                 writer::ReceiverWriter*               receiverWriter );
 
     /**
      * Destructor of a LTS cluster.

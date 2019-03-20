@@ -240,3 +240,36 @@ void seissol::kernels::Time::computeIntegral( double                            
             NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
   }
 }
+
+void seissol::kernels::Time::computeTaylorExpansion( real         time,
+                                                     real         expansionPoint,
+                                                     real const*  timeDerivatives,
+                                                     real         timeEvaluated[NUMBER_OF_ALIGNED_DOFS] ) {
+  /*
+   * assert alignments.
+   */
+  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
+
+  // assert that this is a forwared integration in time
+  assert( time + (real) 1.E-10 > expansionPoint   );
+
+  // reset time integrated degrees of freedom
+  memset( timeEvaluated, 0, NUMBER_OF_ALIGNED_DOFS*sizeof(real) );
+
+  real deltaT = time - expansionPoint;
+  real scalar = 1.0;
+ 
+  // iterate over time derivatives
+  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+    SXtYp(  scalar,
+            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+            NUMBER_OF_QUANTITIES,
+            timeDerivatives + derivative * NUMBER_OF_ALIGNED_DOFS,
+            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+            timeEvaluated,
+            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
+
+    scalar *= deltaT / real(derivative+1);
+  }
+}

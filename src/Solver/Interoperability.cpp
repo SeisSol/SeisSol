@@ -144,6 +144,10 @@ extern "C" {
                                     i_meshId );
   }
 
+  void c_interoperability_addRecPoint(double x, double y, double z) {
+    e_interoperability.addRecPoint(x, y, z);
+  }
+
   void c_interoperability_setReceiverSampling( double i_receiverSampling ) {
     e_interoperability.setReceiverSampling( i_receiverSampling );
   }
@@ -706,6 +710,16 @@ void seissol::Interoperability::initializeIO(
 		seissol::SeisSol::main.meshReader(),
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
 		freeSurfaceFilename, freeSurfaceInterval, type);
+
+  // Initialize receiver output
+  seissol::SeisSol::main.timeManager().receiverWriter().addPoints(
+    m_recPoints,
+    seissol::SeisSol::main.meshReader(),
+    m_ltsLut,
+    *m_lts,
+    m_globalData,
+    std::string(freeSurfaceFilename)
+  );
 
 	// I/O initialization is the last step that requires the mesh reader
 	// (at least at the moment ...)

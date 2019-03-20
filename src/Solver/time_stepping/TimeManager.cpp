@@ -109,7 +109,8 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            &i_memoryManager.getDynamicRuptureTree()->child(l_cluster),
                                            i_memoryManager.getLts(),
                                            i_memoryManager.getDynamicRupture(),
-                                           &m_loopStatistics )
+                                           &m_loopStatistics,
+                                           &m_receiverWriter )
                         );
   }
 }
