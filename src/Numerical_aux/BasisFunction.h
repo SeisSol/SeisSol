@@ -140,6 +140,14 @@ public:
         return std::inner_product(m_data.begin(), m_data.end(), iter, static_cast<T>(0));
     }
 
+    T evalWithCoefs(const T const *coeffs, const size_t size) {
+        T value = T(0);
+	for (int i = 0; i < size; ++i) {
+	  value += m_data[i] * coeffs[i];
+	}
+	return value;
+    }
+
     /**
      * Returns the amount of Basis functions this class represents.
      */
