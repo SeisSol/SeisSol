@@ -60,7 +60,6 @@ void seissol::writer::ReceiverWriterCluster::addReceiver( unsigned              
   for (unsigned v = 0; v < 4; ++v) {
     coords[v] = vertices[ elements[meshId].vertices[v] ].coords;
   }
-  double xyz[] = {point.x, point.y, point.z};
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(coords[0], coords[1], coords[2], coords[3], point);
 
   std::stringstream fns;
