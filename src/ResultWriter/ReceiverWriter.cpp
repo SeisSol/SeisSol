@@ -123,7 +123,7 @@ double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
 
   auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
 
-  double receiverTime = -1.0;
+  double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
       krnl.basisFunctions = receiver.basisFunctions.m_data.data();
