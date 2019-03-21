@@ -42,8 +42,7 @@
 Import('env')
 
 # result writer source files
-writerFiles = [ 'analyse_seissol.f90',
-                'inioutput_seissol.f90',
+writerFiles = [ 'inioutput_seissol.f90',
                 'output_rupturefront.f90',
                 'magnitude_output.f90',
                 'energies.f90',
