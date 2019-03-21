@@ -71,8 +71,6 @@ CONTAINS
     USE TypesDef
 #ifdef HDF
     USE receiver_hdf_mod
-#else
-    USE receiver_mod
 #endif
     USE dg_setup_mod
 
@@ -132,7 +130,6 @@ CONTAINS
 
     timestepWavefield = 0
 
-#if 0
 #ifdef HDF
     CALL ini_receiver_hdf(                                &                    ! Initialize receivers
          EQN    = EQN                                   , &                    ! Initialize receivers
@@ -142,16 +139,6 @@ CONTAINS
          IO     = IO                                    , &                    ! Initialize receivers
          MPI    = MPI                                     )                    ! Initialize receivers
     !                                                                          !
-#else
-    CALL ini_receiver(                                    &                    ! Initialize receivers
-         EQN    = EQN                                   , &                    ! Initialize receivers
-         MESH   = MESH                                  , &                    ! Initialize receivers
-         DISC   = DISC                                  , &                    ! Initialize receivers
-         SOURCE = SOURCE                                , &                    ! Initialize receivers
-         IO     = IO                                    , &                    ! Initialize receivers
-         MPI    = MPI                                     )                    ! Initialize receivers
-    !                                                                          !
-#endif
 #endif
     call c_interoperability_setReceiverSampling( io%pickdt )
     do i=1, IO%ntotalRecordPoint

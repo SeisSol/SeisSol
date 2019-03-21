@@ -91,9 +91,6 @@ class seissol::time_stepping::TimeManager {
     //! time stepping
     TimeStepping m_timeStepping;
 
-    //! mapping: mesh to clusters
-    unsigned int *m_meshToClusters;
-
     //! all LTS clusters, which are under control of this time manager
     std::vector< TimeCluster* > m_clusters;
 
@@ -158,8 +155,7 @@ class seissol::time_stepping::TimeManager {
      **/
     void addClusters( struct TimeStepping&               i_timeStepping,
                       struct MeshStructure*              i_meshStructure,
-                      initializers::MemoryManager&       i_memoryManager,
-                      unsigned*                          i_meshToClusters  );
+                      initializers::MemoryManager&       i_memoryManager );
 
     /**
      * Starts the communication thread.
@@ -192,14 +188,8 @@ class seissol::time_stepping::TimeManager {
     void setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources );
 
     /**
-     * Adds a receiver.
-     *
-     * @param i_receiverId id of the receiver as used in Fortran.
-     * @param i_meshId mesh id.
-     **/
-    void addReceiver( unsigned int i_receiverId,
-                      unsigned int i_meshId );
-
+     * Returns the writer for the receivers
+     */
     writer::ReceiverWriter& receiverWriter() {
       return m_receiverWriter;
     }

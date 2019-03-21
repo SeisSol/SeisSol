@@ -46,6 +46,7 @@
 #include <Initializer/PointMapper.h>
 #include <Numerical_aux/Transformation.h>
 #include <Parallel/MPI.h>
+#include <Monitoring/FlopCounter.hpp>
 
 void seissol::writer::ReceiverWriterCluster::addReceiver( unsigned                          meshId,
                                                           unsigned                          pointId,
@@ -110,6 +111,8 @@ double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
                                 receiver.dofs,
                                 timeEvaluated, // useless but the interface requires it
                                 timeDerivatives );
+      g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
+      g_SeisSolHardwareFlopsOther += m_hardwareFlops;
 
       receiverTime = time;
       std::ofstream file;

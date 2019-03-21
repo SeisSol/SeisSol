@@ -67,12 +67,16 @@ namespace seissol {
 
     class ReceiverWriterCluster {
     public:
-      ReceiverWriterCluster() : m_global(nullptr) {}
+      ReceiverWriterCluster()
+        : m_global(nullptr), m_nonZeroFlops(0), m_hardwareFlops(0)
+      {}
 
       ReceiverWriterCluster(  GlobalData const*             global,
                               std::vector<unsigned> const&  quantities,
                               std::string const&            fileNamePrefix )
-        : m_global(global), m_quantities(quantities), m_fileNamePrefix(fileNamePrefix) {}
+        : m_global(global), m_quantities(quantities), m_fileNamePrefix(fileNamePrefix) {
+        m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
+      }
 
       void addReceiver( unsigned          meshId,
                         unsigned          pointId,
@@ -93,6 +97,8 @@ namespace seissol {
       GlobalData const*       m_global;
       std::vector<unsigned>   m_quantities;
       std::string             m_fileNamePrefix;
+      unsigned                m_nonZeroFlops;
+      unsigned                m_hardwareFlops;
     };
 
     class ReceiverWriter {
