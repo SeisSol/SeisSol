@@ -24,9 +24,6 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();
 
-  unsigned* ltsToMesh;
-
-  // TODO(Lukas) Only compute error when scenario is planar wave
   using ErrorArray_t = std::array<double, NUMBER_OF_QUANTITIES>;
   auto errL1Local = ErrorArray_t{0.0};
   auto errL2Local = ErrorArray_t{0.0};
@@ -35,8 +32,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
-  constexpr auto polyDegree = CONVERGENCE_ORDER-1;
-  constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;//std::max(CONVERGENCE_ORDER+1, 7); //CONVERGENCE_ORDER+1;
+  constexpr auto quadPolyDegree = CONVERGENCE_ORDER+1;
   constexpr auto numQuadPoints = quadPolyDegree * quadPolyDegree * quadPolyDegree;
 
   double quadraturePoints[numQuadPoints][3];
@@ -87,7 +83,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       initial_field_planarwave(simulationTime, x, y, z, analyticalSolution);
       for (size_t v = 0; v < NUMBER_OF_QUANTITIES; ++v) {
 	// Evaluate discrete solution at quad. point
-	const auto const *coeffsBegin = &dofs[treeId][v*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+	auto const *coeffsBegin = &dofs[treeId][v*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
 
 	const auto value = basisVec[i].evalWithCoeffs(coeffsBegin);
 	const auto curError = std::abs(value - analyticalSolution[v]);

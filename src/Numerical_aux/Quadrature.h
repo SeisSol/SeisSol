@@ -46,7 +46,6 @@
 #include <vector>
 
 #include "utils/logger.h"
-
 #include "Numerical_aux/Functions.h"
 #include "Numerical_aux/MatrixView.h"
 
@@ -200,15 +199,14 @@ namespace seissol {
         }
       }
 
-      // TODO(Lukas) Only when debugging.
+      // TODO(Lukas) Only when debugging?
       const double tol = 1e-6;
       double sumWeights = 0.0;
       for (size_t i = 0; i < n*n*n; ++i) {
 	sumWeights += weights[i];
       }
       if (std::abs(sumWeights - 1./6.) > tol) {
-	logInfo() << sumWeights << " /= " << 1./6.;
-	throw -1;
+	logError() << "Sum of tetrahedron quadrature weights are " << sumWeights << " /= " << 1./6.;
       }
     }
   }

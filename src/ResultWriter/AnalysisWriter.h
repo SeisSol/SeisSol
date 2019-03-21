@@ -4,7 +4,6 @@
 // TODO(Lukas) Clean up includes.
 #include <array>
 #include <cmath>
-#include <mpi.h>
 
 #include "Solver/Interoperability.h"
 #include "Physics/InitialField.h"
