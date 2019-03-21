@@ -154,7 +154,7 @@ namespace seissol {
     /** Quadrature formula of arbitrary accuracy on the reference tetrahedron
      *  consisting of the nodes (0,0,0), (1,0,0), (0,1,0), (0,0,1)
      */
-    inline void TetrahedronQuadrature(double (*points)[3], double* weights, int n) {
+    inline void TetrahedronQuadrature(double (*points)[3], double* weights, unsigned int n) {
       // This is a port of similarly named fortran method
       // (TetrahedronQuadraturePoints) in quadpoints.f90.
       // Note:
