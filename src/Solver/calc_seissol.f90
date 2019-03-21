@@ -55,7 +55,7 @@ MODULE calc_SeisSol_mod
 CONTAINS
 
   SUBROUTINE calc_SeisSol(time,timestep,pvar,cvar,EQN,MESH,DISC,SOURCE,BND,IC, &
-                         OptionalFields,IO,MPI,Analyse)
+                         OptionalFields,IO,MPI)
     !--------------------------------------------------------------------------
     USE TypesDef
     USE dg_setup_mod
@@ -96,7 +96,6 @@ CONTAINS
     TYPE (tUnstructOptionalFields):: OptionalFields
     TYPE (tInputOutput)           :: IO
     TYPE (tMPI)                   :: MPI
-    TYPE (tAnalyse)               :: Analyse
 
     REAL                          :: time                 ! current time
     INTEGER                       :: timestep             ! index of time step

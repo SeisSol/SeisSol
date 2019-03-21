@@ -44,7 +44,6 @@ Import('env')
 initializeFiles = [ 'ini_seissol.f90',
                     'ini_optionalfields.f90',
                     'dg_setup.f90',
-                    'ErrorComputation.cpp',
                     'GlobalData.cpp',
                     'InternalState.cpp',
                     'MemoryAllocator.cpp',

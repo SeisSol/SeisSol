@@ -116,6 +116,8 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 	      << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
   }
 
+  // TODO(Lukas) Print hs, fortran: MESH%MaxSQRTVolume, MESH%MaxCircle
+
   /*
   // Reduce error over all MPI ranks.
 #ifdef USE_MPI

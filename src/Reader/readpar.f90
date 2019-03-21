@@ -80,7 +80,7 @@ CONTAINS
   end subroutine getParameterFile
 
   SUBROUTINE readpar(EQN,IC,usMESH,DISC,SOURCE,BND,IO, &
-                     ANALYSE,programTitle,MPI)
+                     programTitle,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
@@ -91,7 +91,6 @@ CONTAINS
     TYPE (tSource)                  :: SOURCE
     TYPE (tBoundary)                :: BND
     TYPE (tInputOutput)             :: IO
-    TYPE (tAnalyse)                 :: ANALYSE
     TYPE (tMPI)          , OPTIONAL :: MPI
     CHARACTER(LEN=100)              :: programTitle
     ! local variables
@@ -101,7 +100,7 @@ CONTAINS
     logical :: existence
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: programTitle
-    INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE
+    INTENT(OUT)                     :: IC, BND, DISC, SOURCE
     INTENT(INOUT)                   :: EQN,IO, usMESH
     !--------------------------------------------------------------------------
     PARAMETER(actual_version_of_readpar = 20)
@@ -152,8 +151,6 @@ CONTAINS
     CALL readpar_output(EQN,DISC,IO,CalledFromStructCode)          !
     !                                                                        !
     CALL readpar_abort(DISC,IO)                                    !
-    !                                                                        !
-    CALL readpar_analyse(ANALYSE,EQN,DISC,IC,IO)                             !
     !                                                                        !
     CLOSE(IO%UNIT%FileIn,status='keep')                                      !
     !                                                                        !
@@ -562,12 +559,8 @@ CONTAINS
 
     ! Renaming all variables in the beginning
      IC%cICType = cICType
-     IC%GP%variable = variable
-     IC%GP%xc(:) = xc(:)
-     IC%GP%amplitude = amplitude
-     IC%GP%hwidth(:) = hwidth(:)
-    !
-    logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
+
+     logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
        !
    SELECT CASE(IC%cICType)
    !
@@ -575,9 +568,6 @@ CONTAINS
        logInfo(*) 'Zero initial condition'
     CASE('Planarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Planarwave initial condition'
-    CASE('Debug')
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType)
-       !
     CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'
@@ -3167,168 +3157,6 @@ ALLOCATE( SpacePositionx(nDirac), &
         IO%Delay_s    = 3600.*IO%Delay_h
     !
   END SUBROUTINE readpar_abort
-
-  !============================================================================
-  ! A N A L Y S E
-  !============================================================================
-
-  SUBROUTINE readpar_analyse(ANALYSE,EQN,DISC,IC,IO)
-    !------------------------------------------------------------------------
-    TYPE(tAnalyse)             :: ANALYSE
-    TYPE(tEquations)           :: EQN
-    TYPE(tDiscretization)      :: DISC
-    TYPE(tInitialCondition)    :: IC
-    TYPE(tInputOutput)         :: IO
-    CHARACTER(LEN=600)         :: name,cdummy
-    ! local Variables
-    COMPLEX                    :: IU
-    REAL                       :: Im, Re
-    INTEGER                    :: I,J,allocStat
-    INTEGER                    :: readStat
-    !------------------------------------------------------------------------
-    INTENT(IN)                 :: EQN,IO
-    INTENT(OUT)                :: ANALYSE
-    !------------------------------------------------------------------------
-    INTEGER                           :: typ, setvar
-    INTEGER                           :: variables(9)
-    REAL, DIMENSION(:), ALLOCATABLE   :: varfield, ampfield
-    CHARACTER(LEN=600)                :: EigenVecValName
-    NAMELIST                          /Analysis/ typ, setvar, variables
-    !------------------------------------------------------------------------
-    !
-    logInfo(*) '<--------------------------------------------------------->'
-    logInfo(*) '<  A N A L Y S I S   O F   T H E   D A T A                >'
-    logInfo(*) '<--------------------------------------------------------->'
-    !
-    !Setting default values
-    typ = 3                                                                   !Read which variables are to be analyzed
-
-#if 0
-   READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Analysis)
-    IF (readStat.NE.0) THEN
-        CALL RaiseErrorNml(IO%UNIT%FileIn, "Analysis")
-    ENDIF
-    ANALYSE%typ = typ
-
-   ANALYSE%AnalyseDataPerIteration = .FALSE.
-    SELECT CASE(ANALYSE%typ)
-    CASE(0)
-       logInfo(*) 'NO analysis of the data ...'
-       RETURN
-    CASE(1)
-       logInfo(*) 'Analyse the data, using an exact solution.'
-       logInfo(*) 'The exact solution is given by the Initialcondition.'
-    CASE(2)
-       logInfo(*) 'Analyse the data, using an exact solution.'
-       logInfo(*) 'The exact solution is given by a fine grid solution.'
-       logWarning(*) 'THIS METHOD IS NOT IMPLEMENTED YET!'
-       STOP
-    CASE(3)
-       logInfo(*) 'Analyse the data, using an exact solution '
-       logInfo(*) 'The exact solution is the elastic plane wave in 3-D of the form'
-       logInfo(*) '     u(x,y,z,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )] '
-       logInfo(*) ' '
-       logInfo(*) 'All necessary data is given by the initial condition. '
-    CASE(10)
-       logInfo(*) 'Analyse the data, using an exact solution '
-       logInfo(*) 'All necessary data is given by the initial condition. '
-    CASE(14)
-       logInfo(*) 'Analyse the data, using an exact solution '
-       logInfo(*) 'The exact solution is the anelastic plane wave in 3-D of the form'
-       logInfo(*) '     u(x,y,z,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )] '
-       logInfo(*) ' '                                                   !
-       !
-       ANALYSE%PW%setvar = setvar                                        ! characteristic waves
-       ALLOCATE(ANALYSE%PW%varfield(ANALYSE%PW%setvar),ANALYSE%PW%ampfield(ANALYSE%PW%setvar))
-       call readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)
-       ANALYSE%PW%varfield(:)  = varfield(:)
-       ANALYSE%PW%ampfield(:)  = ampfield(:)
-
-       ! set imaginary unit IU
-       IU = (0.,1.)
-       ! read eigenstructure from file
-       ANALYSE%PWAN%EigenVecValName = EigenVecValName
-       logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(ANALYSE%PWAN%EigenVecValName)
-       CALL OpenFile(                                                    &
-            UnitNr       = IO%UNIT%other01                      ,        &
-            Name         = ANALYSE%PWAN%EigenVecValName         ,        &
-            create       = .FALSE.                          )
-       logInfo(*) 'Reading  file ...  '
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read number of eigenvalues
-       READ(IO%UNIT%other01,*) ANALYSE%PWAN%NEigenVal
-
-       ALLOCATE(ANALYSE%PWAN%EigenVal(1:ANALYSE%PWAN%NEigenVal),     &
-                ANALYSE%PWAN%EigenVec(1:ANALYSE%PWAN%NEigenVal,1:ANALYSE%PWAN%NEigenVal) )
-
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read wavenumbers
-       READ(IO%UNIT%other01,*) ANALYSE%PWAN%Wavenumbers(1:EQN%Dimension)
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvalues
-       DO I = 1,ANALYSE%PWAN%NEigenVal
-           READ(IO%UNIT%other01,*) Re, Im
-           ANALYSE%PWAN%EigenVal(I) = Re + Im*IU
-       ENDDO
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvectors
-       DO I = 1,ANALYSE%PWAN%NEigenVal
-          DO J = 1,ANALYSE%PWAN%NEigenVal
-             READ(IO%UNIT%other01,*) Re, Im
-             ANALYSE%PWAN%EigenVec(J,I) = Re + Im*IU
-          ENDDO
-       ENDDO
-       CLOSE(IO%UNIT%other01)
-
-    CASE(15)
-       logInfo(*) 'Analyse the data, using an exact solution '                                                       !
-       logInfo(*) 'The exact solution is the anisotropic plane wave in 3-D of the form'
-       logInfo(*) '     u(x,y,z,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )] '
-       logInfo(*) ' '                                                   !
-       !
-    CASE DEFAULT
-       logWarning(*) ' THIS METHOD IS UNKNOWN!'
-       STOP
-    END SELECT
-
-    SELECT CASE(ANALYSE%typ)
-    CASE(0)
-       !                                                                    ! nothing has to be done
-    CASE DEFAULT                                                            ! This part is common to all the different analysis choices                                                             !
-       !
-       ALLOCATE(ANALYSE%variables(EQN%nvar))
-       ANALYSE%variables(:) = variables(:)
-       !
-       DO I=1,EQN%nvar
-          IF (ANALYSE%variables(I)) THEN
-             logInfo(*) 'Analyse Variablenr:',I
-          END IF
-       END DO
-       !
-    END SELECT
-    !
-#endif
-  END SUBROUTINE readpar_analyse
-
-  SUBROUTINE readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)
-    IMPLICIT NONE
-    TYPE (tInputOutput)                    :: IO
-    INTENT(IN)                             :: IO
-    INTEGER                                :: setvar
-    INTEGER                                :: readStat
-    REAL, DIMENSION(:), ALLOCATABLE        :: varfield, ampfield
-    CHARACTER(LEN=600)                     :: EigenVecValName
-    NAMELIST                               /AnalysisFields/ varfield, ampfield, EigenVecValName
-    !----------------------------------------------------------------------
-       ALLOCATE(varfield(setvar), &
-                ampfield(setvar))
-
-    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
-                                                  ! and the same for ampfield, ...
-    IF (readStat.NE.0) THEN
-        CALL RaiseErrorNml(IO%UNIT%FileIn, "AnalysisFields")
-    ENDIF
-   END SUBROUTINE
 
   !============================================================================
   ! A N A L Y S E

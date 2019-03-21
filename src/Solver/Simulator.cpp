@@ -151,4 +151,7 @@ void seissol::Simulator::simulate() {
   seissol::SeisSol::main.timeManager().printComputationTime();
 
   seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
+
+  printFlops();
+
 }

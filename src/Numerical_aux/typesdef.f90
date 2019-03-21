@@ -1413,91 +1413,9 @@ MODULE TypesDef
   !<
   !<--- Initial condition ----------------------------------------------------
   !<
-  !< Initial values for GP=Gausspulse
-  TYPE tGaussPuls
-     REAL, POINTER                          :: Um(:)                            !< Homogenous background value in vector form
-                                                                                !< for general systems
-     REAL                                   :: rho0                             !< Homogenous background value
-     REAL                                   :: u0                               !< Homogenous background value
-     REAL                                   :: v0                               !< Homogenous background value
-     REAL                                   :: w0                               !< Homogenous background value
-     REAL                                   :: p0                               !< Homogenous background value
-     REAL                                   :: XC(3)                            !< Center Coordinates
-     REAL                                   :: amplitude, hwidth(3)             !< Amplitude and halfwidth
-     REAL                                   :: n(3)                             !< Gausspuls system normal vector
-     REAL                                   :: t1(3)                            !< Gausspuls system tangent vector 1
-     REAL                                   :: t2(3)                            !< Gausspuls system tangent vector 2
-     INTEGER                                :: variable                         !< Variable containing GP
-     INTEGER                                :: direction                        !< direction of variation
-     INTEGER                                :: setvar                           !< Nr. of variables to set
-     INTEGER, POINTER                       :: varfield(:)                      !< Index array of variables to set (Var_Gauss_Puls)
-     REAL, POINTER                          :: ampfield(:)                      !< Array for the amplitudes        (Var_Gauss_Puls)
-     REAL                                   :: omega                            !< Omega of superposed windfield
-     REAL                                   :: f                                !< Frequency of superposed windfield
-  END TYPE tGaussPuls
-  !< User-defined Funtion for initial condition
-  TYPE tUserFunction
-     INTEGER                                :: nVar, nZones                     !< Number of variables and number of zones
-     TYPE(tFunctionString), POINTER         :: FuncStr(:,:)                     !< Function strings
-     CHARACTER(LEN=600)                     :: Filename                         !< Filename for user function initial condition
-     INTEGER, POINTER                       :: Mapping(:,:)                     !< Mapping from zone and var to function number
-     INTEGER, POINTER                       :: Zones(:)                         !< Copy of zone distribution in the mesh
-  END TYPE tUserFunction
-  !<
-  TYPE tFunctionString
-     CHARACTER(LEN=900)                     :: string                           !< String containing the function string
-  END TYPE tFunctionString
-  !< Initial values and boundary condition for Planarwave
-  TYPE tPlanarwave
-     REAL                                   :: rho0                             !< Homogenous background value
-     REAL                                   :: u0                               !< Homogenous background value
-     REAL                                   :: v0                               !< Homogenous background value
-     REAL                                   :: w0                               !< Homogenous background value
-     REAL                                   :: p0                               !< Homogenous background value
-     REAL                                   :: amplitude                        !< Amplitude and halfwidth
-     REAL                                   :: k_vec(3)                         !< Wavenumber vector
-     REAL                                   :: k_vec_mat(3)                     !< Wavenumber vector for periodic variable material
-     REAL                                   :: n(3)                             !< Unit normal vector
-     REAL                                   :: k                                !< Wavenumber = ||k_vec||
-     REAL, POINTER                          :: Um(:)                            !< Background
-     INTEGER                                :: variable                         !< Ch. variable containing the planarwave
-     INTEGER                                :: setvar                           !< Nr. of variables to set
-     INTEGER, POINTER                       :: varfield(:)                      !< Index array of variables to set (Var_Gauss_Puls)
-     REAL, POINTER                          :: ampfield(:)                      !< Array for the amplitudes        (Var_Gauss_Puls)
-  END TYPE tPlanarwave
-  !< Anelastic (damped) plane wave
-  TYPE tPlanarwaveAN
-     INTEGER                                :: NEigenVal
-     REAL                                   :: Wavenumbers(3)                   !< Wavenumbers of plane sin-wave in x-,y-,z-direction
-     COMPLEX                      , POINTER :: EigenVec(:,:)                    !< Eigenvectors
-     COMPLEX                      , POINTER :: EigenVal(:)                      !< Eigenvalues
-     CHARACTER(LEN=600)                     :: EigenVecValName                  !< Input file name of eigenvectors and eigenvalues
-  END TYPE tPlanarwaveAN
-  !< Anisotropic plane wave
-  TYPE tPlanarwaveANISO
-     REAL                                   :: amplitude                        !< Amplitude and halfwidth
-     REAL                                   :: k_vec(3)                         !< Wavenumber vector
-     REAL                                   :: n(3)                             !< Unit normal vector
-     REAL                                   :: k                                !< Wavenumber = ||k_vec||
-     REAL, POINTER                          :: Um(:)                            !< Background
-     INTEGER                                :: variable                         !< Ch. variable containing the planarwave
-     INTEGER                                :: setvar                           !< Nr. of variables to set
-     INTEGER, POINTER                       :: varfield(:)                      !< Index array of variables to set (Var_Gauss_Puls)
-     REAL, POINTER                          :: ampfield(:)                      !< Array for the amplitudes        (Var_Gauss_Puls)
-     REAL                                   :: Wavenumbers(3)                   !< Wavenumbers of plane sin-wave in x-,y-,z-direction
-     COMPLEX                      , POINTER :: EigenVec(:,:)                    !< Eigenvectors
-     COMPLEX                      , POINTER :: EigenVal(:)                      !< Eigenvalues
-  END TYPE tPlanarwaveANISO
-
   !< Data for the initial condition (variable name : IC)
   TYPE tInitialCondition
      CHARACTER (LEN=25)                     :: cICType                          !< CHARACTER flag for initial data
-     INTEGER                                :: iICType                          !< INTEGER flag for initian data (Euler3D)
-     TYPE (tGaussPuls)                      :: GP                               !< Gauss pulse structure
-     TYPE (tPlanarwave)                     :: PW                               !< Planar wave structure
-     TYPE (tUserFunction)                   :: UF                               !< User defined function as initial condition
-     TYPE (tPlanarwaveAN)                   :: PWAN                             !< Anelastic planar wave as initial condition
-     TYPE (tPlanarwaveANISO),POINTER        :: PWANISO(:)                       !< Anisotropic planar wave as initial condition
   END TYPE tInitialCondition
   !<--------------------------------------------------------------------------
   !<
@@ -1744,33 +1662,6 @@ MODULE TypesDef
      CHARACTER(LEN=600)                     :: FSRMFileName                     !< Filename of Finite Source Rupture Model
      character(len=600)                     :: NRFFileName                      !< Filename of Netcdf rupture format source description
   END TYPE tSource
-  !<--------------------------------------------------------------------------
-  !<
-  !<--- Analyse Information --------------------------------------------------
-  !<
-  TYPE tAnalyse
-     LOGICAL                                :: AnalyseDataPerIteration          !< Switch to analyse Data each Iteration
-     INTEGER                                :: AnalyseDataNumber                !< Number of Variables for Data Output
-     REAL                         , POINTER :: ErrorField(:,:)                  !< Error Field to analyse data each timestep
-     INTEGER                                :: typ                              !< 0 = no,
-     !<                                                                          !< 1 = compare with exact solution.
-     !<                                                                          !<     Exact Solution is the initial condition
-     !<                                                                          !< 2 = compare with exact solution.
-     !<                                                                          !<     Exact Solution is a fine grid solution
-     !<                                                                          !< 3 = compare with exact solution.
-     !<                                                                          !<     Exact Solution is tanh(k(y-b/ax))
-     !<                                                                          !< 4 = compare with exact solution
-     !<                                                                          !<     Exact Solution is given by 1D Riemann Problem
-     !<                                                                          !< 5 = compare with exact solution given by
-     !<                                                                          !<     the dispersion relation of the advection-diffusion-dispersion equation
-     !<                                                                          !<     u_t + a u_x + b u_xx + c u_xxx = 0
-     CHARACTER(LEN=600)                     :: VariableList                     !< Variable List for Tecplot output
-     LOGICAL, POINTER                       :: variables(:)                     !< 0 = no analysis of this variable
-     TYPE(tPlanarwaveAN)                    :: PWAN                             !< Anelastic planar wave as initial condition
-     TYPE(tPlanarwaveANISO), POINTER        :: PWANISO(:)                       !< Anisotropic planar wave as initial condition
-     TYPE(tPlanarwave)                      :: PW                               !< Anelastic planar wave as initial condition
-     !<
-  END TYPE tAnalyse
   !<--- Optinal Fields --------------------------------------------------------
   TYPE tUnstructOptionalFields
      LOGICAL                      , POINTER :: Marker(:)  => NULL()                       !< Markierungsfeld f� Gitterverfeinerung oder -vergr�ung
@@ -1833,7 +1724,6 @@ MODULE TypesDef
      TYPE(tBoundary)                        :: BND
      TYPE(tInputOutput)                     :: IO
      TYPE(tInitialCondition)                :: IC
-     TYPE(tAnalyse)                         :: ANALYSE
      TYPE(tUnstructOptionalFields)          :: OptionalFields
      REAL                         , POINTER :: pvar(:,:) => NULL()
      REAL                         , POINTER :: cvar(:,:) => NULL()

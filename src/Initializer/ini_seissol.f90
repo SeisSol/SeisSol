@@ -55,7 +55,7 @@ MODULE ini_SeisSol_mod
 CONTAINS
 
   SUBROUTINE ini_SeisSol(time,timestep,pvar,cvar,EQN,IC,MESH,MPI,      &
-       SOURCE,DISC,BND,OptionalFields,IO,Analyse, &
+       SOURCE,DISC,BND,OptionalFields,IO, &
        programTitle) !
     !--------------------------------------------------------------------------
     USE COMMON_readpar_mod
@@ -94,7 +94,6 @@ CONTAINS
     TYPE (tUnstructOptionalFields) :: OptionalFields                           !
     TYPE (tInputOutput)            :: IO                                       !
     TYPE (tBoundary)               :: BND                                      !
-    TYPE (tAnalyse)                :: Analyse                                  !
     CHARACTER(LEN=100)             :: programTitle                             !
     ! local variable declaration                                               !
     INTEGER                        :: iElem, iSide, iVtx, i                    !
@@ -145,7 +144,7 @@ CONTAINS
     INTENT(IN)                     :: programTitle                             !
     INTENT(INOUT)                  :: EQN,DISC,IO                              ! Some values are set in the TypesDef
     INTENT(OUT)                    :: IC,MESH,SOURCE,BND, OptionalFields       !
-    INTENT(OUT)                    :: time,timestep, Analyse             !
+    INTENT(OUT)                    :: time,timestep             !
 
     ! register ini_seissol function
     EPIK_FUNC_REG("ini_SeisSol")
@@ -178,7 +177,6 @@ CONTAINS
          SOURCE       = SOURCE                          , &                    !
          BND          = BND                             , &                    !
          IO           = IO                              , &                    !
-         Analyse      = Analyse                         , &                    !
          programTitle = programTitle                    , &                    !
          MPI          = MPI                               )
 
