@@ -302,26 +302,22 @@ CONTAINS
             DISC           = DISC                         , &                  ! Initialize Local Linearized calculation
             BND            = BND                            )                  ! Initialize Local Linearized calculation
     END IF                                                                     !
-    !                                                                          !
-    IF(DISC%DiscretizationMethod.EQ.2) THEN                                    !
-       logInfo(*) '<--------------------------------------------------------->' !
-       logInfo(*) '<           Calling DG Initialization level 2             >' !
-       logInfo(*) '<--------------------------------------------------------->' !
-       !                                                                       !
-       CALL iniGalerkin3D_us_level2_new(                    &              !
-              EQN    = EQN                                , &              !
-              DISC   = DISC                               , &              !
-              MESH   = MESH                               , &              !
-              BND    = BND                                , &              !
-              IC     = IC                                 , &              !
-              SOURCE = SOURCE                             , &              !
-              OptionalFields = OptionalFields             , &              !
-              MPI    = MPI                                , &              !
-              IO     = IO                                   )              !
-       !                                                                       !
-       logInfo(*) 'Galerkin module initialized correctly.'    !
-       !                                                                       !
-    ENDIF                                                                      !
+    logInfo(*) '<--------------------------------------------------------->' !
+    logInfo(*) '<           Calling DG Initialization level 2             >' !
+    logInfo(*) '<--------------------------------------------------------->' !
+    !                                                                       !
+    CALL iniGalerkin3D_us_level2_new(                    &              !
+         EQN    = EQN                                , &              !
+         DISC   = DISC                               , &              !
+         MESH   = MESH                               , &              !
+         BND    = BND                                , &              !
+         IC     = IC                                 , &              !
+         SOURCE = SOURCE                             , &              !
+         OptionalFields = OptionalFields             , &              !
+         MPI    = MPI                                , &              !
+         IO     = IO                                   )              !
+    !                                                                       !
+    logInfo(*) 'Galerkin module initialized correctly.'    !
     !
     !aheineck: Metisweighs are not used, @TODO we should delete this
 #if 0

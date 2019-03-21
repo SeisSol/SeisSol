@@ -1059,15 +1059,11 @@ MODULE TypesDef
 
   !<--- Description of the Discretization method  --------------------------------------------------------------------------------------
   TYPE tDiscretization
-     INTEGER                                :: DiscretizationMethod             !< 1=FVM, 2=Discontinuous FEM, 3=FDM
-     INTEGER                                :: DistribScheme                    !< 1=N, 2=LDA, 3=PSI
      INTEGER                                :: RD_SoluPolyOrder                 !< 1= 1 Triangle, 2= 4 Subtriangles, 3= 9 Subtriangles
      INTEGER                                :: SizeOfGradientField
      INTEGER                                :: TimeMethod                       !< 1=Euler-Cauchy
      INTEGER                                :: TimeOrder                        !< TimeOrder = 1,2,3,4
-     INTEGER                                :: SpaceMethod                      !< 1=First order method
      INTEGER                                :: SpaceOrder                       !< SpaceOrder = 1,2
-     INTEGER                                :: Limiter                          !< 1=Use a limiter, 2=Do not use a limiter
      INTEGER                                :: FluxMethod                       !<  1=AUSMDV scheme variant 1 (NOT reliable)
      REAL                                   :: CFL                              !< Courant-Friedrichs-Lewy (CFL) number
      REAL                                   :: Theta                            !< Value of theta for implicit Newmark (theta) schemes

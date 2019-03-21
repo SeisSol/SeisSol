@@ -2359,8 +2359,6 @@ ALLOCATE( SpacePositionx(nDirac), &
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  D I S C R E T I S A T I O N                            >'
     logInfo(*) '<-------------------------------------------------------- >'
-    !                                                                 !                                                                 !
-    DISC%DiscretizationMethod = 2                                     !
     logInfo(*) 'Discontinuous Galerkin technique is used. '
     DISC%Galerkin%ZoneOrderFlag = 0 ! aheineck, this is used but never set, but we need to init it
 
