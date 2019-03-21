@@ -250,8 +250,8 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
   assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
 
-  // assert that this is a forwared integration in time
-  assert( time + (real) 1.E-10 > expansionPoint   );
+  // assert that this is a forward evaluation in time
+  assert( time >= expansionPoint );
 
   real deltaT = time - expansionPoint;
 

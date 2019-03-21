@@ -171,6 +171,7 @@ void seissol::writer::ReceiverWriter::addPoints(  std::vector<glm::dvec3> const&
                                                   seissol::initializers::LTS const& lts,
                                                   GlobalData const*                 global,
                                                   std::string const&                fileNamePrefix ) {
+  int rank = seissol::MPI::mpi.rank();
   unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
   std::vector<unsigned> meshIds(numberOfPoints);
@@ -178,11 +179,14 @@ void seissol::writer::ReceiverWriter::addPoints(  std::vector<glm::dvec3> const&
   /// \todo Find a nicer solution that is not so hard-coded.
   std::vector<unsigned> quantities{0, 1, 2, 3, 4, 5, 6, 7, 8};
 
+  logInfo(rank) << "Finding meshIds for receivers...";
   initializers::findMeshIds(points.data(), mesh, numberOfPoints, contained.data(), meshIds.data());
 #ifdef USE_MPI
+  logInfo(rank) << "Cleaning possible double occurring receivers for MPI...";
   initializers::cleanDoubles(contained.data(), numberOfPoints);
 #endif
 
+  logInfo(rank) << "Mapping receivers to LTS cells...";
   for (unsigned point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       unsigned meshId = meshIds[point];

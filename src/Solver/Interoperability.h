@@ -383,7 +383,7 @@ class seissol::Interoperability {
                                       double y,
                                       double z,
                                       unsigned element,
-                                      real mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] );
+                                      real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()] );
 
    /**
     * Simulates until the final time is reached.

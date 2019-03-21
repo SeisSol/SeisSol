@@ -798,14 +798,14 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
 }
 #endif
 
-void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS])
+void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()])
 {
   double f_mInvJInvPhisAtSources[NUMBER_OF_BASIS_FUNCTIONS];
 
   int elem = static_cast<int>(element);
   f_interoperability_computeMInvJInvPhisAtSources(m_domain, x, y, z, elem, f_mInvJInvPhisAtSources);
 
-  memset(mInvJInvPhisAtSources, 0, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * sizeof(real));
+  memset(mInvJInvPhisAtSources, 0, tensor::mInvJInvPhisAtSources::size() * sizeof(real));
   for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
     mInvJInvPhisAtSources[bf] = f_mInvJInvPhisAtSources[bf];
   }
