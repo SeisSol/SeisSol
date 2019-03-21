@@ -77,7 +77,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
 
   // assert non-zero pointers
   assert( i_meshStructure         != NULL );
-  assert( i_meshToClusters        != NULL );
 
   // store the time stepping
   m_timeStepping = i_timeStepping;
