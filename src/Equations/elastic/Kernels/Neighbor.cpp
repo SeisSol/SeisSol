@@ -146,6 +146,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
       } else { // fall back to local matrices in case of free surface boundary conditions
         kernel::localFlux lfKrnl = m_lfKrnlPrototype;
         lfKrnl.Q = io_degreesOfFreedom;
+        lfKrnl.I = i_timeIntegrated[l_face];
         lfKrnl.AplusT = neighbor->nAmNm1[l_face];
         lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
         lfKrnl.execute(l_face);

@@ -138,10 +138,8 @@ extern "C" {
     e_interoperability.initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints);
   }
 
-  void c_interoperability_addReceiver( int i_receiverId,
-                                       int i_meshId ) {
-    e_interoperability.addReceiver( i_receiverId,
-                                    i_meshId );
+  void c_interoperability_addRecPoint(double x, double y, double z) {
+    e_interoperability.addRecPoint(x, y, z);
   }
 
   void c_interoperability_setReceiverSampling( double i_receiverSampling ) {
@@ -220,12 +218,6 @@ extern "C" {
     e_interoperability.addToDofs( i_meshId, i_update, numUpdateEntries );
   }
 
-  void c_interoperability_getTimeDerivatives( int    i_meshId,
-                                              double  o_timeDerivatives[CONVERGENCE_ORDER][seissol::tensor::QFortran::size()] ) {
-    e_interoperability.getTimeDerivatives( i_meshId,
-                                           o_timeDerivatives );
-  }
-
   void c_interoperability_getDofs( int    i_meshId,
                                    double o_timeDerivatives[seissol::tensor::QFortran::size()] ) {
     e_interoperability.getDofs( i_meshId, o_timeDerivatives );
@@ -290,14 +282,6 @@ extern "C" {
                                                     double  *io_dofs,
 													double  *io_Energy,
 													double  *io_pstrain );
-
-
-  extern void f_interoperability_writeReceivers( void   *i_domain,
-                                                 double *i_fullUpdateTime,
-                                                 double *i_timeStepWidth,
-                                                 double *i_receiverTime,
-                                                 int    *i_numberOfReceivers,
-                                                 int    *i_receiverIds );
 
   extern void f_interoperability_computeMInvJInvPhisAtSources( void*    i_domain,
                                                                double   i_x,
@@ -392,8 +376,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
   // add clusters
   seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
                                                     m_meshStructure,
-                                                    seissol::SeisSol::main.getMemoryManager(),
-                                                    m_ltsLut.getMeshToClusterLut() );
+                                                    seissol::SeisSol::main.getMemoryManager() );
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
@@ -501,11 +484,6 @@ void seissol::Interoperability::initializeFault( char*   modelFileName,
                                                               numberOfBndPoints );
     parameterDB.evaluateModel(std::string(modelFileName), queryGen);
   }
-}
-
-void seissol::Interoperability::addReceiver( int i_receiverId,
-                                             int i_meshId ) {
-  seissol::SeisSol::main.timeManager().addReceiver( i_receiverId, i_meshId );
 }
 
 void seissol::Interoperability::setReceiverSampling( double i_receiverSampling ) {
@@ -692,6 +670,16 @@ void seissol::Interoperability::initializeIO(
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
 		freeSurfaceFilename, freeSurfaceInterval, type);
 
+  // Initialize receiver output
+  seissol::SeisSol::main.timeManager().receiverWriter().addPoints(
+    m_recPoints,
+    seissol::SeisSol::main.meshReader(),
+    m_ltsLut,
+    *m_lts,
+    m_globalData,
+    std::string(freeSurfaceFilename)
+  );
+
 	// I/O initialization is the last step that requires the mesh reader
 	// (at least at the moment ...)
 	seissol::SeisSol::main.freeMeshReader();
@@ -707,26 +695,6 @@ void seissol::Interoperability::addToDofs( int      i_meshId,
                                            int      numUpdateEntries ) {
   /// @yateto_todo: Multiple updates?
   seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numUpdateEntries) );
-}
-
-void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
-                                                    double  o_timeDerivatives[CONVERGENCE_ORDER][tensor::QFortran::size()] ) {
-  real l_timeIntegrated[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
-  real l_timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
-
-  unsigned nonZeroFlops, hardwareFlops;
-
-  m_timeKernel.computeAder( 0,
-                            &m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1),
-                            m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
-                            l_timeIntegrated,
-                            l_timeDerivatives );
-
-  m_timeKernel.flopsAder(nonZeroFlops, hardwareFlops);
-  g_SeisSolNonZeroFlopsOther += nonZeroFlops;
-  g_SeisSolHardwareFlopsOther += hardwareFlops;
-
-  seissol::kernels::convertAlignedCompressedTimeDerivatives<real, double>( l_timeDerivatives, o_timeDerivatives );
 }
 
 void seissol::Interoperability::getDofs( int    i_meshId,
@@ -765,27 +733,6 @@ void seissol::Interoperability::finalizeIO()
 	seissol::SeisSol::main.checkPointManager().close();
 	seissol::SeisSol::main.faultWriter().close();
 	seissol::SeisSol::main.freeSurfaceWriter().close();
-}
-
-void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,
-                                                double i_timeStepWidth,
-                                                double i_receiverTime,
-                                                std::vector< int > &i_receiverIds ) {
-  assert( i_receiverIds.size() > 0 );
-
-  // get number of elements
-  int l_numberOfReceivers = i_receiverIds.size();
-
-  // get a pointer to the raw data
-  int *l_receiverIds = &i_receiverIds.front();
-
-  // call the fortran routine
-  f_interoperability_writeReceivers( m_domain,
-                                    &i_fullUpdateTime,
-                                    &i_timeStepWidth,
-                                    &i_receiverTime,
-                                    &l_numberOfReceivers,
-                                     l_receiverIds );
 }
 
 void seissol::Interoperability::faultOutput( double i_fullUpdateTime,

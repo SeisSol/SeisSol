@@ -102,7 +102,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
-                                                  LoopStatistics*                        i_loopStatistics ):
+                                                  LoopStatistics*                        i_loopStatistics,
+                                                  writer::ReceiverWriter*                receiverWriter ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -119,7 +120,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_numberOfCellToPointSourcesMappings(0                ),
  m_pointSources(            NULL                       ),
 
- m_loopStatistics(          i_loopStatistics           )
+ m_loopStatistics(          i_loopStatistics           ),
+ m_receiverWriter(          receiverWriter             )
 {
     // assert all pointers are valid
     assert( m_meshStructure                            != NULL );
@@ -138,7 +140,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   // set timings to zero
   m_numberOfTimeSteps             = 0;
   m_receiverTime                  = 0;
-  m_receiverSampling              = 0;
+  m_receiverSampling              = std::numeric_limits<double>::max();
   m_timeStepWidth                 = 0;
   m_subTimeStart                  = 0;
   m_numberOfFullUpdates           = 0;
@@ -176,12 +178,6 @@ void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPoi
   m_pointSources = i_pointSources;
 }
 
-void seissol::time_stepping::TimeCluster::addReceiver( unsigned int i_receiverId,
-                                                       unsigned int i_meshId ) {
-  logInfo() << "cluster" << m_clusterId << "adding local receiver" << i_receiverId << "located at cell" << i_meshId;
-  m_receivers.push_back( i_receiverId );
-}
-
 void seissol::time_stepping::TimeCluster::setReceiverSampling( double i_receiverSampling ) {
   m_receiverSampling = i_receiverSampling;
 }
@@ -189,19 +185,7 @@ void seissol::time_stepping::TimeCluster::setReceiverSampling( double i_receiver
 void seissol::time_stepping::TimeCluster::writeReceivers() {
   SCOREP_USER_REGION( "writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  if( m_receivers.size() > 0 && m_fullUpdateTime + m_timeStepWidth > m_receiverTime ) {
-    logDebug() << "cluster" << m_clusterId << "is writing a total of" << m_receivers.size() << "receivers at time" << m_receiverTime;
-
-    e_interoperability.writeReceivers( m_fullUpdateTime,
-                                       m_timeStepWidth,
-                                       m_receiverTime,
-                                       m_receivers );
-
-    // increase receiver time until larger than next update time
-    while( m_fullUpdateTime + m_timeStepWidth > m_receiverTime ) {
-      m_receiverTime += m_receiverSampling;
-    }
-  }
+  m_receiverTime = m_receiverWriter->writeReceivers(m_clusterId, m_receiverTime, m_fullUpdateTime, m_timeStepWidth, m_receiverSampling);
 }
 
 void seissol::time_stepping::TimeCluster::computeSources() {

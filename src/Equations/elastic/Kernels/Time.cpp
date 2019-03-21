@@ -212,9 +212,6 @@ void seissol::kernels::Time::computeIntegral( double                            
   /*
    * compute time integral.
    */
-  // reset time integrated degrees of freedom
-  memset( o_timeIntegrated, 0, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES*sizeof(real) );
-
   // compute lengths of integration intervals
   real l_deltaTLower = i_integrationStart - i_expansionPoint;
   real l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
@@ -240,5 +237,36 @@ void seissol::kernels::Time::computeIntegral( double                            
     intKrnl.power /= l_factorial;
 
     intKrnl.execute(der);
+  }
+}
+
+void seissol::kernels::Time::computeTaylorExpansion( real         time,
+                                                     real         expansionPoint,
+                                                     real const*  timeDerivatives,
+                                                     real         timeEvaluated[tensor::Q::size()] ) {
+  /*
+   * assert alignments.
+   */
+  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
+
+  // assert that this is a forwared integration in time
+  assert( time + (real) 1.E-10 > expansionPoint   );
+
+  real deltaT = time - expansionPoint;
+
+  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+
+  kernel::derivativeTaylorExpansion intKrnl;
+  intKrnl.I = timeEvaluated;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+  }
+  intKrnl.power = 1.0;
+ 
+  // iterate over time derivatives
+  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.execute(derivative);
+    intKrnl.power *= deltaT / real(derivative+1);
   }
 }

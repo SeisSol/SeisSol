@@ -141,11 +141,11 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface c_interoperability_addReceiver
-    subroutine c_interoperability_addReceiver( i_receiverId, i_meshId ) bind( C, name='c_interoperability_addReceiver' )
-      use iso_c_binding, only: c_int
+  interface c_interoperability_addRecPoint
+    subroutine c_interoperability_addRecPoint( x, y, z ) bind( C, name='c_interoperability_addRecPoint' )
+      use iso_c_binding, only: c_double
       implicit none
-      integer(kind=c_int), value :: i_receiverId, i_meshId
+      real(kind=c_double), value :: x,y,z
     end subroutine
   end interface
 
@@ -274,13 +274,6 @@ module f_ftoc_bind_interoperability
       integer(kind=c_int), value                    :: i_meshId
       real(kind=c_double), dimension(*), intent(in) :: i_update
       integer(kind=c_int), value                    :: numUpdateEntries
-    end subroutine
-
-    subroutine c_interoperability_getTimeDerivatives( i_meshId, o_timeDerivatives ) bind( C, name='c_interoperability_getTimeDerivatives' )
-      use iso_c_binding
-      implicit none
-      integer(kind=c_int), value :: i_meshId
-      real(kind=c_double), dimension(*), intent(out) :: o_timeDerivatives
     end subroutine
 
     subroutine c_interoperability_getDofs( i_meshId, o_dofs ) bind( C, name='c_interoperability_getDofs' )

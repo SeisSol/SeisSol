@@ -123,6 +123,11 @@ class seissol::kernels::Time {
                           double                                      i_integrationEnd,
                           real const*                                 i_timeDerivatives,
                           real                                        o_timeIntegrated[tensor::I::size()] );
+
+    void computeTaylorExpansion( real         time,
+                                 real         expansionPoint,
+                                 real const*  timeDerivatives,
+                                 real         timeEvaluated[tensor::Q::size()] );
 };
 
 #endif

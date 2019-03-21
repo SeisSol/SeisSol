@@ -52,6 +52,7 @@
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
 #include <Solver/FreeSurfaceIntegrator.h>
+#include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
 
@@ -81,9 +82,6 @@ class seissol::time_stepping::TimeManager {
     //! time stepping
     TimeStepping m_timeStepping;
 
-    //! mapping: mesh to clusters
-    unsigned int *m_meshToClusters;
-
     //! all LTS clusters, which are under control of this time manager
     std::vector< TimeCluster* > m_clusters;
 
@@ -101,6 +99,9 @@ class seissol::time_stepping::TimeManager {
     
     //! Stopwatch
     LoopStatistics m_loopStatistics;
+    
+    //! Receiver writer
+    writer::ReceiverWriter m_receiverWriter;
 
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
@@ -145,8 +146,7 @@ class seissol::time_stepping::TimeManager {
      **/
     void addClusters( struct TimeStepping&               i_timeStepping,
                       struct MeshStructure*              i_meshStructure,
-                      initializers::MemoryManager&       i_memoryManager,
-                      unsigned*                          i_meshToClusters  );
+                      initializers::MemoryManager&       i_memoryManager );
 
     /**
      * Starts the communication thread.
@@ -179,13 +179,11 @@ class seissol::time_stepping::TimeManager {
     void setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources );
 
     /**
-     * Adds a receiver.
-     *
-     * @param i_receiverId id of the receiver as used in Fortran.
-     * @param i_meshId mesh id.
-     **/
-    void addReceiver( unsigned int i_receiverId,
-                      unsigned int i_meshId );
+     * Returns the writer for the receivers
+     */
+    writer::ReceiverWriter& receiverWriter() {
+      return m_receiverWriter;
+    }
 
     /**
      * Set Tv constant for plasticity.

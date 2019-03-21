@@ -58,10 +58,6 @@ module f_ctof_bind_interoperability
     module procedure f_interoperability_evaluateFrictionLaw
   end interface
 
-  interface f_interoperability_writeReceivers
-    module procedure f_interoperability_writeReceivers
-  end interface
-
   contains
     subroutine copyDynamicRuptureState(domain, fromMeshId, toMeshId)
       use typesDef
@@ -329,51 +325,6 @@ module f_ctof_bind_interoperability
       end select
 
 
-    end subroutine
-
-    subroutine f_interoperability_writeReceivers( i_domain, i_fullUpdateTime, i_timeStepWidth, i_receiverTime, i_numberOfReceivers, i_receiverIds ) bind (c, name='f_interoperability_writeReceivers')
-      use iso_c_binding
-      use typesDef
-      use receiver_mod
-      implicit none
-
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
-
-      type(c_ptr), value                     :: i_fullUpdateTime
-      real*8, pointer                        :: l_fullUpdateTime
-
-      type(c_ptr), value                     :: i_timeStepWidth
-      real*8, pointer                        :: l_timeStepWidth
-
-      type(c_ptr), value                     :: i_receiverTime
-      real*8, pointer                        :: l_receiverTime
-
-      type(c_ptr), value                     :: i_numberOfReceivers
-      integer, pointer                       :: l_numberOfReceivers
-
-      type(c_ptr), value                     :: i_receiverIds
-      integer, pointer                       :: l_receiverIds(:)
-
-      ! convert c to fortran pointers
-      call c_f_pointer( i_domain,            l_domain                             )
-      call c_f_pointer( i_fullUpdateTime,    l_fullUpdateTime                     )
-      call c_f_pointer( i_timeStepWidth,     l_timeStepWidth                      )
-      call c_f_pointer( i_receiverTime,      l_receiverTime                       )
-      call c_f_pointer( i_numberOfReceivers, l_numberOfReceivers                  )
-      call c_f_pointer( i_receiverIds,       l_receiverIds, [l_numberOfReceivers] )
-
-      ! call SeisSol's receiver procedure
-      call receiver( i_fullUpdateTime    = l_fullUpdateTime,    \
-                     i_timeStepWidth     = l_timeStepWidth,     \
-                     i_receiverTime      = l_receiverTime,      \
-                     i_numberOfReceivers = l_numberOfReceivers, \
-                     i_receiverIds       = l_receiverIds,       \
-                     eqn                 = l_domain%eqn,        \
-                     mesh                = l_domain%mesh,       \
-                     disc                = l_domain%disc,       \
-                     mpi                 = l_domain%mpi,        \
-                     io                  = l_domain%io )
     end subroutine
 
 

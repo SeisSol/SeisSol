@@ -94,6 +94,10 @@ namespace seissol {
   namespace time_stepping {
     class TimeCluster;
   }
+
+  namespace writer {
+    class ReceiverWriter;
+  }
 }
 
 /**
@@ -157,9 +161,6 @@ private:
 
     //! time step width of the performed time step.
     double m_timeStepWidth;
-
-    //! receivers
-    std::vector< int > m_receivers;
     
     //! Mapping of cells to point sources
     sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
@@ -203,6 +204,8 @@ private:
     unsigned        m_regionComputeLocalIntegration;
     unsigned        m_regionComputeNeighboringIntegration;
     unsigned        m_regionComputeDynamicRupture;
+
+    writer::ReceiverWriter* m_receiverWriter;
 
 #ifdef USE_MPI
     /**
@@ -390,7 +393,8 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 LoopStatistics*                        i_loopStatistics );
+                 LoopStatistics*                        i_loopStatistics,
+                 writer::ReceiverWriter*               receiverWriter );
 
     /**
      * Destructor of a LTS cluster.
@@ -425,15 +429,6 @@ private:
     void setPointSources( sourceterm::CellToPointSourcesMapping const* i_cellToPointSources,
                           unsigned i_numberOfCellToPointSourcesMappings,
                           sourceterm::PointSources const* i_pointSources );
-
-    /**
-     * Adds a receiver to the cluster.
-     *
-     * @param i_receiverId id of the receiver as used in Fortran.
-     * @param i_meshId mesh id.
-     **/
-    void addReceiver( unsigned int i_receiverId,
-                      unsigned int i_meshId );
 
     /**
      * Sets the receiver sampling for this cluster.

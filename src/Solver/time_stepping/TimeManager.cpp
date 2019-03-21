@@ -72,19 +72,14 @@ seissol::time_stepping::TimeManager::~TimeManager() {
 
 void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&               i_timeStepping,
                                                        struct MeshStructure*              i_meshStructure,
-                                                       initializers::MemoryManager&       i_memoryManager,
-                                                       unsigned int*                      i_meshToClusters  ) {
+                                                       initializers::MemoryManager&       i_memoryManager ) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
 
   // assert non-zero pointers
   assert( i_meshStructure         != NULL );
-  assert( i_meshToClusters        != NULL );
 
   // store the time stepping
   m_timeStepping = i_timeStepping;
-
-  // store mesh to clusters mapping
-  m_meshToClusters = i_meshToClusters;
 
   // iterate over local time clusters
   for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
@@ -106,7 +101,8 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            &i_memoryManager.getDynamicRuptureTree()->child(l_cluster),
                                            i_memoryManager.getLts(),
                                            i_memoryManager.getDynamicRupture(),
-                                           &m_loopStatistics )
+                                           &m_loopStatistics,
+                                           &m_receiverWriter )
                         );
   }
 }
@@ -382,15 +378,6 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters( sourceterm
                                           cms[cluster].numberOfMappings,
                                           &pointSources[cluster] );
   }
-}
-
-void seissol::time_stepping::TimeManager::addReceiver( unsigned int i_receiverId,
-                                                       unsigned int i_meshId ) {
-  // get cluster id (Fotran-formatting expected)
-  unsigned int l_cluster = m_meshToClusters[i_meshId-1];
-
-  // add to the cluster
-  m_clusters[l_cluster]->addReceiver( i_receiverId, i_meshId );
 }
 
 void seissol::time_stepping::TimeManager::setReceiverSampling( double i_receiverSampling ) {

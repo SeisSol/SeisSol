@@ -44,6 +44,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <glm/vec3.hpp>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/Time.h>
 #include <SourceTerm/NRF.h>
@@ -93,6 +94,8 @@ class seissol::Interoperability {
     
     //! Set of parameters that have to be initialized for dynamic rupture
     std::unordered_map<std::string, double*> m_faultParameters;
+
+    std::vector<glm::dvec3>           m_recPoints;
 
  public:
    /**
@@ -172,13 +175,13 @@ class seissol::Interoperability {
                           int     numberOfBndPoints );
 
    /**
-    * Adds a receiver at the specified mesh id.
+    * Adds a receiver at the specified location.
     *
-    * @param i_receiverId pointer to the global id of the receiver.
-    * @param i_meshId pointer to the mesh id.
+    * @param x,y,z coordinates in physical space
     **/
-   void addReceiver( int i_receiverId,
-                     int i_meshId );
+   void addRecPoint(double x, double y, double z) {
+     m_recPoints.emplace_back(glm::dvec3(x, y, z));
+   }
 
    /**
     * Sets the sampling of the receivers.
@@ -290,28 +293,6 @@ class seissol::Interoperability {
    void addToDofs( int      i_meshId,
                    double*  i_update,
                    int      numberOfQuantities );
-
-   /**
-    * Writes the receivers.
-    *
-    * @param i_fullUpdateTime full update time of the DOFs relevant to the receivers.
-    * @param i_timeStepWidth time step width of the next update.
-    * @param i_receiverTime time of the receivers / last write.
-    * @param i_receiverIds global ids of the receivers.
-    **/
-   void writeReceivers( double              i_fullUpdateTime,
-                        double              i_timeStepWidth,
-                        double              i_receiverTime,
-                        std::vector< int > &i_receiverIds );
-
-   /**
-    * Gets the time derivatives (recomputed from DOFs).
-    *
-    * @param i_meshId mesh id.
-    * @param o_timeDerivatives time derivatives in deprecated full storage scheme (including zero blocks).
-    **/
-   void getTimeDerivatives( int    i_meshId,
-                            double  o_timeDerivatives[CONVERGENCE_ORDER][tensor::QFortran::size()] );
 
    /**
     * Gets the DOFs.
