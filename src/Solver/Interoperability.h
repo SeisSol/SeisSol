@@ -64,6 +64,10 @@ class seissol::Interoperability {
     //! time kernel
     seissol::kernels::Time m_timeKernel;
 
+
+    // Type of the initial condition.
+    std::string m_initialConditionType;
+    
     /* Brain dump of SeisSol's Fortran parts:
      * Raw fotran-pointer to cope with limited modularity of the
      * source, receiver and dynamic rupture functions.
@@ -106,10 +110,18 @@ class seissol::Interoperability {
    ~Interoperability();
 
    /**
+    * Sets the type of the initial conditions.
+    *
+    * @param type The name of the type of the initial conditions.
+    */
+   void setInitialConditionType(char const *type);
+
+   /**
     * Sets the fortran domain.
     *
     * @param i_domain domain.
     */
+   
    void setDomain( void *i_domain );
 
    /**
@@ -343,6 +355,15 @@ class seissol::Interoperability {
    void getNeighborDofsFromDerivatives( int    i_meshId,
                                         int    i_localFaceId,
                                         double o_dofs[NUMBER_OF_DOFS] );
+   /**
+    * Gets the LTS lookup table.
+    */
+   seissol::initializers::Lut* getLtsLut();
+
+   /**
+    * Gets the type of the initial conditions.
+    */
+   std::string getInitialConditionType();
 
    /**
     * Compute fault output.

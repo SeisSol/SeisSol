@@ -73,6 +73,11 @@ extern "C" {
     e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
   }
 
+  void c_interoperability_setInitialConditionType(char* type)
+  {
+    e_interoperability.setInitialConditionType(type);
+  }
+  
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -311,7 +316,7 @@ extern "C" {
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_domain(NULL), m_ltsTree(NULL), m_lts(NULL), m_ltsFaceToMeshFace(NULL) // reset domain pointer
+  m_initialConditionType(),  m_domain(nullptr), m_ltsTree(nullptr), m_lts(nullptr), m_ltsFaceToMeshFace(nullptr) // reset domain pointer
 {
 }
 
@@ -320,9 +325,14 @@ seissol::Interoperability::~Interoperability()
   delete[] m_ltsFaceToMeshFace;
 }
 
+void seissol::Interoperability::setInitialConditionType(char const* type) {
+  assert(type != nullptr);
+  // Note: Pointer to type gets deleted before doing the error computation.
+  m_initialConditionType = std::string(type);
+}
+
 void seissol::Interoperability::setDomain( void* i_domain ) {
   assert( i_domain != NULL );
-
   m_domain = i_domain;
 }
 
@@ -697,7 +707,10 @@ void seissol::Interoperability::initializeIO(
 
 	// I/O initialization is the last step that requires the mesh reader
 	// (at least at the moment ...)
-	seissol::SeisSol::main.freeMeshReader();
+
+	// TODO(Lukas) Free the mesh reader if not doing convergence test.
+	seissol::SeisSol::main.analysisWriter().init(&seissol::SeisSol::main.meshReader());
+	//seissol::SeisSol::main.freeMeshReader();
 }
 
 void seissol::Interoperability::copyDynamicRuptureState()
@@ -777,6 +790,14 @@ void seissol::Interoperability::getNeighborDofsFromDerivatives( int    i_meshId,
   // get DOFs from 0th neighbors derivatives
   seissol::kernels::convertAlignedDofs(  m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1)[ i_localFaceId-1 ],
                                          o_dofs );
+}
+
+seissol::initializers::Lut* seissol::Interoperability::getLtsLut() {
+  return &m_ltsLut;
+}
+
+std::string seissol::Interoperability::getInitialConditionType() {
+  return m_initialConditionType;
 }
 
 void seissol::Interoperability::simulate( double i_finalTime ) {

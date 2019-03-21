@@ -122,7 +122,7 @@ double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
 
         file << "  " << std::scientific << std::setprecision(15) << receiverTime;
         for (auto quantity : m_quantities) {
-          auto value = receiver.basisFunctions.evalWithCoefs(timeEvaluated + quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS, NUMBER_OF_BASIS_FUNCTIONS);
+          auto value = receiver.basisFunctions.evalWithCoeffs(timeEvaluated + quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
           file << "  " << value;
         }
         file << std::endl;

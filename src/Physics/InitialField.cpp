@@ -1,8 +1,11 @@
 #include <cmath>
 #include <array>
 
-#include <Numerical_aux/MatrixView.h>
+#include "InitialField.h"
+#include "Numerical_aux/MatrixView.h"
+
 extern "C" {
+  // TODO(Lukas) CamelCase this. Namespace. No extern.
   void initial_field_planarwave(double time, double x, double y, double z, double* variables) {
 
     std::fill_n(variables, NUMBER_OF_QUANTITIES, 0.0);

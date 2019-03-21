@@ -37,6 +37,7 @@
  * @section DESCRIPTION
  **/
 
+//  TODO: Merge this file with BasisFunction.h
 #ifndef FUNCTIONS_H_
 #define FUNCTIONS_H_
 
@@ -85,7 +86,6 @@ namespace seissol {
     }
     
     /** Evaluate Dubiner basis on triangle
-     *  TODO: Merge this with BasisFunction.h
      */
     inline double TetraDubinerP(unsigned i, unsigned j, unsigned k, double xi, double eta, double zeta) {
       double r = 2.0 * xi / (1.0 - eta - zeta) - 1.0;

@@ -60,6 +60,8 @@
 #include "ResultWriter/WaveFieldWriter.h"
 #include "ResultWriter/FaultWriter.h"
 
+#include "ResultWriter/AnalysisWriter.h"
+
 class MeshReader;
 
 namespace seissol
@@ -108,6 +110,9 @@ private:
         
   /** Free surface writer module **/
   writer::FreeSurfaceWriter m_freeSurfaceWriter;
+
+  /** Analysis writer module **/
+  writer::AnalysisWriter m_analysisWriter;
 
 #endif // GENERATEDKERNELS
 
@@ -181,6 +186,11 @@ public:
 	writer::FreeSurfaceWriter& freeSurfaceWriter()
 	{
 		return m_freeSurfaceWriter;
+	}
+
+	writer::AnalysisWriter& analysisWriter()
+	{
+		return m_analysisWriter;
 	}
 
 	/** Get the post processor module

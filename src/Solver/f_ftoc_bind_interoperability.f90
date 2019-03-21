@@ -54,6 +54,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface 
+    subroutine c_interoperability_setInitialConditionType( type ) bind( C, name='c_interoperability_setInitialConditionType' )
+      use iso_c_binding, only: c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: type
+    end subroutine
+  end interface
+
+
   interface c_interoperability_setTimeStepWidth
     subroutine c_interoperability_setTimeStepWidth( i_meshId, i_timeStepWidth ) bind( C, name='c_interoperability_setTimeStepWidth' )
       use iso_c_binding

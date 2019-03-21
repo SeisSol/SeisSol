@@ -86,6 +86,7 @@ MODULE dg_setup_mod
   INTERFACE BuildSpecialDGGeometry3D_new
      MODULE PROCEDURE BuildSpecialDGGeometry3D_new
   END INTERFACE
+
   !
   !---------------------------------------------------------------------------!
   PUBLIC  ::                               &
@@ -423,6 +424,9 @@ CONTAINS
 
 #ifdef GENERATEDKERNELS
     ! we have the material parameters and insphere diameters, let's get some time step widths out of this
+
+    ! Set used initial conditions.
+    call c_interoperability_setInitialConditionType(trim(IC%cICType) // c_null_char)
 
     ! malloc fortran arrays
     call ini_calc_deltaT( eqn%eqType,     &
@@ -2616,7 +2620,7 @@ CONTAINS
     !-------------------------------------------------------------------------!
     !INTENT(IN)              :: pvar, ANALYSE, DISC, IO
     !-------------------------------------------------------------------------!
-
+#if 0
     L1norm(:)       = 0.
     L2norm(:)       = 0.
     Linfnorm(:)     = 0.
@@ -2626,29 +2630,6 @@ CONTAINS
 
     ! Imaginary Unit
     IU = (0.,1.)
-
-    SELECT CASE(ANALYSE%typ)
-    CASE(0)
-       logInfo0(*) 'No analysis of data.'
-       logInfo0(*) 'CPU-Time: ',  DISC%LoopCPUTime
-       RETURN
-    CASE(1)
-       logInfo0(*) 'AnalyseGalerkin3D: Analyse of data. Reference is the initial condition.'
-       logInfo0(*) 'CPU-Time: ',  DISC%LoopCPUTime
-    CASE(3)
-       logInfo0(*) 'AnalyseGalerkin3D: Reference is elastic planarwave.'
-    CASE(14)                                                     !
-       logInfo0(*) 'AnalyseGalerkin3D: Analyse of data. '
-       logInfo0(*) 'Reference: u(x,y,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )]'
-       logInfo0(*) 'for Anelastic Seismic Waves  '
-    CASE(15)                                                     !
-       logInfo0(*) 'AnalyseGalerkin3D: Analyse of data. '
-       logInfo0(*) 'Reference: u(x,y,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )]'
-       logInfo0(*) 'for Anisotropic Seismic Waves  '
-    CASE DEFAULT
-       logError(*) 'Analysis of Type ',ANALYSE%typ,' unknown!'
-       STOP
-    END SELECT
 
     LInfElement = -1
 
@@ -2671,67 +2652,21 @@ CONTAINS
             ENDDO
             JacobiDet = 6.*MESH%ELEM%Volume(iElem)
             intGaussW => DISC%Galerkin%intGaussW_Tet
-        CASE(6) ! Hexa
-            DO iVert=1,MESH%nVertices_Hex
-                x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-            ENDDO
-            DO iIntGP = 1, DISC%Galerkin%nIntGP
-                xi   = DISC%Galerkin%intGaussP_Hex(1,iIntGP)
-                eta  = DISC%Galerkin%intGaussP_Hex(2,iIntGP)
-                zeta = DISC%Galerkin%intGaussP_Hex(3,iIntGP)
-                CALL HexaTrafoXiEtaZeta2XYZ(xGP(iIntGP),yGP(iIntGP),zGP(iIntGP),xi,eta,zeta,x,y,z)
-            ENDDO
-            JacobiDet = MESH%ELEM%Volume(iElem)
-            intGaussW => DISC%Galerkin%intGaussW_Hex
+        CASE DEFAULT
+           logError(*) 'Element of type ',LocElemType,' unknown!'
+           STOP
         END SELECT
-        !
+        
         DO iIntGP = 1, DISC%Galerkin%nIntGP
           !
-          SELECT CASE(ANALYSE%typ)
-          CASE(1) ! Initialcondition
-             CALL InitialField(iniGP, iniGP_ane, 0., xGP(iIntGP), yGP(iIntGP), zGP(iIntGP), iElem, EQN, IC, SOURCE, IO)
-          CASE(3) ! Initialcondition
              CALL InitialField(iniGP, iniGP_ane, time, xGP(iIntGP), yGP(iIntGP), zGP(iIntGP), iElem, EQN, IC, SOURCE, IO)
-          CASE(14)
-             kx    = ANALYSE%PWAN%Wavenumbers(1)
-             ky    = ANALYSE%PWAN%Wavenumbers(2)
-             kz    = ANALYSE%PWAN%Wavenumbers(3)
-             ! Analytic solution
-             iniGPcomplex(:) = (0.,0.)
-             iniGP(:)        = 0.
-             DO iVec = 1, ANALYSE%PW%SetVar
-                 iniGPcomplex(:) = iniGPcomplex(:) +                ANALYSE%PW%ampfield(iVec)  * &
-                                   ANALYSE%PWAN%EigenVec(1:EQN%nVar,ANALYSE%PW%varfield(iVec)) * &
-                                   exp(IU*   (ANALYSE%PWAN%EigenVal(ANALYSE%PW%varfield(iVec)) * &
-                                              time - kx*xGP(iIntGP) - ky*yGP(iIntGP) - kz*zGP(iIntGP)) )
-             ENDDO
-             iniGP(:) = real(iniGPcomplex(:))
-          CASE(15)
-             ! Analytic solution
-             iniGPcomplex(:) = (0.,0.)
-             iniGP(:)        = 0.
-             DO j = 1,3
-                kx    = IC%PWANISO(j)%Wavenumbers(1)
-                ky    = IC%PWANISO(j)%Wavenumbers(2)
-                kz    = IC%PWANISO(j)%Wavenumbers(3)
-                DO iVec = 1, IC%PWANISO(j)%SetVar
-                    iniGPcomplex(:) = iniGPcomplex(:) +                 IC%PWANISO(j)%ampfield(iVec)  * &
-                                      IC%PWANISO(j)%EigenVec(1:EQN%nVar,IC%PWANISO(j)%varfield(iVec)) * &
-                                      exp(IU*   (IC%PWANISO(j)%EigenVal(IC%PWANISO(j)%varfield(iVec)) * &
-                                              time - kx*xGP(iIntGP) - ky*yGP(iIntGP) - kz*zGP(iIntGP)) )
-                ENDDO
-             ENDDO
-             iniGP(:) = real(iniGPcomplex(:))
-          END SELECT
-          !
+          
           CALL GetStateGP_new(stateGP,iElem,iIntGP,LocElemType,EQN,DISC)
-          !
+          
           pstateGP(:) = stateGP(:)
-          !
+          
           locError(:) = ABS(iniGP(:)-pstateGP(:))
-          !
+          
           L1norm(:)   = L1norm(:) + locError(:)    * intGaussW(iIntGp)*JacobiDet
           L2norm(:)   = L2norm(:) + locError(:)**2 * intGaussW(iIntGp)*JacobiDet
           DO iVar = 1, EQN%nVar
@@ -2740,17 +2675,16 @@ CONTAINS
                 LInfElement(iVar) = iElem
             ENDIF
           ENDDO
-          !
+          
        ENDDO
-       !
+       
     ENDDO
-    !
+    
     ! Take square-root to obtain the L2-norm
 
     L2norm(:) = SQRT(L2norm(:))
     !
     DO iVar = 1,EQN%nVar                                                         ! Ueberpruefe welche Variablen analysiert werden
-       IF (ANALYSE%variables(iVar) ) THEN                                        ! sollen
           !
           varName = IO%TitleMask(3+iVar)
           !
@@ -2774,7 +2708,6 @@ CONTAINS
           logInfo0(*) 'MPI Linf_norm : ', MPILinfnorm(iVar)
           logInfo0(*) '======================================'
 #endif
-       END IF
     END DO
 
     h1 = MAXVAL(MESH%ELEM%Volume(:)**(1./3.))
@@ -2789,6 +2722,7 @@ CONTAINS
     logInfo(*) 'AnalyseGalerkin erfolgreich. '                    !
     logInfo(*) '--------------------------------------'           !
     !                                                                            !
+#endif
   END SUBROUTINE AnalyseGalerkin3D_us_new
 
   ! Read the 2d Green function file
