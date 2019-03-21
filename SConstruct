@@ -627,6 +627,8 @@ if env['programName'] == 'none':
     numberOfQuantities[ env['equations'] ],
     env['order']
   )
+  if int(env['multipleSimulations']) > 1:
+    program_suffix = '{}_{}sims'.format(program_suffix, env['multipleSimulations'])
   env['programFile'] = '%s/SeisSol_%s' %(
     env['buildDir'],
     program_suffix

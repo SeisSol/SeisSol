@@ -123,7 +123,7 @@ namespace seissol {
                                  double i_fromTime,
                                  double i_toTime);
 
-    void addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+    void addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                           real const faultBasis[9],
                                           real muA,
                                           real lambdaA,
@@ -139,8 +139,8 @@ namespace seissol {
      * as outer product of two vectors (i.e. yields a rank-1 dof-update-matrix that shall
      * be scaled with the time integral of the source term).
      **/                                      
-    void addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                                           real const i_momentTensor[NUMBER_OF_QUANTITIES],
+    void addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
+                                           real const i_momentTensor[tensor::momentFSRM::size()],
                                            PiecewiseLinearFunction1D const* i_pwLF,
                                            double i_fromTime,
                                            double i_toTime,

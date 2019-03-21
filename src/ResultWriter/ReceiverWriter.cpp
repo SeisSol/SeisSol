@@ -47,6 +47,8 @@
 #include <Numerical_aux/Transformation.h>
 #include <Parallel/MPI.h>
 #include <Monitoring/FlopCounter.hpp>
+#include <generated_code/init.h>
+#include <generated_code/kernel.h>
 
 void seissol::writer::ReceiverWriterCluster::addReceiver( unsigned                          meshId,
                                                           unsigned                          pointId,
@@ -71,6 +73,8 @@ void seissol::writer::ReceiverWriterCluster::addReceiver( unsigned              
   fns << ".dat";
   std::string fileName(fns.str());
 
+  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
+
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
   // Write header if file does not exist
@@ -78,7 +82,19 @@ void seissol::writer::ReceiverWriterCluster::addReceiver( unsigned              
     std::ofstream file;
     file.open(fileName);
     file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5) << (pointId+1) << "\"" << std::endl;
-    file << "VARIABLES = \"Time\",\"xx\",\"yy\",\"zz\",\"xy\",\"yz\",\"xz\",\"u\",\"v\",\"w\"" << std::endl;
+    file << "VARIABLES = \"Time\"";
+#ifdef MULTIPLE_SIMULATIONS
+    for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
+      for (auto const& name : names) {
+        file << ",\"" << name << sim << "\"";
+      }
+    }
+#else
+    for (auto const& name : names) {
+      file << ",\"" << name << "\"";
+    }
+#endif
+    file << std::endl;
     for (int d = 0; d < 3; ++d) {
       file << "# x" << (d+1) << "       " << std::scientific << std::setprecision(12) << point[d] << std::endl;
     }
@@ -99,10 +115,19 @@ double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
                                                                 double samplingInterval  ) {
   real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
   real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
+  real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
+
+  kernel::evaluateDOFSAtPoint krnl;
+  krnl.QAtPoint = timeEvaluatedAtPoint;
+  krnl.Q = timeEvaluated;
+
+  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
 
   double receiverTime = -1.0;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
+      krnl.basisFunctions = receiver.basisFunctions.m_data.data();
+
       m_timeKernel.computeAder( 0,
                                 receiver.local,
                                 receiver.dofs,
@@ -118,10 +143,18 @@ double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
         m_timeKernel.computeTaylorExpansion(receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
 
         file << "  " << std::scientific << std::setprecision(15) << receiverTime;
-        for (auto quantity : m_quantities) {
-          auto value = receiver.basisFunctions.evalWithCoefs(timeEvaluated + quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS, NUMBER_OF_BASIS_FUNCTIONS);
-          file << "  " << value;
+        krnl.execute();
+#ifdef MULTIPLE_SIMULATIONS
+        for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
+          for (auto quantity : m_quantities) {
+            file << "  " << qAtPoint(sim, quantity);
+          }
         }
+#else
+        for (auto quantity : m_quantities) {
+          file << "  " << qAtPoint(quantity);
+        }
+#endif
         file << std::endl;
 
         receiverTime += samplingInterval;

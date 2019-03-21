@@ -39,6 +39,7 @@
 #
   
 import argparse
+import numpy as np
 from yateto import *
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 from yateto.gemm_configuration import *
@@ -71,11 +72,13 @@ multipleSimulations = int(cmdLineArgs.multipleSimulations)
 # Quantities
 if multipleSimulations > 1:
   qShape = (multipleSimulations, numberOf3DBasisFunctions, numberOfQuantities)
+  qShapeAtPoint = (multipleSimulations, numberOfQuantities)
   qi = lambda x: 's' + x
   alignStride=set(['fP({})'.format(i) for i in range(3)])
   transpose=True
 else:
   qShape = (numberOf3DBasisFunctions, numberOfQuantities)
+  qShapeAtPoint = (numberOfQuantities,)
   qi = lambda x: x
   alignStride=True
   transpose=False
@@ -163,6 +166,33 @@ else:
 
 g.add('addQFortran', addQFortran)
 g.add('copyQToQFortran', copyQToQFortran)
+
+## Point sources
+mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
+
+momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6)))
+if multipleSimulations > 1:
+  sourceNRF = Q[qi('kp')] <= Q[qi('kp')] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * oneSimToMultSim['s']
+else:
+  sourceNRF = Q[qi('kp')] <= Q[qi('kp')] - mInvJInvPhisAtSources['k'] * momentNRF['p']
+g.add('sourceNRF', sourceNRF)
+
+momentFSRM = Tensor('momentFSRM', (numberOfQuantities,))
+stfIntegral = Scalar('stfIntegral')
+if multipleSimulations > 1:
+  sourceFSRM = Q[qi('kp')] <= Q[qi('kp')] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p'] * oneSimToMultSim['s']
+else:
+  sourceFSRM = Q[qi('kp')] <= Q[qi('kp')] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p']
+g.add('sourceFSRM', sourceFSRM)
+
+## Receiver output
+
+basisFunctionsAtPoint = Tensor('basisFunctions', (numberOf3DBasisFunctions,))
+QAtPoint = Tensor('QAtPoint', qShapeAtPoint)
+evaluateDOFSAtPoint = QAtPoint[qi('p')] <= Q[qi('kp')] * basisFunctionsAtPoint['k']
+g.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
+
+
 
 DynamicRupture.addKernels(g, Q, I, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
 Plasticity.addKernels(g, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
