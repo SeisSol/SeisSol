@@ -41,7 +41,7 @@
 Import('env')
 
 # parallel source files
-files = [ 'MPI.cpp', 'FaultMPI.cpp', 'mpiC.cpp', 'mpiF.f90' ]
+files = [ 'MPI.cpp', 'FaultMPI.cpp', 'mpiC.cpp', 'mpiF.f90', 'Pin.cpp' ]
 
 for i in files:
   env.sourceFiles.append(env.Object(i))
