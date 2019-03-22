@@ -46,9 +46,7 @@
 #include <Initializer/time_stepping/common.hpp>
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-#include <sys/sysinfo.h>
-#include <sched.h>
-#include <pthread.h>
+#include <Parallel/Pin.h>
 volatile bool g_executeCommThread;
 volatile unsigned int* volatile g_handleRecvs;
 volatile unsigned int* volatile g_handleSends;
@@ -406,12 +404,8 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
 void seissol::time_stepping::TimeManager::pollForCommunication() {
   // pin this thread to the last core
   volatile unsigned int l_signalSum = 0;
-  int l_numberOfHWThreads = get_nprocs();
-  l_numberOfHWThreads--;
-  cpu_set_t l_cpuMask;
-  CPU_ZERO(&l_cpuMask);
-  CPU_SET(l_numberOfHWThreads, &l_cpuMask);
-  sched_setaffinity(0, sizeof(cpu_set_t), &l_cpuMask);
+
+  parallel::pinToFreeCPUs();
 
   //logInfo(0) << "Launching communication thread on OS core id:" << l_numberOfHWThreads;
 
