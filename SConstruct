@@ -44,7 +44,6 @@
 # operation system (required for exectuion environment)
 import os
 import sys
-import commands
 
 # import helpers
 import arch
