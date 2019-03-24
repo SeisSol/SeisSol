@@ -582,7 +582,7 @@ if env['asagi']:
 yaml_cpp = env.CMake( source=[Glob(path + '*/.cpp') for path, dirs, files in os.walk('submodules/yaml-cpp/src')],
                       target=['#/{}/external/yaml-cpp/libyaml-cpp.a'.format(env['buildDir'])],
                       CMakeProject = Dir('submodules/yaml-cpp'),
-                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no'],
+                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no', '-DCMAKE_CXX_STANDARD=11', '-DYAML_CPP_BUILD_TESTS=OFF'],
                       cc = env['CC'],
                       cxx = env['CXX'])
 env.Append(CPPPATH=['#/submodules/yaml-cpp/include'])
@@ -669,7 +669,7 @@ for sourceFile in env.sourceFiles:
     modDirectories.append(modDir)
 for directory in set(modDirectories):
   Execute(Mkdir(directory))
-env.AppendUnique(F90PATH=map(lambda x: '#/' + x, modDirectories))
+env.AppendUnique(F90PATH=list(map(lambda x: '#/' + x, modDirectories)))
 
 #print env.Dump()
 
