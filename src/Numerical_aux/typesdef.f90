@@ -226,40 +226,6 @@ MODULE TypesDef
      LOGICAL                                :: severalPoints(8)                 !<TRUE for more than one nearest Point
    END TYPE tVertex
 
-  !< Description of all the sides in the domain (the first index runs from 1 to MESH%nSide !<NOT for BoundaryToObjec(nBoundSides))
-  TYPE tSide
-     REAL                         , POINTER :: xyMidSide(:,:)                   !<Coordinates of the side's midpoint
-     REAL                         , POINTER :: Area(:)                          !<Area of the side (length in 2D)
-     REAL                         , POINTER :: NormVec(:,:)                     !<Normal vector coordinates
-     REAL                         , POINTER :: BaryVec(:,:,:)                   !<Vector from side midpoint to cell barycenter
-     REAL                         , POINTER :: MinDistBaryEdge(:)               !<Min. distance from side barycenter to edge (inner circle radius)
-     REAL                         , POINTER :: cosTheta(:)                      !<cosinus of Eularian nutation angel
-     REAL                         , POINTER :: sinTheta(:)                      !<sinus of Eularian nutation angel
-     REAL                         , POINTER :: cosPsi(:)                        !<cosinus of Eularian precession angel
-     REAL                         , POINTER :: sinPsi(:)                        !<sinus of Eularian precession angel
-     REAL                         , POINTER :: cosPhi(:)                        !<cosinus of Eularian rotation angel
-     REAL                         , POINTER :: sinPhi(:)                        !<sinus of Eularian rotation angel
-     REAL                         , POINTER :: FluxSignElement(:,:)             !<FluxSign to Element 1 or 2
-     REAL                         , POINTER :: PosOfGaussPointNbr(:,:,:)        !<x,y,z Positions of the Gausspoints for each Side(SideNbr,GaussPointNbr,1:3)
-     REAL                         , POINTER :: GhostCellxyBary(:,:)             !<BaryCenter position of GhostCell connected to corresponding BoundarysideNbr (1:nBoundSides,3)
-     INTEGER                      , POINTER :: Element(:,:)                     !<Connection index to side's neighbor elements
-     INTEGER                      , POINTER :: Vertex(:,:)                      !<Connection index to side's vertices
-     INTEGER                      , POINTER :: Edge(:,:)                        !<Connection index to side edges (only available in 3D)
-     INTEGER                      , POINTER :: InnerToGlobal(:)                 !<Mapping from inner side index to global side index
-     INTEGER                      , POINTER :: LocalToGlobalNode(:,:)           !<Mapping from local node index to global node index
-     INTEGER                      , POINTER :: LocalToGlobalEdge(:,:)           !<Mapping from local edge index to global edge index
-     INTEGER                      , POINTER :: GlobalToBoundary(:)              !<Mapping from global side index to boundary side index
-     INTEGER                      , POINTER :: BoundaryToGlobal(:)              !<Mapping from boundary side index to global side index
-     INTEGER                      , POINTER :: BoundaryToGlobalElement(:)       !<Mapping from boundary side index to global element idx.
-     INTEGER                      , POINTER :: BoundaryToObjectSide(:)          !<Mapping from boundary side index to boundary object nr
-     INTEGER                      , POINTER :: Reference(:)                     !<Reference code for boundary conditions
-     INTEGER                      , POINTER :: nNode(:)                         !<Number of Nodes for this Side
-     LOGICAL                      , POINTER :: InnerSide(:)                     !<InnerSide = TRUE, Boundary = FALSE
-     TYPE(tVector)                          :: NormVec3D                        !<Normal vector coordinates in 3D
-     TYPE(tVector)                          :: TangVec3D                        !<Tangetial vector coordinates (from Midpoint to local 1.st Vertex)
-     TYPE(tVector)                          :: BinoVec3D                        !<Binormal vector coordinates (cross product of NormVec, TangVec)
-  END TYPE tSide
-
   !< Description of all the edges in the domain
   TYPE tEdge
      INTEGER                      , POINTER :: Vertex(:,:)                      !<Connection index to edge nodes
@@ -319,7 +285,6 @@ MODULE TypesDef
      LOGICAL, POINTER                       :: IncludesFSRP(:)                  !<Includes a subfault of a Finite Source Rupture Plane?
      TYPE(tVertex)                          :: VRTX                             !<Vertex data structure
      TYPE(tEdge)                            :: EDGE                             !<Edge data structure
-     TYPE(tSide)                            :: SIDE                             !<Side data structure
      TYPE(tElement)                         :: ELEM                             !<Element data structure
      TYPE(tFault)                           :: Fault                            !<Fault geometry mesh data structure
      REAL                                   :: min_h, max_h                     !<Min. and max. incircle
@@ -581,72 +546,13 @@ MODULE TypesDef
     !< To recover the full quality of the numerical DG solution,
     !< u_h can be written into a file for more than one point per element.         !
     INTEGER           :: DGFineOut1D                 !< Number of 1D Gausspoints
-    INTEGER           :: DGFineOut2D                 !< Number of 2D Gausspoints
-    REAL, POINTER     :: DGFineOutPoints(:,:) => NULL()       !< locations for fine output
-    REAL, POINTER     :: DGFineOutWeights(:) => NULL()        !< weights (dummy variable)
-    REAL, POINTER     :: DGFineOutPhi(:,:) => NULL()          !< Basis functions at points
     !<
     REAL, POINTER     :: MaxWaveSpeed(:,:) => NULL()           !< Max. wavespeed over edges
     REAL, POINTER     :: WaveSpeed(:,:,:) => NULL()           !< All Wavespeeds over edges
     REAL, POINTER     :: cTimePoly(:,:,:) => NULL()           !< Coefficients and matrices
     REAL, POINTER     :: TimeMassMatrix(:,:,:) => NULL()      !< for projection on series
     REAL, POINTER     :: iTimeMassMatrix(:,:,:) => NULL()     !< in time. Basis: Legendre
-    REAL, POINTER     :: dPsi_dt(:,:) => NULL()               !< Time der. of time basefun
-    REAL, POINTER     :: mdtr(:) => NULL()                    !< Aux. factor for CK proc.
 
-    !<
-    REAL, POINTER     :: AStar(:,:), BStar(:,:) => NULL()       !< A and B star matrices
-    INTEGER, POINTER  :: IndexNonZeroADERDG2_Kxi(:,:) => NULL()  !< Sparsity: non-zero indices
-    INTEGER           :: nNonZeroADERDG2_Kxi           !< Sparsity: non-zero entries
-    INTEGER, POINTER  :: IndexNonZeroADERDG2_Keta(:,:) => NULL() !< Sparsity: non-zero indices
-    INTEGER           :: nNonZeroADERDG2_Keta          !< Sparsity: non-zero entries
-    INTEGER, POINTER  :: IndexNonZeroADERDG2_AB(:,:) => NULL()  !< Sparsity: non-zero indices
-    INTEGER           :: nNonZeroADERDG2_AB            !< Sparsity: non-zero entries
-    !<
-    TYPE(tSparseMatrix), POINTER   :: ASpStar(:) => NULL()      !< Sparse star matrix A
-    TYPE(tSparseMatrix), POINTER   :: BSpStar(:) => NULL()      !< Sparse star matrix B
-    TYPE(tSparseMatrix), POINTER   :: CSpStar(:) => NULL()      !< Sparse star matrix C
-    TYPE(tSparseMatrix), POINTER   :: ESpStar(:) => NULL()      !< Sparse star matrix E
-    TYPE(tSparseMatrix), POINTER   :: ASp(:) => NULL()          !< Sparse matrix A
-    TYPE(tSparseMatrix), POINTER   :: BSp(:) => NULL()          !< Sparse matrix B
-    TYPE(tSparseMatrix), POINTER   :: CSp(:) => NULL()          !< Sparse matrix C
-    TYPE(tSparseMatrix), POINTER   :: A_ane(:) => NULL()        !< Sparse matrix A  (ane part)
-    TYPE(tSparseMatrix), POINTER   :: B_ane(:) => NULL()        !< Sparse matrix B  (ane part)
-    TYPE(tSparseMatrix), POINTER   :: C_ane(:) => NULL()        !< Sparse matrix C  (ane part)
-    TYPE(tSparseMatrix), POINTER   :: ASpPlus(:,:) => NULL()    !< Sparse + matrix (flux)
-    TYPE(tSparseMatrix), POINTER   :: ASpMinus(:,:) => NULL()   !< Sparse - matrix (flux)
-    TYPE(tSparseMatrix), POINTER   :: FMatrix3DSp(:,:,:) => NULL()!< Sparse 3D Flux matrices
-    TYPE(tSparseMatrix), POINTER   :: FMatrix3DSp_Tet(:,:,:) => NULL()!< Sparse 3D Flux matrices
-    TYPE(tSparseMatrix)            :: KxiSp            !< Sparse stiffness matrix
-    TYPE(tSparseMatrix)            :: KetaSp           !< Sparse stiffness matrix
-    TYPE(tSparseMatrix)            :: KzetaSp          !< Sparse stiffness matrix
-    TYPE(tSparseMatrix)            :: KxiSp_Tet        !< Sparse stiffness matrix
-    TYPE(tSparseMatrix)            :: KetaSp_Tet       !< Sparse stiffness matrix
-    TYPE(tSparseMatrix)            :: KzetaSp_Tet      !< Sparse stiffness matrix
-    TYPE(tSparseTensor4), POINTER  :: I_pqlm(:) => NULL()       !< ADER-DG time int. tensor
-    TYPE(tSparseMatrix)            :: ADG_xi
-    TYPE(tSparseMatrix)            :: ADG_Eta
-    TYPE(tSparseMatrix)            :: ADG_Zeta
-    TYPE(tSparseMatrix)            :: ADG_xi_Tet
-    TYPE(tSparseMatrix)            :: ADG_Eta_Tet
-    TYPE(tSparseMatrix)            :: ADG_Zeta_Tet
-    !TYPE(tSparseMatrix)            :: ADGklm_Tet       !< ADER-DG tensor for space dependent reaction term (= identical to identity matrix for constant material per element -> to be optimized!)
-
-    !<
-    INTEGER                          :: ADERDG_TimeMult
-    INTEGER                          :: ADERDG_KxiMult
-    INTEGER                          :: ADERDG_KetaMult
-    INTEGER                          :: ADERDG_KzetaMult
-    INTEGER                          :: ADERDG_AStarMult
-    INTEGER                          :: ADERDG_BStarMult
-    INTEGER                          :: ADERDG_CStarMult
-    INTEGER                          :: ADERDG_FluxMult
-    INTEGER                          :: ADERDG_PlusMult
-    INTEGER                          :: ADERDG_MinusMult
-    INTEGER                          :: ADERDG_TotalMult
-    !<
-    LOGICAL           :: TensorInit
-    REAL              :: Previous_dt                   !< Previous timestep
     !<
     !< DG sponge layer for general 3D domains
     !<
@@ -697,46 +603,6 @@ MODULE TypesDef
 
 
     !<
-    !< Gauss-Lobatto-Legendre points associated info
-    !<
-    REAL, POINTER                     :: GLL(:) => NULL()               !< Position of Gauss-Lobatto-Legendre points in [-1,+1] domain
-    REAL, POINTER                     :: W_GLL(:) => NULL()          !< Integration weights associated to GLL points
-    REAL, POINTER                     :: GLLPolyC(:,:) => NULL()     !< Coefficients of the 1D Legendre polynomials
-    REAL, POINTER                     :: D_GLL(:,:) => NULL()        !< Derivatives of Legendre basis functions at each GLL point
-    REAL, POINTER                     :: D_GLL_T(:,:) => NULL()      !< Transpose of the derivatives matrix D_GLL
-    INTEGER, POINTER                  :: GLLIndex3D(:,:) => NULL()   !< Local indexing of each GLL node in xi eta and zeta
-    INTEGER, POINTER                  :: GLLTopo3D(:,:,:) => NULL()  !< Correspondence local to global node ordering
-    INTEGER, POINTER                  :: GLLIndex2D(:,:) => NULL()   !< Local indexing of each GLL node in xi eta and zeta
-    INTEGER, POINTER                  :: GLLTopo2D(:,:) => NULL()    !< Correspondence local to global node ordering
-    REAL, POINTER                     :: Dx_Dxi(:,:,:,:) => NULL()   !< Gradients of the deformation of the elements at each GLL point
-    REAL, POINTER                     :: Dxi_Dx(:,:,:,:) => NULL()   !< Inverse of Dx_Dxi
-    REAL, POINTER                     :: Jacobian(:,:) => NULL()     !< Determinant of the Jacobian matrix (dxi_i/dx_i) at each GLL point
-    REAL, POINTER                     :: RhoInvGLL(:,:) => NULL()    !< Inverse of density at each GLL node
-    REAL, POINTER                     :: CijGLL(:,:,:) => NULL()     !< Material stiffness entries at each GLL node
-    REAL, POINTER                     :: MaxWaveSpeedGLL(:,:) => NULL() !< Maximum Cp at each GLL node
-    INTEGER                           :: Hetero             !< 0: Homogenous material present, 1: Heterogeneous material present
-    !<
-    !< Space-time DG matrices
-    REAL, POINTER                     :: ST_MassMatrix(:,:) => NULL()
-    REAL, POINTER                     :: ST_Kxi(:,:) => NULL()
-    REAL, POINTER                     :: ST_Keta(:,:) => NULL()
-    REAL, POINTER                     :: ST_Kzeta(:,:) => NULL()
-    REAL, POINTER                     :: ST_Ktau(:,:) => NULL()
-    REAL, POINTER                     :: ST_F0(:,:) => NULL()
-    REAL, POINTER                     :: ST_F1(:,:) => NULL()
-    TYPE(tSparseMatrix), POINTER      :: InvSystemMatrix(:) => NULL()   !< Inverse system matrices
-    INTEGER                           :: InvSyst_MaxnNonZeros  !< Maximum number of non-zero entries in all InvSysemMatrix-es (used for MPI)
-    !<
-    !< Computational cost info
-    REAL                              :: Cpu_Flux     = 0.  !< Total cpu cost of flux computation
-    REAL                              :: Cpu_Volume   = 0.  !< Total cpu cost of volume computation
-    REAL                              :: Cpu_Source   = 0.  !< Total cpu cost of source computation
-    REAL                              :: Cpu_TimeInt  = 0.  !< Total cpu cost of time integral (Cauchy-Kowalewski)
-    INTEGER                           :: nCpu_Flux    = 0   !< Total number of flux computation
-    INTEGER                           :: nCpu_Volume  = 0   !< Total number of volume computation
-    INTEGER                           :: nCpu_Source  = 0   !< Total number of source computation
-    INTEGER                           :: nCpu_TimeInt = 0   !< Total number of time integral (Cauchy-Kowalewski)
-    !<
     !< Stiffness matrix (tensors)
     REAL, POINTER     :: Kxi_k_Tet(:,:,:)        =>NULL()   !< Stiffness Matrix (xi)
     REAL, POINTER     :: Keta_k_Tet(:,:,:)       =>NULL()   !< Stiffness Matrix (eta)
@@ -784,16 +650,6 @@ MODULE TypesDef
     TYPE(tSparseTensor3b), POINTER    :: ADGeta_Hex_Sp        =>NULL() !< Transpose stiffness / mass in eta (sparse)
     TYPE(tSparseTensor3b), POINTER    :: ADGzeta_Hex_Sp       =>NULL() !< Transpose stiffness / mass in zeta (sparse)
     TYPE(tSparseTensor3b), POINTER    :: FluxInt_Hex_Sp(:,:,:)=>NULL() !< Flux matrices integrals (sparse)
-    !<
-    !< Star matrices
-    TYPE(tSparseTensor3), POINTER     :: AStar_Sp(:) => NULL()         !< Sparse star tensor A
-    TYPE(tSparseTensor3), POINTER     :: BStar_Sp(:) => NULL()         !< Sparse star tensor B
-    TYPE(tSparseTensor3), POINTER     :: CStar_Sp(:) => NULL()         !< Sparse star tensor C
-    TYPE(tSparseTensor3), POINTER     :: EStar_Sp(:) => NULL()         !< Sparse star tensor E
-    !<
-    TYPE(tSparseTensor3), POINTER     :: FLStar_Sp(:,:) => NULL()      !< Sparse flux tensor
-    TYPE(tSparseTensor3), POINTER     :: FRStar_Sp(:,:) => NULL()      !< Sparse flux tensor
-    !<
   END TYPE tGalerkin
 
   TYPE tAdjoint
@@ -1064,7 +920,6 @@ MODULE TypesDef
      INTEGER                                :: TimeMethod                       !< 1=Euler-Cauchy
      INTEGER                                :: TimeOrder                        !< TimeOrder = 1,2,3,4
      INTEGER                                :: SpaceOrder                       !< SpaceOrder = 1,2
-     INTEGER                                :: FluxMethod                       !<  1=AUSMDV scheme variant 1 (NOT reliable)
      REAL                                   :: CFL                              !< Courant-Friedrichs-Lewy (CFL) number
      REAL                                   :: Theta                            !< Value of theta for implicit Newmark (theta) schemes
      REAL                                   :: dxMin                            !< Smallest Grid length (used for Timestepcalc.)
@@ -1080,19 +935,10 @@ MODULE TypesDef
      INTEGER                                :: nIntGP                           !< Number of internal Gausspoints for volume integration
      REAL                         , POINTER :: IntGaussP(:,:)                   !< Positions of the Gausspoints inside the cell
      REAL                         , POINTER :: IntGaussW(:)                     !< Weights of the Gausspoints inside the cell
-     INTEGER                                :: nGaussPointSide                  !< Number of internal Gausspoints for each Side
-     REAL                         , POINTER :: SideWeightOfGaussPointNbr(:)     !< Weight of the Gausspoints at Side
-     REAL                         , POINTER :: SidePosOfGaussPointNbr(:,:)      !< Positions of the Gausspoints at Side
-     INTEGER                                :: nGaussPointElem                  !< Number of internal Gausspoints for each Element
-     REAL                         , POINTER :: ElemWeightOfGaussPointNbr(:)     !< Weight of the Gausspoints in Element
-     REAL                         , POINTER :: ElemPosOfGaussPointNbr(:,:)      !< Positions of the Gausspoints inside the cell
-     REAL                         , POINTER :: BinomialCoeff(:,:)               !< Field of binomial coefficients
-     LOGICAL                                :: UseFixTimeStep                   !< Use a fixed timestep? (T/F)
      REAL                                   :: FixTimeStep                      !< Fixed timestep
      REAL                                   :: StartCPUTime                     !< Starttime of integration of the PDE
      REAL                                   :: StopCPUTime                      !< Stoptime of integration of the PDE
      REAL                                   :: LoopCPUTime                      !< CPU-Time spent in a loop, resp. in the loops
-     REAL                                   :: CPUTESTTIME                      !< CPU-TEST-TIME for testing purposes
      INTEGER                                :: GhostInterpolationOrder          !< Order used for Interpolating ghostvalues (Only in KOP environment)
      TYPE(tGalerkin)                        :: Galerkin                         !< Data for Discontinuous Galerkin scheme
      TYPE(tDynRup)                          :: DynRup                           !< Data for Dynamic Rupture processes
@@ -1236,19 +1082,6 @@ MODULE TypesDef
      INTEGER                                :: globalreceiverindex              !< receiver index of global list
      LOGICAL                                :: inside                           !< If a point is inside the mesh or not
   END TYPE tUnstructPoint
-  !< Spline
-  TYPE  tSpline
-     INTEGER                                :: nPoints                          !< Number of points on Splin
-     REAL, POINTER, DIMENSION(:)            :: t                                !< values of the running curve's parameter
-     REAL, POINTER, DIMENSION(:)            :: x                                !< x(t)
-     REAL, POINTER, DIMENSION(:)            :: y                                !< y(t)
-     REAL, POINTER, DIMENSION(:)            :: z                                !< z(t)
-     REAL, POINTER, DIMENSION(:)            :: xtt                              !< xtt(t) (Second derivatives for the splines)
-     REAL, POINTER, DIMENSION(:)            :: ytt                              !< ytt(t) (Second derivatives for the splines)
-     REAL, POINTER, DIMENSION(:)            :: ztt                              !< ztt(t) (Second derivatives for the splines)
-     INTEGER                                :: nCurvePoints                     !< Number of points defining the spline
-     CHARACTER(LEN=80)                      :: Filename                         !< Filename of the Spline
-  END TYPE tSpline
   !< Data Type for controlling output Intervall
   TYPE tOutputInterval
      INTEGER                                :: printIntervalCriterion           !< 1=iteration, 2=time, 3=time+iteration criterion for printed info
@@ -1382,7 +1215,6 @@ MODULE TypesDef
      !<                                                                         !<
      TYPE(tUnstructPoint)         , POINTER :: UnstructRecPoint(:)              !< Unstructured pickpoints
      TYPE(tUnstructPoint)         , POINTER :: tmpRecPoint(:)                   !< temporal     pickpoints
-     TYPE(tSpline)                , POINTER :: Spline(:)                        !< Spline
      TYPE(tUnitNumbers)                     :: UNIT                             !< Structure for unit numbers
      TYPE(tDR)                              :: DR                               !< Fault-based output
      CHARACTER(LEN=600)                     :: FileName_BackgroundStress        !< File name of background stress field heterogeneous
@@ -1667,16 +1499,8 @@ MODULE TypesDef
      REAL                         , POINTER :: DGLimiter(:) => NULL()                    !< TVD Limiter Marker for DG
      !< plot fields dateien
      REAL                         , POINTER :: weight(:) => NULL()
-!     REAL                         , POINTER :: Mach(:)                         ! aheineck @TODO not referenced in the code -> commented
-!     REAL                         , POINTER :: Entropie(:)                     ! aheineck @TODO not referenced in the code -> commented
-!     REAL                         , POINTER :: Temp(:)                         ! aheineck @TODO not referenced in the code -> commented
      REAL                         , POINTER :: AuxField(:,:) => NULL()
-!     REAL                         , POINTER :: rot(:,:)                        ! aheineck @TODO not referenced in the code -> commented
      REAL                         , POINTER :: div(:) => NULL()
-!     REAL                         , POINTER :: Alf(:)                          ! aheineck @TODO not referenced in the code -> commented
-!     REAL                         , POINTER :: rotB(:,:)                       ! aheineck @TODO not referenced in the code -> commented
-!     REAL                         , POINTER :: divB(:)                         ! aheineck @TODO not referenced in the code -> commented
-!     REAL                         , POINTER :: grd(:,:,:)                      ! aheineck @TODO not referenced in the code -> commented
      !< calc_deltaT
      real, dimension(:), allocatable        :: vel
      real, dimension(:), allocatable        :: sound
@@ -1687,15 +1511,6 @@ MODULE TypesDef
      !< FaceAdjustment und
      !< Viscous Part
      REAL                         , POINTER :: rh(:) => NULL()
-     !< Spatial Disc
-     REAL                         , POINTER :: xlim(  :,:  ) => NULL()
-     REAL                         , POINTER :: grad(  :,:,:) => NULL()
-     REAL                         , POINTER :: pvarlr(:,:,:,:) => NULL()
-     REAL                         , POINTER :: ftmp(  :,:  ) => NULL()
-     !< FV Discretization
-     REAL                         , POINTER :: work( :,:) => NULL()
-     REAL                         , POINTER :: work0(:,:) => NULL()
-     REAL                         , POINTER :: flux( :,:) => NULL()
      !<
      !< Facet information for distance calculation
      !<

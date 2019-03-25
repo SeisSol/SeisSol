@@ -2404,15 +2404,6 @@ CONTAINS
         ENDIF
         ALLOCATE( BND%ObjMPI(iDomain)%NeighborBackground(EQN%nBackgroundVar,BND%ObjMPI(iDomain)%nElem)     )
         BND%ObjMPI(iDomain)%Init = .FALSE.
-        ALLOCATE( BND%ObjMPI(iDomain)%AStar_Sp( BND%ObjMPI(iDomain)%nElem ) )
-        ALLOCATE( BND%ObjMPI(iDomain)%BStar_Sp( BND%ObjMPI(iDomain)%nElem ) )
-        ALLOCATE( BND%ObjMPI(iDomain)%CStar_Sp( BND%ObjMPI(iDomain)%nElem ) )
-        ALLOCATE( BND%ObjMPI(iDomain)%EStar_Sp( BND%ObjMPI(iDomain)%nElem ) )
-        ALLOCATE( BND%ObjMPI(iDomain)%FLStar_Sp(BND%ObjMPI(iDomain)%nElem,MESH%nSideMax))
-        ALLOCATE( BND%ObjMPI(iDomain)%FRStar_Sp(BND%ObjMPI(iDomain)%nElem,MESH%nSideMax))
-        IF(DISC%Galerkin%CKMethod.EQ.1) THEN
-            ALLOCATE( BND%ObjMPI(iDomain)%InvSystemMatrix( BND%ObjMPI(iDomain)%nElem ) )
-        ENDIF
         IF(DISC%Galerkin%DGMethod.EQ.3) THEN
             ALLOCATE( BND%ObjMPI(iDomain)%NeighborDuDt(DISC%Galerkin%nDegFr,EQN%nVar+EQN%nAneFuncperMech,BND%ObjMPI(iDomain)%nElem) )
             ALLOCATE( BND%ObjMPI(iDomain)%NeighborTime( BND%ObjMPI(iDomain)%nElem) )
