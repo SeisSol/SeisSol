@@ -106,17 +106,18 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 				    vertices,
 				    center);
 
+    /*
     logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i];
     logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]);
     logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i]
 	      << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
+    */
   }
 
   // TODO(Lukas) Print hs, fortran: MESH%MaxSQRTVolume, MESH%MaxCircle
 
-  /*
-  // Reduce error over all MPI ranks.
 #ifdef USE_MPI
+  // Reduce error over all MPI ranks.
   const auto& mpi = seissol::MPI::mpi;
   const auto& comm = mpi.comm();
 
@@ -130,10 +131,14 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
   if (mpi.rank() == 0) {
     // Log debug output.
+    logInfo(mpi.rank()) << "MPI-Error analysis:";
+    for (unsigned int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      logInfo(mpi.rank()) << "L1, var[" << i << "] =\t" << errL1MPI[i];
+      logInfo(mpi.rank()) << "L2, var[" << i << "] =\t" << std::sqrt(errL2MPI[i]);
+      logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInfMPI[i];
+    }
+
   }
-
-#endif
-  */
-
-
+  MPI_Barrier(comm);
+#endif // USE_MPI
 }
