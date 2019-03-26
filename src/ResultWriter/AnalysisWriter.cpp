@@ -8,6 +8,11 @@
 #include "Physics/InitialField.cpp"
 
 void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
+#ifdef USE_MPI
+  const auto& mpi = seissol::MPI::mpi;
+  const auto& comm = mpi.comm();
+#endif // USE_MPI
+
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
   logInfo(MPI::mpi.rank())
     << "Print analysis for initial conditions" << initialConditionType
@@ -23,6 +28,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();
+  logInfo(mpi.rank()) << "Elements.size() = " << elements.size();
 
   using ErrorArray_t = std::array<double, NUMBER_OF_QUANTITIES>;
   auto errL1Local = ErrorArray_t{0.0};
@@ -56,10 +62,8 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   // cells that are duplicates.
   auto layerMask = initializers::LayerMask(Ghost);
   for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
-    unsigned int treeId = ltsLut->ltsId(layerMask, meshId);
-    
     // Needed to weight the integral.
-    const auto volume = MeshTools::volume(elements[treeId], vertices);
+    const auto volume = MeshTools::volume(elements[meshId], vertices);
     const auto jacobiDet = 6 * volume;
 
     // Compute global position of quadrature points.
@@ -72,8 +76,6 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i]);
     }
 
-    real (*dofs)[NUMBER_OF_ALIGNED_DOFS] = ltsTree->var(lts->dofs);
-
     for (size_t i = 0; i < numQuadPoints; ++i) {
       // Evaluate analytical solution at current quad. node
       double analyticalSolution[NUMBER_OF_QUANTITIES];
@@ -81,13 +83,15 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       const auto y = quadraturePointsXyz[i][1];
       const auto z = quadraturePointsXyz[i][2];
       initial_field_planarwave(simulationTime, x, y, z, analyticalSolution);
+
+      const auto curWeight = jacobiDet * quadratureWeights[i];
       for (size_t v = 0; v < NUMBER_OF_QUANTITIES; ++v) {
 	// Evaluate discrete solution at quad. point
-	auto const *coeffsBegin = &dofs[treeId][v*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-
+	const auto handle = lts->dofs;
+	auto const *coeffsBegin = &ltsLut->lookup(handle, meshId)[v*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
 	const auto value = basisVec[i].evalWithCoeffs(coeffsBegin);
+
 	const auto curError = std::abs(value - analyticalSolution[v]);
-	const auto curWeight = jacobiDet * quadratureWeights[i];
 	errL1Local[v] += curWeight * curError;
 	errL2Local[v] += curWeight * curError * curError;
 
@@ -115,12 +119,10 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   }
 
   // TODO(Lukas) Print hs, fortran: MESH%MaxSQRTVolume, MESH%MaxCircle
+  logInfo() << "Begin reduction";
 
 #ifdef USE_MPI
   // Reduce error over all MPI ranks.
-  const auto& mpi = seissol::MPI::mpi;
-  const auto& comm = mpi.comm();
-
   auto errL1MPI = ErrorArray_t{0.0};
   auto errL2MPI = ErrorArray_t{0.0};
   auto errLInfMPI = ErrorArray_t{0.0};
