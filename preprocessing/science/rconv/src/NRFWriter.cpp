@@ -44,7 +44,6 @@
 #include <limits>
 #include <cmath>
 
-using seissol::sourceterm::Vector3;
 using seissol::sourceterm::Subfault;
 using seissol::sourceterm::Subfault_units;
 using seissol::sourceterm::Offsets;
@@ -84,11 +83,11 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
     memset(sliprates[sr], 0, numSamples[sr] * sizeof(double));
   }
 
-  Vector3* centres = new Vector3[numSources];
+  glm::dvec3* centres = new glm::dvec3[numSources];
   Subfault* subfaults = new Subfault[numSources];
   for (unsigned i = 0; i < numSources; ++i) {
     SRFPointSource const& source = sources[i];
-    Vector3& centre = centres[i];
+    glm::dvec3& centre = centres[i];
     Subfault& sf = subfaults[i];
     sf.tinit = source.tinit - minTinit;
     sf.timestep = source.dt;
@@ -179,11 +178,11 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
   check_err(stat,__LINE__,__FILE__);
   nrf_grp = ncid;
 
-  stat = nc_def_compound(nrf_grp, sizeof(Vector3), "Vector3", &Vector3_typ);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_def_compound(nrf_grp, sizeof(glm::dvec3), "Vector3", &Vector3_typ);    check_err(stat,__LINE__,__FILE__);
   {
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "x", NC_COMPOUND_OFFSET(Vector3,x), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "y", NC_COMPOUND_OFFSET(Vector3,y), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "z", NC_COMPOUND_OFFSET(Vector3,z), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "x", NC_COMPOUND_OFFSET(glm::dvec3,x), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "y", NC_COMPOUND_OFFSET(glm::dvec3,y), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "z", NC_COMPOUND_OFFSET(glm::dvec3,z), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
   }
 
   stat = nc_def_compound(nrf_grp, sizeof(Subfault_units), "Subfault_units", &Subfault_units_typ);    check_err(stat,__LINE__,__FILE__);
