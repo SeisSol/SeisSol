@@ -22,7 +22,6 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     return;
   }
 
-  auto* ltsTree = ::seissol::SeisSol::main.getMemoryManager().getLtsTree();
   auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
   auto* ltsLut = e_interoperability.getLtsLut();
 
