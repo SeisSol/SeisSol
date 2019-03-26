@@ -9,7 +9,6 @@
 
 void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
-  const auto& comm = mpi.comm();
 
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
   logInfo(MPI::mpi.rank())
@@ -110,6 +109,8 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   // TODO(Lukas) Print hs, fortran: MESH%MaxSQRTVolume, MESH%MaxCircle
 
 #ifdef USE_MPI
+  const auto& comm = mpi.comm();
+
   // Reduce error over all MPI ranks.
   auto errL1MPI = ErrorArray_t{0.0};
   auto errL2MPI = ErrorArray_t{0.0};
