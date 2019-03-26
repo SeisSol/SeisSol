@@ -39,7 +39,9 @@
 #ifndef RCONV_MAP_H_
 #define RCONV_MAP_H_
 
+#ifndef noproj
 #include <projects.h>
+#endif
 #include <string>
 
 class Map {
@@ -53,8 +55,10 @@ public:
 private:
   void adjustAxes(double* x, double* y, double* z) const;
 
+#ifndef noproj
   projPJ pj_lonlat;
   projPJ pj_mesh;
+#endif
 };
 
 #endif
