@@ -8,10 +8,8 @@
 #include "Physics/InitialField.cpp"
 
 void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
-#ifdef USE_MPI
   const auto& mpi = seissol::MPI::mpi;
   const auto& comm = mpi.comm();
-#endif // USE_MPI
 
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
   logInfo(MPI::mpi.rank())
@@ -27,7 +25,6 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();
-  logInfo(mpi.rank()) << "Elements.size() = " << elements.size();
 
   using ErrorArray_t = std::array<double, NUMBER_OF_QUANTITIES>;
   auto errL1Local = ErrorArray_t{0.0};
