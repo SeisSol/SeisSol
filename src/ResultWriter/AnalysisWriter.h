@@ -25,6 +25,10 @@ namespace seissol {
 namespace writer {
   class AnalysisWriter {
 private:
+    struct data {
+      double val;
+      int rank;
+    };
 
     bool isEnabled; // TODO(Lukas) Do we need this?
     const MeshReader* meshReader;

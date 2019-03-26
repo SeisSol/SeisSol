@@ -59,7 +59,6 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
   // Note: We iterate over mesh cells by id to avoid
   // cells that are duplicates.
-  auto layerMask = initializers::LayerMask(Ghost);
   for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
     // Needed to weight the integral.
     const auto volume = MeshTools::volume(elements[meshId], vertices);
@@ -109,37 +108,71 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 				    vertices,
 				    center);
 
-    /*
-    logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i];
-    logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]);
-    logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i]
-	      << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
-    */
   }
 
   // TODO(Lukas) Print hs, fortran: MESH%MaxSQRTVolume, MESH%MaxCircle
-  logInfo() << "Begin reduction";
 
 #ifdef USE_MPI
   // Reduce error over all MPI ranks.
   auto errL1MPI = ErrorArray_t{0.0};
   auto errL2MPI = ErrorArray_t{0.0};
-  auto errLInfMPI = ErrorArray_t{0.0};
 
   MPI_Reduce(errL1Local.data(), errL1MPI.data(), errL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
   MPI_Reduce(errL2Local.data(), errL2MPI.data(), errL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
-  MPI_Reduce(errLInfLocal.data(), errLInfMPI.data(), errLInfLocal.size(), MPI_DOUBLE, MPI_MAX, 0, comm);
 
-  if (mpi.rank() == 0) {
-    // Log debug output.
-    logInfo(mpi.rank()) << "MPI-Error analysis:";
-    for (unsigned int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-      logInfo(mpi.rank()) << "L1, var[" << i << "] =\t" << errL1MPI[i];
-      logInfo(mpi.rank()) << "L2, var[" << i << "] =\t" << std::sqrt(errL2MPI[i]);
-      logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInfMPI[i];
+
+  // Find maximum element and its location.
+  auto errLInfSend = std::array<data, errLInfLocal.size()>{};
+  auto errLInfRecv = std::array<data, errLInfLocal.size()>{};
+  for (size_t i = 0; i < errLInfLocal.size(); ++i) {
+    errLInfSend[i] = data{errLInfLocal[i], mpi.rank()};
+  }
+  MPI_Allreduce(errLInfSend.data(), errLInfRecv.data(),
+		errLInfSend.size(),
+		MPI_DOUBLE_INT,
+		MPI_MAXLOC,
+		comm);
+
+  for (unsigned int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    VrtxCoords centerSend;
+    MeshTools::center(elements[elemLInfLocal[i]],
+		      vertices,
+		      centerSend);
+
+
+    if (mpi.rank() == errLInfRecv[i].rank &&
+	errLInfRecv[i].rank != 0)  {
+      MPI_Send(centerSend, 3, MPI_DOUBLE, 0, i, comm);
     }
 
+    if (mpi.rank() == 0) {
+      VrtxCoords centerRecv;
+      if (errLInfRecv[i].rank == 0) {
+	std::copy_n(centerSend, 3, centerRecv);
+      } else {
+	MPI_Recv(centerRecv, 3, MPI_DOUBLE,  errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
+      }
+      logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1MPI[i];
+      logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << std::sqrt(errL2MPI[i]);
+      logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInfRecv[i].val
+			  << "at rank " << errLInfRecv[i].rank
+	      << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1] << ",\t" << centerRecv[2] << "\t]";
+
+    }
   }
-  MPI_Barrier(comm);
+#else
+  for (unsigned int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    VrtxCoords center;
+    MeshTools::center(elements[elemLInfLocal[i]],
+		      vertices,
+		      center);
+
+    logInfo() << "L1, var[" << i << "] =\t" << errL1Local[i];
+    logInfo() << "L2, var[" << i << "] =\t" << std::sqrt(errL2Local[i]);
+    logInfo() << "LInf, var[" << i << "] =\t" << errLInfLocal[i]
+	      << "\tat [" << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
+  }
 #endif // USE_MPI
+
 }
+
