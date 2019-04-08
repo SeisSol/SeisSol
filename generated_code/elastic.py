@@ -46,6 +46,7 @@ from yateto.gemm_configuration import *
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
+from common import OptionalDimTensor
 import DynamicRupture
 import Plasticity
 
@@ -69,17 +70,14 @@ numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
 numberOfQuantities = 9
 multipleSimulations = int(cmdLineArgs.multipleSimulations)
 
+qShape = (numberOf3DBasisFunctions, numberOfQuantities)
+qShapeAtPoint = (numberOfQuantities,)
+
 # Quantities
 if multipleSimulations > 1:
-  qShape = (multipleSimulations, numberOf3DBasisFunctions, numberOfQuantities)
-  qShapeAtPoint = (multipleSimulations, numberOfQuantities)
-  qi = lambda x: 's' + x
   alignStride=set(['fP({})'.format(i) for i in range(3)])
   transpose=True
 else:
-  qShape = (numberOf3DBasisFunctions, numberOfQuantities)
-  qShapeAtPoint = (numberOfQuantities,)
-  qi = lambda x: x
   alignStride=True
   transpose=False
 
@@ -95,10 +93,10 @@ db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, num
 db.update( parseXMLMatrixFile('{}/star.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
 memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
-Q = Tensor('Q', qShape, alignStride=alignStride)
+Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
 QFortran = Tensor('QFortran', (numberOf3DBasisFunctions, numberOfQuantities))
-dQ0 = Tensor('dQ(0)', qShape, alignStride=alignStride)
-I = Tensor('I', qShape, alignStride=alignStride)
+dQ0 = OptionalDimTensor('dQ(0)', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
+I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
 
 # Flux solver
 AplusT = Tensor('AplusT', (numberOfQuantities, numberOfQuantities))
@@ -112,32 +110,32 @@ QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
 g = Generator(arch)
 
 ## Main kernels
-volumeSum = Q[qi('kp')]
+volumeSum = Q['kp']
 for i in range(3):
-  volumeSum += db.kDivM[i][t('kl')] * I[qi('lq')] * db.star[i]['qp']
-volume = (Q[qi('kp')] <= volumeSum)
+  volumeSum += db.kDivM[i][t('kl')] * I['lq'] * db.star[i]['qp']
+volume = (Q['kp'] <= volumeSum)
 g.add('volume', volume)
 
-localFlux = lambda i: Q[qi('kp')] <= Q[qi('kp')] + db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I[qi('lq')] * AplusT['qp']
+localFlux = lambda i: Q['kp'] <= Q['kp'] + db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I['lq'] * AplusT['qp']
 localFluxPrefetch = lambda i: I if i == 0 else (Q if i == 1 else None)
 g.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
-neighbourFlux = lambda h,j,i: Q[qi('kp')] <= Q[qi('kp')] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I[qi('lq')] * AminusT['qp']
+neighbourFlux = lambda h,j,i: Q['kp'] <= Q['kp'] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I['lq'] * AminusT['qp']
 neighbourFluxPrefetch = lambda h,j,i: I
 g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
 
 power = Scalar('power')
 derivatives = [dQ0]
-g.add('derivativeTaylorExpansion(0)', I[qi('kp')] <= power * dQ0[qi('kp')])
+g.add('derivativeTaylorExpansion(0)', I['kp'] <= power * dQ0['kp'])
 for i in range(1,order):
   derivativeSum = Add()
   for j in range(3):
-    derivativeSum += db.kDivMT[j][t('kl')] * derivatives[-1][qi('lq')] * db.star[j]['qp']
-  derivativeSum = DeduceIndices( Q[qi('kp')].indices ).visit(derivativeSum)
+    derivativeSum += db.kDivMT[j][t('kl')] * derivatives[-1]['lq'] * db.star[j]['qp']
+  derivativeSum = DeduceIndices( Q['kp'].indices ).visit(derivativeSum)
   derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
-  dQ = Tensor('dQ({})'.format(i), qShape, spp=derivativeSum.eqspp(), alignStride=True)
-  g.add('derivative({})'.format(i), dQ[qi('kp')] <= derivativeSum)
-  g.add('derivativeTaylorExpansion({})'.format(i), I[qi('kp')] <= I[qi('kp')] + power * dQ[qi('kp')])
+  dQ = OptionalDimTensor('dQ({})'.format(i), 's', multipleSimulations, 0, qShape, spp=derivativeSum.eqspp(), alignStride=True)
+  g.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
+  g.add('derivativeTaylorExpansion({})'.format(i), I['kp'] <= I['kp'] + power * dQ['kp'])
   derivatives.append(dQ)
 
 ## Initialization kernels
@@ -150,18 +148,18 @@ g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
 if multipleSimulations > 1:
   oneSimToMultSim = Tensor('oneSimToMultSim', (multipleSimulations,), spp={(i,): '1.0' for i in range(multipleSimulations)})
-  addQFortran = Q[qi('kp')] <= Q[qi('kp')] + QFortran['kp'] * oneSimToMultSim['s']
+  addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp'] * oneSimToMultSim['s']
 
   multSimToFirstSim = Tensor('multSimToFirstSim', (multipleSimulations,), spp={(0,): '1.0'})
-  copyQToQFortran = QFortran['kp'] <= Q[qi('kp')] * multSimToFirstSim['s']
+  copyQToQFortran = QFortran['kp'] <= Q['kp'] * multSimToFirstSim['s']
 
-  copyDQToDQFortran = lambda degree: QFortran['kp'] <= derivatives[degree][qi('kp')] * multSimToFirstSim['s']
+  copyDQToDQFortran = lambda degree: QFortran['kp'] <= derivatives[degree]['kp'] * multSimToFirstSim['s']
   g.addFamily('copyDQToDQFortran', simpleParameterSpace(order), copyDQToDQFortran)
 else:
-  addQFortran = Q[qi('kp')] <= Q[qi('kp')] + QFortran['kp']
-  copyQToQFortran = QFortran['kp'] <= Q[qi('kp')]
+  addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp']
+  copyQToQFortran = QFortran['kp'] <= Q['kp']
 
-  copyDQToDQFortran = lambda degree: QFortran['kp'] <= derivatives[degree][qi('kp')]
+  copyDQToDQFortran = lambda degree: QFortran['kp'] <= derivatives[degree]['kp']
   g.addFamily('copyDQToDQFortran', simpleParameterSpace(order), copyDQToDQFortran)
 
 g.add('addQFortran', addQFortran)
@@ -172,30 +170,30 @@ mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunction
 
 momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6)))
 if multipleSimulations > 1:
-  sourceNRF = Q[qi('kp')] <= Q[qi('kp')] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * oneSimToMultSim['s']
+  sourceNRF = Q['kp'] <= Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * oneSimToMultSim['s']
 else:
-  sourceNRF = Q[qi('kp')] <= Q[qi('kp')] - mInvJInvPhisAtSources['k'] * momentNRF['p']
+  sourceNRF = Q['kp'] <= Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p']
 g.add('sourceNRF', sourceNRF)
 
 momentFSRM = Tensor('momentFSRM', (numberOfQuantities,))
 stfIntegral = Scalar('stfIntegral')
 if multipleSimulations > 1:
-  sourceFSRM = Q[qi('kp')] <= Q[qi('kp')] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p'] * oneSimToMultSim['s']
+  sourceFSRM = Q['kp'] <= Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p'] * oneSimToMultSim['s']
 else:
-  sourceFSRM = Q[qi('kp')] <= Q[qi('kp')] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p']
+  sourceFSRM = Q['kp'] <= Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p']
 g.add('sourceFSRM', sourceFSRM)
 
 ## Receiver output
 
 basisFunctionsAtPoint = Tensor('basisFunctions', (numberOf3DBasisFunctions,))
-QAtPoint = Tensor('QAtPoint', qShapeAtPoint)
-evaluateDOFSAtPoint = QAtPoint[qi('p')] <= Q[qi('kp')] * basisFunctionsAtPoint['k']
+QAtPoint = OptionalDimTensor('QAtPoint', 's', multipleSimulations, 0, qShapeAtPoint)
+evaluateDOFSAtPoint = QAtPoint['p'] <= Q['kp'] * basisFunctionsAtPoint['k']
 g.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
 
 
 
-DynamicRupture.addKernels(g, Q, I, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
-Plasticity.addKernels(g, qi, qShape, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
+DynamicRupture.addKernels(g, Q, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
+Plasticity.addKernels(g, Q, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
 
 # Generate code
 gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])

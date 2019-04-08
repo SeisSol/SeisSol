@@ -40,8 +40,9 @@
 
 from yateto import *
 from yateto.input import parseJSONMatrixFile
+from common import OptionalDimTensor
 
-def addKernels(generator, Q, I, qi, qShape, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
+def addKernels(generator, Q, I, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (order+1)**2
   elif dynamicRuptureMethod == 'cellaverage':
@@ -59,19 +60,18 @@ def addKernels(generator, Q, I, qi, qShape, alignStride, matricesDir, order, dyn
   godunovMatrix = Tensor('godunovMatrix', (numberOfElasticQuantities, numberOfElasticQuantities))
   fluxSolver    = Tensor('fluxSolver', (numberOfElasticQuantities, numberOfQuantities))
   
-  bPos = qi('lq').find('l')
-  gShape = tuple(numberOfPoints if i == bPos else q for i,q in enumerate(qShape))
-  godunovState  = Tensor('godunovState', gShape, alignStride=True)
+  gShape = (numberOfPoints, numberOfQuantities)
+  godunovState = OptionalDimTensor('godunovState', Q.optName(), Q.optSize(), Q.optPos(), gShape, alignStride=True)
 
   def godunovStateGenerator(i,h):
-    target = godunovState[qi('kp')]
-    term = db.V3mTo2n[i,h]['kl'] * Q[qi('lq')] * godunovMatrix['qp']
+    target = godunovState['kp']
+    term = db.V3mTo2n[i,h]['kl'] * Q['lq'] * godunovMatrix['qp']
     if h == 0:
       return target <= term
     return target <= target + term
   godunovStatePrefetch = lambda i,h: godunovState
   generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator, godunovStatePrefetch)
 
-  nodalFluxGenerator = lambda i,h: Q[qi('kp')] <= db.V3mTo2nTWDivM[i,h]['kl'] * godunovState[qi('lq')] * fluxSolver['qp']
+  nodalFluxGenerator = lambda i,h: Q['kp'] <= db.V3mTo2nTWDivM[i,h]['kl'] * godunovState['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: I
   generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)

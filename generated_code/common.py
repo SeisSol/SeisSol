@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2017, SeisSol Group
+# Copyright (c) 2019, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,22 +37,34 @@
 #
 # @section DESCRIPTION
 #
-
-from yateto import *
-from yateto.input import parseXMLMatrixFile
-from common import OptionalDimTensor
-
-def addKernels(generator, Q, alignStride, matricesDir, order, PlasticityMethod):
-  # Load matrices
-  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, order), clones=dict(), alignStride=alignStride)
-  numberOfNodes = db.v.shape()[0]
-  numberOfBasisFunctions = order*(order+1)*(order+2)//6
-
-  sShape = (numberOfBasisFunctions, 6)
-  stressDOFS = OptionalDimTensor('stressDOFS', Q.optName(), Q.optSize(), Q.optPos(), sShape, alignStride=alignStride)
-
-  iShape = (numberOfNodes, 6)
-  interpolationDOFS = OptionalDimTensor('interpolationDOFS', Q.optName(), Q.optSize(), Q.optPos(), iShape, alignStride=alignStride)
   
-  generator.add('interpolationDOFS', interpolationDOFS['kp'] <= db.v['kl'] * stressDOFS['lp'])
-  generator.add('convertToModal', stressDOFS['kp'] <= db.vInv['kl'] * interpolationDOFS['lp'])
+from yateto.type import Tensor
+from yateto.ast.node import IndexedTensor
+from yateto.memory import DenseMemoryLayout
+
+class OptionalDimTensor(Tensor):
+  # dimSize = 1 is considered optional
+  def __init__(self, name, optName, optSize, optPos, shape, spp=None, memoryLayoutClass=DenseMemoryLayout, alignStride=False):
+    self._optName = optName
+    self._optSize = optSize
+    self._optPos = optPos
+    shape = self.insertOptDim(shape, (self._optSize,))
+    super().__init__(name, shape, spp, memoryLayoutClass, alignStride)
+
+  def insertOptDim(self, sliceable, item):
+    if self._optSize > 1:
+      return sliceable[0:self._optPos] + item + sliceable[self._optPos:]
+    return sliceable
+
+  def __getitem__(self, indexNames):
+    indexNames = self.insertOptDim(indexNames, self._optName)
+    return IndexedTensor(self, indexNames)
+
+  def optName(self):
+    return self._optName
+
+  def optSize(self):
+    return self._optSize
+
+  def optPos(self):
+    return self._optPos
