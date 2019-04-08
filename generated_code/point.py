@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2017, SeisSol Group
+# Copyright (c) 2019, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,22 +37,32 @@
 #
 # @section DESCRIPTION
 #
-
+  
+import numpy as np
 from yateto import *
-from yateto.input import parseXMLMatrixFile
 from multSim import OptionalDimTensor
 
-def addKernels(generator, Q, alignStride, matricesDir, order, PlasticityMethod):
-  # Load matrices
-  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, order), clones=dict(), alignStride=alignStride)
-  numberOfNodes = db.v.shape()[0]
-  numberOfBasisFunctions = order*(order+1)*(order+2)//6
+def addKernels(g, Q, oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities):
+  ## Point sources
+  mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
 
-  sShape = (numberOfBasisFunctions, 6)
-  stressDOFS = OptionalDimTensor('stressDOFS', Q.optName(), Q.optSize(), Q.optPos(), sShape, alignStride=alignStride)
+  momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6)))
+  if Q.hasOptDim():
+    sourceNRF = Q['kp'] <= Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * oneSimToMultSim['s']
+  else:
+    sourceNRF = Q['kp'] <= Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p']
+  g.add('sourceNRF', sourceNRF)
 
-  iShape = (numberOfNodes, 6)
-  interpolationDOFS = OptionalDimTensor('interpolationDOFS', Q.optName(), Q.optSize(), Q.optPos(), iShape, alignStride=alignStride)
-  
-  generator.add('interpolationDOFS', interpolationDOFS['kp'] <= db.v['kl'] * stressDOFS['lp'])
-  generator.add('convertToModal', stressDOFS['kp'] <= db.vInv['kl'] * interpolationDOFS['lp'])
+  momentFSRM = Tensor('momentFSRM', (numberOfQuantities,))
+  stfIntegral = Scalar('stfIntegral')
+  if Q.hasOptDim():
+    sourceFSRM = Q['kp'] <= Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p'] * oneSimToMultSim['s']
+  else:
+    sourceFSRM = Q['kp'] <= Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p']
+  g.add('sourceFSRM', sourceFSRM)
+
+  ## Receiver output
+  basisFunctionsAtPoint = Tensor('basisFunctions', (numberOf3DBasisFunctions,))
+  QAtPoint = OptionalDimTensor('QAtPoint', 's', Q.optSize(), 0, (numberOfQuantities,))
+  evaluateDOFSAtPoint = QAtPoint['p'] <= Q['kp'] * basisFunctionsAtPoint['k']
+  g.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)

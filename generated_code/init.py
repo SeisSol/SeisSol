@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2017, SeisSol Group
+# Copyright (c) 2019, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,22 +37,41 @@
 #
 # @section DESCRIPTION
 #
-
+  
+import numpy as np
 from yateto import *
-from yateto.input import parseXMLMatrixFile
 from multSim import OptionalDimTensor
 
-def addKernels(generator, Q, alignStride, matricesDir, order, PlasticityMethod):
-  # Load matrices
-  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, order), clones=dict(), alignStride=alignStride)
-  numberOfNodes = db.v.shape()[0]
-  numberOfBasisFunctions = order*(order+1)*(order+2)//6
+def addKernels(g, db, Q, order, numberOfQuantities):
+  numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
 
-  sShape = (numberOfBasisFunctions, 6)
-  stressDOFS = OptionalDimTensor('stressDOFS', Q.optName(), Q.optSize(), Q.optPos(), sShape, alignStride=alignStride)
+  ti = Collection()
+  ti.AplusT = Tensor('AplusT', (numberOfQuantities, numberOfQuantities))
+  ti.AminusT = Tensor('AminusT', (numberOfQuantities, numberOfQuantities))
+  T = Tensor('T', (numberOfQuantities, numberOfQuantities))
+  Tinv = Tensor('Tinv', (numberOfQuantities, numberOfQuantities))
+  QgodLocal = Tensor('QgodLocal', (numberOfQuantities, numberOfQuantities))
+  QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
+  QFortran = Tensor('QFortran', (numberOf3DBasisFunctions, numberOfQuantities))
 
-  iShape = (numberOfNodes, 6)
-  interpolationDOFS = OptionalDimTensor('interpolationDOFS', Q.optName(), Q.optSize(), Q.optPos(), iShape, alignStride=alignStride)
-  
-  generator.add('interpolationDOFS', interpolationDOFS['kp'] <= db.v['kl'] * stressDOFS['lp'])
-  generator.add('convertToModal', stressDOFS['kp'] <= db.vInv['kl'] * interpolationDOFS['lp'])
+  ti.oneSimToMultSim = Tensor('oneSimToMultSim', (Q.optSize(),), spp={(i,): '1.0' for i in range(Q.optSize())})
+  multSimToFirstSim = Tensor('multSimToFirstSim', (Q.optSize(),), spp={(0,): '1.0'})
+
+  fluxScale = Scalar('fluxScale')
+  computeFluxSolverLocal = ti.AplusT['ij'] <= fluxScale * Tinv['ki'] * QgodLocal['kq'] * db.star[0]['ql'] * T['jl']
+  g.add('computeFluxSolverLocal', computeFluxSolverLocal)
+
+  computeFluxSolverNeighbor = ti.AminusT['ij'] <= fluxScale * Tinv['ki'] * QgodNeighbor['kq'] * db.star[0]['ql'] * T['jl']
+  g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
+
+  if Q.hasOptDim():
+    addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp'] * oneSimToMultSim['s']
+    copyQToQFortran = QFortran['kp'] <= Q['kp'] * multSimToFirstSim['s']
+  else:
+    addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp']
+    copyQToQFortran = QFortran['kp'] <= Q['kp']
+
+  g.add('addQFortran', addQFortran)
+  g.add('copyQToQFortran', copyQToQFortran)
+
+  return ti

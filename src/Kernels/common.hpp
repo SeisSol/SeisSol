@@ -139,31 +139,6 @@ namespace seissol {
         krnl.execute();
       }
     }
-
-    template<typename real_from, typename real_to>
-    static void convertAlignedCompressedTimeDerivatives( const real_from  i_compressedDerivatives[yateto::computeFamilySize<tensor::dQ>()],
-                                                               real_to    o_fullDerivatives[CONVERGENCE_ORDER][tensor::QFortran::Size] )
-    {
-      kernel::copyDQToDQFortran krnl;
-#ifdef MULTIPLE_SIMULATIONS
-      krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
-#endif
-      real_from const* der = i_compressedDerivatives;
-      for (unsigned degree = 0; degree < CONVERGENCE_ORDER; ++degree) {
-        krnl.dQ(degree) = der;
-        if (std::is_same<real_from, real_to>::value) {
-          krnl.QFortran = reinterpret_cast<real_from*>(&o_fullDerivatives[degree][0]);
-          krnl.execute(degree);
-        } else {
-          real_from unalignedDofs[tensor::QFortran::size()];
-          krnl.QFortran = unalignedDofs;
-          krnl.execute(degree);
-          std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), &o_fullDerivatives[degree][0]);
-        }
-
-        der += tensor::dQ::size(degree);
-      }
-    }
   }
 }
 

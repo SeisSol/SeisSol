@@ -51,8 +51,11 @@ class OptionalDimTensor(Tensor):
     shape = self.insertOptDim(shape, (self._optSize,))
     super().__init__(name, shape, spp, memoryLayoutClass, alignStride)
 
+  def hasOptDim(self):
+    return self._optSize > 1
+
   def insertOptDim(self, sliceable, item):
-    if self._optSize > 1:
+    if self.hasOptDim():
       return sliceable[0:self._optPos] + item + sliceable[self._optPos:]
     return sliceable
 

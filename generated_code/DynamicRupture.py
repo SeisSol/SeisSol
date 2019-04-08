@@ -40,7 +40,7 @@
 
 from yateto import *
 from yateto.input import parseJSONMatrixFile
-from common import OptionalDimTensor
+from multSim import OptionalDimTensor
 
 def addKernels(generator, Q, I, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
   if dynamicRuptureMethod == 'quadrature':
