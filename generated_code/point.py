@@ -46,7 +46,7 @@ def addKernels(g, Q, oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantiti
   ## Point sources
   mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
 
-  momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6)))
+  momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6), dtype=bool))
   if Q.hasOptDim():
     sourceNRF = Q['kp'] <= Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * oneSimToMultSim['s']
   else:

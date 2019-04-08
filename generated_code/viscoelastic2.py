@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2015, SeisSol Group
+# Copyright (c) 2016-2018, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,13 +37,21 @@
 #
 # @section DESCRIPTION
 #
-
-from gemmgen import DB, Tools, Arch, Kernel
-import numpy as np
+  
 import argparse
+import numpy as np
+from yateto import *
+from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from yateto.gemm_configuration import *
+from yateto.ast.node import Add
+from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from yateto.memory import CSCMemoryLayout
+
+from multSim import OptionalDimTensor
+import init
 import DynamicRupture
 import Plasticity
-import SurfaceDisplacement
+import point
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -51,96 +59,133 @@ cmdLineParser.add_argument('--outputDir')
 cmdLineParser.add_argument('--arch')
 cmdLineParser.add_argument('--order')
 cmdLineParser.add_argument('--numberOfMechanisms')
-cmdLineParser.add_argument('--generator')
 cmdLineParser.add_argument('--memLayout')
+cmdLineParser.add_argument('--multipleSimulations')
 cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineArgs = cmdLineParser.parse_args()
 
-architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
-libxsmmGenerator = cmdLineArgs.generator
+arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
+
 order = int(cmdLineArgs.order)
+numberOf2DBasisFunctions = order*(order+1)//2
+numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
+numberOfQuantities = 9
+numberOfAnelasticQuantities = 6
+numberOfExtendedQuantities = numberOfQuantities + numberOfAnelasticQuantities
 numberOfMechanisms = int(cmdLineArgs.numberOfMechanisms)
-numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
-numberOfElasticQuantities = 9
-numberOfMechanismQuantities = 6
-numberOfReducedQuantities = numberOfElasticQuantities + numberOfMechanismQuantities
-numberOfQuantities = numberOfElasticQuantities + 6*numberOfMechanisms
+multipleSimulations = int(cmdLineArgs.multipleSimulations)
+
+qShape = (numberOf3DBasisFunctions, numberOfQuantities)
+qShapeExtended = (numberOf3DBasisFunctions, numberOfExtendedQuantities)
+qShapeAnelastic = (numberOf3DBasisFunctions, numberOfAnelasticQuantities, numberOfMechanisms)
+  
+# Quantities
+if multipleSimulations > 1:
+  alignStride=set(['fP({})'.format(i) for i in range(3)])
+  transpose=True
+else:
+  alignStride=True
+  transpose=False
+
+if transpose:
+  t = lambda x: x[::-1]
+else:
+  t = lambda x: x
 
 clones = {
-  'star': [ 'AstarT', 'BstarT', 'CstarT' ]
+  'star': ['star(0)', 'star(1)', 'star(2)'],
 }
+db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), transpose=transpose, alignStride=alignStride)
+db.update( parseXMLMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
+memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
-# Load matrices
-db = Tools.parseMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOfBasisFunctions), clones)
-db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArgs.matricesDir), clones))
+msName = 's'
+msPos = 0
 
-# Determine sparsity patterns that depend on the number of mechanisms
-riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfReducedQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfReducedQuantities-9, numberOfReducedQuantities), dtype=np.float64)]])
-db.insert(DB.MatrixInfo('AplusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
-db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
+Q = OptionalDimTensor('Q', msName, multipleSimulations, msPos, qShape, alignStride=alignStride)
+Qext = OptionalDimTensor('Qext', msName, multipleSimulations, msPos, qShapeExtended, alignStride=alignStride)
+Qane = OptionalDimTensor('Qane', msName, multipleSimulations, msPos, qShapeAnelastic, alignStride=alignStride)
 
-DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfElasticQuantities, numberOfReducedQuantities)
-Plasticity.addMatrices(db, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod, order)
-SurfaceDisplacement.addMatrices(db, order)
+dQ = [OptionalDimTensor('dQ({})'.format(d), msName, multipleSimulations, msPos, qShape, alignStride=alignStride) for d in range(order)]
+dQext = [OptionalDimTensor('dQext({})'.format(d), msName, multipleSimulations, msPos, qShapeExtended, alignStride=alignStride) for d in range(order)]
+dQane = [OptionalDimTensor('dQane({})'.format(d), msName, multipleSimulations, msPos, qShapeAnelastic, alignStride=alignStride) for d in range(order)]
+I = OptionalDimTensor('I', msName, multipleSimulations, msPos, qShape, alignStride=alignStride)
+Iane = OptionalDimTensor('Iane', msName, multipleSimulations, msPos, qShapeAnelastic, alignStride=alignStride)
 
-# Load sparse-, dense-, block-dense-config
-Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
+selectElaSpp = np.zeros((numberOfExtendedQuantities, numberOfQuantities))
+selectElaSpp[0:numberOfQuantities,0:numberOfQuantities] = np.eye(numberOfQuantities)
+selectEla = Tensor('selectEla', (numberOfExtendedQuantities, numberOfQuantities), selectElaSpp, CSCMemoryLayout)
 
-# Set rules for the global matrix memory order
-stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
-globalMatrixIdRules = [
-  (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: stiffnessOrder[x[0]]),
-  (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 3 + stiffnessOrder[x[0]]),  
-  (r'^r(\d{1})DivM$', lambda x: 6 + int(x[0])-1),
-  (r'^rT(\d{1})$', lambda x: 10 + int(x[0])-1),
-  (r'^fMrT(\d{1})$', lambda x: 14 + int(x[0])-1),
-  (r'^fP(\d{1})$', lambda x: 18 + (int(x[0])-1))
-]
-DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
+selectAneSpp = np.zeros((numberOfExtendedQuantities, numberOfAnelasticQuantities))
+selectAneSpp[numberOfQuantities:numberOfExtendedQuantities,0:numberOfAnelasticQuantities] = np.eye(numberOfAnelasticQuantities)
+selectAne = Tensor('selectAne', (numberOfExtendedQuantities, numberOfAnelasticQuantities), selectAneSpp, CSCMemoryLayout)
+
+E = Tensor('E', (numberOfAnelasticQuantities, numberOfMechanisms, numberOfQuantities))
+w = Tensor('w', (numberOfMechanisms,))
+W = Tensor('W', (numberOfMechanisms, numberOfMechanisms), np.eye(numberOfMechanisms, dtype=bool), CSCMemoryLayout)
 
 # Kernels
-kernels = list()
+g = Generator(arch)
 
-db.insert(DB.MatrixInfo('reducedTimeIntegratedDofs', numberOfBasisFunctions, numberOfReducedQuantities))
-db.insert(DB.MatrixInfo('reducedDofs', numberOfBasisFunctions, numberOfReducedQuantities))
-db.insert(DB.MatrixInfo('mechanism', numberOfBasisFunctions, numberOfMechanismQuantities))
-db.insert(DB.MatrixInfo('timeDerivative0_elastic', numberOfBasisFunctions, numberOfElasticQuantities))
+## Initialization
+ti = init.addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities)
 
-volume = db['kXiDivM'] * db['reducedTimeIntegratedDofs'] * db['AstarT'] \
-       + db['kEtaDivM'] * db['reducedTimeIntegratedDofs'] * db['BstarT'] \
-       + db['kZetaDivM'] * db['reducedTimeIntegratedDofs'] * db['CstarT']
-kernels.append(Kernel.Prototype('volume', volume, beta=0))
+## Local
+volumeSum = Add()
+for i in range(3):
+  volumeSum += db.kDivM[i][t('kl')] * I['lq'] * db.star[i]['qp']
+volumeExt = (Qext['kp'] <= volumeSum)
+g.add('volumeExt', volumeExt)
 
-for i in range(0, 4):
-  localFlux = db['r{}DivM'.format(i+1)] * db['fMrT{}'.format(i+1)] * db['reducedTimeIntegratedDofs'] * db['AplusT']
-  prefetch = None
-  if i == 0:
-    prefetch = db['reducedTimeIntegratedDofs']
-  elif i == 1:
-    prefetch = localFlux
-  else:
-    prefetch = Kernel.DummyPrefetch()
-  kernels.append(Kernel.Prototype('localFlux[{}]'.format(i), localFlux, prefetch=prefetch))
+localFluxExt = lambda i: Qext['kp'] <= Qext['kp'] + db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I['lq'] * ti.AplusT['qp']
+localFluxExtPrefetch = lambda i: I if i == 0 else (Q if i == 1 else None)
+g.addFamily('localFluxExt', simpleParameterSpace(4), localFluxExt, localFluxExtPrefetch)
 
-for i in range(0, 4):
-  for j in range(0, 4):
-    for h in range(0, 3):
-      neighboringFlux = db['r{}DivM'.format(i+1)] * db['fP{}'.format(h+1)] * db['rT{}'.format(j+1)] * db['reducedTimeIntegratedDofs'] * db['AminusT']
-      kernels.append(Kernel.Prototype('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux, prefetch=db['reducedTimeIntegratedDofs']))
+g.add('local', [
+  Qane['kpm'] <= Qane['kpm'] + w['m'] * Qext['kq'] * selectAne['qp'] + Iane['kpl'] * W['lm'],
+  Q['kp'] <= Qext['kq'] * selectEla['qp'] + Iane['kqm'] * E['qmp']
+])
 
-derivative = db['kXiDivMT'] * db['reducedDofs'] * db['AstarT'] \
-           + db['kEtaDivMT'] * db['reducedDofs'] * db['BstarT'] \
-           + db['kZetaDivMT'] * db['reducedDofs'] * db['CstarT']
-kernels.append(Kernel.Prototype('derivative', derivative, beta=0))
+## Neighbour
+neighbourFluxExt = lambda h,j,i: Qext['kp'] <= Qext['kp'] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I['lq'] * ti.AminusT['qp']
+neighbourFluxExtPrefetch = lambda h,j,i: I
+g.addFamily('neighbourFluxExt', simpleParameterSpace(3,4,4), neighbourFluxExt, neighbourFluxExtPrefetch)
 
-source = db['mechanism'] * db['ET']
-kernels.append(Kernel.Prototype('source', source))
+g.add('neighbour', [
+  Qane['kpm'] <= Qane['kpm'] + w['m'] * Qext['kq'] * selectAne['qp'],
+  Q['kp'] <= Qext['kq'] * selectEla['qp']
+])
 
-DynamicRupture.addKernels(db, kernels, 'timeDerivative0_elastic')
-Plasticity.addKernels(db, kernels)
-SurfaceDisplacement.addKernels(db, kernels)
+## ADER
+power = Scalar('power')
+
+derivativeTaylorExpansionEla = lambda d: (I['kp'] <= I['kp'] + power * dQ[d]['kp']) if d > 0 else (I['kp'] <= power * dQ[0]['kp'])
+derivativeTaylorExpansionAne = lambda d: (Iane['kpm'] <= Iane['kpm'] + power * dQane[d]['kpm']) if d > 0 else (Iane['kpm'] <= power * dQane[0]['kpm'])
+
+def derivative(d):
+  derivativeSum = Add()
+  for j in range(3):
+    derivativeSum += db.kDivMT[j][t('kl')] * dQ[d-1]['lq'] * db.star[j]['qp']
+  return derivativeSum
+
+g.addFamily('derivative', parameterSpaceFromRanges(range(1,order)), lambda d: [
+  dQext[d]['kp'] <= derivative(d),
+  dQ[d]['kp'] <= dQext[d]['kq'] * selectEla['qp'] + dQane[d-1]['kqm'] * E['qmp'],
+  dQane[d]['kpm'] <= w['m'] * dQext[d]['kq'] * selectAne['qp'] + dQane[d-1]['kpl'] * W['lm']
+])
+g.addFamily('derivativeTaylorExpansion', simpleParameterSpace(order), lambda d: [
+  derivativeTaylorExpansionEla(d),
+  derivativeTaylorExpansionAne(d)
+])
+g.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(order), derivativeTaylorExpansionEla)
+
+## Other
+DynamicRupture.addKernels(g, Q, Qext, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfExtendedQuantities)
+Plasticity.addKernels(g, Q, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
+point.addKernels(g, Q, ti.oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities)
 
 # Generate code
-Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)
+gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
+g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools)
 

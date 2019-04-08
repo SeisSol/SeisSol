@@ -46,7 +46,8 @@
 #include <limits>
 #include <Initializer/typedefs.hpp>
 #include <Kernels/common.hpp>
-#include <generated_code/sizes.h>
+#include <generated_code/tensor.h>
+#include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
@@ -55,17 +56,23 @@ namespace seissol {
 }
 
 class seissol::kernels::Time {
+  private:
+    kernel::derivative m_krnlPrototype;
+
   public:
     /**
      * Constructor, which initializes the time kernel.
      **/
     Time() {}
 
+    void setGlobalData(GlobalData const* global);
+
     void computeAder( double                      i_timeStepWidth,
-                      GlobalData const*           global,
                       LocalIntegrationData const* local,
-                      real const*                 i_degreesOfFreedom,
-                      real*                       o_timeIntegrated,
+                      real const                  i_degreesOfFreedom[tensor::Q::size()],
+                      real const                  i_degreesOfFreedomAne[tensor::Qane::size()],
+                      real                        o_timeIntegrated[tensor::I::size()],
+                      real                        o_timeIntegratedAne[tensor::Iane::size()],
                       real*                       o_timeDerivatives = NULL );
 
     void flopsAder( unsigned int &o_nonZeroFlops,
@@ -77,28 +84,12 @@ class seissol::kernels::Time {
                           double                                      i_integrationStart,
                           double                                      i_integrationEnd,
                           real const*                                 i_timeDerivatives,
-                          real                                        o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] );
+                          real                                        o_timeIntegrated[tensor::I::size()] );
 
     void computeTaylorExpansion( real         time,
                                  real         expansionPoint,
                                  real const*  timeDerivatives,
-                                 real         timeEvaluated[NUMBER_OF_ALIGNED_DOFS] );
-
-    template<typename real_from, typename real_to>
-    static void convertAlignedCompressedTimeDerivatives( const real_from *i_compressedDerivatives,
-                                                               real_to    o_fullDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] )
-    {
-        for (unsigned order = 0; order < CONVERGENCE_ORDER; ++order) {
-          seissol::kernels::copySubMatrix( &i_compressedDerivatives[order * NUMBER_OF_ALIGNED_DOFS],
-                                           NUMBER_OF_BASIS_FUNCTIONS,
-                                           NUMBER_OF_QUANTITIES,
-                                           NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                                           o_fullDerivatives[order],
-                                           NUMBER_OF_BASIS_FUNCTIONS,
-                                           NUMBER_OF_QUANTITIES,
-                                           NUMBER_OF_BASIS_FUNCTIONS );
-        }
-    }
+                                 real         timeEvaluated[tensor::Q::size()] );
 };
 
 #endif

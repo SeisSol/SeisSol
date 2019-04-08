@@ -101,10 +101,10 @@ I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=alig
 # Kernels
 g = Generator(arch)
 
-## Initialization kernels
-ti = init.addKernels(g, db, Q, order, numberOfQuantities)
+## Initialization
+ti = init.addKernels(g, db, Q, order, numberOfQuantities, numberOfQuantities)
 
-## Main kernels
+## Local
 volumeSum = Q['kp']
 for i in range(3):
   volumeSum += db.kDivM[i][t('kl')] * I['lq'] * db.star[i]['qp']
@@ -115,10 +115,12 @@ localFlux = lambda i: Q['kp'] <= Q['kp'] + db.rDivM[i][t('km')] * db.fMrT[i][t('
 localFluxPrefetch = lambda i: I if i == 0 else (Q if i == 1 else None)
 g.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
+## Neighbour
 neighbourFlux = lambda h,j,i: Q['kp'] <= Q['kp'] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I['lq'] * ti.AminusT['qp']
 neighbourFluxPrefetch = lambda h,j,i: I
 g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
 
+## ADER
 power = Scalar('power')
 derivatives = [dQ0]
 g.add('derivativeTaylorExpansion(0)', I['kp'] <= power * dQ0['kp'])
@@ -133,7 +135,8 @@ for i in range(1,order):
   g.add('derivativeTaylorExpansion({})'.format(i), I['kp'] <= I['kp'] + power * dQ['kp'])
   derivatives.append(dQ)
 
-DynamicRupture.addKernels(g, Q, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
+## Other
+DynamicRupture.addKernels(g, Q, Q, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
 Plasticity.addKernels(g, Q, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
 point.addKernels(g, Q, ti.oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities)
 

@@ -43,7 +43,7 @@
 #define KERNELS_NEIGHBOR_H_
 
 #include <Initializer/typedefs.hpp>
-#include <generated_code/sizes.h>
+#include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
@@ -52,20 +52,29 @@ namespace seissol {
 }
 
 class seissol::kernels::Neighbor {
+  private:
+    kernel::localFluxExt m_lfKrnlPrototype;
+    kernel::neighbourFluxExt m_nfKrnlPrototype;
+    kernel::neighbour m_nKrnlPrototype;
+    kernel::nodalFlux m_drKrnlPrototype;
+
   public:
     Neighbor() {}
+
+    void setGlobalData(GlobalData const* global);
 
     void computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
                                     int const                         i_neighboringIndices[4][2],
                                     CellDRMapping const             (&cellDrMapping)[4],
-                                    GlobalData const*                 global,
                                     NeighboringIntegrationData const* neighbor,
                                     real*                             i_timeIntegrated[4],
                                     real*                             faceNeighbors_prefetch[4],
-                                    real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] );
+                                    real                              io_degreesOfFreedom[ tensor::Q::size() ],
+                                    real                              io_degreesOfFreedomAne[ tensor::Qane::size() ] );
 
     void flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                  const int            i_neighboringIndices[4][2],
+                                 CellDRMapping const (&cellDrMapping)[4],
                                  unsigned int        &o_nonZeroFlops,
                                  unsigned int        &o_hardwareFlops,
                                  long long&           o_drNonZeroFlops,

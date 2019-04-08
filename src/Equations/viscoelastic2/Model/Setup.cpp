@@ -43,7 +43,6 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 
-#include <generated_code/sizes.h>
 #include <generated_code/init.h>
 
 void getTransposedViscoelasticCoefficientMatrix( unsigned        i_dim,

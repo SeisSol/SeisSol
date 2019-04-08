@@ -42,13 +42,13 @@ import numpy as np
 from yateto import *
 from multSim import OptionalDimTensor
 
-def addKernels(g, db, Q, order, numberOfQuantities):
+def addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities):
   numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
 
   ti = Collection()
-  ti.AplusT = Tensor('AplusT', (numberOfQuantities, numberOfQuantities))
-  ti.AminusT = Tensor('AminusT', (numberOfQuantities, numberOfQuantities))
-  T = Tensor('T', (numberOfQuantities, numberOfQuantities))
+  ti.AplusT = Tensor('AplusT', (numberOfQuantities, numberOfExtendedQuantities))
+  ti.AminusT = Tensor('AminusT', (numberOfQuantities, numberOfExtendedQuantities))
+  T = Tensor('T', (numberOfExtendedQuantities, numberOfExtendedQuantities))
   Tinv = Tensor('Tinv', (numberOfQuantities, numberOfQuantities))
   QgodLocal = Tensor('QgodLocal', (numberOfQuantities, numberOfQuantities))
   QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
@@ -65,7 +65,7 @@ def addKernels(g, db, Q, order, numberOfQuantities):
   g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
   if Q.hasOptDim():
-    addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp'] * oneSimToMultSim['s']
+    addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp'] * ti.oneSimToMultSim['s']
     copyQToQFortran = QFortran['kp'] <= Q['kp'] * multSimToFirstSim['s']
   else:
     addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp']

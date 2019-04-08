@@ -50,7 +50,6 @@
 
 #include <generated_code/kernel.h>
 #include <Kernels/common.hpp>
-#include <Kernels/denseMatrixOps.hpp>
 #include <Numerical_aux/Quadrature.h>
 #include <yateto.h>
 
