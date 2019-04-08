@@ -11,7 +11,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
-  logInfo(MPI::mpi.rank())
+  logInfo(mpi.rank())
     << "Print analysis for initial conditions" << initialConditionType
     << " at time " << simulationTime;
   
