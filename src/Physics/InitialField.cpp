@@ -135,7 +135,7 @@ void seissol::physics::PlanarwaveElastic::evaluate(  double time,
   for (int v = 0; v < m_setVar; ++v) {
     const auto omega =  m_lambdaA[m_varField[v]] * m_kVecNorm;
     for (int j = 0; j < 9; ++j) {
-      for (int i = 0; i < points.size(); ++i) {
+      for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += ra(j,m_varField[v]) * m_ampField[v]
                        * std::sin(m_kVec[0]*points[i][0]+m_kVec[1]*points[i][1]+m_kVec[2]*points[i][2] - omega * time);
       }
