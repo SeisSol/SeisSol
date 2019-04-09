@@ -1875,7 +1875,6 @@ CONTAINS
     !-------------------------------------------------------------------------!
 
     USE DGBasis_mod
-    USE COMMON_InitialField_mod
 #ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc
     use f_ftoc_bind_interoperability
@@ -1904,8 +1903,6 @@ CONTAINS
     REAL    :: x(MESH%nVertexMax)                                             ! Element vertices in physical coordinates system
     REAL    :: y(MESH%nVertexMax)                                             ! Element vertices in physical coordinates system
     REAL    :: z(MESH%nVertexMax)                                             ! Element vertices in physical coordinates system
-    REAL    :: iniGP(EQN%nVar)                                                ! Initial state vector at Gausspoint
-    REAL    :: iniGP_Ane(EQN%nAneFuncperMech*EQN%nMechanisms)                 ! Initial anelastic state vector at Gausspoint
     REAL    :: iniGP_Plast(6)                                                 ! Initial stress loading for plastic calculations
     REAL    :: phi                                                            ! Value of the base function at GP      !
     REAL    :: Einv, v                                                        ! Inverse of Young's modulus, Poisson ratio v
@@ -1916,7 +1913,6 @@ CONTAINS
     REAL, POINTER :: MassMatrix(:,:)    =>NULL()
 #ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
-    real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
     real    :: l_plasticParameters(2)
 #endif
@@ -1960,107 +1956,77 @@ CONTAINS
 
 
     logInfo0(*) 'DG initial condition projection... '
+
+    call c_interoperability_projectInitialField()
     !
     iPoly  = DISC%Galerkin%nPoly
     nIntGP = DISC%Galerkin%nIntGP
     nDegFr = DISC%Galerkin%nDegFr
 
-    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, iniGp, iniGp_ane, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix, l_dofsUpdate,l_initialLoading,l_plasticParameters, iniGP_plast)
+    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix,l_initialLoading,l_plasticParameters, iniGP_plast)
     DO iElem = 1,MESH%nElem
-        l_dofsUpdate = 0
         l_initialLoading=0
         l_plasticParameters=0
-
-        x = 0.; y = 0.; z = 0.;
-        eType = MESH%LocalElemType(iElem)
-        SELECT CASE(eType)
-        CASE(4)
-            DO iVert=1,MESH%nVertices_Tet
-                x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-            ENDDO
-            ! Point to the corresponding:
-            ! Integration points
-            intGaussP     => DISC%Galerkin%intGaussP_Tet
-            intGaussW     => DISC%Galerkin%intGaussW_Tet
-            ! Basis func values
-            IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Tet(1:nDegFr,1:nIntGp,iPoly)
-            ! Mass matrix
-            MassMatrix    => DISC%Galerkin%MassMatrix_Tet(1:nDegFr,1:nDegFr,iPoly)
-        CASE(6)
-            DO iVert=1,MESH%nVertices_Hex
-                x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-            ENDDO
-            ! Point to the corresponding:
-            ! Integration points
-            intGaussP     => DISC%Galerkin%intGaussP_Hex
-            intGaussW     => DISC%Galerkin%intGaussW_Hex
-            ! Basis func values
-            IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Hex(1:nDegFr,1:nIntGp,iPoly)
-            ! Mass matrix
-            MassMatrix    => DISC%Galerkin%MassMatrix_Hex(1:nDegFr,1:nDegFr,iPoly)
-        END SELECT
-
-        DO iIntGP = 1,nIntGP
-            xi   = intGaussP(1,iIntGP)
-            eta  = intGaussP(2,iIntGP)
-            zeta = intGaussP(3,iIntGP)
-            SELECT CASE(eType)
-            CASE(4) ! Tetras
-                CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,x,y,z)
-            CASE(6) ! Hexas
-                CALL HexaTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,x,y,z)
-            END SELECT
-            !
-            ! Initial condition
-            !
-            CALL InitialField(iniGP, iniGP_ane, 0., xGP, yGP, zGP, iElem, EQN, IC, SOURCE, IO)
-            !
-            ! Projection onto the basis functions
-            !
-            DO iDegFr = 1, nDegFr
-                phi = IntGPBaseFunc(iDegFr,iIntGP)
-                l_dofsUpdate(iDegFr, 1:EQN%nVar) = l_dofsUpdate(iDegFr, 1:EQN%nVar) + intGaussW(iIntGP)*iniGP(:)*phi
-            ENDDO
-
-            IF(EQN%Anelasticity.EQ.1) THEN
-                ! Projection of anelastic functions
-                DO iDegFr = 1, nDegFr
-                  phi = IntGPBaseFunc(iDegFr,iIntGP)
-                  l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) = l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) + IntGaussW(iIntGP)*iniGP_Ane(:)*phi
-                ENDDO
-            ENDIF
-
-            IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN !average approach for plasticity
-            ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
-              iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
-              DO iDegFr = 1, nDegFr
-                 phi = IntGPBaseFunc(iDegFr,iIntGP)
-                 l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+        
+        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
+          x = 0.; y = 0.; z = 0.;
+          eType = MESH%LocalElemType(iElem)
+          SELECT CASE(eType)
+          CASE(4)
+              DO iVert=1,MESH%nVertices_Tet
+                  x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
+                  y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
+                  z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
               ENDDO
-           ENDIF
+              ! Point to the corresponding:
+              ! Integration points
+              intGaussP     => DISC%Galerkin%intGaussP_Tet
+              intGaussW     => DISC%Galerkin%intGaussW_Tet
+              ! Basis func values
+              IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Tet(1:nDegFr,1:nIntGp,iPoly)
+              ! Mass matrix
+              MassMatrix    => DISC%Galerkin%MassMatrix_Tet(1:nDegFr,1:nDegFr,iPoly)
+          CASE(6)
+              DO iVert=1,MESH%nVertices_Hex
+                  x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
+                  y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
+                  z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
+              ENDDO
+              ! Point to the corresponding:
+              ! Integration points
+              intGaussP     => DISC%Galerkin%intGaussP_Hex
+              intGaussW     => DISC%Galerkin%intGaussW_Hex
+              ! Basis func values
+              IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Hex(1:nDegFr,1:nIntGp,iPoly)
+              ! Mass matrix
+              MassMatrix    => DISC%Galerkin%MassMatrix_Hex(1:nDegFr,1:nDegFr,iPoly)
+          END SELECT
 
-    ENDDO !iIntGP
+          DO iIntGP = 1,nIntGP
+              IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN !average approach for plasticity
+              ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
+                iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
+                DO iDegFr = 1, nDegFr
+                   phi = IntGPBaseFunc(iDegFr,iIntGP)
+                   l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+                ENDDO
+             ENDIF
+          ENDDO !iIntGP
 
-            DO iDegFr = 1, nDegFr
-               l_dofsUpdate(iDegFr, :) = l_dofsUpdate( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-               IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
-                  l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-               ENDIF
-            ENDDO
+          DO iDegFr = 1, nDegFr
+            l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+          ENDDO
 
-            IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 0) THEN !high-order points approach
-            !elementwise assignement of the initial loading
-               l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
-            ENDIF
+          NULLIFY(intGaussP)
+          NULLIFY(intGaussW)
+          NULLIFY(IntGPBaseFunc)
+          NULLIFY(MassMatrix)
+        ENDIF
 
-        ! write the update back
-        call c_interoperability_addToDofs(  i_meshId           = iElem, \
-                                            i_update           = l_dofsUpdate, \
-                                            numberOfQuantities = eqn%nVarTotal )
+        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 0) THEN !high-order points approach
+        !elementwise assignement of the initial loading
+           l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
+        ENDIF
 
 #ifdef USE_PLASTICITY
         ! initialize the element dependent plastic parameters
@@ -2075,14 +2041,6 @@ CONTAINS
         call c_interoperability_setPlasticParameters( i_meshId         = c_loc( iElem), \
                                                    i_plasticParameters = c_loc( l_plasticParameters ) )
 #endif
-
-
-        NULLIFY(intGaussP)
-        NULLIFY(intGaussW)
-        NULLIFY(IntGPBaseFunc)
-        NULLIFY(MassMatrix)
-
-
     ENDDO ! iElem
 
 #ifdef USE_PLASTICITY

@@ -54,6 +54,27 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
   seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, M);
 }
 
+void seissol::model::getPlaneWaveOperator(  Material const& material,
+                                            double n[3],
+                                            real Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+{
+  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> M(Mdata);
+  M.setZero();
+
+  real Adata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  MatrixView AT(Adata, sizeof(Adata)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
+
+  for (unsigned d = 0; d < 3; ++d) {
+    getTransposedElasticCoefficientMatrix(material, d, AT);
+    
+    for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+        M(i,j) += n[i] * AT(j,i);
+      }
+    }
+  }
+}
+
 void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&                        local,
                                                  seissol::model::Material const&                        neighbor,
                                                  enum ::faceType                                        type,

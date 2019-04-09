@@ -117,23 +117,6 @@ namespace seissol {
     }
 
     /**
-     * Adds the unaligned update to degrees of freedom with aligned storage.
-     *
-     * @param i_unalignedUpdate unaligned update.
-     * @param o_alignedDofs aligned degrees of freedom.
-     **/
-    template<typename real_from, typename real_to>
-    void addToAlignedDofs(  real_from const*  i_unalignedUpdate,
-                            real_to*          o_alignedDofs,
-                            unsigned          numberOfQuantities ) {
-      for( unsigned int l_quantity = 0; l_quantity < numberOfQuantities; l_quantity++ ) {
-        for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
-          o_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction] += i_unalignedUpdate[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction];
-        }
-      }
-    }
-
-    /**
      * Copies a submatrix of A (sizes of B) to B.
      * If B doesn't fit in A zeros are set.
      *

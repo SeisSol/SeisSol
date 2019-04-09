@@ -73,6 +73,8 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   for (unsigned flux = 0; flux < 3; ++flux) {
     globalData.neighbourFluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[18 + flux] ];
   }
+  globalData.evalAtQPMatrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[21] ];
+  globalData.projectQPMatrix = &globalMatrixMem[ seissol::model::globalMatrixOffsets[22] ];
 
   // @TODO Integrate this step into the code generator
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {

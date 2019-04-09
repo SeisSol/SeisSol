@@ -46,10 +46,12 @@
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
+#include <Initializer/InitialFieldProjection.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
+#include <Physics/InitialField.h>
 #include <ResultWriter/common.hpp>
 
 seissol::Interoperability e_interoperability;
@@ -217,10 +219,8 @@ extern "C" {
 			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend);
   }
 
-  void c_interoperability_addToDofs( int      i_meshId,
-                                     double*  i_update,
-                                     int      numberOfQuantities ) {
-    e_interoperability.addToDofs( i_meshId, i_update, numberOfQuantities );
+  void c_interoperability_projectInitialField() {
+    e_interoperability.projectInitialField();
   }
 
   void c_interoperability_getFaceDerInt( int    i_meshId,
@@ -718,10 +718,22 @@ void seissol::Interoperability::copyDynamicRuptureState()
 	f_interoperability_copyDynamicRuptureState(m_domain);
 }
 
-void seissol::Interoperability::addToDofs( int      i_meshId,
-                                           double*  i_update,
-                                           int      numberOfQuantities ) {
-  seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numberOfQuantities) );
+void seissol::Interoperability::projectInitialField()
+{
+  physics::InitialField* iniField = nullptr;
+  if (m_initialConditionType == "Planarwave") {
+    iniField = new physics::PlanarwaveElastic();
+  } else if (m_initialConditionType == "Zero") {
+    iniField = new physics::ZeroField();
+  } else {
+    throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
+  }
+
+  initializers::projectInitialField(  *iniField,
+                                      *m_globalData,
+                                      seissol::SeisSol::main.meshReader(),
+                                      *m_lts,
+                                      m_ltsLut);
 }
 
 void seissol::Interoperability::getFaceDerInt( int    i_meshId,

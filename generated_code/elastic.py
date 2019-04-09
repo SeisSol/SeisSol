@@ -60,6 +60,7 @@ architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
 libxsmmGenerator = cmdLineArgs.generator
 order = int(cmdLineArgs.order)
 numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
+numberOf3DQuadraturePoints = (order+1)**3
 numberOfQuantities = 9
 
 clones = {
@@ -67,6 +68,12 @@ clones = {
 }
 
 db = Tools.parseMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOfBasisFunctions), clones)
+
+clonesQP = {
+  'v': [ 'evalAtQP' ],
+  'vInv': [ 'projectQP' ]
+}
+db.update( Tools.parseMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP))
 
 db.insert(DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities))
 db.insert(DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities))
@@ -80,19 +87,23 @@ Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
 # Set rules for the global matrix memory order
 stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
+vMatrixOrder = { 'v': 0, 'vInv': 1 }
 globalMatrixIdRules = [
   (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: stiffnessOrder[x[0]]),
   (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 3 + stiffnessOrder[x[0]]),  
   (r'^r(\d{1})DivM$', lambda x: 6 + int(x[0])-1),
   (r'^rT(\d{1})$', lambda x: 10 + int(x[0])-1),
   (r'^fMrT(\d{1})$', lambda x: 14 + int(x[0])-1),
-  (r'^fP(\d{1})$', lambda x: 18 + (int(x[0])-1))
+  (r'^fP(\d{1})$', lambda x: 18 + (int(x[0])-1)),
+  (r'^evalAtQP$', lambda x: 21),
+  (r'^projectQP$', lambda x: 22)
 ]
 DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
 
 # Kernels
 kernels = list()
 
+db.insert(DB.MatrixInfo('dofsQP', numberOf3DQuadraturePoints, numberOfQuantities))
 db.insert(DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities))
 db.insert(DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities))
 
@@ -128,6 +139,9 @@ for i in range(1, order):
   kernels.append(Kernel.Prototype('derivative[{}]'.format(i), derivative, beta=0))
   db.insert(derivative.flat(newD))
   db[newD].fitBlocksToSparsityPattern()
+
+projectQP = db['projectQP'] * db['dofsQP']
+kernels.append(Kernel.Prototype('projectQP', projectQP, beta=0))
   
 DynamicRupture.addKernels(db, kernels, 'timeDerivative0')
 Plasticity.addKernels(db, kernels)

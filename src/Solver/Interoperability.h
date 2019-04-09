@@ -297,14 +297,9 @@ class seissol::Interoperability {
    void copyDynamicRuptureState();
 
    /**
-    * Adds the specified update to dofs.
-    *
-    * @param i_mesh mesh id of the cell, Fortran notation is assumed - starting at 1 instead of 0.
-    * @param i_update update which is applied.
+    * Project initial field on degrees of freedom.
     **/
-   void addToDofs( int      i_meshId,
-                   double*  i_update,
-                   int      numberOfQuantities );
+   void projectInitialField();
 
    /**
     * Gets the time derivatives and integrated DOFs of two face neighbors.

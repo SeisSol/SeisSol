@@ -5,7 +5,7 @@
 
 #include "SeisSol.h"
 #include "Geometry/MeshReader.h"
-#include "Physics/InitialField.cpp"
+#include <Physics/InitialField.h>
 
 void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
@@ -18,6 +18,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   if (initialConditionType != "Planarwave") {
     return;
   }
+  physics::PlanarwaveElastic iniField;
 
   auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
   auto* ltsLut = e_interoperability.getLtsLut();
@@ -53,6 +54,12 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 				    curQuadraturePoints[2]));
   }
 
+  std::vector<std::array<double, 3>> quadraturePointsXyz;
+  quadraturePointsXyz.resize(numQuadPoints);
+
+  real analyticalSolutionData[numQuadPoints * NUMBER_OF_QUANTITIES] __attribute__((aligned(ALIGNMENT)));
+  MatrixView analyticalSolution(analyticalSolutionData, sizeof(analyticalSolutionData)/sizeof(real), &colMjrIndex<numQuadPoints>);
+
   // Note: We iterate over mesh cells by id to avoid
   // cells that are duplicates.
   for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
@@ -62,22 +69,17 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
     // Compute global position of quadrature points.
     double const* elementCoords[4];
-    double quadraturePointsXyz[numQuadPoints][3];
     for (unsigned v = 0; v < 4; ++v) {
       elementCoords[v] = vertices[elements[meshId].vertices[ v ] ].coords;
     }
     for (unsigned int i = 0; i < numQuadPoints; ++i) {
-      seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i]);
+      seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
     }
 
-    for (size_t i = 0; i < numQuadPoints; ++i) {
-      // Evaluate analytical solution at current quad. node
-      double analyticalSolution[NUMBER_OF_QUANTITIES];
-      const auto x = quadraturePointsXyz[i][0];
-      const auto y = quadraturePointsXyz[i][1];
-      const auto z = quadraturePointsXyz[i][2];
-      initial_field_planarwave(simulationTime, x, y, z, analyticalSolution);
+    // Evaluate analytical solution at quad. nodes
+    iniField.evaluate(simulationTime, quadraturePointsXyz, analyticalSolution);
 
+    for (size_t i = 0; i < numQuadPoints; ++i) {
       const auto curWeight = jacobiDet * quadratureWeights[i];
       for (size_t v = 0; v < NUMBER_OF_QUANTITIES; ++v) {
 	// Evaluate discrete solution at quad. point
@@ -85,7 +87,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 	auto const *coeffsBegin = &ltsLut->lookup(handle, meshId)[v*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
 	const auto value = basisVec[i].evalWithCoeffs(coeffsBegin);
 
-	const auto curError = std::abs(value - analyticalSolution[v]);
+	const auto curError = std::abs(value - analyticalSolution(i,v));
 	errL1Local[v] += curWeight * curError;
 	errL2Local[v] += curWeight * curError * curError;
 

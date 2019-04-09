@@ -56,6 +56,13 @@ namespace seissol {
                                          real            o_M[seissol::model::AstarT::reals] );
 
     /**
+     * Returns n_x A + n_y B + n_y C - i E
+     */
+    void getPlaneWaveOperator(  Material const& material,
+                                double n[3],
+                                real Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
+
+    /**
      * Solves the Riemann problem at an interface. Note that this routine
      * returns the transposed flux solvers.
      **/

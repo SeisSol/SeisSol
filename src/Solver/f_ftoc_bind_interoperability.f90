@@ -277,12 +277,9 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
     end subroutine
 
-    subroutine c_interoperability_addToDofs( i_meshId, i_update, numberOfQuantities ) bind( C, name='c_interoperability_addToDofs' )
+    subroutine c_interoperability_projectInitialField() bind( C, name='c_interoperability_projectInitialField' )
       use iso_c_binding
       implicit none
-      integer(kind=c_int), value                    :: i_meshId
-      real(kind=c_double), dimension(*), intent(in) :: i_update
-      integer(kind=c_int), value                    :: numberOfQuantities
     end subroutine
 
     subroutine c_interoperability_getFaceDerInt( i_meshId, i_faceId, i_timeStepWidth, o_timeDerivativesCell, o_timeDerivativesNeighbor, o_timeIntegratedCell, o_timeIntegratedNeighbor ) bind( C, name='c_interoperability_getFaceDerInt' )
