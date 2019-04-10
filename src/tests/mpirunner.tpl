@@ -47,8 +47,10 @@ int main(int argc, char** argv)
 #ifdef USE_MPI
     seissol::MPI::mpi.init(argc, argv);
 #endif
-    
-    int status = CxxTest::ErrorPrinter().run();
+
+    CxxTest::ErrorPrinter tmp;
+    CxxTest::RealWorldDescription::_worldName = "cxxtest";
+    int status = CxxTest::Main<CxxTest::ErrorPrinter>(tmp, argc, argv);
 
 #ifdef USE_MPI
     seissol::MPI::mpi.finalize();
