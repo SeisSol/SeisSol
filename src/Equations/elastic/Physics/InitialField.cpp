@@ -1,10 +1,10 @@
 #include <cmath>
 #include <array>
 
-#include "InitialField.h"
-#include "Numerical_aux/MatrixView.h"
+#include <Physics/InitialField.h>
+#include <Numerical_aux/MatrixView.h>
 
-seissol::physics::PlanarwaveElastic::PlanarwaveElastic()
+seissol::physics::Planarwave::Planarwave()
   : m_setVar(2),
     m_varField{1,8},
     m_ampField{1.0, 1.0},
@@ -18,21 +18,24 @@ seissol::physics::PlanarwaveElastic::PlanarwaveElastic()
   const auto cp = std::sqrt((lambda+2*mu)/(rho0));
   const auto cs = std::sqrt((mu)/(rho0));
 
-  m_lambdaA = std::array<double, 9>{
-    -cp, -cs, -cs, 0, 0, 0, cs, cs, cp
-  };
-  
-  m_kVecNorm = 0.0;
+  double kVecNorm = 0.0;
   for (auto k: m_kVec) {
-    m_kVecNorm += k * k;
+    kVecNorm += k * k;
   }
-  m_kVecNorm = std::sqrt(m_kVecNorm);
+  kVecNorm = std::sqrt(kVecNorm);
+
+  double omegaP = cp * kVecNorm;
+  double omegaS = cs * kVecNorm;
+
+  m_lambdaA = std::array<std::complex<real>, 9>{
+    -omegaP, -omegaS, -omegaS, 0, 0, 0, omegaS, omegaS, omegaP
+  };
 
   const auto n = std::array<real, 3>{0.577350269189626,
 					 0.577350269189626,
 					 0.577350269189626};
 
-  auto ra = DenseMatrixView<9,9>(m_eigenvectors);
+  auto ra = DenseMatrixView<9,9,std::complex<real>>(m_eigenvectors);
 
   ra(0,0) = rho0*(-2*n[1]*n[1]*mu-2*n[2]*n[2]*mu+lambda+2*mu);
   ra(0,1) = -2*mu*n[1]*rho0*n[0]*n[0]*n[2];
@@ -125,19 +128,18 @@ seissol::physics::PlanarwaveElastic::PlanarwaveElastic()
   ra(8,8) = std::sqrt(rho0*(lambda+2*mu))*n[2];
 }
 
-void seissol::physics::PlanarwaveElastic::evaluate(  double time,
-                                                    std::vector<std::array<double, 3>> const& points,
-                                                    MatrixView dofsQP ) const
+void seissol::physics::Planarwave::evaluate(  double time,
+                                              std::vector<std::array<double, 3>> const& points,
+                                              MatrixView dofsQP ) const
 {
   dofsQP.setZero();
 
-  auto ra = DenseMatrixView<9,9>(const_cast<real*>(m_eigenvectors));
+  auto ra = DenseMatrixView<9,9,std::complex<real>>(const_cast<std::complex<real>*>(m_eigenvectors));
   for (int v = 0; v < m_setVar; ++v) {
-    const auto omega =  m_lambdaA[m_varField[v]] * m_kVecNorm;
     for (int j = 0; j < 9; ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
-        dofsQP(i,j) += ra(j,m_varField[v]) * m_ampField[v]
-                       * std::sin(m_kVec[0]*points[i][0]+m_kVec[1]*points[i][1]+m_kVec[2]*points[i][2] - omega * time);
+        dofsQP(i,j) += ra(j,m_varField[v]).real() * m_ampField[v].real()
+                       * std::sin(m_kVec[0]*points[i][0]+m_kVec[1]*points[i][1]+m_kVec[2]*points[i][2] - m_lambdaA[m_varField[v]].real() * time);
       }
     }
   }

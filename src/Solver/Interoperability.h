@@ -175,6 +175,13 @@ class seissol::Interoperability {
                           double* plastCo,
                           double* iniStress );
 
+    void fitAttenuation(  double rho,
+                          double mu,
+                          double lambda,
+                          double Qp,
+                          double Qs,
+                          seissol::model::Material& material );
+
     void addFaultParameter( std::string const& name,
                            double* memory) {
       m_faultParameters[name] = memory;

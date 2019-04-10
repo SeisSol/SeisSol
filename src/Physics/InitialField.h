@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <array>
+#include <complex>
 #include <Numerical_aux/MatrixView.h>
 
 namespace seissol {
@@ -24,21 +25,20 @@ namespace seissol {
       }
     };
 
-    class PlanarwaveElastic : public InitialField {
+    class Planarwave : public InitialField {
     public:
-      PlanarwaveElastic();
+      Planarwave();
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
                       MatrixView dofsQP ) const;
     private:
-      real m_eigenvectors[9*9];
-      int m_setVar;
-      std::array<int, 2> m_varField;
-      std::array<double, 2> m_ampField;
-      std::array<double, 3> m_kVec;
-      std::array<double, 9> m_lambdaA;
-      double m_kVecNorm;
+      std::complex<real> m_eigenvectors[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+      int const                                             m_setVar;
+      std::vector<int>                                      m_varField;
+      std::vector<std::complex<real>>                       m_ampField;
+      std::array<double, 3>                                 m_kVec;
+      std::array<std::complex<real>, NUMBER_OF_QUANTITIES>  m_lambdaA;
     };
   }
 }

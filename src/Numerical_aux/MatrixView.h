@@ -83,10 +83,10 @@ public:
  * however I would not trust it too much and I would not recommend
  * using this class in highly performance-critical parts of the code.
  */
-template<unsigned M, unsigned N>
+template<unsigned M, unsigned N, typename T = real>
 class DenseMatrixView {
 public:
-  explicit DenseMatrixView(real* data, unsigned stride = M)
+  explicit DenseMatrixView(T* data, unsigned stride = M)
     : data(data),
       stride(stride) {}
   
@@ -106,7 +106,7 @@ public:
     return N;
   }
 
-  real& operator()(unsigned i, unsigned j) {
+  T& operator()(unsigned i, unsigned j) {
     return data[j * stride + i];
   }
   
@@ -117,7 +117,7 @@ public:
     return DenseMatrixView<Mb, Nb>(&data[originJ * stride + originI], stride);
   }
   
-  real* data;
+  T* data;
 
 private:
   unsigned const stride;

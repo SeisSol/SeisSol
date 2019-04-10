@@ -46,30 +46,51 @@
 #include <generated_code/sizes.h>
 #include <generated_code/init.h>
 
-void getTransposedViscoelasticCoefficientMatrix( unsigned        i_dim,
+void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
+                                                 unsigned        i_dim,
+                                                 unsigned        mech,
                                                  MatrixView      o_M )
 {
-  unsigned const col = 9;
+  unsigned col = 9 + mech * 6;
   switch (i_dim)
   {
     case 0:
-      o_M(6, col)     = -1.0;
-      o_M(7, col + 3) = -0.5;
-      o_M(8, col + 5) = -0.5;
+      o_M(6, col)     = -i_omega;
+      o_M(7, col + 3) = -0.5 * i_omega;
+      o_M(8, col + 5) = -0.5 * i_omega;
       break;
       
     case 1:
-      o_M(7, col + 1) = -1.0;
-      o_M(6, col + 3) = -0.5;
-      o_M(8, col + 4) = -0.5;
+      o_M(7, col + 1) = -i_omega;
+      o_M(6, col + 3) = -0.5 * i_omega;
+      o_M(8, col + 4) = -0.5 * i_omega;
       break;
       
     case 2:
-      o_M(8, col + 2) = -1.0;
-      o_M(7, col + 4) = -0.5;
-      o_M(6, col + 5) = -0.5;
+      o_M(8, col + 2) = -i_omega;
+      o_M(7, col + 4) = -0.5 * i_omega;
+      o_M(6, col + 5) = -0.5 * i_omega;
       break;
   }
+}
+
+void getTransposedSourceCoefficientMatrix(  seissol::model::Material const& material,
+                                            unsigned mech,
+                                            MatrixView ET )
+{
+  real const* theta = material.theta[mech];
+  ET(0, 0) = theta[0];
+  ET(1, 0) = theta[1];
+  ET(2, 0) = theta[1];
+  ET(0, 1) = theta[1];
+  ET(1, 1) = theta[0];
+  ET(2, 1) = theta[1];
+  ET(0, 2) = theta[1];
+  ET(1, 2) = theta[1];
+  ET(2, 2) = theta[0];
+  ET(3, 3) = theta[2];
+  ET(4, 4) = theta[2];
+  ET(5, 5) = theta[2];
 }
 
 void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
@@ -81,7 +102,57 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
 
   seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, M);
   
-  getTransposedViscoelasticCoefficientMatrix( i_dim, M );
+  getTransposedViscoelasticCoefficientMatrix( 1.0, i_dim, 0, M );
+}
+
+void seissol::model::getPlaneWaveOperator(  Material const& material,
+                                            double const n[3],
+                                            std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+{
+  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, std::complex<real>> M(Mdata);
+  M.setZero();
+
+  real data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  MatrixView Coeff(data, sizeof(data)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
+
+  for (unsigned d = 0; d < 3; ++d) {
+    Coeff.setZero();
+    getTransposedElasticCoefficientMatrix(material, d, Coeff);
+    for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+      getTransposedViscoelasticCoefficientMatrix( material.omega[mech],
+                                                  d,
+                                                  mech,
+                                                  Coeff );
+    }
+
+    for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+        M(i,j) += n[d] * Coeff(j,i);
+      }
+    }
+  }
+
+  Coeff.setZero();
+  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+    unsigned offset = 9 + mech * 6;
+    MatrixView ETblock(data + offset, sizeof(data)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
+    getTransposedSourceCoefficientMatrix(material, mech, ETblock);
+  }
+
+  // E' = diag(-omega_1 I, ..., -omega_L I)
+  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+    unsigned offset = 9 + 6*mech;
+    MatrixView ETblock(data + offset + offset * NUMBER_OF_QUANTITIES, sizeof(data)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
+    for (unsigned i = 0; i < 6; ++i) {
+      ETblock(i, i) = -material.omega[mech];
+    }
+  }
+
+  for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+      M(i,j) -= std::complex<real>(0.0, Coeff(j,i));
+    }
+  }
 }
 
 void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&                        local,
@@ -114,7 +185,7 @@ void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&
     }
   }
   
-  getTransposedViscoelasticCoefficientMatrix(0, At);
+  getTransposedViscoelasticCoefficientMatrix(1.0, 0, 0, At);
   for (unsigned j = 0; j < 6; ++j) {
     unsigned col =  9 + j;
     for (unsigned i = 0; i < 9; ++i) {
@@ -173,19 +244,7 @@ void seissol::model::initializeSpecificLocalData( seissol::model::Material const
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     MatrixView ET(&localData->ET[mech * seissol::model::ET::reals], seissol::model::ET::reals, seissol::model::ET::index);
     ET.setZero();
-    real const* theta = material.theta[mech];
-    ET(0, 0) = theta[0];
-    ET(1, 0) = theta[1];
-    ET(2, 0) = theta[1];
-    ET(0, 1) = theta[1];
-    ET(1, 1) = theta[0];
-    ET(2, 1) = theta[1];  
-    ET(0, 2) = theta[1];
-    ET(1, 2) = theta[1];
-    ET(2, 2) = theta[0];  
-    ET(3, 3) = theta[2];
-    ET(4, 4) = theta[2];
-    ET(5, 5) = theta[2];
+    getTransposedSourceCoefficientMatrix(material, mech, ET);
   }
   
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {

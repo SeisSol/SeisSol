@@ -55,16 +55,17 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
 }
 
 void seissol::model::getPlaneWaveOperator(  Material const& material,
-                                            double n[3],
-                                            real Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+                                            double const n[3],
+                                            std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
 {
-  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> M(Mdata);
+  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, std::complex<real>> M(Mdata);
   M.setZero();
 
   real Adata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
   MatrixView AT(Adata, sizeof(Adata)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
 
   for (unsigned d = 0; d < 3; ++d) {
+    AT.setZero();
     getTransposedElasticCoefficientMatrix(material, d, AT);
     
     for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {

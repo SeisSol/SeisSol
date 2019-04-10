@@ -18,7 +18,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   if (initialConditionType != "Planarwave") {
     return;
   }
-  physics::PlanarwaveElastic iniField;
+  physics::Planarwave iniField;
 
   auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
   auto* ltsLut = e_interoperability.getLtsLut();

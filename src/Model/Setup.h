@@ -40,6 +40,8 @@
 #ifndef MODEL_SETUP_H_
 #define MODEL_SETUP_H_
 
+#include <complex>
+
 #include <Initializer/typedefs.hpp>
 #include <Model/datastructures.hpp>
 #include <Geometry/MeshDefinition.h>
@@ -59,8 +61,8 @@ namespace seissol {
      * Returns n_x A + n_y B + n_y C - i E
      */
     void getPlaneWaveOperator(  Material const& material,
-                                double n[3],
-                                real Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
+                                double const n[3],
+                                std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
 
     /**
      * Solves the Riemann problem at an interface. Note that this routine

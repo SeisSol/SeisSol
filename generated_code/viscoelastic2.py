@@ -62,6 +62,7 @@ libxsmmGenerator = cmdLineArgs.generator
 order = int(cmdLineArgs.order)
 numberOfMechanisms = int(cmdLineArgs.numberOfMechanisms)
 numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
+numberOf3DQuadraturePoints = (order+1)**3
 numberOfElasticQuantities = 9
 numberOfMechanismQuantities = 6
 numberOfReducedQuantities = numberOfElasticQuantities + numberOfMechanismQuantities
@@ -74,6 +75,12 @@ clones = {
 # Load matrices
 db = Tools.parseMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOfBasisFunctions), clones)
 db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArgs.matricesDir), clones))
+
+clonesQP = {
+  'v': [ 'evalAtQP' ],
+  'vInv': [ 'projectQP' ]
+}
+db.update( Tools.parseMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP))
 
 # Determine sparsity patterns that depend on the number of mechanisms
 riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfReducedQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfReducedQuantities-9, numberOfReducedQuantities), dtype=np.float64)]])
@@ -89,19 +96,23 @@ Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
 # Set rules for the global matrix memory order
 stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
+vMatrixOrder = { 'v': 0, 'vInv': 1 }
 globalMatrixIdRules = [
   (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: stiffnessOrder[x[0]]),
   (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 3 + stiffnessOrder[x[0]]),  
   (r'^r(\d{1})DivM$', lambda x: 6 + int(x[0])-1),
   (r'^rT(\d{1})$', lambda x: 10 + int(x[0])-1),
   (r'^fMrT(\d{1})$', lambda x: 14 + int(x[0])-1),
-  (r'^fP(\d{1})$', lambda x: 18 + (int(x[0])-1))
+  (r'^fP(\d{1})$', lambda x: 18 + (int(x[0])-1)),
+  (r'^evalAtQP$', lambda x: 21),
+  (r'^projectQP$', lambda x: 22)
 ]
 DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
 
 # Kernels
 kernels = list()
 
+db.insert(DB.MatrixInfo('dofsQP', numberOf3DQuadraturePoints, numberOfQuantities))
 db.insert(DB.MatrixInfo('reducedTimeIntegratedDofs', numberOfBasisFunctions, numberOfReducedQuantities))
 db.insert(DB.MatrixInfo('reducedDofs', numberOfBasisFunctions, numberOfReducedQuantities))
 db.insert(DB.MatrixInfo('mechanism', numberOfBasisFunctions, numberOfMechanismQuantities))
@@ -136,6 +147,9 @@ kernels.append(Kernel.Prototype('derivative', derivative, beta=0))
 
 source = db['mechanism'] * db['ET']
 kernels.append(Kernel.Prototype('source', source))
+
+projectQP = db['projectQP'] * db['dofsQP']
+kernels.append(Kernel.Prototype('projectQP', projectQP, beta=0))
 
 DynamicRupture.addKernels(db, kernels, 'timeDerivative0_elastic')
 Plasticity.addKernels(db, kernels)

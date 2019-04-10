@@ -47,6 +47,9 @@ MODULE ini_MODEL_mod
   IMPLICIT NONE
   PRIVATE
   !----------------------------------------------------------------------------
+  interface fitAttenuation
+    module procedure fitAttenuation
+  end interface
   INTERFACE ini_MODEL
      MODULE PROCEDURE ini_MODEL
   END INTERFACE
@@ -54,10 +57,33 @@ MODULE ini_MODEL_mod
      MODULE PROCEDURE ini_ATTENUATION
   END INTERFACE
   !----------------------------------------------------------------------------
-  PUBLIC  :: ini_MODEL,                &
+  PUBLIC  :: fitAttenuation,           &
+             ini_MODEL,                &
              ini_ATTENUATION
 CONTAINS
+  subroutine fitAttenuation(material, materialFitted, EQN)
+    implicit none
+    !--------------------------------------------------------------------------
+    TYPE (tEquations)   :: EQN
+    real                :: material(EQN%nAneMaterialVar)
+    real                :: materialFitted(EQN%nBackgroundVar)
+    !--------------------------------------------------------------------------
+    real                :: Material_INF(2)
+    real                :: Theta(EQN%nMechanisms,3)
+    real                :: w_freq(EQN%nMechanisms)
+    integer             :: iMech
+    !--------------------------------------------------------------------------
+    intent(in)          :: material, EQN
+    intent(out)         :: materialFitted
 
+    call ini_ATTENUATION(Theta, w_freq, Material_INF, material, EQN)
+    materialFitted(1) = material(1)
+    materialFitted(2:3) = Material_INF(:)
+    do iMech=1, EQN%nMechanisms
+      materialFitted(4+4*(iMech-1)) = w_freq(iMech)
+      materialFitted(4+4*(iMech-1)+1:4+4*(iMech-1)+3) = Theta(iMech,:)
+    end do
+  end subroutine
 
   SUBROUTINE ini_MODEL(MaterialVal,EQN,MESH,IO,DISC,BND)
     !--------------------------------------------------------------------------
@@ -79,11 +105,9 @@ CONTAINS
     TYPE (tBoundary)                :: BND
     REAL                            :: MaterialVal(MESH%nElem,EQN%nBackgroundVar)
     !--------------------------------------------------------------------------
-    integer                         :: iElem, iMech
-    real                            :: MaterialTmp(EQN%nAneMaterialVar)
-    real                            :: Material_INF(2)
-    real                            :: Theta(EQN%nMechanisms,3)
-    real                            :: w_freq(EQN%nMechanisms)
+    integer                         :: iElem
+    real                            :: material(EQN%nAneMaterialVar)
+    real                            :: materialFitted(EQN%nBackgroundVar)
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: MESH
     INTENT(OUT)                     :: MaterialVal
@@ -108,13 +132,9 @@ CONTAINS
     
     if (EQN%Anelasticity == 1) then
       do iElem=1, MESH%nElem
-        MaterialTmp(:) = MaterialVal(iElem,1:EQN%nAneMaterialVar)
-        call ini_ATTENUATION(Theta, w_freq, Material_INF, MaterialTmp, EQN)
-        MaterialVal(iElem,2:3) = Material_INF(:)
-        do iMech=1, EQN%nMechanisms
-          MaterialVal(iElem,4+4*(iMech-1)) = w_freq(iMech)
-          MaterialVal(iElem,4+4*(iMech-1)+1:4+4*(iMech-1)+3) = Theta(iMech,:)
-        end do
+        material(:) = MaterialVal(iElem,1:EQN%nAneMaterialVar)
+        call fitAttenuation(material, materialFitted, EQN)
+        MaterialVal(iElem,:) = materialFitted(:)
       end do
     end if
 

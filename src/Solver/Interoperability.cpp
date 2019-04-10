@@ -310,6 +310,14 @@ extern "C" {
                                                                double   i_z,
                                                                int      i_elem,
                                                                double*  o_mInvJInvPhisAtSources );
+
+  extern void f_interoperability_fitAttenuation(  void*  i_domain,
+                                                  double  rho,
+                                                  double  mu,
+                                                  double  lambda,
+                                                  double  Qp,
+                                                  double  Qs,
+                                                  double* material );
 }
 
 /*
@@ -487,6 +495,19 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   
   seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
   parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+}
+
+void seissol::Interoperability::fitAttenuation( double rho,
+                                                double mu,
+                                                double lambda,
+                                                double Qp,
+                                                double Qs,
+                                                seissol::model::Material& material )
+{
+  constexpr size_t numMaterialVals = 3 + 4*NUMBER_OF_RELAXATION_MECHANISMS;
+  double materialFortran[numMaterialVals];
+  f_interoperability_fitAttenuation(m_domain, rho, mu, lambda, Qp, Qs, materialFortran);
+  seissol::model::setMaterial(materialFortran, numMaterialVals, &material);
 }
 
 void seissol::Interoperability::initializeFault( char*   modelFileName,
@@ -722,7 +743,7 @@ void seissol::Interoperability::projectInitialField()
 {
   physics::InitialField* iniField = nullptr;
   if (m_initialConditionType == "Planarwave") {
-    iniField = new physics::PlanarwaveElastic();
+    iniField = new physics::Planarwave();
   } else if (m_initialConditionType == "Zero") {
     iniField = new physics::ZeroField();
   } else {
