@@ -2,22 +2,22 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2019, SeisSol Group
  * All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- *
+ * 
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- *
+ * 
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -35,28 +35,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- */
+ **/
 
-#ifdef USE_MPI
-#include "Parallel/MPI.h"
-#endif
-#include <cxxtest/ErrorPrinter.h>
+#ifndef INITIALIZER_INITIALFIELDPROJECTION_H_
+#define INITIALIZER_INITIALFIELDPROJECTION_H_
 
-int main(int argc, char** argv)
-{
-#ifdef USE_MPI
-    seissol::MPI::mpi.init(argc, argv);
-#endif
+#include <Geometry/MeshReader.h>
+#include <Initializer/typedefs.hpp>
+#include <Initializer/LTS.h>
+#include <Initializer/tree/Lut.hpp>
+#include <Physics/InitialField.h>
 
-    CxxTest::ErrorPrinter tmp;
-    CxxTest::RealWorldDescription::_worldName = "cxxtest";
-    int status = CxxTest::Main<CxxTest::ErrorPrinter>(tmp, argc, argv);
-
-#ifdef USE_MPI
-    seissol::MPI::mpi.finalize();
-#endif
-    
-    return status;
+namespace seissol {
+  namespace initializers {
+    void projectInitialField( physics::InitialField const&  iniField,
+                              GlobalData const&             globalData,
+                              MeshReader const&             meshReader,                                                    
+                              LTS const&                    lts,
+                              Lut const&                    ltsLut );
+  }
 }
 
-<CxxTest world>
+#endif

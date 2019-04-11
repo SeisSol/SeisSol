@@ -333,7 +333,13 @@ struct GlobalData {
    *    [..]
    *    15: \f$ N^{-,4,3} \f$
    **/ 
+
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+  //! Modal basis to quadrature points
+  real* evalAtQPMatrix;
+
+  //! Project function evaluated at quadrature points to modal basis
+  real* projectQPMatrix;
   
   //! Switch to nodal for plasticity
   real* vandermondeMatrix;

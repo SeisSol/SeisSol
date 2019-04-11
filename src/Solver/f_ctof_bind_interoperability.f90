@@ -382,4 +382,26 @@ module f_ctof_bind_interoperability
         l_mInvJInvPhisAtSources(l_dof) = l_mInvJInvPhisAtSources(l_dof) / ( 6.0d0 * l_domain%MESH%ELEM%Volume(l_elem) * l_domain%DISC%Galerkin%MassMatrix_Tet(l_dof, l_dof, l_domain%DISC%Galerkin%nPoly) )
       end do
     end subroutine
+
+    subroutine f_interoperability_fitAttenuation( domain, rho, mu, lambda, Qp, Qs, materialFitted) bind( c, name='f_interoperability_fitAttenuation')
+      use iso_c_binding
+      use TypesDef
+      use ini_MODEL_mod
+
+      type(c_ptr), value                     :: domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+
+      real(kind=c_double), value             :: rho, mu, lambda, Qp, Qs
+
+      type(c_ptr), value                     :: materialFitted
+      real*8, pointer                        :: l_materialFitted(:)
+
+      real                                   :: material(5)
+
+      call c_f_pointer( domain,                   l_domain                                         )
+      call c_f_pointer( materialFitted,           l_materialFitted,  [l_domain%EQN%nBackgroundVar] )
+
+      material(:) = (/ rho, mu, lambda, Qp, Qs /)
+      call fitAttenuation(material, l_materialFitted, l_domain%EQN)
+    end subroutine
 end module

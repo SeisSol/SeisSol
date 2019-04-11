@@ -54,6 +54,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface 
+    subroutine c_interoperability_setInitialConditionType( type ) bind( C, name='c_interoperability_setInitialConditionType' )
+      use iso_c_binding, only: c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: type
+    end subroutine
+  end interface
+
+
   interface c_interoperability_setTimeStepWidth
     subroutine c_interoperability_setTimeStepWidth( i_meshId, i_timeStepWidth ) bind( C, name='c_interoperability_setTimeStepWidth' )
       use iso_c_binding
@@ -268,12 +277,9 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
     end subroutine
 
-    subroutine c_interoperability_addToDofs( i_meshId, i_update, numUpdateEntries ) bind( C, name='c_interoperability_addToDofs' )
+    subroutine c_interoperability_projectInitialField() bind( C, name='c_interoperability_projectInitialField' )
       use iso_c_binding
       implicit none
-      integer(kind=c_int), value                    :: i_meshId
-      real(kind=c_double), dimension(*), intent(in) :: i_update
-      integer(kind=c_int), value                    :: numUpdateEntries
     end subroutine
 
     subroutine c_interoperability_getDofs( i_meshId, o_dofs ) bind( C, name='c_interoperability_getDofs' )

@@ -64,6 +64,10 @@ class seissol::Interoperability {
     //! time kernel
     seissol::kernels::Time m_timeKernel;
 
+
+    // Type of the initial condition.
+    std::string m_initialConditionType;
+    
     /* Brain dump of SeisSol's Fortran parts:
      * Raw fotran-pointer to cope with limited modularity of the
      * source, receiver and dynamic rupture functions.
@@ -106,10 +110,18 @@ class seissol::Interoperability {
    ~Interoperability();
 
    /**
+    * Sets the type of the initial conditions.
+    *
+    * @param type The name of the type of the initial conditions.
+    */
+   void setInitialConditionType(char const *type);
+
+   /**
     * Sets the fortran domain.
     *
     * @param i_domain domain.
     */
+   
    void setDomain( void *i_domain );
 
    /**
@@ -162,6 +174,13 @@ class seissol::Interoperability {
                           double* bulkFriction,
                           double* plastCo,
                           double* iniStress );
+
+    void fitAttenuation(  double rho,
+                          double mu,
+                          double lambda,
+                          double Qp,
+                          double Qs,
+                          seissol::model::Material& material );
 
     void addFaultParameter( std::string const& name,
                            double* memory) {
@@ -285,14 +304,9 @@ class seissol::Interoperability {
    void copyDynamicRuptureState();
 
    /**
-    * Adds the specified update to dofs.
-    *
-    * @param i_mesh mesh id of the cell, Fortran notation is assumed - starting at 1 instead of 0.
-    * @param i_update update which is applied.
+    * Project initial field on degrees of freedom.
     **/
-   void addToDofs( int      i_meshId,
-                   double*  i_update,
-                   int      numberOfQuantities );
+   void projectInitialField();
 
    /**
     * Gets the DOFs.
@@ -324,6 +338,15 @@ class seissol::Interoperability {
    void getNeighborDofsFromDerivatives( int    i_meshId,
                                         int    i_localFaceId,
                                         double o_dofs[tensor::QFortran::size()] );
+   /**
+    * Gets the LTS lookup table.
+    */
+   seissol::initializers::Lut* getLtsLut();
+
+   /**
+    * Gets the type of the initial conditions.
+    */
+   std::string getInitialConditionType();
 
    /**
     * Compute fault output.

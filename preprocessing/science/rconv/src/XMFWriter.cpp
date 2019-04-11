@@ -39,6 +39,8 @@
 
 #include "XMFWriter.h"
 #include <fstream>
+#include <math.h>
+
 
 void writeSlip(std::vector<SRFPointSource> const& sources, std::ofstream& xdmfFile)
 {  

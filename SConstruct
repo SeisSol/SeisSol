@@ -542,6 +542,9 @@ env.Tool('DirTool', fortran=True)
 # Some C++ GLM features are not working with the Intel Compiler
 env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
+# Eigen3
+libs.find(env, 'eigen3', required=False)
+
 # HDF5
 if env['hdf5']:
     env.Tool('Hdf5Tool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
@@ -592,6 +595,7 @@ env.Append(LIBS=yaml_cpp)
 impalajit = env.CMake( source=[Glob(path + '*/.cc') for path, dirs, files in os.walk('submodules/ImpalaJIT')],
                        target=['#/{}/external/impalajit/libimpalajit.a'.format(env['buildDir'])],
                        CMakeProject = Dir('submodules/ImpalaJIT'),
+                       CMakeOpts = ['-DCMAKE_CXX_STANDARD=11'],
                        CMakeBuildDir = Dir('#/{}/external/impalajit/'.format(env['buildDir'])),
                        cc = env['CC'],
                        cxx = env['CXX'])

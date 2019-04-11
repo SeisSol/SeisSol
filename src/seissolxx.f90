@@ -46,7 +46,6 @@ module SeisSol
   use parallel_mpi
   USE ini_SeisSol_mod
   USE calc_SeisSol_mod
-  USE analyse_SeisSol_mod
   USE close_SeisSol_mod
   USE inioutput_SeisSol_mod
   USE TypesDef
@@ -202,7 +201,6 @@ domain%IO%UNIT%maxThisDom              = 69999                        ! Obere Gr
        BND            = domain%BND               , &
        OptionalFields = domain%OptionalFields    , &  
        IO             = domain%IO                , &
-       Analyse        = domain%Analyse           , &
        programTitle   = domain%programTitle        )
 domain%IO%MPIPickCleaningDone = 0
 
@@ -224,7 +222,6 @@ domain%IO%MPIPickCleaningDone = 0
          BND            = domain%BND               , &
          OptionalFields = domain%OptionalFields    , &  
          IO             = domain%IO                , &
-         Analyse        = domain%Analyse           , &
          programTitle   = domain%programTitle        )
 
     logInfo0(*) '<--------------------------------------------------------->'  !
@@ -244,30 +241,7 @@ domain%IO%MPIPickCleaningDone = 0
          IC             = domain%IC                , &
          OptionalFields = domain%OptionalFields    , &  
          IO             = domain%IO                , &
-         MPI            = domain%MPI               , &
-         Analyse        = domain%Analyse           )
-
-  IF(domain%IO%AbortStatus.EQ.0) THEN
-
-      logInfo0(*) '<--------------------------------------------------------->'
-      logInfo0(*) '<     Start analyse_SeisSol ...                           >'
-      logInfo0(*) '<--------------------------------------------------------->'
-
-      CALL analyse_SeisSol(                            &
-           time           =        time              , &
-           timestep       =        timestep          , &
-           EQN            = domain%EQN               , &
-           IC             = domain%IC                , &
-           MESH           = domain%MESH              , &
-           DISC           = domain%DISC              , &
-           BND            = domain%BND               , &
-           SOURCE         = domain%SOURCE            , &
-           IO             = domain%IO                , &
-           Analyse        = domain%Analyse           , &
-           OptionalFields = domain%OptionalFields    , &
-           MPI            = domain%MPI                 )
-
-   ENDIF
+         MPI            = domain%MPI)
 
 #ifdef PARALLEL
    CALL MPI_BARRIER(domain%MPI%commWorld,domain%MPI%iErr)

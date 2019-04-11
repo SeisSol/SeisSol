@@ -60,7 +60,7 @@ template<class T>
 class VariableSubsampler
 {
 private:
-    std::vector<BasisFunction::SampledBasisFunctions<T> > m_BasisFunctions;
+    std::vector<basisFunction::SampledBasisFunctions<T> > m_BasisFunctions;
 
     /** The original number of cells (without refinement) */
     const unsigned int m_numCells;
@@ -118,7 +118,7 @@ VariableSubsampler<T>::VariableSubsampler(
     for (unsigned int i = 0; i < kSubCellsPerCell; i++) {
         const glm::tvec3<T> pnt = subCells[i].center();
         m_BasisFunctions.push_back(
-                BasisFunction::SampledBasisFunctions<T>(
+                basisFunction::SampledBasisFunctions<T>(
                     order, pnt.x, pnt.y, pnt.z));
     }
 
@@ -139,7 +139,7 @@ void VariableSubsampler<T>::get(const double* inData,  const unsigned int* cellM
     for (unsigned int c = 0; c < m_numCells; ++c) {
         for (unsigned int sc = 0; sc < kSubCellsPerCell; ++sc) {
             outData[getOutVarOffset(c, sc)] =
-            		m_BasisFunctions[sc].evalWithCoefs(&inData[getInVarOffset(c, variable, cellMap)]);
+            		m_BasisFunctions[sc].evalWithCoeffs(&inData[getInVarOffset(c, variable, cellMap)]);
         }
     }
 }

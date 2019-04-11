@@ -60,7 +60,7 @@ namespace seissol {
           local(local)
         {}
       std::string fileName;
-      BasisFunction::SampledBasisFunctions<real> basisFunctions;
+      basisFunction::SampledBasisFunctions<real> basisFunctions;
       real* dofs;
       LocalIntegrationData* local;
     };

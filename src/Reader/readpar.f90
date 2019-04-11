@@ -80,7 +80,7 @@ CONTAINS
   end subroutine getParameterFile
 
   SUBROUTINE readpar(EQN,IC,usMESH,DISC,SOURCE,BND,IO, &
-                     ANALYSE,programTitle,MPI)
+                     programTitle,MPI)
     !--------------------------------------------------------------------------
     IMPLICIT NONE
     !--------------------------------------------------------------------------
@@ -91,7 +91,6 @@ CONTAINS
     TYPE (tSource)                  :: SOURCE
     TYPE (tBoundary)                :: BND
     TYPE (tInputOutput)             :: IO
-    TYPE (tAnalyse)                 :: ANALYSE
     TYPE (tMPI)          , OPTIONAL :: MPI
     CHARACTER(LEN=100)              :: programTitle
     ! local variables
@@ -101,7 +100,7 @@ CONTAINS
     logical :: existence
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: programTitle
-    INTENT(OUT)                     :: IC, BND, DISC, SOURCE, ANALYSE
+    INTENT(OUT)                     :: IC, BND, DISC, SOURCE
     INTENT(INOUT)                   :: EQN,IO, usMESH
     !--------------------------------------------------------------------------
     PARAMETER(actual_version_of_readpar = 20)
@@ -152,8 +151,6 @@ CONTAINS
     CALL readpar_output(EQN,DISC,IO,CalledFromStructCode)          !
     !                                                                        !
     CALL readpar_abort(DISC,IO)                                    !
-    !                                                                        !
-    CALL readpar_analyse(ANALYSE,EQN,DISC,IC,IO)                             !
     !                                                                        !
     CLOSE(IO%UNIT%FileIn,status='keep')                                      !
     !                                                                        !
@@ -562,302 +559,15 @@ CONTAINS
 
     ! Renaming all variables in the beginning
      IC%cICType = cICType
-     IC%GP%variable = variable
-     IC%GP%xc(:) = xc(:)
-     IC%GP%amplitude = amplitude
-     IC%GP%hwidth(:) = hwidth(:)
-    !
-    logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
+
+     logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
        !
    SELECT CASE(IC%cICType)
    !
    CASE('Zero')
        logInfo(*) 'Zero initial condition'
-   CASE('Gauss_Puls_Rad')                                                           ! Gauss Pulses for arbitrary 3D Systems
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType), ' with:'
-       !
-       ALLOCATE(IC%GP%Um(1:EQN%nVar))
-       !
-       IC%GP%Um(:) = 0.
-       !
-       !
-       SELECT CASE(IC%cICType)
-       CASE('Gauss_Puls3D')
-          logInfo(*) 'Gausspulse in variable ', IC%GP%variable
-       CASE('Char_Gauss_Puls3D')
-          logInfo(*) 'Gausspulse in char. variable nr. ', IC%GP%variable      ! Char. Gauss Pulses:
-       END SELECT
-       !                                                                                                                                                                     ! Gauss Puls:
-       logInfo(*) 'Center coordinates: ', IC%GP%xc(:)
-       logInfo(*) 'Amplitude = ',IC%GP%amplitude
-       logInfo(*) 'Halfwidth = ',IC%GP%hwidth(:)
-       !
-    CASE('Var_Gauss_Puls','Char_Gauss_Puls','Char_Ricker_Puls')                     ! Var_Gauss_Puls, Char_Gauss_Puls
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType), ' with:'
-       logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile)
-       CALL OpenFile(                                       &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = IniConditionFile  , &
-            create       = .FALSE.                          )
-       ALLOCATE(IC%GP%Um(1:EQN%nVar))                                               ! Allocate hom. background
-       !
-       READ (IO%UNIT%other01,*) IC%GP%Um(:)
-       !
-       logInfo(*) 'Homogenous background is Um(:)=', IC%GP%Um(:)
-       !
-       READ (IO%UNIT%other01,*) IC%GP%setvar
-       ALLOCATE(IC%GP%varfield(IC%GP%setvar),IC%GP%ampfield(IC%GP%setvar))
-       READ (IO%UNIT%other01,*) IC%GP%varfield(:)
-       READ (IO%UNIT%other01,*) IC%GP%ampfield(:)
-       !
-       READ (IO%UNIT%other01,*) IC%GP%xc(1), IC%GP%xc(2), IC%GP%xc(3)
-       READ (IO%UNIT%other01,*) IC%GP%hwidth(1),IC%GP%hwidth(2),IC%GP%hwidth(3)
-       !
-       READ (IO%UNIT%other01,*) IC%GP%n(:)                                           ! Read normal direction of GP coord. system
-       READ (IO%UNIT%other01,*) IC%GP%t1(:)                                          ! Read tangent 1 direction of GP coord. system
-       CLOSE(IO%UNIT%other01)
-       IC%GP%n(:)  = IC%GP%n(:)  / SQRT( SUM(IC%GP%n(:)**2)  )                       ! Normalize vector
-       IC%GP%t1(:) = IC%GP%t1(:) / SQRT( SUM(IC%GP%t1(:)**2) )                       ! Normalize vector
-       IC%GP%t2(:) = IC%GP%n(:) .x. IC%GP%t1(:)                                      ! Compute tangent 2 direction of GP coord. system
-       !                                                                             ! by using the cross product.
-       logInfo(*) 'Center coordinates: ', IC%GP%xc(:)
-       logInfo(*) 'Variables         : ', IC%GP%varfield(:)
-       logInfo(*) 'Amplitudes        : ', IC%GP%ampfield(:)
-       logInfo(*) 'Halfwidths        : ', IC%GP%hwidth(:)
-       !
-       logInfo(*) 'Local coord sys.  : ', IC%GP%n(:)
-       logInfo(*) 'Local coord sys.  : ', IC%GP%t1(:)
-       logInfo(*) 'Local coord sys.  : ', IC%GP%t2(:)
-       !
-    CASE('Planarwave_Gauss_Puls','Planarwave_Ricker_Puls')                          ! Planarwave_Gauss_Puls, Planarwave_Ricker_Puls
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType), ' with:'
-        logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile)
-       CALL OpenFile(                                       &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = IniConditionFile  , &
-            create       = .FALSE.                          )
-
-       !
-       ALLOCATE(IC%GP%Um(1:EQN%nVar))                                               ! Allocate hom. background
-       !
-       READ (IO%UNIT%other01,*) IC%GP%Um(:)
-       !
-       logInfo(*) 'Homogenous background is Um(:)=', IC%GP%Um(:)
-       !
-       READ (IO%UNIT%other01,*) IC%GP%setvar
-       ALLOCATE(IC%GP%varfield(IC%GP%setvar),IC%GP%ampfield(IC%GP%setvar))
-       READ (IO%UNIT%other01,*) IC%GP%varfield(:)
-       READ (IO%UNIT%other01,*) IC%GP%ampfield(:)
-       !
-       READ (IO%UNIT%other01,*) IC%GP%xc(1), IC%GP%xc(2), IC%GP%xc(3)
-       READ (IO%UNIT%other01,*) IC%GP%hwidth(1),IC%GP%hwidth(2),IC%GP%hwidth(3)
-       !
-       READ (IO%UNIT%other01,*) IC%GP%n(:)                                           ! Read normal direction of GP coord. system
-       READ (IO%UNIT%other01,*) IC%GP%t1(:)                                          ! Read    tangent 1 direction of GP coord. system
-       IC%GP%n(:)  = IC%GP%n(:)  / SQRT( SUM(IC%GP%n(:)**2)  )                       ! Normalize vector
-       IC%GP%t1(:) = IC%GP%t1(:) / SQRT( SUM(IC%GP%t1(:)**2) )                       ! Normalize vector
-       IC%GP%t2(:) = IC%GP%n(:) .x. IC%GP%t1(:)                                      ! Compute tangent 2 direction of GP coord. system
-       !                                                                             ! by using the cross product.
-       ! set imaginary unit IU
-       IU = (0.,1.)
-       !
-       READ(IO%UNIT%other01,'(a37)') IC%PWAN%EigenVecValName
-       CLOSE(IO%UNIT%other01)
-
-       logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(IC%PWAN%EigenVecValName)
-       CALL OpenFile(                                       &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = IC%PWAN%EigenVecValName   , &
-            create       = .FALSE.                          )
-       logInfo(*) 'Reading  file ...  '
-       ! Read number of eigenvalues
-       READ(IO%UNIT%other01,*) cdummy
-       READ(IO%UNIT%other01,*) IC%PWAN%NEigenVal
-
-       ALLOCATE(IC%PWAN%EigenVal(1:IC%PWAN%NEigenVal),     &
-                IC%PWAN%EigenVec(1:IC%PWAN%NEigenVal,1:IC%PWAN%NEigenVal) )
-
-       !
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvalues
-       DO I = 1,IC%PWAN%NEigenVal
-          READ(IO%UNIT%other01,*) Re
-          IC%PWAN%EigenVal(I) = Re
-       ENDDO
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvectors
-       DO I = 1,IC%PWAN%NEigenVal
-         DO J = 1,IC%PWAN%NEigenVal
-           READ(IO%UNIT%other01,*) Re
-           IC%PWAN%EigenVec(J,I) = Re
-         ENDDO
-       ENDDO
-
-       CLOSE(IO%UNIT%other01)
-
-       logInfo(*) 'Center coordinates: ', IC%GP%xc(:)
-       logInfo(*) 'Variables         : ', IC%GP%varfield(:)
-       logInfo(*) 'Amplitudes        : ', IC%GP%ampfield(:)
-       logInfo(*) 'Halfwidths        : ', IC%GP%hwidth(:)
-       !
-       logInfo(*) 'Local coord sys.  : ', IC%GP%n(:)
-       logInfo(*) 'Local coord sys.  : ', IC%GP%t1(:)
-       logInfo(*) 'Local coord sys.  : ', IC%GP%t2(:)
-       !
     CASE('Planarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType),' with:'              ! format for PLANARWAVE which
-         logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile) ! allows to set several
-       CALL OpenFile(                                       &                         ! characteristic waves
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = IniConditionFile  , &
-            create       = .FALSE.                          )
-
-       ALLOCATE(IC%PW%Um(1:EQN%nVar))
-       !
-       READ (IO%UNIT%other01,*) IC%PW%Um(:)
-       READ (IO%UNIT%other01,*) IC%PW%setvar
-       ALLOCATE(IC%PW%varfield(IC%PW%setvar),IC%PW%ampfield(IC%PW%setvar))
-       READ (IO%UNIT%other01,*) IC%PW%varfield(:)
-       READ (IO%UNIT%other01,*) IC%PW%ampfield(:)
-       READ (IO%UNIT%other01,*) iLambda
-       SELECT CASE(iLambda)
-           CASE(0)
-               READ (IO%UNIT%other01,*) IC%PW%k_vec(1:3)                            ! Read directly the 3D wavenumber vector
-           CASE DEFAULT
-               READ (IO%UNIT%other01,*) Lambda(1:3)                                 ! Read 3D wavelength vector
-               IC%PW%k_vec(1:3) = 2.*EQN%Pi/Lambda(1:3)                             ! and compute wavenumbers.
-       END SELECT
-       CLOSE(IO%UNIT%other01)
-
-       IC%PW%k      = SQRT( IC%PW%k_vec(1)**2 + &                                   ! Compute norm
-                            IC%PW%k_vec(2)**2 + &                                   ! Compute norm
-                            IC%PW%k_vec(3)**2   )                                   ! Compute norm
-       IC%PW%n(1:3) = IC%PW%k_vec(:) / IC%PW%k                                      ! Compute unit normal vector
-       !
-       logInfo(*) 'Background Um(:)   : ', IC%PW%Um(:)
-       logInfo(*) 'Char. variables    : ', IC%PW%varfield(:)
-       logInfo(*) 'Amplitude array    : ', IC%PW%ampfield(:)
-       logInfo(*) 'Wavenumber vector  : ', IC%PW%k_vec(1:3)          ! Display the wavenumber vector
-
-    CASE('PlanarwaveAnel','PlanarwaveAn')                                           ! CASE Planarwave anelastic
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType),' with:'            ! change to a very general
-                                                                                    ! format for PLANARWAVE which
-                                                                                    ! allows to set several
-         logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile)
-       CALL OpenFile(                                       &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = IniConditionFile  , &
-            create       = .FALSE.                          )
-       !
-       ALLOCATE(IC%PW%Um(1:EQN%nVar))
-       !
-       READ (IO%UNIT%other01,*) IC%PW%Um(:)
-       READ (IO%UNIT%other01,*) IC%PW%setvar
-       ALLOCATE(IC%PW%varfield(IC%PW%setvar),IC%PW%ampfield(IC%PW%setvar))
-       READ (IO%UNIT%other01,*) IC%PW%varfield(:)
-       READ (IO%UNIT%other01,*) IC%PW%ampfield(:)
-       !
-       ! set imaginary unit IU
-       ! set imaginary unit IU
-       IU = (0.,1.)
-       READ(IO%UNIT%other01,'(a37)') IC%PWAN%EigenVecValName
-       CLOSE(IO%UNIT%other01)
-
-       logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(IC%PWAN%EigenVecValName)
-       CALL OpenFile(                                       &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = IC%PWAN%EigenVecValName   , &
-            create       = .FALSE.                          )
-       logInfo(*) 'Reading  file ...  '
-       ! Read number of eigenvalues
-       READ(IO%UNIT%other01,*) cdummy
-       READ(IO%UNIT%other01,*) IC%PWAN%NEigenVal
-
-       ALLOCATE(IC%PWAN%EigenVal(1:IC%PWAN%NEigenVal),     &
-                IC%PWAN%EigenVec(1:IC%PWAN%NEigenVal,1:IC%PWAN%NEigenVal) )
-
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read wavenumbers
-       READ(IO%UNIT%other01,*) IC%PWAN%Wavenumbers(1:EQN%Dimension)
-       !
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvalues
-       DO I = 1,IC%PWAN%NEigenVal
-           READ(IO%UNIT%other01,*) Re, Im
-           IC%PWAN%EigenVal(I) = Re + Im*IU
-       ENDDO
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvectors
-       DO I = 1,IC%PWAN%NEigenVal
-          DO J = 1,IC%PWAN%NEigenVal
-             READ(IO%UNIT%other01,*) Re, Im
-             IC%PWAN%EigenVec(J,I) = Re + Im*IU
-          ENDDO
-       ENDDO
-       CLOSE(IO%UNIT%other01)
-       !
-    CASE('PlanarwaveAniso')                                                         ! CASE Planarwave anelastic
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType),' with:'
-       ALLOCATE(IC%PW%Um(1:EQN%nVar))
-       ALLOCATE(IC%PWANISO(3))
-
-         logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile)
-       CALL OpenFile(                                       &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = IniConditionFile  , &
-            create       = .FALSE.                          )
-          READ (IO%UNIT%other01,*) IC%PW%Um(:)
-       DO k = 1,3
-          READ (IO%UNIT%other01,*) IC%PWANISO(k)%setvar
-          ALLOCATE(IC%PWANISO(k)%varfield(IC%PWANISO(k)%setvar),IC%PWANISO(k)%ampfield(IC%PWANISO(k)%setvar))          !
-          READ (IO%UNIT%other01,*) IC%PWANISO(k)%varfield(:)                                  !
-          READ (IO%UNIT%other01,*) IC%PWANISO(k)%ampfield(:)                                  !
-       ENDDO
-       !
-       ! set imaginary unit IU
-       IU = (0.,1.)
-       !
-       READ(IO%UNIT%other01,'(a37)') IC%PWAN%EigenVecValName
-       CLOSE(IO%UNIT%other01)
-
-       logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(IC%PWAN%EigenVecValName)
-       CALL OpenFile(                                       &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = IC%PWAN%EigenVecValName   , &
-            create       = .FALSE.                          )
-       logInfo(*) 'Reading  file ...  '
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read number of eigenvalues
-       READ(IO%UNIT%other01,*) IC%PWAN%NEigenVal
-
-       DO K = 1,3
-           ALLOCATE(IC%PWANISO(k)%EigenVal(1:IC%PWAN%NEigenVal),     &
-                    IC%PWANISO(k)%EigenVec(1:IC%PWAN%NEigenVal,1:IC%PWAN%NEigenVal) )
-
-           READ(IO%UNIT%other01,*) cdummy
-           ! Read wavenumbers
-           READ(IO%UNIT%other01,*) IC%PWANISO(k)%Wavenumbers(1:EQN%Dimension)
-           !
-           READ(IO%UNIT%other01,*) cdummy
-           ! Read Eigenvalues
-           DO I = 1,IC%PWAN%NEigenVal
-              READ(IO%UNIT%other01,*) Re, Im
-              IC%PWANISO(k)%EigenVal(I) = Re + Im*IU
-           ENDDO
-           READ(IO%UNIT%other01,*) cdummy
-           ! Read Eigenvectors
-           DO I = 1,IC%PWAN%NEigenVal
-             DO J = 1,IC%PWAN%NEigenVal
-               READ(IO%UNIT%other01,*) Re, Im
-               IC%PWANISO(k)%EigenVec(J,I) = Re + Im*IU
-             ENDDO
-           ENDDO
-       ENDDO
-       CLOSE(IO%UNIT%other01)
-       !                                       !
-    CASE('Debug')
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType)
-       !
+       logInfo(*) 'Planarwave initial condition'
     CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'
@@ -2649,8 +2359,6 @@ ALLOCATE( SpacePositionx(nDirac), &
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  D I S C R E T I S A T I O N                            >'
     logInfo(*) '<-------------------------------------------------------- >'
-    !                                                                 !                                                                 !
-    DISC%DiscretizationMethod = 2                                     !
     logInfo(*) 'Discontinuous Galerkin technique is used. '
     DISC%Galerkin%ZoneOrderFlag = 0 ! aheineck, this is used but never set, but we need to init it
 
@@ -3447,166 +3155,6 @@ ALLOCATE( SpacePositionx(nDirac), &
         IO%Delay_s    = 3600.*IO%Delay_h
     !
   END SUBROUTINE readpar_abort
-
-  !============================================================================
-  ! A N A L Y S E
-  !============================================================================
-
-  SUBROUTINE readpar_analyse(ANALYSE,EQN,DISC,IC,IO)
-    !------------------------------------------------------------------------
-    TYPE(tAnalyse)             :: ANALYSE
-    TYPE(tEquations)           :: EQN
-    TYPE(tDiscretization)      :: DISC
-    TYPE(tInitialCondition)    :: IC
-    TYPE(tInputOutput)         :: IO
-    CHARACTER(LEN=600)         :: name,cdummy
-    ! local Variables
-    COMPLEX                    :: IU
-    REAL                       :: Im, Re
-    INTEGER                    :: I,J,allocStat
-    INTEGER                    :: readStat
-    !------------------------------------------------------------------------
-    INTENT(IN)                 :: EQN,IO
-    INTENT(OUT)                :: ANALYSE
-    !------------------------------------------------------------------------
-    INTEGER                           :: typ, setvar
-    INTEGER                           :: variables(9)
-    REAL, DIMENSION(:), ALLOCATABLE   :: varfield, ampfield
-    CHARACTER(LEN=600)                :: EigenVecValName
-    NAMELIST                          /Analysis/ typ, setvar, variables
-    !------------------------------------------------------------------------
-    !
-    logInfo(*) '<--------------------------------------------------------->'
-    logInfo(*) '<  A N A L Y S I S   O F   T H E   D A T A                >'
-    logInfo(*) '<--------------------------------------------------------->'
-    !
-    !Setting default values
-    typ = 0                                                                   !Read which variables are to be analyzed
-
-   READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Analysis)
-    IF (readStat.NE.0) THEN
-        CALL RaiseErrorNml(IO%UNIT%FileIn, "Analysis")
-    ENDIF
-    ANALYSE%typ = typ
-
-   ANALYSE%AnalyseDataPerIteration = .FALSE.
-    SELECT CASE(ANALYSE%typ)
-    CASE(0)
-       logInfo(*) 'NO analysis of the data ...'
-       RETURN
-    CASE(1)
-       logInfo(*) 'Analyse the data, using an exact solution.'
-       logInfo(*) 'The exact solution is given by the Initialcondition.'
-    CASE(2)
-       logInfo(*) 'Analyse the data, using an exact solution.'
-       logInfo(*) 'The exact solution is given by a fine grid solution.'
-       logWarning(*) 'THIS METHOD IS NOT IMPLEMENTED YET!'
-       STOP
-    CASE(3)
-       logInfo(*) 'Analyse the data, using an exact solution '
-       logInfo(*) 'The exact solution is the elastic plane wave in 3-D of the form'
-       logInfo(*) '     u(x,y,z,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )] '
-       logInfo(*) ' '
-       logInfo(*) 'All necessary data is given by the initial condition. '
-    CASE(10)
-       logInfo(*) 'Analyse the data, using an exact solution '
-       logInfo(*) 'All necessary data is given by the initial condition. '
-    CASE(14)
-       logInfo(*) 'Analyse the data, using an exact solution '
-       logInfo(*) 'The exact solution is the anelastic plane wave in 3-D of the form'
-       logInfo(*) '     u(x,y,z,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )] '
-       logInfo(*) ' '                                                   !
-       !
-       ANALYSE%PW%setvar = setvar                                        ! characteristic waves
-       ALLOCATE(ANALYSE%PW%varfield(ANALYSE%PW%setvar),ANALYSE%PW%ampfield(ANALYSE%PW%setvar))
-       call readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)
-       ANALYSE%PW%varfield(:)  = varfield(:)
-       ANALYSE%PW%ampfield(:)  = ampfield(:)
-
-       ! set imaginary unit IU
-       IU = (0.,1.)
-       ! read eigenstructure from file
-       ANALYSE%PWAN%EigenVecValName = EigenVecValName
-       logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(ANALYSE%PWAN%EigenVecValName)
-       CALL OpenFile(                                                    &
-            UnitNr       = IO%UNIT%other01                      ,        &
-            Name         = ANALYSE%PWAN%EigenVecValName         ,        &
-            create       = .FALSE.                          )
-       logInfo(*) 'Reading  file ...  '
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read number of eigenvalues
-       READ(IO%UNIT%other01,*) ANALYSE%PWAN%NEigenVal
-
-       ALLOCATE(ANALYSE%PWAN%EigenVal(1:ANALYSE%PWAN%NEigenVal),     &
-                ANALYSE%PWAN%EigenVec(1:ANALYSE%PWAN%NEigenVal,1:ANALYSE%PWAN%NEigenVal) )
-
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read wavenumbers
-       READ(IO%UNIT%other01,*) ANALYSE%PWAN%Wavenumbers(1:EQN%Dimension)
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvalues
-       DO I = 1,ANALYSE%PWAN%NEigenVal
-           READ(IO%UNIT%other01,*) Re, Im
-           ANALYSE%PWAN%EigenVal(I) = Re + Im*IU
-       ENDDO
-       READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvectors
-       DO I = 1,ANALYSE%PWAN%NEigenVal
-          DO J = 1,ANALYSE%PWAN%NEigenVal
-             READ(IO%UNIT%other01,*) Re, Im
-             ANALYSE%PWAN%EigenVec(J,I) = Re + Im*IU
-          ENDDO
-       ENDDO
-       CLOSE(IO%UNIT%other01)
-
-    CASE(15)
-       logInfo(*) 'Analyse the data, using an exact solution '                                                       !
-       logInfo(*) 'The exact solution is the anisotropic plane wave in 3-D of the form'
-       logInfo(*) '     u(x,y,z,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )] '
-       logInfo(*) ' '                                                   !
-       !
-    CASE DEFAULT
-       logWarning(*) ' THIS METHOD IS UNKNOWN!'
-       STOP
-    END SELECT
-
-    SELECT CASE(ANALYSE%typ)
-    CASE(0)
-       !                                                                    ! nothing has to be done
-    CASE DEFAULT                                                            ! This part is common to all the different analysis choices                                                             !
-       !
-       ALLOCATE(ANALYSE%variables(EQN%nvar))
-       ANALYSE%variables(:) = variables(:)
-       !
-       DO I=1,EQN%nvar
-          IF (ANALYSE%variables(I)) THEN
-             logInfo(*) 'Analyse Variablenr:',I
-          END IF
-       END DO
-       !
-    END SELECT
-    !
-  END SUBROUTINE readpar_analyse
-
-  SUBROUTINE readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)
-    IMPLICIT NONE
-    TYPE (tInputOutput)                    :: IO
-    INTENT(IN)                             :: IO
-    INTEGER                                :: setvar
-    INTEGER                                :: readStat
-    REAL, DIMENSION(:), ALLOCATABLE        :: varfield, ampfield
-    CHARACTER(LEN=600)                     :: EigenVecValName
-    NAMELIST                               /AnalysisFields/ varfield, ampfield, EigenVecValName
-    !----------------------------------------------------------------------
-       ALLOCATE(varfield(setvar), &
-                ampfield(setvar))
-
-    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
-                                                  ! and the same for ampfield, ...
-    IF (readStat.NE.0) THEN
-        CALL RaiseErrorNml(IO%UNIT%FileIn, "AnalysisFields")
-    ENDIF
-   END SUBROUTINE
 
   !============================================================================
   ! A N A L Y S E

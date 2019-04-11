@@ -46,10 +46,12 @@
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
+#include <Initializer/InitialFieldProjection.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
+#include <Physics/InitialField.h>
 #include <ResultWriter/common.hpp>
 
 seissol::Interoperability e_interoperability;
@@ -73,6 +75,11 @@ extern "C" {
     e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
   }
 
+  void c_interoperability_setInitialConditionType(char* type)
+  {
+    e_interoperability.setInitialConditionType(type);
+  }
+  
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -212,10 +219,8 @@ extern "C" {
 			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend);
   }
 
-  void c_interoperability_addToDofs( int      i_meshId,
-                                     double*  i_update,
-                                     int      numUpdateEntries ) {
-    e_interoperability.addToDofs( i_meshId, i_update, numUpdateEntries );
+  void c_interoperability_projectInitialField() {
+    e_interoperability.projectInitialField();
   }
 
   void c_interoperability_getDofs( int    i_meshId,
@@ -289,13 +294,21 @@ extern "C" {
                                                                double   i_z,
                                                                int      i_elem,
                                                                double*  o_mInvJInvPhisAtSources );
+
+  extern void f_interoperability_fitAttenuation(  void*  i_domain,
+                                                  double  rho,
+                                                  double  mu,
+                                                  double  lambda,
+                                                  double  Qp,
+                                                  double  Qs,
+                                                  double* material );
 }
 
 /*
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_domain(NULL), m_ltsTree(NULL), m_lts(NULL), m_ltsFaceToMeshFace(NULL) // reset domain pointer
+  m_initialConditionType(),  m_domain(nullptr), m_ltsTree(nullptr), m_lts(nullptr), m_ltsFaceToMeshFace(nullptr) // reset domain pointer
 {
 }
 
@@ -304,9 +317,14 @@ seissol::Interoperability::~Interoperability()
   delete[] m_ltsFaceToMeshFace;
 }
 
+void seissol::Interoperability::setInitialConditionType(char const* type) {
+  assert(type != nullptr);
+  // Note: Pointer to type gets deleted before doing the error computation.
+  m_initialConditionType = std::string(type);
+}
+
 void seissol::Interoperability::setDomain( void* i_domain ) {
   assert( i_domain != NULL );
-
   m_domain = i_domain;
 }
 
@@ -462,6 +480,19 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   
   seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
   parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+}
+
+void seissol::Interoperability::fitAttenuation( double rho,
+                                                double mu,
+                                                double lambda,
+                                                double Qp,
+                                                double Qs,
+                                                seissol::model::Material& material )
+{
+  constexpr size_t numMaterialVals = 3 + 4*NUMBER_OF_RELAXATION_MECHANISMS;
+  double materialFortran[numMaterialVals];
+  f_interoperability_fitAttenuation(m_domain, rho, mu, lambda, Qp, Qs, materialFortran);
+  seissol::model::setMaterial(materialFortran, numMaterialVals, &material);
 }
 
 void seissol::Interoperability::initializeFault( char*   modelFileName,
@@ -682,7 +713,10 @@ void seissol::Interoperability::initializeIO(
 
 	// I/O initialization is the last step that requires the mesh reader
 	// (at least at the moment ...)
-	seissol::SeisSol::main.freeMeshReader();
+
+	// TODO(Lukas) Free the mesh reader if not doing convergence test.
+	seissol::SeisSol::main.analysisWriter().init(&seissol::SeisSol::main.meshReader());
+	//seissol::SeisSol::main.freeMeshReader();
 }
 
 void seissol::Interoperability::copyDynamicRuptureState()
@@ -690,11 +724,22 @@ void seissol::Interoperability::copyDynamicRuptureState()
 	f_interoperability_copyDynamicRuptureState(m_domain);
 }
 
-void seissol::Interoperability::addToDofs( int      i_meshId,
-                                           double*  i_update,
-                                           int      numUpdateEntries ) {
-  /// @yateto_todo: Multiple updates?
-  seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numUpdateEntries) );
+void seissol::Interoperability::projectInitialField()
+{
+  physics::InitialField* iniField = nullptr;
+  if (m_initialConditionType == "Planarwave") {
+    iniField = new physics::Planarwave();
+  } else if (m_initialConditionType == "Zero") {
+    iniField = new physics::ZeroField();
+  } else {
+    throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
+  }
+
+  initializers::projectInitialField(  *iniField,
+                                      *m_globalData,
+                                      seissol::SeisSol::main.meshReader(),
+                                      *m_lts,
+                                      m_ltsLut);
 }
 
 void seissol::Interoperability::getDofs( int    i_meshId,
@@ -719,6 +764,14 @@ void seissol::Interoperability::getNeighborDofsFromDerivatives( int    i_meshId,
   // get DOFs from 0th neighbors derivatives
   seissol::kernels::convertAlignedDofs(  m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1)[ i_localFaceId-1 ],
                                          o_dofs );
+}
+
+seissol::initializers::Lut* seissol::Interoperability::getLtsLut() {
+  return &m_ltsLut;
+}
+
+std::string seissol::Interoperability::getInitialConditionType() {
+  return m_initialConditionType;
 }
 
 void seissol::Interoperability::simulate( double i_finalTime ) {

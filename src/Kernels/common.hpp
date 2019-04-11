@@ -110,35 +110,6 @@ namespace seissol {
         std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
       }
     }
-
-    /**
-     * Adds the unaligned update to degrees of freedom with aligned storage.
-     *
-     * @param i_unalignedUpdate unaligned update.
-     * @param o_alignedDofs aligned degrees of freedom.
-     **/
-    template<typename real_from, typename real_to>
-    void addToAlignedDofs(  real_from const*  i_unalignedUpdate,
-                            real_to*          o_alignedDofs,
-                            unsigned          numUpdateEntries ) {
-      assert(numUpdateEntries == tensor::QFortran::size());
-
-      kernel::addQFortran krnl;
-      krnl.Q = o_alignedDofs;
-#ifdef MULTIPLE_SIMULATIONS
-      krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
-#endif
-
-      if (std::is_same<real_from, real_to>::value) {
-        krnl.QFortran = reinterpret_cast<real_to const*>(i_unalignedUpdate);
-        krnl.execute();
-      } else {
-        real_to update[tensor::QFortran::size()];
-        std::copy(i_unalignedUpdate, i_unalignedUpdate + tensor::QFortran::size(), update);
-        krnl.QFortran = update;
-        krnl.execute();
-      }
-    }
   }
 }
 

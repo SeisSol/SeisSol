@@ -94,7 +94,9 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
             cmd = utils.compiler.removeUnknownOptions(cmd)
             return env.ParseFlags(cmd)
         flags = env.ParseConfig([h5cc, '-show', '-shlib'], parse_func)
-    else:
+        if flags['LIBS']==[] or flags['LIBPATH']==[]:
+           h5cc=None
+    if not h5cc:
         # Try pkg-config
         hdf5s = ['hdf5_hl', 'hdf5_hl_parallel']
         if parallel:

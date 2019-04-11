@@ -65,7 +65,7 @@ MODULE inioutput_SeisSol_mod
 CONTAINS
 
   SUBROUTINE inioutput_SeisSol(time,timestep,pvar,cvar,EQN,IC,MESH,MPI,      &
-       SOURCE,DISC,BND,OptionalFields,IO,Analyse, &
+       SOURCE,DISC,BND,OptionalFields,IO, &
        programTitle) !
     !--------------------------------------------------------------------------
     USE TypesDef
@@ -106,7 +106,6 @@ CONTAINS
     TYPE (tUnstructOptionalFields) :: OptionalFields                           !
     TYPE (tInputOutput)            :: IO                                       !
     TYPE (tBoundary)               :: BND                                      !
-    TYPE (tAnalyse)                :: Analyse                                  !
     CHARACTER(LEN=100)             :: programTitle                             !
     ! local variable declaration                                               !
     CHARACTER(LEN=5)               :: cmyrank
@@ -116,7 +115,7 @@ CONTAINS
     INTENT(IN)                     :: programTitle                             !
     INTENT(INOUT)                  :: EQN,DISC,IO, OptionalFields, MESH        ! Some values are set in the TypesDef
     INTENT(INOUT)                  :: IC,SOURCE,BND       !
-    INTENT(INOUT)                  :: time,timestep, Analyse             !
+    INTENT(INOUT)                  :: time,timestep             !
     !--------------------------------------------------------------------------
     !                                                                          !
     ! register epik/scorep function

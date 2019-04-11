@@ -51,7 +51,7 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
 {
   // We ensure that global matrices always start at an aligned memory address,
   // such that mixed cases with aligned and non-aligned global matrices do also work.  
-  
+
   unsigned globalMatrixMemSize = 0;
   globalMatrixMemSize += yateto::computeFamilySize<init::kDivM>(yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::computeFamilySize<init::kDivMT>(yateto::alignedReals<real>(ALIGNMENT));
@@ -59,6 +59,7 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   globalMatrixMemSize += yateto::computeFamilySize<init::rT>(yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::computeFamilySize<init::fMrT>(yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::computeFamilySize<init::fP>(yateto::alignedReals<real>(ALIGNMENT));
+  globalMatrixMemSize += yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(ALIGNMENT));
   
   real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( globalMatrixMemSize * sizeof(real), PAGESIZE_HEAP, memkind ));
 
@@ -69,6 +70,7 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   yateto::copyFamilyToMemAndSetPtr<init::rT,     real>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, ALIGNMENT);
   yateto::copyFamilyToMemAndSetPtr<init::fMrT,   real>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, ALIGNMENT);
   yateto::copyFamilyToMemAndSetPtr<init::fP,     real>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, ALIGNMENT);
+  yateto::copyTensorToMemAndSetPtr<init::projectQP,    real>(globalMatrixMemPtr, globalData.projectQPMatrix, ALIGNMENT);
   
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
 
@@ -94,7 +96,9 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   assert(drGlobalMatrixMemPtr == drGlobalMatrixMem + drGlobalMatrixMemSize);
 
   // Plasticity global matrices
-  unsigned plasticityGlobalMatrixMemSize = tensor::v::size() + tensor::vInv::size();
+  unsigned plasticityGlobalMatrixMemSize = 0;
+  plasticityGlobalMatrixMemSize += yateto::alignedUpper(tensor::v::size(),    yateto::alignedReals<real>(ALIGNMENT));
+  plasticityGlobalMatrixMemSize += yateto::alignedUpper(tensor::vInv::size(), yateto::alignedReals<real>(ALIGNMENT));
 
   real* plasticityGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( plasticityGlobalMatrixMemSize * sizeof(real), PAGESIZE_HEAP, memkind ));
   

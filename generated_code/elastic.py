@@ -92,6 +92,11 @@ clones = {
 }
 db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), transpose=transpose, alignStride=alignStride)
 db.update( parseXMLMatrixFile('{}/star.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
+clonesQP = {
+  'v': [ 'evalAtQP' ],
+  'vInv': [ 'projectQP' ]
+}
+db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP))
 memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
 Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=alignStride)

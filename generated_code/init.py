@@ -44,6 +44,7 @@ from multSim import OptionalDimTensor
 
 def addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities):
   numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
+  numberOf3DQuadraturePoints = (order+1)**3
 
   ti = Collection()
   ti.AplusT = Tensor('AplusT', (numberOfQuantities, numberOfExtendedQuantities))
@@ -53,6 +54,7 @@ def addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities):
   QgodLocal = Tensor('QgodLocal', (numberOfQuantities, numberOfQuantities))
   QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
   QFortran = Tensor('QFortran', (numberOf3DBasisFunctions, numberOfQuantities))
+  dofsQP = Tensor('dofsQP', (numberOf3DQuadraturePoints, numberOfQuantities))
 
   ti.oneSimToMultSim = Tensor('oneSimToMultSim', (Q.optSize(),), spp={(i,): '1.0' for i in range(Q.optSize())})
   multSimToFirstSim = Tensor('multSimToFirstSim', (Q.optSize(),), spp={(0,): '1.0'})
@@ -65,13 +67,13 @@ def addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities):
   g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
   if Q.hasOptDim():
-    addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp'] * ti.oneSimToMultSim['s']
+    projectQP = Q['kp'] <= db.projectQP['kl'] * dofsQP['lp'] * ti.oneSimToMultSim['s']
     copyQToQFortran = QFortran['kp'] <= Q['kp'] * multSimToFirstSim['s']
   else:
-    addQFortran = Q['kp'] <= Q['kp'] + QFortran['kp']
+    projectQP = Q['kp'] <= db.projectQP['kl'] * dofsQP['lp']
     copyQToQFortran = QFortran['kp'] <= Q['kp']
 
-  g.add('addQFortran', addQFortran)
+  g.add('projectQP', projectQP)
   g.add('copyQToQFortran', copyQToQFortran)
 
   return ti

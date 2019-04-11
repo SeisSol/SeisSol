@@ -43,8 +43,10 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <limits>
+#include <vector>
 
-#include <Numerical_aux/Functions.h>
+#include "utils/logger.h"
+#include "Numerical_aux/Functions.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -145,6 +147,66 @@ namespace seissol {
             
       delete[] points0; delete[] weights0;
       delete[] points1; delete[] weights1;
+    }
+
+    /** Quadrature formula of arbitrary accuracy on the reference tetrahedron
+     *  consisting of the nodes (0,0,0), (1,0,0), (0,1,0), (0,0,1)
+     */
+    inline void TetrahedronQuadrature(double (*points)[3], double* weights, unsigned int n) {
+      // This is a port of similarly named fortran method
+      // (TetrahedronQuadraturePoints) in quadpoints.f90.
+      // Note:
+      // Our quadrature points are defined by the conical product of 1D Gauss-Jacobi 
+      // formulas with M quadrature points. See Stround, p. 28ff for details.
+      
+      auto points0 = std::vector<double>(n);
+      auto points1 = std::vector<double>(n);
+      auto points2 = std::vector<double>(n);
+      
+      auto weights0 = std::vector<double>(n);
+      auto weights1 = std::vector<double>(n);
+      auto weights2 = std::vector<double>(n);
+
+      // Get the Gauss-Jacobi positions and weights.
+      GaussJacobi(points0.data(), weights0.data(), n, 2, 0);
+      GaussJacobi(points1.data(), weights1.data(), n, 1, 0);
+      GaussJacobi(points2.data(), weights2.data(), n, 0, 0);
+
+      // Shift and rescale positions because Stroud
+      // integrates over [0,1] and gaujac of num. recipes
+      // considers [-1,1].
+      for (size_t i = 0; i < n; ++i) {
+        points0[i] = 0.5 * points0[i] + 0.5;
+        points1[i] = 0.5 * points1[i] + 0.5;
+        points2[i] = 0.5 * points2[i] + 0.5;
+
+        weights0[i] = 0.5 * 0.5 * 0.5 * weights0[i];
+        weights1[i] = 0.5 * 0.5 * weights1[i];
+        weights2[i] = 0.5 * weights2[i];
+      }
+
+      for (size_t i = 0; i < n; ++i) {
+	for (size_t j = 0; j < n; ++j) {
+	  for (size_t k = 0; k < n; ++k) {
+	    const auto curIndex = i * n * n + j * n + k;
+	    points[curIndex][0] = points0[i];
+	    points[curIndex][1] = points1[j] * (1 - points0[i]);
+	    points[curIndex][2] = points2[k] * (1 - points1[j]) *
+	      (1 - points0[i]);
+	    weights[curIndex] = weights0[i] * weights1[j] * weights2[k];
+          }
+        }
+      }
+
+      // TODO(Lukas) Only when debugging?
+      const double tol = 1e-6;
+      double sumWeights = 0.0;
+      for (size_t i = 0; i < n*n*n; ++i) {
+	sumWeights += weights[i];
+      }
+      if (std::abs(sumWeights - 1./6.) > tol) {
+	logError() << "Sum of tetrahedron quadrature weights are " << sumWeights << " /= " << 1./6.;
+      }
     }
   }
 }

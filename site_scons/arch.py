@@ -97,7 +97,10 @@ def getFlags(architecture, compiler):
     else:
       flags = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma']
   elif cpu == 'skx':
-    flags = ['-xCORE-AVX512', '-fma']
+    if compiler == 'intel':
+      flags = ['-xCORE-AVX512', '-fma']
+    else:
+      flags = ['-march=skylake-avx512']
   else:
     flags = []
   
