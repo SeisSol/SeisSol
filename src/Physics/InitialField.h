@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <complex>
+#include <Kernels/precision.hpp>
 #include <generated_code/init.h>
 
 namespace seissol {
