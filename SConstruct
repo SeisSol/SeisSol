@@ -586,7 +586,7 @@ if env['asagi']:
     if env['scalasca'] in ['default', 'kernels']:
         ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
 
-    env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
+    libs.find(env, 'asagi', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
 
 # yaml-cpp
