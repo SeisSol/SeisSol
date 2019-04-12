@@ -39,7 +39,7 @@
  * Neighbor kernel of SeisSol.
  **/
 
-#include "Neighbor.h"
+#include "Kernels/Neighbor.h"
 
 #ifndef NDEBUG
 #pragma message "compiling boundary kernel with assertions"
@@ -80,26 +80,22 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
   m_nKrnlPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
-                                                            int const                         i_neighboringIndices[4][2],
+void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&                     data,
                                                             CellDRMapping const             (&cellDrMapping)[4],
-                                                            NeighboringIntegrationData const* neighbor,
                                                             real*                             i_timeIntegrated[4],
-                                                            real*                             faceNeighbors_prefetch[4],
-                                                            real                              io_degreesOfFreedom[ tensor::Q::size() ],
-                                                            real                              io_degreesOfFreedomAne[ tensor::Qane::size() ] )
+                                                            real*                             faceNeighbors_prefetch[4] )
 {
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     // alignment of the time integrated dofs
-    if( i_faceTypes[l_neighbor] != outflow && i_faceTypes[l_neighbor] != dynamicRupture ) { // no alignment for outflow and DR boundaries required
+    if( data.cellInformation.faceTypes[l_neighbor] != outflow && data.cellInformation.faceTypes[l_neighbor] != dynamicRupture ) { // no alignment for outflow and DR boundaries required
       assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % ALIGNMENT == 0 );
     }
   }
 #endif
 
   // alignment of the degrees of freedom
-  assert( ((uintptr_t)io_degreesOfFreedom) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs) % ALIGNMENT == 0 );
 
   real Qext[tensor::Qext::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
 
@@ -109,39 +105,39 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  enum faceType const 
   // iterate over faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
-    if( i_faceTypes[l_face] != outflow && i_faceTypes[l_face] != dynamicRupture ) {
+    if( data.cellInformation.faceTypes[l_face] != outflow && data.cellInformation.faceTypes[l_face] != dynamicRupture ) {
       // compute the neighboring elements flux matrix id.
-      if( i_faceTypes[l_face] != freeSurface ) {
-        assert(i_neighboringIndices[l_face][0] < 4 && i_neighboringIndices[l_face][1] < 3);
+      if( data.cellInformation.faceTypes[l_face] != freeSurface ) {
+        assert(data.cellInformation.faceRelations[l_face][0] < 4 && data.cellInformation.faceRelations[l_face][1] < 3);
         
         nfKrnl.I = i_timeIntegrated[l_face];
-        nfKrnl.AminusT = neighbor->nAmNm1[l_face];
+        nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
         nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-        nfKrnl.execute(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
+        nfKrnl.execute(data.cellInformation.faceRelations[l_face][1], data.cellInformation.faceRelations[l_face][0], l_face);
       } else { // fall back to local matrices in case of free surface boundary conditions
         kernel::localFluxExt lfKrnl = m_lfKrnlPrototype;
-        lfKrnl.Qext = io_degreesOfFreedom;
+        lfKrnl.Qext = data.dofs;
         lfKrnl.I = i_timeIntegrated[l_face];
-        lfKrnl.AplusT = neighbor->nAmNm1[l_face];
+        lfKrnl.AplusT = data.neighboringIntegration.nAmNm1[l_face];
         lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
         lfKrnl.execute(l_face);
       }
-    } else if (i_faceTypes[l_face] == dynamicRupture) {
+    } else if (data.cellInformation.faceTypes[l_face] == dynamicRupture) {
       assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
       kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
       drKrnl.godunovState = cellDrMapping[l_face].godunov;
-      drKrnl.Qext = io_degreesOfFreedom;
+      drKrnl.Qext = data.dofs;
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
     }
   }
 
   kernel::neighbour nKrnl = m_nKrnlPrototype;
-  nKrnl.Q = io_degreesOfFreedom;
-  nKrnl.Qane = io_degreesOfFreedomAne;
-  nKrnl.w = neighbor->specific.w;
+  nKrnl.Q = data.dofs;
+  nKrnl.Qane = data.dofsAne;
+  nKrnl.w = data.neighboringIntegration.specific.w;
   
   nKrnl.execute();
 }

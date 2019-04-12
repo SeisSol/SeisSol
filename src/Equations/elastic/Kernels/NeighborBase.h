@@ -35,7 +35,7 @@
  * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2014, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,70 +65,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Time kernel of SeisSol.
+ * Boundary kernel of SeisSol.
  **/
 
-#ifndef TIME_H_
-#define TIME_H_
+#ifndef KERNELS_NEIGHBORBASE_H_
+#define KERNELS_NEIGHBORBASE_H_
 
-#include <cassert>
-#include <limits>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/common.hpp>
-#include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
-    class Time;
+    class NeighborBase;
   }
 }
 
-class seissol::kernels::Time {
-  private:
-    /*
-     *! Offsets of the derivatives.
-     *
-     * * Offset counting starts at the zeroth derivative with o_derivativesOffset[0]=0; increasing derivatives follow:
-     *   1st derivative: o_derivativesOffset[1]
-     *   2nd derivative: o_derivativesOffset[2]
-     *   ...
-     * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
-     */
-    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-    
-    kernel::derivative m_krnlPrototype;
-
-  public:
-    /**
-     * Constructor, which initializes the time kernel.
-     **/
-    Time();
-    
-    void setGlobalData(GlobalData const* global);
-
-    void computeAder( double                      i_timeStepWidth,
-                      LocalIntegrationData const* local,
-                      real const                  i_degreesOfFreedom[tensor::Q::size()],
-                      real                        o_timeIntegrated[tensor::I::size()],
-                      real*                       o_timeDerivatives = NULL );
-
-    void flopsAder( unsigned int &o_nonZeroFlops,
-                    unsigned int &o_hardwareFlops );
-
-    unsigned bytesAder();
-
-    void computeIntegral( double                                      i_expansionPoint,
-                          double                                      i_integrationStart,
-                          double                                      i_integrationEnd,
-                          real const*                                 i_timeDerivatives,
-                          real                                        o_timeIntegrated[tensor::I::size()] );
-
-    void computeTaylorExpansion( real         time,
-                                 real         expansionPoint,
-                                 real const*  timeDerivatives,
-                                 real         timeEvaluated[tensor::Q::size()] );
+class seissol::kernels::NeighborBase {
+  protected:
+    kernel::localFlux m_lfKrnlPrototype;
+    kernel::neighboringFlux m_nfKrnlPrototype;
+    kernel::nodalFlux m_drKrnlPrototype;
 };
 
 #endif
-

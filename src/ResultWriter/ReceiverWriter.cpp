@@ -105,8 +105,7 @@ void seissol::writer::ReceiverWriterCluster::addReceiver( unsigned              
                             xiEtaZeta[0],
                             xiEtaZeta[1],
                             xiEtaZeta[2],
-                            &ltsLut.lookup(lts.dofs, meshId)[0],
-                            &ltsLut.lookup(lts.localIntegration, meshId));
+                            kernels::LocalData::lookup(lts, ltsLut, meshId));
 }
 
 double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
@@ -116,6 +115,8 @@ double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
   real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
   real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
   real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
+
+  kernels::LocalTmp tmp;
 
   kernel::evaluateDOFSAtPoint krnl;
   krnl.QAtPoint = timeEvaluatedAtPoint;
@@ -129,8 +130,8 @@ double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
       krnl.basisFunctions = receiver.basisFunctions.m_data.data();
 
       m_timeKernel.computeAder( 0,
-                                receiver.local,
-                                receiver.dofs,
+                                receiver.data,
+                                tmp,
                                 timeEvaluated, // useless but the interface requires it
                                 timeDerivatives );
       g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;

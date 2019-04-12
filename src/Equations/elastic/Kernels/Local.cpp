@@ -39,7 +39,7 @@
  * Local kernel of SeisSol.
  **/
 
-#include "Local.h"
+#include "Kernels/Local.h"
 
 #ifndef NDEBUG
 #pragma message "compiling local kernel with assertions"
@@ -68,36 +68,35 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   m_lfKrnlPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
 }
 
-void seissol::kernels::Local::computeIntegral(  enum faceType const         i_faceTypes[4],
-                                                LocalIntegrationData const* local,
-                                                real                        i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                                real                        io_degreesOfFreedom[tensor::Q::size()] )
+void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                                LocalData& data,
+                                                LocalTmp& )
 {
   // assert alignments
 #ifndef NDEBUG
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)io_degreesOfFreedom)              % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
 #endif
 
   kernel::volume volKrnl = m_volKrnlPrototype;
-  volKrnl.Q = io_degreesOfFreedom;
+  volKrnl.Q = data.dofs;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = local->starMatrices[i];
+    volKrnl.star(i) = data.localIntegration.starMatrices[i];
   }
   
   kernel::localFlux lfKrnl = m_lfKrnlPrototype;
-  lfKrnl.Q = io_degreesOfFreedom;
+  lfKrnl.Q = data.dofs;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = io_degreesOfFreedom + tensor::Q::size();
+  lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
   
   volKrnl.execute();
   
   for( unsigned int face = 0; face < 4; face++ ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( i_faceTypes[face] != dynamicRupture ) {
-      lfKrnl.AplusT = local->nApNm1[face];
+    if( data.cellInformation.faceTypes[face] != dynamicRupture ) {
+      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
       lfKrnl.execute(face);
     }
   }

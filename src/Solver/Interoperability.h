@@ -46,7 +46,6 @@
 #include <vector>
 #include <glm/vec3.hpp>
 #include <Initializer/typedefs.hpp>
-#include <Kernels/Time.h>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
@@ -61,10 +60,6 @@ namespace seissol {
  **/
 class seissol::Interoperability {
   // private:
-    //! time kernel
-    seissol::kernels::Time m_timeKernel;
-
-
     // Type of the initial condition.
     std::string m_initialConditionType;
     

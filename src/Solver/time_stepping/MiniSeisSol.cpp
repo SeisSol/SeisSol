@@ -52,24 +52,25 @@ void seissol::localIntegration( struct GlobalData* globalData,
   kernels::Time  timeKernel;
   timeKernel.setGlobalData(globalData);
 
-  real                (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
   real**                buffers                       = layer.var(lts.buffers);
-  LocalIntegrationData* localIntegration              = layer.var(lts.localIntegration);
-  CellLocalInformation* cellInformation               = layer.var(lts.cellInformation);
+
+  kernels::LocalData::Loader loader;
+  loader.load(lts, layer);
+  kernels::LocalTmp tmp;
 
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
+  #pragma omp parallel for private(tmp) schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    auto data = loader.entry(cell);
     timeKernel.computeAder( 1.0,
-                            &localIntegration[cell],
-                            dofs[cell],
+                            data,
+                            tmp,
                             buffers[cell],
                             nullptr );
-    localKernel.computeIntegral( cellInformation[cell].faceTypes,
-                                 &localIntegration[cell],
-                                 buffers[cell],
-                                 dofs[cell] );
+    localKernel.computeIntegral( buffers[cell],
+                                 data,
+                                 tmp );
   }
 }
 

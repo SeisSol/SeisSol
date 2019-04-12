@@ -73,6 +73,9 @@ namespace seissol {
 
 struct seissol::initializers::LTS {
   Variable<real[tensor::Q::size()]>       dofs;
+#if NUMBER_OF_RELAXATION_MECHANISMS > 0
+  Variable<real[tensor::Qane::size()]>    dofsAne;
+#endif
   Variable<real*>                         buffers;
   Variable<real*>                         derivatives;
   Variable<CellLocalInformation>          cellInformation;
@@ -96,6 +99,9 @@ struct seissol::initializers::LTS {
     LayerMask plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
 #endif
     tree.addVar(                    dofs, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
+#if NUMBER_OF_RELAXATION_MECHANISMS > 0
+    tree.addVar(                 dofsAne, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
+#endif
     tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
     tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
     tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );

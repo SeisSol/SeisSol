@@ -39,7 +39,7 @@
  * Local kernel of SeisSol.
  **/
 
-#include "Local.h"
+#include "Kernels/Local.h"
 
 #ifndef NDEBUG
 #pragma message "compiling local kernel with assertions"
@@ -69,18 +69,15 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   m_lKrnlPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Local::computeIntegral(  enum faceType const         i_faceTypes[4],
-                                                LocalIntegrationData const* local,
-                                                real                        i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                                real                        i_timeIntegratedDegreesOfFreedomAne[tensor::Iane::size()],
-                                                real                        io_degreesOfFreedom[tensor::Q::size()],
-                                                real                        io_degreesOfFreedomAne[tensor::Qane::size()] )
+void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                                LocalData& data,
+                                                LocalTmp&  tmp )
 {
   // assert alignments
 #ifndef NDEBUG
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedomAne) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)io_degreesOfFreedom)              % ALIGNMENT == 0 );
+  assert( ((uintptr_t)tmp.timeIntegratedAne) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)dofs.data)              % ALIGNMENT == 0 );
 #endif
 
   real Qext[tensor::Qext::size()] __attribute__((aligned(ALIGNMENT)));
@@ -89,33 +86,33 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
   volKrnl.Qext = Qext;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = local->starMatrices[i];
+    volKrnl.star(i) = data.localIntegration.starMatrices[i];
   }
   
   kernel::localFluxExt lfKrnl = m_lfKrnlPrototype;
   lfKrnl.Qext = Qext;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = io_degreesOfFreedom + tensor::Q::size();
+  lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
   
   volKrnl.execute();
   
   for( unsigned int face = 0; face < 4; ++face ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( i_faceTypes[face] != dynamicRupture ) {
-      lfKrnl.AplusT = local->nApNm1[face];
+    if( data.cellInformation.faceTypes[face] != dynamicRupture ) {
+      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
       lfKrnl.execute(face);
     }
   }
 
   kernel::local lKrnl = m_lKrnlPrototype;
-  lKrnl.E = local->specific.E;
-  lKrnl.Iane = i_timeIntegratedDegreesOfFreedomAne;
-  lKrnl.Q = io_degreesOfFreedom;
-  lKrnl.Qane = io_degreesOfFreedom;
+  lKrnl.E = data.localIntegration.specific.E;
+  lKrnl.Iane = tmp.timeIntegratedAne;
+  lKrnl.Q = data.dofs;
+  lKrnl.Qane = data.dofsAne;
   lKrnl.Qext = Qext;
-  lKrnl.W = local->specific.W;
-  lKrnl.w = local->specific.w;
+  lKrnl.W = data.localIntegration.specific.W;
+  lKrnl.w = data.localIntegration.specific.w;
 
   lKrnl.execute();
 }

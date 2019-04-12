@@ -69,7 +69,8 @@
  * Time kernel of SeisSol.
  **/
 
-#include "Time.h"
+#include "Kernels/TimeBase.h"
+#include "Kernels/Time.h"
 
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
@@ -85,7 +86,7 @@ extern long long libxsmm_num_total_flops;
 
 #include <yateto.h>
 
-seissol::kernels::Time::Time() {
+seissol::kernels::TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
   for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
     if (order > 0) {
@@ -103,15 +104,15 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
 }
 
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
-                                          LocalIntegrationData const* local,
-                                          real const                  i_degreesOfFreedom[tensor::Q::size()],
+                                          LocalData&                  data,
+                                          LocalTmp&                   tmp,
                                           real                        o_timeIntegrated[tensor::I::size()],
                                           real*                       o_timeDerivatives )
 {
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)i_degreesOfFreedom)     % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
@@ -124,17 +125,17 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
 
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = local->starMatrices[i];
+    krnl.star(i) = data.localIntegration.starMatrices[i];
   }
 
-  krnl.dQ(0) = const_cast<real*>(i_degreesOfFreedom);
+  krnl.dQ(0) = const_cast<real*>(data.dofs);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
 
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = o_timeIntegrated;
-  intKrnl.dQ(0) = i_degreesOfFreedom;
+  intKrnl.dQ(0) = data.dofs;
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
@@ -146,7 +147,7 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
 
   // stream out frist derivative (order 0)
   if (o_timeDerivatives != nullptr) {
-    streamstore(tensor::dQ::size(0), i_degreesOfFreedom, o_timeDerivatives);
+    streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
   }
   
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {

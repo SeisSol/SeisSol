@@ -398,7 +398,6 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
-  m_timeKernel.setGlobalData(m_globalData);
 }
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)

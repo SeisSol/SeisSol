@@ -6,7 +6,7 @@
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2013-2014, SeisSol Group
+ * Copyright (c) 2013-2015, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,51 +36,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Neighbor kernel of SeisSol.
+ * Time kernel of SeisSol.
  **/
 
-#ifndef KERNELS_NEIGHBOR_H_
-#define KERNELS_NEIGHBOR_H_
+#ifndef KERNELS_TIMEBASE_H_
+#define KERNELS_TIMEBASE_H_
 
-#include <Initializer/typedefs.hpp>
 #include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
-    class Neighbor;
+    class TimeBase {
+    protected:
+      kernel::derivative m_krnlPrototype;
+    };
   }
 }
 
-class seissol::kernels::Neighbor {
-  private:
-    kernel::localFluxExt m_lfKrnlPrototype;
-    kernel::neighbourFluxExt m_nfKrnlPrototype;
-    kernel::neighbour m_nKrnlPrototype;
-    kernel::nodalFlux m_drKrnlPrototype;
-
-  public:
-    Neighbor() {}
-
-    void setGlobalData(GlobalData const* global);
-
-    void computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
-                                    int const                         i_neighboringIndices[4][2],
-                                    CellDRMapping const             (&cellDrMapping)[4],
-                                    NeighboringIntegrationData const* neighbor,
-                                    real*                             i_timeIntegrated[4],
-                                    real*                             faceNeighbors_prefetch[4],
-                                    real                              io_degreesOfFreedom[ tensor::Q::size() ],
-                                    real                              io_degreesOfFreedomAne[ tensor::Qane::size() ] );
-
-    void flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
-                                 const int            i_neighboringIndices[4][2],
-                                 CellDRMapping const (&cellDrMapping)[4],
-                                 unsigned int        &o_nonZeroFlops,
-                                 unsigned int        &o_hardwareFlops,
-                                 long long&           o_drNonZeroFlops,
-                                 long long&           o_drHardwareFlops );
-                                 
-    unsigned bytesNeighborsIntegral();
-};
-
 #endif
+

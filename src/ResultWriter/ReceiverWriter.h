@@ -47,22 +47,21 @@
 #include <Initializer/tree/Lut.hpp>
 #include <Initializer/LTS.h>
 #include <Kernels/Time.h>
+#include <Kernels/Interface.hpp>
 
 class LocalIntegrationData;
 class GlobalData;
 namespace seissol {
   namespace writer {
     struct Receiver {
-      Receiver(std::string const& fileName, double xi, double eta, double zeta, real* dofs, LocalIntegrationData* local)
+      Receiver(std::string const& fileName, double xi, double eta, double zeta, kernels::LocalData data)
         : fileName(fileName),
           basisFunctions(CONVERGENCE_ORDER, xi, eta, zeta),
-          dofs(dofs),
-          local(local)
+          data(data)
         {}
       std::string fileName;
       basisFunction::SampledBasisFunctions<real> basisFunctions;
-      real* dofs;
-      LocalIntegrationData* local;
+      kernels::LocalData data;
     };
 
     class ReceiverWriterCluster {

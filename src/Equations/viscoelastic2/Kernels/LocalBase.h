@@ -6,7 +6,7 @@
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2014, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,61 +36,24 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- * Time kernel of SeisSol.
+ * Local kernel of SeisSol.
  **/
 
-#ifndef TIME_H_
-#define TIME_H_
+#ifndef KERNELS_LOCALBASE_H_
+#define KERNELS_LOCALBASE_H_
 
-#include <cassert>
-#include <limits>
-#include <Initializer/typedefs.hpp>
-#include <Kernels/common.hpp>
-#include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 
 namespace seissol {
   namespace kernels {
-    class Time;
+    class LocalBase {
+    protected:
+      kernel::volumeExt m_volKrnlPrototype;
+      kernel::localFluxExt m_lfKrnlPrototype;
+      kernel::local m_lKrnlPrototype;
+    };
   }
 }
-
-class seissol::kernels::Time {
-  private:
-    kernel::derivative m_krnlPrototype;
-
-  public:
-    /**
-     * Constructor, which initializes the time kernel.
-     **/
-    Time() {}
-
-    void setGlobalData(GlobalData const* global);
-
-    void computeAder( double                      i_timeStepWidth,
-                      LocalIntegrationData const* local,
-                      real const                  i_degreesOfFreedom[tensor::Q::size()],
-                      real const                  i_degreesOfFreedomAne[tensor::Qane::size()],
-                      real                        o_timeIntegrated[tensor::I::size()],
-                      real                        o_timeIntegratedAne[tensor::Iane::size()],
-                      real*                       o_timeDerivatives = NULL );
-
-    void flopsAder( unsigned int &o_nonZeroFlops,
-                    unsigned int &o_hardwareFlops );
-
-    unsigned bytesAder();
-
-    void computeIntegral( double                                      i_expansionPoint,
-                          double                                      i_integrationStart,
-                          double                                      i_integrationEnd,
-                          real const*                                 i_timeDerivatives,
-                          real                                        o_timeIntegrated[tensor::I::size()] );
-
-    void computeTaylorExpansion( real         time,
-                                 real         expansionPoint,
-                                 real const*  timeDerivatives,
-                                 real         timeEvaluated[tensor::Q::size()] );
-};
 
 #endif
 
