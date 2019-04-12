@@ -218,7 +218,7 @@ void seissol::model::initializeSpecificLocalData( seissol::model::Material const
   W.setZero();
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     w(mech) = material.omega[mech];
-    W(mech,mech) = material.omega[mech];
+    W(mech,mech) = -material.omega[mech];
   }
 }
 

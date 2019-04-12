@@ -171,7 +171,7 @@ g.addFamily('localFluxExt', simpleParameterSpace(4), localFluxExt, localFluxExtP
 
 g.add('local', [
   Qane['kpm'] <= Qane['kpm'] + w['m'] * Qext['kq'] * selectAne['qp'] + Iane['kpl'] * W['lm'],
-  Q['kp'] <= Qext['kq'] * selectEla['qp'] + Iane['kqm'] * E['qmp']
+  Q['kp'] <= Q['kp'] + Qext['kq'] * selectEla['qp'] + Iane['kqm'] * E['qmp']
 ])
 
 ## Neighbour
@@ -181,7 +181,7 @@ g.addFamily('neighbourFluxExt', simpleParameterSpace(3,4,4), neighbourFluxExt, n
 
 g.add('neighbour', [
   Qane['kpm'] <= Qane['kpm'] + w['m'] * Qext['kq'] * selectAne['qp'],
-  Q['kp'] <= Qext['kq'] * selectEla['qp']
+  Q['kp'] <= Q['kp'] + Qext['kq'] * selectEla['qp']
 ])
 
 ## ADER
