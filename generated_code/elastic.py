@@ -69,6 +69,7 @@ arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
 order = int(cmdLineArgs.order)
 numberOf2DBasisFunctions = order*(order+1)//2
 numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
+numberOf3DQuadraturePoints = (order+1)**3
 numberOfQuantities = 9
 multipleSimulations = int(cmdLineArgs.multipleSimulations)
 
@@ -102,12 +103,18 @@ memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
 dQ0 = OptionalDimTensor('dQ(0)', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
 I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
+dofsQP = Tensor('dofsQP', (numberOf3DQuadraturePoints, numberOfQuantities))
 
 # Kernels
 g = Generator(arch)
 
 ## Initialization
 ti = init.addKernels(g, db, Q, order, numberOfQuantities, numberOfQuantities)
+if Q.hasOptDim():
+  projectQP = Q['kp'] <= db.projectQP['kl'] * dofsQP['lp'] * ti.oneSimToMultSim['s']
+else:
+  projectQP = Q['kp'] <= db.projectQP['kl'] * dofsQP['lp']
+g.add('projectQP', projectQP)
 
 ## Local
 volumeSum = Q['kp']

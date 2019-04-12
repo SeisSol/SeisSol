@@ -188,7 +188,6 @@ void seissol::model::setMaterial( double* i_materialVal,
   }
 }
 
-
 void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
                                             VrtxCoords const i_tangent1,
                                             VrtxCoords const i_tangent2,
@@ -205,7 +204,6 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
 
   seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 9, 9);
-  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 9, 9);
 }
 
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const& material,

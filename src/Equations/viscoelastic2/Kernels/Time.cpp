@@ -235,7 +235,7 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 
-  kernel::derivativeTaylorExpansion intKrnl;
+  kernel::derivativeTaylorExpansionEla intKrnl;
   intKrnl.I = timeEvaluated;
   real const* der = timeDerivatives;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {

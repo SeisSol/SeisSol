@@ -77,7 +77,7 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
 #ifndef NDEBUG
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
   assert( ((uintptr_t)tmp.timeIntegratedAne) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)dofs.data)              % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
 #endif
 
   real Qext[tensor::Qext::size()] __attribute__((aligned(ALIGNMENT)));

@@ -729,7 +729,9 @@ void seissol::Interoperability::projectInitialField()
   if (m_initialConditionType == "Planarwave") {
     iniField = new physics::Planarwave();
   } else if (m_initialConditionType == "Zero") {
-    iniField = new physics::ZeroField();
+    // Projection not necessary
+    return;
+    //iniField = new physics::ZeroField();
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }

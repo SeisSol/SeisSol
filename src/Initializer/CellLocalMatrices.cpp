@@ -78,7 +78,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 
   assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0]);
   assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1]);
-  assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AplusT::Shape[1]);
 
   unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 

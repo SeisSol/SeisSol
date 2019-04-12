@@ -26,11 +26,13 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();
 
-  using ErrorArray_t = std::array<double, NUMBER_OF_QUANTITIES>;
+  constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+
+  using ErrorArray_t = std::array<double, numberOfQuantities>;
   auto errL1Local = ErrorArray_t{0.0};
   auto errL2Local = ErrorArray_t{0.0};
   auto errLInfLocal = ErrorArray_t{-1.0};
-  auto elemLInfLocal = std::array<unsigned int, NUMBER_OF_QUANTITIES>{0};
+  auto elemLInfLocal = std::array<unsigned int, numberOfQuantities>{0};
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
@@ -81,7 +83,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
     for (size_t i = 0; i < numQuadPoints; ++i) {
       const auto curWeight = jacobiDet * quadratureWeights[i];
-      for (size_t v = 0; v < NUMBER_OF_QUANTITIES; ++v) {
+      for (size_t v = 0; v < numberOfQuantities; ++v) {
 	// Evaluate discrete solution at quad. point
 	const auto handle = lts->dofs;
 	auto const *coeffsBegin = &ltsLut->lookup(handle, meshId)[v*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
@@ -99,7 +101,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     }
   }
 
-  for (unsigned int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+  for (unsigned int i = 0; i < numberOfQuantities; ++i) {
     // Find position of element with lowest LInf error.
     VrtxCoords center;
     MeshTools::center(elements[elemLInfLocal[i]],
@@ -133,7 +135,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 		MPI_MAXLOC,
 		comm);
 
-  for (unsigned int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+  for (unsigned int i = 0; i < numberOfQuantities; ++i) {
     VrtxCoords centerSend;
     MeshTools::center(elements[elemLInfLocal[i]],
 		      vertices,
@@ -161,7 +163,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     }
   }
 #else
-  for (unsigned int i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+  for (unsigned int i = 0; i < numberOfQuantities; ++i) {
     VrtxCoords center;
     MeshTools::center(elements[elemLInfLocal[i]],
 		      vertices,

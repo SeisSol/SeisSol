@@ -135,6 +135,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
   }
 
   kernel::neighbour nKrnl = m_nKrnlPrototype;
+  nKrnl.Qext = Qext;
   nKrnl.Q = data.dofs;
   nKrnl.Qane = data.dofsAne;
   nKrnl.w = data.neighboringIntegration.specific.w;

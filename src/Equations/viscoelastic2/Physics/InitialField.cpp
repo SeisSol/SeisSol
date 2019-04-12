@@ -51,7 +51,7 @@ seissol::physics::Planarwave::Planarwave()
 
   auto eigenvectors = ces.eigenvectors();
   Vector amp = eigenvectors.colPivHouseholderQr().solve(ic);
-  for (size_t j = 0; j < m_setVar; ++j) {
+  for (int j = 0; j < m_setVar; ++j) {
     m_varField.push_back(j);
     m_ampField.push_back(amp(j));
   }

@@ -70,11 +70,13 @@ arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
 order = int(cmdLineArgs.order)
 numberOf2DBasisFunctions = order*(order+1)//2
 numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
+numberOf3DQuadraturePoints = (order+1)**3
 numberOfQuantities = 9
 numberOfAnelasticQuantities = 6
 numberOfExtendedQuantities = numberOfQuantities + numberOfAnelasticQuantities
 numberOfMechanisms = int(cmdLineArgs.numberOfMechanisms)
 multipleSimulations = int(cmdLineArgs.multipleSimulations)
+numberOfFullQuantities = numberOfQuantities + numberOfMechanisms * numberOfAnelasticQuantities
 
 qShape = (numberOf3DBasisFunctions, numberOfQuantities)
 qShapeExtended = (numberOf3DBasisFunctions, numberOfExtendedQuantities)
@@ -118,13 +120,26 @@ dQane = [OptionalDimTensor('dQane({})'.format(d), msName, multipleSimulations, m
 I = OptionalDimTensor('I', msName, multipleSimulations, msPos, qShape, alignStride=alignStride)
 Iane = OptionalDimTensor('Iane', msName, multipleSimulations, msPos, qShapeAnelastic, alignStride=alignStride)
 
+dofsQP = Tensor('dofsQP', (numberOf3DQuadraturePoints, numberOfFullQuantities))
+
 selectElaSpp = np.zeros((numberOfExtendedQuantities, numberOfQuantities))
 selectElaSpp[0:numberOfQuantities,0:numberOfQuantities] = np.eye(numberOfQuantities)
 selectEla = Tensor('selectEla', (numberOfExtendedQuantities, numberOfQuantities), selectElaSpp, CSCMemoryLayout)
 
+selectElaFullSpp = np.zeros((numberOfFullQuantities, numberOfQuantities))
+selectElaFullSpp[0:numberOfQuantities,0:numberOfQuantities] = np.eye(numberOfQuantities)
+selectElaFull = Tensor('selectElaFull', (numberOfFullQuantities, numberOfQuantities), selectElaFullSpp, CSCMemoryLayout)
+
 selectAneSpp = np.zeros((numberOfExtendedQuantities, numberOfAnelasticQuantities))
 selectAneSpp[numberOfQuantities:numberOfExtendedQuantities,0:numberOfAnelasticQuantities] = np.eye(numberOfAnelasticQuantities)
 selectAne = Tensor('selectAne', (numberOfExtendedQuantities, numberOfAnelasticQuantities), selectAneSpp, CSCMemoryLayout)
+
+selectAneFullSpp = np.zeros((numberOfFullQuantities, numberOfAnelasticQuantities, numberOfMechanisms))
+for mech in range(numberOfMechanisms):
+  q1 = numberOfQuantities+mech*numberOfAnelasticQuantities
+  q2 = q1 + numberOfAnelasticQuantities
+  selectAneFullSpp[q1:q2,:,mech] = np.eye(numberOfAnelasticQuantities)
+selectAneFull = Tensor('selectAneFull', (numberOfFullQuantities, numberOfAnelasticQuantities, numberOfMechanisms), selectAneFullSpp)
 
 E = Tensor('E', (numberOfAnelasticQuantities, numberOfMechanisms, numberOfQuantities))
 w = Tensor('w', (numberOfMechanisms,))
@@ -135,6 +150,13 @@ g = Generator(arch)
 
 ## Initialization
 ti = init.addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities)
+if Q.hasOptDim():
+  projectQPEla = Q['kp'] <= db.projectQP['kl'] * dofsQP['lq'] * selectElaFull['qp'] * ti.oneSimToMultSim['s']
+  projectQPAne = Qane['kpm'] <= db.projectQP['kl'] * dofsQP['lq'] * selectAneFull['qpm'] * ti.oneSimToMultSim['s']
+else:
+  projectQPEla = Q['kp'] <= db.projectQP['kl'] * dofsQP['lq'] * selectElaFull['qp']
+  projectQPAne = Qane['kpm'] <= db.projectQP['kl'] * dofsQP['lq'] * selectAneFull['qpm']
+g.add('projectQP', [projectQPEla, projectQPAne])
 
 ## Local
 volumeSum = Add()

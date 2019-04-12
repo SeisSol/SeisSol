@@ -80,6 +80,10 @@ void seissol::initializers::projectInitialField(  physics::InitialField const&  
 #ifdef MULTIPLE_SIMULATIONS
   krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
 #endif
+#if NUMBER_OF_RELAXATION_MECHANISMS > 0
+  krnl.selectAneFull = init::selectAneFull::Values;
+  krnl.selectElaFull = init::selectElaFull::Values;
+#endif
 
 #ifdef _OPENMP
   #pragma omp for schedule(static)
@@ -95,6 +99,9 @@ void seissol::initializers::projectInitialField(  physics::InitialField const&  
 
     iniField.evaluate(0.0, quadraturePointsXyz, dofsQP);
     krnl.Q = ltsLut.lookup(lts.dofs, meshId);
+#if NUMBER_OF_RELAXATION_MECHANISMS > 0
+    krnl.Qane = ltsLut.lookup(lts.dofsAne, meshId);
+#endif
     krnl.execute();
   }
 #ifdef _OPENMP
