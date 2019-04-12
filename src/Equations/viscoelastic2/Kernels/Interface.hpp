@@ -46,8 +46,8 @@
 
 namespace seissol {
   namespace kernels {
-    struct LocalTmp {
-      real timeIntegratedAne[tensor::Iane::size()] __attribute__((aligned(ALIGNMENT)));
+    struct alignas(ALIGNMENT) LocalTmp {
+      alignas(ALIGNMENT) real timeIntegratedAne[tensor::Iane::size()];
     };
     LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, dofs, dofsAne)
     LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)

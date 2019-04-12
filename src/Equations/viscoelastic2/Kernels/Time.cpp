@@ -83,7 +83,7 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
    */
   // temporary result
   real temporaryBuffer[2][tensor::dQ::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
-  real temporaryBufferExt[2][tensor::dQext::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
+  real temporaryBufferExt[2][tensor::dQext::size(1)] __attribute__((aligned(PAGESIZE_STACK)));
   real temporaryBufferAne[2][tensor::dQane::size(0)] __attribute__((aligned(PAGESIZE_STACK)));
 
   kernel::derivative krnl = m_krnlPrototype;
