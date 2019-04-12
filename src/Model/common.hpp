@@ -40,6 +40,7 @@
 #ifndef MODEL_COMMON_HPP_
 #define MODEL_COMMON_HPP_
 
+#include <cmath>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
 

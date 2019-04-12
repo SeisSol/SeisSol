@@ -110,9 +110,9 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
         surfaceLayer != surfaceLtsTree.endLeaf();
         ++surfaceLayer)
   {
-    real** velocityDofs     = surfaceLayer->var(surfaceLts.velocityDofs);
+    /* real** velocityDofs     = surfaceLayer->var(surfaceLts.velocityDofs);
     real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
-    unsigned* side = surfaceLayer->var(surfaceLts.side);
+    unsigned* side = surfaceLayer->var(surfaceLts.side);*/
 
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
@@ -263,9 +263,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     displacements[dim]  = (double*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(double), ALIGNMENT);
   }
 
-  unsigned* ltsToMesh = ltsLut->getLtsToMeshLut(ghostMask);
   /// @ yateto_todo
-  /*for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
+  /*unsigned* ltsToMesh = ltsLut->getLtsToMeshLut(ghostMask);
+  for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
