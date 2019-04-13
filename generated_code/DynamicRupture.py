@@ -43,6 +43,9 @@ from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 
 def addKernels(generator, Q, Qext, I, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
+  transpose = Q.hasOptDim()
+  t = (lambda x: x[::-1]) if transpose else (lambda x: x)
+
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (order+1)**2
   elif dynamicRuptureMethod == 'cellaverage':
@@ -53,7 +56,7 @@ def addKernels(generator, Q, Qext, I, alignStride, matricesDir, order, dynamicRu
   clones = dict()
 
   # Load matrices
-  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, order), clones, alignStride=alignStride)
+  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, order), clones, alignStride=alignStride, transpose=transpose)
 
   # Determine matrices  
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
@@ -65,13 +68,13 @@ def addKernels(generator, Q, Qext, I, alignStride, matricesDir, order, dynamicRu
 
   def godunovStateGenerator(i,h):
     target = godunovState['kp']
-    term = db.V3mTo2n[i,h]['kl'] * Q['lq'] * godunovMatrix['qp']
+    term = db.V3mTo2n[i,h][t('kl')] * Q['lq'] * godunovMatrix['qp']
     if h == 0:
       return target <= term
     return target <= target + term
   godunovStatePrefetch = lambda i,h: godunovState
   generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator, godunovStatePrefetch)
 
-  nodalFluxGenerator = lambda i,h: Qext['kp'] <= db.V3mTo2nTWDivM[i,h]['kl'] * godunovState['lq'] * fluxSolver['qp']
+  nodalFluxGenerator = lambda i,h: Qext['kp'] <= db.V3mTo2nTWDivM[i,h][t('kl')] * godunovState['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: I
   generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)
