@@ -28,6 +28,8 @@ Open the file with your favorite text editor (vi ./seissol_env.sh) and add follo
 .. code-block:: bash
 
   # User specific aliases and functions
+  export SS_HOME=$PWD/ss_aux_libs
+  
   export PATH=$S3_HOME/bin:$PATH
   export LD_LIBRARY_PATH=$S3_HOME/lib:$S3_HOME/lib64:$LD_LIBRARY_PATH  # lookup path for executables
   export LIBRARY_PATH=$LD_LIBRARY_PATH:$LIBRARY_PATH  # lookup path for compilers
