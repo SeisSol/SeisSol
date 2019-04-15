@@ -16,24 +16,51 @@ In order to run SeisSol, you need to first install:
 Inital Adjustments to .bashrc
 -----------------------------
 
-Add the following lines to your .bashrc (vi ~/.bashrc).
+Create a new text file in your $HOME directory
 
 .. code-block:: bash
 
-  source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
+  cd $HOME
+  touch seissol_env.sh
+
+Open the file with your favorite text editor (vi ./seissol_env.sh) and add following lines:
+
+.. code-block:: bash
 
   # User specific aliases and functions
-  export PATH=$HOME/bin:$PATH
-  export LD_LIBRARY_PATH=$HOME/lib:$HOME/lib64:$LD_LIBRARY_PATH
+  export PATH=$S3_HOME/bin:$PATH
+  export LD_LIBRARY_PATH=$S3_HOME/lib:$S3_HOME/lib64:$LD_LIBRARY_PATH  # lookup path for executables
+  export LIBRARY_PATH=$LD_LIBRARY_PATH:$LIBRARY_PATH  # lookup path for compilers
   export EDITOR=vi
-  export SCONS_LIB_DIR=$HOME/lib64/scons-2.2.0/
-  export PATH=$HOME/../libxsmm/bin:$PATH
-  export C_INCLUDE_PATH=$HOME/include:$C_INCLUDE_PATH 
-  export CPLUS_INCLUDE_PATH=$HOME/include:$CPLUS_INCLUDE_PATH
+  export SCONS_LIB_DIR=$S3_HOME/lib64/scons-2.2.0/
+  export C_INCLUDE_PATH=$S3_HOME/include:$C_INCLUDE_PATH
+  export CPLUS_INCLUDE_PATH=$S3_HOME/include:$CPLUS_INCLUDE_PATH
+  export PKG_CONFIG_PATH=$S3_HOME/lib/pkgconfig
+
+  export FC=mpiifort  # or mpifort
+  export CXX=mpiicpc  # or mpicxx
+  export CC=mpiicc    # or mpicc
 
   ######  ParMetis library necessary (Optional) ##############
-  export PARMETIS_BASE='path_to_parmetis'
-  export PARMETIS_LIBDIR='path_to_parmetis/lib'
+  export PARMETIS_BASE=$S3_HOME
+  export PARMETIS_LIBDIR=$S3_HOME/lib
+
+
+Add the following to your .bashrc (vi ~/.bashrc).
+
+.. code-block:: bash
+
+  source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64 # if you use intel compilers
+  source $HOME/seissol_env.sh
+
+
+.. code-block:: bash
+
+  source ./seissol_env.sh  # update your enviroment variable 
+
+  mkdir s3_software
+  cd ./s3_software
+
 
 Installing SCons
 ----------------
@@ -41,9 +68,9 @@ Installing SCons
 .. code-block:: bash
 
   wget http://prdownloads.sourceforge.net/scons/scons-2.2.0.tar.gz
-  tar -xaf scons-2.2.0.tar.gz
+  tar -xvf ./scons-2.2.0.tar.gz
   cd scons-2.2.0
-  python setup.py install --prefix=$HOME
+  python setup.py install --prefix=$S3_HOME
   cd ..
 
 
@@ -52,15 +79,14 @@ Installing HDF5
 
 .. code-block:: bash
 
-  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.11/src/hdf5-1.8.11.tar.bz2
-  tar -xaf hdf5-1.8.11.tar.bz2
-  cd hdf5-1.8.11
-  CC=mpiicc FC=mpiifort ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran 
-  #NOTE: This is with Intel MPI, if you have to use a different MPI, please adjust mpiicc and mpiifort accordingly to the scripts that call icc and ifort!
-  #MPICH note: CC=mpicc FC=mpif90 ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran
-  make
+  git clone https://github.com/mortenpi/hdf5.git
+  cd hdf5
+  git checkout 8a275ab7831002f3e  # take a stable version (optional)
+  ./configure --prefix=$S3_HOME --enable-parallel --with-zlib --disable-shared --enable-fortran
+  make -j4
   make install
   cd ..
+
 
 Installing netCDF
 -----------------
@@ -68,15 +94,14 @@ Installing netCDF
 .. code-block:: bash
 
   wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.1.1.tar.gz
-  tar -xaf netcdf-4.3.0.tar.gz
-  cd netcdf-4.3.0
-  CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpiicc ./configure --enable-shared=no --prefix=$HOME 
-  #MPICH note: CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpicc ./configure --enable-shared=no --prefix=$HOME 
-  #NOTE: Check for this line to make sure netCDF is build with parallel I/O: 
-  #"checking whether parallel I/O features are to be included... yes" This line comes at the very end (last 50 lines of configure run)!
-  make
+  tar -xaf ./netcdf-*.tar.gz
+  cd netcdf-4.4.1.1
+  CPPFLAGS="-I$S3_HOME/include -fPIC" ./configure --prefix=$S3_HOME --enable-shared=no
+  make -j4
+  make check # to check correctness of installation (optional)
   make install
   cd ..
+
 
 
 Installing Libxsmm
@@ -84,10 +109,12 @@ Installing Libxsmm
 
 .. code-block:: bash
 
-   git clone https://github.com/hfp/libxsmm
-   cd libxsmm
-   make generator
-   #add libxsmm/bin to path
+  git clone https://github.com/hfp/libxsmm
+  cd libxsmm
+  git checkout b6de187f832a723295a  # take a stable version (optional) 
+  make generator
+  cp ./bin/libxsmm_gemm_generator $S3_HOME/bin/
+  cd ..
 
 
 Installing Metis (Optional:PUML mesh format)
@@ -95,12 +122,12 @@ Installing Metis (Optional:PUML mesh format)
 
 .. code-block:: bash
 
-   tar -xvf metis-5.1.0.tar.gz
-   cd metis-5.1.0
-   #edit ./include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-   make config cc=mpiicc cxx=mpiicpc prefix=$HOME #(must confirm compiler!!!)
-   make install
-   cd ..
+  wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz
+  tar -xvf ./metis-5.1.0.tar.gz
+  cd metis-5.1.0
+  make config cc=$CC cxx=$CXX prefix=$S3_HOME
+  make install
+  cd ..
 
 
 Installing ParMetis (Optional:PUML mesh format)
@@ -108,22 +135,32 @@ Installing ParMetis (Optional:PUML mesh format)
 
 .. code-block:: bash
 
-  tar -xvf parmetis-4.0.3
+  wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
+  tar -xvf ./parmetis-4.0.3.tar.gz
   cd parmetis-4.0.3
-  #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-  make config cc=mpiicc cxx=mpiicpc prefix=$HOME 
-  #must confirm compiler! Better use the same path as metis!)
+  make config cc=$CC cxx=$CXX prefix=$S3_HOME
   make install
   cd ..
-
-(Make sure parmetis/include contains metis.h and parmetis/lib contains
-libmetis.a. Ortherwise, compile error: cannot find parmetis.)
 
 
 Installing ASAGI (Optional)
 ---------------------------
 
-See section :ref:`Installing ASAGI <installing_ASAGI>`.
+.. code-block:: bash
+
+  git clone https://github.com/TUM-I5/ASAGI.git
+  cd ASAGI
+
+  git clone https://github.com/TUM-I5/utils.git
+  mkdir build
+  cd build
+  cmake .. -DCMAKE_INSTALL_PREFIX=$S3_HOME
+  make -j4
+  make install
+  cd ../..
+
+
+For details, see section :ref:`Installing ASAGI <installing_ASAGI>`.
 
 .. _compiling-seissol:
 
@@ -136,6 +173,7 @@ including all submodules:
 .. code-block:: bash
 
    git clone https://github.com/SeisSol/SeisSol.git
+   cd SeisSol
    git submodule update --init
 
 Add the following build variables to the file
@@ -148,21 +186,14 @@ build/options/supermuc_mac_cluster.py
    arch='$ARCH' 
    order='$ORDER' 
    generatedKernels = 'yes'
-   compiler = 'intel'
+   compiler = 'intel' # or gcc
    logLevel = 'info'
 
    netcdf='yes' 
-   netcdfDir='path_to_netcdf' 
    hdf5='yes'
-   hdf5Dir='path_to_hdf5'
+   metis = 'yes' #  additionally for puml mesh format
+   asagi = 'yes' #  optional for ASAGI
 
-   ##  additionally for puml mesh format
-   metis = 'yes'
-   metisDir='path_to_parmetis'
-
-   ##  optional for ASAGI
-   asagi = 'yes'
-   zlibDir = 'path_to_asagi' #e.g. <path_to_ASAGI>/build/lib/
 
 | with: 
 | compileMode - release / relWithDebInfo/ debug
@@ -176,7 +207,13 @@ Get your executable with
 
 .. code-block:: bash
 
-   scons -j 32 buildVariablesFile=build/options/supermuc_mac_cluster.py
+   scons -j 4 buildVariablesFile=build/options/supermuc_mac_cluster.py
+
+   # choose a correct executable file in case if you compile multiple
+   # versions of Seissol
+   ln -s $PWD/build/SeisSol_<version> $S3_HOME/bin/Seissol
+   cd $HOME
+
 
 NOTE: SCons will try to detect the correct MPI wrappers. If this fails,
 you can overwrite the detected wrappers with the variables "mpicc",
@@ -194,7 +231,7 @@ Running SeisSol
 
 1. Follow the instructions on :ref:`Configuration <Configuration>`.
 2. run SeisSol version of interest. To run the example:
-   ``./SeisSol_release_.... PARAMETER.PAR``
+   ``SeisSol <PARAMETER_FILE_NAME>.par``
 
 Further information regarding meshing and parameter files etc. can be
 found in the documentation folder. See also :ref:`A first example <a_first_example>`.
