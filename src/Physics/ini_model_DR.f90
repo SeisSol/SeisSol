@@ -98,7 +98,7 @@ MODULE ini_model_DR_mod
 
     ! Initialize model dependent (space dependent) friction law parameters
     SELECT CASE(EQN%FL)
-    CASE(2,16)
+    CASE(2,16,17)
       ! Initialization of friction for linear slip weakening
       CALL friction_LSW(DISC,EQN,MESH,BND)
     CASE(3,4)
@@ -213,7 +213,7 @@ MODULE ini_model_DR_mod
     SELECT CASE(EQN%FL)
     CASE(0)
        CONTINUE
-    CASE(2,6,16)
+    CASE(2,6,16,17)
        ALLOCATE(  DISC%DynRup%D_C(DISC%Galerkin%nBndGP,MESH%Fault%nSide)       )
        ALLOCATE(  DISC%DynRup%Mu_S(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
        ALLOCATE(  DISC%DynRup%Mu_D(DISC%Galerkin%nBndGP,MESH%Fault%nSide)      )
@@ -221,7 +221,7 @@ MODULE ini_model_DR_mod
        call c_interoperability_addFaultParameter("d_c" // c_null_char, DISC%DynRup%D_C)
        call c_interoperability_addFaultParameter("mu_s" // c_null_char, DISC%DynRup%Mu_S)
        call c_interoperability_addFaultParameter("mu_d" // c_null_char, DISC%DynRup%Mu_D)
-       if (EQN%FL == 16) then
+       if ((EQN%FL == 16).OR.(EQN%FL == 17)) then
          ALLOCATE(  DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
          call c_interoperability_addFaultParameter("forced_rupture_time" // c_null_char, DISC%DynRup%forced_rupture_time)
        end if

@@ -1022,7 +1022,7 @@ CONTAINS
            CASE(6) ! bimaterial with LSW
              DISC%DynRup%v_star = v_star
              DISC%DynRup%L = L
-           CASE(16) ! SCEC TPV 16/17
+           CASE(16,17) ! SCEC TPV 16/17
              ! all parameters are defined in input file of INITIAL VALUES
              DISC%DynRup%inst_healing = 0
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time

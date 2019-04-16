@@ -217,7 +217,7 @@ module f_ctof_bind_interoperability
                               NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
                               i_face,iSide,iElem,l_time,timePoints,          & ! IN: element ID, time, inv Trafo
                               rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
-                              l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%bnd)
+                              l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%bnd, l_absoluteSlip)
 
       l_imposedStatePlus = 0.0
       l_imposedStateMinus = 0.0
