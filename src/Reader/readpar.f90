@@ -2524,6 +2524,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
                                           iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9), SurfaceOutput, SurfaceOutputRefinement
       REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, OutputRegionBounds(1:6), SurfaceOutputInterval
+      REAL                             :: printEnergiesInterval
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       !> The checkpoint back-end is specified via a string.
       !!
@@ -2542,7 +2543,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
                                                 checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask, &
-                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend
+                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, printEnergiesInterval
     !------------------------------------------------------------------------
     !
       logInfo(*) '<--------------------------------------------------------->'
@@ -2567,6 +2568,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       PGMFlag = 0
       FaultOutputFlag = 0
       checkPointInterval = 0
+      printEnergiesInterval = 0
       checkPointBackend = 'none'
 #ifdef USE_HDF
       xdmfWriterBackend = 'hdf5'
@@ -2869,6 +2871,7 @@ ALLOCATE( SpacePositionx(nDirac), &
        logInfo0(*) 'current energy dt is', IO%pickdt_energy
 #endif
        ENDIF
+     IO%printEnergiesInterval = printEnergiesInterval
 
      IO%nRecordPoint = nRecordPoints  ! number of points to pick temporal signal
      logInfo(*) 'Number of Record Points = ', IO%nRecordPoint

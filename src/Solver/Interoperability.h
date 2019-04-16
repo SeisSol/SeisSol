@@ -287,6 +287,12 @@ class seissol::Interoperability {
    void enableCheckPointing( double i_checkPointInterval,
 		   const char *i_checkPointFilename, const char* i_checkPointBackend );
 
+   
+   /**
+    * set Interval at which energies (e.g. total work) are printed.
+    */
+   void setPrintEnergiesInterval( double i_PrintEnergiesInterval);
+
    /**
     * Gets the integration mask from the parameter file
     **/

@@ -86,8 +86,6 @@ void seissol::writer::printEnergies(  GlobalData const*                       gl
 #endif
   
   if (rank == 0) {
-    logInfo(rank) << "Total work:" << totalWorkGlobal;
-    logInfo(rank) << "Static work:" << staticWorkGlobal;
-    logInfo(rank) << "Radiated energy:" << totalWorkGlobal - staticWorkGlobal;
+    logInfo(rank) << "Total work/Static work/Radiated energy:" << totalWorkGlobal <<' '<< staticWorkGlobal<<' '<< totalWorkGlobal - staticWorkGlobal;
   }
 }

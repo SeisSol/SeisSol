@@ -63,6 +63,12 @@ class seissol::Simulator {
     //! time interval of the checkpoints
     double m_checkPointInterval;
 
+    //! last time energies were printed
+    double m_printEnergiesTime;
+
+    //! time interval when to print energies
+    double m_printEnergiesInterval;
+
     //! If true, a checkpoint is loaded before the simulation
     bool m_loadCheckPoint;
 
@@ -100,6 +106,11 @@ class seissol::Simulator {
      * @param i_checkPointInterval check point interval.
      **/
     void setCheckPointInterval( double i_checkPointInterval );
+
+    /**
+     * Sets the interval for printing Energies.
+     **/
+    void setPrintEnergiesInterval( double i_printEnergiesInterval );
 
     /**
      * Returns if the simulator is going to write check points.

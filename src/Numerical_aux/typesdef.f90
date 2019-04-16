@@ -1199,6 +1199,7 @@ MODULE TypesDef
      REAL                                   :: a,b                              !<
      REAL                                   :: picktime                         !< Time for next pickpointing
      REAL                                   :: picktime_energy
+     REAL                                   :: printEnergiesinterval            !< Time at which total work and other energies are printed
      REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
      REAL                                   :: pickdt_energy                    !< Time increment for energy time series

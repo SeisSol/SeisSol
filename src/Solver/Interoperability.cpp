@@ -200,6 +200,10 @@ extern "C" {
 	e_interoperability.enableFreeSurfaceOutput(maxRefinementDepth);
   }
 
+  void c_interoperability_setPrintEnergiesInterval(double i_PrintEnergiesInterval) {
+	e_interoperability.setPrintEnergiesInterval(i_PrintEnergiesInterval);
+  }
+
   void c_interoperability_enableCheckPointing( double i_checkPointInterval,
 		  const char* i_checkPointFilename, const char* i_checkPointBackend ) {
     e_interoperability.enableCheckPointing( i_checkPointInterval,
@@ -653,6 +657,10 @@ void seissol::Interoperability::enableFreeSurfaceOutput(int maxRefinementDepth)
 								m_lts,
 								m_ltsTree,
 								&m_ltsLut );
+}
+
+void seissol::Interoperability::setPrintEnergiesInterval( double i_PrintEnergiesInterval) {
+  seissol::SeisSol::main.simulator().setPrintEnergiesInterval( i_PrintEnergiesInterval );
 }
 
 

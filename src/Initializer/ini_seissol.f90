@@ -198,6 +198,9 @@ CONTAINS
                                                      i_checkPointFilename = trim(io%checkpoint%filename) // c_null_char, &
                                                      i_checkPointBackend = trim(io%checkpoint%backend) // c_null_char )
     endif
+    if( io%printEnergiesinterval .gt. 0 ) then
+        call c_interoperability_setPrintEnergiesInterval( i_printEnergiesinterval = io%printEnergiesinterval) 
+    endif
 
 #ifdef INTEGRATE_QUANTITIES
 	do i = 1,9

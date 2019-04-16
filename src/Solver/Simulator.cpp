@@ -57,12 +57,19 @@ seissol::Simulator::Simulator():
   m_currentTime(        0 ),
   m_finalTime(          0 ),
   m_checkPointTime(     0 ),
+  m_printEnergiesTime(     0 ),
   m_checkPointInterval( std::numeric_limits< double >::max() ),
+  m_printEnergiesInterval( std::numeric_limits< double >::max() ),
   m_loadCheckPoint( false ) {};
 
 void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
   assert( m_checkPointInterval > 0 );
   m_checkPointInterval = i_checkPointInterval;
+}
+
+void seissol::Simulator::setPrintEnergiesInterval( double i_printEnergiesInterval ) {
+  assert( m_printEnergiesInterval > 0 );
+  m_printEnergiesInterval = i_printEnergiesInterval;
 }
 
 bool seissol::Simulator::checkPointingEnabled() {
@@ -112,7 +119,8 @@ void seissol::Simulator::simulate() {
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
   upcomingTime = std::min( upcomingTime, Modules::callSyncHook(m_currentTime, 0.0) );
-  upcomingTime = std::min( upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
+  //upcomingTime = std::min( upcomingTime, std::abs(m_checkPointTime + m_checkPointInterval) );
+  upcomingTime = std::min(upcomingTime, std::min(m_checkPointTime + m_checkPointInterval, m_printEnergiesTime + m_printEnergiesInterval));
 
   while( m_finalTime > m_currentTime + l_timeTolerance ) {
     if (upcomingTime < m_currentTime + l_timeTolerance)
@@ -136,9 +144,17 @@ void seissol::Simulator::simulate() {
       seissol::SeisSol::main.checkPointManager().write(m_currentTime, faultTimeStep);
       m_checkPointTime += m_checkPointInterval;
     }
-    upcomingTime = std::min(upcomingTime, m_checkPointTime + m_checkPointInterval);
 
+    if( std::abs( m_currentTime - ( m_printEnergiesTime + m_printEnergiesInterval ) ) < l_timeTolerance ) {
+       auto globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+       auto dynRup     = seissol::SeisSol::main.getMemoryManager().getDynamicRupture();
+       auto dynRupTree = seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree();
+       seissol::writer::printEnergies(globalData, dynRup, dynRupTree);
+       m_printEnergiesTime += m_printEnergiesInterval;
+    }
+    upcomingTime = std::min(upcomingTime, std::min(m_checkPointTime + m_checkPointInterval, m_printEnergiesTime + m_printEnergiesInterval));
     printNodePerformance( stopwatch.split() );
+
   }
   
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);

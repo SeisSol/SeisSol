@@ -246,6 +246,12 @@ module f_ftoc_bind_interoperability
       character(kind=c_char), dimension(*), intent(in) :: i_checkPointBackend
     end subroutine
 
+   subroutine c_interoperability_setPrintEnergiesInterval(i_PrintEnergiesInterval) bind( C, name='c_interoperability_setPrintEnergiesInterval' )
+      use iso_c_binding
+      implicit none
+      real(kind=c_double), value :: i_PrintEnergiesInterval
+    end subroutine
+
     subroutine c_interoperability_getIntegrationMask( i_integrationMask ) bind( C, name='c_interoperability_getIntegrationMask' )
       use iso_c_binding
       implicit none
