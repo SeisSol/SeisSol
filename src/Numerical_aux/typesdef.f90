@@ -921,6 +921,11 @@ MODULE TypesDef
      INTEGER                                :: TimeOrder                        !< TimeOrder = 1,2,3,4
      INTEGER                                :: SpaceOrder                       !< SpaceOrder = 1,2
      REAL                                   :: CFL                              !< Courant-Friedrichs-Lewy (CFL) number
+     REAL                                   :: alpha                            !< coefficient to enforce the boundary condition in the normal direction 
+                                                                                !sigma_n_hat = alpha * sigma_n, where 0 <= alpha <= 1.
+                                                                                !alpha = 0: Enforce normal stress variation to be zero. Seems to work but is only useful for vertical planar faults.
+                                                                                !alpha = 1: no opening allowed (default value)
+                                                                                !0 < alpha < 1:allow some opening.
      REAL                                   :: Theta                            !< Value of theta for implicit Newmark (theta) schemes
      REAL                                   :: dxMin                            !< Smallest Grid length (used for Timestepcalc.)
      INTEGER                                :: NGP                              !< Number of quadrature points for flux evaluation

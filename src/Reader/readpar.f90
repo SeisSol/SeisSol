@@ -2348,12 +2348,12 @@ ALLOCATE( SpacePositionx(nDirac), &
                                         FluxMethod, IterationCriterion, nPoly, nPolyRec, &
                                         StencilSecurityFactor, LimiterSecurityFactor, &
                                         Order, Material, nPolyMap
-    REAL                             :: CFL, FixTimeStep
+    REAL                             :: CFL, alpha, FixTimeStep
     NAMELIST                         /Discretization/ DGFineOut1D, DGMethod, ClusteredLTS, &
                                                       CKMethod, FluxMethod, IterationCriterion, &
                                                       nPoly, nPolyRec, &
                                                       LimiterSecurityFactor, Order, Material, &
-                                                      nPolyMap, CFL, FixTimeStep
+                                                      nPolyMap, CFL, alpha, FixTimeStep
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -2370,6 +2370,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     ! 0: read from file, 1: GTS, 2-n: multi-rate
     ClusteredLTS = 1
     CFL = 0.5
+    alpha = 1.0
     nPolyMap = 0                                                               !                                                                  !
     Material = 1
     FixTimeStep = 5000
@@ -2490,6 +2491,8 @@ ALLOCATE( SpacePositionx(nDirac), &
     !
     DISC%CFL = CFL                               ! minimum Courant number
     logInfo(*) 'The minimum COURANT number:    ', DISC%CFL
+    DISC%alpha = alpha 
+    logInfo(*) 'alpha is (1: no opening, 0: no normal stress variations):    ', DISC%alpha
     !
         DISC%FixTimeStep = FixTimeStep
         logInfo(*) 'Specified dt_fix            : ', DISC%FixTimeStep
