@@ -8,7 +8,7 @@ earthquake source governed by a constitutive law that describes the
 relationship between fault stress and slip along a geometrically complex
 fault. SeisSol is a high-order accurate *Discontinuous Galerkin Finite
 Element* solver, based on the ADER-DG method presented
-in:raw-latex:`\citep{kaser2006}`, enabling precise modelling of on-fault
+in Kaser and Dumbser [2006], enabling precise modelling of on-fault
 frictional failure coupled to seismic waves travelling over large
 distances in terms of propagated wavelengths with minimal dispersion
 errors, whereas it is intrinsically dissipative and removes frequencies
@@ -22,7 +22,7 @@ some of the largest supercomputers worldwide in a pioneering simulation of the 1
 engineering frequency band (0-10 Hz) were modeled on a non-planar
 earthquake fault structure. In early 2017, SeisSol performed the longest
 and largest dynamic rupture scenario to date, enabled by local time
-stepping :raw-latex:`\citep{uphoff2017}`, resolving the 2004
+stepping [Uphoff et al.,2017], resolving the 2004
 Sumatra-Andaman earthquake including complex splay fault geometries. The
 paper won the prestigous “Best Paper Award” of the International
 Supercomputing Conference (SC17). SeisSol results imply that
