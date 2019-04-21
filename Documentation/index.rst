@@ -27,6 +27,7 @@ Characteristics of the SeisSol simulation software are:
   compilation
   a-first-example
   acknowledge
+  citations
 
 .. toctree::
   :maxdepth: 2
