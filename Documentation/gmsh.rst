@@ -156,6 +156,8 @@ surface according to positions given in *mytopo.dat*.
 
   $ ./gmsh_plane2topo interpol_topo.in
   
+gmsh_plane2topo.f90 can be found in https://github.com/daisy20170101/SeisSol_Cookbook/tree/master/tpv29
+
 The format of interpol_topo.in is following:
 
 ::
@@ -214,7 +216,7 @@ The new geometry with topography:
 5. Generate MSH mesh with the command line:
 ::
 
-  & gmsh tpv29_step2.geo -3 -optimize_netgen -o tpv29_step2.msh
+  & gmsh step2.geo -3 -optimize_netgen -o step2.msh
   
 option optimize_netgen is necessary for optimizing meshing with good quality.
 
