@@ -96,6 +96,7 @@ Characteristics of the SeisSol simulation software are:
   tpv104
   pointsource
   kinematic
+  copyrights
 
 .. toctree::
   :maxdepth: 2
