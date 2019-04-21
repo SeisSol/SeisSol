@@ -148,6 +148,11 @@ Save this file as *mytopo.dat*.
 
     Mesh.MshFileVersion = 1.0;
 
+then generate msh file by:
+
+::
+
+  $ gmsh step1.geo -2 -o step1.msh
 
 3.Use *gmsh_plane2topo.f90* and interpol_topo.in* to shift the planar
 surface according to positions given in *mytopo.dat*.
