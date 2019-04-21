@@ -80,6 +80,21 @@ Characteristics of the SeisSol simulation software are:
   remeshing-the-topography
   adapting-the-cad-model-resolution-using-gocad
   manually-fixing-an-intersection-in-gocad
+  
+.. toctree::
+  :maxdepth: 2
+  :caption: Cookbook
+
+  tpv5
+  tpv6
+  tpv12
+  tpv13
+  tpv16
+  tpv24
+  tpv29
+  tpv104
+  pointsource
+  kinematic
 
 .. toctree::
   :maxdepth: 2
