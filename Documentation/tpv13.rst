@@ -9,7 +9,7 @@ TPV13 is similar with TPV12 except for that material properties are **non-associ
   
   :math:`\sigma_{ij}` are defined as :
   
-  *Mean stress:
+  *Mean stress*:
   
   :math:`\sigma_m = (\sigma_{11}+\sigma_{22}+\sigma_{33})/3`
   
@@ -24,12 +24,12 @@ TPV13 is similar with TPV12 except for that material properties are **non-associ
   
   Drucker-Prager yield function:
   
-  :math:`F(\sigma)=\sqrt{J_s(\sigma)-Y(\sigma)}'
+  :math:`F(\sigma)=\sqrt{J_s(\sigma)-Y(\sigma)`
 
 The Drucker-Prager material is required to satisfy the yield equation:
 
   :math:`F(\sigma)\leq 0`
-When :math:`F(\sigma) < 0` , the material behaves like a linear isotropic elastic material, with Lame paramters :math:`\lambda` and  :math:`\mu`.
+When :math:`F(\sigma) < 0`, the material behaves like a linear isotropic elastic material, with Lame paramters :math:`\lambda` and  :math:`\mu`.
 
 Wen :math:`F(\sigma) = 0`, if the material is subjected to a strain that
 tends to cause an increase in :math:`F(\sigma)`, then the material
@@ -69,7 +69,7 @@ Results
 Figure [fig:tpv13compare] shows the comparison between TPV12 (elastic)
 and TPV13 (plastic). The peak of slip rate in TPV12 is higher than
 TPV13. This difference attributes to the response of the off-fault
-plasticity. Refer to :raw-latex:`\citep{wollherr2018}` for detailed
+plasticity. Refer to Wollherr et al. [2018] for detailed
 discussions.
 
 .. figure:: LatexFigures/SRs_12_13.png
