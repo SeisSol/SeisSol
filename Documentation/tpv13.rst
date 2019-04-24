@@ -30,9 +30,10 @@ The Drucker-Prager material is required to satisfy the yield equation:
 
   :math:`F(\sigma)\leq 0`
   
-When :math:`F(\sigma) < 0`, the material behaves like a linear isotropic elastic material, with Lame paramters :math:`\lambda` and  :math:`\mu`.
+When :math:`F(\sigma) < 0`, the material behaves like a linear isotropic elastic material, 
+with Lame paramters :math:`\lambda` and  :math:`\mu`.
 
-Wen :math:`F(\sigma) = 0`, if the material is subjected to a strain that
+Wen :math:`F(\sigma) = 0`, if the material is subjected to a strain that 
 tends to cause an increase in :math:`F(\sigma)`, then the material
 yields. For TPV13, we assume that the material yields in shear. Yielding
 in shear means that when the material yields, the stress tensor
