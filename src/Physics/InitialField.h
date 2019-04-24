@@ -13,14 +13,14 @@ namespace seissol {
     public:
       virtual void evaluate(  double time,
                               std::vector<std::array<double, 3>> const& points,
-                              init::dofsQP::view::type& dofsQP ) const = 0;
+                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const = 0;
     };
 
     class ZeroField : public InitialField {
     public:
       void evaluate(  double,
                       std::vector<std::array<double, 3>> const&,
-                      init::dofsQP::view::type& dofsQP ) const
+                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
       {
         dofsQP.setZero();
       }
@@ -32,7 +32,7 @@ namespace seissol {
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
-                      init::dofsQP::view::type& dofsQP ) const;
+                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
     private:
       std::complex<real> m_eigenvectors[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
       int const                                             m_setVar;

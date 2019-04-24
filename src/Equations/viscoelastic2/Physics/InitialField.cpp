@@ -69,14 +69,14 @@ seissol::physics::Planarwave::Planarwave()
 
 void seissol::physics::Planarwave::evaluate(  double time,
                                               std::vector<std::array<double, 3>> const& points,
-                                              init::dofsQP::view::type& dofsQP ) const
+                                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
 
   auto R = yateto::DenseTensorView<2,std::complex<real>>(const_cast<std::complex<real>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (int v = 0; v < m_setVar; ++v) {
     const auto omega =  m_lambdaA[m_varField[v]];
-    for (int j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+    for (int j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v]
                        * std::exp(std::complex<real>(0.0, 1.0)*(omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2]))).real();

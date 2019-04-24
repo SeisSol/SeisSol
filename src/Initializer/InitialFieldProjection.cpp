@@ -62,24 +62,19 @@ void seissol::initializers::projectInitialField(  physics::InitialField const&  
   double quadratureWeights[numQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
 
-  assert(tensor::dofsQP::Shape[0] == numQuadPoints);
-
 #ifdef _OPENMP
   #pragma omp parallel
   {
 #endif
-  real dofsQPdata[tensor::dofsQP::size()] __attribute__((aligned(ALIGNMENT)));
-  auto dofsQP = init::dofsQP::view::create(dofsQPdata);
+  real iniCondData[tensor::iniCond::size()] __attribute__((aligned(ALIGNMENT))) = {};
+  auto iniCond = init::iniCond::view::create(iniCondData);
 
   std::vector<std::array<double, 3>> quadraturePointsXyz;
   quadraturePointsXyz.resize(numQuadPoints);
 
-  kernel::projectQP krnl;
+  kernel::projectIniCond krnl;
   krnl.projectQP = globalData.projectQPMatrix;
-  krnl.dofsQP = dofsQPdata;
-#ifdef MULTIPLE_SIMULATIONS
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
-#endif
+  krnl.iniCond = iniCondData;
 #if NUMBER_OF_RELAXATION_MECHANISMS > 0
   krnl.selectAneFull = init::selectAneFull::Values;
   krnl.selectElaFull = init::selectElaFull::Values;
@@ -97,7 +92,15 @@ void seissol::initializers::projectInitialField(  physics::InitialField const&  
       seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
     }
 
-    iniField.evaluate(0.0, quadraturePointsXyz, dofsQP);
+#ifdef MULTIPLE_SIMULATIONS
+    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+      auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());
+      iniField.evaluate(0.0, quadraturePointsXyz, sub);
+    }
+#else
+    iniField.evaluate(0.0, quadraturePointsXyz, iniCond);
+#endif
+
     krnl.Q = ltsLut.lookup(lts.dofs, meshId);
 #if NUMBER_OF_RELAXATION_MECHANISMS > 0
     krnl.Qane = ltsLut.lookup(lts.dofsAne, meshId);

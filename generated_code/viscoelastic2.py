@@ -104,7 +104,7 @@ clonesQP = {
   'v': [ 'evalAtQP' ],
   'vInv': [ 'projectQP' ]
 }
-db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP))
+db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP, transpose=transpose))
 memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
 msName = 's'
@@ -120,7 +120,8 @@ dQane = [OptionalDimTensor('dQane({})'.format(d), msName, multipleSimulations, m
 I = OptionalDimTensor('I', msName, multipleSimulations, msPos, qShape, alignStride=alignStride)
 Iane = OptionalDimTensor('Iane', msName, multipleSimulations, msPos, qShapeAnelastic, alignStride=alignStride)
 
-dofsQP = Tensor('dofsQP', (numberOf3DQuadraturePoints, numberOfFullQuantities))
+iniCond = OptionalDimTensor('iniCond', 's', multipleSimulations, 0, (numberOf3DQuadraturePoints, numberOfFullQuantities))
+dofsQP = OptionalDimTensor('dofsQP', 's', multipleSimulations, 0, (numberOf3DQuadraturePoints, numberOfQuantities))
 
 selectElaSpp = np.zeros((numberOfExtendedQuantities, numberOfQuantities))
 selectElaSpp[0:numberOfQuantities,0:numberOfQuantities] = np.eye(numberOfQuantities)
@@ -150,13 +151,10 @@ g = Generator(arch)
 
 ## Initialization
 ti = init.addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities)
-if Q.hasOptDim():
-  projectQPEla = Q['kp'] <= db.projectQP['kl'] * dofsQP['lq'] * selectElaFull['qp'] * ti.oneSimToMultSim['s']
-  projectQPAne = Qane['kpm'] <= db.projectQP['kl'] * dofsQP['lq'] * selectAneFull['qpm'] * ti.oneSimToMultSim['s']
-else:
-  projectQPEla = Q['kp'] <= db.projectQP['kl'] * dofsQP['lq'] * selectElaFull['qp']
-  projectQPAne = Qane['kpm'] <= db.projectQP['kl'] * dofsQP['lq'] * selectAneFull['qpm']
-g.add('projectQP', [projectQPEla, projectQPAne])
+projectIniCondEla = Q['kp'] <= db.projectQP[t('kl')] * iniCond['lq'] * selectElaFull['qp']
+projectIniCondAne = Qane['kpm'] <= db.projectQP[t('kl')] * iniCond['lq'] * selectAneFull['qpm']
+g.add('projectIniCond', [projectIniCondEla, projectIniCondAne])
+g.add('evalAtQP', dofsQP['kp'] <= db.evalAtQP[t('kl')] * Q['lp'])
 
 ## Local
 volumeSum = Add()

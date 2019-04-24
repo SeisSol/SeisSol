@@ -97,24 +97,24 @@ clonesQP = {
   'v': [ 'evalAtQP' ],
   'vInv': [ 'projectQP' ]
 }
-db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP))
+db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP, transpose=transpose))
 memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
 
 Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
 dQ0 = OptionalDimTensor('dQ(0)', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
 I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
-dofsQP = Tensor('dofsQP', (numberOf3DQuadraturePoints, numberOfQuantities))
+iniCond = OptionalDimTensor('iniCond', 's', multipleSimulations, 0, (numberOf3DQuadraturePoints, numberOfQuantities))
+dofsQP = OptionalDimTensor('dofsQP', 's', multipleSimulations, 0, (numberOf3DQuadraturePoints, numberOfQuantities))
+
 
 # Kernels
 g = Generator(arch)
 
 ## Initialization
 ti = init.addKernels(g, db, Q, order, numberOfQuantities, numberOfQuantities)
-if Q.hasOptDim():
-  projectQP = Q['kp'] <= db.projectQP['kl'] * dofsQP['lp'] * ti.oneSimToMultSim['s']
-else:
-  projectQP = Q['kp'] <= db.projectQP['kl'] * dofsQP['lp']
-g.add('projectQP', projectQP)
+g.add('projectIniCond', Q['kp'] <= db.projectQP[t('kl')] * iniCond['lp'])
+g.add('evalAtQP', dofsQP['kp'] <= db.evalAtQP[t('kl')] * Q['lp'])
+
 
 ## Local
 volumeSum = Q['kp']

@@ -131,7 +131,7 @@ seissol::physics::Planarwave::Planarwave()
 
 void seissol::physics::Planarwave::evaluate(  double time,
                                               std::vector<std::array<double, 3>> const& points,
-                                              init::dofsQP::view::type& dofsQP ) const
+                                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
 

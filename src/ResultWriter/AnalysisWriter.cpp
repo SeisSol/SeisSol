@@ -22,6 +22,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
 
   auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
   auto* ltsLut = e_interoperability.getLtsLut();
+  auto* globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
 
   std::vector<Vertex> const& vertices = meshReader->getVertices();
   std::vector<Element> const& elements = meshReader->getElements();
@@ -43,24 +44,19 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   double quadratureWeights[numQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
 
-  // Create basis evaluation objects centered at quad points.
-  using BasisSampler = basisFunction::SampledBasisFunctions<real>;
-  auto basisVec = std::vector<BasisSampler>{};
-  basisVec.reserve(numQuadPoints);
-    
-  for (int i = 0; i < numQuadPoints; ++i) {
-    const auto& curQuadraturePoints = quadraturePoints[i];
-    basisVec.push_back(BasisSampler(CONVERGENCE_ORDER,
-				    curQuadraturePoints[0],
-				    curQuadraturePoints[1],
-				    curQuadraturePoints[2]));
-  }
-
   std::vector<std::array<double, 3>> quadraturePointsXyz;
   quadraturePointsXyz.resize(numQuadPoints);
 
+  real numericalSolutionData[tensor::dofsQP::size()] __attribute__((aligned(ALIGNMENT))) = {};
+  auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+
+  kernel::evalAtQP krnl;
+  krnl.evalAtQP = globalData->evalAtQPMatrix;
+  krnl.dofsQP = numericalSolutionData;
+
   real analyticalSolutionData[tensor::dofsQP::size()] __attribute__((aligned(ALIGNMENT)));
   auto analyticalSolution = init::dofsQP::view::create(analyticalSolutionData);
+
 
   // Note: We iterate over mesh cells by id to avoid
   // cells that are duplicates.
@@ -78,25 +74,35 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
     }
 
+
+    krnl.Q = ltsLut->lookup(lts->dofs, meshId);
+    krnl.execute();
+
+#ifdef MULTIPLE_SIMULATIONS
+    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+      auto sub = analyticalSolution.subtensor(s, yateto::slice<>(), yateto::slice<>());
+      iniField.evaluate(simulationTime, quadraturePointsXyz, sub);
+    }
+    auto anaSub = analyticalSolution.subtensor(0, yateto::slice<>(), yateto::slice<>());
+    auto numSub = numericalSolution.subtensor(0, yateto::slice<>(), yateto::slice<>());
+#else
     // Evaluate analytical solution at quad. nodes
     iniField.evaluate(simulationTime, quadraturePointsXyz, analyticalSolution);
+    auto anaSub = analyticalSolution;
+    auto numSub = numericalSolution;
+#endif
 
     for (size_t i = 0; i < numQuadPoints; ++i) {
       const auto curWeight = jacobiDet * quadratureWeights[i];
       for (size_t v = 0; v < numberOfQuantities; ++v) {
-	// Evaluate discrete solution at quad. point
-	const auto handle = lts->dofs;
-	auto const *coeffsBegin = &ltsLut->lookup(handle, meshId)[v*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-	const auto value = basisVec[i].evalWithCoeffs(coeffsBegin);
+        const auto curError = std::abs(numSub(i,v) - anaSub(i,v));
+        errL1Local[v] += curWeight * curError;
+        errL2Local[v] += curWeight * curError * curError;
 
-	const auto curError = std::abs(value - analyticalSolution(i,v));
-	errL1Local[v] += curWeight * curError;
-	errL2Local[v] += curWeight * curError * curError;
-
-	if (curError > errLInfLocal[v]) {
-	  errLInfLocal[v] = curError;
-	  elemLInfLocal[v] = meshId;
-	}
+        if (curError > errLInfLocal[v]) {
+          errLInfLocal[v] = curError;
+          elemLInfLocal[v] = meshId;
+        }
       }
     }
   }

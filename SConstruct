@@ -459,7 +459,7 @@ if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
 if int(env['multipleSimulations']) > 1:
-  env.Append(CPPDEFINES=['MULTIPLE_SIMULATIONS'])
+  env.Append(CPPDEFINES=['MULTIPLE_SIMULATIONS={}'.format(env['multipleSimulations'])])
 
 # add parallel flag for mpi
 if env['parallelization'] in ['mpi', 'hybrid']:
