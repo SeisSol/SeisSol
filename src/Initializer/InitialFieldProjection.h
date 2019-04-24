@@ -48,11 +48,11 @@
 
 namespace seissol {
   namespace initializers {
-    void projectInitialField( physics::InitialField const&  iniField,
-                              GlobalData const&             globalData,
-                              MeshReader const&             meshReader,                                                    
-                              LTS const&                    lts,
-                              Lut const&                    ltsLut );
+    void projectInitialField( std::vector<physics::InitialField*> const&  iniFields,
+                              GlobalData const&                           globalData,
+                              MeshReader const&                           meshReader,
+                              LTS const&                                  lts,
+                              Lut const&                                  ltsLut );
   }
 }
 

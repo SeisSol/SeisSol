@@ -50,6 +50,7 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
+#include <Physics/InitialField.h>
 
 namespace seissol {
   class Interoperability;
@@ -96,6 +97,10 @@ class seissol::Interoperability {
 
     std::vector<glm::dvec3>           m_recPoints;
 
+    //! Vector of initial conditions
+    std::vector<physics::InitialField*> m_iniConds;
+
+    void initInitialConditions();
  public:
    /**
     * Constructor.
@@ -297,6 +302,13 @@ class seissol::Interoperability {
     * Copy dynamic rupture variables for output.
     **/
    void copyDynamicRuptureState();
+
+  /**
+   * Returns (possibly multiple) initial conditions
+   */
+   std::vector<physics::InitialField*> const& getInitialConditions() {
+     return m_iniConds;
+   }
 
    /**
     * Project initial field on degrees of freedom.

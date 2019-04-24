@@ -46,11 +46,11 @@
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
 
-void seissol::initializers::projectInitialField(  physics::InitialField const&  iniField,
-                                                  GlobalData const&             globalData,
-                                                  MeshReader const&             meshReader,                                                    
-                                                  LTS const&                    lts,
-                                                  Lut const&                    ltsLut )
+void seissol::initializers::projectInitialField(  std::vector<physics::InitialField*> const&  iniFields,
+                                                  GlobalData const&                           globalData,
+                                                  MeshReader const&                           meshReader,
+                                                  LTS const&                                  lts,
+                                                  Lut const&                                  ltsLut )
 {
   auto const& vertices = meshReader.getVertices();
   auto const& elements = meshReader.getElements();
@@ -95,10 +95,10 @@ void seissol::initializers::projectInitialField(  physics::InitialField const&  
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
       auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());
-      iniField.evaluate(0.0, quadraturePointsXyz, sub);
+      iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, sub);
     }
 #else
-    iniField.evaluate(0.0, quadraturePointsXyz, iniCond);
+    iniFields[0]->evaluate(0.0, quadraturePointsXyz, iniCond);
 #endif
 
     krnl.Q = ltsLut.lookup(lts.dofs, meshId);

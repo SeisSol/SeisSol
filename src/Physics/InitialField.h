@@ -28,7 +28,8 @@ namespace seissol {
 
     class Planarwave : public InitialField {
     public:
-      Planarwave();
+      //! Choose phase in [0, 2*pi]
+      Planarwave(real phase = 0.0);
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
@@ -40,6 +41,7 @@ namespace seissol {
       std::vector<std::complex<real>>                       m_ampField;
       std::array<double, 3>                                 m_kVec;
       std::array<std::complex<real>, NUMBER_OF_QUANTITIES>  m_lambdaA;
+      real                                                  m_phase;
     };
   }
 }
