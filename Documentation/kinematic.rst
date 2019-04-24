@@ -50,6 +50,7 @@ aspect.
 The fault are divided in to 20 grids along the strike and 25 grids
   along the dip. The source time function (STF) of each rectangular
   elements is given in the file , whose format looks like the following:
+  
 ::
 
   verison (1.0)
