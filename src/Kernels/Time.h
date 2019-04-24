@@ -110,6 +110,8 @@ class seissol::kernels::Time : public TimeBase {
                                  real         expansionPoint,
                                  real const*  timeDerivatives,
                                  real         timeEvaluated[tensor::Q::size()] );
+
+    void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
 };
 
 #endif

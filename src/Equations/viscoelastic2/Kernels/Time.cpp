@@ -250,3 +250,14 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
     intKrnl.power *= deltaT / real(derivative+1);
   }
 }
+
+void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+  // reset flops
+  nonZeroFlops = 0; hardwareFlops = 0;
+
+  // interate over derivatives
+  for (unsigned der = 0; der < CONVERGENCE_ORDER; ++der) {
+    nonZeroFlops  += kernel::derivativeTaylorExpansionEla::nonZeroFlops(der);
+    hardwareFlops += kernel::derivativeTaylorExpansionEla::hardwareFlops(der);
+  }
+}

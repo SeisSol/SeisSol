@@ -206,7 +206,7 @@ g.addFamily('derivativeTaylorExpansion', simpleParameterSpace(order), lambda d: 
 g.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(order), derivativeTaylorExpansionEla)
 
 ## Other
-DynamicRupture.addKernels(g, Q, Qext, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfExtendedQuantities)
+DynamicRupture.addKernels(g, db, ti, Q, Qext, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfExtendedQuantities)
 Plasticity.addKernels(g, Q, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
 point.addKernels(g, Q, ti.oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities)
 

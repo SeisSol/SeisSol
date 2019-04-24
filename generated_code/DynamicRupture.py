@@ -42,7 +42,7 @@ from yateto import *
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 
-def addKernels(generator, Q, Qext, I, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
+def addKernels(generator, wp, ti, Q, Qext, I, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
   transpose = Q.hasOptDim()
   t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
@@ -66,6 +66,11 @@ def addKernels(generator, Q, Qext, I, alignStride, matricesDir, order, dynamicRu
   gShape = (numberOfPoints, numberOfElasticQuantities)
   godunovState = OptionalDimTensor('godunovState', Q.optName(), Q.optSize(), Q.optPos(), gShape, alignStride=True)
 
+  generator.add('rotateGodunovStateLocal', godunovMatrix['qp'] <= ti.Tinv['kq'] * ti.QgodLocal['kp'])
+  generator.add('rotateGodunovStateNeighbor', godunovMatrix['qp'] <= ti.Tinv['kq'] * ti.QgodNeighbor['kp'])
+
+  generator.add('rotateFluxMatrix', fluxSolver['qp'] <= ti.fluxScale * wp.star[0]['qk'] * ti.T['pk'])
+
   def godunovStateGenerator(i,h):
     target = godunovState['kp']
     term = db.V3mTo2n[i,h][t('kl')] * Q['lq'] * godunovMatrix['qp']
@@ -75,6 +80,6 @@ def addKernels(generator, Q, Qext, I, alignStride, matricesDir, order, dynamicRu
   godunovStatePrefetch = lambda i,h: godunovState
   generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator, godunovStatePrefetch)
 
-  nodalFluxGenerator = lambda i,h: Qext['kp'] <= db.V3mTo2nTWDivM[i,h][t('kl')] * godunovState['lq'] * fluxSolver['qp']
+  nodalFluxGenerator = lambda i,h: Qext['kp'] <= Qext['kp'] + db.V3mTo2nTWDivM[i,h][t('kl')] * godunovState['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: I
   generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)

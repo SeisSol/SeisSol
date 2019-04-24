@@ -231,13 +231,12 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
 {
-  /// @yateto_todo
-  /*real TData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
-  real TinvData[seissol::model::AplusT::rows * seissol::model::AplusT::cols];
-  real QgodLocalData[9*9];
-  real QgodNeighborData[9*9];
-  real APlusData[seissol::model::AstarT::reals];
-  real AMinusData[seissol::model::AstarT::reals];
+  real TData[tensor::T::size()];
+  real TinvData[tensor::Tinv::size()];
+  real QgodLocalData[tensor::QgodLocal::size()];
+  real QgodNeighborData[tensor::QgodNeighbor::size()];
+  real APlusData[tensor::star::size(0)];
+  real AMinusData[tensor::star::size(0)];
 
   std::vector<Fault> const& fault = i_meshReader.getFault();
   std::vector<Element> const& elements = i_meshReader.getElements();
@@ -252,11 +251,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[seissol::model::godunovState::reals]    = it->var(dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[seissol::model::godunovState::reals]   = it->var(dynRup->imposedStateMinus);
+    real                                (*imposedStatePlus)[tensor::godunovState::size()]           = it->var(dynRup->imposedStatePlus);
+    real                                (*imposedStateMinus)[tensor::godunovState::size()]          = it->var(dynRup->imposedStateMinus);
     DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-    real                                (*fluxSolverPlus)[seissol::model::fluxSolver::reals]        = it->var(dynRup->fluxSolverPlus);
-    real                                (*fluxSolverMinus)[seissol::model::fluxSolver::reals]       = it->var(dynRup->fluxSolverMinus);
+    real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
+    real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
@@ -326,10 +325,10 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 #endif // _OPENMP
 {
           CellDRMapping& mapping = drMapping[plusLtsId][ faceInformation[ltsFace].plusSide ];
-          mapping.fluxKernel = 4*faceInformation[ltsFace].plusSide;
+          mapping.side = faceInformation[ltsFace].plusSide;
+          mapping.faceRelation = 0;
           mapping.godunov = &imposedStatePlus[ltsFace][0];
           mapping.fluxSolver = &fluxSolverPlus[ltsFace][0];
-          mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[ltsFace].plusSide ][0];
 }
         }
         if (minusLtsId != std::numeric_limits<unsigned>::max()) {
@@ -338,17 +337,17 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 #endif // _OPENMP
 {
           CellDRMapping& mapping = drMapping[minusLtsId][ faceInformation[ltsFace].minusSide ];
-          mapping.fluxKernel = 4*faceInformation[ltsFace].minusSide + faceInformation[ltsFace].faceRelation;
+          mapping.side = faceInformation[ltsFace].minusSide;
+          mapping.faceRelation = faceInformation[ltsFace].faceRelation;
           mapping.godunov = &imposedStateMinus[ltsFace][0];
           mapping.fluxSolver = &fluxSolverMinus[ltsFace][0];
-          mapping.fluxMatrix = global.nodalFluxMatrices[ faceInformation[ltsFace].minusSide ][ faceInformation[ltsFace].faceRelation ];
 }
         }
       }
 
       /// Transformation matrix
-      DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> T(TData);
-      DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> Tinv(TinvData);
+      auto T = init::T::view::create(TData);
+      auto Tinv = init::Tinv::view::create(TinvData);
       seissol::model::getFaceRotationMatrix(fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, T, Tinv);
 
       /// Materials
@@ -377,29 +376,26 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsMinus[ltsFace].sWaveVelocity = sqrt( minusMaterial.mu / minusMaterial.rho);
 
       /// Godunov state
-      DenseMatrixView<9, 9> QgodLocal(QgodLocalData);
-      DenseMatrixView<9, 9> QgodNeighbor(QgodNeighborData);
-      seissol::model::getTransposedElasticGodunovState( plusMaterial, minusMaterial, QgodLocal, QgodNeighbor );
+      auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
+      auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+      seissol::model::getTransposedElasticGodunovState( plusMaterial, minusMaterial, dynamicRupture, QgodLocal, QgodNeighbor );
 
-      // \todo Generate a kernel for this
-      MatrixView godunovMatrixPlus(godunovData[ltsFace].godunovMatrixPlus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
-      MatrixView godunovMatrixMinus(godunovData[ltsFace].godunovMatrixMinus, seissol::model::godunovMatrix::reals, seissol::model::godunovMatrix::index);
-      for (unsigned j = 0; j < 9; ++j) {
-        for (unsigned i = 0; i < 9; ++i) {
-          for (unsigned k = 0; k < 9; ++k) {
-            godunovMatrixPlus(i, j) += Tinv(k, i) * QgodLocal(k, j);
-            godunovMatrixMinus(i, j) += Tinv(k, i) * QgodNeighbor(k, j);
-          }
-        }
-      }
+      kernel::rotateGodunovStateLocal rlKrnl;
+      rlKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixPlus;
+      rlKrnl.Tinv = TinvData;
+      rlKrnl.QgodLocal = QgodLocalData;
+      rlKrnl.execute();
 
-      MatrixView APlus(APlusData, seissol::model::AstarT::reals, seissol::model::AstarT::index);
-      MatrixView AMinus(AMinusData, seissol::model::AstarT::reals, seissol::model::AstarT::index);
-      seissol::model::getTransposedCoefficientMatrix(plusMaterial, 0, APlusData);
-      seissol::model::getTransposedCoefficientMatrix(minusMaterial, 0, AMinusData);
+      kernel::rotateGodunovStateNeighbor rnKrnl;
+      rnKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixMinus;
+      rnKrnl.Tinv = TinvData;
+      rnKrnl.QgodNeighbor = QgodNeighborData;
+      rnKrnl.execute();
 
-      MatrixView fluxSolverPlusView(fluxSolverPlus[ltsFace], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
-      MatrixView fluxSolverMinusView(fluxSolverMinus[ltsFace], seissol::model::fluxSolver::reals, seissol::model::fluxSolver::index);
+      auto APlus = init::star::view<0>::create(APlusData);
+      auto AMinus = init::star::view<0>::create(AMinusData);
+      seissol::model::getTransposedCoefficientMatrix(plusMaterial, 0, APlus);
+      seissol::model::getTransposedCoefficientMatrix(minusMaterial, 0, AMinus);
 
       double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
       if (fault[meshFace].element >= 0) {
@@ -415,21 +411,20 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
       }
 
-      // \todo Generate a kernel for this
-      double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
-      double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
-      for (unsigned j = 0; j < seissol::model::fluxSolver::cols; ++j) {
-        for (unsigned i = 0; i < 9; ++i) {
-          for (unsigned k = 0; k < seissol::model::fluxSolver::cols; ++k) {
-            fluxSolverPlusView(i, j) += APlus.value(i, k) * T(j, k);
-            fluxSolverMinusView(i, j) += AMinus.value(i, k) * T(j, k);
-          }
-          fluxSolverPlusView(i, j) *= fluxScalePlus;
-          fluxSolverMinusView(i, j) *= fluxScaleMinus;
-        }
-      }
+      kernel::rotateFluxMatrix krnl;
+      krnl.T = TData;
+
+      krnl.fluxSolver = fluxSolverPlus[ltsFace];
+      krnl.fluxScale = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
+      krnl.star(0) = APlusData;
+      krnl.execute();
+
+      krnl.fluxSolver = fluxSolverMinus[ltsFace];
+      krnl.fluxScale = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
+      krnl.star(0) = AMinusData;
+      krnl.execute();
     }
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
-  }*/
+  }
 }

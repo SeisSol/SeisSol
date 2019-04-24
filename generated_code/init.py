@@ -48,20 +48,20 @@ def addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities):
   ti = Collection()
   ti.AplusT = Tensor('AplusT', (numberOfQuantities, numberOfExtendedQuantities))
   ti.AminusT = Tensor('AminusT', (numberOfQuantities, numberOfExtendedQuantities))
-  T = Tensor('T', (numberOfExtendedQuantities, numberOfExtendedQuantities))
-  Tinv = Tensor('Tinv', (numberOfQuantities, numberOfQuantities))
-  QgodLocal = Tensor('QgodLocal', (numberOfQuantities, numberOfQuantities))
-  QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
+  ti.T = Tensor('T', (numberOfExtendedQuantities, numberOfExtendedQuantities))
+  ti.Tinv = Tensor('Tinv', (numberOfQuantities, numberOfQuantities))
+  ti.QgodLocal = Tensor('QgodLocal', (numberOfQuantities, numberOfQuantities))
+  ti.QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
   QFortran = Tensor('QFortran', (numberOf3DBasisFunctions, numberOfQuantities))
 
   ti.oneSimToMultSim = Tensor('oneSimToMultSim', (Q.optSize(),), spp={(i,): '1.0' for i in range(Q.optSize())})
   multSimToFirstSim = Tensor('multSimToFirstSim', (Q.optSize(),), spp={(0,): '1.0'})
 
-  fluxScale = Scalar('fluxScale')
-  computeFluxSolverLocal = ti.AplusT['ij'] <= fluxScale * Tinv['ki'] * QgodLocal['kq'] * db.star[0]['ql'] * T['jl']
+  ti.fluxScale = Scalar('fluxScale')
+  computeFluxSolverLocal = ti.AplusT['ij'] <= ti.fluxScale * ti.Tinv['ki'] * ti.QgodLocal['kq'] * db.star[0]['ql'] * ti.T['jl']
   g.add('computeFluxSolverLocal', computeFluxSolverLocal)
 
-  computeFluxSolverNeighbor = ti.AminusT['ij'] <= fluxScale * Tinv['ki'] * QgodNeighbor['kq'] * db.star[0]['ql'] * T['jl']
+  computeFluxSolverNeighbor = ti.AminusT['ij'] <= ti.fluxScale * ti.Tinv['ki'] * ti.QgodNeighbor['kq'] * db.star[0]['ql'] * ti.T['jl']
   g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
   if Q.hasOptDim():
