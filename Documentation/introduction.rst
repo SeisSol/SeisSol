@@ -1,4 +1,4 @@
-Introduction
+History
 ============
 
 The software package SeisSol (http://www.seissol.org/) allows for
@@ -13,7 +13,7 @@ frictional failure coupled to seismic waves travelling over large
 distances in terms of propagated wavelengths with minimal dispersion
 errors, whereas it is intrinsically dissipative and removes frequencies
 unresolved by the mesh without affecting longer and physically
-meaningful wavelengths.
+meaningful wavelengths. de la Puente et al.[2009] and Pelties et al.[2012] introdueced Riemann solution to handle discontinous fault slip condition and achieve earthquake dynamics with seismic wave propagtion. 
 
 The software has recently proven to be highly scalable on current and
 future HPC infrastructure. It reached multi-petaflop/s performance on
