@@ -24,7 +24,7 @@ TPV13 is similar with TPV12 except for that material properties are **non-associ
   
   Drucker-Prager yield function:
   
-  :math:`F(\sigma)=\sqrt{J_s(\sigma)-Y(\sigma)`
+  :math:`F(\sigma)=\sqrt{J_s(\sigma)-Y(\sigma)}`
 
 The Drucker-Prager material is required to satisfy the yield equation:
 
