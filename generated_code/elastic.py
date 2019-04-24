@@ -50,6 +50,7 @@ from multSim import OptionalDimTensor
 import init
 import DynamicRupture
 import Plasticity
+import SurfaceDisplacement
 import point
 
 cmdLineParser = argparse.ArgumentParser()
@@ -150,6 +151,7 @@ for i in range(1,order):
 ## Other
 DynamicRupture.addKernels(g, db, ti, Q, Q, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
 Plasticity.addKernels(g, Q, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
+SurfaceDisplacement.addKernels(g, Q, I, order, alignStride)
 point.addKernels(g, Q, ti.oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities)
 
 # Generate code

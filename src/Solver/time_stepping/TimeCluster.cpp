@@ -466,9 +466,11 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                    tmp );
 
     if (displacements[l_cell] != NULL) {
-      for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_VELOCITY_DOFS; ++dof) {
-        displacements[l_cell][dof] += l_bufferPointer[NUMBER_OF_ALIGNED_STRESS_DOFS + dof];
-      }
+      kernel::addVelocity krnl;
+      krnl.I = l_bufferPointer;
+      krnl.selectVelocity = init::selectVelocity::Values;
+      krnl.displacement = displacements[l_cell];
+      krnl.execute();
     }
 
     // update lts buffers if required

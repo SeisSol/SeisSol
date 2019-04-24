@@ -51,6 +51,7 @@ from multSim import OptionalDimTensor
 import init
 import DynamicRupture
 import Plasticity
+import SurfaceDisplacement
 import point
 
 cmdLineParser = argparse.ArgumentParser()
@@ -208,6 +209,7 @@ g.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(order), derivat
 ## Other
 DynamicRupture.addKernels(g, db, ti, Q, Qext, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfExtendedQuantities)
 Plasticity.addKernels(g, Q, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
+SurfaceDisplacement.addKernels(g, Q, I, order, alignStride)
 point.addKernels(g, Q, ti.oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities)
 
 # Generate code

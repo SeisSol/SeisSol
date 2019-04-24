@@ -74,6 +74,7 @@
 #include <yateto.h>
 
 #include <Kernels/common.hpp>
+#include <generated_code/tensor.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -463,13 +464,13 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
         // +1 is necessary as we want to reserve the NULL pointer for cell without displacement.
-        displacements[cell] = static_cast<real*>(NULL) + 1 + numberOfCells * NUMBER_OF_ALIGNED_VELOCITY_DOFS;
+        displacements[cell] = static_cast<real*>(NULL) + 1 + numberOfCells * tensor::displacement::size();
         ++numberOfCells;
       } else {
         displacements[cell] = NULL;
       }
     }
-    layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * NUMBER_OF_ALIGNED_VELOCITY_DOFS * sizeof(real));
+    layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * tensor::displacement::size() * sizeof(real));
   }
 }
 
@@ -485,7 +486,7 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (displacements[cell] != NULL) {
         displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
-        for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_VELOCITY_DOFS; ++dof) {
+        for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
           // zero displacements
           displacements[cell][dof] = static_cast<real>(0.0);
         }
