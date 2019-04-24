@@ -57,8 +57,6 @@ class seissol::kernels::DynamicRupture {
     kernel::godunovState m_krnlPrototype;
     kernels::Time m_timeKernel;
 
-    double m_timeFactors[CONVERGENCE_ORDER][CONVERGENCE_ORDER];
-
   public:
     double timePoints[CONVERGENCE_ORDER];
     double timeSteps[CONVERGENCE_ORDER];
