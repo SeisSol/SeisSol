@@ -29,6 +29,7 @@ TPV13 is similar with TPV12 except for that material properties are **non-associ
 The Drucker-Prager material is required to satisfy the yield equation:
 
   :math:`F(\sigma)\leq 0`
+  
 When :math:`F(\sigma) < 0`, the material behaves like a linear isotropic elastic material, with Lame paramters :math:`\lambda` and  :math:`\mu`.
 
 Wen :math:`F(\sigma) = 0`, if the material is subjected to a strain that
