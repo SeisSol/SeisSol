@@ -44,7 +44,6 @@
 # operation system (required for exectuion environment)
 import os
 import sys
-import commands
 
 # import helpers
 import arch
@@ -53,10 +52,10 @@ import libs
 import utils.gitversion
 
 # print the welcome message
-print '********************************************'
-print '** Welcome to the build script of SeisSol **'
-print '********************************************'
-print 'Copyright (c) 2012-2016, SeisSol Group'
+print('********************************************')
+print('** Welcome to the build script of SeisSol **')
+print('********************************************')
+print('Copyright (c) 2012-2016, SeisSol Group')
 
 # Check if we the user wants to show help only
 if '-h' in sys.argv or '--help' in sys.argv:
@@ -69,7 +68,7 @@ def ConfigurationError(msg):
     if the user wants to show the help message"""
 
     if not helpMode:
-        print msg
+        print(msg)
         Exit(1)
 
 #
@@ -266,14 +265,14 @@ if env['equations'] in ['elastic', 'viscoelastic2']:
 
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
-  print "*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available."
+  print("*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available.")
 
 if not env.has_key('memLayout'):
   env['memLayout'] = memlayout.guessMemoryLayout(env)
 
 # Detect SeisSol version
 seissol_version = utils.gitversion.get(env)
-print 'Compiling SeisSol version:', seissol_version
+print('Compiling SeisSol version:', seissol_version)
 
 #
 # preprocessor, compiler and linker
@@ -679,9 +678,9 @@ for sourceFile in env.sourceFiles:
     modDirectories.append(modDir)
 for directory in set(modDirectories):
   Execute(Mkdir(directory))
-env.AppendUnique(F90PATH=map(lambda x: '#/' + x, modDirectories))
+env.AppendUnique(F90PATH=list(map(lambda x: '#/' + x, modDirectories)))
 
-#print env.Dump()
+#print(env.Dump())
 
 # build standard version
 seissol_build = env.Program('#/'+env['programFile'], sourceFiles)
@@ -730,7 +729,7 @@ if env['unitTests'] != 'none':
   Import('env')
 
   # Remove main() to avoid double definition
-  sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'main.o', sourceFiles)
+  sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'main.o', sourceFiles))
   # Remove .mod files from additional Fortran files
   for sourceFile in env.sourceFiles:
     sourceFiles.append(sourceFile[0])
@@ -746,7 +745,7 @@ if env['unitTests'] != 'none':
     env.CxxTest(target='#/'+env['buildDir']+'/tests/serial_test_suite', source=sourceFiles+env.testSourceFiles)
 
   if env['parallelization'] in ['mpi', 'hybrid']:
-    for ranks, mpiTestSourceFiles in env.mpiTestSourceFiles.iteritems():
+    for ranks, mpiTestSourceFiles in env.mpiTestSourceFiles.items():
       if mpiTestSourceFiles:
         env['CXXTEST_COMMAND'] = 'mpirun -np {0} %t'.format(ranks)
         env.CxxTest(target='#/'+env['buildDir']+'/tests/parallel_test_suite_{0}'.format(ranks), source=sourceFiles+mpiTestSourceFiles)

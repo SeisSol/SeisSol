@@ -119,7 +119,7 @@ def generate(env, **kw):
     # Check all MPI wrappers
     ret = [conf.CheckCompiler(env[cc]) for cc in ['mpicc', 'mpicxx', 'mpif90']]
     if not all(ret):
-        print 'Could not find all MPI wrappers!'
+        print('Could not find all MPI wrappers!')
         env.Exit(1)
 
     # Update the environment and build environment
