@@ -559,7 +559,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                                                      m_timeStepWidth,
                                                                                      m_globalData,
                                                                                      &plasticity[l_cell],
-                                                                                     dofs[l_cell],
+                                                                                     data.dofs,
                                                                                      pstrain[l_cell] );
 #endif
 #ifdef INTEGRATE_QUANTITIES

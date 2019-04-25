@@ -96,6 +96,10 @@ class ADERDGBase(ABC):
   def extendedQTensor(self):
     pass
 
+  @abstractmethod
+  def starMatrix(self, dim):
+    pass
+
   def addInit(self, g):
     fluxScale = Scalar('fluxScale')
     computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodLocal['kq'] * self.db.star[0]['ql'] * self.T['jl']
