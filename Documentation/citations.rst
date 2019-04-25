@@ -23,4 +23,7 @@ Breuer, A., A. Heinecke, and M. Bader (2016), Petascale Local Time Stepping for 
 
 Uphoff, C., S. Rettenberger, M. Bader, E. H. Madden, T. Ulrich, S. Wollherr, and A.-A. Gabriel (2017), Extreme scale multi-physics simulations of the tsunamigenic 2004 sumatra megathrust earthquake, in Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis, edited, pp. 1-16, ACM, Denver, Colorado, doi:10.1145/3126908.3126948.
 
+Wollherr, S., A.-A. Gabriel, and C. Uphoff (2018), Off-fault plasticity in three-dimensional dynamic rupture simulations using a modal Discontinuous Galerkin method on unstructured meshes: implementation, verification and application, Geophys. J. Int., 214(3), 1556-1584, doi: 10.1093/gji/ggy213.
+
+Ulrich, T., A.-A. Gabriel,, J. P., Ampuero, & W. Xu, (2019). Dynamic viability of the 2016 Mw 7.8 Kaikōura earthquake cascade on weak crustal faults. Nature communications. doi: 10.1038/s41467-019-09125-w.
 
