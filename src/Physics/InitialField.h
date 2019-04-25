@@ -11,6 +11,7 @@ namespace seissol {
   namespace physics {
     class InitialField {
     public:
+      virtual ~InitialField() {}
       virtual void evaluate(  double time,
                               std::vector<std::array<double, 3>> const& points,
                               yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const = 0;
