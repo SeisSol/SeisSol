@@ -684,9 +684,11 @@ void seissol::Interoperability::initializeIO(
 		seissol::SeisSol::main.faultWriter().setTimestep(faultTimeStep);
 	}
 
+  constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+
 	// Initialize wave field output
 	seissol::SeisSol::main.waveFieldWriter().init(
-			NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
+			numberOfQuantities, CONVERGENCE_ORDER,
 			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			seissol::SeisSol::main.meshReader(),
 			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
