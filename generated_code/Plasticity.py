@@ -42,17 +42,16 @@ from yateto import *
 from yateto.input import parseXMLMatrixFile
 from multSim import OptionalDimTensor
 
-def addKernels(generator, Q, alignStride, matricesDir, order, PlasticityMethod):
+def addKernels(generator, adg, matricesDir, PlasticityMethod):
   # Load matrices
-  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, order), clones=dict(), alignStride=alignStride)
+  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, adg.order), clones=dict(), alignStride=adg.alignStride)
   numberOfNodes = db.v.shape()[0]
-  numberOfBasisFunctions = order*(order+1)*(order+2)//6
 
-  sShape = (numberOfBasisFunctions, 6)
-  stressDOFS = OptionalDimTensor('stressDOFS', Q.optName(), Q.optSize(), Q.optPos(), sShape, alignStride=alignStride)
+  sShape = (adg.numberOf3DBasisFunctions(), 6)
+  stressDOFS = OptionalDimTensor('stressDOFS', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), sShape, alignStride=True)
 
   iShape = (numberOfNodes, 6)
-  interpolationDOFS = OptionalDimTensor('interpolationDOFS', Q.optName(), Q.optSize(), Q.optPos(), iShape, alignStride=alignStride)
+  interpolationDOFS = OptionalDimTensor('interpolationDOFS', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), iShape, alignStride=True)
   
   generator.add('interpolationDOFS', interpolationDOFS['kp'] <= db.v['kl'] * stressDOFS['lp'])
   generator.add('convertToModal', stressDOFS['kp'] <= db.vInv['kl'] * interpolationDOFS['lp'])

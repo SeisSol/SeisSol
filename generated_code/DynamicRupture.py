@@ -42,44 +42,44 @@ from yateto import *
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 
-def addKernels(generator, wp, ti, Q, Qext, I, alignStride, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
-  transpose = Q.hasOptDim()
-  t = (lambda x: x[::-1]) if transpose else (lambda x: x)
-
+def addKernels(generator, adg, matricesDir, dynamicRuptureMethod):
   if dynamicRuptureMethod == 'quadrature':
-    numberOfPoints = (order+1)**2
+    numberOfPoints = (adg.order+1)**2
   elif dynamicRuptureMethod == 'cellaverage':
-    numberOfPoints = int(4**math.ceil(math.log(order*(order+1)/2,4)))
+    numberOfPoints = int(4**math.ceil(math.log(adg.order*(adg.order+1)/2,4)))
   else:
     raise ValueError('Unknown dynamic rupture method.')
 
   clones = dict()
 
   # Load matrices
-  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, order), clones, alignStride=alignStride, transpose=transpose)
+  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, adg.order), clones, alignStride=adg.alignStride, transpose=adg.transpose)
 
   # Determine matrices  
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
-  godunovMatrix = Tensor('godunovMatrix', (numberOfElasticQuantities, numberOfElasticQuantities))
-  fluxSolver    = Tensor('fluxSolver', (numberOfElasticQuantities, numberOfQuantities))
+  godShape = (adg.numberOfQuantities(), adg.numberOfQuantities())
+  godunovMatrix = Tensor('godunovMatrix', godShape)
+  fluxSolverShape = (adg.numberOfQuantities(), adg.numberOfExtendedQuantities())
+  fluxSolver    = Tensor('fluxSolver', fluxSolverShape)
   
-  gShape = (numberOfPoints, numberOfElasticQuantities)
-  godunovState = OptionalDimTensor('godunovState', Q.optName(), Q.optSize(), Q.optPos(), gShape, alignStride=True)
+  gShape = (numberOfPoints, adg.numberOfQuantities())
+  godunovState = OptionalDimTensor('godunovState', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), gShape, alignStride=True)
 
-  generator.add('rotateGodunovStateLocal', godunovMatrix['qp'] <= ti.Tinv['kq'] * ti.QgodLocal['kp'])
-  generator.add('rotateGodunovStateNeighbor', godunovMatrix['qp'] <= ti.Tinv['kq'] * ti.QgodNeighbor['kp'])
+  generator.add('rotateGodunovStateLocal', godunovMatrix['qp'] <= adg.Tinv['kq'] * adg.QgodLocal['kp'])
+  generator.add('rotateGodunovStateNeighbor', godunovMatrix['qp'] <= adg.Tinv['kq'] * adg.QgodNeighbor['kp'])
 
-  generator.add('rotateFluxMatrix', fluxSolver['qp'] <= ti.fluxScale * wp.star[0]['qk'] * ti.T['pk'])
+  fluxScale = Scalar('fluxScale')
+  generator.add('rotateFluxMatrix', fluxSolver['qp'] <= fluxScale * adg.starMatrix(0)['qk'] * adg.T['pk'])
 
   def godunovStateGenerator(i,h):
     target = godunovState['kp']
-    term = db.V3mTo2n[i,h][t('kl')] * Q['lq'] * godunovMatrix['qp']
+    term = db.V3mTo2n[i,h][adg.t('kl')] * adg.Q['lq'] * godunovMatrix['qp']
     if h == 0:
       return target <= term
     return target <= target + term
   godunovStatePrefetch = lambda i,h: godunovState
   generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator, godunovStatePrefetch)
 
-  nodalFluxGenerator = lambda i,h: Qext['kp'] <= Qext['kp'] + db.V3mTo2nTWDivM[i,h][t('kl')] * godunovState['lq'] * fluxSolver['qp']
-  nodalFluxPrefetch = lambda i,h: I
+  nodalFluxGenerator = lambda i,h: adg.extendedQTensor()['kp'] <= adg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][adg.t('kl')] * godunovState['lq'] * fluxSolver['qp']
+  nodalFluxPrefetch = lambda i,h: adg.I
   generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)

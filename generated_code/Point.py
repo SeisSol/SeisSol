@@ -42,27 +42,29 @@ import numpy as np
 from yateto import *
 from multSim import OptionalDimTensor
 
-def addKernels(g, Q, oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities):
+def addKernels(g, adg):
+  numberOf3DBasisFunctions = adg.numberOf3DBasisFunctions()
+  numberOfQuantities = adg.numberOfQuantities()
   ## Point sources
   mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
 
   momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6), dtype=bool))
-  if Q.hasOptDim():
-    sourceNRF = Q['kp'] <= Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * oneSimToMultSim['s']
+  if adg.Q.hasOptDim():
+    sourceNRF = adg.Q['kp'] <= adg.Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * adg.oneSimToMultSim['s']
   else:
-    sourceNRF = Q['kp'] <= Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p']
+    sourceNRF = adg.Q['kp'] <= adg.Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p']
   g.add('sourceNRF', sourceNRF)
 
   momentFSRM = Tensor('momentFSRM', (numberOfQuantities,))
   stfIntegral = Scalar('stfIntegral')
-  if Q.hasOptDim():
-    sourceFSRM = Q['kp'] <= Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p'] * oneSimToMultSim['s']
+  if adg.Q.hasOptDim():
+    sourceFSRM = adg.Q['kp'] <= adg.Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p'] * adg.oneSimToMultSim['s']
   else:
-    sourceFSRM = Q['kp'] <= Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p']
+    sourceFSRM = adg.Q['kp'] <= adg.Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p']
   g.add('sourceFSRM', sourceFSRM)
 
   ## Receiver output
   basisFunctionsAtPoint = Tensor('basisFunctions', (numberOf3DBasisFunctions,))
-  QAtPoint = OptionalDimTensor('QAtPoint', 's', Q.optSize(), 0, (numberOfQuantities,))
-  evaluateDOFSAtPoint = QAtPoint['p'] <= Q['kp'] * basisFunctionsAtPoint['k']
+  QAtPoint = OptionalDimTensor('QAtPoint', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), (numberOfQuantities,))
+  evaluateDOFSAtPoint = QAtPoint['p'] <= adg.Q['kp'] * basisFunctionsAtPoint['k']
   g.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)

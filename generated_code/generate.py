@@ -37,38 +37,59 @@
 #
 # @section DESCRIPTION
 #
-  
-import numpy as np
+
+import argparse
+import importlib.util
+import inspect
+
 from yateto import *
-from multSim import OptionalDimTensor
+from yateto.gemm_configuration import *
 
-def addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities):
-  numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
+import DynamicRupture
+import Plasticity
+import SurfaceDisplacement
+import Point
 
-  ti = Collection()
-  ti.AplusT = Tensor('AplusT', (numberOfQuantities, numberOfExtendedQuantities))
-  ti.AminusT = Tensor('AminusT', (numberOfQuantities, numberOfExtendedQuantities))
-  ti.T = Tensor('T', (numberOfExtendedQuantities, numberOfExtendedQuantities))
-  ti.Tinv = Tensor('Tinv', (numberOfQuantities, numberOfQuantities))
-  ti.QgodLocal = Tensor('QgodLocal', (numberOfQuantities, numberOfQuantities))
-  ti.QgodNeighbor = Tensor('QgodNeighbor', (numberOfQuantities, numberOfQuantities))
-  QFortran = Tensor('QFortran', (numberOf3DBasisFunctions, numberOfQuantities))
+cmdLineParser = argparse.ArgumentParser()
+cmdLineParser.add_argument('--equations')
+cmdLineParser.add_argument('--matricesDir')
+cmdLineParser.add_argument('--outputDir')
+cmdLineParser.add_argument('--arch')
+cmdLineParser.add_argument('--order', type=int)
+cmdLineParser.add_argument('--numberOfMechanisms', type=int)
+cmdLineParser.add_argument('--memLayout')
+cmdLineParser.add_argument('--multipleSimulations', type=int)
+cmdLineParser.add_argument('--dynamicRuptureMethod')
+cmdLineParser.add_argument('--PlasticityMethod')
+cmdLineArgs = cmdLineParser.parse_args()
 
-  ti.oneSimToMultSim = Tensor('oneSimToMultSim', (Q.optSize(),), spp={(i,): '1.0' for i in range(Q.optSize())})
-  multSimToFirstSim = Tensor('multSimToFirstSim', (Q.optSize(),), spp={(0,): '1.0'})
+arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
 
-  ti.fluxScale = Scalar('fluxScale')
-  computeFluxSolverLocal = ti.AplusT['ij'] <= ti.fluxScale * ti.Tinv['ki'] * ti.QgodLocal['kq'] * db.star[0]['ql'] * ti.T['jl']
-  g.add('computeFluxSolverLocal', computeFluxSolverLocal)
+equationsSpec = importlib.util.find_spec(cmdLineArgs.equations)
+try:
+  equations = equationsSpec.loader.load_module()
+except:
+  raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
 
-  computeFluxSolverNeighbor = ti.AminusT['ij'] <= ti.fluxScale * ti.Tinv['ki'] * ti.QgodNeighbor['kq'] * db.star[0]['ql'] * ti.T['jl']
-  g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
+adgArgs = inspect.getargspec(equations.ADERDG.__init__).args[1:]
+cmdArgsDict = vars(cmdLineArgs)
+args = [cmdArgsDict[key] for key in adgArgs]
+adg = equations.ADERDG(*args)
 
-  if Q.hasOptDim():
-    copyQToQFortran = QFortran['kp'] <= Q['kp'] * multSimToFirstSim['s']
-  else:
-    copyQToQFortran = QFortran['kp'] <= Q['kp']
+g = Generator(arch)
 
-  g.add('copyQToQFortran', copyQToQFortran)
+# Equation-specific kernels
+adg.addInit(g)
+adg.addLocal(g)
+adg.addNeighbor(g)
+adg.addTime(g)
 
-  return ti
+# Common kernels
+DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
+Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
+SurfaceDisplacement.addKernels(g, adg)
+Point.addKernels(g, adg)
+
+# Generate code
+gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
+g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools)

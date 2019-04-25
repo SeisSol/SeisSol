@@ -38,181 +38,138 @@
 # @section DESCRIPTION
 #
   
-import argparse
 import numpy as np
 from yateto import *
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
-from yateto.gemm_configuration import *
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.memory import CSCMemoryLayout
 
+from aderdg import ADERDGBase
 from multSim import OptionalDimTensor
-import init
-import DynamicRupture
-import Plasticity
-import SurfaceDisplacement
-import point
 
-cmdLineParser = argparse.ArgumentParser()
-cmdLineParser.add_argument('--matricesDir')
-cmdLineParser.add_argument('--outputDir')
-cmdLineParser.add_argument('--arch')
-cmdLineParser.add_argument('--order')
-cmdLineParser.add_argument('--numberOfMechanisms')
-cmdLineParser.add_argument('--memLayout')
-cmdLineParser.add_argument('--multipleSimulations')
-cmdLineParser.add_argument('--dynamicRuptureMethod')
-cmdLineParser.add_argument('--PlasticityMethod')
-cmdLineArgs = cmdLineParser.parse_args()
+class ADERDG(ADERDGBase):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms):
+    super().__init__(order, multipleSimulations, matricesDir)
 
-arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
+    self.numberOfMechanisms = numberOfMechanisms
 
-order = int(cmdLineArgs.order)
-numberOf2DBasisFunctions = order*(order+1)//2
-numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
-numberOf3DQuadraturePoints = (order+1)**3
-numberOfQuantities = 9
-numberOfAnelasticQuantities = 6
-numberOfExtendedQuantities = numberOfQuantities + numberOfAnelasticQuantities
-numberOfMechanisms = int(cmdLineArgs.numberOfMechanisms)
-multipleSimulations = int(cmdLineArgs.multipleSimulations)
-numberOfFullQuantities = numberOfQuantities + numberOfMechanisms * numberOfAnelasticQuantities
+    clones = {
+      'star': ['star(0)', 'star(1)', 'star(2)'],
+    }
+    self.db.update( parseXMLMatrixFile('{}/matrices_viscoelastic.xml'.format(matricesDir), clones) )
+    memoryLayoutFromFile(memLayout, self.db, clones)
 
-qShape = (numberOf3DBasisFunctions, numberOfQuantities)
-qShapeExtended = (numberOf3DBasisFunctions, numberOfExtendedQuantities)
-qShapeAnelastic = (numberOf3DBasisFunctions, numberOfAnelasticQuantities, numberOfMechanisms)
-  
-# Quantities
-if multipleSimulations > 1:
-  alignStride=set(['fP({})'.format(i) for i in range(3)])
-  transpose=True
-else:
-  alignStride=True
-  transpose=False
+    self._qShapeExtended = (self.numberOf3DBasisFunctions(), self.numberOfExtendedQuantities())
+    self._qShapeAnelastic = (self.numberOf3DBasisFunctions(), self.numberOfAnelasticQuantities(), self.numberOfMechanisms)
+    self.Qext = OptionalDimTensor('Qext', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeExtended, alignStride=True)
+    self.Qane = OptionalDimTensor('Qane', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeAnelastic, alignStride=True)
+    self.Iane = OptionalDimTensor('Iane', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeAnelastic, alignStride=True)
 
-if transpose:
-  t = lambda x: x[::-1]
-else:
-  t = lambda x: x
+    self.E = Tensor('E', (self.numberOfAnelasticQuantities(), self.numberOfMechanisms, self.numberOfQuantities()))
+    self.w = Tensor('w', (self.numberOfMechanisms,))
+    self.W = Tensor('W', (self.numberOfMechanisms, self.numberOfMechanisms), np.eye(self.numberOfMechanisms, dtype=bool), CSCMemoryLayout)
 
-clones = {
-  'star': ['star(0)', 'star(1)', 'star(2)'],
-}
-db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), transpose=transpose, alignStride=alignStride)
-db.update( parseXMLMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
-clonesQP = {
-  'v': [ 'evalAtQP' ],
-  'vInv': [ 'projectQP' ]
-}
-db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP, transpose=transpose))
-memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
+    selectElaSpp = np.zeros((self.numberOfExtendedQuantities(), self.numberOfQuantities()))
+    selectElaSpp[0:self.numberOfQuantities(),0:self.numberOfQuantities()] = np.eye(self.numberOfQuantities())
+    self.selectEla = Tensor('selectEla', (self.numberOfExtendedQuantities(), self.numberOfQuantities()), selectElaSpp, CSCMemoryLayout)
 
-msName = 's'
-msPos = 0
+    selectAneSpp = np.zeros((self.numberOfExtendedQuantities(), self.numberOfAnelasticQuantities()))
+    selectAneSpp[self.numberOfQuantities():self.numberOfExtendedQuantities(),0:self.numberOfAnelasticQuantities()] = np.eye(self.numberOfAnelasticQuantities())
+    self.selectAne = Tensor('selectAne', (self.numberOfExtendedQuantities(), self.numberOfAnelasticQuantities()), selectAneSpp, CSCMemoryLayout)
 
-Q = OptionalDimTensor('Q', msName, multipleSimulations, msPos, qShape, alignStride=alignStride)
-Qext = OptionalDimTensor('Qext', msName, multipleSimulations, msPos, qShapeExtended, alignStride=alignStride)
-Qane = OptionalDimTensor('Qane', msName, multipleSimulations, msPos, qShapeAnelastic, alignStride=alignStride)
+  def numberOfQuantities(self):
+    return 9
 
-dQ = [OptionalDimTensor('dQ({})'.format(d), msName, multipleSimulations, msPos, qShape, alignStride=alignStride) for d in range(order)]
-dQext = [OptionalDimTensor('dQext({})'.format(d), msName, multipleSimulations, msPos, qShapeExtended, alignStride=alignStride) for d in range(order)]
-dQane = [OptionalDimTensor('dQane({})'.format(d), msName, multipleSimulations, msPos, qShapeAnelastic, alignStride=alignStride) for d in range(order)]
-I = OptionalDimTensor('I', msName, multipleSimulations, msPos, qShape, alignStride=alignStride)
-Iane = OptionalDimTensor('Iane', msName, multipleSimulations, msPos, qShapeAnelastic, alignStride=alignStride)
+  def numberOfAnelasticQuantities(self):
+    return 6
 
-iniCond = OptionalDimTensor('iniCond', 's', multipleSimulations, 0, (numberOf3DQuadraturePoints, numberOfFullQuantities))
-dofsQP = OptionalDimTensor('dofsQP', 's', multipleSimulations, 0, (numberOf3DQuadraturePoints, numberOfQuantities))
+  def numberOfExtendedQuantities(self):
+    return self.numberOfQuantities() + self.numberOfAnelasticQuantities()
 
-selectElaSpp = np.zeros((numberOfExtendedQuantities, numberOfQuantities))
-selectElaSpp[0:numberOfQuantities,0:numberOfQuantities] = np.eye(numberOfQuantities)
-selectEla = Tensor('selectEla', (numberOfExtendedQuantities, numberOfQuantities), selectElaSpp, CSCMemoryLayout)
+  def numberOfFullQuantities(self):
+    return self.numberOfQuantities() + self.numberOfMechanisms * self.numberOfAnelasticQuantities()
 
-selectElaFullSpp = np.zeros((numberOfFullQuantities, numberOfQuantities))
-selectElaFullSpp[0:numberOfQuantities,0:numberOfQuantities] = np.eye(numberOfQuantities)
-selectElaFull = Tensor('selectElaFull', (numberOfFullQuantities, numberOfQuantities), selectElaFullSpp, CSCMemoryLayout)
+  def extendedQTensor(self):
+    return self.Qext
 
-selectAneSpp = np.zeros((numberOfExtendedQuantities, numberOfAnelasticQuantities))
-selectAneSpp[numberOfQuantities:numberOfExtendedQuantities,0:numberOfAnelasticQuantities] = np.eye(numberOfAnelasticQuantities)
-selectAne = Tensor('selectAne', (numberOfExtendedQuantities, numberOfAnelasticQuantities), selectAneSpp, CSCMemoryLayout)
+  def starMatrix(self, dim):
+    return self.db.star[dim]
 
-selectAneFullSpp = np.zeros((numberOfFullQuantities, numberOfAnelasticQuantities, numberOfMechanisms))
-for mech in range(numberOfMechanisms):
-  q1 = numberOfQuantities+mech*numberOfAnelasticQuantities
-  q2 = q1 + numberOfAnelasticQuantities
-  selectAneFullSpp[q1:q2,:,mech] = np.eye(numberOfAnelasticQuantities)
-selectAneFull = Tensor('selectAneFull', (numberOfFullQuantities, numberOfAnelasticQuantities, numberOfMechanisms), selectAneFullSpp)
+  def addInit(self, g):
+    super().addInit(g)
 
-E = Tensor('E', (numberOfAnelasticQuantities, numberOfMechanisms, numberOfQuantities))
-w = Tensor('w', (numberOfMechanisms,))
-W = Tensor('W', (numberOfMechanisms, numberOfMechanisms), np.eye(numberOfMechanisms, dtype=bool), CSCMemoryLayout)
+    selectElaFullSpp = np.zeros((self.numberOfFullQuantities(), self.numberOfQuantities()))
+    selectElaFullSpp[0:self.numberOfQuantities(),0:self.numberOfQuantities()] = np.eye(self.numberOfQuantities())
+    selectElaFull = Tensor('selectElaFull', (self.numberOfFullQuantities(), self.numberOfQuantities()), selectElaFullSpp, CSCMemoryLayout)
 
-# Kernels
-g = Generator(arch)
+    selectAneFullSpp = np.zeros((self.numberOfFullQuantities(), self.numberOfAnelasticQuantities(), self.numberOfMechanisms))
+    for mech in range(self.numberOfMechanisms):
+      q1 = self.numberOfQuantities()+mech*self.numberOfAnelasticQuantities()
+      q2 = q1 + self.numberOfAnelasticQuantities()
+      selectAneFullSpp[q1:q2,:,mech] = np.eye(self.numberOfAnelasticQuantities())
+    selectAneFull = Tensor('selectAneFull', (self.numberOfFullQuantities(), self.numberOfAnelasticQuantities(), self.numberOfMechanisms), selectAneFullSpp)
 
-## Initialization
-ti = init.addKernels(g, db, Q, order, numberOfQuantities, numberOfExtendedQuantities)
-projectIniCondEla = Q['kp'] <= db.projectQP[t('kl')] * iniCond['lq'] * selectElaFull['qp']
-projectIniCondAne = Qane['kpm'] <= db.projectQP[t('kl')] * iniCond['lq'] * selectAneFull['qpm']
-g.add('projectIniCond', [projectIniCondEla, projectIniCondAne])
-g.add('evalAtQP', dofsQP['kp'] <= db.evalAtQP[t('kl')] * Q['lp'])
+    iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfFullQuantities())
+    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape)
+    dofsShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
+    dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), dofsShape)
 
-## Local
-volumeSum = Add()
-for i in range(3):
-  volumeSum += db.kDivM[i][t('kl')] * I['lq'] * db.star[i]['qp']
-volumeExt = (Qext['kp'] <= volumeSum)
-g.add('volumeExt', volumeExt)
+    projectIniCondEla = self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lq'] * selectElaFull['qp']
+    projectIniCondAne = self.Qane['kpm'] <= self.db.projectQP[self.t('kl')] * iniCond['lq'] * selectAneFull['qpm']
+    g.add('projectIniCond', [projectIniCondEla, projectIniCondAne])
+    g.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
-localFluxExt = lambda i: Qext['kp'] <= Qext['kp'] + db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I['lq'] * ti.AplusT['qp']
-localFluxExtPrefetch = lambda i: I if i == 0 else (Q if i == 1 else None)
-g.addFamily('localFluxExt', simpleParameterSpace(4), localFluxExt, localFluxExtPrefetch)
+  def addLocal(self, g):
+    volumeSum = Add()
+    for i in range(3):
+      volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.db.star[i]['qp']
+    volumeExt = (self.Qext['kp'] <= volumeSum)
+    g.add('volumeExt', volumeExt)
 
-g.add('local', [
-  Qane['kpm'] <= Qane['kpm'] + w['m'] * Qext['kq'] * selectAne['qp'] + Iane['kpl'] * W['lm'],
-  Q['kp'] <= Q['kp'] + Qext['kq'] * selectEla['qp'] + Iane['kqm'] * E['qmp']
-])
+    localFluxExt = lambda i: self.Qext['kp'] <= self.Qext['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+    localFluxExtPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    g.addFamily('localFluxExt', simpleParameterSpace(4), localFluxExt, localFluxExtPrefetch)
 
-## Neighbour
-neighbourFluxExt = lambda h,j,i: Qext['kp'] <= Qext['kp'] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I['lq'] * ti.AminusT['qp']
-neighbourFluxExtPrefetch = lambda h,j,i: I
-g.addFamily('neighbourFluxExt', simpleParameterSpace(3,4,4), neighbourFluxExt, neighbourFluxExtPrefetch)
+    g.add('local', [
+      self.Qane['kpm'] <= self.Qane['kpm'] + self.w['m'] * self.Qext['kq'] * self.selectAne['qp'] + self.Iane['kpl'] * self.W['lm'],
+      self.Q['kp'] <= self.Q['kp'] + self.Qext['kq'] * self.selectEla['qp'] + self.Iane['kqm'] * self.E['qmp']
+    ])
 
-g.add('neighbour', [
-  Qane['kpm'] <= Qane['kpm'] + w['m'] * Qext['kq'] * selectAne['qp'],
-  Q['kp'] <= Q['kp'] + Qext['kq'] * selectEla['qp']
-])
+  def addNeighbor(self, g):
+    neighbourFluxExt = lambda h,j,i: self.Qext['kp'] <= self.Qext['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+    neighbourFluxExtPrefetch = lambda h,j,i: self.I
+    g.addFamily('neighbourFluxExt', simpleParameterSpace(3,4,4), neighbourFluxExt, neighbourFluxExtPrefetch)
 
-## ADER
-power = Scalar('power')
+    g.add('neighbour', [
+      self.Qane['kpm'] <= self.Qane['kpm'] + self.w['m'] * self.Qext['kq'] * self.selectAne['qp'],
+      self.Q['kp'] <= self.Q['kp'] + self.Qext['kq'] * self.selectEla['qp']
+    ])
 
-derivativeTaylorExpansionEla = lambda d: (I['kp'] <= I['kp'] + power * dQ[d]['kp']) if d > 0 else (I['kp'] <= power * dQ[0]['kp'])
-derivativeTaylorExpansionAne = lambda d: (Iane['kpm'] <= Iane['kpm'] + power * dQane[d]['kpm']) if d > 0 else (Iane['kpm'] <= power * dQane[0]['kpm'])
+  def addTime(self, g):
+    qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+    dQ = [OptionalDimTensor('dQ({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True) for d in range(self.order)]
+    dQext = [OptionalDimTensor('dQext({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeExtended, alignStride=True) for d in range(self.order)]
+    dQane = [OptionalDimTensor('dQane({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeAnelastic, alignStride=True) for d in range(self.order)]
 
-def derivative(d):
-  derivativeSum = Add()
-  for j in range(3):
-    derivativeSum += db.kDivMT[j][t('kl')] * dQ[d-1]['lq'] * db.star[j]['qp']
-  return derivativeSum
+    power = Scalar('power')
 
-g.addFamily('derivative', parameterSpaceFromRanges(range(1,order)), lambda d: [
-  dQext[d]['kp'] <= derivative(d),
-  dQ[d]['kp'] <= dQext[d]['kq'] * selectEla['qp'] + dQane[d-1]['kqm'] * E['qmp'],
-  dQane[d]['kpm'] <= w['m'] * dQext[d]['kq'] * selectAne['qp'] + dQane[d-1]['kpl'] * W['lm']
-])
-g.addFamily('derivativeTaylorExpansion', simpleParameterSpace(order), lambda d: [
-  derivativeTaylorExpansionEla(d),
-  derivativeTaylorExpansionAne(d)
-])
-g.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(order), derivativeTaylorExpansionEla)
+    derivativeTaylorExpansionEla = lambda d: (self.I['kp'] <= self.I['kp'] + power * dQ[d]['kp']) if d > 0 else (self.I['kp'] <= power * dQ[0]['kp'])
+    derivativeTaylorExpansionAne = lambda d: (self.Iane['kpm'] <= self.Iane['kpm'] + power * dQane[d]['kpm']) if d > 0 else (self.Iane['kpm'] <= power * dQane[0]['kpm'])
 
-## Other
-DynamicRupture.addKernels(g, db, ti, Q, Qext, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfExtendedQuantities)
-Plasticity.addKernels(g, Q, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
-SurfaceDisplacement.addKernels(g, Q, I, order, alignStride)
-point.addKernels(g, Q, ti.oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities)
+    def derivative(d):
+      derivativeSum = Add()
+      for j in range(3):
+        derivativeSum += self.db.kDivMT[j][self.t('kl')] * dQ[d-1]['lq'] * self.db.star[j]['qp']
+      return derivativeSum
 
-# Generate code
-gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
-g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools)
-
+    g.addFamily('derivative', parameterSpaceFromRanges(range(1,self.order)), lambda d: [
+      dQext[d]['kp'] <= derivative(d),
+      dQ[d]['kp'] <= dQext[d]['kq'] * self.selectEla['qp'] + dQane[d-1]['kqm'] * self.E['qmp'],
+      dQane[d]['kpm'] <= self.w['m'] * dQext[d]['kq'] * self.selectAne['qp'] + dQane[d-1]['kpl'] * self.W['lm']
+    ])
+    g.addFamily('derivativeTaylorExpansion', simpleParameterSpace(self.order), lambda d: [
+      derivativeTaylorExpansionEla(d),
+      derivativeTaylorExpansionAne(d)
+    ])
+    g.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(self.order), derivativeTaylorExpansionEla)

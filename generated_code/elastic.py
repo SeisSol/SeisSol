@@ -38,123 +38,75 @@
 # @section DESCRIPTION
 #
   
-import argparse
 import numpy as np
 from yateto import *
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
-from yateto.gemm_configuration import *
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
+from aderdg import ADERDGBase
 from multSim import OptionalDimTensor
-import init
-import DynamicRupture
-import Plasticity
-import SurfaceDisplacement
-import point
 
-cmdLineParser = argparse.ArgumentParser()
-cmdLineParser.add_argument('--matricesDir')
-cmdLineParser.add_argument('--outputDir')
-cmdLineParser.add_argument('--arch')
-cmdLineParser.add_argument('--order')
-cmdLineParser.add_argument('--numberOfMechanisms')
-cmdLineParser.add_argument('--memLayout')
-cmdLineParser.add_argument('--multipleSimulations')
-cmdLineParser.add_argument('--dynamicRuptureMethod')
-cmdLineParser.add_argument('--PlasticityMethod')
-cmdLineArgs = cmdLineParser.parse_args()
+class ADERDG(ADERDGBase):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout):
+    super().__init__(order, multipleSimulations, matricesDir)
+    clones = {
+      'star': ['star(0)', 'star(1)', 'star(2)'],
+    }
+    self.db.update( parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones) )
+    memoryLayoutFromFile(memLayout, self.db, clones)
 
-arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
+  def numberOfQuantities(self):
+    return 9
 
-order = int(cmdLineArgs.order)
-numberOf2DBasisFunctions = order*(order+1)//2
-numberOf3DBasisFunctions = order*(order+1)*(order+2)//6
-numberOf3DQuadraturePoints = (order+1)**3
-numberOfQuantities = 9
-multipleSimulations = int(cmdLineArgs.multipleSimulations)
+  def numberOfExtendedQuantities(self):
+    return self.numberOfQuantities()
 
-qShape = (numberOf3DBasisFunctions, numberOfQuantities)
+  def extendedQTensor(self):
+    return self.Q
 
-# Quantities
-if multipleSimulations > 1:
-  alignStride=set(['fP({})'.format(i) for i in range(3)])
-  transpose=True
-else:
-  alignStride=True
-  transpose=False
+  def starMatrix(self, dim):
+    return self.db.star[dim]
 
-if transpose:
-  t = lambda x: x[::-1]
-else:
-  t = lambda x: x
+  def addInit(self, g):
+    super().addInit(g)
 
-clones = {
-  'star': ['star(0)', 'star(1)', 'star(2)'],
-}
-db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), transpose=transpose, alignStride=alignStride)
-db.update( parseXMLMatrixFile('{}/star.xml'.format(cmdLineArgs.matricesDir, numberOf3DBasisFunctions), clones) )
-clonesQP = {
-  'v': [ 'evalAtQP' ],
-  'vInv': [ 'projectQP' ]
-}
-db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(cmdLineArgs.matricesDir, order), clonesQP, transpose=transpose))
-memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
+    iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
+    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape)
+    dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape)
 
-Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
-dQ0 = OptionalDimTensor('dQ(0)', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
-I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=alignStride)
-iniCond = OptionalDimTensor('iniCond', 's', multipleSimulations, 0, (numberOf3DQuadraturePoints, numberOfQuantities))
-dofsQP = OptionalDimTensor('dofsQP', 's', multipleSimulations, 0, (numberOf3DQuadraturePoints, numberOfQuantities))
+    g.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
+    g.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
+  def addLocal(self, g):
+    volumeSum = self.Q['kp']
+    for i in range(3):
+      volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.db.star[i]['qp']
+    volume = (self.Q['kp'] <= volumeSum)
+    g.add('volume', volume)
 
-# Kernels
-g = Generator(arch)
+    localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+    localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    g.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
-## Initialization
-ti = init.addKernels(g, db, Q, order, numberOfQuantities, numberOfQuantities)
-g.add('projectIniCond', Q['kp'] <= db.projectQP[t('kl')] * iniCond['lp'])
-g.add('evalAtQP', dofsQP['kp'] <= db.evalAtQP[t('kl')] * Q['lp'])
+  def addNeighbor(self, g):
+    neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+    neighbourFluxPrefetch = lambda h,j,i: self.I
+    g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
 
-
-## Local
-volumeSum = Q['kp']
-for i in range(3):
-  volumeSum += db.kDivM[i][t('kl')] * I['lq'] * db.star[i]['qp']
-volume = (Q['kp'] <= volumeSum)
-g.add('volume', volume)
-
-localFlux = lambda i: Q['kp'] <= Q['kp'] + db.rDivM[i][t('km')] * db.fMrT[i][t('ml')] * I['lq'] * ti.AplusT['qp']
-localFluxPrefetch = lambda i: I if i == 0 else (Q if i == 1 else None)
-g.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
-
-## Neighbour
-neighbourFlux = lambda h,j,i: Q['kp'] <= Q['kp'] + db.rDivM[i][t('km')] * db.fP[h][t('mn')] * db.rT[j][t('nl')] * I['lq'] * ti.AminusT['qp']
-neighbourFluxPrefetch = lambda h,j,i: I
-g.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
-
-## ADER
-power = Scalar('power')
-derivatives = [dQ0]
-g.add('derivativeTaylorExpansion(0)', I['kp'] <= power * dQ0['kp'])
-for i in range(1,order):
-  derivativeSum = Add()
-  for j in range(3):
-    derivativeSum += db.kDivMT[j][t('kl')] * derivatives[-1]['lq'] * db.star[j]['qp']
-  derivativeSum = DeduceIndices( Q['kp'].indices ).visit(derivativeSum)
-  derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
-  dQ = OptionalDimTensor('dQ({})'.format(i), 's', multipleSimulations, 0, qShape, spp=derivativeSum.eqspp(), alignStride=True)
-  g.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
-  g.add('derivativeTaylorExpansion({})'.format(i), I['kp'] <= I['kp'] + power * dQ['kp'])
-  derivatives.append(dQ)
-
-## Other
-DynamicRupture.addKernels(g, db, ti, Q, Q, I, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
-Plasticity.addKernels(g, Q, alignStride, cmdLineArgs.matricesDir, order, cmdLineArgs.PlasticityMethod)
-SurfaceDisplacement.addKernels(g, Q, I, order, alignStride)
-point.addKernels(g, Q, ti.oneSimToMultSim, numberOf3DBasisFunctions, numberOfQuantities)
-
-# Generate code
-gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
-g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools)
-
+  def addTime(self, g):
+    qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+    dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
+    power = Scalar('power')
+    derivatives = [dQ0]
+    g.add('derivativeTaylorExpansion(0)', self.I['kp'] <= power * dQ0['kp'])
+    for i in range(1,self.order):
+      derivativeSum = Add()
+      for j in range(3):
+        derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.db.star[j]['qp']
+      derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
+      derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
+      dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
+      g.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
+      g.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
+      derivatives.append(dQ)
