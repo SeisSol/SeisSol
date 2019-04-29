@@ -3,7 +3,7 @@
 #include <Kernels/Time.h>
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
-//~ #include <Kernels/DynamicRupture.h>
+#include <Kernels/DynamicRupture.h>
 #include <Kernels/Plasticity.h>
 
 int main()
@@ -66,12 +66,13 @@ int main()
   
   /// Dynamic rupture flops
 
-  /*long long drNonZeroFlops = 0, drHardwareFlops = 0;
+  long long drNonZeroFlops = 0, drHardwareFlops = 0;
   long long neighborDRNonZeroFlops = 0, neighborDRHardwareFlops = 0;
   
   seissol::kernels::DynamicRupture dynRupKernel;
 
   faceType faceTypesDR[] = {dynamicRupture, dynamicRupture, dynamicRupture, dynamicRupture};
+  CellDRMapping drMapping[4];
   
   for (int neighborSide = 0; neighborSide < 4; ++neighborSide) {
     for (int sideOrientation = 0; sideOrientation < 3; ++sideOrientation) {
@@ -89,19 +90,19 @@ int main()
   }
   
   for (int neighborSide = 0; neighborSide < 4; ++neighborSide) {
-    for (int sideOrientation = 0; sideOrientation < 3; ++sideOrientation) {
+    for (int faceRelation = 0; faceRelation < 4; ++faceRelation) {
       for (int face = 0; face < 4; ++face) {
-        faceRelations[face][0] = neighborSide;
-        faceRelations[face][1] = sideOrientation;
+        drMapping[face].side = neighborSide;
+        drMapping[face].faceRelation = faceRelation;
       }
-      neighborKernel.flopsNeighborsIntegral( faceTypesDR, faceRelations, kernelNonZeroFlops, kernelHardwareFlops, kernelDRNonZeroFlops, kernelDRHardwareFlops );
+      neighborKernel.flopsNeighborsIntegral( faceTypesDR, faceRelations, drMapping, kernelNonZeroFlops, kernelHardwareFlops, kernelDRNonZeroFlops, kernelDRHardwareFlops );
       neighborDRNonZeroFlops += kernelDRNonZeroFlops;
       neighborDRHardwareFlops += kernelDRHardwareFlops;
     }
   }  
   
-  printf("Dynamic rupture face non-zero flops (average, w/o friction law): %.1lf\n", drNonZeroFlops / 48.0 + neighborDRNonZeroFlops / 12.0 / 4.0);
-  printf("Dynamic rupture face hardware flops (average, w/o friction law): %.1lf\n", drHardwareFlops / 48.0 + neighborDRHardwareFlops / 12.0 / 4.0);
+  printf("Dynamic rupture face non-zero flops (average, w/o friction law): %.1lf\n", drNonZeroFlops / 48.0 + neighborDRNonZeroFlops / 16.0 / 4.0);
+  printf("Dynamic rupture face hardware flops (average, w/o friction law): %.1lf\n", drHardwareFlops / 48.0 + neighborDRHardwareFlops / 16.0 / 4.0);
   
 
   /// Plasticity flops
@@ -126,7 +127,7 @@ int main()
   printf("Plasticity non-zero min vs elastic average: %.2lf %\n", 100.0 * PlNonZeroFlopsCheck / avgNonZeroFlops);
   printf("Plasticity hardware min vs elastic average: %.2lf %\n", 100.0 * PlHardwareFlopsCheck / avgHardwareFlops);
   printf("Plasticity non-zero max vs elastic average: %.2lf %\n", 100.0 * (PlNonZeroFlopsCheck + PlNonZeroFlopsYield) / avgNonZeroFlops);
-  printf("Plasticity hardware max vs elastic average: %.2lf %\n", 100.0 * (PlHardwareFlopsCheck + PlHardwareFlopsYield) / avgHardwareFlops);*/
+  printf("Plasticity hardware max vs elastic average: %.2lf %\n", 100.0 * (PlHardwareFlopsCheck + PlHardwareFlopsYield) / avgHardwareFlops);
 
   return 0;
 }
