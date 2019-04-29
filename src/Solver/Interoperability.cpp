@@ -548,9 +548,8 @@ void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_init
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
-    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      plasticity.initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
-    }
+    unsigned l_basis = 0;
+    plasticity.initialLoading[l_stress] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
   }
 }
 //synchronize element dependent plasticity parameters

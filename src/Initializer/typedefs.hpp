@@ -376,7 +376,7 @@ struct CellMaterialData {
 // plasticity information per cell
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
+  real initialLoading[6];
   real cohesionTimesCosAngularFriction;
   real sinAngularFriction;
   real mufactor;

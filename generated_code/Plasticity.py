@@ -38,6 +38,7 @@
 # @section DESCRIPTION
 #
 
+import numpy as np
 from yateto import *
 from yateto.input import parseXMLMatrixFile
 from multSim import OptionalDimTensor
@@ -48,10 +49,25 @@ def addKernels(generator, adg, matricesDir, PlasticityMethod):
   numberOfNodes = db.v.shape()[0]
 
   sShape = (adg.numberOf3DBasisFunctions(), 6)
-  stressDOFS = OptionalDimTensor('stressDOFS', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), sShape, alignStride=True)
+  QStress = OptionalDimTensor('QStress', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), sShape, alignStride=True)
+  initialLoading = Tensor('initialLoading', (6,))
+
+  replicateIniLShape = (numberOfNodes,)
+  replicateIniLSpp = np.ones(adg.Q.insertOptDim(replicateIniLShape, (adg.Q.optSize(),)))
+  replicateInitialLoading = OptionalDimTensor('replicateInitialLoading', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
 
   iShape = (numberOfNodes, 6)
-  interpolationDOFS = OptionalDimTensor('interpolationDOFS', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), iShape, alignStride=True)
-  
-  generator.add('interpolationDOFS', interpolationDOFS['kp'] <= db.v['kl'] * stressDOFS['lp'])
-  generator.add('convertToModal', stressDOFS['kp'] <= db.vInv['kl'] * interpolationDOFS['lp'])
+  QStressNodal = OptionalDimTensor('QStressNodal', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), iShape, alignStride=True)
+  meanStress = OptionalDimTensor('meanStress', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), (numberOfNodes,), alignStride=True)
+  secondInvariant = OptionalDimTensor('secondInvariant', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), (numberOfNodes,), alignStride=True)
+
+  selectBulkAverage = Tensor('selectBulkAverage', (6,), spp={(i,): str(1.0/3.0) for i in range(3)})
+  selectBulkNegative = Tensor('selectBulkNegative', (6,), spp={(i,): '-1.0' for i in range(3)})
+  weightSecondInvariant = Tensor('weightSecondInvariant', (6,), spp={(i,): str(1.0/2.0) if i < 3 else '1.0' for i in range(6)})
+  yieldFactor = Tensor('yieldFactor', (numberOfNodes,))
+
+  generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v['kl'] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
+  generator.add('plComputeMean', meanStress['k'] <= QStressNodal['kq'] * selectBulkAverage['q'])
+  generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])
+  generator.add('plComputeSecondInvariant', secondInvariant['k'] <= QStressNodal['kq'] * QStressNodal['kq'] * weightSecondInvariant['q'])
+  generator.add('plAdjustStresses', QStress['kp'] <= QStress['kp'] + db.vInv['kl'] * QStressNodal['lp'] * yieldFactor['l'])
