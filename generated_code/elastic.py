@@ -106,7 +106,7 @@ class ADERDG(ADERDGBase):
         derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.db.star[j]['qp']
       derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
       derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
-      dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
+      dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
       g.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
       g.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
       derivatives.append(dQ)
