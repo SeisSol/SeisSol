@@ -111,9 +111,9 @@ class ADERDG(ADERDGBase):
     selectAneFull = Tensor('selectAneFull', (self.numberOfFullQuantities(), self.numberOfAnelasticQuantities(), self.numberOfMechanisms), selectAneFullSpp)
 
     iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfFullQuantities())
-    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape)
+    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
     dofsShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
-    dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), dofsShape)
+    dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), dofsShape, alignStride=True)
 
     projectIniCondEla = self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lq'] * selectElaFull['qp']
     projectIniCondAne = self.Qane['kpm'] <= self.db.projectQP[self.t('kl')] * iniCond['lq'] * selectAneFull['qpm']

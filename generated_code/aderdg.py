@@ -57,7 +57,7 @@ class ADERDGBase(ABC):
       'v': [ 'evalAtQP' ],
       'vInv': [ 'projectQP' ]
     }
-    self.db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(matricesDir, order), clonesQP, transpose=self.transpose))
+    self.db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(matricesDir, order), clonesQP, transpose=self.transpose, alignStride=self.alignStride))
 
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     self.Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=True)
