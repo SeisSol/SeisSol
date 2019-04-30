@@ -13,18 +13,21 @@ Galerkin method (ADER-DG).
 
 Characteristics of the SeisSol simulation software are:
 
-- use of tetrahedral meshes
-- to approximate complex 3D model geometries and rapid model generation
-- use of elastic, viscoelastic and viscoplastic material to approximate realistic geological subsurface properties
 - use of arbitrarily high approximation order in time and space
+- use of tetrahedral meshes to approximate complex 3D model geometries (faults & topography) and rapid model generation
+- use of elastic, viscoelastic and viscoplastic material to approximate realistic geological subsurface properties
+- parallel geo-information input (ASAGI)
 - to produce reliable and sufficiently accurate synthetic seismograms or other seismological data set
 
 .. toctree::
   :maxdepth: 2
   :caption: Introduction
 
+  introduction
   compilation
   a-first-example
+  acknowledge
+  citations
 
 .. toctree::
   :maxdepth: 2
@@ -80,6 +83,23 @@ Characteristics of the SeisSol simulation software are:
   remeshing-the-topography
   adapting-the-cad-model-resolution-using-gocad
   manually-fixing-an-intersection-in-gocad
+  
+.. toctree::
+  :maxdepth: 2
+  :caption: Cookbook
+
+  cookbook_overview
+  tpv5
+  tpv6
+  tpv12
+  tpv13
+  tpv16
+  tpv24
+  tpv29
+  tpv104
+  pointsource
+  kinematic
+  copyrights
 
 .. toctree::
   :maxdepth: 2

@@ -578,7 +578,7 @@ if env['asagi']:
     if env['scalasca'] in ['default', 'kernels']:
         ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
 
-    env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
+    libs.find(env, 'asagi', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
 
 # yaml-cpp
@@ -675,7 +675,7 @@ for directory in set(modDirectories):
   Execute(Mkdir(directory))
 env.AppendUnique(F90PATH=list(map(lambda x: '#/' + x, modDirectories)))
 
-#print env.Dump()
+#print(env.Dump())
 
 # build standard version
 seissol_build = env.Program('#/'+env['programFile'], sourceFiles)
@@ -724,7 +724,7 @@ if env['unitTests'] != 'none':
   Import('env')
 
   # Remove main() to avoid double definition
-  sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'main.o', sourceFiles)
+  sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'main.o', sourceFiles))
   # Remove .mod files from additional Fortran files
   for sourceFile in env.sourceFiles:
     sourceFiles.append(sourceFile[0])
@@ -740,7 +740,7 @@ if env['unitTests'] != 'none':
     env.CxxTest(target='#/'+env['buildDir']+'/tests/serial_test_suite', source=sourceFiles+env.testSourceFiles)
 
   if env['parallelization'] in ['mpi', 'hybrid']:
-    for ranks, mpiTestSourceFiles in env.mpiTestSourceFiles.iteritems():
+    for ranks, mpiTestSourceFiles in env.mpiTestSourceFiles.items():
       if mpiTestSourceFiles:
         env['CXXTEST_COMMAND'] = 'mpirun -np {0} %t'.format(ranks)
         env.CxxTest(target='#/'+env['buildDir']+'/tests/parallel_test_suite_{0}'.format(ranks), source=sourceFiles+mpiTestSourceFiles)

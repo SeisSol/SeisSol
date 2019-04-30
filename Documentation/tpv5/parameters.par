@@ -1,0 +1,98 @@
+&equations
+MaterialFileName = material.yaml
+/
+
+&IniCondition
+/
+
+&Boundaries
+BC_fs = 1
+BC_dr = 1                               ! Fault boundaries
+BC_of = 1                               ! Absorbing boundaries
+/
+
+&DynamicRupture
+FL = 2                    ! Friction law (0: none, 1:self-similar crack, 2:LSW, 3:RS (aging), 4:RS (slip))
+ModelFileName = fault.yaml
+GPwise = 1                  ! elementwise =0 ; GPwise =1
+
+XRef = 0.0                  ! Reference point
+YRef = -1.0e5 
+ZRef = 0 
+
+RF_output_on = 1            ! RF on      
+OutputPointType = 5         ! Type (0: no output, 1: take GP's 2: 4 points per surface triangle, 3: output at certain pickpoints)
+/
+
+&Elementwise
+printIntervalCriterion = 2      ! 1=iteration, 2=time
+printtimeinterval_sec = 1.      ! Time interval at which output will be written
+OutputMask = 1 1 1 1 1 1 1 1 1  1 ! output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable
+!OutputMask =1 2 3 4 5 6 7 8 9 10 11 ! output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable
+                               ! 5/ background values 6:/Slip
+refinement_strategy = 2
+refinement = 1
+/
+
+&Pickpoint
+printtimeinterval = 1       ! Index of printed info at timesteps
+OutputMask = 1 1 1 1      ! output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable
+                            ! 5/ background values
+nOutpoints = 9
+PPFileName = 'FaultReceivers5.dat'
+/
+
+
+
+&SourceType
+/
+
+&SpongeLayer
+/
+            
+&MeshNml
+meshgenerator = 'PUML'       ! Name of meshgenerator (format)
+MeshFile = 'mesh/tpv5_200m'             ! Name of mesh file
+/
+
+&Discretization
+Order = 4                       ! Order of accuracy in space and time
+Material = 1                         ! Material order
+CFL = 0.5                            ! CFL number (<=1.0)
+FixTimeStep = 5                      ! Manualy chosen minimum time
+
+DGMethod = 1                         ! Local time stepping
+!IterationCriterion = 1               ! Local time stepping synchronisation criterion
+ClusteredLTS =2
+/
+
+&Output
+OutputFile = 'output/tpv5'
+iOutputMask = 1 1 1 1 1 1 1 1 1      ! Variables ouptut
+iOutputMaskMaterial = 1 1 1          ! Material output
+Format = 10                           ! Format (0=IDL, 1=TECPLOT, 2=IBM DX, 4=GiD))
+!Interval = 100000                    ! Index of printed info at timesteps
+TimeInterval = 0.25                   ! Index of printed info at time
+printIntervalCriterion = 2           ! Criterion for index of printed info: 1=timesteps,2=time,3=timesteps+time
+pickdt = 0.005                       ! Pickpoint Sampling
+pickDtType = 1                       ! Pickpoint Type
+FaultOutputFlag = 1                  ! DR output (add this line only if DR is active)
+nRecordPoints = 6                   ! number of Record points which are read from file
+RFileName = 'Receivers5.dat'      ! Record Points in extra file
+!checkPointInterval = 1.5 ! Set to 0 to disable checkpointing
+!checkPointBackend = 'posix' ! Either ’hdf5’, ’mpio’ or ’none’
+/
+
+/
+            
+&AbortCriteria
+EndTime = 10.0
+/
+
+&Analysis
+/
+
+&Debugging
+
+
+
