@@ -175,7 +175,7 @@ CONTAINS
         freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
         xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
         receiverSamplingInterval = io%pickdt, &
-        receiverSyncInterval = io%ReceiverOutputInterval )
+        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval) )
 
     ! Initialize the fault Xdmf Writer
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
