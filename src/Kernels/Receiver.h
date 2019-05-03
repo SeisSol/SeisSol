@@ -63,7 +63,7 @@ namespace seissol {
         output.reserve(reserved);
       }
       unsigned pointId;
-      basisFunction::SampledBasisFunctions<double> basisFunctions;
+      basisFunction::SampledBasisFunctions<real> basisFunctions;
       kernels::LocalData data;
       std::vector<real> output;
     };
