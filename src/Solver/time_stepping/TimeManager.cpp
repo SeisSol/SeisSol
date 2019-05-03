@@ -387,12 +387,6 @@ void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWr
   }
 }
 
-void seissol::time_stepping::TimeManager::setReceiverSampling( double i_receiverSampling ) {
-  for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
-    m_clusters[l_cluster]->setReceiverSampling( i_receiverSampling );
-  }
-}
-
 void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
   assert( i_time >= 0 );
 

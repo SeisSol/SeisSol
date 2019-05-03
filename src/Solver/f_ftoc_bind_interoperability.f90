@@ -158,14 +158,6 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface c_interoperability_setReceiverSampling
-    subroutine c_interoperability_setReceiverSampling( i_receiverSampling ) bind( C, name='c_interoperability_setReceiverSampling' )
-      use iso_c_binding, only: c_double
-      implicit none
-      real(kind=c_double), value :: i_receiverSampling
-    end subroutine
-  end interface
-
   interface c_interoperability_setMaterial
     subroutine c_interoperability_setMaterial( i_elem, i_side, i_materialVal, i_numMaterialVals ) bind( C, name='c_interoperability_setMaterial' )
     use iso_c_binding

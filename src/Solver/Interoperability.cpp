@@ -149,10 +149,6 @@ extern "C" {
     e_interoperability.addRecPoint(x, y, z);
   }
 
-  void c_interoperability_setReceiverSampling( double i_receiverSampling ) {
-    e_interoperability.setReceiverSampling( i_receiverSampling );
-  }
-
   void c_interoperability_enableDynamicRupture() {
     e_interoperability.enableDynamicRupture();
   }
@@ -532,12 +528,6 @@ void seissol::Interoperability::initializeFault( char*   modelFileName,
                                                               numberOfBndPoints );
     parameterDB.evaluateModel(std::string(modelFileName), queryGen);
   }
-}
-
-void seissol::Interoperability::setReceiverSampling( double i_receiverSampling ) {
-  assert( i_receiverSampling > 0 );
-
-  seissol::SeisSol::main.timeManager().setReceiverSampling( i_receiverSampling );
 }
 
 void seissol::Interoperability::enableDynamicRupture() {

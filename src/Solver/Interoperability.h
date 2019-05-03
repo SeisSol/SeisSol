@@ -203,13 +203,6 @@ class seissol::Interoperability {
    }
 
    /**
-    * Sets the sampling of the receivers.
-    *
-    * @param i_receiverSampling sampling of the receivers.
-    **/
-   void setReceiverSampling( double i_receiverSampling );
-
-   /**
     * Enables dynamic rupture.
     **/
    void enableDynamicRupture();

@@ -116,9 +116,6 @@ private:
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
 
-    //! sampling of the receivers
-    double m_receiverSampling;
-
     /*
      * integrators
      */
@@ -434,12 +431,6 @@ private:
     void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
       m_receiverCluster = receiverCluster;
     }
-    /**
-     * Sets the receiver sampling for this cluster.
-     *
-     * @param i_receiverSampling receiver sampling.
-     **/
-    void setReceiverSampling( double i_receiverSampling );
 
     /**
      * Set Tv constant for plasticity.

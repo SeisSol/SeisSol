@@ -195,13 +195,6 @@ class seissol::time_stepping::TimeManager {
     void setTv(double tv);
 
     /**
-     * Sets the sampling of the receivers.
-     *
-     * @param i_receiverSampling receiver sampling.
-     **/
-    void setReceiverSampling( double i_receiverSampling );
-
-    /**
      * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.
      * Required only if different from zero, for example in checkpointing.
      *

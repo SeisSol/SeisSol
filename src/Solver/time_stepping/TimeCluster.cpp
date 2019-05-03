@@ -147,7 +147,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   // set timings to zero
   m_numberOfTimeSteps             = 0;
   m_receiverTime                  = 0;
-  m_receiverSampling              = std::numeric_limits<double>::max();
   m_timeStepWidth                 = 0;
   m_subTimeStart                  = 0;
   m_numberOfFullUpdates           = 0;
@@ -178,10 +177,6 @@ void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPoi
   m_cellToPointSources = i_cellToPointSources;
   m_numberOfCellToPointSourcesMappings = i_numberOfCellToPointSourcesMappings;
   m_pointSources = i_pointSources;
-}
-
-void seissol::time_stepping::TimeCluster::setReceiverSampling( double i_receiverSampling ) {
-  m_receiverSampling = i_receiverSampling;
 }
 
 void seissol::time_stepping::TimeCluster::writeReceivers() {

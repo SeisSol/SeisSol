@@ -139,7 +139,6 @@ CONTAINS
          MPI    = MPI                                     )                    ! Initialize receivers
     !                                                                          !
 #endif
-    call c_interoperability_setReceiverSampling( io%pickdt )
     do i=1, IO%ntotalRecordPoint
       call c_interoperability_addRecPoint(IO%UnstructRecpoint(i)%x, IO%UnstructRecpoint(i)%y, IO%UnstructRecpoint(i)%z)
     end do
