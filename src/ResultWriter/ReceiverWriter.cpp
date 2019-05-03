@@ -43,44 +43,31 @@
 #include <iomanip>
 #include <fstream>
 #include <sys/stat.h>
-#include <Initializer/PointMapper.h>
-#include <Numerical_aux/Transformation.h>
 #include <Parallel/MPI.h>
-#include <Monitoring/FlopCounter.hpp>
-#include <generated_code/init.h>
-#include <generated_code/kernel.h>
+#include <Modules/Modules.h>
 
-void seissol::writer::ReceiverWriterCluster::addReceiver( unsigned                          meshId,
-                                                          unsigned                          pointId,
-                                                          glm::dvec3 const&                 point,
-                                                          MeshReader const&                 mesh,
-                                                          seissol::initializers::Lut const& ltsLut,
-                                                          seissol::initializers::LTS const& lts ) {
-  auto const elements = mesh.getElements();
-  auto const vertices = mesh.getVertices();
-
-  double const* coords[4];
-  for (unsigned v = 0; v < 4; ++v) {
-    coords[v] = vertices[ elements[meshId].vertices[v] ].coords;
-  }
-  auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(coords[0], coords[1], coords[2], coords[3], point);
-
+std::string seissol::writer::ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId+1);
 #ifdef PARALLEL
   fns << "-" << std::setw(5) << seissol::MPI::mpi.rank();
 #endif
   fns << ".dat";
-  std::string fileName(fns.str());
+  return fns.str();
+}
+
+void seissol::writer::ReceiverWriter::writeHeader(  unsigned                          pointId,
+                                    glm::dvec3 const&                 point   ) {
+  auto name = fileName(pointId);
 
   std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
   // Write header if file does not exist
-  if (stat(fileName.c_str(), &fileStat) != 0) {
+  if (stat(name.c_str(), &fileStat) != 0) {
     std::ofstream file;
-    file.open(fileName);
+    file.open(name);
     file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5) << (pointId+1) << "\"" << std::endl;
     file << "VARIABLES = \"Time\"";
 #ifdef MULTIPLE_SIMULATIONS
@@ -100,78 +87,55 @@ void seissol::writer::ReceiverWriterCluster::addReceiver( unsigned              
     }
     file.close();
   }
-
-  m_receivers.emplace_back( fileName,
-                            xiEtaZeta[0],
-                            xiEtaZeta[1],
-                            xiEtaZeta[2],
-                            kernels::LocalData::lookup(lts, ltsLut, meshId));
 }
 
-double seissol::writer::ReceiverWriterCluster::writeReceivers(  double time,
-                                                                double expansionPoint,
-                                                                double timeStepWidth,
-                                                                double samplingInterval  ) {
-  real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
-  real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
-  real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
+void seissol::writer::ReceiverWriter::syncPoint(double)
+{
+  if (m_receiverClusters.empty()) {
+    return;
+  }
 
-  kernels::LocalTmp tmp;
+  m_stopwatch.start();
 
-  kernel::evaluateDOFSAtPoint krnl;
-  krnl.QAtPoint = timeEvaluatedAtPoint;
-  krnl.Q = timeEvaluated;
+  for (auto& cluster : m_receiverClusters) {
+    auto ncols = cluster.ncols();
+    for (auto& receiver : cluster) {
+      assert(receiver.output.size() % ncols == 0);
+      size_t nSamples = receiver.output.size() / ncols;
 
-  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
-
-  double receiverTime = time;
-  if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    for (auto& receiver : m_receivers) {
-      krnl.basisFunctions = receiver.basisFunctions.m_data.data();
-
-      m_timeKernel.computeAder( 0,
-                                receiver.data,
-                                tmp,
-                                timeEvaluated, // useless but the interface requires it
-                                timeDerivatives );
-      g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
-      g_SeisSolHardwareFlopsOther += m_hardwareFlops;
-
-      receiverTime = time;
       std::ofstream file;
-      file.open(receiver.fileName, std::ios::app);
-      while (receiverTime < expansionPoint + timeStepWidth) {
-        m_timeKernel.computeTaylorExpansion(receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
-
-        file << "  " << std::scientific << std::setprecision(15) << receiverTime;
-        krnl.execute();
-#ifdef MULTIPLE_SIMULATIONS
-        for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
-          for (auto quantity : m_quantities) {
-            file << "  " << qAtPoint(sim, quantity);
-          }
+      file.open(fileName(receiver.pointId), std::ios::app);
+      file << std::scientific << std::setprecision(15);
+      for (size_t i = 0; i < nSamples; ++i) {
+        for (size_t q = 0; q < ncols; ++q) {
+          file << "  " << receiver.output[q + i*ncols];
         }
-#else
-        for (auto quantity : m_quantities) {
-          file << "  " << qAtPoint(quantity);
-        }
-#endif
         file << std::endl;
-
-        receiverTime += samplingInterval;
       }
       file.close();
+      receiver.output.clear();
     }
   }
-  return receiverTime;
+
+  auto time = m_stopwatch.stop();
+  int const rank = seissol::MPI::mpi.rank();
+  logInfo(rank) << "Wrote receivers in" << time << "seconds.";
+}
+void seissol::writer::ReceiverWriter::init( std::string const&  fileNamePrefix,
+                                            double              samplingInterval,
+                                            double              syncPointInterval)
+{
+  m_fileNamePrefix = fileNamePrefix;
+  m_samplingInterval = samplingInterval;
+  setSyncInterval(syncPointInterval);
+  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
 
 void seissol::writer::ReceiverWriter::addPoints(  std::vector<glm::dvec3> const&    points,
                                                   MeshReader const&                 mesh,
                                                   seissol::initializers::Lut const& ltsLut,
                                                   seissol::initializers::LTS const& lts,
-                                                  GlobalData const*                 global,
-                                                  std::string const&                fileNamePrefix ) {
+                                                  GlobalData const*                 global ) {
   int rank = seissol::MPI::mpi.rank();
   unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
@@ -193,11 +157,12 @@ void seissol::writer::ReceiverWriter::addPoints(  std::vector<glm::dvec3> const&
       unsigned meshId = meshIds[point];
       unsigned cluster = ltsLut.cluster(meshId);
 
-      for (unsigned c = m_writerClusters.size(); c <= cluster; ++c) {
-        m_writerClusters.emplace_back(global, quantities, fileNamePrefix);
+      for (unsigned c = m_receiverClusters.size(); c <= cluster; ++c) {
+        m_receiverClusters.emplace_back(global, quantities, m_samplingInterval, syncInterval());
       }
 
-      m_writerClusters[cluster].addReceiver(meshId, point, points[point], mesh, ltsLut, lts);
+      writeHeader(point, points[point]);
+      m_receiverClusters[cluster].addReceiver(meshId, point, points[point], mesh, ltsLut, lts);
     }
   }
 }

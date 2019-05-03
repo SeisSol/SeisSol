@@ -43,86 +43,47 @@
 #include <vector>
 #include <glm/vec3.hpp>
 #include <Geometry/MeshReader.h>
-#include <Numerical_aux/BasisFunction.h>
 #include <Initializer/tree/Lut.hpp>
 #include <Initializer/LTS.h>
-#include <Kernels/Time.h>
-#include <Kernels/Interface.hpp>
+#include <Kernels/Receiver.h>
+#include <Modules/Module.h>
+#include <Monitoring/Stopwatch.h>
 
 class LocalIntegrationData;
 class GlobalData;
 namespace seissol {
   namespace writer {
-    struct Receiver {
-      Receiver(std::string const& fileName, double xi, double eta, double zeta, kernels::LocalData data)
-        : fileName(fileName),
-          basisFunctions(CONVERGENCE_ORDER, xi, eta, zeta),
-          data(data)
-        {}
-      std::string fileName;
-      basisFunction::SampledBasisFunctions<real> basisFunctions;
-      kernels::LocalData data;
-    };
-
-    class ReceiverWriterCluster {
+    class ReceiverWriter : public seissol::Module {
     public:
-      ReceiverWriterCluster()
-        : m_nonZeroFlops(0), m_hardwareFlops(0)
-      {}
+      void init(  std::string const&  fileNamePrefix,
+                  double              samplingInterval,
+                  double              syncPointInterval);
 
-      ReceiverWriterCluster(  GlobalData const*             global,
-                              std::vector<unsigned> const&  quantities,
-                              std::string const&            fileNamePrefix )
-        : m_quantities(quantities), m_fileNamePrefix(fileNamePrefix) {
-        m_timeKernel.setGlobalData(global);
-        m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
-      }
-
-      void addReceiver( unsigned          meshId,
-                        unsigned          pointId,
-                        glm::dvec3 const& point,
-                        MeshReader const& mesh,
-                        seissol::initializers::Lut const& ltsLut,
-                        seissol::initializers::LTS const& lts );
-
-      //! Returns new receiver time
-      double writeReceivers(  double time,
-                              double expansionPoint,
-                              double timeStepWidth,
-                              double samplingInterval );
-
-    private:
-      std::vector<Receiver>   m_receivers;
-      seissol::kernels::Time  m_timeKernel;
-      std::vector<unsigned>   m_quantities;
-      std::string             m_fileNamePrefix;
-      unsigned                m_nonZeroFlops;
-      unsigned                m_hardwareFlops;
-    };
-
-    class ReceiverWriter {
-    public:    
       void addPoints( std::vector<glm::dvec3> const&    points,
                       MeshReader const&                 mesh,
                       seissol::initializers::Lut const& ltsLut,
                       seissol::initializers::LTS const& lts,
-                      GlobalData const*                 global,
-                      std::string const&                fileNamePrefix );
+                      GlobalData const*                 global );
 
-      //! Returns new receiver time
-      double writeReceivers(  unsigned cluster,
-                              double time,
-                              double expansionPoint,
-                              double timeStepWidth,
-                              double samplingInterval ) {
-        if (cluster < m_writerClusters.size()) {
-          return m_writerClusters[cluster].writeReceivers(time, expansionPoint, timeStepWidth, samplingInterval);
+      kernels::ReceiverCluster* receiverCluster(unsigned clusterId) {
+        if (clusterId < m_receiverClusters.size()) {
+          return &m_receiverClusters[clusterId];
         }
-        return 0.0;
+        return nullptr;
       }
+      //
+      // Hooks
+      //
+      void syncPoint(double);
 
     private:
-      std::vector<ReceiverWriterCluster> m_writerClusters;
+      std::string fileName(unsigned pointId) const;
+      void writeHeader(unsigned pointId, glm::dvec3 const& point);
+
+      std::string m_fileNamePrefix;
+      double      m_samplingInterval;
+      std::vector<kernels::ReceiverCluster> m_receiverClusters;
+      Stopwatch   m_stopwatch;
     };
   }
 }

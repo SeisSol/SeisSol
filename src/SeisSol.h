@@ -121,6 +121,10 @@ private:
 
 	/** Fault output module */
 	writer::FaultWriter m_faultWriter;
+    
+  //! Receiver writer module
+  writer::ReceiverWriter m_receiverWriter;
+
 
 private:
 	/**
@@ -220,6 +224,14 @@ public:
 	writer::FaultWriter& faultWriter()
 	{
 		return m_faultWriter;
+	}
+
+	/**
+	 * Get the receiver writer module
+	 */
+	writer::ReceiverWriter& receiverWriter()
+	{
+		return m_receiverWriter;
 	}
 
 	/**

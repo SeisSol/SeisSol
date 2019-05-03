@@ -148,10 +148,6 @@ extern "C" {
     e_interoperability.addRecPoint(x, y, z);
   }
 
-  void c_interoperability_setReceiverSampling( double i_receiverSampling ) {
-    e_interoperability.setReceiverSampling( i_receiverSampling );
-  }
-
   void c_interoperability_enableDynamicRupture() {
     e_interoperability.enableDynamicRupture();
   }
@@ -212,10 +208,12 @@ extern "C" {
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend) {
+		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
+      double receiverSamplingInterval, double receiverSyncInterval) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
 			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
-			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend);
+			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
+      receiverSamplingInterval, receiverSyncInterval);
   }
 
   void c_interoperability_projectInitialField() {
@@ -518,12 +516,6 @@ void seissol::Interoperability::initializeFault( char*   modelFileName,
   }
 }
 
-void seissol::Interoperability::setReceiverSampling( double i_receiverSampling ) {
-  assert( i_receiverSampling > 0 );
-
-  seissol::SeisSol::main.timeManager().setReceiverSampling( i_receiverSampling );
-}
-
 void seissol::Interoperability::enableDynamicRupture() {
   // DR is always enabled if there are dynamic rupture cells
 }
@@ -666,7 +658,8 @@ void seissol::Interoperability::initializeIO(
 		int numSides, int numBndGP, int refinement, int* outputMask,
 		double* outputRegionBounds,
 		double freeSurfaceInterval, const char* freeSurfaceFilename,
-    char const* xdmfWriterBackend)
+    char const* xdmfWriterBackend,
+    double receiverSamplingInterval, double receiverSyncInterval)
 {
   auto type = writer::backendType(xdmfWriterBackend);
   
@@ -703,15 +696,21 @@ void seissol::Interoperability::initializeIO(
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
 		freeSurfaceFilename, freeSurfaceInterval, type);
 
+  auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
   // Initialize receiver output
-  seissol::SeisSol::main.timeManager().receiverWriter().addPoints(
+  receiverWriter.init(
+    std::string(freeSurfaceFilename),
+    receiverSamplingInterval,
+    receiverSyncInterval
+  );
+  receiverWriter.addPoints(
     m_recPoints,
     seissol::SeisSol::main.meshReader(),
     m_ltsLut,
     *m_lts,
-    m_globalData,
-    std::string(freeSurfaceFilename)
+    m_globalData
   );
+  seissol::SeisSol::main.timeManager().setReceiverClusters(receiverWriter);
 
 	// I/O initialization is the last step that requires the mesh reader
 	// (at least at the moment ...)

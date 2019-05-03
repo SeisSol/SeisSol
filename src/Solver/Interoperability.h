@@ -203,13 +203,6 @@ class seissol::Interoperability {
    }
 
    /**
-    * Sets the sampling of the receivers.
-    *
-    * @param i_receiverSampling sampling of the receivers.
-    **/
-   void setReceiverSampling( double i_receiverSampling );
-
-   /**
     * Enables dynamic rupture.
     **/
    void enableDynamicRupture();
@@ -296,7 +289,9 @@ class seissol::Interoperability {
 			double* slip, double* slip1, double* slip2, double* state, double* strength,
 			int numSides, int numBndGP, int refinement, int* outputMask,
 			double* outputRegionBounds,
-			double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend);
+			double freeSurfaceInterval, const char* freeSurfaceFilename,
+      char const* xdmfWriterBackend,
+      double receiverSamplingInterval, double receiverSyncInterval);
 
    /**
     * Copy dynamic rupture variables for output.

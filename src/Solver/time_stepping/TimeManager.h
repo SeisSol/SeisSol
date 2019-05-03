@@ -100,9 +100,6 @@ class seissol::time_stepping::TimeManager {
     //! Stopwatch
     LoopStatistics m_loopStatistics;
     
-    //! Receiver writer
-    writer::ReceiverWriter m_receiverWriter;
-
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
      * If this is true:
@@ -181,21 +178,12 @@ class seissol::time_stepping::TimeManager {
     /**
      * Returns the writer for the receivers
      */
-    writer::ReceiverWriter& receiverWriter() {
-      return m_receiverWriter;
-    }
+    void setReceiverClusters(writer::ReceiverWriter& receiverWriter); 
 
     /**
      * Set Tv constant for plasticity.
      */
     void setTv(double tv);
-
-    /**
-     * Sets the sampling of the receivers.
-     *
-     * @param i_receiverSampling receiver sampling.
-     **/
-    void setReceiverSampling( double i_receiverSampling );
 
     /**
      * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.

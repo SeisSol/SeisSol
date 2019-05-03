@@ -139,7 +139,6 @@ CONTAINS
          MPI    = MPI                                     )                    ! Initialize receivers
     !                                                                          !
 #endif
-    call c_interoperability_setReceiverSampling( io%pickdt )
     do i=1, IO%ntotalRecordPoint
       call c_interoperability_addRecPoint(IO%UnstructRecpoint(i)%x, IO%UnstructRecpoint(i)%y, IO%UnstructRecpoint(i)%z)
     end do
@@ -174,7 +173,9 @@ CONTAINS
         i_outputRegionBounds = io%OutputRegionBounds, &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
         freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
-        xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char )
+        xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
+        receiverSamplingInterval = io%pickdt, &
+        receiverSyncInterval = io%ReceiverOutputInterval )
 
     ! Initialize the fault Xdmf Writer
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
