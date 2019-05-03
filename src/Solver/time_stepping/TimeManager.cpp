@@ -102,8 +102,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            &i_memoryManager.getDynamicRuptureTree()->child(l_cluster),
                                            i_memoryManager.getLts(),
                                            i_memoryManager.getDynamicRupture(),
-                                           &m_loopStatistics,
-                                           &m_receiverWriter )
+                                           &m_loopStatistics )
                         );
   }
 }
@@ -378,6 +377,13 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters( sourceterm
     m_clusters[cluster]->setPointSources( cms[cluster].cellToSources,
                                           cms[cluster].numberOfMappings,
                                           &pointSources[cluster] );
+  }
+}
+
+void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
+{
+  for (unsigned cluster = 0; cluster < m_clusters.size(); ++cluster) {
+    m_clusters[cluster]->setReceiverCluster(receiverWriter.receiverCluster(cluster));
   }
 }
 

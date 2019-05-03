@@ -92,6 +92,9 @@ nRecordPoints = 85                    ! number of Record points which are read f
 RFileName = 'tpv33_receivers.dat'      ! Record Points in extra file
 pickdt = 0.005                       ! Pickpoint Sampling
 pickDtType = 1                       ! Pickpoint Type
+! (Optional) Synchronization point for receivers.
+!            If omitted, receivers are written at the end of the simulation.
+ReceiverOutputInterval = 10.0
 
 ! Free surface output
 SurfaceOutput = 1

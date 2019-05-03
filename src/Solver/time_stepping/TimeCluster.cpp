@@ -81,6 +81,7 @@
 #include <SourceTerm/PointSource.h>
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
+#include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
 
 #include <cassert>
@@ -105,8 +106,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
-                                                  LoopStatistics*                        i_loopStatistics,
-                                                  writer::ReceiverWriter*                receiverWriter ):
+                                                  LoopStatistics*                        i_loopStatistics ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -128,7 +128,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_pointSources(            NULL                       ),
 
  m_loopStatistics(          i_loopStatistics           ),
- m_receiverWriter(          receiverWriter             )
+ m_receiverCluster(          nullptr                   )
 {
     // assert all pointers are valid
     assert( m_meshStructure                            != NULL );
@@ -187,7 +187,9 @@ void seissol::time_stepping::TimeCluster::setReceiverSampling( double i_receiver
 void seissol::time_stepping::TimeCluster::writeReceivers() {
   SCOREP_USER_REGION( "writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  m_receiverTime = m_receiverWriter->writeReceivers(m_clusterId, m_receiverTime, m_fullUpdateTime, m_timeStepWidth, m_receiverSampling);
+  if (m_receiverCluster != nullptr) {
+    m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, m_fullUpdateTime, m_timeStepWidth);
+  }
 }
 
 void seissol::time_stepping::TimeCluster::computeSources() {

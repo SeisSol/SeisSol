@@ -39,7 +39,7 @@
 
 Import('env')
   
-solverFiles = [ 'TimeCommon.cpp', 'DynamicRupture.cpp', 'Plasticity.cpp' ]
+solverFiles = [ 'TimeCommon.cpp', 'DynamicRupture.cpp', 'Plasticity.cpp', 'Receiver.cpp' ]
 for i in solverFiles:
   env.sourceFiles.append(env.Object(i))
 

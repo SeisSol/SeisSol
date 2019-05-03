@@ -95,8 +95,8 @@ namespace seissol {
     class TimeCluster;
   }
 
-  namespace writer {
-    class ReceiverWriter;
+  namespace kernels {
+    class ReceiverCluster;
   }
 }
 
@@ -205,7 +205,7 @@ private:
     unsigned        m_regionComputeNeighboringIntegration;
     unsigned        m_regionComputeDynamicRupture;
 
-    writer::ReceiverWriter* m_receiverWriter;
+    kernels::ReceiverCluster* m_receiverCluster;
 
 #ifdef USE_MPI
     /**
@@ -395,8 +395,7 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 LoopStatistics*                        i_loopStatistics,
-                 writer::ReceiverWriter*               receiverWriter );
+                 LoopStatistics*                        i_loopStatistics );
 
     /**
      * Destructor of a LTS cluster.
@@ -432,6 +431,9 @@ private:
                           unsigned i_numberOfCellToPointSourcesMappings,
                           sourceterm::PointSources const* i_pointSources );
 
+    void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
+      m_receiverCluster = receiverCluster;
+    }
     /**
      * Sets the receiver sampling for this cluster.
      *

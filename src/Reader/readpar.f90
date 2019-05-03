@@ -2523,7 +2523,9 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
                                           iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9), SurfaceOutput, SurfaceOutputRefinement
-      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, OutputRegionBounds(1:6), SurfaceOutputInterval
+      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, &
+                                          OutputRegionBounds(1:6), SurfaceOutputInterval, &
+                                          ReceiverOutputInterval
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       !> The checkpoint back-end is specified via a string.
       !!
@@ -2542,7 +2544,8 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
                                                 checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask, &
-                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend
+                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
+                                                ReceiverOutputInterval
     !------------------------------------------------------------------------
     !
       logInfo(*) '<--------------------------------------------------------->'
@@ -2576,6 +2579,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       SurfaceOutput = 0
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
+      ReceiverOutputInterval = 1.0e99
       !
       READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
     IF (readStat.NE.0) THEN
@@ -2588,6 +2592,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%SurfaceOutput = SurfaceOutput
       IO%SurfaceOutputRefinement = SurfaceOutputRefinement
       IO%SurfaceOutputInterval = SurfaceOutputInterval
+      IO%ReceiverOutputInterval = ReceiverOutputInterval
 
       logInfo(*) 'Data OUTPUT is written to files '
       logInfo(*) '  ' ,IO%OutputFile
