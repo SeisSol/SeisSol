@@ -72,7 +72,7 @@ namespace seissol {
     public:
       ReceiverCluster()
         : m_nonZeroFlops(0), m_hardwareFlops(0),
-          m_samplingInterval(0.0), m_syncPointInterval(1.0e99)
+          m_samplingInterval(1.0e99), m_syncPointInterval(0.0)
       {}
 
       ReceiverCluster(  GlobalData const*             global,
