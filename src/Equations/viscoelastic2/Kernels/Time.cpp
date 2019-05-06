@@ -193,9 +193,9 @@ void seissol::kernels::Time::computeIntegral( double                            
   real l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
   
   // initialization of scalars in the taylor series expansion (0th term)
-  real l_firstTerm  = l_deltaTUpper;
-  real l_secondTerm = l_deltaTLower;
-  real l_factorial  = 1.0;
+  real l_firstTerm  = (real) 1.0;
+  real l_secondTerm = (real) 1.0;
+  real l_factorial  = (real) 1.0;
   
   kernel::derivativeTaylorExpansionEla intKrnl;
   intKrnl.I = o_timeIntegrated;

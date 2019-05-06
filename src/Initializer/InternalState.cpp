@@ -146,7 +146,7 @@ void seissol::initializers::InternalState::setUpLayerPointers(       unsigned in
 
       if( (i_cellLocalInformation[l_cell].ltsSetup >> 9 ) % 2 ) {
         o_derivatives[l_cell] = i_layerMemory + l_offset 
-                                              + i_numberOfBuffers[l_region] * tensor::Q::size()
+                                              + i_numberOfBuffers[l_region] * tensor::I::size()
                                               + l_derivativeCounter * yateto::computeFamilySize<tensor::dQ>();
         l_derivativeCounter++;
       }
@@ -159,7 +159,7 @@ void seissol::initializers::InternalState::setUpLayerPointers(       unsigned in
 
     // update offsets
     l_firstRegionCell = l_firstNonRegionCell;
-    l_offset += i_numberOfBuffers[l_region]     * tensor::Q::size() +
+    l_offset += i_numberOfBuffers[l_region]     * tensor::I::size() +
                 i_numberOfDerivatives[l_region] * yateto::computeFamilySize<tensor::dQ>();
   }
 }
