@@ -25,6 +25,7 @@ Characteristics of the SeisSol simulation software are:
 
   introduction
   compilation
+  supermuc_compile
   a-first-example
   acknowledge
   citations
