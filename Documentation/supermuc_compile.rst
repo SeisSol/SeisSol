@@ -73,7 +73,8 @@ Now for submodule updates,  copy the following to fix_submodules.sh. Put fix_sub
   
   
 Compile SeisSol
-~~~~~~~~~~~~~~~~
+================
+
 1. Load modules in Supermuc phase2
 You can create a folder ~/.modules and copy these to ~/.modules/bash (Must use intel/17.0)
 :: 
