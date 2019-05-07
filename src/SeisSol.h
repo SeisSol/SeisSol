@@ -45,7 +45,6 @@
 
 #include "utils/logger.h"
 
-#ifdef GENERATEDKERNELS
 #include "Solver/time_stepping/TimeManager.h"
 #include "Solver/Simulator.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -54,7 +53,6 @@
 #include "SourceTerm/Manager.h"
 #include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/FreeSurfaceWriter.h"
-#endif // GENERATEDKERNELS
 
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
@@ -81,7 +79,6 @@ private:
 
 	MeshReader* m_meshReader;
 
-#ifdef GENERATEDKERNELS
 	/*
 	 * initializers
 	 */
@@ -114,7 +111,6 @@ private:
   /** Analysis writer module **/
   writer::AnalysisWriter m_analysisWriter;
 
-#endif // GENERATEDKERNELS
 
 	/** Wavefield output module */
 	writer::WaveFieldWriter m_waveFieldWriter;
@@ -158,7 +154,6 @@ public:
 		return m_parameterFile.c_str();
 	}
 
-#ifdef GENERATEDKERNELS
 	initializers::time_stepping::LtsLayout& getLtsLayout(){ return m_ltsLayout; }
 
 	initializers::MemoryManager& getMemoryManager() {
@@ -203,7 +198,6 @@ public:
          {
                  return m_postProcessor;
          }
-#endif // GENERATEDKERNELS
 
 	io::AsyncIO& asyncIO()
 	{

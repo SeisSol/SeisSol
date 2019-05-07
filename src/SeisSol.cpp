@@ -71,9 +71,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
 	// TODO is there a reason to have this here?
 	// If not please move it to the end if this function
-#ifdef GENERATEDKERNELS
 	m_memoryManager.initialize();
-#endif
 
 	const int rank = MPI::mpi.rank();
 
@@ -81,9 +79,7 @@ bool seissol::SeisSol::init(int argc, char* argv[])
   logInfo(rank) << "Welcome to SeisSol";
   logInfo(rank) << "Copyright (c) 2012-2016, SeisSol Group";
   logInfo(rank) << "Built on:" << __DATE__ << __TIME__
-#ifdef GENERATEDKERNELS
                 << "(generated kernels)"
-#endif // GENERATEDKERNELS
   ;
   logInfo(rank) << "Version:" << VERSION_STRING;
 

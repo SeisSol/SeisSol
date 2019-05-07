@@ -39,9 +39,7 @@
 
 
 MODULE TypesDef
-#ifdef GENERATEDKERNELS
   use iso_c_binding, only: c_double, c_int
-#endif
   !<--------------------------------------------------------------------------
 #ifdef HDF
   USE HDF5
@@ -375,22 +373,18 @@ MODULE TypesDef
     LOGICAL           :: init = .FALSE.              !< Initialization status
     LOGICAL           :: linearLW                    !< Use linear LW procedure ?
     !< DG main array which stores the degrees of freedom
-#ifdef GENERATEDKERNELS
     ! Interoperability with C needs continuous arrays in memory.
     !   Reference: Intel® Fortran Compiler XE 13.0 User and Reference Guides
     !              "Because its elements do not need to be contiguous in memory, a Fortran pointer target or assumed-shape array cannot be passed to C.
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
     real*8, allocatable   :: dgvar(:,:,:,:)                     !< storage of all unknowns (solution).
-#endif
     REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: plasticParameters(:,:) => NULL()
     REAL, POINTER         :: pstrain(:,:) => NULL()             !< plastic strain
     REAL, POINTER         :: Strain_matrix(:,:) => NULL()         !< transformation matrix for converting stresses to strains
-#ifdef GENERATEDKERNELS
 !    integer              :: nSourceTermElems !< number of elemens having a source term
 !    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
 !    integer, allocatable :: indicesOfSourceTermsElems(:) !< indices of elements having a source term
-#endif
     REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
     real              :: totcputime
     REAL, POINTER     :: OutFlow(:,:,:,:) => NULL()  !< Outflowing flux for backpropagation

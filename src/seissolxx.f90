@@ -52,9 +52,7 @@ module SeisSol
   USE COMMON_operators_mod, ONLY: OpenFile
 
   use iso_c_binding
-#ifdef GENERATEDKERNELS
 use f_ftoc_bind_interoperability
-#endif
 !----------------------------------------------------------------------------
 IMPLICIT NONE
 
@@ -182,10 +180,8 @@ domain%IO%UNIT%maxThisDom              = 69999                        ! Obere Gr
   !  endif
   !----END  related to fault output.
 
-#ifdef GENERATEDKERNELS
     ! propagate data structures to c
     call c_interoperability_setDomain( i_domain = c_loc(domain) )
-#endif
 
   CALL ini_SeisSol(                                &
        time           =        time              , &

@@ -74,13 +74,9 @@ CONTAINS
 #endif
     USE dg_setup_mod
 
-#ifdef GENERATEDKERNELS
     use iso_c_binding
     use f_ftoc_bind_interoperability
     use ini_faultoutput_mod
-#else
-    use WaveFieldWriter
-#endif
 
 #ifdef PARALLEL
     use iso_c_binding

@@ -47,7 +47,6 @@ MODULE calc_deltaT_mod
   IMPLICIT NONE
   PRIVATE
   !----------------------------------------------------------------------------
-
   INTERFACE ini_calc_deltaT
      MODULE PROCEDURE ini_calc_deltaT
   END INTERFACE
@@ -62,9 +61,7 @@ MODULE calc_deltaT_mod
   !----------------------------------------------------------------------------
   PUBLIC  :: ini_calc_deltaT
   PUBLIC  :: close_calc_deltaT
-#ifdef GENERATEDKERNELS
   public  :: cfl_step
-#endif
   !----------------------------------------------------------------------------
   ! Module Variables
   REAL             :: tol

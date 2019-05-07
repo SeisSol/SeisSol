@@ -42,9 +42,7 @@ MODULE Plasticity_mod
   !---------------------------------------------------------------------------!
   USE TypesDef
 
-#ifdef GENERATEDKERNELS
-    use iso_c_binding, only: c_loc
-#endif
+  use iso_c_binding, only: c_loc
   !---------------------------------------------------------------------------!
   IMPLICIT NONE
   !PRIVATE

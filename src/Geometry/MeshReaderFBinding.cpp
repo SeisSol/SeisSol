@@ -232,9 +232,7 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 		}
 	}
 
-#ifdef GENERATEDKERNELS
 	seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
-#endif // GENERATEDKERNELS
 
 	// Setup the communicator for dynamic rupture
 	seissol::MPI::mpi.fault.init(meshReader.getFault().size() > 0);
