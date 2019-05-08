@@ -63,7 +63,7 @@ set compiler options:
   $ cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
   $ make
   $ make install
-  (Know errors: 1.Numa could not found - turn off Numa in the CmakeList.txt. )
+  (Know errors: 1.Numa could not found - turn off Numa by -DNONUMA=on . )
 
 
 4. Copy the SeisSol configuration to a file e.g. supermuc_ng.py
