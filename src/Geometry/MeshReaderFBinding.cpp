@@ -291,17 +291,59 @@ void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displace
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	const int rank = seissol::MPI::mpi.rank();
   
-  logInfo(rank) << "Running mini SeisSol to determine node weight";
-  double tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager());
+	logInfo(rank) << "Running mini SeisSol to determine node weight";
+	double tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager());
 
+	// TODO(Lukas): Extract statistics to own method.
+	auto allTpwgt = std::vector<double>(seissol::MPI::mpi.size());
+
+	MPI_Gather(&tpwgt, 1, MPI_DOUBLE,
+		   allTpwgt.data(), 1, MPI_DOUBLE,
+		   0, seissol::MPI::mpi.comm());
+
+	if (rank == 0) {
+	  std::sort(allTpwgt.begin(), allTpwgt.end());
+	  double median = -1;
+	  if (seissol::MPI::mpi.size() % 2 == 1) {
+	    median = allTpwgt[seissol::MPI::mpi.size() / 2];
+	  } else {
+	    // Median not uniq. defined, take mean of two candidates.
+	    median = 0.5 *
+	      (allTpwgt[seissol::MPI::mpi.size() / 2 - 1] +
+	       allTpwgt[seissol::MPI::mpi.size() / 2]);
+	  }
+	  const double min = allTpwgt[0];
+	  const double max = allTpwgt[allTpwgt.size() - 1];
+	  
+	  auto mean = 0.0;
+	  auto meanOfSquares = 0.0;
+	  for (const auto num : allTpwgt) {
+	    mean += num;
+	    meanOfSquares += num * num;
+	  }
+
+	  mean /= allTpwgt.size();
+	  meanOfSquares /= allTpwgt.size();
+	  
+	  // Note that this computation is numerically unstable!
+	  const auto variance = meanOfSquares - mean * mean;
+	  const auto std = std::sqrt(variance);
+	  
+	  logInfo(rank) << "Node weights: mean =" << mean
+			<< " std =" << std
+			<< " min =" << min
+			<< " median =" << median
+			<< " max =" << max;
+	}
+	
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
 	Stopwatch watch;
 	watch.start();
 
-  bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
+	bool readPartitionFromFile = seissol::SeisSol::main.simulator().checkPointingEnabled();
 
-  seissol::initializers::time_stepping::LtsWeights ltsWeights(easiVelocityModel, clusterRate);
+	seissol::initializers::time_stepping::LtsWeights ltsWeights(easiVelocityModel, clusterRate);
 	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile, &ltsWeights, tpwgt));
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
