@@ -152,62 +152,43 @@ Copy this to a supermuc_hw.py file in SeisSol/:
   scons buildVariablesFile=supermuc_hw.py
   
   
-5. Submit job on NG. Here is an example for slurm submission file:
+5. Submit job on Phase 2. Here is an example:
 
 ::
 
   #!/bin/bash
-  # Job Name and Files (also --job-name)
+  # this job command file is called submit.cmd
+  #@ energy_policy_tag = <account id>_etag
+  #@ minimize_time_to_solution = yes
+  #@ wall_clock_limit = 12:00:00
 
-  #SBATCH -J <job name>
-  #Output and error (also --output, --error):
-  #SBATCH -o ./%j.%x.out
-  #SBATCH -e ./%j.%x.out
+  #@ job_name = <job name>
+  #@ class = micro
+  #@ island_count=1
+  ## #@ input= job.$(schedd_host).$(jobid).in
+  #@ output= job.$(schedd_host).$(jobid).out
+  #@ error= job.$(schedd_host).$(jobid).err
+  #@ job_type= parallel 
+  #@ node= 7
+  #@ tasks_per_node= 1
+  ## #@ total_tasks= 512
+  #@ network.MPI = sn_all,not_shared,us
+  #@ notification=always
+  #@ notify_user=dli@geophysik.uni-muenchen.de
+  #@ queue
+  . /etc/profile
+  . /etc/profile.d/modules.sh
 
-  #Initial working directory (also --chdir):
-  #SBATCH --workdir=<work directory>
+  export PARMETIS_BASE='/lrz/sys/libraries/parmetis/4.0.2/ibmmpi'
+  export PARMETIS_LIBDIR='/lrz/sys/libraries/parmetis/4.0.2/ibmmpi/lib'
 
-  #Notification and type
-  #SBATCH --mail-type=END
-  #SBATCH --mail-user=<your email address>
-
-  # Wall clock limit:
-  #SBATCH --time=03:00:00
-  #SBATCH --no-requeue
-
-  #Setup of execution environment
-  #SBATCH --export=NONE
-  #SBATCH --account=<project id>
-  #constraints are optional
-  #--constraint="scratch&work"
-  #SBATCH --partition=general
-
-  #Number of nodes and MPI tasks per node:
-  #max33 so far, else error
-  #SBATCH --nodes=20
-  #SBATCH --ntasks-per-node=1
-  #SBATCH --cpus-per-task=96
-  #Needs specific MPI
-  #module switch mpi.intel mpi.intel/2019
-  #Run the program:
-  export MP_SINGLE_THREAD=no
-  unset KMP_AFFINITY
-  export OMP_NUM_THREADS=94
-  export OMP_PLACES="cores(47)"
-
-  export XDMFWRITER_ALIGNMENT=8388608
-  export XDMFWRITER_BLOCK_SIZE=8388608
-  export SC_CHECKPOINT_ALIGNMENT=8388608
-
-  export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
-  export SEISSOL_CHECKPOINT_DIRECT=1
-  export ASYNC_MODE=THREAD
-  export ASYNC_BUFFER_ALIGNMENT=8388608
-  export SEISSOL_ASAGI_MPI_MODE=OFF
-  source /etc/profile.d/modules.sh
-
-  echo $SLURM_NTASKS
-  srun --export=ALL ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
+  export MP_SINGLE_THREAD=yes
+  export OMP_NUM_THREADS=16
+  export MP_TASK_AFFINITY=core:$OMP_NUM_THREADS
 
 
+  # ############## dsnb for phase 1 and dhsw for phase 2 ###########################
+  cd <working directory>
+  poe ./SeisSol_release_generatedKernels_dhsw_hybrid_none_9_4 parameters.par
+  echo "JOB is run"
 
