@@ -111,6 +111,8 @@ compared with that elsewhere. The parameters in TPV5 are listed in Table
 
 Table: Table of LSR parameters on the fault in tpv5.
 
+Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This inital stress is included in the fault.yaml file.
+
 Results
 ~~~~~~~
 
