@@ -4,15 +4,15 @@ Supermuc Phase2 (hasewell) compilation
 GitHub Initialization 
 ======================
 
-1. pick an arbitrary 5-digital number (e.g. 22222 but different for you).
+1. pick an arbitrary 5-digital number for the port (e.g. 22222 but different for you).
 
 2. On the local computer, go to: > vi ~/.ssh/config (make a .ssh folder first if there is none), copy these lines:
 
 ::
 
   # X11-Forward for all host in our subnet
-  HOST *.geophysik.uni-muenchen.de
-     ForwardX11 yes 
+  # HOST *.geophysik.uni-muenchen.de
+  #   ForwardX11 yes 
 
   HOST *.supermuc.lrz.de
      RemoteForward 22222 github.com:22
@@ -22,9 +22,7 @@ GitHub Initialization
      User <Your Login>    
      RemoteForward 22222 github.com:22
 
-(the host name <supermuc2> is consistent with alias in .bashrc)
-
-3. ssh supermuc2 to login. On supermuc go to > vi  ~/.ssh/config and copy this:
+3. ssh supermuc2 to login SuperMuc2. On supermuc go to > vi  ~/.ssh/config and copy this:
 
 :: 
 
