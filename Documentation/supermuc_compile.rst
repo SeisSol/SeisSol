@@ -34,7 +34,7 @@ GitHub Initialization
 (note that port number is the same everywhere!)
 
 4. Create SSH key by typing > ssh-keygen -t rsa and copy all the content in  ~/.ssh/id_rsa.pub  
-(make sure the position is ~/.ssh/id_rsa.pub and you can hit return twice to skip the passphrase)
+(use the default destination and you can hit return twice to skip the passphrase)
   
 5. Go to https://github.com/settings/ssh. Choose to create a new SSH key and paste what you copied here ( The title can be anything you like).
 Logout of supermuc and log back in (ssh supermuc2)
