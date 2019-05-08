@@ -46,7 +46,18 @@ Logout of supermuc and log back in (ssh supermuc2)
 
 You will see several lines of ‘cloning ….’ means that it works. 
 (pay attention to the git clone address. use clone with ssh instead of https. This is the same for anyl other repository such as ASAGI and libxsmm. Note that it should be github instead of github.com)
-Now for submodule updates,  copy the following to fix_submodules.sh. Put fix_submodules.sh in SeisSol/ and run it. It clones submodules one by one. You can check whether it workd or not by: ls submodules/yaml-cpp/*. If it is not empty then it worked. This is very useful as every repository need it!
+
+Now for submodule updates, copy the following to fix_submodules.sh. Put fix_submodules.sh in SeisSol/ and run it.
+It clones submodules one by one. 
+
+You can check whether it workd or not by: 
+
+::
+
+  ls submodules/yaml-cpp/*
+  
+
+If it is not empty then it worked. This is very useful as every repository need it!
 
 ::
 
