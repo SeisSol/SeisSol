@@ -109,7 +109,7 @@ set compiler options:
      arch = 'dskx'
      commThread ='yes'
 
-  plasticity='yes'
+  plasticity='no'
   #logLevel                    = 'warning'
   logLevel                    = 'warning'
   logLevel0                   = 'info'
