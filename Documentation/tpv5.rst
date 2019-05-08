@@ -123,7 +123,7 @@ off-fault receivers (.dat). The fault dynamic rupture and wave filed
 files can be loaded in Paraview directly. For example, open Paraview and
 then go through File :math:`>>` import :math:`>>`\ prefix-fault.xdmf.
 
-.. figure:: LatexFigures/tpv5_SRs_4s.jpg
+.. figure:: LatexFigures/tpv5_SRs_3s.png
    :alt: Fault slip rate in the along-strike direction
    :width: 12.00000cm
 
