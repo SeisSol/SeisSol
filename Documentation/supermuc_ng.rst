@@ -97,9 +97,9 @@ set compiler options:
 
   # ASAGI folder need to be verified.
   asagi='yes'
-  zlibDir='$HOME/myLib/ASAGI/build'
+  zlibDir='/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib'
 
-  phase=3
+  phase=3 # for Supermuc-NG
   if phase==1:
      arch ='dsnb'
   elif phase==2:
