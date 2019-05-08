@@ -115,7 +115,7 @@ set compiler options:
   logLevel0                   = 'info'
 
 
-5. Submission file for SeisSo on Phase 2:
+5. Submission file for SeisSol on Phase 2:
 
 ::
 
