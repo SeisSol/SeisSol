@@ -4,12 +4,7 @@ Supermuc Phase2 (hasewell) compilation
 GitHub Initialization 
 ======================
 
-1. pick an arbitrary 5-digital number (e.g. 22222 but different for you). Make an alias in your .bashrc file that you easily login every time:
-
-::
-
-  alias supermuc2='ssh -R 22222:github.com:22 <Your Login>@hw.supermuc.lrz.de -Y '
-
+1. pick an arbitrary 5-digital number (e.g. 22222 but different for you).
 
 2. On the local computer, go to: > vi ~/.ssh/config (make a .ssh folder first if there is none), copy these lines:
 
@@ -23,7 +18,7 @@ GitHub Initialization
      RemoteForward 22222 github.com:22
 
   Host supermuc2
-     Hostname skx.supermuc.lrz.de
+     Hostname hw.supermuc.lrz.de
      User <Your Login>    
      RemoteForward 22222 github.com:22
 
@@ -114,7 +109,7 @@ Copy this to a supermuc_hw.py file in SeisSol/:
 ::
 
   # build options
-  compileMode = 'relWithDebInfo'
+  compileMode = 'release' # or relWithDebInfo or debug
   generatedKernels = 'yes'
   arch = 'dhsw'  # use 'dsnb' for SuperMUC phase 1 or use 'dhsw' for SuperMUC phase 2
   parallelization = 'hybrid'
