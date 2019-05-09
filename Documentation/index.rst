@@ -25,8 +25,6 @@ Characteristics of the SeisSol simulation software are:
 
   introduction
   compilation
-  supermuc_compile
-  supermuc_ng
   a-first-example
   acknowledge
   citations
@@ -49,6 +47,8 @@ Characteristics of the SeisSol simulation software are:
   easi
   fault-tagging
   environment-variables
+  supermuc_compile
+  supermuc_ng
 
 .. toctree::
   :maxdepth: 2
