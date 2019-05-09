@@ -60,11 +60,7 @@ MODULE energies_output_mod
   END INTERFACE
 
 CONTAINS
-#ifdef GENERATEDKERNELS
   SUBROUTINE energies_output(i_fullUpdateTime, i_timeStepWidth, i_receiverTime, DISC, EQN, MESH, MPI,IO,time_op,dt_op)
-#else
-  SUBROUTINE energies_output(DISC,EQN,MESH,MPI,IO, time_op, dt_op)
-#endif
 
     !< routine outputs the diisipated plastic energy for each MPI domain
     !-------------------------------------------------------------------------!
@@ -92,25 +88,17 @@ CONTAINS
     INTEGER                         :: TID,omp_get_thread_num
     CHARACTER (LEN=2)               :: c_TID
 #endif
-#ifdef GENERATEDKERNELS
     real*8                          :: i_fullUpdateTime
     real*8                          :: i_timeStepWidth
     real*8                          :: i_receiverTime
-#endif
 
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: DISC, EQN, MESH, MPI, time_op, dt_op
     INTENT(INOUT) :: IO
     !-------------------------------------------------------------------------!
-#ifdef GENERATEDKERNELS
         time          = i_fullUpdateTime
         dt            = i_timeStepWidth
         localpicktime = i_receiverTime !change that to picktime_energy!
-#else
-        time          = time_op
-        dt            = dt_op
-        localpicktime = IO%picktime_energy !current picktime
-#endif
 
 
     !only output at specific timesteps/times

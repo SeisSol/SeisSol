@@ -207,10 +207,8 @@ CONTAINS
 !> Fault output calculation at specific positions (receiver and elementwise)
 !<
   SUBROUTINE calc_FaultOutput( DynRup_output, DISC, EQN, MESH, MaterialVal, BND, time )
-#ifdef GENERATEDKERNELS
     use  f_ftoc_bind_interoperability
     use iso_c_binding, only: c_loc
-#endif
 
     !-------------------------------------------------------------------------!
     USE common_operators_mod

@@ -73,11 +73,9 @@ CONTAINS
 #ifdef PARALLEL
     USE MPIExchangeValues_mod
 #endif
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc
     use monitoring
     use f_ftoc_bind_interoperability
-#endif
 
     !--------------------------------------------------------------------------
     IMPLICIT NONE
@@ -118,10 +116,8 @@ CONTAINS
     INTEGER                       :: MaxnNonZeros, LocnNonZeros
     REAL                          :: JT(3,3,10),DIF,x(4),y(4),z(4),JacobiT(3,3)
     INTEGER                       :: counter, counter2,iType,j, countside, UpdType
-#ifdef GENERATEDKERNELS
     real*8 :: l_synchronizationPoint;
     INTEGER                       :: iDRupdate
-#endif
     !--------------------------------------------------------------------------
     INTENT(INOUT)                 :: time,timestep,OptionalFields,EQN,IO,BND,DISC,MESH,SOURCE
 

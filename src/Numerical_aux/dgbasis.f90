@@ -761,10 +761,8 @@ contains
   ! ***************************************************************** !
 
   subroutine GetStateGP_new(state,iElem,iIntGP,LocElemType,EQN,DISC)
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc
     use f_ftoc_bind_interoperability
-#endif
     !-------------------------------------------------------------------------!
     
     !-------------------------------------------------------------------------!
@@ -781,19 +779,15 @@ contains
     ! Local variable declaration
     real                    :: phi
     integer                 :: iDegFr
-#ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
     real                    :: l_dofs(disc%galerkin%nDegFr, eqn%nVarTotal)
-#endif
     !-------------------------------------------------------------------------!
     intent(IN)              :: iElem, iIntGP, LocElemType
     intent(OUT)             :: state
     !-------------------------------------------------------------------------!
-#ifdef GENERATEDKERNELS
     ! TODO (clustered LTS): get the degrees of freedom
     call c_interoperability_getDofs( i_meshId = iElem  , \
                                      o_dofs   = l_dofs )
-#endif
 
     state(:) = 0.
     do iDegFr = 1, DISC%Galerkin%nDegFr
@@ -803,11 +797,7 @@ contains
         case(6) ! Hexa
             phi = DISC%Galerkin%IntGPBaseFunc_Hex(iDegFr,iIntGP,DISC%Galerkin%nPoly)
         end select
-#ifdef GENERATEDKERNELS
        state(1:EQN%nVar) = state(1:EQN%nVar) + phi*l_dofs( iDegFr, 1:EQN%nVar )
-#else
-       state(1:EQN%nVar) = state(1:EQN%nVar) + phi*DISC%Galerkin%DGvar(iDegFr,1:EQN%nVar,iElem,1)
-#endif
     enddo
   end subroutine GetStateGP_new
 

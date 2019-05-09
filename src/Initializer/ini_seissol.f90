@@ -70,10 +70,8 @@ CONTAINS
     USE HDF5
 #endif
     use jacobiNormal_mod
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc, c_null_char
     use f_ftoc_bind_interoperability
-#endif
     !--------------------------------------------------------------------------
     IMPLICIT NONE                                                              !
     !--------------------------------------------------------------------------
@@ -185,7 +183,6 @@ CONTAINS
     ENDIF
     !
 
-#ifdef GENERATEDKERNELS
     ! Set ouput and checkpoint parameters
     ! This has to be done before the LTS setup!
     if( io%format .eq. 6 ) then
@@ -209,7 +206,6 @@ CONTAINS
 	end do
 
 	call c_interoperability_getIntegrationMask( i_integrationMask = IntegrationMask(1:9) )
-#endif
 #endif
 
     ! Start mesh reading/computing section
@@ -243,7 +239,6 @@ CONTAINS
     EPIK_USER_END(r_read_compute_mesh)
     SCOREP_USER_REGION_END( r_read_compute_mesh )
 
-#ifdef GENERATEDKERNELS
     logInfo(*) 'Generated Kernels: Checking boundary conditions'
 
     do iElem = 1, mesh%nElem
@@ -260,7 +255,6 @@ CONTAINS
         endif
       enddo
     enddo
-#endif
 
     !                                                                               !
     DISC%NGP = 1                                                               !

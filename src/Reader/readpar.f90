@@ -295,7 +295,7 @@ CONTAINS
     END SELECT
     !
 
-#if defined(GENERATEDKERNELS) && defined(USE_PLASTICITY)
+#if defined(USE_PLASTICITY)
     if (Plasticity .eq. 0) then
       logError(*) 'Plasticity is disabled, but this version was compiled with Plasticity.'
       stop
@@ -307,7 +307,7 @@ CONTAINS
       logInfo0(*) 'No plasticity assumed. '
       EQN%Plasticity = Plasticity                                                     !
     CASE(1)
-#if defined(GENERATEDKERNELS) && !defined(USE_PLASTICITY)
+#if !defined(USE_PLASTICITY)
        logError(*) 'Plasticity is assumed, but this version was not compiled with Plasticity.'
        stop
 #else
@@ -703,10 +703,8 @@ CONTAINS
     DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
     if (printIntervalCriterion.EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
-#ifdef GENERATEDKERNELS
         logError(*) 'The generated kernels version does no longer support printIntervalCriterion = 1 for elementwise fault output'
         stop
-#endif
     else
         DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec = printtimeinterval_sec   ! read time interval at which output will be written
     endif
@@ -2440,20 +2438,16 @@ ALLOCATE( SpacePositionx(nDirac), &
     SELECT CASE(DISC%Galerkin%DGMethod)
     CASE(1,3)
            DISC%SpaceOrder = Order
-#if GENERATEDKERNELS
            if (DISC%SpaceOrder .ne. CONVERGENCE_ORDER) then
                 logWarning0(*) 'Ignoring min space order from parameter file, using', CONVERGENCE_ORDER
            endif
            DISC%SpaceOrder = CONVERGENCE_ORDER
-#endif
            DISC%Galerkin%nMinPoly = DISC%SpaceOrder - 1
 
-#if GENERATEDKERNELS
            if (DISC%SpaceOrder .ne. CONVERGENCE_ORDER) then
                 logWarning0(*) 'Ignoring space order from parameter file, using', CONVERGENCE_ORDER
            endif
            DISC%SpaceOrder = CONVERGENCE_ORDER
-#endif
            DISC%Galerkin%nPoly    = DISC%SpaceOrder - 1
 
              ! The choice for p-adaptivity is not possible anymore
@@ -2812,12 +2806,8 @@ ALLOCATE( SpacePositionx(nDirac), &
           IO%outInterval%Interval = Interval
          logInfo0(*) 'Output data are generated '          , & !
               'every ', IO%outInterval%Interval, '. timestep'                  !
-#ifdef GENERATEDKERNELS
          logError(*) 'Time step-wise output only with classic version'
          stop
-#else
-         logWarning0(*) 'Time step-wise output is deprecated! Your parameter file is not compatible with GK version!'
-#endif
       END IF                                                                   !
       IF (      IO%outInterval%printIntervalCriterion .EQ. 2 &                 !
            .OR. IO%outInterval%printIntervalCriterion .EQ. 3 ) THEN
@@ -2848,12 +2838,8 @@ ALLOCATE( SpacePositionx(nDirac), &
          SELECT CASE (IO%pickDtType)
          CASE (1)
          CASE (2)
-#ifdef GENERATEDKERNELS
             logError(*) 'Time step-wise output only with classic version'
             stop
-#else
-            logWarning0(*) 'Time step-wise output is deprecated! Your parameter file is not compatible with GK version!'
-#endif
          CASE DEFAULT
             logError(*) 'PickDtType must be 1 = pickdt or 2 = pickdt*dt'
             STOP
@@ -2863,16 +2849,8 @@ ALLOCATE( SpacePositionx(nDirac), &
        IO%energy_output_on = energy_output_on
 
        IF(IO%energy_output_on .EQ. 1) THEN
-#ifdef GENERATEDKERNELS
             logWarning0(*) 'Energy output currently only working with classic version. Turning it off.'
             IO%energy_output_on = 0
-#else
-       !own timestep for energy output but output-type is the same as for receivers
-       !default type is 1 (time interval-wise)
-       !default time interval = 0.1
-       IO%pickdt_energy = pickdt_energy
-       logInfo0(*) 'current energy dt is', IO%pickdt_energy
-#endif
        ENDIF
 
      IO%nRecordPoint = nRecordPoints  ! number of points to pick temporal signal
@@ -3140,16 +3118,10 @@ ALLOCATE( SpacePositionx(nDirac), &
     !
     DISC%MaxIteration =  MaxIteration                               ! nr of the end iteration
     !
-#ifdef GENERATEDKERNELS
     if (DISC%MaxIteration .lt. 10000000) then
       logError(*) 'GK version does not support MaxIteration!'
       stop
     endif
-#else
-    if (DISC%MaxIteration .lt. 10000000) then
-      logWarning(*) 'MaxIteration is deprecated! Your parameter file is not compatible with GK version!'
-    endif
-#endif
     logInfo(*) 'Maximum ITERATION number allowed:', DISC%MaxIteration
     !
     !
@@ -3190,12 +3162,10 @@ ALLOCATE( SpacePositionx(nDirac), &
     !------------------------------------------------------------------------
 
 ! Generated kernels sanity check
-#ifdef GENERATEDKERNELS
     if (NUMBER_OF_QUANTITIES .NE. EQN%nVarTotal) then
       logError(*) 'Generated kernels: The number of quantities defined by the parameter file (', EQN%nVarTotal, ') does not the number of quantities this version was compiled for (', NUMBER_OF_QUANTITIES, ').'
       stop
     end if
-#endif
 
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  END OF PARAMETER FILE                                  >'

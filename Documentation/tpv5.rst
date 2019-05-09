@@ -111,6 +111,8 @@ compared with that elsewhere. The parameters in TPV5 are listed in Table
 
 Table: Table of LSR parameters on the fault in tpv5.
 
+Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This inital stress is included in the fault.yaml file.
+
 Results
 ~~~~~~~
 
@@ -121,7 +123,7 @@ off-fault receivers (.dat). The fault dynamic rupture and wave filed
 files can be loaded in Paraview directly. For example, open Paraview and
 then go through File :math:`>>` import :math:`>>`\ prefix-fault.xdmf.
 
-.. figure:: LatexFigures/tpv5_SRs_4s.jpg
+.. figure:: LatexFigures/tpv5_SRs_3s.png
    :alt: Fault slip rate in the along-strike direction
    :width: 12.00000cm
 

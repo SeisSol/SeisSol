@@ -47,6 +47,8 @@ Characteristics of the SeisSol simulation software are:
   easi
   fault-tagging
   environment-variables
+  supermuc_compile
+  supermuc_ng
 
 .. toctree::
   :maxdepth: 2

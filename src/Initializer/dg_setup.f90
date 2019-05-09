@@ -145,10 +145,8 @@ CONTAINS
     IF (ASSOCIATED( DISC%Galerkin%Faculty)) DEALLOCATE(DISC%Galerkin%Faculty)
     IF (ASSOCIATED( DISC%Galerkin%TimeGaussP)) DEALLOCATE(DISC%Galerkin%TimeGaussP)
     IF (ASSOCIATED( DISC%Galerkin%TimeGaussW)) DEALLOCATE(DISC%Galerkin%TimeGaussW)
-#ifdef GENERATEDKERNELS
     ! Interoperability with C needs continuous arrays in memory.
     deallocate(disc%galerkin%dgvar)
-#endif
 
     IF (ASSOCIATED( DISC%Galerkin%cPoly3D_Hex)) DEALLOCATE(DISC%Galerkin%cPoly3D_Hex)
     IF (ASSOCIATED( DISC%Galerkin%NonZeroCPoly_Hex)) DEALLOCATE(DISC%Galerkin%NonZeroCPoly_Hex)
@@ -364,11 +362,9 @@ CONTAINS
 #ifdef PARALLEL
     USE MPIExchangeValues_mod
 #endif
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc, c_null_char, c_bool
     use f_ftoc_bind_interoperability
     use calc_deltaT_mod
-#endif
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -407,21 +403,18 @@ CONTAINS
     REAL                            :: TimeF0(DISC%Galerkin%nPoly+1)
     INTEGER, POINTER                :: MPI_Dirac_Element(:,:)
     INTEGER                         :: iError,iCPU
-#ifdef GENERATEDKERNELS
     real                            :: l_timeStepWidth
     real                            :: l_loads(3), l_scalings(3), l_cuts(2), l_timeScalings(2), l_gts
     integer                         :: iObject, iSide, iNeighbor, MPIIndex
     real, target                    :: materialVal(EQN%nBackgroundVar)
     logical(kind=c_bool)                        :: enableFreeSurfaceIntegration
     
-#endif
     ! ------------------------------------------------------------------------!
     !
     CALL iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO)
     !
     CALL BuildSpecialDGGeometry3D_new(OptionalFields%BackgroundValue,EQN,MESH,DISC,BND,MPI,IO)
 
-#ifdef GENERATEDKERNELS
     ! we have the material parameters and insphere diameters, let's get some time step widths out of this
 
     ! Set used initial conditions.
@@ -511,7 +504,6 @@ CONTAINS
     enableFreeSurfaceIntegration = (io%surfaceOutput > 0)
     ! put the clusters under control of the time manager
     call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts, i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
-#endif
 
     !
     SELECT CASE(DISC%Galerkin%DGMethod)
@@ -558,7 +550,6 @@ CONTAINS
     !
     ! Initialize sparse star matrices
     !
-#if defined(GENERATEDKERNELS)
   do iElem = 1, MESH%nElem
     iSide = 0
 
@@ -627,7 +618,6 @@ CONTAINS
 
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices;
-#endif
 
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
         ALLOCATE( DISC%LocalIteration(MESH%nElem) )
@@ -1437,7 +1427,6 @@ CONTAINS
             ENDDO
         ENDDO
 
-#ifdef GENERATEDKERNELS
 #ifndef NDEBUG
         ! assert contant material parameters per element
         if ( disc%galerkin%nDegFrMat .ne. 1 ) then
@@ -1456,7 +1445,6 @@ CONTAINS
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nVertices_tri not equal 3.', mesh%nVertices_tri
           stop
         endif
-#endif
 #endif
 
         DEALLOCATE( Tens3BaseFunc )
@@ -1875,10 +1863,8 @@ CONTAINS
     !-------------------------------------------------------------------------!
 
     USE DGBasis_mod
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc
     use f_ftoc_bind_interoperability
-#endif
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1911,11 +1897,9 @@ CONTAINS
     REAL, POINTER :: IntGaussW(:)       =>NULL()
     REAL, POINTER :: IntGPBaseFunc(:,:) =>NULL()
     REAL, POINTER :: MassMatrix(:,:)    =>NULL()
-#ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
     real    :: l_plasticParameters(2)
-#endif
     !-------------------------------------------------------------------------!
     !
     IF(.NOT.DISC%Galerkin%init) THEN

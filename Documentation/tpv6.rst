@@ -79,3 +79,6 @@ far-side receiver lower than those at the near-side receiver.
 
    Fault slip rate at 7 seconds in the along-strike direction in TPV6. 
 
+.. figure:: LatexFigures/tpv6_off_velocity.png
+   :alt: Particle velocity at two opposite stations across the fault (+/- 9 km normal to the fault).
+   :width: 12.00000cm 

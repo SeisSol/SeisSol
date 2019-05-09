@@ -83,7 +83,6 @@
 !
 #endif
 
-#ifdef GENERATEDKERNELS
 
 #if 0
 ! preprocessor concatenation
@@ -156,6 +155,5 @@
 
 #endif
 
-#endif
 
 #endif
