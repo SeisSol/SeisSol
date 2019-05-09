@@ -1,5 +1,5 @@
-Supermuc Phase2 (hasewell) compilation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Supermuc Phase2 (Hasewell)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 GitHub Initialization 
 ======================
