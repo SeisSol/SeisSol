@@ -125,7 +125,7 @@ set compiler options:
   #SBATCH -J <job name>
   #Output and error (also --output, --error):
   #SBATCH -o ./%j.%x.out
-  #SBATCH -e ./%j.%x.out
+  #SBATCH -e ./%j.%x.err
 
   #Initial working directory (also --chdir):
   #SBATCH --workdir=<work directory>
