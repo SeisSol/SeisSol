@@ -48,18 +48,4 @@ compiling place_receivers on supermuc
 
    module load netcdf/mpi
    export PKG_CONFIG_PATH=$NETCDF_BASE/lib/pkgconfig/:$PKG_CONFIG_PATH
-   scons
-   
-compiling place_receivers on local cluster
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   (check netcdf installtion path)
-   export PKG_CONFIG_PATH=$NETCDF_BASE/lib/pkgconfig/:$PKG_CONFIG_PATH
-   export CC=mpiicc (for intel)
-   export CXX=mpiicpc 
-   scons
-   
-   
-   
+   scons 
