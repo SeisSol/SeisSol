@@ -547,7 +547,8 @@ libs.find(env, 'eigen3', required=False)
 
 # HDF5
 if env['hdf5']:
-    env.Tool('Hdf5Tool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+    libs.find(env, 'hdf5', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+
     env.Append(CPPDEFINES=['USE_HDF'])
 
 # memkind
@@ -557,7 +558,7 @@ if env['memkind']:
 
 # netCDF
 if env['netcdf'] == 'yes':
-    env.Tool('NetcdfTool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+    libs.find(env, 'netcdf', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
     env.Append(CPPDEFINES=['USE_NETCDF'])
 elif env['netcdf'] == 'passive':
     env.Append(CPPDEFINES=['USE_NETCDF', 'NETCDF_PASSIVE'])
