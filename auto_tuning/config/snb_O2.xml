@@ -5,5 +5,5 @@
     <matrix name="kDivMT(2)"/>
   </group>
   <matrix name="star" sparse="True"/>
-  <matrix name="fP2" sparse="True"/>
+  <matrix name="fP(1)" sparse="True"/>
 </memory_layouts>
