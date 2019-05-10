@@ -105,7 +105,6 @@ Characteristics of the SeisSol simulation software are:
   :maxdepth: 2
   :caption: Unsorted
 
-  meshing-partionning-with-pumgen-deprecated
   building-seissol-on-stampede-knl-test-system
   left-lateral-right-lateral-normal-reverse
   optimization-for-non-intel-architectures

@@ -14,13 +14,13 @@ Here, we described the procedure to setup such port forwarding.
 ::
 
   Host supermuNG
-     Hostname sks.supermuc.lrz.de
+     Hostname skx.supermuc.lrz.de
      User <Your Login>    
      RemoteForward ddddd github.com:22
 
 where ddddd is an arbitrary 5-digital port number.
 
-2. ssh supermuNG to login to supermuc. The add the following lines to the ~/.ssh/config:
+2. ssh supermuNG to login to supermuc. Then add the following lines to the ~/.ssh/config:
 
 :: 
 
@@ -38,7 +38,7 @@ With ddddd the same port number as before.
    ssh-keygen -t rsa 
 
 5. Go to https://github.com/settings/ssh, add a new SSH key, pasting the public key you just created on supermuc  ~/.ssh/id_rsa.pub. 
-Logout of supermuc and log back in (ssh supermuc2). you should now be able to clone SeisSol using:
+Logout of supermuc and log back in (ssh supermucNG). You should now be able to clone SeisSol using:
 
 
 ::
@@ -98,24 +98,12 @@ Supermuc-NG
   export LD_LIBRARY_PATH=/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib:$LD_LIBRARY_PATH
 
 
-3. Install libxsmm and ASAGI (Optional)
+3. Install libxsmm and ASAGI
 
-Install libxsmm:
-
-::
-
-  $ git clone git@github:hfp/libxsmm.git
-  $ Cd libxsmm
-  $ make generator
-  (then add path-to-libxsmm/bin to PATH in bashrc)
-
-Install ASAGI:
-
-::
-
-  $ git clone git@github:TUM-I5/ASAGI.git
-  
-then copy fix_submodules.sh here in submodules/utils and run it to get all submodules cloned.
+| See :ref:`installing_libxsmm` and :ref:`installing_ASAGI`. 
+| Note that on project pr63qo, we already installed and shared these library (no need to install).
+| The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
+| If you need to compile ASAGI, note that you need to run fix_submodules.sh to get submodules/utils cloned.
 
 set compiler options:
 
@@ -207,7 +195,7 @@ set compiler options:
   #SBATCH --no-requeue
 
   #Setup of execution environment
-  #SBATCH --export=NONE
+  #SBATCH --export=ALL
   #SBATCH --account=<project id>
   #constraints are optional
   #--constraint="scratch&work"
@@ -238,7 +226,7 @@ set compiler options:
   source /etc/profile.d/modules.sh
 
   echo $SLURM_NTASKS
-  srun --export=ALL ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
+  srun ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
 
   
 
@@ -247,7 +235,8 @@ set compiler options:
 Supermuc-2
 ==========
 
-1. Load modules in Supermuc phase2
+1. Load modules
+
 You can create a folder ~/.modules and copy these to ~/.modules/bash (Must use intel/17.0)
 :: 
 
@@ -285,6 +274,7 @@ You can create a folder ~/.modules and copy these to ~/.modules/bash (Must use i
 Copy this to a supermuc_hw.py file in SeisSol/:
 ::
 
+  import os
   # build options
   compileMode = 'release' # or relWithDebInfo or debug
   generatedKernels = 'yes'
@@ -299,17 +289,17 @@ Copy this to a supermuc_hw.py file in SeisSol/:
   logLevel0 = 'info'
 
   netcdf = 'yes'
-  netcdfDir = '/lrz/sys/libraries/netcdf/4.3.3/intel/ibmmpi_poe1.4_1505'
   hdf5 = 'yes'
-  hdf5Dir = '/lrz/sys/libraries/hdf5/1.8.14/ibmmpi_poe1.4_15.0.5'
   metis = 'yes'
+  netcdfDir=os.environ['NETCDF_BASE']
+  hdf5Dir=os.environ['HDF5_BASE']
   metisDir = '/lrz/sys/libraries/parmetis/4.0.2/ibmmpi'
 
   asagi = 'yes’
   zlibDir='/home/hpc/pr63po/di52lak/software/ASAGI/build/lib/'
 
   # Put a 'yes' here on Phase 2 and a 'no' on Phase 1
-  commThread = 'yes'
+  commThread = 'no'
   # If you put a 'yes' for the last option on Phase 2, it is vital that your environment settings are correct, otherwise your performance will be bad.
 
 
@@ -351,7 +341,7 @@ Copy this to a supermuc_hw.py file in SeisSol/:
   export PARMETIS_LIBDIR='/lrz/sys/libraries/parmetis/4.0.2/ibmmpi/lib'
 
   export MP_SINGLE_THREAD=yes
-  export OMP_NUM_THREADS=16
+  export OMP_NUM_THREADS=28
   export MP_TASK_AFFINITY=core:$OMP_NUM_THREADS
 
 
@@ -359,4 +349,6 @@ Copy this to a supermuc_hw.py file in SeisSol/:
   cd <working directory>
   poe ./SeisSol_release_generatedKernels_dhsw_hybrid_none_9_4 parameters.par
   echo "JOB is run"
+
+see the enviroment variables section concerning :ref:`environement_variables_supermuc_phase_2` for more details.
 
