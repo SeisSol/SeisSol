@@ -33,7 +33,7 @@
 	url = https://github.com/uphoffc/ImpalaJIT.git
 [submodule "submodules/yateto"]
 	path = submodules/yateto
-	url = https:://github.com/SeisSol/yateto.git
+	url = https://github.com/SeisSol/yateto.git
 [submodule "submodules/pythonXdmfReader"]
 	path = submodules/pythonXdmfReader
 	url = https://github.com/Thomas-Ulrich/pythonXdmfReader
