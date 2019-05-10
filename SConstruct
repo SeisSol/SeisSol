@@ -545,6 +545,13 @@ env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 # Eigen3
 libs.find(env, 'eigen3', required=False)
 
+# netCDF
+if env['netcdf'] == 'yes':
+    libs.find(env, 'netcdf', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+    env.Append(CPPDEFINES=['USE_NETCDF'])
+elif env['netcdf'] == 'passive':
+    env.Append(CPPDEFINES=['USE_NETCDF', 'NETCDF_PASSIVE'])
+
 # HDF5
 if env['hdf5']:
     libs.find(env, 'hdf5', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
@@ -555,13 +562,6 @@ if env['hdf5']:
 if env['memkind']:
   env.Tool('MemkindTool')
   env.Append(CPPDEFINES=['USE_MEMKIND'])
-
-# netCDF
-if env['netcdf'] == 'yes':
-    libs.find(env, 'netcdf', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
-    env.Append(CPPDEFINES=['USE_NETCDF'])
-elif env['netcdf'] == 'passive':
-    env.Append(CPPDEFINES=['USE_NETCDF', 'NETCDF_PASSIVE'])
 
 # Metis
 if env['metis'] and env['parallelization'] in ['hybrid', 'mpi']:
@@ -653,6 +653,7 @@ elif env['compiler'] == 'gcc':
 
 # get the source files
 env.sourceFiles = []
+env.generatedSourceFiles = []
 env.generatedTestSourceFiles = []
 
 # Generate the version file
@@ -663,6 +664,9 @@ SConscript('generated_code/SConscript', variant_dir=env['buildDir'] + '/generate
 SConscript('src/SConscript', variant_dir=env['buildDir'] + '/src', duplicate=0)
 SConscript('submodules/SConscript', variant_dir=env['buildDir']+'/submodules', duplicate=0)
 Import('env')
+
+# add generated source files
+env.sourceFiles.extend(env.generatedSourceFiles)
 
 # remove .mod entries for the linker
 modDirectories = []
@@ -733,7 +737,8 @@ if env['unitTests'] != 'none':
   if env.generatedTestSourceFiles:
     if env['parallelization'] in ['mpi', 'hybrid']:
       env['CXXTEST_COMMAND'] = 'mpirun -np 1 %t'
-    env.CxxTest(target='#/'+env['buildDir']+'/tests/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)
+    mpiThingy = list(filter(lambda sf: os.path.basename(str(sf)) == 'MPI.o', sourceFiles))
+    env.CxxTest(target='#/'+env['buildDir']+'/tests/generated_kernels_test_suite', source=env.generatedSourceFiles+env.generatedTestSourceFiles+mpiThingy)
 
   if env.testSourceFiles:
     if env['parallelization'] in ['mpi', 'hybrid']:

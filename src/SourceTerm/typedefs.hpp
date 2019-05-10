@@ -41,6 +41,7 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
+#include <cstdlib>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/tensor.h>
 

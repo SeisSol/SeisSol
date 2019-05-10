@@ -79,7 +79,7 @@ for cpp in cppFiles:
   else:
     obj = env.Object(cpp)
   env.Depends(obj, generated)
-  env.sourceFiles.append(obj)
+  env.generatedSourceFiles.append(obj)
 
 if hasattr(env, 'generatedTestSourceFiles'):
   testFiles = filter(lambda t: str(t).endswith('.t.h'), generated)
