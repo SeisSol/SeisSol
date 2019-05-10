@@ -1,0 +1,9 @@
+<memory_layouts>
+  <group name="stiffnessTransposed">
+    <matrix name="kXiDivMT"/>
+    <matrix name="kEtaDivMT"/>
+    <matrix name="kZetaDivMT"/>
+  </group>
+  <matrix name="r1DivM" sparse="True"/>
+  <matrix name="fP2" sparse="True"/>
+</memory_layouts>
