@@ -1519,7 +1519,7 @@ MODULE Eval_friction_law_mod
                          Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
                          CALL Calc_ThermalPressure(time_inc, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, &
-                              DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), &
+                              DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), & 
                               DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2) )
                          P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
                  ENDDO
@@ -1549,17 +1549,25 @@ MODULE Eval_friction_law_mod
              DO i = 1, nBndGP
                           !use Theta/Sigma from last call in this update, dt/2 and new SR from NS
                           CALL Calc_ThermalPressure(time_inc/2.0, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
-                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, &
-                               DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), &
+                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), SR_tmp(iBndGP), DISC%DynRup%TP_grid, &
+                               DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), & 
                                DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2))
                           P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
+                          DISC%DynRup%TP_Theta(iBndGP,iFace,:) = Theta_tmp(:)
+                          DISC%DynRup%TP_sigma(iBndGP,iFace,:) = Sigma_tmp(:)
              ENDDO
          ENDIF
 
+         !update LocMu for next strength determination, only needed for last update
+         ! X in Asinh(x) for mu calculation
+         tmp = 0.5D0/RS_sr0 * EXP(LocSV/RS_a)
+         tmp2 = LocSR*tmp
+         ! mu from LocSR
+         LocMu  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
 
          ! update stress change
-         LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*P
-         LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*P
+         LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
+         LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(:,4,iFace)
          LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(:,6,iFace)
          !
@@ -1638,7 +1646,7 @@ MODULE Eval_friction_law_mod
     ! low-velocity steady state friction coefficient
     flv = RS_f0 - (RS_b-RS_a)* LOG(SR_tmp/RS_sr0)
     ! steady state friction coefficient
-    fss = RS_fw + (flv - RS_fw)/(1.0D0+(SR_tmp/RS_srW)**8)**(1.0D0/8.0D0)
+    fss = RS_fw + (flv - RS_fw)/(1.0D0+(SR_tmp/RS_srW)**8d0)**(1.0D0/8.0D0)
     ! steady-state state variable
     ! For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
     SVss = RS_a * LOG(2.0D0*RS_sr0/SR_tmp * (EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
@@ -1651,12 +1659,6 @@ MODULE Eval_friction_law_mod
        STOP
     ENDIF
 
-    !update LocMu for next strength determination, only needed for last update
-    ! X in Asinh(x) for mu calculation
-    tmp = 0.5D0/RS_sr0 * EXP(LocSV/RS_a)
-    tmp2 = LocSR*tmp
-    ! mu from LocSR
-    LocMu  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
 
   END SUBROUTINE update_RSF
 
@@ -1705,8 +1707,8 @@ MODULE Eval_friction_law_mod
 
        !calculate friction coefficient
        tmp2  = tmp*SRtest
-       mu_f  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
-       dmu_f = RS_a/SQRT(1.0D0+tmp2**2)*tmp
+       mu_f  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))
+       dmu_f = RS_a/SQRT(1D0+tmp2**2)*tmp
        NR    = -invZ * (ABS(n_stress)*mu_f-sh_stress)-SRtest
 
        IF (maxval(abs(NR))<atolF) THEN
@@ -1715,7 +1717,7 @@ MODULE Eval_friction_law_mod
        ENDIF
 
        !derivative of NR
-       dNR   = -invZ * (ABS(n_stress)*dmu_f) -1.0D0
+       dNR   = -invZ * (ABS(n_stress)*dmu_f) -1.0
        !ratio
        tmp3 = NR/dNR
 
