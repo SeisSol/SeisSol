@@ -1,18 +1,18 @@
 <memory_layouts>
   <group name="stiffnessTransposed">
-    <matrix name="kXiDivMT"/>
-    <matrix name="kEtaDivMT"/>
-    <matrix name="kZetaDivMT"/>
+    <matrix name="kDivMT(0)"/>
+    <matrix name="kDivMT(1)"/>
+    <matrix name="kDivMT(2)"/>
   </group>
   <matrix name="r1DivM" sparse="True"/>
   <matrix name="star" sparse="True"/>
-  <matrix name="kZetaDivM" sparse="True"/>
+  <matrix name="kDivM(2)" sparse="True"/>
   <matrix name="r2DivM" sparse="True"/>
   <matrix name="rT4" sparse="True"/>
-  <matrix name="kEtaDivM" sparse="True"/>
+  <matrix name="kDivM(1)" sparse="True"/>
   <matrix name="rT1" sparse="True"/>
   <matrix name="rT3" sparse="True"/>
   <matrix name="rT2" sparse="True"/>
-  <matrix name="kXiDivM" sparse="True"/>
+  <matrix name="kDivM(0)" sparse="True"/>
   <matrix name="fMrT1" sparse="True"/>
 </memory_layouts>
