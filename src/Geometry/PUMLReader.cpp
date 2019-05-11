@@ -125,10 +125,7 @@ int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, cons
 	for (int rk = 1; rk < nrank; ++rk) {
 		offsets[rk] = offsets[rk-1] + num_cells[rk-1];
 	}
-	int nCells = offsets[nrank-1]+num_cells[nrank-1];
-
-	const hsize_t dim[] = {nCells};
-	const hsize_t dimMem[] = {nPartitionCells};
+	const hsize_t dimMem[] = {static_cast<hsize_t>(nPartitionCells)};
 
 	/* 
 	 Open file and dataset 
@@ -157,8 +154,8 @@ int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, cons
 	hid_t memspace = H5Screate_simple(1, dimMem, NULL);
 	hid_t filespace = H5Dget_space(dataset);
 
-	hsize_t start[] = {offsets[rank]};
-	hsize_t count[] = {nPartitionCells};
+	hsize_t start[] = {static_cast<hsize_t>(offsets[rank])};
+	hsize_t count[] = {static_cast<hsize_t>(nPartitionCells)};
 	H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, 0L, count, 0L);
 
 	plist_id = H5Pcreate(H5P_DATASET_XFER);
@@ -200,8 +197,8 @@ void seissol::PUMLReader::writePartition(PUML::TETPUML &puml, int* partition, co
 	}
 	int nCells = offsets[nrank-1]+num_cells[nrank-1];
 
-	const hsize_t dim[] = {nCells};
-	const hsize_t dimMem[] = {nPartitionCells};
+	const hsize_t dim[] = {static_cast<hsize_t>(nCells)};
+	const hsize_t dimMem[] = {static_cast<hsize_t>(nPartitionCells)};
 
 	/* 
 	 Create file and file space 
@@ -227,8 +224,8 @@ void seissol::PUMLReader::writePartition(PUML::TETPUML &puml, int* partition, co
 	hid_t memspace = H5Screate_simple(1, dimMem, NULL);
 	filespace = H5Dget_space(dataset);
 
-	hsize_t start[] = {offsets[rank]};
-	hsize_t count[] = {nPartitionCells};
+	hsize_t start[] = {static_cast<hsize_t>(offsets[rank])};
+	hsize_t count[] = {static_cast<hsize_t>(nPartitionCells)};
 	H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, 0L, count, 0L);
 
 	plist_id = H5Pcreate(H5P_DATASET_XFER);
