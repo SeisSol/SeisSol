@@ -3,15 +3,16 @@ Compilation
 
 In order to run SeisSol, you need to first install:
 
--  Python (use version 2.7 and above)
--  SCons (for instructions see below)
--  hdf5 (for instructions see below)
--  netcdf (C-Release) (for instructions see below)
--  Intel compiler (icc, icpc, ifort) or GCC (gcc, g++, gfortran)
--  Some MPI implementation
+-  Python (>= 3.5)
+-  Numpy (>= 1.12.0)
+-  SCons (>= 3.0, for instructions see below)
+-  hdf5 (>= 1.8, for instructions see below)
+-  netcdf (C-Release) (>= 4.4, for instructions see below)
+-  Intel compiler (>= 17.0, icc, icpc, ifort) or GCC (>= 5.0, gcc, g++, gfortran)
+-  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
--  CMake for compiling ImpalaJIT
+-  CMake (for compiling submodules ImpalaJIT and yaml-cpp)
 
 Inital Adjustments to .bashrc
 -----------------------------
@@ -20,29 +21,26 @@ Add the following lines to your .bashrc (vi ~/.bashrc).
 
 .. code-block:: bash
 
-  source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
-
-  # User specific aliases and functions
+  # For intel compiler
+  # source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
+  
   export PATH=$HOME/bin:$PATH
-  export LD_LIBRARY_PATH=$HOME/lib:$HOME/lib64:$LD_LIBRARY_PATH
+  export LIBRARY_PATH=$HOME/lib:$LIBRARY_PATH
+  export LD_LIBRARY_PATH=$HOME/lib:$LD_LIBRARY_PATH
+  export PKG_CONFIG_PATH=$HOME/lib/pkgconfig:$PKG_CONFIG_PATH
   export EDITOR=vi
-  export SCONS_LIB_DIR=$HOME/lib64/scons-2.2.0/
-  export PATH=$HOME/../libxsmm/bin:$PATH
-  export C_INCLUDE_PATH=$HOME/include:$C_INCLUDE_PATH 
-  export CPLUS_INCLUDE_PATH=$HOME/include:$CPLUS_INCLUDE_PATH
+  export CPATH=$HOME/include:$CPATH 
 
-  ######  ParMetis library necessary (Optional) ##############
-  export PARMETIS_BASE='path_to_parmetis'
-  export PARMETIS_LIBDIR='path_to_parmetis/lib'
+  # run "exec bash" or "source ~/.bashrc" to apply environment to current shell
 
 Installing SCons
 ----------------
 
 .. code-block:: bash
 
-  wget http://prdownloads.sourceforge.net/scons/scons-2.2.0.tar.gz
-  tar -xaf scons-2.2.0.tar.gz
-  cd scons-2.2.0
+  wget http://prdownloads.sourceforge.net/scons/scons-3.0.5.tar.gz
+  tar -xaf scons-3.0.5.tar.gz
+  cd scons-3.0.5
   python setup.py install --prefix=$HOME
   cd ..
 
@@ -52,13 +50,11 @@ Installing HDF5
 
 .. code-block:: bash
 
-  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.11/src/hdf5-1.8.11.tar.bz2
-  tar -xaf hdf5-1.8.11.tar.bz2
-  cd hdf5-1.8.11
-  CC=mpiicc FC=mpiifort ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran 
-  #NOTE: This is with Intel MPI, if you have to use a different MPI, please adjust mpiicc and mpiifort accordingly to the scripts that call icc and ifort!
-  #MPICH note: CC=mpicc FC=mpif90 ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran
-  make
+  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.21/src/hdf5-1.8.21.tar.bz2
+  tar -xaf hdf5-1.8.21.tar.bz2
+  cd hdf5-1.8.21
+  CC=mpicc FC=mpif90 ./configure --enable-parallel --prefix=$HOME --with-zlib --disable-shared --enable-fortran 
+  make -j8
   make install
   cd ..
 
@@ -67,14 +63,13 @@ Installing netCDF
 
 .. code-block:: bash
 
-  wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.4.1.1.tar.gz
-  tar -xaf netcdf-4.3.0.tar.gz
-  cd netcdf-4.3.0
-  CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpiicc ./configure --enable-shared=no --prefix=$HOME 
-  #MPICH note: CPPFLAGS=-I$HOME/include LDFLAGS=-L$HOME/lib CC=mpicc ./configure --enable-shared=no --prefix=$HOME 
+  wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.6.1.tar.gz
+  tar -xaf netcdf-4.6.1.tar.gz
+  cd netcdf-4.6.1
+  CC=h5pcc ./configure --enable-shared=no --prefix=$HOME 
   #NOTE: Check for this line to make sure netCDF is build with parallel I/O: 
   #"checking whether parallel I/O features are to be included... yes" This line comes at the very end (last 50 lines of configure run)!
-  make
+  make -j8
   make install
   cd ..
 
@@ -85,38 +80,27 @@ Installing Libxsmm
 .. code-block:: bash
 
    git clone https://github.com/hfp/libxsmm
-   cd libxsmm
+   cd libxsmm-master
    make generator
-   #add libxsmm/bin to path
-
-
-Installing Metis (Optional:PUML mesh format)
---------------------------------------------
-
-.. code-block:: bash
-
-   tar -xvf metis-5.1.0.tar.gz
-   cd metis-5.1.0
-   #edit ./include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-   make config cc=mpiicc cxx=mpiicpc prefix=$HOME #(must confirm compiler!!!)
-   make install
+   cp bin/libxsmm_gemm_generator $HOME/bin
    cd ..
 
-
-Installing ParMetis (Optional:PUML mesh format)
------------------------------------------------
+Installing ParMetis (Optional: PUML mesh format)
+------------------------------------------------
 
 .. code-block:: bash
 
+  wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
   tar -xvf parmetis-4.0.3
   cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-  make config cc=mpiicc cxx=mpiicpc prefix=$HOME 
-  #must confirm compiler! Better use the same path as metis!)
+  make config cc=mpicc cxx=mpiCC prefix=$HOME 
   make install
+  cp build/Linux-x86_64/libmetis/libmetis.a $HOME/lib
+  cp metis/include/metis.h $HOME/include
   cd ..
 
-(Make sure parmetis/include contains metis.h and parmetis/lib contains
+(Make sure $HOME/include contains metis.h and $HOME/lib contains
 libmetis.a. Ortherwise, compile error: cannot find parmetis.)
 
 
@@ -138,6 +122,13 @@ including all submodules:
    git clone https://github.com/SeisSol/SeisSol.git
    git submodule update --init
 
+Compile SeisSol with (e.g.)
+
+.. code-block:: bash
+
+  scons compiler=gcc netcdf=yes hdf5=yes order=4 parallelization=hybrid 
+
+You may also save your favorite settings in a configuration file:
 Add the following build variables to the file
 build/options/supermuc_mac_cluster.py
 
@@ -148,7 +139,7 @@ build/options/supermuc_mac_cluster.py
    arch='$ARCH' 
    order='$ORDER' 
    generatedKernels = 'yes'
-   compiler = 'intel'
+   compiler = 'gcc' # alternative: 'intel'
    logLevel = 'info'
 
    netcdf='yes' 
@@ -183,11 +174,6 @@ you can overwrite the detected wrappers with the variables "mpicc",
 "mpicxx" and "mpif90".
 
 you can run ``scons -h`` to get some help on options
-
-Please note, this builds the generated kernel version of SeisSols. For
-SeisSol classic, please add the generatedKernels=no switch. However this
-result in roughly 6X less performance. The classic version won't be
-maintained anymore in the near future.
 
 Running SeisSol
 ---------------
