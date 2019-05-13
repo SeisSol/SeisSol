@@ -74,9 +74,9 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)data.dofs)     % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
+  assert( ((uintptr_t)data.dofs) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)o_timeIntegrated) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)o_timeDerivatives) % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
   /*
    * compute ADER scheme.
@@ -193,9 +193,9 @@ void seissol::kernels::Time::computeIntegral( double                            
   real l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
   
   // initialization of scalars in the taylor series expansion (0th term)
-  real l_firstTerm  = (real) 1.0;
-  real l_secondTerm = (real) 1.0;
-  real l_factorial  = (real) 1.0;
+  real l_firstTerm  = static_cast<real>(1.0);
+  real l_secondTerm = static_cast<real>(1.0);
+  real l_factorial  = static_cast<real>(1.0);
   
   kernel::derivativeTaylorExpansionEla intKrnl;
   intKrnl.I = o_timeIntegrated;
@@ -209,7 +209,7 @@ void seissol::kernels::Time::computeIntegral( double                            
   for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
     l_secondTerm *= l_deltaTLower;
-    l_factorial  *= (real)(der+1);
+    l_factorial  *= static_cast<real>(der+1);
 
     intKrnl.power  = l_firstTerm - l_secondTerm;
     intKrnl.power /= l_factorial;

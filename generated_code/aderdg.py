@@ -100,13 +100,13 @@ class ADERDGBase(ABC):
   def starMatrix(self, dim):
     pass
 
-  def addInit(self, g):
+  def addInit(self, generator):
     fluxScale = Scalar('fluxScale')
     computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodLocal['kq'] * self.db.star[0]['ql'] * self.T['jl']
-    g.add('computeFluxSolverLocal', computeFluxSolverLocal)
+    generator.add('computeFluxSolverLocal', computeFluxSolverLocal)
 
     computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.db.star[0]['ql'] * self.T['jl']
-    g.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
+    generator.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
     QFortran = Tensor('QFortran', (self.numberOf3DBasisFunctions(), self.numberOfQuantities()))
     multSimToFirstSim = Tensor('multSimToFirstSim', (self.Q.optSize(),), spp={(0,): '1.0'})
@@ -115,16 +115,16 @@ class ADERDGBase(ABC):
     else:
       copyQToQFortran = QFortran['kp'] <= self.Q['kp']
 
-    g.add('copyQToQFortran', copyQToQFortran)
+    generator.add('copyQToQFortran', copyQToQFortran)
 
   @abstractmethod
-  def addLocal(self, g):
+  def addLocal(self, generator):
     pass
 
   @abstractmethod
-  def addNeighbor(self, g):
+  def addNeighbor(self, generator):
     pass
 
   @abstractmethod
-  def addTime(self, g):
+  def addTime(self, generator):
     pass

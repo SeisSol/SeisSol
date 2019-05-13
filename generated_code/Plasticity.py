@@ -39,27 +39,27 @@
 #
 
 import numpy as np
-from yateto import *
+from yateto import Tensor
 from yateto.input import parseXMLMatrixFile
 from multSim import OptionalDimTensor
 
-def addKernels(generator, adg, matricesDir, PlasticityMethod):
+def addKernels(generator, aderdg, matricesDir, PlasticityMethod):
   # Load matrices
-  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, adg.order), clones=dict(), alignStride=adg.alignStride)
+  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, aderdg.order), clones=dict(), alignStride=aderdg.alignStride)
   numberOfNodes = db.v.shape()[0]
 
-  sShape = (adg.numberOf3DBasisFunctions(), 6)
-  QStress = OptionalDimTensor('QStress', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), sShape, alignStride=True)
+  sShape = (aderdg.numberOf3DBasisFunctions(), 6)
+  QStress = OptionalDimTensor('QStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape, alignStride=True)
   initialLoading = Tensor('initialLoading', (6,))
 
   replicateIniLShape = (numberOfNodes,)
-  replicateIniLSpp = np.ones(adg.Q.insertOptDim(replicateIniLShape, (adg.Q.optSize(),)))
-  replicateInitialLoading = OptionalDimTensor('replicateInitialLoading', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
+  replicateIniLSpp = np.ones(aderdg.Q.insertOptDim(replicateIniLShape, (aderdg.Q.optSize(),)))
+  replicateInitialLoading = OptionalDimTensor('replicateInitialLoading', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
 
   iShape = (numberOfNodes, 6)
-  QStressNodal = OptionalDimTensor('QStressNodal', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), iShape, alignStride=True)
-  meanStress = OptionalDimTensor('meanStress', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), (numberOfNodes,), alignStride=True)
-  secondInvariant = OptionalDimTensor('secondInvariant', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), (numberOfNodes,), alignStride=True)
+  QStressNodal = OptionalDimTensor('QStressNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), iShape, alignStride=True)
+  meanStress = OptionalDimTensor('meanStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
+  secondInvariant = OptionalDimTensor('secondInvariant', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
 
   selectBulkAverage = Tensor('selectBulkAverage', (6,), spp={(i,): str(1.0/3.0) for i in range(3)})
   selectBulkNegative = Tensor('selectBulkNegative', (6,), spp={(i,): '-1.0' for i in range(3)})

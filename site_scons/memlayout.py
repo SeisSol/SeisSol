@@ -43,6 +43,14 @@ import arch
 import re
 
 class Candidate(object):
+  """A Candidate measures if a memory layout is suitable
+     for a build configuration. If a build configuration
+     shares an attribute with a Candidate, the Candidate
+     gets a higher score.
+     The scoring system is chosen such that the best
+     Candidate is unique (i.e. 2**Importance).
+  """
+
   IMPORTANCE = {'precision': 1, 'equations': 2, 'order': 3, 'pe': 4, 'multipleSimulations': 5}
 
   def __init__(self, atts):
@@ -59,6 +67,8 @@ class Candidate(object):
     return repr(self.atts)
 
 def findCandidates():
+  """Determine Candidate attributes from file name."""
+
   archs = arch.getArchitectures()
   pes = [arch.getCpu(a) for a in archs]
 
@@ -68,12 +78,12 @@ def findCandidates():
     name, ext = os.path.splitext(c)
     atts = dict()
     for att in name.split('_'):
-      ms = re.match('ms([0-9]+)', att)
-      O = re.match('O([0-9]+)', att)
-      if ms:
-        atts['multipleSimulations'] = int(ms.group(1))
-      elif O:
-        atts['order'] = int(O.group(1))
+      multipleSimulations = re.match('ms([0-9]+)', att)
+      order = re.match('O([0-9]+)', att)
+      if multipleSimulations:
+        atts['multipleSimulations'] = int(multipleSimulations.group(1))
+      elif order:
+        atts['order'] = int(order.group(1))
       elif att.lower() in ['s', 'd']:
         atts['precision'] = att.lower()
       elif att.lower() in pes:

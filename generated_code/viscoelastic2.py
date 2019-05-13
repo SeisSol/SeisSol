@@ -39,7 +39,7 @@
 #
   
 import numpy as np
-from yateto import *
+from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
@@ -85,9 +85,11 @@ class ADERDG(ADERDGBase):
     return 6
 
   def numberOfExtendedQuantities(self):
+    """Number of quantities for fused computation of elastic and anelastic update."""
     return self.numberOfQuantities() + self.numberOfAnelasticQuantities()
 
   def numberOfFullQuantities(self):
+    """Number of quantities when unrolling anelastic tensor into a matrix."""
     return self.numberOfQuantities() + self.numberOfMechanisms * self.numberOfAnelasticQuantities()
 
   def extendedQTensor(self):
@@ -96,8 +98,8 @@ class ADERDG(ADERDGBase):
   def starMatrix(self, dim):
     return self.db.star[dim]
 
-  def addInit(self, g):
-    super().addInit(g)
+  def addInit(self, generator):
+    super().addInit(generator)
 
     selectElaFullSpp = np.zeros((self.numberOfFullQuantities(), self.numberOfQuantities()))
     selectElaFullSpp[0:self.numberOfQuantities(),0:self.numberOfQuantities()] = np.eye(self.numberOfQuantities())
@@ -117,36 +119,36 @@ class ADERDG(ADERDGBase):
 
     projectIniCondEla = self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lq'] * selectElaFull['qp']
     projectIniCondAne = self.Qane['kpm'] <= self.db.projectQP[self.t('kl')] * iniCond['lq'] * selectAneFull['qpm']
-    g.add('projectIniCond', [projectIniCondEla, projectIniCondAne])
-    g.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
+    generator.add('projectIniCond', [projectIniCondEla, projectIniCondAne])
+    generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
-  def addLocal(self, g):
+  def addLocal(self, generator):
     volumeSum = Add()
     for i in range(3):
       volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.db.star[i]['qp']
     volumeExt = (self.Qext['kp'] <= volumeSum)
-    g.add('volumeExt', volumeExt)
+    generator.add('volumeExt', volumeExt)
 
     localFluxExt = lambda i: self.Qext['kp'] <= self.Qext['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
     localFluxExtPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
-    g.addFamily('localFluxExt', simpleParameterSpace(4), localFluxExt, localFluxExtPrefetch)
+    generator.addFamily('localFluxExt', simpleParameterSpace(4), localFluxExt, localFluxExtPrefetch)
 
-    g.add('local', [
+    generator.add('local', [
       self.Qane['kpm'] <= self.Qane['kpm'] + self.w['m'] * self.Qext['kq'] * self.selectAne['qp'] + self.Iane['kpl'] * self.W['lm'],
       self.Q['kp'] <= self.Q['kp'] + self.Qext['kq'] * self.selectEla['qp'] + self.Iane['kqm'] * self.E['qmp']
     ])
 
-  def addNeighbor(self, g):
+  def addNeighbor(self, generator):
     neighbourFluxExt = lambda h,j,i: self.Qext['kp'] <= self.Qext['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
     neighbourFluxExtPrefetch = lambda h,j,i: self.I
-    g.addFamily('neighbourFluxExt', simpleParameterSpace(3,4,4), neighbourFluxExt, neighbourFluxExtPrefetch)
+    generator.addFamily('neighbourFluxExt', simpleParameterSpace(3,4,4), neighbourFluxExt, neighbourFluxExtPrefetch)
 
-    g.add('neighbour', [
+    generator.add('neighbour', [
       self.Qane['kpm'] <= self.Qane['kpm'] + self.w['m'] * self.Qext['kq'] * self.selectAne['qp'],
       self.Q['kp'] <= self.Q['kp'] + self.Qext['kq'] * self.selectEla['qp']
     ])
 
-  def addTime(self, g):
+  def addTime(self, generator):
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     dQ = [OptionalDimTensor('dQ({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True) for d in range(self.order)]
     dQext = [OptionalDimTensor('dQext({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeExtended, alignStride=True) for d in range(self.order)]
@@ -157,19 +159,19 @@ class ADERDG(ADERDGBase):
     derivativeTaylorExpansionEla = lambda d: (self.I['kp'] <= self.I['kp'] + power * dQ[d]['kp']) if d > 0 else (self.I['kp'] <= power * dQ[0]['kp'])
     derivativeTaylorExpansionAne = lambda d: (self.Iane['kpm'] <= self.Iane['kpm'] + power * dQane[d]['kpm']) if d > 0 else (self.Iane['kpm'] <= power * dQane[0]['kpm'])
 
-    def derivative(d):
+    def derivative(kthDer):
       derivativeSum = Add()
       for j in range(3):
-        derivativeSum += self.db.kDivMT[j][self.t('kl')] * dQ[d-1]['lq'] * self.db.star[j]['qp']
+        derivativeSum += self.db.kDivMT[j][self.t('kl')] * dQ[kthDer-1]['lq'] * self.db.star[j]['qp']
       return derivativeSum
 
-    g.addFamily('derivative', parameterSpaceFromRanges(range(1,self.order)), lambda d: [
+    generator.addFamily('derivative', parameterSpaceFromRanges(range(1,self.order)), lambda d: [
       dQext[d]['kp'] <= derivative(d),
       dQ[d]['kp'] <= dQext[d]['kq'] * self.selectEla['qp'] + dQane[d-1]['kqm'] * self.E['qmp'],
       dQane[d]['kpm'] <= self.w['m'] * dQext[d]['kq'] * self.selectAne['qp'] + dQane[d-1]['kpl'] * self.W['lm']
     ])
-    g.addFamily('derivativeTaylorExpansion', simpleParameterSpace(self.order), lambda d: [
+    generator.addFamily('derivativeTaylorExpansion', simpleParameterSpace(self.order), lambda d: [
       derivativeTaylorExpansionEla(d),
       derivativeTaylorExpansionAne(d)
     ])
-    g.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(self.order), derivativeTaylorExpansionEla)
+    generator.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(self.order), derivativeTaylorExpansionEla)

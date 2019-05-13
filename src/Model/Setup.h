@@ -89,7 +89,7 @@ namespace seissol {
     void getFaceRotationMatrix( VrtxCoords const i_normal,
                                 VrtxCoords const i_tangent1,
                                 VrtxCoords const i_tangent2,
-                                init::T::view::type&    o_T,
+                                init::T::view::type& o_T,
                                 init::Tinv::view::type& o_Tinv );
 
     /**

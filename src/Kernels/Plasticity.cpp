@@ -86,8 +86,8 @@ unsigned seissol::kernels::Plasticity::computePlasticity( double                
   cmKrnl.execute();
 
   kernel::plSubtractMean smKrnl;
-  smKrnl.QStressNodal = QStressNodal;
   smKrnl.meanStress = meanStress;
+  smKrnl.QStressNodal = QStressNodal;
   smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
   smKrnl.execute();
 

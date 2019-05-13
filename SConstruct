@@ -737,8 +737,8 @@ if env['unitTests'] != 'none':
   if env.generatedTestSourceFiles:
     if env['parallelization'] in ['mpi', 'hybrid']:
       env['CXXTEST_COMMAND'] = 'mpirun -np 1 %t'
-    mpiThingy = list(filter(lambda sf: os.path.basename(str(sf)) == 'MPI.o', sourceFiles))
-    env.CxxTest(target='#/'+env['buildDir']+'/tests/generated_kernels_test_suite', source=env.generatedSourceFiles+env.generatedTestSourceFiles+mpiThingy)
+    mpiObject = list(filter(lambda sf: os.path.basename(str(sf)) == 'MPI.o', sourceFiles))
+    env.CxxTest(target='#/'+env['buildDir']+'/tests/generated_kernels_test_suite', source=env.generatedSourceFiles+env.generatedTestSourceFiles+mpiObject)
 
   if env.testSourceFiles:
     if env['parallelization'] in ['mpi', 'hybrid']:

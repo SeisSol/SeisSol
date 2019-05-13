@@ -42,8 +42,8 @@ import argparse
 import importlib.util
 import inspect
 
-from yateto import *
-from yateto.gemm_configuration import *
+from yateto import useArchitectureIdentifiedBy, Generator
+from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM 
 
 import DynamicRupture
 import Plasticity

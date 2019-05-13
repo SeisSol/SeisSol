@@ -39,32 +39,32 @@
 #
   
 import numpy as np
-from yateto import *
+from yateto import Tensor, Scalar
 from multSim import OptionalDimTensor
 
-def addKernels(g, adg):
-  numberOf3DBasisFunctions = adg.numberOf3DBasisFunctions()
-  numberOfQuantities = adg.numberOfQuantities()
+def addKernels(generator, aderdg):
+  numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
+  numberOfQuantities = aderdg.numberOfQuantities()
   ## Point sources
   mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
 
   momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6), dtype=bool))
-  if adg.Q.hasOptDim():
-    sourceNRF = adg.Q['kp'] <= adg.Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * adg.oneSimToMultSim['s']
+  if aderdg.Q.hasOptDim():
+    sourceNRF = aderdg.Q['kp'] <= aderdg.Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p'] * aderdg.oneSimToMultSim['s']
   else:
-    sourceNRF = adg.Q['kp'] <= adg.Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p']
-  g.add('sourceNRF', sourceNRF)
+    sourceNRF = aderdg.Q['kp'] <= aderdg.Q['kp'] - mInvJInvPhisAtSources['k'] * momentNRF['p']
+  generator.add('sourceNRF', sourceNRF)
 
   momentFSRM = Tensor('momentFSRM', (numberOfQuantities,))
   stfIntegral = Scalar('stfIntegral')
-  if adg.Q.hasOptDim():
-    sourceFSRM = adg.Q['kp'] <= adg.Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p'] * adg.oneSimToMultSim['s']
+  if aderdg.Q.hasOptDim():
+    sourceFSRM = aderdg.Q['kp'] <= aderdg.Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p'] * aderdg.oneSimToMultSim['s']
   else:
-    sourceFSRM = adg.Q['kp'] <= adg.Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p']
-  g.add('sourceFSRM', sourceFSRM)
+    sourceFSRM = aderdg.Q['kp'] <= aderdg.Q['kp'] + stfIntegral * mInvJInvPhisAtSources['k'] * momentFSRM['p']
+  generator.add('sourceFSRM', sourceFSRM)
 
   ## Receiver output
   basisFunctionsAtPoint = Tensor('basisFunctions', (numberOf3DBasisFunctions,))
-  QAtPoint = OptionalDimTensor('QAtPoint', adg.Q.optName(), adg.Q.optSize(), adg.Q.optPos(), (numberOfQuantities,))
-  evaluateDOFSAtPoint = QAtPoint['p'] <= adg.Q['kp'] * basisFunctionsAtPoint['k']
-  g.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
+  QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
+  evaluateDOFSAtPoint = QAtPoint['p'] <= aderdg.Q['kp'] * basisFunctionsAtPoint['k']
+  generator.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)

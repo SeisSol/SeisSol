@@ -98,6 +98,4 @@ constexpr unsigned numberOfAlignedDerBasisFunctions(unsigned O) {
 
 #endif
 
-//#define NUMBER_OF_DOFS                  (NUMBER_OF_BASIS_FUNCTIONS             * NUMBER_OF_QUANTITIES)
-//#define NUMBER_OF_ALIGNED_DOFS          (NUMBER_OF_ALIGNED_BASIS_FUNCTIONS     * NUMBER_OF_QUANTITIES)
 #define NUMBER_OF_ALIGNED_STRESS_DOFS   (NUMBER_OF_ALIGNED_BASIS_FUNCTIONS     * 6)
