@@ -202,12 +202,10 @@ set compiler options:
   #SBATCH --partition=general
 
   #Number of nodes and MPI tasks per node:
-  #max33 so far, else error
-  #SBATCH --nodes=20
+  #SBATCH --nodes=40
   #SBATCH --ntasks-per-node=1
   #SBATCH --cpus-per-task=96
-  #Needs specific MPI
-  #module switch mpi.intel mpi.intel/2019
+  module load slurm_setup
   #Run the program:
   export MP_SINGLE_THREAD=no
   unset KMP_AFFINITY
@@ -222,7 +220,6 @@ set compiler options:
   export SEISSOL_CHECKPOINT_DIRECT=1
   export ASYNC_MODE=THREAD
   export ASYNC_BUFFER_ALIGNMENT=8388608
-  export SEISSOL_ASAGI_MPI_MODE=OFF
   source /etc/profile.d/modules.sh
 
   echo $SLURM_NTASKS
