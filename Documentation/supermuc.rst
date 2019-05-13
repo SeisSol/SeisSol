@@ -24,7 +24,7 @@ where ddddd is an arbitrary 5-digital port number.
 
 :: 
 
-  Host github
+  Host github.com
      HostName localhost
      User git
      Port ddddd
@@ -43,10 +43,10 @@ Logout of supermuc and log back in (ssh supermucNG). You should now be able to c
 
 ::
 
-  git clone git@github:SeisSol/SeisSol.git  
+  git clone git@github.com:SeisSol/SeisSol.git  
 
 
-Pay attention to the git clone address ('https://github.com/' replaced by 'git@github:'). 
+Pay attention to the git clone address ('https://github.com/' replaced by 'git@github.com:'). 
 If it works, you will see several lines of ‘cloning ….’.
 
 Now for initializing the submodule folder, copy the following to fix_submodules.sh and run it within SeisSol.
@@ -61,8 +61,8 @@ Now for initializing the submodule folder, copy the following to fix_submodules.
    module=$(git config ${module_full} | sed "s/.*github\.com\///")
    if [ "$module" != "true" ]; then
       echo $module
-      echo "git config ${module_full} git@github:${module}"
-      git config ${module_full} git@github:${module}
+      echo "git config ${module_full} git@github.com:${module}"
+      git config ${module_full} git@github.com:${module}
    fi
   done
   git submodule update
@@ -71,7 +71,7 @@ Now for initializing the submodule folder, copy the following to fix_submodules.
 Supermuc-NG
 ===========
 
-1. git clone git@github:SeisSol/SeisSol.git  
+1. git clone git@github.com:SeisSol/SeisSol.git  
 
 2. Load module. Could add these lines to .bashrc:
 

@@ -80,6 +80,8 @@ Here are some proposed environement variables, to be added prior to invoking Sei
    export ASYNC_BUFFER_ALIGNMENT=8388608
 
 
+.. _environement_variables_supermuc_phase_2:
+
 Phase 2
 ~~~~~~~
 
