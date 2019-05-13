@@ -39,7 +39,7 @@
 #
   
 import numpy as np
-from yateto import Tensor, Scalar, simpleParameterSpace
+from yateto import Tensor, Scalar, simpleParameterSpace, parameterSpaceFromRanges
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
