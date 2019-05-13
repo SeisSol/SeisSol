@@ -51,19 +51,36 @@ Some environement variables related to checkpointing are described in the :ref:`
 Optimal environment variables on SuperMuc
 -----------------------------------------
 
-Phase 1
-~~~~~~~
+NG
+~~
 
-| Add the following lines prior to invoking SeisSol in your batch file:
+On NG, we recommand using SeisSol with asyn output in thread mode.
+That is SeisSol should be compiled with commThread='yes', and then run with the environement variables proposed below.
+Also we recommand using hyperthreading capabilities (that is using 96 cpus instead of 48. 2 threads out of 96 are used as communication threads).
+Here are some proposed environement variables, to be added prior to invoking SeisSol in your batch file:
 
 .. code:: bash
 
-   export MP_SINGLE_THREAD=no
-   export OMP_NUM_THREADS=16
-   export MP_TASK_AFFINITY=core:$OMP_NUM_THREADS
+   #SBATCH --nodes=
+   #SBATCH --ntasks-per-node=1 
+   #SBATCH --cpus-per-task=96
 
-Hyperthreading is not efficient on this machine. SeisSol has to be
-compiled without commThread ='yes'.
+   export MP_SINGLE_THREAD=no
+   unset KMP_AFFINITY
+   export OMP_NUM_THREADS=94
+   export OMP_PLACES="cores(47)"
+
+   export XDMFWRITER_ALIGNMENT=8388608
+   export XDMFWRITER_BLOCK_SIZE=8388608
+   export SC_CHECKPOINT_ALIGNMENT=8388608
+   export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
+   export SEISSOL_CHECKPOINT_DIRECT=1
+
+   export ASYNC_MODE=THREAD
+   export ASYNC_BUFFER_ALIGNMENT=8388608
+
+
+.. _environement_variables_supermuc_phase_2:
 
 Phase 2
 ~~~~~~~
@@ -73,20 +90,39 @@ Phase 2
 For order up to 5 (included)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-use the same environement variables as for phase 1, but with 28 threads.
-
-For higher orders
-^^^^^^^^^^^^^^^^^
-
-Add the following lines prior to invoking SeisSol in your batch file:
+| Add the following lines prior to invoking SeisSol in your batch file:
 
 .. code:: bash
 
    export MP_SINGLE_THREAD=no
-   export OMP_NUM_THREADS=54
-   export KMP_AFFINITY=compact,granularity=thread
-   export MP_PE_AFFINITY=no
+   export OMP_NUM_THREADS=28
+   export MP_TASK_AFFINITY=core:$OMP_NUM_THREADS
 
-There are 28 CPU on 1 core, but we use hyperthreading. 2 threads are
-used for communications. SeisSol has to be compiled with commThread
-='yes'.
+SeisSol has to be compiled with commThread ='no'.
+
+
+For higher orders
+^^^^^^^^^^^^^^^^^
+
+Add the following lines prior to invoking SeisSol in your batch file (similarly with NG):
+
+.. code:: bash
+
+   export MP_SINGLE_THREAD=no
+   unset KMP_AFFINITY
+   export OMP_NUM_THREADS=54
+   export OMP_PLACES="cores(27)"
+
+   export XDMFWRITER_ALIGNMENT=8388608
+   export XDMFWRITER_BLOCK_SIZE=8388608
+   export SC_CHECKPOINT_ALIGNMENT=8388608
+   export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
+   export SEISSOL_CHECKPOINT_DIRECT=1
+
+   export ASYNC_MODE=THREAD
+   export ASYNC_BUFFER_ALIGNMENT=8388608
+
+SeisSol has to be compiled with commThread='yes'.
+
+
+

@@ -27,7 +27,7 @@ Characteristics of the SeisSol simulation software are:
   compilation
   a-first-example
   acknowledge
-  citations
+  related-publications
 
 .. toctree::
   :maxdepth: 2
@@ -47,8 +47,7 @@ Characteristics of the SeisSol simulation software are:
   easi
   fault-tagging
   environment-variables
-  supermuc_compile
-  supermuc_ng
+  supermuc
 
 .. toctree::
   :maxdepth: 2
@@ -73,7 +72,6 @@ Characteristics of the SeisSol simulation software are:
   computing-time-vs-order-of-accuracy
   performance-measurement
   attenuation
-  2018-student-cluster-competition
   basic-code-structure
   known-issues
 
@@ -107,7 +105,6 @@ Characteristics of the SeisSol simulation software are:
   :maxdepth: 2
   :caption: Unsorted
 
-  meshing-partionning-with-pumgen-deprecated
   building-seissol-on-stampede-knl-test-system
   left-lateral-right-lateral-normal-reverse
   optimization-for-non-intel-architectures

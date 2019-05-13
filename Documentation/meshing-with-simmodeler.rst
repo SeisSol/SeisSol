@@ -10,10 +10,10 @@ The created stl-file is imported via ``File > Import Discrete Data``.
 Prerequisite
 ------------
 
-The procedure to download SimModeler (GUI) and the SimModeler modeling suite (library) is detailed `here <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloadingBuilding>`. 
+The procedure to download SimModeler (GUI) and the SimModeler modeling suite (library) is detailed `here <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloadingBuilding>`__. 
 Note that to be able to properly define the boundary conditions and to be able to
 export the mesh in the proper format, SimModeler has to be `SeisSol
-customized <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloadingBuilding#customizing-simmodeler-for-seissol>`.
+customized <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloadingBuilding#customizing-simmodeler-for-seissol>`__.
 
 SimModeler version
 ------------------

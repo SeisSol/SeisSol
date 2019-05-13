@@ -127,7 +127,7 @@ stresses on the main fault are:
    s_xx = s_zz = s_xz = s_yz = 0.0 Pa
 
 Friction laws
--------------
+~~~~~~~~~~~~~
 
 Linear-Slip Weakening Friction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
