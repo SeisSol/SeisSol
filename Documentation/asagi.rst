@@ -144,8 +144,6 @@ python.
 SeisSol parameter file
 ----------------------
 
-master branch
-~~~~~~~~~~~~~
 
 A simple example file setting the elastic properties using EASI can be
 found
@@ -156,18 +154,6 @@ Such a file would be called adding in the namelist equation:
 .. code-block:: fortran
 
    MaterialFileName = 101_asagi.yaml
-
-hardcoded-ini branch(deprecated)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Simply add to the namelist equation:
-
-
-.. code-block:: fortran
-
-   MaterialType = 101
-   MaterialFileName= !Path to the netCDF file
-
 
 Further information
 -------------------

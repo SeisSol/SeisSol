@@ -78,6 +78,7 @@ Installing netCDF
   make install
   cd ..
 
+.. _installing_libxsmm:
 
 Installing Libxsmm
 ------------------

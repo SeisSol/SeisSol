@@ -1,5 +1,5 @@
-Citations
-=========
+Related publications
+====================
 
 Käser, M., and M. Dumbser (2006), An arbitrary high-order discontinuous Galerkin method for elastic waves on unstructured meshes - I. The two-dimensional isotropic case with external source terms, Geophys. J. Int., 166(2), 855-877, doi:10.1111/j.1365-246X.2006.03051.x.
 

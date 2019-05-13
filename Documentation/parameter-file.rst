@@ -1,11 +1,6 @@
 Parameter File
 ==============
 
-A parameter file for SeisSol with all possible input parameters, its
-default values and a short description of these values can be found in
-the `parameter file <https://github.com/SeisSol/parameter-file/blob/master/parameters.par>`__.
-For detailed information about each section, please see below.
-
 General Information
 -------------------
 
