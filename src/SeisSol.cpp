@@ -40,6 +40,7 @@
 
 #include <climits>
 #include <unistd.h>
+#include <sys/resource.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -104,8 +105,33 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 #endif
 #endif // _OPENMP
 
-	// Call post MPI initialization hooks
-	seissol::Modules::callHook<seissol::POST_MPI_INIT>();
+  // Check if the ulimit for the stacksize is reasonable.
+  // A low limit can lead to segmentation faults.
+  rlimit rlim;
+  if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
+    const auto rlimInKb = rlim.rlim_cur / 1024;
+    // Softlimit (rlim_cur) is enforced by the kernel.
+    // This limit is pretty arbitrarily set at 2GB.
+    const auto reasonableStackLimit = 2097152; // [kb]
+    if (rlim.rlim_cur == RLIM_INFINITY) {
+      logInfo(rank) << "The stack size ulimit is unlimited.";
+    } else {
+      logInfo(rank) << "The stack size ulimit is " << rlimInKb
+		    << "[kb].";
+    }
+    if (rlimInKb < reasonableStackLimit) {
+      logWarning(rank) << "Stack size of"
+		       << rlimInKb
+		       << "[kb] is lower than recommended minimum of"
+		       << reasonableStackLimit
+		       << "[kb].";
+    }
+  } else {
+    logError() << "Stack size cannot be determined because getrlimit syscall failed!";
+  }
+  
+  // Call post MPI initialization hooks
+  seissol::Modules::callHook<seissol::POST_MPI_INIT>();
 
   // Parse command line arguments
   utils::Args args;
