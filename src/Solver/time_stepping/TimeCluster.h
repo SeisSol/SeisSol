@@ -120,13 +120,13 @@ private:
      * integrators
      */
     //! time kernel
-    kernels::Time     &m_timeKernel;
+    kernels::Time m_timeKernel;
 
     //! local kernel
-    kernels::Local   &m_localKernel;
+    kernels::Local m_localKernel;
 
     //! neighbor kernel
-    kernels::Neighbor &m_neighborKernel;
+    kernels::Neighbor m_neighborKernel;
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
@@ -299,6 +299,7 @@ private:
 
     void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
                                           CellLocalInformation const* cellInformation,
+                                          CellDRMapping const       (*drMapping)[4],
                                           long long&                  nonZeroFlops,
                                           long long&                  hardwareFlops,
                                           long long&                  drNonZeroFlops,
@@ -383,9 +384,6 @@ private:
      **/
     TimeCluster( unsigned int                   i_clusterId,
                  unsigned int                   i_globalClusterId,
-                 kernels::Time                 &i_timeKernel,
-                 kernels::Local                &i_localKernel,
-                 kernels::Neighbor             &i_neighborKernel,
                  struct MeshStructure          *i_meshStructure,
                  struct GlobalData             *i_globalData,
                  seissol::initializers::TimeCluster* i_clusterData,

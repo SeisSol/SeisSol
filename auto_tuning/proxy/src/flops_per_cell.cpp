@@ -31,6 +31,7 @@ int main()
   hardwareFlops += kernelHardwareFlops;
   
   int faceRelations[4][2];
+  CellDRMapping dummyDRMapping[4];
 
   unsigned numConfs = 12*12*12*12;
   for (unsigned conf = 0; conf < 12*12*12*12; ++conf) {
@@ -41,7 +42,7 @@ int main()
       faceRelations[side][1] = confSide / 4;
       m *= 12;
     }
-    neighborKernel.flopsNeighborsIntegral( faceTypes, faceRelations, kernelNonZeroFlops, kernelHardwareFlops, kernelDRNonZeroFlops, kernelDRHardwareFlops );
+    neighborKernel.flopsNeighborsIntegral( faceTypes, faceRelations, dummyDRMapping, kernelNonZeroFlops, kernelHardwareFlops, kernelDRNonZeroFlops, kernelDRHardwareFlops );
     minNeighborNonZeroFlops = std::min(minNeighborNonZeroFlops, static_cast<long long>(kernelNonZeroFlops));
     maxNeighborNonZeroFlops = std::max(maxNeighborNonZeroFlops, static_cast<long long>(kernelNonZeroFlops));
     minNeighborHardwareFlops = std::min(minNeighborHardwareFlops, static_cast<long long>(kernelHardwareFlops));
@@ -71,6 +72,7 @@ int main()
   seissol::kernels::DynamicRupture dynRupKernel;
 
   faceType faceTypesDR[] = {dynamicRupture, dynamicRupture, dynamicRupture, dynamicRupture};
+  CellDRMapping drMapping[4];
   
   for (int neighborSide = 0; neighborSide < 4; ++neighborSide) {
     for (int sideOrientation = 0; sideOrientation < 3; ++sideOrientation) {
@@ -88,19 +90,19 @@ int main()
   }
   
   for (int neighborSide = 0; neighborSide < 4; ++neighborSide) {
-    for (int sideOrientation = 0; sideOrientation < 3; ++sideOrientation) {
+    for (int faceRelation = 0; faceRelation < 4; ++faceRelation) {
       for (int face = 0; face < 4; ++face) {
-        faceRelations[face][0] = neighborSide;
-        faceRelations[face][1] = sideOrientation;
+        drMapping[face].side = neighborSide;
+        drMapping[face].faceRelation = faceRelation;
       }
-      neighborKernel.flopsNeighborsIntegral( faceTypesDR, faceRelations, kernelNonZeroFlops, kernelHardwareFlops, kernelDRNonZeroFlops, kernelDRHardwareFlops );
+      neighborKernel.flopsNeighborsIntegral( faceTypesDR, faceRelations, drMapping, kernelNonZeroFlops, kernelHardwareFlops, kernelDRNonZeroFlops, kernelDRHardwareFlops );
       neighborDRNonZeroFlops += kernelDRNonZeroFlops;
       neighborDRHardwareFlops += kernelDRHardwareFlops;
     }
   }  
   
-  printf("Dynamic rupture face non-zero flops (average, w/o friction law): %.1lf\n", drNonZeroFlops / 48.0 + neighborDRNonZeroFlops / 12.0 / 4.0);
-  printf("Dynamic rupture face hardware flops (average, w/o friction law): %.1lf\n", drHardwareFlops / 48.0 + neighborDRHardwareFlops / 12.0 / 4.0);
+  printf("Dynamic rupture face non-zero flops (average, w/o friction law): %.1lf\n", drNonZeroFlops / 48.0 + neighborDRNonZeroFlops / 16.0 / 4.0);
+  printf("Dynamic rupture face hardware flops (average, w/o friction law): %.1lf\n", drHardwareFlops / 48.0 + neighborDRHardwareFlops / 16.0 / 4.0);
   
 
   /// Plasticity flops

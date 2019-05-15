@@ -47,7 +47,7 @@ void seissol::kernels::TimeCommon::computeIntegrals(  Time&                     
                                                       const double                      i_currentTime[5],
                                                       double                            i_timeStepWidth,
                                                       real * const                      i_timeDofs[4],
-                                                      real                              o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
+                                                      real                              o_integrationBuffer[4][tensor::I::size()],
                                                       real *                            o_timeIntegrated[4] )
 {
   /*
@@ -94,7 +94,7 @@ void seissol::kernels::TimeCommon::computeIntegrals(  Time&                     
                                                       const double                      i_timeStepStart,
                                                       const double                      i_timeStepWidth,
                                                       real * const                      i_timeDofs[4],
-                                                      real                              o_integrationBuffer[4][NUMBER_OF_ALIGNED_DOFS],
+                                                      real                              o_integrationBuffer[4][tensor::I::size()],
                                                       real *                            o_timeIntegrated[4] )
 {
   double l_startTimes[5];

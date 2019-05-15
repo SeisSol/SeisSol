@@ -57,6 +57,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
  
 extern long long libxsmm_num_total_flops;
+extern long long pspamm_num_total_flops;
 
 #include <sys/time.h>
 #ifdef _OPENMP
@@ -180,6 +181,7 @@ int main(int argc, char* argv[]) {
   testKernel(kernel, 1);
   
   libxsmm_num_total_flops = 0;
+  pspamm_num_total_flops = 0;
 
   gettimeofday(&start_time, NULL);
 #ifdef __USE_RDTSC
@@ -240,6 +242,8 @@ int main(int argc, char* argv[]) {
   printf("time for seissol proxy              : %f\n", total);
   printf("cycles                              : %f\n\n", total_cycles);
   printf("GFLOP (libxsmm)                     : %f\n", libxsmm_num_total_flops      * 1.e-9);
+  printf("GFLOP (pspamm)                      : %f\n", pspamm_num_total_flops           * 1.e-9);
+  printf("GFLOP (libxsmm + pspamm)            : %f\n", (libxsmm_num_total_flops + pspamm_num_total_flops) * 1.e-9);
   printf("GFLOP (non-zero) for seissol proxy  : %f\n", actual_flops.d_nonZeroFlops  * 1.e-9);
   printf("GFLOP (hardware) for seissol proxy  : %f\n", actual_flops.d_hardwareFlops * 1.e-9);
   printf("GiB (estimate) for seissol proxy    : %f\n\n", bytes_estimate/(1024.0*1024.0*1024.0));

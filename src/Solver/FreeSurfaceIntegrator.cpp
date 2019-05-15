@@ -46,13 +46,13 @@
 #include <Numerical_aux/Quadrature.h>
 #include <Numerical_aux/Transformation.h>
 #include <Parallel/MPI.h>
-#include <generated_code/kernels.h>
+#include <generated_code/kernel.h>
 #include <utils/logger.h>
 
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializers::LTSTree& surfaceLtsTree)
 {
   seissol::initializers::LayerMask ghostMask(Ghost);
-  surfaceLtsTree.addVar(     velocityDofs, ghostMask,                 1,      seissol::memory::Standard );
+  surfaceLtsTree.addVar(             dofs, ghostMask,                 1,      seissol::memory::Standard );
   surfaceLtsTree.addVar( displacementDofs, ghostMask,                 1,      seissol::memory::Standard );
   surfaceLtsTree.addVar(             side, ghostMask,                 1,      seissol::memory::Standard );
   surfaceLtsTree.addVar(           meshId, ghostMask,                 1,      seissol::memory::Standard );
@@ -110,7 +110,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
         surfaceLayer != surfaceLtsTree.endLeaf();
         ++surfaceLayer)
   {
-    real** velocityDofs     = surfaceLayer->var(surfaceLts.velocityDofs);
+    real** dofs             = surfaceLayer->var(surfaceLts.dofs);
     real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
     unsigned* side = surfaceLayer->var(surfaceLts.side);
 
@@ -118,35 +118,35 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
     #pragma omp parallel for schedule(static)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
-      real projection[FREESURFACE_MAX_SUBTRIANGLES * FREESURFACE_NUMBER_OF_COMPONENTS] __attribute__((aligned(PAGESIZE_STACK)));
+      real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] __attribute__((aligned(ALIGNMENT)));
 
-      seissol::generatedKernels::subTriangleProjection[triRefiner.maxDepth](
-        projectionMatrix[ side[face] ],
-        velocityDofs[face],
-        projection
-      );
+      kernel::subTriangleVelocity vkrnl;
+      vkrnl.Q = dofs[face];
+      vkrnl.selectVelocity = init::selectVelocity::Values;
+      vkrnl.subTriangleProjection(triRefiner.maxDepth) = projectionMatrix[ side[face] ];
+      vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
+      vkrnl.execute(triRefiner.maxDepth);
 
-      for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
-        double* target = velocities[component] + offset + face * numberOfSubTriangles;
-        real* source = projection + component * numberOfAlignedSubTriangles;
-        for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
-          target[subtri] = source[subtri];
+      auto addOutput = [&] (double* output[FREESURFACE_NUMBER_OF_COMPONENTS]) {
+        for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
+          double* target = output[component] + offset + face * numberOfSubTriangles;
+          /// @yateto_todo fix for multiple simulations
+          real* source = subTriangleDofs + component * numberOfAlignedSubTriangles; 
+          for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
+            target[subtri] = source[subtri];
+          }
         }
-      }
+      };
 
-      seissol::generatedKernels::subTriangleProjection[triRefiner.maxDepth](
-        projectionMatrix[ side[face] ],
-        displacementDofs[face],
-        projection
-      );
+      addOutput(velocities);
 
-      for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
-        double* target = displacements[component] + offset + face * numberOfSubTriangles;
-        real* source = projection + component * numberOfAlignedSubTriangles;
-        for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
-          target[subtri] = source[subtri];
-        }
-      }
+      kernel::subTriangleDisplacement dkrnl;
+      dkrnl.displacement = displacementDofs[face];
+      dkrnl.subTriangleProjection(triRefiner.maxDepth) = projectionMatrix[ side[face] ];
+      dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
+      dkrnl.execute(triRefiner.maxDepth);
+
+      addOutput(displacements);
     }
     offset += surfaceLayer->getNumberOfCells() * numberOfSubTriangles;
   }
@@ -163,12 +163,12 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
 
   assert(numberOfSubTriangles == (1u << (2u*maxRefinementDepth)));
 
-  size_t projectionMatrixMemorySize = 4 * numberOfAlignedSubTriangles * NUMBER_OF_BASIS_FUNCTIONS * sizeof(real);
+  size_t projectionMatrixMemorySize = 4 * tensor::subTriangleProjection::size(maxRefinementDepth) * sizeof(real);
   projectionMatrixMemory = (real*) seissol::memory::allocate(projectionMatrixMemorySize, ALIGNMENT);
   memset(projectionMatrixMemory, 0, projectionMatrixMemorySize);
 
   for (unsigned face = 0; face < 4; ++face) {
-    projectionMatrix[face] = projectionMatrixMemory + face * numberOfAlignedSubTriangles * NUMBER_OF_BASIS_FUNCTIONS;
+    projectionMatrix[face] = projectionMatrixMemory + face * tensor::subTriangleProjection::size(maxRefinementDepth);
   }
 
   // Triangle quadrature points and weights
@@ -261,14 +261,15 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     displacements[dim]  = (double*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(double), ALIGNMENT);
   }
 
+  /// @ yateto_todo
   unsigned* ltsToMesh = ltsLut->getLtsToMeshLut(ghostMask);
   for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
-    real (*dofs)[NUMBER_OF_ALIGNED_DOFS]  = layer->var(lts->dofs);
+    real (*dofs)[tensor::Q::size()]       = layer->var(lts->dofs);
     real** displacements                  = layer->var(lts->displacements);
-    real** velocityDofs                   = surfaceLayer->var(surfaceLts.velocityDofs);
+    real** surfaceDofs                    = surfaceLayer->var(surfaceLts.dofs);
     real** displacementDofs               = surfaceLayer->var(surfaceLts.displacementDofs);
     unsigned* side = surfaceLayer->var(surfaceLts.side);
     unsigned* meshId = surfaceLayer->var(surfaceLts.meshId);
@@ -278,7 +279,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
         if (cellInformation[cell].faceTypes[face] == freeSurface) {
           assert(displacements[cell] != NULL);
 
-          velocityDofs[surfaceCell]     = dofs[cell] + NUMBER_OF_ALIGNED_STRESS_DOFS;
+          surfaceDofs[surfaceCell]      = dofs[cell];
           displacementDofs[surfaceCell] = displacements[cell];
           side[surfaceCell]             = face;
           meshId[surfaceCell]           = ltsToMesh[cell];

@@ -69,6 +69,10 @@ def getAlignment(architecture):
       'skx': 64
   }
   return alignments[ getCpu(architecture) ]
+
+def getAlignedReals(architecture):
+  bytesPerReal = 8 if architecture[0] == 'd' else 4
+  return getAlignment(architecture) // bytesPerReal
   
 def getFlags(architecture, compiler):
   if architecture not in getArchitectures():
@@ -101,7 +105,7 @@ def getFlags(architecture, compiler):
     flags = []
   
   # enable interproc. opts for small cores
-  if cpu in ['knc', 'knl']:
+  if cpu in ['knc', 'knl', 'skx']:
     flags.extend(['-ip'])
               
   return flags

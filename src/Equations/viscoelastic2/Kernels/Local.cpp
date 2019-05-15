@@ -39,144 +39,116 @@
  * Local kernel of SeisSol.
  **/
 
-#include "Local.h"
+#include "Kernels/Local.h"
 
 #ifndef NDEBUG
 #pragma message "compiling local kernel with assertions"
 #endif
 
-#include <Kernels/denseMatrixOps.hpp>
-#include <generated_code/kernels.h>
-#include <generated_code/flops.h>
-
-
 #include <cassert>
 #include <stdint.h>
 #include <cstring>
 
-void seissol::kernels::Local::computeIntegral(  enum faceType const         i_faceTypes[4],
-                                                GlobalData const*           global,
-                                                LocalIntegrationData const* local,
-                                                real*                       i_timeIntegratedDegreesOfFreedom,
-                                                real*                       io_degreesOfFreedom )
+#include <yateto.h>
+
+void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
+#ifndef NDEBUG
+  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
+    assert( ((uintptr_t)global->stiffnessMatrices(stiffness)) % ALIGNMENT == 0 );
+  }
+  for (unsigned flux = 0; flux < 4; ++flux) {
+    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(flux)) % ALIGNMENT == 0 );
+    assert( ((uintptr_t)global->changeOfBasisMatrices(flux)) % ALIGNMENT == 0 );
+  }
+#endif
+
+  m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
+  m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
+  m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
+  m_localKernelPrototype.selectEla = init::selectEla::Values;
+  m_localKernelPrototype.selectAne = init::selectAne::Values;
+}
+
+void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                                LocalData& data,
+                                                LocalTmp&  tmp )
 {
   // assert alignments
 #ifndef NDEBUG
-  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( ((uintptr_t)global->stiffnessMatrices[stiffness]) % ALIGNMENT == 0 );
-  }
-  for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed[flux]) % ALIGNMENT == 0 );
-    assert( ((uintptr_t)global->changeOfBasisMatrices[flux]) % ALIGNMENT == 0 );
-  }
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)io_degreesOfFreedom)              % ALIGNMENT == 0 );
+  assert( ((uintptr_t)tmp.timeIntegratedAne) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
 #endif
 
-  real reducedDofs[NUMBER_OF_ALIGNED_REDUCED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
+  real Qext[tensor::Qext::size()] __attribute__((aligned(ALIGNMENT)));
+
+  kernel::volumeExt volKrnl = m_volumeKernelPrototype;
+  volKrnl.Qext = Qext;
+  volKrnl.I = i_timeIntegratedDegreesOfFreedom;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    volKrnl.star(i) = data.localIntegration.starMatrices[i];
+  }
   
-  seissol::generatedKernels::volume(
-    local->starMatrices[0],
-    local->starMatrices[1],
-    local->starMatrices[2],
-    global->stiffnessMatrices[1],
-    global->stiffnessMatrices[0],
-    global->stiffnessMatrices[2],
-    i_timeIntegratedDegreesOfFreedom,
-    reducedDofs
-  );
+  kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
+  lfKrnl.Qext = Qext;
+  lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
+  lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
   
-  for( unsigned int face = 0; face < 4; face++ ) {
-    real const* prefetch = NULL;
-    if (face == 0) {
-      prefetch = i_timeIntegratedDegreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
-    } else if (face == 1) {
-      prefetch = io_degreesOfFreedom + NUMBER_OF_ALIGNED_DOFS;
-    }
+  volKrnl.execute();
+  
+  for( unsigned int face = 0; face < 4; ++face ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( i_faceTypes[face] != dynamicRupture ) {
-      seissol::generatedKernels::localFlux[face](
-        local->nApNm1[face],
-        global->localChangeOfBasisMatricesTransposed[face],
-        global->changeOfBasisMatrices[face],
-        i_timeIntegratedDegreesOfFreedom,
-        reducedDofs,
-        prefetch
-      );
+    if( data.cellInformation.faceTypes[face] != dynamicRupture ) {
+      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
+      lfKrnl.execute(face);
     }
   }
-  
-  SXtYp(  1.0,
-          NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-          NUMBER_OF_ELASTIC_QUANTITIES,
-          reducedDofs,
-          NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-          io_degreesOfFreedom,
-          NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
 
-  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    unsigned mechOffset = NUMBER_OF_ALIGNED_ELASTIC_DOFS + mech * NUMBER_OF_ALIGNED_MECHANISM_DOFS;
+  kernel::local lKrnl = m_localKernelPrototype;
+  lKrnl.E = data.localIntegration.specific.E;
+  lKrnl.Iane = tmp.timeIntegratedAne;
+  lKrnl.Q = data.dofs;
+  lKrnl.Qane = data.dofsAne;
+  lKrnl.Qext = Qext;
+  lKrnl.W = data.localIntegration.specific.W;
+  lKrnl.w = data.localIntegration.specific.w;
 
-    seissol::generatedKernels::source(  local->specific.ET + mech * seissol::model::ET::reals,
-                                        i_timeIntegratedDegreesOfFreedom + mechOffset,
-                                        io_degreesOfFreedom);
-    
-    XYmStZp(  local->specific.omega[mech],
-              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-              NUMBER_OF_MECHANISM_QUANTITIES,
-              reducedDofs + NUMBER_OF_ALIGNED_ELASTIC_DOFS,
-              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-              i_timeIntegratedDegreesOfFreedom + mechOffset,
-              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-              io_degreesOfFreedom + mechOffset,
-              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
-  }
+  lKrnl.execute();
 }
 
 void seissol::kernels::Local::flopsIntegral(  enum faceType const i_faceTypes[4],
                                               unsigned int        &o_nonZeroFlops,
                                               unsigned int        &o_hardwareFlops )
 {
-  o_nonZeroFlops = seissol::flops::volume_nonZero;
-  o_hardwareFlops = seissol::flops::volume_hardware;
+  o_nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
+  o_hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
 
   for( unsigned int face = 0; face < 4; ++face ) {
     if( i_faceTypes[face] != dynamicRupture ) {
-      o_nonZeroFlops  += seissol::flops::localFlux_nonZero[face];
-      o_hardwareFlops += seissol::flops::localFlux_hardware[face];
+      o_nonZeroFlops  += seissol::kernel::localFluxExt::nonZeroFlops(face);
+      o_hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
     }
   }
-  
-  /* Flops from SXtYp:
-   * Y = 1.0 * X + Y == 1 nonzero flop, 2 hardware flops
-   */
-  o_nonZeroFlops += NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_ELASTIC_QUANTITIES;
-  o_hardwareFlops += NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_ELASTIC_QUANTITIES * 2;
 
-  o_nonZeroFlops += seissol::flops::source_nonZero * NUMBER_OF_RELAXATION_MECHANISMS;
-  o_hardwareFlops += seissol::flops::source_hardware * NUMBER_OF_RELAXATION_MECHANISMS;
-  
-  /* Flops from XYmStZp:
-   * Z = (X-Y) * scalar + Z == 3 nonzero and hardware flops
-   */   
-  o_nonZeroFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 3;
-  o_hardwareFlops += NUMBER_OF_RELAXATION_MECHANISMS * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_MECHANISM_QUANTITIES * 3;
+  o_nonZeroFlops += seissol::kernel::local::NonZeroFlops;
+  o_hardwareFlops += seissol::kernel::local::HardwareFlops;
 }
 
 unsigned seissol::kernels::Local::bytesIntegral()
 {
   unsigned reals = 0;
 
-  // star matrices load, source matrix load
-  reals += seissol::model::AstarT::reals
-           + seissol::model::BstarT::reals
-           + seissol::model::CstarT::reals
-           + NUMBER_OF_RELAXATION_MECHANISMS * seissol::model::ET::reals;
+  // star matrices load
+  reals += yateto::computeFamilySize<tensor::star>()
+        + tensor::w::size()
+        + tensor::W::size()
+        + tensor::E::size();
   // flux solvers
-  reals += 4 * seissol::model::AplusT::reals;
+  reals += 4 * tensor::AplusT::size();
 
   // DOFs write
-  reals += NUMBER_OF_ALIGNED_DOFS;
+  reals += tensor::Q::size() + tensor::Qane::size();
   
   return reals * sizeof(real);
 }

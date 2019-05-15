@@ -1,14 +1,16 @@
 #include <cmath>
 #include <array>
 
+#include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
-#include <Numerical_aux/MatrixView.h>
+#include <yateto/TensorView.h>
 
-seissol::physics::Planarwave::Planarwave()
+seissol::physics::Planarwave::Planarwave(real phase)
   : m_setVar(2),
     m_varField{1,8},
     m_ampField{1.0, 1.0},
-    m_kVec{6.283185307179587E-002, 6.283185307179587E-002, 6.283185307179587E-002}
+    m_kVec{6.283185307179587E-002, 6.283185307179587E-002, 6.283185307179587E-002},
+    m_phase(phase)
 {
   const auto rho0 = 1.0;
   const auto mu = 1.0;
@@ -35,7 +37,7 @@ seissol::physics::Planarwave::Planarwave()
 					 0.577350269189626,
 					 0.577350269189626};
 
-  auto ra = DenseMatrixView<9,9,std::complex<real>>(m_eigenvectors);
+  auto ra = yateto::DenseTensorView<2,std::complex<real>>(m_eigenvectors, {9, 9});
 
   ra(0,0) = rho0*(-2*n[1]*n[1]*mu-2*n[2]*n[2]*mu+lambda+2*mu);
   ra(0,1) = -2*mu*n[1]*rho0*n[0]*n[0]*n[2];
@@ -130,16 +132,16 @@ seissol::physics::Planarwave::Planarwave()
 
 void seissol::physics::Planarwave::evaluate(  double time,
                                               std::vector<std::array<double, 3>> const& points,
-                                              MatrixView dofsQP ) const
+                                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
 
-  auto ra = DenseMatrixView<9,9,std::complex<real>>(const_cast<std::complex<real>*>(m_eigenvectors));
+  auto ra = yateto::DenseTensorView<2,std::complex<real>>(const_cast<std::complex<real>*>(m_eigenvectors), {9, 9});
   for (int v = 0; v < m_setVar; ++v) {
     for (int j = 0; j < 9; ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += ra(j,m_varField[v]).real() * m_ampField[v].real()
-                       * std::sin(m_kVec[0]*points[i][0]+m_kVec[1]*points[i][1]+m_kVec[2]*points[i][2] - m_lambdaA[m_varField[v]].real() * time);
+                       * std::sin(m_kVec[0]*points[i][0]+m_kVec[1]*points[i][1]+m_kVec[2]*points[i][2] - m_lambdaA[m_varField[v]].real() * time + m_phase);
       }
     }
   }

@@ -84,6 +84,8 @@ def analyse():
         time = float(timeSearch.group(1))
         matrixBase = matrix[:-1]
         matrixVariant = int(matrix[-1])
+	if matrixVariant > 0:
+		continue
         if not times.has_key(matrixBase):
           times[matrixBase] = dict()
         if not times[matrixBase].has_key(matrixVariant):

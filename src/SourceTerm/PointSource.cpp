@@ -41,6 +41,8 @@
 #include "PointSource.h"
 #include <cmath>
 #include <algorithm>
+#include <generated_code/kernel.h>
+#include <generated_code/init.h>
  
 void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3][3],
                                              real strike,
@@ -126,14 +128,14 @@ real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D cons
    return l_integral;
 }
 
-void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
+void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                                            real const faultBasis[9],
                                                            real muA,
                                                            real lambdaA,
                                                            PiecewiseLinearFunction1D const slipRates[3],
                                                            double i_fromTime,
                                                            double i_toTime,
-                                                           real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] )
+                                                           real o_dofUpdate[tensor::Q::size()] )
 {  
   real slip[] = { 0.0, 0.0, 0.0};
   for (unsigned i = 0; i < 3; ++i) {
@@ -162,25 +164,30 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
   moment[4] = muA * (faultBasis[6 + 1] * rotatedSlip[2] + faultBasis[6 + 2] * rotatedSlip[1]);
   moment[5] = muA * (faultBasis[6 + 0] * rotatedSlip[2] + faultBasis[6 + 2] * rotatedSlip[0]);
 
-  for (unsigned quantity = 0; quantity < 6; ++quantity) {
-    for (unsigned basisFunction = 0; basisFunction < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++basisFunction) {
-      o_dofUpdate[quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + basisFunction] -= i_mInvJInvPhisAtSources[basisFunction] * moment[quantity];
-    }
-  }
+  kernel::sourceNRF krnl;
+  krnl.Q = o_dofUpdate;
+  krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
+  krnl.momentNRF = moment;
+#ifdef MULTIPLE_SIMULATIONS
+  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+#endif
+  krnl.execute();
 }
 
-void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS],
-                                                            real const i_momentTensor[NUMBER_OF_QUANTITIES],
+void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
+                                                            real const i_momentTensor[tensor::momentFSRM::size()],
                                                             PiecewiseLinearFunction1D const* i_pwLF,
                                                             double i_fromTime,
                                                             double i_toTime,
-                                                            real o_dofUpdate[NUMBER_OF_ALIGNED_DOFS] )
+                                                            real o_dofUpdate[tensor::Q::size()] )
 {
-  real l_integral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);  
-
-  for (unsigned quantity = 0; quantity < NUMBER_OF_QUANTITIES; ++quantity) {
-    for (unsigned basisFunction = 0; basisFunction < NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++basisFunction) {
-      o_dofUpdate[quantity * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + basisFunction] += l_integral * i_mInvJInvPhisAtSources[basisFunction] * i_momentTensor[quantity];
-    }
-  }
+  kernel::sourceFSRM krnl;
+  krnl.Q = o_dofUpdate;
+  krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
+  krnl.momentFSRM = i_momentTensor;
+  krnl.stfIntegral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);
+#ifdef MULTIPLE_SIMULATIONS
+  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+#endif
+  krnl.execute();
 }

@@ -46,11 +46,11 @@
 #include <vector>
 #include <glm/vec3.hpp>
 #include <Initializer/typedefs.hpp>
-#include <Kernels/Time.h>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
+#include <Physics/InitialField.h>
 
 namespace seissol {
   class Interoperability;
@@ -61,10 +61,6 @@ namespace seissol {
  **/
 class seissol::Interoperability {
   // private:
-    //! time kernel
-    seissol::kernels::Time m_timeKernel;
-
-
     // Type of the initial condition.
     std::string m_initialConditionType;
     
@@ -101,6 +97,10 @@ class seissol::Interoperability {
 
     std::vector<glm::dvec3>           m_recPoints;
 
+    //! Vector of initial conditions
+    std::vector<physics::InitialField*> m_iniConds;
+
+    void initInitialConditions();
  public:
    /**
     * Constructor.
@@ -298,29 +298,17 @@ class seissol::Interoperability {
     **/
    void copyDynamicRuptureState();
 
+  /**
+   * Returns (possibly multiple) initial conditions
+   */
+   std::vector<physics::InitialField*> const& getInitialConditions() {
+     return m_iniConds;
+   }
+
    /**
     * Project initial field on degrees of freedom.
     **/
    void projectInitialField();
-
-   /**
-    * Gets the time derivatives and integrated DOFs of two face neighbors.
-    *
-    * @param i_meshId mesh id.
-    * @param i_localFaceId local id of the face neighbor.
-    * @param i_timeStepWidth time step width used for the time integration.
-    * @param o_timeDerivativesCell time derivatives of the cell in deprecated full storage scheme (including zero blocks).
-    * @param o_timeDerivativesNeighbor time derivatives of the cell neighbor in deprecated full storage scheme (including zero blocks).
-    * @param o_timeIntegratedCell time integrated degrees of freem of the cell.
-    * @param o_timeIntegratedNeighbor time integrated degrees of free of the neighboring cell.
-    **/
-   void getFaceDerInt( int    _meshId,
-                       int    i_localFaceId,
-                       double i_timeStepWidth,
-                       double o_timeDerivativesCell[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                       double o_timeDerivativesNeighbor[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                       double o_timeIntegratedCell[NUMBER_OF_DOFS],
-                       double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] );
 
    /**
     * Gets the DOFs.
@@ -329,7 +317,7 @@ class seissol::Interoperability {
     * @param o_dofs degrees of freedom.
     **/
    void getDofs( int    i_meshId,
-                 double o_dofs[NUMBER_OF_DOFS] );
+                 double o_dofs[tensor::QFortran::size()] );
 
    /**
     * Gets the DOFs from the derivatives.
@@ -339,7 +327,7 @@ class seissol::Interoperability {
     * @param o_dofs degrees of freedom.
     **/
    void getDofsFromDerivatives( int    i_meshId,
-                                double o_dofs[NUMBER_OF_DOFS] );
+                                double o_dofs[tensor::QFortran::size()] );
 
    /**
     * Gets the neighboring DOFs from the derivatives.
@@ -351,7 +339,7 @@ class seissol::Interoperability {
     **/
    void getNeighborDofsFromDerivatives( int    i_meshId,
                                         int    i_localFaceId,
-                                        double o_dofs[NUMBER_OF_DOFS] );
+                                        double o_dofs[tensor::QFortran::size()] );
    /**
     * Gets the LTS lookup table.
     */
@@ -371,9 +359,9 @@ class seissol::Interoperability {
    void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
 
    void evaluateFrictionLaw(  int face,
-                              real   godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
-                              real   imposedStatePlus[seissol::model::godunovState::reals],
-                              real   imposedStateMinus[seissol::model::godunovState::reals],
+                              real   godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
+                              real   imposedStatePlus[seissol::tensor::godunovState::size()],
+                              real   imposedStateMinus[seissol::tensor::godunovState::size()],
                               double i_fullUpdateTime,
                               double timePoints[CONVERGENCE_ORDER],
                               double timeWeights[CONVERGENCE_ORDER],
@@ -420,7 +408,7 @@ class seissol::Interoperability {
                                       double y,
                                       double z,
                                       unsigned element,
-                                      real mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] );
+                                      real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()] );
 
    /**
     * Simulates until the final time is reached.

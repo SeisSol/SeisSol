@@ -104,9 +104,9 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
         for hdf5 in hdf5s:
             flags = utils.pkgconfig.parse(conf, hdf5)
             if flags:
-                break
+       	        break
 
-    if not flags:
+        if not flags:
             if required:
                 print('Could not find h5cc or h5pcc. Make sure the path to the HDF5 library is correct!')
                 env.Exit(1)

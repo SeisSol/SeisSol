@@ -49,7 +49,6 @@
 #include <Initializer/tree/Lut.hpp>
 
 #define FREESURFACE_MAX_REFINEMENT 3
-#define FREESURFACE_MAX_SUBTRIANGLES (1 << (2*FREESURFACE_MAX_REFINEMENT))
 #define FREESURFACE_NUMBER_OF_COMPONENTS 3
 
 namespace seissol
@@ -63,7 +62,7 @@ namespace seissol
 class seissol::solver::FreeSurfaceIntegrator {
 private:
   struct SurfaceLTS {
-    seissol::initializers::Variable<real*> velocityDofs;
+    seissol::initializers::Variable<real*> dofs;
     seissol::initializers::Variable<real*> displacementDofs;
     seissol::initializers::Variable<unsigned> side;
     seissol::initializers::Variable<unsigned> meshId;

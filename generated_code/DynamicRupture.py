@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2016, SeisSol Group
+# Copyright (c) 2016-2018, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,52 +38,48 @@
 # @section DESCRIPTION
 #
 
-from gemmgen import DB, Tools, Arch, Kernel
-import numpy as np
-import math
+from yateto import Tensor, Scalar, simpleParameterSpace
+from yateto.input import parseJSONMatrixFile
+from multSim import OptionalDimTensor
 
-def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQuantities, numberOfQuantities):
-  numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
-
+def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
   if dynamicRuptureMethod == 'quadrature':
-    numberOfPoints = (order+1)**2
+    numberOfPoints = (aderdg.order+1)**2
   elif dynamicRuptureMethod == 'cellaverage':
-    numberOfPoints = int(4**math.ceil(math.log(order*(order+1)/2,4)))
+    numberOfPoints = int(4**math.ceil(math.log(aderdg.order*(aderdg.order+1)/2,4)))
   else:
     raise ValueError('Unknown dynamic rupture method.')
 
   clones = dict()
 
   # Load matrices
-  db.update(Tools.parseMatrixFile('{}/dr_{}_matrices_{}.xml'.format(matricesDir, dynamicRuptureMethod, order), clones))
+  db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, aderdg.order), clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
-  db.insert(DB.MatrixInfo('godunovMatrix', numberOfElasticQuantities, numberOfElasticQuantities)) 
-  db.insert(DB.MatrixInfo('fluxSolver', numberOfElasticQuantities, numberOfQuantities))
-  db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfElasticQuantities))
+  godShape = (aderdg.numberOfQuantities(), aderdg.numberOfQuantities())
+  godunovMatrix = Tensor('godunovMatrix', godShape)
+  fluxSolverShape = (aderdg.numberOfQuantities(), aderdg.numberOfExtendedQuantities())
+  fluxSolver    = Tensor('fluxSolver', fluxSolverShape)
+  
+  gShape = (numberOfPoints, aderdg.numberOfQuantities())
+  godunovState = OptionalDimTensor('godunovState', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
-  stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
-  globalMatrixIdRules = [
-    (r'^pP(\d{1})$', lambda x: (int(x[0])-1)*4),
-    (r'^pM(\d{1})(\d{1})$', lambda x: (int(x[0])-1)*4 + int(x[1])),
-    (r'^nP(\d{1})$', lambda x: 16 + (int(x[0])-1)*4),
-    (r'^nM(\d{1})(\d{1})$', lambda x: 16 + (int(x[0])-1)*4 + int(x[1]))
-  ]
-  DB.determineGlobalMatrixIds(globalMatrixIdRules, db, 'dr')
+  generator.add('rotateGodunovStateLocal', godunovMatrix['qp'] <= aderdg.Tinv['kq'] * aderdg.QgodLocal['kp'])
+  generator.add('rotateGodunovStateNeighbor', godunovMatrix['qp'] <= aderdg.Tinv['kq'] * aderdg.QgodNeighbor['kp'])
 
-def addKernels(db, kernels, dofMatrixName):
-  # Kernels
-  for i in range(0,4):
-    godunovStatePlus = db['nP{}'.format(i+1)] * db[dofMatrixName] * db['godunovMatrix']
-    kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4), godunovStatePlus, beta=0, prefetch=godunovStatePlus))
-    
-    flux = db['pP{}'.format(i+1)] * db['godunovState'] * db['fluxSolver']
-    kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4), flux, prefetch=db['godunovState']))
-    
-    for h in range(1,4):
-      godunovStateMinus = db['nM{}{}'.format(i+1,h)] * db[dofMatrixName] * db['godunovMatrix']
-      kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4+h), godunovStateMinus, beta=1, prefetch=godunovStateMinus))
+  fluxScale = Scalar('fluxScale')
+  generator.add('rotateFluxMatrix', fluxSolver['qp'] <= fluxScale * aderdg.starMatrix(0)['qk'] * aderdg.T['pk'])
 
-      flux = db['pM{}{}'.format(i+1,h)] * db['godunovState'] * db['fluxSolver']
-      kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4+h), flux, prefetch=db['godunovState']))
+  def godunovStateGenerator(i,h):
+    target = godunovState['kp']
+    term = db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * godunovMatrix['qp']
+    if h == 0:
+      return target <= term
+    return target <= target + term
+  godunovStatePrefetch = lambda i,h: godunovState
+  generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator, godunovStatePrefetch)
+
+  nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * godunovState['lq'] * fluxSolver['qp']
+  nodalFluxPrefetch = lambda i,h: aderdg.I
+  generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)
