@@ -48,9 +48,12 @@ class ADERDGBase(ABC):
   def __init__(self, order, multipleSimulations, matricesDir):
     self.order = order
 
-    self.alignStride = set(['fP({})'.format(i) for i in range(3)]) if multipleSimulations > 1 else True
-    self.transpose = multipleSimulations > 1
-    self.t = (lambda x: x[::-1]) if self.transpose else (lambda x: x)
+    self.alignStride = lambda name: True
+    if multipleSimulations > 1:
+      self.alignStride = lambda name: name.startswith('fP')
+    transpose = multipleSimulations > 1
+    self.transpose = lambda name: transpose
+    self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
     self.db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(matricesDir, self.numberOf3DBasisFunctions()), transpose=self.transpose, alignStride=self.alignStride)
     clonesQP = {
