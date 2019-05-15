@@ -62,11 +62,11 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   }
 #endif
 
-  m_volKrnlPrototype.kDivM = global->stiffnessMatrices;
-  m_lfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_lfKrnlPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
-  m_lKrnlPrototype.selectEla = init::selectEla::Values;
-  m_lKrnlPrototype.selectAne = init::selectAne::Values;
+  m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
+  m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
+  m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
+  m_localKernelPrototype.selectEla = init::selectEla::Values;
+  m_localKernelPrototype.selectAne = init::selectAne::Values;
 }
 
 void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
@@ -82,14 +82,14 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
 
   real Qext[tensor::Qext::size()] __attribute__((aligned(ALIGNMENT)));
 
-  kernel::volumeExt volKrnl = m_volKrnlPrototype;
+  kernel::volumeExt volKrnl = m_volumeKernelPrototype;
   volKrnl.Qext = Qext;
   volKrnl.I = i_timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.localIntegration.starMatrices[i];
   }
   
-  kernel::localFluxExt lfKrnl = m_lfKrnlPrototype;
+  kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
@@ -105,7 +105,7 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
     }
   }
 
-  kernel::local lKrnl = m_lKrnlPrototype;
+  kernel::local lKrnl = m_localKernelPrototype;
   lKrnl.E = data.localIntegration.specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
   lKrnl.Q = data.dofs;

@@ -48,9 +48,9 @@ namespace seissol {
   namespace kernels {
     class LocalBase {
     protected:
-      kernel::volumeExt m_volKrnlPrototype;
-      kernel::localFluxExt m_lfKrnlPrototype;
-      kernel::local m_lKrnlPrototype;
+      kernel::volumeExt m_volumeKernelPrototype;
+      kernel::localFluxExt m_localFluxKernelPrototype;
+      kernel::local m_localKernelPrototype;
     };
   }
 }
