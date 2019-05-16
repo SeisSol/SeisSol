@@ -12,6 +12,7 @@ In order to run SeisSol, you need to first install:
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
+-  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
 -  CMake (for compiling submodules ImpalaJIT and yaml-cpp)
 
 Inital Adjustments to .bashrc
@@ -85,6 +86,14 @@ Installing Libxsmm
    make generator
    cp bin/libxsmm_gemm_generator $HOME/bin
    cd ..
+
+Installing PSpaMM
+-----------------
+
+.. code-block:: bash
+
+   git clone https://github.com/peterwauligmann/PSpaMM.git
+   ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
 
 Installing ParMetis (Optional: PUML mesh format)
 ------------------------------------------------
