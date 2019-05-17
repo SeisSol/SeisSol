@@ -1,5 +1,5 @@
 <matrices>
-    <matrix name="star" rows="15" id="59" columns="15">
+    <matrix name="star" rows="9" columns="15">
       <entry column="1" row="7"/>
       <entry column="1" row="8"/>
       <entry column="1" row="9"/>

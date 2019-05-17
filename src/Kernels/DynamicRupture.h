@@ -42,6 +42,9 @@
 #define KERNELS_DYNAMICRUPTURE_H_
 
 #include <Initializer/typedefs.hpp>
+#include <generated_code/tensor.h>
+#include <generated_code/kernel.h>
+#include <Kernels/Time.h>
 
 namespace seissol {
   namespace kernels {
@@ -51,20 +54,17 @@ namespace seissol {
 
 class seissol::kernels::DynamicRupture {
   private:
-    unsigned int m_numberOfAlignedBasisFunctions[CONVERGENCE_ORDER];
-    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-    double m_timeFactors[CONVERGENCE_ORDER][CONVERGENCE_ORDER];
-    
-    void evaluateTaylorExpansion( unsigned timeInterval,
-                                  real const* timeDerivatives,
-                                  real degreesOfFreedom[NUMBER_OF_ALIGNED_DOFS] );
+    kernel::godunovState m_krnlPrototype;
+    kernels::Time m_timeKernel;
 
   public:
     double timePoints[CONVERGENCE_ORDER];
     double timeSteps[CONVERGENCE_ORDER];
     double timeWeights[CONVERGENCE_ORDER];
 
-    DynamicRupture();
+    DynamicRupture() {}
+    
+    void setGlobalData(GlobalData const* global);
     
     void setTimeStepWidth(double timestep);
 
@@ -73,7 +73,7 @@ class seissol::kernels::DynamicRupture {
                               DRGodunovData const*        godunovData,
                               real const*                 timeDerivativePlus,
                               real const*                 timeDerivativeMinus,
-                              real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
+                              real                        godunov[CONVERGENCE_ORDER][tensor::godunovState::size()],
                               real const*                 timeDerivativePlus_prefetch, 
                               real const*                 timeDerivativeMinus_prefetch);
 

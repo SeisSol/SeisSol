@@ -93,9 +93,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
     // add this time cluster
     m_clusters.push_back( new TimeCluster( l_cluster,
                                            m_timeStepping.clusterIds[l_cluster],
-                                           m_timeKernel,
-                                           m_localKernel,
-                                           m_neighborKernel,
                                            l_meshStructure,
                                            l_globalData,
                                            &i_memoryManager.getLtsTree()->child(l_cluster),

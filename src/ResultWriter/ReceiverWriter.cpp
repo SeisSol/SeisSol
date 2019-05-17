@@ -60,6 +60,8 @@ void seissol::writer::ReceiverWriter::writeHeader(  unsigned                    
                                     glm::dvec3 const&                 point   ) {
   auto name = fileName(pointId);
 
+  std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
+
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
   // Write header if file does not exist
@@ -67,7 +69,19 @@ void seissol::writer::ReceiverWriter::writeHeader(  unsigned                    
     std::ofstream file;
     file.open(name);
     file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5) << (pointId+1) << "\"" << std::endl;
-    file << "VARIABLES = \"Time\",\"xx\",\"yy\",\"zz\",\"xy\",\"yz\",\"xz\",\"u\",\"v\",\"w\"" << std::endl;
+    file << "VARIABLES = \"Time\"";
+#ifdef MULTIPLE_SIMULATIONS
+    for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
+      for (auto const& name : names) {
+        file << ",\"" << name << sim << "\"";
+      }
+    }
+#else
+    for (auto const& name : names) {
+      file << ",\"" << name << "\"";
+    }
+#endif
+    file << std::endl;
     for (int d = 0; d < 3; ++d) {
       file << "# x" << (d+1) << "       " << std::scientific << std::setprecision(12) << point[d] << std::endl;
     }
@@ -122,6 +136,7 @@ void seissol::writer::ReceiverWriter::addPoints(  std::vector<glm::dvec3> const&
                                                   seissol::initializers::Lut const& ltsLut,
                                                   seissol::initializers::LTS const& lts,
                                                   GlobalData const*                 global ) {
+  int rank = seissol::MPI::mpi.rank();
   unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
   std::vector<unsigned> meshIds(numberOfPoints);
@@ -129,11 +144,14 @@ void seissol::writer::ReceiverWriter::addPoints(  std::vector<glm::dvec3> const&
   /// \todo Find a nicer solution that is not so hard-coded.
   std::vector<unsigned> quantities{0, 1, 2, 3, 4, 5, 6, 7, 8};
 
+  logInfo(rank) << "Finding meshIds for receivers...";
   initializers::findMeshIds(points.data(), mesh, numberOfPoints, contained.data(), meshIds.data());
 #ifdef USE_MPI
+  logInfo(rank) << "Cleaning possible double occurring receivers for MPI...";
   initializers::cleanDoubles(contained.data(), numberOfPoints);
 #endif
 
+  logInfo(rank) << "Mapping receivers to LTS cells...";
   for (unsigned point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       unsigned meshId = meshIds[point];

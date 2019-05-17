@@ -40,10 +40,10 @@
 #ifndef TRANSFORMATION_H_
 #define TRANSFORMATION_H_
 
+#include <yateto.h>
 #include <Initializer/typedefs.hpp>
 #include <Geometry/MeshDefinition.h>
 #include <glm/vec3.hpp>
-#include "MatrixView.h"
 
 namespace seissol {
   namespace transformations {
@@ -85,7 +85,9 @@ namespace seissol {
     void inverseTensor1RotationMatrix( VrtxCoords const i_normal,
                                        VrtxCoords const i_tangent1,
                                        VrtxCoords const i_tangent2,
-                                       DenseMatrixView<3, 3> o_Tinv );
+                                       yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
+                                       unsigned row = 0,
+                                       unsigned col = 0 );
 
     /**
      * Returns a column-major matrix that rotates a first-order tensor
@@ -96,7 +98,9 @@ namespace seissol {
     void tensor1RotationMatrix( VrtxCoords const i_normal,
                                 VrtxCoords const i_tangent1,
                                 VrtxCoords const i_tangent2,
-                                DenseMatrixView<3, 3> o_T );
+                                yateto::DenseTensorView<2,real,unsigned>& o_T,
+                                unsigned row = 0,
+                                unsigned col = 0 );
 
     /**
      * Inverse of SymmetricTensor2RotationMatrix().
@@ -104,7 +108,9 @@ namespace seissol {
     void inverseSymmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                                 VrtxCoords const i_tangent1,
                                                 VrtxCoords const i_tangent2,
-                                                DenseMatrixView<6, 6> o_Tinv );
+                                                yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
+                                                unsigned row = 0,
+                                                unsigned col = 0 );
     
     /**
      * Returns a column-major matrix that rotates a symmetric second-order
@@ -115,7 +121,9 @@ namespace seissol {
     void symmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                          VrtxCoords const i_tangent1,
                                          VrtxCoords const i_tangent2,
-                                         DenseMatrixView<6, 6> o_Tinv );
+                                         yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
+                                         unsigned row = 0,
+                                         unsigned col = 0 );
 
     void chiTau2XiEtaZeta(unsigned face, double const chiTau[2], double xiEtaZeta[3], int sideOrientation = -1);
   }

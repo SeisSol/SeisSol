@@ -140,6 +140,7 @@ def getGlobalMatrices(order, arch):
       'rT4': [ True ]
     }
 
+  """
   transposedStiffnessBlocks = list()
   for o in range(2, order+1):
     stoprow = Tools.numberOfBasisFunctions(o-1)
@@ -208,6 +209,7 @@ def getGlobalMatrices(order, arch):
     configs['r{}DivM'.format(i)].append(rBlocks)
     configs['r{}DivM'.format(i)].append(noMemsetRBlocks)
     configs['rT{}'.format(i)].append(rTBlocks)
+  """
 
   # fMrT and rT have the same sparsity pattern
   for i in range(1,5):

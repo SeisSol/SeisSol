@@ -86,7 +86,7 @@ def generate(env, **kw):
     ret = conf.CheckPKG(lib)
     if not ret:
         if required:
-            print 'Could not find ASAGI!'
+            print('Could not find ASAGI!')
             env.Exit(1)
         else:
             conf.Finish()
@@ -102,7 +102,7 @@ def generate(env, **kw):
         ret = conf.CheckASAGILinking('Checking for static ASAGI library')
         if not ret:
             if required:
-                print 'Could not find ASAGI!'
+                print('Could not find ASAGI!')
                 env.Exit(1)
             else:
                 conf.Finish()

@@ -5,16 +5,17 @@
 #include <Eigen/Eigenvalues>
 #endif
 
+#include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
 #include <Model/Setup.h>
-#include <Numerical_aux/MatrixView.h>
 #include <Solver/Interoperability.h>
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave()
+seissol::physics::Planarwave::Planarwave(real phase)
   : m_setVar(27),
-    m_kVec{3.14159265358979323846, 3.14159265358979323846, 3.14159265358979323846}
+    m_kVec{3.14159265358979323846, 3.14159265358979323846, 3.14159265358979323846},
+    m_phase(phase)
 {
 #ifdef HAS_EIGEN3
   const double rho = 1.0;
@@ -49,14 +50,14 @@ seissol::physics::Planarwave::Planarwave()
     ic(j) = 0.0;
   }
 
-  auto amp = ces.eigenvectors().colPivHouseholderQr().solve(ic);
-  for (size_t j = 0; j < m_setVar; ++j) {
+  auto eigenvectors = ces.eigenvectors();
+  Vector amp = eigenvectors.colPivHouseholderQr().solve(ic);
+  for (int j = 0; j < m_setVar; ++j) {
     m_varField.push_back(j);
     m_ampField.push_back(amp(j));
   }
 
-  auto eigenvectors = ces.eigenvectors();
-  auto R = DenseMatrixView<NUMBER_OF_QUANTITIES,NUMBER_OF_QUANTITIES,std::complex<real>>(m_eigenvectors);
+  auto R = yateto::DenseTensorView<2,std::complex<real>>(m_eigenvectors, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
       R(i,j) = eigenvectors(i,j);
@@ -69,17 +70,22 @@ seissol::physics::Planarwave::Planarwave()
 
 void seissol::physics::Planarwave::evaluate(  double time,
                                               std::vector<std::array<double, 3>> const& points,
-                                              MatrixView dofsQP ) const
+                                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
 
-  auto R = DenseMatrixView<NUMBER_OF_QUANTITIES,NUMBER_OF_QUANTITIES,std::complex<real>>(const_cast<std::complex<real>*>(m_eigenvectors));
+  auto R = yateto::DenseTensorView<2,std::complex<real>>(
+             const_cast<std::complex<real>*>(m_eigenvectors),
+             {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES}
+           );
   for (int v = 0; v < m_setVar; ++v) {
     const auto omega =  m_lambdaA[m_varField[v]];
-    for (int j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+    for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
-        dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v]
-                       * std::exp(std::complex<real>(0.0, 1.0)*(omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2]))).real();
+        dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v] *
+                        std::exp(std::complex<real>(0.0, 1.0) * (
+                          omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + m_phase
+                        ))).real();
       }
     }
   }

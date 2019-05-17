@@ -8,7 +8,6 @@
 #include "Solver/Interoperability.h"
 #include "Physics/InitialField.h"
 #include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/MatrixView.h"
 #include "Numerical_aux/Transformation.h"
 #include "Numerical_aux/BasisFunction.h"
 #include "Parallel/MPI.h"

@@ -48,31 +48,30 @@
 #include <Initializer/LTS.h>
 #include <Initializer/PointMapper.h>
 #include <Kernels/Time.h>
+#include <Kernels/Interface.hpp>
+#include <generated_code/init.h>
 
-class LocalIntegrationData;
 class GlobalData;
 namespace seissol {
   namespace kernels {
     struct Receiver {
-      Receiver(unsigned pointId, double xi, double eta, double zeta, real* dofs, LocalIntegrationData* local, size_t reserved)
+      Receiver(unsigned pointId, double xi, double eta, double zeta, kernels::LocalData data, size_t reserved)
         : pointId(pointId),
           basisFunctions(CONVERGENCE_ORDER, xi, eta, zeta),
-          dofs(dofs),
-          local(local)
+          data(data)
       {
         output.reserve(reserved);
       }
       unsigned pointId;
-      basisFunction::SampledBasisFunctions<double> basisFunctions;
-      real* dofs;
-      LocalIntegrationData* local;
+      basisFunction::SampledBasisFunctions<real> basisFunctions;
+      kernels::LocalData data;
       std::vector<real> output;
     };
 
     class ReceiverCluster {
     public:
       ReceiverCluster()
-        : m_global(nullptr), m_nonZeroFlops(0), m_hardwareFlops(0),
+        : m_nonZeroFlops(0), m_hardwareFlops(0),
           m_samplingInterval(1.0e99), m_syncPointInterval(0.0)
       {}
 
@@ -80,8 +79,9 @@ namespace seissol {
                         std::vector<unsigned> const&  quantities,
                         double                        samplingInterval,
                         double                        syncPointInterval )
-        : m_global(global), m_quantities(quantities),
+        : m_quantities(quantities),
           m_samplingInterval(samplingInterval), m_syncPointInterval(syncPointInterval) {
+        m_timeKernel.setGlobalData(global);
         m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
       }
 
@@ -106,13 +106,16 @@ namespace seissol {
       }
 
       size_t ncols() const {
-        return 1 + m_quantities.size();
+        size_t ncols = m_quantities.size();
+#ifdef MULTIPLE_SIMULATIONS
+        ncols *= init::QAtPoint::Stop[0]-init::QAtPoint::Start[0];
+#endif
+        return 1 + ncols;
       }
 
     private:
       std::vector<Receiver>   m_receivers;
       seissol::kernels::Time  m_timeKernel;
-      GlobalData const*       m_global;
       std::vector<unsigned>   m_quantities;
       unsigned                m_nonZeroFlops;
       unsigned                m_hardwareFlops;

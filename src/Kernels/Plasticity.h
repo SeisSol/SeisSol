@@ -43,6 +43,7 @@
 #define KERNELS_PLASTICITY_H_
 
 #include <Initializer/typedefs.hpp>
+#include <generated_code/tensor.h>
 
 namespace seissol {
   namespace kernels {
@@ -58,7 +59,7 @@ public:
                                      double                      timeStepWidth,
                                      GlobalData const*           global,
                                      PlasticityData const*       plasticityData,
-                                     real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ],
+                                     real                        degreesOfFreedom[tensor::Q::size()],
                                      double*                     pstrain);
 
   static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,

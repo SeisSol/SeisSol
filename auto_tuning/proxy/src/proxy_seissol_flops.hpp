@@ -81,11 +81,12 @@ seissol_flops flops_neigh_actual(unsigned int i_timesteps) {
   auto&                 layer           = m_ltsTree.child(0).child<Interior>();
   unsigned              nrOfCells       = layer.getNumberOfCells();
   CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
+  CellDRMapping        (*drMapping)[4]  = layer.var(m_lts.drMapping);
   for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     unsigned int l_nonZeroFlops, l_hardwareFlops;
     long long l_drNonZeroFlops, l_drHardwareFlops;
     // get flops
-    m_neighborKernel.flopsNeighborsIntegral( cellInformation[l_cell].faceTypes, cellInformation[l_cell].faceRelations, l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
+    m_neighborKernel.flopsNeighborsIntegral( cellInformation[l_cell].faceTypes, cellInformation[l_cell].faceRelations, drMapping[l_cell], l_nonZeroFlops, l_hardwareFlops, l_drNonZeroFlops, l_drHardwareFlops );
     ret.d_nonZeroFlops  += l_nonZeroFlops + l_drNonZeroFlops;
     ret.d_hardwareFlops += l_hardwareFlops + l_drHardwareFlops;
   }

@@ -41,7 +41,9 @@
 #ifndef SOURCETERM_TYPEDEFS_HPP_
 #define SOURCETERM_TYPEDEFS_HPP_
 
+#include <cstdlib>
 #include <Initializer/typedefs.hpp>
+#include <generated_code/tensor.h>
 
 namespace seissol {
   namespace sourceterm {    
@@ -54,6 +56,7 @@ namespace seissol {
      * (The scaling factor (1 / |J|) is due to the coordinate transformation (x,y,z) -> (xi,eta,zeta).)
      **/
     struct PointSources {
+      constexpr static unsigned TensorSize = (tensor::momentFSRM::Size > 9) ? tensor::momentFSRM::Size : 9;
       enum Mode {
         NRF,
         FSRM
@@ -62,7 +65,7 @@ namespace seissol {
       /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
        *  basis function and xi_s, eta_s, and zeta_s are the space position
        *  of the point source in the reference tetrahedron. */
-      real (*mInvJInvPhisAtSources)[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
+      real (*mInvJInvPhisAtSources)[tensor::mInvJInvPhisAtSources::size()];
 
       /** NRF: Basis vectors of the fault.
        * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
@@ -70,14 +73,14 @@ namespace seissol {
        * 6-8: NormalX-Z = fault normal
        * 
        * FSRM: Moment tensor */
-      real (*tensor)[9];
-      
+      real (*tensor)[TensorSize];
+
       /// mu*Area
       real *muA;
-      
+
       /// lambda*Area
       real *lambdaA;
-      
+
       /** NRF: slip rate in
        * 0: Tan1 direction
        * 1: Tan2 direction
@@ -85,17 +88,17 @@ namespace seissol {
        * 
        * FSRM: 0: slip rate (all directions) */
       PiecewiseLinearFunction1D (*slipRates)[3];
-      
+
       /** Number of point sources in this struct. */
       unsigned numberOfSources;
-      
+
       PointSources() : mode(NRF), mInvJInvPhisAtSources(NULL), tensor(NULL), muA(NULL), lambdaA(NULL), slipRates(NULL), numberOfSources(0) {}
-      ~PointSources() { numberOfSources = 0; delete[] mInvJInvPhisAtSources; delete[] tensor; delete[] muA; delete[] lambdaA; delete[] slipRates; }
+      ~PointSources() { numberOfSources = 0; free(mInvJInvPhisAtSources); free(tensor); delete[] muA; delete[] lambdaA; delete[] slipRates; }
     };
 
     struct CellToPointSourcesMapping {
       //! Pointer to DOFs
-      real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
+      real (*dofs)[tensor::Q::size()];
       //! First point source that has an effect on the cell
       unsigned pointSourcesOffset;
       /** The point sources buffer is ordered by cells, hence the point sources

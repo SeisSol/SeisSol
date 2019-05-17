@@ -273,9 +273,14 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     sources[cluster].mode                  = PointSources::FSRM;
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
-    /// \todo allocate aligned or remove ALIGNED_
-    sources[cluster].mInvJInvPhisAtSources = new real[cmps[cluster].numberOfSources][NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-    sources[cluster].tensor                = new real[cmps[cluster].numberOfSources][9];
+    int error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].mInvJInvPhisAtSources), ALIGNMENT, cmps[cluster].numberOfSources*tensor::mInvJInvPhisAtSources::size()*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
+    error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].tensor), ALIGNMENT, cmps[cluster].numberOfSources*PointSources::TensorSize*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
     sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
@@ -361,9 +366,14 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     sources[cluster].mode                  = PointSources::NRF;
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
-    /// \todo allocate aligned or remove ALIGNED_
-    sources[cluster].mInvJInvPhisAtSources = new real[cmps[cluster].numberOfSources][NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-    sources[cluster].tensor                = new real[cmps[cluster].numberOfSources][9];
+    int error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].mInvJInvPhisAtSources), ALIGNMENT, cmps[cluster].numberOfSources*tensor::mInvJInvPhisAtSources::size()*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
+    error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].tensor), ALIGNMENT, cmps[cluster].numberOfSources*PointSources::TensorSize*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
     sources[cluster].muA                   = new real[cmps[cluster].numberOfSources];
     sources[cluster].lambdaA               = new real[cmps[cluster].numberOfSources];
     sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];

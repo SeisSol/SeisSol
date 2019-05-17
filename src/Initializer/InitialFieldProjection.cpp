@@ -43,13 +43,14 @@
 #include <Numerical_aux/Quadrature.h>
 #include <Numerical_aux/BasisFunction.h>
 #include <Numerical_aux/Transformation.h>
-#include <generated_code/kernels.h>
+#include <generated_code/kernel.h>
+#include <generated_code/tensor.h>
 
-void seissol::initializers::projectInitialField(  physics::InitialField const&  iniField,
-                                                  GlobalData const&             globalData,
-                                                  MeshReader const&             meshReader,                                                    
-                                                  LTS const&                    lts,
-                                                  Lut const&                    ltsLut )
+void seissol::initializers::projectInitialField(  std::vector<physics::InitialField*> const&  iniFields,
+                                                  GlobalData const&                           globalData,
+                                                  MeshReader const&                           meshReader,
+                                                  LTS const&                                  lts,
+                                                  Lut const&                                  ltsLut )
 {
   auto const& vertices = meshReader.getVertices();
   auto const& elements = meshReader.getElements();
@@ -61,17 +62,23 @@ void seissol::initializers::projectInitialField(  physics::InitialField const&  
   double quadratureWeights[numQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, quadPolyDegree);
 
-  assert(model::dofsQP::rows == numQuadPoints);
-
 #ifdef _OPENMP
   #pragma omp parallel
   {
 #endif
-  real dofsQPdata[model::dofsQP::reals] __attribute__((aligned(ALIGNMENT)));
-  MatrixView dofsQP(dofsQPdata, sizeof(dofsQPdata)/sizeof(real), &colMjrIndex<model::dofsQP::ld>);
+  real iniCondData[tensor::iniCond::size()] __attribute__((aligned(ALIGNMENT))) = {};
+  auto iniCond = init::iniCond::view::create(iniCondData);
 
   std::vector<std::array<double, 3>> quadraturePointsXyz;
   quadraturePointsXyz.resize(numQuadPoints);
+
+  kernel::projectIniCond krnl;
+  krnl.projectQP = globalData.projectQPMatrix;
+  krnl.iniCond = iniCondData;
+#if NUMBER_OF_RELAXATION_MECHANISMS > 0
+  krnl.selectAneFull = init::selectAneFull::Values;
+  krnl.selectElaFull = init::selectElaFull::Values;
+#endif
 
 #ifdef _OPENMP
   #pragma omp for schedule(static)
@@ -85,10 +92,20 @@ void seissol::initializers::projectInitialField(  physics::InitialField const&  
       seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
     }
 
-    iniField.evaluate(0.0, quadraturePointsXyz, dofsQP);
-    generatedKernels::projectQP(  dofsQPdata,
-                                  globalData.projectQPMatrix,
-                                  ltsLut.lookup(lts.dofs, meshId) );
+#ifdef MULTIPLE_SIMULATIONS
+    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+      auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());
+      iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, sub);
+    }
+#else
+    iniFields[0]->evaluate(0.0, quadraturePointsXyz, iniCond);
+#endif
+
+    krnl.Q = ltsLut.lookup(lts.dofs, meshId);
+#if NUMBER_OF_RELAXATION_MECHANISMS > 0
+    krnl.Qane = ltsLut.lookup(lts.dofsAne, meshId);
+#endif
+    krnl.execute();
   }
 #ifdef _OPENMP
   }

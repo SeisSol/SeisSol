@@ -43,6 +43,7 @@
 #include <Numerical_aux/Transformation.h>
 #include <Parallel/MPI.h>
 #include <Monitoring/FlopCounter.hpp>
+#include <generated_code/kernel.h>
 
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
@@ -65,26 +66,33 @@ void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                  
                             xiEtaZeta[0],
                             xiEtaZeta[1],
                             xiEtaZeta[2],
-                            &ltsLut.lookup(lts.dofs, meshId)[0],
-                            &ltsLut.lookup(lts.localIntegration, meshId),
+                            kernels::LocalData::lookup(lts, ltsLut, meshId),
                             reserved);
 }
 
 double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
                                                           double expansionPoint,
                                                           double timeStepWidth ) {
-  real timeEvaluated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
-  real timeDerivatives[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(ALIGNMENT)));
+  real timeEvaluated[tensor::Q::size()] __attribute__((aligned(ALIGNMENT)));
+  real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(ALIGNMENT)));
+  real timeEvaluatedAtPoint[tensor::QAtPoint::size()] __attribute__((aligned(ALIGNMENT)));
 
-  assert(m_global != nullptr);
+  kernels::LocalTmp tmp;
+
+  kernel::evaluateDOFSAtPoint krnl;
+  krnl.QAtPoint = timeEvaluatedAtPoint;
+  krnl.Q = timeEvaluated;
+
+  auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
 
   double receiverTime = time;
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     for (auto& receiver : m_receivers) {
+      krnl.basisFunctions = receiver.basisFunctions.m_data.data();
+
       m_timeKernel.computeAder( 0,
-                                m_global,
-                                receiver.local,
-                                receiver.dofs,
+                                receiver.data,
+                                tmp,
                                 timeEvaluated, // useless but the interface requires it
                                 timeDerivatives );
       g_SeisSolNonZeroFlopsOther += m_nonZeroFlops;
@@ -93,12 +101,20 @@ double seissol::kernels::ReceiverCluster::calcReceivers(  double time,
       receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
         m_timeKernel.computeTaylorExpansion(receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
+        krnl.execute();
 
         receiver.output.push_back(receiverTime);
-        for (auto quantity : m_quantities) {
-          auto value = receiver.basisFunctions.evalWithCoeffs(timeEvaluated + quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-          receiver.output.push_back(value);
+#ifdef MULTIPLE_SIMULATIONS
+        for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
+          for (auto quantity : m_quantities) {
+            receiver.output.push_back(qAtPoint(sim, quantity));
+          }
         }
+#else
+        for (auto quantity : m_quantities) {
+          receiver.output.push_back(qAtPoint(quantity));
+        }
+#endif
 
         receiverTime += m_samplingInterval;
       }
