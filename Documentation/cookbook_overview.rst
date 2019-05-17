@@ -1,9 +1,12 @@
 Overview
 ========
 
-This documentation is a collection of useful dynamic simulation examples to help users build models from the scratch with little efforts. Each example is demonstrated carefully with geometry building, parameter setup and result visualization. Users are suggested to repeat each example in order to get a comprehensive idea of how to set up dynamic simulation models with SeisSol. The updates of source software and news of SeisSol should be posted in SeisSol GitHub (https://github.com/SeisSol/SeisSol) or Readdocs (https://seissol.readthedocs.io/en/latest).
+This documentation is a collection of useful dynamic simulation examples to help users build models from scratch with little effort. Each example is demonstrated carefully with geometry building, parameter setup and result visualization. Users are suggested to repeat each example in order to get a comprehensive idea of how to set up dynamic simulation models with SeisSol. 
 
 SeisSol is a part of SCEC dynamic code validation project (Harris et al. 2018) (http://scecdata.usc.edu/cvws/). Here we show several SCEC benchmarks for beginners to quickly catch up with SeisSol workflow. Each benchmark example is composed of a short problem description, a section of *geometry, initial setups (stress, nucleation, friction, etc.)*, and *simulation results*.
+
+Please note that examples used here are only for demonstration purpose. 
+For detailed benchmark tests please refer to SCEC benchmark center. 
 
 +----------------+-------------------------+----------------+---------------------------------------------------------------------------------------------------------------------+
 | No.            | Fault type              | Difficulty     | Description                                                                                                         |
@@ -36,7 +39,7 @@ Prerequisites
 
 Before you begin any of the examples, you will need to install latest
 SeisSol from (https://github.com/SeisSol/SeisSol). The instruction can be found at https://seissol.readthedocs.io/en/latest/compilation.html. All geometry and
-tetrahedral meshing are generated using free software Gmsh (http://gmsh.info/) is needed.
+tetrahedral meshes are generated using free software Gmsh (http://gmsh.info/).
 If you do not wish to create your own mesh at this time, the meshes are
 also provided as part of the example. The ParaView visualization package
 (https://www.paraview.org/) may be used to view simulation results. You may use other visualization
@@ -48,8 +51,9 @@ not have the proper software packages installed.
 Input file resources
 ~~~~~~~~~~~~~~~~~~~~
 
-The files needed to work through the examples are provided. Users may
-download freely from this repository (https://github.com/daisy20170101/SeisSol_Cookbook).
+The files needed to work through the examples are provided. 
+All files necessary to setup the cookbook examples can be downloaded at: https://gitlab.lrz.de/ru58zid/benchmarks/
+(a backup repository will be: https://github.com/daisy20170101/SeisSol_Cookbook)
 
 References
 ~~~~~~~~~~~~~~~~~~~~
