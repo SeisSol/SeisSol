@@ -39,7 +39,7 @@ Prerequisites
 
 Before you begin any of the examples, you will need to install latest
 SeisSol from (https://github.com/SeisSol/SeisSol). The instruction can be found at https://seissol.readthedocs.io/en/latest/compilation.html. All geometry and
-tetrahedral meshing are generated using free software Gmsh (http://gmsh.info/).
+tetrahedral meshes are generated using free software Gmsh (http://gmsh.info/).
 If you do not wish to create your own mesh at this time, the meshes are
 also provided as part of the example. The ParaView visualization package
 (https://www.paraview.org/) may be used to view simulation results. You may use other visualization
