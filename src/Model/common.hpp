@@ -41,38 +41,40 @@
 #define MODEL_COMMON_HPP_
 
 #include <cmath>
-#include <Initializer/typedefs.hpp>
-#include <generated_code/init.h>
+
+#include "Initializer/typedefs.hpp"
+#include "generated_code/init.h"
 
 namespace seissol {
   namespace model {
+    bool testShearModulusNonZero(real mu);
+    
     template<typename T>
-    void getTransposedElasticCoefficientMatrix( ElasticMaterial const&          i_material,
-                                                unsigned                        i_dim,
-                                                T&                              o_M );
+    void getTransposedElasticCoefficientMatrix(ElasticMaterial const& i_material,
+                                               unsigned i_dim,
+                                               T& o_M);
 
     template<typename Tloc, typename Tneigh>
-    void getTransposedElasticGodunovState( Material const&                      local,
-                                           Material const&                      neighbor,
-                                           enum ::faceType                      faceType,
-                                           Tloc&                                QgodLocal,
-                                           Tneigh&                              QgodNeighbor );
+    void getTransposedElasticGodunovState(Material const& local,
+                                          Material const& neighbor,
+                                          enum ::faceType faceType,
+                                          Tloc& QgodLocal,
+                                          Tneigh& QgodNeighbor);
 
     template<typename T>
-    void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    T&              QgodNeighbor );
+    void applyBoundaryConditionToElasticFluxSolver(enum ::faceType type,
+                                                    T& QgodNeighbor);
   }
 }
 
 template<typename T>
-void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::ElasticMaterial const&  i_material,
-                                                            unsigned                                i_dim,
-                                                            T&                                      o_M )
-{
+void seissol::model::getTransposedElasticCoefficientMatrix(seissol::model::ElasticMaterial const& i_material,
+                                                           unsigned i_dim,
+                                                           T& o_M) {
   o_M.setZero();
 
-  real lambda2mu = i_material.lambda + 2.0 * i_material.mu;
-  real rhoInv = 1.0 / i_material.rho;
+  const real lambda2mu = i_material.lambda + 2.0 * i_material.mu;
+  const real rhoInv = 1.0 / i_material.rho;
 
   switch (i_dim)
   {
@@ -83,8 +85,10 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
       o_M(7,3) = -i_material.mu;
       o_M(8,5) = -i_material.mu;
       o_M(0,6) = -rhoInv;
-      o_M(3,7) = -rhoInv;
-      o_M(5,8) = -rhoInv;
+      if (testShearModulusNonZero(i_material.mu)) {
+        o_M(3,7) = -rhoInv;
+        o_M(5,8) = -rhoInv;
+      }
       break;
 
     case 1:
@@ -93,9 +97,11 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
       o_M(7,2) = -i_material.lambda;
       o_M(6,3) = -i_material.mu;
       o_M(8,4) = -i_material.mu;
-      o_M(3,6) = -rhoInv;
       o_M(1,7) = -rhoInv;
-      o_M(4,8) = -rhoInv;
+      if (testShearModulusNonZero(i_material.mu)) {
+        o_M(3,6) = -rhoInv;
+        o_M(4,8) = -rhoInv;
+      }
       break;
 
     case 2:
@@ -104,9 +110,11 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
       o_M(8,2) = -lambda2mu;
       o_M(7,4) = -i_material.mu;
       o_M(6,5) = -i_material.mu;
-      o_M(5,6) = -rhoInv;
-      o_M(4,7) = -rhoInv;
       o_M(2,8) = -rhoInv;
+      if (testShearModulusNonZero(i_material.mu)) {
+        o_M(5,6) = -rhoInv;
+        o_M(4,7) = -rhoInv;
+      }
       break;
       
     default:
@@ -115,36 +123,43 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
 }
 
 template<typename Tloc, typename Tneigh>
-void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
-                                                       Material const&                      neighbor,
-                                                       enum ::faceType                      faceType,
-                                                       Tloc&                                QgodLocal,
-                                                       Tneigh&                              QgodNeighbor )
-{
+void seissol::model::getTransposedElasticGodunovState(Material const& local,
+                                                      Material const& neighbor,
+                                                      enum ::faceType faceType,
+                                                      Tloc& QgodLocal,
+                                                      Tneigh& QgodNeighbor) {
   QgodNeighbor.setZero();
   
-  real cpL = sqrt((local.lambda + 2.0 * local.mu)       / local.rho);
-  real cpN = sqrt((neighbor.lambda + 2.0 * neighbor.mu) / neighbor.rho);
-  real csL = sqrt(local.mu / local.rho);
-  real csN = sqrt(neighbor.mu / neighbor.rho);
+  const real cpL = sqrt((local.lambda + 2.0 * local.mu) / local.rho);
+  const real cpN = sqrt((neighbor.lambda + 2.0 * neighbor.mu) / neighbor.rho);
+  const real csL = sqrt(local.mu / local.rho);
+  const real csN = sqrt(neighbor.mu / neighbor.rho);
   
-  real constP = cpN * (local.lambda + 2.0 * local.mu) + cpL * (neighbor.lambda + 2.0 * neighbor.mu);
-  real constS = csN * local.mu + csL * neighbor.mu;
+  const real constP = cpN * (local.lambda + 2.0 * local.mu) + cpL * (neighbor.lambda + 2.0 * neighbor.mu);
+  const real constS = csN * local.mu + csL * neighbor.mu;
   
   QgodNeighbor(0,0) = cpN * (local.lambda + 2.0 * local.mu) / constP;
   QgodNeighbor(6,0) = (local.lambda + 2.0 * local.mu) * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(0,1) = cpN * local.lambda / constP;
-  QgodNeighbor(6,1) = local.lambda * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(0,2) = QgodNeighbor(0,1);
-  QgodNeighbor(6,2) = QgodNeighbor(6,1);
-  QgodNeighbor(3,3) = csN * local.mu / constS;
-  QgodNeighbor(7,3) = local.mu * neighbor.mu / constS;
-  QgodNeighbor(5,5) = QgodNeighbor(3,3);
-  QgodNeighbor(8,5) = QgodNeighbor(7,3);
   QgodNeighbor(0,6) = cpL * cpN / constP;
   QgodNeighbor(6,6) = cpL * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(3,7) = csL * csN / constS;
-  QgodNeighbor(7,7) = csL * neighbor.mu / constS;
+  if (testShearModulusNonZero(local.mu) && testShearModulusNonZero(neighbor.mu)) {
+    QgodNeighbor(3,3) = csN * local.mu / constS;
+    QgodNeighbor(7,3) = local.mu * neighbor.mu / constS;
+    QgodNeighbor(3,7) = csL * csN / constS;
+    QgodNeighbor(7,7) = csL * neighbor.mu / constS;
+  } else if (testShearModulusNonZero(local.mu) && !testShearModulusNonZero(neighbor.mu)) {
+    QgodNeighbor(3,3) = 1.0;
+    QgodNeighbor(7,3) = 0.0;
+    QgodNeighbor(3,7) = csL / local.mu;
+    QgodNeighbor(7,7) = 0.0;
+  } else {
+    QgodNeighbor(3,3) = 0.0;
+    QgodNeighbor(7,3) = 0.0;
+    QgodNeighbor(3,7) = 0.0;
+    QgodNeighbor(7,7) = 0.0;
+  }
+  QgodNeighbor(5,5) = QgodNeighbor(3,3);
+  QgodNeighbor(8,5) = QgodNeighbor(7,3);
   QgodNeighbor(5,8) = QgodNeighbor(3,7);
   QgodNeighbor(8,8) = QgodNeighbor(7,7);
 
@@ -162,9 +177,8 @@ void seissol::model::getTransposedElasticGodunovState( Material const&          
 }
 
 template<typename T>
-void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                T&              QgodNeighbor )
-{
+void seissol::model::applyBoundaryConditionToElasticFluxSolver(enum ::faceType type,
+                                                               T& QgodNeighbor) {
   if (type == freeSurface) {
     // Gamma is a diagonal matrix
     real Gamma[] = { -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0 };
@@ -177,4 +191,4 @@ void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType 
   }
 }
 
-#endif
+#endif // MODEL_COMMON_HPP_
