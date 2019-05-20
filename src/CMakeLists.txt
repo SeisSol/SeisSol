@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.5)
 project(SeisSol)
 
+# TODO: Move one dir up.
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -23,7 +26,10 @@ Initializer/GlobalData.cpp
 Initializer/InternalState.cpp
 Initializer/MemoryAllocator.cpp
 Initializer/CellLocalMatrices.cpp
-# Initializer/time_stepping/LtsWeights.cpp
+
+# TODO: Only if MPI?
+Initializer/time_stepping/LtsWeights.cpp
+
 Initializer/time_stepping/LtsLayout.cpp
 Initializer/tree/Lut.cpp
 Initializer/MemoryManager.cpp
@@ -67,7 +73,10 @@ Parallel/MPI.cpp
 Parallel/mpiC.cpp
 Parallel/FaultMPI.cpp
 Geometry/GambitReader.cpp
-# Geometry/PUMLReader.cpp
+
+# TODO: Only if hdf5?
+Geometry/PUMLReader.cpp
+
 Geometry/MeshReaderFBinding.cpp
 Geometry/MeshTools.cpp
 Monitoring/FlopCounter.cpp
@@ -76,14 +85,20 @@ Reader/readparC.cpp
 #Reader/StressReaderC.cpp
 #Reader/AsagiModule.cpp
 Checkpoint/Manager.cpp
-# Checkpoint/mpio/Wavefield.cpp
-# Checkpoint/mpio/FaultAsync.cpp
-# Checkpoint/mpio/Fault.cpp
-# Checkpoint/mpio/WavefieldAsync.cpp
+
+# TODO: Only if mpi?
+Checkpoint/mpio/Wavefield.cpp
+Checkpoint/mpio/FaultAsync.cpp
+Checkpoint/mpio/Fault.cpp
+Checkpoint/mpio/WavefieldAsync.cpp
+
 # Checkpoint/sionlib/Wavefield.cpp
 # Checkpoint/sionlib/Fault.cpp
-# Checkpoint/h5/Wavefield.cpp
-# Checkpoint/h5/Fault.cpp
+
+# TODO: Only if HDF5!
+Checkpoint/h5/Wavefield.cpp
+Checkpoint/h5/Fault.cpp
+
 Checkpoint/Backend.cpp
 Checkpoint/Fault.cpp
 Checkpoint/posix/Wavefield.cpp
@@ -148,12 +163,38 @@ Parallel/mpiF.f90
 
 )
 
+
 # Libs
 find_package(yaml-cpp REQUIRED)
 
 # TODO: Write export for impalaJIT
 target_link_libraries(SeisSol PUBLIC yaml-cpp
-			      ${CMAKE_CURRENT_SOURCE_DIR}/../submodules/ImpalaJIT/libimpalajit.a)
+			      ${CMAKE_CURRENT_SOURCE_DIR}/../submodules/ImpalaJIT/libimpalajit.a 
+			      )
+
+# todo: if parallelization == omp/hybrid
+include(FindOpenMP)
+target_link_libraries(SeisSol PUBLIC OpenMP::OpenMP_CXX)
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
+
+include(FindMPI) # TODO: Doesnt work yet
+target_include_directories(SeisSol PUBLIC ${MPI_CXX_INCLUDE_PATH})
+target_link_libraries(SeisSol PUBLIC ${MPI_CXX_LIBRARIES})
+target_include_directories(SeisSol PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+target_link_libraries(SeisSol PUBLIC ${MPI_Fortran_LIBRARIES})
+
+# TODO: HDF5 should be optional?
+# TODO: Check constraints, seee
+# https://github.com/Kitware/CMake/blob/master/Modules/FindHDF5.cmake
+find_package(HDF5 REQUIRED)
+target_include_directories(SeisSol PUBLIC ${HDF5_INCLUDE_DIRS})
+target_link_libraries(SeisSol PUBLIC ${HDF5_LIBRARIES})
+
+# Parmetis
+include(FindParMETIS)
+target_include_directories(SeisSol PUBLIC ${PARMETIS_INCLUDE_DIRS})
+target_link_directories(SeisSol PUBLIC ${PARMETIS_LIBRARIES})
+# todo: Check: PARMETIS_FOUND
 
 target_include_directories(SeisSol PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -190,6 +231,11 @@ target_compile_definitions(SeisSol PRIVATE
 				   GENERATEDKERNELS
 				   CLUSTERED_LTS
 				   HOST_NAME_MAX=100 # wtf?
+				   OMP # todo
+				   USE_MPI # todo
+				   PARALLEL # same as USE_MPI
+				   USE_HDF # todo
+				   USE_METIS # todo
 				   )
 
 
