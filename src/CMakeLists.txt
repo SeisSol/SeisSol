@@ -191,7 +191,8 @@ target_include_directories(SeisSol PUBLIC ${HDF5_INCLUDE_DIRS})
 target_link_libraries(SeisSol PUBLIC ${HDF5_LIBRARIES})
 
 # Parmetis
-include(FindParMETIS)
+#include(FindParMETIS)
+find_package(ParMETIS REQUIRED)
 target_include_directories(SeisSol PUBLIC ${PARMETIS_INCLUDE_DIRS})
 target_link_directories(SeisSol PUBLIC ${PARMETIS_LIBRARIES})
 # todo: Check: PARMETIS_FOUND
