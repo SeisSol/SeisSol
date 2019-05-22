@@ -1,8 +1,18 @@
 cmake_minimum_required(VERSION 3.5)
-project(SeisSol)
+project(SeisSol LANGUAGES C CXX Fortran)
+
+option(hdf5 "Use HDF5 library for data output" ON)
+option(netcdf "Use netcdf library for mesh input" ON)
+option(metis "Use metis for partitioning" ON)
+# todo:
+option(asagi "Use asagi for material input" OFF) # needed
+option(sionlib "Use sionlib for checkpointing" OFF)
+option(memkind "Use memkind library for hbw memory support" OFF)
 
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/../cmake" ${CMAKE_MODULE_PATH})
+#set (EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/build)
+#set (LIBRARY_OUTPUT_PATH ${EXECUTABLE_OUTPUT_PATH})
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,13 +21,26 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # todo is ffreestanding needed?
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -ffreestanding")
 
-enable_language(Fortran)
+    #enable_language(Fortran)
 # todo intel, is needed:  -align -align array64byte
 # todo -r8 -WB is needed for intel (8 byte precision for reals)
 # todo openmp only if desired
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
 SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
-# TODO: Generate version.h
+
+
+find_package(Git QUIET)
+# Generate version.h
+execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+                OUTPUT_VARIABLE PACKAGE_GIT_VERSION
+                ERROR_QUIET
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+configure_file (
+  "${PROJECT_SOURCE_DIR}/version.h"
+  "${PROJECT_BINARY_DIR}/version.h"
+  )
+
 
 # TODO: Generate code
 
