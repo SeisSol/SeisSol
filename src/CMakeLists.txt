@@ -14,7 +14,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -ffreestanding")
 enable_language(Fortran)
 # todo intel, is needed:  -align -align array64byte
 # todo -r8 -WB is needed for intel (8 byte precision for reals)
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB")
+# todo openmp only if desired
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
+SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
 # TODO: Generate version.h
 
 # TODO: Generate code
@@ -38,9 +40,17 @@ Modules/Modules.cpp
 Modules/ModulesC.cpp
 Model/common.cpp
 Numerical_aux/Transformation.cpp
+
+generated_code/subroutine.h
+generated_code/tensor.cpp
+generated_code/subroutine.cpp
+generated_code/tensor.h
 generated_code/init.cpp
-generated_code/kernels.cpp
-generated_code/gemms.cpp
+generated_code/KernelTest.t.h
+generated_code/init.h
+generated_code/kernel.h
+generated_code/kernel.cpp
+
 # Equations/viscoelastic2/Model/Setup.cpp
 # Equations/viscoelastic2/Kernels/Neighbor.cpp
 # Equations/viscoelastic2/Kernels/Local.cpp
@@ -66,7 +76,9 @@ Kernels/TimeCommon.cpp
 Kernels/Receiver.cpp
 SeisSol.cpp
 SourceTerm/Manager.cpp
-# SourceTerm/NRFReader.cpp
+
+SourceTerm/NRFReader.cpp # if netCDF
+
 SourceTerm/PointSource.cpp
 Parallel/Pin.cpp
 Parallel/MPI.cpp
@@ -114,7 +126,6 @@ ResultWriter/WaveFieldWriter.cpp
 ResultWriter/FreeSurfaceWriter.cpp
 main.cpp
 
-
 # Fortran:
 Monitoring/bindMonitoring.f90
 Geometry/mpiextractmesh.f90
@@ -159,8 +170,6 @@ Initializer/dg_setup.f90
 Initializer/ini_optionalfields.f90
 Initializer/ini_seissol.f90
 Parallel/mpiF.f90
-
-
 )
 
 
@@ -180,6 +189,7 @@ set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
 include(FindMPI) # TODO: Doesnt work yet
 target_include_directories(SeisSol PUBLIC ${MPI_CXX_INCLUDE_PATH})
 target_link_libraries(SeisSol PUBLIC ${MPI_CXX_LIBRARIES})
+target_link_libraries(SeisSol PUBLIC ${MPI_C_LIBRARIES})
 target_include_directories(SeisSol PUBLIC ${MPI_Fortran_INCLUDE_PATH})
 target_link_libraries(SeisSol PUBLIC ${MPI_Fortran_LIBRARIES})
 
@@ -190,12 +200,14 @@ find_package(HDF5 REQUIRED)
 target_include_directories(SeisSol PUBLIC ${HDF5_INCLUDE_DIRS})
 target_link_libraries(SeisSol PUBLIC ${HDF5_LIBRARIES})
 
+find_package(NetCDF REQUIRED)
+target_include_directories(SeisSol PUBLIC ${HDF5_INCLUDE_DIRS})
+target_link_libraries(SeisSol PUBLIC NetCDF::NetCDF)
+
 # Parmetis
-#include(FindParMETIS)
 find_package(ParMETIS REQUIRED)
 target_include_directories(SeisSol PUBLIC ${PARMETIS_INCLUDE_DIRS})
-target_link_directories(SeisSol PUBLIC ${PARMETIS_LIBRARIES})
-# todo: Check: PARMETIS_FOUND
+target_link_libraries(SeisSol PUBLIC ${PARMETIS_LIBRARIES})
 
 target_include_directories(SeisSol PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -205,12 +217,13 @@ target_include_directories(SeisSol PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/../submodules/easi/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/../submodules/yaml-cpp/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/../submodules/ImpalaJIT/include
+				   ${CMAKE_CURRENT_SOURCE_DIR}/../submodules/yateto/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/../submodules/glm
 				   # todo: generate code in correct folder
 				   ${CMAKE_CURRENT_SOURCE_DIR}/generated_code
 				   # todo: Switch kernels?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/Equations/elastic
-
+				 
 )
 
 target_compile_definitions(SeisSol PRIVATE
@@ -237,7 +250,9 @@ target_compile_definitions(SeisSol PRIVATE
 				   PARALLEL # same as USE_MPI
 				   USE_HDF # todo
 				   USE_METIS # todo
+				   USE_NETCDF # todo
 				   )
+
 
 
 # TODO: MPI/OpenMP, metis, hdf5, netcdf, puml
