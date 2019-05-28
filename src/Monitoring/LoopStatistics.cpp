@@ -39,6 +39,7 @@
  
 #include "LoopStatistics.h"
 
+#include <cmath>
 #ifdef USE_NETCDF
 #include <netcdf.h>
 #include <netcdf_par.h>
