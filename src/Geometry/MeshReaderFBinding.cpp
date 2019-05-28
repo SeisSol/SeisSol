@@ -54,6 +54,7 @@
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
 #include "Monitoring/Stopwatch.h"
+#include "Numerical_aux/Statistics.h"
 #include "Initializer/time_stepping/LtsWeights.h"
 #include "Solver/time_stepping/MiniSeisSol.h"
 
@@ -294,47 +295,12 @@ void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displace
 	logInfo(rank) << "Running mini SeisSol to determine node weight";
 	double tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager());
 
-	// TODO(Lukas): Extract statistics to own method.
-	auto allTpwgt = std::vector<double>(seissol::MPI::mpi.size());
-
-	MPI_Gather(&tpwgt, 1, MPI_DOUBLE,
-		   allTpwgt.data(), 1, MPI_DOUBLE,
-		   0, seissol::MPI::mpi.comm());
-
-	if (rank == 0) {
-	  std::sort(allTpwgt.begin(), allTpwgt.end());
-	  double median = -1;
-	  if (seissol::MPI::mpi.size() % 2 == 1) {
-	    median = allTpwgt[seissol::MPI::mpi.size() / 2];
-	  } else {
-	    // Median not uniq. defined, take mean of two candidates.
-	    median = 0.5 *
-	      (allTpwgt[seissol::MPI::mpi.size() / 2 - 1] +
-	       allTpwgt[seissol::MPI::mpi.size() / 2]);
-	  }
-	  const double min = allTpwgt[0];
-	  const double max = allTpwgt[allTpwgt.size() - 1];
-	  
-	  auto mean = 0.0;
-	  auto meanOfSquares = 0.0;
-	  for (const auto num : allTpwgt) {
-	    mean += num;
-	    meanOfSquares += num * num;
-	  }
-
-	  mean /= allTpwgt.size();
-	  meanOfSquares /= allTpwgt.size();
-	  
-	  // Note that this computation is numerically unstable!
-	  const auto variance = meanOfSquares - mean * mean;
-	  const auto std = std::sqrt(variance);
-	  
-	  logInfo(rank) << "Node weights: mean =" << mean
-			<< " std =" << std
-			<< " min =" << min
-			<< " median =" << median
-			<< " max =" << max;
-	}
+  auto summary = seissol::statistics::parallelSummary(tpwgt);
+  logInfo(rank) << "Node weights: mean =" << summary.mean
+    << " std =" << summary.std
+    << " min =" << summary.min
+    << " median =" << summary.median
+    << " max =" << summary.max;
 	
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 
