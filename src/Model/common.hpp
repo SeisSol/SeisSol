@@ -143,16 +143,19 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
   QgodNeighbor(0,6) = cpL * cpN / constP;
   QgodNeighbor(6,6) = cpL * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
   if (testShearModulusNonZero(local.mu) && testShearModulusNonZero(neighbor.mu)) {
+    // elastic - elastic
     QgodNeighbor(3,3) = csN * local.mu / constS;
     QgodNeighbor(7,3) = local.mu * neighbor.mu / constS;
     QgodNeighbor(3,7) = csL * csN / constS;
     QgodNeighbor(7,7) = csL * neighbor.mu / constS;
   } else if (testShearModulusNonZero(local.mu) && !testShearModulusNonZero(neighbor.mu)) {
+    // elastic - acoustic
     QgodNeighbor(3,3) = 1.0;
     QgodNeighbor(7,3) = 0.0;
     QgodNeighbor(3,7) = csL / local.mu;
     QgodNeighbor(7,7) = 0.0;
   } else {
+    // acoustic - elastic/acoustic
     QgodNeighbor(3,3) = 0.0;
     QgodNeighbor(7,3) = 0.0;
     QgodNeighbor(3,7) = 0.0;
