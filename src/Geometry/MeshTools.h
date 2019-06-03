@@ -85,7 +85,7 @@ public:
 		sub(vertices[e.vertices[FACE2NODES[face][2]]].coords, vertices[e.vertices[FACE2NODES[face][0]]].coords, ac);
 		cross(ab, ac, normal);
 	}
-  
+
   static void normalAndTangents(Element const& e, int face, std::vector<Vertex> const& vertices, VrtxCoords nrmal, VrtxCoords tangent1, VrtxCoords tangent2)
   {
     normal(e, face, vertices, nrmal);
@@ -255,5 +255,80 @@ private:
 		return v*v;
 	}
 };
+
+#include<iostream>
+
+struct Plane {
+  VrtxCoords normal;
+  VrtxCoords point;
+  VrtxCoords tangent1;
+  VrtxCoords tangent2;
+
+  void transform(const VrtxCoords globalCoords,
+		 VrtxCoords localCoords) const;
+
+  bool containsPoint(const VrtxCoords p, double epsilon=10e-7) const {
+    VrtxCoords pDiff;
+    MeshTools::sub(p, point, pDiff);
+    const double normalEqRes = std::abs(MeshTools::dot(normal, pDiff));
+    //std::cout << "normalEqRes " << normalEqRes << std::endl;
+    return normalEqRes < epsilon;
+  }
+
+};
+
+struct PeriodicVertex {
+  VrtxCoords localCoord; // coordinate in local plane basis
+  size_t vertexId;
+
+  PeriodicVertex(const VrtxCoords globalCoords, Plane& plane) {
+    // TODO(Lukas) Invert this matrix...
+    /*
+    localCoord[0] = plane.normal[0] * globalCoord[0]
+      + plane.tangent1[0] * globalCoord[1]
+      + plane.tangent2[0] * globalCoord[2];
+    localCoord[1] = plane.normal[1] * globalCoord[0]
+      + plane.tangent1[1] * globalCoord[1]
+      + plane.tangent2[1] * globalCoord[2];
+    localCoord[2] = plane.normal[2] * globalCoord[0]
+      + plane.tangent1[2] * globalCoord[1]
+      + plane.tangent2[2] * globalCoord[2];
+    */
+    plane.transform(globalCoords, localCoord);
+  }
+
+  bool isApproxEq(const PeriodicVertex &other, double epsilon=10e-7) const {
+    // TODO(Lukas): Can we ignore the normal here?
+    const auto diffN = other.localCoord[0] - localCoord[0];
+    const auto diffT1 = other.localCoord[1] - localCoord[1];
+    const auto diffT2 = other.localCoord[2] - localCoord[2];
+    const auto norm = std::sqrt(0 * diffN * diffN 
+				+ diffT1 * diffT1
+				+ diffT2 * diffT2);
+    if (norm < epsilon) {
+      /*
+      std::cout << "This: " << localCoord[0]
+		<< ", " << localCoord[1]
+		<< ", " << localCoord[2] << std::endl;
+      std::cout << "Other: " << other.localCoord[0]
+		<< ", " << other.localCoord[1]
+		<< ", " << other.localCoord[2] << std::endl;
+      */
+    }
+    return norm < epsilon;
+  }
+
+  bool operator==(const PeriodicVertex &other) const {
+    return vertexId == other.vertexId;
+  }
+};
+
+namespace std {
+  template <> struct hash<PeriodicVertex> {
+    std::size_t operator()(PeriodicVertex const& v) const noexcept {
+      return std::hash<size_t>{}(v.vertexId);
+    }
+  };
+}
 
 #endif // MESH_TOOLS_H

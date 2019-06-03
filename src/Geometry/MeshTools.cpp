@@ -36,7 +36,22 @@
  **/
 
 #include "MeshTools.h"
+#include <Eigen/Dense>
 
 const int MeshTools::FACE2NODES[4][3] = {{0, 2, 1}, {0, 1, 3}, {0, 3, 2}, {1, 2, 3}};
 const int MeshTools::FACE2MISSINGNODE[4] = {3, 2, 1, 0};
 const int MeshTools::NEIGHBORFACENODE2LOCAL[3] = {0, 2, 1};
+
+void Plane::transform(const VrtxCoords globalCoords,
+		      VrtxCoords localCoords) const {
+  Eigen::Vector3d coordsVec;
+  coordsVec << globalCoords[0], globalCoords[1], globalCoords[2];
+  Eigen::Matrix3d invMapping;
+  invMapping << normal[0], tangent1[0], tangent2[0],
+    normal[1], tangent1[1], tangent2[1],
+    normal[2], tangent1[2], tangent2[2];
+  Eigen::Vector3d x = invMapping.colPivHouseholderQr().solve(coordsVec);
+  localCoords[0] = x[0];
+  localCoords[1] = x[1];
+  localCoords[2] = x[2];
+}

@@ -41,6 +41,26 @@
 #include "MeshReader.h"
 #include "Parallel/MPI.h"
 
+
+// TODO(Lukas) Remove or refactor
+#include "PUML/PUML.h"
+
+// from https://stackoverflow.com/a/33965522
+#include <array>
+void hash_combine(std::size_t& seed, std::size_t value);
+using arr_t = std::array<double, 3>;
+
+struct container_hasher {
+     template<class T>
+     std::size_t operator()(const T& c) const {
+         std::size_t seed = 0;
+         for(const auto& elem : c) {
+             hash_combine(seed, std::hash<typename T::value_type>()(elem));
+         }
+         return seed;
+     }
+};
+
 #ifndef PUML_PUML_H
 namespace PUML
 {
@@ -91,6 +111,19 @@ private:
 	static int FACE_PUML2SEISSOL[4];
 	static int FACEVERTEX2ORIENTATION[4][4];
 	static int FIRST_FACE_VERTEX[4];
+
+
+	void getFaceNodes(const Element &element,
+			  const std::vector<PUML::TETPUML::vertex_t> &vertices,
+			  size_t face,
+			  std::array<const double*, 3> &faceNodesCoords
+			  ) {
+	  auto &faceNodesIds = MeshTools::FACE2NODES[FACE_PUML2SEISSOL[face]];
+	  for (int k = 0; k < faceNodesCoords.size(); ++k) {
+	    const auto curVertexId = element.vertices[faceNodesIds[k]];
+	    faceNodesCoords[k] = vertices[curVertexId].coordinate();
+	  }
+}
 };
 
 }
