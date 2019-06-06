@@ -1361,7 +1361,7 @@ MODULE Eval_friction_law_mod
     TYPE(tInputOutput)             :: IO
     TYPE (tBoundary)               :: BND
     ! Local variable declaration
-    INTEGER     :: i,j
+    INTEGER     :: i,j, k
     INTEGER     :: iBndGP,iTimeGP,nBndGP,nTimeGP
     INTEGER     :: iFace,iSide,iElem
     INTEGER     :: nSRupdates, nSVupdates, SignSR
@@ -1508,30 +1508,33 @@ MODULE Eval_friction_law_mod
              !         g = SR*MU/2/cs + T^G             (eq. 18 of de la Puente et al. (2009))
              !         f = (mu*P_0-|S_0|)*S_0/|S_0|     (Coulomb's model of friction)
              !  where mu = a * arcsinh[ V/(2*V0) * exp(SV/a) ]
-             SRtest=LocSR  ! We use as first guess the SR value of the previous time step
-             !
-             tmp          = 0.5D0/RS_sr0* EXP(LocSV/RS_a)
-             has_converged = .FALSE.
+             has_converged = .TRUE.
 
-             DO i=1,nSRupdates  !This loop corrects SR values
-                 ! for convenience
-                 tmp2         = tmp*SRtest != X in ASINH(X) for mu calculation
-                 NR           = -invZ * (ABS(P)*RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))-ShTest)-SRtest
-                 IF (maxval(abs(NR))<atolF) THEN
-                    has_converged = .TRUE.
-                    EXIT
-                 ENDIF
-                 dNR          = -invZ * (ABS(P)*RS_a/SQRT(1d0+tmp2**2)*tmp) -1.0
-                 tmp3 = NR/dNR
-                 SRtest = max(AlmostZero,SRtest - tmp3)
-             ENDDO
-             !
+             DO k=1,nBndGP ! each gp point is indepent of all others
+                SRtest(k) = LocSR(k)  ! We use as first guess the SR value of the previous time step
+                tmp(k)          = 0.5D0/RS_sr0* EXP(LocSV(k) / RS_a(k))
+                DO i=1,nSRupdates  !This loop corrects SR values
+                   ! for convenience
+                   tmp2(k) = tmp(k)*SRtest(k) != X in ASINH(X) for mu calculation
+                   NR(k) = -invZ * (ABS(P(k))*RS_a(k)*LOG(tmp2(k)+SQRT(tmp2(k)**2+1.0))-ShTest(k))-SRtest(k)
+                   IF (abs(NR(k))<atolF) THEN
+                      has_converged = has_converged .AND. .TRUE.
+                      EXIT
+                   ENDIF
+                   dNR(k) = -invZ * (ABS(P(k))*RS_a(k)/SQRT(1d0+tmp2(k)**2)*tmp(k)) -1.0
+                   tmp3(k) = NR(k)/dNR(k)
+                   SRtest(k) = max(AlmostZero,SRtest(k) - tmp3(k))
+                ENDDO
+
+                has_converged = .FALSE.
+             ENDDO ! nBndGP   
+             
              ! 3. update theta, now using V=(Vnew+Vold)/2
              tmp=0.5d0*(LocSR+ABS(SRtest))  ! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
-             !
+             
              ! 4. solve again for Vnew
              LocSR=ABS(SRtest)
-             !
+             
          ENDDO !  j=1,nSVupdates   !This loop corrects SV values
          if (.NOT.has_converged) THEN
             !logError(*) 'nonConvergence RS Newton', time
@@ -1580,6 +1583,7 @@ MODULE Eval_friction_law_mod
          !Save traction for flux computation
          TractionGP_XY(:,iTimeGP) = LocTracXY
          TractionGP_XZ(:,iTimeGP) = LocTracXZ
+
          !
      ENDDO ! iTimeGP=1,DISC%Galerkin%nTimeGP
      !
