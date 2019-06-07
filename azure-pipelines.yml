@@ -5,15 +5,17 @@
 
 trigger:
 - master
+- azure-pipelines
 
 pool:
   vmImage: 'ubuntu-latest'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+container: krenzland/seissol-build-dependencies:latest
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+steps:
+- bash: |
+    printenv
+    echo ${hostname}
+    cut -d: -f1 /etc/passwd
+    su -s seissol
+    ls
