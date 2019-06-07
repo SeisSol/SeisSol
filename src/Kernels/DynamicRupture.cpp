@@ -90,8 +90,8 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
     timeWeights[timeInterval] = subIntervalWidth;
   }*/
 #else
-  seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
-  for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
+  seissol::quadrature::GaussLegendre(timePoints, timeWeights, NUMBER_OF_TEMPORAL_INTEGRATION_POINTS);
+  for (unsigned point = 0; point < NUMBER_OF_TEMPORAL_INTEGRATION_POINTS; ++point) {
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];
   }
@@ -103,7 +103,7 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
                                                             DRGodunovData const*        godunovData,
                                                             real const*                 timeDerivativePlus,
                                                             real const*                 timeDerivativeMinus,
-                                                            real                        godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
+                                                            real                        godunov[NUMBER_OF_TEMPORAL_INTEGRATION_POINTS][seissol::tensor::godunovState::size()],
                                                             real const*                 timeDerivativePlus_prefetch,
                                                             real const*                 timeDerivativeMinus_prefetch ) {
   // assert alignments
@@ -121,12 +121,12 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
 
   kernel::godunovState krnl = m_krnlPrototype;
 
-  for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
+  for (unsigned timeInterval = 0; timeInterval < NUMBER_OF_TEMPORAL_INTEGRATION_POINTS; ++timeInterval) {
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 
-    real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativePlus_prefetch;
-    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativeMinus_prefetch;
+    real const* plusPrefetch = (timeInterval < NUMBER_OF_TEMPORAL_INTEGRATION_POINTS-1) ? &godunov[timeInterval+1][0] : timeDerivativePlus_prefetch;
+    real const* minusPrefetch = (timeInterval < NUMBER_OF_TEMPORAL_INTEGRATION_POINTS-1) ? &godunov[timeInterval+1][0] : timeDerivativeMinus_prefetch;
     
     krnl.godunovState = &godunov[timeInterval][0];
     
@@ -158,6 +158,7 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
   o_nonZeroFlops += kernel::godunovState::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
   o_hardwareFlops += kernel::godunovState::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
   
-  o_nonZeroFlops *= CONVERGENCE_ORDER;
-  o_hardwareFlops *= CONVERGENCE_ORDER;
+  // TODO(Lukas) Is this correct?
+  o_nonZeroFlops *= NUMBER_OF_TEMPORAL_INTEGRATION_POINTS;
+  o_hardwareFlops *= NUMBER_OF_TEMPORAL_INTEGRATION_POINTS;
 }

@@ -359,7 +359,7 @@ class seissol::Interoperability {
    void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
 
    void evaluateFrictionLaw(  int face,
-                              real   godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
+                              real   godunov[NUMBER_OF_TEMPORAL_INTEGRATION_POINTS][seissol::tensor::godunovState::size()],
                               real   imposedStatePlus[seissol::tensor::godunovState::size()],
                               real   imposedStateMinus[seissol::tensor::godunovState::size()],
                               double i_fullUpdateTime,

@@ -53,7 +53,7 @@ namespace seissol {
 struct seissol::initializers::DynamicRupture {
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
-  Variable<real[CONVERGENCE_ORDER][tensor::godunovState::size()]>   godunov;
+  Variable<real[NUMBER_OF_TEMPORAL_INTEGRATION_POINTS][tensor::godunovState::size()]>   godunov;
   Variable<real[tensor::godunovState::size()]>                      imposedStatePlus;
   Variable<real[tensor::godunovState::size()]>                      imposedStateMinus;
   Variable<DRGodunovData>                                           godunovData;

@@ -227,15 +227,15 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
 
-  DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
-  DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
-  real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
-  real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
-  real                                (*godunov)[CONVERGENCE_ORDER][tensor::godunovState::size()]         = layerData.var(m_dynRup->godunov);
-  real                                (*imposedStatePlus)[tensor::godunovState::size()]                   = layerData.var(m_dynRup->imposedStatePlus);
-  real                                (*imposedStateMinus)[tensor::godunovState::size()]                  = layerData.var(m_dynRup->imposedStateMinus);
-  seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
-  seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
+  DRFaceInformation* faceInformation = layerData.var(m_dynRup->faceInformation);
+  DRGodunovData* godunovData = layerData.var(m_dynRup->godunovData);
+  real** timeDerivativePlus = layerData.var(m_dynRup->timeDerivativePlus);
+  real** timeDerivativeMinus  = layerData.var(m_dynRup->timeDerivativeMinus);
+  real (*godunov)[NUMBER_OF_TEMPORAL_INTEGRATION_POINTS][tensor::godunovState::size()] = layerData.var(m_dynRup->godunov);
+  real (*imposedStatePlus)[tensor::godunovState::size()] = layerData.var(m_dynRup->imposedStatePlus);
+  real (*imposedStateMinus)[tensor::godunovState::size()] = layerData.var(m_dynRup->imposedStateMinus);
+  seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layerData.var(m_dynRup->waveSpeedsPlus);
+  seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layerData.var(m_dynRup->waveSpeedsMinus);
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)

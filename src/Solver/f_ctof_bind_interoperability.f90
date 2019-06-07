@@ -175,7 +175,7 @@ module f_ctof_bind_interoperability
 
       ! convert c to fortran pointers
       call c_f_pointer( i_domain,             l_domain)
-      call c_f_pointer( i_godunov,            l_godunov, [i_godunovLd,9,CONVERGENCE_ORDER])
+      call c_f_pointer( i_godunov,            l_godunov, [i_godunovLd,9,NUMBER_OF_TEMPORAL_INTEGRATION_POINTS])
       call c_f_pointer( i_imposedStatePlus,   l_imposedStatePlus, [i_godunovLd,9])
       call c_f_pointer( i_imposedStateMinus,  l_imposedStateMinus, [i_godunovLd,9])
       call c_f_pointer( i_time,               l_time  )
@@ -190,7 +190,7 @@ module f_ctof_bind_interoperability
       rho_neig = densityMinus
       w_speed_neig(:) = (/ pWaveVelocityMinus, sWaveVelocityMinus, sWaveVelocityMinus /)
 
-      do j=1,CONVERGENCE_ORDER
+      do j=1,NUMBER_OF_TEMPORAL_INTEGRATION_POINTS
         do i=1,i_numberOfPoints
           NorStressGP(i,j) = l_godunov(i,1,j)
           XYStressGP(i,j) = l_godunov(i,4,j)
@@ -207,7 +207,7 @@ module f_ctof_bind_interoperability
       l_imposedStatePlus = 0.0
       l_imposedStateMinus = 0.0
 
-      do j=1,CONVERGENCE_ORDER
+      do j=1,NUMBER_OF_TEMPORAL_INTEGRATION_POINTS
         do i=1,i_numberOfPoints
           l_imposedStateMinus(i,1) = l_imposedStateMinus(i,1) + timeWeights(j) * l_godunov(i,1,j)
           l_imposedStateMinus(i,4) = l_imposedStateMinus(i,4) + timeWeights(j) * TractionGP_XY(i,j)

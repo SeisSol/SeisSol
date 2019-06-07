@@ -94,6 +94,13 @@ vars.AddVariables(
                 allowed_values=('none', '2', '3', '4', '5', '6', '7', '8')
               ),
 
+  EnumVariable( 'numberOfTemporalIntegrationPoints',
+                'number of temporal integration points used for dynamic rupture',
+                'none',
+                allowed_values=('none', '1', '2', '3', '4', '5', '6', '7', '8')
+              ),
+
+
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
   
   ( 'multipleSimulations', 'Fuse multiple simulations in one run.', '1' ),
@@ -454,6 +461,12 @@ env.Append(CXXFLAGS=['-std=c++11'])
 # set precompiler mode for the number of quantities and basis functions
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
+
+if env['numberOfTemporalIntegrationPoints'] != 'none':
+  env.Append(CPPDEFINES=['NUMBER_OF_TEMPORAL_INTEGRATION_POINTS={}'.format(env['numberOfTemporalIntegrationPoints'])])
+else:
+  env.Append(CPPDEFINES=['NUMBER_OF_TEMPORAL_INTEGRATION_POINTS={}'.format(env['order'])])
+  
 
 if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])

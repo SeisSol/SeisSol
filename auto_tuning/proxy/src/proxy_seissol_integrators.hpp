@@ -190,7 +190,7 @@ void computeDynRupGodunovState()
   DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
   real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
   real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
-  real (*godunov)[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()] = layerData.var(m_dynRup.godunov);
+  real (*godunov)[NUMBER_OF_TEMPORAL_INTEGRATION_POINTS][seissol::tensor::godunovState::size()] = layerData.var(m_dynRup.godunov);
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
