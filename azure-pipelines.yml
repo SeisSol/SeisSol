@@ -14,8 +14,24 @@ container: krenzland/seissol-build-dependencies:latest
 
 steps:
 - bash: |
-    printenv
-    echo ${hostname}
-    cut -d: -f1 /etc/passwd
-    su -s seissol
-    ls
+    whoami
+    scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+    scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+    scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+    scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+    scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
+    scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast check
+    scons compileMode=release order=6 parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast -j2
+    scons compileMode=release order=6 parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast check
+    scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes metis=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
+    scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes metis=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast check
+    scons compileMode=release order=6 parallelization=none arch=dsnb compiler=gcc unitTests=fast -j2
+    scons compileMode=release order=6 parallelization=none arch=dsnb compiler=gcc unitTests=fast check
+    scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+    scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+    scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
+    scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
+    scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast -j2
+    scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast check
+    scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
+    scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
