@@ -15,6 +15,7 @@ container: krenzland/seissol-build-dependencies:latest
 steps:
 - bash: |
     whoami
+    git submodule update --init
     scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
     scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
     scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
