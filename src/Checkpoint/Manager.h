@@ -126,8 +126,8 @@ public:
 		if (parallel::freeCPUsMaskEmpty(freeCpus)) {
 		  logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
 		}
-#endif
 		setAffinityIfNecessary(freeCpus);
+#endif
 	}
 
 	/**
