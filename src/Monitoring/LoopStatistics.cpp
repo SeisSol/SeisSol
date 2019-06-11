@@ -39,15 +39,18 @@
  
 #include "LoopStatistics.h"
 
+#include <cmath>
 #ifdef USE_NETCDF
 #include <netcdf.h>
 #include <netcdf_par.h>
 #endif
 
+#include "Numerical_aux/Statistics.h"
+
 #ifdef USE_MPI  
 void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
-  unsigned nRegions = m_times.size();
-  double* sums = new double[5*nRegions];
+  unsigned const nRegions = m_times.size();
+  auto sums = std::vector<double>(5*nRegions);
   double totalTimePerRank = 0.0;
   for (unsigned region = 0; region < nRegions; ++region) {
     double x = 0.0, x2 = 0.0, xy = 0.0, y = 0.0;
@@ -74,42 +77,74 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
   int rank;
   MPI_Comm_rank(comm, &rank);
 
-  logInfo() << "Time spent in compute kernels on rank" << rank << ":" << totalTimePerRank;
+  const auto summary = seissol::statistics::parallelSummary(totalTimePerRank);
+  logInfo(rank) << "Time spent in compute kernels: mean =" << summary.mean
+    << " std =" << summary.std
+    << " min =" << summary.min
+    << " median =" << summary.median
+    << " max =" << summary.max;
+
+  const auto loadImbalance = 1.0 - summary.mean / summary.max;
+  logInfo(rank) << "Load imbalance:" << 100.0 * loadImbalance << "%";
+
+  MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
+
+  auto regressionCoeffs = std::vector<double>(2*nRegions);
+  auto stderror = std::vector<double>(nRegions, 0.0);
+  for (unsigned region = 0; region < nRegions; ++region) {
+    double const x = sums[5*region + 0];
+    double const x2 = sums[5*region + 1];
+    double const xy = sums[5*region + 2];
+    double const y = sums[5*region + 3];
+    double const N = sums[5*region + 4];
+
+    double const det = N*x2 - x*x;
+    double const constant = (x2*y - x*xy) / det;
+    double const slope = (-x*y + N*xy) / det;
+    regressionCoeffs[2 * region + 0] = constant;
+    regressionCoeffs[2 * region + 1] = slope;
+
+    for (auto const& sample : m_times[region]) {
+      if (sample.numIters > 0) {
+        double const error = sample.time - (constant + slope * sample.numIters);
+        stderror[region] += error * error;
+      }
+    }
+  }
 
   if (rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE, sums, 5*nRegions, MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(MPI_IN_PLACE, stderror.data(), stderror.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
   } else {
-    MPI_Reduce(sums, 0L, 5*nRegions, MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(stderror.data(), 0L, stderror.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
   }
 
   if (rank == 0) {
     double totalTime = 0.0;
     logInfo(rank) << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
-      double x  = sums[5*region + 0];
-      double x2 = sums[5*region + 1];
-      double xy = sums[5*region + 2];
-      double y  = sums[5*region + 3];
-      double N  = sums[5*region + 4];
+      double const x = sums[5*region + 0];
+      double const x2 = sums[5*region + 1];
+      double const y = sums[5*region + 3];
+      double const N = sums[5*region + 4];
 
-      double det = N*x2 - x*x;
-      double regressionCoeffs[2];
-      regressionCoeffs[0] = (x2*y - x*xy) / det;
-      regressionCoeffs[1] = (-x*y + N*xy) / det;
-    
+      double const xm = x / N;
+      double const xv = x2 - 2*x*xm + xm*xm;
+
+      // https://en.wikipedia.org/wiki/Simple_linear_regression#Normality_assumption
+      double const se = std::sqrt((stderror[region] / (N-2)) / xv);
+
       char const* names[] = { "constant", "per element"};
       for (unsigned c = 0; c < 2; ++c) {
         logInfo(rank) << m_regions[region]
                       << "(" << names[c] << "):"
-                      << regressionCoeffs[c];
+                      << regressionCoeffs[2 * region + c]
+                      << "(sample size:" << N << ", standard error:" << se << ")";
       }
       totalTime += y;
     }
 
     logInfo(rank) << "Total time spent in compute kernels:" << totalTime;
   }
-
-  delete[] sums;
 }
 #endif
 

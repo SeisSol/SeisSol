@@ -50,7 +50,8 @@ numericalAuxFiles = [ 'gauss.f90',
                       'jacobinormal.f90',
                       'quadpoints.f90',
                       'trilinearinterpolation.f90',
-                      'Transformation.cpp' ]
+                      'Transformation.cpp',
+                      'Statistics.cpp' ]
 
 for i in numericalAuxFiles:
   env.sourceFiles.append(env.Object(i))
