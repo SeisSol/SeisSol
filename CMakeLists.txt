@@ -103,21 +103,43 @@ else ()
 # todo: guess memlayout
 # todo create subdir $BIN/src/generated_code
 # todo compile subroutine with -mno-red-zone
-execute_process(COMMAND "/usr/bin/env" python3 ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py
-    "--equations" ${EQUATIONS}
-    "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
-    "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
-    "--arch" ${ARCH}
-    "--order" ${ORDER}
-    "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-    "--memLayout" /work_fast/krenz/src/SeisSol-CMake/auto_tuning/config/dense.xml
-    "--multipleSimulations" ${NUMBER_OF_MULTIPLE_SIMULATIONS}
-    "--dynamicRuptureMethod" ${DYNAMIC_RUPTURE_METHOD}
-    "--PlasticityMethod" ${PLASTICITY_METHOD}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
-    RESULT_VARIABLE YATETO_RESULT)
-# todo check yateto output
-MESSAGE( STATUS "YATETO_RESULT:" ${YATETO_RESULT})
+add_custom_command(
+  COMMAND
+  "/usr/bin/env" python3 ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py
+     "--equations" ${EQUATIONS}
+     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
+     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
+     "--arch" ${ARCH}
+     "--order" ${ORDER}
+     "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
+     "--memLayout" /work_fast/krenz/src/SeisSol-CMake/auto_tuning/config/dense.xml
+     "--multipleSimulations" ${NUMBER_OF_MULTIPLE_SIMULATIONS}
+     "--dynamicRuptureMethod" ${DYNAMIC_RUPTURE_METHOD}
+     "--PlasticityMethod" ${PLASTICITY_METHOD}
+     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
+     DEPENDS
+       generated_code/viscoelastic.py
+       generated_code/DynamicRupture.py
+       generated_code/Plasticity.py
+       generated_code/multSim.py
+       generated_code/aderdg.py
+       generated_code/generate.py
+       generated_code/Point.py
+       generated_code/elastic.py
+       generated_code/viscoelastic2.py
+       generated_code/SurfaceDisplacement.py
+    OUTPUT
+       src/generated_code/subroutine.h
+       src/generated_code/tensor.cpp
+       src/generated_code/subroutine.cpp
+       src/generated_code/tensor.h
+       src/generated_code/init.cpp
+       src/generated_code/init.h
+       src/generated_code/kernel.h
+       src/generated_code/kernel.cpp
+       COMMENT "Codegen for tensor stuff."
+       )
+
 
 add_library(SeisSol-lib
 src/Initializer/ParameterDB.cpp
@@ -144,7 +166,7 @@ src/generated_code/tensor.cpp
 src/generated_code/subroutine.cpp
 src/generated_code/tensor.h
 src/generated_code/init.cpp
-src/generated_code/KernelTest.t.h
+#src/generated_code/KernelTest.t.h
 src/generated_code/init.h
 src/generated_code/kernel.h
 src/generated_code/kernel.cpp
@@ -172,7 +194,7 @@ src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
-#src/SeisSol.cpp
+src/SeisSol.cpp
 src/SourceTerm/Manager.cpp
 
 src/SourceTerm/NRFReader.cpp # if netCDF
@@ -222,7 +244,6 @@ src/ResultWriter/FaultWriterExecutor.cpp
 src/ResultWriter/FaultWriter.cpp
 src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
-src/main.cpp
 
 # Fortran:
 src/Monitoring/bindMonitoring.f90
@@ -267,6 +288,8 @@ src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
 )
+
+#add_dependencies(SeisSol-lib yateto-codegen)
 
 
 # Libs
@@ -384,7 +407,7 @@ endif()
 # Generated code does only work without red-zone.
 set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
 
-add_executable(SeisSol-bin src/SeisSol.cpp)
+add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 
 # Testing
