@@ -181,14 +181,12 @@ public:
 	void setUp()
 	{
 		setExecutor(m_executor);
-#if defined(_OPENMP) && defined(USE_MPI)
 		auto freeCpus = parallel::getFreeCPUsMask();
 		logInfo(seissol::MPI::mpi.rank()) << "Wave field writer thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
 		if (parallel::freeCPUsMaskEmpty(freeCpus)) {
 		  logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
 		}
 		setAffinityIfNecessary(freeCpus);
-#endif
 	}
 
   void setWaveFieldInterval(double interval) {
