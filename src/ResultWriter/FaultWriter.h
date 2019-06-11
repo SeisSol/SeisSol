@@ -91,12 +91,14 @@ public:
 	void setUp()
 	{
 		setExecutor(m_executor);
-		auto freeCpus = parallel::getFreeCPUsMask();
-		logInfo(seissol::MPI::mpi.rank()) << "Fault writer thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
-		if (parallel::freeCPUsMaskEmpty(freeCpus)) {
-		  logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+		if (isAffinityNecessary()) {
+		  const auto freeCpus = parallel::getFreeCPUsMask();
+		  logInfo(seissol::MPI::mpi.rank()) << "Fault writer thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
+		  if (parallel::freeCPUsMaskEmpty(freeCpus)) {
+		    logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+		  }
+		  setAffinityIfNecessary(freeCpus);
 		}
-		setAffinityIfNecessary(freeCpus);
 	}
 
 	void setTimestep(unsigned int timestep)
