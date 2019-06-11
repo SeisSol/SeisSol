@@ -119,7 +119,7 @@ execute_process(COMMAND "/usr/bin/env" python3 ${CMAKE_CURRENT_SOURCE_DIR}/gener
 # todo check yateto output
 MESSAGE( STATUS "YATETO_RESULT:" ${YATETO_RESULT})
 
-add_executable(SeisSol
+add_library(SeisSol-lib
 src/Initializer/ParameterDB.cpp
 src/Initializer/PointMapper.cpp
 src/Initializer/GlobalData.cpp
@@ -172,7 +172,7 @@ src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
 src/Kernels/TimeCommon.cpp
 src/Kernels/Receiver.cpp
-src/SeisSol.cpp
+#src/SeisSol.cpp
 src/SourceTerm/Manager.cpp
 
 src/SourceTerm/NRFReader.cpp # if netCDF
@@ -273,26 +273,26 @@ src/Parallel/mpiF.f90
 find_package(yaml-cpp REQUIRED)
 
 # TODO: Write export for impalaJIT
-target_link_libraries(SeisSol PUBLIC yaml-cpp
+target_link_libraries(SeisSol-lib PUBLIC yaml-cpp
 			      ${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/libimpalajit.a 
 			      )
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
   find_package(OpenMP REQUIRED)
-  target_link_libraries(SeisSol PUBLIC OpenMP::OpenMP_CXX)
+  target_link_libraries(SeisSol-lib PUBLIC OpenMP::OpenMP_CXX)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
-  target_compile_definitions(SeisSol PRIVATE OMP OMPI_SKIP_MPICXX)
+  target_compile_definitions(SeisSol-lib PUBLIC OMP OMPI_SKIP_MPICXX)
 endif()
 
 if (MPI)
   include(FindMPI)
-  target_include_directories(SeisSol PUBLIC ${MPI_CXX_INCLUDE_PATH})
-  target_link_libraries(SeisSol PUBLIC ${MPI_CXX_LIBRARIES})
-  target_link_libraries(SeisSol PUBLIC ${MPI_C_LIBRARIES})
-  target_include_directories(SeisSol PUBLIC ${MPI_Fortran_INCLUDE_PATH})
-  target_link_libraries(SeisSol PUBLIC ${MPI_Fortran_LIBRARIES})
-  target_compile_definitions(SeisSol PRIVATE USE_MPI PARALLEL)
+  target_include_directories(SeisSol-lib PUBLIC ${MPI_CXX_INCLUDE_PATH})
+  target_link_libraries(SeisSol-lib PUBLIC ${MPI_CXX_LIBRARIES})
+  target_link_libraries(SeisSol-lib PUBLIC ${MPI_C_LIBRARIES})
+  target_include_directories(SeisSol-lib PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+  target_link_libraries(SeisSol-lib PUBLIC ${MPI_Fortran_LIBRARIES})
+  target_compile_definitions(SeisSol-lib PUBLIC USE_MPI PARALLEL)
 endif()
 
 # TODO: HDF5 should be optional?
@@ -300,27 +300,27 @@ endif()
 # https://github.com/Kitware/CMake/blob/master/Modules/FindHDF5.cmake
 if (HDF5)
   find_package(HDF5 REQUIRED)
-  target_include_directories(SeisSol PUBLIC ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(SeisSol PUBLIC ${HDF5_LIBRARIES})
-  target_compile_definitions(SeisSol PRIVATE USE_HDF)
+  target_include_directories(SeisSol-lib PUBLIC ${HDF5_INCLUDE_DIRS})
+  target_link_libraries(SeisSol-lib PUBLIC ${HDF5_LIBRARIES})
+  target_compile_definitions(SeisSol-lib PUBLIC USE_HDF)
 endif()  
 
 if (NETCDF)
   find_package(NetCDF REQUIRED)
-  target_include_directories(SeisSol PUBLIC ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(SeisSol PUBLIC NetCDF::NetCDF)
-  target_compile_definitions(SeisSol PRIVATE USE_NETCDF)
+  target_include_directories(SeisSol-lib PUBLIC ${HDF5_INCLUDE_DIRS})
+  target_link_libraries(SeisSol-lib PUBLIC NetCDF::NetCDF)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_NETCDF)
 endif()
 
 # Parmetis
 if (METIS)
   find_package(ParMETIS REQUIRED)
-  target_include_directories(SeisSol PUBLIC ${PARMETIS_INCLUDE_DIRS})
-  target_link_libraries(SeisSol PUBLIC ${PARMETIS_LIBRARIES})
-  target_compile_definitions(SeisSol PRIVATE USE_METIS)
+  target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
+  target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
+  target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
-target_include_directories(SeisSol PUBLIC
+target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
@@ -336,7 +336,7 @@ target_include_directories(SeisSol PUBLIC
 				 
 )
 
-target_compile_definitions(SeisSol PRIVATE
+target_compile_definitions(SeisSol-lib PUBLIC
 				   REAL_SIZE=${REAL_SIZE}
 				   ALIGNMENT=${ALIGNMENT}
 				   CONVERGENCE_ORDER=${ORDER}
@@ -375,7 +375,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
 
   # Activate interprocedual optimization.
-  #set_property(TARGET SeisSol PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+  #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "CRAY")
   # TODO: Cray
 endif()
@@ -383,3 +383,6 @@ endif()
 
 # Generated code does only work without red-zone.
 set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+
+add_executable(SeisSol-bin src/SeisSol.cpp)
+target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
