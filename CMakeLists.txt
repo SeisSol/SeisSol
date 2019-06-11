@@ -386,3 +386,40 @@ set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE
 
 add_executable(SeisSol-bin src/SeisSol.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
+
+# Testing
+find_package(CxxTest REQUIRED)
+
+if(CXXTEST_FOUND)
+  # todo: if mpi set CXXTEST_COMMAND to mpirun -np 1 %t
+  # maybe enable CXXTEST_HAVE_EH CXXTEST_ABORT_ON_FAIL
+  enable_testing()
+  set(CXXTEST_USE_PYTHON TRUE)
+
+  # what about the unit tests for the lts layout?
+  CXXTEST_ADD_TEST(test_generated_kernels
+    test_generated_kernels.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h)
+
+  target_link_libraries(test_generated_kernels PRIVATE SeisSol-lib) 
+  target_include_directories(test_generated_kernels PRIVATE ${CXXTEST_INCLUDE_DIR})
+
+  CXXTEST_ADD_TEST(test_serial_test_suite
+    test_serial.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
+    )
+  target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib) 
+  target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+
+  CXXTEST_ADD_TEST(test_parallel_test_suite
+    test_parallel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
+    )
+  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib) 
+  target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  target_compile_definitions(test_parallel_test_suite PRIVATE
+    SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
+    )
+endif()
