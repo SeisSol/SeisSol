@@ -332,7 +332,7 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 	  }
 	}
 	if (MPI::mpi.size() > 1 && foundPeriodicBc) {
-	  logError() << "Periodic boundary conditions are currently not supported for MPI+HDF5.";
+	  //logError() << "Periodic boundary conditions are currently not supported for MPI+HDF5.";
 	}
 	
 	std::vector<Plane> planes;
@@ -348,11 +348,6 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 	  // We need to match vertices of opposite boundaries.
 	  // For simplification, we sort the boundaries by planes.
 	  for (unsigned int i = 0; i < cells.size(); i++) {
-	    //m_elements[i].localId = i;
-
-	    // Vertices
-	    //PUML::Downward::vertices(puml, cells[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices));
-
 	    // Neighbor information
 	    unsigned int faceids[4];
 	    PUML::Downward::faces(puml, cells[i], faceids);
@@ -390,43 +385,10 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 		if (!found) {
 		  // If the node isn't on an already existing plane, we need to create
 		  // a new one.
-		  Plane plane;
-		  // Compute an orthonormal coordinate system for each plane.
-		  // Basis is [normal, tangent1, tangent2].
-		  VrtxCoords ac;
-		  MeshTools::sub(faceNodesCoords[1], faceNodesCoords[0], plane.tangent1);
-		  MeshTools::sub(faceNodesCoords[2], faceNodesCoords[0], ac);
-		  MeshTools::cross(plane.tangent1, ac, plane.normal);
-		  // normalize normal
-		  MeshTools::mul(plane.normal,
-				 1/(MeshTools::norm(plane.normal)),
-				 plane.normal);
-		  // take absolut value of normal to standarize direction
-		  // This way, opposite planes have the same coordinate system.
-		  for (int k = 0; k < 3; ++k) {
-		    plane.normal[k] = std::abs(plane.normal[k]);
-		  }
-		  if (std::abs(plane.normal[0]) > std::abs(plane.normal[1])) {
-		    plane.tangent1[0] = plane.normal[2];
-		    plane.tangent1[1] = 0.0;
-		    plane.tangent1[2] = -plane.normal[0];
-		  } else {
-		    plane.tangent1[0] = 0.0;
-		    plane.tangent1[1] = -plane.normal[2];
-		    plane.tangent1[2] = plane.normal[1];
-		  }
-		  MeshTools::cross(plane.normal, plane.tangent1, plane.tangent2);
-
-		  for (int k = 0; k < 3; ++k) {
-		    // A point on the plane is needed for the plane equations.
-		    // This also differentiates opposite planes.
-		    plane.point[k] = faceNodesCoords[0][k];
-		  }
-		  planes.push_back(plane);
+		  planes.push_back(computePlane(faceNodesCoords));
 		  planes2Vertices.push_back(std::unordered_set<PeriodicVertex>());
 		  ++idx;
 		}
-		//logInfo(0) << idx << planes.size() << planes2Vertices.size() << faceNodesCoords.size();
 		for (int k = 0; k < faceNodesCoords.size(); ++k) {
 		  const auto curVertexId = m_elements[i].vertices[faceNodesIds[k]];
 		  auto pVert = PeriodicVertex{faceNodesCoords[k],
@@ -441,12 +403,25 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 
 	}
 
-	logInfo(rank) << "Number of planes =" << planes.size();
-	for (const auto& plane : planes) {
+	auto planeFragments = std::vector<PlaneFragment>();
+	for (int z = 0; z < planes.size(); ++z) {
+	  const auto& plane = planes[z];
+	  planeFragments.push_back(PlaneFragment(planes2Vertices[z],
+						 plane));
+	}
+	
+	
+	logInfo(rank) << "Number of planes =" << planeFragments.size();
+	for (const auto& planeFragment : planeFragments) {
+	  const auto &plane = planeFragment.plane;
 	  const auto &n = plane.normal;
 	  const auto &p = plane.point;
 	  const auto &t1 = plane.tangent1;
 	  const auto &t2 = plane.tangent2;
+	  const auto constDim = planeFragment.constDim;
+	  const auto &convexHull = planeFragment.convexHull;
+	  std::cout << "Constant dimension"
+		    << constDim << std::endl;
 	  std::cout << "Normal:\t" << n[0]
 		    << ",\t" << n[1]
 		    << ",\t" << n[2] << std::endl;
@@ -459,9 +434,18 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 	  std::cout << "Point:\t" << p[0]
 		    << ",\t" << p[1]
 		    << ",\t" << p[2] << std::endl;
+	  std::cout << "Convex hull:\n";
+	  for (const auto &p : convexHull) {
+	    std::cout << p.coords[0] << ",\t"
+		      << p.coords[1] << ",\t"
+		      << std::endl;
+	  }
+	    
 	  std::cout << std::endl;
 	}
+	assert(planes.size() == planeFragments.size()); // TODO(Lukas): Communicate plane frag ids!
 
+	std::vector<std::array<int,3>> periodicSendList; // [element id, face idx (0..3), planeIdx]
 	for (unsigned int i = 0; i < cells.size(); i++) {
 	  m_elements[i].localId = i;
 
@@ -474,77 +458,27 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 	    auto &faceNodesIds = MeshTools::FACE2NODES[FACE_PUML2SEISSOL[j]];
 	    int bcCurrentFace = (boundaryCond[i] >> (j*8)) & 0xFF;
 	    if (bcCurrentFace == 6) {
-	      int result = -1;
 	      std::array<const double*, 3> faceNodesCoords;
 	      getFaceNodes(m_elements[i],
 			   vertices,
 			   j,
 			   faceNodesCoords);
+	      assert(faces2Planes.find(faceids[j]) != faces2Planes.end());
 	      const auto facePlaneIdx = faces2Planes[faceids[j]];
-	      const auto &facePlane = planes[facePlaneIdx];
-
-	      for (int k = 0; k < planes.size(); ++k) {
-		if (k == facePlaneIdx) continue;
-			    
-		// Move current plane s.t. it cuts the other plane at its point.
-		// Remember: opposite planes have different offsets but same coordinate system!
-		const auto &curPlane = planes[k];
-		auto movedPlane = planes[k];
-		std::copy_n(facePlane.point, 3, movedPlane.point);
-		bool containsAllPoints = true;
-		for (int l = 0; l < 3; ++l) {
-		  containsAllPoints &=
-		    movedPlane.containsPoint(faceNodesCoords[l]);
-		}
-		if (containsAllPoints) {
-		  // We count how to which face most points belong.
-		  auto faceCounter = std::unordered_map<size_t, int>{};
-		  // Iterate over all points of the edge.
-		  for (int l = 0; l < 3; ++l) {
-		    const auto* curCoords = faceNodesCoords[l];
-		    const auto curVertex = PeriodicVertex{faceNodesCoords[l],
-							  planes[k]};
-		    const auto curVertexId = m_elements[i].vertices[faceNodesIds[l]];
-		    // We compare with all other points in the plane.
-		    // Note that this is O(N^2); this doesn't really matter,
-		    // because normally N << 100 for a single node.
-		    for (const auto &other : planes2Vertices[k]) {
-		      // for (int m = 0; m < planes2Vertices[k].size(); ++m) {
-		      //const auto &other = planes2Vertices[k][m];
-		      if (curVertex.isApproxEq(other)) {
-			vertices2Vertices[curVertexId].insert(other.vertexId);
-			assert(vertices2Cells.find(curVertexId) !=
-			       vertices2Cells.end());
-			for (const auto otherCellId : vertices2Cells[other.vertexId]) {
-			  faceCounter[otherCellId] += 1;
-			}
-		      }
-		    }
-		  }
-		  // Check which cell was mentioned most often
-		  // This is the matching cell, as most vertices belong to it.
-		  auto bestCellId = -1;
-		  auto maxCounter = -1;
-		  for (const auto& it : faceCounter) {
-		    if (it.first != i && it.second > maxCounter) {
-		      maxCounter = it.second;
-		      bestCellId = it.first;
-		    }
-		  }
-		  //logInfo(0) << faceCounter.size()
-		  //   << vertices2Cells.size()
-		  //   << bestCellId
-		  //   << maxCounter;
-		  result = bestCellId;
-		}
-
-	      }
-
+	      const auto facePlane = planes[facePlaneIdx];
+	      
+	      const auto result = findMatchingCell(i,
+						   j,
+						   facePlane,
+						   faceNodesCoords,
+						   planes,
+						   planes2Vertices,
+						   vertices2Cells,
+						   vertices2Vertices);
 	      if (result >= 0) {
 		neighbors[j] = result;
-		//m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = neighbors[j];
 	      } else {
-		logError() << "Did not find periodic counterpart!";
+		periodicSendList.push_back({i, j, facePlaneIdx});
 	      }
 	    }
 	    // Set the neighbor directly in seissol data structure.
@@ -552,6 +486,364 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 	  }
 	  m_elements[i].material = material[i];
 	}
+
+	MPI_Barrier(MPI::mpi.comm());
+	logInfo() << "Rank" << rank << "needs to send" << periodicSendList.size() << "faces.";
+
+	// Plane fragments
+	auto planeFragmentsDataBuffer = std::vector<double>();
+	auto planeFragmentsLengthsBuffer = std::vector<int>();
+	for (const auto &frag : planeFragments) {
+	  encodePlaneFragment(frag,
+			      planeFragmentsDataBuffer,
+			      planeFragmentsLengthsBuffer);
+	}
+	auto serializedPlaneFragments = PlaneFragmentsSerialized(
+								 planeFragmentsDataBuffer,
+								 planeFragmentsLengthsBuffer);
+
+	// Communicate size of plane fragment buffers.
+	const auto planesDataSizeSend = serializedPlaneFragments.dataSize;
+	const auto planesLengthsSizeSend = serializedPlaneFragments.lengthsSize;
+	auto planesDataSizePerNode = std::vector<int>(MPI::mpi.size());
+	auto planesLengthsSizePerNode = std::vector<int>(MPI::mpi.size());
+	MPI_Allgather(&planesDataSizeSend, 1, MPI_INT, planesDataSizePerNode.data(),
+		      1, MPI_INT, MPI::mpi.comm());
+	MPI_Allgather(&planesLengthsSizeSend, 1, MPI_INT, planesLengthsSizePerNode.data(),
+		      1, MPI_INT, MPI::mpi.comm());
+
+	for (int i = 0; i < MPI::mpi.size(); ++i) {
+	  std::cout << "Plane fragments from rank " << i
+		     << " with data size" << planesDataSizePerNode[i]
+		     << " and lenghts size" << planesLengthsSizePerNode[i]
+		     << std::endl;
+	}
+
+	auto serializedPlaneFragmentsDispl = std::vector<int>(MPI::mpi.size());
+	for (int z = 0; z < serializedPlaneFragmentsDispl.size(); ++z) {
+	  serializedPlaneFragmentsDispl[z] = (z > 0) ?
+	    serializedPlaneFragmentsDispl[z-1] + planesLengthsSizePerNode[z]
+	    : 0;
+	  std::cout << "planeFragmentsDispl z =" << z << ": "
+		    << serializedPlaneFragmentsDispl[z] << std::endl;
+	}
+	MPI_Barrier(MPI::mpi.comm());
+
+	// Initialize receive buffers and their displacements.
+	// Plane fragments
+	auto planesDataRecvDispl = std::vector<int>(MPI::mpi.size());
+	auto planesLengthsRecvDispl = std::vector<int>(MPI::mpi.size());
+	for (int i = 0; i < MPI::mpi.size(); ++i) {
+	  planesDataRecvDispl[i] = (i > 0) ?
+	    (planesDataRecvDispl[i-1] + planesDataSizePerNode[i-1]) : 0; 
+	  planesLengthsRecvDispl[i] = (i > 0) ?
+	    (planesLengthsRecvDispl[i-1] + planesLengthsSizePerNode[i-1]) : 0; 
+
+	}
+	const auto planesDataRecvSize = planesDataRecvDispl[planesDataRecvDispl.size() - 1]
+	  + planesDataSizePerNode[planesDataSizePerNode.size() - 1];
+	auto planesDataRecvBuffer = std::vector<double>(planesDataRecvSize);
+	const auto planesLengthsRecvSize = planesLengthsRecvDispl[planesLengthsRecvDispl.size() - 1]
+	  + planesLengthsSizePerNode[planesLengthsSizePerNode.size() - 1];
+	auto planesLengthsRecvBuffer = std::vector<int>(planesLengthsRecvSize);
+
+	// Communicate data + lengths
+	MPI_Allgatherv(serializedPlaneFragments.data,
+		       planesDataSizePerNode[rank],
+		       MPI_DOUBLE,
+		       planesDataRecvBuffer.data(),
+		       planesDataSizePerNode.data(),
+		       planesDataRecvDispl.data(),
+		       MPI_DOUBLE,
+		       MPI::mpi.comm()
+		       );
+
+	MPI_Allgatherv(serializedPlaneFragments.lengths,
+		       planesLengthsSizePerNode[rank],
+		       MPI_INT,
+		       planesLengthsRecvBuffer.data(),
+		       planesLengthsSizePerNode.data(),
+		       planesLengthsRecvDispl.data(),
+		       MPI_INT,
+		       MPI::mpi.comm()
+		       );
+
+	const auto serializedPlaneFragmentsRecv =
+	  PlaneFragmentsSerialized(planesDataRecvBuffer,
+				   planesLengthsRecvBuffer);
+
+	const auto planeFragmentsRecv = decodePlaneFragments(serializedPlaneFragmentsRecv,
+							     planesLengthsSizePerNode);
+
+	auto facesSendBuffers = std::unordered_map<int, std::vector<FaceMPI>>{};
+	// This map maps ranks to vector of array indices of periodicSendList
+	// can be used to identify vertices.
+	auto facesSendMap = std::unordered_map<int, std::vector<int>>{};
+	// Iterate over all vertices and check which nodes could hold the mirrored vertices.
+	for (int z = 0; z < periodicSendList.size(); ++z) {
+	  const auto curPlaneIdx = periodicSendList[z][2];
+
+	  const auto& facePlane = planes[curPlaneIdx];
+	  // Check all plane fragments
+	  for (const auto& frag: planeFragmentsRecv) {
+	    const auto& plane = frag.plane;
+	    // TODO: In this way, we always match on own rank
+	    // with same plane as the vertex that should be mirrored
+	    // stems from.
+	    
+	    // if (plane == facePlane) continue;
+	    auto movedPlane = frag.plane;
+	    std::copy_n(facePlane.point, 3, movedPlane.point);
+
+	    std::array<const double*, 3> faceNodesCoords;
+	    getFaceNodes(m_elements[periodicSendList[z][0]],
+			 vertices,
+			 periodicSendList[z][1],
+			 faceNodesCoords);
+
+	    // Check if vertex is in moved plane.
+	    bool containsAllPoints = true;
+	    for (int y = 0; y < 3; ++y) {
+	      containsAllPoints &=
+		movedPlane.containsPoint(faceNodesCoords[y]);
+	    }
+	    if (!containsAllPoints) continue;
+	    
+	    //std::cout << "Found plane." << std::endl;
+	      
+	    // Check if vertex is inside plane fragment.
+	    int pointsInside = 0;
+	    for (int y = 0; y < 3; ++y) {
+	      const auto* curCoords = faceNodesCoords[y];
+	      PointPlane pointPlane;
+	      const auto planeConstDim = plane.getConstantDim();
+	      int planeOtherDims[2];
+	      plane.getOtherDims(planeOtherDims);
+	      pointPlane.coords[planeOtherDims[0]] = curCoords[planeOtherDims[0]];
+	      pointPlane.coords[planeOtherDims[1]] = curCoords[planeOtherDims[1]];
+	    
+	      bool isInside = isInsideConvexPolygon(pointPlane,
+						    frag.convexHull);
+	      if (isInside) ++pointsInside;
+
+	    }
+	    if (true || pointsInside >= 0) {
+	      FaceMPI faceMpi;
+	      // Copy coordinates to buffer
+	      for (int y = 0; y < 3; ++y) {
+		std::copy_n(faceNodesCoords[y],
+			    3,
+			    faceMpi.coords[y]);
+	      }
+	      faceMpi.planeId = periodicSendList[z][2];
+	      facesSendBuffers[frag.rank].push_back(faceMpi);
+	      facesSendMap[frag.rank].push_back(z);
+	    }
+	  }
+	}
+
+	auto sizeRequests = std::vector<MPI_Request>(2 * MPI::mpi.size());
+	auto facesSendSizePerNode = std::vector<int>(MPI::mpi.size(), 0);
+	for (const auto& s : facesSendBuffers) {
+	  facesSendSizePerNode[s.first] = s.second.size();
+	  std::cout << "Send " << s.second.size() << " to rank " << s.first
+		    << " from rank " << rank << std::endl;
+	}
+
+
+	// TODO(Lukas) Switch to allgather
+	auto facesRecvSize = std::vector<int>(MPI::mpi.size());
+	for (int otherRank = 0; otherRank < MPI::mpi.size(); ++otherRank) {
+	  // Get size from other ranks
+	  MPI_Irecv(&facesRecvSize[otherRank],
+		    1,
+		    MPI_INT,
+		    otherRank,
+		    0,
+		    MPI::mpi.comm(),
+		    &sizeRequests[otherRank]);
+
+	  MPI_Isend(&facesSendSizePerNode[otherRank],
+		    1,
+		    MPI_INT,
+		    otherRank,
+		    0,
+		    MPI::mpi.comm(),
+		    &sizeRequests[MPI::mpi.size() + otherRank]);
+	}
+	MPI_Waitall(sizeRequests.size(), sizeRequests.data(), MPI_STATUSES_IGNORE);
+
+	// Initialize faces recv buffers
+	// TODO(Lukas) Change type to correct one
+	auto faceMpi_t = registerFaceMPI();
+	auto facesRecvBuffers = std::unordered_map<int, std::vector<FaceMPI>>{};
+	for (int otherRank = 0; otherRank < facesRecvSize.size(); ++otherRank) {
+	  const auto otherRankSendSize = facesRecvSize[otherRank];
+	  // TODO(Lukas) Maybe exclude own rank?
+	  if (otherRankSendSize == 0) continue; // no empty messages
+	  facesRecvBuffers[otherRank] = std::vector<FaceMPI>(otherRankSendSize);
+	}
+	for (int y = 0; y < MPI::mpi.size(); ++y) {
+	    std::cout << "Sending " << facesRecvSize[y]
+		      << " to rank " << rank
+		      << " faces from rank " << y << std::endl;
+	}
+	MPI_Barrier(MPI::mpi.comm());
+	//throw -1;
+	
+	std::cout << "Receiving faces from " << facesRecvBuffers.size()
+		  << " ranks" << std::endl;
+	// Recv/Send faces
+	auto faceRequests = std::vector<MPI_Request>(2 * facesRecvBuffers.size());
+	auto faceRequestsIdx = 0;
+	//for (int otherRank = 0; otherRank < facesRecvBuffers.size(); ++otherRank) {
+	// TODO(Lukas) Switch to explicit all-to-all comm?
+	for (const auto& buf : facesRecvBuffers) {
+	  MPI_Irecv(facesRecvBuffers[buf.first].data(),
+		    facesRecvBuffers[buf.first].size(),
+		    faceMpi_t,
+		    buf.first,
+		    0,
+		    MPI::mpi.comm(),
+		    &faceRequests[faceRequestsIdx++]);
+	}
+	//for (int otherRank = 0; otherRank < facesSendBuffers.size(); ++otherRank) {
+	for (const auto& buf : facesSendBuffers) {
+	  MPI_Isend(facesSendBuffers[buf.first].data(),
+		    facesSendBuffers[buf.first].size(),
+		    faceMpi_t,
+		    buf.first,
+		    0,
+		    MPI::mpi.comm(),
+		    &faceRequests[faceRequestsIdx++]);
+
+	}
+	faceRequests.resize(faceRequestsIdx); // TODO(Lukas) Is this resize correct?
+	std::cout << "faceRequestsIdx, faceRequests.size() = " << faceRequestsIdx
+		  << ", " << faceRequests.size() << std::endl;
+	MPI_Waitall(faceRequests.size(), faceRequests.data(), MPI_STATUSES_IGNORE);
+	std::cout << "Send/Recv faces of size " << faceRequests.size() << std::endl;
+	
+	// Initialise buffers for the matching matching.
+	// TODO(Lukas) Are the sizes of the buffers correct or exchanged?
+	auto matchingRequests = std::vector<MPI_Request>(2 * MPI::mpi.size());
+	auto matchingRequestsIdx = 0;
+	auto matchingSendBuffers = std::unordered_map<int, std::vector<int>>{};
+	auto matchingRecvBuffers = std::unordered_map<int, std::vector<int>>{};
+
+	// TODO(Lukas) Switch to all-to-all communication?
+	for (const auto &buf : facesSendBuffers) {
+	  matchingRecvBuffers[buf.first] = std::vector<int>(facesSendSizePerNode[buf.first], -1);
+	  MPI_Irecv(matchingRecvBuffers[buf.first].data(),
+		    matchingRecvBuffers[buf.first].size(),
+		    MPI_INT,
+		    buf.first,
+		    0,
+		    MPI::mpi.comm(),
+		    &matchingRequests[matchingRequestsIdx++]);
+	}
+	for (const auto &buf : facesRecvBuffers) {
+	  matchingSendBuffers[buf.first] = std::vector<int>(facesRecvSize[buf.first], -1);
+	}
+
+	for (const auto &buf : facesRecvBuffers) {
+	  for (int z = 0; z < buf.second.size(); ++z) {
+	    // TODO(Lukas) Matching is completely wrong probably.
+	    const auto &faceMpi = buf.second[z];
+	    auto faceNodesCoords = std::array<const double*, 3>{
+	      faceMpi.coords[0],
+	      faceMpi.coords[1],
+	      faceMpi.coords[2]};
+	    // TODO: Is offset correct?
+	    const auto facePlaneIdx = serializedPlaneFragmentsDispl[buf.first] + faceMpi.planeId;
+	    assert(facePlaneIdx < planeFragmentsRecv.size());
+	    // std::cout << "Displ = " << serializedPlaneFragmentsDispl[buf.first]
+	    // 	      << "facePlIdx = " << faceMpi.planeId
+	    // 	      << "Size = " << planeFragmentsRecv.size()
+	    // 	      << std::endl;
+	    const auto &facePlane = planeFragmentsRecv[facePlaneIdx].plane;
+	    //logInfo(rank) << "Try matching";
+	    //MPI_Barrier(MPI::mpi.comm());
+	    const auto result = findMatchingCell(-1, // TODO
+						 0, // TODO
+						 facePlane,
+						 faceNodesCoords,
+						 planes,
+						 // TODO: Shouldnt modify these maps
+						 planes2Vertices,
+						 vertices2Cells,
+						 vertices2Vertices);
+	    matchingSendBuffers[buf.first][z] = result;
+	    if (buf.first == rank) continue;
+	    if (result > 0) {
+	      std::cout << "Matching after MPI" << std::endl;
+	    } else {
+	      std::cout << "No matching after MPI" << std::endl;
+	    }
+
+	  }
+	}
+	
+	for (const auto &buf : matchingSendBuffers) {
+	  MPI_Isend(matchingSendBuffers[buf.first].data(),
+		    matchingSendBuffers[buf.first].size(),
+		    MPI_INT,
+		    buf.first,
+		    0,
+		    MPI::mpi.comm(),
+		    &matchingRequests[matchingRequestsIdx++]);
+
+	}
+
+	matchingRequests.resize(matchingRequestsIdx);
+	MPI_Waitall(matchingRequests.size(), matchingRequests.data(), MPI_STATUSES_IGNORE);
+	std::cout << "Send/Recv matchings of size " << matchingRequests.size() << std::endl;
+
+	auto combinedMatching = std::unordered_map<std::pair<int,int>,
+						   std::pair<int,int>,
+						   pair_hash>{};
+	// Vertices id in periodicSendList
+	// Matching in matchingRecvBuffers
+	for (const auto& recvMatching : matchingRecvBuffers) {
+	  const auto fromRank = recvMatching.first;
+	  if (fromRank == rank) continue; // Ignore matchings from own rank.
+	  const auto& curMatchings = recvMatching.second;
+	  std::cout << "curMatchings.size(), periodicSendList.size() "
+		    << curMatchings.size() << ", "
+		    << periodicSendList.size()
+		    << std::endl;
+	  assert(curMatchings.size() == facesSendMap[fromRank].size());
+	  for (int matchingId = 0; matchingId < curMatchings.size(); ++matchingId) {
+	    const auto sendListIdx = facesSendMap[fromRank][matchingId];
+	    const auto curCellId = periodicSendList[sendListIdx][0];
+	    const auto curFaceId = periodicSendList[sendListIdx][1];
+	    const auto key = std::make_pair(curCellId, curFaceId);
+	    const auto matching = curMatchings[matchingId];
+	    if (matching < 0) continue; // no matching
+	    if (combinedMatching.find(key) != combinedMatching.end()
+		&& combinedMatching[key].first != matching) {
+	      std::cout << "\nDuplicate, different matching" << std::endl;
+	      std::cout << "Old: " << combinedMatching[key].first << std::endl;
+	    }
+	    // Make sure we didn't match the cell with itself.
+	    assert(matching != curCellId);
+	    // std::cout << "cell idx, face idx, matching "
+	    // 	      << curCellId << ", "
+	    // 	      << curFaceId << ", "
+	    // 	      << matching << std::endl;
+
+	    // Just overwrite matching...
+	    combinedMatching[key] =  {matching, fromRank};
+	    // TODO(Lukas) Save rank.
+	  }
+	}
+	
+	std::cout << combinedMatching.size() << " matchings found. "
+		  << "We sent " << periodicSendList.size() << " faces"
+		  << std::endl;
+	
+	MPI_Barrier(MPI::mpi.comm());
+	//throw -1;
 
 	for (unsigned int i = 0; i < cells.size(); i++) {
 		// Neighbor information
@@ -570,8 +862,25 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 		    // No local neighbour found.
 		    m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = cells.size();
 
-		    // isShared is true if face belongs to more than one rank.
-		    if (!faces[faceids[j]].isShared()) {
+		    if (bcCurrentFace == 6) {
+		      // Periodic boundary with MPI
+		      const auto key = std::make_pair(i, j);
+		      const auto ownerRankIt = combinedMatching.find(key);
+		      if (ownerRankIt != combinedMatching.end()) {
+			//const auto cellId = ownerRankIt->second; // Matched
+			const auto ownerRank = ownerRankIt->second.second; // TODO(Lukas) Set owner rank
+			neighborInfo[ownerRank].push_back(faceids[j]);
+			m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = ownerRank;
+			//std::cout << "Matching for i, j: ";
+		      } else {
+			//std::cout << "No matching for i, j: ";
+		      }
+		      std::cout << i << ", "
+				<< j << ", "
+				<< std::endl;
+		      
+		    } else if (!faces[faceids[j]].isShared()) {
+		      // isShared is true if face belongs to more than one rank.
 		      // Boundary sides
 		      m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = rank;
 		    } else {
@@ -581,6 +890,7 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 		      m_elements[i].neighborRanks[FACE_PUML2SEISSOL[j]] = faces[faceids[j]].shared()[0];
 		    }
 		  } else {
+		    continue; // TODO(Lukas)
 		    assert(neighbors[j] >= 0 && static_cast<unsigned>(neighbors[j]) < cells.size());
 
 		    m_elements[i].neighbors[FACE_PUML2SEISSOL[j]] = neighbors[j];
@@ -674,6 +984,9 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 		  m_elements[i].mpiIndices[FACE_PUML2SEISSOL[j]] = 0;
 		}
 	}
+
+	MPI_Barrier(MPI::mpi.comm());
+	//throw -1;
 
 	// Exchange ghost layer information and generate neighbor list
 	char** copySide = new char*[neighborInfo.size()];

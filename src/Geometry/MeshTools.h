@@ -43,8 +43,14 @@
 
 #include "MeshDefinition.h"
 
-#include <vector>
+#include <cassert>
 #include <cmath>
+#include <unordered_set>
+#include <vector>
+
+#include "Parallel/MPI.h"
+#include "ConvexHull.h"
+
 
 class MeshTools
 {
@@ -256,8 +262,6 @@ private:
 	}
 };
 
-#include<iostream>
-
 struct Plane {
   VrtxCoords normal;
   VrtxCoords point;
@@ -267,21 +271,66 @@ struct Plane {
   void transform(const VrtxCoords globalCoords,
 		 VrtxCoords localCoords) const;
 
+  void transformBack(const VrtxCoords localCoords,
+		     VrtxCoords globalCoords) const;
+
   bool containsPoint(const VrtxCoords p, double epsilon=10e-7) const {
     VrtxCoords pDiff;
     MeshTools::sub(p, point, pDiff);
     const double normalEqRes = std::abs(MeshTools::dot(normal, pDiff));
-    //std::cout << "normalEqRes " << normalEqRes << std::endl;
     return normalEqRes < epsilon;
   }
 
+  int getConstantDim() const {
+    auto constDim = -1;
+    for (int i = 0; i < 3; ++i) {
+      if (std::abs(normal[i] - 1) <= 10e-6) {
+	constDim = i;
+	break;
+      }
+    }
+    assert(constDim >= 0);
+    return constDim;
+  }
+
+  void getOtherDims(int otherDims[2]) const {
+    const auto constDim = getConstantDim();
+     switch (constDim) {
+     case 0:
+       otherDims[0] = 1;
+       otherDims[1] = 2;
+       break;
+     case 1:
+       otherDims[0] = 0;
+       otherDims[1] = 2;
+       break;
+     case 2:
+       otherDims[0] = 0;
+       otherDims[1] = 1;
+       break;
+     default:
+       assert(constDim >= 0 && constDim <= 2);
+     }
+  }
+
+  bool operator==(const Plane& other) const {
+    const double eps = 10e-8; // TODO(Lukas) Float comp. needed?
+    for (int i = 0; i < 3; ++i) {
+      if (std::abs(point[i] - other.point[i]) > eps ||
+	  std::abs(normal[i] - other.normal[i]) > eps) {
+	return false;
+      } 
+    }
+    return true;
+  }
 };
 
 struct PeriodicVertex {
-  VrtxCoords localCoord; // coordinate in local plane basis
-  size_t vertexId;
+  VrtxCoords localCoords; // coordinate in local plane basis
+  VrtxCoords globalCoords;
+  unsigned int vertexId;
 
-  PeriodicVertex(const VrtxCoords globalCoords, Plane& plane) {
+  PeriodicVertex(const VrtxCoords globalCoords, const Plane& plane) {
     // TODO(Lukas) Invert this matrix...
     /*
     localCoord[0] = plane.normal[0] * globalCoord[0]
@@ -294,33 +343,28 @@ struct PeriodicVertex {
       + plane.tangent1[2] * globalCoord[1]
       + plane.tangent2[2] * globalCoord[2];
     */
-    plane.transform(globalCoords, localCoord);
+    plane.transform(globalCoords, localCoords);
+    this->globalCoords[0] = globalCoords[0];
+    this->globalCoords[1] = globalCoords[1];
+    this->globalCoords[2] = globalCoords[2];
   }
 
-  bool isApproxEq(const PeriodicVertex &other, double epsilon=10e-7) const {
+  // TODO(Lukas) Set epsilon to 10e-6 or 10e-7 (used to work..)
+  bool isApproxEq(const PeriodicVertex &other, double epsilon=10e-5) const {
     // TODO(Lukas): Can we ignore the normal here?
-    const auto diffN = other.localCoord[0] - localCoord[0];
-    const auto diffT1 = other.localCoord[1] - localCoord[1];
-    const auto diffT2 = other.localCoord[2] - localCoord[2];
+    const auto diffN = other.localCoords[0] - localCoords[0];
+    const auto diffT1 = other.localCoords[1] - localCoords[1];
+    const auto diffT2 = other.localCoords[2] - localCoords[2];
     const auto norm = std::sqrt(0 * diffN * diffN 
 				+ diffT1 * diffT1
 				+ diffT2 * diffT2);
-    if (norm < epsilon) {
-      /*
-      std::cout << "This: " << localCoord[0]
-		<< ", " << localCoord[1]
-		<< ", " << localCoord[2] << std::endl;
-      std::cout << "Other: " << other.localCoord[0]
-		<< ", " << other.localCoord[1]
-		<< ", " << other.localCoord[2] << std::endl;
-      */
-    }
     return norm < epsilon;
   }
 
   bool operator==(const PeriodicVertex &other) const {
     return vertexId == other.vertexId;
   }
+
 };
 
 namespace std {
@@ -330,5 +374,52 @@ namespace std {
     }
   };
 }
+
+struct PlaneFragment {
+  Plane plane;
+  std::vector<PointPlane> convexHull;
+  int constDim;
+  int rank;
+  int planeIdx;
+
+  // TODO(Lukas) Include rank/planeIdx in constructor.
+  PlaneFragment(const std::unordered_set<PeriodicVertex> &points,
+		Plane plane);
+
+  PlaneFragment();
+};
+
+// TODO(Lukas) remove
+struct VertexMPI {
+  VrtxCoords coords;
+  int planeId;
+};
+
+// TODO(Lukas) Is plane fragment id!
+struct FaceMPI {
+  VrtxCoords coords[3];
+  int planeId;
+
+};
+
+MPI_Datatype registerFaceMPI();
+
+// TODO(Lukas): Maybe send plane ids?
+struct PlaneFragmentsSerialized {
+  const double* data;
+  const int* lengths; // TODO: should lengths[0] be data.size()?
+  int dataSize;
+  int lengthsSize;
+
+  PlaneFragmentsSerialized(const std::vector<double> &dataBuffer,
+			   const std::vector<int> &lengthsBuffer);
+};
+
+void encodePlaneFragment(const PlaneFragment& planeFragment,
+		  std::vector<double> &dataBuffer,
+		  std::vector<int> &lengthsBuffer);
+
+std::vector<PlaneFragment> decodePlaneFragments(const PlaneFragmentsSerialized &serialized,
+						const std::vector<int> &planesPerNode);
 
 #endif // MESH_TOOLS_H

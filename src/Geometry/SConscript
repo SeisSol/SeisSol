@@ -46,7 +46,8 @@ geometryFiles = [ 'GambitReader.cpp',
                   'allocate_mesh.f90',
                   'MeshReaderCBinding.f90',
                   'MeshReaderFBinding.cpp',
-                  'MeshTools.cpp' ]
+                  'MeshTools.cpp',
+                  'ConvexHull.cpp']
 
 # PUML
 if env['metis'] and env['hdf5'] and env['parallelization'] in ['mpi', 'hybrid']:
