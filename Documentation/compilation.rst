@@ -104,7 +104,7 @@ Installing ParMetis (Optional: PUML mesh format)
   tar -xvf parmetis-4.0.3
   cd parmetis-4.0.3
   #edit ./metis/include/metis.h IDXTYPEWIDTH to be 64 (default is 32).
-  make config cc=mpicc cxx=mpiCC prefix=$HOME 
+  make config cc=mpiicc cxx=mpiicpc prefix=$HOME
   make install
   cp build/Linux-x86_64/libmetis/libmetis.a $HOME/lib
   cp metis/include/metis.h $HOME/include
