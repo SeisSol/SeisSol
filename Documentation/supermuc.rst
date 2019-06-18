@@ -237,8 +237,8 @@ Supermuc-2
 You can create a folder ~/.modules and copy these to ~/.modules/bash (Must use intel/17.0)
 :: 
 
-  module load python/2.7_anaconda
-  module load scons
+  module load python/3.5_intel
+  module load scons/3.0.1
   module unload netcdf
   module load netcdf/mpi
   module load hdf5/mpi/1.8.18
