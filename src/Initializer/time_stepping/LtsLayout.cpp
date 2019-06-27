@@ -98,14 +98,15 @@ void seissol::initializers::time_stepping::LtsLayout::setTimeStepWidth( unsigned
   m_cellTimeStepWidths[i_cellId] = i_timeStepWidth;
 }
 
-faceType seissol::initializers::time_stepping::LtsLayout::getFaceType( int i_meshFaceType ) {
-  if(      i_meshFaceType == 0 ) return regular;
-  else if( i_meshFaceType == 1 ) return freeSurface;
-  else if( i_meshFaceType == 3 ) return dynamicRupture;
-  else if( i_meshFaceType == 5 ) return outflow;
-  else if( i_meshFaceType == 6 ) return periodic;
-  else logError() << "face type" << i_meshFaceType << "not supported.";
-  return regular;
+FaceType seissol::initializers::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
+  if (i_meshFaceType != 0 &&
+      i_meshFaceType != 1 &&
+      i_meshFaceType != 3 &&
+      i_meshFaceType != 5 &&
+      i_meshFaceType != 6) {
+    logError() << "face type" << i_meshFaceType << "not supported.";
+  }
+  return static_cast<FaceType>(i_meshFaceType);
 }
 
 void seissol::initializers::time_stepping::LtsLayout::derivePlainCopyInterior() {
@@ -270,9 +271,9 @@ void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
     for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
       if(  m_cells[l_cell].neighborRanks[l_face] != rank ) {
         // asert this is a regular, dynamic rupture or periodic face
-        assert( getFaceType( m_cells[l_cell].boundaries[l_face] ) == regular        ||
-                getFaceType( m_cells[l_cell].boundaries[l_face] ) == dynamicRupture ||
-                getFaceType( m_cells[l_cell].boundaries[l_face] ) == periodic   );
+        assert(getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::regular ||
+               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::dynamicRupture ||
+               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::periodic);
 
         // derive id of the local region
         int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
@@ -542,10 +543,10 @@ unsigned int seissol::initializers::time_stepping::LtsLayout::enforceMaximumDiff
 
       // get the ids
       for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-        faceType l_faceType = getFaceType( m_cells[l_cell].boundaries[l_face] );
-        if( l_faceType == regular  ||
-            l_faceType == periodic ||
-            l_faceType == dynamicRupture ) {
+        FaceType l_faceType = getFaceType( m_cells[l_cell].boundaries[l_face] );
+        if (l_faceType == FaceType::regular ||
+           l_faceType == FaceType::periodic ||
+           l_faceType == FaceType::dynamicRupture) {
           // neighbor cell is part of copy layer/interior
           if( m_cells[l_cell].neighborRanks[l_face] == rank ) {
             unsigned int l_neighborId = m_cells[l_cell].neighbors[l_face];
@@ -793,14 +794,14 @@ void seissol::initializers::time_stepping::LtsLayout::sortClusteredCopyGts( clus
       // check if the cell qualifies for reordering because of dynamic rupture
       if( // m_cells[l_meshId].neighborRanks[l_face] == io_copyRegion.first[0] && // Dynamic rupture cells in the copy layer communicate derivatives only
                                                                                   // TODO: Here's some minor potential for optimizations
-          getFaceType( m_cells[l_meshId].boundaries[l_face] ) == dynamicRupture ) {
+	 getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::dynamicRupture ) {
         l_reorder = true;
       }
 
       // check if the cells qualifies for reordering because of "GTS on der"
-      if( m_cells[l_meshId].neighborRanks[l_face] == rank &&
-          ( getFaceType( m_cells[l_meshId].boundaries[l_face] ) == regular         ||
-            getFaceType( m_cells[l_meshId].boundaries[l_face] ) == periodic ) ) {
+      if(m_cells[l_meshId].neighborRanks[l_face] == rank &&
+         ( getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::regular ||
+           getFaceType( m_cells[l_meshId].boundaries[l_face] ) == FaceType::periodic )) {
         // get neighboring mesh id
         unsigned int l_neighboringMeshId = m_cells[l_meshId].neighbors[l_face];
 
@@ -1378,9 +1379,9 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( CellLo
             io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
           }
           // else neighboring cell is part of the interior or copy layer
-          else if( io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == regular  ||
-                   io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == periodic ||
-                   io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == dynamicRupture ) {
+          else if (io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::regular ||
+                   io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::periodic ||
+                   io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::dynamicRupture) {
             // neighboring mesh id
             unsigned int l_neighboringMeshId = m_cells[l_meshId].neighbors[l_face];
 
@@ -1443,9 +1444,9 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( CellLo
         io_cellLocalInformation[l_ltsCell].faceRelations[l_face][0] = m_cells[l_meshId].neighborSides[l_face];
         io_cellLocalInformation[l_ltsCell].faceRelations[l_face][1] = m_cells[l_meshId].sideOrientations[l_face];
 
-        if( io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == regular  ||
-            io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == periodic ||
-            io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == dynamicRupture ) {
+        if(io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::regular ||
+           io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::periodic ||
+           io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::dynamicRupture) {
           // neighboring mesh id
           unsigned int l_neighboringMeshId = m_cells[l_meshId].neighbors[l_face];
 

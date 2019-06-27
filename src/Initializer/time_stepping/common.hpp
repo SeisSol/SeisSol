@@ -112,29 +112,29 @@ namespace time_stepping {
  * @param i_faceNeighborIds face neighbor ids.
  * @param i_copy true if the cell is part of the copy layer (only required for correctness in dynamic rupture computations).
  **/
-static unsigned short getLtsSetup(      unsigned int   i_localClusterId,
-                                        unsigned int   i_neighboringClusterIds[4],
-                                  const enum faceType  i_faceTypes[4],
-                                  const unsigned int   i_faceNeighborIds[4], // TODO: Remove, outdated
-                                        bool           i_copy = false ) {
+static unsigned short getLtsSetup(unsigned int i_localClusterId,
+                                  unsigned int i_neighboringClusterIds[4],
+                                  const FaceType i_faceTypes[4],
+                                  const unsigned int i_faceNeighborIds[4], // TODO: Remove, outdated
+                                  bool i_copy = false ) {
   // reset the LTS setup
   unsigned short l_ltsSetup = 0;
 
   // iterate over the faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // continue for boundary conditions
-    if( i_faceTypes[l_face] != regular        &&
-        i_faceTypes[l_face] != dynamicRupture &&
-        i_faceTypes[l_face] != periodic       &&
-        i_faceTypes[l_face] != freeSurface ) {
+    if (i_faceTypes[l_face] != FaceType::regular &&
+        i_faceTypes[l_face] != FaceType::dynamicRupture &&
+        i_faceTypes[l_face] != FaceType::periodic &&
+        i_faceTypes[l_face] != FaceType::freeSurface) {
       continue;
     }
     // free surface fake neighbors are GTS
-    else if( i_faceTypes[l_face] == freeSurface ) {
+    else if( i_faceTypes[l_face] == FaceType::freeSurface ) {
       l_ltsSetup |= (1 << (l_face+4) );
     }
     // dynamic rupture faces are always global time stepping but operate on derivatives
-    else if( i_faceTypes[l_face] == dynamicRupture ) {
+    else if( i_faceTypes[l_face] == FaceType::dynamicRupture ) {
       // face-neighbor provides GTS derivatives
       // face-neighbor provides derivatives
       l_ltsSetup |= ( 1 <<  l_face      );
@@ -188,11 +188,11 @@ static unsigned short getLtsSetup(      unsigned int   i_localClusterId,
    */
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // check for special case free-surface requirements
-    if( i_faceTypes[l_face] == freeSurface &&       // free surface face
+    if (i_faceTypes[l_face] == FaceType::freeSurface &&       // free surface face
        ( (l_ltsSetup >> 10) % 2 == 1 ||             // lts fashion buffer
          (l_ltsSetup >> 8 ) % 2 == 0 )         ) {  // no buffer at all
       l_ltsSetup |= ( 1 << 9 );       // enable derivatives computation
-      l_ltsSetup |= ( 1 << l_face );  // enable derivatives for the fake face neighbor
+      l_ltsSetup |= ( 1 << l_face);  // enable derivatives for the fake face neighbor
     }
   }
 
@@ -357,11 +357,11 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
       // collect cluster ids
       for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
         // only continue for valid faces
-        if( io_cellLocalInformation[l_cell].faceTypes[l_face] == regular  ||
-            io_cellLocalInformation[l_cell].faceTypes[l_face] == periodic ||
-            io_cellLocalInformation[l_cell].faceTypes[l_face] == dynamicRupture ) {
-          // get neighboring cell id
-          unsigned int l_neighbor = io_cellLocalInformation[l_cell].faceNeighborIds[l_face];
+        if (io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::regular ||
+           io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::periodic ||
+           io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::dynamicRupture) {
+	  // get neighboring cell id
+	  unsigned int l_neighbor = io_cellLocalInformation[l_cell].faceNeighborIds[l_face];
 
           // set the cluster id
           l_neighboringClusterIds[l_face] = io_cellLocalInformation[l_neighbor].clusterId;
@@ -408,9 +408,9 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
       // collect lts setups
       for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
         // only continue for non-boundary faces
-        if( io_cellLocalInformation[l_cell].faceTypes[l_face] == regular  ||
-            io_cellLocalInformation[l_cell].faceTypes[l_face] == periodic ||
-            io_cellLocalInformation[l_cell].faceTypes[l_face] == dynamicRupture ) {
+        if( io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::regular  ||
+            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::periodic ||
+            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::dynamicRupture ) {
           // get neighboring cell id
           unsigned int l_neighbor = io_cellLocalInformation[l_cell].faceNeighborIds[l_face];
 
