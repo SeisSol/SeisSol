@@ -514,28 +514,36 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 #endif
   for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
     auto data = loader.entry(l_cell);
-    seissol::kernels::TimeCommon::computeIntegrals( m_timeKernel,
-                                                    data.cellInformation.ltsSetup,
-                                                    data.cellInformation.faceTypes,
-                                                    m_subTimeStart,
-                                                    m_timeStepWidth,
-                                                    faceNeighbors[l_cell],
+    seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
+                                                   data.cellInformation.ltsSetup,
+                                                   data.cellInformation.faceTypes,
+                                                   m_subTimeStart,
+                                                   m_timeStepWidth,
+                                                   faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
+                                                   *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
 #else
-                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
+                                                   *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
 #endif
-                                                    l_timeIntegrated );
+                                                   l_timeIntegrated);
 
 #ifdef ENABLE_MATRIX_PREFETCH
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != dynamicRupture) ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
-    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != dynamicRupture) ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
-    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != dynamicRupture) ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
+    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
+      faceNeighbors[l_cell][1] :
+      drMapping[l_cell][1].godunov;
+    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
+      faceNeighbors[l_cell][2] :
+      drMapping[l_cell][2].godunov;
+    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
+      faceNeighbors[l_cell][3] :
+      drMapping[l_cell][3].godunov;
 
     // fourth face's prefetches
     if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != dynamicRupture) ? faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
+      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
+	faceNeighbors[l_cell+1][0] :
+	drMapping[l_cell+1][0].godunov;
     } else {
       l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
     }

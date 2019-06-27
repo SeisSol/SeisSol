@@ -51,11 +51,11 @@
 #include <generated_code/kernels.h>
 #include <generated_code/flops.h>
 
-void seissol::kernels::Local::computeIntegral(  enum faceType const         i_faceTypes[4],
-                                                GlobalData const*           global,
-                                                LocalIntegrationData const* local,
-                                                real*                       i_timeIntegratedDegreesOfFreedom,
-                                                real*                       io_degreesOfFreedom ) {
+void seissol::kernels::Local::computeIntegral(FaceType const i_faceTypes[4],
+                                              GlobalData const* global,
+                                              LocalIntegrationData const* local,
+                                              real* i_timeIntegratedDegreesOfFreedom,
+                                              real* io_degreesOfFreedom) {
   // assert alignments
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
@@ -82,7 +82,7 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
 
   for( unsigned int face = 0; face < 4; ++face ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( i_faceTypes[face] != dynamicRupture ) {
+    if( i_faceTypes[face] != FaceType::dynamicRupture ) {
       seissol::generatedKernels::localFlux[face](
         local->nApNm1[face],
         global->fluxMatrices[face],
@@ -93,15 +93,15 @@ void seissol::kernels::Local::computeIntegral(  enum faceType const         i_fa
   }
 }
 
-void seissol::kernels::Local::flopsIntegral(  enum faceType const i_faceTypes[4],
-                                              unsigned int        &o_nonZeroFlops,
-                                              unsigned int        &o_hardwareFlops )
+void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
+                                            unsigned int &o_nonZeroFlops,
+                                            unsigned int &o_hardwareFlop)
 {
   o_nonZeroFlops = seissol::flops::volume_nonZero;
   o_hardwareFlops = seissol::flops::volume_hardware;
 
   for( unsigned int face = 0; face < 4; ++face ) {
-    if( i_faceTypes[face] != dynamicRupture ) {
+    if( i_faceTypes[face] != FaceType::dynamicRupture ) {
       o_nonZeroFlops  += seissol::flops::localFlux_nonZero[face];
       o_hardwareFlops += seissol::flops::localFlux_hardware[face];
     }

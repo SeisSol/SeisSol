@@ -72,7 +72,7 @@ enum TimeClustering {
 };
 
 // face types
-enum faceType {
+enum class FaceType {
   // regular: inside the computational domain
   regular = 0,
 
@@ -125,7 +125,7 @@ struct TimeStepping {
 // cell local information
 struct CellLocalInformation {
   // types of the faces
-  enum faceType faceTypes[4];
+  FaceType faceTypes[4];
 
   // mapping of the neighboring elements to the references element in relation to this element
   int faceRelations[4][2];

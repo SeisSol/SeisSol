@@ -62,9 +62,9 @@ class seissol::kernels::Local : public LocalBase {
                           LocalData& data,
                           LocalTmp&  tmp );
 
-    void flopsIntegral( enum faceType const i_faceTypes[4],
-                        unsigned int        &o_nonZeroFlops,
-                        unsigned int        &o_hardwareFlops );
+    void flopsIntegral(FaceType const i_faceTypes[4],
+                       unsigned int &o_nonZeroFlops,
+                       unsigned int &o_hardwareFlops );
                         
     unsigned bytesIntegral();
 };

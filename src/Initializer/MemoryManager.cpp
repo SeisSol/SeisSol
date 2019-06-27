@@ -301,9 +301,9 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned face = 0; face < 4; ++face) {
-      if (  cellInformation[cell].faceTypes[face] == regular
-         || cellInformation[cell].faceTypes[face] == periodic
-         || cellInformation[cell].faceTypes[face] == dynamicRupture ) {
+      if (cellInformation[cell].faceTypes[face] == FaceType::regular ||
+	  cellInformation[cell].faceTypes[face] == FaceType::periodic ||
+	  cellInformation[cell].faceTypes[face] == FaceType::dynamicRupture) {
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
           faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
@@ -312,26 +312,26 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
         else {
           faceNeighbors[cell][face] = buffers[ cellInformation[cell].faceNeighborIds[face] ];
         }
-        assert( faceNeighbors[cell][face] != NULL );
+        assert(faceNeighbors[cell][face] != nullptr);
       }
       // free surface boundary
-      else if( cellInformation[cell].faceTypes[face] == freeSurface ) {
+      else if( cellInformation[cell].faceTypes[face] == FaceType::freeSurface ) {
         if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
           faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
         }
         else { // free surface on derivatives
           faceNeighbors[cell][face] = layer.var(m_lts.derivatives)[cell];
         }
-        assert( faceNeighbors[cell][face] != NULL );
+        assert(faceNeighbors[cell][face] != nullptr);
       }
       // absorbing
-      else if( cellInformation[cell].faceTypes[face] == outflow ) {
+      else if( cellInformation[cell].faceTypes[face] == FaceType::outflow ) {
         // NULL pointer; absorbing: data is not used
-        faceNeighbors[cell][face] = NULL;
+        faceNeighbors[cell][face] = nullptr;
       }
       else {
         // assert all cases are covered
-        assert( false );
+        assert(false);
       }
     }
   }
@@ -459,15 +459,16 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       bool hasFreeSurface = false;
       for (unsigned face = 0; face < 4; ++face) {
-        hasFreeSurface = hasFreeSurface || (cellInformation[cell].faceTypes[face] == freeSurface);
+        hasFreeSurface = hasFreeSurface
+	  || (cellInformation[cell].faceTypes[face] == FaceType::freeSurface);
       }
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
         // +1 is necessary as we want to reserve the NULL pointer for cell without displacement.
-        displacements[cell] = static_cast<real*>(NULL) + 1 + numberOfCells * tensor::displacement::size();
+        displacements[cell] = static_cast<real*>(nullptr) + 1 + numberOfCells * tensor::displacement::size();
         ++numberOfCells;
       } else {
-        displacements[cell] = NULL;
+        displacements[cell] = nullptr;
       }
     }
     layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * tensor::displacement::size() * sizeof(real));

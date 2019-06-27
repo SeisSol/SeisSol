@@ -378,7 +378,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       /// Godunov state
       auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
       auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
-      seissol::model::getTransposedElasticGodunovState( plusMaterial, minusMaterial, dynamicRupture, QgodLocal, QgodNeighbor );
+      seissol::model::getTransposedElasticGodunovState(plusMaterial,
+						       minusMaterial,
+						       FaceType::dynamicRupture,
+						       QgodLocal,
+						       QgodNeighbor );
 
       kernel::rotateGodunovStateLocal rlKrnl;
       rlKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixPlus;

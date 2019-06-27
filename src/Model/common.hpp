@@ -57,13 +57,13 @@ namespace seissol {
     template<typename Tloc, typename Tneigh>
     void getTransposedElasticGodunovState(Material const& local,
                                           Material const& neighbor,
-                                          enum ::faceType faceType,
+                                          ::FaceType faceType,
                                           Tloc& QgodLocal,
                                           Tneigh& QgodNeighbor);
 
     template<typename T>
-    void applyBoundaryConditionToElasticFluxSolver(enum ::faceType type,
-                                                    T& QgodNeighbor);
+    void applyBoundaryConditionToElasticFluxSolver(::FaceType type,
+						   T& QgodNeighbor);
   }
 }
 
@@ -125,7 +125,7 @@ void seissol::model::getTransposedElasticCoefficientMatrix(seissol::model::Elast
 template<typename Tloc, typename Tneigh>
 void seissol::model::getTransposedElasticGodunovState(Material const& local,
                                                       Material const& neighbor,
-                                                      enum ::faceType faceType,
+                                                      FaceType faceType,
                                                       Tloc& QgodLocal,
                                                       Tneigh& QgodNeighbor) {
   QgodNeighbor.setZero();
@@ -180,9 +180,9 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
 }
 
 template<typename T>
-void seissol::model::applyBoundaryConditionToElasticFluxSolver(enum ::faceType type,
+void seissol::model::applyBoundaryConditionToElasticFluxSolver(::FaceType type,
                                                                T& QgodNeighbor) {
-  if (type == freeSurface) {
+  if (type == FaceType::freeSurface) {
     // Gamma is a diagonal matrix
     real Gamma[] = { -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0 };
     // Gamma^T * Fneighbor

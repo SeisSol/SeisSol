@@ -219,7 +219,7 @@ class seissol::initializers::time_stepping::LtsLayout {
      *
      * @param i_meshFaceType face type as stored in the mesh.
      **/
-    faceType getFaceType( int i_meshFaceType );
+    FaceType getFaceType(int i_meshFaceType);
 
     /**
      * Derives plain copy regions and the interior.
