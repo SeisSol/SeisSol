@@ -55,7 +55,6 @@ example on SuperMuc
 .. code-block:: bash
 
    mkdir build
-   CMAKE_PREFIX_PATH=$NETCDF_BASE #$NETCDF_BASE should be defined
    cd build
    ccmake ../ 
    
@@ -88,9 +87,9 @@ Check the following variables:
    NETCDF_LIBRARIES_C               /lrz/sys/libraries/netcdf/4.3.3/intel/ibmmpi_poe1.4_1505/lib/libnetcdf.so    
    PKG_CONFIG_EXECUTABLE            <PATH to ASAGI>/build/lib/pkgconfig/pkg-config   
  
- Press ``c`` to configure and ``g`` to generate and exit
+Press ``c`` to configure and ``g`` to generate and exit
  
- ..code-block:: bash
+ .. code-block:: bash
 
    make
    make install
