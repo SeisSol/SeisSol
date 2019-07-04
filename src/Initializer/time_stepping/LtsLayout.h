@@ -518,6 +518,10 @@ class seissol::initializers::time_stepping::LtsLayout {
                                         unsigned*&  numberOfDRCopyFaces,
                                         unsigned*&  numberOfDRInteriorFaces );
 
+    void getBoundaryInformation(unsigned*&  ltsToFace,
+				unsigned*&  numberOfBoundaryCopyFaces,
+				unsigned*&  numberOfBoundaryInteriorFaces);
+
     /**
      * Get the per cluster mesh structure.
      *

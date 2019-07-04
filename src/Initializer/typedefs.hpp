@@ -78,15 +78,21 @@ enum class FaceType {
 
   // free surface boundary
   freeSurface = 1,
+
+  // free surface boundary with gravity
+  freeSurfaceGravity = 2,
   
   // dynamic rupture boundary
   dynamicRupture = 3,
+
+  // Dirichlet boundary
+  dirichlet = 4,
 
   // absorbing/outflow boundary
   outflow = 5,
 
   // periodic boundary
-  periodic = 6
+  periodic = 6,
 };
 
 // cross-cluster time stepping information
@@ -426,6 +432,14 @@ struct CellDRMapping {
   unsigned faceRelation;
   real* godunov;
   real* fluxSolver;
+};
+
+struct CellBoundaryMapping {
+  double* nodes[4];
+};
+
+struct BoundaryFaceInformation {
+  double nodes[seissol::tensor::nodes2D::size()];
 };
 
 #endif

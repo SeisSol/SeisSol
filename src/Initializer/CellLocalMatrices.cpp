@@ -221,6 +221,82 @@ void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
   *surfaceArea = MeshTools::surface(normal);
 }
 
+void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i_meshReader,
+							LTSTree*               io_ltsTree,
+							LTS*                   i_lts,
+							Lut*                   i_ltsLut
+							)
+{
+  std::vector<Element> const& elements = i_meshReader.getElements();
+  std::vector<Vertex> const& vertices = i_meshReader.getVertices();
+  
+  unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
+
+  for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
+    CellMaterialData*           material                = it->var(i_lts->material);
+    LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
+    NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
+    CellLocalInformation*       cellInformation         = it->var(i_lts->cellInformation);
+    
+#ifdef _OPENMP
+#pragma omp for schedule(static)
+#endif
+    for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      unsigned meshId = ltsToMesh[cell];
+
+      // Is this correct?
+      const auto& element = elements[meshId];
+      double const* coords[4];
+      for (unsigned v = 0; v < 4; ++v) {
+	coords[v] = vertices[ element.vertices[ v ] ].coords;
+      }
+      for (unsigned side = 0; side < 4; ++side) {
+	// TODO(Lukas): Do I need the normal here?
+	/*
+	  VrtxCoords normal;
+	  VrtxCoords tangent1;
+	  VrtxCoords tangent2;
+	  MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
+	  double surface = MeshTools::surface(normal);
+	  MeshTools::normalize(normal, normal);
+	  MeshTools::normalize(tangent1, tangent1);
+	  MeshTools::normalize(tangent2, tangent2);
+	  const auto &FACE2NODES = MeshTools::FACE2NODES;
+	*/
+      
+	// TODO(Lukas): Loop over nodes.
+	double nodesData[seissol::tensor::nodes2D::Size];
+	std::copy_n(init::nodes2D::Values,
+		    seissol::tensor::nodes2D::Size,
+		    nodesData);
+	auto nodes = init::nodes2D::view::create(nodesData);
+	for (int i = 0; i < seissol::tensor::nodes2D::Shape[0]; ++i) {
+	  double node[2];
+	  node[0] = nodes(i,0);
+	  node[1] = nodes(i,1);
+	  // Conpute the global coordinates for the nodal points.
+	  double xiEtaZeta[3], xyz[3];
+	  seissol::transformations::chiTau2XiEtaZeta(side,
+						     node,
+						     xiEtaZeta,
+						     element.sideOrientations[side]);
+	  seissol::transformations::tetrahedronReferenceToGlobal(coords[0],
+								 coords[1],
+								 coords[2],
+								 coords[3],
+								 xiEtaZeta,
+								 xyz); 
+	
+	  // TODO(Lukas) Save this.
+	}
+
+	
+      }
+      ltsToMesh += it->getNumberOfCells();
+    }
+  }
+}
+
 void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const&      i_meshReader,
                                                               LTSTree*               io_ltsTree,
                                                               LTS*                   i_lts,

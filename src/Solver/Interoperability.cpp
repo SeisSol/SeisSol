@@ -359,10 +359,10 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
                                                                       numberOfDRCopyFaces,
                                                                       numberOfDRInteriorFaces );
 
-  seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
-                                                            m_meshStructure,
-                                                            numberOfDRCopyFaces,
-                                                            numberOfDRInteriorFaces );
+  seissol::SeisSol::main.getMemoryManager().fixateLtsTree(m_timeStepping,
+                                                          m_meshStructure,
+                                                          numberOfDRCopyFaces,
+                                                          numberOfDRInteriorFaces);
 
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
@@ -398,6 +398,11 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+
+
+  // initialize face lts trees
+  // TODO(Lukas) Is this the best place for this?
+  seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)

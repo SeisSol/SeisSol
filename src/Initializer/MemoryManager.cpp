@@ -406,11 +406,10 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
   }
 }
 
-void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
-                                                          struct MeshStructure*       i_meshStructure,
-                                                          unsigned*                   numberOfDRCopyFaces,
-                                                          unsigned*                   numberOfDRInteriorFaces )
-{
+void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_timeStepping,
+                                                         struct MeshStructure*i_meshStructure,
+                                                         unsigned* numberOfDRCopyFaces,
+                                                         unsigned* numberOfDRInteriorFaces) {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
 
@@ -449,6 +448,74 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
   m_dynRupTree.touchVariables();
 }
 
+void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
+  seissol::initializers::LayerMask ghostMask(Ghost);
+
+  // Boundary face tree
+  m_boundary.addTo(m_boundaryTree);
+  m_boundaryTree.setNumberOfTimeClusters(m_ltsTree.numChildren());
+  m_boundaryTree.fixate();
+
+  // First count the number of faces with relevant boundary condition.
+  for (unsigned tc = 0; tc < m_boundaryTree.numChildren(); ++tc) {
+    auto& cluster = m_boundaryTree.child(tc);
+    cluster.child<Ghost>().setNumberOfCells(0);
+    cluster.child<Copy>().setNumberOfCells(0);
+    cluster.child<Interior>().setNumberOfCells(0);
+  }
+
+  // TODO(Lukas) Something similar is done in initializeSurfaceLTSTree. Maybe use generic func for this? Interface constructFaceLTS(lts, faceLts, lambda inclusion crit, lambda alloc crit)
+
+  // Iterate over layers of standard lts tree and face lts tree together.
+  auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
+    for (;
+       layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
+       ++layer, ++boundaryLayer) {
+    CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
+
+    unsigned numberOfBoundaryFaces = 0;
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
+#endif // _OPENMP
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      for (unsigned face = 0; face < 4; ++face) {
+        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
+	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet) {
+          ++numberOfBoundaryFaces;
+        }
+      }
+    }
+    boundaryLayer->setNumberOfCells(numberOfBoundaryFaces);
+  }
+  m_boundaryTree.allocateVariables();
+  m_boundaryTree.touchVariables();
+
+  // The boundary tree is now allocated, now we only need to map from cell lts
+  // to face lts.
+  // We do this by, once again, iterating over both trees at the same time.
+  // TODO(Lukas) Extract this init to own method in Initializer
+    for (auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
+       layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
+       ++layer, ++boundaryLayer) {
+    auto* cellInformation = layer->var(m_lts.cellInformation);
+    auto *boundaryMapping = layer->var(m_lts.boundaryMapping);
+    auto *faceInformation = layer->var(m_boundary.faceInformation);
+
+    auto boundaryCell = 0;
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      for (unsigned face = 0; face < 4; ++face) {
+	if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
+	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet) {
+	  boundaryMapping[cell]->nodes[face] = faceInformation[boundaryCell].nodes;
+	  ++boundaryCell;
+        } else {
+	  boundaryMapping[cell]->nodes[face] = nullptr;
+	}
+      }
+    }
+  }
+}
+
 void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
 {
   for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
@@ -464,7 +531,9 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
       }
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
-        // +1 is necessary as we want to reserve the NULL pointer for cell without displacement.
+        // +1 is necessary as we want to reserve the nullptr for cell without displacement.
+	// Thanks to this hack, the array contains a constant plus the offset of the current
+	// cell.
         displacements[cell] = static_cast<real*>(nullptr) + 1 + numberOfCells * tensor::displacement::size();
         ++numberOfCells;
       } else {
@@ -485,9 +554,13 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
     #pragma omp parallel for schedule(static)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      if (displacements[cell] != NULL) {
-        displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
-        for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
+      if (displacements[cell] != nullptr) {
+	// Remove constant part that was added in deriveDisplacementsBucket.
+	// We then have the pointer offset that needs to be added to the bucket.
+	// The final value of this pointer then points to a valid memory adress
+	// somewhere in the bucket.
+	displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
+	for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
           // zero displacements
           displacements[cell][dof] = static_cast<real>(0.0);
         }

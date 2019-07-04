@@ -58,6 +58,11 @@ namespace seissol {
                                        LTS*                   i_lts,
                                        Lut*                   i_ltsLut );
                                        
+     void initializeBoundaryMapppings( MeshReader const&      i_meshReader,
+				       LTSTree*               io_ltsTree,
+                                       LTS*                   i_lts,
+                                       Lut*                   i_ltsLut );
+ 
      void initializeDynamicRuptureMatrices( MeshReader const&      i_meshReader,                                                    
                                             LTSTree*               io_ltsTree,
                                             LTS*                   i_lts,
