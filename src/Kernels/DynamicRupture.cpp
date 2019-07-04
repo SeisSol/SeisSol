@@ -158,7 +158,6 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
   o_nonZeroFlops += kernel::godunovState::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
   o_hardwareFlops += kernel::godunovState::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
   
-  // TODO(Lukas) Is this correct?
   o_nonZeroFlops *= NUMBER_OF_TEMPORAL_INTEGRATION_POINTS;
   o_hardwareFlops *= NUMBER_OF_TEMPORAL_INTEGRATION_POINTS;
 }
