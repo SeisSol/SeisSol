@@ -40,11 +40,12 @@
   
 import numpy as np
 from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 from aderdg import ADERDGBase
+import aderdg
 from multSim import OptionalDimTensor
 
 class ADERDG(ADERDGBase):
@@ -53,7 +54,18 @@ class ADERDG(ADERDGBase):
     clones = {
       'star': ['star(0)', 'star(1)', 'star(2)'],
     }
-    self.db.update( parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones) )
+    self.db.update(
+      parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones)
+    )
+    # todo change path
+    self.db.update(
+      parseJSONMatrixFile('{}/nodal/nodalBoundary_matrices_{}.json'.format(matricesDir,
+                                                                           self.order - 1),
+                          {},
+                          alignStride=self.alignStride,
+                          transpose=self.transpose)
+    )
+
     memoryLayoutFromFile(memLayout, self.db, clones)
 
   def numberOfQuantities(self):
@@ -78,6 +90,15 @@ class ADERDG(ADERDGBase):
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
+    self.INodal = OptionalDimTensor('INodal',
+                                    's',
+                                    False, #multipleSimulations,
+                                    0,
+                                    (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
+                                    alignStride=True)
+    # Add nodal 2d weights, needed in this generator
+    self.nodes2D = Tensor('nodes2DTmp', (self.numberOf2DBasisFunctions(),2)) 
+
   def addLocal(self, generator):
     volumeSum = self.Q['kp']
     for i in range(3):
@@ -93,6 +114,20 @@ class ADERDG(ADERDGBase):
     neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
     neighbourFluxPrefetch = lambda h,j,i: self.I
     generator.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
+
+    # todo: transpose?
+    neighbourFluxNodal = lambda h,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.V2nTo2m[self.t('nl')] * self.INodal['lq'] * self.AminusT['qp']
+    neighbourFluxNodalPrefetch = lambda h,i: None #self.INodal
+    generator.addFamily('neighboringFluxNodal', simpleParameterSpace(3,4), neighbourFluxNodal, neighbourFluxNodalPrefetch)
+
+    # maybe prefetch I?
+    projectToNodalBoundary = lambda j: self.INodal['kp'] <= self.db.V3mTo2nFace[j]['km'] * self.I['mp']
+    generator.addFamily('projectToNodalBoundary',
+                        simpleParameterSpace(4),
+                        projectToNodalBoundary)
+
+    nodes2DGen = self.nodes2D['ij'] <= self.db.nodes2D['ij']
+    generator.add('nodes2DGen', nodes2DGen)
 
   def addTime(self, generator):
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())

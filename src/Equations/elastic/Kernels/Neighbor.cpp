@@ -134,21 +134,38 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
     if (data.cellInformation.faceTypes[l_face] != FaceType::outflow
 	&& data.cellInformation.faceTypes[l_face] != FaceType::dynamicRupture) {
+
       // compute the neighboring elements flux matrix id.
-      if (data.cellInformation.faceTypes[l_face] != FaceType::freeSurface) {
+      if (data.cellInformation.faceTypes[l_face] != FaceType::freeSurface ||
+	  data.cellInformation.faceTypes[l_face] != FaceType::freeSurfaceGravity) {
         assert(data.cellInformation.faceRelations[l_face][0] < 4 && data.cellInformation.faceRelations[l_face][1] < 3);
         
         nfKrnl.I = i_timeIntegrated[l_face];
         nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
         nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-        nfKrnl.execute(data.cellInformation.faceRelations[l_face][1], data.cellInformation.faceRelations[l_face][0], l_face);
+        nfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
+		       data.cellInformation.faceRelations[l_face][0],
+		       l_face);
       } else { // fall back to local matrices in case of free surface boundary conditions
-        kernel::localFlux lfKrnl = m_lfKrnlPrototype;
-        lfKrnl.Q = data.dofs;
-        lfKrnl.I = i_timeIntegrated[l_face];
-        lfKrnl.AplusT = data.neighboringIntegration.nAmNm1[l_face];
-        lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-        lfKrnl.execute(l_face);
+	switch (data.cellInformation.faceTypes[l_face]) {
+	case FaceType::freeSurface:
+	  kernel::localFlux lfKrnl = m_lfKrnlPrototype;
+	  lfKrnl.Q = data.dofs;
+	  lfKrnl.I = i_timeIntegrated[l_face];
+	  lfKrnl.AplusT = data.neighboringIntegration.nAmNm1[l_face];
+	  lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
+	  lfKrnl.execute(l_face);
+	  break;
+	case FaceType::freeSurfaceGravity:
+	  auto nodalNfKrnl = kernel::neighboringFluxNodal{};
+	  // todo set INodal here!
+	  nodalNfKrnl.INodal = i_timeIntegrated[l_face];
+	  nodalNfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
+	  // TODO(Lukas): Should something be prefetched here? Prob not?
+	  //nodalNfKrnl._prefetch.INodal = faceNeighbors_prefetch[l_face];
+	  nodalNfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
+			      l_face);
+	}
       }
     } else if (data.cellInformation.faceTypes[l_face] == FaceType::dynamicRupture) {
       assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
