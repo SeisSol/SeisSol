@@ -27,14 +27,20 @@ example on SuperMuc
 
 .. code-block:: bash
 
-   module switch mpi.ibm mpi.intel #since the ibm mpi interferes with python mpi
-   module load python/2.7_anaconda_mpi gcc netcdf/mpi cmake
+   module load mpi
+   module load python/3.5_intel 
+   module load netcdf/mpi
+   module load hdf5/mpi/1.8.18
+   module unload intel
+   module load intel/17.0
+   module load gcc
+   module load cmake
 
 -  get the repository
 
 .. code-block:: bash
 
-   git clone https://github.com/TUM-I5/ASAGI.git
+   git clone git@github.com:TUM-I5/ASAGI.git
 
 -  set compiler options:
 
@@ -51,7 +57,41 @@ example on SuperMuc
    mkdir build
    CMAKE_PREFIX_PATH=$NETCDF_BASE #$NETCDF_BASE should be defined
    cd build
-   cmake ../ -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/
+   ccmake ../ 
+   
+Press ``t`` to toggle advanced options.
+Check the following variables:
+
+.. code-block:: bash
+
+   CMAKE_CXX_COMPILER               /lrz/sys/parallel/mpi.ibm/pecurrent/intel/bin/mpiCC
+   CMAKE_C_COMPILER                 /lrz/sys/parallel/mpi.ibm/pecurrent/intel/bin/mpicc
+   CMAKE_Fortran_COMPILER           /lrz/sys/parallel/mpi.ibm/pecurrent/intel/bin/mpif90
+   CMAKE_INSTALL_PREFIX             <PATH to ASAGI>/build
+   MPIEXEC                          /lrz/sys/parallel/mpi.ibm/pecurrent/intel/bin/mpiexec
+   MPI_CXX_COMPILER                 /lrz/sys/parallel/mpi.ibm/pecurrent/intel/bin/mpiCC
+   MPI_CXX_INCLUDE_PATH             /opt/ibmhpc/pecurrent/mpich2/intel/include64;/opt/ibmhpc/pecurrent/base/include 
+   MPI_CXX_LIBRARIES                /opt/ibmhpc/pecurrent/mpich2/intel/lib64/libmpi.so;/opt/ibmhpc/pecurrent/mpich2/intel/lib64/libmpigc4.so;/usr/lib64/libdl.so;/lrz/sys/intel/studio2017_u6/compilers_and_libraries_2017.6.256/linux/compiler/lib/intel64_lin/libirc.so;/usr/lib64/libpthread.so;/usr/lib64/librt.so
+   MPI_CXX_LINK_FLAGS                -Wl,--allow-shlib-undefined  -Wl,--enable-new-dtags  -Wl,-rpath,/opt/ibmhpc/pecurrent/mpich2/intel/lib64  -Wl,-rpath,/lrz/sys/intel/studio2017_u6/compilers_and_libraries_2017.6.256/linux/compiler/lib/intel64_lin
+   MPI_C_COMPILER                   /lrz/sys/parallel/mpi.ibm/pecurrent/intel/bin/mpicc
+   MPI_C_INCLUDE_PATH               /opt/ibmhpc/pecurrent/mpich2/intel/include64;/opt/ibmhpc/pecurrent/base/include
+   MPI_C_LIBRARIES                  /opt/ibmhpc/pecurrent/mpich2/intel/lib64/libmpi.so;/usr/lib64/libdl.so;/lrz/sys/intel/studio2017_u6/compilers_and_libraries_2017.6.256/linux/compiler/lib/intel64_lin/libirc.so;/usr/lib64/libpthread.so;/usr/lib64/librt.so
+   MPI_C_LINK_FLAGS                  -Wl,--allow-shlib-undefined  -Wl,--enable-new-dtags  -Wl,-rpath,/opt/ibmhpc/pecurrent/mpich2/intel/lib64  -Wl,-rpath,/lrz/sys/intel/studio2017_u6/compilers_and_libraries_2017.6.256/linux/compiler/lib/intel64_lin 
+   MPI_EXTRA_LIBRARY                /opt/ibmhpc/pecurrent/mpich2/intel/lib64/libmpigc4.so;/usr/lib64/libdl.so;/lrz/sys/intel/studio2017_u6/compilers_and_libraries_2017.6.256/linux/compiler/lib/intel64_lin/libirc.so;/usr/lib64/libpthread.so;/usr/lib64/librt.so
+   MPI_Fortran_COMPILER             /lrz/sys/parallel/mpi.ibm/pecurrent/intel/bin/mpif90                                                                                                                             
+   MPI_Fortran_COMPILE_FLAGS                                                                                                                                                                                         
+   MPI_Fortran_INCLUDE_PATH         /opt/ibmhpc/pecurrent/mpich2/intel/include64;/opt/ibmhpc/pecurrent/base/include64 
+   MPI_Fortran_LIBRARIES            /opt/ibmhpc/pecurrent/mpich2/intel/lib64/libmpi.so;/opt/ibmhpc/pecurrent/mpich2/intel/lib64/libmpigf.so;/usr/lib64/libdl.so;/lrz/sys/intel/studio2017_u6/compilers_and_libraries_2017.6.256/linux/compiler/lib/intel64_lin/libirc.so;/usr/lib64/libpthread.so;/usr/lib64/librt.so
+   MPI_Fortran_LINK_FLAGS            -Wl,--allow-shlib-undefined  -Wl,--enable-new-dtags  -Wl,-rpath,/opt/ibmhpc/pecurrent/mpich2/intel/lib64  -Wl,-rpath,/lrz/sys/intel/studio2017_u6/compilers_and_libraries_2017.6.256/linux/compiler/lib/intel64_lin
+   MPI_LIBRARY                      /opt/ibmhpc/pecurrent/mpich2/intel/lib64/libmpi.so                                                                                                                               
+   NETCDF_INCLUDES_C                /lrz/sys/libraries/netcdf/4.3.3/intel/ibmmpi_poe1.4_1505/include                                                                                                                 
+   NETCDF_LIBRARIES_C               /lrz/sys/libraries/netcdf/4.3.3/intel/ibmmpi_poe1.4_1505/lib/libnetcdf.so    
+   PKG_CONFIG_EXECUTABLE            <PATH to ASAGI>/build/lib/pkgconfig/pkg-config   
+ 
+ Press ``c`` to configure and ``g`` to generate and exit
+ 
+ ..code-block:: bash
+
    make
    make install
 
