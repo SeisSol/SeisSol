@@ -49,6 +49,8 @@ Logout of supermuc and log back in (ssh supermucNG). You should now be able to c
 Pay attention to the git clone address ('https://github.com/' replaced by 'git@github.com:'). 
 If it works, you will see several lines of ‘cloning ….’.
 
+.. _fix_submodules:
+
 Now for initializing the submodule folder, copy the following to fix_submodules.sh and run it within SeisSol.
 
 ::
