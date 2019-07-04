@@ -13,7 +13,7 @@ As an illustration, we will process a netcdf file from GEBCO
 (`http://www.gebco.net/ <http://www.gebco.net/>`__). It has been used in
 Sumatra related simulations. It features a 400m resolution regular grid.
 Using the script createGOCADTSurfNXNY_netcdf.py, available
-`here <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing/GocadRelatedScripts>`__,
+`here <https://github.com/SeisSol/Meshing/tree/master/GocadRelatedScripts>`__,
 we will downsample the data overall, project them and isolate a square
 region away from which a fine discretisation is not necessary.
 
