@@ -59,34 +59,32 @@ seissol::initializers::time_stepping::LtsLayout::LtsLayout():
 
 seissol::initializers::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables
-  if( m_cellTimeStepWidths       != NULL ) delete[] m_cellTimeStepWidths;
-  if( m_cellClusterIds           != NULL ) delete[] m_cellClusterIds;
-  if( m_globalTimeStepWidths     != NULL ) delete[] m_globalTimeStepWidths;
-  if( m_globalTimeStepRates      != NULL ) delete[] m_globalTimeStepRates;
-  if( m_numberOfPlainGhostCells  != NULL ) delete[] m_numberOfPlainGhostCells;
-  if( m_plainGhostCellClusterIds != NULL ) for( unsigned int l_rank = 0; l_rank < m_plainNeighboringRanks.size(); l_rank++ ) delete[] m_plainGhostCellClusterIds[l_rank];
-  if( m_plainGhostCellClusterIds != NULL ) delete[] m_plainGhostCellClusterIds;
-  if( m_plainCopyRegions         != NULL ) delete[] m_plainCopyRegions;
+  delete[] m_cellTimeStepWidths;
+  delete[] m_cellClusterIds;
+  delete[] m_globalTimeStepWidths;
+  delete[] m_globalTimeStepRates;
+  delete[] m_numberOfPlainGhostCells;
+  if (m_plainGhostCellClusterIds != nullptr) {
+    for( unsigned int l_rank = 0; l_rank < m_plainNeighboringRanks.size(); l_rank++ ) {
+      delete[] m_plainGhostCellClusterIds[l_rank];
+    }
+  }
+  delete[] m_plainGhostCellClusterIds;
+  delete[] m_plainCopyRegions;
 }
 
 void seissol::initializers::time_stepping::LtsLayout::setMesh( const MeshReader &i_mesh ) {
   // TODO: remove the copy by a pointer once the mesh stays constant
-  std::vector<Element> const& elements = i_mesh.getElements();
-  for( unsigned int l_cell = 0; l_cell < elements.size(); l_cell++ ) {
-    m_cells.push_back( elements[l_cell] );
-  }
-  std::vector<Fault> const& fault = i_mesh.getFault();
-  for( unsigned int i = 0; i < fault.size(); ++i ) {
-    m_fault.push_back( fault[i] );
-  }
+  m_cells = i_mesh.getElements();
+  m_fault = i_mesh.getFault();
 
   m_cellTimeStepWidths = new double[       m_cells.size() ];
   m_cellClusterIds     = new unsigned int[ m_cells.size() ];
 
   // initialize with invalid values
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
+  for (unsigned int l_cell = 0; l_cell < m_cells.size(); ++l_cell) {
     m_cellTimeStepWidths[l_cell] = std::numeric_limits<double>::min();
-    m_cellClusterIds[l_cell]     = std::numeric_limits<unsigned int>::max();
+    m_cellClusterIds[l_cell] = std::numeric_limits<unsigned int>::max();
   }
 }
 
@@ -101,7 +99,9 @@ void seissol::initializers::time_stepping::LtsLayout::setTimeStepWidth( unsigned
 FaceType seissol::initializers::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
   if (i_meshFaceType != 0 &&
       i_meshFaceType != 1 &&
+      i_meshFaceType != 2 &&
       i_meshFaceType != 3 &&
+      i_meshFaceType != 4 &&
       i_meshFaceType != 5 &&
       i_meshFaceType != 6) {
     logError() << "face type" << i_meshFaceType << "not supported.";
@@ -1517,6 +1517,7 @@ void seissol::initializers::time_stepping::LtsLayout::getDynamicRuptureInformati
     }
   }
 }
+
 
 void seissol::initializers::time_stepping::LtsLayout::getMeshStructure( MeshStructure *&o_meshStructure ) {
   // allocate data for per cluster mesh structure
