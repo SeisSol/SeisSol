@@ -203,12 +203,16 @@ env['execDir'] = env['buildDir']+'/bin'
 # get the source files
 env.sourceFiles = []
 env.generatedTestSourceFiles = []
+env.generatedSourceFiles = []
 env.flopsPerCellSourceFiles = []
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir=env['buildDir'], src_dir='#/', duplicate=0)
 SConscript('src/SConscript', variant_dir=env['buildDir'], src_dir='#/', duplicate=0)
 Import('env')
+
+# add generated code to executables
+env.sourceFiles.extend(env.generatedSourceFiles)
 
 # build executable
 env.Program(env['execDir']+'/seissol_proxy', env.sourceFiles)
