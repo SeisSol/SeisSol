@@ -60,7 +60,7 @@ public:
                                      GlobalData const*           global,
                                      PlasticityData const*       plasticityData,
                                      real                        degreesOfFreedom[tensor::Q::size()],
-                                     double*                     pstrain);
+                                     real*                       pstrain);
 
   static void flopsPlasticity(  long long&  o_nonZeroFlopsCheck,
                                 long long&  o_hardwareFlopsCheck,
