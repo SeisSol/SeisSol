@@ -52,7 +52,7 @@ unsigned seissol::kernels::Plasticity::computePlasticity( double                
                                                       GlobalData const*           global,
                                                       PlasticityData const*       plasticityData,
                                                       real                        degreesOfFreedom[tensor::Q::size()],
-                                                      double*                     pstrain)
+                                                      real*                       pstrain)
 {
   real QStressNodal[tensor::QStressNodal::size()] __attribute__((aligned(ALIGNMENT)));
   real meanStress[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
