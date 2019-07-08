@@ -59,6 +59,9 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   globalMatrixMemSize += yateto::computeFamilySize<init::rT>(yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::computeFamilySize<init::fMrT>(yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::computeFamilySize<init::fP>(yateto::alignedReals<real>(ALIGNMENT));
+  // TODO(Lukas) Move the following somewhere else?
+  globalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2nFace>(yateto::alignedReals<real>(ALIGNMENT));
+
   globalMatrixMemSize += yateto::alignedUpper(tensor::evalAtQP::size(),  yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(ALIGNMENT));
   
@@ -71,6 +74,9 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   yateto::copyFamilyToMemAndSetPtr<init::rT,     real>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, ALIGNMENT);
   yateto::copyFamilyToMemAndSetPtr<init::fMrT,   real>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, ALIGNMENT);
   yateto::copyFamilyToMemAndSetPtr<init::fP,     real>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, ALIGNMENT);
+  // TODO(Lukas) Move the following somewhere else?
+  yateto::copyFamilyToMemAndSetPtr<init::V3mTo2nFace,     real>(globalMatrixMemPtr, globalData.V3mTo2nFace, ALIGNMENT);
+
   yateto::copyTensorToMemAndSetPtr<init::evalAtQP,     real>(globalMatrixMemPtr, globalData.evalAtQPMatrix, ALIGNMENT);
   yateto::copyTensorToMemAndSetPtr<init::projectQP,    real>(globalMatrixMemPtr, globalData.projectQPMatrix, ALIGNMENT);
   

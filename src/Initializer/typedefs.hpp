@@ -324,6 +324,9 @@ struct GlobalData {
    *    15: \f$ P^{-,4,3} \f$
    **/ 
   seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
+
+  // TODO(Lukas) Comment+Rename or Remove
+  seissol::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
   
   /** 
    * Addresses of the global face to nodal matrices
@@ -435,11 +438,14 @@ struct CellDRMapping {
 };
 
 struct CellBoundaryMapping {
-  double* nodes[4];
+  real* nodes;
+  real* TData;
 };
 
 struct BoundaryFaceInformation {
-  double nodes[seissol::tensor::nodes2D::size()];
+  // nodes is an array of 3d-points in global coordinates.
+  real nodes[seissol::tensor::nodes2D::Shape[0] * 3];
+  real TData[seissol::tensor::T::size()];
 };
 
 #endif

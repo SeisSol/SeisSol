@@ -63,14 +63,17 @@ void seissol::localIntegration( struct GlobalData* globalData,
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     auto data = loader.entry(cell);
-    timeKernel.computeAder( 1.0,
-                            data,
-                            tmp,
-                            buffers[cell],
-                            nullptr );
-    localKernel.computeIntegral( buffers[cell],
-                                 data,
-                                 tmp );
+    timeKernel.computeAder(1.0,
+			   data,
+			   tmp,
+                           buffers[cell],
+                           nullptr);
+    localKernel.computeIntegral(buffers[cell],
+                                data,
+                                tmp,
+				nullptr,
+				nullptr,
+				nullptr);
   }
 }
 

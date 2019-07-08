@@ -148,6 +148,11 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
+	if (cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
+	  assert(material[cell].local.lambda == material[cell].neighbor[side].lambda);
+	  assert(material[cell].local.mu == material[cell].neighbor[side].mu);
+	  assert(material[cell].local.rho == material[cell].neighbor[side].rho);
+	}
         seissol::model::getTransposedGodunovState(  material[cell].local,
                                                     material[cell].neighbor[side],
                                                     cellInformation[cell].faceTypes[side],
@@ -179,22 +184,38 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.star(0) = ATData;
         localKrnl.execute();
         
-        kernel::computeFluxSolverNeighbor neighKrnl;
-        neighKrnl.fluxScale = fluxScale;
-        neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-        neighKrnl.QgodNeighbor = QgodNeighborData;
-        neighKrnl.T = TData;
-        neighKrnl.Tinv = TinvData;
-        neighKrnl.star(0) = ATData;
-        neighKrnl.execute();
+	// Fall back to local material matrix.
+	// TODO(Lukas) Is this correct?
+	if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+	  // These boundary conditions are already described in rotated form.
+	  kernel::computeFluxSolverNeighborRotated neighKrnl;
+	  neighKrnl.fluxScale = fluxScale;
+	  neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+	  //neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+	  neighKrnl.QgodNeighbor = QgodNeighborData;
+	  neighKrnl.Tinv = TinvData;
+	  neighKrnl.star(0) = ATData;
+	  neighKrnl.execute();
+
+	} else {
+	  kernel::computeFluxSolverNeighbor neighKrnl;
+	  neighKrnl.fluxScale = fluxScale;
+	  neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+	  neighKrnl.QgodNeighbor = QgodNeighborData;
+	  neighKrnl.T = TData;
+	  neighKrnl.Tinv = TinvData;
+	  neighKrnl.star(0) = ATData;
+	  neighKrnl.execute();
+	}
+
       }
 
-      seissol::model::initializeSpecificLocalData(  material[cell].local,
-                                                    &localIntegration[cell].specific );
+      seissol::model::initializeSpecificLocalData(material[cell].local,
+                                                  &localIntegration[cell].specific );
 
-      seissol::model::initializeSpecificNeighborData( material[cell].local,
-                                                      material[cell].neighbor,
-                                                      &neighboringIntegration[cell].specific );
+      seissol::model::initializeSpecificNeighborData(material[cell].local,
+                                                     material[cell].neighbor,
+                                                     &neighboringIntegration[cell].specific );
     }
 #ifdef _OPENMP
     }
@@ -227,57 +248,48 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 							Lut*                   i_ltsLut
 							)
 {
+  std::cout << "initBoundaryMappings" << std::endl;
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
   
   unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
   for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
-    CellMaterialData*           material                = it->var(i_lts->material);
-    LocalIntegrationData*       localIntegration        = it->var(i_lts->localIntegration);
-    NeighboringIntegrationData* neighboringIntegration  = it->var(i_lts->neighboringIntegration);
-    CellLocalInformation*       cellInformation         = it->var(i_lts->cellInformation);
+    auto* material = it->var(i_lts->material);
+    auto* cellInformation = it->var(i_lts->cellInformation);
+    auto* boundary = it->var(i_lts->boundaryMapping);
     
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
     for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
-      unsigned meshId = ltsToMesh[cell];
-
-      // Is this correct?
-      const auto& element = elements[meshId];
+      const auto& element = elements[ltsToMesh[cell]];
       double const* coords[4];
       for (unsigned v = 0; v < 4; ++v) {
 	coords[v] = vertices[ element.vertices[ v ] ].coords;
       }
       for (unsigned side = 0; side < 4; ++side) {
-	// TODO(Lukas): Do I need the normal here?
-	/*
-	  VrtxCoords normal;
-	  VrtxCoords tangent1;
-	  VrtxCoords tangent2;
-	  MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
-	  double surface = MeshTools::surface(normal);
-	  MeshTools::normalize(normal, normal);
-	  MeshTools::normalize(tangent1, tangent1);
-	  MeshTools::normalize(tangent2, tangent2);
-	  const auto &FACE2NODES = MeshTools::FACE2NODES;
-	*/
-      
-	// TODO(Lukas): Loop over nodes.
-	double nodesData[seissol::tensor::nodes2D::Size];
+	if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity &&
+	    cellInformation[cell].faceTypes[side] != FaceType::dirichlet) {
+	  continue;
+	}
+	// Compute nodal points in global coordinates for each side.
+	double nodesReferenceData[seissol::tensor::nodes2D::Size];
 	std::copy_n(init::nodes2D::Values,
 		    seissol::tensor::nodes2D::Size,
-		    nodesData);
-	auto nodes = init::nodes2D::view::create(nodesData);
+		    nodesReferenceData);
+	auto nodesReference = init::nodes2D::view::create(nodesReferenceData);
+	assert(boundary[cell][side].nodes != nullptr);
+	auto nodes = boundary[cell][side].nodes;
+	auto offset = 0;
 	for (int i = 0; i < seissol::tensor::nodes2D::Shape[0]; ++i) {
-	  double node[2];
-	  node[0] = nodes(i,0);
-	  node[1] = nodes(i,1);
+	  double nodeReference[2];
+	  nodeReference[0] = nodesReference(i,0);
+	  nodeReference[1] = nodesReference(i,1);
 	  // Conpute the global coordinates for the nodal points.
 	  double xiEtaZeta[3], xyz[3];
 	  seissol::transformations::chiTau2XiEtaZeta(side,
-						     node,
+						     nodeReference,
 						     xiEtaZeta,
 						     element.sideOrientations[side]);
 	  seissol::transformations::tetrahedronReferenceToGlobal(coords[0],
@@ -286,14 +298,33 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 								 coords[3],
 								 xiEtaZeta,
 								 xyz); 
-	
-	  // TODO(Lukas) Save this.
+	  // TODO(Lukas) Init this (overwrites other stuff somewhere...)
+	  nodes[offset++] = xyz[0];
+	  nodes[offset++] = xyz[1];
+	  nodes[offset++] = xyz[2];
 	}
 
-	
+	// Compute map that rotates to normal aligned coordinate system.
+	real TinvData[seissol::tensor::Tinv::size()]; // unused
+
+	real* TData = boundary[cell][side].TData;
+	assert(TData != nullptr);
+	auto T = init::T::view::create(boundary[cell][side].TData);
+	auto Tinv = init::Tinv::view::create(TinvData);
+
+	// TODO(Lukas) This code is duplicated from cellLocalMatrices setup.
+	// The reason for this is that the boundary mappings aren't initialized earlier.
+	VrtxCoords normal;
+	VrtxCoords tangent1;
+	VrtxCoords tangent2;
+	MeshTools::normalAndTangents(element, side, vertices, normal, tangent1, tangent2);
+	MeshTools::normalize(normal, normal);
+	MeshTools::normalize(tangent1, tangent1);
+	MeshTools::normalize(tangent2, tangent2);
+        seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
       }
-      ltsToMesh += it->getNumberOfCells();
     }
+    ltsToMesh += it->getNumberOfCells();
   }
 }
 

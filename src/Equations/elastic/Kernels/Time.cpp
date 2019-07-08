@@ -120,6 +120,7 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
    * compute ADER scheme.
    */
   // temporary result
+  // TODO(Lukas) This could be removed eventually (already checked in TimeCluster).
   real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
   real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 

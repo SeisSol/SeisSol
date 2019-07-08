@@ -314,8 +314,10 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
         }
         assert(faceNeighbors[cell][face] != nullptr);
       }
-      // free surface boundary
-      else if( cellInformation[cell].faceTypes[face] == FaceType::freeSurface ) {
+      // boundaries using local cells
+      else if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
+	       cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
+	       cellInformation[cell].faceTypes[face] == FaceType::dirichlet) {
         if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
           faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
         }
@@ -490,6 +492,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
   m_boundaryTree.allocateVariables();
   m_boundaryTree.touchVariables();
 
+  std::cout << "initBoundaryTree" << std::endl;
   // The boundary tree is now allocated, now we only need to map from cell lts
   // to face lts.
   // We do this by, once again, iterating over both trees at the same time.
@@ -498,18 +501,20 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
        layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
        ++layer, ++boundaryLayer) {
     auto* cellInformation = layer->var(m_lts.cellInformation);
-    auto *boundaryMapping = layer->var(m_lts.boundaryMapping);
-    auto *faceInformation = layer->var(m_boundary.faceInformation);
+    auto* boundaryMapping = layer->var(m_lts.boundaryMapping);
+    auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation);
 
     auto boundaryCell = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
 	if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
 	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet) {
-	  boundaryMapping[cell]->nodes[face] = faceInformation[boundaryCell].nodes;
+	  boundaryMapping[cell][face].nodes = faceInformation[boundaryCell].nodes;
+	  boundaryMapping[cell][face].TData = faceInformation[boundaryCell].TData;
 	  ++boundaryCell;
         } else {
-	  boundaryMapping[cell]->nodes[face] = nullptr;
+	  boundaryMapping[cell][face].nodes = nullptr;
+	  boundaryMapping[cell][face].TData = nullptr;
 	}
       }
     }
@@ -527,7 +532,8 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
       bool hasFreeSurface = false;
       for (unsigned face = 0; face < 4; ++face) {
         hasFreeSurface = hasFreeSurface
-	  || (cellInformation[cell].faceTypes[face] == FaceType::freeSurface);
+	  || (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
+	      cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity);
       }
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated

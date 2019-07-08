@@ -585,6 +585,13 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            m_ltsFaceToMeshFace,
                                                            *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
                                                            m_timeStepping );
+
+  seissol::initializers::initializeBoundaryMapppings(seissol::SeisSol::main.meshReader(),
+						     m_ltsTree,
+						     m_lts,
+						     &m_ltsLut);
+ 
+
 }
 
 template<typename T>

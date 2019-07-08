@@ -111,6 +111,9 @@ class ADERDGBase(ABC):
     computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.db.star[0]['ql'] * self.T['jl']
     generator.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
+    computeFluxSolverNeighborRotated = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.db.star[0]['qj']
+    generator.add('computeFluxSolverNeighborRotated', computeFluxSolverNeighborRotated)
+    
     QFortran = Tensor('QFortran', (self.numberOf3DBasisFunctions(), self.numberOfQuantities()))
     multSimToFirstSim = Tensor('multSimToFirstSim', (self.Q.optSize(),), spp={(0,): '1.0'})
     if self.Q.hasOptDim():

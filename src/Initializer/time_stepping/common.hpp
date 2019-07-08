@@ -123,14 +123,19 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
   // iterate over the faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // continue for boundary conditions
+    // TODO(Lukas) Refactor this!
     if (i_faceTypes[l_face] != FaceType::regular &&
         i_faceTypes[l_face] != FaceType::dynamicRupture &&
         i_faceTypes[l_face] != FaceType::periodic &&
-        i_faceTypes[l_face] != FaceType::freeSurface) {
+        i_faceTypes[l_face] != FaceType::freeSurface &&
+	i_faceTypes[l_face] != FaceType::freeSurfaceGravity &&
+	i_faceTypes[l_face] != FaceType::dirichlet) {
       continue;
     }
-    // free surface fake neighbors are GTS
-    else if( i_faceTypes[l_face] == FaceType::freeSurface ) {
+    // fake neighbors are GTS
+    else if(i_faceTypes[l_face] == FaceType::freeSurface ||
+	    i_faceTypes[l_face] == FaceType::freeSurfaceGravity ||
+	    i_faceTypes[l_face] == FaceType::dirichlet) {
       l_ltsSetup |= (1 << (l_face+4) );
     }
     // dynamic rupture faces are always global time stepping but operate on derivatives
@@ -180,15 +185,18 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
   }
 
   /*
-   * Normalize for special case "free surface on derivatives":
+   * Normalize for special case "free surface/dirichlet on derivatives":
    *   If a cell provides either buffers in a LTS fashion or derivatives only,
    *   the neighboring contribution of the boundary intergral is required to work on the cells derivatives.
-   *   Free surface boundary conditions work on the cells DOFs in the neighboring contribution:
+   *   Free surface/dirichlet boundary conditions work on the cells DOFs in the neighboring contribution:
    *   Enable cell local derivatives in this case and mark that the "fake neighbor" provides derivatives.
    */
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-    // check for special case free-surface requirements
-    if (i_faceTypes[l_face] == FaceType::freeSurface &&       // free surface face
+    // check for special case free-surface/dirichlet requirements
+    const bool isSpecialCase = i_faceTypes[l_face] == FaceType::freeSurface ||
+      i_faceTypes[l_face] == FaceType::freeSurfaceGravity ||
+      i_faceTypes[l_face] == FaceType::dirichlet;
+    if (isSpecialCase &&       // special case face
        ( (l_ltsSetup >> 10) % 2 == 1 ||             // lts fashion buffer
          (l_ltsSetup >> 8 ) % 2 == 0 )         ) {  // no buffer at all
       l_ltsSetup |= ( 1 << 9 );       // enable derivatives computation

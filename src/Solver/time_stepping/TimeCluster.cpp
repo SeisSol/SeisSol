@@ -82,6 +82,7 @@
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
+#include "Kernels/DirichletBoundary.h"
 #include <Monitoring/FlopCounter.hpp>
 
 #include <cassert>
@@ -421,11 +422,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   real l_integrationBuffer[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
 
   // pointer for the call of the ADER-function
-  real *l_bufferPointer;
+  real* l_bufferPointer;
 
-  real**                buffers                       = i_layerData.var(m_lts->buffers);
-  real**                derivatives                   = i_layerData.var(m_lts->derivatives);
-  real**                displacements                 = i_layerData.var(m_lts->displacements);
+  real** buffers = i_layerData.var(m_lts->buffers);
+  real** derivatives = i_layerData.var(m_lts->derivatives);
+  real** displacements = i_layerData.var(m_lts->displacements);
+  CellMaterialData* materialData = i_layerData.var(m_lts->material);
+  CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
+  CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
 
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
@@ -444,7 +448,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
     if( l_resetBuffers ) {
       // assert presence of the buffer
-      assert( buffers[l_cell] != NULL );
+      assert( buffers[l_cell] != nullptr );
 
       l_bufferPointer = buffers[l_cell];
     }
@@ -453,16 +457,60 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       l_bufferPointer = l_integrationBuffer;
     }
 
-    m_timeKernel.computeAder( m_timeStepWidth,
-                              data,
-                              tmp,
-                              l_bufferPointer,
-                              derivatives[l_cell] );
-    m_localKernel.computeIntegral( l_bufferPointer,
-                                   data,
-                                   tmp );
+    // TODO(Lukas) Opt?
+    real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()]
+      __attribute__((aligned(PAGESIZE_STACK)));
+    real* derivativeBuffer = derivatives[l_cell];
+    if (derivativeBuffer == nullptr) {
+      derivativeBuffer = temporaryBuffer;
+    }
+    m_timeKernel.computeAder(m_timeStepWidth,
+                             data,
+                             tmp,
+                             l_bufferPointer,
+                             derivativeBuffer);
 
-    if (displacements[l_cell] != NULL) {
+    // Compute average displacement over timestep.
+    real twiceTimeIntegrated[tensor::I::size()] __attribute__((aligned(PAGESIZE_STACK)));
+    real nodalAvgDisplacement[tensor::INodalDisplacement::size()] __attribute__((aligned(PAGESIZE_STACK)));
+    
+    // TODO(Lukas) Check buffers for correctness
+    // TODO(Lukas) Call this only if at least one cell has freeSurfaceGravity bc
+    computeAverageDisplacement(m_timeStepWidth,
+			       derivativeBuffer,
+			       m_timeKernel.m_derivativesOffsets,
+			       twiceTimeIntegrated);
+    //std::fill_n(twiceTimeIntegrated, tensor::I::size(), 0.0);
+    for (int side = 0; side < 4; ++side) {
+      // TODO(Lukas) Check cell info
+      if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
+	assert(displacements[l_cell] != nullptr);
+
+	kernel::displacementAvgNodal krnl;
+	krnl.I = twiceTimeIntegrated;
+	krnl.V3mTo2nFace = m_globalData->V3mTo2nFace;
+
+	krnl.displacement = displacements[l_cell];
+	krnl.dt = m_timeStepWidth; 
+
+	krnl.selectZDisplacement = init::selectZDisplacement::Values;
+	krnl.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
+	krnl.INodalDisplacement = nodalAvgDisplacement;
+	krnl.execute(side);
+      } 
+    }
+
+    // Compute local integrals (including some boundary conditions)
+    m_localKernel.computeIntegral(l_bufferPointer,
+                                  data,
+                                  tmp,
+				  materialData,
+				  &boundaryMapping[l_cell],
+				  nodalAvgDisplacement
+				  );
+    
+    // Update displacement.
+    if (displacements[l_cell] != nullptr) {
       kernel::addVelocity krnl;
       krnl.I = l_bufferPointer;
       krnl.selectVelocity = init::selectVelocity::Values;
@@ -474,7 +522,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     // TODO: Integrate this step into the kernel
     if( !l_resetBuffers && l_buffersProvided ) {
       // assert presence of the buffer
-      assert( buffers[l_cell] != NULL );
+      assert( buffers[l_cell] != nullptr );
 
       for( unsigned int l_dof = 0; l_dof < tensor::I::size(); l_dof++ ) {
         buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
@@ -490,13 +538,14 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 
-  real*                     (*faceNeighbors)[4]             = i_layerData.var(m_lts->faceNeighbors);
-  CellDRMapping             (*drMapping)[4]                 = i_layerData.var(m_lts->drMapping);
-  CellLocalInformation*       cellInformation               = i_layerData.var(m_lts->cellInformation);
+  real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
+  CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
+  CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
+  CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
 #ifdef USE_PLASTICITY
-  PlasticityData*             plasticity                    = i_layerData.var(m_lts->plasticity);
-  real                      (*pstrain)[7]                   = i_layerData.var(m_lts->pstrain);
-  unsigned                   numberOTetsWithPlasticYielding = 0;
+  PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
+  real (*pstrain)[7] = i_layerData.var(m_lts->pstrain);
+  unsigned numberOTetsWithPlasticYielding = 0;
 #endif
 
   kernels::NeighborData::Loader loader;
@@ -551,6 +600,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
     m_neighborKernel.computeNeighborsIntegral( data,
                                                drMapping[l_cell],
+					       boundaryMapping[l_cell],
 #ifdef ENABLE_MATRIX_PREFETCH
                                                l_timeIntegrated, l_faceNeighbors_prefetch
 #else

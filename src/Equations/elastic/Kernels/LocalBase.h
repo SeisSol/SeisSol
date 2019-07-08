@@ -53,6 +53,9 @@ class seissol::kernels::LocalBase {
   protected:
     kernel::volume m_volumeKernelPrototype;
     kernel::localFlux m_localFluxKernelPrototype;
+    kernel::localFluxNodal m_nodalLfKrnlPrototype;
+
+    kernel::projectToNodalBoundary m_projectKrnlPrototype;
 };
 
 #endif

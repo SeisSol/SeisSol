@@ -76,6 +76,7 @@
 #endif
 
 #include <yateto.h>
+#include "DirichletBoundary.h"
 
 #include <cassert>
 #include <stdint.h>
@@ -106,68 +107,66 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
+
+  m_nodalLfKrnlPrototype.V2nTo2m = init::V2nTo2m::Values;
+  m_nodalLfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
 }
 
-void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&                     data,
-                                                            CellDRMapping const             (&cellDrMapping)[4],
-                                                            real*                             i_timeIntegrated[4],
-                                                            real*                             faceNeighbors_prefetch[4] )
-{
-#ifndef NDEBUG
-  for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
-    // alignment of the time integrated dofs
-    if (data.cellInformation.faceTypes[l_neighbor] != FaceType::outflow &&
-	data.cellInformation.faceTypes[l_neighbor] != FaceType::dynamicRupture) { // no alignment for outflow and DR boundaries required
-      assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % ALIGNMENT == 0 );
-    }
-  }
-#endif
-
+void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
+                                                          CellDRMapping const (&cellDrMapping)[4],
+							  CellBoundaryMapping const (&cellBoundaryMapping)[4],
+                                                          real* i_timeIntegrated[4],
+                                                          real* faceNeighbors_prefetch[4]) {
   // alignment of the degrees of freedom
   assert( ((uintptr_t)data.dofs) % ALIGNMENT == 0 );
 
-  kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
-  nfKrnl.Q = data.dofs;
-
   // iterate over faces
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-    // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
-    if (data.cellInformation.faceTypes[l_face] != FaceType::outflow
-	&& data.cellInformation.faceTypes[l_face] != FaceType::dynamicRupture) {
+  for (unsigned int l_face = 0; l_face < 4; l_face++) {
+    switch (data.cellInformation.faceTypes[l_face]) {
+    case FaceType::regular:
+      // Fallthrough intended
+    case FaceType::periodic:  
+      // Standard neighboring flux
+      // Compute the neighboring elements flux matrix id.
+      assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % ALIGNMENT == 0 );
+      assert(data.cellInformation.faceRelations[l_face][0] < 4 && data.cellInformation.faceRelations[l_face][1] < 3);
+      kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
+      nfKrnl.Q = data.dofs;
+      nfKrnl.I = i_timeIntegrated[l_face];
+      nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
+      nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
+      nfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
+		     data.cellInformation.faceRelations[l_face][0],
+		     l_face);
+      break;
+    case FaceType::dirichlet:
+      assert(cellBoundaryMapping != nullptr);
+      // TODO(Lukas) Prefetch
+      real dofsFaceBoundaryNodal[tensor::INodal::size()] __attribute__((aligned(ALIGNMENT)));
+      auto nodalLfKrnl = m_nodalLfKrnlPrototype;
+      nodalLfKrnl.Q = data.dofs;
+      nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+      nodalLfKrnl.AplusT = data.neighboringIntegration.nAmNm1[l_face];
 
-      // compute the neighboring elements flux matrix id.
-      if (data.cellInformation.faceTypes[l_face] != FaceType::freeSurface ||
-	  data.cellInformation.faceTypes[l_face] != FaceType::freeSurfaceGravity) {
-        assert(data.cellInformation.faceRelations[l_face][0] < 4 && data.cellInformation.faceRelations[l_face][1] < 3);
-        
-        nfKrnl.I = i_timeIntegrated[l_face];
-        nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
-        nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-        nfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
-		       data.cellInformation.faceRelations[l_face][0],
-		       l_face);
-      } else { // fall back to local matrices in case of free surface boundary conditions
-	switch (data.cellInformation.faceTypes[l_face]) {
-	case FaceType::freeSurface:
-	  kernel::localFlux lfKrnl = m_lfKrnlPrototype;
-	  lfKrnl.Q = data.dofs;
-	  lfKrnl.I = i_timeIntegrated[l_face];
-	  lfKrnl.AplusT = data.neighboringIntegration.nAmNm1[l_face];
-	  lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-	  lfKrnl.execute(l_face);
-	  break;
-	case FaceType::freeSurfaceGravity:
-	  auto nodalNfKrnl = kernel::neighboringFluxNodal{};
-	  // todo set INodal here!
-	  nodalNfKrnl.INodal = i_timeIntegrated[l_face];
-	  nodalNfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
-	  // TODO(Lukas): Should something be prefetched here? Prob not?
-	  //nodalNfKrnl._prefetch.INodal = faceNeighbors_prefetch[l_face];
-	  nodalNfKrnl.execute(data.cellInformation.faceRelations[l_face][1],
-			      l_face);
+      auto applyRigidBodyBoundary = [](const init::nodes2D::view::type& nodes,
+						    init::INodal::view::type& boundaryDofs) {
+	for (unsigned int i = 0; i < tensor::nodes2D::Shape[0]; ++i) {
+	  const real normalVelocityAtBoundary = 0.0;
+	  boundaryDofs(i,0) = 2 * normalVelocityAtBoundary - boundaryDofs(i,0);
 	}
-      }
-    } else if (data.cellInformation.faceTypes[l_face] == FaceType::dynamicRupture) {
+      };
+
+      computeDirichletBoundary(i_timeIntegrated[l_face],
+			       l_face,
+			       cellBoundaryMapping[l_face],
+			       m_projectRotatedKrnlPrototype,
+			       applyRigidBodyBoundary,
+			       dofsFaceBoundaryNodal);
+      // TODO(Lukas) Test if correct flux solver is used
+      nodalLfKrnl.execute(l_face);
+    case FaceType::dynamicRupture:
+      // No neighboring cell contrib., interior bc.
       assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
       kernel::nodalFlux drKrnl = m_drKrnlPrototype;
@@ -176,10 +175,16 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
       drKrnl.Q = data.dofs;
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
+      break;
+    default:
+      // No contribution for all other cases.
+      // Note: some other bcs are handled in the local kernel.
+      break;
     }
   }
 }
 
+// TODO(Lukas) Adopt to nodal boundary flux case!
 void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
                                                         const int i_neighboringIndices[4][2],
                                                         CellDRMapping const (&cellDrMapping)[4],

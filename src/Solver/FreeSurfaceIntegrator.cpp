@@ -243,7 +243,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface) {
+        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
+	    cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity) {
           ++numberOfFreeSurfaces;
         }
       }
@@ -276,7 +277,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface) {
+        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
+	    cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ) {
           assert(displacements[cell] != nullptr);
 
           surfaceDofs[surfaceCell]      = dofs[cell];

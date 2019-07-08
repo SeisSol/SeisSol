@@ -52,6 +52,8 @@
 #include <stdint.h>
 #include <cstring>
 
+#include "DirichletBoundary.h"
+
 void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
@@ -66,17 +68,20 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
+
+  m_nodalLfKrnlPrototype.V2nTo2m = init::V2nTo2m::Values;
+  m_nodalLfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
 }
 
-void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                                LocalData& data,
-                                                LocalTmp& )
-{
-  // assert alignments
-#ifndef NDEBUG
-  assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
-#endif
+void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                              LocalData& data,
+                                              LocalTmp&,
+                                              // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                                              const CellMaterialData* materialData,
+                                              CellBoundaryMapping const (*cellBoundaryMapping)[4],
+                                              real nodalAvgDisplacement[tensor::I::size()] ) {
+  assert(static_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
+  assert(static_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs;
@@ -93,11 +98,56 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
   
   volKrnl.execute();
   
-  for( unsigned int face = 0; face < 4; face++ ) {
+  for (unsigned int face = 0; face < 4; face++ ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( data.cellInformation.faceTypes[face] != FaceType::dynamicRupture ) {
+    if (data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
       lfKrnl.AplusT = data.localIntegration.nApNm1[face];
       lfKrnl.execute(face);
+    }
+
+    // Include some boundary conditions here.
+    real dofsFaceBoundaryNodal[tensor::INodal::size()] __attribute__((aligned(ALIGNMENT)));
+    auto nodalLfKrnl = m_nodalLfKrnlPrototype;
+    nodalLfKrnl.Q = data.dofs;
+    nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+    nodalLfKrnl.AplusT = data.localIntegration.nApNm1[face];
+    nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+    nodalLfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
+
+    switch (data.cellInformation.faceTypes[face]) {
+    case FaceType::freeSurface:
+      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
+      lfKrnl.execute(face);
+      break;
+    case FaceType::freeSurfaceGravity:
+      assert(cellBoundaryMapping != nullptr);
+      assert(nodalAvgDisplacement != nullptr);
+      assert(materialData != nullptr);
+      auto displacement = init::INodal::view::create(nodalAvgDisplacement);
+      auto applyFreeSurfaceBc = [&displacement, materialData](const init::nodes2D::view::type& nodes,
+                                   init::INodal::view::type& boundaryDofs) {
+        for (unsigned int i = 0; i < tensor::nodes2D::Shape[0]; ++i) {
+          const double rho = materialData->local.rho; // TODO(Lukas) Use actual material parameter.
+          const double g = 9.81; // [m/s^2]
+          const double pressureAtBnd = rho * g * displacement(i,0);
+      
+          boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
+          boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
+          boundaryDofs(i,2) = 2 * pressureAtBnd - boundaryDofs(i,2);
+        }
+      };
+
+      computeDirichletBoundary(i_timeIntegratedDegreesOfFreedom,
+                               face,
+                               (*cellBoundaryMapping)[face],
+                               m_projectKrnlPrototype,
+                               applyFreeSurfaceBc,
+                               dofsFaceBoundaryNodal);
+          
+      nodalLfKrnl.execute(face);
+      break;
+    default:
+      break;
     }
   }
 }
