@@ -67,7 +67,7 @@ Installing netCDF
   wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.6.1.tar.gz
   tar -xaf netcdf-4.6.1.tar.gz
   cd netcdf-4.6.1
-  CC=h5pcc ./configure --enable-shared=no --prefix=$HOME 
+  CFLAGS="-fPIC ${CFLAGS}" CC=h5pcc ./configure --enable-shared=no --prefix=$HOME 
   #NOTE: Check for this line to make sure netCDF is build with parallel I/O: 
   #"checking whether parallel I/O features are to be included... yes" This line comes at the very end (last 50 lines of configure run)!
   make -j8
