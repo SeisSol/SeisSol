@@ -80,10 +80,10 @@ module MeshReaderCBinding
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
         end subroutine
 
-        subroutine read_mesh_puml_c(meshfile, hasFault, displacement, scalingMatrix, easiVelocityModel, clusterRate) bind(C, name="read_mesh_puml_c")
+        subroutine read_mesh_puml_c(meshfile, checkPointFile, hasFault, displacement, scalingMatrix, easiVelocityModel, clusterRate) bind(C, name="read_mesh_puml_c")
             use, intrinsic :: iso_c_binding
 
-            character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel
+            character( kind=c_char ), dimension(*), intent(in) :: meshfile, easiVelocityModel, checkPointFile
             logical( kind=c_bool ), value                      :: hasFault
             real(kind=c_double), dimension(*), intent(in)      :: displacement
             real(kind=c_double), dimension(*), intent(in)      :: scalingMatrix
@@ -132,6 +132,7 @@ contains
 #endif
         elseif (io%meshgenerator .eq. 'PUML') then
             call read_mesh_puml_c(  trim(io%MeshFile) // c_null_char,           &
+                                    trim(io%checkpoint%filename) // c_null_char,&
                                     hasFault,                                   &
                                     MESH%Displacement(:),                       &
                                     m_mesh%ScalingMatrix(:,:),                  &
