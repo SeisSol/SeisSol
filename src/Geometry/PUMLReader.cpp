@@ -119,7 +119,7 @@ int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, cons
 	*/
 	int *num_cells = new int[nrank];
 	int *offsets = new int[nrank];
-	MPI_Allgather(&nPartitionCells, 1, MPI_INT, num_cells, 1, MPI_INT, MPI_COMM_WORLD);
+	MPI_Allgather(&nPartitionCells, 1, MPI_INT, num_cells, 1, MPI_INT, MPI::mpi.comm());
 
 	offsets[0] = 0;
 	for (int rk = 1; rk < nrank; ++rk) {
@@ -189,7 +189,7 @@ void seissol::PUMLReader::writePartition(PUML::TETPUML &puml, int* partition, co
 	*/
 	int *num_cells = new int[nrank];
 	int *offsets = new int[nrank];
-	MPI_Allgather(&nPartitionCells, 1, MPI_INT, num_cells, 1, MPI_INT, MPI_COMM_WORLD);
+	MPI_Allgather(&nPartitionCells, 1, MPI_INT, num_cells, 1, MPI_INT, MPI::mpi.comm());
 
 	offsets[0] = 0;
 	for (int rk = 1; rk < nrank; ++rk) {
