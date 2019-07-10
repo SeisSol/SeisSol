@@ -73,7 +73,7 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, bool readPartitionFromFile)
+seissol::PUMLReader::PUMLReader(const char *meshFile, const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, bool readPartitionFromFile)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
@@ -85,7 +85,7 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_steppin
 		generatePUML(puml);
 		ltsWeights->computeWeights(puml);
 	}
-	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile);
+	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile);
 
 	generatePUML(puml);
 
@@ -103,7 +103,7 @@ void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
 }
 
-int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, const char* meshFile)
+int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, const char* checkPointFile)
 {
 	/*
 	write the partionning array to an hdf5 file using parallel access
@@ -135,7 +135,7 @@ int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, cons
 	H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info);
 
 	std::ostringstream os;
-	os << meshFile<<"_partitions_o" <<CONVERGENCE_ORDER<<"_n"<< nrank << ".h5";
+	os << checkPointFile<<"_partitions_o" <<CONVERGENCE_ORDER<<"_n"<< nrank << ".h5";
 	std::string fname = os.str();
 
 	std::ifstream ifile(fname.c_str());
@@ -173,7 +173,7 @@ int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, cons
 }
 
 
-void seissol::PUMLReader::writePartition(PUML::TETPUML &puml, int* partition, const char *meshFile)
+void seissol::PUMLReader::writePartition(PUML::TETPUML &puml, int* partition, const char *checkPointFile)
 {
 	/*
 	write the partionning array to an hdf5 file using parallel access
@@ -208,7 +208,7 @@ void seissol::PUMLReader::writePartition(PUML::TETPUML &puml, int* partition, co
 	H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info);
 
 	std::ostringstream os;
-	os << meshFile<<"_partitions_o" <<CONVERGENCE_ORDER<<"_n"<< nrank << ".h5";
+	os << checkPointFile<<"_partitions_o" <<CONVERGENCE_ORDER<<"_n"<< nrank << ".h5";
 	std::string fname = os.str();
 
 	hid_t file = H5Fcreate(fname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist_id);
@@ -243,7 +243,8 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
                                       initializers::time_stepping::LtsWeights* ltsWeights,
                                       double tpwgt,
                                       const char *meshFile,
-                                      bool readPartitionFromFile  )
+                                      bool readPartitionFromFile,
+                                      const char *checkPointFile )
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
@@ -274,10 +275,10 @@ void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
   };
 
   if (readPartitionFromFile) {
-    int status = readPartition(puml, &partition[0], meshFile);
+    int status = readPartition(puml, &partition[0], checkPointFile);
     if (status < 0) {
       partitionMetis();
-      writePartition(puml, partition, meshFile);
+      writePartition(puml, partition, checkPointFile);
     }
   } else {
     partitionMetis();
