@@ -36,11 +36,21 @@ example on SuperMuc
 
 -  get the repository
 
+On a cluster without restricted access to outside sources, you could then clone the repository using:
+
 .. code-block:: bash
 
-   git clone --recursive git@github.com:TUM-I5/ASAGI.git
+   git clone --recursive https://github.com/TUM-I5/ASAGI.github
    
-If you encouter problems with the submodule folder try ``fix_submodules.sh`` as described in :ref:`compile_run_supermuc`.
+On supermuc, you have to setup port forwarding as described in :ref:`compile_run_supermuc`.
+
+Then you can clone the project with 
+
+.. code-block:: bash
+
+   git clone git@github.com:TUM-I5/ASAGI.git
+
+followed by running ``fix_submodules`` to clone and setup the submodules.
 
 -  set compiler options:
 
