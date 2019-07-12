@@ -17,6 +17,9 @@ is available  `here <https://github.com/SeisSol/Meshing/tree/master/GocadRelated
 They are documented (try -h option).
 The most important script are:
 
+-  createFaultFromCurve.py allows creating a ts surface from a fault trace. The fault trace is resampled, smoothed and extended
+   using either a constant dip, a depth varying dip or an along-strike varying dip. This script has been used to generate 
+   all the faults of the Kaikoura model (Ulrich et al., 2019).
 -  createGOCADTSurf_NXNY.py, which allows creating a ts surface from a structured grid of points.
 -  createGOCADTSurf.py, which allows creating a ts surface from a partially structured grid of points.
    Contrary to createGOCADTSurf_NXNY.py, the number of nodes on a line (resp. on a column) should not constant.
