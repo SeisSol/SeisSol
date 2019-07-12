@@ -166,3 +166,8 @@ Further information
 For further information, the use of asagiconv and asagi and its
 compilation, please see: `ASAGI
 docu <http://www.seissol.org/sites/default/files/asagi.pdf>`__.
+
+Known issues
+------------
+
+There is a bug, when using ASAGI with MPI. A workaround is described in https://github.com/SeisSol/SeisSol/issues/46.
