@@ -61,7 +61,7 @@ namespace seissol
 class PUMLReader : public MeshReader
 {
 public:
-        PUMLReader(const char* meshFile, initializers::time_stepping::LtsWeights* ltsWeights = nullptr, double tpwgt = 1.0, bool readPartitionFromFile = false);
+        PUMLReader(const char* meshFile, const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights = nullptr, double tpwgt = 1.0, bool readPartitionFromFile = false);
 
 private:
 	/**
@@ -72,9 +72,9 @@ private:
 	/**
 	 * Create the partitioning
 	 */
-	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, const char *meshFile, bool readPartitionFromFile);
-	int readPartition(PUML::TETPUML &puml, int* partition, const char *meshFile);
-	void writePartition(PUML::TETPUML &puml, int* partition, const char *meshFile);
+	void partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, const char *meshFile, bool readPartitionFromFile, const char* checkPointFile);
+	int readPartition(PUML::TETPUML &puml, int* partition, const char *checkPointFile);
+	void writePartition(PUML::TETPUML &puml, int* partition, const char *checkPointFile);
 	/**
 	 * Generate the PUML data structure
 	 */
