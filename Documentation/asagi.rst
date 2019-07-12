@@ -40,7 +40,7 @@ example on SuperMuc
 
    git clone --recursive git@github.com:TUM-I5/ASAGI.git
    
-If you encouter problems with the submodule folder try fix_submodules as described in :ref:`fix_submodules`.
+If you encouter problems with the submodule folder try ``fix_submodules.sh`` as described in :ref:`compile_run_supermuc`.
 
 -  set compiler options:
 

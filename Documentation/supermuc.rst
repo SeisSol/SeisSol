@@ -1,3 +1,5 @@
+.. _compile_run_supermuc:
+
 Compiling and running SeisSol on Supermuc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -20,7 +22,7 @@ Here, we described the procedure to setup such port forwarding.
 
 where ddddd is an arbitrary 5-digital port number.
 
-2. ssh supermuNG to login to supermuc. Then add the following lines to the ~/.ssh/config:
+2. ssh supermucNG to login to supermuc. Then add the following lines to the ~/.ssh/config:
 
 :: 
 
@@ -49,11 +51,10 @@ Logout of supermuc and log back in (ssh supermucNG). You should now be able to c
 Pay attention to the git clone address ('https://github.com/' replaced by 'git@github.com:'). 
 If it works, you will see several lines of ‘cloning ….’.
 
-.. _fix_submodules:
 
 Now for initializing the submodule folder, copy the following to fix_submodules.sh and run it within SeisSol.
 
-::
+.. code-block:: bash
 
   #!/bin/bash                                                                                                            
   git submodule init
