@@ -27,14 +27,30 @@ example on SuperMuc
 
 .. code-block:: bash
 
-   module switch mpi.ibm mpi.intel #since the ibm mpi interferes with python mpi
-   module load python/2.7_anaconda_mpi gcc netcdf/mpi cmake
+   module load mpi.ibm 
+   module load netcdf/mpi
+   module load hdf5/mpi/1.8.18
+   module load intel/17.0
+   module load gcc
+   module load cmake
 
 -  get the repository
 
+On a cluster without restricted access to outside sources, you could then clone the repository using:
+
 .. code-block:: bash
 
-   git clone https://github.com/TUM-I5/ASAGI.git
+   git clone --recursive https://github.com/TUM-I5/ASAGI.github
+   
+On supermuc, you have to setup port forwarding as described in :ref:`compile_run_supermuc`.
+
+Then you can clone the project with 
+
+.. code-block:: bash
+
+   git clone git@github.com:TUM-I5/ASAGI.git
+
+followed by running ``fix_submodules`` to clone and setup the submodules.
 
 -  set compiler options:
 
@@ -49,12 +65,11 @@ example on SuperMuc
 .. code-block:: bash
 
    mkdir build
-   CMAKE_PREFIX_PATH=$NETCDF_BASE #$NETCDF_BASE should be defined
    cd build
-   cmake ../ -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/
-   make
+   CMAKE_PREFIX_PATH=$NETCDF_BASE
+   cmake ../ -CDMAKE_INSTALL_PREFIX=<path_to_ASAGI>/build
+   make -j8
    make install
-
 
 -  set the following paths
 
@@ -161,3 +176,8 @@ Further information
 For further information, the use of asagiconv and asagi and its
 compilation, please see: `ASAGI
 docu <http://www.seissol.org/sites/default/files/asagi.pdf>`__.
+
+Known issues
+------------
+
+There is a bug, when using ASAGI with MPI. A workaround is described in https://github.com/SeisSol/SeisSol/issues/46.
