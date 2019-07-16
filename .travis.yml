@@ -33,7 +33,9 @@ install:
  - cd libxsmm-master && make generator && sudo cp bin/libxsmm_gemm_generator /usr/bin && cd ..
 
 script:
- - sphinx-build -n -b dummy Documentation Documentation/_build/html
+ - cd Documentation && make html && cd ..
+# use the -W flag to turn warnings into errors
+# - sphinx-build -nW -b dummy Documentation Documentation/_build/html
  - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
  - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
