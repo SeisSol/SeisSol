@@ -1347,7 +1347,7 @@ MODULE Eval_friction_law_mod
              !fault strength using LocMu and P_f from previous timestep/iteration
              S = LocMu*(P - P_f)
              !1.update SV using Vold from the previous time step
-             CALL update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSR, LocSV, LocMu)
+             CALL update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSR, LocSV)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
                  DO iBndGP = 1, nBndGP
                          !recover original values as it gets overwritten in the ThermalPressure routine
@@ -1384,12 +1384,13 @@ MODULE Eval_friction_law_mod
          !
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         CALL update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSR, LocSV, LocMu)
+         CALL update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSR, LocSV)
+         S = LocMu*(P - P_f)
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              DO i = 1, nBndGP
                           !use Theta/Sigma from last call in this update, dt/2 and new SR from NS
                           CALL Calc_ThermalPressure(time_inc/2.0, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
-                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), SR_tmp(iBndGP), DISC%DynRup%TP_grid, &
+                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, &
                                DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), & 
                                DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2))
                           P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
@@ -1474,7 +1475,7 @@ MODULE Eval_friction_law_mod
  END SUBROUTINE rate_and_state_nuc103
 
    SUBROUTINE update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, &
-                         SV0, time_inc, SR_tmp, LocSR, LocSV, LocMu)
+                         SV0, time_inc, SR_tmp, LocSR, LocSV)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1483,12 +1484,11 @@ MODULE Eval_friction_law_mod
     INTEGER                  :: nBndGP
     REAL                     :: RS_f0, RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters
     REAL                     :: SV0(nBndGP), time_inc, SR_tmp(nBndGP), LocSR(nBndGP)                  !changing during iterations
-    REAL                     :: flv(nBndGP), fss(nBndGP), SVss(nBndGP), LocSV(nBndGP), LocMu(nBndGP)                  !calculated in this routine
-    REAL                     :: tmp(nBndGP), tmp2(nBndGP)
+    REAL                     :: flv(nBndGP), fss(nBndGP), SVss(nBndGP), LocSV(nBndGP)                 !calculated in this routine
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: IO, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, &
                      RS_sl0, SV0, time_inc, SR_tmp, LocSR
-    INTENT(INOUT) :: LocSV, LocMu
+    INTENT(INOUT) :: LocSV
     !-------------------------------------------------------------------------!
 
     ! low-velocity steady state friction coefficient
