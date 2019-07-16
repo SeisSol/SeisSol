@@ -25,6 +25,7 @@ install:
  - sudo pip3 install lxml
  - sudo pip3 install setuptools
  - sudo pip3 install sphinx
+ - sudo pip3 install sphinx_rtd_theme
  - tar -xaf scons-3.0.5.tar.gz
  - cd scons-3.0.5 && sudo python3 setup.py install --prefix=/usr && cd ..
  - tar -xaf netcdf-4.6.1.tar.gz
