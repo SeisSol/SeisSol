@@ -56,6 +56,7 @@ class seissol::kernels::LocalBase {
     kernel::localFluxNodal m_nodalLfKrnlPrototype;
 
     kernel::projectToNodalBoundary m_projectKrnlPrototype;
+    kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
 };
 
 #endif

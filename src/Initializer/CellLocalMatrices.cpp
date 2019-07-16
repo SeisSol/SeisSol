@@ -148,11 +148,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
-	if (cellInformation[cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
-	  assert(material[cell].local.lambda == material[cell].neighbor[side].lambda);
-	  assert(material[cell].local.mu == material[cell].neighbor[side].mu);
-	  assert(material[cell].local.rho == material[cell].neighbor[side].rho);
-	}
         seissol::model::getTransposedGodunovState(  material[cell].local,
                                                     material[cell].neighbor[side],
                                                     cellInformation[cell].faceTypes[side],
@@ -184,28 +179,14 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.star(0) = ATData;
         localKrnl.execute();
         
-	// Fall back to local material matrix.
-	// TODO(Lukas) Is this correct?
-	if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
-	  // These boundary conditions are already described in rotated form.
-	  kernel::computeFluxSolverNeighborRotated neighKrnl;
-	  neighKrnl.fluxScale = fluxScale;
-	  neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-	  //neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-	  neighKrnl.QgodNeighbor = QgodNeighborData;
-	  neighKrnl.Tinv = TinvData;
-	  neighKrnl.star(0) = ATData;
-	  neighKrnl.execute();
-
-	} else {
-	  kernel::computeFluxSolverNeighbor neighKrnl;
-	  neighKrnl.fluxScale = fluxScale;
-	  neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-	  neighKrnl.QgodNeighbor = QgodNeighborData;
-	  neighKrnl.T = TData;
-	  neighKrnl.Tinv = TinvData;
-	  neighKrnl.star(0) = ATData;
-	  neighKrnl.execute();
+	kernel::computeFluxSolverNeighbor neighKrnl;
+	neighKrnl.fluxScale = fluxScale;
+	neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+	neighKrnl.QgodNeighbor = QgodNeighborData;
+	neighKrnl.T = TData;
+	neighKrnl.Tinv = TinvData;
+	neighKrnl.star(0) = ATData;
+	neighKrnl.execute();
 	}
 
       }
@@ -305,11 +286,11 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 	}
 
 	// Compute map that rotates to normal aligned coordinate system.
-	real TinvData[seissol::tensor::Tinv::size()]; // unused
-
 	real* TData = boundary[cell][side].TData;
+	real* TinvData = boundary[cell][side].TinvData;
 	assert(TData != nullptr);
-	auto T = init::T::view::create(boundary[cell][side].TData);
+	assert(TinvData != nullptr);
+	auto T = init::T::view::create(TData);
 	auto Tinv = init::Tinv::view::create(TinvData);
 
 	// TODO(Lukas) This code is duplicated from cellLocalMatrices setup.

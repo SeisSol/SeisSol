@@ -9,15 +9,16 @@
 namespace {
 // Helper functions, needed because C++ doesnt allow partial func. template specialisation  
 template<typename MappingKrnl>
-void addRotationToProjectKernel(MappingKrnl& projectKernelPrototype,
+void addRotationToProjectKernel(MappingKrnl& projectKernel,
 				const CellBoundaryMapping& boundaryMapping) {
   // do nothing
 }
  
 template <>
-void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernelPrototype,
+void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
 				const CellBoundaryMapping& boundaryMapping) {
-  projectKernelPrototype.T = boundaryMapping.TData;
+  assert(boundaryMapping.TData != nullptr);
+  projectKernel.T = boundaryMapping.TData;
 }
 
 }
@@ -34,7 +35,7 @@ void computeDirichletBoundary(const real* dofsVolumeInteriorModal,
   // TODO(Lukas) Implement time-dependent functions
   
   auto projectKrnl = projectKernelPrototype;
-  addRotationToProjectKernel(projectKernelPrototype, boundaryMapping);
+  addRotationToProjectKernel(projectKrnl, boundaryMapping);
   projectKrnl.I = dofsVolumeInteriorModal;
   projectKrnl.INodal = dofsFaceBoundaryNodal;
   projectKrnl.execute(faceIdx);

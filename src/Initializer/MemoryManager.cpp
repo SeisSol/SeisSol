@@ -511,10 +511,12 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
 	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet) {
 	  boundaryMapping[cell][face].nodes = faceInformation[boundaryCell].nodes;
 	  boundaryMapping[cell][face].TData = faceInformation[boundaryCell].TData;
+	  boundaryMapping[cell][face].TinvData = faceInformation[boundaryCell].TinvData;
 	  ++boundaryCell;
         } else {
 	  boundaryMapping[cell][face].nodes = nullptr;
 	  boundaryMapping[cell][face].TData = nullptr;
+	  boundaryMapping[cell][face].TinvData = nullptr;
 	}
       }
     }

@@ -145,6 +145,9 @@ class ADERDG(ADERDGBase):
                         simpleParameterSpace(4),
                         projectToNodalBoundaryRotated)
 
+    rotateBoundaryDofsBack = self.INodal['kp'] <= self.INodal['kl'] * self.Tinv['lp']
+    generator.add('rotateBoundaryDofsBack', rotateBoundaryDofsBack)
+    
     selectZDisplacement = np.zeros((self.numberOfQuantities(), 1))
     selectZDisplacement[8,0] = 1 # todo is correct?
     selectZDisplacement = Tensor('selectZDisplacement',

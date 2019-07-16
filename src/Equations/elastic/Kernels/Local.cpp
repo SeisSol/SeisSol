@@ -71,6 +71,10 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
   m_nodalLfKrnlPrototype.V2nTo2m = init::V2nTo2m::Values;
   m_nodalLfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
+
+  m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
@@ -80,8 +84,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               const CellMaterialData* materialData,
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
                                               real nodalAvgDisplacement[tensor::I::size()] ) {
-  assert(static_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
-  assert(static_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs;
@@ -146,7 +150,41 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           
       nodalLfKrnl.execute(face);
       break;
+    case FaceType::dirichlet:
+      assert(cellBoundaryMapping != nullptr);
+      // TODO(Lukas) Prefetch
+      real dofsFaceBoundaryNodal[tensor::INodal::size()] __attribute__((aligned(ALIGNMENT)));
+      auto nodalLfKrnl = m_nodalLfKrnlPrototype;
+      nodalLfKrnl.Q = data.dofs;
+      nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+      nodalLfKrnl.AplusT = data.localIntegration.nApNm1[face];
+
+      auto applyRigidBodyBoundary = [](const init::nodes2D::view::type& nodes,
+				       init::INodal::view::type& boundaryDofs) {
+	for (unsigned int i = 0; i < tensor::nodes2D::Shape[0]; ++i) {
+	  const real normalVelocityAtBoundary = 0.0;
+	  boundaryDofs(i,0) = 2 * normalVelocityAtBoundary - boundaryDofs(i,0);
+	}
+      };
+
+      // Compute boundary in [n, t_1, t_2] basis
+      computeDirichletBoundary(i_timeIntegratedDegreesOfFreedom,
+			       face,
+			       (*cellBoundaryMapping)[face],
+			       m_projectRotatedKrnlPrototype,
+			       applyRigidBodyBoundary,
+			       dofsFaceBoundaryNodal);
+
+      // We need to rotate the boundary data back to the [x,y,z] basis
+      auto rotateBoundaryDofsBack = kernel::rotateBoundaryDofsBack{};
+      rotateBoundaryDofsBack.INodal = dofsFaceBoundaryNodal;
+      rotateBoundaryDofsBack.Tinv = (*cellBoundaryMapping)[face].TinvData;
+      rotateBoundaryDofsBack.execute();
+
+      nodalLfKrnl.execute(face);
+      break;
     default:
+      // No boundary condition.
       break;
     }
   }

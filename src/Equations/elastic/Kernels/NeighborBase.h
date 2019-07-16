@@ -86,7 +86,6 @@ class seissol::kernels::NeighborBase {
     kernel::nodalFlux m_drKrnlPrototype;
 
     kernel::localFluxNodal m_nodalLfKrnlPrototype;
-    kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
 };
 
 #endif

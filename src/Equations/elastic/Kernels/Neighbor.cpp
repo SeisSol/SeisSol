@@ -110,7 +110,6 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
 
   m_nodalLfKrnlPrototype.V2nTo2m = init::V2nTo2m::Values;
   m_nodalLfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
 }
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
@@ -118,10 +117,8 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
 							  CellBoundaryMapping const (&cellBoundaryMapping)[4],
                                                           real* i_timeIntegrated[4],
                                                           real* faceNeighbors_prefetch[4]) {
-  // alignment of the degrees of freedom
-  assert( ((uintptr_t)data.dofs) % ALIGNMENT == 0 );
+  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
 
-  // iterate over faces
   for (unsigned int l_face = 0; l_face < 4; l_face++) {
     switch (data.cellInformation.faceTypes[l_face]) {
     case FaceType::regular:
@@ -129,7 +126,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
     case FaceType::periodic:  
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
-      assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % ALIGNMENT == 0 );
+      assert(reinterpret_cast<uintptr_t>(i_timeIntegrated[l_face]) % ALIGNMENT == 0 );
       assert(data.cellInformation.faceRelations[l_face][0] < 4 && data.cellInformation.faceRelations[l_face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
       nfKrnl.Q = data.dofs;
@@ -140,34 +137,9 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
 		     data.cellInformation.faceRelations[l_face][0],
 		     l_face);
       break;
-    case FaceType::dirichlet:
-      assert(cellBoundaryMapping != nullptr);
-      // TODO(Lukas) Prefetch
-      real dofsFaceBoundaryNodal[tensor::INodal::size()] __attribute__((aligned(ALIGNMENT)));
-      auto nodalLfKrnl = m_nodalLfKrnlPrototype;
-      nodalLfKrnl.Q = data.dofs;
-      nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-      nodalLfKrnl.AplusT = data.neighboringIntegration.nAmNm1[l_face];
-
-      auto applyRigidBodyBoundary = [](const init::nodes2D::view::type& nodes,
-						    init::INodal::view::type& boundaryDofs) {
-	for (unsigned int i = 0; i < tensor::nodes2D::Shape[0]; ++i) {
-	  const real normalVelocityAtBoundary = 0.0;
-	  boundaryDofs(i,0) = 2 * normalVelocityAtBoundary - boundaryDofs(i,0);
-	}
-      };
-
-      computeDirichletBoundary(i_timeIntegrated[l_face],
-			       l_face,
-			       cellBoundaryMapping[l_face],
-			       m_projectRotatedKrnlPrototype,
-			       applyRigidBodyBoundary,
-			       dofsFaceBoundaryNodal);
-      // TODO(Lukas) Test if correct flux solver is used
-      nodalLfKrnl.execute(l_face);
     case FaceType::dynamicRupture:
       // No neighboring cell contrib., interior bc.
-      assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
+      assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
       kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
