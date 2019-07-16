@@ -187,7 +187,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 	neighKrnl.Tinv = TinvData;
 	neighKrnl.star(0) = ATData;
 	neighKrnl.execute();
-	}
 
       }
 
