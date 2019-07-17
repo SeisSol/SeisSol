@@ -124,15 +124,7 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
     }
 
     double barycentre[3] = {0.0, 0.0, 0.0};
-    // Compute barycentre
-    for (unsigned vertex = 0; vertex < 3; ++vertex) {
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        barycentre[dim] += vertices[ elements[element].vertices[ MeshTools::FACE2NODES[side][vertex] ] ].coords[dim];
-      }
-    }
-    for (unsigned dim = 0; dim < 3; ++dim) {
-      barycentre[dim] /= 3.0;
-    }
+    MeshTools::center(elements[element], side, vertices, barycentre);
     for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = barycentre[dim];
