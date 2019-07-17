@@ -492,7 +492,6 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
   m_boundaryTree.allocateVariables();
   m_boundaryTree.touchVariables();
 
-  std::cout << "initBoundaryTree" << std::endl;
   // The boundary tree is now allocated, now we only need to map from cell lts
   // to face lts.
   // We do this by, once again, iterating over both trees at the same time.

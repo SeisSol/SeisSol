@@ -228,7 +228,6 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 							Lut*                   i_ltsLut
 							)
 {
-  std::cout << "initBoundaryMappings" << std::endl;
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
   
