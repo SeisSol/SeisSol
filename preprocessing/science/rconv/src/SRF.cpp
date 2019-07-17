@@ -117,7 +117,7 @@ std::vector<SRFPointSource> parseSRF(char const* filename)
     } else if (block.compare("PLANE") == 0) {
       in >> num;
       // skip plane segments
-      for (unsigned line = 0; line < 2*num && in.good(); ++ line) {
+      for (unsigned l = 0; l < 2*num && in.good(); ++ l) {
         std::string line;
         getline(in, line);
       }
