@@ -124,7 +124,8 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 		       << rlimInKb
 		       << "[kb] is lower than recommended minimum of"
 		       << reasonableStackLimit
-		       << "[kb].";
+		       << "[kb]."
+		       << "You can increase the stack size by running the command: ulimit -Ss unlimited.";
     }
   } else {
     logError() << "Stack size cannot be determined because getrlimit syscall failed!";
