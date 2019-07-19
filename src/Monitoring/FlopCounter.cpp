@@ -48,6 +48,7 @@
 
 // Define the FLOP counter.
 long long libxsmm_num_total_flops = 0;
+long long pspamm_num_total_flops = 0;
 
 long long g_SeisSolNonZeroFlopsLocal = 0;
 long long g_SeisSolHardwareFlopsLocal = 0;
