@@ -432,7 +432,7 @@ CONTAINS
           SELECT CASE(EQN%FL)
           CASE DEFAULT
             ! linear slip weakening
-            Strength = -MuVal*MIN(LocP+P_0-P_f,ZERO) - cohesion
+            Strength = -MuVal*MIN(LocP+P_0,ZERO) - cohesion
           CASE(3,4)
              ! rate and state (once everything is tested and cohesion works for RS, this option could be merged to default)
              Strength = -MuVal*(LocP+P_0 -P_f)

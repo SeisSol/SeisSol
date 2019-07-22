@@ -57,12 +57,6 @@ MODULE Eval_friction_law_mod
   INTERFACE Eval_friction_law
      MODULE PROCEDURE Eval_friction_law
   END INTERFACE
-  !INTERFACE update_RSF
-     !MODULE PROCEDURE update_RSF
-  !END INTERFACE
-    !INTERFACE Newton_Raphson
-     !MODULE PROCEDURE Newton_Raphson
-  !END INTERFACE
   !---------------------------------------------------------------------------!
   PUBLIC  :: Eval_friction_law
   PRIVATE :: update_RSF
@@ -1393,7 +1387,7 @@ MODULE Eval_friction_law_mod
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
-    REAL        :: SV0(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP), SR_tmp(nBndGP), SRtest(nBndGP), NR(nBndGP), dNR(nBndGP)
+    REAL        :: SV0(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP), SR_tmp(nBndGP), SRtest(nBndGP)
     REAL        :: LocSV(nBndGP)
     REAL        :: tmpSlip(nBndGP)
     REAL        :: RS_f0,RS_a(nBndGP),RS_b,RS_sl0(nBndGP),RS_sr0
@@ -1427,8 +1421,6 @@ MODULE Eval_friction_law_mod
     !PARAMETERS of THE optimisation loops
     !absolute tolerance on the function to be optimzed
     ! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
-    !aTolF = 5e-15
-    !aTolF = 1e-8
     ! Number of iteration in the loops
     nSRupdates = 60
     nSVupdates = 2
@@ -1509,10 +1501,10 @@ MODULE Eval_friction_law_mod
          DO j=1,nSVupdates   !This loop corrects SV values
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
-             S = LocMu*(P - P_f)
              !1.update SV using Vold from the previous time step
-             CALL update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSR, LocSV)
+             CALL update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+                 S = LocMu*(P - P_f)
                  DO iBndGP = 1, nBndGP
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
@@ -1528,8 +1520,8 @@ MODULE Eval_friction_law_mod
              !2. solve for Vnew , applying the Newton-Raphson algorithm
              !effective normal stress including initial stresses and pore fluid pressure
              n_stress = P - P_f
-             CALL Newton_Raphson (EQN%FL, nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
-                                  n_stress, Shtest, invZ, SRtest, NR, has_converged)
+             CALL Newton_Raphson (nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
+                                  n_stress, Shtest, invZ, SRtest, has_converged)
 
              ! 3. update theta, now using V=(Vnew+Vold)/2
              SR_tmp=0.5d0*(LocSR+ABS(SRtest))  ! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
@@ -1544,7 +1536,7 @@ MODULE Eval_friction_law_mod
          !
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         CALL update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSR, LocSV)
+         CALL update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
          S = LocMu*(P - P_f)
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              DO i = 1, nBndGP
@@ -1626,20 +1618,19 @@ MODULE Eval_friction_law_mod
 
  END SUBROUTINE rate_and_state_nuc103
 
-   SUBROUTINE update_RSF (IO, nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, &
-                         SV0, time_inc, SR_tmp, LocSR, LocSV)
+   SUBROUTINE update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, &
+                         SV0, time_inc, SR_tmp, LocSV)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     ! Argument list declaration
-    TYPE(tInputOutput)       :: IO
     INTEGER                  :: nBndGP
     REAL                     :: RS_f0, RS_b, RS_a(nBndGP), RS_sr0, RS_fw, RS_srW(nBndGP), RS_sl0(nBndGP) !constant input parameters
-    REAL                     :: SV0(nBndGP), time_inc, SR_tmp(nBndGP), LocSR(nBndGP)                  !changing during iterations
+    REAL                     :: SV0(nBndGP), time_inc, SR_tmp(nBndGP)                  !changing during iterations
     REAL                     :: flv(nBndGP), fss(nBndGP), SVss(nBndGP), LocSV(nBndGP)                 !calculated in this routine
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: IO, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, &
-                     RS_sl0, SV0, time_inc, SR_tmp, LocSR
+    INTENT(IN)    :: RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, &
+                     RS_sl0, SV0, time_inc, SR_tmp
     INTENT(INOUT) :: LocSV
     !-------------------------------------------------------------------------!
 
@@ -1663,13 +1654,13 @@ MODULE Eval_friction_law_mod
   END SUBROUTINE update_RSF
 
   SUBROUTINE Newton_Raphson (FL, nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
-                             n_stress, sh_stress, invZ, SRtest, NR, has_converged)
+                             n_stress, sh_stress, invZ, SRtest, has_converged)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     ! Argument list declaration
     LOGICAL       :: has_converged                                            !check convergence
-    INTEGER       :: FL, nSRupdates, i, nBndGP
+    INTEGER       :: nSRupdates, i, nBndGP
     REAL          :: RS_sr0, RS_a(nBndGP)                                     !constants
     REAL          :: SRtest(nBndGP), LocSR(nBndGP), LocSV(nBndGP)
     REAL          :: n_stress(nBndGP), sh_stress(nBndGP), invZ
@@ -1677,9 +1668,9 @@ MODULE Eval_friction_law_mod
     REAL          :: mu_f(nBndGP), dmu_f(nBndGP)                              !calculated here in routine
     REAL          :: AlmostZero = 1D-45, aTolF = 1e-8
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: FL, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
+    INTENT(IN)    :: nSRupdates, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
                      sh_stress, invZ
-    INTENT(OUT)   :: SRtest, NR, has_converged
+    INTENT(OUT)   :: SRtest, has_converged
     !-------------------------------------------------------------------------!
     !solve for Vnew = SR , applying the Newton-Raphson algorithm
     !SR fulfills g(SR)=f(SR)
@@ -1711,7 +1702,7 @@ MODULE Eval_friction_law_mod
        dmu_f = RS_a/SQRT(1D0+tmp2**2)*tmp
        NR    = -invZ * (ABS(n_stress)*mu_f-sh_stress)-SRtest
 
-       IF (maxval(abs(NR))<atolF) THEN
+       IF (maxval(abs(NR))<aTolF) THEN
            has_converged = .TRUE.
            EXIT
        ENDIF
