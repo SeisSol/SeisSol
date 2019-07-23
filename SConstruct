@@ -85,7 +85,7 @@ vars.AddVariables(
   EnumVariable( 'equations',
                 'system of PDEs that will be solved',
                 'elastic',
-                allowed_values=('elastic', 'viscoelastic', 'viscoelastic2')
+                allowed_values=('elastic', 'viscoelastic', 'viscoelastic2', 'anisotropic')
               ),
 
   EnumVariable( 'order',
@@ -272,6 +272,7 @@ print('Compiling SeisSol version: {}'.format(seissol_version))
 
 numberOfQuantities = {
   'elastic' : 9,
+  'anisotropic' : 9,
   'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6
 }
 numberOfQuantities['viscoelastic2'] = numberOfQuantities['viscoelastic']
@@ -455,7 +456,7 @@ env.Append(CXXFLAGS=['-std=c++11'])
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
-if env['equations'] in ['elastic', 'viscoelastic2']:
+if env['equations'] in ['elastic', 'anisotropic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
 if int(env['multipleSimulations']) > 1:
