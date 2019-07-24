@@ -66,6 +66,23 @@ public:
     TS_ASSERT_DELTA(weights[3], 0.22255926867518051648, EPSILON);
     TS_ASSERT_DELTA(weights[4], 0.024566464443197594119, EPSILON);
 	}
+
+  void testGaussLobatto()
+  {
+    double points[5];
+    double weights[5];
+    seissol::quadrature::GaussLobatto(points, weights, 5);
+    TS_ASSERT_DELTA(points[0], -1.0000000000000000000000000000000, EPSILON);
+    TS_ASSERT_DELTA(points[1], -.65465367070797714379829245624680, EPSILON);
+    TS_ASSERT_DELTA(points[2], 0.0, EPSILON);
+    TS_ASSERT_DELTA(points[3], .65465367070797714379829245624685, EPSILON);
+    TS_ASSERT_DELTA(points[4], 1.0000000000000000000000000000000, EPSILON);
+    TS_ASSERT_DELTA(weights[0], 1.0/10.0, EPSILON);
+    TS_ASSERT_DELTA(weights[1], 49.0/90.0, EPSILON);
+    TS_ASSERT_DELTA(weights[2], 32.0/45.0, EPSILON);
+    TS_ASSERT_DELTA(weights[3], 49.0/90.0, EPSILON);
+    TS_ASSERT_DELTA(weights[4], 1.0/10.0, EPSILON);
+  }
   
 	void testTriangleQuadrature()
 	{

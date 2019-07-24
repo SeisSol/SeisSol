@@ -42,6 +42,7 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cassert>
 #include <limits>
 #include <vector>
 
@@ -98,8 +99,9 @@ namespace seissol {
      *  int_{-1}^{1} f(y)dy = sum_{i=0}^{n-1} f(points[i]) * weights[i]
      *  For other intervals use 
      *  int_{a}^{b} f(y)dy = (b-a)/2. * sum_{i=0}^{n-1} f( ((b-a) * points[i] + a + b) / 2.) * weights[i]
-     * 
+     *
      *  Note: Initial guess ported from Fortran gauss_jacobi routine.
+     *        The points are in descending order.
      */     
     inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b)
     {
@@ -118,6 +120,34 @@ namespace seissol {
         } while (fabs(Pn) > Tolerance && ++it < MaxIterations);
         points[i-1] = x;
         weights[i-1] = weightFactor / (functions::JacobiP(n+1, a, b, x) * dPn);
+      }
+    }
+
+    /** Returns Gauss lobatto quadrature points for the interval [-1,1], i.e.
+     *  int_{-1}^{1} f(y)dy = sum_{i=0}^{n-1} f(points[i]) * weights[i]
+     *  See GaussJacobi() for other intervals.
+     *
+     *  Note: The points include -1 and 1 and are in ascending order.
+     */
+    inline void GaussLobatto(double* points, double* weights, unsigned n)
+    {
+      assert(n >= 2);
+
+      points[0] = -1.0;
+      points[n-1] = 1.0;
+      weights[0] = weights[n-1] = 2.0 / (n*(n-1));
+      if (n > 2) {
+        int nj = n-2;
+        GaussJacobi(points+1, weights+1, nj, 1, 1);
+        // invert order
+        for (int i = 0; i < nj/2; ++i) {
+          std::swap(points[1+i], points[nj-i]);
+        }
+        // weights are symmetric
+        for (int i = 0; i < 1 + (nj-1)/2; ++i) {
+          double JP = functions::JacobiP(n-1, 0, 0, points[1+i]);
+          weights[1+i] = weights[nj-i] = 2.0 / (n*(n-1)*JP*JP);
+        }
       }
     }
     
