@@ -90,7 +90,7 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
     timeWeights[timeInterval] = subIntervalWidth;
   }*/
 #else
-  seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
+  seissol::quadrature::GaussLobatto(timePoints, timeWeights, CONVERGENCE_ORDER);
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];

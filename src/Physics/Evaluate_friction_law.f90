@@ -97,7 +97,7 @@ MODULE Eval_friction_law_mod
     REAL        :: time
     real        :: timePoints(:)
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
-    real        :: DeltaT(1:DISC%Galerkin%nTimeGP)
+    real        :: DeltaT(1:DISC%Galerkin%nTimeGP-1)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: MESH,MPI,IO,NorStressGP,XYStressGP,XZStressGP
     INTENT(IN)    :: iFace,iSide,iElem,rho,rho_neig,w_speed,w_speed_neig,time
@@ -107,13 +107,11 @@ MODULE Eval_friction_law_mod
     ! load number of GP iterations
     nBndGP  = DISC%Galerkin%nBndGP
     nTimeGP = DISC%Galerkin%nTimeGP
-    
-    DeltaT(1)=timePoints(1)
+
     DO iTimeGP=2,nTimeGP
-       DeltaT(iTimeGP)=timePoints(iTimeGP)-timePoints(iTimeGP-1)
+       DeltaT(iTimeGP-1)=timePoints(iTimeGP)-timePoints(iTimeGP-1)
     ENDDO
-    DeltaT(nTimeGP) = DeltaT(nTimeGP) + DeltaT(1) ! to fill last segment of Gaussian integration
-       
+
     ! Evaluate friction law GP-wise
     SELECT CASE(EQN%FL)
         CASE(0) ! No fault
@@ -422,8 +420,24 @@ MODULE Eval_friction_law_mod
     tn = time
     
     do iTimeGP=1,nTimeGP
-      time_inc = DeltaT(iTimeGP)
-      tn=tn + time_inc
+      ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
+      f1=dmin1(ABS(DISC%DynRup%Slip(:,iFace))/DISC%DynRup%D_C(:,iFace),1d0) 
+
+      IF(EQN%FL.EQ.16) THEN 
+        IF (t_0.eq.0) THEN
+          where (tn >= DISC%DynRup%forced_rupture_time(:,iFace))
+            f2=1.
+          elsewhere
+            f2=0.
+          end where
+        ELSE
+          f2=dmax1(0d0,dmin1((time-DISC%DynRup%forced_rupture_time(:,iFace))/t_0,1d0))
+        ENDIF
+      ELSE !no forced time rupture
+        f2=0.
+      ENDIF
+
+      DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace) - (DISC%DynRup%Mu_S(:,iFace)-DISC%DynRup%Mu_D(:,iFace))*dmax1(f1,f2)
       
       P = EQN%InitialStressInFaultCS(:,1,iFace) + NorStressGP(:,iTimeGP)
       
@@ -447,31 +461,17 @@ MODULE Eval_friction_law_mod
       DISC%DynRup%SlipRate1(:,iFace)     = srFactor*(LocTracXY(:)-XYStressGP(:,iTimeGP))
       DISC%DynRup%SlipRate2(:,iFace)     = srFactor*(LocTracXZ(:)-XZStressGP(:,iTimeGP))
       LocSR                              = SQRT(DISC%DynRup%SlipRate1(:,iFace)**2 + DISC%DynRup%SlipRate2(:,iFace)**2)
-      
-      ! Update slip
-      DISC%DynRup%Slip1(:,iFace) = DISC%DynRup%Slip1(:,iFace) + DISC%DynRup%SlipRate1(:,iFace)*time_inc
-      DISC%DynRup%Slip2(:,iFace) = DISC%DynRup%Slip2(:,iFace) + DISC%DynRup%SlipRate2(:,iFace)*time_inc
-      DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + LocSR(:)*time_inc      
-      tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
-      
-     ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-     f1=dmin1(ABS(DISC%DynRup%Slip(:,iFace))/DISC%DynRup%D_C(:,iFace),1d0)    
 
-     IF(EQN%FL.EQ.16) THEN 
-        IF (t_0.eq.0) THEN
-         where (tn >= DISC%DynRup%forced_rupture_time(:,iFace))
-            f2=1.
-         elsewhere
-            f2=0.
-         end where
-        ELSE
-           f2=dmax1(0d0,dmin1((time-DISC%DynRup%forced_rupture_time(:,iFace))/t_0,1d0))
-        ENDIF
-     ELSE !no forced time rupture
-        f2=0.
-     ENDIF
+      if (iTimeGP < nTimeGP) then
+        time_inc = DeltaT(iTimeGP)
+        tn=tn + time_inc
 
-     DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace) - (DISC%DynRup%Mu_S(:,iFace)-DISC%DynRup%Mu_D(:,iFace))*dmax1(f1,f2)
+        ! Update slip
+        DISC%DynRup%Slip1(:,iFace) = DISC%DynRup%Slip1(:,iFace) + DISC%DynRup%SlipRate1(:,iFace)*time_inc
+        DISC%DynRup%Slip2(:,iFace) = DISC%DynRup%Slip2(:,iFace) + DISC%DynRup%SlipRate2(:,iFace)*time_inc
+        DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + LocSR(:)*time_inc
+        tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
+      end if
 
      ! instantaneous healing
      IF (DISC%DynRup%inst_healing == 1) THEN
