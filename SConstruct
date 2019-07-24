@@ -456,6 +456,9 @@ env.Append(CXXFLAGS=['-std=c++11'])
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
+if env['equations'] == 'anisotropic':
+  env.Append(CPPDEFINES=['USE_ANISOTROPIC'])
+
 if env['equations'] in ['elastic', 'anisotropic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
