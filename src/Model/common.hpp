@@ -70,7 +70,8 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
                                                             T&                                      o_M )
 {
   o_M.setZero();
-
+  // will be overloaded for the anisotropic case
+  #ifndef USE_ANISOTROPIC
   real lambda2mu = i_material.lambda + 2.0 * i_material.mu;
   real rhoInv = 1.0 / i_material.rho;
 
@@ -112,6 +113,7 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
     default:
       break;
   }
+  #endif
 }
 
 template<typename Tloc, typename Tneigh>
@@ -122,7 +124,8 @@ void seissol::model::getTransposedElasticGodunovState( Material const&          
                                                        Tneigh&                              QgodNeighbor )
 {
   QgodNeighbor.setZero();
-  
+  //will be overloaded for the anisotropic case
+  #ifndef USE_ANISOTROPIC
   real cpL = sqrt((local.lambda + 2.0 * local.mu)       / local.rho);
   real cpN = sqrt((neighbor.lambda + 2.0 * neighbor.mu) / neighbor.rho);
   real csL = sqrt(local.mu / local.rho);
@@ -147,7 +150,7 @@ void seissol::model::getTransposedElasticGodunovState( Material const&          
   QgodNeighbor(7,7) = csL * neighbor.mu / constS;
   QgodNeighbor(5,8) = QgodNeighbor(3,7);
   QgodNeighbor(8,8) = QgodNeighbor(7,7);
-
+  #endif
   // QgodLocal = I - QgodNeighbor
   for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
     for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
@@ -157,7 +160,6 @@ void seissol::model::getTransposedElasticGodunovState( Material const&          
   for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
     QgodLocal(idx,idx) += 1.0;
   }
-  
   applyBoundaryConditionToElasticFluxSolver(faceType, QgodNeighbor);
 }
 

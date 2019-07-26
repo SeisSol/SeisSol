@@ -149,10 +149,37 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   
   seissol::initializers::ElementBarycentreGeneratorPUML queryGen(mesh);  
   seissol::initializers::ParameterDB parameterDB;
+  #ifndef USE_ANISOTROPIC
   parameterDB.addParameter("rho", rho);
   parameterDB.addParameter("mu", mu);
   parameterDB.addParameter("lambda", lambda);
   parameterDB.evaluateModel(m_velocityModel, queryGen);
+  #else
+  double* c11 = new double[cells.size()];
+  double* c22 = new double[cells.size()];
+  double* c33 = new double[cells.size()];
+  double* c44 = new double[cells.size()];
+  double* c55 = new double[cells.size()];
+  double* c66 = new double[cells.size()];
+  parameterDB.addParameter("rho", rho);
+  parameterDB.addParameter("c11", c11);
+  parameterDB.addParameter("c22", c11);
+  parameterDB.addParameter("c33", c11);
+  parameterDB.addParameter("c44", c11);
+  parameterDB.addParameter("c55", c11);
+  parameterDB.addParameter("c66", mu);
+  parameterDB.evaluateModel(m_velocityModel, queryGen);
+  for(unsigned i = 0; i < cells.size(); i++) {
+    mu[i] = (c44[i] + c55[i] + c66[i]) / 3.0;
+    lambda[i] = (c11[i] + c22[i] + c33[i]) / 3.0 - 2*mu[i];
+  }
+  delete[] c11;
+  delete[] c22;
+  delete[] c33;
+  delete[] c44;
+  delete[] c55;
+  delete[] c66;
+  #endif
   
   double* timestep = new double[cells.size()];
   computeMaxTimesteps(mesh, lambda, mu, rho, timestep);
@@ -160,7 +187,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   delete[] lambda;
   delete[] mu;
   delete[] rho;
-
+  
   double localMinTimestep = *std::min_element(timestep, timestep + cells.size());
   double localMaxTimestep = *std::max_element(timestep, timestep + cells.size());
   double globalMinTimestep;

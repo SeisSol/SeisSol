@@ -44,7 +44,30 @@
 
 namespace seissol {
   namespace model {
-    struct Material : public ElasticMaterial {};
+    struct Material {
+        real rho;
+        real c11;
+        real c12;
+        real c13;
+        real c14;
+        real c15;
+        real c16;
+        real c22;
+        real c23;
+        real c24;
+        real c25;
+        real c26;
+        real c33;
+        real c34;
+        real c35;
+        real c36;
+        real c44;
+        real c45;
+        real c46;
+        real c55;
+        real c56;
+        real c66;
+    };
     struct LocalData {};
     struct NeighborData {};
   }

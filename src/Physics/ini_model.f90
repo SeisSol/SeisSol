@@ -127,8 +127,7 @@ CONTAINS
     else
       allocate (EQN%BulkFriction(0), EQN%PlastCo(0), EQN%IniStress(0,0))
     ENDIF
-
-    call c_interoperability_initializeModel(trim(EQN%MaterialFileName) // c_null_char, EQN%Anelasticity, EQN%Plasticity, MaterialVal, EQN%BulkFriction, EQN%PlastCo, EQN%IniStress)
+    call c_interoperability_initializeModel(trim(EQN%MaterialFileName) // c_null_char, EQN%Anelasticity, EQN%Plasticity, EQN%Anisotropy, MaterialVal, EQN%BulkFriction, EQN%PlastCo, EQN%IniStress)
     
     if (EQN%Anelasticity == 1) then
       do iElem=1, MESH%nElem

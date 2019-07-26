@@ -369,11 +369,25 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
       /// Wave speeds
       waveSpeedsPlus[ltsFace].density = plusMaterial.rho;
+      #ifndef USE_ANISOTROPIC
       waveSpeedsPlus[ltsFace].pWaveVelocity = sqrt( (plusMaterial.lambda + 2.0*plusMaterial.mu) / plusMaterial.rho);
       waveSpeedsPlus[ltsFace].sWaveVelocity = sqrt( plusMaterial.mu / plusMaterial.rho);
+      #else
+      real muBarPlus = (plusMaterial.c44 + plusMaterial.c55 + plusMaterial.c66) / 3.0;
+      real lambdaBarPlus = (plusMaterial.c11 + plusMaterial.c22 + plusMaterial.c33) / 3.0 - 2.0*muBarPlus;
+      waveSpeedsPlus[ltsFace].pWaveVelocity = sqrt( (lambdaBarPlus + 2.0*muBarPlus) / plusMaterial.rho);
+      waveSpeedsPlus[ltsFace].sWaveVelocity = sqrt( muBarPlus / plusMaterial.rho);
+      #endif
       waveSpeedsMinus[ltsFace].density = minusMaterial.rho;
+      #ifndef USE_ANISOTROPIC
       waveSpeedsMinus[ltsFace].pWaveVelocity = sqrt( (minusMaterial.lambda + 2.0*minusMaterial.mu) / minusMaterial.rho);
       waveSpeedsMinus[ltsFace].sWaveVelocity = sqrt( minusMaterial.mu / minusMaterial.rho);
+      #else
+      real muBarMinus = (plusMaterial.c44 + plusMaterial.c55 + plusMaterial.c66) / 3.0;
+      real lambdaBarMinus = (plusMaterial.c11 + plusMaterial.c22 + plusMaterial.c33) / 3.0 - 2.0*muBarMinus;
+      waveSpeedsMinus[ltsFace].pWaveVelocity = sqrt( (lambdaBarMinus + 2.0*muBarMinus) / plusMaterial.rho);
+      waveSpeedsMinus[ltsFace].sWaveVelocity = sqrt( muBarMinus / plusMaterial.rho);
+      #endif
 
       /// Godunov state
       auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);

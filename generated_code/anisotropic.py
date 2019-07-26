@@ -53,7 +53,7 @@ class ADERDG(ADERDGBase):
     clones = {
       'star': ['star(0)', 'star(1)', 'star(2)'],
     }
-    self.db.update( parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones) )
+    self.db.update( parseXMLMatrixFile('{}/star_anisotropic.xml'.format(matricesDir), clones) )
     memoryLayoutFromFile(memLayout, self.db, clones)
 
   def numberOfQuantities(self):

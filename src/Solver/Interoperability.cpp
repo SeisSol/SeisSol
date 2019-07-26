@@ -114,6 +114,7 @@ extern "C" {
   void c_interoperability_initializeModel(  char*   materialFileName,
                                             int     anelasticity,
                                             int     plasticity,
+                                            int     anisotropy,
                                             double* materialVal,
                                             double* bulkFriction,
                                             double* plastCo,
@@ -122,6 +123,7 @@ extern "C" {
     e_interoperability.initializeModel( materialFileName,
                                         anelasticity,
                                         plasticity,
+                                        anisotropy,
                                         materialVal,
                                         bulkFriction,
                                         plastCo,
@@ -449,6 +451,7 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
 void seissol::Interoperability::initializeModel(  char*   materialFileName,
                                                   int     anelasticity,
                                                   int     plasticity,
+                                                  int     anisotropy,
                                                   double* materialVal,
                                                   double* bulkFriction,
                                                   double* plastCo,
@@ -458,13 +461,42 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
 
   seissol::initializers::ParameterDB parameterDB;
   parameterDB.addParameter("rho",    materialVal);
-  parameterDB.addParameter("mu",     materialVal + nElements);
-  parameterDB.addParameter("lambda", materialVal + nElements*2);
   
-  if (anelasticity == 1) {
+  if (anisotropy == 0) {
+    parameterDB.addParameter("mu",     materialVal + nElements);
+    parameterDB.addParameter("lambda", materialVal + nElements*2);
+  }
+
+  if (anelasticity == 1 && anisotropy == 1) {
+    logError() << "Can't use anelastic and anisotropic materal at the same time (for now)\n";
+  }
+  else if (anelasticity == 1) {
     parameterDB.addParameter("Qp",  materialVal + nElements*3);
     parameterDB.addParameter("Qs",  materialVal + nElements*4);
   }
+  else if (anisotropy == 1) {
+    parameterDB.addParameter("c11",  materialVal + nElements*1);
+    parameterDB.addParameter("c12",  materialVal + nElements*2);
+    parameterDB.addParameter("c13",  materialVal + nElements*3);
+    parameterDB.addParameter("c14",  materialVal + nElements*4);
+    parameterDB.addParameter("c15",  materialVal + nElements*5);
+    parameterDB.addParameter("c16",  materialVal + nElements*6);
+    parameterDB.addParameter("c22",  materialVal + nElements*7);
+    parameterDB.addParameter("c23",  materialVal + nElements*8);
+    parameterDB.addParameter("c24",  materialVal + nElements*9);
+    parameterDB.addParameter("c25",  materialVal + nElements*10);
+    parameterDB.addParameter("c26",  materialVal + nElements*11);
+    parameterDB.addParameter("c33",  materialVal + nElements*12);
+    parameterDB.addParameter("c34",  materialVal + nElements*13);
+    parameterDB.addParameter("c35",  materialVal + nElements*14);
+    parameterDB.addParameter("c36",  materialVal + nElements*15);
+    parameterDB.addParameter("c44",  materialVal + nElements*16);
+    parameterDB.addParameter("c45",  materialVal + nElements*17);
+    parameterDB.addParameter("c46",  materialVal + nElements*18);
+    parameterDB.addParameter("c55",  materialVal + nElements*19);
+    parameterDB.addParameter("c56",  materialVal + nElements*20);
+    parameterDB.addParameter("c66",  materialVal + nElements*21);
+  } 
 
   if (plasticity == 1) {
     parameterDB.addParameter("bulkFriction", bulkFriction);

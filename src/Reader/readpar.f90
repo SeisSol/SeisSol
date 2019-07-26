@@ -256,12 +256,16 @@ CONTAINS
     EQN%linearized = .TRUE.
     ! aheineck, @TODO these values are used, but not initialized > Begin
     EQN%Poroelasticity = 0
-    EQN%nBackgroundVar = 0
+    EQN%nBackgroundVar = 3
     EQN%Advection = 0
     ! aheineck, @TODO these values are used, but not initialized < End
 
     ! Setting the default values
+#if defined(USE_ANISOTROPIC)
+    Anisotropy          = 1
+#else
     Anisotropy          = 0
+#endif
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     Anelasticity        = 1
 #else
@@ -278,21 +282,7 @@ CONTAINS
         CALL RaiseErrorNml(IO%UNIT%FileIn, "Equations")
     ENDIF
     !
-    SELECT CASE(Anisotropy)
-    CASE(0)
-      logInfo(*) 'Isotropic material is assumed. '
-      EQN%Anisotropy = Anisotropy
-      EQN%nBackgroundVar = 3+EQN%nBackgroundVar
-      EQN%nNonZeroEV = 3
-    CASE(1)
-      logInfo(*) 'Full triclinic material is assumed. '
-      EQN%Anisotropy = Anisotropy
-      EQN%nBackgroundVar = 22+EQN%nBackgroundVar
-      EQN%nNonZeroEV = 3
-    CASE DEFAULT
-      logError(*) 'Choose 0 or 1 as anisotropy assumption. '
-      STOP
-    END SELECT
+
     !
 
 #if defined(USE_PLASTICITY)
@@ -379,6 +369,21 @@ CONTAINS
         logError(*) 'Choose 0, 1 as adjoint wavefield assumption. '
         STOP
       END SELECT
+    
+    EQN%Anisotropy = Anisotropy
+    SELECT CASE(Anisotropy)
+    CASE(0)
+      logInfo(*) 'Isotropic material is assumed. '
+      EQN%nBackgroundVar = 3
+      EQN%nNonZeroEV = 3
+    CASE(1)
+      logInfo(*) 'Full triclinic material is assumed. '
+      EQN%nBackgroundVar = 22
+      EQN%nNonZeroEV = 3
+    CASE DEFAULT
+      logError(*) 'Choose 0 or 1 as anisotropy assumption. '
+      STOP
+    END SELECT
 
     IF(EQN%Adjoint.EQ.1) THEN
      call readadjoint(IO, DISC, SOURCE, AdjFileName)
