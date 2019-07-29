@@ -554,7 +554,7 @@ env.Tool('DirTool', fortran=True)
 env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
 # Eigen3
-libs.find(env, 'eigen3', required=False)
+libs.find(env, 'eigen3', required=True)
 
 # netCDF
 if env['netcdf'] == 'yes':

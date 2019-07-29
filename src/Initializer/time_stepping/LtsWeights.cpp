@@ -148,7 +148,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   double* lambda = new double[cells.size()];
   
   seissol::initializers::ElementBarycentreGeneratorPUML queryGen(mesh);  
-  seissol::initializers::ParameterDB parameterDB;
+  seissol::initializers::ParameterDB parameterDB(cells.size());
   #ifndef USE_ANISOTROPIC
   parameterDB.addParameter("rho", rho);
   parameterDB.addParameter("mu", mu);
@@ -156,28 +156,73 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   parameterDB.evaluateModel(m_velocityModel, queryGen);
   #else
   double* c11 = new double[cells.size()];
+  double* c12 = new double[cells.size()];
+  double* c13 = new double[cells.size()];
+  double* c14 = new double[cells.size()];
+  double* c15 = new double[cells.size()];
+  double* c16 = new double[cells.size()];
   double* c22 = new double[cells.size()];
+  double* c23 = new double[cells.size()];
+  double* c24 = new double[cells.size()];
+  double* c25 = new double[cells.size()];
+  double* c26 = new double[cells.size()];
   double* c33 = new double[cells.size()];
+  double* c34 = new double[cells.size()];
+  double* c35 = new double[cells.size()];
+  double* c36 = new double[cells.size()];
   double* c44 = new double[cells.size()];
+  double* c45 = new double[cells.size()];
+  double* c46 = new double[cells.size()];
   double* c55 = new double[cells.size()];
+  double* c56 = new double[cells.size()];
   double* c66 = new double[cells.size()];
   parameterDB.addParameter("rho", rho);
   parameterDB.addParameter("c11", c11);
-  parameterDB.addParameter("c22", c11);
-  parameterDB.addParameter("c33", c11);
-  parameterDB.addParameter("c44", c11);
-  parameterDB.addParameter("c55", c11);
-  parameterDB.addParameter("c66", mu);
+  parameterDB.addParameter("c12", c12);
+  parameterDB.addParameter("c13", c13);
+  parameterDB.addParameter("c14", c14);
+  parameterDB.addParameter("c15", c15);
+  parameterDB.addParameter("c16", c16);
+  parameterDB.addParameter("c22", c22);
+  parameterDB.addParameter("c23", c23);
+  parameterDB.addParameter("c24", c24);
+  parameterDB.addParameter("c25", c25);
+  parameterDB.addParameter("c26", c26);
+  parameterDB.addParameter("c33", c33);
+  parameterDB.addParameter("c34", c34);
+  parameterDB.addParameter("c35", c35);
+  parameterDB.addParameter("c36", c36);
+  parameterDB.addParameter("c44", c44);
+  parameterDB.addParameter("c45", c45);
+  parameterDB.addParameter("c46", c46);
+  parameterDB.addParameter("c55", c55);
+  parameterDB.addParameter("c56", c56);
+  parameterDB.addParameter("c66", c66);
   parameterDB.evaluateModel(m_velocityModel, queryGen);
   for(unsigned i = 0; i < cells.size(); i++) {
     mu[i] = (c44[i] + c55[i] + c66[i]) / 3.0;
     lambda[i] = (c11[i] + c22[i] + c33[i]) / 3.0 - 2*mu[i];
   }
   delete[] c11;
+  delete[] c12;
+  delete[] c13;
+  delete[] c14;
+  delete[] c15;
+  delete[] c16;
   delete[] c22;
+  delete[] c23;
+  delete[] c24;
+  delete[] c25;
+  delete[] c26;
   delete[] c33;
+  delete[] c34;
+  delete[] c35;
+  delete[] c36;
   delete[] c44;
+  delete[] c45;
+  delete[] c46;
   delete[] c55;
+  delete[] c56;
   delete[] c66;
   #endif
   

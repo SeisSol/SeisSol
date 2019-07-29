@@ -374,7 +374,7 @@ CONTAINS
     SELECT CASE(Anisotropy)
     CASE(0)
       logInfo(*) 'Isotropic material is assumed. '
-      EQN%nBackgroundVar = 3
+      EQN%nBackgroundVar = 22
       EQN%nNonZeroEV = 3
     CASE(1)
       logInfo(*) 'Full triclinic material is assumed. '
