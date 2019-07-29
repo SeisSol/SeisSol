@@ -41,6 +41,8 @@ script:
  - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
  - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons equations=anisotropic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons equations=anisotropic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
  - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast check
    # netcdf is built statically with hdf5 support, hence the following do not link
