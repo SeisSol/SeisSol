@@ -37,9 +37,12 @@ src/version.h
 # Build
 build/build_*
 build/SeisSol_*
+build/external/*
 Documentation/_build/*
 preprocessing/meshing/cube_c/build
+preprocessing/meshing/gmsh2gambit/build
 preprocessing/science/asagiconv/build
+preprocessing/science/rconv/build
 postprocessing/validation/XDMFCubeCheck/build
 
 # Python
@@ -49,3 +52,8 @@ postprocessing/validation/XDMFCubeCheck/build
 *.dblite
 config.log
 .sconf_temp
+
+#personal stuff
+launch_SeisSol/
+.gitignore
+compile_commands.json
