@@ -54,6 +54,10 @@ unsigned seissol::kernels::Plasticity::computePlasticity( double                
                                                       real                        degreesOfFreedom[tensor::Q::size()],
                                                       real*                       pstrain)
 {
+  assert( reinterpret_cast<uintptr_t>(degreesOfFreedom) % ALIGNMENT == 0 );
+  assert( reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % ALIGNMENT == 0 );
+  assert( reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % ALIGNMENT == 0 );
+
   real QStressNodal[tensor::QStressNodal::size()] __attribute__((aligned(ALIGNMENT)));
   real meanStress[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
   real secondInvariant[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
@@ -63,6 +67,7 @@ unsigned seissol::kernels::Plasticity::computePlasticity( double                
   real dudt_pstrain[7];
 
   static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(), "Second invariant tensor and mean stress tensor must be of the same size().");
+  static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(), "Yield factor tensor must be smaller than mean stress tensor.");
   
   //copy dofs for later comparison, only first dof of stresses required
   // @todo multiple sims
@@ -106,7 +111,7 @@ unsigned seissol::kernels::Plasticity::computePlasticity( double                
   }
   
   bool adjust = false;
-  for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
+  for (unsigned ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
     if (tau[ip] > taulim[ip]) {
       adjust = true;
       yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * relaxTime;
