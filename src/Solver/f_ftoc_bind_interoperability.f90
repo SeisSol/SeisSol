@@ -171,20 +171,20 @@ module f_ftoc_bind_interoperability
 
   interface c_interoperability_setInitialLoading
     subroutine c_interoperability_setInitialLoading( i_meshId, i_initialLoading ) bind( C, name='c_interoperability_setInitialLoading' )
-      use iso_c_binding, only: c_ptr
+      use iso_c_binding
       implicit none
-      type(c_ptr), value :: i_meshId
-      type(c_ptr), value :: i_initialLoading
+      integer(kind=c_int), value :: i_meshId
+      real(kind=c_double), dimension(:,:), intent(in) :: i_initialLoading
     end subroutine
   end interface
 
 
   interface c_interoperability_setPlasticParameters
     subroutine c_interoperability_setPlasticParameters( i_meshId, i_plasticParameters ) bind( C, name='c_interoperability_setPlasticParameters' )
-      use iso_c_binding, only: c_ptr
+      use iso_c_binding
       implicit none
-      type(c_ptr), value :: i_meshId
-      type(c_ptr), value :: i_plasticParameters
+      integer(kind=c_int), value :: i_meshId
+      real(kind=c_double), dimension(:), intent(in) :: i_plasticParameters
     end subroutine
   end interface
 

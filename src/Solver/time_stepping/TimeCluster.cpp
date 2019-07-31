@@ -495,7 +495,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   CellLocalInformation*       cellInformation               = i_layerData.var(m_lts->cellInformation);
 #ifdef USE_PLASTICITY
   PlasticityData*             plasticity                    = i_layerData.var(m_lts->plasticity);
-  real                      (*energy)[3]                    = i_layerData.var(m_lts->energy);
+  //real                      (*energy)[3]                    = i_layerData.var(m_lts->energy);
   real                      (*pstrain)[7]                   = i_layerData.var(m_lts->pstrain);
   unsigned                   numberOTetsWithPlasticYielding = 0;
 #endif

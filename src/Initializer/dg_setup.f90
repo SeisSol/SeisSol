@@ -556,7 +556,7 @@ CONTAINS
     materialVal = OptionalFields%BackgroundValue(iElem,:)
     call c_interoperability_setMaterial( i_elem = iElem,                                         \
                                          i_side = iSide,                                         \
-                                         i_materialVal = materialVal,\
+                                         i_materialVal = materialVal,                            \
                                          i_numMaterialVals = EQN%nBackgroundVar                  )
 
     do iSide = 1,4
@@ -2018,12 +2018,12 @@ CONTAINS
         l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
 
         ! initialize loading in C
-        call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
-                                                   i_initialLoading = c_loc( l_initialLoading ) )
+        call c_interoperability_setInitialLoading( i_meshId = iElem, \
+                                                   i_initialLoading = l_initialLoading )
 
         !initialize parameters in C
-        call c_interoperability_setPlasticParameters( i_meshId         = c_loc( iElem), \
-                                                   i_plasticParameters = c_loc( l_plasticParameters ) )
+        call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
+                                                      i_plasticParameters = l_plasticParameters )
 #endif
     ENDDO ! iElem
 
