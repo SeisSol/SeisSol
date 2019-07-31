@@ -76,8 +76,8 @@ cppFiles = filter(lambda t: str(t).endswith('.cpp'), generated)
 for cpp in cppFiles:
   if str(cpp) == 'subroutine.cpp':
     removeWerror = lambda x: x.find('-Werror') < 0
-    cflags = filter(removeWerror, env['CFLAGS'])
-    cxxflags = filter(removeWerror, env['CXXFLAGS'])
+    cflags = list(filter(removeWerror, env['CFLAGS']))
+    cxxflags = list(filter(removeWerror, env['CXXFLAGS']))
     obj = env.Object(cpp, CFLAGS=cflags, CXXFLAGS=cxxflags + ['-mno-red-zone'])
   else:
     obj = env.Object(cpp)
