@@ -1653,7 +1653,7 @@ MODULE Eval_friction_law_mod
 
   END SUBROUTINE update_RSF
 
-  SUBROUTINE Newton_Raphson (FL, nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
+  SUBROUTINE Newton_Raphson (nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
                              n_stress, sh_stress, invZ, SRtest, has_converged)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
