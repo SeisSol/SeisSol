@@ -259,6 +259,28 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   applyBoundaryConditionToElasticFluxSolver(faceType, QgodNeighbor);
 }
 
+void seissol::model::getPlaneWaveOperator(  Material const& material,
+                                            double const n[3],
+                                            std::complex<real> Mdata[9 * 9] )
+{
+  yateto::DenseTensorView<2,std::complex<real>> M(Mdata, {9, 9});
+  M.setZero();
+
+  real data[9 * 9];
+  yateto::DenseTensorView<2,real> Coeff(data, {9, 9});
+
+  for (unsigned d = 0; d < 3; ++d) {
+    Coeff.setZero();
+    getTransposedAnisotropicCoefficientMatrix(material, d, Coeff);
+
+    for (unsigned i = 0; i < 9; ++i) {
+      for (unsigned j = 0; j < 9; ++j) {
+        M(i,j) += n[d] * Coeff(j,i);
+      }
+    }
+  }
+}
+
 void seissol::model::getTransposedCoefficientMatrix( Material const&                i_material,
                                                      unsigned                       i_dim,
                                                      init::star::view<0>::type&     AT )
