@@ -167,6 +167,11 @@ vars.AddVariables(
 
 # external variables
 vars.AddVariables(
+  PathVariable( 'eigenDir',
+                'eigen3 installation directory',
+                None,
+                PathVariable.PathAccept ),
+
   PathVariable( 'memkindDir',
                 'memkind installation directory',
                 None,
@@ -529,11 +534,13 @@ else:
 
 # add include path for submodules
 env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include'] )
+# add include path for eigen
+env.Append( CPPPATH=['#/'+env['eigenDir']] )
 
 #
 # add libraries
 #
-
+print(env['CPPPATH'])
 env.Tool('cmake')
 
 # Libxsmm
