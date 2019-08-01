@@ -40,6 +40,7 @@
   
 import numpy as np
 from yateto import Tensor, Scalar, simpleParameterSpace
+from yateto.util import tensor_collection_from_constant_expression
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
 from yateto.memory import CSCMemoryLayout
 from yateto.ast.node import Add
@@ -98,9 +99,6 @@ class ADERDG(ADERDGBase):
                                     (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
                                     alignStride=True)
 
-    # Add nodal 2d weights, needed in this generator
-    self.nodes2D = Tensor('nodes2DTmp', (self.numberOf2DBasisFunctions(),2)) 
-
   def addLocal(self, generator):
     volumeSum = self.Q['kp']
     for i in range(3):
@@ -112,8 +110,16 @@ class ADERDG(ADERDGBase):
     localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
     generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
-    # TODO(Lukas) rDivM[i] * V2nTo2m can be simplified
-    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.V2nTo2m[self.t('mn')] * self.INodal['no'] * self.AplusT['op']
+    rDivM_mult_V2nTo2m = tensor_collection_from_constant_expression(
+      base_name='rDivMMultV2nTo2m',
+      expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
+      group_indices=range(4),
+      target_indices='jl')
+#      tensor_args={'memoryLayoutClass': DenseMemoryLayout})
+    self.db.update(rDivM_mult_V2nTo2m)
+    #print(rDivM_mult_V2nTo2m.__dict__.keys())
+#    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.V2nTo2m[self.t('mn')] * self.INodal['no'] * self.AplusT['op']
+    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivMMultV2nTo2m[i]['kn'] * self.INodal['no'] * self.AplusT['op']
     localFluxNodalPrefetch = localFluxPrefetch
     generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
 
@@ -151,7 +157,7 @@ class ADERDG(ADERDGBase):
     selectZDisplacement = np.zeros((self.numberOfQuantities(), 1))
     selectZDisplacement[8,0] = 1 # todo is correct?
     selectZDisplacement = Tensor('selectZDisplacement',
-                            selectZDisplacement.shape,
+                                 selectZDisplacement.shape,
                                  selectZDisplacement,
                                  CSCMemoryLayout)
 
@@ -189,9 +195,6 @@ class ADERDG(ADERDGBase):
                         simpleParameterSpace(4),
                         displacementAvgNodal)
 
-    nodes2DGen = self.nodes2D['ij'] <= self.db.nodes2D['ij']
-    generator.add('nodes2DGen', nodes2DGen)
-
   def addTime(self, generator):
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
@@ -208,3 +211,6 @@ class ADERDG(ADERDGBase):
       generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
       generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
       derivatives.append(dQ)
+
+  def add_include_tensors(self, include_tensors):
+    include_tensors.add(self.db.nodes2D)
