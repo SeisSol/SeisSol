@@ -47,11 +47,11 @@
 
 #include <yateto.h>
 
-
 #include <cassert>
 #include <stdint.h>
 #include <cstring>
 
+#include "SeisSol.h"
 #include "DirichletBoundary.h"
 
 void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
@@ -69,8 +69,7 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
 
-  m_nodalLfKrnlPrototype.V2nTo2m = init::V2nTo2m::Values;
-  m_nodalLfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
+  m_nodalLfKrnlPrototype.rDivMMultV2nTo2m = global->rDivMMultV2nTo2m;
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
@@ -124,11 +123,12 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       lfKrnl.execute(face);
       break;
     case FaceType::freeSurfaceGravity:
+      {
       assert(cellBoundaryMapping != nullptr);
       assert(nodalAvgDisplacement != nullptr);
       assert(materialData != nullptr);
       auto displacement = init::INodal::view::create(nodalAvgDisplacement);
-      auto applyFreeSurfaceBc = [&displacement, materialData](const init::nodes2D::view::type& nodes,
+      auto applyFreeSurfaceBc = [&displacement, materialData](const real* nodes,
                                    init::INodal::view::type& boundaryDofs) {
         for (unsigned int i = 0; i < tensor::nodes2D::Shape[0]; ++i) {
           const double rho = materialData->local.rho; // TODO(Lukas) Use actual material parameter.
@@ -150,21 +150,30 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           
       nodalLfKrnl.execute(face);
       break;
+      }
     case FaceType::dirichlet:
+      {
+      const auto& easiBoundary = seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader();
       assert(cellBoundaryMapping != nullptr);
-      // TODO(Lukas) Prefetch
-      real dofsFaceBoundaryNodal[tensor::INodal::size()] __attribute__((aligned(ALIGNMENT)));
+      alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
       auto nodalLfKrnl = m_nodalLfKrnlPrototype;
       nodalLfKrnl.Q = data.dofs;
       nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
       nodalLfKrnl.AplusT = data.localIntegration.nApNm1[face];
 
-      auto applyRigidBodyBoundary = [](const init::nodes2D::view::type& nodes,
+      /*
+      auto applyRigidBodyBoundary = [](const real* nodes,
 				       init::INodal::view::type& boundaryDofs) {
-	for (unsigned int i = 0; i < tensor::nodes2D::Shape[0]; ++i) {
+	for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
 	  const real normalVelocityAtBoundary = 0.0;
 	  boundaryDofs(i,0) = 2 * normalVelocityAtBoundary - boundaryDofs(i,0);
 	}
+      };
+      */
+
+      auto applyEasiBoundary = [&easiBoundary](const real* nodes,
+				       init::INodal::view::type& boundaryDofs) {
+	easiBoundary->query(nodes, boundaryDofs);
       };
 
       // Compute boundary in [n, t_1, t_2] basis
@@ -172,7 +181,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 			       face,
 			       (*cellBoundaryMapping)[face],
 			       m_projectRotatedKrnlPrototype,
-			       applyRigidBodyBoundary,
+			       //applyRigidBodyBoundary,
+			       applyEasiBoundary,
 			       dofsFaceBoundaryNodal);
 
       // We need to rotate the boundary data back to the [x,y,z] basis
@@ -183,6 +193,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 
       nodalLfKrnl.execute(face);
       break;
+      }
     default:
       // No boundary condition.
       break;

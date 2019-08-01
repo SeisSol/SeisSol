@@ -84,8 +84,6 @@ class seissol::kernels::NeighborBase {
     kernel::localFlux m_lfKrnlPrototype;
     kernel::neighboringFlux m_nfKrnlPrototype;
     kernel::nodalFlux m_drKrnlPrototype;
-
-    kernel::localFluxNodal m_nodalLfKrnlPrototype;
 };
 
 #endif

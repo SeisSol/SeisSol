@@ -74,6 +74,10 @@ extern "C" {
     e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
   }
 
+  void c_interoperability_initializeEasiBoundaries(char* fileName) {
+    seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
+  }
+
   void c_interoperability_setInitialConditionType(char* type)
   {
     e_interoperability.setInitialConditionType(type);

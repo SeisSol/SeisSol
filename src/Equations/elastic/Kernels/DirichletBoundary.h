@@ -33,7 +33,6 @@ void computeDirichletBoundary(const real* dofsVolumeInteriorModal,
 				     Func&& evaluateBoundaryCondition,
 				     real* dofsFaceBoundaryNodal) {
   // TODO(Lukas) Implement time-dependent functions
-  
   auto projectKrnl = projectKernelPrototype;
   addRotationToProjectKernel(projectKrnl, boundaryMapping);
   projectKrnl.I = dofsVolumeInteriorModal;
@@ -42,15 +41,11 @@ void computeDirichletBoundary(const real* dofsVolumeInteriorModal,
   
   auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
   
-  // Evaluate boundary conditions at precomputed nodes (in global coordinates).
-  const auto &nodesData = boundaryMapping.nodes;
-  auto nodes = init::nodes2D::view::create(nodesData);
-  
   static_assert(tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
 		"Need evaluation at all nodes!");
   
-  // Set values for all nodes
-  std::forward<Func>(evaluateBoundaryCondition)(nodes, boundaryDofs);
+  // Evaluate boundary conditions at precomputed nodes (in global coordinates).
+  std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes, boundaryDofs);
 }
 
 void computeAverageDisplacement(double deltaT,

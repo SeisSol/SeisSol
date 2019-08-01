@@ -647,3 +647,11 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
   o_meshStructure           =  m_meshStructure + i_cluster;
   o_globalData              = &m_globalData;
 }
+
+void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
+  const auto fileNameStr = std::string{fileName};
+  std::cout << "initializeEasiBoundaryReader with file: " << fileName << std::endl;
+  if (fileNameStr != "") {
+    m_easiBoundary = std::move(EasiBoundary(fileNameStr));
+  }
+}

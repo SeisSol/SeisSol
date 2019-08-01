@@ -81,6 +81,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface
+    subroutine c_interoperability_initializeEasiBoundaries(fileName) bind( C, name='c_interoperability_initializeEasiBoundaries' )
+      use iso_c_binding
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: fileName
+    end subroutine
+  end interface
+
+
   ! Don't forget to add // c_null_char to NRFFileName when using this interface
   interface
     subroutine c_interoperability_setupNRFPointSources( NRFFileName ) bind( C, name='c_interoperability_setupNRFPointSources' )

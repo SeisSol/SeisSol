@@ -234,7 +234,6 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
   unsigned* ltsToMesh = i_ltsLut->getLtsToMeshLut(i_lts->material.mask);
 
   for (LTSTree::leaf_iterator it = io_ltsTree->beginLeaf(LayerMask(Ghost)); it != io_ltsTree->endLeaf(); ++it) {
-    auto* material = it->var(i_lts->material);
     auto* cellInformation = it->var(i_lts->cellInformation);
     auto* boundary = it->var(i_lts->boundaryMapping);
     
@@ -258,10 +257,10 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 		    seissol::tensor::nodes2D::Size,
 		    nodesReferenceData);
 	auto nodesReference = init::nodes2D::view::create(nodesReferenceData);
-	assert(boundary[cell][side].nodes != nullptr);
 	auto nodes = boundary[cell][side].nodes;
+	assert(nodes != nullptr);
 	auto offset = 0;
-	for (int i = 0; i < seissol::tensor::nodes2D::Shape[0]; ++i) {
+	for (unsigned int i = 0; i < seissol::tensor::nodes2D::Shape[0]; ++i) {
 	  double nodeReference[2];
 	  nodeReference[0] = nodesReference(i,0);
 	  nodeReference[1] = nodesReference(i,1);

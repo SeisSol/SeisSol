@@ -232,11 +232,11 @@ CONTAINS
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
     REAL                       :: FreqCentral, FreqRatio, Tv
-    CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
+    CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, pmethod, &
                                            Adjoint,  &
-                                           MaterialFileName, FreqCentral, &
+                                           MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName
     !------------------------------------------------------------------------
     !
@@ -272,6 +272,8 @@ CONTAINS
     pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
     MaterialFileName    = ''
+    BoundaryFileName    = ''
+
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
     IF (readStat.NE.0) THEN
@@ -389,8 +391,15 @@ CONTAINS
      logError(*) 'Material file "', trim(MaterialFileName), '" does not exist.'
      STOP
     endif
+    inquire(file=BoundaryFileName , exist=fileExists)
+    if (.NOT. fileExists) then
+     logError(*) 'Boundary file "', trim(BoundaryFileName), '" does not exist.'
+     STOP
+    endif
+
     !
     EQN%MaterialFileName = MaterialFileName
+    EQN%BoundaryFileName = BoundaryFileName
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
     !

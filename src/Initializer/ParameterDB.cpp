@@ -39,18 +39,19 @@
  **/
 
 #ifdef USE_HDF
-#include <PUML/PUML.h>
-#include <PUML/Downward.h>
+#include "PUML/PUML.h"
+#include "PUML/Downward.h"
 #endif
 #include "ParameterDB.h"
 
-#include <easi/YAMLParser.h>
-#include <easi/ResultAdapter.h>
-#include <Numerical_aux/Transformation.h>
+#include "easi/YAMLParser.h"
+#include "easi/ResultAdapter.h"
+#include "Numerical_aux/Transformation.h"
 #ifdef USE_ASAGI
-#include <Reader/AsagiReader.h>
+#include "Reader/AsagiReader.h"
 #endif
-#include <utils/logger.h>
+#include "utils/logger.h"
+
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
@@ -171,31 +172,20 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   return query;
 }
 
-easi::Component* seissol::initializers::ParameterDB::loadModel(std::string const& fileName) {
-#ifdef USE_ASAGI
-  seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
-  easi::YAMLParser parser(3, &asagiReader);
-#else
-  easi::YAMLParser parser(3);
-#endif
-  easi::Component* model = parser.parse(fileName);
-  return model;
-}
-
 void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
   easi::ArraysAdapter adapter;
-  for (auto& kv : m_parameters) {
+  for (const auto& kv : m_parameters) {
     adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
   }
   
   easi::Query query = queryGen.generate();
-  easi::Component* model = ParameterDB::loadModel(fileName);
-  model->evaluate(query, adapter);  
-  delete model;
+  auto model = loadEasiModel(fileName);
+
+  model->evaluate(query, adapter);
 }
 
 bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::string const& fileName) {
-  easi::Component* model = ParameterDB::loadModel(fileName);
+  easi::Component* model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
 
@@ -210,4 +200,83 @@ bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::strin
   }
 
   return containsTraction;
+}
+
+seissol::initializers::EasiBoundary::EasiBoundary(const std::string& fileName)
+  : model(loadEasiModel(fileName)) {
+  std::cout << "EasiBoundary() " << fileName << std::endl;
+
+}
+
+
+seissol::initializers::EasiBoundary::EasiBoundary(EasiBoundary&& other)
+  : model(std::move(other.model)) {}
+
+seissol::initializers::EasiBoundary& seissol::initializers::EasiBoundary::operator=(EasiBoundary&& other) {
+  std::swap(model, other.model);
+  return *this;
+}
+
+seissol::initializers::EasiBoundary::~EasiBoundary() {
+  delete model;
+}
+
+void seissol::initializers::EasiBoundary::query(const real* nodes,
+						init::INodal::view::type& boundaryDofs) const {
+  assert(NUMBER_OF_QUANTITIES == 9); // only supp. for elastic currently.
+  assert(model != nullptr);
+  constexpr auto numNodes = tensor::INodal::Shape[0];
+  auto query = easi::Query{numNodes, 3};
+  auto offset = 0;
+  for (int i = 0; i < numNodes; ++i) {
+    query.x(i, 0) = nodes[offset++];
+    query.x(i, 1) = nodes[offset++];
+    query.x(i, 2) = nodes[offset++];
+    query.group(i) = 1; // TOOD(Lukas): group needed/possible?
+  }
+
+  auto boundaryValues = std::array<EasiBoundaryData, numNodes>{};
+  easi::ArrayOfStructsAdapter<EasiBoundaryData> adapter(boundaryValues.data());
+  adapter.addBindingPoint("T_n", &EasiBoundaryData::T_n);
+  adapter.addBindingPoint("T_s", &EasiBoundaryData::T_s);
+  adapter.addBindingPoint("T_d", &EasiBoundaryData::T_d);
+  adapter.addBindingPoint("u", &EasiBoundaryData::u);
+  adapter.addBindingPoint("v", &EasiBoundaryData::v);
+  adapter.addBindingPoint("w", &EasiBoundaryData::w);
+
+  adapter.addBindingPoint("T_n_mult", &EasiBoundaryData::T_n_mult);
+  adapter.addBindingPoint("T_s_mult", &EasiBoundaryData::T_s_mult);
+  adapter.addBindingPoint("T_d_mult", &EasiBoundaryData::T_d_mult);
+  adapter.addBindingPoint("u_mult", &EasiBoundaryData::u_mult);
+  adapter.addBindingPoint("v_mult", &EasiBoundaryData::v_mult);
+  adapter.addBindingPoint("w_mult", &EasiBoundaryData::w_mult);
+
+  model->evaluate(query, adapter);
+
+  for (int i = 0; i < numNodes; ++i) {
+    // TODO(Lukas): Fix?
+    const auto& curBnd = boundaryValues[i];
+    boundaryDofs(i, 0) = curBnd.T_n_mult * boundaryDofs(i, 0) + curBnd.T_n;
+    boundaryDofs(i, 1) = curBnd.T_s_mult * boundaryDofs(i, 1) + curBnd.T_s;
+    boundaryDofs(i, 2) = curBnd.T_d_mult * boundaryDofs(i, 2) + curBnd.T_d;
+    
+    boundaryDofs(i, 6) = curBnd.u_mult * boundaryDofs(i, 6) + curBnd.u;
+    boundaryDofs(i, 7) = curBnd.v_mult * boundaryDofs(i, 7) + curBnd.v;
+    boundaryDofs(i, 8) = curBnd.w_mult * boundaryDofs(i, 8) + curBnd.w;
+
+    if (i == 2) {
+      std::cout << "New vel = " << boundaryDofs(i,6) << std::endl;
+    }
+  }
+}
+
+easi::Component* seissol::initializers::loadEasiModel(const std::string& fileName) {
+  std::cout << "loadEasiModel with file " << fileName << std::endl;
+#ifdef USE_ASAGI
+  seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
+  easi::YAMLParser parser(3, &asagiReader);
+#else
+  easi::YAMLParser parser(3);
+#endif
+  return parser.parse(fileName);
 }

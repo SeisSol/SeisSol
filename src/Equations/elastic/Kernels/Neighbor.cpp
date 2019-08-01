@@ -107,14 +107,10 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
-
-  m_nodalLfKrnlPrototype.V2nTo2m = init::V2nTo2m::Values;
-  m_nodalLfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
 }
 
 void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
                                                           CellDRMapping const (&cellDrMapping)[4],
-							  CellBoundaryMapping const (&cellBoundaryMapping)[4],
                                                           real* i_timeIntegrated[4],
                                                           real* faceNeighbors_prefetch[4]) {
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
@@ -124,6 +120,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
     case FaceType::regular:
       // Fallthrough intended
     case FaceType::periodic:  
+      {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(i_timeIntegrated[l_face]) % ALIGNMENT == 0 );
@@ -137,7 +134,9 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
 		     data.cellInformation.faceRelations[l_face][0],
 		     l_face);
       break;
+      }
     case FaceType::dynamicRupture:
+      {
       // No neighboring cell contrib., interior bc.
       assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
@@ -148,6 +147,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
       break;
+      }
     default:
       // No contribution for all other cases.
       // Note: some other bcs are handled in the local kernel.

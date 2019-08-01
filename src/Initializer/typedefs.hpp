@@ -327,6 +327,7 @@ struct GlobalData {
 
   // TODO(Lukas) Comment+Rename or Remove
   seissol::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
+  seissol::tensor::rDivMMultV2nTo2m::Container<real const*> rDivMMultV2nTo2m;
   
   /** 
    * Addresses of the global face to nodal matrices

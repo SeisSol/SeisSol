@@ -84,6 +84,7 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/Boundary.h>
+#include <Initializer/ParameterDB.h>
 
 namespace seissol {
   namespace initializers {
@@ -158,6 +159,8 @@ class seissol::initializers::MemoryManager {
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
+
+    EasiBoundary m_easiBoundary;
 
     /**
      * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
@@ -281,6 +284,12 @@ class seissol::initializers::MemoryManager {
 
     inline Boundary* getBoundary() {
       return &m_boundary;
+    }
+
+    void initializeEasiBoundaryReader(const char* fileName);    
+
+    inline EasiBoundary* getEasiBoundaryReader() {
+      return &m_easiBoundary;
     }
 };
 

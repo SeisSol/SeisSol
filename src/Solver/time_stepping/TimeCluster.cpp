@@ -600,7 +600,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
     m_neighborKernel.computeNeighborsIntegral( data,
                                                drMapping[l_cell],
-					       boundaryMapping[l_cell],
 #ifdef ENABLE_MATRIX_PREFETCH
                                                l_timeIntegrated, l_faceNeighbors_prefetch
 #else

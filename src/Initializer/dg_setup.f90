@@ -616,6 +616,8 @@ CONTAINS
     stop
   endif
 
+  call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
+
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices;
 
