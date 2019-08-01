@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(SeisSol LANGUAGES C CXX Fortran)
 
+# Library settings:
 option(HDF5 "Use HDF5 library for data output" ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
 option(METIS "Use metis for partitioning" ON)
@@ -12,6 +13,7 @@ option(SIONLIB "Use sionlib for checkpointing" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
+# Other settings
 set(ORDER 6 CACHE INT "Convergence order.")
 set_property(CACHE ORDER PROPERTY STRINGS 2 3 4 5 6 7 8)
 set(NUMBER_OF_MECHANISMS 0 CACHE INT "Number of mechanisms")
@@ -19,6 +21,7 @@ set(EQUATIONS "elastic" CACHE STRING "Equation set used")
 set(ARCH "dsnb" CACHE STRING "Architecture")
 set(DYNAMIC_RUPTURE_METHOD "quadrature" CACHE STRING "Dynamic rupture method.")
 set_property(CACHE DYNAMIC_RUPTURE_METHOD PROPERTY STRINGS "quadrature" "cellaverage")
+option(PLASTICITY "Use plasticity")
 set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method.")
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS nb ip)
 set(NUMBER_OF_MULTIPLE_SIMULATIONS 1 CACHE INT "Fuse multiple simulations in one run.")
@@ -52,54 +55,9 @@ endif()
 
 MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
 
-# Set float size
-if ("${ARCH}" MATCHES "^s.*")
-  # single precision
-  set(REAL_SIZE 4)
-  set(ALIGNED_REAL_SIZE 4)
-elseif ("${ARCH}" MATCHES "^d.*")
-  # double precision
-  set(REAL_SIZE 8)
-  set(ALIGNED_REAL_SIZE 8)
-else()
-  message(FATAL_ERROR "Arch has to begin with s or d.")
-endif()
-  
-# Arch
-set(ALIGNMENT 0)
-if ("${ARCH}" MATCHES "^(s|d)noarch$")
-  set(ALIGMENT 16)
-elseif ("${ARCH}" MATCHES "^(s|d)wsm$")
-  set(ALIGNMENT 16)
-  # -msse3
-elseif ("${ARCH}" MATCHES "^(s|d)snb$")
-  set(ALIGNMENT 32)
-  # -mavx
-elseif ("${ARCH}" MATCHES "^(s|d)hsw$")
-  set(ALIGNMENT 32)
-  # intel:
-  # intel -> -xCore-AVX2 -fma
-  # gcc -> -mavx2 -mfma
-elseif ("${ARCH}" MATCHES "^(s|d)knc$")
-  set(ALIGNMENT 64)
-  # -mmic -fma
-elseif ("${ARCH}" MATCHES "^(s|d)knl$")
-  set(ALIGNMENT 64)
-  # intel -> -xMIC-AVX512 -fma
-  # gcc -> -mavx512f -mavx512cd -mavx512pf -mavx512er -mfma
-elseif ("${ARCH}" MATCHES "^(s|d)skx$")
-  set(ALIGNMENT 64)
-  # intel -> -xCORE-AVX512 -fma
-  # gcc -> -march=skylake-avx512
-else ()
-  message(FATAL_ERROR "Arch is unknown.")
-  endif()
 
-# enable interproc. opts for small cores
-#if cpu in ['knc', 'knl', 'skx']:
-#    flags.extend(['-ip'])
-
-
+add_custom_target(build-time-make-directory ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/src/generated_code")
 # todo: guess memlayout
 # todo create subdir $BIN/src/generated_code
 # todo compile subroutine with -mno-red-zone
@@ -289,8 +247,76 @@ src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
 )
 
-#add_dependencies(SeisSol-lib yateto-codegen)
+if (PLASTICITY)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
+endif()
 
+if ("${PlasticityMethod}" STREQUAL "ip")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
+elseif ("${PlasticityMethod}" STREQUAL "nb")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
+endif()
+
+function(target_compiler_flags target)
+  cmake_parse_arguments(
+    TARGET_COMPILER_FLAGS
+    ""
+    "COMPILER"
+    "PUBLIC;PRIVATE"
+    ${ARGN}
+    )
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL ${TARGET_COMPILER_FLAGS_COMPILER})
+    target_compile_options(${target}
+      PRIVATE ${TARGET_COMPILER_FLAGS_PRIVATE}
+      PUBLIC ${TARGET_COMPILER_FLAGS_PUBLIC})
+  endif()
+endfunction()
+
+# Set float size
+if ("${ARCH}" MATCHES "^s.*")
+  # single precision
+  target_compile_definitions(SeisSol-lib PUBLIC REAL_SIZE=4)
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNED_REAL_SIZE=4)
+elseif ("${ARCH}" MATCHES "^d.*")
+  # double precision
+  target_compile_definitions(SeisSol-lib PUBLIC REAL_SIZE=8)
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNED_REAL_SIZE=8)
+else()
+  message(FATAL_ERROR "Arch has to begin with s or d.")
+endif()
+  
+# Arch
+set(ALIGNMENT 0)
+if ("${ARCH}" MATCHES "^(s|d)noarch$")
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=16)
+elseif ("${ARCH}" MATCHES "^(s|d)wsm$")
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=16)
+  target_compile_options(SeisSol-lib PUBLIC "-msse3")
+elseif ("${ARCH}" MATCHES "^(s|d)snb$")
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=32)
+  target_compile_options(SeisSol-lib PUBLIC "-mavx")
+elseif ("${ARCH}" MATCHES "^(s|d)hsw$")
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=32)
+  target_compiler_flags(SeisSol-lib COMPILER "Intel" PUBLIC "-xCORE-AVX2 -fma")
+  target_compiler_flags(SeisSol-lib COMPILER "GNU" PUBLIC "-mavx2 -mfma")
+elseif ("${ARCH}" MATCHES "^(s|d)knc$")
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=64)
+  target_compile_options(SeisSol-lib PUBLIC "-mmic -fma")
+elseif ("${ARCH}" MATCHES "^(s|d)knl$")
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=64)
+  target_compiler_flags(SeisSol-lib COMPILER "Intel" PUBLIC "-xMIC-AVX512 -fma")
+  target_compiler_flags(SeisSol-lib COMPILER "GNU" PUBLIC "-mavx512f -mavx512cd -mavx512pf -mavx512er -mfma")
+elseif ("${ARCH}" MATCHES "^(s|d)skx$")
+  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=64)
+  target_compiler_flags(SeisSol-lib COMPILER "Intel" PUBLIC "-xCORE-AVX512 -fma")
+  target_compiler_flags(SeisSol-lib COMPILER "GNU" PUBLIC "-march=skylake-avx512")
+else ()
+  message(FATAL_ERROR "Arch is unknown.")
+  endif()
+
+# enable interproc. opts for small cores
+#if cpu in ['knc', 'knl', 'skx']:
+#    flags.extend(['-ip'])
 
 # Libs
 find_package(yaml-cpp REQUIRED)
@@ -309,7 +335,7 @@ if (OPENMP)
 endif()
 
 if (MPI)
-  include(FindMPI)
+  find_package(MPI REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${MPI_CXX_INCLUDE_PATH})
   target_link_libraries(SeisSol-lib PUBLIC ${MPI_CXX_LIBRARIES})
   target_link_libraries(SeisSol-lib PUBLIC ${MPI_C_LIBRARIES})
@@ -356,20 +382,14 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
 				   # todo: Switch kernels?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic
-				 
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
-				   REAL_SIZE=${REAL_SIZE}
-				   ALIGNMENT=${ALIGNMENT}
 				   CONVERGENCE_ORDER=${ORDER}
 				   NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
 				   # TODO: Remove next one
 				   VERSION_STRING=""
-				   __SSE3__
-				   __AVX__
-				   __AVX2__
 				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
 				   LOGLEVEL=3
@@ -379,9 +399,6 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   GENERATEDKERNELS
 				   CLUSTERED_LTS
 				   HOST_NAME_MAX=100 # wtf?
-
-				   # some settings
-				   USE_PLASTIC_NB
 				   )
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -420,12 +437,13 @@ if(CXXTEST_FOUND)
   set(CXXTEST_USE_PYTHON TRUE)
 
   # what about the unit tests for the lts layout?
-  CXXTEST_ADD_TEST(test_generated_kernels
-    test_generated_kernels.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h)
 
-  target_link_libraries(test_generated_kernels PRIVATE SeisSol-lib) 
-  target_include_directories(test_generated_kernels PRIVATE ${CXXTEST_INCLUDE_DIR})
+  # test is generated...
+  #CXXTEST_ADD_TEST(test_generated_kernels
+  #  test_generated_kernels.cpp
+  #  ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h)
+  #target_link_libraries(test_generated_kernels PRIVATE SeisSol-lib) 
+  #target_include_directories(test_generated_kernels PRIVATE ${CXXTEST_INCLUDE_DIR})
 
   CXXTEST_ADD_TEST(test_serial_test_suite
     test_serial.cpp
