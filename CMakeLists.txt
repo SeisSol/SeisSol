@@ -49,7 +49,7 @@ configure_file (
   )
 
 # PDE-Settings
-if ("${EQUATIONS}" MATCHES "elastic" AND ${NUMBER_OF_MECHANISMS} GREATER 0)
+if ("${EQUATIONS}" STREQUAL "elastic" AND ${NUMBER_OF_MECHANISMS} GREATER 0)
   message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
 endif()
 
@@ -236,8 +236,6 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
-				   # todo: Switch kernels?
-				   ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
