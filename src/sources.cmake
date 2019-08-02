@@ -41,8 +41,6 @@ src/Kernels/Receiver.cpp
 src/SeisSol.cpp
 src/SourceTerm/Manager.cpp
 
-src/SourceTerm/NRFReader.cpp # if netCDF
-
 src/SourceTerm/PointSource.cpp
 src/Parallel/Pin.cpp
 src/Parallel/MPI.cpp
@@ -50,16 +48,12 @@ src/Parallel/mpiC.cpp
 src/Parallel/FaultMPI.cpp
 src/Geometry/GambitReader.cpp
 
-# TODO: Only if hdf5?
-src/Geometry/PUMLReader.cpp
-
 src/Geometry/MeshReaderFBinding.cpp
 src/Geometry/MeshTools.cpp
 src/Monitoring/FlopCounter.cpp
 src/Monitoring/LoopStatistics.cpp
 src/Reader/readparC.cpp
 #Reader/StressReaderC.cpp
-#Reader/AsagiModule.cpp
 src/Checkpoint/Manager.cpp
 
 # TODO: Only if mpi?
@@ -70,10 +64,6 @@ src/Checkpoint/mpio/WavefieldAsync.cpp
 
 # Checkpoint/sionlib/Wavefield.cpp
 # Checkpoint/sionlib/Fault.cpp
-
-# TODO: Only if HDF5!
-src/Checkpoint/h5/Wavefield.cpp
-src/Checkpoint/h5/Fault.cpp
 
 src/Checkpoint/Backend.cpp
 src/Checkpoint/Fault.cpp
@@ -133,6 +123,27 @@ src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
 )
 
+if (HDF5)
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Wavefield.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Fault.cpp
+    # TODO: Only if hdf5? what about metis?
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
+    )
+endif()
+
+if (NETCDF)
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp # if netCDF
+    )
+endif()
+
+if (ASAGI)
+  target_sources(SeisSol-lib PUBLIC
+    #todo:
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Reader/AsagiModule.cpp
+    )
+endif()
 
 # Eqations have to be set at compile time currently.
 if ("${EQUATIONS}" STREQUAL "elastic")

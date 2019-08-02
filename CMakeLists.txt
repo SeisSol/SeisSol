@@ -225,6 +225,12 @@ if (METIS)
   target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
+if (ASAGI)
+  target_include_directories(SeisSol-lib PUBLIC "/import/home/ga24dib/src/ASAGI/include/")
+  target_link_libraries(SeisSol-lib PUBLIC "/import/home/ga24dib/src/ASAGI/build/libasagi.a" "-lnuma")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_ASAGI)
+endif()
+
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
@@ -318,3 +324,5 @@ if(CXXTEST_FOUND)
     SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
     )
 endif()
+# https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
+# https://ortogonal.github.io/cmake-clang-tidy/
