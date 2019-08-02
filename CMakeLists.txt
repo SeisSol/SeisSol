@@ -70,7 +70,7 @@ add_custom_command(
      "--arch" ${ARCH}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-     "--memLayout" /work_fast/krenz/src/SeisSol-CMake/auto_tuning/config/dense.xml
+     "--memLayout" "auto"
      "--multipleSimulations" ${NUMBER_OF_MULTIPLE_SIMULATIONS}
      "--dynamicRuptureMethod" ${DYNAMIC_RUPTURE_METHOD}
      "--PlasticityMethod" ${PLASTICITY_METHOD}

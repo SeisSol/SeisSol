@@ -72,7 +72,7 @@ def findCandidates():
   archs = arch.getArchitectures()
   pes = [arch.getCpu(a) for a in archs]
 
-  path = os.path.join('auto_tuning', 'config')
+  path = os.path.join('../auto_tuning', 'config')
   candidates = dict()
   for c in os.listdir(path):
     name, ext = os.path.splitext(c)
@@ -94,7 +94,7 @@ def findCandidates():
   return candidates
 
 def guessMemoryLayout(env):    
-  path = os.path.join('auto_tuning', 'config')
+  path = os.path.join('../auto_tuning', 'config')
 
   # from least to most
   importance = ['precision', 'equations', 'order', 'pe', 'multipleSimulations']
