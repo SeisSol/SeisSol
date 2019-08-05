@@ -222,7 +222,7 @@ class seissol::Interoperability {
     * @param i_initialLoading initial loading (stress tensor).
     **/
 #ifdef USE_PLASTICITY
-   void setInitialLoading( int    *i_meshId,
+   void setInitialLoading( int    i_meshId,
                            double *i_initialLoading );
 #endif
 
@@ -233,7 +233,7 @@ class seissol::Interoperability {
     * @param i_plasticParameters cell dependent plastic Parameters (volume, cohesion...).
     **/
 #ifdef USE_PLASTICITY
-   void setPlasticParameters( int    *i_meshId,
+   void setPlasticParameters( int    i_meshId,
                               double *i_plasticParameters );
 
    void setTv(double tv);
