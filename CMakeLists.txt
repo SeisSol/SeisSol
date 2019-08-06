@@ -7,11 +7,11 @@ option(NETCDF "Use netcdf library for mesh input" ON)
 option(METIS "Use metis for partitioning" ON)
 option(MPI "Use MPI parallelization" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
-# todo:
 option(ASAGI "Use asagi for material input" OFF) # needed
+
+# todo:
 option(SIONLIB "Use sionlib for checkpointing" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
-option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
 # Other settings
 set(ORDER 6 CACHE INT "Convergence order.")
@@ -25,8 +25,10 @@ option(PLASTICITY "Use plasticity")
 set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method.")
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS nb ip)
 set(NUMBER_OF_MULTIPLE_SIMULATIONS 1 CACHE INT "Fuse multiple simulations in one run.")
+option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
+set(LOG_LEVEL "INFO" CACHE STRING "Log level for the code")
+set_property(CACHE LOG_LEVEL PROPERTY STRINGS "DEBUG" "INFO" "WARNING" "ERROR")
 
-# TODO: Set number of quantities depending on equations
 
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
@@ -98,9 +100,6 @@ add_custom_command(
        COMMENT "Codegen for tensor stuff."
        )
 
-
-
-
 include(src/sources.cmake)
 
 if (PLASTICITY)
@@ -170,6 +169,17 @@ else ()
   message(FATAL_ERROR "Arch is unknown.")
   endif()
 
+if (LOG_LEVEL STREQUAL "DEBUG")
+  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=3 LOG_LEVEL=3 LOGLEVEL0=3)
+elseif (LOG_LEVEL STREQUAL "INFO")
+  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=2 LOG_LEVEL=2 LOGLEVEL0=2)
+elseif (LOG_LEVEL STREQUAL "WARNING")
+  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=1 LOG_LEVEL=1 LOGLEVEL0=1)
+elseif (LOG_LEVEL STREQUAL "ERROR")
+  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=0 LOG_LEVEL=0 LOGLEVEL0=0)
+endif()
+  
+#set_property(CACHE LOG_LEVEL PRPERTY STRINGS "DEBUG" "INFO" "WARNING" "ERROR")
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
 #    flags.extend(['-ip'])
@@ -200,6 +210,9 @@ if (MPI)
   target_compile_definitions(SeisSol-lib PUBLIC USE_MPI PARALLEL)
 endif()
 
+if (COMMTHREAD)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_COMM_THREAD)
+endif()
 # TODO: HDF5 should be optional?
 # TODO: Check constraints, seee
 # https://github.com/Kitware/CMake/blob/master/Modules/FindHDF5.cmake
@@ -248,8 +261,6 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   CONVERGENCE_ORDER=${ORDER}
 				   NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-				   # TODO: Remove next one
-				   VERSION_STRING=""
 				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
 				   LOGLEVEL=3
