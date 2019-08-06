@@ -17,6 +17,7 @@ src/Modules/Modules.cpp
 src/Modules/ModulesC.cpp
 src/Model/common.cpp
 src/Numerical_aux/Transformation.cpp
+src/Numerical_aux/Statistics.cpp
 
 src/generated_code/subroutine.h
 src/generated_code/tensor.cpp
