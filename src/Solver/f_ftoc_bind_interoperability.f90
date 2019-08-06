@@ -174,7 +174,7 @@ module f_ftoc_bind_interoperability
       use iso_c_binding
       implicit none
       integer(kind=c_int), value :: i_meshId
-      real(kind=c_double), dimension(:,:), intent(in) :: i_initialLoading
+      real(kind=c_double), dimension(*), intent(in) :: i_initialLoading
     end subroutine
   end interface
 
@@ -184,7 +184,7 @@ module f_ftoc_bind_interoperability
       use iso_c_binding
       implicit none
       integer(kind=c_int), value :: i_meshId
-      real(kind=c_double), dimension(:), intent(in) :: i_plasticParameters
+      real(kind=c_double), dimension(*), intent(in) :: i_plasticParameters
     end subroutine
   end interface
 

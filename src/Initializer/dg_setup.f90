@@ -2016,10 +2016,10 @@ CONTAINS
         ! initialize the element dependent plastic parameters
         l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
         l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
-
+        
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId = iElem, \
-                                                   i_initialLoading = l_initialLoading )
+                                                   i_initialLoading = pack( l_initialLoading, .true. ) )
 
         !initialize parameters in C
         call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
