@@ -159,6 +159,8 @@ contains
             mesh%Fault%nSide = size(mesh%Fault%Face, 1)
             if (mesh%Fault%nSide .eq. 0) then
                 eqn%DR = 0
+                logError(*) "Did not find dynamic rupture surfaces in the mesh although dynamic rupture was declared in the parameter file."
+                stop
             endif
         endif
 
