@@ -537,23 +537,23 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::setInitialLoading( int i_meshId, double *i_initialLoading ) {
-  PlasticityData* plasticity = &m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
     unsigned l_basis = 0;
-    plasticity->initialLoading[l_stress] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
+    plasticity.initialLoading[l_stress] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
   }
 }
 //synchronize element dependent plasticity parameters
 void seissol::Interoperability::setPlasticParameters( int i_meshId, double* i_plasticParameters) {
-  PlasticityData* plasticity = &m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
-  CellMaterialData* material = &m_ltsLut.lookup(m_lts->material, i_meshId - 1);
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
+  CellMaterialData& material = m_ltsLut.lookup(m_lts->material, i_meshId - 1);
 
   double angularFriction = atan(i_plasticParameters[1]);
 
-  plasticity->cohesionTimesCosAngularFriction = i_plasticParameters[0] * cos(angularFriction);
-  plasticity->sinAngularFriction = sin(angularFriction);
-  plasticity->mufactor = 1.0 / (2.0 * material->local.mu);
+  plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[0] * cos(angularFriction);
+  plasticity.sinAngularFriction = sin(angularFriction);
+  plasticity.mufactor = 1.0 / (2.0 * material.local.mu);
 
 }
 
