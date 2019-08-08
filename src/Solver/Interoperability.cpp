@@ -162,12 +162,12 @@ extern "C" {
   }
 
 #ifdef USE_PLASTICITY
- void c_interoperability_setInitialLoading( int    *i_meshId,
+ void c_interoperability_setInitialLoading( int    i_meshId,
                                             double *i_initialLoading ) {
     e_interoperability.setInitialLoading( i_meshId, i_initialLoading );
   }
 
- void c_interoperability_setPlasticParameters( int    *i_meshId,
+ void c_interoperability_setPlasticParameters( int    i_meshId,
                                                double *i_plasticParameters ) {
     e_interoperability.setPlasticParameters( i_meshId, i_plasticParameters );
   }
@@ -560,8 +560,8 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 }
 
 #ifdef USE_PLASTICITY
-void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {
-  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
+void seissol::Interoperability::setInitialLoading( int i_meshId, double *i_initialLoading ) {
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
     unsigned l_basis = 0;
@@ -569,12 +569,11 @@ void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_init
   }
 }
 //synchronize element dependent plasticity parameters
-void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {
-  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
-  CellMaterialData& material = m_ltsLut.lookup(m_lts->material, (*i_meshId) - 1);
+void seissol::Interoperability::setPlasticParameters( int i_meshId, double* i_plasticParameters) {
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
+  CellMaterialData& material = m_ltsLut.lookup(m_lts->material, i_meshId - 1);
 
   double angularFriction = atan(i_plasticParameters[1]);
-
 
   plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[0] * cos(angularFriction);
   plasticity.sinAngularFriction = sin(angularFriction);
