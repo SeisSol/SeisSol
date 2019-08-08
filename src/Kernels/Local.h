@@ -63,7 +63,9 @@ class seissol::kernels::Local : public LocalBase {
                          LocalTmp& tmp,
 			 const CellMaterialData* materialData,
 			 CellBoundaryMapping const (*cellBoundaryMapping)[4],
-			 real nodalAvgDisplacement[tensor::I::size()] );
+			 real nodalAvgDisplacement[tensor::I::size()],
+			 double time,
+			 double timeStepWidth);
 
     void flopsIntegral(FaceType const i_faceTypes[4],
                        unsigned int &o_nonZeroFlops,

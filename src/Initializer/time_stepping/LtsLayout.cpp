@@ -97,13 +97,7 @@ void seissol::initializers::time_stepping::LtsLayout::setTimeStepWidth( unsigned
 }
 
 FaceType seissol::initializers::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
-  if (i_meshFaceType != 0 &&
-      i_meshFaceType != 1 &&
-      i_meshFaceType != 2 &&
-      i_meshFaceType != 3 &&
-      i_meshFaceType != 4 &&
-      i_meshFaceType != 5 &&
-      i_meshFaceType != 6) {
+  if (i_meshFaceType < 0 || i_meshFaceType > 7) {
     logError() << "face type" << i_meshFaceType << "not supported.";
   }
   return static_cast<FaceType>(i_meshFaceType);

@@ -47,7 +47,7 @@ namespace seissol {
   namespace kernels {
     struct LocalTmp {
     };
-    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, dofs)
+    LTSTREE_GENERATE_INTERFACE(LocalData, initializers::LTS, cellInformation, localIntegration, neighboringIntegration, dofs)
     LTSTREE_GENERATE_INTERFACE(NeighborData, initializers::LTS, cellInformation, neighboringIntegration, dofs)
   }
 }

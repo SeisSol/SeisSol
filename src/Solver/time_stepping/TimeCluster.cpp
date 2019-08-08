@@ -476,10 +476,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     
     // TODO(Lukas) Check buffers for correctness
     // TODO(Lukas) Call this only if at least one cell has freeSurfaceGravity bc
-    computeAverageDisplacement(m_timeStepWidth,
-			       derivativeBuffer,
-			       m_timeKernel.m_derivativesOffsets,
-			       twiceTimeIntegrated);
+    kernels::computeAverageDisplacement(m_timeStepWidth,
+					derivativeBuffer,
+					m_timeKernel.m_derivativesOffsets,
+					twiceTimeIntegrated);
     //std::fill_n(twiceTimeIntegrated, tensor::I::size(), 0.0);
     for (int side = 0; side < 4; ++side) {
       // TODO(Lukas) Check cell info
@@ -506,7 +506,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   tmp,
 				  materialData,
 				  &boundaryMapping[l_cell],
-				  nodalAvgDisplacement
+				  nodalAvgDisplacement,
+				  m_fullUpdateTime,
+				  m_timeStepWidth
 				  );
     
     // Update displacement.

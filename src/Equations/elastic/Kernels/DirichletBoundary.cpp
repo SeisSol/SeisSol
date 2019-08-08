@@ -1,5 +1,5 @@
 #include "Kernels/DirichletBoundary.h"
-void seissol::computeAverageDisplacement(double deltaT,
+void seissol::kernels::computeAverageDisplacement(double deltaT,
 					 const real* timeDerivatives,
 					 const unsigned int derivativesOffsets[CONVERGENCE_ORDER],
 					 real timeIntegrated[tensor::I::size()] 

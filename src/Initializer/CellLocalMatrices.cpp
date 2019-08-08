@@ -248,7 +248,8 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
       }
       for (unsigned side = 0; side < 4; ++side) {
 	if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity &&
-	    cellInformation[cell].faceTypes[side] != FaceType::dirichlet) {
+	    cellInformation[cell].faceTypes[side] != FaceType::dirichlet &&
+	    cellInformation[cell].faceTypes[side] != FaceType::analytical) {
 	  continue;
 	}
 	// Compute nodal points in global coordinates for each side.
@@ -268,8 +269,7 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 	  double xiEtaZeta[3], xyz[3];
 	  seissol::transformations::chiTau2XiEtaZeta(side,
 						     nodeReference,
-						     xiEtaZeta,
-						     element.sideOrientations[side]);
+						     xiEtaZeta);
 	  seissol::transformations::tetrahedronReferenceToGlobal(coords[0],
 								 coords[1],
 								 coords[2],
@@ -280,6 +280,7 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 	  nodes[offset++] = xyz[0];
 	  nodes[offset++] = xyz[1];
 	  nodes[offset++] = xyz[2];
+	  assert(tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0]);
 	}
 
 	// Compute map that rotates to normal aligned coordinate system.

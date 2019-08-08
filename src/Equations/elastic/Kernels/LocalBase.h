@@ -41,7 +41,8 @@
 #ifndef KERNELS_VOLUMEBASE_H_
 #define KERNELS_VOLUMEBASE_H_
 
-#include <generated_code/kernel.h>
+#include "generated_code/kernel.h"
+#include "DirichletBoundary.h"
 
 namespace seissol {
   namespace kernels {
@@ -57,6 +58,8 @@ class seissol::kernels::LocalBase {
 
     kernel::projectToNodalBoundary m_projectKrnlPrototype;
     kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
+
+    kernels::DirichletBoundary dirichletBoundary;
 };
 
 #endif

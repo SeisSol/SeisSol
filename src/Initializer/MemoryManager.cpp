@@ -317,7 +317,8 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
       // boundaries using local cells
       else if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
 	       cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-	       cellInformation[cell].faceTypes[face] == FaceType::dirichlet) {
+	       cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
+	       cellInformation[cell].faceTypes[face] == FaceType::analytical) {
         if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
           faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
         }
@@ -481,8 +482,10 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
+	// TODO(Lukas) Refactor these checks into function (code dupl.)
         if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet) {
+	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
+	    cellInformation[cell].faceTypes[face] == FaceType::analytical) {
           ++numberOfBoundaryFaces;
         }
       }
@@ -503,15 +506,16 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     auto* boundaryMapping = layer->var(m_lts.boundaryMapping);
     auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation);
 
-    auto boundaryCell = 0;
+    auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
 	if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet) {
-	  boundaryMapping[cell][face].nodes = faceInformation[boundaryCell].nodes;
-	  boundaryMapping[cell][face].TData = faceInformation[boundaryCell].TData;
-	  boundaryMapping[cell][face].TinvData = faceInformation[boundaryCell].TinvData;
-	  ++boundaryCell;
+	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
+	    cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+	  boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
+	  boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
+	  boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
+	  ++boundaryFace;
         } else {
 	  boundaryMapping[cell][face].nodes = nullptr;
 	  boundaryMapping[cell][face].TData = nullptr;

@@ -69,6 +69,14 @@ class ADERDG(ADERDGBase):
     )
 
     memoryLayoutFromFile(memLayout, self.db, clones)
+    self.INodal = OptionalDimTensor('INodal',
+                                    's',
+                                    False, #multipleSimulations,
+                                    0,
+                                    (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
+                                    alignStride=True)
+
+
 
   def numberOfQuantities(self):
     return 9
@@ -92,13 +100,6 @@ class ADERDG(ADERDGBase):
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
-    self.INodal = OptionalDimTensor('INodal',
-                                    's',
-                                    False, #multipleSimulations,
-                                    0,
-                                    (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
-                                    alignStride=True)
-
   def addLocal(self, generator):
     volumeSum = self.Q['kp']
     for i in range(3):
@@ -115,31 +116,24 @@ class ADERDG(ADERDGBase):
       expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
       group_indices=range(4),
       target_indices='jl')
-#      tensor_args={'memoryLayoutClass': DenseMemoryLayout})
+
     self.db.update(rDivM_mult_V2nTo2m)
-    #print(rDivM_mult_V2nTo2m.__dict__.keys())
-#    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.V2nTo2m[self.t('mn')] * self.INodal['no'] * self.AplusT['op']
-    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivMMultV2nTo2m[i]['kn'] * self.INodal['no'] * self.AplusT['op']
+    localFluxNodal2 = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivMMultV2nTo2m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
+    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i]['kl'] * self.db.V2nTo2m['ln'] * self.INodal['no'] * self.AminusT['op']
     localFluxNodalPrefetch = localFluxPrefetch
-    generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
+    generator.addFamily('localFluxNodal2', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
+    generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal2, localFluxNodalPrefetch)
 
   def addNeighbor(self, generator):
     neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
     neighbourFluxPrefetch = lambda h,j,i: self.I
     generator.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
 
-    # todo: transpose? not local flux?
-    # neighbourFluxNodal = lambda h,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.V2nTo2m[self.t('nl')] * self.INodal['lq'] * self.AminusT['qp']
-    # neighbourFluxNodalPrefetch = lambda h,i: None #self.I ?
-    # generator.addFamily('neighboringFluxNodal',
-    #                     simpleParameterSpace(3,4),
-    #                     neighbourFluxNodal,
-    #                     neighbourFluxNodalPrefetch)
-
     projectToNodalBoundary = lambda j: self.INodal['kp'] <= self.db.V3mTo2nFace[j]['km'] * self.I['mp']
     generator.addFamily('projectToNodalBoundary',
                         simpleParameterSpace(4),
                         projectToNodalBoundary)
+
 
     # todo maybe integrate this better in the flux 
     # todo tinv? t transpose?
@@ -195,9 +189,30 @@ class ADERDG(ADERDGBase):
                         simpleParameterSpace(4),
                         displacementAvgNodal)
 
+    self.INodalUpdate = OptionalDimTensor('INodalUpdate',
+                                                self.INodal.optName(),
+                                                self.INodal.optSize(),
+                                                self.INodal.optPos(),
+                                                (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
+                                                alignStride=True)
+
+    factor = Scalar('factor')
+    updateINodal = self.INodal['kp'] <= self.INodal['kp'] + factor * self.INodalUpdate['kp']
+    generator.add('updateINodal', updateINodal)
+
+
   def addTime(self, generator):
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
+
+    qNodalShape = (self.numberOf2DBasisFunctions(), self.numberOfQuantities())
+    dQ0Nodal = OptionalDimTensor('dQNodal(0)',
+                                 self.INodal.optName(),
+                                 self.INodal.optSize(),
+                                 self.INodal.optPos(),
+                                 qNodalShape,
+                                 alignStride=True)
+
     power = Scalar('power')
     derivatives = [dQ0]
     generator.add('derivativeTaylorExpansion(0)', self.I['kp'] <= power * dQ0['kp'])
@@ -212,5 +227,17 @@ class ADERDG(ADERDGBase):
       generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
       derivatives.append(dQ)
 
+      # TODO(Lukas): Sparsity pattern?
+      dQNodal = OptionalDimTensor('dQNodal({})'.format(i),
+                                  self.INodal.optName(),
+                                  self.INodal.optSize(),
+                                  self.INodal.optPos(),
+                                  qNodalShape)
+                                  #spp=derivativeSumNodal.eqspp(),
+                                  #alignStride=True)
+      generator.add('derivativeTaylorExpansionNodalBoundary({})'.format(i),
+                    self.INodal['kp'] <= self.INodal['kp'] + power * dQNodal['kp'])
+
   def add_include_tensors(self, include_tensors):
     include_tensors.add(self.db.nodes2D)
+    include_tensors.add(self.db.V2nTo2m)

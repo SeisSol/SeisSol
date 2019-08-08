@@ -129,13 +129,15 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
         i_faceTypes[l_face] != FaceType::periodic &&
         i_faceTypes[l_face] != FaceType::freeSurface &&
 	i_faceTypes[l_face] != FaceType::freeSurfaceGravity &&
-	i_faceTypes[l_face] != FaceType::dirichlet) {
+	i_faceTypes[l_face] != FaceType::dirichlet &&
+	i_faceTypes[l_face] != FaceType::analytical) {
       continue;
     }
     // fake neighbors are GTS
     else if(i_faceTypes[l_face] == FaceType::freeSurface ||
 	    i_faceTypes[l_face] == FaceType::freeSurfaceGravity ||
-	    i_faceTypes[l_face] == FaceType::dirichlet) {
+	    i_faceTypes[l_face] == FaceType::dirichlet ||
+	    i_faceTypes[l_face] == FaceType::analytical) {
       l_ltsSetup |= (1 << (l_face+4) );
     }
     // dynamic rupture faces are always global time stepping but operate on derivatives
@@ -195,7 +197,8 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
     // check for special case free-surface/dirichlet requirements
     const bool isSpecialCase = i_faceTypes[l_face] == FaceType::freeSurface ||
       i_faceTypes[l_face] == FaceType::freeSurfaceGravity ||
-      i_faceTypes[l_face] == FaceType::dirichlet;
+      i_faceTypes[l_face] == FaceType::dirichlet ||
+      i_faceTypes[l_face] == FaceType::analytical;
     if (isSpecialCase &&       // special case face
        ( (l_ltsSetup >> 10) % 2 == 1 ||             // lts fashion buffer
          (l_ltsSetup >> 8 ) % 2 == 0 )         ) {  // no buffer at all

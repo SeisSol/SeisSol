@@ -73,7 +73,9 @@ void seissol::localIntegration( struct GlobalData* globalData,
                                 tmp,
 				nullptr,
 				nullptr,
-				nullptr);
+				nullptr,
+				0.0,
+				0.0);
   }
 }
 

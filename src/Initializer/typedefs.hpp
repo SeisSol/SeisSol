@@ -93,6 +93,9 @@ enum class FaceType {
 
   // periodic boundary
   periodic = 6,
+
+  // analytical boundary (from initial cond.)
+  analytical = 7
 };
 
 // cross-cluster time stepping information
