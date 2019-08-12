@@ -37,6 +37,8 @@
  * @section DESCRIPTION
  * 
  **/
+#include <Eigen/Eigenvalues>
+#include <Kernels/precision.hpp>
 
 #include <PUML/PUML.h>
 #include <PUML/Downward.h>
@@ -62,17 +64,12 @@ public:
 };
 
 void seissol::initializers::time_stepping::LtsWeights::computeMaxTimesteps( PUML::TETPUML const&  mesh,
-                                                                            double const*         lambda,
-                                                                            double const*         mu,
-                                                                            double const*         rho,
+                                                                            double const*         pWaveVel,
                                                                             double*               timestep ) {
   std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
-	std::vector<PUML::TETPUML::vertex_t> const& vertices = mesh.vertices();
+  std::vector<PUML::TETPUML::vertex_t> const& vertices = mesh.vertices();
 
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    // Compute maximum wavespeed
-    double pWaveVel = sqrt( (lambda[cell] + 2.0 * mu[cell]) / rho[cell] );
-    
     // Compute insphere radius
     glm::dvec3 barycentre(0.,0.,0.);
     glm::dvec3 x[4];
@@ -92,7 +89,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeMaxTimesteps( PUML
     double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
     
     // Compute maximum timestep (CFL=1)
-    timestep[cell] = 2.0 * insphere / (pWaveVel * (2*CONVERGENCE_ORDER-1));
+    timestep[cell] = 2.0 * insphere / (pWaveVel[cell] * (2*CONVERGENCE_ORDER-1));
   }
 }
 
@@ -143,18 +140,26 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
   int const* boundaryCond = mesh.cellData(1);
 
-  double* rho = new double[cells.size()];
-  double* mu = new double[cells.size()];
-  double* lambda = new double[cells.size()];
+  double* pWaveVel = new double[cells.size()];
   
   seissol::initializers::ElementBarycentreGeneratorPUML queryGen(mesh);  
   seissol::initializers::ParameterDB parameterDB(cells.size());
   #ifndef USE_ANISOTROPIC
+  double* rho = new double[cells.size()];
+  double* mu = new double[cells.size()];
+  double* lambda = new double[cells.size()];
   parameterDB.addParameter("rho", rho);
   parameterDB.addParameter("mu", mu);
   parameterDB.addParameter("lambda", lambda);
   parameterDB.evaluateModel(m_velocityModel, queryGen);
+  for(unsigned cell = 0; cell < cells.size(); ++cell) {
+    pWaveVel[cell] = sqrt( (lambda[cell] + 2.0 * mu[cell]) / rho[cell] );
+  }
+  delete[] rho;
+  delete[] mu;
+  delete[] labmda;
   #else
+  double* rho = new double[cells.size()];
   double* c11 = new double[cells.size()];
   double* c12 = new double[cells.size()];
   double* c13 = new double[cells.size()];
@@ -199,10 +204,34 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   parameterDB.addParameter("c56", c56);
   parameterDB.addParameter("c66", c66);
   parameterDB.evaluateModel(m_velocityModel, queryGen);
-  for(unsigned i = 0; i < cells.size(); i++) {
-    mu[i] = (c44[i] + c55[i] + c66[i]) / 3.0;
-    lambda[i] = (c11[i] + c22[i] + c33[i]) / 3.0 - 2*mu[i];
+ 
+  using Matrix33 = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>;
+  Eigen::SelfAdjointEigenSolver<Matrix33> saes;
+ 
+  //compute elementwise wavespeeds
+  for(unsigned cell = 0; cell < cells.size(); ++cell)
+  { 
+    real aL[9];
+    aL[0] = c11[cell] / rho[cell];  
+    aL[1] = c16[cell] / rho[cell];  
+    aL[2] = c15[cell] / rho[cell];  
+    aL[3] = c16[cell] / rho[cell];  
+    aL[4] = c66[cell] / rho[cell];  
+    aL[5] = c56[cell] / rho[cell];  
+    aL[6] = c15[cell] / rho[cell];  
+    aL[7] = c56[cell] / rho[cell];  
+    aL[8] = c55[cell] / rho[cell];  
+    Matrix33 AL(aL);
+    saes.compute(AL);
+    auto eigenvalues = saes.eigenvalues();
+    real maxWaveVel = 0;
+    for(unsigned i = 0; i < 3; ++i) {
+      maxWaveVel = sqrt(eigenvalues(i)) > maxWaveVel ? sqrt(eigenvalues(i)) : maxWaveVel;
+    }
+//    std::cout << "wave velocity on element " << cell << " = " << maxWaveVel << "\n";
+    pWaveVel[cell] = maxWaveVel;
   }
+  delete[] rho;
   delete[] c11;
   delete[] c12;
   delete[] c13;
@@ -225,14 +254,11 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   delete[] c56;
   delete[] c66;
   #endif
-  
+ 
   double* timestep = new double[cells.size()];
-  computeMaxTimesteps(mesh, lambda, mu, rho, timestep);
-    
-  delete[] lambda;
-  delete[] mu;
-  delete[] rho;
-  
+  computeMaxTimesteps(mesh,pWaveVel, timestep);
+  delete[] pWaveVel;  
+
   double localMinTimestep = *std::min_element(timestep, timestep + cells.size());
   double localMaxTimestep = *std::max_element(timestep, timestep + cells.size());
   double globalMinTimestep;
