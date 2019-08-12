@@ -75,11 +75,11 @@ namespace seissol {
        * FSRM: Moment tensor */
       real (*tensor)[TensorSize];
 
-      /// mu*Area
-      real *muA;
+      /// Area
+      real *A;
 
-      /// lambda*Area
-      real *lambdaA;
+      /// elasticity tensor
+      real (*cij)[21];
 
       /** NRF: slip rate in
        * 0: Tan1 direction
@@ -92,8 +92,8 @@ namespace seissol {
       /** Number of point sources in this struct. */
       unsigned numberOfSources;
 
-      PointSources() : mode(NRF), mInvJInvPhisAtSources(NULL), tensor(NULL), muA(NULL), lambdaA(NULL), slipRates(NULL), numberOfSources(0) {}
-      ~PointSources() { numberOfSources = 0; free(mInvJInvPhisAtSources); free(tensor); delete[] muA; delete[] lambdaA; delete[] slipRates; }
+      PointSources() : mode(NRF), mInvJInvPhisAtSources(NULL), tensor(NULL), A(NULL), cij(NULL), slipRates(NULL), numberOfSources(0) {}
+      ~PointSources() { numberOfSources = 0; free(mInvJInvPhisAtSources); free(tensor); delete[] A; delete[] cij; delete[] slipRates; }
     };
 
     struct CellToPointSourcesMapping {

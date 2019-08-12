@@ -129,9 +129,28 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   pointSources.muA[index] = mu * subfault.area;
   pointSources.lambdaA[index] = material.lambda * subfault.area;
   #else
-  double mu = (subfault.mu == 0.0) ? (material.c44 + material.c55 + material.c66) / 3.0 : subfault.mu;
-  pointSources.muA[index] = mu * subfault.area;
-  pointSources.lambdaA[index] = (material.c11 + material.c22 + material.c33) / 3.0 - 2.0*mu * subfault.area;
+  pointSources.A[index] = subfault.area;
+  pointSources.cij[index][0] = material.c11;
+  pointSources.cij[index][1] = material.c12;
+  pointSources.cij[index][2] = material.c13;
+  pointSources.cij[index][3] = material.c14;
+  pointSources.cij[index][4] = material.c15;
+  pointSources.cij[index][5] = material.c16;
+  pointSources.cij[index][6] = material.c22;
+  pointSources.cij[index][7] = material.c23;
+  pointSources.cij[index][8] = material.c24;
+  pointSources.cij[index][9] = material.c25;
+  pointSources.cij[index][10] = material.c26;
+  pointSources.cij[index][11] = material.c33;
+  pointSources.cij[index][12] = material.c34;
+  pointSources.cij[index][13] = material.c35;
+  pointSources.cij[index][14] = material.c36;
+  pointSources.cij[index][15] = material.c44;
+  pointSources.cij[index][16] = material.c45;
+  pointSources.cij[index][17] = material.c46;
+  pointSources.cij[index][18] = material.c55;
+  pointSources.cij[index][19] = material.c56;
+  pointSources.cij[index][20] = material.c66;
   #endif
  
   for (unsigned sr = 0; sr < 3; ++sr) {
@@ -380,9 +399,9 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
     }
-    sources[cluster].muA                   = new real[cmps[cluster].numberOfSources];
-    sources[cluster].lambdaA               = new real[cmps[cluster].numberOfSources];
-    sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
+    sources[cluster].A         = new real[cmps[cluster].numberOfSources];
+    sources[cluster].cij       = new real[cmps[cluster].numberOfSources][21];
+    sources[cluster].slipRates = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];

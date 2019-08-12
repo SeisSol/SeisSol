@@ -125,8 +125,8 @@ namespace seissol {
 
     void addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                           real const faultBasis[9],
-                                          real muA,
-                                          real lambdaA,
+                                          real A,
+                                          real const cij[21],
                                           PiecewiseLinearFunction1D const slipRates[3],
                                           double i_fromTime,
                                           double i_toTime,
