@@ -241,7 +241,7 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
   //else read all 21 anisotropic parameters from file
   else {
 #ifdef USE_PLASTICITY
-    logWarning() << "You are using plasticity together with an anisotropic material. This is not tested!"
+    logWarning() << "You are using plasticity together with an anisotropic material. This is not tested!";
 #endif	    
     for (auto& kv : m_parameters) {
       adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
