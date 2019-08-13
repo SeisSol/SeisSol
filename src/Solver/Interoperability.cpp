@@ -577,8 +577,11 @@ void seissol::Interoperability::setPlasticParameters( int i_meshId, double* i_pl
 
   plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[0] * cos(angularFriction);
   plasticity.sinAngularFriction = sin(angularFriction);
+#ifndef USE_ANISOTROPIC
+  plasticity.mufactor = 1.0 / (2.0 * material.local.mu);
+#else
   plasticity.mufactor = 3.0 / (2.0 * (material.local.c44 + material.local.c55 + material.local.c66));
-
+#endif
 }
 
 
