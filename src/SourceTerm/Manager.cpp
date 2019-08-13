@@ -124,11 +124,6 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   faultBasis[7] = subfault.normal.y;
   faultBasis[8] = subfault.normal.z;
   
-  #ifndef USE_ANISOTROPIC
-  double mu = (subfault.mu == 0.0) ? material.mu : subfault.mu;
-  pointSources.muA[index] = mu * subfault.area;
-  pointSources.lambdaA[index] = material.lambda * subfault.area;
-  #else
   pointSources.A[index] = subfault.area;
   pointSources.cij[index][0] = material.c11;
   pointSources.cij[index][1] = material.c12;
@@ -151,7 +146,6 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   pointSources.cij[index][18] = material.c55;
   pointSources.cij[index][19] = material.c56;
   pointSources.cij[index][20] = material.c66;
-  #endif
  
   for (unsigned sr = 0; sr < 3; ++sr) {
     unsigned numSamples = nextOffsets[sr] - offsets[sr];
