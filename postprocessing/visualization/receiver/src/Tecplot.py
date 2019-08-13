@@ -69,6 +69,8 @@ def read(fileName):
       variables = row[1].replace('"', '').split(',')
       variables = [v.strip() for v in variables]
   f.close()
+  if len(data) == 0:
+    return None
   if 'P_n' in variables:
     indexP_n = variables.index('P_n')
     data = [d[0:indexP_n] + [d[indexP_n] + p_0] + d[indexP_n+1:] for d in data]
