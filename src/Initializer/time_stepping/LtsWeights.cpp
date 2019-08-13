@@ -157,7 +157,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   }
   delete[] rho;
   delete[] mu;
-  delete[] labmda;
+  delete[] lambda;
   #else
   double* rho = new double[cells.size()];
   double* c11 = new double[cells.size()];

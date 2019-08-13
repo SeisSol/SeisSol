@@ -199,6 +199,9 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
   easi::ArraysAdapter adapter;
   
   auto suppliedParameters = model->suppliedParameters();
+  //TODO: inhomogeneous materials, where in some parts only mu and lambda are given
+  //      and in other parts the full elastic tensor is given
+  
   //if only mu and lambda are supplied, assume isotropic behavior and calculate the parameters accordingly
   if(suppliedParameters.find("mu") != suppliedParameters.end() && suppliedParameters.find("lambda") != suppliedParameters.end()) {
     double* rho = new double[m_nElements];
