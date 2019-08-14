@@ -82,7 +82,7 @@ namespace seissol {
                c14, c24, c34, c44, c45, c46,
                c15, c25, c35, c45, c55, c56,
                c16, c26, c36, c46, c56, c66;
-          Matrix66 rotatedC = N*C*N.transpose();
+          Matrix66 rotatedC = N.transpose()*C*N;
           o_Material.c11 = rotatedC(0,0);
           o_Material.c12 = rotatedC(0,1);
           o_Material.c13 = rotatedC(0,2);

@@ -8,7 +8,6 @@ In order to run SeisSol, you need to first install:
 -  SCons (>= 3.0, for instructions see below)
 -  hdf5 (>= 1.8, for instructions see below)
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Eigen3
 -  Intel compiler (>= 17.0, icc, icpc, ifort) or GCC (>= 5.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
