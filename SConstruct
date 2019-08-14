@@ -528,7 +528,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include', '#/submodules/eigen3'] )
 #
 # add libraries
 #
@@ -543,9 +543,6 @@ env.Tool('DirTool', fortran=True)
 # GLM
 # Some C++ GLM features are not working with the Intel Compiler
 env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
-
-# Eigen3
-libs.find(env, 'eigen3', required=True)
 
 # netCDF
 if env['netcdf'] == 'yes':
