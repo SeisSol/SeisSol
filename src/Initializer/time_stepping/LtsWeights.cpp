@@ -144,7 +144,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   
   seissol::initializers::ElementBarycentreGeneratorPUML queryGen(mesh);  
   seissol::initializers::ParameterDB parameterDB(cells.size());
-  #ifndef USE_ANISOTROPIC
+#ifndef USE_ANISOTROPIC
   double* rho = new double[cells.size()];
   double* mu = new double[cells.size()];
   double* lambda = new double[cells.size()];
@@ -158,7 +158,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   delete[] rho;
   delete[] mu;
   delete[] lambda;
-  #else
+#else
   double* rho = new double[cells.size()];
   double* c11 = new double[cells.size()];
   double* c12 = new double[cells.size()];
@@ -253,8 +253,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   delete[] c55;
   delete[] c56;
   delete[] c66;
-  #endif
- 
+#endif 
   double* timestep = new double[cells.size()];
   computeMaxTimesteps(mesh,pWaveVel, timestep);
   delete[] pWaveVel;  

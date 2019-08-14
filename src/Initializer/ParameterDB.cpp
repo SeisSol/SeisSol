@@ -197,7 +197,7 @@ easi::Component* seissol::initializers::ParameterDB::loadModel(std::string const
 void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
   easi::Component* model = ParameterDB::loadModel(fileName);
   easi::ArraysAdapter adapter;
-  
+#ifdef USE_ANISOTROPIC
   auto suppliedParameters = model->suppliedParameters();
   //TODO: inhomogeneous materials, where in some parts only mu and lambda are given
   //      and in other parts the full elastic tensor is given
@@ -245,7 +245,8 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
   else {
 #ifdef USE_PLASTICITY
     logWarning() << "You are using plasticity together with an anisotropic material. This is not tested!";
-#endif	    
+#endif
+#endif
     for (auto& kv : m_parameters) {
       adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
     }
@@ -253,7 +254,9 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
     easi::Query query = queryGen.generate();
     model->evaluate(query, adapter);  
     delete model;
+#ifdef USE_ANISOTROPIC
   }
+#endif
 }
 
 bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::string const& fileName) {
