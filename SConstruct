@@ -528,7 +528,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include', '#/submodules/eigen3'] )
 #
 # add libraries
 #
