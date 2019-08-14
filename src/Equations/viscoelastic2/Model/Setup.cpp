@@ -206,6 +206,13 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 9, 9);
 }
 
+void seissol::model::getBondMatrix( VrtxCoords const i_normal,
+                                    VrtxCoords const i_tangent1,
+                                    VrtxCoords const i_tangent2,
+                                    real* o_N )
+{
+}
+
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const& material,
                                                   seissol::model::LocalData* localData )
 {

@@ -46,6 +46,14 @@ namespace seissol {
       real lambda;
       real mu;
       real rho;
+
+      void getRotatedMaterialCoefficients( real             i_N[36],
+                                           ElasticMaterial& o_Material ) {
+        // isotropic materials are rotationally invariant
+        o_Material.lambda = lambda;
+        o_Material.mu = mu;
+        o_Material.rho = rho;
+      } 
     };    
     struct IsotropicWaveSpeeds {
       real density;
