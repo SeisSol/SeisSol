@@ -39,8 +39,8 @@
  **/
 
 #include <Eigen/Eigenvalues>
-#include <Model/Setup.h>
 
+#include <Model/Setup.h>
 #include <Model/common.hpp>
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
@@ -237,12 +237,12 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   Matrix33 E2 = Matrix33::Zero();
   
   Matrix99 R;
-  R <<  A1L * eigenvectorsL,   A1N * eigenvectorsN,   E1, 
-       -eigenvectorsL*lambdaL, eigenvectorsN*lambdaN, E2;
+  R <<  A1L * eigenvectorsL,   E1, A1N * eigenvectorsN, 
+       -eigenvectorsL*lambdaL, E2, eigenvectorsN*lambdaN;
   Eigen::Matrix<real, 9, 1> diag = Eigen::Matrix<real, 9, 1>::Zero();
-  for(unsigned i = 0; i < 3; i++)  {
-    diag(i) = 1.0;
-  }
+  diag(0) = 1.0;
+  diag(1) = 1.0;
+  diag(2) = 1.0;
   auto chi = Matrix99(diag.asDiagonal());
   auto godunov = (R*chi)*R.inverse();
   
@@ -332,6 +332,50 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   
   seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 0, 0);
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
+}
+
+void seissol::model::getBondMatrix( VrtxCoords const i_normal,
+                                    VrtxCoords const i_tangent1,
+                                    VrtxCoords const i_tangent2,
+                                    real* o_N )
+{
+  o_N[0*6 + 0] =   i_normal[0]*i_normal[0]; 
+  o_N[0*6 + 1] =   i_normal[1]*i_normal[1];
+  o_N[0*6 + 2] =   i_normal[2]*i_normal[2];
+  o_N[0*6 + 3] = 2*i_normal[2]*i_normal[1];
+  o_N[0*6 + 4] = 2*i_normal[2]*i_normal[0];
+  o_N[0*6 + 5] = 2*i_normal[1]*i_normal[0];
+  o_N[1*6 + 0] =   i_tangent1[0]*i_tangent1[0]; 
+  o_N[1*6 + 1] =   i_tangent1[1]*i_tangent1[1];
+  o_N[1*6 + 2] =   i_tangent1[2]*i_tangent1[2];
+  o_N[1*6 + 3] = 2*i_tangent1[2]*i_tangent1[1];
+  o_N[1*6 + 4] = 2*i_tangent1[2]*i_tangent1[0];
+  o_N[1*6 + 5] = 2*i_tangent1[1]*i_tangent1[0];
+  o_N[2*6 + 0] =   i_tangent2[0]*i_tangent2[0]; 
+  o_N[2*6 + 1] =   i_tangent2[1]*i_tangent2[1];
+  o_N[2*6 + 2] =   i_tangent2[2]*i_tangent2[2];
+  o_N[2*6 + 3] = 2*i_tangent2[2]*i_tangent2[1];
+  o_N[2*6 + 4] = 2*i_tangent2[2]*i_tangent2[0];
+  o_N[2*6 + 5] = 2*i_tangent2[1]*i_tangent2[0];
+  
+  o_N[3*6 + 0] = i_tangent1[0]*i_tangent2[0];
+  o_N[3*6 + 1] = i_tangent1[1]*i_tangent2[1];
+  o_N[3*6 + 2] = i_tangent1[2]*i_tangent2[2];
+  o_N[3*6 + 3] = i_tangent1[1]*i_tangent2[2] + i_tangent1[2]*i_tangent2[1];
+  o_N[3*6 + 4] = i_tangent1[0]*i_tangent2[2] + i_tangent1[2]*i_tangent2[0];
+  o_N[3*6 + 5] = i_tangent1[1]*i_tangent2[0] + i_tangent1[0]*i_tangent2[1];
+  o_N[4*6 + 0] = i_normal[0]*i_tangent2[0];
+  o_N[4*6 + 1] = i_normal[1]*i_tangent2[1];
+  o_N[4*6 + 2] = i_normal[2]*i_tangent2[2];
+  o_N[4*6 + 3] = i_normal[1]*i_tangent2[2] + i_normal[2]*i_tangent2[1];
+  o_N[4*6 + 4] = i_normal[0]*i_tangent2[2] + i_normal[2]*i_tangent2[0];
+  o_N[4*6 + 5] = i_normal[1]*i_tangent2[0] + i_normal[0]*i_tangent2[1];
+  o_N[5*6 + 0] = i_normal[0]*i_tangent1[0];
+  o_N[5*6 + 1] = i_normal[1]*i_tangent1[1];
+  o_N[5*6 + 2] = i_normal[2]*i_tangent1[2];
+  o_N[5*6 + 3] = i_normal[1]*i_tangent1[2] + i_normal[2]*i_tangent1[1];
+  o_N[5*6 + 4] = i_normal[0]*i_tangent1[2] + i_normal[2]*i_tangent1[0];
+  o_N[5*6 + 5] = i_normal[1]*i_tangent1[0] + i_normal[0]*i_tangent1[1];
 }
 
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const&,

@@ -107,6 +107,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 
     real TData[seissol::tensor::T::size()];
     real TinvData[seissol::tensor::Tinv::size()];
+    real NData[6*6];
     auto T = init::T::view::create(TData);
     auto Tinv = init::Tinv::view::create(TinvData);
 
@@ -148,12 +149,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
       double volume = MeshTools::volume(elements[meshId], vertices);
 
       for (unsigned side = 0; side < 4; ++side) {
-        seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                    material[cell].neighbor[side],
-                                                    cellInformation[cell].faceTypes[side],
-                                                    QgodLocal,
-                                                    QgodNeighbor );
-
         VrtxCoords normal;
         VrtxCoords tangent1;
         VrtxCoords tangent2;
@@ -162,7 +157,29 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         MeshTools::normalize(normal, normal);
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
+       
+        seissol::model::getBondMatrix(normal, tangent1, tangent2, NData);
+        seissol::model::Material rotatedLocalMaterial;
+        seissol::model::Material rotatedNeighborMaterial;
+        material[cell].local.getRotatedMaterialCoefficients(NData, rotatedLocalMaterial);
+        material[cell].neighbor[side].getRotatedMaterialCoefficients(NData, rotatedNeighborMaterial);
+        
+        seissol::model::getTransposedGodunovState(  rotatedLocalMaterial,
+                                                    rotatedNeighborMaterial, 
+                                                    cellInformation[cell].faceTypes[side],
+                                                    QgodLocal,
+                                                    QgodNeighbor );
 
+        if(cell == 0 && side == 0) {
+          printf(" G = \n");
+          for(int i = 0; i < 9; i++) {
+            for(int j = 0; j < 9; j++) {
+              printf("%f ", QgodLocal(i,j));
+            }
+            printf("\n");
+          }
+          printf("\n");
+        }
         // Calculate transposed T instead
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
 

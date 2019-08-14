@@ -41,6 +41,7 @@
 #define MODEL_DATASTRUCTURES_H_
 
 #include <Model/common_datastructures.hpp>
+#include <Eigen/Eigen>
 
 namespace seissol {
   namespace model {
@@ -67,6 +68,43 @@ namespace seissol {
         real c55;
         real c56;
         real c66;
+
+        void getRotatedMaterialCoefficients( real      i_N[36],
+                                             Material& o_Material ) 
+        {
+          o_Material.rho = rho;
+          using Matrix66 = Eigen::Matrix<real, 6, 6>;
+          Matrix66 N = Matrix66(i_N);
+          Matrix66 C = Matrix66();
+          C << c11, c12, c13, c14, c15, c16,
+               c12, c22, c23, c24, c25, c26,
+               c13, c23, c33, c34, c35, c36,
+               c14, c24, c34, c44, c45, c46,
+               c15, c25, c35, c45, c55, c56,
+               c16, c26, c36, c46, c56, c66;
+          Matrix66 rotatedC = N*C*N.transpose();
+          o_Material.c11 = rotatedC(0,0);
+          o_Material.c12 = rotatedC(0,1);
+          o_Material.c13 = rotatedC(0,2);
+          o_Material.c14 = rotatedC(0,3);
+          o_Material.c15 = rotatedC(0,4);
+          o_Material.c16 = rotatedC(0,5);
+          o_Material.c22 = rotatedC(1,1);
+          o_Material.c23 = rotatedC(1,2);
+          o_Material.c24 = rotatedC(1,3);
+          o_Material.c25 = rotatedC(1,4);
+          o_Material.c26 = rotatedC(1,5);
+          o_Material.c33 = rotatedC(2,2);
+          o_Material.c34 = rotatedC(2,3);
+          o_Material.c35 = rotatedC(2,4);
+          o_Material.c36 = rotatedC(2,5);
+          o_Material.c44 = rotatedC(3,3);
+          o_Material.c45 = rotatedC(3,4);
+          o_Material.c46 = rotatedC(3,5);
+          o_Material.c55 = rotatedC(4,4);
+          o_Material.c56 = rotatedC(4,5);
+          o_Material.c66 = rotatedC(5,5);
+        }
     };
     struct LocalData {};
     struct NeighborData {};
