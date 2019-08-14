@@ -544,9 +544,6 @@ env.Tool('DirTool', fortran=True)
 # Some C++ GLM features are not working with the Intel Compiler
 env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
-# Eigen3
-libs.find(env, 'eigen3', required=True)
-
 # netCDF
 if env['netcdf'] == 'yes':
     libs.find(env, 'netcdf', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
