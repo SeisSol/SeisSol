@@ -489,8 +489,8 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
     }
   }
   else {
-    parameterDB.addParameter("lambda", materialVal + nElements*1);
-    parameterDB.addParameter("mu",     materialVal + nElements*2);
+    parameterDB.addParameter("mu",     materialVal + nElements*1);
+    parameterDB.addParameter("lambda", materialVal + nElements*2);
 
     if (anelasticity == 1) {
       parameterDB.addParameter("Qp",  materialVal + nElements*3);
