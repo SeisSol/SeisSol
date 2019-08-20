@@ -5,7 +5,11 @@
 
 #include "SeisSol.h"
 #include "Geometry/MeshReader.h"
+#ifndef USE_ANISOTROPIC
 #include <Physics/InitialField.h>
+#else
+#include <Equations/anisotropic/Physics/InitialField.h>
+#endif
 
 void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;

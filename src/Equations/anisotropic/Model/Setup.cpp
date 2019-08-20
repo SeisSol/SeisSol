@@ -244,7 +244,7 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   diag(1) = 1.0;
   diag(2) = 1.0;
   auto chi = Matrix99(diag.asDiagonal());
-  auto godunov = (R*chi)*R.inverse();
+  Matrix99 godunov = ((R*chi)*R.inverse()).eval();
   
   // QgodLocal = I - QgodNeighbor
   for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
