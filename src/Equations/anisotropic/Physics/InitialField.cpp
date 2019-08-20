@@ -92,7 +92,6 @@ seissol::physics::Planarwave::Planarwave(real phase)
     m_lambda2[i] = eigenvalues2(i,0);
     m_lambda3[i] = eigenvalues3(i,0);
   }
-  logInfo() << "Wave frequencies: " << m_lambda1[0] << ", " << m_lambda2[0] << ", " << m_lambda3[0];
 
   auto eigenvectors1 = ces1.eigenvectors();
   auto eigenvectors2 = ces2.eigenvectors();
