@@ -11,14 +11,14 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
-  if (initialConditionType != "Planarwave") {
+  if (initialConditionType == "Zero") {
     return;
   }
   logInfo(mpi.rank())
     << "Print analysis for initial conditions" << initialConditionType
     << " at time " << simulationTime;
   
-  auto iniFields = e_interoperability.getInitialConditions();
+  auto& iniFields = e_interoperability.getInitialConditions();
 
   auto* lts = seissol::SeisSol::main.getMemoryManager().getLts();
   auto* ltsLut = e_interoperability.getLtsLut();

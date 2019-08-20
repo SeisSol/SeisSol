@@ -42,6 +42,7 @@
 #ifndef INTEROPERABILITY_H_
 #define INTEROPERABILITY_H_
 
+#include <memory>
 #include <unordered_map>
 #include <vector>
 #include <glm/vec3.hpp>
@@ -98,7 +99,7 @@ class seissol::Interoperability {
     std::vector<glm::dvec3>           m_recPoints;
 
     //! Vector of initial conditions
-    std::vector<physics::InitialField*> m_iniConds;
+    std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
     void initInitialConditions();
  public:
@@ -301,7 +302,7 @@ class seissol::Interoperability {
   /**
    * Returns (possibly multiple) initial conditions
    */
-   std::vector<physics::InitialField*> const& getInitialConditions() {
+   std::vector<std::unique_ptr<physics::InitialField>> const& getInitialConditions() {
      return m_iniConds;
    }
 

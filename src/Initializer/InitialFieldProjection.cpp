@@ -46,11 +46,11 @@
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
 
-void seissol::initializers::projectInitialField(  std::vector<physics::InitialField*> const&  iniFields,
-                                                  GlobalData const&                           globalData,
-                                                  MeshReader const&                           meshReader,
-                                                  LTS const&                                  lts,
-                                                  Lut const&                                  ltsLut )
+void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
+                                                GlobalData const& globalData,
+                                                MeshReader const& meshReader,
+                                                LTS const& lts,
+                                                Lut const& ltsLut)
 {
   auto const& vertices = meshReader.getVertices();
   auto const& elements = meshReader.getElements();

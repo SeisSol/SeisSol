@@ -316,9 +316,6 @@ seissol::Interoperability::Interoperability() :
 seissol::Interoperability::~Interoperability()
 {
   delete[] m_ltsFaceToMeshFace;
-  for (auto& iniCond : m_iniConds) {
-    delete iniCond;
-  }
 }
 
 void seissol::Interoperability::setInitialConditionType(char const* type) {
@@ -745,13 +742,15 @@ void seissol::Interoperability::initInitialConditions()
   if (m_initialConditionType == "Planarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      m_iniConds.push_back(new physics::Planarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+      m_iniConds.emplace_back(new physics::Planarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
     }
 #else
-    m_iniConds.push_back(new physics::Planarwave());
+    m_iniConds.emplace_back(new physics::Planarwave());
 #endif
   } else if (m_initialConditionType == "Zero") {
-    m_iniConds.push_back(new physics::ZeroField());
+    m_iniConds.emplace_back(new physics::ZeroField());
+  } else if (m_initialConditionType == "Scholte") {
+    m_iniConds.emplace_back(new physics::ScholteWave());
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }

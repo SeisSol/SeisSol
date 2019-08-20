@@ -577,6 +577,8 @@ CONTAINS
        logInfo(*) 'Zero initial condition'
     CASE('Planarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Planarwave initial condition'
+    CASE('Scholte')
+       logInfo(*) 'Scholte wave initial condition'
     CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'

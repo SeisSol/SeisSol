@@ -44,6 +44,18 @@ namespace seissol {
       std::array<std::complex<real>, NUMBER_OF_QUANTITIES>  m_lambdaA;
       real                                                  m_phase;
     };
+
+
+    class ScholteWave : public InitialField {
+    public:
+      ScholteWave() {
+
+      }
+      void evaluate(double time,
+                    std::vector<std::array<double, 3>> const& points,
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+    };
+
   }
 }
 
