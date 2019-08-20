@@ -110,7 +110,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     real TData[seissol::tensor::T::size()];
     real TinvData[seissol::tensor::Tinv::size()];
     real NLocalData[6*6];
-    real NNeighborData[6*6];
     auto T = init::T::view::create(TData);
     auto Tinv = init::Tinv::view::create(TinvData);
 
@@ -155,80 +154,27 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         VrtxCoords normal;
         VrtxCoords tangent1;
         VrtxCoords tangent2;
-        VrtxCoords neighborNormal;
-        VrtxCoords neighborTangent1;
-        VrtxCoords neighborTangent2;
         MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
-        int neighborElementID = elements[meshId].neighbors[side];
-        int neighborSideID = elements[meshId].neighborSides[side];
-        MeshTools::normalAndTangents(elements[neighborElementID], neighborSideID, vertices, neighborNormal, neighborTangent1, neighborTangent2);
         double surface = MeshTools::surface(normal);
         MeshTools::normalize(normal, normal);
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
-        MeshTools::normalize(neighborNormal, neighborNormal);
-        MeshTools::normalize(neighborTangent1, neighborTangent1);
-        MeshTools::normalize(neighborTangent2, neighborTangent2);
 
         seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-        seissol::model::getBondMatrix(neighborNormal, neighborTangent1, neighborTangent2, NNeighborData);
         seissol::model::Material rotatedLocalMaterial;
         seissol::model::Material rotatedNeighborMaterial;
 #ifdef USE_ANISOTROPIC
         material[cell].local.getRotatedMaterialCoefficients(NLocalData, rotatedLocalMaterial);
         material[cell].neighbor[side].getRotatedMaterialCoefficients(NLocalData, rotatedNeighborMaterial);
-        if(cell == 0 && side == 0) {
-          printf(" local material = \n");
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedLocalMaterial.c11, rotatedLocalMaterial.c12, rotatedLocalMaterial.c13, rotatedLocalMaterial.c14, rotatedLocalMaterial.c15, rotatedLocalMaterial.c16); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedLocalMaterial.c12, rotatedLocalMaterial.c22, rotatedLocalMaterial.c23, rotatedLocalMaterial.c24, rotatedLocalMaterial.c25, rotatedLocalMaterial.c26); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedLocalMaterial.c13, rotatedLocalMaterial.c23, rotatedLocalMaterial.c33, rotatedLocalMaterial.c34, rotatedLocalMaterial.c35, rotatedLocalMaterial.c36); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedLocalMaterial.c14, rotatedLocalMaterial.c24, rotatedLocalMaterial.c34, rotatedLocalMaterial.c44, rotatedLocalMaterial.c45, rotatedLocalMaterial.c46); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedLocalMaterial.c15, rotatedLocalMaterial.c25, rotatedLocalMaterial.c35, rotatedLocalMaterial.c45, rotatedLocalMaterial.c55, rotatedLocalMaterial.c56); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedLocalMaterial.c16, rotatedLocalMaterial.c26, rotatedLocalMaterial.c36, rotatedLocalMaterial.c46, rotatedLocalMaterial.c56, rotatedLocalMaterial.c66); 
-          printf("\n");
-          printf(" neighbor material = \n");
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedNeighborMaterial.c11, rotatedNeighborMaterial.c12, rotatedNeighborMaterial.c13, rotatedNeighborMaterial.c14, rotatedNeighborMaterial.c15, rotatedNeighborMaterial.c16); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedNeighborMaterial.c12, rotatedNeighborMaterial.c22, rotatedNeighborMaterial.c23, rotatedNeighborMaterial.c24, rotatedNeighborMaterial.c25, rotatedNeighborMaterial.c26); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedNeighborMaterial.c13, rotatedNeighborMaterial.c23, rotatedNeighborMaterial.c33, rotatedNeighborMaterial.c34, rotatedNeighborMaterial.c35, rotatedNeighborMaterial.c36); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedNeighborMaterial.c14, rotatedNeighborMaterial.c24, rotatedNeighborMaterial.c34, rotatedNeighborMaterial.c44, rotatedNeighborMaterial.c45, rotatedNeighborMaterial.c46); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedNeighborMaterial.c15, rotatedNeighborMaterial.c25, rotatedNeighborMaterial.c35, rotatedNeighborMaterial.c45, rotatedNeighborMaterial.c55, rotatedNeighborMaterial.c56); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", rotatedNeighborMaterial.c16, rotatedNeighborMaterial.c26, rotatedNeighborMaterial.c36, rotatedNeighborMaterial.c46, rotatedNeighborMaterial.c56, rotatedNeighborMaterial.c66); 
-          printf("\n");
-        }
 #else
         rotatedLocalMaterial = material[cell].local;
         rotatedNeighborMaterial = material[cell].neighbor[side];
-        if(cell == 0 && side == 0) {
-          printf(" local material = \n");
-          auto l2m = rotatedLocalMaterial.lambda + 2*rotatedLocalMaterial.mu;
-          auto l = rotatedLocalMaterial.lambda;
-          auto m = rotatedLocalMaterial.mu;
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", l2m, l, l, 0.0, 0.0, 0.0); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", l, l2m, l, 0.0, 0.0, 0.0); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", l, l, l2m, 0.0, 0.0, 0.0); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", 0.0, 0.0, 0.0, m, 0.0, 0.0); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", 0.0, 0.0, 0.0, 0.0, m, 0.0); 
-          printf("% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e,% 2.2e\n", 0.0, 0.0, 0.0, 0.0, 0.0, m); 
-          printf("\n");
-        }
-
 #endif
         seissol::model::getTransposedGodunovState(  rotatedLocalMaterial,
                                                     rotatedNeighborMaterial, 
                                                     cellInformation[cell].faceTypes[side],
                                                     QgodLocal,
                                                     QgodNeighbor );
-
-        if(cell == 0 && side == 0) {
-          printf(" G = \n");
-          for(int i = 0; i < 9; i++) {
-            for(int j = 0; j < 9; j++) {
-              printf("% 2.2e ", QgodLocal(i,j));
-            }
-            printf("\n");
-          }
-          printf("\n");
-        }
 
         // Calculate transposed T instead
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
