@@ -1498,6 +1498,14 @@ MODULE Eval_friction_law_mod
               P_f = 0.0
          ENDIF
 
+!         IF (iTimeGP.EQ.1) THEN
+!             logInfo0(*) '1. timestep initial P_f', P_f(1)
+!             logInfo0(*) '1. timestep initial P', P(1)
+!         ELSE
+!             logError(*) 'stop'
+!             STOP
+!         ENDIF
+
          DO j=1,nSVupdates   !This loop corrects SV values
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
@@ -1509,14 +1517,12 @@ MODULE Eval_friction_law_mod
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                          Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
-                         CALL Calc_ThermalPressure(time_inc, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
-                              DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, &
-                              DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), & 
+                         CALL Calc_ThermalPressure(EQN, time_inc, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                              DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                               DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2) )
                          P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
                  ENDDO
              ENDIF
-
              !2. solve for Vnew , applying the Newton-Raphson algorithm
              !effective normal stress including initial stresses and pore fluid pressure
              n_stress = P - P_f
@@ -1533,17 +1539,29 @@ MODULE Eval_friction_law_mod
          if (.NOT.has_converged) THEN
             logError(*) 'nonConvergence RS Newton', time
          ENDIF
+         
+!         IF (iTimeGP.EQ.1) THEN
+!             logInfo0(*) '1. timestep first iteration P_f', P_f(1)
+!             logInfo0(*) '1. timestep first iteration P', P(1)
+!         ELSE IF (iTimeGP.EQ.2) THEN
+!             logInfo0(*) '2. timestep first iteration P_f', P_f(1)
+!             logInfo0(*) '2. timestep first iteration P', P(1)
+!         ELSE
+!             logError(*) 'stop'
+!             STOP
+!         ENDIF
          !
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
          CALL update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
          S = LocMu*(P - P_f)
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-             DO i = 1, nBndGP
+             DO iBndGP = 1, nBndGP
+                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
+                          Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
                           !use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-                          CALL Calc_ThermalPressure(time_inc/2.0, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
-                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, &
-                               DISC%DynRup%TP_DFinv, DISC%DynRup%IniTP(iBndGP,iFace,1), DISC%DynRup%IniTP(iBndGP,iFace,2), & 
+                          CALL Calc_ThermalPressure(EQN,time_inc/2.0, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                                DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2))
                           P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
                           DISC%DynRup%TP_Theta(iBndGP,iFace,:) = Theta_tmp(:)
@@ -1551,6 +1569,16 @@ MODULE Eval_friction_law_mod
              ENDDO
          ENDIF
 
+!         IF (iTimeGP.EQ.1) THEN
+!             logInfo0(*) '1. timestep last iteration P_f', P_f(1)
+!             logInfo0(*) '1. timestep last iteration P', P(1)
+!         ELSE IF (iTimeGP.EQ.2) THEN
+!             logInfo0(*) '2. timestep last iteration P_f', P_f(1)
+!             logInfo0(*) '2. timestep last iteration P', P(1)
+!         ELSE
+!             logError(*) 'stop'
+!             STOP
+!         ENDIF
          !update LocMu for next strength determination, only needed for last update
          ! X in Asinh(x) for mu calculation
          tmp = 0.5D0/RS_sr0 * EXP(LocSV/RS_a)

@@ -266,8 +266,7 @@ MODULE ini_model_DR_mod
         allocate(DISC%DynRup%TP_grid(nz), DISC%DynRup%TP_DFinv(nz), &
                  DISC%DynRup%TP_Theta(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
                  DISC%DynRup%TP_Sigma(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
-                 DISC%DynRup%TP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2), &
-                 DISC%DynRup%IniTP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2))
+                 DISC%DynRup%TP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2))
         ! use this for advanced initialization
         ! call c_interoperability_addFaultParameter("IniTP" // c_null_char, DISC%DynRup%IniTP)
 
@@ -275,8 +274,8 @@ MODULE ini_model_DR_mod
         DISC%DynRup%TP_DFinv(:) = 0.0d0
         DISC%DynRup%TP_Theta(:,:,:) = 0.0d0
         DISC%DynRup%TP_Sigma(:,:,:) = 0.0d0
-        DISC%DynRup%TP(:,:,:) = 0.0d0
-        DISC%DynRup%IniTP(:,:,:) = 0.0d0
+        DISC%DynRup%TP(:,:,1) = EQN%Temp_0
+        DISC%DynRup%TP(:,:,2) = EQN%Pressure_0
 
       end if
     END SELECT
@@ -622,7 +621,7 @@ MODULE ini_model_DR_mod
   iniSlipRate = SQRT(EQN%IniSlipRate1**2 + EQN%IniSlipRate2**2)
 
   IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-     P_f = DISC%DynRup%IniTP(:,:,2)
+     P_f = EQN%Pressure_0
   ELSE
      P_f = 0.0
   ENDIF
@@ -729,11 +728,6 @@ MODULE ini_model_DR_mod
          DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*dlDwn
      END IF
   END DO !nz
-
-  !Initialization of IniTemp, currently constant from readpar, but could be a gradient from easi
-  DISC%DynRup%IniTP(:,:,1) = EQN%Temp_0
-  DISC%DynRup%IniTP(:,:,2) = EQN%Pressure_0
-
 
   END SUBROUTINE thermalPress_init
 

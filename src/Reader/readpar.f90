@@ -1353,6 +1353,7 @@ CONTAINS
                  DISC%DynRup%TP_dlDwn = 0.3
                  DISC%DynRup%TP_Dwnmax = 10.0
                  DISC%DynRup%TP_nz = 60
+                 logInfo0(*) 'Temp', EQN%Temp_0
              ENDIF
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
