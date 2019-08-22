@@ -37,6 +37,12 @@
 !! @section DESCRIPTION
 !! Pseudo-spectral code for Thermal Pressurization, called for rate-and-state friction
 
+#ifdef BG 
+#include "../Initializer/preProcessorMacros.fpp"
+#else
+#include "Initializer/preProcessorMacros.fpp"
+#endif
+
 MODULE Thermalpressure_mod
   !---------------------------------------------------------------------------!
   USE TypesDef
@@ -57,12 +63,15 @@ MODULE Thermalpressure_mod
 
 CONTAINS
 
-  SUBROUTINE Calc_ThermalPressure(dt, nz, hwid, alpha_th, alpha_hy, rho_c, &
-             Lambda, theta, sigma, Sh, SR, Dwn, DFinv, temp_ini, pressure_ini, temp, pressure)
+  SUBROUTINE Calc_ThermalPressure(EQN,dt, nz, hwid, alpha_th, alpha_hy, rho_c, &
+             Lambda, theta, sigma, Sh, SR, Dwn, DFinv, temp, pressure)
     !-------------------------------------------------------------------------!
 
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
+    !-------------------------------------------------------------------------!
+    ! Argument list declaration                                               !
+    TYPE(tEquations)    :: EQN
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
     INTEGER     :: i
@@ -79,7 +88,7 @@ CONTAINS
     REAL        :: temp, pressure                                      ! temperatur, pressure in space domain
     REAL        :: temp_ini, pressure_ini                                      ! temperatur, pressure in space domain
     !-------------------------------------------------------------------------!
-    INTENT(IN)  :: dt, nz, hwid,  alpha_th, alpha_hy, rho_c, Lambda, Sh, SR, Dwn, DFinv, temp_ini, pressure_ini
+    INTENT(IN)  :: EQN, dt, nz, hwid, alpha_th, alpha_hy, rho_c, Lambda, Sh, SR, Dwn, DFinv
     INTENT(INOUT):: theta, sigma
     INTENT(OUT) :: temp, pressure
     !-------------------------------------------------------------------------!
@@ -88,7 +97,6 @@ CONTAINS
     tauV = Sh*SR !fault strenght*slip rate
     Lambda_prime = Lambda*alpha_th/(alpha_hy-alpha_th)
     tmp = (Dwn/hwid)**2
-
     !1. Calculate diffusion of the field at previous timestep
 
     !temperature
@@ -110,18 +118,22 @@ CONTAINS
 
     !new contribution
     DO i=1,nz
-       T = T + (DFinv(i)/hwid)*theta(i)
+       T = T - (DFinv(i)/hwid)*theta(i)
        p = p + (DFinv(i)/hwid)*sigma(i)
     ENDDO
+!    logInfo0(*) 'tauV', tauV
+!    logInfo0(*) 'theta', theta(1)
+!    logInfo0(*) 'sigma', sigma(1)
+!    logInfo0(*) 'p', p
+!    logInfo0(*) 'T', T
 
     !Update pore pressure change (sigma = pore pressure + lambda'*temp)
     !In the BIEM code (Lapusta) they use T without initial value
-    p = p - Lambda_prime*T
+    p = p + Lambda_prime*T
 
     !Temp and pore pressure change at single GP on the fault + initial values
-    temp = T + temp_ini
-    pressure = p + pressure_ini
-
+    temp = T + EQN%Temp_0
+    pressure = p + EQN%Pressure_0
   END SUBROUTINE Calc_ThermalPressure
 
   SUBROUTINE  heat_source(hwid, alpha, dt, Dwn, nz, omega)

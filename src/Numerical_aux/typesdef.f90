@@ -796,7 +796,6 @@ MODULE TypesDef
      REAL, ALLOCATABLE                      :: TP_Theta(:,:,:)                  !< Fourier transformed pressure
      REAL, ALLOCATABLE                      :: TP_Sigma(:,:,:)                  !< Fourier transformed temperature
      REAL, ALLOCATABLE                      :: TP(:,:,:)                          !< Temperature and Pressure for TP along each fault point
-     REAL, ALLOCATABLE                      :: IniTP(:,:,:)                     !< Initial temperature and pressure for TP along each fault point
      !RF output handled in tDynRup as it has to be computed in the friction solver
      INTEGER                                :: RF_output_on                     !< rupture front output on = 1, off = 0
      INTEGER                                :: RFtime_on                        !< collect rupture time for Vr or RF output on=1, off=0

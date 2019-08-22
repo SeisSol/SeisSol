@@ -254,7 +254,7 @@ CONTAINS
     REAL    :: phi(2),rho, rho_neig, mu, mu_neig, lambda, lambda_neig
     REAL    :: LocXYStress, LocXZStress, TracXY, TracXZ, LocSRs, LocSRd
     REAL    :: w_speed(EQN%nNonZeroEV), TracEla, Trac, Strength, LocU, LocP, w_speed_neig(EQN%nNonZeroEV)
-    REAL    :: S_0,P_0,S_XY,S_XZ,P_f
+    REAL    :: S_0,P_0,S_XY,S_XZ,P_f, Temperature
     REAL    :: MuVal, cohesion, LocSV
     REAL    :: LocYY, LocZZ, LocYZ                                            ! temporary stress values
     REAL    :: tmp_mat(1:6), LocMat(1:6), TracMat(1:6)                        ! temporary stress tensors
@@ -384,6 +384,7 @@ CONTAINS
           P_0   = Stress(1)
           IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              P_f = DISC%DynRup%TP(iBndGP, iFace, 2)
+             Temperature = DISC%DynRup%TP(iBndGP, iFace, 1)
           ELSE
              P_f = 0.0
           ENDIF
@@ -529,10 +530,17 @@ CONTAINS
               DynRup_output%OutVal(iOutPoints,1,OutVars) = LocU !OutVars =6
           ENDIF
           IF (DynRup_output%OutputMask(4).EQ.1) THEN
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = MuVal !OutVars =7
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocSV !OutVars =8
+              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = P_f !OutVars =7
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = Temperature !OutVars =8
+              ELSE
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = MuVal !OutVars =7
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = LocSV !OutVars =8
+              ENDIF
           ENDIF
           IF (DynRup_output%OutputMask(5).EQ.1) THEN
               OutVars = OutVars + 1
