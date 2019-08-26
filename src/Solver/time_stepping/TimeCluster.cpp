@@ -504,7 +504,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     m_localKernel.computeIntegral(l_bufferPointer,
                                   data,
                                   tmp,
-				  materialData,
+				  &materialData[l_cell],
 				  &boundaryMapping[l_cell],
 				  nodalAvgDisplacement,
 				  m_fullUpdateTime,

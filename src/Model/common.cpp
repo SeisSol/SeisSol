@@ -39,7 +39,8 @@
  
 #include <Model/common.hpp>
 #include <cmath>
+#include <iostream>
 
 bool seissol::model::testShearModulusNonZero(real mu) {
-  return fabs(mu) > std::numeric_limits<real>::epsilon();
+  return std::abs(mu) > std::numeric_limits<real>::epsilon();
 }

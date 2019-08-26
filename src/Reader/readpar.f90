@@ -578,7 +578,9 @@ CONTAINS
     CASE('Planarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Planarwave initial condition'
     CASE('Scholte')
-       logInfo(*) 'Scholte wave initial condition'
+       logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
+    CASE('Snell')
+       logInfo(*) 'Snells law (elastic-acoustic) initial condition'
     CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'

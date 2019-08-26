@@ -751,6 +751,9 @@ void seissol::Interoperability::initInitialConditions()
     m_iniConds.emplace_back(new physics::ZeroField());
   } else if (m_initialConditionType == "Scholte") {
     m_iniConds.emplace_back(new physics::ScholteWave());
+  } else if (m_initialConditionType == "Snell") {
+    m_iniConds.emplace_back(new physics::SnellsLaw());
+
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }

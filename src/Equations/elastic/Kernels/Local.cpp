@@ -197,7 +197,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       case FaceType::analytical:
       {
       assert(cellBoundaryMapping != nullptr);
-      auto applyAnalyticalSolution = [](const real* nodes,
+      auto applyAnalyticalSolution = [materialData](const real* nodes,
 					double time,
 					init::INodal::view::type& boundaryDofs) {
 	auto nodesVec = std::vector<std::array<double, 3>>{};
@@ -211,8 +211,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 	}
 	const auto& initConds = e_interoperability.getInitialConditions();
 	assert(initConds.size() == 1); // TODO(Lukas) Support multiple init. conds?
-	auto pW = physics::Planarwave();
-	initConds[0]->evaluate(time, nodesVec, boundaryDofs);
+	initConds[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);
       };
 
       dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,

@@ -83,12 +83,15 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
         seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
       }
 
-
       krnl.Q = ltsLut->lookup(lts->dofs, meshId);
       krnl.execute();
 
       // Evaluate analytical solution at quad. nodes
-      iniFields[sim % iniFields.size()]->evaluate(simulationTime, quadraturePointsXyz, analyticalSolution);
+      const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
+      iniFields[sim % iniFields.size()]->evaluate(simulationTime,
+						  quadraturePointsXyz,
+						  material,
+						  analyticalSolution);
 #ifdef MULTIPLE_SIMULATIONS
       auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
 #else
