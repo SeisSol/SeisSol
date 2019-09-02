@@ -108,6 +108,13 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   
   volKrnl.execute();
   
+  real dofsFaceBoundaryNodal[tensor::INodal::size()] __attribute__((aligned(ALIGNMENT)));
+  kernel::localFluxNodal nodalLfKrnl = m_nodalLfKrnlPrototype;
+  nodalLfKrnl.Q = data.dofs;
+  nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+  nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+  nodalLfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
+
   for (unsigned int face = 0; face < 4; face++ ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
@@ -115,15 +122,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       lfKrnl.execute(face);
     }
 
-    // Include some boundary conditions here.
-    real dofsFaceBoundaryNodal[tensor::INodal::size()] __attribute__((aligned(ALIGNMENT)));
-    kernel::localFluxNodal nodalLfKrnl = m_nodalLfKrnlPrototype;
-    nodalLfKrnl.Q = data.dofs;
-    nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl.AminusT = data.neighboringIntegration.nAmNm1[face];
-    nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-    nodalLfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
-
+    // Include some boundary conditions here.
     switch (data.cellInformation.faceTypes[face]) {
     case FaceType::freeSurface:
       lfKrnl.AplusT = data.localIntegration.nApNm1[face];
