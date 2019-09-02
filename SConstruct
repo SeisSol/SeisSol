@@ -544,6 +544,16 @@ env.Tool('DirTool', fortran=True)
 # Some C++ GLM features are not working with the Intel Compiler
 env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
+# yaml-cpp
+yaml_cpp = env.CMake( source=[Glob(path + '*/.cpp') for path, dirs, files in os.walk('submodules/yaml-cpp/src')],
+                      target=['#/{}/external/yaml-cpp/libyaml-cpp.a'.format(env['buildDir'])],
+                      CMakeProject = Dir('submodules/yaml-cpp'),
+                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no', '-DCMAKE_CXX_STANDARD=11', '-DYAML_CPP_BUILD_TESTS=OFF'],
+                      cc = env['CC'],
+                      cxx = env['CXX'])
+env.Append(CPPPATH=['#/submodules/yaml-cpp/include'])
+env.Append(LIBS=yaml_cpp)
+
 # netCDF
 if env['netcdf'] == 'yes':
     libs.find(env, 'netcdf', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
@@ -580,16 +590,6 @@ if env['asagi']:
 
     libs.find(env, 'asagi', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
-
-# yaml-cpp
-yaml_cpp = env.CMake( source=[Glob(path + '*/.cpp') for path, dirs, files in os.walk('submodules/yaml-cpp/src')],
-                      target=['#/{}/external/yaml-cpp/libyaml-cpp.a'.format(env['buildDir'])],
-                      CMakeProject = Dir('submodules/yaml-cpp'),
-                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no', '-DCMAKE_CXX_STANDARD=11', '-DYAML_CPP_BUILD_TESTS=OFF'],
-                      cc = env['CC'],
-                      cxx = env['CXX'])
-env.Append(CPPPATH=['#/submodules/yaml-cpp/include'])
-env.Append(LIBS=yaml_cpp)
 
 # impalajit
 impalajit = env.CMake( source=[Glob(path + '*/.cc') for path, dirs, files in os.walk('submodules/ImpalaJIT')],
