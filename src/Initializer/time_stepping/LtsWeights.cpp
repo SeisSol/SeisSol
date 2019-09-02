@@ -51,6 +51,9 @@
 #include <Initializer/ParameterDB.h>
 #include <Parallel/MPI.h>
 
+#include <generated_code/tensor.h>
+#include <generated_code/init.h>
+
 class FaceSorter {
 private:
 	std::vector<PUML::TETPUML::face_t> const& m_faces;
@@ -206,30 +209,48 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   parameterDB.evaluateModel(m_velocityModel, queryGen);
  
   using Matrix33 = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>;
-  Eigen::SelfAdjointEigenSolver<Matrix33> saes;
- 
+  Eigen::SelfAdjointEigenSolver<Matrix33> saes; 
+
+  double samplingDirectionsData[seissol::tensor::samplingDirections::Size];
+  std::copy_n(init::samplingDirections::Values,
+              seissol::tensor::samplingDirections::Size,
+              samplingDirectionsData);
+  auto samplingDirections = init::samplingDirections::view::create(samplingDirectionsData);
+
   //compute elementwise wavespeeds
   for(unsigned cell = 0; cell < cells.size(); ++cell)
   { 
-    real aL[9];
-    aL[0] = c11[cell] / rho[cell];  
-    aL[1] = c16[cell] / rho[cell];  
-    aL[2] = c15[cell] / rho[cell];  
-    aL[3] = c16[cell] / rho[cell];  
-    aL[4] = c66[cell] / rho[cell];  
-    aL[5] = c56[cell] / rho[cell];  
-    aL[6] = c15[cell] / rho[cell];  
-    aL[7] = c56[cell] / rho[cell];  
-    aL[8] = c55[cell] / rho[cell];  
-    Matrix33 AL(aL);
-    saes.compute(AL);
-    auto eigenvalues = saes.eigenvalues();
-    real maxWaveVel = 0;
-    for(unsigned i = 0; i < 3; ++i) {
-      maxWaveVel = sqrt(eigenvalues(i)) > maxWaveVel ? sqrt(eigenvalues(i)) : maxWaveVel;
+    real maxEv = 0;
+    //sample 400 directions
+    for(unsigned j = 0; j < 201; ++j)
+    {
+      real n0 = samplingDirections(j, 0);
+      real n1 = samplingDirections(j, 1);
+      real n2 = samplingDirections(j, 2);
+      real M11 = n0 * c11[cell] * n0 + n0 * c16[cell] * n1 + n0 * c15[cell] * n2 + n1 * c16[cell] * n0 + n1 * c66[cell] * n1 + n1 * c56[cell] * n2 + n2 * c15[cell] * n0 + n2 * c56[cell] * n1 + n2 * c55[cell] * n2;
+      real M22 = n0 * c66[cell] * n0 + n0 * c26[cell] * n1 + n0 * c46[cell] * n2 + n1 * c26[cell] * n0 + n1 * c22[cell] * n1 + n1 * c24[cell] * n2 + n2 * c46[cell] * n0 + n2 * c24[cell] * n1 + n2 * c44[cell] * n2; 
+      real M33 = n0 * c55[cell] * n0 + n0 * c45[cell] * n1 + n0 * c35[cell] * n2 + n1 * c45[cell] * n0 + n1 * c44[cell] * n1 + n1 * c34[cell] * n2 + n2 * c35[cell] * n0 + n2 * c34[cell] * n1 + n2 * c33[cell] * n2;
+      real M12 = n0 * c16[cell] * n0 + n0 * c12[cell] * n1 + n0 * c14[cell] * n2 + n1 * c66[cell] * n0 + n1 * c26[cell] * n1 + n1 * c46[cell] * n2 + n2 * c56[cell] * n0 + n2 * c25[cell] * n1 + n2 * c45[cell] * n2; 
+      real M23 = n0 * c56[cell] * n0 + n0 * c46[cell] * n1 + n0 * c36[cell] * n2 + n1 * c25[cell] * n0 + n1 * c24[cell] * n1 + n1 * c23[cell] * n2 + n2 * c45[cell] * n0 + n2 * c44[cell] * n1 + n2 * c34[cell] * n2; 
+      real M13 = n0 * c15[cell] * n0 + n0 * c14[cell] * n1 + n0 * c13[cell] * n2 + n1 * c56[cell] * n0 + n1 * c46[cell] * n1 + n1 * c36[cell] * n2 + n2 * c55[cell] * n0 + n2 * c35[cell] * n1 + n2 * c35[cell] * n2;
+      real a[9];
+      a[0] = M11;  
+      a[1] = M12;  
+      a[2] = M13;  
+      a[3] = M12;  
+      a[4] = M22;  
+      a[5] = M23;  
+      a[6] = M13;  
+      a[7] = M23;  
+      a[8] = M33;  
+      Matrix33 A(a);
+      saes.compute(A);
+      auto eigenvalues = saes.eigenvalues();
+      for(unsigned i = 0; i < 3; ++i) {
+        maxEv = eigenvalues(i) > maxEv ? eigenvalues(i) : maxEv;
+      }
     }
-//    std::cout << "wave velocity on element " << cell << " = " << maxWaveVel << "\n";
-    pWaveVel[cell] = maxWaveVel;
+    pWaveVel[cell] = sqrt(maxEv / rho[cell]);
   }
   delete[] rho;
   delete[] c11;

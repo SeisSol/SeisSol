@@ -40,7 +40,7 @@
   
 import numpy as np
 from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
@@ -54,6 +54,7 @@ class ADERDG(ADERDGBase):
       'star': ['star(0)', 'star(1)', 'star(2)'],
     }
     self.db.update( parseXMLMatrixFile('{}/star_anisotropic.xml'.format(matricesDir), clones) )
+    self.db.update( parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir), transpose=self.transpose, alignStride=self.alignStride))
     memoryLayoutFromFile(memLayout, self.db, clones)
 
   def numberOfQuantities(self):
@@ -110,3 +111,6 @@ class ADERDG(ADERDGBase):
       generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
       generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
       derivatives.append(dQ)
+
+  def add_include_tensors(self, include_tensors):
+      include_tensors.add(self.db.samplingDirections)
