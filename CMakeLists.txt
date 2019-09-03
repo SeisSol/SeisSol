@@ -213,35 +213,41 @@ endif()
 if (COMMTHREAD)
   target_compile_definitions(SeisSol-lib PUBLIC USE_COMM_THREAD)
 endif()
-# TODO: HDF5 should be optional?
-# TODO: Check constraints, seee
-# https://github.com/Kitware/CMake/blob/master/Modules/FindHDF5.cmake
+
+#set(HDF5_PREFER_PARALLEL True)
+if (NETCDF)
+  find_package(NetCDF REQUIRED)
+  target_include_directories(SeisSol-lib PUBLIC ${NetCDF_INCLUDE_DIRS})
+  # todo: HL destroys search for hdf5 locally, set flags manually
+  target_link_libraries(SeisSol-lib PUBLIC ${NetCDF_LIBRARY} "-lhdf5" "-lhdf5_hl")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_NETCDF)
+endif()
+
 if (HDF5)
   find_package(HDF5 REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(SeisSol-lib PUBLIC ${HDF5_LIBRARIES})
+  target_link_libraries(SeisSol-lib PUBLIC ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
   target_compile_definitions(SeisSol-lib PUBLIC USE_HDF)
 endif()  
-
-if (NETCDF)
-  find_package(NetCDF REQUIRED)
-  target_include_directories(SeisSol-lib PUBLIC ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(SeisSol-lib PUBLIC NetCDF::NetCDF)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_NETCDF)
-endif()
 
 # Parmetis
 if (METIS)
   find_package(ParMETIS REQUIRED)
+
   target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
+  target_link_directories(SeisSol-lib PUBLIC ${PARMETIS_LIBRARY_DIR})
   target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
 if (ASAGI)
-  target_include_directories(SeisSol-lib PUBLIC "/import/home/ga24dib/src/ASAGI/include/")
-  target_link_libraries(SeisSol-lib PUBLIC "/import/home/ga24dib/src/ASAGI/build/libasagi.a" "-lnuma")
+  # todo warn if netcdf is off
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(ASAGI REQUIRED asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-lib PUBLIC USE_ASAGI)
+  target_link_libraries(SeisSol-lib PUBLIC ${ASAGI_STATIC_LDFLAGS})
+  target_include_directories(SeisSol-lib PUBLIC ${ASAGI_INCLUDE_DIRS})
+  target_compile_options(SeisSol-lib PUBLIC ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
 endif()
 
 target_include_directories(SeisSol-lib PUBLIC
@@ -335,5 +341,6 @@ if(CXXTEST_FOUND)
     SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
     )
 endif()
+
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
 # https://ortogonal.github.io/cmake-clang-tidy/
