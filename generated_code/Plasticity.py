@@ -46,7 +46,7 @@ from multSim import OptionalDimTensor
 def addKernels(generator, aderdg, matricesDir, PlasticityMethod):
   # Load matrices
   db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, aderdg.order), clones=dict(), alignStride=aderdg.alignStride)
-  numberOfNodes = db.v.shape()[0]
+  numberOfNodes = aderdg.t(db.v.shape())[0]
 
   sShape = (aderdg.numberOf3DBasisFunctions(), 6)
   QStress = OptionalDimTensor('QStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape, alignStride=True)
@@ -66,8 +66,8 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod):
   weightSecondInvariant = Tensor('weightSecondInvariant', (6,), spp={(i,): str(1.0/2.0) if i < 3 else '1.0' for i in range(6)})
   yieldFactor = Tensor('yieldFactor', (numberOfNodes,))
 
-  generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v['kl'] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
+  generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
   generator.add('plComputeMean', meanStress['k'] <= QStressNodal['kq'] * selectBulkAverage['q'])
   generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])
   generator.add('plComputeSecondInvariant', secondInvariant['k'] <= QStressNodal['kq'] * QStressNodal['kq'] * weightSecondInvariant['q'])
-  generator.add('plAdjustStresses', QStress['kp'] <= QStress['kp'] + db.vInv['kl'] * QStressNodal['lp'] * yieldFactor['l'])
+  generator.add('plAdjustStresses', QStress['kp'] <= QStress['kp'] + db.vInv[aderdg.t('kl')] * QStressNodal['lp'] * yieldFactor['l'])
