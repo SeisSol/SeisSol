@@ -37,7 +37,7 @@
  *
  * @section DESCRIPTION
  **/
-
+#include <Eigen/Eigen>
 #include <Eigen/Eigenvalues>
 
 #include <Model/Setup.h>
@@ -45,7 +45,7 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 #include <generated_code/init.h>
-
+#include <iostream>
 template<typename T>
 void getTransposedAnisotropicCoefficientMatrix( seissol::model::Material const&  i_material,
                                                 unsigned                         i_dim,
@@ -147,7 +147,7 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   using Matrix99 = Eigen::Matrix<real, 9, 9, Eigen::ColMajor>;
   
 //Calculate Eigenvectors and Eigenvalues
-  Eigen::SelfAdjointEigenSolver<Matrix33> ces;
+  Eigen::SelfAdjointEigenSolver<Matrix33> saes;
   
   real aL[9];
   aL[0] = local.c11 / local.rho;  
@@ -160,9 +160,9 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   aL[7] = local.c56 / local.rho;  
   aL[8] = local.c55 / local.rho;  
   Matrix33 AL(aL);
-  ces.compute(AL);
-  auto eigenvaluesL = ces.eigenvalues();
-  auto eigenvectorsL = ces.eigenvectors();
+  saes.compute(AL);
+  auto eigenvaluesL = saes.eigenvalues();
+  auto eigenvectorsL = saes.eigenvectors();
 
   real aN[9];
   aN[0] = neighbor.c11 / neighbor.rho;  
@@ -175,9 +175,9 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   aN[7] = neighbor.c56 / neighbor.rho;  
   aN[8] = neighbor.c55 / neighbor.rho;  
   Matrix33 AN(aN);
-  ces.compute(AN);
-  auto eigenvaluesN = ces.eigenvalues();
-  auto eigenvectorsN = ces.eigenvectors();
+  saes.compute(AN);
+  auto eigenvaluesN = saes.eigenvalues();
+  auto eigenvectorsN = saes.eigenvectors();
 
   real a1L[18];
   a1L[0] = -local.c11;
