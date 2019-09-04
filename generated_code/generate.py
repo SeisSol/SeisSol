@@ -84,7 +84,7 @@ adg.addInit(g)
 adg.addLocal(g)
 adg.addNeighbor(g)
 adg.addTime(g)
-if equations == 'anisotropic':
+if cmdArgsDict['equations'] == 'anisotropic':
   adg.add_include_tensors(include_tensors)
 
 # Common kernels
