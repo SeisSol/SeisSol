@@ -66,8 +66,8 @@ followed by running ``fix_submodules`` to clone and setup the submodules.
 
    mkdir build
    cd build
-   CMAKE_PREFIX_PATH=$NETCDF_BASE
-   cmake ../ -CDMAKE_INSTALL_PREFIX=<path_to_ASAGI>/build
+   export CMAKE_PREFIX_PATH=$NETCDF_BASE
+   cmake ../ -DCMAKE_INSTALL_PREFIX=<path_to_ASAGI>/build
    make -j8
    make install
 
