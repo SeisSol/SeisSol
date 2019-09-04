@@ -982,8 +982,11 @@ CONTAINS
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "DynamicRupture")
     ENDIF
-           logInfo(*) 'Beginning dynamic rupture initialization. '
-           
+      logInfo(*) 'Beginning dynamic rupture initialization. '
+    IF(EQN%Anisotropy.ne.0) THEN  
+      logWarning0(*) 'You are using dynamic rupture together with anisotropy. This is not properly tested.'
+      logWarning0(*) 'Elements adjacent to dynamic rupture surfaces should behave isotropically.'
+    ENDIF
     inquire(file=ModelFileName , exist=fileExists)
     if (.NOT. fileExists) then
      logError(*) 'Dynamic rupture model file "', trim(ModelFileName), '" does not exist.'

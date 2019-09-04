@@ -49,6 +49,8 @@
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 
+#include <utils/logger.h>
+
 void setStarMatrix( real* i_AT,
                     real* i_BT,
                     real* i_CT,
@@ -109,7 +111,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 
     real TData[seissol::tensor::T::size()];
     real TinvData[seissol::tensor::Tinv::size()];
-    real NLocalData[6*6];
     auto T = init::T::view::create(TData);
     auto Tinv = init::Tinv::view::create(TinvData);
 
@@ -160,10 +161,11 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
 
-        seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
         seissol::model::Material rotatedLocalMaterial;
         seissol::model::Material rotatedNeighborMaterial;
 #ifdef USE_ANISOTROPIC
+        real NLocalData[6*6];
+        seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
         material[cell].local.getRotatedMaterialCoefficients(NLocalData, rotatedLocalMaterial);
         material[cell].neighbor[side].getRotatedMaterialCoefficients(NLocalData, rotatedNeighborMaterial);
 #else
@@ -374,6 +376,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
+      //TODO: apply Bond's matrix to material for anistotropy
       if (plusLtsId != std::numeric_limits<unsigned>::max()) {
         plusMaterial = material[plusLtsId].local;
         minusMaterial = material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
@@ -408,7 +411,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       /// Godunov state
       auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
       auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
-      seissol::model::getTransposedElasticGodunovState( plusMaterial, minusMaterial, dynamicRupture, QgodLocal, QgodNeighbor );
+      seissol::model::getTransposedGodunovState( plusMaterial, minusMaterial, dynamicRupture, QgodLocal, QgodNeighbor );
 
       kernel::rotateGodunovStateLocal rlKrnl;
       rlKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixPlus;
