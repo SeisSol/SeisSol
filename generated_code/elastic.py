@@ -59,14 +59,6 @@ class ADERDG(ADERDGBase):
     self.db.update(
       parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones)
     )
-    # todo change path
-    self.db.update(
-      parseJSONMatrixFile('{}/nodal/nodalBoundary_matrices_{}.json'.format(matricesDir,
-                                                                           self.order - 1),
-                          {},
-                          alignStride=self.alignStride,
-                          transpose=self.transpose)
-    )
 
     memoryLayoutFromFile(memLayout, self.db, clones)
     self.INodal = OptionalDimTensor('INodal',
@@ -134,7 +126,6 @@ class ADERDG(ADERDGBase):
                         simpleParameterSpace(4),
                         projectToNodalBoundary)
 
-
     # todo maybe integrate this better in the flux 
     # todo tinv? t transpose?
     projectToNodalBoundaryRotated = lambda j: self.INodal['kp'] <= self.db.V3mTo2nFace[j]['kl'] \
@@ -162,12 +153,6 @@ class ADERDG(ADERDGBase):
                                                    selectZDisplacementFromDisplacements,
                                                    CSCMemoryLayout)
 
-    # displacement = OptionalDimTensor('displacement',
-    #                                  aderdg.Q.optName(),
-    #                                  aderdg.Q.optSize(),
-    #                                  aderdg.Q.optPos(),
-    #                                  (numberOf3DBasisFunctions, 3), alignStride=True)
-    
     self.INodalDisplacement = OptionalDimTensor('INodalDisplacement',
                                                 self.Q.optName(),
                                                 self.Q.optSize(),
@@ -239,5 +224,5 @@ class ADERDG(ADERDGBase):
                     self.INodal['kp'] <= self.INodal['kp'] + power * dQNodal['kp'])
 
   def add_include_tensors(self, include_tensors):
-    include_tensors.add(self.db.nodes2D)
+    super().add_include_tensors(include_tensors)
     include_tensors.add(self.db.V2nTo2m)

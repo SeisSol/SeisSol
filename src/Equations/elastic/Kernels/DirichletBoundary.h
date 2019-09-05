@@ -51,7 +51,7 @@ class DirichletBoundary {
   
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
   
-    static_assert(tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
+    static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
 		  "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -72,7 +72,7 @@ class DirichletBoundary {
     // TODO(Lukas) Implement functions which depend on the interior values...
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
   
-    static_assert(tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
+    static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
 		  "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);

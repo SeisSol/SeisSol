@@ -119,7 +119,7 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
   real degreesOfFreedomPlus[tensor::Q::size()] __attribute__((aligned(PAGESIZE_STACK)));
   real degreesOfFreedomMinus[tensor::Q::size()] __attribute__((aligned(PAGESIZE_STACK)));
 
-  kernel::godunovState krnl = m_krnlPrototype;
+  dynamicRupture::kernel::godunovState krnl = m_krnlPrototype;
 
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
@@ -152,11 +152,11 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
   o_nonZeroFlops *= 2;
   o_hardwareFlops *= 2;
   
-  o_nonZeroFlops += kernel::godunovState::nonZeroFlops(faceInfo.plusSide, 0);
-  o_hardwareFlops += kernel::godunovState::hardwareFlops(faceInfo.plusSide, 0);
+  o_nonZeroFlops += dynamicRupture::kernel::godunovState::nonZeroFlops(faceInfo.plusSide, 0);
+  o_hardwareFlops += dynamicRupture::kernel::godunovState::hardwareFlops(faceInfo.plusSide, 0);
   
-  o_nonZeroFlops += kernel::godunovState::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
-  o_hardwareFlops += kernel::godunovState::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
+  o_nonZeroFlops += dynamicRupture::kernel::godunovState::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
+  o_hardwareFlops += dynamicRupture::kernel::godunovState::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
   
   o_nonZeroFlops *= CONVERGENCE_ORDER;
   o_hardwareFlops *= CONVERGENCE_ORDER;

@@ -42,7 +42,7 @@ import argparse
 import importlib.util
 import inspect
 
-from yateto import useArchitectureIdentifiedBy, Generator
+from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM 
 
 import DynamicRupture
@@ -87,7 +87,7 @@ adg.addTime(g)
 adg.add_include_tensors(include_tensors)
 
 # Common kernels
-DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
+DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
 SurfaceDisplacement.addKernels(g, adg)
 Point.addKernels(g, adg)

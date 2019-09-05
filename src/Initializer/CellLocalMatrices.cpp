@@ -253,15 +253,15 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 	  continue;
 	}
 	// Compute nodal points in global coordinates for each side.
-	double nodesReferenceData[seissol::tensor::nodes2D::Size];
-	std::copy_n(init::nodes2D::Values,
-		    seissol::tensor::nodes2D::Size,
+	double nodesReferenceData[nodal::tensor::nodes2D::Size];
+	std::copy_n(nodal::init::nodes2D::Values,
+		    nodal::tensor::nodes2D::Size,
 		    nodesReferenceData);
-	auto nodesReference = init::nodes2D::view::create(nodesReferenceData);
+	auto nodesReference = nodal::init::nodes2D::view::create(nodesReferenceData);
 	auto nodes = boundary[cell][side].nodes;
 	assert(nodes != nullptr);
 	auto offset = 0;
-	for (unsigned int i = 0; i < seissol::tensor::nodes2D::Shape[0]; ++i) {
+	for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
 	  double nodeReference[2];
 	  nodeReference[0] = nodesReference(i,0);
 	  nodeReference[1] = nodesReference(i,1);
@@ -470,13 +470,13 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 						       QgodLocal,
 						       QgodNeighbor );
 
-      kernel::rotateGodunovStateLocal rlKrnl;
+      dynamicRupture::kernel::rotateGodunovStateLocal rlKrnl;
       rlKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixPlus;
       rlKrnl.Tinv = TinvData;
       rlKrnl.QgodLocal = QgodLocalData;
       rlKrnl.execute();
 
-      kernel::rotateGodunovStateNeighbor rnKrnl;
+      dynamicRupture::kernel::rotateGodunovStateNeighbor rnKrnl;
       rnKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixMinus;
       rnKrnl.Tinv = TinvData;
       rnKrnl.QgodNeighbor = QgodNeighborData;
@@ -501,7 +501,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         minusSurfaceArea = 1.e99; minusVolume = 1.0;
       }
 
-      kernel::rotateFluxMatrix krnl;
+      dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = TData;
 
       krnl.fluxSolver = fluxSolverPlus[ltsFace];

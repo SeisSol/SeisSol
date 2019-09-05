@@ -137,7 +137,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       auto displacement = init::INodal::view::create(nodalAvgDisplacement);
       auto applyFreeSurfaceBc = [&displacement, materialData](const real* nodes,
                                    init::INodal::view::type& boundaryDofs) {
-        for (unsigned int i = 0; i < tensor::nodes2D::Shape[0]; ++i) {
+        for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
           const double rho = materialData->local.rho;
           const double g = 9.81; // [m/s^2]
           const double pressureAtBnd = rho * g * displacement(i,0);

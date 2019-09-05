@@ -41,7 +41,7 @@
 from abc import ABC, abstractmethod
 
 from yateto import *
-from yateto.input import parseXMLMatrixFile
+from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
 from multSim import OptionalDimTensor
 
 class ADERDGBase(ABC):
@@ -77,6 +77,17 @@ class ADERDGBase(ABC):
     self.QgodNeighbor = Tensor('QgodNeighbor', QgodShape)
 
     self.oneSimToMultSim = Tensor('oneSimToMultSim', (self.Q.optSize(),), spp={(i,): '1.0' for i in range(self.Q.optSize())})
+
+    # todo change path, split nodes and Vandermonde into diff. files?
+    self.db.update(
+      parseJSONMatrixFile('{}/nodal/nodalBoundary_matrices_{}.json'.format(matricesDir,
+                                                                           self.order - 1),
+                          {},
+                          alignStride=self.alignStride,
+                          transpose=self.transpose,
+                          namespace='nodal')
+    )
+
 
   def numberOf2DBasisFunctions(self):
     return self.order*(self.order+1)//2
@@ -136,4 +147,4 @@ class ADERDGBase(ABC):
     pass
 
   def add_include_tensors(self, include_tensors):
-    pass 
+    include_tensors.add(self.db.nodes2D)

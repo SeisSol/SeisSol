@@ -54,7 +54,7 @@ namespace seissol {
 
 class seissol::kernels::DynamicRupture {
   private:
-    kernel::godunovState m_krnlPrototype;
+    dynamicRupture::kernel::godunovState m_krnlPrototype;
     kernels::Time m_timeKernel;
 
   public:

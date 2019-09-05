@@ -329,7 +329,7 @@ struct GlobalData {
   seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
 
   // TODO(Lukas) Comment+Rename or Remove
-  seissol::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
+  seissol::nodal::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
   seissol::tensor::rDivMMultV2nTo2m::Container<real const*> rDivMMultV2nTo2m;
   
   /** 
@@ -347,7 +347,9 @@ struct GlobalData {
    *    15: \f$ N^{-,4,3} \f$
    **/ 
 
+ 
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+
   //! Modal basis to quadrature points
   real* evalAtQPMatrix;
 
@@ -449,7 +451,7 @@ struct CellBoundaryMapping {
 
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::tensor::nodes2D::Shape[0] * 3];
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3];
   real TData[seissol::tensor::T::size()];
   real TinvData[seissol::tensor::Tinv::size()];
 };
