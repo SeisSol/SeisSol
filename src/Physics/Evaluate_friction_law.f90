@@ -1334,14 +1334,6 @@ MODULE Eval_friction_law_mod
               P_f = 0.0
          ENDIF
 
-!         IF (iTimeGP.EQ.1) THEN
-!             logInfo0(*) '1. timestep initial P_f', P_f(1)
-!             logInfo0(*) '1. timestep initial P', P(1)
-!         ELSE
-!             logError(*) 'stop'
-!             STOP
-!         ENDIF
-
          DO j=1,nSVupdates   !This loop corrects SV values
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
@@ -1380,22 +1372,11 @@ MODULE Eval_friction_law_mod
             endif
          ENDIF
          
-!         IF (iTimeGP.EQ.1) THEN
-!             logInfo0(*) '1. timestep first iteration P_f', P_f(1)
-!             logInfo0(*) '1. timestep first iteration P', P(1)
-!         ELSE IF (iTimeGP.EQ.2) THEN
-!             logInfo0(*) '2. timestep first iteration P_f', P_f(1)
-!             logInfo0(*) '2. timestep first iteration P', P(1)
-!         ELSE
-!             logError(*) 'stop'
-!             STOP
-!         ENDIF
-         !
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
          CALL update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
-         S = LocMu*(P - P_f)
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+             S = LocMu*(P - P_f)
              DO iBndGP = 1, nBndGP
                           Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                           Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
@@ -1409,16 +1390,6 @@ MODULE Eval_friction_law_mod
              ENDDO
          ENDIF
 
-!         IF (iTimeGP.EQ.1) THEN
-!             logInfo0(*) '1. timestep last iteration P_f', P_f(1)
-!             logInfo0(*) '1. timestep last iteration P', P(1)
-!         ELSE IF (iTimeGP.EQ.2) THEN
-!             logInfo0(*) '2. timestep last iteration P_f', P_f(1)
-!             logInfo0(*) '2. timestep last iteration P', P(1)
-!         ELSE
-!             logError(*) 'stop'
-!             STOP
-!         ENDIF
          !update LocMu for next strength determination, only needed for last update
          ! X in Asinh(x) for mu calculation
          tmp = 0.5D0/RS_sr0 * EXP(LocSV/RS_a)

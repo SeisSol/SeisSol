@@ -94,7 +94,7 @@ CONTAINS
     !-------------------------------------------------------------------------!
 
 
-    tauV = Sh*SR !fault strenght*slip rate
+    tauV = -Sh*SR !fault strenght*slip rate
     Lambda_prime = Lambda*alpha_th/(alpha_hy-alpha_th)
     tmp = (Dwn/hwid)**2
     !1. Calculate diffusion of the field at previous timestep
@@ -118,18 +118,13 @@ CONTAINS
 
     !new contribution
     DO i=1,nz
-       T = T - (DFinv(i)/hwid)*theta(i)
+       T = T + (DFinv(i)/hwid)*theta(i)
        p = p + (DFinv(i)/hwid)*sigma(i)
     ENDDO
-!    logInfo0(*) 'tauV', tauV
-!    logInfo0(*) 'theta', theta(1)
-!    logInfo0(*) 'sigma', sigma(1)
-!    logInfo0(*) 'p', p
-!    logInfo0(*) 'T', T
 
     !Update pore pressure change (sigma = pore pressure + lambda'*temp)
     !In the BIEM code (Lapusta) they use T without initial value
-    p = p + Lambda_prime*T
+    p = -p - Lambda_prime*T
 
     !Temp and pore pressure change at single GP on the fault + initial values
     temp = T + EQN%Temp_0
