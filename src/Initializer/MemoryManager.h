@@ -160,7 +160,9 @@ class seissol::initializers::MemoryManager {
     LTSTree m_boundaryTree;
     Boundary m_boundary;
 
+#if NUMBER_OF_QUANTITIES == 9
     EasiBoundary m_easiBoundary;
+#endif
 
     /**
      * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
@@ -286,11 +288,14 @@ class seissol::initializers::MemoryManager {
       return &m_boundary;
     }
 
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
     void initializeEasiBoundaryReader(const char* fileName);    
 
     inline EasiBoundary* getEasiBoundaryReader() {
       return &m_easiBoundary;
     }
+#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
+
 };
 
 #endif

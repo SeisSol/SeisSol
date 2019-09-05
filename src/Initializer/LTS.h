@@ -85,11 +85,7 @@ struct seissol::initializers::LTS {
   Variable<CellMaterialData>              material;
   Variable<PlasticityData>                plasticity;
   Variable<CellDRMapping[4]>              drMapping;
-<<<<<<< 89d4bf5201a55b3c857340d6962a2c658521cb9c
-=======
   Variable<CellBoundaryMapping[4]>        boundaryMapping;
-  Variable<real[3]>                       energy;
->>>>>>> Add LTS tree that stores information for boundary faces.
   Variable<real[7]>                       pstrain;
   Variable<real*>                         displacements;
   Bucket                                  buffersDerivatives;

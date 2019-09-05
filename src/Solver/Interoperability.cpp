@@ -75,7 +75,9 @@ extern "C" {
   }
 
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
+#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   }
 
   void c_interoperability_setInitialConditionType(char* type)
@@ -749,11 +751,12 @@ void seissol::Interoperability::initInitialConditions()
 #endif
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.emplace_back(new physics::ZeroField());
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else if (m_initialConditionType == "Scholte") {
     m_iniConds.emplace_back(new physics::ScholteWave());
   } else if (m_initialConditionType == "Snell") {
     m_iniConds.emplace_back(new physics::SnellsLaw());
-
+#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }

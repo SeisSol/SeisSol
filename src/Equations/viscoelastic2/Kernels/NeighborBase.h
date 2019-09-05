@@ -51,7 +51,7 @@ namespace seissol {
       kernel::localFluxExt m_lfKrnlPrototype;
       kernel::neighbourFluxExt m_nfKrnlPrototype;
       kernel::neighbour m_nKrnlPrototype;
-      kernel::nodalFlux m_drKrnlPrototype;
+      dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
     };
   }
 }

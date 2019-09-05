@@ -145,6 +145,7 @@ private:
 };
 
 
+#if NUMBER_OF_QUANTITIES == 9
 class seissol::initializers::EasiBoundary {
 public:
   explicit EasiBoundary(const std::string& fileName);
@@ -165,4 +166,6 @@ private:
   easi::Component* model;
   
 };
+#endif // NUMBER_OF_QUANTITIES == 9
+
 #endif

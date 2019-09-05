@@ -82,7 +82,9 @@
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
 #include "Kernels/DirichletBoundary.h"
+#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 #include <Monitoring/FlopCounter.hpp>
 
 #include <cassert>
@@ -470,6 +472,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                              l_bufferPointer,
                              derivativeBuffer);
 
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
     // Compute average displacement over timestep.
     real twiceTimeIntegrated[tensor::I::size()] __attribute__((aligned(PAGESIZE_STACK)));
     real nodalAvgDisplacement[tensor::INodalDisplacement::size()] __attribute__((aligned(PAGESIZE_STACK)));
@@ -499,6 +502,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 	krnl.execute(side);
       } 
     }
+#else
+    real* nodalAvgDisplacement = nullptr;
+#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
+
 
     // Compute local integrals (including some boundary conditions)
     m_localKernel.computeIntegral(l_bufferPointer,

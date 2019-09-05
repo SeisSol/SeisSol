@@ -68,9 +68,10 @@ seissol::physics::Planarwave::Planarwave(real phase)
 #endif
 }
 
-void seissol::physics::Planarwave::evaluate(  double time,
-                                              std::vector<std::array<double, 3>> const& points,
-                                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
+void seissol::physics::Planarwave::evaluate(double time,
+                                            std::vector<std::array<double, 3>> const& points,
+					    const CellMaterialData& materialData,
+                                            yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
 

@@ -62,7 +62,10 @@ void seissol::kernels::DynamicRupture::setGlobalData(GlobalData const* global) {
   }
 #endif
 
+
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
   m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
+#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 
   m_timeKernel.setGlobalData(global);
 }

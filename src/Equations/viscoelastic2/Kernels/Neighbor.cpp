@@ -127,7 +127,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
     } else if (data.cellInformation.faceTypes[l_face] == FaceType::dynamicRupture) {
       assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
-      kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
       drKrnl.godunovState = cellDrMapping[l_face].godunov;
       drKrnl.Qext = data.dofs;
@@ -171,8 +171,8 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
         o_hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(l_face);
       }
     } else if (i_faceTypes[l_face] == FaceType::dynamicRupture) {
-      o_drNonZeroFlops += kernel::nodalFlux::nonZeroFlops(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
-      o_drHardwareFlops += kernel::nodalFlux::hardwareFlops(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
+      o_drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
+      o_drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
     }
   }
 
