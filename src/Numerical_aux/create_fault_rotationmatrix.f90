@@ -90,10 +90,14 @@ CONTAINS
     n = MESH%Fault%geoNormals(1:3,iFace)
     ! s = MESH%Fault%geoTangent1(1:3,iFace)
     ! t = MESH%Fault%geoTangent2(1:3,iFace)
-
     strike_vector(1) = n(2)/sqrt(n(1)**2+n(2)**2)
     strike_vector(2) = -n(1)/sqrt(n(1)**2+n(2)**2)
     strike_vector(3) = 0.0D0
+    
+    !convention for flat faults
+    if (norm2(strike_vector).eq.0) then
+       strike_vector(1)=1d0
+    endif
    
     dip_vector(1) = -strike_vector(2)*n(3)
     dip_vector(2) = strike_vector(1)*n(3)
