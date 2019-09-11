@@ -532,9 +532,9 @@ CONTAINS
           IF (DynRup_output%OutputMask(4).EQ.1) THEN
               IF (DISC%DynRup%ThermalPress.EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(:,:,2) !OutVars =7
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP, iFace,2) !OutVars =7
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(:,:,1) !OutVars =8
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP, iFace,1) !OutVars =8
               ELSE
                   OutVars = OutVars + 1
                   DynRup_output%OutVal(iOutPoints,1,OutVars) = MuVal !OutVars =7
