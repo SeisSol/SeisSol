@@ -62,7 +62,7 @@ parser.add_argument('--MP', nargs=1, metavar=('ncpu'), default=([1]), help='use 
 args = parser.parse_args()
 
 filelist = glob.glob(args.prefix+'-EnF_t*')
-print '%d files found' %len(filelist)
+print('%d files found' %len(filelist))
 
 tmax = sys.float_info.max
 dt=np.zeros(len(filelist))
@@ -79,8 +79,8 @@ for i, fname in enumerate(filelist):
    dt[i] = float(line.split()[0])
 
 dt0 = min(dt)
-print 'tfmin=%f, dtmin=%f' %(tmax,dt0)
-print 'dt/dt0', dt/dt0
+print('tfmin=%f, dtmin=%f' %(tmax,dt0))
+print('dt/dt0', dt/dt0)
 
 ndt = int(round(tmax/dt0+1))
 En_conc = np.zeros((ndt,3))
@@ -93,43 +93,43 @@ pool = Pool(processes=nprocs)
 m = Manager()
 q = m.Queue()
 N=len(filelist)
-inputs = range(0,N)
+inputs = list(range(0,N))
 args2 = [(i, q) for i in inputs]
 Result = pool.map_async(loadEnF, args2)
 pool.close()
 while (True):
   if (Result.ready()): break
   remaining = N+1 - q.qsize()
-  print "Waiting for", remaining, "tasks to complete..."
+  print("Waiting for", remaining, "tasks to complete...")
   time.sleep(2.0)
 a = np.sum(np.array(Result.get()),axis=0)
-print a
-print ndt, a.shape
+print(a)
+print(ndt, a.shape)
 a = a.reshape((ndt,2),order='F')
 En_conc[:,1:3] = En_conc[:,1:3] + a
 
-print 'Moment rate:'
-print En_conc[:,1]
+print('Moment rate:')
+print(En_conc[:,1])
 
-print 'Frictional energy rate'
-print En_conc[:,2]
+print('Frictional energy rate')
+print(En_conc[:,2])
 
 #calculate moment magnitude
 M0 = np.trapz(En_conc[:,1], x=En_conc[:,0])
 Mw = 2.*log10(M0)/3.-6.07
-print 'Moment magnitude: %f (M0 = %e)' % (Mw, M0)
+print('Moment magnitude: %f (M0 = %e)' % (Mw, M0))
 
 #calculate total frictional energy release
 FricEn_total = np.trapz(En_conc[:,2], x=En_conc[:,0])
-print 'Frictional energy release: %f ' % (FricEn_total)
+print('Frictional energy release: %f ' % (FricEn_total))
 
 FricEn = np.zeros(ndt)
 dt = dt0
 for idt in range(ndt):
     FricEn[idt] = FricEn[idt-1] + dt*En_conc[idt,2]
 
-print 'Frictional energy over time:  ' 
-print FricEn
+print('Frictional energy over time:  ') 
+print(FricEn)
 
 #save data
 #time moment-rate frictional-energy-rate frictional-energy
