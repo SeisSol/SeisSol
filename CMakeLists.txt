@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(SeisSol LANGUAGES C CXX Fortran)
 
+message(WARNING "We do not provide support for CMake currently. Please use scons instead!")
+
 # Library settings:
 option(HDF5 "Use HDF5 library for data output" ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
