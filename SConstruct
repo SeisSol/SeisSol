@@ -46,7 +46,7 @@ import os
 import sys
 
 # import helpers
-import arch
+from generated_code import arch
 import libs
 import utils.gitversion
 
