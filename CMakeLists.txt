@@ -307,7 +307,7 @@ add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 
 # Testing
-find_package(CxxTest REQUIRED)
+find_package(CxxTest)
 
 if(CXXTEST_FOUND)
   # todo: if mpi set CXXTEST_COMMAND to mpirun -np 1 %t

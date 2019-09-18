@@ -103,12 +103,6 @@ int main()
 {
   // FIXME: Find a simple but sensible test for ParMETIS
 
-  // Initialise MPI
-  MPI::Init();
-
-  // Finalize MPI
-  MPI::Finalize();
-
   return 0;
 }
 " PARMETIS_TEST_RUNS)
