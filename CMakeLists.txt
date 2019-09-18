@@ -39,6 +39,12 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+  "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+  message(STATUS "Set build type to Debug a none was supplied.")
+endif()  
 
 find_package(Git QUIET)
 # Generate version.h
@@ -80,6 +86,8 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
+       generated_code/arch.py
+       generated_code/memlayout.py
        generated_code/viscoelastic.py
        generated_code/DynamicRupture.py
        generated_code/Plasticity.py
@@ -311,6 +319,8 @@ set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
+
+set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH}_${EQUATIONS}_${ORDER}")
 
 # Testing
 find_package(CxxTest)
