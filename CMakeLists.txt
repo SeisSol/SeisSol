@@ -189,6 +189,12 @@ endif()
 # Libs
 find_package(yaml-cpp REQUIRED)
 
+find_package(Eigen3) # maybe enfore 3.3?
+if (EIGEN3_FOUND)
+  target_compile_definitions(SeisSol-lib PUBLIC HAS_EIGEN3)
+else()
+endif()
+
 # TODO: Write export for impalaJIT
 target_link_libraries(SeisSol-lib PUBLIC yaml-cpp
 			      ${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/libimpalajit.a 
