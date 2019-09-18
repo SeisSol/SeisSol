@@ -47,7 +47,6 @@ import sys
 
 # import helpers
 import arch
-import memlayout
 import libs
 import utils.gitversion
 
@@ -260,7 +259,7 @@ if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
   print("*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available.")
 
 if not 'memLayout' in env:
-  env['memLayout'] = memlayout.guessMemoryLayout(env)
+  env['memLayout'] = 'auto'
 
 # Detect SeisSol version
 seissol_version = utils.gitversion.get(env)

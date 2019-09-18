@@ -66,15 +66,14 @@ class Candidate(object):
   def __repr__(self):
     return repr(self.atts)
 
-def findCandidates():
+def findCandidates(search_path):
   """Determine Candidate attributes from file name."""
 
   archs = arch.getArchitectures()
   pes = [arch.getCpu(a) for a in archs]
 
-  path = os.path.join('auto_tuning', 'config')
   candidates = dict()
-  for c in os.listdir(path):
+  for c in os.listdir(search_path):
     name, ext = os.path.splitext(c)
     atts = dict()
     for att in name.split('_'):
@@ -94,7 +93,8 @@ def findCandidates():
   return candidates
 
 def guessMemoryLayout(env):    
-  path = os.path.join('auto_tuning', 'config')
+  script_dir = os.path.dirname(os.path.abspath(__file__))
+  path = os.path.join(script_dir, '..', 'auto_tuning', 'config')
 
   # from least to most
   importance = ['precision', 'equations', 'order', 'pe', 'multipleSimulations']
@@ -106,7 +106,7 @@ def guessMemoryLayout(env):
     'multipleSimulations': int(env['multipleSimulations'])
   }
 
-  candidates = findCandidates()
+  candidates = findCandidates(search_path=path)
   bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
   bestScore = candidates[bestFit].score(values)
 
