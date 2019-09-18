@@ -6,9 +6,6 @@ src/Initializer/InternalState.cpp
 src/Initializer/MemoryAllocator.cpp
 src/Initializer/CellLocalMatrices.cpp
 
-# TODO: Only if MPI?
-src/Initializer/time_stepping/LtsWeights.cpp
-
 src/Initializer/time_stepping/LtsLayout.cpp
 src/Initializer/tree/Lut.cpp
 src/Initializer/MemoryManager.cpp
@@ -128,10 +125,16 @@ if (HDF5)
   target_sources(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Wavefield.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Fault.cpp
-    # TODO: Only if hdf5? what about metis?
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
     )
 endif()
+
+if (HDF5 AND METIS AND MPI)
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights.cpp
+    )
+endif()
+
 
 if (NETCDF)
   target_sources(SeisSol-lib PUBLIC
