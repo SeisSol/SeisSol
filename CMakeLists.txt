@@ -9,7 +9,7 @@ option(NETCDF "Use netcdf library for mesh input" ON)
 option(METIS "Use metis for partitioning" ON)
 option(MPI "Use MPI parallelization" ON)
 option(OPENMP "Use OpenMP parallelization" ON)
-option(ASAGI "Use asagi for material input" OFF) # needed
+option(ASAGI "Use asagi for material input" OFF)
 
 # todo:
 option(SIONLIB "Use sionlib for checkpointing" OFF)
@@ -34,7 +34,6 @@ set_property(CACHE LOG_LEVEL PROPERTY STRINGS "DEBUG" "INFO" "WARNING" "ERROR")
 
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
-#set (EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/cmake_build)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -65,12 +64,10 @@ endif()
 
 MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
 
-
+include(src/sources.cmake)
 add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${PROJECT_BINARY_DIR}/src/generated_code")
-# todo: guess memlayout
-# todo create subdir $BIN/src/generated_code
-# todo compile subroutine with -mno-red-zone
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
+
 add_custom_command(
   COMMAND
   "/usr/bin/env" python3 ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py
@@ -86,6 +83,7 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
+       build-time-make-directory
        generated_code/arch.py
        generated_code/memlayout.py
        generated_code/viscoelastic.py
@@ -110,7 +108,6 @@ add_custom_command(
        COMMENT "Codegen for tensor stuff."
        )
 
-include(src/sources.cmake)
 
 if (PLASTICITY)
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
@@ -249,7 +246,6 @@ endif()
 # Parmetis
 if (METIS)
   find_package(ParMETIS REQUIRED)
-
   target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
   target_link_directories(SeisSol-lib PUBLIC ${PARMETIS_LIBRARY_DIR})
