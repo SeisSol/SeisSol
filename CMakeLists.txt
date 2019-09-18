@@ -96,8 +96,7 @@ add_custom_command(
        generated_code/elastic.py
        generated_code/viscoelastic2.py
        generated_code/SurfaceDisplacement.py
-    OUTPUT
-       src/generated_code/subroutine.h
+    OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
        src/generated_code/tensor.h
@@ -302,7 +301,6 @@ elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
 endif()
 
-message("${CMAKE_CXX_COMPILER_ID}")
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
