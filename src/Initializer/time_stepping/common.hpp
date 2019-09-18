@@ -42,9 +42,11 @@
 #ifndef COMMON_HPP
 #define COMMON_HPP
 
-#include "Parallel/MPI.h"
-
+#include <cassert>
 #include <set>
+
+#include "Parallel/MPI.h"
+#include "Initializer/typedefs.hpp"
 
 namespace seissol {
 namespace initializers {
