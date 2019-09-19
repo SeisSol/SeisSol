@@ -156,7 +156,7 @@ void seissol::physics::ScholteWave::evaluate(double time,
 
   for (size_t i = 0; i < points.size(); ++i) {
     const auto& x = points[i];
-    const bool isAcousticPart = std::abs(materialData.local.mu) < 10e-8; // TODO(Lukas) Numerical limits
+    const bool isAcousticPart = std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
     const auto x_1 = x[0];
     const auto x_2 = x[1];
     const auto x_3 = x[2];
@@ -193,8 +193,8 @@ void seissol::physics::SnellsLaw::evaluate(double time,
   const double omega = 2.0 * pi;
 
   for (size_t i = 0; i < points.size(); ++i) {
-    const auto& x = points[i];
-    const bool isAcousticPart = std::abs(materialData.local.mu) < 10e-8; // TODO(Lukas) Numerical limits
+    const auto &x = points[i];
+    const bool isAcousticPart = std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
 
     const auto x_1 = x[0];
     const auto x_2 = x[1];
