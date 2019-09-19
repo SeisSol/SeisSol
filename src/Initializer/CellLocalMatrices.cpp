@@ -280,7 +280,7 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 	  nodes[offset++] = xyz[0];
 	  nodes[offset++] = xyz[1];
 	  nodes[offset++] = xyz[2];
-	  assert(tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0]);
+	  assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0]);
 	}
 
 	// Compute map that rotates to normal aligned coordinate system.
