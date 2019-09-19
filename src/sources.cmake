@@ -169,4 +169,15 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
+
+elseif ("${EQUATIONS}" STREQUAL "anisotropic")
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Model/Setup.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Physics/InitialField.cpp
+  )
+  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
 endif()

@@ -58,7 +58,7 @@ configure_file (
   )
 
 # PDE-Settings
-if ("${EQUATIONS}" STREQUAL "elastic" AND ${NUMBER_OF_MECHANISMS} GREATER 0)
+if (("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "anisotropic") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
   message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
 endif()
 
@@ -95,6 +95,7 @@ add_custom_command(
        generated_code/Point.py
        generated_code/elastic.py
        generated_code/viscoelastic2.py
+       generated_code/anisotropic.py
        generated_code/SurfaceDisplacement.py
     OUTPUT
        src/generated_code/subroutine.h
