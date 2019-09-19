@@ -223,3 +223,24 @@ void seissol::physics::SnellsLaw::evaluate(double time,
     }
   }
 }
+
+void seissol::physics::Ocean::evaluate(double time,
+                                       std::vector<std::array<double, 3>> const& points,
+                                       const CellMaterialData& materialData,
+                                       yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+  for (size_t i = 0; i < points.size(); ++i) {
+    const auto &x = points[i];
+    // TODO(Lukas+Lauren) Implement analytical solution
+    //  at (x[0], x[1], x[2]), time
+    const double pressure = 0.0;
+    dofsQp(i,0) = pressure; // sigma_xx
+    dofsQp(i,1) = pressure; // sigma_yy
+    dofsQp(i,2) = pressure; // sigma_zz
+    dofsQp(i,3) = 0.0; // sigma_xy
+    dofsQp(i,4) = 0.0; // sigma_yz
+    dofsQp(i,5) = 0.0; // sigma_xz
+    dofsQp(i,6) = 0.0; // u
+    dofsQp(i,7) = 0.0; // v
+    dofsQp(i,8) = 0.0; // w
+  }
+}

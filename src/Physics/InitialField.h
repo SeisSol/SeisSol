@@ -70,7 +70,16 @@ namespace seissol {
 		    const CellMaterialData& materialData,
 		    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
+      class Ocean : public InitialField {
+      public:
+          Ocean() {
 
+          }
+          void evaluate(double time,
+                        std::vector<std::array<double, 3>> const& points,
+                        const CellMaterialData& materialData,
+                        yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+      };
   }
 }
 
