@@ -47,7 +47,7 @@
 
 namespace seissol {
   namespace model {
-    bool testShearModulusNonZero(real mu);
+    bool testIfElastic(real mu);
     
     template<typename T>
     void getTransposedElasticCoefficientMatrix(ElasticMaterial const& i_material,
@@ -85,7 +85,7 @@ void seissol::model::getTransposedElasticCoefficientMatrix(seissol::model::Elast
       o_M(7,3) = -i_material.mu;
       o_M(8,5) = -i_material.mu;
       o_M(0,6) = -rhoInv;
-      if (testShearModulusNonZero(i_material.mu)) {
+      if (testIfElastic(i_material.mu)) {
         o_M(3,7) = -rhoInv;
         o_M(5,8) = -rhoInv;
       }
@@ -98,7 +98,7 @@ void seissol::model::getTransposedElasticCoefficientMatrix(seissol::model::Elast
       o_M(6,3) = -i_material.mu;
       o_M(8,4) = -i_material.mu;
       o_M(1,7) = -rhoInv;
-      if (testShearModulusNonZero(i_material.mu)) {
+      if (testIfElastic(i_material.mu)) {
         o_M(3,6) = -rhoInv;
         o_M(4,8) = -rhoInv;
       }
@@ -111,7 +111,7 @@ void seissol::model::getTransposedElasticCoefficientMatrix(seissol::model::Elast
       o_M(7,4) = -i_material.mu;
       o_M(6,5) = -i_material.mu;
       o_M(2,8) = -rhoInv;
-      if (testShearModulusNonZero(i_material.mu)) {
+      if (testIfElastic(i_material.mu)) {
         o_M(5,6) = -rhoInv;
         o_M(4,7) = -rhoInv;
       }
@@ -142,13 +142,13 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
   QgodNeighbor(6,0) = (local.lambda + 2.0 * local.mu) * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
   QgodNeighbor(0,6) = cpL * cpN / constP;
   QgodNeighbor(6,6) = cpL * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  if (testShearModulusNonZero(local.mu) && testShearModulusNonZero(neighbor.mu)) {
+  if (testIfElastic(local.mu) && testIfElastic(neighbor.mu)) {
     // elastic - elastic
     QgodNeighbor(3,3) = csN * local.mu / constS;
     QgodNeighbor(7,3) = local.mu * neighbor.mu / constS;
     QgodNeighbor(3,7) = csL * csN / constS;
     QgodNeighbor(7,7) = csL * neighbor.mu / constS;
-  } else if (testShearModulusNonZero(local.mu) && !testShearModulusNonZero(neighbor.mu)) {
+  } else if (testIfElastic(local.mu) && !testIfElastic(neighbor.mu)) {
     // elastic - acoustic
     QgodNeighbor(3,3) = 1.0;
     QgodNeighbor(7,3) = 0.0;

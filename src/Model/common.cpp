@@ -41,6 +41,6 @@
 #include <cmath>
 #include <iostream>
 
-bool seissol::model::testShearModulusNonZero(real mu) {
+bool seissol::model::testIfElastic(real mu) {
   return std::abs(mu) > std::numeric_limits<real>::epsilon();
 }
