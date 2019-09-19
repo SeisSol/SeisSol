@@ -290,21 +290,32 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   HOST_NAME_MAX=100 # wtf?
 				   )
 
+# Fortran compliler settings				 
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
+if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -fdefault-real-8 -fopenmp")
+elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
+  # todo intel, is needed:  -align -align array64byte
+  # todo -r8 -WB is needed for intel (8 byte precision for reals)
+  # todo openmp only if desired
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")endif()
+
+message("${CMAKE_CXX_COMPILER_ID}")
+# C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
-  # todo remove std?
-  # todo is ffreestanding needed?
+  # todo remove std?, is ffreestanding needed?
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-  # todo intel, is needed:  -align -align array64byte
-  # todo -r8 -WB is needed for intel (8 byte precision for reals)
-  # todo openmp only if desired
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
+
+  # only if openmp
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
 
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fopenmp=libomp")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "CRAY")
   # TODO: Cray
 endif()
