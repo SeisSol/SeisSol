@@ -303,7 +303,8 @@ endif()
 
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+  target_compile_options(SeisSol-lib PUBLIC -Wall -Wextra -pedantic)
+  target_link_options(SeisSol-lib PUBLIC -fopenmp)
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
