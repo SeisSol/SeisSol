@@ -941,6 +941,8 @@ void seissol::time_stepping::TimeCluster::computeFlops()
                                                   m_flops_hardware[PlasticityCheck],
                                                   m_flops_nonZero[PlasticityYield],
                                                   m_flops_hardware[PlasticityYield] );
+
+  // TODO(Lukas): Compute displacement flops?
 }
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)

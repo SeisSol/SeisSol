@@ -165,26 +165,29 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
                                                         long long& o_drNonZeroFlops,
                                                         long long& o_drHardwareFlops) {
   // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops = 0;
-  o_drNonZeroFlops = 0; o_drHardwareFlops = 0;
+  o_nonZeroFlops = 0;
+  o_hardwareFlops = 0;
+  o_drNonZeroFlops = 0;
+  o_drHardwareFlops = 0;
   
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-    // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
-    if (i_faceTypes[l_face] != FaceType::outflow &&
-	i_faceTypes[l_face] != FaceType::dynamicRupture) {
-      // compute the neighboring elements flux matrix id.
-      if (i_faceTypes[l_face] != FaceType::freeSurface) {
-        assert(i_neighboringIndices[l_face][0] < 4 && i_neighboringIndices[l_face][1] < 3);
-        
-        o_nonZeroFlops  += seissol::kernel::neighboringFlux::nonZeroFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
-        o_hardwareFlops += seissol::kernel::neighboringFlux::hardwareFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
-      } else { // fall back to local matrices in case of free surface boundary conditions
-        o_nonZeroFlops  += seissol::kernel::localFlux::nonZeroFlops(l_face);
-        o_hardwareFlops += seissol::kernel::localFlux::hardwareFlops(l_face);
-      }
-    } else if (i_faceTypes[l_face] == FaceType::dynamicRupture) {
-      o_drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
-      o_drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
+  for (unsigned int face = 0; face < 4; face++) {
+    // compute the neighboring elements flux matrix id.
+    switch (i_faceTypes[face]) {
+    case FaceType::regular:
+      // Fallthrough intended
+    case FaceType::periodic:  
+      // regular neighbor
+      assert(i_neighboringIndices[face][0] < 4 && i_neighboringIndices[face][1] < 3);
+      o_nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(i_neighboringIndices[face][1], i_neighboringIndices[face][0], face);
+      o_hardwareFlops += kernel::neighboringFlux::hardwareFlops(i_neighboringIndices[face][1], i_neighboringIndices[face][0], face);
+      break;
+    case FaceType::dynamicRupture:
+      o_drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
+      o_drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
+      break;
+    default:
+      //Handled in local kernel
+      break;
     }
   }
 }

@@ -240,13 +240,47 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
   o_hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
   for( unsigned int face = 0; face < 4; ++face ) {
-    if( i_faceTypes[face] != FaceType::dynamicRupture ) {
-      o_nonZeroFlops  += seissol::kernel::localFlux::nonZeroFlops(face);
+    // Local flux happens for all faces that are not dynamic rupture.
+    // For those cells, the flux is taken into account during the neighbor kernel.
+    if (i_faceTypes[face] != FaceType::dynamicRupture) {
+      o_nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
+    }
+
+    // Take boundary condition flops into account.
+    // Note that this only includes the flops of the kernels but not of the
+    // boundary condition implementation.
+    // The (probably incorrect) assumption is that they are neglible.
+    switch (i_faceTypes[face]) {
+    case FaceType::freeSurface:
+      o_nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
+      o_hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
+      break;
+    case FaceType::freeSurfaceGravity:
+      // TODO(Lukas): Maybe take displacement calculation into acc.?
+      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+	seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
+      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      break;
+    case FaceType::dirichlet:
+      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+	seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face) +
+	seissol::kernel::rotateBoundaryDofsBack::NonZeroFlops;
+      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+	seissol::kernel::projectToNodalBoundary::hardwareFlops(face) + 
+	seissol::kernel::rotateBoundaryDofsBack::HardwareFlops;
+      break;
+    case FaceType::analytical:
+      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+	CONVERGENCE_ORDER * seissol::kernel::updateINodal::NonZeroFlops;
+      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+	CONVERGENCE_ORDER * seissol::kernel::updateINodal::HardwareFlops;
     }
   }
 }
 
+// TODO(Lukas) Boundary conditions?
 unsigned seissol::kernels::Local::bytesIntegral()
 {
   unsigned reals = 0;
