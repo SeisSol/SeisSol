@@ -124,11 +124,11 @@ CONTAINS
 
     !Update pore pressure change (sigma = pore pressure + lambda'*temp)
     !In the BIEM code (Lapusta) they use T without initial value
-    p = -p - Lambda_prime*T
+    p = - p - Lambda_prime*T
 
     !Temp and pore pressure change at single GP on the fault + initial values
     temp = T + EQN%Temp_0
-    pressure = p + EQN%Pressure_0
+    pressure = -p + EQN%Pressure_0
   END SUBROUTINE Calc_ThermalPressure
 
   SUBROUTINE  heat_source(hwid, alpha, dt, Dwn, nz, omega)
@@ -153,14 +153,12 @@ CONTAINS
     !-------------------------------------------------------------------------!
     !Gaussian shear zone in spectral domain, normalized by w
     tmp = (Dwn/hwid)**2
-
-
     !original function in spatial domain
     !omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/hwid).^2);
     !function in the wavenumber domain *including additional factors in front of the heat source function*
     !omega = 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*hwid)**2)*(1-exp(-alpha**dt**tmp)) 
     !inserting Dwn/hwid (scaled) for Dwn cancels out hwid
-    omega = 1.0/(alpha*tmp*(sqrt(2.0*pi)))*exp(-0.5*(tmp)**2)*(1.0 - exp(-alpha*dt*tmp))
+    omega = 1.0/(alpha*tmp*(sqrt(2.0*pi)))*exp(-0.5*(Dwn)**2)*(1.0 - exp(-alpha*dt*tmp))
 
     RETURN
 

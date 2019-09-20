@@ -1416,13 +1416,13 @@ MODULE Eval_friction_law_mod
 
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
-    AlmostZero = 1d-45
+    AlmostZero = 1d-25
     !
     !PARAMETERS of THE optimisation loops
     !absolute tolerance on the function to be optimzed
     ! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
     ! Number of iteration in the loops
-    nSRupdates = 60
+    nSRupdates = 100
     nSVupdates = 2
 
     !dt = DISC%Galerkin%TimeGaussP(nTimeGP) + DeltaT(1)
@@ -1665,7 +1665,7 @@ MODULE Eval_friction_law_mod
     REAL          :: n_stress(nBndGP), sh_stress(nBndGP), invZ
     REAL          :: NR(nBndGP), dNR(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP)
     REAL          :: mu_f(nBndGP), dmu_f(nBndGP)                              !calculated here in routine
-    REAL          :: AlmostZero = 1D-45, aTolF = 1e-8
+    REAL          :: AlmostZero = 1D-25, aTolF = 5d-14 !1e-8
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: nSRupdates, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
                      sh_stress, invZ
@@ -1697,8 +1697,8 @@ MODULE Eval_friction_law_mod
 
        !calculate friction coefficient
        tmp2  = tmp*SRtest
-       mu_f  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))
-       dmu_f = RS_a/SQRT(1D0+tmp2**2)*tmp
+       mu_f  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
+       dmu_f = RS_a/SQRT(1.0D0+tmp2**2)*tmp
        NR    = -invZ * (ABS(n_stress)*mu_f-sh_stress)-SRtest
 
        IF (maxval(abs(NR))<aTolF) THEN
@@ -1707,7 +1707,7 @@ MODULE Eval_friction_law_mod
        ENDIF
 
        !derivative of NR
-       dNR   = -invZ * (ABS(n_stress)*dmu_f) -1.0
+       dNR   = -invZ * (ABS(n_stress)*dmu_f) -1.0D0
        !ratio
        tmp3 = NR/dNR
 

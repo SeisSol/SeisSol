@@ -270,10 +270,10 @@ MODULE ini_model_DR_mod
         ! use this for advanced initialization
         ! call c_interoperability_addFaultParameter("IniTP" // c_null_char, DISC%DynRup%IniTP)
 
-        DISC%DynRup%TP_grid(:) = 0.0d0
-        DISC%DynRup%TP_DFinv(:) = 0.0d0
-        DISC%DynRup%TP_Theta(:,:,:) = 0.0d0
-        DISC%DynRup%TP_Sigma(:,:,:) = 0.0d0
+        DISC%DynRup%TP_grid(:) = 0.0
+        DISC%DynRup%TP_DFinv(:) = 0.0
+        DISC%DynRup%TP_Theta(:,:,:) = 0.0
+        DISC%DynRup%TP_Sigma(:,:,:) = 0.0
         DISC%DynRup%TP(:,:,1) = EQN%Temp_0
         DISC%DynRup%TP(:,:,2) = EQN%Pressure_0
 

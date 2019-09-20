@@ -95,5 +95,5 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info,
 }
 
 char const * const seissol::writer::FaultWriterExecutor::LABELS[] = {
-	"SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl","PSR", "RT", "DS"
+	"SRs", "SRd", "T_s", "T_d", "P_n", "u_n", "Mud", "StV", "Ts0", "Td0", "Pn0", "Sls", "Sld", "Vr", "ASl","PSR", "RT", "DS", "P_f", "Temp"
 };

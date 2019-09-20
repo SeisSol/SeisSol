@@ -532,17 +532,10 @@ CONTAINS
               DynRup_output%OutVal(iOutPoints,1,OutVars) = LocU !OutVars =6
           ENDIF
           IF (DynRup_output%OutputMask(4).EQ.1) THEN
-              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-                  OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,2) !OutVars =7
-                  OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,1) !OutVars =8
-              ELSE
-                  OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = MuVal !OutVars =7
-                  OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = LocSV !OutVars =8
-              ENDIF
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = MuVal !OutVars =7
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocSV !OutVars =8
           ENDIF
           IF (DynRup_output%OutputMask(5).EQ.1) THEN
               OutVars = OutVars + 1
@@ -569,9 +562,9 @@ CONTAINS
                   ENDIF
 
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%output_Slip1(iBndGP,iFace) - sin1* DISC%DynRup%output_Slip2(iBndGP,iFace)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%output_Slip1(iBndGP,iFace) - sin1* DISC%DynRup%output_Slip2(iBndGP,iFace) !OutVars = 12
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%output_Slip1(iBndGP,iFace) + cos1 * DISC%DynRup%output_Slip2(iBndGP,iFace)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%output_Slip1(iBndGP,iFace) + cos1 * DISC%DynRup%output_Slip2(iBndGP,iFace) !OutVars = 13
               ENDIF
 
               IF (DynRup_output%OutputMask(7).EQ.1) THEN
@@ -696,27 +689,35 @@ CONTAINS
                 ENDIF
 
                 OutVars = OutVars + 1
-                DynRup_output%OutVal(iOutPoints,1,OutVars)  = Vr
+                DynRup_output%OutVal(iOutPoints,1,OutVars)  = Vr !OutVars = 14
 
               ENDIF
               IF (DynRup_output%OutputMask(8).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_Slip(iBndGP,iFace)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_Slip(iBndGP,iFace) !OutVars = 15
               ENDIF
               IF (DynRup_output%OutputMask(9).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_PeakSR(iBndGP,iFace)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_PeakSR(iBndGP,iFace) !OutVars = 16
               ENDIF
               IF (DynRup_output%OutputMask(10).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_rupture_time(iBndGP,iFace)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_rupture_time(iBndGP,iFace) !OutVars = 17
               ENDIF
               IF (DynRup_output%OutputMask(11).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_dynStress_time(iBndGP,iFace)
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_dynStress_time(iBndGP,iFace) !OutVars = 18
               ENDIF
           ENDIF
 
+              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+                  IF (DynRup_output%OutputMask(12).EQ.1) THEN
+                      OutVars = OutVars + 1
+                      DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,2) !OutVars = 19
+                      OutVars = OutVars + 1
+                      DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,1) !OutVars = 20
+                  ENDIF
+              ENDIF
 
           ! Store output
           IF (DISC%DynRup%OutputPointType.NE.4) THEN

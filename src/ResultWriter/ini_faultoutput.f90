@@ -1154,6 +1154,7 @@ CONTAINS
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(9).EQ.1) OutVars = OutVars + 1
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(10).EQ.1) OutVars = OutVars + 1
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(11).EQ.1) OutVars = OutVars + 1
+       IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(12).EQ.1) OutVars = OutVars + 2
        !
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%CurrentPick(DISC%DynRup%DynRup_out_elementwise%nDR_pick))
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpTime(DISC%DynRup%DynRup_out_elementwise%MaxPickStore))
@@ -1220,6 +1221,12 @@ CONTAINS
        ENDIF
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(11).EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 18
+        k=k+1
+       ENDIF
+       IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(12).EQ.1) THEN
+        DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 19
+        k=k+1
+        DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 20
         k=k+1
        ENDIF
        !
