@@ -276,6 +276,9 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
 	CONVERGENCE_ORDER * seissol::kernel::updateINodal::NonZeroFlops;
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
 	CONVERGENCE_ORDER * seissol::kernel::updateINodal::HardwareFlops;
+      break;
+    default:
+      break;
     }
   }
 }

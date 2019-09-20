@@ -392,7 +392,7 @@ CONTAINS
      STOP
     endif
     inquire(file=BoundaryFileName , exist=fileExists)
-    if (.NOT. fileExists) then
+    if (.NOT. (BoundaryFileName == "") .AND. (.NOT. fileExists)) then
      logError(*) 'Boundary file "', trim(BoundaryFileName), '" does not exist.'
      STOP
     endif
