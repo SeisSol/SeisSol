@@ -96,8 +96,7 @@ add_custom_command(
        generated_code/elastic.py
        generated_code/viscoelastic2.py
        generated_code/SurfaceDisplacement.py
-    OUTPUT
-       src/generated_code/subroutine.h
+    OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
        src/generated_code/tensor.h
@@ -196,6 +195,7 @@ find_package(yaml-cpp REQUIRED)
 
 find_package(Eigen3) # maybe enfore 3.3?
 if (EIGEN3_FOUND)
+  target_include_directories(SeisSol-lib PUBLIC ${EIGEN3_INCLUDE_DIR})
   target_compile_definitions(SeisSol-lib PUBLIC HAS_EIGEN3)
 else()
 endif()
@@ -290,21 +290,35 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   HOST_NAME_MAX=100 # wtf?
 				   )
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  # using GCC
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-  # using Intel C++
-  # todo remove std?
-  # todo is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+# Fortran compliler settings				 
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
+if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -fdefault-real-8 -fopenmp")
+elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
   # todo openmp only if desired
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
+endif()
+
+# C++ compiler settings
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  target_compile_options(SeisSol-lib PUBLIC -fopenmp -Wall -Wextra -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wno-unused-parameter -Wno-unknown-pragmas>)
+  target_link_options(SeisSol-lib PUBLIC -fopenmp)
+
+  # using GCC
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+  # using Intel C++
+  # todo remove std?, is ffreestanding needed?
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+  # only if openmp
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
 
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fopenmp=libomp")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "CRAY")
   # TODO: Cray
 endif()
