@@ -756,6 +756,8 @@ void seissol::Interoperability::initInitialConditions()
     m_iniConds.emplace_back(new physics::ScholteWave());
   } else if (m_initialConditionType == "Snell") {
     m_iniConds.emplace_back(new physics::SnellsLaw());
+  } else if (m_initialConditionType == "Ocean") {
+    m_iniConds.emplace_back(new physics::Ocean());
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
