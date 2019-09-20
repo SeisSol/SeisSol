@@ -42,7 +42,7 @@
 
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
-#include <generated_code/sizes.h>
+#include <generated_code/tensor.h>
 
 namespace seissol {
   namespace initializers {
@@ -51,17 +51,17 @@ namespace seissol {
 }
 
 struct seissol::initializers::DynamicRupture {
-  Variable<real*>                                       timeDerivativePlus;
-  Variable<real*>                                       timeDerivativeMinus;
-  Variable<real[CONVERGENCE_ORDER][seissol::model::godunovState::reals]>   godunov;
-  Variable<real[seissol::model::godunovState::reals]>   imposedStatePlus;
-  Variable<real[seissol::model::godunovState::reals]>   imposedStateMinus;
-  Variable<DRGodunovData>                               godunovData;
-  Variable<real[seissol::model::fluxSolver::reals]>     fluxSolverPlus;
-  Variable<real[seissol::model::fluxSolver::reals]>     fluxSolverMinus;
-  Variable<DRFaceInformation>                           faceInformation;
-  Variable<seissol::model::IsotropicWaveSpeeds>         waveSpeedsPlus;
-  Variable<seissol::model::IsotropicWaveSpeeds>         waveSpeedsMinus;
+  Variable<real*>                                                   timeDerivativePlus;
+  Variable<real*>                                                   timeDerivativeMinus;
+  Variable<real[CONVERGENCE_ORDER][tensor::godunovState::size()]>   godunov;
+  Variable<real[tensor::godunovState::size()]>                      imposedStatePlus;
+  Variable<real[tensor::godunovState::size()]>                      imposedStateMinus;
+  Variable<DRGodunovData>                                           godunovData;
+  Variable<real[tensor::fluxSolver::size()]>                        fluxSolverPlus;
+  Variable<real[tensor::fluxSolver::size()]>                        fluxSolverMinus;
+  Variable<DRFaceInformation>                                       faceInformation;
+  Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
+  Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
   
   
   void addTo(LTSTree& tree) {

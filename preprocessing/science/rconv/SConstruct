@@ -50,12 +50,56 @@ vars.AddVariables(
   
   EnumVariable( 'compileMode', 'mode of the compilation', 'release',
                 allowed_values=('debug', 'release')
-              )
+              ),
+
+  EnumVariable( 'compiler',
+                'Select the compiler (default: intel)',
+                'intel',
+                allowed_values=('intel', 'gcc', 'cray_intel', 'cray_gcc')),
+
+  PathVariable( 'netcdfDir',
+                'NetCDF installation directory',
+                None,
+                PathVariable.PathAccept ),
+
+  PathVariable( 'proj4Dir',
+                'proj4 installation directory',
+                None,
+                PathVariable.PathAccept ),
+  PathVariable( 'SeisSolSrcDir',
+                'path to seissol src',
+                '../../../src/',
+                PathVariable.PathAccept ),
+  PathVariable( 'SeisSolSubmoduleDir',
+                'path to seissol submodules',
+                '../../../submodules/',
+                PathVariable.PathAccept ),
+  BoolVariable( 'NoProj',
+                'do not project data',
+                False ),
 )
 
 # set environment
-env = Environment(variables=vars, CC=os.environ['CC'], CXX=os.environ['CXX'])
+env = Environment(variables=vars)
 env['ENV'] = os.environ
+if env['NoProj']:
+   env.Append(CPPDEFINES=['noproj'])
+
+# Basic compiler setting
+if env['compiler'] == 'intel':
+    env['CC'] = 'icc'
+    env['CXX'] = 'icpc'
+    env['F90'] = 'ifort'
+elif env['compiler'] == 'gcc':
+    env['CC'] = 'gcc'
+    env['CXX'] = 'g++'
+    env['F90'] = 'gfortran'
+elif env['compiler'].startswith('cray_'):
+    env['CC'] = 'cc'
+    env['CXX'] = 'CC'
+    env['F90'] = 'ftn'
+else:
+    assert(false)
 
 # generate help text
 Help(vars.GenerateHelpText(env))

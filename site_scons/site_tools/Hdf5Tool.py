@@ -94,7 +94,9 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
             cmd = utils.compiler.removeUnknownOptions(cmd)
             return env.ParseFlags(cmd)
         flags = env.ParseConfig([h5cc, '-show', '-shlib'], parse_func)
-    else:
+        if flags['LIBS']==[] or flags['LIBPATH']==[]:
+           h5cc=None
+    if not h5cc:
         # Try pkg-config
         hdf5s = ['hdf5_hl', 'hdf5_hl_parallel']
         if parallel:
@@ -102,11 +104,11 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
         for hdf5 in hdf5s:
             flags = utils.pkgconfig.parse(conf, hdf5)
             if flags:
-                break
+       	        break
 
-	if not flags:
+        if not flags:
             if required:
-                print 'Could not find h5cc or h5pcc. Make sure the path to the HDF5 library is correct!'
+                print('Could not find h5cc or h5pcc. Make sure the path to the HDF5 library is correct!')
                 env.Exit(1)
             else:
                 conf.Finish()
@@ -120,7 +122,7 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
         ret = conf.CheckHDF5FortranInclude()
         if not ret:
             if required:
-                print 'Could not find HDF5 for Fortran!'
+                print('Could not find HDF5 for Fortran!')
                 env.Exit(1)
             else:
                 conf.Finish()
@@ -130,7 +132,7 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
         ret = conf.CheckLib('hdf5_fortran')
         if not ret:
             if required:
-                print 'Could not find HDF5 for Fortran!'
+                print('Could not find HDF5 for Fortran!')
                 env.Exit(1)
             else:
                 conf.Finish()
@@ -139,7 +141,7 @@ def generate(env, required = False, parallel = False, fortran = False, **kw):
     ret = conf.CheckLibWithHeader(flags['LIBS'][0], 'hdf5.h', 'c', extra_libs=flags['LIBS'][1:])
     if not ret:
         if required:
-            print 'Could not find the HDF5 library!'
+            print('Could not find the HDF5 library!')
             env.Exit(1)
         else:
             conf.Finish()

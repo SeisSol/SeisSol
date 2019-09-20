@@ -42,6 +42,7 @@
 
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
+#include <generated_code/tensor.h>
 
 #if CONVERGENCE_ORDER < 2 || CONVERGENCE_ORDER > 8
 #error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
@@ -71,7 +72,10 @@ namespace seissol {
 }
 
 struct seissol::initializers::LTS {
-  Variable<real[NUMBER_OF_ALIGNED_DOFS]>  dofs;
+  Variable<real[tensor::Q::size()]>       dofs;
+#if NUMBER_OF_RELAXATION_MECHANISMS > 0
+  Variable<real[tensor::Qane::size()]>    dofsAne;
+#endif
   Variable<real*>                         buffers;
   Variable<real*>                         derivatives;
   Variable<CellLocalInformation>          cellInformation;
@@ -81,7 +85,6 @@ struct seissol::initializers::LTS {
   Variable<CellMaterialData>              material;
   Variable<PlasticityData>                plasticity;
   Variable<CellDRMapping[4]>              drMapping;
-  Variable<real[3]>                       energy;
   Variable<real[7]>                       pstrain;
   Variable<real*>                         displacements;
   Bucket                                  buffersDerivatives;
@@ -95,6 +98,9 @@ struct seissol::initializers::LTS {
     LayerMask plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
 #endif
     tree.addVar(                    dofs, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
+#if NUMBER_OF_RELAXATION_MECHANISMS > 0
+    tree.addVar(                 dofsAne, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
+#endif
     tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
     tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
     tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );
@@ -104,7 +110,6 @@ struct seissol::initializers::LTS {
     tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
     tree.addVar(              plasticity,   plasticityMask,                 1,      seissol::memory::Standard );
     tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(                  energy,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
     tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
     tree.addVar(           displacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
     

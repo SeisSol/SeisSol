@@ -141,28 +141,24 @@ You must not specify both.
      - Initial traction in n=normal, s=strike, d=dip direction.
    * - cohesion
      - Pa
-     - 2, 6, 13, 16, 17, 29, 30
+     - 2, 6
      - Magnitude of cohesive force.
    * - mu_s, mu_d
      -
-     - 2, 6, 13, 16, 17, 29, 30
+     - 2, 6
      - Linear slip weakening: Static and dynamic friction coefficient.
-   * - mu_s, mu_d, d_c
+   * - d_c
      - m
-     - 2, 6, 13, 16, 17, 29, 30
+     - 2, 6
      - Linear slip weakening: Critical distance.
    * - forced_rupture_time
      - s
-     - 16, 17, 29, 30
+     - 2
      - Time of forced rupture.
-   * - rs_a
+   * - rs_a, rs_srW, RS_sl0
      - 
-     - 101
+     - 101, 103
      - Rate-and-state friction parameter.
-   * - rs_srW, RS_sl0
-     - 
-     - 103
-     - Rate-and-state friction parameters.
    * - nuc_{xx, yy, zz, xy, yz, xz}
      - Pa
      - 103

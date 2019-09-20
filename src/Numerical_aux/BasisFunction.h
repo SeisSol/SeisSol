@@ -43,9 +43,12 @@
 #include <cmath>
 #include <numeric>
 #include <vector>
+#include <type_traits>
 
-namespace BasisFunction
-{
+#include "Functions.h"
+
+namespace seissol {
+namespace basisFunction {
 
 //------------------------------------------------------------------------------
 
@@ -57,14 +60,14 @@ namespace BasisFunction
 template<class T>
 class BasisFunctionGenerator {
 private:
-    T eta_, zeta_, xi_;
+    T xi_, eta_, zeta_;
 
     /**
      * Function to sample a Jacobi Polynomial.
      * Source : https://github.com/pjabardo/Jacobi.jl/blob/master/src/jac_poly.jl
      * @param x Sampling point
      */
-    static T sampleJacobiPolynomial(T x, unsigned int n, T a, T b);
+    static T sampleJacobiPolynomial(T x, unsigned int n, unsigned int a, unsigned int b);
 
 public:
     /**
@@ -74,8 +77,8 @@ public:
      * @param zeta The zeta coordinate in the reference terahedron.
      * @param xi The xi coordinate in the reference terahedron.
      */
-    BasisFunctionGenerator(T eta, T zeta, T xi) :
-        eta_(eta), zeta_(zeta), xi_(xi)
+    BasisFunctionGenerator(T xi, T eta, T zeta) :
+      xi_(xi), eta_(eta), zeta_(zeta)
     {}
 
     /**
@@ -100,7 +103,9 @@ public:
  */
 template<class T>
 class SampledBasisFunctions {
-private:
+  static_assert(std::is_arithmetic<T>::value, "Type T for SampledBasisFunctions must be arithmetic.");
+  
+public:
     /** The basis function samples */
     std::vector<T> m_data;
 
@@ -115,10 +120,10 @@ public:
      * @param xi The xi coordinate in the reference terahedron.
      */
     SampledBasisFunctions(unsigned int order,
-            T eta, T zeta, T xi)
+			  T xi, T eta, T zeta)
     	: m_data(basisFunctionsForOrder(order))
     {
-        BasisFunctionGenerator<T> gen(eta, zeta, xi);
+        BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
         unsigned int i = 0;
         for (unsigned int ord = 0; ord < order; ord++)
@@ -132,12 +137,12 @@ public:
      * Function to evaluate the samples by multiplying the sampled Basis
      * function with its coefficient and summing up the products.
      * res = c0 * bf0 + c1 * bf1 + ... + cn * bfn
-     * @param iter the const iterator to read the coefficients
+     * @param coeffIter the const iterator to read the coefficients
      */
     template<class ConstIterator>
-    T evalWithCoefs(ConstIterator iter) const
+    T evalWithCoeffs(ConstIterator coeffIter) const
     {
-        return std::inner_product(m_data.begin(), m_data.end(), iter, static_cast<T>(0));
+        return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
     }
 
     /**
@@ -158,36 +163,35 @@ private:
 //==============================================================================
 
 template<class T>
-T BasisFunctionGenerator<T>::sampleJacobiPolynomial(T x, unsigned int n, T a, T b)
-{
-    if (n==0)
-        return 1.0;
-    if (n==1)
-        return 0.5 * (a - b + (a + b + 2.0)*x);
-
-    T p0 = 1.0;
-    T p1 = 0.5 * (a - b + (a + b + 2.0)*x);
-    T p2 = 0.0;
-
-    for (T i = 1; i < n; i++) {
-        T a1 = 2.0*(i+1.0)*(i+a+b+1.0)*(2.0*i+a+b);
-        T a2 = (2.0*i+a+b+1.0)*(a*a-b*b);
-        T a3 = (2.0*i+a+b)*(2.0*i+a+b+1.0)*(2.0*i+a+b+2.0);
-        T a4 = 2.0*(i+a)*(i+b)*(2.0*i+a+b+2.0);
-        p2 = 1.0/a1*((a2 + a3*x)*p1 - a4*p0);
-        p0 = p1;
-        p1 = p2;
-    }
-
-    return p2;
+T BasisFunctionGenerator<T>::sampleJacobiPolynomial(T x, unsigned int n,
+						    unsigned int a,
+						    unsigned b) {
+  return seissol::functions::JacobiP(n, a, b, x);
+  /*
+    if (n == 0) {
+        return T(1);
+      }
+    T Pm_2;
+    T Pm_1 = T(1);
+    T Pm = 0.5*a - 0.5*b + (T(1) + 0.5*(a+b)) * x;
+    T a2_b2 = T(a*a)-T(b*b);
+    for (unsigned m = 2; m <= n; ++m) {
+      Pm_2 = Pm_1;
+      Pm_1 = Pm;
+      Pm = ( (T(2)*m+a+b-T(1))*(a2_b2 + (T(2)*m+a+b)*(T(2)*m+a+b-T(2))*x)*Pm_1 - T(2)*(m+a-T(1))*(m+b-T(1))*(T(2)*m+a+b)*Pm_2 ) / (T(2)*m*(m+a+b)*(T(2)*m+a+b-T(2)));
+    }      
+    return Pm;
+  */
 }
+
 
 //------------------------------------------------------------------------------
 
 template<class T>
-T BasisFunctionGenerator<T>::operator()(unsigned int i, unsigned int j,
-        unsigned int k) const
-{
+T BasisFunctionGenerator<T>::operator()(unsigned int i,
+					unsigned int j,
+					unsigned int k) const {
+  /*
     const T r = (eta_-1.0+zeta_+2.0*xi_)/(1.0-eta_-zeta_);
     const T s = (2.0*eta_-1.0+zeta_)/(1.0-zeta_);
     const T t = 2.0*zeta_-1.0;
@@ -197,10 +201,13 @@ T BasisFunctionGenerator<T>::operator()(unsigned int i, unsigned int j,
     const T theta_c = std::pow((1-t)/2, i+j) * sampleJacobiPolynomial(t, k, 2*i+2*j+2, 0);
 
     return  theta_a * theta_b * theta_c;
+  */
+  return functions::TetraDubinerP(i, j, k, xi_, eta_, zeta_);
 }
 
 //------------------------------------------------------------------------------
 
-} // namespace BasisFunction
+} // namespace basisFunction
+} //namespace seissol
 
 #endif // BASIS_FUNCTION_H

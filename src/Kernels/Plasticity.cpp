@@ -44,92 +44,89 @@
 #include <cstring>
 #include <algorithm>
 #include <cmath>
-#include <generated_code/kernels.h>
-#include <generated_code/flops.h>
+#include <generated_code/kernel.h>
+#include <generated_code/init.h>
 
 unsigned seissol::kernels::Plasticity::computePlasticity( double                      relaxTime,
                                                       double                      timeStepWidth,
                                                       GlobalData const*           global,
                                                       PlasticityData const*       plasticityData,
-                                                      real                        degreesOfFreedom[ NUMBER_OF_ALIGNED_DOFS ],
-                                                      double*                     pstrain)
+                                                      real                        degreesOfFreedom[tensor::Q::size()],
+                                                      real*                       pstrain)
 {
-  real interpolationDofs[seissol::model::interpolationDOFS::reals] __attribute__((aligned(ALIGNMENT)));
-  real meanStress[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
-  real tau[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
-  real taulim[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
-  real yieldFactor[seissol::model::interpolationDOFS::ld] __attribute__((aligned(ALIGNMENT)));
+  assert( reinterpret_cast<uintptr_t>(degreesOfFreedom) % ALIGNMENT == 0 );
+  assert( reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % ALIGNMENT == 0 );
+  assert( reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % ALIGNMENT == 0 );
+
+  real QStressNodal[tensor::QStressNodal::size()] __attribute__((aligned(ALIGNMENT)));
+  real meanStress[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
+  real secondInvariant[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
+  real tau[tensor::secondInvariant::size()] __attribute__((aligned(ALIGNMENT)));
+  real taulim[tensor::meanStress::size()] __attribute__((aligned(ALIGNMENT)));
+  real yieldFactor[tensor::yieldFactor::size()] __attribute__((aligned(ALIGNMENT)));
   real dudt_pstrain[7];
-  
-  seissol::generatedKernels::evaluateAtNodes(degreesOfFreedom, global->vandermondeMatrix, interpolationDofs);
+
+  static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(), "Second invariant tensor and mean stress tensor must be of the same size().");
+  static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(), "Yield factor tensor must be smaller than mean stress tensor.");
   
   //copy dofs for later comparison, only first dof of stresses required
+  // @todo multiple sims
   real prev_degreesOfFreedom[6];
   for (unsigned q = 0; q < 6; ++q) {
 	  prev_degreesOfFreedom[q] = degreesOfFreedom[q * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
   }
 
-  for (unsigned q = 0; q < 6; ++q) {
-    real initialLoading = plasticityData->initialLoading[q][0];
-    for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-      interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] += initialLoading;
-    }
-  }
-  
-  for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-    meanStress[ip] = ( interpolationDofs[0 * seissol::model::interpolationDOFS::ld + ip]
-                      + interpolationDofs[1 * seissol::model::interpolationDOFS::ld + ip]
-                      + interpolationDofs[2 * seissol::model::interpolationDOFS::ld + ip] ) * (1.0 / 3.0);
-  }
+  kernel::plConvertToNodal m2nKrnl;
+  m2nKrnl.v = global->vandermondeMatrix;
+  m2nKrnl.QStress = degreesOfFreedom;
+  m2nKrnl.QStressNodal = QStressNodal;
+  m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
+  m2nKrnl.initialLoading = plasticityData->initialLoading;
+  m2nKrnl.execute();
 
-  for (unsigned q = 0; q < 3; ++q) {
-    for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-      interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] -= meanStress[ip];
-    }
+  kernel::plComputeMean cmKrnl;
+  cmKrnl.meanStress = meanStress;
+  cmKrnl.QStressNodal = QStressNodal;
+  cmKrnl.selectBulkAverage = init::selectBulkAverage::Values;
+  cmKrnl.execute();
+
+  kernel::plSubtractMean smKrnl;
+  smKrnl.meanStress = meanStress;
+  smKrnl.QStressNodal = QStressNodal;
+  smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
+  smKrnl.execute();
+
+  kernel::plComputeSecondInvariant siKrnl;
+  siKrnl.secondInvariant = secondInvariant;
+  siKrnl.QStressNodal = QStressNodal;
+  siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
+  siKrnl.execute();
+  
+  for (unsigned ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
+    tau[ip] = sqrt(secondInvariant[ip]);
   }
   
-  for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-    tau[ip] = sqrt(0.5 * (interpolationDofs[0 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[0 * seissol::model::interpolationDOFS::ld + ip]
-            + interpolationDofs[1 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[1 * seissol::model::interpolationDOFS::ld + ip]
-            + interpolationDofs[2 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[2 * seissol::model::interpolationDOFS::ld + ip])
-            + interpolationDofs[3 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[3 * seissol::model::interpolationDOFS::ld + ip]
-            + interpolationDofs[4 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[4 * seissol::model::interpolationDOFS::ld + ip]
-            + interpolationDofs[5 * seissol::model::interpolationDOFS::ld + ip] * interpolationDofs[5 * seissol::model::interpolationDOFS::ld + ip]);
-  }
-  
-  for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
+  for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
     taulim[ip] = std::max((real) 0.0, plasticityData->cohesionTimesCosAngularFriction - meanStress[ip] * plasticityData->sinAngularFriction);
   }
   
   bool adjust = false;
-  for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::rows; ++ip) {
+  for (unsigned ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
     if (tau[ip] > taulim[ip]) {
       adjust = true;
-      yieldFactor[ip] = 1.0 - (1.0 - taulim[ip] / tau[ip]) * relaxTime;
+      yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * relaxTime;
     } else {
-      yieldFactor[ip] = 1.0;
+      yieldFactor[ip] = 0.0;
     }
   }
   
   if (adjust) {
-    for (unsigned q = 0; q < 3; ++q) {
-      real initialLoading = plasticityData->initialLoading[q][0];
-      for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-        interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] = yieldFactor[ip] * interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip]
-                                                                          + meanStress[ip]
-                                                                          - initialLoading;
-      }
-    }
-    for (unsigned q = 3; q < 6; ++q) {
-      real initialLoading = plasticityData->initialLoading[q][0];
-      for (unsigned ip = 0; ip < seissol::model::interpolationDOFS::ld; ++ip) {
-        interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip] = yieldFactor[ip] * interpolationDofs[q * seissol::model::interpolationDOFS::ld + ip]
-                                                                          - initialLoading;
-      }
-    }
-
-
-    generatedKernels::convertToModal(interpolationDofs, global->vandermondeMatrixInverse, degreesOfFreedom);
+    kernel::plAdjustStresses adjKrnl;
+    adjKrnl.QStress = degreesOfFreedom;
+    adjKrnl.vInv = global->vandermondeMatrixInverse;
+    adjKrnl.QStressNodal = QStressNodal;
+    adjKrnl.yieldFactor = yieldFactor;
+    adjKrnl.execute();
 
     // calculate plastic strain with first dof only (for now)
     for (unsigned q = 0; q < 6; ++q) {
@@ -149,50 +146,38 @@ unsigned seissol::kernels::Plasticity::computePlasticity( double                
   return 0;
 }
 
-void seissol::kernels::Plasticity::flopsPlasticity( long long&  o_nonZeroFlopsCheck,
-                                                    long long&  o_hardwareFlopsCheck,
-                                                    long long&  o_nonZeroFlopsYield,
-                                                    long long&  o_hardwareFlopsYield )
+void seissol::kernels::Plasticity::flopsPlasticity( long long&  o_NonZeroFlopsCheck,
+                                                    long long&  o_HardwareFlopsCheck,
+                                                    long long&  o_NonZeroFlopsYield,
+                                                    long long&  o_HardwareFlopsYield )
 {
   // reset flops
-  o_nonZeroFlopsCheck = 0; o_hardwareFlopsCheck = 0;
-  o_nonZeroFlopsYield = 0; o_hardwareFlopsYield = 0;
+  o_NonZeroFlopsCheck = 0; o_HardwareFlopsCheck = 0;
+  o_NonZeroFlopsYield = 0; o_HardwareFlopsYield = 0;
   
   // flops from checking, i.e. outside if (adjust) {}
-  o_nonZeroFlopsCheck  += seissol::flops::evaluateAtNodes_nonZero;
-  o_hardwareFlopsCheck += seissol::flops::evaluateAtNodes_hardware;
+  o_NonZeroFlopsCheck  += kernel::plConvertToNodal::NonZeroFlops;
+  o_HardwareFlopsCheck += kernel::plConvertToNodal::HardwareFlops;
   
-  // add initial loading
-  o_nonZeroFlopsCheck  += 6 * seissol::model::interpolationDOFS::rows;
-  o_hardwareFlopsCheck += 6 * seissol::model::interpolationDOFS::ld;
-  
-  // compute mean stress (2 adds, 1 mul)
-  o_nonZeroFlopsCheck  += 3 * seissol::model::interpolationDOFS::rows;
-  o_hardwareFlopsCheck += 3 * seissol::model::interpolationDOFS::ld;
+  // compute mean stress
+  o_NonZeroFlopsCheck  += kernel::plComputeMean::NonZeroFlops;
+  o_HardwareFlopsCheck += kernel::plComputeMean::HardwareFlops;
   
   // subtract mean stress
-  o_nonZeroFlopsCheck  += 3 * seissol::model::interpolationDOFS::rows;
-  o_hardwareFlopsCheck += 3 * seissol::model::interpolationDOFS::ld;
+  o_NonZeroFlopsCheck  += kernel::plSubtractMean::NonZeroFlops;
+  o_HardwareFlopsCheck += kernel::plSubtractMean::HardwareFlops;
   
-  // compute tau (5 adds, 7 muls, sqrt NOT counted)
-  o_nonZeroFlopsCheck  += 12 * seissol::model::interpolationDOFS::rows;
-  o_hardwareFlopsCheck += 12 * seissol::model::interpolationDOFS::ld;
+  // compute second invariant
+  o_NonZeroFlopsCheck  += kernel::plComputeSecondInvariant::NonZeroFlops;
+  o_HardwareFlopsCheck += kernel::plComputeSecondInvariant::HardwareFlops;
   
   // compute taulim (1 add, 1 mul, max NOT counted)
-  o_nonZeroFlopsCheck  += 2 * seissol::model::interpolationDOFS::rows;
-  o_hardwareFlopsCheck += 2 * seissol::model::interpolationDOFS::ld;
+  o_NonZeroFlopsCheck  += 2 * tensor::meanStress::size();
+  o_HardwareFlopsCheck += 2 * tensor::meanStress::size();
   
   // check for yield (NOT counted, as it would require counting the number of yielding points) 
 
   // flops from plastic yielding, i.e. inside if (adjust) {}
-  o_nonZeroFlopsYield  += seissol::flops::convertToModal_nonZero;
-  o_hardwareFlopsYield += seissol::flops::convertToModal_hardware;
-    
-  // adjust 3 bulk stresses (2 adds, 1 mul)
-  o_nonZeroFlopsYield  += 3 * 3 * seissol::model::interpolationDOFS::rows;
-  o_hardwareFlopsYield += 3 * 3 * seissol::model::interpolationDOFS::ld;
-
-  // adjust 3 shear stresses (1 adds, 1 mul)
-  o_nonZeroFlopsYield  += 3 * 2 * seissol::model::interpolationDOFS::rows;
-  o_hardwareFlopsYield += 3 * 2 * seissol::model::interpolationDOFS::ld;
+  o_NonZeroFlopsYield  += kernel::plAdjustStresses::NonZeroFlops;
+  o_HardwareFlopsYield += kernel::plAdjustStresses::HardwareFlops;
 }

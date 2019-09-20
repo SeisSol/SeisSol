@@ -41,6 +41,7 @@
 #define WAVE_FIELD_WRITER_H
 
 #include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
 
 #include <algorithm>
 #include <cassert>
@@ -51,9 +52,7 @@
 
 #include "async/Module.h"
 
-#ifdef GENERATEDKERNELS
 #include "Checkpoint/DynStruct.h"
-#endif // GENERATEDKERNELS
 #include "Geometry/refinement/VariableSubSampler.h"
 #include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
@@ -74,10 +73,8 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/** True if wave field output is enabled */
 	bool m_enabled;
 
-#ifdef GENERATEDKERNELS
 	/** The timestep component in the checkpoint header */
 	DynStruct::Component<int> m_timestepComp;
-#endif // GENERATEDKERNELS
 
 	/** False if entire region is to be written */
 	bool m_extractRegion;
@@ -184,6 +181,14 @@ public:
 	void setUp()
 	{
 		setExecutor(m_executor);
+		if (isAffinityNecessary()) {
+		  const auto freeCpus = parallel::getFreeCPUsMask();
+		  logInfo(seissol::MPI::mpi.rank()) << "Wave field writer thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
+		  if (parallel::freeCPUsMaskEmpty(freeCpus)) {
+		    logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+		  }
+		  setAffinityIfNecessary(freeCpus);
+		}
 	}
 
   void setWaveFieldInterval(double interval) {

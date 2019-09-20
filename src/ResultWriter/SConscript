@@ -42,16 +42,15 @@
 Import('env')
 
 # result writer source files
-writerFiles = [ 'analyse_seissol.f90',
-                'inioutput_seissol.f90',
+writerFiles = [ 'inioutput_seissol.f90',
                 'output_rupturefront.f90',
                 'magnitude_output.f90',
                 'energies.f90',
-                'common_receiver.f90',
                 'receiver.f90',
                 'common_fault_receiver.f90',
                 'faultoutput.f90',
                 'ini_faultoutput.f90',
+                'AnalysisWriter.cpp',
                 'WaveFieldWriter.cpp',
                 'FaultWriterC.cpp',
                 'FaultWriterF.f90',
@@ -59,7 +58,8 @@ writerFiles = [ 'analyse_seissol.f90',
                 'FaultWriterExecutor.cpp',
                 'FreeSurfaceWriter.cpp',
                 'FreeSurfaceWriterExecutor.cpp',
-                'PostProcessor.cpp' ]
+                'PostProcessor.cpp',
+                'ReceiverWriter.cpp' ]
 
 for i in writerFiles:
   env.sourceFiles.append(env.Object(i))

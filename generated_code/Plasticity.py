@@ -38,29 +38,36 @@
 # @section DESCRIPTION
 #
 
-from gemmgen import DB, Tools, Arch, Kernel
 import numpy as np
+from yateto import Tensor
+from yateto.input import parseXMLMatrixFile
+from multSim import OptionalDimTensor
 
-def addMatrices(db, matricesDir, PlasticityMethod, order):
-  numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
-  clones = dict()
-
+def addKernels(generator, aderdg, matricesDir, PlasticityMethod):
   # Load matrices
-  db.update(Tools.parseMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, order), clones))
+  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, aderdg.order), clones=dict(), alignStride=aderdg.alignStride)
+  numberOfNodes = aderdg.t(db.v.shape())[0]
 
-  # force Aligned in order to be compatible with regular DOFs.
-  db.insert(DB.MatrixInfo('stressDOFS', numberOfBasisFunctions, 6, forceAligned=True))
+  sShape = (aderdg.numberOf3DBasisFunctions(), 6)
+  QStress = OptionalDimTensor('QStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape, alignStride=True)
+  initialLoading = Tensor('initialLoading', (6,))
 
-  matrixOrder = { 'v': 0, 'vInv': 1 }
-  globalMatrixIdRules = [
-    (r'^(v|vInv)$', lambda x: matrixOrder[x[0]])
-  ]
-  DB.determineGlobalMatrixIds(globalMatrixIdRules, db, 'plasticity')
+  replicateIniLShape = (numberOfNodes,)
+  replicateIniLSpp = np.ones(aderdg.Q.insertOptDim(replicateIniLShape, (aderdg.Q.optSize(),)))
+  replicateInitialLoading = OptionalDimTensor('replicateInitialLoading', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
 
-def addKernels(db, kernels):
-  evaluateAtNodes = db['v'] * db['stressDOFS']
-  db.insert(evaluateAtNodes.flat('interpolationDOFS'))
-  kernels.append(Kernel.Prototype('evaluateAtNodes', evaluateAtNodes, beta=0))
+  iShape = (numberOfNodes, 6)
+  QStressNodal = OptionalDimTensor('QStressNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), iShape, alignStride=True)
+  meanStress = OptionalDimTensor('meanStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
+  secondInvariant = OptionalDimTensor('secondInvariant', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
 
-  convertToModal = db['vInv'] * db['interpolationDOFS']
-  kernels.append(Kernel.Prototype('convertToModal', convertToModal, beta=0))
+  selectBulkAverage = Tensor('selectBulkAverage', (6,), spp={(i,): str(1.0/3.0) for i in range(3)})
+  selectBulkNegative = Tensor('selectBulkNegative', (6,), spp={(i,): '-1.0' for i in range(3)})
+  weightSecondInvariant = Tensor('weightSecondInvariant', (6,), spp={(i,): str(1.0/2.0) if i < 3 else '1.0' for i in range(6)})
+  yieldFactor = Tensor('yieldFactor', (numberOfNodes,))
+
+  generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
+  generator.add('plComputeMean', meanStress['k'] <= QStressNodal['kq'] * selectBulkAverage['q'])
+  generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])
+  generator.add('plComputeSecondInvariant', secondInvariant['k'] <= QStressNodal['kq'] * QStressNodal['kq'] * weightSecondInvariant['q'])
+  generator.add('plAdjustStresses', QStress['kp'] <= QStress['kp'] + db.vInv[aderdg.t('kl')] * QStressNodal['lp'] * yieldFactor['l'])

@@ -44,6 +44,8 @@
 
 #include <algorithm>
 #include <Initializer/typedefs.hpp>
+#include <generated_code/init.h>
+#include <generated_code/kernel.h>
 #include <cassert>
 
 namespace seissol {
@@ -90,130 +92,24 @@ namespace seissol {
      * @param o_unalignedDofs unaligned degrees of freedom.
      **/
     template<typename real_from, typename real_to>
-    void convertAlignedDofs( const real_from i_alignedDofs[   NUMBER_OF_ALIGNED_DOFS],
-                                          real_to   o_unalignedDofs[ NUMBER_OF_DOFS] ) {
-      for( unsigned int l_quantity = 0; l_quantity < NUMBER_OF_QUANTITIES; l_quantity++ ) {
-        for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
-          o_unalignedDofs[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction] = i_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction];
-        }
+    void convertAlignedDofs( const real_from i_alignedDofs[tensor::Q::size()],
+                                   real_to   o_unalignedDofs[tensor::QFortran::size()] ) {
+      kernel::copyQToQFortran krnl;
+      krnl.Q = i_alignedDofs;
+#ifdef MULTIPLE_SIMULATIONS
+      krnl.multSimToFirstSim = init::multSimToFirstSim::Values;
+#endif
+
+      if (std::is_same<real_from, real_to>::value) {
+        krnl.QFortran = reinterpret_cast<real_from*>(o_unalignedDofs);
+        krnl.execute();
+      } else {
+        real_from unalignedDofs[tensor::QFortran::size()];
+        krnl.QFortran = unalignedDofs;
+        krnl.execute();
+        std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
       }
     }
-
-    /**
-     * Converts unaligned degrees of freedom (compressed, without zero padding) to aligned storage (with zero padding).
-     *   Remark: It is assumed that the overhead of the alignment is initialized with zero.
-     *
-     * @param i_unalignedDofs unaligned degrees of freedom.
-     * @param o_alignedDofs aligned degrees of freedom (zero paddin in the basis functions / columns).
-     **/
-    template<typename real_from, typename real_to>
-    void convertUnalignedDofs( const real_from i_unalignedDofs[ NUMBER_OF_DOFS ],
-                                            real_to   o_alignedDofs[   NUMBER_OF_ALIGNED_DOFS ] ) {
-      for( unsigned int l_quantity = 0; l_quantity < NUMBER_OF_QUANTITIES; l_quantity++ ) {
-        for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
-          o_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction] = i_unalignedDofs[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction];
-        }
-      }
-    }
-
-    /**
-     * Adds the unaligned update to degrees of freedom with aligned storage.
-     *
-     * @param i_unalignedUpdate unaligned update.
-     * @param o_alignedDofs aligned degrees of freedom.
-     **/
-    template<typename real_from, typename real_to>
-    void addToAlignedDofs(  real_from const*  i_unalignedUpdate,
-                            real_to*          o_alignedDofs,
-                            unsigned          numberOfQuantities ) {
-      for( unsigned int l_quantity = 0; l_quantity < numberOfQuantities; l_quantity++ ) {
-        for( unsigned int l_basisFunction = 0; l_basisFunction < NUMBER_OF_BASIS_FUNCTIONS; l_basisFunction++ ) {
-          o_alignedDofs[l_quantity*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + l_basisFunction] += i_unalignedUpdate[l_quantity*NUMBER_OF_BASIS_FUNCTIONS + l_basisFunction];
-        }
-      }
-    }
-
-    /**
-     * Copies a submatrix of A (sizes of B) to B.
-     * If B doesn't fit in A zeros are set.
-     *
-     * @param i_A values of matrix A.
-     * @param i_aNumberOfRows number of rows of A.
-     * @param i_aNumberOfColumns number of columns of A.
-     * @param i_aLeadingDimension leading dimension of A.
-     * @param o_B values of matrix B, which will be set.
-     * @param i_bNumberOfRows number of rows of matrix B.
-     * @param i_bNumberOfColumns number of columns of matrix B.
-     * @param i_bLeadingDimension leading dimension of B.
-     */
-    template<typename real_from, typename real_to>
-    void copySubMatrix( const real_from    *i_A,
-                               const unsigned int  i_aNumberOfRows,
-                               const unsigned int  i_aNumberOfColumns,
-                               const unsigned int  i_aLeadingDimension,
-                                     real_to      *o_B,
-                               const unsigned int  i_bNumberOfRows,
-                               const unsigned int  i_bNumberOfColumns,
-                               const unsigned int  i_bLeadingDimension ) {
-      // set matrix B to zero
-      for( unsigned int l_index = 0; l_index < i_bLeadingDimension*i_bNumberOfColumns; l_index++ ) {
-        o_B[l_index] = (real) 0;
-      }
-
-      // copy the entries
-      for( unsigned int l_column = 0; l_column < std::min( i_aNumberOfColumns, i_bNumberOfColumns ); l_column++ ) {
-        for( unsigned int l_row = 0; l_row < std::min( i_aNumberOfRows, i_bNumberOfRows ); l_row++ ) {
-          unsigned int l_aIndex = l_column * i_aLeadingDimension + l_row;
-          unsigned int l_bIndex = l_column * i_bLeadingDimension + l_row;
-
-          o_B[l_bIndex] = i_A[l_aIndex];
-        }
-      }
-    }
-
-    /**
-     * Converts a full star matrix (including zeros) to a compressed star matrix containing the 24 possible non-zeros.
-     *
-     * @param i_fullStarMatrix star matrix in full format.
-     * @param o_compressedStarMatrix compressed star matrix.
-     **/
-    template<typename real_from, typename real_to>
-    void convertStarMatrix( const real_from *i_fullStarMatrix,
-                                         real_to   *o_compressedStarMatrix ) {
-      o_compressedStarMatrix[ 0] = i_fullStarMatrix[0*9 + 6];
-      o_compressedStarMatrix[ 1] = i_fullStarMatrix[0*9 + 7];
-      o_compressedStarMatrix[ 2] = i_fullStarMatrix[0*9 + 8];
-
-      o_compressedStarMatrix[ 3] = i_fullStarMatrix[1*9 + 6];
-      o_compressedStarMatrix[ 4] = i_fullStarMatrix[1*9 + 7];
-      o_compressedStarMatrix[ 5] = i_fullStarMatrix[1*9 + 8];
-
-      o_compressedStarMatrix[ 6] = i_fullStarMatrix[2*9 + 6];
-      o_compressedStarMatrix[ 7] = i_fullStarMatrix[2*9 + 7];
-      o_compressedStarMatrix[ 8] = i_fullStarMatrix[2*9 + 8];
-
-      o_compressedStarMatrix[ 9] = i_fullStarMatrix[3*9 + 6];
-      o_compressedStarMatrix[10] = i_fullStarMatrix[3*9 + 7];
-
-      o_compressedStarMatrix[11] = i_fullStarMatrix[4*9 + 7];
-      o_compressedStarMatrix[12] = i_fullStarMatrix[4*9 + 8];
-
-      o_compressedStarMatrix[13] = i_fullStarMatrix[5*9 + 6];
-      o_compressedStarMatrix[14] = i_fullStarMatrix[5*9 + 8];
-
-      o_compressedStarMatrix[15] = i_fullStarMatrix[6*9 + 0];
-      o_compressedStarMatrix[16] = i_fullStarMatrix[6*9 + 3];
-      o_compressedStarMatrix[17] = i_fullStarMatrix[6*9 + 5];
-
-      o_compressedStarMatrix[18] = i_fullStarMatrix[7*9 + 1];
-      o_compressedStarMatrix[19] = i_fullStarMatrix[7*9 + 3];
-      o_compressedStarMatrix[20] = i_fullStarMatrix[7*9 + 4];
-
-      o_compressedStarMatrix[21] = i_fullStarMatrix[8*9 + 2];
-      o_compressedStarMatrix[22] = i_fullStarMatrix[8*9 + 4];
-      o_compressedStarMatrix[23] = i_fullStarMatrix[8*9 + 5];
-    }
-
   }
 }
 

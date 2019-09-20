@@ -69,7 +69,8 @@
  * Time kernel of SeisSol.
  **/
 
-#include "Time.h"
+#include "Kernels/TimeBase.h"
+#include "Kernels/Time.h"
 
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
@@ -77,99 +78,84 @@ extern long long libxsmm_num_total_flops;
 #endif
 
 #include <Kernels/denseMatrixOps.hpp>
-#include <generated_code/kernels.h>
-#include <generated_code/flops.h>
 
 #include <cstring>
 #include <cassert>
 #include <stdint.h>
+#include <omp.h>
 
-seissol::kernels::Time::Time() {
-  // compute the aligned number of basis functions and offsets of the derivatives
+#include <yateto.h>
+
+seissol::kernels::TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
-  for( int l_order = 0; l_order < CONVERGENCE_ORDER; l_order++ ) {
-    m_numberOfAlignedBasisFunctions[l_order] = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER-l_order, ALIGNMENT );
-
-    if( l_order > 0 ) {
-      m_derivativesOffsets[l_order]  =  m_numberOfAlignedBasisFunctions[l_order-1] * NUMBER_OF_QUANTITIES;
-      m_derivativesOffsets[l_order] +=  m_derivativesOffsets[l_order-1];
+  for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
+    if (order > 0) {
+      m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
     }
   }
 }
 
+void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
+
+  m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+}
+
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
-                                          GlobalData const*           global,
-                                          LocalIntegrationData const* local,
-                                          real const*                 i_degreesOfFreedom,
-                                          real*                       o_timeIntegrated,
+                                          LocalData&                  data,
+                                          LocalTmp&                   tmp,
+                                          real                        o_timeIntegrated[tensor::I::size()],
                                           real*                       o_timeDerivatives )
 {
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)i_degreesOfFreedom)     % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed[0]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed[1]) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed[2]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
   /*
    * compute ADER scheme.
    */
-  // scalars in the taylor-series expansion
-  real l_scalar = i_timeStepWidth;
-
   // temporary result
-  real l_derivativesBuffer[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(PAGESIZE_STACK)));
+  real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
+  real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
-  // initialize time integrated DOFs
-  SXt(  l_scalar,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-        NUMBER_OF_QUANTITIES,
-        i_degreesOfFreedom,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-        o_timeIntegrated,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS  );
+  kernel::derivative krnl = m_krnlPrototype;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    krnl.star(i) = data.localIntegration.starMatrices[i];
+  }
 
-  // stream out frist derivative (order 0)
-  if ( o_timeDerivatives != NULL ) {
-    streamstore(NUMBER_OF_ALIGNED_DOFS, i_degreesOfFreedom, o_timeDerivatives);
+  krnl.dQ(0) = const_cast<real*>(data.dofs);
+  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
+  }
+
+  kernel::derivativeTaylorExpansion intKrnl;
+  intKrnl.I = o_timeIntegrated;
+  intKrnl.dQ(0) = data.dofs;
+  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
   
-  real const* lastDerivative = i_degreesOfFreedom;
-  for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    real* currentDerivative = l_derivativesBuffer + m_derivativesOffsets[l_derivative];
-    seissol::generatedKernels::derivative[l_derivative](
-      local->starMatrices[0],
-      local->starMatrices[1],
-      local->starMatrices[2],
-      global->stiffnessMatricesTransposed[1],
-      global->stiffnessMatricesTransposed[0],
-      global->stiffnessMatricesTransposed[2],
-      lastDerivative,
-      currentDerivative
-    );
-    lastDerivative = currentDerivative;
+  // powers in the taylor-series expansion
+  intKrnl.power = i_timeStepWidth;
+
+  intKrnl.execute0();
+
+  // stream out frist derivative (order 0)
+  if (o_timeDerivatives != nullptr) {
+    streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
+  }
+  
+  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
+    krnl.execute(der);
 
     // update scalar for this derivative
-    l_scalar *= i_timeStepWidth / real(l_derivative+1);
-
-    // stream out derivatives if not NULL
-    real* derivativesStore = NULL;
-    if (o_timeDerivatives != NULL) {
-      derivativesStore = o_timeDerivatives + m_derivativesOffsets[l_derivative];
-    }
-
-    // update time integrated DOFs
-    SXtYp(  l_scalar,
-            m_numberOfAlignedBasisFunctions[l_derivative],
-            NUMBER_OF_QUANTITIES,
-            currentDerivative,
-            m_numberOfAlignedBasisFunctions[l_derivative],
-            o_timeIntegrated,
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-            derivativesStore );
+    intKrnl.power *= i_timeStepWidth / real(der+1);    
+    intKrnl.execute(der);
   }
 }
 
@@ -179,17 +165,17 @@ void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
   o_nonZeroFlops = 0; o_hardwareFlops =0;
 
   // initialization
-  o_nonZeroFlops  += NUMBER_OF_DOFS;
-  o_hardwareFlops += NUMBER_OF_ALIGNED_DOFS;
+  o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
+  o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
 
   // interate over derivatives
   for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    o_nonZeroFlops  += seissol::flops::derivative_nonZero[l_derivative];
-    o_hardwareFlops += seissol::flops::derivative_hardware[l_derivative];
+    o_nonZeroFlops  += kernel::derivative::nonZeroFlops(l_derivative);
+    o_hardwareFlops += kernel::derivative::hardwareFlops(l_derivative);
 
     // update of time integrated DOFs
-    o_nonZeroFlops  += seissol::kernels::getNumberOfBasisFunctions(        CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
-    o_hardwareFlops += seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER - l_derivative ) * NUMBER_OF_QUANTITIES * 2;
+    o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(l_derivative);
+    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(l_derivative);
   }
 
 }
@@ -199,11 +185,9 @@ unsigned seissol::kernels::Time::bytesAder()
   unsigned reals = 0;
   
   // DOFs load, tDOFs load, tDOFs write
-  reals += 3 * NUMBER_OF_ALIGNED_DOFS;
+  reals += tensor::Q::size() + 2 * tensor::I::size();
   // star matrices, source matrix
-  reals += seissol::model::AstarT::reals
-           + seissol::model::BstarT::reals
-           + seissol::model::CstarT::reals;
+  reals += yateto::computeFamilySize<tensor::star>();
            
   /// \todo incorporate derivatives
 
@@ -214,7 +198,7 @@ void seissol::kernels::Time::computeIntegral( double                            
                                               double                            i_integrationStart,
                                               double                            i_integrationEnd,
                                               const real*                       i_timeDerivatives,
-                                              real                              o_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] )
+                                              real                              o_timeIntegrated[tensor::I::size()] )
 {
   /*
    * assert alignments.
@@ -229,9 +213,6 @@ void seissol::kernels::Time::computeIntegral( double                            
   /*
    * compute time integral.
    */
-  // reset time integrated degrees of freedom
-  memset( o_timeIntegrated, 0, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES*sizeof(real) );
-
   // compute lengths of integration intervals
   real l_deltaTLower = i_integrationStart - i_expansionPoint;
   real l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
@@ -240,23 +221,64 @@ void seissol::kernels::Time::computeIntegral( double                            
   real l_firstTerm  = (real) 1;
   real l_secondTerm = (real) 1;
   real l_factorial  = (real) 1;
-  real l_scalar;
+  
+  kernel::derivativeTaylorExpansion intKrnl;
+  intKrnl.I = o_timeIntegrated;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = i_timeDerivatives + m_derivativesOffsets[i];
+  }
  
   // iterate over time derivatives
-  for(int l_derivative = 0; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
+  for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
     l_firstTerm  *= l_deltaTUpper;
     l_secondTerm *= l_deltaTLower;
-    l_factorial  *= (real)(l_derivative+1);
+    l_factorial  *= (real)(der+1);
 
-    l_scalar  = l_firstTerm - l_secondTerm;
-    l_scalar /= l_factorial;
+    intKrnl.power  = l_firstTerm - l_secondTerm;
+    intKrnl.power /= l_factorial;
 
-    SXtYp(  l_scalar,
-            m_numberOfAlignedBasisFunctions[l_derivative],
-            NUMBER_OF_QUANTITIES,
-            i_timeDerivatives + m_derivativesOffsets[l_derivative],
-            m_numberOfAlignedBasisFunctions[l_derivative],
-            o_timeIntegrated,
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
+    intKrnl.execute(der);
+  }
+}
+
+void seissol::kernels::Time::computeTaylorExpansion( real         time,
+                                                     real         expansionPoint,
+                                                     real const*  timeDerivatives,
+                                                     real         timeEvaluated[tensor::Q::size()] ) {
+  /*
+   * assert alignments.
+   */
+  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
+  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
+
+  // assert that this is a forward evaluation in time
+  assert( time >= expansionPoint );
+
+  real deltaT = time - expansionPoint;
+
+  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
+
+  kernel::derivativeTaylorExpansion intKrnl;
+  intKrnl.I = timeEvaluated;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+  }
+  intKrnl.power = 1.0;
+ 
+  // iterate over time derivatives
+  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
+    intKrnl.execute(derivative);
+    intKrnl.power *= deltaT / real(derivative+1);
+  }
+}
+
+void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+  // reset flops
+  nonZeroFlops = 0; hardwareFlops = 0;
+
+  // interate over derivatives
+  for (unsigned der = 0; der < CONVERGENCE_ORDER; ++der) {
+    nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
+    hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
   }
 }

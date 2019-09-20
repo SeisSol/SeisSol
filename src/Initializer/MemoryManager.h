@@ -78,7 +78,6 @@
 #include <utils/logger.h>
 
 #include <Initializer/typedefs.hpp>
-#include "XmlParser.hpp"
 #include "MemoryAllocator.h"
 
 #include <Initializer/LTS.h>

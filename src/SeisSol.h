@@ -45,7 +45,6 @@
 
 #include "utils/logger.h"
 
-#ifdef GENERATEDKERNELS
 #include "Solver/time_stepping/TimeManager.h"
 #include "Solver/Simulator.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -54,11 +53,12 @@
 #include "SourceTerm/Manager.h"
 #include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/FreeSurfaceWriter.h"
-#endif // GENERATEDKERNELS
 
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
 #include "ResultWriter/FaultWriter.h"
+
+#include "ResultWriter/AnalysisWriter.h"
 
 class MeshReader;
 
@@ -79,7 +79,6 @@ private:
 
 	MeshReader* m_meshReader;
 
-#ifdef GENERATEDKERNELS
 	/*
 	 * initializers
 	 */
@@ -109,13 +108,19 @@ private:
   /** Free surface writer module **/
   writer::FreeSurfaceWriter m_freeSurfaceWriter;
 
-#endif // GENERATEDKERNELS
+  /** Analysis writer module **/
+  writer::AnalysisWriter m_analysisWriter;
+
 
 	/** Wavefield output module */
 	writer::WaveFieldWriter m_waveFieldWriter;
 
 	/** Fault output module */
 	writer::FaultWriter m_faultWriter;
+    
+  //! Receiver writer module
+  writer::ReceiverWriter m_receiverWriter;
+
 
 private:
 	/**
@@ -149,7 +154,6 @@ public:
 		return m_parameterFile.c_str();
 	}
 
-#ifdef GENERATEDKERNELS
 	initializers::time_stepping::LtsLayout& getLtsLayout(){ return m_ltsLayout; }
 
 	initializers::MemoryManager& getMemoryManager() {
@@ -183,13 +187,17 @@ public:
 		return m_freeSurfaceWriter;
 	}
 
+	writer::AnalysisWriter& analysisWriter()
+	{
+		return m_analysisWriter;
+	}
+
 	/** Get the post processor module
          */
          writer::PostProcessor& postProcessor()
          {
                  return m_postProcessor;
          }
-#endif // GENERATEDKERNELS
 
 	io::AsyncIO& asyncIO()
 	{
@@ -210,6 +218,14 @@ public:
 	writer::FaultWriter& faultWriter()
 	{
 		return m_faultWriter;
+	}
+
+	/**
+	 * Get the receiver writer module
+	 */
+	writer::ReceiverWriter& receiverWriter()
+	{
+		return m_receiverWriter;
 	}
 
 	/**

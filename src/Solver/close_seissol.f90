@@ -57,11 +57,8 @@ CONTAINS
     USE TypesDef
     USE ini_OptionalFields_mod,  ONLY: close_OptionalFields
     USE dg_setup_mod
-    USE common_receiver_mod,          ONLY: common_receiver_close
     USE allocate_mesh_mod 
-#ifdef GENERATEDKERNELS
     use f_ftoc_bind_interoperability
-#endif
     USE calc_deltaT_mod,       ONLY : close_calc_deltaT
     !--------------------------------------------------------------------------
     IMPLICIT NONE
@@ -92,17 +89,7 @@ CONTAINS
     CALL destruct_mesh_level0_1(MESH)
     CALL destruct_mesh_level0_2(MESH)
 
-#ifdef GENERATEDKERNELS
     call c_interoperability_finalizeIO()
-#else
-    ! close wave field output (must be done before MPI_Finalize is called)
-    if (IO%Format .eq. 6) then
-        call waveFieldWriterClose()
-    endif
-#endif
-
-    ! 
-    CALL common_receiver_close(DISC,IO,MPI)
     !    
     CALL close_OptionalFields(                   &
          OptionalFields = OptionalFields       , &

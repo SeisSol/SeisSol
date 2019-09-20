@@ -44,7 +44,6 @@
 #include <limits>
 #include <cmath>
 
-using seissol::sourceterm::Vector3;
 using seissol::sourceterm::Subfault;
 using seissol::sourceterm::Subfault_units;
 using seissol::sourceterm::Offsets;
@@ -84,16 +83,23 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
     memset(sliprates[sr], 0, numSamples[sr] * sizeof(double));
   }
 
-  Vector3* centres = new Vector3[numSources];
+  glm::dvec3* centres = new glm::dvec3[numSources];
   Subfault* subfaults = new Subfault[numSources];
   for (unsigned i = 0; i < numSources; ++i) {
     SRFPointSource const& source = sources[i];
-    Vector3& centre = centres[i];
+    glm::dvec3& centre = centres[i];
     Subfault& sf = subfaults[i];
     sf.tinit = source.tinit - minTinit;
     sf.timestep = source.dt;
     
+#ifdef noproj
+    centre.x = source.longitude;
+    centre.y= source.latitude;
+    centre.z=source.depth;
+#else
     map.map(source.longitude, source.latitude, source.depth, &centre.x, &centre.y, &centre.z);
+#endif
+
     map.toMCS(source.strike, source.dip, source.rake, 1.0, 0.0, 0.0, &sf.tan1.x, &sf.tan1.y, &sf.tan1.z);
     map.toMCS(source.strike, source.dip, source.rake, 0.0, 1.0, 0.0, &sf.tan2.x, &sf.tan2.y, &sf.tan2.z);
     map.toMCS(source.strike, source.dip, source.rake, 0.0, 0.0, 1.0, &sf.normal.x, &sf.normal.y, &sf.normal.z);
@@ -172,11 +178,11 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
   check_err(stat,__LINE__,__FILE__);
   nrf_grp = ncid;
 
-  stat = nc_def_compound(nrf_grp, sizeof(Vector3), "Vector3", &Vector3_typ);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_def_compound(nrf_grp, sizeof(glm::dvec3), "Vector3", &Vector3_typ);    check_err(stat,__LINE__,__FILE__);
   {
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "x", NC_COMPOUND_OFFSET(Vector3,x), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "y", NC_COMPOUND_OFFSET(Vector3,y), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "z", NC_COMPOUND_OFFSET(Vector3,z), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "x", NC_COMPOUND_OFFSET(glm::dvec3,x), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "y", NC_COMPOUND_OFFSET(glm::dvec3,y), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "z", NC_COMPOUND_OFFSET(glm::dvec3,z), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
   }
 
   stat = nc_def_compound(nrf_grp, sizeof(Subfault_units), "Subfault_units", &Subfault_units_typ);    check_err(stat,__LINE__,__FILE__);

@@ -58,10 +58,6 @@ module f_ctof_bind_interoperability
     module procedure f_interoperability_evaluateFrictionLaw
   end interface
 
-  interface f_interoperability_writeReceivers
-    module procedure f_interoperability_writeReceivers
-  end interface
-
   contains
     subroutine copyDynamicRuptureState(domain, fromMeshId, toMeshId)
       use typesDef
@@ -331,51 +327,6 @@ module f_ctof_bind_interoperability
 
     end subroutine
 
-    subroutine f_interoperability_writeReceivers( i_domain, i_fullUpdateTime, i_timeStepWidth, i_receiverTime, i_numberOfReceivers, i_receiverIds ) bind (c, name='f_interoperability_writeReceivers')
-      use iso_c_binding
-      use typesDef
-      use receiver_mod
-      implicit none
-
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
-
-      type(c_ptr), value                     :: i_fullUpdateTime
-      real*8, pointer                        :: l_fullUpdateTime
-
-      type(c_ptr), value                     :: i_timeStepWidth
-      real*8, pointer                        :: l_timeStepWidth
-
-      type(c_ptr), value                     :: i_receiverTime
-      real*8, pointer                        :: l_receiverTime
-
-      type(c_ptr), value                     :: i_numberOfReceivers
-      integer, pointer                       :: l_numberOfReceivers
-
-      type(c_ptr), value                     :: i_receiverIds
-      integer, pointer                       :: l_receiverIds(:)
-
-      ! convert c to fortran pointers
-      call c_f_pointer( i_domain,            l_domain                             )
-      call c_f_pointer( i_fullUpdateTime,    l_fullUpdateTime                     )
-      call c_f_pointer( i_timeStepWidth,     l_timeStepWidth                      )
-      call c_f_pointer( i_receiverTime,      l_receiverTime                       )
-      call c_f_pointer( i_numberOfReceivers, l_numberOfReceivers                  )
-      call c_f_pointer( i_receiverIds,       l_receiverIds, [l_numberOfReceivers] )
-
-      ! call SeisSol's receiver procedure
-      call receiver( i_fullUpdateTime    = l_fullUpdateTime,    \
-                     i_timeStepWidth     = l_timeStepWidth,     \
-                     i_receiverTime      = l_receiverTime,      \
-                     i_numberOfReceivers = l_numberOfReceivers, \
-                     i_receiverIds       = l_receiverIds,       \
-                     eqn                 = l_domain%eqn,        \
-                     mesh                = l_domain%mesh,       \
-                     disc                = l_domain%disc,       \
-                     mpi                 = l_domain%mpi,        \
-                     io                  = l_domain%io )
-    end subroutine
-
 
     subroutine f_interoperability_computeMInvJInvPhisAtSources( i_domain, i_x, i_y, i_z, i_elem, o_mInvJInvPhisAtSources ) bind( c, name='f_interoperability_computeMInvJInvPhisAtSources')
       use iso_c_binding
@@ -430,5 +381,27 @@ module f_ctof_bind_interoperability
 
         l_mInvJInvPhisAtSources(l_dof) = l_mInvJInvPhisAtSources(l_dof) / ( 6.0d0 * l_domain%MESH%ELEM%Volume(l_elem) * l_domain%DISC%Galerkin%MassMatrix_Tet(l_dof, l_dof, l_domain%DISC%Galerkin%nPoly) )
       end do
+    end subroutine
+
+    subroutine f_interoperability_fitAttenuation( domain, rho, mu, lambda, Qp, Qs, materialFitted) bind( c, name='f_interoperability_fitAttenuation')
+      use iso_c_binding
+      use TypesDef
+      use ini_MODEL_mod
+
+      type(c_ptr), value                     :: domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+
+      real(kind=c_double), value             :: rho, mu, lambda, Qp, Qs
+
+      type(c_ptr), value                     :: materialFitted
+      real*8, pointer                        :: l_materialFitted(:)
+
+      real                                   :: material(5)
+
+      call c_f_pointer( domain,                   l_domain                                         )
+      call c_f_pointer( materialFitted,           l_materialFitted,  [l_domain%EQN%nBackgroundVar] )
+
+      material(:) = (/ rho, mu, lambda, Qp, Qs /)
+      call fitAttenuation(material, l_materialFitted, l_domain%EQN)
     end subroutine
 end module

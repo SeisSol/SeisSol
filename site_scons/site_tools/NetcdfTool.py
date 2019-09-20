@@ -38,6 +38,9 @@
 # @section DESCRIPTION
 # Finds netCDF and add inlcude pathes, libs and library pathes
 #
+import sys
+sys.path.append('../../../site_scons')
+
 
 import utils.checks
 
@@ -93,7 +96,7 @@ def generate(env, **kw):
         
     if not conf.CheckLibWithHeader('netcdf', header, 'c'):
         if required:
-            print 'Could not find netCDF!'
+            print('Could not find netCDF!')
             env.Exit(1)
         else:
             conf.Finish()
@@ -106,7 +109,7 @@ def generate(env, **kw):
         
         if not all(ret):
             if required:
-                print 'Could not find HDF5 or zlib!'
+                print('Could not find HDF5 or zlib!')
                 env.Exit(1)
             else:
                 conf.Finish()
@@ -120,7 +123,7 @@ def generate(env, **kw):
         ret = conf.CheckNetcdfLinking(parallel, "Checking whether all netCDF dependencies are found")
         if not ret:
             if required:
-                print 'Could not find all netCDF dependencies!'
+                print('Could not find all netCDF dependencies!')
                 env.Exit(1)
             else:
                 conf.Finish()

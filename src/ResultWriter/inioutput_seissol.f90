@@ -65,24 +65,18 @@ MODULE inioutput_SeisSol_mod
 CONTAINS
 
   SUBROUTINE inioutput_SeisSol(time,timestep,pvar,cvar,EQN,IC,MESH,MPI,      &
-       SOURCE,DISC,BND,OptionalFields,IO,Analyse, &
+       SOURCE,DISC,BND,OptionalFields,IO, &
        programTitle) !
     !--------------------------------------------------------------------------
     USE TypesDef
 #ifdef HDF
     USE receiver_hdf_mod
-#else
-    USE receiver_mod
 #endif
     USE dg_setup_mod
 
-#ifdef GENERATEDKERNELS
     use iso_c_binding
     use f_ftoc_bind_interoperability
     use ini_faultoutput_mod
-#else
-    use WaveFieldWriter
-#endif
 
 #ifdef PARALLEL
     use iso_c_binding
@@ -108,7 +102,6 @@ CONTAINS
     TYPE (tUnstructOptionalFields) :: OptionalFields                           !
     TYPE (tInputOutput)            :: IO                                       !
     TYPE (tBoundary)               :: BND                                      !
-    TYPE (tAnalyse)                :: Analyse                                  !
     CHARACTER(LEN=100)             :: programTitle                             !
     ! local variable declaration                                               !
     CHARACTER(LEN=5)               :: cmyrank
@@ -118,7 +111,7 @@ CONTAINS
     INTENT(IN)                     :: programTitle                             !
     INTENT(INOUT)                  :: EQN,DISC,IO, OptionalFields, MESH        ! Some values are set in the TypesDef
     INTENT(INOUT)                  :: IC,SOURCE,BND       !
-    INTENT(INOUT)                  :: time,timestep, Analyse             !
+    INTENT(INOUT)                  :: time,timestep             !
     !--------------------------------------------------------------------------
     !                                                                          !
     ! register epik/scorep function
@@ -141,16 +134,10 @@ CONTAINS
          IO     = IO                                    , &                    ! Initialize receivers
          MPI    = MPI                                     )                    ! Initialize receivers
     !                                                                          !
-#else
-    CALL ini_receiver(                                    &                    ! Initialize receivers
-         EQN    = EQN                                   , &                    ! Initialize receivers
-         MESH   = MESH                                  , &                    ! Initialize receivers
-         DISC   = DISC                                  , &                    ! Initialize receivers
-         SOURCE = SOURCE                                , &                    ! Initialize receivers
-         IO     = IO                                    , &                    ! Initialize receivers
-         MPI    = MPI                                     )                    ! Initialize receivers
-    !                                                                          !
 #endif
+    do i=1, IO%ntotalRecordPoint
+      call c_interoperability_addRecPoint(IO%UnstructRecpoint(i)%x, IO%UnstructRecpoint(i)%y, IO%UnstructRecpoint(i)%z)
+    end do
 
     if (io%surfaceOutput > 0) then
         call c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth = io%SurfaceOutputRefinement )
@@ -182,7 +169,9 @@ CONTAINS
         i_outputRegionBounds = io%OutputRegionBounds, &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
         freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
-        xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char )
+        xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &
+        receiverSamplingInterval = io%pickdt, &
+        receiverSyncInterval = min(disc%endTime, io%ReceiverOutputInterval) )
 
     ! Initialize the fault Xdmf Writer
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN

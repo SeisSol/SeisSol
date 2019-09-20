@@ -37,6 +37,7 @@
  * @section DESCRIPTION
  **/
 
+//  TODO: Merge this file with BasisFunction.h
 #ifndef FUNCTIONS_H_
 #define FUNCTIONS_H_
 
@@ -75,6 +76,25 @@ namespace seissol {
       return Pm;
     }
     
+    /** Computes JacobiP(n, a, b, x/y) * y^n.
+     *  Works for y = 0.
+     */
+    inline double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, double y) {
+      if (n == 0) {
+        return 1.0;
+      }
+      double Pm_2;
+      double Pm_1 = 1.0;
+      double Pm = (0.5*a - 0.5*b) * y + (1.0 + 0.5*(a+b)) * x;
+      double a2_b2 = static_cast<double>(a*a)-static_cast<double>(b*b);
+      for (unsigned m = 2; m <= n; ++m) {
+        Pm_2 = Pm_1;
+        Pm_1 = Pm;
+        Pm = ( (2.0*m+a+b-1.0)*(a2_b2*y + (2.0*m+a+b)*(2.0*m+a+b-2.0)*x)*Pm_1 - 2.0*y*y*(m+a-1.0)*(m+b-1.0)*(2.0*m+a+b)*Pm_2 ) / (2.0*m*(m+a+b)*(2.0*m+a+b-2.0));
+      }
+      return Pm;
+    }
+
      /** Calculate first derivative of Jacobi polynomial at x.
      */
     inline double JacobiPFirstDerivative(unsigned n, unsigned a, unsigned b, double x) {
@@ -85,10 +105,25 @@ namespace seissol {
     }
     
     /** Evaluate Dubiner basis on triangle
-     *  TODO: Merge this with BasisFunction.h
+     *
+     * Singularity-free variant inspired by
+     * R. C. Kirby, "Singularity-free evaluation of collapsed-coordinate orthogonal polynomials",
+     * ACM TOMS 37.1, Article 5, doi: 10.1145/1644001.1644006
      */
     inline double TetraDubinerP(unsigned i, unsigned j, unsigned k, double xi, double eta, double zeta) {
-      double r = 2.0 * xi / (1.0 - eta - zeta) - 1.0;
+      double r_num = 2.0 * xi - 1.0 + eta + zeta;
+      double s_num = 2.0 * eta - 1.0 + zeta;
+      double t = 2.0 * zeta - 1.0;
+      double sigmatheta = 1.0 - eta - zeta;
+      double theta = 1.0 - zeta;
+
+      double ti = SingularityFreeJacobiP(i, 0, 0, r_num, sigmatheta);
+      double tij = SingularityFreeJacobiP(j, 2*i+1, 0, s_num, theta);
+      double tijk = SingularityFreeJacobiP(k, 2*i+2*j+2, 0, t, 1.0);
+
+      return ti * tij * tijk;
+      // The following variant does not work for some points, that is, when the denominator is zero.
+      /*double r = 2.0 * xi / (1.0 - eta - zeta) - 1.0;
       double s = 2.0 * eta / (1.0 - zeta) - 1.0;
       double t = 2.0 * zeta - 1.0;
       
@@ -96,7 +131,7 @@ namespace seissol {
       double tij = JacobiP(j, 2*i+1, 0, s) * std::pow(0.5*(1.0-s), i);
       double tijk = JacobiP(k, 2*i+2*j+2, 0, t) * std::pow(0.5*(1.0-t), i+j);
       
-      return ti * tij * tijk;
+      return ti * tij * tijk;*/
     }
   }
 }

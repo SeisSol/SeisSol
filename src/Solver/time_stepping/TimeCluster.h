@@ -94,6 +94,10 @@ namespace seissol {
   namespace time_stepping {
     class TimeCluster;
   }
+
+  namespace kernels {
+    class ReceiverCluster;
+  }
 }
 
 /**
@@ -112,20 +116,17 @@ private:
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
 
-    //! sampling of the receivers
-    double m_receiverSampling;
-
     /*
      * integrators
      */
     //! time kernel
-    kernels::Time     &m_timeKernel;
+    kernels::Time m_timeKernel;
 
     //! local kernel
-    kernels::Local   &m_localKernel;
+    kernels::Local m_localKernel;
 
     //! neighbor kernel
-    kernels::Neighbor &m_neighborKernel;
+    kernels::Neighbor m_neighborKernel;
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
@@ -157,9 +158,6 @@ private:
 
     //! time step width of the performed time step.
     double m_timeStepWidth;
-
-    //! receivers
-    std::vector< int > m_receivers;
     
     //! Mapping of cells to point sources
     sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
@@ -203,6 +201,8 @@ private:
     unsigned        m_regionComputeLocalIntegration;
     unsigned        m_regionComputeNeighboringIntegration;
     unsigned        m_regionComputeDynamicRupture;
+
+    kernels::ReceiverCluster* m_receiverCluster;
 
 #ifdef USE_MPI
     /**
@@ -299,6 +299,7 @@ private:
 
     void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
                                           CellLocalInformation const* cellInformation,
+                                          CellDRMapping const       (*drMapping)[4],
                                           long long&                  nonZeroFlops,
                                           long long&                  hardwareFlops,
                                           long long&                  drNonZeroFlops,
@@ -383,9 +384,6 @@ private:
      **/
     TimeCluster( unsigned int                   i_clusterId,
                  unsigned int                   i_globalClusterId,
-                 kernels::Time                 &i_timeKernel,
-                 kernels::Local                &i_localKernel,
-                 kernels::Neighbor             &i_neighborKernel,
                  struct MeshStructure          *i_meshStructure,
                  struct GlobalData             *i_globalData,
                  seissol::initializers::TimeCluster* i_clusterData,
@@ -428,21 +426,9 @@ private:
                           unsigned i_numberOfCellToPointSourcesMappings,
                           sourceterm::PointSources const* i_pointSources );
 
-    /**
-     * Adds a receiver to the cluster.
-     *
-     * @param i_receiverId id of the receiver as used in Fortran.
-     * @param i_meshId mesh id.
-     **/
-    void addReceiver( unsigned int i_receiverId,
-                      unsigned int i_meshId );
-
-    /**
-     * Sets the receiver sampling for this cluster.
-     *
-     * @param i_receiverSampling receiver sampling.
-     **/
-    void setReceiverSampling( double i_receiverSampling );
+    void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
+      m_receiverCluster = receiverCluster;
+    }
 
     /**
      * Set Tv constant for plasticity.

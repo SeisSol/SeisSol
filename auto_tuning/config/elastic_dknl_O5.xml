@@ -1,8 +1,0 @@
-<memory_layouts>
-  <group name="stiffnessTransposed">
-    <matrix name="kXiDivMT"/>
-    <matrix name="kEtaDivMT"/>
-    <matrix name="kZetaDivMT"/>
-  </group>
-</memory_layouts>
-

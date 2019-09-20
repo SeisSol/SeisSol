@@ -51,7 +51,9 @@ initializeFiles = [ 'ini_seissol.f90',
                     'time_stepping/LtsLayout.cpp',
                     'CellLocalMatrices.cpp',
                     'tree/Lut.cpp',
-                    'ParameterDB.cpp' ]
+                    'ParameterDB.cpp',
+                    'PointMapper.cpp',
+                    'InitialFieldProjection.cpp' ]
 
 if env['metis'] and env['hdf5'] and env['parallelization'] in ['mpi', 'hybrid']:
   initializeFiles.append('time_stepping/LtsWeights.cpp')

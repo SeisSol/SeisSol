@@ -46,9 +46,7 @@
 #include <Initializer/time_stepping/common.hpp>
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-#include <sys/sysinfo.h>
-#include <sched.h>
-#include <pthread.h>
+#include <Parallel/Pin.h>
 volatile bool g_executeCommThread;
 volatile unsigned int* volatile g_handleRecvs;
 volatile unsigned int* volatile g_handleSends;
@@ -72,19 +70,14 @@ seissol::time_stepping::TimeManager::~TimeManager() {
 
 void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&               i_timeStepping,
                                                        struct MeshStructure*              i_meshStructure,
-                                                       initializers::MemoryManager&       i_memoryManager,
-                                                       unsigned int*                      i_meshToClusters  ) {
+                                                       initializers::MemoryManager&       i_memoryManager ) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
 
   // assert non-zero pointers
   assert( i_meshStructure         != NULL );
-  assert( i_meshToClusters        != NULL );
 
   // store the time stepping
   m_timeStepping = i_timeStepping;
-
-  // store mesh to clusters mapping
-  m_meshToClusters = i_meshToClusters;
 
   // iterate over local time clusters
   for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
@@ -100,9 +93,6 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
     // add this time cluster
     m_clusters.push_back( new TimeCluster( l_cluster,
                                            m_timeStepping.clusterIds[l_cluster],
-                                           m_timeKernel,
-                                           m_localKernel,
-                                           m_neighborKernel,
                                            l_meshStructure,
                                            l_globalData,
                                            &i_memoryManager.getLtsTree()->child(l_cluster),
@@ -387,18 +377,10 @@ void seissol::time_stepping::TimeManager::setPointSourcesForClusters( sourceterm
   }
 }
 
-void seissol::time_stepping::TimeManager::addReceiver( unsigned int i_receiverId,
-                                                       unsigned int i_meshId ) {
-  // get cluster id (Fotran-formatting expected)
-  unsigned int l_cluster = m_meshToClusters[i_meshId-1];
-
-  // add to the cluster
-  m_clusters[l_cluster]->addReceiver( i_receiverId, i_meshId );
-}
-
-void seissol::time_stepping::TimeManager::setReceiverSampling( double i_receiverSampling ) {
-  for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
-    m_clusters[l_cluster]->setReceiverSampling( i_receiverSampling );
+void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
+{
+  for (unsigned cluster = 0; cluster < m_clusters.size(); ++cluster) {
+    m_clusters[cluster]->setReceiverCluster(receiverWriter.receiverCluster(cluster));
   }
 }
 
@@ -422,12 +404,8 @@ void seissol::time_stepping::TimeManager::setTv(double tv) {
 void seissol::time_stepping::TimeManager::pollForCommunication() {
   // pin this thread to the last core
   volatile unsigned int l_signalSum = 0;
-  int l_numberOfHWThreads = get_nprocs();
-  l_numberOfHWThreads--;
-  cpu_set_t l_cpuMask;
-  CPU_ZERO(&l_cpuMask);
-  CPU_SET(l_numberOfHWThreads, &l_cpuMask);
-  sched_setaffinity(0, sizeof(cpu_set_t), &l_cpuMask);
+
+  parallel::pinToFreeCPUs();
 
   //logInfo(0) << "Launching communication thread on OS core id:" << l_numberOfHWThreads;
 

@@ -55,14 +55,13 @@ MODULE ini_SeisSol_mod
 CONTAINS
 
   SUBROUTINE ini_SeisSol(time,timestep,pvar,cvar,EQN,IC,MESH,MPI,      &
-       SOURCE,DISC,BND,OptionalFields,IO,Analyse, &
+       SOURCE,DISC,BND,OptionalFields,IO, &
        programTitle) !
     !--------------------------------------------------------------------------
     USE COMMON_readpar_mod
     USE ini_OptionalFields_mod
     USE dg_setup_mod
     USE ini_MODEL_mod
-    USE analyse_SeisSol_mod
  !   USE DGSponge_mod
     USE calc_deltaT_mod
 
@@ -71,10 +70,8 @@ CONTAINS
     USE HDF5
 #endif
     use jacobiNormal_mod
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc, c_null_char
     use f_ftoc_bind_interoperability
-#endif
     !--------------------------------------------------------------------------
     IMPLICIT NONE                                                              !
     !--------------------------------------------------------------------------
@@ -94,7 +91,6 @@ CONTAINS
     TYPE (tUnstructOptionalFields) :: OptionalFields                           !
     TYPE (tInputOutput)            :: IO                                       !
     TYPE (tBoundary)               :: BND                                      !
-    TYPE (tAnalyse)                :: Analyse                                  !
     CHARACTER(LEN=100)             :: programTitle                             !
     ! local variable declaration                                               !
     INTEGER                        :: iElem, iSide, iVtx, i                    !
@@ -145,7 +141,7 @@ CONTAINS
     INTENT(IN)                     :: programTitle                             !
     INTENT(INOUT)                  :: EQN,DISC,IO                              ! Some values are set in the TypesDef
     INTENT(OUT)                    :: IC,MESH,SOURCE,BND, OptionalFields       !
-    INTENT(OUT)                    :: time,timestep, Analyse             !
+    INTENT(OUT)                    :: time,timestep             !
 
     ! register ini_seissol function
     EPIK_FUNC_REG("ini_SeisSol")
@@ -178,7 +174,6 @@ CONTAINS
          SOURCE       = SOURCE                          , &                    !
          BND          = BND                             , &                    !
          IO           = IO                              , &                    !
-         Analyse      = Analyse                         , &                    !
          programTitle = programTitle                    , &                    !
          MPI          = MPI                               )
 
@@ -188,7 +183,6 @@ CONTAINS
     ENDIF
     !
 
-#ifdef GENERATEDKERNELS
     ! Set ouput and checkpoint parameters
     ! This has to be done before the LTS setup!
     if( io%format .eq. 6 ) then
@@ -212,7 +206,6 @@ CONTAINS
 	end do
 
 	call c_interoperability_getIntegrationMask( i_integrationMask = IntegrationMask(1:9) )
-#endif
 #endif
 
     ! Start mesh reading/computing section
@@ -246,7 +239,6 @@ CONTAINS
     EPIK_USER_END(r_read_compute_mesh)
     SCOREP_USER_REGION_END( r_read_compute_mesh )
 
-#ifdef GENERATEDKERNELS
     logInfo(*) 'Generated Kernels: Checking boundary conditions'
 
     do iElem = 1, mesh%nElem
@@ -263,7 +255,6 @@ CONTAINS
         endif
       enddo
     enddo
-#endif
 
     !                                                                               !
     DISC%NGP = 1                                                               !
@@ -304,26 +295,22 @@ CONTAINS
             DISC           = DISC                         , &                  ! Initialize Local Linearized calculation
             BND            = BND                            )                  ! Initialize Local Linearized calculation
     END IF                                                                     !
-    !                                                                          !
-    IF(DISC%DiscretizationMethod.EQ.2) THEN                                    !
-       logInfo(*) '<--------------------------------------------------------->' !
-       logInfo(*) '<           Calling DG Initialization level 2             >' !
-       logInfo(*) '<--------------------------------------------------------->' !
-       !                                                                       !
-       CALL iniGalerkin3D_us_level2_new(                    &              !
-              EQN    = EQN                                , &              !
-              DISC   = DISC                               , &              !
-              MESH   = MESH                               , &              !
-              BND    = BND                                , &              !
-              IC     = IC                                 , &              !
-              SOURCE = SOURCE                             , &              !
-              OptionalFields = OptionalFields             , &              !
-              MPI    = MPI                                , &              !
-              IO     = IO                                   )              !
-       !                                                                       !
-       logInfo(*) 'Galerkin module initialized correctly.'    !
-       !                                                                       !
-    ENDIF                                                                      !
+    logInfo(*) '<--------------------------------------------------------->' !
+    logInfo(*) '<           Calling DG Initialization level 2             >' !
+    logInfo(*) '<--------------------------------------------------------->' !
+    !                                                                       !
+    CALL iniGalerkin3D_us_level2_new(                    &              !
+         EQN    = EQN                                , &              !
+         DISC   = DISC                               , &              !
+         MESH   = MESH                               , &              !
+         BND    = BND                                , &              !
+         IC     = IC                                 , &              !
+         SOURCE = SOURCE                             , &              !
+         OptionalFields = OptionalFields             , &              !
+         MPI    = MPI                                , &              !
+         IO     = IO                                   )              !
+    !                                                                       !
+    logInfo(*) 'Galerkin module initialized correctly.'    !
     !
     !aheineck: Metisweighs are not used, @TODO we should delete this
 #if 0

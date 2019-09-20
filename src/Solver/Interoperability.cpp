@@ -46,6 +46,7 @@
 #include "time_stepping/TimeManager.h"
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
+#include <Initializer/InitialFieldProjection.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
@@ -73,6 +74,11 @@ extern "C" {
     e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
   }
 
+  void c_interoperability_setInitialConditionType(char* type)
+  {
+    e_interoperability.setInitialConditionType(type);
+  }
+  
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
   {
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -138,14 +144,8 @@ extern "C" {
     e_interoperability.initializeFault(modelFileName, gpwise, bndPoints, numberOfBndPoints);
   }
 
-  void c_interoperability_addReceiver( int i_receiverId,
-                                       int i_meshId ) {
-    e_interoperability.addReceiver( i_receiverId,
-                                    i_meshId );
-  }
-
-  void c_interoperability_setReceiverSampling( double i_receiverSampling ) {
-    e_interoperability.setReceiverSampling( i_receiverSampling );
+  void c_interoperability_addRecPoint(double x, double y, double z) {
+    e_interoperability.addRecPoint(x, y, z);
   }
 
   void c_interoperability_enableDynamicRupture() {
@@ -160,12 +160,12 @@ extern "C" {
   }
 
 #ifdef USE_PLASTICITY
- void c_interoperability_setInitialLoading( int    *i_meshId,
+ void c_interoperability_setInitialLoading( int    i_meshId,
                                             double *i_initialLoading ) {
     e_interoperability.setInitialLoading( i_meshId, i_initialLoading );
   }
 
- void c_interoperability_setPlasticParameters( int    *i_meshId,
+ void c_interoperability_setPlasticParameters( int    i_meshId,
                                                double *i_plasticParameters ) {
     e_interoperability.setPlasticParameters( i_meshId, i_plasticParameters );
   }
@@ -208,53 +208,31 @@ extern "C" {
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend) {
+		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
+      double receiverSamplingInterval, double receiverSyncInterval) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
 			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
-			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend);
+			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
+      receiverSamplingInterval, receiverSyncInterval);
   }
 
-  void c_interoperability_addToDofs( int      i_meshId,
-                                     double*  i_update,
-                                     int      numberOfQuantities ) {
-    e_interoperability.addToDofs( i_meshId, i_update, numberOfQuantities );
-  }
-
-  void c_interoperability_getTimeDerivatives( int    i_meshId,
-                                              double  o_timeDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] ) {
-    e_interoperability.getTimeDerivatives( i_meshId,
-                                           o_timeDerivatives );
-  }
-
-  void c_interoperability_getFaceDerInt( int    i_meshId,
-                                         int    i_localFaceId,
-                                         double i_timeStepWidth,
-                                         double o_timeDerivativesCell[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                                         double o_timeDerivativesNeighbor[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                                         double o_timeIntegratedCell[NUMBER_OF_DOFS],
-                                         double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
-    e_interoperability.getFaceDerInt( i_meshId,
-                                      i_localFaceId,
-                                      i_timeStepWidth,
-                                      o_timeDerivativesCell,
-                                      o_timeDerivativesNeighbor,
-                                      o_timeIntegratedCell,
-                                      o_timeIntegratedNeighbor );
+  void c_interoperability_projectInitialField() {
+    e_interoperability.projectInitialField();
   }
 
   void c_interoperability_getDofs( int    i_meshId,
-                                   double o_timeDerivatives[NUMBER_OF_DOFS] ) {
+                                   double o_timeDerivatives[seissol::tensor::QFortran::size()] ) {
     e_interoperability.getDofs( i_meshId, o_timeDerivatives );
   }
 
   void c_interoperability_getDofsFromDerivatives( int    i_meshId,
-                                                  double o_dofs[NUMBER_OF_DOFS] ) {
+                                                  double o_dofs[seissol::tensor::QFortran::size()] ) {
     e_interoperability.getDofsFromDerivatives( i_meshId, o_dofs );
   }
 
   void c_interoperability_getNeighborDofsFromDerivatives( int    i_meshId,
                                                           int    i_localFaceId,
-                                                          double o_dofs[NUMBER_OF_DOFS] ) {
+                                                          double o_dofs[seissol::tensor::QFortran::size()] ) {
     e_interoperability.getNeighborDofsFromDerivatives( i_meshId, i_localFaceId, o_dofs );
   }
 
@@ -307,38 +285,46 @@ extern "C" {
 													double  *io_Energy,
 													double  *io_pstrain );
 
-
-  extern void f_interoperability_writeReceivers( void   *i_domain,
-                                                 double *i_fullUpdateTime,
-                                                 double *i_timeStepWidth,
-                                                 double *i_receiverTime,
-                                                 int    *i_numberOfReceivers,
-                                                 int    *i_receiverIds );
-
   extern void f_interoperability_computeMInvJInvPhisAtSources( void*    i_domain,
                                                                double   i_x,
                                                                double   i_y,
                                                                double   i_z,
                                                                int      i_elem,
                                                                double*  o_mInvJInvPhisAtSources );
+
+  extern void f_interoperability_fitAttenuation(  void*  i_domain,
+                                                  double  rho,
+                                                  double  mu,
+                                                  double  lambda,
+                                                  double  Qp,
+                                                  double  Qs,
+                                                  double* material );
 }
 
 /*
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_domain(NULL), m_ltsTree(NULL), m_lts(NULL), m_ltsFaceToMeshFace(NULL) // reset domain pointer
+  m_initialConditionType(),  m_domain(nullptr), m_ltsTree(nullptr), m_lts(nullptr), m_ltsFaceToMeshFace(nullptr) // reset domain pointer
 {
 }
 
 seissol::Interoperability::~Interoperability()
 {
   delete[] m_ltsFaceToMeshFace;
+  for (auto& iniCond : m_iniConds) {
+    delete iniCond;
+  }
+}
+
+void seissol::Interoperability::setInitialConditionType(char const* type) {
+  assert(type != nullptr);
+  // Note: Pointer to type gets deleted before doing the error computation.
+  m_initialConditionType = std::string(type);
 }
 
 void seissol::Interoperability::setDomain( void* i_domain ) {
   assert( i_domain != NULL );
-
   m_domain = i_domain;
 }
 
@@ -408,8 +394,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
   // add clusters
   seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
                                                     m_meshStructure,
-                                                    seissol::SeisSol::main.getMemoryManager(),
-                                                    m_ltsLut.getMeshToClusterLut() );
+                                                    seissol::SeisSol::main.getMemoryManager() );
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
@@ -496,6 +481,19 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   parameterDB.evaluateModel(std::string(materialFileName), queryGen);
 }
 
+void seissol::Interoperability::fitAttenuation( double rho,
+                                                double mu,
+                                                double lambda,
+                                                double Qp,
+                                                double Qs,
+                                                seissol::model::Material& material )
+{
+  constexpr size_t numMaterialVals = 3 + 4*NUMBER_OF_RELAXATION_MECHANISMS;
+  double materialFortran[numMaterialVals];
+  f_interoperability_fitAttenuation(m_domain, rho, mu, lambda, Qp, Qs, materialFortran);
+  seissol::model::setMaterial(materialFortran, numMaterialVals, &material);
+}
+
 void seissol::Interoperability::initializeFault( char*   modelFileName,
                                                  int     gpwise,
                                                  double* bndPoints,
@@ -518,17 +516,6 @@ void seissol::Interoperability::initializeFault( char*   modelFileName,
   }
 }
 
-void seissol::Interoperability::addReceiver( int i_receiverId,
-                                             int i_meshId ) {
-  seissol::SeisSol::main.timeManager().addReceiver( i_receiverId, i_meshId );
-}
-
-void seissol::Interoperability::setReceiverSampling( double i_receiverSampling ) {
-  assert( i_receiverSampling > 0 );
-
-  seissol::SeisSol::main.timeManager().setReceiverSampling( i_receiverSampling );
-}
-
 void seissol::Interoperability::enableDynamicRupture() {
   // DR is always enabled if there are dynamic rupture cells
 }
@@ -549,22 +536,20 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 }
 
 #ifdef USE_PLASTICITY
-void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {
-  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
+void seissol::Interoperability::setInitialLoading( int i_meshId, double *i_initialLoading ) {
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
-    for( unsigned int l_basis = 0; l_basis < NUMBER_OF_BASIS_FUNCTIONS; l_basis++ ) {
-      plasticity.initialLoading[l_stress][l_basis] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
-    }
+    unsigned l_basis = 0;
+    plasticity.initialLoading[l_stress] = i_initialLoading[ l_stress*NUMBER_OF_BASIS_FUNCTIONS + l_basis ];
   }
 }
 //synchronize element dependent plasticity parameters
-void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {
-  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
-  CellMaterialData& material = m_ltsLut.lookup(m_lts->material, (*i_meshId) - 1);
+void seissol::Interoperability::setPlasticParameters( int i_meshId, double* i_plasticParameters) {
+  PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, i_meshId - 1);
+  CellMaterialData& material = m_ltsLut.lookup(m_lts->material, i_meshId - 1);
 
   double angularFriction = atan(i_plasticParameters[1]);
-
 
   plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[0] * cos(angularFriction);
   plasticity.sinAngularFriction = sin(angularFriction);
@@ -672,14 +657,15 @@ void seissol::Interoperability::initializeIO(
 		int numSides, int numBndGP, int refinement, int* outputMask,
 		double* outputRegionBounds,
 		double freeSurfaceInterval, const char* freeSurfaceFilename,
-    char const* xdmfWriterBackend)
+    char const* xdmfWriterBackend,
+    double receiverSamplingInterval, double receiverSyncInterval)
 {
   auto type = writer::backendType(xdmfWriterBackend);
   
 	// Initialize checkpointing
 	int faultTimeStep;
 	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
-			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
+			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * tensor::Q::size(),
 			mu, slipRate1, slipRate2, slip, slip1, slip2,
 			state, strength, numSides, numBndGP,
 			faultTimeStep);
@@ -689,9 +675,11 @@ void seissol::Interoperability::initializeIO(
 		seissol::SeisSol::main.faultWriter().setTimestep(faultTimeStep);
 	}
 
+  constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+
 	// Initialize wave field output
 	seissol::SeisSol::main.waveFieldWriter().init(
-			NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
+			numberOfQuantities, CONVERGENCE_ORDER,
 			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			seissol::SeisSol::main.meshReader(),
 			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
@@ -707,9 +695,28 @@ void seissol::Interoperability::initializeIO(
 		&seissol::SeisSol::main.freeSurfaceIntegrator(),
 		freeSurfaceFilename, freeSurfaceInterval, type);
 
+  auto& receiverWriter = seissol::SeisSol::main.receiverWriter();
+  // Initialize receiver output
+  receiverWriter.init(
+    std::string(freeSurfaceFilename),
+    receiverSamplingInterval,
+    receiverSyncInterval
+  );
+  receiverWriter.addPoints(
+    m_recPoints,
+    seissol::SeisSol::main.meshReader(),
+    m_ltsLut,
+    *m_lts,
+    m_globalData
+  );
+  seissol::SeisSol::main.timeManager().setReceiverClusters(receiverWriter);
+
 	// I/O initialization is the last step that requires the mesh reader
 	// (at least at the moment ...)
-	seissol::SeisSol::main.freeMeshReader();
+
+	// TODO(Lukas) Free the mesh reader if not doing convergence test.
+	seissol::SeisSol::main.analysisWriter().init(&seissol::SeisSol::main.meshReader());
+	//seissol::SeisSol::main.freeMeshReader();
 }
 
 void seissol::Interoperability::copyDynamicRuptureState()
@@ -717,85 +724,46 @@ void seissol::Interoperability::copyDynamicRuptureState()
 	f_interoperability_copyDynamicRuptureState(m_domain);
 }
 
-void seissol::Interoperability::addToDofs( int      i_meshId,
-                                           double*  i_update,
-                                           int      numberOfQuantities ) {
-  seissol::kernels::addToAlignedDofs( i_update, m_ltsLut.lookup(m_lts->dofs, i_meshId-1), static_cast<unsigned>(numberOfQuantities) );
+void seissol::Interoperability::initInitialConditions()
+{
+  if (m_initialConditionType == "Planarwave") {
+#ifdef MULTIPLE_SIMULATIONS
+    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+      m_iniConds.push_back(new physics::Planarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+    }
+#else
+    m_iniConds.push_back(new physics::Planarwave());
+#endif
+  } else if (m_initialConditionType == "Zero") {
+    m_iniConds.push_back(new physics::ZeroField());
+  } else {
+    throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
+  }
 }
 
-void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
-                                                    double  o_timeDerivatives[CONVERGENCE_ORDER][NUMBER_OF_DOFS] ) {
-  real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
-  real l_timeDerivatives[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(ALIGNMENT)));
+void seissol::Interoperability::projectInitialField()
+{
+  initInitialConditions();
 
-  unsigned nonZeroFlops, hardwareFlops;
-
-  m_timeKernel.computeAder( 0,
-                            m_globalData,
-                            &m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1),
-                            m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
-                            l_timeIntegrated,
-                            l_timeDerivatives );
-
-  m_timeKernel.flopsAder(nonZeroFlops, hardwareFlops);
-  g_SeisSolNonZeroFlopsOther += nonZeroFlops;
-  g_SeisSolHardwareFlopsOther += hardwareFlops;
-
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );
-}
-
-void seissol::Interoperability::getFaceDerInt( int    i_meshId,
-                                               int    i_localFaceId,
-                                               double i_timeStepWidth,
-                                               double o_timeDerivativesCell[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                                               double o_timeDerivativesNeighbor[CONVERGENCE_ORDER][NUMBER_OF_DOFS],
-                                               double o_timeIntegratedCell[NUMBER_OF_DOFS],
-                                               double o_timeIntegratedNeighbor[NUMBER_OF_DOFS] ) {
-  // assert that the cell provides derivatives
-  assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
-
-  real*&    derivatives       = m_ltsLut.lookup(m_lts->derivatives, i_meshId-1);
-  real*   (&faceNeighbors)[4] = m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1);
-
-  unsigned face = i_localFaceId-1;
-
-  // get cells derivatives
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives(  derivatives,
-                                                                    o_timeDerivativesCell );
-
-  // get neighbors derivatives
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives(  faceNeighbors[face],
-                                                                    o_timeDerivativesNeighbor );
-
-  real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
-
-  // compute time integrated DOFs of the cell
-  m_timeKernel.computeIntegral( 0,
-                                0,
-                                i_timeStepWidth,
-                                derivatives,
-                                l_timeIntegrated );
-
-  seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedCell );
-
-  // compute time integrated dofs of the neighbor
-
-  m_timeKernel.computeIntegral( 0,
-                                0,
-                                i_timeStepWidth,
-                                faceNeighbors[face],
-                                l_timeIntegrated );
-
-  seissol::kernels::convertAlignedDofs( l_timeIntegrated, o_timeIntegratedNeighbor );
+  if (m_initialConditionType == "Zero") {
+    // Projection not necessary
+    return;
+  }
+  initializers::projectInitialField(  getInitialConditions(),
+                                      *m_globalData,
+                                      seissol::SeisSol::main.meshReader(),
+                                      *m_lts,
+                                      m_ltsLut);
 }
 
 void seissol::Interoperability::getDofs( int    i_meshId,
-                                         double o_dofs[NUMBER_OF_DOFS] ) {
+                                         double o_dofs[tensor::QFortran::size()] ) {
+  /// @yateto_todo: multiple sims?
   seissol::kernels::convertAlignedDofs( m_ltsLut.lookup(m_lts->dofs, i_meshId-1), o_dofs );
 }
 
 void seissol::Interoperability::getDofsFromDerivatives( int    i_meshId,
-                                                        double o_dofs[NUMBER_OF_DOFS] ) {
+                                                        double o_dofs[tensor::QFortran::size()] ) {
   // assert that the cell provides derivatives
   assert( (m_ltsLut.lookup(m_lts->cellInformation, i_meshId-1).ltsSetup >> 9)%2 == 1 );
 
@@ -805,11 +773,19 @@ void seissol::Interoperability::getDofsFromDerivatives( int    i_meshId,
 
 void seissol::Interoperability::getNeighborDofsFromDerivatives( int    i_meshId,
                                                                 int    i_localFaceId,
-                                                                double  o_dofs[NUMBER_OF_DOFS] ) {
+                                                                double  o_dofs[tensor::QFortran::size()] ) {
 
   // get DOFs from 0th neighbors derivatives
   seissol::kernels::convertAlignedDofs(  m_ltsLut.lookup(m_lts->faceNeighbors, i_meshId-1)[ i_localFaceId-1 ],
                                          o_dofs );
+}
+
+seissol::initializers::Lut* seissol::Interoperability::getLtsLut() {
+  return &m_ltsLut;
+}
+
+std::string seissol::Interoperability::getInitialConditionType() {
+  return m_initialConditionType;
 }
 
 void seissol::Interoperability::simulate( double i_finalTime ) {
@@ -826,27 +802,6 @@ void seissol::Interoperability::finalizeIO()
 	seissol::SeisSol::main.freeSurfaceWriter().close();
 }
 
-void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,
-                                                double i_timeStepWidth,
-                                                double i_receiverTime,
-                                                std::vector< int > &i_receiverIds ) {
-  assert( i_receiverIds.size() > 0 );
-
-  // get number of elements
-  int l_numberOfReceivers = i_receiverIds.size();
-
-  // get a pointer to the raw data
-  int *l_receiverIds = &i_receiverIds.front();
-
-  // call the fortran routine
-  f_interoperability_writeReceivers( m_domain,
-                                    &i_fullUpdateTime,
-                                    &i_timeStepWidth,
-                                    &i_receiverTime,
-                                    &l_numberOfReceivers,
-                                     l_receiverIds );
-}
-
 void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
                                              double i_timeStepWidth )
 {
@@ -854,9 +809,9 @@ void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
 }
 
 void seissol::Interoperability::evaluateFrictionLaw(  int face,
-                                                      real godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
-                                                      real imposedStatePlus[seissol::model::godunovState::reals],
-                                                      real imposedStateMinus[seissol::model::godunovState::reals],
+                                                      real godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
+                                                      real imposedStatePlus[seissol::tensor::godunovState::size()],
+                                                      real imposedStateMinus[seissol::tensor::godunovState::size()],
                                                       double i_fullUpdateTime,
                                                       double timePoints[CONVERGENCE_ORDER],
                                                       double timeWeights[CONVERGENCE_ORDER],
@@ -864,8 +819,8 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                                       seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
 {
   int fFace = face + 1;
-  int numberOfPoints = seissol::model::godunovState::rows;
-  int godunovLd = seissol::model::godunovState::ld;
+  int numberOfPoints = tensor::godunovState::Shape[0];
+  int godunovLd = init::godunovState::Stop[0] - init::godunovState::Start[0];
 
   f_interoperability_evaluateFrictionLaw( m_domain,
                                           fFace,
@@ -910,14 +865,14 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
 }
 #endif
 
-void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS])
+void seissol::Interoperability::computeMInvJInvPhisAtSources(double x, double y, double z, unsigned element, real mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()])
 {
   double f_mInvJInvPhisAtSources[NUMBER_OF_BASIS_FUNCTIONS];
 
   int elem = static_cast<int>(element);
   f_interoperability_computeMInvJInvPhisAtSources(m_domain, x, y, z, elem, f_mInvJInvPhisAtSources);
 
-  memset(mInvJInvPhisAtSources, 0, NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * sizeof(real));
+  memset(mInvJInvPhisAtSources, 0, tensor::mInvJInvPhisAtSources::size() * sizeof(real));
   for (unsigned bf = 0; bf < NUMBER_OF_BASIS_FUNCTIONS; ++bf) {
     mInvJInvPhisAtSources[bf] = f_mInvJInvPhisAtSources[bf];
   }

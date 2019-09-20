@@ -1,3 +1,5 @@
+.. _a_first_example:
+
 A first example
 ===============
 
@@ -61,4 +63,4 @@ be different from ``mpiexec`` (e.g. ``mpiexec.hydra``).
 Result verification
 -------------------
 
-*Coming soon*
+The outputs of your simulation can be compared with our outputs (using SeisSol) and the outputs of other codes by checking out the uploaded files for this SCEC benchmark on the SCEC Code Verification Project `website <http://scecdata.usc.edu/cvws/cgi-bin/cvws.cgi>`__.

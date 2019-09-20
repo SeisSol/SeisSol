@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2017, SeisSol Group
+# Copyright (c) 2017-2019, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,20 +38,29 @@
 # @section DESCRIPTION
 #
 
-from gemmgen import DB, Tools, Arch, Kernel
+
 import numpy as np
+from yateto import Tensor, simpleParameterSpace
+from yateto.memory import CSCMemoryLayout
+from multSim import OptionalDimTensor
 
-maxDepth = 3
+def addKernels(generator, aderdg):
+  maxDepth = 3
 
-def addMatrices(db, order):
-  numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
+  numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
+  numberOfQuantities = aderdg.numberOfQuantities()
+  selectVelocitySpp = np.zeros((numberOfQuantities, 3))
+  selectVelocitySpp[6:9,0:3] = np.eye(3)
+  selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
-  for depth in range(0, maxDepth+1):
-    numberOfSubTriangles = 4**depth
-    db.insert(DB.MatrixInfo('subTriangleProjectionMatrix{}'.format(depth), numberOfSubTriangles, numberOfBasisFunctions, forceAligned=True))
-  db.insert(DB.MatrixInfo('velocityDOFS', numberOfBasisFunctions, 3, forceAligned=True))
+  displacement = OptionalDimTensor('displacement', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOf3DBasisFunctions, 3), alignStride=True)
+  generator.add('addVelocity', displacement['kp'] <= displacement['kp'] + aderdg.I['kq'] * selectVelocity['qp'])
 
-def addKernels(db, kernels):
-  for depth in range(0, maxDepth+1):
-    subTriangleProjection = db['subTriangleProjectionMatrix{}'.format(depth)] * db['velocityDOFS']
-    kernels.append(Kernel.Prototype('subTriangleProjection[{}]'.format(depth), subTriangleProjection, beta=0))
+  subTriangleDofs = [OptionalDimTensor('subTriangleDofs({})'.format(depth), aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (4**depth, 3), alignStride=True) for depth in range(maxDepth+1)]
+  subTriangleProjection = [Tensor('subTriangleProjection({})'.format(depth), (4**depth, numberOf3DBasisFunctions), alignStride=True) for depth in range(maxDepth+1)]
+
+  subTriangleDisplacement = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * displacement['lp']
+  subTriangleVelocity     = lambda depth: subTriangleDofs[depth]['kp'] <= subTriangleProjection[depth]['kl'] * aderdg.Q['lq'] * selectVelocity['qp']
+
+  generator.addFamily('subTriangleDisplacement', simpleParameterSpace(maxDepth+1), subTriangleDisplacement)
+  generator.addFamily('subTriangleVelocity', simpleParameterSpace(maxDepth+1), subTriangleVelocity)

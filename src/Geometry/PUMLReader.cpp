@@ -50,6 +50,10 @@
 
 #include "Initializer/time_stepping/LtsWeights.h"
 
+#include <hdf5.h>
+#include <sstream>
+#include <fstream>
+
 class GlobalFaceSorter
 {
 private:
@@ -69,7 +73,7 @@ public:
 /**
  * @todo Cleanup this code
  */
-seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt)
+seissol::PUMLReader::PUMLReader(const char *meshFile, const char* checkPointFile, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt, bool readPartitionFromFile)
 	: MeshReader(MPI::mpi.rank())
 {
 	PUML::TETPUML puml;
@@ -77,11 +81,11 @@ seissol::PUMLReader::PUMLReader(const char *meshFile, initializers::time_steppin
 
 	read(puml, meshFile);
   
-  if (ltsWeights != nullptr) {
-    generatePUML(puml);
-    ltsWeights->computeWeights(puml);
-  }
-  partition(puml, ltsWeights, tpwgt);
+	if (ltsWeights != nullptr) {
+		generatePUML(puml);
+		ltsWeights->computeWeights(puml);
+	}
+	partition(puml, ltsWeights, tpwgt, meshFile, readPartitionFromFile, checkPointFile);
 
 	generatePUML(puml);
 
@@ -99,36 +103,189 @@ void seissol::PUMLReader::read(PUML::TETPUML &puml, const char* meshFile)
 	puml.addData((file + ":/boundary").c_str(), PUML::CELL);
 }
 
-void seissol::PUMLReader::partition(PUML::TETPUML &puml, initializers::time_stepping::LtsWeights* ltsWeights, double tpwgt)
+int seissol::PUMLReader::readPartition(PUML::TETPUML &puml, int* partition, const char* checkPointFile)
+{
+	/*
+	write the partionning array to an hdf5 file using parallel access
+	see https://support.hdfgroup.org/ftp/HDF5/examples/parallel/coll_test.c for more info about the hdf5 functions
+	*/
+	SCOREP_USER_REGION("PUMLReader_readPartition", SCOREP_USER_REGION_TYPE_FUNCTION);
+	const int rank = seissol::MPI::mpi.rank();
+	const int nrank = seissol::MPI::mpi.size();
+	int nPartitionCells = puml.numOriginalCells();
+
+	/* 
+	 Gather number of cells in each nodes. This is necessary to be able to write the data in the correct location
+	*/
+	int *num_cells = new int[nrank];
+	int *offsets = new int[nrank];
+	MPI_Allgather(&nPartitionCells, 1, MPI_INT, num_cells, 1, MPI_INT, MPI::mpi.comm());
+
+	offsets[0] = 0;
+	for (int rk = 1; rk < nrank; ++rk) {
+		offsets[rk] = offsets[rk-1] + num_cells[rk-1];
+	}
+	const hsize_t dimMem[] = {static_cast<hsize_t>(nPartitionCells)};
+
+	/* 
+	 Open file and dataset 
+	*/
+	MPI_Info info  = MPI_INFO_NULL;
+	hid_t plist_id = H5Pcreate(H5P_FILE_ACCESS);
+	H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info);
+
+	std::ostringstream os;
+	os << checkPointFile<<"_partitions_o" <<CONVERGENCE_ORDER<<"_n"<< nrank << ".h5";
+	std::string fname = os.str();
+
+	std::ifstream ifile(fname.c_str());
+	if (!ifile) { 
+		logInfo(rank) <<fname.c_str()<<"does not exist";
+		return -1;
+	}
+
+	hid_t file = H5Fopen(fname.c_str(), H5F_ACC_RDONLY, plist_id);
+	H5Pclose(plist_id);
+
+	hid_t dataset = H5Dopen2(file, "/partition", H5P_DEFAULT);
+	/* 
+	 Create memspace (portion of filespace) and read collectively the data
+	*/
+	hid_t memspace = H5Screate_simple(1, dimMem, NULL);
+	hid_t filespace = H5Dget_space(dataset);
+
+	hsize_t start[] = {static_cast<hsize_t>(offsets[rank])};
+	hsize_t count[] = {static_cast<hsize_t>(nPartitionCells)};
+	H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, 0L, count, 0L);
+
+	plist_id = H5Pcreate(H5P_DATASET_XFER);
+	H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+	int status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, plist_id, partition);
+
+	if (status<0)
+		logError() << "An error occured when reading the partitionning with HDF5";
+	H5Dclose(dataset);
+	H5Fclose(file);
+
+	logInfo(rank)<<"partitionning was read successfully from "<<fname.c_str();
+	return 0;
+}
+
+
+void seissol::PUMLReader::writePartition(PUML::TETPUML &puml, int* partition, const char *checkPointFile)
+{
+	/*
+	write the partionning array to an hdf5 file using parallel access
+	see https://support.hdfgroup.org/ftp/HDF5/examples/parallel/coll_test.c for more info about the hdf5 functions
+	*/
+	SCOREP_USER_REGION("PUMLReader_writePartition", SCOREP_USER_REGION_TYPE_FUNCTION);
+	const int rank = seissol::MPI::mpi.rank();
+	const int nrank = seissol::MPI::mpi.size();
+	int nPartitionCells = puml.numOriginalCells();
+
+	/* 
+	 Gather number of cells in each nodes. This is necessary to be able to write the data in the correct location
+	*/
+	int *num_cells = new int[nrank];
+	int *offsets = new int[nrank];
+	MPI_Allgather(&nPartitionCells, 1, MPI_INT, num_cells, 1, MPI_INT, MPI::mpi.comm());
+
+	offsets[0] = 0;
+	for (int rk = 1; rk < nrank; ++rk) {
+		offsets[rk] = offsets[rk-1] + num_cells[rk-1];
+	}
+	int nCells = offsets[nrank-1]+num_cells[nrank-1];
+
+	const hsize_t dim[] = {static_cast<hsize_t>(nCells)};
+	const hsize_t dimMem[] = {static_cast<hsize_t>(nPartitionCells)};
+
+	/* 
+	 Create file and file space 
+	*/
+	MPI_Info info  = MPI_INFO_NULL;
+	hid_t plist_id = H5Pcreate(H5P_FILE_ACCESS);
+	H5Pset_fapl_mpio(plist_id, seissol::MPI::mpi.comm(), info);
+
+	std::ostringstream os;
+	os << checkPointFile<<"_partitions_o" <<CONVERGENCE_ORDER<<"_n"<< nrank << ".h5";
+	std::string fname = os.str();
+
+	hid_t file = H5Fcreate(fname.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, plist_id);
+	H5Pclose(plist_id);
+
+	hid_t filespace = H5Screate_simple(1, dim, NULL);
+	hid_t dataset = H5Dcreate(file, "/partition", H5T_NATIVE_INT, filespace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	H5Sclose(filespace);
+
+	/* 
+	 Create memspace (portion of filespace) and write collectively the data
+	*/
+	hid_t memspace = H5Screate_simple(1, dimMem, NULL);
+	filespace = H5Dget_space(dataset);
+
+	hsize_t start[] = {static_cast<hsize_t>(offsets[rank])};
+	hsize_t count[] = {static_cast<hsize_t>(nPartitionCells)};
+	H5Sselect_hyperslab(filespace, H5S_SELECT_SET, start, 0L, count, 0L);
+
+	plist_id = H5Pcreate(H5P_DATASET_XFER);
+	H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+	int status = H5Dwrite(dataset, H5T_NATIVE_INT, memspace, filespace, plist_id, partition);
+
+	if (status<0)
+		logError() << "An error occured when writing the partitionning with HDF5";
+	H5Dclose(dataset);
+	H5Fclose(file);
+}
+
+void seissol::PUMLReader::partition(  PUML::TETPUML &puml,
+                                      initializers::time_stepping::LtsWeights* ltsWeights,
+                                      double tpwgt,
+                                      const char *meshFile,
+                                      bool readPartitionFromFile,
+                                      const char *checkPointFile )
 {
 	SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
-  
+
+	int* partition = new int[puml.numOriginalCells()];
+
+  auto partitionMetis = [&] {
+    PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
 #ifdef USE_MPI
-  double* nodeWeights = new double[seissol::MPI::mpi.size()];
-  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
-  double sum = 0.0;
-  for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
-    sum += nodeWeights[rk];
-  }
-  for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
-    nodeWeights[rk] /= sum;
-  }
+    double* nodeWeights = new double[seissol::MPI::mpi.size()];
+    MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights, 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
+    double sum = 0.0;
+    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
+     sum += nodeWeights[rk];
+    }
+    for (int rk = 0; rk < seissol::MPI::mpi.size(); ++rk) {
+     nodeWeights[rk] /= sum;
+    }
 #else
-  tpwgt = 1.0;
-  double* nodeWeights = &tpwgt;
+    tpwgt = 1.0;
+    double* nodeWeights = &tpwgt;
 #endif
 
+    metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), nodeWeights, 1.01);
 
-	PUML::TETPartitionMetis metis(puml.originalCells(), puml.numOriginalCells());
-	int* partition = new int[puml.numOriginalCells()];
-	metis.partition(partition, ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex(), nodeWeights, 1.01);
+#ifdef USE_MPI
+    delete[] nodeWeights;
+#endif
+  };
+
+  if (readPartitionFromFile) {
+    int status = readPartition(puml, &partition[0], checkPointFile);
+    if (status < 0) {
+      partitionMetis();
+      writePartition(puml, partition, checkPointFile);
+    }
+  } else {
+    partitionMetis();
+  }
 
 	puml.partition(partition);
 	delete [] partition;
-
-#ifdef USE_MPI
-  delete[] nodeWeights;
-#endif
 }
 
 void seissol::PUMLReader::generatePUML(PUML::TETPUML &puml)

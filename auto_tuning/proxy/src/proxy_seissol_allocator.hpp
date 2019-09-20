@@ -60,6 +60,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
 #include <Solver/time_stepping/MiniSeisSol.cpp>
+#include <yateto.h>
 
 seissol::initializers::LTSTree               m_ltsTree;
 seissol::initializers::LTS                   m_lts;
@@ -79,12 +80,17 @@ seissol::memory::ManagedAllocator m_allocator;
 
 real m_timeStepWidthSimulation = (real)1.0;
 
+namespace tensor = seissol::tensor;
+
 unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRupture)
 {
   // init RNG
   srand48(i_cells);
 
   seissol::initializers::initializeGlobalData(m_globalData, m_allocator, MEMKIND_GLOBAL);
+  m_timeKernel.setGlobalData(&m_globalData);
+  m_localKernel.setGlobalData(&m_globalData);
+  m_neighborKernel.setGlobalData(&m_globalData);
   
   m_lts.addTo(m_ltsTree);
   m_ltsTree.setNumberOfTimeClusters(1);
@@ -96,7 +102,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   cluster.child<Interior>().setNumberOfCells(i_cells);
   
   seissol::initializers::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * NUMBER_OF_ALIGNED_DOFS * layer.getNumberOfCells());
+  layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
   
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();
@@ -115,13 +121,13 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
     m_dynRupTree.allocateVariables();
     m_dynRupTree.touchVariables();
     
-    m_fakeDerivatives = (real*) m_allocator.allocateMemory(i_cells * NUMBER_OF_ALIGNED_DERS * sizeof(real), PAGESIZE_HEAP, MEMKIND_TIMEDOFS);
+    m_fakeDerivatives = (real*) m_allocator.allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PAGESIZE_HEAP, MEMKIND_TIMEDOFS);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned cell = 0; cell < i_cells; ++cell) {
-      for (unsigned i = 0; i < NUMBER_OF_ALIGNED_DERS; i++) {
-        m_fakeDerivatives[cell*NUMBER_OF_ALIGNED_DERS + i] = (real)drand48();
+      for (unsigned i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
+        m_fakeDerivatives[cell*yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
       }
     }
   }
@@ -135,38 +141,32 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
 
     // From dynamic rupture tree
     seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
-    real (*imposedStatePlus)[seissol::model::godunovState::reals] = interior.var(m_dynRup.imposedStatePlus);
-    real (*fluxSolverPlus)[seissol::model::fluxSolver::reals]     = interior.var(m_dynRup.fluxSolverPlus);
+    real (*imposedStatePlus)[seissol::tensor::godunovState::size()] = interior.var(m_dynRup.imposedStatePlus);
+    real (*fluxSolverPlus)[seissol::tensor::fluxSolver::size()]     = interior.var(m_dynRup.fluxSolverPlus);
     real** timeDerivativePlus = interior.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = interior.var(m_dynRup.timeDerivativeMinus);
     DRFaceInformation* faceInformation = interior.var(m_dynRup.faceInformation);
     
     /* init drMapping */
-#ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
     for (unsigned cell = 0; cell < i_cells; ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
         unsigned side = (unsigned int)lrand48() % 4;
         unsigned orientation = (unsigned int)lrand48() % 3;
         unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
-        drm.fluxKernel = 4*side + orientation;
+        drm.side = side;
+        drm.faceRelation = orientation;
         drm.godunov = imposedStatePlus[drFace];
-        drm.fluxMatrix = m_globalData.nodalFluxMatrices[side][orientation];
         drm.fluxSolver = fluxSolverPlus[drFace];
       }
     }
 
     /* init dr godunov state */
-    #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
-#endif
     for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
       unsigned plusCell = (unsigned int)lrand48() % i_cells;
       unsigned minusCell = (unsigned int)lrand48() % i_cells;
-      timeDerivativePlus[face] = &m_fakeDerivatives[plusCell * NUMBER_OF_ALIGNED_DERS];
-      timeDerivativeMinus[face] = &m_fakeDerivatives[minusCell * NUMBER_OF_ALIGNED_DERS];
+      timeDerivativePlus[face] = &m_fakeDerivatives[plusCell * yateto::computeFamilySize<tensor::dQ>()];
+      timeDerivativeMinus[face] = &m_fakeDerivatives[minusCell * yateto::computeFamilySize<tensor::dQ>()];
       
       faceInformation[face].plusSide = (unsigned int)lrand48() % 4;
       faceInformation[face].minusSide = (unsigned int)lrand48() % 4;

@@ -41,6 +41,7 @@
 #define FAULTWRITER_H
 
 #include "Parallel/MPI.h"
+#include "Parallel/Pin.h"
 
 #include "utils/logger.h"
 
@@ -90,6 +91,14 @@ public:
 	void setUp()
 	{
 		setExecutor(m_executor);
+		if (isAffinityNecessary()) {
+		  const auto freeCpus = parallel::getFreeCPUsMask();
+		  logInfo(seissol::MPI::mpi.rank()) << "Fault writer thread affinity:" << parallel::maskToString(parallel::getFreeCPUsMask());
+		  if (parallel::freeCPUsMaskEmpty(freeCpus)) {
+		    logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
+		  }
+		  setAffinityIfNecessary(freeCpus);
+		}
 	}
 
 	void setTimestep(unsigned int timestep)

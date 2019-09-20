@@ -47,10 +47,6 @@ MODULE calc_deltaT_mod
   IMPLICIT NONE
   PRIVATE
   !----------------------------------------------------------------------------
-  INTERFACE calc_deltaT
-     MODULE PROCEDURE calc_deltaT
-  END INTERFACE
-
   INTERFACE ini_calc_deltaT
      MODULE PROCEDURE ini_calc_deltaT
   END INTERFACE
@@ -65,10 +61,7 @@ MODULE calc_deltaT_mod
   !----------------------------------------------------------------------------
   PUBLIC  :: ini_calc_deltaT
   PUBLIC  :: close_calc_deltaT
-  PUBLIC  :: calc_deltaT
-#ifdef GENERATEDKERNELS
   public  :: cfl_step
-#endif
   !----------------------------------------------------------------------------
   ! Module Variables
   REAL             :: tol
@@ -137,65 +130,6 @@ CONTAINS
 !    END IF                                              !
   END SUBROUTINE close_calc_deltaT                      !
     
-  SUBROUTINE calc_deltaT(OptionalFields,EQN,MESH,DISC,SOURCE,IO,time,printTime)
-    !--------------------------------------------------------------------------
-    IMPLICIT NONE
-    !--------------------------------------------------------------------------
-    ! argument list declaration
-    TYPE (tUnstructOptionalFields):: OptionalFields
-    TYPE (tEquations)             :: EQN 
-    TYPE (tUnstructMesh)          :: MESH 
-    TYPE (tDiscretization)        :: DISC
-    TYPE (tInputOutput)           :: IO
-    TYPE (tSource)                :: SOURCE
-    REAL                          :: time
-    REAL                          :: printTime
-    ! local Variables
-    REAL                          :: dt1
-    !--------------------------------------------------------------------------
-    INTENT(IN)                    :: EQN,MESH,SOURCE,IO,time,printTime
-    INTENT(INOUT)                 :: OptionalFields, DISC
-    !--------------------------------------------------------------------------
-    !                                                   !
-
-      CALL cfl_step(OptionalFields,EQN,MESH,DISC,IO)    
-      !                                                 !
-    dt1 = OptionalFields%dt(1)                          !
-    !                                                   !
-    IF(DISC%Galerkin%DGMethod.NE.3) THEN
-        SELECT CASE(IO%OutInterval%printIntervalCriterion)  
-        CASE(2,3)                                           
-           IF ( (time+dt1) .GT. printtime ) THEN            
-              OptionalFields%dt(:) = printtime - time       
-           ELSEIF ( (time + 1.5 * dt1) .GT. printtime) THEN 
-              OptionalFields%dt(:) = 0.5 * (printtime - time)
-           ENDIF
-        END SELECT                                          
-        !                                                   
-        IF (      (time      .LT.DISC%EndTime)          &   ! EndTime
-             .AND.((time+dt1).GT.DISC%EndTime) ) THEN       
-           !                                                
-           logInfo(*) 'Modification: Timestep to MATCH max_time'
-           logInfo(*) 'time    :', time
-           logInfo(*) 'max_time:', DISC%EndTime
-           logInfo(*) 'dt      :', dt1
-           logInfo(*) 'reduction of dt: new dt is ',(DISC%EndTime-time)/dt1*100,' % of old ddt'
-           !                                                 
-           OptionalFields%dt(:) = DISC%EndTime - time       
-           !                                                
-           logInfo(*) 'new dt', DISC%EndTime - time
-           !                                                
-        ENDIF                                               
-        !
-        IF (ABS(time+dt1-DISC%EndTime).LT.tol) THEN 
-           OptionalFields%dt(:) = DISC%EndTime - time       
-        END IF                                              
-    ENDIF
-    !                                                   
-    DISC%dt    = MINVAL(OptionalFields%dt(:))
-    !
-  END SUBROUTINE calc_deltaT                            
-
   SUBROUTINE cfl_step(OptionalFields,EQN,MESH,DISC,IO)
     !--------------------------------------------------------------------------
     IMPLICIT NONE

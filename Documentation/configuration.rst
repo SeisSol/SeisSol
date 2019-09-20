@@ -1,3 +1,5 @@
+.. _Configuration:
+
 Configuration
 =============
 
@@ -16,8 +18,7 @@ your are in the root directory of the code repository):
 
        cp build/SeisSol* launch_SeisSol/
 
-3. Write path to the Maple directory to a file called ``DGPATH`` (**not
-   any more required on easi branch**):
+3. Write path to the Maple directory to a file called ``DGPATH``:
 
    ::
 
@@ -44,6 +45,7 @@ Necessary files
 -  SeisSol executable (compiled on the system where the job will run)
 -  DGPATH
 -  Parameter file
+-  \*.yaml files for setting model parameters
 
 Optional files depending on settings in the parameter file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -51,4 +53,3 @@ Optional files depending on settings in the parameter file
 -  receiver files in \*.dat format (if nRecordPoints >0 in the parameter
    file)
 -  fault receiver files in \*.dat format (in the parameter file)
--  \*.yaml files for setting model parameters

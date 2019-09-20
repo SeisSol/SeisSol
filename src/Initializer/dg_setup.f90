@@ -86,11 +86,11 @@ MODULE dg_setup_mod
   INTERFACE BuildSpecialDGGeometry3D_new
      MODULE PROCEDURE BuildSpecialDGGeometry3D_new
   END INTERFACE
+
   !
   !---------------------------------------------------------------------------!
   PUBLIC  ::                               &
        closeGalerkin3D_us,                 &
-       AnalyseGalerkin3D_us_new,           &
        iniGalerkin3D_us_level1_new,        &
        iniGalerkin3D_us_level2_new,        &
        iniGalerkin3D_us_intern_new,        &
@@ -145,10 +145,8 @@ CONTAINS
     IF (ASSOCIATED( DISC%Galerkin%Faculty)) DEALLOCATE(DISC%Galerkin%Faculty)
     IF (ASSOCIATED( DISC%Galerkin%TimeGaussP)) DEALLOCATE(DISC%Galerkin%TimeGaussP)
     IF (ASSOCIATED( DISC%Galerkin%TimeGaussW)) DEALLOCATE(DISC%Galerkin%TimeGaussW)
-#ifdef GENERATEDKERNELS
     ! Interoperability with C needs continuous arrays in memory.
     deallocate(disc%galerkin%dgvar)
-#endif
 
     IF (ASSOCIATED( DISC%Galerkin%cPoly3D_Hex)) DEALLOCATE(DISC%Galerkin%cPoly3D_Hex)
     IF (ASSOCIATED( DISC%Galerkin%NonZeroCPoly_Hex)) DEALLOCATE(DISC%Galerkin%NonZeroCPoly_Hex)
@@ -364,11 +362,9 @@ CONTAINS
 #ifdef PARALLEL
     USE MPIExchangeValues_mod
 #endif
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc, c_null_char, c_bool
     use f_ftoc_bind_interoperability
     use calc_deltaT_mod
-#endif
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -407,22 +403,22 @@ CONTAINS
     REAL                            :: TimeF0(DISC%Galerkin%nPoly+1)
     INTEGER, POINTER                :: MPI_Dirac_Element(:,:)
     INTEGER                         :: iError,iCPU
-#ifdef GENERATEDKERNELS
     real                            :: l_timeStepWidth
     real                            :: l_loads(3), l_scalings(3), l_cuts(2), l_timeScalings(2), l_gts
     integer                         :: iObject, iSide, iNeighbor, MPIIndex
     real, target                    :: materialVal(EQN%nBackgroundVar)
     logical(kind=c_bool)                        :: enableFreeSurfaceIntegration
     
-#endif
     ! ------------------------------------------------------------------------!
     !
     CALL iniGalerkin3D_us_intern_new(EQN, DISC, MESH, BND, IC, SOURCE, OptionalFields, IO)
     !
     CALL BuildSpecialDGGeometry3D_new(OptionalFields%BackgroundValue,EQN,MESH,DISC,BND,MPI,IO)
 
-#ifdef GENERATEDKERNELS
     ! we have the material parameters and insphere diameters, let's get some time step widths out of this
+
+    ! Set used initial conditions.
+    call c_interoperability_setInitialConditionType(trim(IC%cICType) // c_null_char)
 
     ! malloc fortran arrays
     call ini_calc_deltaT( eqn%eqType,     &
@@ -508,7 +504,6 @@ CONTAINS
     enableFreeSurfaceIntegration = (io%surfaceOutput > 0)
     ! put the clusters under control of the time manager
     call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts, i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
-#endif
 
     !
     SELECT CASE(DISC%Galerkin%DGMethod)
@@ -555,14 +550,13 @@ CONTAINS
     !
     ! Initialize sparse star matrices
     !
-#if defined(GENERATEDKERNELS)
   do iElem = 1, MESH%nElem
     iSide = 0
 
     materialVal = OptionalFields%BackgroundValue(iElem,:)
     call c_interoperability_setMaterial( i_elem = iElem,                                         \
                                          i_side = iSide,                                         \
-                                         i_materialVal = materialVal,\
+                                         i_materialVal = materialVal,                            \
                                          i_numMaterialVals = EQN%nBackgroundVar                  )
 
     do iSide = 1,4
@@ -624,7 +618,6 @@ CONTAINS
 
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices;
-#endif
 
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
         ALLOCATE( DISC%LocalIteration(MESH%nElem) )
@@ -1434,7 +1427,6 @@ CONTAINS
             ENDDO
         ENDDO
 
-#ifdef GENERATEDKERNELS
 #ifndef NDEBUG
         ! assert contant material parameters per element
         if ( disc%galerkin%nDegFrMat .ne. 1 ) then
@@ -1453,7 +1445,6 @@ CONTAINS
           logError(*) 'iniGalerkin3D_us_intern_new, mesh%nVertices_tri not equal 3.', mesh%nVertices_tri
           stop
         endif
-#endif
 #endif
 
         DEALLOCATE( Tens3BaseFunc )
@@ -1872,11 +1863,8 @@ CONTAINS
     !-------------------------------------------------------------------------!
 
     USE DGBasis_mod
-    USE COMMON_InitialField_mod
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc
     use f_ftoc_bind_interoperability
-#endif
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1901,8 +1889,6 @@ CONTAINS
     REAL    :: x(MESH%nVertexMax)                                             ! Element vertices in physical coordinates system
     REAL    :: y(MESH%nVertexMax)                                             ! Element vertices in physical coordinates system
     REAL    :: z(MESH%nVertexMax)                                             ! Element vertices in physical coordinates system
-    REAL    :: iniGP(EQN%nVar)                                                ! Initial state vector at Gausspoint
-    REAL    :: iniGP_Ane(EQN%nAneFuncperMech*EQN%nMechanisms)                 ! Initial anelastic state vector at Gausspoint
     REAL    :: iniGP_Plast(6)                                                 ! Initial stress loading for plastic calculations
     REAL    :: phi                                                            ! Value of the base function at GP      !
     REAL    :: Einv, v                                                        ! Inverse of Young's modulus, Poisson ratio v
@@ -1911,12 +1897,9 @@ CONTAINS
     REAL, POINTER :: IntGaussW(:)       =>NULL()
     REAL, POINTER :: IntGPBaseFunc(:,:) =>NULL()
     REAL, POINTER :: MassMatrix(:,:)    =>NULL()
-#ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
-    real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
     real    :: l_plasticParameters(2)
-#endif
     !-------------------------------------------------------------------------!
     !
     IF(.NOT.DISC%Galerkin%init) THEN
@@ -1957,129 +1940,91 @@ CONTAINS
 
 
     logInfo0(*) 'DG initial condition projection... '
+
+    call c_interoperability_projectInitialField()
     !
     iPoly  = DISC%Galerkin%nPoly
     nIntGP = DISC%Galerkin%nIntGP
     nDegFr = DISC%Galerkin%nDegFr
 
-    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, iniGp, iniGp_ane, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix, l_dofsUpdate,l_initialLoading,l_plasticParameters, iniGP_plast)
+    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix,l_initialLoading,l_plasticParameters, iniGP_plast)
     DO iElem = 1,MESH%nElem
-        l_dofsUpdate = 0
         l_initialLoading=0
         l_plasticParameters=0
-
-        x = 0.; y = 0.; z = 0.;
-        eType = MESH%LocalElemType(iElem)
-        SELECT CASE(eType)
-        CASE(4)
-            DO iVert=1,MESH%nVertices_Tet
-                x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-            ENDDO
-            ! Point to the corresponding:
-            ! Integration points
-            intGaussP     => DISC%Galerkin%intGaussP_Tet
-            intGaussW     => DISC%Galerkin%intGaussW_Tet
-            ! Basis func values
-            IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Tet(1:nDegFr,1:nIntGp,iPoly)
-            ! Mass matrix
-            MassMatrix    => DISC%Galerkin%MassMatrix_Tet(1:nDegFr,1:nDegFr,iPoly)
-        CASE(6)
-            DO iVert=1,MESH%nVertices_Hex
-                x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-            ENDDO
-            ! Point to the corresponding:
-            ! Integration points
-            intGaussP     => DISC%Galerkin%intGaussP_Hex
-            intGaussW     => DISC%Galerkin%intGaussW_Hex
-            ! Basis func values
-            IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Hex(1:nDegFr,1:nIntGp,iPoly)
-            ! Mass matrix
-            MassMatrix    => DISC%Galerkin%MassMatrix_Hex(1:nDegFr,1:nDegFr,iPoly)
-        END SELECT
-
-        DO iIntGP = 1,nIntGP
-            xi   = intGaussP(1,iIntGP)
-            eta  = intGaussP(2,iIntGP)
-            zeta = intGaussP(3,iIntGP)
-            SELECT CASE(eType)
-            CASE(4) ! Tetras
-                CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,x,y,z)
-            CASE(6) ! Hexas
-                CALL HexaTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,x,y,z)
-            END SELECT
-            !
-            ! Initial condition
-            !
-            CALL InitialField(iniGP, iniGP_ane, 0., xGP, yGP, zGP, iElem, EQN, IC, SOURCE, IO)
-            !
-            ! Projection onto the basis functions
-            !
-            DO iDegFr = 1, nDegFr
-                phi = IntGPBaseFunc(iDegFr,iIntGP)
-                l_dofsUpdate(iDegFr, 1:EQN%nVar) = l_dofsUpdate(iDegFr, 1:EQN%nVar) + intGaussW(iIntGP)*iniGP(:)*phi
-            ENDDO
-
-            IF(EQN%Anelasticity.EQ.1) THEN
-                ! Projection of anelastic functions
-                DO iDegFr = 1, nDegFr
-                  phi = IntGPBaseFunc(iDegFr,iIntGP)
-                  l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) = l_dofsUpdate(iDegFr, EQN%nVar+1:EQN%nVarTotal) + IntGaussW(iIntGP)*iniGP_Ane(:)*phi
-                ENDDO
-            ENDIF
-
-            IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN !average approach for plasticity
-            ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
-              iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
-              DO iDegFr = 1, nDegFr
-                 phi = IntGPBaseFunc(iDegFr,iIntGP)
-                 l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+        
+        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
+          x = 0.; y = 0.; z = 0.;
+          eType = MESH%LocalElemType(iElem)
+          SELECT CASE(eType)
+          CASE(4)
+              DO iVert=1,MESH%nVertices_Tet
+                  x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
+                  y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
+                  z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
               ENDDO
-           ENDIF
+              ! Point to the corresponding:
+              ! Integration points
+              intGaussP     => DISC%Galerkin%intGaussP_Tet
+              intGaussW     => DISC%Galerkin%intGaussW_Tet
+              ! Basis func values
+              IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Tet(1:nDegFr,1:nIntGp,iPoly)
+              ! Mass matrix
+              MassMatrix    => DISC%Galerkin%MassMatrix_Tet(1:nDegFr,1:nDegFr,iPoly)
+          CASE(6)
+              DO iVert=1,MESH%nVertices_Hex
+                  x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
+                  y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
+                  z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
+              ENDDO
+              ! Point to the corresponding:
+              ! Integration points
+              intGaussP     => DISC%Galerkin%intGaussP_Hex
+              intGaussW     => DISC%Galerkin%intGaussW_Hex
+              ! Basis func values
+              IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Hex(1:nDegFr,1:nIntGp,iPoly)
+              ! Mass matrix
+              MassMatrix    => DISC%Galerkin%MassMatrix_Hex(1:nDegFr,1:nDegFr,iPoly)
+          END SELECT
 
-    ENDDO !iIntGP
+          DO iIntGP = 1,nIntGP
+              IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN !average approach for plasticity
+              ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
+                iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
+                DO iDegFr = 1, nDegFr
+                   phi = IntGPBaseFunc(iDegFr,iIntGP)
+                   l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+                ENDDO
+             ENDIF
+          ENDDO !iIntGP
 
-            DO iDegFr = 1, nDegFr
-               l_dofsUpdate(iDegFr, :) = l_dofsUpdate( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-               IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
-                  l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
-               ENDIF
-            ENDDO
+          DO iDegFr = 1, nDegFr
+            l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+          ENDDO
 
-            IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 0) THEN !high-order points approach
-            !elementwise assignement of the initial loading
-               l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
-            ENDIF
+          NULLIFY(intGaussP)
+          NULLIFY(intGaussW)
+          NULLIFY(IntGPBaseFunc)
+          NULLIFY(MassMatrix)
+        ENDIF
 
-        ! write the update back
-        call c_interoperability_addToDofs(  i_meshId           = iElem, \
-                                            i_update           = l_dofsUpdate, \
-                                            numberOfQuantities = eqn%nVarTotal )
+        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 0) THEN !high-order points approach
+        !elementwise assignement of the initial loading
+           l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
+        ENDIF
 
 #ifdef USE_PLASTICITY
         ! initialize the element dependent plastic parameters
         l_plasticParameters(1) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
         l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
-
+        
         ! initialize loading in C
-        call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
-                                                   i_initialLoading = c_loc( l_initialLoading ) )
+        call c_interoperability_setInitialLoading( i_meshId = iElem, \
+                                                   i_initialLoading = pack( l_initialLoading, .true. ) )
 
         !initialize parameters in C
-        call c_interoperability_setPlasticParameters( i_meshId         = c_loc( iElem), \
-                                                   i_plasticParameters = c_loc( l_plasticParameters ) )
+        call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
+                                                      i_plasticParameters = l_plasticParameters )
 #endif
-
-
-        NULLIFY(intGaussP)
-        NULLIFY(intGaussW)
-        NULLIFY(IntGPBaseFunc)
-        NULLIFY(MassMatrix)
-
-
     ENDDO ! iElem
 
 #ifdef USE_PLASTICITY
@@ -2401,15 +2346,6 @@ CONTAINS
         ENDIF
         ALLOCATE( BND%ObjMPI(iDomain)%NeighborBackground(EQN%nBackgroundVar,BND%ObjMPI(iDomain)%nElem)     )
         BND%ObjMPI(iDomain)%Init = .FALSE.
-        ALLOCATE( BND%ObjMPI(iDomain)%AStar_Sp( BND%ObjMPI(iDomain)%nElem ) )
-        ALLOCATE( BND%ObjMPI(iDomain)%BStar_Sp( BND%ObjMPI(iDomain)%nElem ) )
-        ALLOCATE( BND%ObjMPI(iDomain)%CStar_Sp( BND%ObjMPI(iDomain)%nElem ) )
-        ALLOCATE( BND%ObjMPI(iDomain)%EStar_Sp( BND%ObjMPI(iDomain)%nElem ) )
-        ALLOCATE( BND%ObjMPI(iDomain)%FLStar_Sp(BND%ObjMPI(iDomain)%nElem,MESH%nSideMax))
-        ALLOCATE( BND%ObjMPI(iDomain)%FRStar_Sp(BND%ObjMPI(iDomain)%nElem,MESH%nSideMax))
-        IF(DISC%Galerkin%CKMethod.EQ.1) THEN
-            ALLOCATE( BND%ObjMPI(iDomain)%InvSystemMatrix( BND%ObjMPI(iDomain)%nElem ) )
-        ENDIF
         IF(DISC%Galerkin%DGMethod.EQ.3) THEN
             ALLOCATE( BND%ObjMPI(iDomain)%NeighborDuDt(DISC%Galerkin%nDegFr,EQN%nVar+EQN%nAneFuncperMech,BND%ObjMPI(iDomain)%nElem) )
             ALLOCATE( BND%ObjMPI(iDomain)%NeighborTime( BND%ObjMPI(iDomain)%nElem) )
@@ -2550,246 +2486,6 @@ CONTAINS
     CONTINUE
     !
   END SUBROUTINE BuildSpecialDGGeometry3D_new
-
-  SUBROUTINE AnalyseGalerkin3D_us_new(time,ANALYSE,EQN,MESH,DISC,BND,SOURCE,IC,   &
-                                  IO,OptionalFields,MPI                       )
-    !-------------------------------------------------------------------------!
-
-    USE DGBasis_mod
-    USE COMMON_InitialField_mod
-    !-------------------------------------------------------------------------!
-    IMPLICIT NONE
-    !-------------------------------------------------------------------------!
-#ifdef PARALLEL
-  INCLUDE 'mpif.h'
-#endif
-    !-------------------------------------------------------------------------!
-    ! Argument list declaration
-    TYPE(tAnalyse)          :: ANALYSE               ! Analyse structure      !
-    TYPE(tEquations)        :: EQN                   ! Equation structure     !
-    TYPE(tUnstructMesh)     :: MESH                  ! Mesh structure         !
-    TYPE(tDiscretization)   :: DISC                  ! Discretization struct. !
-    TYPE(tBoundary)         :: BND                   ! Boundary structure     !
-    TYPE(tSource)           :: SOURCE                ! Source structure       !
-    TYPE(tInitialCondition) :: IC                    ! Initialcondition str.  !
-    TYPE(tInputOutput)      :: IO                    ! IO structure           !
-    TYPE(tUnstructOptionalFields) :: OptionalFields  ! Opt. Fields            !
-    TYPE(tMPI)              :: MPI                   ! MPI structure          !
-    REAL                    :: time                  ! time for analysis      !
-    ! Local variable declaration
-    INTEGER                 :: i,j                   ! Loop variables         !
-    INTEGER                 :: iVec                  ! Variable to analyse    !
-    INTEGER                 :: iVar, iDegFr, iElem   ! Loop variables         !
-    INTEGER                 :: iIntGP                ! Index of internal GP   !
-    INTEGER                 :: iErr                  !
-    INTEGER                 :: iVert
-    INTEGER                 :: LInfElement(EQN%nVar)
-    INTEGER                 :: LocElemType
-    REAL, POINTER           :: intGaussW(:) => NULL()
-    REAL                    :: xGP(DISC%Galerkin%nIntGP)
-    REAL                    :: yGP(DISC%Galerkin%nIntGP)
-    REAL                    :: zGP(DISC%Galerkin%nIntGP)
-    REAL                    :: xi,eta,zeta
-    REAL                    :: iniGP(EQN%nVar)       ! Referencesolution      !
-    REAL                    :: iniGP_ane(EQN%nAneFuncperMech*EQN%nMechanisms)  ! Initial anelastic state vector at Gausspoint
-    REAL                    :: stateGP(EQN%nVar)     ! State in GP            !
-    REAL                    :: gradGP(EQN%nVar,EQN%Dimension) ! State in GP   !
-    REAL                    :: pstateGP(EQN%nVar)    ! Primitive state in GP  !
-    REAL                    :: locError(EQN%nVar)    ! local error in GP      !
-    REAL                    :: L1norm(EQN%nVar)      ! L1norm                 !
-    REAL                    :: L2norm(EQN%nVar)      ! L2norm                 !
-    REAL                    :: Linfnorm(EQN%nVar)    ! Max. error=L_inf norm  !
-    REAL                    :: MPIL1norm(EQN%nVar)   ! Total L1norm (MPI)     !
-    REAL                    :: MPIL2norm(EQN%nVar)   ! Total L2norm (MPI)     !
-    REAL                    :: MPILinfnorm(EQN%nVar) ! Total L_inf norm  (MPI)!
-    REAL                    :: MPI_H1_divB           ! L1 norm for MPI        !
-    REAL                    :: h1, MPI_h1            ! Mesh size, MPI         !
-    REAL                    :: x(MESH%GlobalVrtxType)! Vertices of triangle   !
-    REAL                    :: y(MESH%GlobalVrtxType)! Vertices of triangle   !
-    REAL                    :: z(MESH%GlobalVrtxType)! Vertices of triangle   !
-    REAL                    :: JacobiDet             ! Mapping Jacobian det.  !
-    REAL                    :: H1_divB               ! Divergence of B        !
-    REAL                    :: kx, ky, kz            ! wavenumbers            !
-    COMPLEX                 :: IU                    ! imaginary unit         !
-    COMPLEX                 :: iniGPcomplex(EQN%nVar)! complex reference      !
-    CHARACTER(LEN=20)       :: varName               ! Name of analyse var.   !
-    !-------------------------------------------------------------------------!
-    !INTENT(IN)              :: pvar, ANALYSE, DISC, IO
-    !-------------------------------------------------------------------------!
-
-    L1norm(:)       = 0.
-    L2norm(:)       = 0.
-    Linfnorm(:)     = 0.
-    MPIL1norm(:)    = 0.
-    MPIL2norm(:)    = 0.
-    MPILinfnorm(:)  = 0.
-
-    ! Imaginary Unit
-    IU = (0.,1.)
-
-    SELECT CASE(ANALYSE%typ)
-    CASE(0)
-       logInfo0(*) 'No analysis of data.'
-       logInfo0(*) 'CPU-Time: ',  DISC%LoopCPUTime
-       RETURN
-    CASE(1)
-       logInfo0(*) 'AnalyseGalerkin3D: Analyse of data. Reference is the initial condition.'
-       logInfo0(*) 'CPU-Time: ',  DISC%LoopCPUTime
-    CASE(3)
-       logInfo0(*) 'AnalyseGalerkin3D: Reference is elastic planarwave.'
-    CASE(14)                                                     !
-       logInfo0(*) 'AnalyseGalerkin3D: Analyse of data. '
-       logInfo0(*) 'Reference: u(x,y,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )]'
-       logInfo0(*) 'for Anelastic Seismic Waves  '
-    CASE(15)                                                     !
-       logInfo0(*) 'AnalyseGalerkin3D: Analyse of data. '
-       logInfo0(*) 'Reference: u(x,y,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )]'
-       logInfo0(*) 'for Anisotropic Seismic Waves  '
-    CASE DEFAULT
-       logError(*) 'Analysis of Type ',ANALYSE%typ,' unknown!'
-       STOP
-    END SELECT
-
-    LInfElement = -1
-
-    DO iElem = 1, MESH%nElem
-        !
-        LocElemType = MESH%LocalElemType(iElem)
-        !
-        SELECT CASE(LocElemType)
-        CASE(4) ! Tetra
-            DO iVert=1,MESH%nVertices_Tet
-                x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-            ENDDO
-            DO iIntGP = 1,DISC%Galerkin%nIntGP
-                xi   = DISC%Galerkin%intGaussP_Tet(1,iIntGP)
-                eta  = DISC%Galerkin%intGaussP_Tet(2,iIntGP)
-                zeta = DISC%Galerkin%intGaussP_Tet(3,iIntGP)
-                CALL TetraTrafoXiEtaZeta2XYZ(xGP(iIntGP),yGP(iIntGP),zGP(iIntGP),xi,eta,zeta,x,y,z)
-            ENDDO
-            JacobiDet = 6.*MESH%ELEM%Volume(iElem)
-            intGaussW => DISC%Galerkin%intGaussW_Tet
-        CASE(6) ! Hexa
-            DO iVert=1,MESH%nVertices_Hex
-                x(iVert) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(iVert,iElem))
-                y(iVert) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(iVert,iElem))
-                z(iVert) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(iVert,iElem))
-            ENDDO
-            DO iIntGP = 1, DISC%Galerkin%nIntGP
-                xi   = DISC%Galerkin%intGaussP_Hex(1,iIntGP)
-                eta  = DISC%Galerkin%intGaussP_Hex(2,iIntGP)
-                zeta = DISC%Galerkin%intGaussP_Hex(3,iIntGP)
-                CALL HexaTrafoXiEtaZeta2XYZ(xGP(iIntGP),yGP(iIntGP),zGP(iIntGP),xi,eta,zeta,x,y,z)
-            ENDDO
-            JacobiDet = MESH%ELEM%Volume(iElem)
-            intGaussW => DISC%Galerkin%intGaussW_Hex
-        END SELECT
-        !
-        DO iIntGP = 1, DISC%Galerkin%nIntGP
-          !
-          SELECT CASE(ANALYSE%typ)
-          CASE(1) ! Initialcondition
-             CALL InitialField(iniGP, iniGP_ane, 0., xGP(iIntGP), yGP(iIntGP), zGP(iIntGP), iElem, EQN, IC, SOURCE, IO)
-          CASE(3) ! Initialcondition
-             CALL InitialField(iniGP, iniGP_ane, time, xGP(iIntGP), yGP(iIntGP), zGP(iIntGP), iElem, EQN, IC, SOURCE, IO)
-          CASE(14)
-             kx    = ANALYSE%PWAN%Wavenumbers(1)
-             ky    = ANALYSE%PWAN%Wavenumbers(2)
-             kz    = ANALYSE%PWAN%Wavenumbers(3)
-             ! Analytic solution
-             iniGPcomplex(:) = (0.,0.)
-             iniGP(:)        = 0.
-             DO iVec = 1, ANALYSE%PW%SetVar
-                 iniGPcomplex(:) = iniGPcomplex(:) +                ANALYSE%PW%ampfield(iVec)  * &
-                                   ANALYSE%PWAN%EigenVec(1:EQN%nVar,ANALYSE%PW%varfield(iVec)) * &
-                                   exp(IU*   (ANALYSE%PWAN%EigenVal(ANALYSE%PW%varfield(iVec)) * &
-                                              time - kx*xGP(iIntGP) - ky*yGP(iIntGP) - kz*zGP(iIntGP)) )
-             ENDDO
-             iniGP(:) = real(iniGPcomplex(:))
-          CASE(15)
-             ! Analytic solution
-             iniGPcomplex(:) = (0.,0.)
-             iniGP(:)        = 0.
-             DO j = 1,3
-                kx    = IC%PWANISO(j)%Wavenumbers(1)
-                ky    = IC%PWANISO(j)%Wavenumbers(2)
-                kz    = IC%PWANISO(j)%Wavenumbers(3)
-                DO iVec = 1, IC%PWANISO(j)%SetVar
-                    iniGPcomplex(:) = iniGPcomplex(:) +                 IC%PWANISO(j)%ampfield(iVec)  * &
-                                      IC%PWANISO(j)%EigenVec(1:EQN%nVar,IC%PWANISO(j)%varfield(iVec)) * &
-                                      exp(IU*   (IC%PWANISO(j)%EigenVal(IC%PWANISO(j)%varfield(iVec)) * &
-                                              time - kx*xGP(iIntGP) - ky*yGP(iIntGP) - kz*zGP(iIntGP)) )
-                ENDDO
-             ENDDO
-             iniGP(:) = real(iniGPcomplex(:))
-          END SELECT
-          !
-          CALL GetStateGP_new(stateGP,iElem,iIntGP,LocElemType,EQN,DISC)
-          !
-          pstateGP(:) = stateGP(:)
-          !
-          locError(:) = ABS(iniGP(:)-pstateGP(:))
-          !
-          L1norm(:)   = L1norm(:) + locError(:)    * intGaussW(iIntGp)*JacobiDet
-          L2norm(:)   = L2norm(:) + locError(:)**2 * intGaussW(iIntGp)*JacobiDet
-          DO iVar = 1, EQN%nVar
-            IF(locError(iVar).GT.Linfnorm(iVar)) THEN
-                Linfnorm(iVar) = locError(iVar)
-                LInfElement(iVar) = iElem
-            ENDIF
-          ENDDO
-          !
-       ENDDO
-       !
-    ENDDO
-    !
-    ! Take square-root to obtain the L2-norm
-
-    L2norm(:) = SQRT(L2norm(:))
-    !
-    DO iVar = 1,EQN%nVar                                                         ! Ueberpruefe welche Variablen analysiert werden
-       IF (ANALYSE%variables(iVar) ) THEN                                        ! sollen
-          !
-          varName = IO%TitleMask(3+iVar)
-          !
-          logInfo(*) 'Error analysis of variable ', TRIM(varName)
-          logInfo(*) '======================================'
-          logInfo(*) '  L1_norm   : ', L1norm(iVar)
-          logInfo(*) '  L2_norm   : ', L2norm(iVar)
-          logInfo(*) '  Linf_norm : ', Linfnorm(iVar), ' Elem/Bary: ', &
-                                       LInfElement(iVar), MESH%ELEM%xyBary(:,LInfElement(iVar))
-          logInfo(*) '======================================'
-#ifdef PARALLEL
-          CALL MPI_REDUCE(L1norm(iVar),  MPIL1norm(iVar),  1,MPI%MPI_AUTO_REAL,MPI_SUM,0,MPI%commWorld,iErr)
-          L2norm(iVar) = L2norm(iVar)**2
-          CALL MPI_REDUCE(L2norm(iVar),  MPIL2norm(iVar),  1,MPI%MPI_AUTO_REAL,MPI_SUM,0,MPI%commWorld,iErr)
-          MPIL2norm(iVar) = SQRT(MPIL2norm(iVar))
-          CALL MPI_REDUCE(Linfnorm(iVar),MPILinfnorm(iVar),1,MPI%MPI_AUTO_REAL,MPI_MAX,0,MPI%commWorld,iErr)
-          logInfo0(*) 'MPI Error analysis of variable ', varName
-          logInfo0(*) '======================================'
-          logInfo0(*) 'MPI L1_norm   : ', MPIL1norm(iVar)
-          logInfo0(*) 'MPI L2_norm   : ', MPIL2norm(iVar)
-          logInfo0(*) 'MPI Linf_norm : ', MPILinfnorm(iVar)
-          logInfo0(*) '======================================'
-#endif
-       END IF
-    END DO
-
-    h1 = MAXVAL(MESH%ELEM%Volume(:)**(1./3.))
-    logInfo(*) 'h1 (3D) =  ', h1
-#ifdef PARALLEL
-          CALL MPI_REDUCE(h1,       MPI_h1,         1,MPI%MPI_AUTO_REAL,MPI_MAX,0,MPI%commWorld,iErr)
-          logInfo(*) 'h1 (3D,MPI) =  ', MPI_h1
-#endif
-    !                                                                            !
-    logInfo(*) '  CPU-Time: ', DISC%LoopCPUTime                   !
-    logInfo(*) '--------------------------------------'           !
-    logInfo(*) 'AnalyseGalerkin erfolgreich. '                    !
-    logInfo(*) '--------------------------------------'           !
-    !                                                                            !
-  END SUBROUTINE AnalyseGalerkin3D_us_new
 
   ! Read the 2d Green function file
   ! Used for computing the rupture velocity

@@ -48,6 +48,7 @@
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/FlopCounter.hpp"
+#include "ResultWriter/AnalysisWriter.h"
 
 extern seissol::Interoperability e_interoperability;
 
@@ -61,6 +62,10 @@ seissol::Simulator::Simulator():
 void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
   assert( m_checkPointInterval > 0 );
   m_checkPointInterval = i_checkPointInterval;
+}
+
+bool seissol::Simulator::checkPointingEnabled() {
+  return m_checkPointInterval < std::numeric_limits<double>::max();
 }
 
 void seissol::Simulator::setFinalTime( double i_finalTime ) {
@@ -144,4 +149,9 @@ void seissol::Simulator::simulate() {
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
 
   seissol::SeisSol::main.timeManager().printComputationTime();
+
+  seissol::SeisSol::main.analysisWriter().printAnalysis(m_currentTime);
+
+  printFlops();
+
 }

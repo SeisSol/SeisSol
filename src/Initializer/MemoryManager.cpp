@@ -71,8 +71,10 @@
 #include "MemoryManager.h"
 #include "InternalState.h"
 #include "GlobalData.h"
+#include <yateto.h>
 
 #include <Kernels/common.hpp>
+#include <generated_code/tensor.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -233,8 +235,8 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
       unsigned int l_numberOfBuffers     = m_meshStructure[tc].numberOfGhostRegionCells[l_region] - l_numberOfDerivatives;
 
       // set size
-      m_meshStructure[tc].ghostRegionSizes[l_region] = NUMBER_OF_ALIGNED_DOFS * l_numberOfBuffers +
-                                                       NUMBER_OF_ALIGNED_DERS * l_numberOfDerivatives;
+      m_meshStructure[tc].ghostRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
+                                                       yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
 
       // update the pointer
       ghostStart += m_meshStructure[tc].ghostRegionSizes[l_region];
@@ -271,8 +273,8 @@ void seissol::initializers::MemoryManager::initializeCommunicationStructure() {
       assert( m_meshStructure[tc].copyRegions[l_region] != NULL );
 
       // set size
-      m_meshStructure[tc].copyRegionSizes[l_region] = NUMBER_OF_ALIGNED_DOFS * l_numberOfBuffers +
-                                                      NUMBER_OF_ALIGNED_DERS * l_numberOfDerivatives;
+      m_meshStructure[tc].copyRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
+                                                      yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
 
       // jump over region
       l_offset += m_meshStructure[tc].numberOfCopyRegionCells[l_region];
@@ -388,7 +390,7 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
     // touch buffers
     real* buffer = buffers[cell];
     if (buffer != NULL) {
-      for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DOFS; ++dof) {
+      for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
           // zero time integration buffers
           buffer[dof] = (real) 0;
       }
@@ -397,7 +399,7 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
     // touch derivatives
     real* derivative = derivatives[cell];
     if (derivative != NULL) {
-      for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_DERS; ++dof ) {
+      for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof ) {
         derivative[dof] = (real) 0;
       }
     }
@@ -462,13 +464,13 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
         // +1 is necessary as we want to reserve the NULL pointer for cell without displacement.
-        displacements[cell] = static_cast<real*>(NULL) + 1 + numberOfCells * NUMBER_OF_ALIGNED_VELOCITY_DOFS;
+        displacements[cell] = static_cast<real*>(NULL) + 1 + numberOfCells * tensor::displacement::size();
         ++numberOfCells;
       } else {
         displacements[cell] = NULL;
       }
     }
-    layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * NUMBER_OF_ALIGNED_VELOCITY_DOFS * sizeof(real));
+    layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * tensor::displacement::size() * sizeof(real));
   }
 }
 
@@ -484,7 +486,7 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (displacements[cell] != NULL) {
         displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
-        for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_VELOCITY_DOFS; ++dof) {
+        for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
           // zero displacements
           displacements[cell][dof] = static_cast<real>(0.0);
         }
@@ -509,15 +511,15 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
     size_t l_interiorSize = 0;
 #ifdef USE_MPI
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
-      l_ghostSize    += sizeof(real) * NUMBER_OF_ALIGNED_DOFS * m_numberOfGhostRegionBuffers[tc][l_region];
-      l_ghostSize    += sizeof(real) * NUMBER_OF_ALIGNED_DERS * m_numberOfGhostRegionDerivatives[tc][l_region];
+      l_ghostSize    += sizeof(real) * tensor::Q::size() * m_numberOfGhostRegionBuffers[tc][l_region];
+      l_ghostSize    += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfGhostRegionDerivatives[tc][l_region];
 
-      l_copySize     += sizeof(real) * NUMBER_OF_ALIGNED_DOFS * m_numberOfCopyRegionBuffers[tc][l_region];
-      l_copySize     += sizeof(real) * NUMBER_OF_ALIGNED_DERS * m_numberOfCopyRegionDerivatives[tc][l_region];
+      l_copySize     += sizeof(real) * tensor::Q::size() * m_numberOfCopyRegionBuffers[tc][l_region];
+      l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
 #endif // USE_MPI
-    l_interiorSize += sizeof(real) * NUMBER_OF_ALIGNED_DOFS * m_numberOfInteriorBuffers[tc];
-    l_interiorSize += sizeof(real) * NUMBER_OF_ALIGNED_DERS * m_numberOfInteriorDerivatives[tc];
+    l_interiorSize += sizeof(real) * tensor::Q::size() * m_numberOfInteriorBuffers[tc];
+    l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
 
     cluster.child<Ghost>().setBucketSize(m_lts.buffersDerivatives, l_ghostSize);
     cluster.child<Copy>().setBucketSize(m_lts.buffersDerivatives, l_copySize);

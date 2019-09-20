@@ -54,6 +54,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface 
+    subroutine c_interoperability_setInitialConditionType( type ) bind( C, name='c_interoperability_setInitialConditionType' )
+      use iso_c_binding, only: c_char
+      implicit none
+      character(kind=c_char), dimension(*), intent(in) :: type
+    end subroutine
+  end interface
+
+
   interface c_interoperability_setTimeStepWidth
     subroutine c_interoperability_setTimeStepWidth( i_meshId, i_timeStepWidth ) bind( C, name='c_interoperability_setTimeStepWidth' )
       use iso_c_binding
@@ -141,19 +150,11 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
-  interface c_interoperability_addReceiver
-    subroutine c_interoperability_addReceiver( i_receiverId, i_meshId ) bind( C, name='c_interoperability_addReceiver' )
-      use iso_c_binding, only: c_int
-      implicit none
-      integer(kind=c_int), value :: i_receiverId, i_meshId
-    end subroutine
-  end interface
-
-  interface c_interoperability_setReceiverSampling
-    subroutine c_interoperability_setReceiverSampling( i_receiverSampling ) bind( C, name='c_interoperability_setReceiverSampling' )
+  interface c_interoperability_addRecPoint
+    subroutine c_interoperability_addRecPoint( x, y, z ) bind( C, name='c_interoperability_addRecPoint' )
       use iso_c_binding, only: c_double
       implicit none
-      real(kind=c_double), value :: i_receiverSampling
+      real(kind=c_double), value :: x,y,z
     end subroutine
   end interface
 
@@ -170,20 +171,20 @@ module f_ftoc_bind_interoperability
 
   interface c_interoperability_setInitialLoading
     subroutine c_interoperability_setInitialLoading( i_meshId, i_initialLoading ) bind( C, name='c_interoperability_setInitialLoading' )
-      use iso_c_binding, only: c_ptr
+      use iso_c_binding
       implicit none
-      type(c_ptr), value :: i_meshId
-      type(c_ptr), value :: i_initialLoading
+      integer(kind=c_int), value :: i_meshId
+      real(kind=c_double), dimension(*), intent(in) :: i_initialLoading
     end subroutine
   end interface
 
 
   interface c_interoperability_setPlasticParameters
     subroutine c_interoperability_setPlasticParameters( i_meshId, i_plasticParameters ) bind( C, name='c_interoperability_setPlasticParameters' )
-      use iso_c_binding, only: c_ptr
+      use iso_c_binding
       implicit none
-      type(c_ptr), value :: i_meshId
-      type(c_ptr), value :: i_plasticParameters
+      integer(kind=c_int), value :: i_meshId
+      real(kind=c_double), dimension(*), intent(in) :: i_plasticParameters
     end subroutine
   end interface
 
@@ -245,7 +246,8 @@ module f_ftoc_bind_interoperability
 
     subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
         i_numSides, i_numBndGP, i_refinement, i_outputMask, i_outputRegionBounds, &
-        freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend ) &
+        freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend, &
+        receiverSamplingInterval, receiverSyncInterval ) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -266,33 +268,13 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), value                    :: freeSurfaceInterval
       character(kind=c_char), dimension(*), intent(in) :: freeSurfaceFilename
       character(kind=c_char), dimension(*), intent(in) :: xdmfWriterBackend
+      real(kind=c_double), value                    :: receiverSamplingInterval
+      real(kind=c_double), value                    :: receiverSyncInterval
     end subroutine
 
-    subroutine c_interoperability_addToDofs( i_meshId, i_update, numberOfQuantities ) bind( C, name='c_interoperability_addToDofs' )
+    subroutine c_interoperability_projectInitialField() bind( C, name='c_interoperability_projectInitialField' )
       use iso_c_binding
       implicit none
-      integer(kind=c_int), value                    :: i_meshId
-      real(kind=c_double), dimension(*), intent(in) :: i_update
-      integer(kind=c_int), value                    :: numberOfQuantities
-    end subroutine
-
-    subroutine c_interoperability_getTimeDerivatives( i_meshId, o_timeDerivatives ) bind( C, name='c_interoperability_getTimeDerivatives' )
-      use iso_c_binding
-      implicit none
-      integer(kind=c_int), value :: i_meshId
-      real(kind=c_double), dimension(*), intent(out) :: o_timeDerivatives
-    end subroutine
-
-    subroutine c_interoperability_getFaceDerInt( i_meshId, i_faceId, i_timeStepWidth, o_timeDerivativesCell, o_timeDerivativesNeighbor, o_timeIntegratedCell, o_timeIntegratedNeighbor ) bind( C, name='c_interoperability_getFaceDerInt' )
-      use iso_c_binding
-      implicit none
-      integer(kind=c_int), value :: i_meshId
-      integer(kind=c_int), value :: i_faceId
-      real(kind=c_double), value :: i_timeStepWidth
-      real(kind=c_double), dimension(*), intent(out) :: o_timeDerivativesCell
-      real(kind=c_double), dimension(*), intent(out) :: o_timeDerivativesNeighbor
-      real(kind=c_double), dimension(*), intent(out) :: o_timeIntegratedCell
-      real(kind=c_double), dimension(*), intent(out) :: o_timeIntegratedNeighbor
     end subroutine
 
     subroutine c_interoperability_getDofs( i_meshId, o_dofs ) bind( C, name='c_interoperability_getDofs' )

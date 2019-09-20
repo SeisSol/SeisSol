@@ -1,0 +1,28 @@
+<matrices>
+  <matrix columns="9" name="star" rows="9">
+    <entry column="1" row="7"/>
+    <entry column="1" row="8"/>
+    <entry column="1" row="9"/>
+    <entry column="2" row="7"/>
+    <entry column="2" row="8"/>
+    <entry column="2" row="9"/>
+    <entry column="3" row="7"/>
+    <entry column="3" row="8"/>
+    <entry column="3" row="9"/>
+    <entry column="4" row="7"/>
+    <entry column="4" row="8"/>
+    <entry column="5" row="8"/>
+    <entry column="5" row="9"/>
+    <entry column="6" row="7"/>
+    <entry column="6" row="9"/>
+    <entry column="7" row="1"/>
+    <entry column="7" row="4"/>
+    <entry column="7" row="6"/>
+    <entry column="8" row="2"/>
+    <entry column="8" row="4"/>
+    <entry column="8" row="5"/>
+    <entry column="9" row="3"/>
+    <entry column="9" row="5"/>
+    <entry column="9" row="6"/>
+  </matrix>
+</matrices>

@@ -42,32 +42,47 @@ Import('env')
 
 import os
 
+def subdirs(directory):
+  lst = [name for name in os.listdir(abs_path_dir) if os.path.isdir(os.path.join(abs_path_dir, name)) and name[0] != '.']
+  lst.sort()
+  return lst
+
 def generate_code(target, source, env, for_signature):
-  return 'python {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --generator {} --memLayout {} --dynamicRuptureMethod {} --PlasticityMethod {}'.format(
-    source[0],
-    os.path.join(os.path.split(str(source[0]))[0], 'matrices'),
+  basePath = os.path.split(str(source[0]))[0]
+  return './{} --equations {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --memLayout {} --multipleSimulations {} --dynamicRuptureMethod {} --PlasticityMethod {}'.format(
+    os.path.join(basePath, 'generate.py'),
+    env['equations'],
+    os.path.join(basePath, 'matrices'),
     os.path.split(str(target[0]))[0],
     env['arch'],
     env['order'],
     env['numberOfMechanisms'],
-    env['libxsmmGenerator'],
     env['memLayout'],
+    env['multipleSimulations'],
     env['dynamicRuptureMethod'],
     env['PlasticityMethod']
   )
 
 env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
 
-generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'],
-                         [env['equations'] + '.py', 'DynamicRupture.py', 'Plasticity.py', 'SurfaceDisplacement.py', Glob('gemmgen/*.py')])
+yatetoDir = os.path.join(Dir('.').srcnode().abspath, 'yateto')
+yatetoFiles = [os.path.join(root, f) for root, dirs, files in os.walk(yatetoDir) for f in files if f.endswith('.py')]
+generated = env.Generate(['subroutine.cpp', 'subroutine.h', 'init.h', 'init.cpp', 'tensor.h', 'tensor.cpp', 'kernel.cpp', 'kernel.h', 'KernelTest.t.h'],
+                         Glob('*.py') + yatetoFiles)
 buildDir = '#/' + env['buildDir'] if not os.path.isabs(env['buildDir']) else env['buildDir']
 env.Append(CPPPATH=buildDir)
 
 cppFiles = filter(lambda t: str(t).endswith('.cpp'), generated)
 for cpp in cppFiles:
-  obj = env.Object(cpp)
+  if str(cpp) == 'subroutine.cpp':
+    removeWerror = lambda x: x.find('-Werror') < 0
+    cflags = list(filter(removeWerror, env['CFLAGS']))
+    cxxflags = list(filter(removeWerror, env['CXXFLAGS']))
+    obj = env.Object(cpp, CFLAGS=cflags, CXXFLAGS=cxxflags + ['-mno-red-zone'])
+  else:
+    obj = env.Object(cpp)
   env.Depends(obj, generated)
-  env.sourceFiles.append(obj)
+  env.generatedSourceFiles.append(obj)
 
 if hasattr(env, 'generatedTestSourceFiles'):
   testFiles = filter(lambda t: str(t).endswith('.t.h'), generated)

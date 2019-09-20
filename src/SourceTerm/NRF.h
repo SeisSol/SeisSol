@@ -42,15 +42,10 @@
 #define SOURCETERM_NRF_H_
 
 #include <cstddef>
+#include <glm/vec3.hpp>
 
 namespace seissol {
-  namespace sourceterm {    
-    typedef struct Vector3 {
-      double x;
-      double y;
-      double z;
-    } Vector3;
-
+  namespace sourceterm {
     typedef struct Subfault_units {
         char* tinit;
         char* timestep;
@@ -66,15 +61,15 @@ namespace seissol {
         double timestep;
         double mu;
         double area;
-        Vector3 tan1;
-        Vector3 tan2;
-        Vector3 normal;
+        glm::dvec3 tan1;
+        glm::dvec3 tan2;
+        glm::dvec3 normal;
     } Subfault;
     
     typedef unsigned Offsets[3];
 
     struct NRF {
-      Vector3* centres;
+      glm::dvec3* centres;
       Subfault* subfaults;
       Offsets* sroffsets;
       double* sliprates[3];

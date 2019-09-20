@@ -40,10 +40,12 @@
 #ifndef MODEL_SETUP_H_
 #define MODEL_SETUP_H_
 
+#include <complex>
+
 #include <Initializer/typedefs.hpp>
 #include <Model/datastructures.hpp>
 #include <Geometry/MeshDefinition.h>
-#include <Numerical_aux/MatrixView.h>
+#include <generated_code/init.h>
 
 namespace seissol {
   namespace model {
@@ -51,20 +53,26 @@ namespace seissol {
      * Returns the transposition of the matrices A, B, C of
      * dQp_dt + A_pq dQq_dx + B_pq dQq_dy + C_pq dQq_dz
      **/
-    void getTransposedCoefficientMatrix( Material const& i_material,
-                                         unsigned        i_dim,
-                                         real            o_M[seissol::model::AstarT::reals] );
+    void getTransposedCoefficientMatrix( Material const&                i_material,
+                                         unsigned                       i_dim,
+                                         init::star::view<0>::type& AT );
+
+    /**
+     * Returns n_x A + n_y B + n_y C - i E
+     */
+    void getPlaneWaveOperator(  Material const& material,
+                                double const n[3],
+                                std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
 
     /**
      * Solves the Riemann problem at an interface. Note that this routine
-     * returns the transposed flux solvers.
+     * returns the transposed godunov state.
      **/
-    void getTransposedRiemannSolver( seissol::model::Material const&                        local,
-                                     seissol::model::Material const&                        neighbor,
-                                     enum ::faceType                                        type,
-                                     //real const                                             Atransposed[STAR_NNZ],
-                                     DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> Flocal,
-                                     DenseMatrixView<seissol::model::AminusT::rows, seissol::model::AminusT::cols> Fneighbor );
+    void getTransposedGodunovState( Material const&                   local,
+                                    Material const&                   neighbor,
+                                    enum ::faceType                   faceType,
+                                    init::QgodLocal::view::type&      QgodLocal,
+                                    init::QgodNeighbor::view::type&   QgodNeighbor );
 
     /**
      * Converts the fortran material array to the C++ material struct.
@@ -81,8 +89,8 @@ namespace seissol {
     void getFaceRotationMatrix( VrtxCoords const i_normal,
                                 VrtxCoords const i_tangent1,
                                 VrtxCoords const i_tangent2,
-                                DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> o_T,
-                                DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> o_Tinv );
+                                init::T::view::type& o_T,
+                                init::Tinv::view::type& o_Tinv );
 
     /**
      * Initializes equation specific data for local integration.

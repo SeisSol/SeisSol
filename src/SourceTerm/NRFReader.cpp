@@ -126,7 +126,8 @@ void seissol::sourceterm::readNRF(char const* filename, NRF& nrf)
   check_err(stat,__LINE__,__FILE__);
 
   /* allocate memory */
-  nrf.centres = new Vector3[nrf.source];
+  assert(sizeof(glm::dvec3) == 3*sizeof(double));
+  nrf.centres = new glm::dvec3[nrf.source];
   nrf.sroffsets = new Offsets[nrf.source + 1];
   nrf.subfaults = new Subfault[nrf.source];
   for (unsigned i = 0; i < 3; ++i) {

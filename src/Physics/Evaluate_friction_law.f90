@@ -62,7 +62,6 @@ MODULE Eval_friction_law_mod
   PRIVATE :: update_RSF
   PRIVATE :: Newton_Raphson
   PRIVATE :: no_fault
-  PRIVATE :: Linear_slip_weakening
   PRIVATE :: Linear_slip_weakening_bimaterial
   PRIVATE :: Linear_slip_weakening_TPV1617
   PRIVATE :: rate_and_state
@@ -123,9 +122,9 @@ MODULE Eval_friction_law_mod
         
            CALL no_fault(TractionGP_XY,TractionGP_XZ,XYStressGP,XZStressGP)
            
-        CASE(2) ! Coulomb model for LSW
+        CASE(2,16) ! Coulomb model for LSW
 
-           CALL Linear_slip_weakening(                                     & !
+           CALL Linear_slip_weakening_TPV1617(                                     & !
                                 TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
                                 NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
@@ -162,17 +161,7 @@ MODULE Eval_friction_law_mod
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                                 time,DeltaT,                               & ! IN: time
                                 DISC,EQN,MESH,MPI,IO)
-
-        CASE(16) ! Specific conditions for SCEC TPV16/17/29 or 30
-                    ! basically, introduction of a time dependent forced rupture
-
-           CALL Linear_slip_weakening_TPV1617(                             & !
-                                TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
-                                NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
-                                iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
-                                rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                time,DeltaT,                               & ! IN: time
-                                DISC,EQN,MESH,MPI,IO)                          
+                       
         CASE(101) ! Specific conditions for SCEC TPV101
                       ! as case 3 (rate-and-state friction) aging law
                       ! + time and space dependent nucleation
@@ -227,172 +216,6 @@ MODULE Eval_friction_law_mod
     TractionGP_XZ(:,:) = XZStressGP(:,:)          
     
   END SUBROUTINE no_fault
-
-
-  !> friction case 2: linear slip weakening, friction case 13: linear slip weakening with different static coefficient inside a nucleation patch (Mu_S is not everywhere the same)
-  !<
-  SUBROUTINE Linear_slip_weakening(TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
-                                   NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
-                                   iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
-                                   rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                                   time,DeltaT,                               & ! IN: time
-                                   DISC,EQN,MESH,MPI,IO)
-    !-------------------------------------------------------------------------!
-    IMPLICIT NONE
-    !-------------------------------------------------------------------------!
-    TYPE(tEquations)               :: EQN
-    TYPE(tDiscretization), target  :: DISC
-    TYPE(tUnstructMesh)            :: MESH
-    TYPE(tMPI)                     :: MPI
-    TYPE(tInputOutput)             :: IO    
-    ! Local variable declaration
-    INTEGER     :: iBndGP,iTimeGP,nBndGP,nTimeGP
-    INTEGER     :: iFace,iSide,iElem
-    REAL        :: time  
-    REAL        :: LocTracXY,LocTracXZ
-    REAL        :: NorStressGP(nBndGP,nTimeGP)
-    REAL        :: XYStressGP(nBndGP,nTimeGP)
-    REAL        :: XZStressGP(nBndGP,nTimeGP)
-    REAL        :: TractionGP_XY(nBndGP,nTimeGP)
-    REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
-    REAL        :: tmpSlip
-    REAL        :: LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP, P, LocSR, ShTest
-    REAL        :: LocMu_S, LocMu_D
-    REAL        :: LocSR1,LocSR2
-    REAL        :: P_0,Strength,cohesion
-    REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
-    REAL        :: time_inc
-    REAL        :: DeltaT(1:nTimeGP)
-    !-------------------------------------------------------------------------!
-    INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
-    INTENT(IN)    :: EQN,MESH,MPI,IO
-    INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
-    !-------------------------------------------------------------------------! 
-
-    tmpSlip = 0.0D0
-
-    DO iBndGP=1,nBndGP
-     !
-     LocMu     = DISC%DynRup%Mu(iBndGP,iFace)
-     LocMu_S   = DISC%DynRup%Mu_S(iBndGP,iFace)
-     LocMu_D   = DISC%DynRup%Mu_D(iBndGP,iFace)
-     LocD_C    = DISC%DynRup%D_C(iBndGP,iFace)
-     LocSlip   = DISC%DynRup%Slip(iBndGP,iFace)
-     LocSlip1   = DISC%DynRup%Slip1(iBndGP,iFace)
-     LocSlip2   = DISC%DynRup%Slip2(iBndGP,iFace)
-     LocSR1    = DISC%DynRup%SlipRate1(iBndGP,iFace)
-     LocSR2    = DISC%DynRup%SlipRate2(iBndGP,iFace)
-     cohesion  = DISC%DynRup%cohesion(iBndGP,iFace)      ! cohesion is negative since negative normal stress is compression
-     P_0       = EQN%InitialStressInFaultCS(iBndGP,1,iFace)
-     !
-#ifndef NUMBER_OF_TEMPORAL_INTEGRATION_POINTS
-     DO iTimeGP=1,nTimeGP
-#else
-     do iTimeGp=1, NUMBER_OF_TEMPORAL_INTEGRATION_POINTS
-#endif
-       LocP   = NorStressGP(iBndGP,iTimeGP)
-       time_inc = DeltaT(iTimeGP)
-       !
-       !
-       P = LocP + P_0
-       ! prevents tension at the fault:
-       Strength = -cohesion - LocMu*MIN(P,ZERO)
-        
-       ShTest = SQRT((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
-
-       !Coulomb's law (we use old mu value, as mu, S, SR and Traction are interdependent!)
-       IF(ShTest.GT.Strength) THEN
-
-         ! 1 evaluate friction
-         LocTracXY = ((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*Strength
-         LocTracXZ = ((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*Strength
-           
-         ! 2 update stress change
-         LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
-         LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(iBndGP,6,iFace)
-           
-       ELSE
-         LocTracXY = XYStressGP(iBndGP,iTimeGP)
-         LocTracXZ = XZStressGP(iBndGP,iTimeGP)
-       ENDIF
-       !
-       !Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-       LocSR1     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
-       LocSR2     = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
-       LocSR      = SQRT(LocSR1**2 + LocSR2**2)
-       !
-       ! Update slip
-       LocSlip1 = LocSlip1 + LocSR1*time_inc
-       LocSlip2 = LocSlip2 + LocSR2*time_inc
-       LocSlip = LocSlip + LocSR*time_inc
-       tmpSlip = tmpSlip + LocSR*time_inc
-       !
-       IF(ABS(LocSlip).LT.LocD_C) THEN
-         LocMu = LocMu_S - (LocMu_S-LocMu_D)/LocD_C*ABS(LocSlip)
-       ELSE
-         LocMu = LocMu_D
-       ENDIF
-
-       ! instantaneous healing
-       IF (DISC%DynRup%inst_healing == 1) THEN
-           IF (LocSR .LT. u_0) THEN
-               LocMu = LocMu_S
-               ! reset slip history for LSW
-               LocSlip = 0.0D0
-           ENDIF
-       ENDIF           
-       !
-       !Save traction for flux computation
-       TractionGP_XY(iBndGP,iTimeGP) = LocTracXY
-       TractionGP_XZ(iBndGP,iTimeGP) = LocTracXZ
-       !
-     ENDDO ! iTimeGP=1,DISC%Galerkin%nTimeGP
-     !
-     !
-     ! output rupture front
-     ! outside of iTimeGP loop in order to safe an 'if' in a loop
-     ! this way, no subtimestep resolution possible
-     IF (DISC%DynRup%RF(iBndGP,iFace) .AND. LocSR .GT. 0.001D0) THEN
-        DISC%DynRup%rupture_time(iBndGP,iFace)=time
-        DISC%DynRup%RF(iBndGP,iFace) = .FALSE.
-     ENDIF
-
-     !output time when shear stress is equal to the dynamic stress after rupture arrived
-     !currently only for linear slip weakening
-      IF ( (DISC%DynRup%rupture_time(iBndGP,iFace).GT.0.0) .AND. (DISC%DynRup%rupture_time(iBndGP,iFace) .LE. time)) THEN
-          IF(DISC%DynRup%DS(iBndGP,iFace) .AND. ABS(LocSlip).GE.LocD_C) THEN
-          DISC%DynRup%dynStress_time(iBndGP,iFace)=time
-          DISC%DynRup%DS(iBndGP,iFace) = .FALSE.
-          ENDIF
-      ENDIF
-
-     !idem
-     IF (LocSR.GT.DISC%DynRup%PeakSR(iBndGP,iFace)) THEN
-        DISC%DynRup%PeakSR(iBndGP,iFace) = LocSR
-     ENDIF
-     !
-     DISC%DynRup%Mu(iBndGP,iFace)        = LocMu
-     DISC%DynRup%SlipRate1(iBndGP,iFace) = LocSR1
-     DISC%DynRup%SlipRate2(iBndGP,iFace) = LocSR2
-     DISC%DynRup%Slip(iBndGP,iFace)      = LocSlip
-     DISC%DynRup%Slip1(iBndGP,iFace)     = LocSlip1
-     DISC%DynRup%Slip2(iBndGP,iFace)     = LocSlip2
-     DISC%DynRup%TracXY(iBndGP,iFace)    = LocTracXY + EQN%InitialStressInFaultCS(iBndGP,4,iFace)
-     DISC%DynRup%TracXZ(iBndGP,iFace)    = LocTracXZ + EQN%InitialStressInFaultCS(iBndGP,6,iFace)
-
-     !
-    ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
-
-    !---compute and store slip to determine the magnitude of an earthquake ---
-    !    to this end, here the slip is computed and averaged per element
-    !    in calc_seissol.f90 this value will be multiplied by the element surface
-    !    and an output happened once at the end of the simulation
-    IF (DISC%DynRup%magnitude_out(iFace)) THEN
-        DISC%DynRup%averaged_Slip(iFace) = DISC%DynRup%averaged_Slip(iFace) + tmpSlip/nBndGP
-    ENDIF
-
-  END SUBROUTINE Linear_slip_weakening
 
 
 !> Special friction case 6: linear slip weakening with Prakash-Clifton regularization
@@ -634,19 +457,32 @@ MODULE Eval_friction_law_mod
       tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
       
      ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-     f1=dmin1(ABS(DISC%DynRup%Slip(:,iFace))/DISC%DynRup%D_C(:,iFace),1d0)
-     IF (t_0.eq.0) THEN
-      where (tn >= DISC%DynRup%forced_rupture_time(:,iFace))
-         f2=1.
-      elsewhere
-         f2=0.
-      end where
-     ELSE
-        f2=dmax1(0d0,dmin1((time-DISC%DynRup%forced_rupture_time(:,iFace))/t_0,1d0))
+     f1=dmin1(ABS(DISC%DynRup%Slip(:,iFace))/DISC%DynRup%D_C(:,iFace),1d0)    
+
+     IF(EQN%FL.EQ.16) THEN 
+        IF (t_0.eq.0) THEN
+         where (tn >= DISC%DynRup%forced_rupture_time(:,iFace))
+            f2=1.
+         elsewhere
+            f2=0.
+         end where
+        ELSE
+           f2=dmax1(0d0,dmin1((time-DISC%DynRup%forced_rupture_time(:,iFace))/t_0,1d0))
+        ENDIF
+     ELSE !no forced time rupture
+        f2=0.
      ENDIF
 
      DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace) - (DISC%DynRup%Mu_S(:,iFace)-DISC%DynRup%Mu_D(:,iFace))*dmax1(f1,f2)
-     
+
+     ! instantaneous healing
+     IF (DISC%DynRup%inst_healing == 1) THEN
+        where (LocSR.LT. u_0)
+           DISC%DynRup%Mu(:,iFace) = DISC%DynRup%Mu_S(:,iFace)
+           DISC%DynRup%Slip(:,iFace)  = 0.0
+        endwhere
+     ENDIF
+    
      TractionGP_XY(:,iTimeGP) = LocTracXY(:)
      TractionGP_XZ(:,iTimeGP) = LocTracXZ(:)      
     enddo
@@ -1529,7 +1365,11 @@ MODULE Eval_friction_law_mod
              !
          ENDDO !  j=1,nSVupdates   !This loop corrects SV values
          if (.NOT.has_converged) THEN
-            logError(*) 'nonConvergence RS Newton', time
+            !logError(*) 'nonConvergence RS Newton', time
+            if (tmp(1).NE.tmp(1)) then
+               logError(*) 'NaN detected', time
+               STOP
+            endif
          ENDIF
          
          ! 5. get final theta, mu, traction and slip
@@ -1599,6 +1439,15 @@ MODULE Eval_friction_law_mod
      where (LocSR.GT.DISC%DynRup%PeakSR(:,iFace))
         DISC%DynRup%PeakSR(:,iFace) = LocSR
      endwhere
+    !output time when shear stress is equal to the dynamic stress after rupture arrived
+    !currently only for linear slip weakening
+    where ( (DISC%DynRup%rupture_time(:,iFace) .GT. 0.0) .AND. &
+            (DISC%DynRup%rupture_time(:,iFace) .LE. time) .AND. &
+             DISC%DynRup%DS(:,iFace) .AND. &
+             DISC%DynRup%Mu(:,iFace) .LE. (RS_fw+0.05*(RS_f0-RS_fw)))
+      DISC%DynRup%dynStress_time(:,iFace)=time
+      DISC%DynRup%DS(:,iFace) = .FALSE.
+    end where
      !
      DISC%DynRup%Mu(:,iFace)        = LocMu
      DISC%DynRup%SlipRate1(:,iFace) = LocSR1
@@ -1614,7 +1463,6 @@ MODULE Eval_friction_law_mod
         DISC%DynRup%averaged_Slip(iFace) = DISC%DynRup%averaged_Slip(iFace) + sum(tmpSlip)/nBndGP
      ENDIF
   !
-
  END SUBROUTINE rate_and_state_nuc103
 
    SUBROUTINE update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, &
@@ -1697,8 +1545,8 @@ MODULE Eval_friction_law_mod
 
        !calculate friction coefficient
        tmp2  = tmp*SRtest
-       mu_f  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
-       dmu_f = RS_a/SQRT(1.0D0+tmp2**2)*tmp
+       mu_f  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0))
+       dmu_f = RS_a/SQRT(1D0+tmp2**2)*tmp
        NR    = -invZ * (ABS(n_stress)*mu_f-sh_stress)-SRtest
 
        IF (maxval(abs(NR))<aTolF) THEN
@@ -1707,7 +1555,7 @@ MODULE Eval_friction_law_mod
        ENDIF
 
        !derivative of NR
-       dNR   = -invZ * (ABS(n_stress)*dmu_f) -1.0D0
+       dNR   = -invZ * (ABS(n_stress)*dmu_f) -1.0
        !ratio
        tmp3 = NR/dNR
 

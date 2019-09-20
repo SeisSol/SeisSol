@@ -39,6 +39,7 @@
  **/
 
 #include "Transformation.h"
+#include <glm/glm.hpp>
 
 void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
                                                              double const v1[3],
@@ -49,6 +50,31 @@ void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
   for (unsigned i = 0; i < 3; ++i) {
     xyz[i] = v0[i] + (v1[i]-v0[i])*xiEtaZeta[0] + (v2[i]-v0[i])*xiEtaZeta[1] + (v3[i]-v0[i])*xiEtaZeta[2];
   }
+}
+
+glm::dvec3 seissol::transformations::tetrahedronGlobalToReference( double const       v0[3],
+                                                                   double const       v1[3],
+                                                                   double const       v2[3],
+                                                                   double const      v3[3],
+                                                                   glm::dvec3 const& xyz ) {
+  // Forward transformation
+  glm::dmat4 A( glm::dvec4(v1[0]-v0[0], v1[1]-v0[1], v1[2]-v0[2], 0.0),
+                glm::dvec4(v2[0]-v0[0], v2[1]-v0[1], v2[2]-v0[2], 0.0),
+                glm::dvec4(v3[0]-v0[0], v3[1]-v0[1], v3[2]-v0[2], 0.0),
+                glm::dvec4(v0[0], v0[1], v0[2], 1.0)
+              );
+
+  double inverseDeterminant = 1.0 / glm::determinant(A);
+
+  glm::dvec4 rhs(xyz[0], xyz[1], xyz[2], 1.0);
+
+  glm::dvec3 xiEtaZeta;
+  // Rule of Cramer
+  xiEtaZeta[0] = glm::determinant(glm::dmat4(rhs,  A[1], A[2], A[3])) * inverseDeterminant;
+  xiEtaZeta[1] = glm::determinant(glm::dmat4(A[0], rhs,  A[2], A[3])) * inverseDeterminant;
+  xiEtaZeta[2] = glm::determinant(glm::dmat4(A[0], A[1], rhs,  A[3])) * inverseDeterminant;
+
+  return xiEtaZeta;
 }
 
 void seissol::transformations::tetrahedronGlobalToReferenceJacobian( real const i_x[4],
@@ -83,135 +109,127 @@ void seissol::transformations::tetrahedronGlobalToReferenceJacobian( real const 
 void seissol::transformations::inverseTensor1RotationMatrix( VrtxCoords const i_normal,
                                                              VrtxCoords const i_tangent1,
                                                              VrtxCoords const i_tangent2,
-                                                             DenseMatrixView<3, 3> o_Tinv )
+                                                             yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
+                                                             unsigned row,
+                                                             unsigned col )
 {
-  real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
-  real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
-  real tx = i_tangent2[0], ty = i_tangent2[1], tz = i_tangent2[2];
-
-  o_Tinv(0,0) = nx;
-  o_Tinv(1,0) = sx;
-  o_Tinv(2,0) = tx;
-  o_Tinv(0,1) = ny;
-  o_Tinv(1,1) = sy;
-  o_Tinv(2,1) = ty;
-  o_Tinv(0,2) = nz;
-  o_Tinv(1,2) = sz;
-  o_Tinv(2,2) = tz;
+  for (unsigned i = 0; i < 3; ++i) {
+    o_Tinv(row+0,col+i) = i_normal[i];
+    o_Tinv(row+1,col+i) = i_tangent1[i];
+    o_Tinv(row+2,col+i) = i_tangent2[i];
+  }
 }
 
 void seissol::transformations::tensor1RotationMatrix( VrtxCoords const i_normal,
                                                       VrtxCoords const i_tangent1,
                                                       VrtxCoords const i_tangent2,
-                                                      DenseMatrixView<3, 3> o_T )
+                                                      yateto::DenseTensorView<2,real,unsigned>& o_T,
+                                                      unsigned row,
+                                                      unsigned col )
 {
-  real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
-  real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
-  real tx = i_tangent2[0], ty = i_tangent2[1], tz = i_tangent2[2];
-  
-  o_T(0,0) = nx;
-  o_T(1,0) = ny;
-  o_T(2,0) = nz;
-  o_T(0,1) = sx;
-  o_T(1,1) = sy;
-  o_T(2,1) = sz;
-  o_T(0,2) = tx;
-  o_T(1,2) = ty;
-  o_T(2,2) = tz;
+  for (unsigned i = 0; i < 3; ++i) {
+    o_T(row+i,col+0) = i_normal[i];
+    o_T(row+i,col+1) = i_tangent1[i];
+    o_T(row+i,col+2) = i_tangent2[i];
+  }
 }
 
 void seissol::transformations::inverseSymmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                                                       VrtxCoords const i_tangent1,
                                                                       VrtxCoords const i_tangent2,
-                                                                      DenseMatrixView<6, 6> o_Tinv )
+                                                                      yateto::DenseTensorView<2,real,unsigned>& o_Tinv,
+                                                                      unsigned row,
+                                                                      unsigned col )
 {
   real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
   real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
   real tx = i_tangent2[0], ty = i_tangent2[1], tz = i_tangent2[2];
   
-  o_Tinv(0,0) = nx * nx;
-  o_Tinv(1,0) = sx * sx;
-  o_Tinv(2,0) = tx * tx;
-  o_Tinv(3,0) = nx * sx;
-  o_Tinv(4,0) = sx * tx;
-  o_Tinv(5,0) = nx * tx;
-  o_Tinv(0,1) = ny * ny;
-  o_Tinv(1,1) = sy * sy;
-  o_Tinv(2,1) = ty * ty;
-  o_Tinv(3,1) = ny * sy;
-  o_Tinv(4,1) = sy * ty;
-  o_Tinv(5,1) = ny * ty;
-  o_Tinv(0,2) = nz * nz;
-  o_Tinv(1,2) = sz * sz;
-  o_Tinv(2,2) = tz * tz;
-  o_Tinv(3,2) = nz * sz;
-  o_Tinv(4,2) = sz * tz;
-  o_Tinv(5,2) = nz * tz;
-  o_Tinv(0,3) = 2.0 * ny * nx;
-  o_Tinv(1,3) = 2.0 * sy * sx;
-  o_Tinv(2,3) = 2.0 * ty * tx;
-  o_Tinv(3,3) = ny * sx + nx * sy;
-  o_Tinv(4,3) = sy * tx + sx * ty;
-  o_Tinv(5,3) = ny * tx + nx * ty;
-  o_Tinv(0,4) = 2.0 * nz * ny;
-  o_Tinv(1,4) = 2.0 * sz * sy;
-  o_Tinv(2,4) = 2.0 * tz * ty;
-  o_Tinv(3,4) = nz * sy + ny * sz;
-  o_Tinv(4,4) = sz * ty + sy * tz;
-  o_Tinv(5,4) = nz * ty + ny * tz;
-  o_Tinv(0,5) = 2.0 * nz * nx;
-  o_Tinv(1,5) = 2.0 * sz * sx;
-  o_Tinv(2,5) = 2.0 * tz * tx;
-  o_Tinv(3,5) = nz * sx + nx * sz;
-  o_Tinv(4,5) = sz * tx + sx * tz;
-  o_Tinv(5,5) = nz * tx + nx * tz;
+  o_Tinv(row+0,col+0) = nx * nx;
+  o_Tinv(row+1,col+0) = sx * sx;
+  o_Tinv(row+2,col+0) = tx * tx;
+  o_Tinv(row+3,col+0) = nx * sx;
+  o_Tinv(row+4,col+0) = sx * tx;
+  o_Tinv(row+5,col+0) = nx * tx;
+  o_Tinv(row+0,col+1) = ny * ny;
+  o_Tinv(row+1,col+1) = sy * sy;
+  o_Tinv(row+2,col+1) = ty * ty;
+  o_Tinv(row+3,col+1) = ny * sy;
+  o_Tinv(row+4,col+1) = sy * ty;
+  o_Tinv(row+5,col+1) = ny * ty;
+  o_Tinv(row+0,col+2) = nz * nz;
+  o_Tinv(row+1,col+2) = sz * sz;
+  o_Tinv(row+2,col+2) = tz * tz;
+  o_Tinv(row+3,col+2) = nz * sz;
+  o_Tinv(row+4,col+2) = sz * tz;
+  o_Tinv(row+5,col+2) = nz * tz;
+  o_Tinv(row+0,col+3) = 2.0 * ny * nx;
+  o_Tinv(row+1,col+3) = 2.0 * sy * sx;
+  o_Tinv(row+2,col+3) = 2.0 * ty * tx;
+  o_Tinv(row+3,col+3) = ny * sx + nx * sy;
+  o_Tinv(row+4,col+3) = sy * tx + sx * ty;
+  o_Tinv(row+5,col+3) = ny * tx + nx * ty;
+  o_Tinv(row+0,col+4) = 2.0 * nz * ny;
+  o_Tinv(row+1,col+4) = 2.0 * sz * sy;
+  o_Tinv(row+2,col+4) = 2.0 * tz * ty;
+  o_Tinv(row+3,col+4) = nz * sy + ny * sz;
+  o_Tinv(row+4,col+4) = sz * ty + sy * tz;
+  o_Tinv(row+5,col+4) = nz * ty + ny * tz;
+  o_Tinv(row+0,col+5) = 2.0 * nz * nx;
+  o_Tinv(row+1,col+5) = 2.0 * sz * sx;
+  o_Tinv(row+2,col+5) = 2.0 * tz * tx;
+  o_Tinv(row+3,col+5) = nz * sx + nx * sz;
+  o_Tinv(row+4,col+5) = sz * tx + sx * tz;
+  o_Tinv(row+5,col+5) = nz * tx + nx * tz;
 }
 
 void seissol::transformations::symmetricTensor2RotationMatrix( VrtxCoords const i_normal,
                                                                VrtxCoords const i_tangent1,
                                                                VrtxCoords const i_tangent2,
-                                                               DenseMatrixView<6, 6> o_T )
-{
+                                                               yateto::DenseTensorView<2,real,unsigned>& o_T,
+                                                               unsigned row,
+                                                               unsigned col )
+{  
   real nx = i_normal[0], ny = i_normal[1], nz = i_normal[2];
   real sx = i_tangent1[0], sy = i_tangent1[1], sz = i_tangent1[2];
   real tx = i_tangent2[0], ty = i_tangent2[1], tz = i_tangent2[2];
   
-  o_T(0,0) = nx * nx;
-  o_T(1,0) = ny * ny;
-  o_T(2,0) = nz * nz;
-  o_T(3,0) = ny * nx;
-  o_T(4,0) = nz * ny;
-  o_T(5,0) = nz * nx;
-  o_T(0,1) = sx * sx;
-  o_T(1,1) = sy * sy;
-  o_T(2,1) = sz * sz;
-  o_T(3,1) = sy * sx;
-  o_T(4,1) = sz * sy;
-  o_T(5,1) = sz * sx;
-  o_T(0,2) = tx * tx;
-  o_T(1,2) = ty * ty;
-  o_T(2,2) = tz * tz;
-  o_T(3,2) = ty * tx;
-  o_T(4,2) = tz * ty;
-  o_T(5,2) = tz * tx;
-  o_T(0,3) = 2.0 * nx * sx;
-  o_T(1,3) = 2.0 * ny * sy;
-  o_T(2,3) = 2.0 * nz * sz;
-  o_T(3,3) = ny * sx + nx * sy;
-  o_T(4,3) = nz * sy + ny * sz;
-  o_T(5,3) = nz * sx + nx * sz;
-  o_T(0,4) = 2.0 * sx * tx;
-  o_T(1,4) = 2.0 * sy * ty;
-  o_T(2,4) = 2.0 * sz * tz;
-  o_T(3,4) = sy * tx + sx * ty;
-  o_T(4,4) = sz * ty + sy * tz;
-  o_T(5,4) = sz * tx + sx * tz;
-  o_T(0,5) = 2.0 * nx * tx;
-  o_T(1,5) = 2.0 * ny * ty;
-  o_T(2,5) = 2.0 * nz * tz;
-  o_T(3,5) = ny * tx + nx * ty;
-  o_T(4,5) = nz * ty + ny * tz;
-  o_T(5,5) = nz * tx + nx * tz;
+  o_T(row+0,col+0) = nx * nx;
+  o_T(row+1,col+0) = ny * ny;
+  o_T(row+2,col+0) = nz * nz;
+  o_T(row+3,col+0) = ny * nx;
+  o_T(row+4,col+0) = nz * ny;
+  o_T(row+5,col+0) = nz * nx;
+  o_T(row+0,col+1) = sx * sx;
+  o_T(row+1,col+1) = sy * sy;
+  o_T(row+2,col+1) = sz * sz;
+  o_T(row+3,col+1) = sy * sx;
+  o_T(row+4,col+1) = sz * sy;
+  o_T(row+5,col+1) = sz * sx;
+  o_T(row+0,col+2) = tx * tx;
+  o_T(row+1,col+2) = ty * ty;
+  o_T(row+2,col+2) = tz * tz;
+  o_T(row+3,col+2) = ty * tx;
+  o_T(row+4,col+2) = tz * ty;
+  o_T(row+5,col+2) = tz * tx;
+  o_T(row+0,col+3) = 2.0 * nx * sx;
+  o_T(row+1,col+3) = 2.0 * ny * sy;
+  o_T(row+2,col+3) = 2.0 * nz * sz;
+  o_T(row+3,col+3) = ny * sx + nx * sy;
+  o_T(row+4,col+3) = nz * sy + ny * sz;
+  o_T(row+5,col+3) = nz * sx + nx * sz;
+  o_T(row+0,col+4) = 2.0 * sx * tx;
+  o_T(row+1,col+4) = 2.0 * sy * ty;
+  o_T(row+2,col+4) = 2.0 * sz * tz;
+  o_T(row+3,col+4) = sy * tx + sx * ty;
+  o_T(row+4,col+4) = sz * ty + sy * tz;
+  o_T(row+5,col+4) = sz * tx + sx * tz;
+  o_T(row+0,col+5) = 2.0 * nx * tx;
+  o_T(row+1,col+5) = 2.0 * ny * ty;
+  o_T(row+2,col+5) = 2.0 * nz * tz;
+  o_T(row+3,col+5) = ny * tx + nx * ty;
+  o_T(row+4,col+5) = nz * ty + ny * tz;
+  o_T(row+5,col+5) = nz * tx + nx * tz;
 }
 
 

@@ -4,77 +4,97 @@ ASAGI
 The software package `ASAGI <https://github.com/TUM-I5/ASAGI>`__ can be
 used to map gridded material properties of the domain to the mesh used
 for a SeisSol simulation. As input a netcdf file with x-y-z coordinates
-and corresponding material properties ($\rho, \\mu, \\lambda$) is
+and corresponding material properties :math:`(\rho,\mu, \lambda )` is
 required. By using
 `asagiconv <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/asagiconv>`__
 in a pre-processing step it is also possible to create a netcdf file
 containing the velocity model directly from the Community Velocity Model
 (CVM-H).
 
-.. _basic-installation/configuration:
 
-Basic installation/configuration
---------------------------------
+.. _installing_ASAGI:
 
-Compiling the library
-~~~~~~~~~~~~~~~~~~~~~
+Installing ASAGI
+----------------
 
 Be careful that the python and gcc package is the same as for the
 compilation of SeisSol in a later step!
 
 example on SuperMuc
-'''''''''''''''''''
+~~~~~~~~~~~~~~~~~~~
 
 -  load the following modules (order matters!)
 
-``module switch mpi.ibm mpi.intel`` since the ibm mpi interferes with
-python mpi
+.. code-block:: bash
 
-``module load python/2.7_anaconda_mpi gcc netcdf/mpi cmake``
+   module load mpi.ibm 
+   module load netcdf/mpi
+   module load hdf5/mpi/1.8.18
+   module load intel/17.0
+   module load gcc
+   module load cmake
 
 -  get the repository
 
-``git clone https://github.com/TUM-I5/ASAGI.git``
+On a cluster without restricted access to outside sources, you could then clone the repository using:
+
+.. code-block:: bash
+
+   git clone --recursive https://github.com/TUM-I5/ASAGI.github
+   
+On supermuc, you have to setup port forwarding as described in :ref:`compile_run_supermuc`.
+
+Then you can clone the project with 
+
+.. code-block:: bash
+
+   git clone git@github.com:TUM-I5/ASAGI.git
+
+followed by running ``fix_submodules`` to clone and setup the submodules.
 
 -  set compiler options:
 
-| ``export FC=mpif90``
-| ``export CXX=mpiCC``
-| ``export CC=mpicc``
+.. code-block:: bash
+
+   export FC=mpif90
+   export CXX=mpiCC
+   export CC=mpicc
 
 -  install:
 
-| ``mkdir build``
-| ``CMAKE_PREFIX_PATH=<path_to_netcdf>``
-| ``cd build``
-| ``cmake ../ -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/``
-| ``make``
-| ``make install``
+.. code-block:: bash
 
-(the path to netcdf can be checked by typing ``module show netcdf``, use
-the BASE path)
+   mkdir build
+   cd build
+   export CMAKE_PREFIX_PATH=$NETCDF_BASE
+   cmake ../ -DCMAKE_INSTALL_PREFIX=<path_to_ASAGI>/build
+   make -j8
+   make install
 
 -  set the following paths
 
-``export PKG_CONFIG_PATH=<path_to_ASAGI>/build/lib/pkgconfig``
+.. code-block:: bash
 
-``export LD_LIBRARY_PATH=<path_to_ASAGI>/build/lib``
+   export PKG_CONFIG_PATH=<path_to_ASAGI>/build/lib/pkgconfig
+   export LD_LIBRARY_PATH=<path_to_ASAGI>/build/lib
 
 building SeisSol with ASAGI support
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------
 
 Simply add the following lines to the scons parameter file and make sure
 you use the same python and gcc package as for the compilation with
 ASAGI.
 
-| ``asagi=yes``
-| ``zlibDir=<path_to_ASAGI>/build/lib/``
+.. code-block:: bash
+
+   asagi=yes
+   zlibDir=<path_to_ASAGI>/build/lib/
 
 **Known issues:** “can not find Asagi” while compiling SeisSol
 
 There are a couple of options that can be checked:
 
--  Is SeiSol compiled with a different python package?
+-  Is SeisSol compiled with a different python package?
 -  Are the paths to ASAGI correctly included? Check
    ``echo $PKG_CONFIG_PATH`` and ``echo $LD_LIBRARY_PATH``
 -  When re-installing ASAGI again it might also help to remove the
@@ -139,16 +159,6 @@ python.
 SeisSol parameter file
 ----------------------
 
-without easi
-~~~~~~~~~~~~
-
-Simply add to the namelist equation:
-
-| ``MaterialType = 101``
-| ``MaterialFileName= Path to the netCDF file``
-
-with easi
-~~~~~~~~~
 
 A simple example file setting the elastic properties using EASI can be
 found
@@ -156,7 +166,9 @@ found
 
 Such a file would be called adding in the namelist equation:
 
-``MaterialFileName = 101_asagi.yaml``
+.. code-block:: fortran
+
+   MaterialFileName = 101_asagi.yaml
 
 Further information
 -------------------
@@ -164,3 +176,8 @@ Further information
 For further information, the use of asagiconv and asagi and its
 compilation, please see: `ASAGI
 docu <http://www.seissol.org/sites/default/files/asagi.pdf>`__.
+
+Known issues
+------------
+
+There is a bug, when using ASAGI with MPI. A workaround is described in https://github.com/SeisSol/SeisSol/issues/46.

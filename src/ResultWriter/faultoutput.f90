@@ -207,10 +207,8 @@ CONTAINS
 !> Fault output calculation at specific positions (receiver and elementwise)
 !<
   SUBROUTINE calc_FaultOutput( DynRup_output, DISC, EQN, MESH, MaterialVal, BND, time )
-#ifdef GENERATEDKERNELS
     use  f_ftoc_bind_interoperability
     use iso_c_binding, only: c_loc
-#endif
 
     !-------------------------------------------------------------------------!
     USE common_operators_mod
@@ -532,10 +530,17 @@ CONTAINS
               DynRup_output%OutVal(iOutPoints,1,OutVars) = LocU !OutVars =6
           ENDIF
           IF (DynRup_output%OutputMask(4).EQ.1) THEN
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = MuVal !OutVars =7
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocSV !OutVars =8
+              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP, iFace,2) !OutVars =7
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP, iFace,1) !OutVars =8
+              ELSE
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = MuVal !OutVars =7
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = LocSV !OutVars =8
+              ENDIF
           ENDIF
           IF (DynRup_output%OutputMask(5).EQ.1) THEN
               OutVars = OutVars + 1

@@ -48,6 +48,7 @@
 
 // Define the FLOP counter.
 long long libxsmm_num_total_flops = 0;
+long long pspamm_num_total_flops = 0;
 
 long long g_SeisSolNonZeroFlopsLocal = 0;
 long long g_SeisSolHardwareFlopsLocal = 0;
@@ -101,15 +102,7 @@ extern "C" {
 
 #ifdef USE_MPI
     double totalFlops[NUM_COUNTERS];
-    double hardwareFlops = flops[WPHardwareFlops] + flops[DRHardwareFlops] + flops[PLHardwareFlops];
-    double maxHardwareFlops;
-
     MPI_Reduce(&flops, &totalFlops, NUM_COUNTERS, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
-    MPI_Reduce(&hardwareFlops, &maxHardwareFlops, 1, MPI_DOUBLE, MPI_MAX, 0, seissol::MPI::mpi.comm());
-
-    double loadImbalance = maxHardwareFlops - (totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops]) / seissol::MPI::mpi.size();
-    logInfo(rank) << "Load imbalance:            " << loadImbalance;
-    logInfo(rank) << "Relative load imbalance:   " << loadImbalance / maxHardwareFlops * 100.0 << "%";
 #else
     double* totalFlops = &flops[0];
 #endif

@@ -52,6 +52,7 @@
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
 #include <Solver/FreeSurfaceIntegrator.h>
+#include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
 
@@ -75,23 +76,11 @@ class seissol::time_stepping::TimeManager {
       }
     };
 
-    //! time kernel
-    kernels::Time     m_timeKernel;
-
-    //! local kernel
-    kernels::Local   m_localKernel;
-
-    //! neighbor kernel
-    kernels::Neighbor m_neighborKernel;
-
     //! last #updates of log
     unsigned int m_logUpdates;
 
     //! time stepping
     TimeStepping m_timeStepping;
-
-    //! mapping: mesh to clusters
-    unsigned int *m_meshToClusters;
 
     //! all LTS clusters, which are under control of this time manager
     std::vector< TimeCluster* > m_clusters;
@@ -110,7 +99,7 @@ class seissol::time_stepping::TimeManager {
     
     //! Stopwatch
     LoopStatistics m_loopStatistics;
-
+    
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
      * If this is true:
@@ -154,8 +143,7 @@ class seissol::time_stepping::TimeManager {
      **/
     void addClusters( struct TimeStepping&               i_timeStepping,
                       struct MeshStructure*              i_meshStructure,
-                      initializers::MemoryManager&       i_memoryManager,
-                      unsigned*                          i_meshToClusters  );
+                      initializers::MemoryManager&       i_memoryManager );
 
     /**
      * Starts the communication thread.
@@ -188,25 +176,14 @@ class seissol::time_stepping::TimeManager {
     void setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources );
 
     /**
-     * Adds a receiver.
-     *
-     * @param i_receiverId id of the receiver as used in Fortran.
-     * @param i_meshId mesh id.
-     **/
-    void addReceiver( unsigned int i_receiverId,
-                      unsigned int i_meshId );
+     * Returns the writer for the receivers
+     */
+    void setReceiverClusters(writer::ReceiverWriter& receiverWriter); 
 
     /**
      * Set Tv constant for plasticity.
      */
     void setTv(double tv);
-
-    /**
-     * Sets the sampling of the receivers.
-     *
-     * @param i_receiverSampling receiver sampling.
-     **/
-    void setReceiverSampling( double i_receiverSampling );
 
     /**
      * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.

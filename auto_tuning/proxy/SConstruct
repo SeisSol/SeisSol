@@ -40,6 +40,19 @@
 
 import os
 import arch
+import sys
+import memlayout
+
+# Check if we the user wants to show help only
+helpMode = GetOption('help')
+
+def ConfigurationError(msg):
+  """Print the error message and exit. Continue only
+  if the user wants to show the help message"""
+
+  if not helpMode:
+    print(msg)
+    Exit(1)
 
 #
 # set possible variables
@@ -73,7 +86,9 @@ vars.AddVariables(
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
 
-  PathVariable( 'memLayout', 'memory layout xml file', '', PathVariable.PathIsFile),
+  PathVariable( 'memLayout', 'memory layout xml file', None, PathVariable.PathIsFile),
+  
+  ( 'multipleSimulations', 'Fuse multiple simulations in one run.', '1' ),
 
   EnumVariable( 'dynamicRuptureMethod',
                 'Use quadrature here, cellaverage is EXPERIMENTAL.',
@@ -91,7 +106,6 @@ vars.AddVariables(
 env = Environment(variables=vars)
 env['ENV'] = os.environ
 
-env['generatedKernels'] = True
 if env['compiler'] == 'intel':
     env['CC'] = 'icc'
     env['CXX'] = 'icpc'
@@ -103,6 +117,12 @@ if env['equations'].startswith('viscoelastic'):
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
 
+if int(env['multipleSimulations']) != 1 and int(env['multipleSimulations']) % arch.getAlignedReals(env['arch']) != 0:
+  ConfigurationError("*** multipleSimulations must be a multiple of {}.".format(arch.getAlignedReals(env['arch'])))
+
+if not 'memLayout' in env:
+  env['memLayout'] = memlayout.guessMemoryLayout(env)
+
 # generate help text
 Help(vars.GenerateHelpText(env))
   
@@ -113,7 +133,7 @@ if 'buildVariablesFile' in unknownVariables:
   
 # exit in the case of unknown variables
 if unknownVariables:
-  raise EnvironmentError("*** The following build variables are unknown: " + str(unknownVariables.keys()))
+  raise ConfigurationError("*** The following build variables are unknown: " + str(unknownVariables.keys()))
   
 numberOfQuantities = {
   'elastic' : 9,
@@ -145,6 +165,8 @@ env.Append(CPPDEFINES=arch.getDefines(env['arch']))
 
 # c++ standard
 env.Append(CXXFLAGS=['-std=c++11'])
+if env['compiler'] == 'gcc':
+  env.Append(CXXFLAGS = ['-Werror=vla'])
 
 if env['equations'] in ['elastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
@@ -168,7 +190,12 @@ env.Append(CPPDEFINES=[ 'GENERATEDKERNELS',
                         'EQUATIONS_' + env['equations'].upper() ])
 
 # add pathname to the list of directories which are search for include
-env.Append(CPPPATH=['#../../src', '#../../submodules', '#../../src/Equations/' + env['equations'], '#../../src/Equations/' + env['equations'] + '/generated_code'])
+env.Append(CPPPATH=[
+  '#../../src',
+  '#../../submodules',
+  '#../../submodules/yateto/include',
+  '#../../submodules/easi/include',
+  '#../../src/Equations/' + env['equations'], '#../../src/Equations/' + env['equations'] + '/generated_code'])
 
 # build directory
 env['execDir'] = env['buildDir']+'/bin'
@@ -176,12 +203,16 @@ env['execDir'] = env['buildDir']+'/bin'
 # get the source files
 env.sourceFiles = []
 env.generatedTestSourceFiles = []
+env.generatedSourceFiles = []
 env.flopsPerCellSourceFiles = []
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir=env['buildDir'], src_dir='#/', duplicate=0)
 SConscript('src/SConscript', variant_dir=env['buildDir'], src_dir='#/', duplicate=0)
 Import('env')
+
+# add generated code to executables
+env.sourceFiles.extend(env.generatedSourceFiles)
 
 # build executable
 env.Program(env['execDir']+'/seissol_proxy', env.sourceFiles)
@@ -194,9 +225,12 @@ env.Tool('cxxtest')
 sourceFiles = []
 for sourceFile in env.sourceFiles:
   sourceFiles.append(sourceFile[0])
-sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles)
+sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'proxy_seissol.o', sourceFiles))
 
 env.Program(env['execDir']+'/flops_per_cell', sourceFiles + env.flopsPerCellSourceFiles)
 
 if env.generatedTestSourceFiles:
+  env['CXXTEST_OPTS'] = '--template=' + Dir('.').srcnode().abspath + '/src/seissol_src/tests/custom_traits.tpl'
+
+  sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'flop_counter.o', sourceFiles))
   env.CxxTest(target=env['execDir']+'/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)

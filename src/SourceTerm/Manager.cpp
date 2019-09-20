@@ -74,6 +74,7 @@
 #include "NRFReader.h"
 #include "PointSource.h"
 
+#include <Initializer/PointMapper.h>
 #include <Solver/Interoperability.h>
 #include <utils/logger.h>
 #include <cstring>
@@ -96,127 +97,7 @@ public:
     }
 };
 
-void seissol::sourceterm::findMeshIds(Vector3 const* centres, MeshReader const& mesh, unsigned numSources, short* contained, unsigned* meshIds)
-{
-  std::vector<Vertex> const& vertices = mesh.getVertices();
-  std::vector<Element> const& elements = mesh.getElements();
-
-  memset(contained, 0, numSources * sizeof(short));
-
-  double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), ALIGNMENT));
-  for (unsigned elem = 0; elem < elements.size(); ++elem) {
-    for (int face = 0; face < 4; ++face) {
-      VrtxCoords n, p;
-      MeshTools::pointOnPlane(elements[elem], face, vertices, p);
-      MeshTools::normal(elements[elem], face, vertices, n);
-
-      for (unsigned i = 0; i < 3; ++i) {
-        planeEquations[elem][i][face] = n[i];
-      }
-      planeEquations[elem][3][face] = - MeshTools::dot(n, p);
-    }
-  }
-
-  double (*centres1)[4] = new double[numSources][4];
-  for (unsigned source = 0; source < numSources; ++source) {
-    centres1[source][0] = centres[source].x;
-    centres1[source][1] = centres[source].y;
-    centres1[source][2] = centres[source].z;
-    centres1[source][3] = 1.0;
-  }
-
-/// @TODO Could use the code generator for the following
-#ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
-#endif
-  for (unsigned elem = 0; elem < elements.size(); ++elem) {
-#if 0 //defined(__AVX__)
-      __m256d zero = _mm256_setzero_pd();
-      __m256d planeDims[4];
-      for (unsigned i = 0; i < 4; ++i) {
-        planeDims[i] = _mm256_load_pd(&planeEquations[elem][i][0]);
-      }
-#endif
-    for (unsigned source = 0; source < numSources; ++source) {
-      int l_notInside = 0;
-#if 0 //defined(__AVX__)
-      // Not working because <0 => 0 should actually be  <=0 => 0
-      /*__m256d result = _mm256_setzero_pd();
-      for (unsigned dim = 0; dim < 4; ++dim) {
-        result = _mm256_add_pd(result, _mm256_mul_pd(planeDims[dim], _mm256_broadcast_sd(&centres1[source][dim])) );
-      }
-      // >0 => (2^64)-1 ; <0 = 0
-      __m256d inside4 = _mm256_cmp_pd(result, zero, _CMP_GE_OQ);
-      l_notInside = _mm256_movemask_pd(inside4);*/
-#else
-      double result[4] = { 0.0, 0.0, 0.0, 0.0 };
-      for (unsigned dim = 0; dim < 4; ++dim) {
-        for (unsigned face = 0; face < 4; ++face) {
-          result[face] += planeEquations[elem][dim][face] * centres1[source][dim];
-        }
-      }
-      for (unsigned face = 0; face < 4; ++face) {
-        l_notInside += (result[face] > 0.0) ? 1 : 0;
-      }
-#endif
-      if (l_notInside == 0) {
-#ifdef _OPENMP
-        #pragma omp critical
-        {
-#endif
-          /* It might actually happen that a source is found in two tetrahedrons
-           * if it lies on the boundary. In this case we arbitrarily assign
-           * it to the one with the higher meshId.
-           * @todo Check if this is a problem with the numerical scheme. */
-          /*if (contained[source] != 0) {
-             logError() << "source with id " << source << " was already found in a different element!";
-          }*/
-          if (contained[source] == 0 || meshIds[source] > elem) {
-            contained[source] = 1;
-            meshIds[source] = elem;
-          }
-#ifdef _OPENMP
-        }
-#endif
-      }
-    }
-  }
-
-  seissol::memory::free(planeEquations);
-  delete[] centres1;
-}
-
-#ifdef USE_MPI
-void seissol::sourceterm::cleanDoubles(short* contained, unsigned numSources)
-{
-  int myrank = seissol::MPI::mpi.rank();
-  int size = seissol::MPI::mpi.size();
-
-  short* globalContained = new short[size * numSources];
-  MPI_Allgather(contained, numSources, MPI_SHORT, globalContained, numSources, MPI_SHORT, seissol::MPI::mpi.comm());
-
-  unsigned cleaned = 0;
-  for (unsigned source = 0; source < numSources; ++source) {
-    if (contained[source] == 1) {
-      for (int rank = 0; rank < myrank; ++rank) {
-        if (globalContained[rank * numSources + source] == 1) {
-          contained[source] = 0;
-          ++cleaned;
-          break;
-        }
-      }
-    }
-  }
-
-  if (cleaned > 0) {
-    logInfo(myrank) << "Cleaned " << cleaned << " double occurring sources on rank " << myrank << ".";
-  }
-
-  delete[] globalContained;
-}
-#endif
-
-void seissol::sourceterm::transformNRFSourceToInternalSource( Vector3 const&            centre,
+void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const&          centre,
                                                               unsigned                  element,
                                                               Subfault const&           subfault,
                                                               Offsets const&            offsets,
@@ -354,7 +235,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
 
   short* contained = new short[numberOfSources];
   unsigned* meshIds = new unsigned[numberOfSources];
-  Vector3* centres3 = new Vector3[numberOfSources];
+  glm::dvec3* centres3 = new glm::dvec3[numberOfSources];
 
   for (int source = 0; source < numberOfSources; ++source) {
     centres3[source].x = centres[3*source];
@@ -364,11 +245,11 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
 
   logInfo(rank) << "Finding meshIds for point sources...";
 
-  findMeshIds(centres3, mesh, numberOfSources, contained, meshIds);
+  initializers::findMeshIds(centres3, mesh, numberOfSources, contained, meshIds);
 
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
-  cleanDoubles(contained, numberOfSources);
+  initializers::cleanDoubles(contained, numberOfSources);
 #endif
 
   unsigned* originalIndex = new unsigned[numberOfSources];
@@ -392,9 +273,14 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     sources[cluster].mode                  = PointSources::FSRM;
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
-    /// \todo allocate aligned or remove ALIGNED_
-    sources[cluster].mInvJInvPhisAtSources = new real[cmps[cluster].numberOfSources][NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-    sources[cluster].tensor                = new real[cmps[cluster].numberOfSources][9];
+    int error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].mInvJInvPhisAtSources), ALIGNMENT, cmps[cluster].numberOfSources*tensor::mInvJInvPhisAtSources::size()*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
+    error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].tensor), ALIGNMENT, cmps[cluster].numberOfSources*PointSources::TensorSize*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
     sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
@@ -457,11 +343,11 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   unsigned* meshIds = new unsigned[nrf.source];
 
   logInfo(rank) << "Finding meshIds for point sources...";
-  findMeshIds(nrf.centres, mesh, nrf.source, contained, meshIds);
+  initializers::findMeshIds(nrf.centres, mesh, nrf.source, contained, meshIds);
 
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
-  cleanDoubles(contained, nrf.source);
+  initializers::cleanDoubles(contained, nrf.source);
 #endif
 
   unsigned* originalIndex = new unsigned[nrf.source];
@@ -480,9 +366,14 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     sources[cluster].mode                  = PointSources::NRF;
     sources[cluster].numberOfSources       = cmps[cluster].numberOfSources;
-    /// \todo allocate aligned or remove ALIGNED_
-    sources[cluster].mInvJInvPhisAtSources = new real[cmps[cluster].numberOfSources][NUMBER_OF_ALIGNED_BASIS_FUNCTIONS];
-    sources[cluster].tensor                = new real[cmps[cluster].numberOfSources][9];
+    int error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].mInvJInvPhisAtSources), ALIGNMENT, cmps[cluster].numberOfSources*tensor::mInvJInvPhisAtSources::size()*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
+    error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].tensor), ALIGNMENT, cmps[cluster].numberOfSources*PointSources::TensorSize*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
     sources[cluster].muA                   = new real[cmps[cluster].numberOfSources];
     sources[cluster].lambdaA               = new real[cmps[cluster].numberOfSources];
     sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];

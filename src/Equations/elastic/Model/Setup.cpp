@@ -43,48 +43,44 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 
-#include <generated_code/sizes.h>
 #include <generated_code/init.h>
 
-void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
-                                                     unsigned        i_dim,
-                                                     real            o_M[seissol::model::AstarT::reals] )
+void seissol::model::getTransposedCoefficientMatrix( Material const&                i_material,
+                                                     unsigned                       i_dim,
+                                                     init::star::view<0>::type&     AT )
 {
-  MatrixView M(o_M, seissol::model::AstarT::reals, seissol::model::AstarT::index);
-  seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, M);
+  seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, AT);
 }
 
-void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&                        local,
-                                                 seissol::model::Material const&                        neighbor,
-                                                 enum ::faceType                                        type,
-                                                 //real const                                             Atransposed[STAR_NNZ],
-                                                 DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> Flocal,
-                                                 DenseMatrixView<seissol::model::AminusT::rows, seissol::model::AminusT::cols> Fneighbor )
+//~ void seissol::model::getPlaneWaveOperator(  Material const& material,
+                                            //~ double const n[3],
+                                            //~ std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+//~ {
+  //~ DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, std::complex<real>> M(Mdata);
+  //~ M.setZero();
+//~ 
+  //~ real Adata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  //~ MatrixView AT(Adata, sizeof(Adata)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
+//~ 
+  //~ for (unsigned d = 0; d < 3; ++d) {
+    //~ AT.setZero();
+    //~ getTransposedElasticCoefficientMatrix(material, d, AT);
+    //~ 
+    //~ for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      //~ for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+        //~ M(i,j) += n[i] * AT(j,i);
+      //~ }
+    //~ }
+  //~ }
+//~ }
+
+void seissol::model::getTransposedGodunovState( Material const&                   local,
+                                                Material const&                   neighbor,
+                                                enum ::faceType                   faceType,
+                                                init::QgodLocal::view::type&      QgodLocal,
+                                                init::QgodNeighbor::view::type&   QgodNeighbor )
 {
-  real QgodNeighborData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  real QgodLocalData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  
-  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> QgodNeighbor(QgodNeighborData);
-  DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> QgodLocal(QgodLocalData);
-  
-  seissol::model::getTransposedElasticGodunovState(local, neighbor, QgodLocal, QgodNeighbor);
-  
-  // \todo Generate a kernel for this and use Atransposed instead of the following.
-  real AtData[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  MatrixView At(AtData, sizeof(AtData)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
-  seissol::model::getTransposedElasticCoefficientMatrix(local, 0, At);
-  Flocal.setZero();
-  Fneighbor.setZero();
-  for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-    for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-      for (unsigned k = 0; k < NUMBER_OF_QUANTITIES; ++k) {
-        Flocal(i,j) += QgodLocal(i,k) * At(k,j);
-        Fneighbor(i,j) += QgodNeighbor(i,k) * At(k,j);
-      }
-    }
-  }
-  
-  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<9, seissol::model::AminusT::cols>(0, 0));
+  seissol::model::getTransposedElasticGodunovState(local, neighbor, faceType, QgodLocal, QgodNeighbor);
 }
 
 void seissol::model::setMaterial( double* i_materialVal,
@@ -102,17 +98,17 @@ void seissol::model::setMaterial( double* i_materialVal,
 void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
                                             VrtxCoords const i_tangent1,
                                             VrtxCoords const i_tangent2,
-                                            DenseMatrixView<seissol::model::AplusT::rows, seissol::model::AplusT::cols> o_T,
-                                            DenseMatrixView<seissol::model::AplusT::cols, seissol::model::AplusT::rows> o_Tinv )
+                                            init::T::view::type& o_T,
+                                            init::Tinv::view::type& o_Tinv )
 {
   o_T.setZero();
   o_Tinv.setZero();
   
-  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<6,6>(0, 0));
-  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<3,3>(6, 6));
+  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 0, 0);
+  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 6, 6);
   
-  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<6,6>(0, 0));
-  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<3,3>(6, 6));
+  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 0, 0);
+  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
 }
 
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const&,

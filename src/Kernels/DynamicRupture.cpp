@@ -48,33 +48,31 @@
 #include <cstring>
 #include <stdint.h>
 
-#include <generated_code/kernels.h>
-#include <generated_code/flops.h>
+#include <generated_code/kernel.h>
 #include <Kernels/common.hpp>
-#include <Kernels/denseMatrixOps.hpp>
 #include <Numerical_aux/Quadrature.h>
+#include <yateto.h>
 
-seissol::kernels::DynamicRupture::DynamicRupture() {
-  m_derivativesOffsets[0] = 0;
-  for( int l_order = 0; l_order < CONVERGENCE_ORDER; l_order++ ) {
-
-#ifdef NUMBER_OF_ALIGNED_DER_BASIS_FUNCTIONS /// Derivatives are compressed
-    m_numberOfAlignedBasisFunctions[l_order] = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER-l_order, ALIGNMENT );
-#else /// Derivatives are NOT compressed
-    m_numberOfAlignedBasisFunctions[l_order] = getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER, ALIGNMENT );
-#endif
-
-    if( l_order > 0 ) {
-      m_derivativesOffsets[l_order]  =  m_numberOfAlignedBasisFunctions[l_order-1] * NUMBER_OF_QUANTITIES;
-      m_derivativesOffsets[l_order] +=  m_derivativesOffsets[l_order-1];
+void seissol::kernels::DynamicRupture::setGlobalData(GlobalData const* global) {
+#ifndef NDEBUG
+  for (unsigned face = 0; face < 4; ++face) {
+    for (unsigned h = 0; h < 4; ++h) {
+      assert( ((uintptr_t const)global->faceToNodalMatrices(face, h)) % ALIGNMENT == 0 );
     }
   }
+#endif
+
+  m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
+
+  m_timeKernel.setGlobalData(global);
 }
+
 
 void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
 {
 #ifdef USE_DR_CELLAVERAGE
-  double subIntervalWidth = timestep / CONVERGENCE_ORDER;
+  static_assert(false, "Cell average currently not supported");
+  /*double subIntervalWidth = timestep / CONVERGENCE_ORDER;
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     double t1 = timeInterval * subIntervalWidth;
     double t2 = t1 + subIntervalWidth;
@@ -90,46 +88,14 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
     /// to be somewhat compatible to legacy code.
     timePoints[timeInterval] = timeInterval * subIntervalWidth + subIntervalWidth / 2.;
     timeWeights[timeInterval] = subIntervalWidth;
-  }
+  }*/
 #else
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
     timeWeights[point] = 0.5 * timestep * timeWeights[point];
   }
-
-  for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
-    double time = 1.0;
-    unsigned factorial = 1;
-    for (unsigned derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
-      m_timeFactors[point][derivative] = time / factorial;
-      time *= timePoints[point];
-      factorial *= (derivative+1);
-    }
-  }
 #endif
-}
-
-void seissol::kernels::DynamicRupture::evaluateTaylorExpansion( unsigned timeInterval,
-                                                                real const* timeDerivatives,
-                                                                real degreesOfFreedom[NUMBER_OF_ALIGNED_DOFS] ) {
-  SXt(  m_timeFactors[timeInterval][0],
-        m_numberOfAlignedBasisFunctions[0],
-        NUMBER_OF_QUANTITIES,
-        timeDerivatives,
-        m_numberOfAlignedBasisFunctions[0],
-        degreesOfFreedom,
-        NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
-
-  for (unsigned derivative = 1; derivative < CONVERGENCE_ORDER; ++derivative) {
-    SXtYp(  m_timeFactors[timeInterval][derivative],
-            m_numberOfAlignedBasisFunctions[derivative],
-            NUMBER_OF_QUANTITIES,
-            timeDerivatives + m_derivativesOffsets[derivative],
-            m_numberOfAlignedBasisFunctions[derivative],
-            degreesOfFreedom,
-            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS );
-  }
 }
 
 void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation const&    faceInfo,
@@ -137,45 +103,42 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
                                                             DRGodunovData const*        godunovData,
                                                             real const*                 timeDerivativePlus,
                                                             real const*                 timeDerivativeMinus,
-                                                            real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
+                                                            real                        godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
                                                             real const*                 timeDerivativePlus_prefetch,
                                                             real const*                 timeDerivativeMinus_prefetch ) {
   // assert alignments
 #ifndef NDEBUG
-  for (unsigned face = 0; face < 4; ++face) {
-    for (unsigned h = 0; h < 4; ++h) {
-      assert( ((uintptr_t)global->faceToNodalMatrices[face][h]) % ALIGNMENT == 0 );
-    }
-  }
+  assert( timeDerivativePlus != nullptr );
+  assert( timeDerivativeMinus != nullptr );
   assert( ((uintptr_t)timeDerivativePlus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)&godunov[0])         % ALIGNMENT == 0 );
+  assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
+  real degreesOfFreedomPlus[tensor::Q::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  real degreesOfFreedomMinus[tensor::Q::size()] __attribute__((aligned(PAGESIZE_STACK)));
+
+  kernel::godunovState krnl = m_krnlPrototype;
+
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
-    real degreesOfFreedomPlus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-    real degreesOfFreedomMinus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
-    evaluateTaylorExpansion(timeInterval, timeDerivativePlus, degreesOfFreedomPlus);
-    evaluateTaylorExpansion(timeInterval, timeDerivativeMinus, degreesOfFreedomMinus);
+    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 
     real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativePlus_prefetch;
     real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativeMinus_prefetch;
     
-    seissol::generatedKernels::godunovState[4*faceInfo.plusSide](
-      godunovData->godunovMatrixPlus,
-      global->faceToNodalMatrices[faceInfo.plusSide][0],
-      degreesOfFreedomPlus,
-      &godunov[timeInterval][0],
-      plusPrefetch
-    );
-  
-    seissol::generatedKernels::godunovState[4*faceInfo.minusSide + faceInfo.faceRelation](
-      godunovData->godunovMatrixMinus,
-      global->faceToNodalMatrices[faceInfo.minusSide][faceInfo.faceRelation],
-      degreesOfFreedomMinus,
-      &godunov[timeInterval][0],
-      minusPrefetch
-    ); 
+    krnl.godunovState = &godunov[timeInterval][0];
+    
+    krnl.Q = degreesOfFreedomPlus;
+    krnl.godunovMatrix = godunovData->godunovMatrixPlus;
+    krnl._prefetch.godunovState = plusPrefetch;
+    krnl.execute(faceInfo.plusSide, 0);
+    
+    krnl.Q = degreesOfFreedomMinus;
+    krnl.godunovMatrix = godunovData->godunovMatrixMinus;
+    krnl._prefetch.godunovState = minusPrefetch;
+    krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
   }
 }
 
@@ -183,28 +146,17 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
                                                           long long&                o_nonZeroFlops,
                                                           long long&                o_hardwareFlops )
 {
-  // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops = 0;
-  
-  // SXt flops
-  o_nonZeroFlops += m_numberOfAlignedBasisFunctions[0] * NUMBER_OF_QUANTITIES;
-  o_hardwareFlops += m_numberOfAlignedBasisFunctions[0] * NUMBER_OF_QUANTITIES;
-  
-  // SXtYp flops
-  for (unsigned derivative = 1; derivative < CONVERGENCE_ORDER; ++derivative) {
-    o_nonZeroFlops += 2 * m_numberOfAlignedBasisFunctions[derivative] * NUMBER_OF_QUANTITIES;
-    o_hardwareFlops += 2 * m_numberOfAlignedBasisFunctions[derivative] * NUMBER_OF_QUANTITIES;
-  }
-  
+  m_timeKernel.flopsTaylorExpansion(o_nonZeroFlops, o_hardwareFlops);
+ 
   // 2x evaluateTaylorExpansion
   o_nonZeroFlops *= 2;
   o_hardwareFlops *= 2;
   
-  o_nonZeroFlops += seissol::flops::godunovState_nonZero[4*faceInfo.plusSide];
-  o_hardwareFlops += seissol::flops::godunovState_hardware[4*faceInfo.plusSide];
+  o_nonZeroFlops += kernel::godunovState::nonZeroFlops(faceInfo.plusSide, 0);
+  o_hardwareFlops += kernel::godunovState::hardwareFlops(faceInfo.plusSide, 0);
   
-  o_nonZeroFlops += seissol::flops::godunovState_nonZero[4*faceInfo.minusSide + faceInfo.faceRelation];
-  o_hardwareFlops += seissol::flops::godunovState_hardware[4*faceInfo.minusSide + faceInfo.faceRelation];
+  o_nonZeroFlops += kernel::godunovState::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
+  o_hardwareFlops += kernel::godunovState::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
   
   o_nonZeroFlops *= CONVERGENCE_ORDER;
   o_hardwareFlops *= CONVERGENCE_ORDER;

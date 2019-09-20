@@ -102,10 +102,11 @@ class Navigation(QWidget):
       for f in files:
         if f.endswith('dat'):
           wf = Tecplot.read(os.path.join(folder,f))
-          item = QStandardItem(f)
-          item.setData(wf)
-          self.model.appendRow(item)
-          numValidFiles = numValidFiles + 1
+          if wf:
+            item = QStandardItem(f)
+            item.setData(wf)
+            self.model.appendRow(item)
+            numValidFiles = numValidFiles + 1
         
       if currentIndex.row() >= 0 and numValidFiles > currentIndex.row():
         newIndex = self.model.index(currentIndex.row(), currentIndex.column())

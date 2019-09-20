@@ -55,7 +55,7 @@ MODULE calc_SeisSol_mod
 CONTAINS
 
   SUBROUTINE calc_SeisSol(time,timestep,pvar,cvar,EQN,MESH,DISC,SOURCE,BND,IC, &
-                         OptionalFields,IO,MPI,Analyse)
+                         OptionalFields,IO,MPI)
     !--------------------------------------------------------------------------
     USE TypesDef
     USE dg_setup_mod
@@ -73,11 +73,9 @@ CONTAINS
 #ifdef PARALLEL
     USE MPIExchangeValues_mod
 #endif
-#ifdef GENERATEDKERNELS
     use iso_c_binding, only: c_loc
     use monitoring
     use f_ftoc_bind_interoperability
-#endif
 
     !--------------------------------------------------------------------------
     IMPLICIT NONE
@@ -96,7 +94,6 @@ CONTAINS
     TYPE (tUnstructOptionalFields):: OptionalFields
     TYPE (tInputOutput)           :: IO
     TYPE (tMPI)                   :: MPI
-    TYPE (tAnalyse)               :: Analyse
 
     REAL                          :: time                 ! current time
     INTEGER                       :: timestep             ! index of time step
@@ -119,10 +116,8 @@ CONTAINS
     INTEGER                       :: MaxnNonZeros, LocnNonZeros
     REAL                          :: JT(3,3,10),DIF,x(4),y(4),z(4),JacobiT(3,3)
     INTEGER                       :: counter, counter2,iType,j, countside, UpdType
-#ifdef GENERATEDKERNELS
     real*8 :: l_synchronizationPoint;
     INTEGER                       :: iDRupdate
-#endif
     !--------------------------------------------------------------------------
     INTENT(INOUT)                 :: time,timestep,OptionalFields,EQN,IO,BND,DISC,MESH,SOURCE
 

@@ -44,6 +44,8 @@ the surface is described
 compiling place_receivers on supermuc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-| ``module load netcdf/mpi``
-| ``export PKG_CONFIG_PATH=$NETCDF_BASE/lib/pkgconfig/:$PKG_CONFIG_PATH``
-| ``scons``
+.. code-block:: bash
+
+   module load netcdf/mpi
+   export PKG_CONFIG_PATH=$NETCDF_BASE/lib/pkgconfig/:$PKG_CONFIG_PATH
+   scons 

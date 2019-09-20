@@ -44,7 +44,6 @@
 # operation system (required for exectuion environment)
 import os
 import sys
-import commands
 
 # import helpers
 import arch
@@ -53,24 +52,20 @@ import libs
 import utils.gitversion
 
 # print the welcome message
-print '********************************************'
-print '** Welcome to the build script of SeisSol **'
-print '********************************************'
-print 'Copyright (c) 2012-2016, SeisSol Group'
+print('********************************************')
+print('** Welcome to the build script of SeisSol **')
+print('********************************************')
+print('Copyright (c) 2012-2018, SeisSol Group')
 
-# Check if we the user wants to show help only
-if '-h' in sys.argv or '--help' in sys.argv:
-  helpMode = True
-else:
-  helpMode = False
+helpMode = GetOption('help')
 
 def ConfigurationError(msg):
-    """Print the error message and exit. Continue only
-    if the user wants to show the help message"""
+  """Print the error message and exit. Continue only
+  if the user wants to show the help message"""
 
-    if not helpMode:
-        print msg
-        Exit(1)
+  if not helpMode:
+    print(msg)
+    Exit(1)
 
 #
 # set possible variables
@@ -93,7 +88,6 @@ vars.AddVariables(
                 allowed_values=('elastic', 'viscoelastic', 'viscoelastic2')
               ),
 
-
   EnumVariable( 'order',
                 'convergence order of the ADER-DG method',
                 'none',
@@ -101,8 +95,10 @@ vars.AddVariables(
               ),
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
+  
+  ( 'multipleSimulations', 'Fuse multiple simulations in one run.', '1' ),
 
-  ( 'memLayout', 'Path to memory layout file.' ),
+  PathVariable( 'memLayout', 'Path to memory layout file.', None, PathVariable.PathIsFile),
 
   ( 'programName', 'name of the executable', 'none' ),
 
@@ -121,8 +117,9 @@ vars.AddVariables(
   BoolVariable( 'hdf5', 'use hdf5 library for data output', False ),
 
   EnumVariable( 'netcdf', 'use netcdf library for mesh input',
-	        'no',
-	        allowed_values=('yes', 'no', 'passive') ),
+                'no',
+                allowed_values=('yes', 'no', 'passive')
+              ),
 
   BoolVariable( 'metis', 'use Metis for partitioning', False ),
 
@@ -134,7 +131,8 @@ vars.AddVariables(
 
   EnumVariable( 'unitTests', 'builds additional unit tests',
                 'none',
-                allowed_values=('none', 'fast', 'all') ),
+                allowed_values=('none', 'fast', 'all')
+              ),
 
   EnumVariable( 'logLevel',
                 'logging level. \'debug\' runs assertations and prints all information available, \'info\' prints information at runtime (time step, plot number), \'warning\' prints warnings during runtime, \'error\' is most basic and prints errors only',
@@ -147,13 +145,6 @@ vars.AddVariables(
                 'none',
                 allowed_values=('none', 'debug', 'info', 'warning', 'error')
               ),
-
-# Currently not implemented
-#  EnumVariable( 'numberOfTemporalIntegrationPoints',
-#                'number of temporal integration points for the dynamic rupture boundary integration.; \'auto\' uses the number of temporal integration points required to reach formal convergence order.',
-#                'auto',
-#                allowed_values=('auto', '1', '2', '3', '4', '5', '6')
-#              ),
 
   BoolVariable( 'commThread', 'use communication thread for MPI progression (option has no effect when not compiling hybrid target)', False ),
 
@@ -236,7 +227,7 @@ env.Tool('MPITool', vars=vars)
 env = Environment(variables=vars)
 
 if env['useExecutionEnvironment']:
-    env['ENV'] = os.environ
+  env['ENV'] = os.environ
 
 # generate help text
 Help(vars.GenerateHelpText(env))
@@ -261,19 +252,19 @@ if env['equations'].startswith('viscoelastic'):
 elif env['numberOfMechanisms'] != '0':
   ConfigurationError("*** Number of mechanisms must be 0 for elastic equations.")
 
-if env['equations'] in ['elastic', 'viscoelastic2']:
-  env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
+if int(env['multipleSimulations']) != 1 and int(env['multipleSimulations']) % arch.getAlignedReals(env['arch']) != 0:
+  ConfigurationError("*** multipleSimulations must be a multiple of {}.".format(arch.getAlignedReals(env['arch'])))
 
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
-  print "*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available."
+  print("*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available.")
 
-if not env.has_key('memLayout'):
+if not 'memLayout' in env:
   env['memLayout'] = memlayout.guessMemoryLayout(env)
 
 # Detect SeisSol version
 seissol_version = utils.gitversion.get(env)
-print 'Compiling SeisSol version:', seissol_version
+print('Compiling SeisSol version: {}'.format(seissol_version))
 
 #
 # preprocessor, compiler and linker
@@ -464,10 +455,11 @@ env.Append(CXXFLAGS=['-std=c++11'])
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
-# set number of temporal integration points for dynamic ruputure boundary conditions
-# Currently not implemented
-#if( env['numberOfTemporalIntegrationPoints'] != 'auto' ):
-#  env.Append(CPPDEFINES=['NUMBER_OF_TEMPORAL_INTEGRATION_POINTS='+env['numberOfTemporalIntegrationPoints']])
+if env['equations'] in ['elastic', 'viscoelastic2']:
+  env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
+
+if int(env['multipleSimulations']) > 1:
+  env.Append(CPPDEFINES=['MULTIPLE_SIMULATIONS={}'.format(env['multipleSimulations'])])
 
 # add parallel flag for mpi
 if env['parallelization'] in ['mpi', 'hybrid']:
@@ -532,7 +524,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules', '#/submodules/glm'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include'] )
 
 #
 # add libraries
@@ -550,22 +542,26 @@ env.Tool('DirTool', fortran=True)
 # Some C++ GLM features are not working with the Intel Compiler
 env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
+# Eigen3
+libs.find(env, 'eigen3', required=False)
+
+# netCDF
+if env['netcdf'] == 'yes':
+    libs.find(env, 'netcdf', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+    env.Append(CPPDEFINES=['USE_NETCDF'])
+elif env['netcdf'] == 'passive':
+    env.Append(CPPDEFINES=['USE_NETCDF', 'NETCDF_PASSIVE'])
+
 # HDF5
 if env['hdf5']:
-    env.Tool('Hdf5Tool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+    libs.find(env, 'hdf5', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
+
     env.Append(CPPDEFINES=['USE_HDF'])
 
 # memkind
 if env['memkind']:
   env.Tool('MemkindTool')
   env.Append(CPPDEFINES=['USE_MEMKIND'])
-
-# netCDF
-if env['netcdf'] == 'yes':
-    env.Tool('NetcdfTool', required=(not helpMode), parallel=(env['parallelization'] in ['hybrid', 'mpi']))
-    env.Append(CPPDEFINES=['USE_NETCDF'])
-elif env['netcdf'] == 'passive':
-    env.Append(CPPDEFINES=['USE_NETCDF', 'NETCDF_PASSIVE'])
 
 # Metis
 if env['metis'] and env['parallelization'] in ['hybrid', 'mpi']:
@@ -583,14 +579,14 @@ if env['asagi']:
     if env['scalasca'] in ['default', 'kernels']:
         ConfigurationError("*** ASAGI can not run with Scalasca 1.x")
 
-    env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
+    libs.find(env, 'asagi', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
 
 # yaml-cpp
 yaml_cpp = env.CMake( source=[Glob(path + '*/.cpp') for path, dirs, files in os.walk('submodules/yaml-cpp/src')],
                       target=['#/{}/external/yaml-cpp/libyaml-cpp.a'.format(env['buildDir'])],
                       CMakeProject = Dir('submodules/yaml-cpp'),
-                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no'],
+                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no', '-DCMAKE_CXX_STANDARD=11', '-DYAML_CPP_BUILD_TESTS=OFF'],
                       cc = env['CC'],
                       cxx = env['CXX'])
 env.Append(CPPPATH=['#/submodules/yaml-cpp/include'])
@@ -600,6 +596,7 @@ env.Append(LIBS=yaml_cpp)
 impalajit = env.CMake( source=[Glob(path + '*/.cc') for path, dirs, files in os.walk('submodules/ImpalaJIT')],
                        target=['#/{}/external/impalajit/libimpalajit.a'.format(env['buildDir'])],
                        CMakeProject = Dir('submodules/ImpalaJIT'),
+                       CMakeOpts = ['-DCMAKE_CXX_STANDARD=11'],
                        CMakeBuildDir = Dir('#/{}/external/impalajit/'.format(env['buildDir'])),
                        cc = env['CC'],
                        cxx = env['CXX'])
@@ -634,6 +631,8 @@ if env['programName'] == 'none':
     numberOfQuantities[ env['equations'] ],
     env['order']
   )
+  if int(env['multipleSimulations']) > 1:
+    program_suffix = '{}_{}sims'.format(program_suffix, env['multipleSimulations'])
   env['programFile'] = '%s/SeisSol_%s' %(
     env['buildDir'],
     program_suffix
@@ -654,6 +653,7 @@ elif env['compiler'] == 'gcc':
 
 # get the source files
 env.sourceFiles = []
+env.generatedSourceFiles = []
 env.generatedTestSourceFiles = []
 
 # Generate the version file
@@ -665,6 +665,9 @@ SConscript('src/SConscript', variant_dir=env['buildDir'] + '/src', duplicate=0)
 SConscript('submodules/SConscript', variant_dir=env['buildDir']+'/submodules', duplicate=0)
 Import('env')
 
+# add generated source files
+env.sourceFiles.extend(env.generatedSourceFiles)
+
 # remove .mod entries for the linker
 modDirectories = []
 sourceFiles = []
@@ -675,9 +678,9 @@ for sourceFile in env.sourceFiles:
     modDirectories.append(modDir)
 for directory in set(modDirectories):
   Execute(Mkdir(directory))
-env.AppendUnique(F90PATH=map(lambda x: '#/' + x, modDirectories))
+env.AppendUnique(F90PATH=list(map(lambda x: '#/' + x, modDirectories)))
 
-#print env.Dump()
+#print(env.Dump())
 
 # build standard version
 seissol_build = env.Program('#/'+env['programFile'], sourceFiles)
@@ -726,7 +729,7 @@ if env['unitTests'] != 'none':
   Import('env')
 
   # Remove main() to avoid double definition
-  sourceFiles = filter(lambda sf: os.path.basename(str(sf)) != 'main.o', sourceFiles)
+  sourceFiles = list(filter(lambda sf: os.path.basename(str(sf)) != 'main.o', sourceFiles))
   # Remove .mod files from additional Fortran files
   for sourceFile in env.sourceFiles:
     sourceFiles.append(sourceFile[0])
@@ -734,7 +737,8 @@ if env['unitTests'] != 'none':
   if env.generatedTestSourceFiles:
     if env['parallelization'] in ['mpi', 'hybrid']:
       env['CXXTEST_COMMAND'] = 'mpirun -np 1 %t'
-    env.CxxTest(target='#/'+env['buildDir']+'/tests/generated_kernels_test_suite', source=sourceFiles+env.generatedTestSourceFiles)
+    mpiObject = list(filter(lambda sf: os.path.basename(str(sf)) == 'MPI.o', sourceFiles))
+    env.CxxTest(target='#/'+env['buildDir']+'/tests/generated_kernels_test_suite', source=env.generatedSourceFiles+env.generatedTestSourceFiles+mpiObject)
 
   if env.testSourceFiles:
     if env['parallelization'] in ['mpi', 'hybrid']:
@@ -742,7 +746,7 @@ if env['unitTests'] != 'none':
     env.CxxTest(target='#/'+env['buildDir']+'/tests/serial_test_suite', source=sourceFiles+env.testSourceFiles)
 
   if env['parallelization'] in ['mpi', 'hybrid']:
-    for ranks, mpiTestSourceFiles in env.mpiTestSourceFiles.iteritems():
+    for ranks, mpiTestSourceFiles in env.mpiTestSourceFiles.items():
       if mpiTestSourceFiles:
         env['CXXTEST_COMMAND'] = 'mpirun -np {0} %t'.format(ranks)
         env.CxxTest(target='#/'+env['buildDir']+'/tests/parallel_test_suite_{0}'.format(ranks), source=sourceFiles+mpiTestSourceFiles)

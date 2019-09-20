@@ -39,7 +39,9 @@
 
 #include "Map.h"
 #include <iostream>
+#include <math.h>
 
+#ifndef noproj
 void printLastError()
 {
   if (pj_errno != 0) {
@@ -109,6 +111,15 @@ void Map::adjustAxes(double* x, double* y, double* z) const
     }
   }  
 }
+#else
+
+Map::Map(std::string const& targetCoordSystem)
+{}
+
+Map::~Map()
+{}
+#define DEG_TO_RAD   .017453292519943296
+#endif
 
 void Map::toMCS(double strike, double dip, double rake, double u1, double u2, double u3, double* x, double* y, double* z) const
 {
@@ -118,5 +129,7 @@ void Map::toMCS(double strike, double dip, double rake, double u1, double u2, do
   *x = u1*(sin(rake)*sin(strike)*cos(dip) + cos(rake)*cos(strike)) + u2*(-sin(rake)*cos(strike) + sin(strike)*cos(dip)*cos(rake)) - u3*sin(dip)*sin(strike);
   *y = u1*(-sin(rake)*cos(dip)*cos(strike) + sin(strike)*cos(rake)) + u2*(-sin(rake)*sin(strike) - cos(dip)*cos(rake)*cos(strike)) + u3*sin(dip)*cos(strike);
   *z = -u1*sin(dip)*sin(rake) - u2*sin(dip)*cos(rake) - u3*cos(dip);
+#ifndef noproj
   adjustAxes(x, y, z);
+#endif
 }

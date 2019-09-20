@@ -50,20 +50,7 @@
 
 namespace seissol {
   namespace sourceterm {
-    /** Finds the tetrahedrons that contain the point sources acting at centres.
-     *  In "contained" we save if the point source is contained in the mesh.
-     *  We use short here as bool and MPI has a smell of trouble (see cleanDoubles).
-     */
-    void findMeshIds( Vector3 const*    centres,
-                      MeshReader const& mesh,
-                      unsigned          numSources,
-                      short*          contained,
-                      unsigned*         meshId );
-#ifdef USE_MPI
-    void cleanDoubles(short* contained, unsigned numSources);
-#endif
-
-    void transformNRFSourceToInternalSource( Vector3 const&           centre,
+    void transformNRFSourceToInternalSource( glm::dvec3 const&         centre,
                                              unsigned                 element,
                                              Subfault const&          subfault,
                                              Offsets const&           offsets,

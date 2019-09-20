@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2016, SeisSol Group
+# Copyright (c) 2016-2018, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,100 +38,75 @@
 # @section DESCRIPTION
 #
   
-from gemmgen import DB, Tools, Arch, Kernel
-import argparse
-import DynamicRupture
-import Plasticity
-import SurfaceDisplacement
+import numpy as np
+from yateto import Tensor, Scalar, simpleParameterSpace
+from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from yateto.ast.node import Add
+from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
-cmdLineParser = argparse.ArgumentParser()
-cmdLineParser.add_argument('--matricesDir')
-cmdLineParser.add_argument('--outputDir')
-cmdLineParser.add_argument('--arch')
-cmdLineParser.add_argument('--order')
-cmdLineParser.add_argument('--numberOfMechanisms')
-cmdLineParser.add_argument('--generator')
-cmdLineParser.add_argument('--memLayout')
-cmdLineParser.add_argument('--dynamicRuptureMethod')
-cmdLineParser.add_argument('--PlasticityMethod')
-cmdLineArgs = cmdLineParser.parse_args()
+from aderdg import ADERDGBase
+from multSim import OptionalDimTensor
 
-architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
-libxsmmGenerator = cmdLineArgs.generator
-order = int(cmdLineArgs.order)
-numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
-numberOfQuantities = 9
+class ADERDG(ADERDGBase):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout):
+    super().__init__(order, multipleSimulations, matricesDir)
+    clones = {
+      'star': ['star(0)', 'star(1)', 'star(2)'],
+    }
+    self.db.update( parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones) )
+    memoryLayoutFromFile(memLayout, self.db, clones)
 
-clones = {
-  'star': [ 'AstarT', 'BstarT', 'CstarT' ]
-}
+  def numberOfQuantities(self):
+    return 9
 
-db = Tools.parseMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOfBasisFunctions), clones)
+  def numberOfExtendedQuantities(self):
+    return self.numberOfQuantities()
 
-db.insert(DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities))
-db.insert(DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities))
+  def extendedQTensor(self):
+    return self.Q
 
-DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfQuantities, numberOfQuantities)
-Plasticity.addMatrices(db, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod, order)
-SurfaceDisplacement.addMatrices(db, order)
+  def starMatrix(self, dim):
+    return self.db.star[dim]
 
-# Load sparse-, dense-, block-dense-config
-Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
+  def addInit(self, generator):
+    super().addInit(generator)
 
-# Set rules for the global matrix memory order
-stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
-globalMatrixIdRules = [
-  (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: stiffnessOrder[x[0]]),
-  (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 3 + stiffnessOrder[x[0]]),  
-  (r'^r(\d{1})DivM$', lambda x: 6 + int(x[0])-1),
-  (r'^rT(\d{1})$', lambda x: 10 + int(x[0])-1),
-  (r'^fMrT(\d{1})$', lambda x: 14 + int(x[0])-1),
-  (r'^fP(\d{1})$', lambda x: 18 + (int(x[0])-1))
-]
-DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
+    iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
+    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
+    dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
 
-# Kernels
-kernels = list()
+    generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
+    generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
-db.insert(DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities))
-db.insert(DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities))
+  def addLocal(self, generator):
+    volumeSum = self.Q['kp']
+    for i in range(3):
+      volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.db.star[i]['qp']
+    volume = (self.Q['kp'] <= volumeSum)
+    generator.add('volume', volume)
 
-volume = db['kXiDivM'] * db['timeIntegrated'] * db['AstarT'] \
-       + db['kEtaDivM'] * db['timeIntegrated'] * db['BstarT'] \
-       + db['kZetaDivM'] * db['timeIntegrated'] * db['CstarT']
-kernels.append(Kernel.Prototype('volume', volume))
+    localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+    localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
-for i in range(0, 4):
-  localFlux = db['r{}DivM'.format(i+1)] * db['fMrT{}'.format(i+1)] * db['timeIntegrated'] * db['AplusT']
-  prefetch = None
-  if i == 0:
-    prefetch = db['timeIntegrated']
-  elif i == 1:
-    prefetch = localFlux
-  else:
-    prefetch = Kernel.DummyPrefetch()
-  kernels.append(Kernel.Prototype('localFlux[{}]'.format(i), localFlux, prefetch=prefetch))
+  def addNeighbor(self, generator):
+    neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+    neighbourFluxPrefetch = lambda h,j,i: self.I
+    generator.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
 
-for i in range(0, 4):
-  for j in range(0, 4):
-    for h in range(0, 3):
-      neighboringFlux = db['r{}DivM'.format(i+1)] * db['fP{}'.format(h+1)] * db['rT{}'.format(j+1)] * db['timeIntegrated'] * db['AminusT']
-      kernels.append(Kernel.Prototype('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux, prefetch=db['timeIntegrated']))
-
-for i in range(1, order):
-  lastD = 'timeDerivative{}'.format(str(i-1))
-  newD  = 'timeDerivative{}'.format(str(i))
-  derivative = db['kXiDivMT'] * db[lastD] * db['AstarT'] \
-             + db['kEtaDivMT'] * db[lastD] * db['BstarT'] \
-             + db['kZetaDivMT'] * db[lastD] * db['CstarT']
-  derivative.fitBlocksToSparsityPattern()
-  kernels.append(Kernel.Prototype('derivative[{}]'.format(i), derivative, beta=0))
-  db.insert(derivative.flat(newD))
-  db[newD].fitBlocksToSparsityPattern()
-  
-DynamicRupture.addKernels(db, kernels, 'timeDerivative0')
-Plasticity.addKernels(db, kernels)
-SurfaceDisplacement.addKernels(db, kernels)
-
-# Generate code
-Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)  
+  def addTime(self, generator):
+    qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+    dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
+    power = Scalar('power')
+    derivatives = [dQ0]
+    generator.add('derivativeTaylorExpansion(0)', self.I['kp'] <= power * dQ0['kp'])
+    for i in range(1,self.order):
+      derivativeSum = Add()
+      for j in range(3):
+        derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.db.star[j]['qp']
+      derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
+      derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
+      dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
+      generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
+      generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
+      derivatives.append(dQ)

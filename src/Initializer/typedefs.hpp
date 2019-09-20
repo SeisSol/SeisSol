@@ -50,7 +50,7 @@
 #include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
 #include <Model/datastructures.hpp>
-#include <generated_code/sizes.h>
+#include <generated_code/tensor.h>
 
 #include <cstddef>
 
@@ -245,7 +245,7 @@ struct GlobalData {
    *    2: \f$ M^{-1} R^3 \f$
    *    3: \f$ M^{-1} R^4 \f$
    **/
-  real* changeOfBasisMatrices[4];
+  seissol::tensor::rDivM::Container<real const*> changeOfBasisMatrices;
   
   /**
    * Addresses of the transposed global change of basis matrices left-multiplied with the local flux matrix:
@@ -255,7 +255,7 @@ struct GlobalData {
    *    2: \f$ F^- ( R^3 )^T \f$
    *    3: \f$ F^- ( R^4 )^T \f$
    **/
-  real* localChangeOfBasisMatricesTransposed[4];
+  seissol::tensor::fMrT::Container<real const*> localChangeOfBasisMatricesTransposed;
   
   /**
    * Addresses of the transposed global change of basis matrices:
@@ -265,7 +265,7 @@ struct GlobalData {
    *    2: \f$ ( R^3 )^T \f$
    *    3: \f$ ( R^4 )^T \f$
    **/
-  real* neighbourChangeOfBasisMatricesTransposed[4];
+  seissol::tensor::rT::Container<real const*> neighbourChangeOfBasisMatricesTransposed;
   
   /**
    * Addresses of the global flux matrices:
@@ -274,7 +274,7 @@ struct GlobalData {
    *    1: \f$ F^{+,2} \f$
    *    2: \f$ F^{+,3} \f$
    **/
-  real* neighbourFluxMatrices[3];
+  seissol::tensor::fP::Container<real const*> neighbourFluxMatrices;
 
   /** 
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -285,7 +285,7 @@ struct GlobalData {
    *
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
    **/ 
-  real *stiffnessMatrices[3];
+  seissol::tensor::kDivM::Container<real const*> stiffnessMatrices;
 
   /** 
    * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -296,12 +296,7 @@ struct GlobalData {
    *
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks (except for the additional flux matrix).
    **/ 
-  real *stiffnessMatricesTransposed[3];
-  
-  /**
-   * Address of the global inverse mass matrix
-   **/
-  real *inverseMassMatrix;
+  seissol::tensor::kDivMT::Container<real const*> stiffnessMatricesTransposed;
 
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
@@ -322,7 +317,7 @@ struct GlobalData {
    *    [..]
    *    15: \f$ P^{-,4,3} \f$
    **/ 
-  real* nodalFluxMatrices[4][4];
+  seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
   
   /** 
    * Addresses of the global face to nodal matrices
@@ -338,7 +333,13 @@ struct GlobalData {
    *    [..]
    *    15: \f$ N^{-,4,3} \f$
    **/ 
-  real* faceToNodalMatrices[4][4];
+
+  seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+  //! Modal basis to quadrature points
+  real* evalAtQPMatrix;
+
+  //! Project function evaluated at quadrature points to modal basis
+  real* projectQPMatrix;
   
   //! Switch to nodal for plasticity
   real* vandermondeMatrix;
@@ -348,10 +349,10 @@ struct GlobalData {
 // data for the cell local integration
 struct LocalIntegrationData {
   // star matrices
-  real starMatrices[3][seissol::model::AstarT::reals];
+  real starMatrices[3][seissol::tensor::star::size(0)];
 
   // flux solver for element local contribution
-  real nApNm1[4][seissol::model::AplusT::reals];
+  real nApNm1[4][seissol::tensor::AplusT::size()];
 
   // equation-specific data
   seissol::model::LocalData specific;
@@ -360,7 +361,7 @@ struct LocalIntegrationData {
 // data for the neighboring boundary integration
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
-  real nAmNm1[4][seissol::model::AminusT::reals];
+  real nAmNm1[4][seissol::tensor::AminusT::size()];
 
   // equation-specific data
   seissol::model::NeighborData specific;
@@ -375,7 +376,7 @@ struct CellMaterialData {
 // plasticity information per cell
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
+  real initialLoading[6];
   real cohesionTimesCosAngularFriction;
   real sinAngularFriction;
   real mufactor;
@@ -416,15 +417,15 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  real godunovMatrixPlus[seissol::model::godunovMatrix::reals];
-  real godunovMatrixMinus[seissol::model::godunovMatrix::reals];
+  real godunovMatrixPlus[seissol::tensor::godunovMatrix::size()];
+  real godunovMatrixMinus[seissol::tensor::godunovMatrix::size()];
 };
 
 struct CellDRMapping {
-  unsigned fluxKernel;
+  unsigned side;
+  unsigned faceRelation;
   real* godunov;
   real* fluxSolver;
-  real* fluxMatrix;
 };
 
 #endif

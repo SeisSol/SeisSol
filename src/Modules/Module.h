@@ -181,6 +181,10 @@ public:
 	}
 
 protected:
+  double syncInterval() const {
+    return m_syncInterval;
+  }
+
 	/**
 	 * Set the synchronization interval for this module
 	 *
