@@ -675,7 +675,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: OutputMask(11)
+    INTEGER                    :: OutputMask(12)
     INTEGER                    :: printtimeinterval
     INTEGER                    :: printIntervalCriterion
     INTEGER                    :: refinement_strategy, refinement
@@ -691,7 +691,7 @@ CONTAINS
     printtimeinterval_sec = 1d0
     printIntervalCriterion = 1
     OutputMask(:) = 1
-    OutputMask(4:11) = 0
+    OutputMask(4:12) = 0
     refinement_strategy = 2
     refinement = 2
     !
@@ -710,11 +710,12 @@ CONTAINS
     endif
 
     ! if 2, printtimeinterval is set afterwards, when dt is known
-    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:11) =  OutputMask(1:11)      ! read info of desired output 1/ yes, 0/ no
+    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
                                                                                      ! position: 1/ slip rate 2/ stress 3/ normal velocity
                                                                                      ! 4/ in case of rate and state output friction and state variable
                                                                                      ! 5/ background values 6/Slip 7/rupture speed 8/final slip 9/peak SR
                                                                                      ! 10/rupture arrival 11/dynamic shear stress arrival
+                                                                                     ! 12/TP output
 
 
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
