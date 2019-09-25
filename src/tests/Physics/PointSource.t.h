@@ -68,10 +68,9 @@ public:
     };
     real l_localVelocityComponent[3] = {0.0, 0.0, 0.0};
 
-    real l_velocityComponent[3];
     real l_momentTensor[NUMBER_OF_QUANTITIES];
     
-    seissol::sourceterm::transformMomentTensor(l_localMomentTensorXY, l_localVelocityComponent, strike, dip, rake, l_momentTensor, l_velocityComponent);
+    seissol::sourceterm::transformMomentTensor(l_localMomentTensorXY, l_localVelocityComponent, strike, dip, rake, l_momentTensor);
     
     // Compare to hand-computed reference solution
     TS_ASSERT_DELTA(l_momentTensor[0], -5.0*sqrt(3.0)/32.0, 100 * EPSILON);
@@ -96,7 +95,7 @@ public:
       {  0.602398893453385,   1.572402458710038,   2.769437029884877 },
     };
     
-    seissol::sourceterm::transformMomentTensor(l_localMomentTensorXZ, l_localVelocityComponent, strike, dip, rake, l_momentTensor, l_velocityComponent);
+    seissol::sourceterm::transformMomentTensor(l_localMomentTensorXZ, l_localVelocityComponent, strike, dip, rake, l_momentTensor);
     
     // Compare to hand-computed reference solution
     TS_ASSERT_DELTA(l_momentTensor[0], -0.415053502680640, 100 * EPSILON);

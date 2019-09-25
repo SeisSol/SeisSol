@@ -269,6 +269,10 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned i = 0; i < 9; ++i) {
     *(&localMomentTensor[0][0] + i) = momentTensor[i];
   }
+  real localVelocityComponent[3];
+  for (unsigned i = 0; i < 3; i++) {
+    localVelocityComponent[i] = velocityComponent[i];
+  }
   
   sources = new PointSources[ltsTree->numChildren()];
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
@@ -295,7 +299,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
                                                        sources[cluster].mInvJInvPhisAtSources[clusterSource] );
 
       transformMomentTensor( localMomentTensor,
-                             velocityComponent,
+                             localVelocityComponent,
                              strikes[fsrmIndex],
                              dips[fsrmIndex],
                              rakes[fsrmIndex],
