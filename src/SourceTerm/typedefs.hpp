@@ -75,6 +75,8 @@ namespace seissol {
        * FSRM: Moment tensor */
       real (*tensor)[TensorSize];
 
+      real (*velocityComponent)[3];
+
       /// mu*Area
       real *muA;
 

@@ -43,12 +43,15 @@
 #include <algorithm>
 #include <generated_code/kernel.h>
 #include <generated_code/init.h>
+#include <iostream>
  
 void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3][3],
-                                             real strike,
-                                             real dip,
-                                             real rake,
-                                             real o_momentTensor[NUMBER_OF_QUANTITIES])
+                                                real const i_localVelocityComponent[3],
+                                                real strike,
+                                                real dip,
+                                                real rake,
+                                                real o_momentTensor[NUMBER_OF_QUANTITIES],
+                                                real o_velocityComponent[3])
 {
   real cstrike = cos(strike);
   real sstrike = sin(strike);
@@ -97,6 +100,12 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
   o_momentTensor[5] = M[0][2];
   for (unsigned m = 6; m < NUMBER_OF_QUANTITIES; ++m) {
     o_momentTensor[m] = 0.0;
+  }
+
+  for (unsigned j = 0; j < 3; ++j) {
+    for (unsigned k = 0; k < 3; ++k) {
+        o_velocityComponent[k] += R[k][j] * i_localVelocityComponent[j];
+    }
   }
 }
 
@@ -176,15 +185,24 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
 
 void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                                             real const i_momentTensor[tensor::momentFSRM::size()],
+                                                            real const i_velocityComponent[3],
                                                             PiecewiseLinearFunction1D const* i_pwLF,
                                                             double i_fromTime,
                                                             double i_toTime,
                                                             real o_dofUpdate[tensor::Q::size()] )
 {
+  real moment[tensor::momentFSRM::size()];
+  for(int i = 0; i < 6; i++)
+    moment[i] = i_momentTensor[i];
+  for(int i = 0; i < 3; i++)
+    moment[6+i] = i_velocityComponent[i];
+  for(unsigned i = 9; i < tensor::momentFSRM::size(); i++)
+    moment[i] = 0;
+
   kernel::sourceFSRM krnl;
   krnl.Q = o_dofUpdate;
   krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
-  krnl.momentFSRM = i_momentTensor;
+  krnl.momentFSRM = moment;
   krnl.stfIntegral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);
 #ifdef MULTIPLE_SIMULATIONS
   krnl.oneSimToMultSim = init::oneSimToMultSim::Values;

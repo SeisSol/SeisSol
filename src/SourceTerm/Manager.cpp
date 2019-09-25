@@ -209,6 +209,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
 }
 
 void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                   momentTensor,
+                                                        double const*                   velocityComponent,
                                                         int                             numberOfSources,
                                                         double const*                   centres,
                                                         double const*                   strikes,
@@ -281,6 +282,10 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
     }
+    error = posix_memalign(reinterpret_cast<void**>(&sources[cluster].velocityComponent), ALIGNMENT, 3*sizeof(real));
+    if (error) {
+      logError() << "posix_memalign failed in source term manager.";
+    }
     sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
@@ -294,12 +299,19 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
                                                        sources[cluster].mInvJInvPhisAtSources[clusterSource] );
 
       transformMomentTensor( localMomentTensor,
+                             velocityComponent,
                              strikes[fsrmIndex],
                              dips[fsrmIndex],
                              rakes[fsrmIndex],
-                             sources[cluster].tensor[clusterSource] );
+                             sources[cluster].tensor[clusterSource],
+                             sources[cluster].velocityComponent[clusterSource]);
       for (unsigned i = 0; i < 9; ++i) {
         sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
+      }
+      seissol::model::Material& material = ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
+      for (unsigned i = 0; i < 3; ++i) {
+        sources[cluster].velocityComponent[clusterSource][i] *= areas[fsrmIndex];
+        sources[cluster].velocityComponent[clusterSource][i] /= material.rho;
       }
 
       samplesToPiecewiseLinearFunction1D( &timeHistories[fsrmIndex * numberOfSamples],
