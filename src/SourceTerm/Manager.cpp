@@ -209,6 +209,7 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
 }
 
 void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*                   momentTensor,
+                                                        double const*                   velocityComponent,
                                                         int                             numberOfSources,
                                                         double const*                   centres,
                                                         double const*                   strikes,
@@ -268,6 +269,10 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
   for (unsigned i = 0; i < 9; ++i) {
     *(&localMomentTensor[0][0] + i) = momentTensor[i];
   }
+  real localVelocityComponent[3];
+  for (unsigned i = 0; i < 3; i++) {
+    localVelocityComponent[i] = velocityComponent[i];
+  }
   
   sources = new PointSources[ltsTree->numChildren()];
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
@@ -294,12 +299,18 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
                                                        sources[cluster].mInvJInvPhisAtSources[clusterSource] );
 
       transformMomentTensor( localMomentTensor,
+                             localVelocityComponent,
                              strikes[fsrmIndex],
                              dips[fsrmIndex],
                              rakes[fsrmIndex],
-                             sources[cluster].tensor[clusterSource] );
+                             sources[cluster].tensor[clusterSource]);
+
       for (unsigned i = 0; i < 9; ++i) {
         sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
+      }
+      seissol::model::Material& material = ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
+      for (unsigned i = 0; i < 3; ++i) {
+        sources[cluster].tensor[clusterSource][6+i] /= material.rho;
       }
 
       samplesToPiecewiseLinearFunction1D( &timeHistories[fsrmIndex * numberOfSamples],
