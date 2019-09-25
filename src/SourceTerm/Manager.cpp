@@ -303,8 +303,8 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
                              strikes[fsrmIndex],
                              dips[fsrmIndex],
                              rakes[fsrmIndex],
-                             sources[cluster].tensor[clusterSource],
-                             sources[cluster].velocityComponent[clusterSource]);
+                             sources[cluster].tensor[clusterSource]);
+
       for (unsigned i = 0; i < 9; ++i) {
         sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
       }

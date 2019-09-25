@@ -50,8 +50,7 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
                                                 real strike,
                                                 real dip,
                                                 real rake,
-                                                real o_momentTensor[NUMBER_OF_QUANTITIES],
-                                                real o_velocityComponent[3])
+                                                real o_forceComponents[NUMBER_OF_QUANTITIES])
 {
   real cstrike = cos(strike);
   real sstrike = sin(strike);
@@ -86,26 +85,30 @@ void seissol::sourceterm::transformMomentTensor(real const i_localMomentTensor[3
       }
     }
   }
+  real f[3] = {0.0, 0.0, 0.0};
+  for (unsigned j = 0; j < 3; ++j) {
+    for (unsigned k = 0; k < 3; ++k) {
+        f[k] += R[k][j] * i_localVelocityComponent[j];
+    }
+  }
   
 #if NUMBER_OF_QUANTITIES < 6
   #error You cannot use PointSource with less than 6 quantities.
 #endif
   
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u, v, w)
-  o_momentTensor[0] = M[0][0];
-  o_momentTensor[1] = M[1][1];
-  o_momentTensor[2] = M[2][2];
-  o_momentTensor[3] = M[0][1];
-  o_momentTensor[4] = M[1][2];
-  o_momentTensor[5] = M[0][2];
-  for (unsigned m = 6; m < NUMBER_OF_QUANTITIES; ++m) {
-    o_momentTensor[m] = 0.0;
-  }
+  o_forceComponents[0] = M[0][0];
+  o_forceComponents[1] = M[1][1];
+  o_forceComponents[2] = M[2][2];
+  o_forceComponents[3] = M[0][1];
+  o_forceComponents[4] = M[1][2];
+  o_forceComponents[5] = M[0][2];
+  o_forceComponents[6] = f[0];
+  o_forceComponents[7] = f[1];
+  o_forceComponents[8] = f[2];
 
-  for (unsigned j = 0; j < 3; ++j) {
-    for (unsigned k = 0; k < 3; ++k) {
-        o_velocityComponent[k] += R[k][j] * i_localVelocityComponent[j];
-    }
+  for (unsigned m = 9; m < NUMBER_OF_QUANTITIES; ++m) {
+    o_forceComponents[m] = 0.0;
   }
 }
 
@@ -184,25 +187,16 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
 }
 
 void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
-                                                            real const i_momentTensor[tensor::momentFSRM::size()],
-                                                            real const i_velocityComponent[3],
+                                                            real const i_forceComponents[tensor::momentFSRM::size()],
                                                             PiecewiseLinearFunction1D const* i_pwLF,
                                                             double i_fromTime,
                                                             double i_toTime,
                                                             real o_dofUpdate[tensor::Q::size()] )
 {
-  real moment[tensor::momentFSRM::size()];
-  for(int i = 0; i < 6; i++)
-    moment[i] = i_momentTensor[i];
-  for(int i = 0; i < 3; i++)
-    moment[6+i] = i_velocityComponent[i];
-  for(unsigned i = 9; i < tensor::momentFSRM::size(); i++)
-    moment[i] = 0;
-
   kernel::sourceFSRM krnl;
   krnl.Q = o_dofUpdate;
   krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
-  krnl.momentFSRM = moment;
+  krnl.momentFSRM = i_forceComponents;
   krnl.stfIntegral = computePwLFTimeIntegral(i_pwLF, i_fromTime, i_toTime);
 #ifdef MULTIPLE_SIMULATIONS
   krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
