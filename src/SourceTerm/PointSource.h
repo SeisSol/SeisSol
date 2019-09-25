@@ -64,10 +64,11 @@ namespace seissol {
      *
      **/    
     void transformMomentTensor(real const i_localMomentTensor[3][3],
+                               real const i_localVelocityComponent[3],
                                real strike,
                                real dip,
                                real rake,
-                               real o_momentTensor[NUMBER_OF_QUANTITIES]);
+                               real o_forceComponents[NUMBER_OF_QUANTITIES]);
 
     /** Converts equally spaced time samples to a one-dimensional
      *  piecewise linear function.
@@ -140,7 +141,7 @@ namespace seissol {
      * be scaled with the time integral of the source term).
      **/                                      
     void addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
-                                           real const i_momentTensor[tensor::momentFSRM::size()],
+                                           real const i_forceComponents[tensor::momentFSRM::size()],
                                            PiecewiseLinearFunction1D const* i_pwLF,
                                            double i_fromTime,
                                            double i_toTime,
