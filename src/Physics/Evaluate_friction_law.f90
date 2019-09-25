@@ -1340,7 +1340,7 @@ MODULE Eval_friction_law_mod
              !1.update SV using Vold from the previous time step
              CALL update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-                 S = LocMu*(P - P_f)
+                 S = -LocMu*(P - P_f)
                  DO iBndGP = 1, nBndGP
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
@@ -1362,7 +1362,11 @@ MODULE Eval_friction_law_mod
 
              ! 4. solve again for Vnew
              LocSR=ABS(SRtest)
-             !
+             !update LocMu
+             tmp = 0.5D0/RS_sr0 * EXP(LocSV/RS_a)
+             tmp2 = LocSR*tmp
+             ! mu from LocSR
+             LocMu  = RS_a*LOG(tmp2+SQRT(tmp2**2+1.0D0))
          ENDDO !  j=1,nSVupdates   !This loop corrects SV values
          if (.NOT.has_converged) THEN
             !logError(*) 'nonConvergence RS Newton', time
@@ -1376,12 +1380,12 @@ MODULE Eval_friction_law_mod
          ! SV from mean slip rate in tmp
          CALL update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-             S = LocMu*(P - P_f)
+             S = -LocMu*(P - P_f)
              DO iBndGP = 1, nBndGP
                           Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                           Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
                           !use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-                          CALL Calc_ThermalPressure(EQN,time_inc/2.0, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                          CALL Calc_ThermalPressure(EQN,time_inc, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
                                DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                                DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2))
                           P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
