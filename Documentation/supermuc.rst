@@ -68,6 +68,7 @@ Supermuc-NG
 2. Load module. Could add these lines to .bashrc:
 
 ::
+
   ##### module load for SeisSol
   module load scons cmake/3.6 python/3.6_intel slurm_setup
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
