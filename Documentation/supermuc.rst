@@ -79,13 +79,10 @@ Supermuc-NG
 2. Load module. Could add these lines to .bashrc:
 
 ::
-
   ##### module load for SeisSol
-  module load scons cmake/3.6 python/2.7_intel slurm_setup
+  module load scons cmake/3.6 python/3.6_intel slurm_setup
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
-  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel hdf5/1.8.20-intel-impi
-  module switch spack/staging/19.1 spack/master
-  module switch devEnv/Intel devEnv/Intel/2019
+  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel hdf5/1.8.20-intel-impi-threadsafe
   module load libszip/2.1.1
 
   ####### universal setup for SeisSol
@@ -207,7 +204,6 @@ set compiler options:
   #Number of nodes and MPI tasks per node:
   #SBATCH --nodes=40
   #SBATCH --ntasks-per-node=1
-  #SBATCH --cpus-per-task=96
   module load slurm_setup
   #Run the program:
   export MP_SINGLE_THREAD=no
