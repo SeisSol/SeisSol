@@ -247,9 +247,9 @@ public:
 	void refine(const Tetrahedron<T>& in, unsigned int addVertexStart,
 		Tetrahedron<T>* out, glm::tvec3<T>* addVertices) const
 	{
-		Tetrahedron<T> tmp[div8.getDivisionCount()];
+	        auto tmp = std::vector<Tetrahedron<T>>(div8.getDivisionCount());
 
-		div8.refine(in, addVertexStart, tmp, addVertices);
+		div8.refine(in, addVertexStart, tmp.data(), addVertices);
 
 		addVertexStart += div8.additionalVerticesPerCell();
 		addVertices += div8.additionalVerticesPerCell();

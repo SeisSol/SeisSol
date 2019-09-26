@@ -80,8 +80,8 @@ public:
                                   seissol::initializers::LTS*     lts,
                                   seissol::initializers::Lut*     ltsLut );
 
-  /// \todo Throw this out
   void loadSourcesFromFSRM( double const*                   momentTensor,
+                            double const*                   velocityComponent,
                             int                             numberOfSources,
                             double const*                   centres,
                             double const*                   strikes,
