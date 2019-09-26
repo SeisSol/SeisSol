@@ -268,6 +268,13 @@ CONTAINS
     IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(3).EQ.1) OutVars = OutVars + 1
     IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(4).EQ.1) OutVars = OutVars + 2
     IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(5).EQ.1) OutVars = OutVars + 3
+    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(6).EQ.1) OutVars = OutVars + 2
+    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(7).EQ.1) OutVars = OutVars + 1
+    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(8).EQ.1) OutVars = OutVars + 1
+    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(9).EQ.1) OutVars = OutVars + 1
+    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(10).EQ.1) OutVars = OutVars + 1
+    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(11).EQ.1) OutVars = OutVars + 1
+    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(12).EQ.1) OutVars = OutVars + 2
 
     number_of_receivers = DISC%DynRup%DynRup_out_atPickpoint%nDR_pick
 
