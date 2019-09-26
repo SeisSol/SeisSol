@@ -57,6 +57,8 @@ Now for initializing the submodule folder, copy the following to fix_submodules.
 .. code-block:: bash
 
   #!/bin/bash                                                                                                            
+  #uncomment this line for ASAGI
+  #gitAtGithub=git@github.com:
   git submodule init
   for module_full in `git config -l | awk -F"=" {'print $1'} | grep submodule ` ;
   do
@@ -64,8 +66,8 @@ Now for initializing the submodule folder, copy the following to fix_submodules.
    module=$(git config ${module_full} | sed "s/.*github\.com\///")
    if [ "$module" != "true" ]; then
       echo $module
-      echo "git config ${module_full} git@github.com:${module}"
-      git config ${module_full} git@github.com:${module}
+      echo "git config ${module_full} ${gitAtGithub}${module}"
+      git config ${module_full} ${gitAtGithub}${module}
    fi
   done
   git submodule update
@@ -103,7 +105,7 @@ Supermuc-NG
 | See :ref:`installing_libxsmm` and :ref:`installing_ASAGI`. 
 | Note that on project pr63qo, we already installed and shared these library (no need to install).
 | The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
-| If you need to compile ASAGI, note that you need to run fix_submodules.sh to get submodules/utils cloned.
+| If you need to compile ASAGI, note that you need to run fix_submodules.sh (and make sure to uncomment the third line of the script) to get submodules/utils cloned.
 
 set compiler options:
 
