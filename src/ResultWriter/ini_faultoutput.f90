@@ -85,16 +85,17 @@ CONTAINS
 
     TYPE(tDiscretization)   :: DISC                   ! Discretization struct.!
     CHARACTER (len=30000)   :: VariableList, VariableList_temp
-    CHARACTER(len=3)        :: VName(8)
+    CHARACTER(len=3)        :: VName(20)
     INTEGER                 :: j
 
     ! Full list of possible variable names
-    VName = (/'SRs','SRd','T_s','T_d','P_n','u_n','Mud','StV'/)
+    VName = (/'SRs','SRd','T_s','T_d','P_n','u_n','Mud','StV','Ts0','Td0','Pn0', &
+              'Sls','Sld','Vr','ASI','PSR','RT','DS','P_f','Tmp'/)
 
     ! Prepare second header line
     VariableList = TRIM('VARIABLES = "Time"')
     !
-    DO j=1,8
+    DO j=1,20
        VariableList_temp=TRIM(VariableList)
        IF (j.EQ.1.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1).NE.1) CYCLE
        IF (j.EQ.2.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1).NE.1) CYCLE
@@ -104,6 +105,19 @@ CONTAINS
        IF (j.EQ.6.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(3).NE.1) CYCLE
        IF (j.EQ.7.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(4).NE.1) CYCLE
        IF (j.EQ.8.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(4).NE.1) CYCLE
+       IF (j.EQ.9.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(5).NE.1) CYCLE
+       IF (j.EQ.10.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(5).NE.1) CYCLE
+       IF (j.EQ.11.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(5).NE.1) CYCLE
+       IF (j.EQ.12.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(6).NE.1) CYCLE
+       IF (j.EQ.13.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(6).NE.1) CYCLE
+       IF (j.EQ.14.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(7).NE.1) CYCLE
+       IF (j.EQ.15.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(8).NE.1) CYCLE
+       IF (j.EQ.16.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(9).NE.1) CYCLE
+       IF (j.EQ.17.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(10).NE.1) CYCLE
+       IF (j.EQ.18.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(11).NE.1) CYCLE
+       IF (j.EQ.19.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(12).NE.1) CYCLE
+       IF (j.EQ.20.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(12).NE.1) CYCLE
+
 
        WRITE(VariableList,'(a,a3,a,a1)')                   &
        TRIM(VariableList_temp),',"',TRIM(VName(j)),'"'
