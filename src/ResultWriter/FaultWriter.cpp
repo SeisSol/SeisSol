@@ -119,11 +119,10 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 		param.outputMask[16] = true;
 	if (outputMask[10])
 		param.outputMask[17] = true;
-        if (outputMask[11])
+        if (outputMask[11]) {
                 param.outputMask[18] = true;
-        if (outputMask[12])
                 param.outputMask[19] = true;
-
+        }
 	for (unsigned int i = 0; i < FaultInitParam::OUTPUT_MASK_SIZE; i++) {
 		if (param.outputMask[i]) {
 			addBuffer(dataBuffer[m_numVariables++], nCells * sizeof(double));

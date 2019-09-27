@@ -544,176 +544,173 @@ CONTAINS
               DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 - P_f !OutVars =11
           ENDIF
 
-          IF (DISC%DynRup%OutputPointType.EQ.4) THEN
+          IF (DynRup_output%OutputMask(6).EQ.1) THEN
+              ! TU 07.15 rotate Slip from face reference coordinate to (strike,dip, normal) reference cordinate
+              cos1 = dot_product(strike_vector(:),NormalVect_s(:))
+              crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
 
-              IF (DynRup_output%OutputMask(6).EQ.1) THEN
-                  ! TU 07.15 rotate Slip from face reference coordinate to (strike,dip, normal) reference cordinate
-                  cos1 = dot_product(strike_vector(:),NormalVect_s(:))
-                  crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
-
-                  scalarprod = dot_product(crossprod(:),NormalVect_n(:))
-                  !TU 2.11.15 :cos1**2 can be greater than 1 because of rounding errors -> min
-                  IF (scalarprod.GT.0) THEN
-                      sin1=sqrt(1-min(1d0,cos1**2))
-                  ELSE
-                      sin1=-sqrt(1-min(1d0,cos1**2))
-                  ENDIF
-
-                  OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%output_Slip1(iBndGP,iFace) - sin1* DISC%DynRup%output_Slip2(iBndGP,iFace) !OutVars = 12
-                  OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%output_Slip1(iBndGP,iFace) + cos1 * DISC%DynRup%output_Slip2(iBndGP,iFace) !OutVars = 13
+              scalarprod = dot_product(crossprod(:),NormalVect_n(:))
+              !TU 2.11.15 :cos1**2 can be greater than 1 because of rounding errors -> min
+              IF (scalarprod.GT.0) THEN
+                  sin1=sqrt(1-min(1d0,cos1**2))
+              ELSE
+                  sin1=-sqrt(1-min(1d0,cos1**2))
               ENDIF
 
-              IF (DynRup_output%OutputMask(7).EQ.1) THEN
-                ! Thomas Ulrich 3.08.2015
-                ! Calculation of rupture velocity from rupture time array
-                ! using the 2d basis functions and their derivatives
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars)  = cos1 * DISC%DynRup%output_Slip1(iBndGP,iFace) - sin1* DISC%DynRup%output_Slip2(iBndGP,iFace) !OutVars = 12
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars)  = sin1 * DISC%DynRup%output_Slip1(iBndGP,iFace) + cos1 * DISC%DynRup%output_Slip2(iBndGP,iFace) !OutVars = 13
+          ENDIF
 
-                ! To compute accurately dt/dxi, all rupture_time have to be defined on the element
-                compute_VR = .TRUE.
-                DO jBndGP = 1,DISC%Galerkin%nBndGP
-                   IF (DISC%DynRup%output_rupture_time(jBndGP,iFace).EQ.0) THEN
-                      compute_VR = .FALSE.
-                      Vr = 0d0
-                   ENDIF
-                ENDDO
+          IF (DynRup_output%OutputMask(7).EQ.1) THEN
+            ! Thomas Ulrich 3.08.2015
+            ! Calculation of rupture velocity from rupture time array
+            ! using the 2d basis functions and their derivatives
 
-                IF (compute_VR.EQ..TRUE.) THEN
+            ! To compute accurately dt/dxi, all rupture_time have to be defined on the element
+            compute_VR = .TRUE.
+            DO jBndGP = 1,DISC%Galerkin%nBndGP
+               IF (DISC%DynRup%output_rupture_time(jBndGP,iFace).EQ.0) THEN
+                  compute_VR = .FALSE.
+                  Vr = 0d0
+               ENDIF
+            ENDDO
 
-                ! The rupture velocity is based on the gradient of the rupture time
-                ! The gradient is not expected to be accurate for the side gauss points
-                !! We consider then the next internal gauss point if the closest gauss point is external
-                i1 = int((iBndGP-1)/(DISC%Galerkin%nPoly + 2))+1
-                j1 = modulo((iBndGP-1),(DISC%Galerkin%nPoly + 2))+1
-                IF (i1.EQ.1) THEN
-                   i1=i1+1
-                ELSE IF (i1.EQ.(DISC%Galerkin%nPoly + 2)) THEN
-                   i1=i1-1
-                ENDIF
-                IF (j1.EQ.1) THEN
-                   j1=j1+1
-                ELSE IF (j1.EQ.(DISC%Galerkin%nPoly + 2)) THEN
-                   j1=j1-1
-                ENDIF
-                iBndGP = (i1-1)*(DISC%Galerkin%nPoly + 2)+j1
+            IF (compute_VR.EQ..TRUE.) THEN
 
-                !Uncomment for a selecting only the central GP
-                !i1  = int((DISC%Galerkin%nPoly + 2 -1)/2)+1
-                !iBndGP = (i1-1)*(DISC%Galerkin%nPoly + 2)+i1
+            ! The rupture velocity is based on the gradient of the rupture time
+            ! The gradient is not expected to be accurate for the side gauss points
+            !! We consider then the next internal gauss point if the closest gauss point is external
+            i1 = int((iBndGP-1)/(DISC%Galerkin%nPoly + 2))+1
+            j1 = modulo((iBndGP-1),(DISC%Galerkin%nPoly + 2))+1
+            IF (i1.EQ.1) THEN
+               i1=i1+1
+            ELSE IF (i1.EQ.(DISC%Galerkin%nPoly + 2)) THEN
+               i1=i1-1
+            ENDIF
+            IF (j1.EQ.1) THEN
+               j1=j1+1
+            ELSE IF (j1.EQ.(DISC%Galerkin%nPoly + 2)) THEN
+               j1=j1-1
+            ENDIF
+            iBndGP = (i1-1)*(DISC%Galerkin%nPoly + 2)+j1
 
-                !project rupture_time onto the basis functions
-                nDegFr2d = (DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2)/2
-                !projection of the rupture time on the basis functions
-                ALLOCATE(projected_RT(nDegFr2d))
-                projected_RT(:)=0.
+            !Uncomment for a selecting only the central GP
+            !i1  = int((DISC%Galerkin%nPoly + 2 -1)/2)+1
+            !iBndGP = (i1-1)*(DISC%Galerkin%nPoly + 2)+i1
 
-                DO jBndGP = 1,DISC%Galerkin%nBndGP
-                  chi  = MESH%ELEM%BndGP_Tri(1,jBndGP)
-                  tau  = MESH%ELEM%BndGP_Tri(2,jBndGP)
-                  DO iDegFr = 1, nDegFr2d
-                     call BaseFunc_Tri(phiT,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
-                     projected_RT(iDegFr) = projected_RT(iDegFr) + &
-                        DISC%Galerkin%BndGaussW_Tet(jBndGP)*DISC%DynRup%output_rupture_time(jBndGP,iFace)*phiT
-                  ENDDO
-                ENDDO
-                DO iDegFr = 1,nDegFr2d
-                   projected_RT(iDegFr) =  projected_RT(iDegFr)/DISC%Galerkin%MassMatrix_Tri(iDegFr,iDegFr,DISC%Galerkin%nPoly)
-                ENDDO
+            !project rupture_time onto the basis functions
+            nDegFr2d = (DISC%Galerkin%nPoly + 1)*(DISC%Galerkin%nPoly + 2)/2
+            !projection of the rupture time on the basis functions
+            ALLOCATE(projected_RT(nDegFr2d))
+            projected_RT(:)=0.
 
-                !calculation of the spatial derivatives of the rupture time
-                chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
-                tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
-                dt_dchi=0d0
-                dt_dtau=0d0
-                DO iDegFr = 1, nDegFr2d
-                   call BaseGrad_Tri(phi2T,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
-                   dt_dchi = dt_dchi + projected_RT(iDegFr) * phi2T(1)
-                   dt_dtau = dt_dtau + projected_RT(iDegFr) * phi2T(2)
-                ENDDO
+            DO jBndGP = 1,DISC%Galerkin%nBndGP
+              chi  = MESH%ELEM%BndGP_Tri(1,jBndGP)
+              tau  = MESH%ELEM%BndGP_Tri(2,jBndGP)
+              DO iDegFr = 1, nDegFr2d
+                 call BaseFunc_Tri(phiT,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
+                 projected_RT(iDegFr) = projected_RT(iDegFr) + &
+                    DISC%Galerkin%BndGaussW_Tet(jBndGP)*DISC%DynRup%output_rupture_time(jBndGP,iFace)*phiT
+              ENDDO
+            ENDDO
+            DO iDegFr = 1,nDegFr2d
+               projected_RT(iDegFr) =  projected_RT(iDegFr)/DISC%Galerkin%MassMatrix_Tri(iDegFr,iDegFr,DISC%Galerkin%nPoly)
+            ENDDO
 
-                !For calculating the 2d Jacobian matrix we will need the nodal coordinates
-                IF (MESH%Fault%Face(iFace,1,1) == 0) THEN
-                ! iElem is in the neighbor domain
-                ! The neighbor element belongs to a different MPI domain
-                iNeighbor           = MESH%Fault%Face(iFace,1,2)          ! iNeighbor denotes "-" side
-                iLocalNeighborSide  = MESH%Fault%Face(iFace,2,2)
-                iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
-                MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
-                !
-                xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
-                yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
-                zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
-                ELSE
-                !
-                ! get vertices
-                xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
-                yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
-                zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
-                ENDIF
+            !calculation of the spatial derivatives of the rupture time
+            chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+            tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+            dt_dchi=0d0
+            dt_dtau=0d0
+            DO iDegFr = 1, nDegFr2d
+               call BaseGrad_Tri(phi2T,iDegFr,chi,tau,DISC%Galerkin%nPoly,DISC)
+               dt_dchi = dt_dchi + projected_RT(iDegFr) * phi2T(1)
+               dt_dtau = dt_dtau + projected_RT(iDegFr) * phi2T(2)
+            ENDDO
 
-                SELECT CASE(iSide)
-                 CASE(1)
-                    xab = (/ xV(3)-xV(1), yV(3)-yV(1), zV(3)-zV(1) /)
-                    xac = (/ xV(2)-xV(1), yV(2)-yV(1), zV(2)-zV(1) /)
-                 CASE(2)
-                    xab = (/ xV(2)-xV(1), yV(2)-yV(1), zV(2)-zV(1) /)
-                    xac = (/ xV(4)-xV(1), yV(4)-yV(1), zV(4)-zV(1) /)
-                 CASE(3)
-                    xab = (/ xV(4)-xV(1), yV(4)-yV(1), zV(4)-zV(1) /)
-                    xac = (/ xV(3)-xV(1), yV(3)-yV(1), zV(3)-zV(1) /)
-                 CASE(4)
-                    xab = (/ xV(3)-xV(2), yV(3)-yV(2), zV(3)-zV(2) /)
-                    xac = (/ xV(4)-xV(2), yV(4)-yV(2), zV(4)-zV(2) /)
-                ENDSELECT
+            !For calculating the 2d Jacobian matrix we will need the nodal coordinates
+            IF (MESH%Fault%Face(iFace,1,1) == 0) THEN
+            ! iElem is in the neighbor domain
+            ! The neighbor element belongs to a different MPI domain
+            iNeighbor           = MESH%Fault%Face(iFace,1,2)          ! iNeighbor denotes "-" side
+            iLocalNeighborSide  = MESH%Fault%Face(iFace,2,2)
+            iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+            MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+            !
+            xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+            yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+            zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+            ELSE
+            !
+            ! get vertices
+            xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+            yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+            zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+            ENDIF
 
-                grad2d(1,1) = dot_product(NormalVect_s(:),xab)
-                grad2d(1,2) = dot_product(NormalVect_t(:),xab)
-                grad2d(2,1) = dot_product(NormalVect_s(:),xac)
-                grad2d(2,2) = dot_product(NormalVect_t(:),xac)
-                CALL MatrixInverse2x2(JacobiT2d,grad2d)
+            SELECT CASE(iSide)
+             CASE(1)
+                xab = (/ xV(3)-xV(1), yV(3)-yV(1), zV(3)-zV(1) /)
+                xac = (/ xV(2)-xV(1), yV(2)-yV(1), zV(2)-zV(1) /)
+             CASE(2)
+                xab = (/ xV(2)-xV(1), yV(2)-yV(1), zV(2)-zV(1) /)
+                xac = (/ xV(4)-xV(1), yV(4)-yV(1), zV(4)-zV(1) /)
+             CASE(3)
+                xab = (/ xV(4)-xV(1), yV(4)-yV(1), zV(4)-zV(1) /)
+                xac = (/ xV(3)-xV(1), yV(3)-yV(1), zV(3)-zV(1) /)
+             CASE(4)
+                xab = (/ xV(3)-xV(2), yV(3)-yV(2), zV(3)-zV(2) /)
+                xac = (/ xV(4)-xV(2), yV(4)-yV(2), zV(4)-zV(2) /)
+            ENDSELECT
 
-                dt_dx1 = JacobiT2d(1,1) * dt_dchi + JacobiT2d(1,2) * dt_dtau
-                dt_dy1 = JacobiT2d(2,1) * dt_dchi + JacobiT2d(2,2) * dt_dtau
-                Slowness = sqrt(dt_dx1**2 + dt_dy1**2)
+            grad2d(1,1) = dot_product(NormalVect_s(:),xab)
+            grad2d(1,2) = dot_product(NormalVect_t(:),xab)
+            grad2d(2,1) = dot_product(NormalVect_s(:),xac)
+            grad2d(2,2) = dot_product(NormalVect_t(:),xac)
+            CALL MatrixInverse2x2(JacobiT2d,grad2d)
 
-                IF (Slowness.EQ.0d0) THEN
-                  Vr=0d0
-                ElSE
-                  Vr=1d0/Slowness
-                ENDIF
-                DEALLOCATE(projected_RT)
-                iBndGP = DynRup_output%OutInt(iOutPoints,1)
-                ENDIF
+            dt_dx1 = JacobiT2d(1,1) * dt_dchi + JacobiT2d(1,2) * dt_dtau
+            dt_dy1 = JacobiT2d(2,1) * dt_dchi + JacobiT2d(2,2) * dt_dtau
+            Slowness = sqrt(dt_dx1**2 + dt_dy1**2)
 
-                OutVars = OutVars + 1
-                DynRup_output%OutVal(iOutPoints,1,OutVars)  = Vr !OutVars = 14
+            IF (Slowness.EQ.0d0) THEN
+              Vr=0d0
+            ElSE
+              Vr=1d0/Slowness
+            ENDIF
+            DEALLOCATE(projected_RT)
+            iBndGP = DynRup_output%OutInt(iOutPoints,1)
+            ENDIF
 
-              ENDIF
-              IF (DynRup_output%OutputMask(8).EQ.1) THEN
+            OutVars = OutVars + 1
+            DynRup_output%OutVal(iOutPoints,1,OutVars)  = Vr !OutVars = 14
+
+          ENDIF
+          IF (DynRup_output%OutputMask(8).EQ.1) THEN
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_Slip(iBndGP,iFace) !OutVars = 15
+          ENDIF
+          IF (DynRup_output%OutputMask(9).EQ.1) THEN
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_PeakSR(iBndGP,iFace) !OutVars = 16
+          ENDIF
+          IF (DynRup_output%OutputMask(10).EQ.1) THEN
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_rupture_time(iBndGP,iFace) !OutVars = 17
+          ENDIF
+          IF (DynRup_output%OutputMask(11).EQ.1) THEN
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_dynStress_time(iBndGP,iFace) !OutVars = 18
+          ENDIF
+
+          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+              IF (DynRup_output%OutputMask(12).EQ.1) THEN
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_Slip(iBndGP,iFace) !OutVars = 15
-              ENDIF
-              IF (DynRup_output%OutputMask(9).EQ.1) THEN
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,2) !OutVars = 19
                   OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_PeakSR(iBndGP,iFace) !OutVars = 16
-              ENDIF
-              IF (DynRup_output%OutputMask(10).EQ.1) THEN
-                  OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_rupture_time(iBndGP,iFace) !OutVars = 17
-              ENDIF
-              IF (DynRup_output%OutputMask(11).EQ.1) THEN
-                  OutVars = OutVars + 1
-                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_dynStress_time(iBndGP,iFace) !OutVars = 18
-              ENDIF
-
-              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
-                  IF (DynRup_output%OutputMask(12).EQ.1) THEN
-                      OutVars = OutVars + 1
-                      DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,2) !OutVars = 19
-                      OutVars = OutVars + 1
-                      DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,1) !OutVars = 20
-                  ENDIF
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,1) !OutVars = 20
               ENDIF
           ENDIF
 
