@@ -125,7 +125,7 @@ MeshRefiner<T>::MeshRefiner(
     #pragma omp parallel
     {
 #endif // _OPENMPI
-    	glm::tvec3<T>* newVerticesTmp = new glm::tvec3<T>[additionalVertices];
+    	Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
     	Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
@@ -152,7 +152,7 @@ MeshRefiner<T>::MeshRefiner(
             // Copy new vertices
             for (unsigned int i = 0; i < additionalVertices; i++) {
             	memcpy(&newVertices[(c*additionalVertices + i) * 3],
-            			glm::value_ptr(newVerticesTmp[i]), sizeof(T)*3);
+            			newVerticesTmp[i].data(), sizeof(T)*3);
             }
 
             // Copy tets
@@ -211,7 +211,7 @@ MeshRefiner<T>::MeshRefiner(
     #pragma omp parallel shared(oldToNewVertexMap)
     {
 #endif // _OPENMPI
-    	glm::tvec3<T>* newVerticesTmp = new glm::tvec3<T>[additionalVertices];
+    	Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
     	Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
@@ -238,7 +238,7 @@ MeshRefiner<T>::MeshRefiner(
             // Copy new vertices
             for (unsigned int i = 0; i < additionalVertices; i++) {
             	memcpy(&newVertices[(c*additionalVertices + i) * 3],
-            			glm::value_ptr(newVerticesTmp[i]), sizeof(T)*3);
+            			newVerticesTmp[i].data(), sizeof(T)*3);
             }
 
             // Copy tets

@@ -43,8 +43,7 @@
 #include <PUML/Upward.h>
 #include "LtsWeights.h"
 
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
+#include <Eigen/Dense>
 
 #include <Initializer/ParameterDB.h>
 #include <Parallel/MPI.h>
@@ -74,21 +73,26 @@ void seissol::initializers::time_stepping::LtsWeights::computeMaxTimesteps( PUML
     double pWaveVel = sqrt( (lambda[cell] + 2.0 * mu[cell]) / rho[cell] );
     
     // Compute insphere radius
-    glm::dvec3 barycentre(0.,0.,0.);
-    glm::dvec3 x[4];
+    Eigen::Vector3d barycentre(0.,0.,0.);
+    Eigen::Vector3d x[4];
     unsigned vertLids[4];
     PUML::Downward::vertices(mesh, cells[cell], vertLids);
     for (unsigned vtx = 0; vtx < 4; ++vtx) {
       for (unsigned d = 0; d < 3; ++d) {
-        x[vtx][d] = vertices[ vertLids[vtx] ].coordinate()[d];
+        x[vtx](d) = vertices[ vertLids[vtx] ].coordinate()[d];
       }
     }
+    Eigen::Matrix4d A;
+    A << x[0](0), x[0](1), x[0](2), 1.0,
+         x[1](0), x[1](1), x[1](2), 1.0,
+         x[2](0), x[2](1), x[2](2), 1.0,
+         x[3](0), x[3](1), x[3](2), 1.0;
 
-    double alpha = determinant(glm::dmat4(glm::dvec4(x[0], 1.0), glm::dvec4(x[1], 1.0), glm::dvec4(x[2], 1.0), glm::dvec4(x[3], 1.0)));
-    double Nabc = length(cross(x[1]-x[0], x[2]-x[0]));
-    double Nabd = length(cross(x[1]-x[0], x[3]-x[0]));
-    double Nacd = length(cross(x[2]-x[0], x[3]-x[0]));
-    double Nbcd = length(cross(x[2]-x[1], x[3]-x[1]));
+    double alpha = A.determinant();
+    double Nabc = ( (x[1]-x[0]).cross(x[2]-x[0]) ).norm();
+    double Nabd = ( (x[1]-x[0]).cross(x[3]-x[0]) ).norm();
+    double Nacd = ( (x[2]-x[0]).cross(x[3]-x[0]) ).norm();
+    double Nbcd = ( (x[2]-x[1]).cross(x[3]-x[1]) ).norm();
     double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
     
     // Compute maximum timestep (CFL=1)

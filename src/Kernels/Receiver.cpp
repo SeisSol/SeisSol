@@ -47,7 +47,7 @@
 
 void seissol::kernels::ReceiverCluster::addReceiver(  unsigned                          meshId,
                                                       unsigned                          pointId,
-                                                      glm::dvec3 const&                 point,
+                                                      Eigen::Vector3d const&            point,
                                                       MeshReader const&                 mesh,
                                                       seissol::initializers::Lut const& ltsLut,
                                                       seissol::initializers::LTS const& lts ) {

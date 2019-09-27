@@ -50,7 +50,7 @@
 
 namespace seissol {
   namespace sourceterm {
-    void transformNRFSourceToInternalSource( glm::dvec3 const&         centre,
+    void transformNRFSourceToInternalSource( Eigen::Vector3d const&   centre,
                                              unsigned                 element,
                                              Subfault const&          subfault,
                                              Offsets const&           offsets,
