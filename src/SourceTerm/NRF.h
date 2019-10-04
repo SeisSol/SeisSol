@@ -42,7 +42,7 @@
 #define SOURCETERM_NRF_H_
 
 #include <cstddef>
-#include <glm/vec3.hpp>
+#include <glm/glm/vec3.hpp>
 
 namespace seissol {
   namespace sourceterm {
