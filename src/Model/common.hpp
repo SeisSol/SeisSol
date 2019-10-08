@@ -149,12 +149,12 @@ void seissol::model::getTransposedElasticGodunovState( Material const&          
   QgodNeighbor(8,8) = QgodNeighbor(7,7);
 
   // QgodLocal = I - QgodNeighbor
-  for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
-    for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
+  for (unsigned i = 0; i < 9; ++i) {
+    for (unsigned j = 0; j < 9; ++j) {
       QgodLocal(i,j) = -QgodNeighbor(i,j);
     }
   }  
-  for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
+  for (unsigned idx = 0; idx < 9; ++idx) {
     QgodLocal(idx,idx) += 1.0;
   }
   

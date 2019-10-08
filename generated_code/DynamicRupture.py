@@ -57,10 +57,10 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
-  godShape = (aderdg.numberOfQuantities(), aderdg.numberOfQuantities())
-  godunovMatrix = Tensor('godunovMatrix', godShape)
-  fluxSolverShape = (aderdg.numberOfQuantities(), aderdg.numberOfExtendedQuantities())
-  fluxSolver    = Tensor('fluxSolver', fluxSolverShape)
+  godunov_spp = aderdg.godunov_spp()
+  godunovMatrix = Tensor('godunovMatrix', godunov_spp.shape, spp=godunov_spp)
+  flux_solver_spp = aderdg.flux_solver_spp()
+  fluxSolver    = Tensor('fluxSolver', flux_solver_spp.shape, spp=flux_solver_spp)
   
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   godunovState = OptionalDimTensor('godunovState', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
