@@ -74,7 +74,7 @@ class ADERDG(ADERDGStandard):
       r = slice(offset, offset+aniso_cols)
       source_spp[r,0:aniso_cols] = ET_spp
       source_spp[r,r] = np.identity(aniso_cols, dtype=bool)
-    self.ET = Tensor('ET', source_spp.shape, spp=source_spp)
+    self.db.ET = Tensor('ET', source_spp.shape, spp=source_spp)
 
     memoryLayoutFromFile(memLayout, self.db, clones)
 
@@ -88,7 +88,7 @@ class ADERDG(ADERDGStandard):
     return self.db.star[dim]
 
   def sourceMatrix(self):
-    return self.ET
+    return self.db.ET
 
   def godunov_spp(self):
     spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
