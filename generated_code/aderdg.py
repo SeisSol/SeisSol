@@ -195,10 +195,10 @@ class ADERDGStandard(ADERDGBase):
     generator.add('derivativeTaylorExpansion(0)', self.I['kp'] <= power * dQ0['kp'])
     for i in range(1,self.order):
       derivativeSum = Add()
-      for j in range(3):
-        derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
       if self.sourceMatrix():
         derivativeSum += derivatives[-1]['kq'] * self.sourceMatrix()['qp']
+      for j in range(3):
+        derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
       derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
       derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
       dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
