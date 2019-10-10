@@ -2,7 +2,30 @@
 Rconv is a small tool which transforms file given in the Standard Rupture Format (SRF) to the intermediate NetCDF Rupture Format (NRF) which is required by SeisSol for simulating kinematic rupture models.
 
 ## Building rconv
-You need to have the proj.4 and the NetCDF libraries installed.
+
+rconv depends on the PROJ and NetCDF libraries.
+
+### Installing PROJ
+
+rconv relies on a deprecated version of the PROJ library (as it includes the file 'projects.h', which is not anymore built in recent releases of PROJ, see [OSGeo/PROJ#835](OSGeo/PROJ#835)). Also, the most recent version of PROJ need access to the internet when running cmake (because of the googletest 1.8.0 framework). To install PROJ on supermuc (behind a firewall), we therefore checkout an deprecated version of the PROJ library:
+
+```
+module load gcc
+git clone git@github.com:OSGeo/PROJ
+git checkout 3e8a1984e9ee662e74254704275c8e30791a5af0^1
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=pwd
+make 
+make install
+```
+
+### Installing netcdf
+
+see this [link](https://seissol.readthedocs.io/en/latest/compilation.html#installing-netcdf)
+
+### Building rconv
+
 Then enter
 `scons compiler=your-compiler netcdfDir=$NETCDF_DIR proj4Dir=Path-to-proj4`
 in the main folder in order to compile rconv.
