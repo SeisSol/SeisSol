@@ -43,6 +43,8 @@
 #include <cmath>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
+#include <src/Geometry/MeshDefinition.h>
+#include <src/Numerical_aux/Transformation.h>
 
 namespace seissol {
   namespace model {
@@ -61,6 +63,17 @@ namespace seissol {
     template<typename T>
     void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
                                                     T&              QgodNeighbor );
+
+    void getBondMatrix( VrtxCoords const i_normal,
+                        VrtxCoords const i_tangent1,
+                        VrtxCoords const i_tangent2,
+                        real* o_N );
+
+    void getFaceRotationMatrix( VrtxCoords const i_normal,
+                                                VrtxCoords const i_tangent1,
+                                                VrtxCoords const i_tangent2,
+                                                init::T::view::type& o_T,
+                                                init::Tinv::view::type& o_Tinv );
   }
 }
 
