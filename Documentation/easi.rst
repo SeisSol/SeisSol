@@ -59,18 +59,19 @@ the DynamicRupture block, e.g.
 Rheological model parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The following parameters need to be set by easi.
-The columms E, V, and P denote if the respective parameter is required
-when using an elastic, viscoelastic, and viscoplastic rheological model.
+The columms E, A, V, and P denote if the respective parameter is required
+when using an elastic, anisotropic, viscoelastic, and viscoplastic rheological model.
 
 .. |checkmark| unicode:: U+2713
 
 .. list-table::
-   :widths: 25 10 5 5 5 50
+   :widths: 25 10 5 5 5 5 50
    :header-rows: 1
 
    * - Parameter
      - Unit
      - E
+     - A
      - V
      - P
      - Description
@@ -79,15 +80,25 @@ when using an elastic, viscoelastic, and viscoplastic rheological model.
      - |checkmark|
      - |checkmark|
      - |checkmark|
+     - |checkmark|
      - Density.
    * - mu, lambda
      - Pa
      - |checkmark|
+     - 
      - |checkmark|
      - |checkmark|
      - Lamé parameters.
+   * - c11, ..., c66 
+     - Pa
+     - 
+     - |checkmark|
+     -
+     -
+     - stiffness tensor.
    * - Qp, Qs
      -
+     - 
      - 
      - |checkmark|
      -
@@ -95,11 +106,13 @@ when using an elastic, viscoelastic, and viscoplastic rheological model.
    * - bulkFriction
      -
      - 
+     - 
      -
      - |checkmark|
      - Bulk friction coefficient.
    * - plastCo
      - Pa
+     - 
      - 
      -
      - |checkmark|
@@ -108,8 +121,12 @@ when using an elastic, viscoelastic, and viscoplastic rheological model.
      - Pa
      - 
      - 
+     - 
      - |checkmark|
      - Initial stress tensor.
+
+When using anisotropy only the upper half of the symmetric stiffnes tensor has to be supplied: c11, c12, c13, c14, c15, c16, c22, c23, c24, c25, c26, c33, c34, c35, c36, c44, c45, c46, c55, c56, c66.
+All parameters have to be set, even if they are zero.
 
 Fault parameters (dynamic rupture)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
