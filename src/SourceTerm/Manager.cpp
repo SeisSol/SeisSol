@@ -148,27 +148,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   pointSources.cij[index][20] = material.mu; 
 #else  
   pointSources.A[index] = subfault.area;
-  pointSources.cij[index][0] = material.c11;
-  pointSources.cij[index][1] = material.c12;
-  pointSources.cij[index][2] = material.c13;
-  pointSources.cij[index][3] = material.c14;
-  pointSources.cij[index][4] = material.c15;
-  pointSources.cij[index][5] = material.c16;
-  pointSources.cij[index][6] = material.c22;
-  pointSources.cij[index][7] = material.c23;
-  pointSources.cij[index][8] = material.c24;
-  pointSources.cij[index][9] = material.c25;
-  pointSources.cij[index][10] = material.c26;
-  pointSources.cij[index][11] = material.c33;
-  pointSources.cij[index][12] = material.c34;
-  pointSources.cij[index][13] = material.c35;
-  pointSources.cij[index][14] = material.c36;
-  pointSources.cij[index][15] = material.c44;
-  pointSources.cij[index][16] = material.c45;
-  pointSources.cij[index][17] = material.c46;
-  pointSources.cij[index][18] = material.c55;
-  pointSources.cij[index][19] = material.c56;
-  pointSources.cij[index][20] = material.c66;
+  std::copy(material.c_store, material.c_store+20, pointSources.cij[index]);
 #endif
  
   for (unsigned sr = 0; sr < 3; ++sr) {
