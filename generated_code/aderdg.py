@@ -131,3 +131,6 @@ class ADERDGBase(ABC):
   @abstractmethod
   def addTime(self, generator):
     pass
+  
+  def addIncludeTensors(self, tensors):
+      pass

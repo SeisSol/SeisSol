@@ -99,8 +99,7 @@ adg.addInit(g)
 adg.addLocal(g)
 adg.addNeighbor(g)
 adg.addTime(g)
-if cmdArgsDict['equations'] == 'anisotropic':
-  adg.add_include_tensors(include_tensors)
+adg.addIncludeTensors(include_tensors)
 
 # Common kernels
 DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 

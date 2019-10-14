@@ -44,12 +44,12 @@ from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFr
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
-from aderdg import ADERDGBase
+from elastic import ADERDG as ADERDGBase
 from multSim import OptionalDimTensor
 
 class ADERDG(ADERDGBase):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout):
-    super().__init__(order, multipleSimulations, matricesDir)
+    super().__init__(order, multipleSimulations, matricesDir, memLayout)
     clones = {
       'star': ['star(0)', 'star(1)', 'star(2)'],
     }
@@ -57,60 +57,5 @@ class ADERDG(ADERDGBase):
     self.db.update( parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir), transpose=self.transpose, alignStride=self.alignStride))
     memoryLayoutFromFile(memLayout, self.db, clones)
 
-  def numberOfQuantities(self):
-    return 9
-
-  def numberOfExtendedQuantities(self):
-    return self.numberOfQuantities()
-
-  def extendedQTensor(self):
-    return self.Q
-
-  def starMatrix(self, dim):
-    return self.db.star[dim]
-
-  def addInit(self, generator):
-    super().addInit(generator)
-
-    iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
-    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
-    dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
-
-    generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
-    generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
-
-  def addLocal(self, generator):
-    volumeSum = self.Q['kp']
-    for i in range(3):
-      volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.db.star[i]['qp']
-    volume = (self.Q['kp'] <= volumeSum)
-    generator.add('volume', volume)
-
-    localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
-    localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
-    generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
-
-  def addNeighbor(self, generator):
-    neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
-    neighbourFluxPrefetch = lambda h,j,i: self.I
-    generator.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
-
-  def addTime(self, generator):
-    qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
-    dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
-    power = Scalar('power')
-    derivatives = [dQ0]
-    generator.add('derivativeTaylorExpansion(0)', self.I['kp'] <= power * dQ0['kp'])
-    for i in range(1,self.order):
-      derivativeSum = Add()
-      for j in range(3):
-        derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.db.star[j]['qp']
-      derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
-      derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
-      dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
-      generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
-      generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
-      derivatives.append(dQ)
-
-  def add_include_tensors(self, include_tensors):
-      include_tensors.add(self.db.samplingDirections)
+  def addIncludeTensors(self, tensors):
+      tensors.add(self.db.samplingDirections)
