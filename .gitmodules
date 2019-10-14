@@ -36,4 +36,4 @@
 	url = ../../Thomas-Ulrich/pythonXdmfReader
 [submodule "submodules/eigen3"]
 	path = submodules/eigen3
-	url = ../../sebwolf-de/eigen-git-mirror
+	url = ../../eigenteam/eigen-git-mirror
