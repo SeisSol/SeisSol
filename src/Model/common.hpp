@@ -43,8 +43,8 @@
 #include <cmath>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
-#include <src/Geometry/MeshDefinition.h>
-#include <src/Numerical_aux/Transformation.h>
+#include <Geometry/MeshDefinition.h>
+#include <Numerical_aux/Transformation.h>
 
 namespace seissol {
   namespace model {
