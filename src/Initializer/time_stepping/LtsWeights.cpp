@@ -146,7 +146,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   double* pWaveVel = new double[cells.size()];
   
   seissol::initializers::ElementBarycentreGeneratorPUML queryGen(mesh);  
-  seissol::initializers::ParameterDB parameterDB(cells.size());
+  seissol::initializers::ParameterDB parameterDB;
 #ifndef USE_ANISOTROPIC
   double* rho = new double[cells.size()];
   double* mu = new double[cells.size()];

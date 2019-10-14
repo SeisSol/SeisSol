@@ -462,7 +462,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
                                                   double* iniStress )
 {
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
-  seissol::initializers::ParameterDB parameterDB(nElements);
+  seissol::initializers::ParameterDB parameterDB;
   parameterDB.addParameter("rho",    materialVal);
   if (anisotropy == 1) { 
     parameterDB.addParameter("c11",  materialVal + nElements*1);
@@ -534,8 +534,7 @@ void seissol::Interoperability::initializeFault( char*   modelFileName,
                                                  double* bndPoints,
                                                  int     numberOfBndPoints )
 {
-  auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
-  seissol::initializers::ParameterDB parameterDB(nElements);
+  seissol::initializers::ParameterDB parameterDB;
   for (auto const& kv : m_faultParameters) {
     parameterDB.addParameter(kv.first, kv.second);
   }

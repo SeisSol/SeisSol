@@ -179,10 +179,6 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   return query;
 }
 
-seissol::initializers::ParameterDB::ParameterDB(unsigned nElements) {
-  seissol::initializers::ParameterDB::m_nElements = nElements;
-}
-
 easi::Component* seissol::initializers::ParameterDB::loadModel(std::string const& fileName) {
 #ifdef USE_ASAGI
   seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
@@ -204,15 +200,15 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
   
   //if only mu and lambda are supplied, assume isotropic behavior and calculate the parameters accordingly
   if(suppliedParameters.find("mu") != suppliedParameters.end() && suppliedParameters.find("lambda") != suppliedParameters.end()) {
-    double* rho = new double[m_nElements];
-    double* mu = new double[m_nElements];
-    double* lambda = new double[m_nElements];
+    easi::Query query = queryGen.generate();
+    double* rho = new double[query.numPoints()];
+    double* mu = new double[query.numPoints()];
+    double* lambda = new double[query.numPoints()];
     adapter.addBindingPoint("rho", rho, 1);
     adapter.addBindingPoint("mu", mu, 1);
     adapter.addBindingPoint("lambda", lambda, 1);
-    easi::Query query = queryGen.generate();
     model->evaluate(query, adapter);
-    for(unsigned i = 0; i < m_nElements; i++) {
+    for(unsigned i = 0; i < query.numPoints(); i++) {
       m_parameters["rho"].first[i] = rho[i];
       m_parameters["c11"].first[i] = lambda[i] + 2*mu[i];
       m_parameters["c12"].first[i] = lambda[i];
