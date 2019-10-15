@@ -1,14 +1,14 @@
 Preprocessing
 =============
 
-This folder contains all (1) tools required to set a up the input and generated source files required by SeisSol.
+This folder contains all<sup>1</sup> tools required to set a up the input and generated source files required by SeisSol.
 
 Tools
 -----
 
 ### Meshing
 
-- cube: This tool generates a Gambit mesh file containing a unit cube with 5*n^3 tetrahedra.
+- cube: This tool generates a Gambit mesh file containing a unit cube with 5n^3 tetrahedra.
   Runtime: O(n^3) = O(#elements)
   Memory usage: O(1)
 
@@ -22,4 +22,4 @@ Tools
      if you are running SeisSol without MPI.
   2. Reordering: The elements in the mesh are reordered. This can lead to a better performance.
 
-(1) This is currently under construction. Therefore not all tools are listed here.
+<sup>1</sup>This is currently under construction. Therefore not all tools are listed here.
