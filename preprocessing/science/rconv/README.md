@@ -3,19 +3,19 @@ Rconv is a small tool which transforms file given in the Standard Rupture Format
 
 ## Building rconv
 
-rconv depends on the PROJ and NetCDF libraries.
+rconv depends on the PROJ.4 and NetCDF libraries.
 
-### Installing PROJ
+### Installing PROJ.4
 
 rconv relies on a deprecated version of the PROJ library (as it includes the file 'projects.h', which is not anymore built in recent releases of PROJ, see [OSGeo/PROJ#835](OSGeo/PROJ#835)). Also, the most recent version of PROJ need access to the internet when running cmake (because of the googletest 1.8.0 framework). To install PROJ on supermuc (behind a firewall), we therefore checkout an deprecated version of the PROJ library:
 
 ```
 module load gcc
 git clone git@github.com:OSGeo/PROJ
-git checkout 3e8a1984e9ee662e74254704275c8e30791a5af0^1
+git checkout 4.9.3
 mkdir build
 cd build
-cmake .. -DCMAKE_INSTALL_PREFIX=pwd
+cmake .. -DCMAKE_INSTALL_PREFIX=$(pwd)
 make 
 make install
 ```
