@@ -294,7 +294,7 @@ void seissol::model::setMaterial( double* i_materialVal,
 {
   assert(i_numMaterialVals == 22);
   o_material->rho = i_materialVal[0];
-  std::copy(i_materialVal+1, i_materialVal+21, o_material->c_store);
+  std::copy(i_materialVal+1, i_materialVal+22, o_material->c_store);
 }
 
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const&,
