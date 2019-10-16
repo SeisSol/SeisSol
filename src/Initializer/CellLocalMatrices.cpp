@@ -163,15 +163,10 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 
         seissol::model::Material rotatedLocalMaterial;
         seissol::model::Material rotatedNeighborMaterial;
-#ifdef USE_ANISOTROPIC
         real NLocalData[6*6];
         seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
         material[cell].local.getRotatedMaterialCoefficients(NLocalData, rotatedLocalMaterial);
         material[cell].neighbor[side].getRotatedMaterialCoefficients(NLocalData, rotatedNeighborMaterial);
-#else
-        rotatedLocalMaterial = material[cell].local;
-        rotatedNeighborMaterial = material[cell].neighbor[side];
-#endif
         seissol::model::getTransposedGodunovState(  rotatedLocalMaterial,
                                                     rotatedNeighborMaterial, 
                                                     cellInformation[cell].faceTypes[side],
