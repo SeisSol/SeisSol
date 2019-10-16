@@ -92,7 +92,7 @@ class seissol::kernels::TimeBase {
      */
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
     
-    kernel::derivative m_krnlPrototype;
+    kernel::stp m_krnlPrototype;
 
   public:
     /**

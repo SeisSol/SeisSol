@@ -100,11 +100,21 @@ seissol::kernels::TimeBase::TimeBase() {
 }
 
 void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
+  //assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
+  //assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
+  //assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
 
-  m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+  for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
+    if (n > 0) {
+      for (int d = 0; d < 3; ++d) {
+        m_krnlPrototype.kDivMTSub(d,n-1) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n-1)];
+      }
+    }
+    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+  }
+  m_krnlPrototype.Zinv = init::Zinv::Values;
+  m_krnlPrototype.timeInt = init::timeInt::Values;
+  m_krnlPrototype.wHat = init::wHat::Values;
 }
 
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
@@ -124,46 +134,20 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
    * compute ADER scheme.
    */
   // temporary result
-  real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
-  real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
+  real stpRhs[tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  real stp[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
+  //real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
-  kernel::derivative krnl = m_krnlPrototype;
+  kernel::stp krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
-
-  // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
-
-  krnl.dQ(0) = const_cast<real*>(data.dofs);
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
-  }
-
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = o_timeIntegrated;
-  intKrnl.dQ(0) = data.dofs;
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
-  }
-  
-  // powers in the taylor-series expansion
-  intKrnl.power = i_timeStepWidth;
-
-  intKrnl.execute0();
-
-  // stream out frist derivative (order 0)
-  if (o_timeDerivatives != nullptr) {
-    streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
-  }
-  
-  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
-    krnl.execute(der);
-
-    // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / real(der+1);    
-    intKrnl.execute(der);
-  }
+  krnl.Q = const_cast<real*>(data.dofs);
+  krnl.I = o_timeIntegrated;
+  krnl.timestep = i_timeStepWidth;
+  krnl.stp = stp;
+  krnl.stpRhs = stpRhs;
+  krnl.execute();
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,

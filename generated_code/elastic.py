@@ -37,10 +37,23 @@
 #
 # @section DESCRIPTION
 #
-  
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+
+import operator
+from functools import reduce
+import numpy as np
+
+from yateto import Tensor, Scalar
+from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
+from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 from aderdg import ADERDGStandard
+from multSim import OptionalDimTensor
+
+
+def choose(n, k):
+  num = reduce(operator.mul, range(n, n-k, -1), 1)
+  denom = reduce(operator.mul, range(1, k+1), 1)
+  return num // denom
 
 class ADERDG(ADERDGStandard):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout):
@@ -49,6 +62,7 @@ class ADERDG(ADERDGStandard):
       'star': ['star(0)', 'star(1)', 'star(2)'],
     }
     self.db.update( parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones) )
+    self.db.update( parseJSONMatrixFile('{}/stp_{}.json'.format(matricesDir, order)) )
     memoryLayoutFromFile(memLayout, self.db, clones)
 
   def numberOfQuantities(self):
@@ -59,3 +73,45 @@ class ADERDG(ADERDGStandard):
 
   def starMatrix(self, dim):
     return self.db.star[dim]
+
+  def addTime(self, generator):
+    super().addTime(generator)
+
+    stiffnessValues = [self.db.kDivMT[d].values_as_ndarray() for d in range(3)]
+
+    qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+    stpShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities(), self.order)
+    stpRhs = OptionalDimTensor('stpRhs', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
+    stp = OptionalDimTensor('stp', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
+    timestep = Scalar('timestep')
+
+    kernels = [stpRhs['kpt'] <= self.Q['kp'] * self.db.wHat['t']]
+
+    for n in range(self.order-1,-1,-1):
+      Bn_1 = choose(n-1+3,3)
+      Bn = choose(n+3,3)
+      fullShape = (self.numberOf3DBasisFunctions(), self.numberOf3DBasisFunctions())
+      selectModesSpp = np.zeros(fullShape)
+      selectModesSpp[Bn_1:Bn,Bn_1:Bn] = np.eye(Bn-Bn_1) 
+      selectModes = Tensor('selectModes({})'.format(n), fullShape, spp=selectModesSpp)
+      kSub = [None] * 3
+      if n > 0: 
+        for d in range(3):
+          stiffnessSpp = np.zeros(fullShape)
+          stiffnessSpp[:,Bn_1:Bn] = -stiffnessValues[d][:,Bn_1:Bn]
+          kSub[d] = Tensor('kDivMTSub({},{})'.format(d,n-1), fullShape, spp=stiffnessSpp)
+
+      kernel = stp['kpt'] <= stp['kpt'] + selectModes['kl'] * stpRhs['lpu'] * self.db.Zinv['tu']
+      kernels.append(kernel)
+      if n > 0:
+        derivativeSum = stpRhs['kpt']
+        for d in range(3):
+          derivativeSum += timestep * kSub[d]['kl'] * stp['lqt'] * self.starMatrix(d)['qp']
+        updateRhs = stpRhs['kpt'] <= derivativeSum
+        kernels.append(updateRhs)
+
+    timeInt = self.I['kp'] <= timestep * stp['kpt'] * self.db.timeInt['t']
+    kernels.append(timeInt)
+
+    generator.add('stp', kernels)
+
