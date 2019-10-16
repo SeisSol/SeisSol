@@ -376,7 +376,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
-      //TODO: apply Bond's matrix to material for anistotropy
+      //TODO: Make DR work with anisotropy 
       if (plusLtsId != std::numeric_limits<unsigned>::max()) {
         plusMaterial = material[plusLtsId].local;
         minusMaterial = material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
