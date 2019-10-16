@@ -107,7 +107,7 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d,n-1) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n-1)];
+        m_krnlPrototype.kDivMTSub(d,n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n)];
       }
     }
     m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];

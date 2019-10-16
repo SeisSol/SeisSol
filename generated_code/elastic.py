@@ -78,6 +78,7 @@ class ADERDG(ADERDGStandard):
     super().addTime(generator)
 
     stiffnessValues = [self.db.kDivMT[d].values_as_ndarray() for d in range(3)]
+    fullShape = (self.numberOf3DBasisFunctions(), self.numberOf3DBasisFunctions())
 
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     stpShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities(), self.order)
@@ -85,33 +86,33 @@ class ADERDG(ADERDGStandard):
     stp = OptionalDimTensor('stp', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
     timestep = Scalar('timestep')
 
-    kernels = [stpRhs['kpt'] <= self.Q['kp'] * self.db.wHat['t']]
-
-    for n in range(self.order-1,-1,-1):
+    def modeRange(n):
       Bn_1 = choose(n-1+3,3)
       Bn = choose(n+3,3)
-      fullShape = (self.numberOf3DBasisFunctions(), self.numberOf3DBasisFunctions())
+      return (Bn_1,Bn)
+
+    def selectModes(n):
+      Bn_1, Bn = modeRange(n)
       selectModesSpp = np.zeros(fullShape)
       selectModesSpp[Bn_1:Bn,Bn_1:Bn] = np.eye(Bn-Bn_1) 
-      selectModes = Tensor('selectModes({})'.format(n), fullShape, spp=selectModesSpp)
-      kSub = [None] * 3
-      if n > 0: 
-        for d in range(3):
-          stiffnessSpp = np.zeros(fullShape)
-          stiffnessSpp[:,Bn_1:Bn] = -stiffnessValues[d][:,Bn_1:Bn]
-          kSub[d] = Tensor('kDivMTSub({},{})'.format(d,n-1), fullShape, spp=stiffnessSpp)
+      return Tensor('selectModes({})'.format(n), fullShape, spp=selectModesSpp)
 
-      kernel = stp['kpt'] <= stp['kpt'] + selectModes['kl'] * stpRhs['lpu'] * self.db.Zinv['tu']
-      kernels.append(kernel)
+    def kSub(d,n):
+      Bn_1, Bn = modeRange(n)
+      stiffnessSpp = np.zeros(fullShape)
+      stiffnessSpp[:,Bn_1:Bn] = -stiffnessValues[d][:,Bn_1:Bn]
+      return Tensor('kDivMTSub({},{})'.format(d,n), fullShape, spp=stiffnessSpp)
+
+    kernels = list()
+    kernels.append( stpRhs['kpt'] <= self.Q['kp'] * self.db.wHat['t'] )
+    for n in range(self.order-1,-1,-1):
+      kernels.append( stp['kpt'] <= stp['kpt'] + selectModes(n)['kl'] * stpRhs['lpu'] * self.db.Zinv['tu'] )
       if n > 0:
         derivativeSum = stpRhs['kpt']
         for d in range(3):
-          derivativeSum += timestep * kSub[d]['kl'] * stp['lqt'] * self.starMatrix(d)['qp']
-        updateRhs = stpRhs['kpt'] <= derivativeSum
-        kernels.append(updateRhs)
-
-    timeInt = self.I['kp'] <= timestep * stp['kpt'] * self.db.timeInt['t']
-    kernels.append(timeInt)
+          derivativeSum += timestep * kSub(d,n)['kl'] * stp['lqt'] * self.starMatrix(d)['qp']
+        kernels.append( stpRhs['kpt'] <= derivativeSum )
+    kernels.append( self.I['kp'] <= timestep * stp['kpt'] * self.db.timeInt['t'] )
 
     generator.add('stp', kernels)
 
