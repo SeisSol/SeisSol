@@ -528,23 +528,23 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
 
 void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
 {
-  for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+  for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
     CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
     real** displacements = layer->var(m_lts.displacements);
 
     unsigned numberOfCells = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       bool hasFreeSurface = false;
-      for (unsigned face = 0; face < 4; ++face) {
+      for (const auto faceType : cellInformation[cell].faceTypes) {
         hasFreeSurface = hasFreeSurface
-	  || (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
-	      cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity);
+            || faceType == FaceType::freeSurface
+            || faceType == FaceType::freeSurfaceGravity;
       }
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
         // +1 is necessary as we want to reserve the nullptr for cell without displacement.
-	// Thanks to this hack, the array contains a constant plus the offset of the current
-	// cell.
+        // Thanks to this hack, the array contains a constant plus the offset of the current
+        // cell.
         displacements[cell] = static_cast<real*>(nullptr) + 1 + numberOfCells * tensor::displacement::size();
         ++numberOfCells;
       } else {
@@ -557,7 +557,10 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
 
 void seissol::initializers::MemoryManager::initializeDisplacements()
 {
-  for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+  for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+    if (layer->getBucketSize(m_lts.displacementsBuffer) == 0) {
+      continue;
+    }
     real** displacements = layer->var(m_lts.displacements);
     real* bucket = static_cast<real*>(layer->bucket(m_lts.displacementsBuffer));
 
@@ -566,12 +569,12 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       if (displacements[cell] != nullptr) {
-	// Remove constant part that was added in deriveDisplacementsBucket.
-	// We then have the pointer offset that needs to be added to the bucket.
-	// The final value of this pointer then points to a valid memory adress
-	// somewhere in the bucket.
-	displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
-	for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
+        // Remove constant part that was added in deriveDisplacementsBucket.
+        // We then have the pointer offset that needs to be added to the bucket.
+        // The final value of this pointer then points to a valid memory address
+        // somewhere in the bucket.
+        displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(nullptr)) - 1);
+        for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
           // zero displacements
           displacements[cell][dof] = static_cast<real>(0.0);
         }
@@ -611,10 +614,8 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
     cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
 
-  if (enableFreeSurfaceIntegration) {
-    deriveDisplacementsBucket();
-  }
-
+  // TODO(Lukas) Should this be called even when no free surface writer/free surface + gravity bc is used?
+  deriveDisplacementsBucket();
 
   m_ltsTree.allocateBuckets();
 
@@ -639,9 +640,8 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
   initializeCommunicationStructure();
 #endif
 
-  if (enableFreeSurfaceIntegration) {
-    initializeDisplacements();
-  }
+  // TODO(Lukas) Should this be called even when no free surface writer/free surface + gravity bc is used?
+  initializeDisplacements();
 }
 
 void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,
