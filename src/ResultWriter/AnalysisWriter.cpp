@@ -5,17 +5,13 @@
 
 #include "SeisSol.h"
 #include "Geometry/MeshReader.h"
-#ifndef USE_ANISOTROPIC
 #include <Physics/InitialField.h>
-#else
-#include <Equations/anisotropic/Physics/InitialField.h>
-#endif
 
 void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& mpi = seissol::MPI::mpi;
 
   const auto initialConditionType = std::string(e_interoperability.getInitialConditionType());
-  if (initialConditionType != "Planarwave") {
+  if (initialConditionType == "Zero") {
     return;
   }
   logInfo(mpi.rank())

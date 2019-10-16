@@ -772,6 +772,17 @@ void seissol::Interoperability::initInitialConditions()
 #else
     m_iniConds.push_back(new physics::Planarwave());
 #endif
+  } else if (m_initialConditionType == "AnisotropicPlanarwave") {
+#ifndef USE_ANISOTROPIC
+    throw std::runtime_error("Anisotropic Planarwave InitialCondition is only applicable if SeisSol is compiled with Anisotropy");
+#endif
+#ifdef MULTIPLE_SIMULATIONS
+    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+      m_iniConds.push_back(new physics::AnisotropicPlanarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+    }
+#else
+    m_iniConds.push_back(new physics::AnisotropicPlanarwave());
+#endif
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.push_back(new physics::ZeroField());
   } else {

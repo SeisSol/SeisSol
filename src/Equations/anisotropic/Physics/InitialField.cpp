@@ -3,11 +3,12 @@
 #include <Eigen/Eigenvalues>
 
 #include <Kernels/precision.hpp>
-#include <Equations/anisotropic/Physics/InitialField.h>
+#include <Physics/InitialField.h>
 #include <Model/Setup.h>
 #include <yateto/TensorView.h>
+#include <Equations/elastic/Physics/InitialField.cpp>
 
-seissol::physics::Planarwave::Planarwave(real phase)
+seissol::physics::AnisotropicPlanarwave::AnisotropicPlanarwave(real phase)
   : m_setVar(9),
     m_kVec1{M_PI, 0.0, 0.0},
     m_kVec2{0.0, M_PI, 0.0},
@@ -15,7 +16,6 @@ seissol::physics::Planarwave::Planarwave(real phase)
     m_phase(phase)
 { 
   double materialVal[22] = { 
-//use this for the anisotropic test case
       1.0, //rho
     192.0, //c11
      66.0, //c12
@@ -38,29 +38,6 @@ seissol::physics::Planarwave::Planarwave(real phase)
      62.0, //c55
       0.0, //c56
      49.0, //c66
-//use this for the isotropic test case 
- //     1.0, //rho
- //     4.0, //c11
- //     2.0, //c12
- //     2.0, //c13
- //     0.0, //c14
- //     0.0, //c15
- //     0.0, //c16
- //     4.0, //c22
- //     2.0, //c23
- //     0.0, //c24
- //     0.0, //c25
- //     0.0, //c26
- //     4.0, //c33
- //     0.0, //c34
- //     0.0, //c35
- //     0.0, //c36
- //     1.0, //c44
- //     0.0, //c45
- //     0.0, //c46
- //     1.0, //c55
- //     0.0, //c56
- //     1.0, //c66
   };
   seissol::model::Material material;
   seissol::model::setMaterial(materialVal, 22, &material); 
@@ -109,7 +86,7 @@ seissol::physics::Planarwave::Planarwave(real phase)
   }
 }
 
-void seissol::physics::Planarwave::evaluate(  double time,
+void seissol::physics::AnisotropicPlanarwave::evaluate(  double time,
                                               std::vector<std::array<double, 3>> const& points,
                                               yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {

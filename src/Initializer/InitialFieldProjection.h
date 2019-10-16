@@ -44,11 +44,7 @@
 #include <Initializer/typedefs.hpp>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/Lut.hpp>
-#ifndef USE_ANISOTROPIC
 #include <Physics/InitialField.h>
-#else
-#include <Equations/anisotropic/Physics/InitialField.h>
-#endif
 
 namespace seissol {
   namespace initializers {
