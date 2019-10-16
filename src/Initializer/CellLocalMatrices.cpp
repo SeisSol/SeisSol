@@ -103,11 +103,11 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     real ATData[tensor::star::size(0)];
     real BTData[tensor::star::size(1)];
     real CTData[tensor::star::size(2)];
-    real DTData[tensor::star::size(0)];
+    real AT_tildeData[tensor::star::size(0)];
     auto AT = init::star::view<0>::create(ATData);
     auto BT = init::star::view<0>::create(BTData);
     auto CT = init::star::view<0>::create(CTData);
-    auto DT = init::star::view<0>::create(DTData);
+    auto AT_tilde = init::star::view<0>::create(AT_tildeData);
 
     real TData[seissol::tensor::T::size()];
     real TinvData[seissol::tensor::Tinv::size()];
@@ -185,7 +185,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
-        seissol::model::getTransposedCoefficientMatrix( rotatedLocalMaterial, 0, DT );
+        seissol::model::getTransposedCoefficientMatrix( rotatedLocalMaterial, 0, AT_tilde );
 
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
@@ -193,7 +193,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.QgodLocal = QgodLocalData;
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
-        localKrnl.star(0) = DTData;
+        localKrnl.star(0) = AT_tildeData;
         localKrnl.execute();
         
 
@@ -203,7 +203,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         neighKrnl.QgodNeighbor = QgodNeighborData;
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
-        neighKrnl.star(0) = DTData;
+        neighKrnl.star(0) = AT_tildeData;
         neighKrnl.execute();
       }
 
