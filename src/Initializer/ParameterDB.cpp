@@ -197,18 +197,18 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
   auto suppliedParameters = model->suppliedParameters();
   //TODO: inhomogeneous materials, where in some parts only mu and lambda are given
   //      and in other parts the full elastic tensor is given
-  
   //if only mu and lambda are supplied, assume isotropic behavior and calculate the parameters accordingly
   if(suppliedParameters.find("mu") != suppliedParameters.end() && suppliedParameters.find("lambda") != suppliedParameters.end()) {
     easi::Query query = queryGen.generate();
-    double* rho = new double[query.numPoints()];
-    double* mu = new double[query.numPoints()];
-    double* lambda = new double[query.numPoints()];
+    int numPoints = query.numPoints();
+    double* rho = new double[numPoints];
+    double* mu = new double[numPoints];
+    double* lambda = new double[numPoints];
     adapter.addBindingPoint("rho", rho, 1);
     adapter.addBindingPoint("mu", mu, 1);
     adapter.addBindingPoint("lambda", lambda, 1);
     model->evaluate(query, adapter);
-    for(unsigned i = 0; i < query.numPoints(); i++) {
+    for(int i = 0; i < numPoints; i++) {
       m_parameters["rho"].first[i] = rho[i];
       m_parameters["c11"].first[i] = lambda[i] + 2*mu[i];
       m_parameters["c12"].first[i] = lambda[i];
