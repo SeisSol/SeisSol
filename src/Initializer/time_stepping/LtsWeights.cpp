@@ -221,8 +221,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   for(unsigned cell = 0; cell < cells.size(); ++cell)
   { 
     real maxEv = 0;
-    //sample 400 directions
-    for(unsigned j = 0; j < 201; ++j)
+    for(unsigned j = 0; j < 200; ++j)
     {
       real n0 = samplingDirections(j, 0);
       real n1 = samplingDirections(j, 1);
