@@ -46,6 +46,14 @@ def addKernels(generator, aderdg):
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
   ## Point sources
+  mElasticTensor = Tensor('mElasticTensor', (3,3,3,3))
+  mSlip = Tensor('mSlip', (3,))
+  mNormal = Tensor('mNormal', (3,))
+  mArea = Scalar('mArea')
+  moment = Tensor('moment', (3,3))
+  momentFromSlip = moment['pq'] <= mArea * mElasticTensor['pqij'] * mSlip['i'] * mNormal['j']
+  generator.add('momentFromSlip', momentFromSlip)
+
   mInvJInvPhisAtSources = Tensor('mInvJInvPhisAtSources', (numberOf3DBasisFunctions,))
 
   momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6), dtype=bool))

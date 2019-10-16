@@ -79,7 +79,7 @@ namespace seissol {
       real *A;
 
       /// elasticity tensor
-      real (*cij)[21];
+      real (*cij)[81];
 
       /** NRF: slip rate in
        * 0: Tan1 direction

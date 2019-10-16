@@ -123,33 +123,9 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   faultBasis[6] = subfault.normal.x;
   faultBasis[7] = subfault.normal.y;
   faultBasis[8] = subfault.normal.z;
-#ifndef USE_ANISOTROPIC
+  
   pointSources.A[index] = subfault.area;
-  pointSources.cij[index][0]  = material.lambda + 2*material.mu;
-  pointSources.cij[index][1]  = material.lambda;
-  pointSources.cij[index][2]  = material.lambda;
-  pointSources.cij[index][3]  = 0;
-  pointSources.cij[index][4]  = 0;
-  pointSources.cij[index][5]  = 0; 
-  pointSources.cij[index][6]  = material.lambda + 2*material.mu;
-  pointSources.cij[index][7]  = material.lambda;
-  pointSources.cij[index][8]  = 0;
-  pointSources.cij[index][9]  = 0;
-  pointSources.cij[index][10] = 0;
-  pointSources.cij[index][11] = material.lambda + 2*material.mu;
-  pointSources.cij[index][12] = 0;
-  pointSources.cij[index][13] = 0;
-  pointSources.cij[index][14] = 0;
-  pointSources.cij[index][15] = material.mu; 
-  pointSources.cij[index][16] = 0;
-  pointSources.cij[index][17] = 0;
-  pointSources.cij[index][18] = material.mu; 
-  pointSources.cij[index][19] = 0;
-  pointSources.cij[index][20] = material.mu; 
-#else  
-  pointSources.A[index] = subfault.area;
-  std::copy(material.c_store, material.c_store+20, pointSources.cij[index]);
-#endif
+  material.getFullElasticTensor(pointSources.cij[index]);
  
   for (unsigned sr = 0; sr < 3; ++sr) {
     unsigned numSamples = nextOffsets[sr] - offsets[sr];
@@ -409,7 +385,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
       logError() << "posix_memalign failed in source term manager.";
     }
     sources[cluster].A         = new real[cmps[cluster].numberOfSources];
-    sources[cluster].cij       = new real[cmps[cluster].numberOfSources][21];
+    sources[cluster].cij       = new real[cmps[cluster].numberOfSources][81];
     sources[cluster].slipRates = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {

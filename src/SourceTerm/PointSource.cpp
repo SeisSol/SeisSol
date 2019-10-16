@@ -143,7 +143,7 @@ real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D cons
 void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                                            real const faultBasis[9],
                                                            real A,
-                                                           real const cij[21],
+                                                           real const cij[81],
                                                            PiecewiseLinearFunction1D const slipRates[3],
                                                            double i_fromTime,
                                                            double i_toTime,
@@ -168,24 +168,17 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
     normalDotSlip += faultBasis[6 + i] * rotatedSlip[i];
   }
 
-  real moment[6];
-  moment[0] =  cij[0] * rotatedSlip[0] * faultBasis[6+0] +  cij[5] * rotatedSlip[0] * faultBasis[6+1] + cij[4]  * rotatedSlip[0] * faultBasis[6+2] +  cij[5] * rotatedSlip[1] * faultBasis[6+0] +  cij[1] * rotatedSlip[1] * faultBasis[6+1] +  cij[3] * rotatedSlip[1] * faultBasis[6+2] +  cij[4] * rotatedSlip[2] * faultBasis[6+0] +  cij[3] * rotatedSlip[2] * faultBasis[6+1] +  cij[2] * rotatedSlip[2] * faultBasis[6+2];
-  moment[0] *= A;
-  moment[1] =  cij[1] * rotatedSlip[0] * faultBasis[6+0] + cij[10] * rotatedSlip[0] * faultBasis[6+1] + cij[9]  * rotatedSlip[0] * faultBasis[6+2] + cij[10] * rotatedSlip[1] * faultBasis[6+0] +  cij[6] * rotatedSlip[1] * faultBasis[6+1] +  cij[8] * rotatedSlip[1] * faultBasis[6+2] +  cij[9] * rotatedSlip[2] * faultBasis[6+0] +  cij[8] * rotatedSlip[2] * faultBasis[6+1] +  cij[7] * rotatedSlip[2] * faultBasis[6+2];
-  moment[1] *= A;
-  moment[2] =  cij[3] * rotatedSlip[0] * faultBasis[6+0] + cij[14] * rotatedSlip[0] * faultBasis[6+1] + cij[13] * rotatedSlip[0] * faultBasis[6+2] + cij[14] * rotatedSlip[1] * faultBasis[6+0] +  cij[7] * rotatedSlip[1] * faultBasis[6+1] + cij[12] * rotatedSlip[1] * faultBasis[6+2] + cij[13] * rotatedSlip[2] * faultBasis[6+0] + cij[12] * rotatedSlip[2] * faultBasis[6+1] + cij[11] * rotatedSlip[2] * faultBasis[6+2];
-  moment[2] *= A;
-  moment[3] =  cij[5] * rotatedSlip[0] * faultBasis[6+0] + cij[20] * rotatedSlip[0] * faultBasis[6+1] + cij[19] * rotatedSlip[0] * faultBasis[6+2] + cij[20] * rotatedSlip[1] * faultBasis[6+0] + cij[10] * rotatedSlip[1] * faultBasis[6+1] + cij[17] * rotatedSlip[1] * faultBasis[6+2] + cij[19] * rotatedSlip[2] * faultBasis[6+0] + cij[17] * rotatedSlip[2] * faultBasis[6+1] + cij[14] * rotatedSlip[2] * faultBasis[6+2];
-  moment[3] *= A;
-  moment[4] =  cij[3] * rotatedSlip[0] * faultBasis[6+0] + cij[17] * rotatedSlip[0] * faultBasis[6+1] + cij[16] * rotatedSlip[0] * faultBasis[6+2] + cij[17] * rotatedSlip[1] * faultBasis[6+0] +  cij[8] * rotatedSlip[1] * faultBasis[6+1] + cij[15] * rotatedSlip[1] * faultBasis[6+2] + cij[16] * rotatedSlip[2] * faultBasis[6+0] + cij[15] * rotatedSlip[2] * faultBasis[6+1] + cij[12] * rotatedSlip[2] * faultBasis[6+2];
-  moment[4] *= A;
-  moment[5] =  cij[4] * rotatedSlip[0] * faultBasis[6+0] + cij[19] * rotatedSlip[0] * faultBasis[6+1] + cij[18] * rotatedSlip[0] * faultBasis[6+2] + cij[19] * rotatedSlip[1] * faultBasis[6+0] +  cij[9] * rotatedSlip[1] * faultBasis[6+1] + cij[13] * rotatedSlip[1] * faultBasis[6+2] + cij[18] * rotatedSlip[2] * faultBasis[6+0] + cij[16] * rotatedSlip[2] * faultBasis[6+1] + cij[13] * rotatedSlip[2] * faultBasis[6+2];
-  moment[5] *= A;
+  kernel::momentFromSlip momentKrnl;
+  momentKrnl.mElasticTensor = cij;
+  momentKrnl.mSlip = rotatedSlip;
+  momentKrnl.mNormal = faultBasis + 6;
+  momentKrnl.mArea = A;
+  momentKrnl.execute();
 
   kernel::sourceNRF krnl;
   krnl.Q = o_dofUpdate;
   krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
-  krnl.momentNRF = moment;
+  krnl.momentNRF = momentKrnl.moment;
 #ifdef MULTIPLE_SIMULATIONS
   krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
 #endif
