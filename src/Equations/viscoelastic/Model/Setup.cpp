@@ -135,7 +135,7 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
 
   for (unsigned d = 0; d < 3; ++d) {
     Coeff.setZero();
-    getTransposedCoefficientMatrix(material, d, Coeff);
+    ::getTransposedCoefficientMatrix(material, d, Coeff);
 
     for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
       for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
@@ -144,7 +144,7 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
     }
   }
 
-  getTransposedSourceCoefficientTensor(material, Coeff);
+  ::getTransposedSourceCoefficientTensor(material, Coeff);
 
   for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
     for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {

@@ -349,8 +349,13 @@ CONTAINS
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
+#if defined(USE_POROELASTIC)      
+      EQN%nVarTotal = 13 
+      EQN%nBackgroundVar = 10
+#else
       EQN%nVarTotal = EQN%nVar
       EQN%nBackgroundVar = 3
+#endif
     CASE(1)
        logInfo(*) 'Viscoelastic attenuation assumed ... '
        EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs

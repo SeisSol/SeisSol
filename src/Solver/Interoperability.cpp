@@ -461,14 +461,34 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
 
   seissol::initializers::ParameterDB parameterDB;
+#ifndef USE_POROELASTIC
   parameterDB.addParameter("rho",    materialVal);
   parameterDB.addParameter("mu",     materialVal + nElements);
   parameterDB.addParameter("lambda", materialVal + nElements*2);
-  
+
   if (anelasticity == 1) {
     parameterDB.addParameter("Qp",  materialVal + nElements*3);
     parameterDB.addParameter("Qs",  materialVal + nElements*4);
   }
+#else
+  constexpr char const* parameters[] = {
+    "bulk_solid",
+    "rho_solid", 
+    "lambda",    
+    "mu",
+    "porosity", 
+    "permeability",
+    "tortuosity",
+    "bulk_fluid",
+    "rho_fluid",
+    "viscosity"
+  };
+  auto n = 0;
+  for (auto& par : parameters) {
+    parameterDB.addParameter(par, materialVal + n * nElements);
+    ++n;
+  }
+#endif
 
   if (plasticity == 1) {
     parameterDB.addParameter("bulkFriction", bulkFriction);

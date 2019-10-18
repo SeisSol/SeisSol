@@ -84,7 +84,7 @@ vars.AddVariables(
   EnumVariable( 'equations',
                 'system of PDEs that will be solved',
                 'elastic',
-                allowed_values=('elastic', 'viscoelastic', 'viscoelastic2')
+                allowed_values=('elastic', 'viscoelastic', 'viscoelastic2', 'poroelastic')
               ),
 
   EnumVariable( 'order',
@@ -271,7 +271,8 @@ print('Compiling SeisSol version: {}'.format(seissol_version))
 
 numberOfQuantities = {
   'elastic' : 9,
-  'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6
+  'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6,
+  'poroelastic': 13
 }
 numberOfQuantities['viscoelastic2'] = numberOfQuantities['viscoelastic']
 
@@ -454,7 +455,7 @@ env.Append(CXXFLAGS=['-std=c++11'])
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
-if env['equations'] in ['elastic', 'viscoelastic', 'viscoelastic2']:
+if env['equations'] in ['elastic', 'viscoelastic', 'viscoelastic2', 'poroelastic']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
 if int(env['multipleSimulations']) > 1:
@@ -479,6 +480,9 @@ if( env['plasticity'] ):
      env.Append(CPPDEFINES=['USE_PLASTIC_IP'])
   elif env['PlasticityMethod'] == 'nb':
      env.Append(CPPDEFINES=['USE_PLASTIC_NB'])
+if( env['equations'] == 'poroelastic' ):
+  env.Append(CPPDEFINES=['USE_POROELASTIC'])
+#  env.Append(CPPDEFINES=['USE_STP'])
 
 if( env['integrateQuants'] ):
   env.Append(CPPDEFINES=['INTEGRATE_QUANTITIES'])
@@ -542,7 +546,7 @@ env.Tool('DirTool', fortran=True)
 env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
 # Eigen3
-libs.find(env, 'eigen3', required=False)
+env.Append(CPPPATH=['#/submodules/eigen3'])
 
 # netCDF
 if env['netcdf'] == 'yes':

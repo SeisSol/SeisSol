@@ -100,11 +100,25 @@ seissol::kernels::TimeBase::TimeBase() {
 }
 
 void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
+#ifdef USE_STP
+  for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
+    if (n > 0) {
+      for (int d = 0; d < 3; ++d) {
+        m_krnlPrototype.kDivMTSub(d,n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n)];
+      }
+    }
+    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+  }
+  m_krnlPrototype.Zinv = init::Zinv::Values;
+  m_krnlPrototype.timeInt = init::timeInt::Values;
+  m_krnlPrototype.wHat = init::wHat::Values;
+#else
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % ALIGNMENT == 0 );
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+#endif
 }
 
 void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
@@ -120,6 +134,20 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
   assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 
+#ifdef USE_STP
+  real stpRhs[tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  real stp[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
+  kernel::stp krnl = m_krnlPrototype;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    krnl.star(i) = data.localIntegration.starMatrices[i];
+  }
+  krnl.Q = const_cast<real*>(data.dofs);
+  krnl.I = o_timeIntegrated;
+  krnl.timestep = i_timeStepWidth;
+  krnl.stp = stp;
+  krnl.stpRhs = stpRhs;
+  krnl.execute();
+#else
   /*
    * compute ADER scheme.
    */
@@ -164,6 +192,7 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
     intKrnl.power *= i_timeStepWidth / real(der+1);    
     intKrnl.execute(der);
   }
+#endif
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,

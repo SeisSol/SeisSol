@@ -177,8 +177,13 @@ CONTAINS
     !                                                                      
     ! U N S T E A D Y   S O L U T I O N                                    
     !
+#if defined(USE_POROELASTIC)
+    OptionalFields%dt_convectiv(:)  = DISC%CFL*2.0*MESH%ELEM%MinDistBarySide(:)  & 
+                                     / 4021.08
+#else
     OptionalFields%dt_convectiv(:)  = DISC%CFL*2.0*MESH%ELEM%MinDistBarySide(:)  & 
                                      / ( OptionalFields%sound(:) + OptionalFields%vel(:) )
+#endif
    !
    IF(DISC%Galerkin%pAdaptivity.GE.1) THEN                         
     OptionalFields%dt_convectiv(:) = OptionalFields%dt_convectiv(:) / & 

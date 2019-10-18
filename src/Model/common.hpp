@@ -52,8 +52,8 @@ namespace seissol {
                                                 T&                              o_M );
 
     template<typename Tloc, typename Tneigh>
-    void getTransposedElasticGodunovState( Material const&                      local,
-                                           Material const&                      neighbor,
+    void getTransposedElasticGodunovState( ElasticMaterial const&               local,
+                                           ElasticMaterial const&               neighbor,
                                            enum ::faceType                      faceType,
                                            Tloc&                                QgodLocal,
                                            Tneigh&                              QgodNeighbor );
@@ -115,8 +115,8 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
 }
 
 template<typename Tloc, typename Tneigh>
-void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
-                                                       Material const&                      neighbor,
+void seissol::model::getTransposedElasticGodunovState( ElasticMaterial const&               local,
+                                                       ElasticMaterial const&               neighbor,
                                                        enum ::faceType                      faceType,
                                                        Tloc&                                QgodLocal,
                                                        Tneigh&                              QgodNeighbor )

@@ -308,10 +308,12 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       for (unsigned i = 0; i < 9; ++i) {
         sources[cluster].tensor[clusterSource][i] *= areas[fsrmIndex];
       }
+#ifndef USE_POROELASTIC
       seissol::model::Material& material = ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
       for (unsigned i = 0; i < 3; ++i) {
         sources[cluster].tensor[clusterSource][6+i] /= material.rho;
       }
+#endif
 
       samplesToPiecewiseLinearFunction1D( &timeHistories[fsrmIndex * numberOfSamples],
                                           numberOfSamples,
