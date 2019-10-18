@@ -234,29 +234,21 @@ void seissol::physics::Ocean::evaluate(double time,
     //  at (x[0], x[1], x[2]), time
 
     // Value that's already coded in, or obtained for material file?
-    const double g = 9.81*1e-3; // km/s
+    const double g = 9.81; // m/s
     const double pi = std::acos(-1);
     const double lambda = materialData.local.lambda;
     const double mu = materialData.local.mu;
     assert(mu == 0); // has to be acoustic
-    const double rho = materialData.local.rho; // g/cm^3
-    const double c = std::sqrt((lambda + 2 * mu) / rho); // km/s
+    const double rho = materialData.local.rho; // this needs to be kg/m^3
 
     // These values will have to manually changed when testing
     // different wave modes, only would test 1 mode per simulation
-    const double kx = pi/100;
-    const double ky = pi/100;
-    //const double omega = 0.008681242996131; // Gravity Wave mode
-    const double omega = 0.588693915596568; // 1st accoustic wavemode
-    //const double omega = 1.767016104983240; // 2nd accoustic wavemode
-    const double omega_sq = omega * omega;
-    //const double kbar =  0.044050264221845; // Gravity Wave mode
-    const double kbar =  0.389939712878759; // 1st accoustic wavemode
-    //const double kbar =  1.177172618945667; // 2nd accoustic wavemode
+    const double kx = pi/100e3; // 1/m
+    const double ky = pi/100e3; // 1/m
 
-    // Initial time just to set intial conditions
-    // if want to start at t0 = 0 -> p0 and eta = 0
-    // if want to start at t0 = pi/(2*omega) -> u,v and w = 0
+    constexpr double omega = 0.00868146170711100;
+    constexpr double omega_sq = omega * omega;
+    const double kbar = 0.0000440502450648659;
     const double pressure = std::sin(kx*x[0])*std::sin(ky*x[1])*std::sin(omega*time)*
                             (std::sinh(kbar*x[2]) + g*(kbar/omega_sq)*std::cosh(kbar*x[2]));
     dofsQp(i,0) = pressure; // sigma_xx
@@ -268,8 +260,14 @@ void seissol::physics::Ocean::evaluate(double time,
     dofsQp(i,6) = (kx/(omega*rho))*std::cos(kx*x[0])*std::sin(ky*x[1])*std::cos(omega*time)*
                   (std::sinh(kbar*x[2]) + g*(kbar/omega_sq)*std::cosh(kbar*x[2])); // u
     dofsQp(i,7) = (ky/(omega*rho))*std::sin(kx*x[0])*std::cos(ky*x[1])*std::cos(omega*time)*
-          (std::sinh(kbar*x[2]) + g*(kbar/omega_sq)*std::cosh(kbar*x[2])); // v
+                  (std::sinh(kbar*x[2]) + g*(kbar/omega_sq)*std::cosh(kbar*x[2])); // v
     dofsQp(i,8) = (kbar/(omega*rho))*std::sin(kx*x[0])*std::sin(ky*x[1])*std::cos(omega*time)*
                   (std::cosh(kbar*x[2]) + g*(kbar/omega_sq)*std::sinh(kbar*x[2])); // w
+    for (int j = 0; j < 9; ++j) {
+      dofsQp(i,j) = dofsQp(i,j);
+    }
+    dofsQp(i,6) = -1 * dofsQp(i, 6);
+    dofsQp(i,7) = -1 * dofsQp(i, 7);
+    dofsQp(i,8) = -1 * dofsQp(i, 8);
   }
 }
