@@ -231,6 +231,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
 {
+#ifndef USE_POROELASTIC
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
   real QgodLocalData[tensor::QgodLocal::size()];
@@ -427,4 +428,5 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
+#endif
 }
