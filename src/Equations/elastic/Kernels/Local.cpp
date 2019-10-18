@@ -200,18 +200,18 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       auto applyAnalyticalSolution = [materialData](const real* nodes,
 					double time,
 					init::INodal::view::type& boundaryDofs) {
-	auto nodesVec = std::vector<std::array<double, 3>>{};
-	int offset = 0;
-	for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
-	  auto curNode = std::array<double, 3>{};
-	  curNode[0] = nodes[offset++];
-	  curNode[1] = nodes[offset++];
-	  curNode[2] = nodes[offset++];
-	  nodesVec.push_back(curNode);
-	}
-	const auto& initConds = e_interoperability.getInitialConditions();
-	assert(initConds.size() == 1); // TODO(Lukas) Support multiple init. conds?
-	initConds[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);
+          auto nodesVec = std::vector<std::array<double, 3>>{};
+          int offset = 0;
+          for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
+            auto curNode = std::array<double, 3>{};
+            curNode[0] = nodes[offset++];
+            curNode[1] = nodes[offset++];
+            curNode[2] = nodes[offset++];
+            nodesVec.push_back(curNode);
+          }
+          const auto& initConds = e_interoperability.getInitialConditions();
+          assert(initConds.size() == 1); // TODO(Lukas) Support multiple init. conds?
+          initConds[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);
       };
 
       dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,

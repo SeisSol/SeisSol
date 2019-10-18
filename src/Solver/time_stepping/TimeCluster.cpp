@@ -448,20 +448,18 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     bool l_buffersProvided = (data.cellInformation.ltsSetup >> 8)%2 == 1; // buffers are provided
     bool l_resetBuffers = l_buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || m_resetLtsBuffers ); // they should be reset
 
-    if( l_resetBuffers ) {
+    if(l_resetBuffers) {
       // assert presence of the buffer
-      assert( buffers[l_cell] != nullptr );
+      assert(buffers[l_cell] != nullptr);
 
       l_bufferPointer = buffers[l_cell];
-    }
-    // work on local buffer
-    else {
+    } else {
+      // work on local buffer
       l_bufferPointer = l_integrationBuffer;
     }
 
     // TODO(Lukas) Opt?
-    real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()]
-      __attribute__((aligned(PAGESIZE_STACK)));
+    alignas(ALIGNMENT) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
     real* derivativeBuffer = derivatives[l_cell];
     if (derivativeBuffer == nullptr) {
       derivativeBuffer = temporaryBuffer;
@@ -473,34 +471,43 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                              derivativeBuffer);
 
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
-    // Compute average displacement over timestep.
-    real twiceTimeIntegrated[tensor::I::size()] __attribute__((aligned(PAGESIZE_STACK)));
-    real nodalAvgDisplacement[tensor::INodalDisplacement::size()] __attribute__((aligned(PAGESIZE_STACK)));
-    
+    // Compute average displacement over timestep if needed.
     // TODO(Lukas) Check buffers for correctness
-    // TODO(Lukas) Call this only if at least one cell has freeSurfaceGravity bc
-    kernels::computeAverageDisplacement(m_timeStepWidth,
-					derivativeBuffer,
-					m_timeKernel.m_derivativesOffsets,
-					twiceTimeIntegrated);
-    //std::fill_n(twiceTimeIntegrated, tensor::I::size(), 0.0);
-    for (int side = 0; side < 4; ++side) {
-      // TODO(Lukas) Check cell info
-      if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
-	assert(displacements[l_cell] != nullptr);
+    alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
+    alignas(ALIGNMENT) real nodalAvgDisplacement[tensor::INodalDisplacement::size()];
 
-	kernel::displacementAvgNodal krnl;
-	krnl.I = twiceTimeIntegrated;
-	krnl.V3mTo2nFace = m_globalData->V3mTo2nFace;
+    // Only a fraction of cells need the average displacement
+    bool needsAvgDisplacement = false;
+    for (const auto& faceType : cellInformation[l_cell].faceTypes) {
+      if (faceType == FaceType::freeSurfaceGravity) {
+        needsAvgDisplacement = true;
+        break;
+      }
+    }
 
-	krnl.displacement = displacements[l_cell];
-	krnl.dt = m_timeStepWidth; 
+    if (needsAvgDisplacement) {
+      kernels::computeAverageDisplacement(m_timeStepWidth,
+                                          derivativeBuffer,
+                                          m_timeKernel.m_derivativesOffsets,
+                                          twiceTimeIntegrated);
 
-	krnl.selectZDisplacement = init::selectZDisplacement::Values;
-	krnl.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
-	krnl.INodalDisplacement = nodalAvgDisplacement;
-	krnl.execute(side);
-      } 
+      for (int side = 0; side < 4; ++side) {
+        if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
+          assert(displacements[l_cell] != nullptr);
+
+          kernel::displacementAvgNodal krnl;
+          krnl.I = twiceTimeIntegrated;
+          krnl.V3mTo2nFace = m_globalData->V3mTo2nFace;
+
+          krnl.displacement = displacements[l_cell];
+          krnl.dt = m_timeStepWidth;
+
+          krnl.selectZDisplacement = init::selectZDisplacement::Values;
+          krnl.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
+          krnl.INodalDisplacement = nodalAvgDisplacement;
+          krnl.execute(side);
+        }
+      }
     }
 #else
     real* nodalAvgDisplacement = nullptr;
@@ -511,14 +518,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     m_localKernel.computeIntegral(l_bufferPointer,
                                   data,
                                   tmp,
-				  &materialData[l_cell],
-				  &boundaryMapping[l_cell],
-				  nodalAvgDisplacement,
-				  m_fullUpdateTime,
-				  m_timeStepWidth
-				  );
+                                  &materialData[l_cell],
+                                  &boundaryMapping[l_cell],
+                                  nodalAvgDisplacement,
+                                  m_fullUpdateTime,
+                                  m_timeStepWidth
+    );
     
-    // Update displacement.
+    // Update displacement
     if (displacements[l_cell] != nullptr) {
       kernel::addVelocity krnl;
       krnl.I = l_bufferPointer;
@@ -529,11 +536,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
     // update lts buffers if required
     // TODO: Integrate this step into the kernel
-    if( !l_resetBuffers && l_buffersProvided ) {
-      // assert presence of the buffer
-      assert( buffers[l_cell] != nullptr );
+    if (!l_resetBuffers && l_buffersProvided) {
+      assert (buffers[l_cell] != nullptr);
 
-      for( unsigned int l_dof = 0; l_dof < tensor::I::size(); l_dof++ ) {
+      for (unsigned int l_dof = 0; l_dof < tensor::I::size(); ++l_dof) {
         buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
       }
     }

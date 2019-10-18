@@ -153,8 +153,9 @@ endif()
 if ("${EQUATIONS}" STREQUAL "elastic")
   target_sources(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Model/Setup.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Physics/InitialField.cpp
   )

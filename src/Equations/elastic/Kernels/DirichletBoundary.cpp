@@ -6,23 +6,23 @@ void seissol::kernels::computeAverageDisplacement(double deltaT,
 					 ) {
   // TODO(Lukas) Verify & optimize this.
   // TODO(Lukas) Only compute integral for displacement, not for all vars.
-  assert((uintptr_t)(timeDerivatives) % ALIGNMENT == 0);
-  assert((uintptr_t)(timeIntegrated) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(timeDerivatives) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % ALIGNMENT == 0);
   assert(deltaT > 0);
   
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeIntegrated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+  for (size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = timeDerivatives + derivativesOffsets[i];
   }
   
-  auto factorial = static_cast<real>(2.0 * 1.0);
-  auto power = deltaT * deltaT;
+  real factorial = 2.0 * 1.0;
+  double power = deltaT * deltaT;
   
   for (int der = 0; der < CONVERGENCE_ORDER; ++der) {
     intKrnl.power = power / factorial;
     intKrnl.execute(der);
-    
+
     factorial *= der + 1;
     power *= deltaT;
   }
