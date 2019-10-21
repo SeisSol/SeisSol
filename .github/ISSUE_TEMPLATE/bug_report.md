@@ -15,6 +15,7 @@ Steps to reproduce the behavior:
 1. Which version do you use? Provide branch and commit id.
 2. Which build settings do you use? 
 3. On which machine does your problem occur?
+4. Provide parameter/material files.
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
