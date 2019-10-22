@@ -159,6 +159,9 @@ class ADERDGStandard(ADERDGBase):
   def extendedQTensor(self):
     return self.Q
 
+  def numberOfExtendedQuantities(self):
+    return self.numberOfQuantities()
+
   def addInit(self, generator):
     super().addInit(generator)
 

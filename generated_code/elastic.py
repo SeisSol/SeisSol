@@ -54,8 +54,5 @@ class ADERDG(ADERDGStandard):
   def numberOfQuantities(self):
     return 9
 
-  def numberOfExtendedQuantities(self):
-    return self.numberOfQuantities()
-
   def starMatrix(self, dim):
     return self.db.star[dim]
