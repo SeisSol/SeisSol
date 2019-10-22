@@ -13,7 +13,7 @@
 extern seissol::Interoperability e_interoperability;
 
 seissol::physics::Planarwave::Planarwave(real phase)
-  : m_setVar(27),
+  : m_setVar(2),
     m_kVec{3.14159265358979323846, 3.14159265358979323846, 3.14159265358979323846},
     m_phase(phase)
 {
@@ -42,21 +42,23 @@ seissol::physics::Planarwave::Planarwave(real phase)
     m_lambdaA[i] = eigenvalues(i,0);
   }
 
-  Vector ic;
-  for (size_t j = 0; j < 9; ++j) {
-    ic(j) = 1.0;
-  }
-  for (size_t j = 9; j < NUMBER_OF_QUANTITIES; ++j) {
-    ic(j) = 0.0;
+  std::vector<size_t> varField(NUMBER_OF_QUANTITIES);
+  std::iota(varField.begin(), varField.end(), 0);
+
+  std::sort(varField.begin(), varField.end(), [&eigenvalues](size_t a, size_t b) {
+    return eigenvalues[a].real() < eigenvalues[b].real();
+  });
+
+  // Select S-wave in opposite direction (1) and P-wave along direction (last)
+  std::array<size_t, 2> selectVars = {1, NUMBER_OF_QUANTITIES-1};
+  assert(m_setVar == selectVars.size());
+
+  for (auto& var : selectVars) {
+    m_varField.push_back(var);
+    m_ampField.push_back(1.0);
   }
 
-  auto eigenvectors = ces.eigenvectors();
-  Vector amp = eigenvectors.colPivHouseholderQr().solve(ic);
-  for (int j = 0; j < m_setVar; ++j) {
-    m_varField.push_back(j);
-    m_ampField.push_back(amp(j));
-  }
-
+  auto& eigenvectors = ces.eigenvectors();
   auto R = yateto::DenseTensorView<2,std::complex<real>>(m_eigenvectors, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
