@@ -110,13 +110,13 @@ void getTransposedSourceCoefficientTensor( seissol::model::Material const& mater
 }
 
 template<typename T>
-void getTransposedCoefficientMatrix(Material const& material, unsigned dim, T& AT)
+void getTransposedCoefficientMatrix(seissol::model::Material const& material, unsigned dim, T& AT)
 {
-  seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, AT);
+  seissol::model::getTransposedElasticCoefficientMatrix(material, dim, AT);
 
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    getTransposedViscoelasticCoefficientMatrix( i_material.omega[mech],
-                                                i_dim,
+    getTransposedViscoelasticCoefficientMatrix( material.omega[mech],
+                                                dim,
                                                 mech,
                                                 AT );
   }
