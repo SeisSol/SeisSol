@@ -109,9 +109,8 @@ void getTransposedSourceCoefficientTensor( seissol::model::Material const& mater
   }
 }
 
-void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
-                                                     unsigned        i_dim,
-                                                     init::star::view<0>::type& AT )
+template<typename T>
+void getTransposedCoefficientMatrix(Material const& material, unsigned dim, T& AT)
 {
   seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, AT);
 
@@ -121,6 +120,13 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
                                                 mech,
                                                 AT );
   }
+}
+
+void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
+                                                     unsigned        i_dim,
+                                                     init::star::view<0>::type& AT )
+{
+  ::getTransposedCoefficientMatrix(i_material, i_dim, AT);
 }
 
 void seissol::model::getPlaneWaveOperator(  Material const& material,
@@ -135,7 +141,7 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
 
   for (unsigned d = 0; d < 3; ++d) {
     Coeff.setZero();
-    getTransposedCoefficientMatrix(material, d, Coeff);
+    ::getTransposedCoefficientMatrix(material, d, Coeff);
 
     for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
       for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
