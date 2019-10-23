@@ -1,6 +1,7 @@
 #include <cmath>
 #include <array>
 #include <stdexcept>
+#include <numeric>
 #ifdef HAS_EIGEN3
 #include <Eigen/Eigenvalues>
 #endif
