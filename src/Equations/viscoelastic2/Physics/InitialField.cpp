@@ -12,7 +12,7 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(real phase)
+seissol::physics::Planarwave::Planarwave(double phase)
   : m_setVar(2),
     m_kVec{3.14159265358979323846, 3.14159265358979323846, 3.14159265358979323846},
     m_phase(phase)
@@ -28,11 +28,11 @@ seissol::physics::Planarwave::Planarwave(real phase)
   seissol::model::Material material;
   e_interoperability.fitAttenuation(rho, mu, lambda, Qp, Qs, material);
 
-  std::complex<real> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
+  std::complex<double> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
   model::getPlaneWaveOperator(material, m_kVec.data(), planeWaveOperator);
 
-  using Matrix = Eigen::Matrix<std::complex<real>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
-  using Vector = Eigen::Matrix<std::complex<real>, NUMBER_OF_QUANTITIES, 1, Eigen::ColMajor>;
+  using Matrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
+  using Vector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1, Eigen::ColMajor>;
   Matrix A(planeWaveOperator);
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(A);
@@ -59,7 +59,7 @@ seissol::physics::Planarwave::Planarwave(real phase)
   }
 
   auto& eigenvectors = ces.eigenvectors();
-  auto R = yateto::DenseTensorView<2,std::complex<real>>(m_eigenvectors, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(m_eigenvectors, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
       R(i,j) = eigenvectors(i,j);
@@ -76,8 +76,8 @@ void seissol::physics::Planarwave::evaluate(  double time,
 {
   dofsQP.setZero();
 
-  auto R = yateto::DenseTensorView<2,std::complex<real>>(
-             const_cast<std::complex<real>*>(m_eigenvectors),
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(
+             const_cast<std::complex<double>*>(m_eigenvectors),
              {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES}
            );
   for (int v = 0; v < m_setVar; ++v) {
@@ -85,7 +85,7 @@ void seissol::physics::Planarwave::evaluate(  double time,
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v] *
-                        std::exp(std::complex<real>(0.0, 1.0) * (
+                        std::exp(std::complex<double>(0.0, 1.0) * (
                           omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + m_phase
                         ))).real();
       }

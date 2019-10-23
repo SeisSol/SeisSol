@@ -131,13 +131,13 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
 
 void seissol::model::getPlaneWaveOperator(  Material const& material,
                                             double const n[3],
-                                            std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+                                            std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
 {
-  yateto::DenseTensorView<2,std::complex<real>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   M.setZero();
 
-  real data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  yateto::DenseTensorView<2,real> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  double data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  yateto::DenseTensorView<2,double> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
 
   for (unsigned d = 0; d < 3; ++d) {
     Coeff.setZero();
@@ -154,7 +154,7 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
 
   for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
     for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-      M(i,j) -= std::complex<real>(0.0, Coeff(j,i));
+      M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
     }
   }
 }
