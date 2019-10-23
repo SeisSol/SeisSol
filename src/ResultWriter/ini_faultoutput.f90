@@ -968,6 +968,10 @@ CONTAINS
   TYPE(tInputOutput)      :: IO
   !-------------------------------------------------------------------------!
 
+  IF( .NOT.associated(DISC%DynRup%DynRup_out_elementwise%RecPoint) ) THEN
+    ALLOCATE(DISC%DynRup%DynRup_out_elementwise%RecPoint(0))
+    ALLOCATE(DISC%DynRup%DynRup_out_elementwise%TmpState(0,0,0))
+  ENDIF
    call initFaultOutput(DISC%DynRup%DynRup_out_elementwise%RecPoint, &
         DISC%DynRup%DynRup_out_elementwise%OutputMask, &
         DISC%DynRup%DynRup_out_elementwise%TmpState, &
