@@ -47,13 +47,13 @@ namespace seissol {
   namespace model {
     struct Material : public ElasticMaterial {
       //! Relaxation frequencies
-      real omega[NUMBER_OF_RELAXATION_MECHANISMS];
+      double omega[NUMBER_OF_RELAXATION_MECHANISMS];
       /** Entries of the source matrix (E)
        * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
        * theta[1] = -lambda * Y_lambda
        * theta[2] = -2.0 * mu * Y_mu
        **/
-      real theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
+      double theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
     };
     struct LocalData {
       real sourceMatrix[seissol::tensor::ET::size()];

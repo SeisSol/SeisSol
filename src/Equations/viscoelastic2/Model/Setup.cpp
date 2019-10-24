@@ -79,7 +79,7 @@ template<typename T>
 void getTransposedSourceCoefficientTensor(  seissol::model::Material const& material, T& E )
 {
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    real const* theta = material.theta[mech];
+    double const* theta = material.theta[mech];
     E(0, mech, 0) = theta[0];
     E(1, mech, 0) = theta[1];
     E(2, mech, 0) = theta[1];

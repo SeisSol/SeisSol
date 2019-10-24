@@ -85,7 +85,7 @@ void getTransposedSourceCoefficientTensor( seissol::model::Material const& mater
   //       | E_L^T |
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     unsigned offset = 9 + mech * 6;
-    real const* theta = material.theta[mech];
+    double const* theta = material.theta[mech];
     sourceMatrix(offset,     0) = theta[0];
     sourceMatrix(offset + 1, 0) = theta[1];
     sourceMatrix(offset + 2, 0) = theta[1];
