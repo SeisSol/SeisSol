@@ -42,9 +42,9 @@ import numpy as np
 from yateto import Tensor
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
-from aderdg import ADERDGStandard
+from aderdg import LinearADERDG
 
-class ADERDG(ADERDGStandard):
+class ADERDG(LinearADERDG):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms):
     self.numberOfMechanisms = numberOfMechanisms
     self.numberOfElasticQuantities = 9

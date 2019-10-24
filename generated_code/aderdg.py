@@ -69,9 +69,9 @@ class ADERDGBase(ABC):
     self.Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=True)
     self.I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=True)
 
-    Apm_spp = self.flux_solver_spp()
-    self.AplusT = Tensor('AplusT', Apm_spp.shape, spp=Apm_spp)
-    self.AminusT = Tensor('AminusT', Apm_spp.shape, spp=Apm_spp)
+    Aplusminus_spp = self.flux_solver_spp()
+    self.AplusT = Tensor('AplusT', Aplusminus_spp.shape, spp=Aplusminus_spp)
+    self.AminusT = Tensor('AminusT', Aplusminus_spp.shape, spp=Aplusminus_spp)
     Tshape = (self.numberOfExtendedQuantities(), self.numberOfExtendedQuantities())
     trans_spp = self.transformation_spp()
     self.T = Tensor('T', trans_spp.shape, spp=trans_spp)
@@ -152,7 +152,7 @@ class ADERDGBase(ABC):
   def addTime(self, generator):
     pass
 
-class ADERDGStandard(ADERDGBase):
+class LinearADERDG(ADERDGBase):
   def sourceMatrix(self):
     return None
 

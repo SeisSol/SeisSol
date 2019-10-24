@@ -40,9 +40,9 @@
   
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
-from aderdg import ADERDGStandard
+from aderdg import LinearADERDG
 
-class ADERDG(ADERDGStandard):
+class ADERDG(LinearADERDG):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout):
     super().__init__(order, multipleSimulations, matricesDir)
     clones = {
