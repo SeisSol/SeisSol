@@ -101,6 +101,7 @@ seissol::kernels::TimeBase::TimeBase() {
 
 void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
 #ifdef USE_STP
+  std::cout << "We use the space time ansatz" << std::endl;
   for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {

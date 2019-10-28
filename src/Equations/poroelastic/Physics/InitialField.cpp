@@ -7,31 +7,33 @@
 #include <Physics/InitialField.h>
 #include <Model/Setup.h>
 #include <Solver/Interoperability.h>
+#include <Initializer/ParameterDB.h>
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(real phase)
-  : m_setVar(NUMBER_OF_QUANTITIES),
+seissol::physics::Planarwave::Planarwave(seissol::model::Material material, double phase)
+  : m_setVar(2),
     m_kVec{3.14159265358979323846, 3.14159265358979323846, 3.14159265358979323846},
     m_phase(phase)
 {
-  seissol::model::Material material;
-  material.bulk_solid = 40.0e9;
-  material.rho_solid = 2500;
-  material.lambda = 12.0e9;
-  material.mu = 10.0e9;
-  material.porosity = 0.2;
-  material.permeability = 600.0e-15;
-  material.tortuosity = 3;
-  material.bulk_fluid = 2.5e9;
-  material.rho_fluid = 1040;
-  material.viscosity = 0;
+
+  std::cout << "material values: " << std::endl
+  << "bulk_solid   = " << material.bulk_solid  << std::endl
+  << "rho_solid    = " << material.rho_solid  << std::endl
+  << "lambda       = " << material.lambda  << std::endl
+  << "mu           = " << material.mu  << std::endl
+  << "porosity     = " << material.porosity  << std::endl
+  << "permeability = " << material.permeability  << std::endl
+  << "tortuosity   = " << material.tortuosity  << std::endl
+  << "bulk_fluid   = " << material.bulk_fluid  << std::endl
+  << "rho_fluid    = " << material.rho_fluid  << std::endl
+  << "viscosity    = " << material.viscosity << std::endl;
 
   std::complex<real> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
   model::getPlaneWaveOperator(material, m_kVec.data(), planeWaveOperator);
 
   using Matrix = Eigen::Matrix<std::complex<real>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
-  //using Vector = Eigen::Matrix<std::complex<real>, NUMBER_OF_QUANTITIES, 1, Eigen::ColMajor>;
+  using Vector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1, Eigen::ColMajor>;
   Matrix A(planeWaveOperator);
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(A);
@@ -41,28 +43,29 @@ seissol::physics::Planarwave::Planarwave(real phase)
     m_lambdaA[i] = eigenvalues(i,0);
   }
 
-  //Vector ic = Vector::Ones();
-  /*for (size_t j = 0; j < 9; ++j) {
-    ic(j) = 1.0;
-  }
-  for (size_t j = 9; j < NUMBER_OF_QUANTITIES; ++j) {
-    ic(j) = 0.0;
-  }*/
+//  std::vector<size_t> varField(NUMBER_OF_QUANTITIES);
+//  std::iota(varField.begin(), varField.end(), 0);
+//
+//  std::sort(varField.begin(), varField.end(), [&eigenvalues](size_t a, size_t b) {
+//      return eigenvalues[a].real() < eigenvalues[b].real();
+//      });
+//
+//  // Select S-wave in opposite direction (1) and P-wave along direction (last)
+//  std::array<size_t, 2> selectVars = {1, NUMBER_OF_QUANTITIES-1};
+//  assert(m_setVar == selectVars.size());
 
-  auto eigenvectors = ces.eigenvectors();
-  //Vector amp = eigenvectors.colPivHouseholderQr().solve(ic);
-  for (int j = 0; j < m_setVar; ++j) {
-    m_varField.push_back(j);
-    if (m_lambdaA[j].real() > 10.0) {
-      //m_ampField.push_back(amp(j));
-      m_ampField.push_back(1.0);
-    }
-    else {
-      m_ampField.push_back(0.0);
-    }
+  auto& eigenvectors = ces.eigenvectors();
+  auto solver = eigenvectors.colPivHouseholderQr();
+  Vector rhs = Vector::Zero();
+  rhs(1) = 1.0;
+  auto ampField = solver.solve(rhs);
+  std::cout << ampField << std::endl;
+  for (int i = 0; i < m_setVar; i++) {
+    m_varField.push_back(i);
+    m_ampField.push_back(ampField(i));
   }
 
-  auto R = yateto::DenseTensorView<2,std::complex<real>>(m_eigenvectors, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(m_eigenvectors, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
       R(i,j) = eigenvectors(i,j);
@@ -72,7 +75,7 @@ seissol::physics::Planarwave::Planarwave(real phase)
 
 void seissol::physics::Planarwave::evaluate(  double time,
                                               std::vector<std::array<double, 3>> const& points,
-                                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
+                                              yateto::DenseTensorView<2,double,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
 
@@ -86,8 +89,12 @@ void seissol::physics::Planarwave::evaluate(  double time,
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v] *
                         std::exp(std::complex<real>(0.0, 1.0) * (
-                          omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + m_phase
-                        ))).real();
+                          omega * time 
+                          - m_kVec[0]*points[i][0] 
+                          - m_kVec[1]*points[i][1] 
+                          - m_kVec[2]*points[i][2] 
+                          + m_phase
+                          ))).real();
       }
     }
   }

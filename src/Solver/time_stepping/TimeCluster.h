@@ -313,7 +313,7 @@ private:
     
     //! Update relax time for plasticity
     void updateRelaxTime() {
-      m_relaxTime = (m_tv > 0.0) ? 1.0 - exp(-m_timeStepWidth / m_tv) : 1.0;
+      m_relaxTime = 0;//(m_tv > 0.0) ? 1.0 - exp(-m_timeStepWidth / m_tv) : 1.0;
     }
 
   public:

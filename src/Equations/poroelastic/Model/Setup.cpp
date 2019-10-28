@@ -289,7 +289,30 @@ void seissol::model::initializeSpecificLocalData( seissol::model::Material const
 {
   auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
   sourceMatrix.setZero();
-  //getTransposedSourceCoefficientTensor(material, sourceMatrix);
+  getTransposedSourceCoefficientTensor(material, sourceMatrix);
+
+  using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
+  using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
+
+  for(int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    Matrix Z(init::Z::Values);
+    if(i >= 10) {
+      for(int j = 0; j < CONVERGENCE_ORDER; j++) {
+        Z(j,j) = Z(j,j) - sourceMatrix(i,i);
+      }
+    }
+    auto solver = Z.colPivHouseholderQr();
+    for(int col = 0; col < CONVERGENCE_ORDER; col++) {
+      Vector rhs = Vector::Zero();
+      rhs(col) = 1.0;
+      auto Zinv_col = solver.solve(rhs);
+        for(int row = 0; row < CONVERGENCE_ORDER; row++) {
+          localData->Zinv[i][col*CONVERGENCE_ORDER+row] = Zinv_col(row);
+      }
+    }
+  }
+
+  
 }
 
 void seissol::model::initializeSpecificNeighborData(  seissol::model::Material const&,

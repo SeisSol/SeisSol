@@ -753,10 +753,20 @@ void seissol::Interoperability::initInitialConditions()
   if (m_initialConditionType == "Planarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+#ifdef USE_POROELASTIC
+      //assume homogeneous material -> take the material parameters from cell 0
+      m_iniConds.push_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0), (2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+#else
       m_iniConds.push_back(new physics::Planarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+#endif
     }
 #else
+#ifdef USE_POROELASTIC
+    //assume homogeneous material -> take the material parameters from cell 0
+    m_iniConds.push_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0).local));
+#else
     m_iniConds.push_back(new physics::Planarwave());
+#endif
 #endif
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.push_back(new physics::ZeroField());

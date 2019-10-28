@@ -152,6 +152,9 @@ class ADERDGBase(ABC):
   def addTime(self, generator):
     pass
 
+  def addIncludeTensors(self, tensors):
+    pass
+
 class ADERDGStandard(ADERDGBase):
   def sourceMatrix(self):
     return None

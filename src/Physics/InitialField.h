@@ -6,6 +6,9 @@
 #include <complex>
 #include <Kernels/precision.hpp>
 #include <generated_code/init.h>
+#ifdef USE_POROELASTIC
+#include <Equations/poroelastic/Model/datastructures.hpp>
+#endif
 
 namespace seissol {
   namespace physics {
@@ -30,7 +33,11 @@ namespace seissol {
     class Planarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
+#ifdef USE_POROELASTIC
+      Planarwave(seissol::model::Material material, real phase = 0.0);
+#elif
       Planarwave(real phase = 0.0);
+#endif
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,

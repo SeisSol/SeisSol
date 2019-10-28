@@ -482,7 +482,7 @@ if( env['plasticity'] ):
      env.Append(CPPDEFINES=['USE_PLASTIC_NB'])
 if( env['equations'] == 'poroelastic' ):
   env.Append(CPPDEFINES=['USE_POROELASTIC'])
-#  env.Append(CPPDEFINES=['USE_STP'])
+  env.Append(CPPDEFINES=['USE_STP'])
 
 if( env['integrateQuants'] ):
   env.Append(CPPDEFINES=['INTEGRATE_QUANTITIES'])
