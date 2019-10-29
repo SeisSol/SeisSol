@@ -101,6 +101,7 @@ class ADERDG(ADERDGStandard):
     stpRhs = OptionalDimTensor('stpRhs', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
     stp = OptionalDimTensor('stp', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), stpShape, alignStride=True)
     G = Tensor('G', quantityShape, spp=self.db.ET.spp().as_ndarray())
+    Zinv = Tensor('Zinv', (self.numberOfQuantities(), self.order, self.order))
     timestep = Scalar('timestep')
 
     def modeRange(n):
@@ -115,17 +116,22 @@ class ADERDG(ADERDGStandard):
         return Tensor('selectModes({})'.format(n), fullShape, spp=selectModesSpp)
 
     def selectQuantity(o):
-        selectSpp = np.zeros(quantityShape)
-        selectSpp[o,o] = 1
-        return Tensor('selectQuantity({})'.format(o), quantityShape, spp = selectSpp)
-
-    def selectQuantity_vec(o):
         selectSpp = np.zeros((self.numberOfQuantities(),))
-        selectSpp[:o-1] = 1
-        return Tensor('selectQuantity_vec({})'.format(o), (self.numberOfQuantities(),), spp = selectSpp)
+        selectSpp[o] = 1
+        return Tensor('selectQuantity({})'.format(o), selectSpp.shape, spp = selectSpp)
 
-    def Zinv(o):
-        return Tensor('Zinv({})'.format(o), (self.order, self.order))
+    def selectQuantity_G(o):
+        selectSpp = np.zeros((self.numberOfQuantities(),))
+        selectSpp[o-4] = 1
+        return Tensor('selectQuantity_G({})'.format(o), selectSpp.shape, spp = selectSpp)
+
+#    def Zinv(o):
+#        return Tensor('Zinv({})'.format(o), (self.order, self.order))
+
+    def selectQuantity_Z(o):
+        selectSpp = np.zeros((self.numberOfQuantities(),))
+        selectSpp[o] = 1
+        return Tensor('selectQuantity_Z({})'.format(o), selectSpp.shape, spp = selectSpp)
 
     def kSub(d,n):
         Bn_1, Bn = modeRange(n)
@@ -138,9 +144,9 @@ class ADERDG(ADERDGStandard):
     kernels.append( stpRhs['kpt'] <= self.Q['kp'] * self.db.wHat['t'] )
     for n in range(self.order-1,-1,-1):
         for o in range(self.numberOfQuantities()-1,-1,-1):
-            kernels.append( stp['kpt'] <= stp['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['pq'] * stpRhs['lqu'] * Zinv(o)['tu'] )
-           # if o >= 10:
-           #     kernels.append( stpRhs['kpt'] <= stpRhs['kpt'] + selectQuantity_vec(o)['p'] * G['up'] * selectModes(n)['kl'] * stp['lut'] )
+            kernels.append( stp['kpt'] <= stp['kpt'] + selectModes(n)['kl'] * selectQuantity(o)['p'] * stpRhs['lpu'] * selectQuantity_Z(o)['a'] * Zinv['atu'] )
+            if o >= 10:
+                kernels.append( stpRhs['kpt'] <= stpRhs['kpt'] + selectQuantity_G(o)['p'] * selectQuantity(o)['u'] * G['up'] * selectModes(n)['kl'] * stp['lut'] )
         if n > 0:
             derivativeSum = stpRhs['kpt']
             for d in range(3):

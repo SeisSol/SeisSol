@@ -112,7 +112,8 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   }
   for (int k = 0; k < NUMBER_OF_QUANTITIES; k++) {
     m_krnlPrototype.selectQuantity(k) = init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-  //  m_krnlPrototype.selectQuantity_vec(k) = init::selectQuantity_vec::Values[tensor::selectQuantity_vec::index(k)];
+    m_krnlPrototype.selectQuantity_G(k) = init::selectQuantity_G::Values[tensor::selectQuantity_G::index(k)];
+    m_krnlPrototype.selectQuantity_Z(k) = init::selectQuantity_Z::Values[tensor::selectQuantity_Z::index(k)];
   }
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
@@ -146,12 +147,10 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
-  for(int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
-    krnl.Zinv(i) = data.localIntegration.specific.Zinv[i];
-  }
+  krnl.Zinv = data.localIntegration.specific.Zinv;
   krnl.Q = const_cast<real*>(data.dofs);
   krnl.I = o_timeIntegrated;
-//  krnl.G = data.localIntegration.specific.sourceMatrix;
+  krnl.G = data.localIntegration.specific.sourceMatrix;
   krnl.timestep = i_timeStepWidth;
   krnl.stp = stp;
   krnl.stpRhs = stpRhs;

@@ -33,37 +33,42 @@ seissol::physics::Planarwave::Planarwave(seissol::model::Material material, doub
   model::getPlaneWaveOperator(material, m_kVec.data(), planeWaveOperator);
 
   using Matrix = Eigen::Matrix<std::complex<real>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
-  using Vector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1, Eigen::ColMajor>;
   Matrix A(planeWaveOperator);
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(A);
 
   auto eigenvalues = ces.eigenvalues();
+  std::cout << eigenvalues << std::endl;
   for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
     m_lambdaA[i] = eigenvalues(i,0);
   }
 
-//  std::vector<size_t> varField(NUMBER_OF_QUANTITIES);
-//  std::iota(varField.begin(), varField.end(), 0);
-//
-//  std::sort(varField.begin(), varField.end(), [&eigenvalues](size_t a, size_t b) {
-//      return eigenvalues[a].real() < eigenvalues[b].real();
-//      });
-//
-//  // Select S-wave in opposite direction (1) and P-wave along direction (last)
-//  std::array<size_t, 2> selectVars = {1, NUMBER_OF_QUANTITIES-1};
-//  assert(m_setVar == selectVars.size());
-
   auto& eigenvectors = ces.eigenvectors();
-  auto solver = eigenvectors.colPivHouseholderQr();
-  Vector rhs = Vector::Zero();
-  rhs(1) = 1.0;
-  auto ampField = solver.solve(rhs);
-  std::cout << ampField << std::endl;
+  std::vector<size_t> varField(NUMBER_OF_QUANTITIES);
+  std::iota(varField.begin(), varField.end(), 0);
+
+  std::sort(varField.begin(), varField.end(), [&eigenvalues](size_t a, size_t b) {
+      return eigenvalues[a].real() < eigenvalues[b].real();
+      });
+
+  // Select S-wave in opposite direction (1) and P-wave along direction (last)
+  std::array<size_t, 2> selectVars = {1, NUMBER_OF_QUANTITIES-1};
+  assert(m_setVar == selectVars.size());
   for (int i = 0; i < m_setVar; i++) {
-    m_varField.push_back(i);
-    m_ampField.push_back(ampField(i));
+    m_varField.push_back(selectVars[i]);
+    m_ampField.push_back(1.0);
   }
+
+//  using Vector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1, Eigen::ColMajor>;
+//  auto solver = eigenvectors.colPivHouseholderQr();
+//  Vector rhs = Vector::Zero();
+//  rhs(1) = 1.0;
+//  auto ampField = solver.solve(rhs);
+//  std::cout << ampField << std::endl;
+//  for (int i = 0; i < m_setVar; i++) {
+//    m_varField.push_back(i);
+//    m_ampField.push_back(ampField(i));
+//  }
 
   auto R = yateto::DenseTensorView<2,std::complex<double>>(m_eigenvectors, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {

@@ -135,12 +135,13 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& material,
 template<typename T>
 void getTransposedSourceCoefficientTensor(seissol::model::Material const& material, T& ET) {
   ET.setZero();
-  ET(10,6) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
   ET(10,10) = material.viscosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
-  ET(11,7) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
   ET(11,11) = material.viscosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
-  ET(12,8) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
   ET(12,12) = material.viscosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
+
+  ET(10,6) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
+  ET(11,7) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
+  ET(12,8) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
 }
 
 void seissol::model::getPlaneWaveOperator(  Material const& material,
@@ -294,6 +295,7 @@ void seissol::model::initializeSpecificLocalData( seissol::model::Material const
   using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
   using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
 
+  auto Zinv = init::Zinv::view::create(localData->Zinv); 
   for(int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
     Matrix Z(init::Z::Values);
     if(i >= 10) {
@@ -307,7 +309,7 @@ void seissol::model::initializeSpecificLocalData( seissol::model::Material const
       rhs(col) = 1.0;
       auto Zinv_col = solver.solve(rhs);
         for(int row = 0; row < CONVERGENCE_ORDER; row++) {
-          localData->Zinv[i][col*CONVERGENCE_ORDER+row] = Zinv_col(row);
+          Zinv(i,row,col) = Zinv_col(row);
       }
     }
   }
