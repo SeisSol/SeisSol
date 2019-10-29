@@ -33,7 +33,6 @@ seissol::physics::Planarwave::Planarwave(double phase)
   model::getPlaneWaveOperator(material, m_kVec.data(), planeWaveOperator);
 
   using Matrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
-  using Vector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1, Eigen::ColMajor>;
   Matrix A(planeWaveOperator);
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(A);
