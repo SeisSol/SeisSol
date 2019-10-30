@@ -252,7 +252,6 @@ if (METIS)
   find_package(ParMETIS REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
-  target_link_directories(SeisSol-lib PUBLIC ${PARMETIS_LIBRARY_DIR})
   target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
