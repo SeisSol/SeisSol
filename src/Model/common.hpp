@@ -60,7 +60,7 @@ namespace seissol {
 
     template<typename T>
     void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    T&              QgodNeighbor );
+                                                    T&              QgodLocal);
   }
 }
 
@@ -158,22 +158,26 @@ void seissol::model::getTransposedElasticGodunovState( Material const&          
     QgodLocal(idx,idx) += 1.0;
   }
   
-  applyBoundaryConditionToElasticFluxSolver(faceType, QgodNeighbor);
+  applyBoundaryConditionToElasticFluxSolver(faceType, QgodLocal);
 }
 
 template<typename T>
 void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                T&              QgodNeighbor )
+                                                                T&              QgodLocal)
 {
   if (type == freeSurface) {
-    // Gamma is a diagonal matrix
-    real Gamma[] = { -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0 };
-    // Gamma^T * Fneighbor
-    for (unsigned j = 0; j < QgodNeighbor.shape(1); ++j) {
-      for (unsigned i = 0; i < 9; ++i) {
-        QgodNeighbor(i,j) *= Gamma[i];
+    //set traction at interface to zero
+    int traction_indices[3] = {0, 3, 5};
+    int other_indices[6] =  {1, 2, 5, 6, 7, 8};
+    for (int i = 0; i < 9; i++) {
+      for (int j = 0; j < 3; j++) {
+        QgodLocal(i,traction_indices[j]) = 0;
+      }
+      for (int j = 0; j < 6; j++) {
+        QgodLocal(i, other_indices[j]) = 2* QgodLocal(i, other_indices[j]); 
       }
     }
+    
   }
 }
 
