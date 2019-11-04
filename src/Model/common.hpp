@@ -43,6 +43,9 @@
 #include <cmath>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
+#include <Geometry/MeshDefinition.h>
+#include <Numerical_aux/Transformation.h>
+#include <iostream>
 
 namespace seissol {
   namespace model {
@@ -60,7 +63,8 @@ namespace seissol {
 
     template<typename T>
     void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    T&              QgodLocal);
+                                                    T&              QgodLocal,
+                                                    T&              QgodNeighbor);
   }
 }
 
@@ -158,27 +162,35 @@ void seissol::model::getTransposedElasticGodunovState( Material const&          
     QgodLocal(idx,idx) += 1.0;
   }
   
-  applyBoundaryConditionToElasticFluxSolver(faceType, QgodLocal);
+  applyBoundaryConditionToElasticFluxSolver(faceType, QgodLocal, QgodNeighbor);
 }
 
 template<typename T>
 void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                T&              QgodLocal)
+                                                                T&              QgodLocal,
+                                                                T&              QgodNeighbor)
 {
   if (type == freeSurface) {
-    //set traction at interface to zero
+    //QgodLocal =  I - (I-Gamma)*QgodNeighbor
+    QgodLocal.setZero();
+
     int traction_indices[3] = {0, 3, 5};
-    int other_indices[6] =  {1, 2, 5, 6, 7, 8};
     for (int i = 0; i < 9; i++) {
       for (int j = 0; j < 3; j++) {
-        QgodLocal(i,traction_indices[j]) = 0;
-      }
-      for (int j = 0; j < 6; j++) {
-        QgodLocal(i, other_indices[j]) = 2* QgodLocal(i, other_indices[j]); 
+        QgodLocal(traction_indices[j], i) = -2 * QgodNeighbor(traction_indices[j], i);
       }
     }
-    
+    for (int i = 0; i < 9; i++) {
+        QgodLocal(i,i) += 1.0;
+    }
+    //set QgodNeighbor to NaN, because it is not needed any more
+    for (int i = 0; i < 9; i++) {
+      for (int j = 0; j < 9; j++) {
+        QgodNeighbor(i,j) = std::nan("");
+      }
+    }
   }
 }
+
 
 #endif
