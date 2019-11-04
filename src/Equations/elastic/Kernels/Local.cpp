@@ -87,7 +87,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                                               const CellMaterialData* materialData,
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
-                                              real nodalAvgDisplacement[tensor::I::size()],
+                                              real (*nodalAvgDisplacements)[4][tensor::INodalDisplacement::size()],
 					      double time,
 					      double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
@@ -107,13 +107,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
   
   volKrnl.execute();
-  
-  real dofsFaceBoundaryNodal[tensor::INodal::size()] __attribute__((aligned(ALIGNMENT)));
-  kernel::localFluxNodal nodalLfKrnl = m_nodalLfKrnlPrototype;
-  nodalLfKrnl.Q = data.dofs;
-  nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-  nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
-  nodalLfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
 
   for (unsigned int face = 0; face < 4; face++ ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
@@ -122,26 +115,36 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       lfKrnl.execute(face);
     }
 
+    alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+    auto nodalLfKrnl = m_nodalLfKrnlPrototype;
+    nodalLfKrnl.Q = data.dofs;
+    nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+    nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+    nodalLfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
     nodalLfKrnl.AminusT = data.neighboringIntegration.nAmNm1[face];
+
     // Include some boundary conditions here.
     switch (data.cellInformation.faceTypes[face]) {
     case FaceType::freeSurface:
-      lfKrnl.AplusT = data.localIntegration.nApNm1[face];
+      lfKrnl.AplusT = data.neighboringIntegration.nAmNm1[face];
       lfKrnl.execute(face);
       break;
     case FaceType::freeSurfaceGravity:
       {
       assert(cellBoundaryMapping != nullptr);
-      assert(nodalAvgDisplacement != nullptr);
+      assert(nodalAvgDisplacements != nullptr
+             && nodalAvgDisplacements[face] != nullptr);
       assert(materialData != nullptr);
-      auto displacement = init::INodal::view::create(nodalAvgDisplacement);
-      auto applyFreeSurfaceBc = [&displacement, materialData](const real* nodes,
-                                   init::INodal::view::type& boundaryDofs) {
+      auto* displ = (*nodalAvgDisplacements)[face];
+      auto displacement = init::INodalDisplacement::view::create(displ);
+      auto applyFreeSurfaceBc =
+          [&](const real* nodes,
+              init::INodal::view::type& boundaryDofs) {
         for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
           const double rho = materialData->local.rho;
           const double g = 9.81; // [m/s^2]
-          const double pressureAtBnd = rho * g * displacement(i,0);
-      
+          const double pressureAtBnd = -1 * rho * g * displacement(i,0);
+
           boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
           boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
           boundaryDofs(i,2) = 2 * pressureAtBnd - boundaryDofs(i,2);
@@ -149,12 +152,12 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       };
 
       dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
-                               face,
-                               (*cellBoundaryMapping)[face],
-                               m_projectKrnlPrototype,
-                               applyFreeSurfaceBc,
-                               dofsFaceBoundaryNodal);
-          
+                                 face,
+                                 (*cellBoundaryMapping)[face],
+                                 m_projectKrnlPrototype,
+                                 applyFreeSurfaceBc,
+                                 dofsFaceBoundaryNodal);
+
       nodalLfKrnl.execute(face);
       break;
       }
@@ -165,15 +168,15 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 
       auto applyRigidBodyBoundary = [](const real* nodes,
 				       init::INodal::view::type& boundaryDofs) {
-	for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
-	  const real normalVelocityAtBoundary = 0.0;
-	  boundaryDofs(i,0) = 2 * normalVelocityAtBoundary - boundaryDofs(i,0);
-	}
+          for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
+            const real normalVelocityAtBoundary = 0.0;
+            boundaryDofs(i,6) = 2 * normalVelocityAtBoundary - boundaryDofs(i,6);
+          }
       };
 
       auto applyEasiBoundary = [&easiBoundary](const real* nodes,
-				       init::INodal::view::type& boundaryDofs) {
-	easiBoundary->query(nodes, boundaryDofs);
+                                               init::INodal::view::type& boundaryDofs) {
+          easiBoundary->query(nodes, boundaryDofs);
       };
 
       // Compute boundary in [n, t_1, t_2] basis
@@ -181,8 +184,9 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 				 face,
 				 (*cellBoundaryMapping)[face],
 				 m_projectRotatedKrnlPrototype,
-				 //applyRigidBodyBoundary,
-				 applyEasiBoundary,
+				 //m_projectKrnlPrototype,
+				 applyRigidBodyBoundary,
+				 //applyEasiBoundary,
 				 dofsFaceBoundaryNodal);
 
       // We need to rotate the boundary data back to the [x,y,z] basis
@@ -227,6 +231,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       }
     default:
       // No boundary condition.
+
       break;
     }
   }

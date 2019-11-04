@@ -16,14 +16,14 @@ void seissol::kernels::computeAverageDisplacement(double deltaT,
     intKrnl.dQ(i) = timeDerivatives + derivativesOffsets[i];
   }
   
-  real factorial = 2.0 * 1.0;
+  real factorial = 2.0;
   double power = deltaT * deltaT;
   
   for (int der = 0; der < CONVERGENCE_ORDER; ++der) {
     intKrnl.power = power / factorial;
     intKrnl.execute(der);
 
-    factorial *= der + 1;
+    factorial *= der + 2.0;
     power *= deltaT;
   }
 }

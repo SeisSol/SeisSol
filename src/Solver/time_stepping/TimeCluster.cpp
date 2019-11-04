@@ -474,7 +474,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     // Compute average displacement over timestep if needed.
     // TODO(Lukas) Check buffers for correctness
     alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
-    alignas(ALIGNMENT) real nodalAvgDisplacement[tensor::INodalDisplacement::size()];
+    alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
 
     // Only a fraction of cells need the average displacement
     bool needsAvgDisplacement = false;
@@ -495,6 +495,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
         if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
           assert(displacements[l_cell] != nullptr);
 
+          {
+
           kernel::displacementAvgNodal krnl;
           krnl.I = twiceTimeIntegrated;
           krnl.V3mTo2nFace = m_globalData->V3mTo2nFace;
@@ -504,8 +506,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
           krnl.selectZDisplacement = init::selectZDisplacement::Values;
           krnl.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
-          krnl.INodalDisplacement = nodalAvgDisplacement;
+          krnl.INodalDisplacement = nodalAvgDisplacements[side];
           krnl.execute(side);
+          }
+
         }
       }
     }
@@ -513,14 +517,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     real* nodalAvgDisplacement = nullptr;
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 
-
     // Compute local integrals (including some boundary conditions)
     m_localKernel.computeIntegral(l_bufferPointer,
                                   data,
                                   tmp,
                                   &materialData[l_cell],
                                   &boundaryMapping[l_cell],
-                                  nodalAvgDisplacement,
+                                  &nodalAvgDisplacements,
                                   m_fullUpdateTime,
                                   m_timeStepWidth
     );

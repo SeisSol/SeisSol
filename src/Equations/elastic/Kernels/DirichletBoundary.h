@@ -38,11 +38,11 @@ class DirichletBoundary {
 
   template<typename Func, typename MappingKrnl>
   void evaluate(const real* dofsVolumeInteriorModal,
-		int faceIdx,
-		const CellBoundaryMapping &boundaryMapping,
-		MappingKrnl&& projectKernelPrototype,
-		Func&& evaluateBoundaryCondition,
-		real* dofsFaceBoundaryNodal) const {
+                int faceIdx,
+                const CellBoundaryMapping &boundaryMapping,
+                MappingKrnl&& projectKernelPrototype,
+                Func&& evaluateBoundaryCondition,
+                real* dofsFaceBoundaryNodal) const {
     auto projectKrnl = projectKernelPrototype;
     addRotationToProjectKernel(projectKrnl, boundaryMapping);
     projectKrnl.I = dofsVolumeInteriorModal;

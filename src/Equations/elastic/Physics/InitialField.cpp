@@ -229,45 +229,37 @@ void seissol::physics::Ocean::evaluate(double time,
                                        const CellMaterialData& materialData,
                                        yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
   for (size_t i = 0; i < points.size(); ++i) {
-    const auto &x = points[i];
-    // TODO(Lukas+Lauren) Implement analytical solution
-    //  at (x[0], x[1], x[2]), time
+    const auto x = points[i][0];
+    const auto y = points[i][1];
+    const auto z = points[i][2];
+    const auto t = time;
 
-    // Value that's already coded in, or obtained for material file?
     const double g = 9.81; // m/s
     const double pi = std::acos(-1);
-    const double lambda = materialData.local.lambda;
     const double mu = materialData.local.mu;
     assert(mu == 0); // has to be acoustic
-    const double rho = materialData.local.rho; // this needs to be kg/m^3
+    const double rho = materialData.local.rho;
 
-    // These values will have to manually changed when testing
-    // different wave modes, only would test 1 mode per simulation
-    const double kx = pi/100e3; // 1/m
-    const double ky = pi/100e3; // 1/m
+    const double k_x = pi/100; // 1/m
+    const double k_y = pi/100; // 1/m
+    constexpr double k_star = 0.0444284459948;
+    constexpr double omega = 0.276857520383318;
 
-    constexpr double omega = 0.00868146170711100;
-    constexpr double omega_sq = omega * omega;
-    const double kbar = 0.0000440502450648659;
-    const double pressure = std::sin(kx*x[0])*std::sin(ky*x[1])*std::sin(omega*time)*
-                            (std::sinh(kbar*x[2]) + g*(kbar/omega_sq)*std::cosh(kbar*x[2]));
-    dofsQp(i,0) = pressure; // sigma_xx
-    dofsQp(i,1) = pressure; // sigma_yy
-    dofsQp(i,2) = pressure; // sigma_zz
-    dofsQp(i,3) = 0.0; // sigma_xy
-    dofsQp(i,4) = 0.0; // sigma_yz
-    dofsQp(i,5) = 0.0; // sigma_xz
-    dofsQp(i,6) = (kx/(omega*rho))*std::cos(kx*x[0])*std::sin(ky*x[1])*std::cos(omega*time)*
-                  (std::sinh(kbar*x[2]) + g*(kbar/omega_sq)*std::cosh(kbar*x[2])); // u
-    dofsQp(i,7) = (ky/(omega*rho))*std::sin(kx*x[0])*std::cos(ky*x[1])*std::cos(omega*time)*
-                  (std::sinh(kbar*x[2]) + g*(kbar/omega_sq)*std::cosh(kbar*x[2])); // v
-    dofsQp(i,8) = (kbar/(omega*rho))*std::sin(kx*x[0])*std::sin(ky*x[1])*std::cos(omega*time)*
-                  (std::cosh(kbar*x[2]) + g*(kbar/omega_sq)*std::sinh(kbar*x[2])); // w
-    for (int j = 0; j < 9; ++j) {
-      dofsQp(i,j) = dofsQp(i,j);
-    }
-    dofsQp(i,6) = -1 * dofsQp(i, 6);
-    dofsQp(i,7) = -1 * dofsQp(i, 7);
-    dofsQp(i,8) = -1 * dofsQp(i, 8);
+    const auto B = g * k_star/(omega*omega);
+    const auto pressure = -std::sin(k_x*x)*std::sin(k_y*y)*std::sin(omega*t)*(std::sinh(k_star*z)
+        + B * std::cosh(k_star*z));
+
+    dofsQp(i,0) = pressure;
+    dofsQp(i,1) = pressure;
+    dofsQp(i,2) = pressure;
+    dofsQp(i,3) = 0.0;
+    dofsQp(i,4) = 0.0;
+    dofsQp(i,5) = 0.0;
+    dofsQp(i,6) = (k_x/(omega*rho))*cos(k_x*x)*std::sin(k_y*y)*cos(omega*t)*(std::sinh(k_star*z)
+        + B * std::cosh(k_star*z));
+    dofsQp(i,7) = (k_y/(omega*rho))*std::sin(k_x*x)*cos(k_y*y)*cos(omega*t)*(std::sinh(k_star*z)
+        + B * std::cosh(k_star*z));
+    dofsQp(i,8) = (k_star/(omega*rho))*std::sin(k_x*x)*std::sin(k_y*y)*cos(omega*t)*(std::cosh(k_star*z)
+        + B * std::sinh(k_star*z));
   }
 }

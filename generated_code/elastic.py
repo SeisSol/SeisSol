@@ -108,13 +108,11 @@ class ADERDG(ADERDGBase):
       expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
       group_indices=range(4),
       target_indices='jl')
-
     self.db.update(rDivM_mult_V2nTo2m)
-    localFluxNodal2 = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivMMultV2nTo2m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
-    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i]['kl'] * self.db.V2nTo2m['ln'] * self.INodal['no'] * self.AminusT['op']
+
+    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivMMultV2nTo2m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
     localFluxNodalPrefetch = localFluxPrefetch
-    generator.addFamily('localFluxNodal2', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
-    generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal2, localFluxNodalPrefetch)
+    generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
 
   def addNeighbor(self, generator):
     neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
@@ -129,8 +127,8 @@ class ADERDG(ADERDGBase):
     # todo maybe integrate this better in the flux 
     # todo tinv? t transpose?
     projectToNodalBoundaryRotated = lambda j: self.INodal['kp'] <= self.db.V3mTo2nFace[j]['kl'] \
-                                    * self.I['lm'] \
-                                    * self.T['mp']
+                                              * self.I['lm'] \
+                                              * self.T['mp']
 
     generator.addFamily('projectToNodalBoundaryRotated',
                         simpleParameterSpace(4),
@@ -140,14 +138,14 @@ class ADERDG(ADERDGBase):
     generator.add('rotateBoundaryDofsBack', rotateBoundaryDofsBack)
     
     selectZDisplacement = np.zeros((self.numberOfQuantities(), 1))
-    selectZDisplacement[8,0] = 1 # todo is correct?
+    selectZDisplacement[8,0] = 1
     selectZDisplacement = Tensor('selectZDisplacement',
                                  selectZDisplacement.shape,
                                  selectZDisplacement,
                                  CSCMemoryLayout)
 
     selectZDisplacementFromDisplacements = np.zeros((3, 1))
-    selectZDisplacementFromDisplacements[2,0] = 1 # todo is correct?
+    selectZDisplacementFromDisplacements[2, 0] = 1
     selectZDisplacementFromDisplacements = Tensor('selectZDisplacementFromDisplacements',
                                                    selectZDisplacementFromDisplacements.shape,
                                                    selectZDisplacementFromDisplacements,
@@ -160,7 +158,6 @@ class ADERDG(ADERDGBase):
                                                 (self.numberOf2DBasisFunctions(), 1),
                                                 alignStride=True)
 
-    #copied from SurfaceDisplacement.py
     displacement = OptionalDimTensor('displacement',
                                      self.Q.optName(),
                                      self.Q.optSize(),
@@ -170,16 +167,17 @@ class ADERDG(ADERDGBase):
     dt = Scalar('dt')
     displacementAvgNodal = lambda side: self.INodalDisplacement['ip'] <= self.db.V3mTo2nFace[side]['ij'] * self.I['jk'] * selectZDisplacement['kp'] \
         + dt * self.db.V3mTo2nFace[side]['ij'] * displacement['jk'] * selectZDisplacementFromDisplacements['kp']
+
     generator.addFamily('displacementAvgNodal',
                         simpleParameterSpace(4),
                         displacementAvgNodal)
 
     self.INodalUpdate = OptionalDimTensor('INodalUpdate',
-                                                self.INodal.optName(),
-                                                self.INodal.optSize(),
-                                                self.INodal.optPos(),
-                                                (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
-                                                alignStride=True)
+                                          self.INodal.optName(),
+                                          self.INodal.optSize(),
+                                          self.INodal.optPos(),
+                                          (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
+                                          alignStride=True)
 
     factor = Scalar('factor')
     updateINodal = self.INodal['kp'] <= self.INodal['kp'] + factor * self.INodalUpdate['kp']
@@ -211,17 +209,6 @@ class ADERDG(ADERDGBase):
       generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
       generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
       derivatives.append(dQ)
-
-      # TODO(Lukas): Sparsity pattern?
-      dQNodal = OptionalDimTensor('dQNodal({})'.format(i),
-                                  self.INodal.optName(),
-                                  self.INodal.optSize(),
-                                  self.INodal.optPos(),
-                                  qNodalShape)
-                                  #spp=derivativeSumNodal.eqspp(),
-                                  #alignStride=True)
-      generator.add('derivativeTaylorExpansionNodalBoundary({})'.format(i),
-                    self.INodal['kp'] <= self.INodal['kp'] + power * dQNodal['kp'])
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)
