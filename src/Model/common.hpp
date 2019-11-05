@@ -40,6 +40,7 @@
 #ifndef MODEL_COMMON_HPP_
 #define MODEL_COMMON_HPP_
 
+#include <Eigen/Eigen>
 #include <cmath>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
@@ -49,6 +50,8 @@
 
 namespace seissol {
   namespace model {
+    using Matrix99 = Eigen::Matrix<real, 9, 9>;
+
     template<typename T>
     void getTransposedElasticCoefficientMatrix( ElasticMaterial const&          i_material,
                                                 unsigned                        i_dim,
@@ -60,11 +63,12 @@ namespace seissol {
                                            enum ::faceType                      faceType,
                                            Tloc&                                QgodLocal,
                                            Tneigh&                              QgodNeighbor );
-
+    
     template<typename T>
-    void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    T&              QgodLocal,
-                                                    T&              QgodNeighbor);
+    void getTransposedBoundaryGodunovState( T& QgodLocal,
+                                            T& QgodNeighbor,
+                                            Matrix99& R);
+
   }
 }
 
@@ -118,79 +122,123 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
   }
 }
 
+template<typename T>
+void seissol::model::getTransposedBoundaryGodunovState( T&                         QgodLocal,
+                                                        T&                         QgodNeighbor,
+                                                        Eigen::Matrix<real, 9, 9>& R)
+{
+  for (int i = 0; i < 9; i++) {
+    for (int j = 0; j < 9; j++) {
+      QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+    }
+  }
+
+  QgodLocal.setZero();
+  std::array<std::array<int, 2>, 3> traction_indices = {{{0,0}, {1,3}, {2,5}}};
+  std::array<std::array<int, 2>, 3> velocity_indices = {{{0,6}, {1,7}, {2,8}}};
+  //Eigen does not have fancy slicing options :(
+  using Matrix33 = Eigen::Matrix<real, 3, 3>;
+  Matrix33 R11 = Matrix33::Zero(); 
+  for (auto &t: traction_indices) {
+    for (int i = 0; i < 3; i++) {
+      R11(t[0], i) = R(t[1],i);
+    }
+  }
+  Matrix33 R21 = Matrix33::Zero();
+  for (auto &v: velocity_indices) {
+    for (int i = 0; i < 3; i++) {
+      R21(v[0], i) = R(v[1],i);
+    }
+  }
+  auto S = - (R21 * R11.inverse()).eval();
+
+  //set lower left block
+  for (auto &t: traction_indices) {
+    for (auto &v: velocity_indices) {
+      QgodLocal(t[1], v[1]) = S(v[0],t[0]);
+    }
+  }
+  //set lower right block
+  for (auto &v : velocity_indices) {
+    QgodLocal(v[1], v[1]) = 1.0;
+  }
+}
+
 template<typename Tloc, typename Tneigh>
 void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
-                                                       Material const&                      neighbor,
-                                                       enum ::faceType                      faceType,
-                                                       Tloc&                                QgodLocal,
-                                                       Tneigh&                              QgodNeighbor )
+    Material const&                      neighbor,
+    enum ::faceType                      faceType,
+    Tloc&                                QgodLocal,
+    Tneigh&                              QgodNeighbor )
 {
   QgodNeighbor.setZero();
-  
-  real cpL = sqrt((local.lambda + 2.0 * local.mu)       / local.rho);
-  real cpN = sqrt((neighbor.lambda + 2.0 * neighbor.mu) / neighbor.rho);
-  real csL = sqrt(local.mu / local.rho);
-  real csN = sqrt(neighbor.mu / neighbor.rho);
-  
-  real constP = cpN * (local.lambda + 2.0 * local.mu) + cpL * (neighbor.lambda + 2.0 * neighbor.mu);
-  real constS = csN * local.mu + csL * neighbor.mu;
-  
-  QgodNeighbor(0,0) = cpN * (local.lambda + 2.0 * local.mu) / constP;
-  QgodNeighbor(6,0) = (local.lambda + 2.0 * local.mu) * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(0,1) = cpN * local.lambda / constP;
-  QgodNeighbor(6,1) = local.lambda * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(0,2) = QgodNeighbor(0,1);
-  QgodNeighbor(6,2) = QgodNeighbor(6,1);
-  QgodNeighbor(3,3) = csN * local.mu / constS;
-  QgodNeighbor(7,3) = local.mu * neighbor.mu / constS;
-  QgodNeighbor(5,5) = QgodNeighbor(3,3);
-  QgodNeighbor(8,5) = QgodNeighbor(7,3);
-  QgodNeighbor(0,6) = cpL * cpN / constP;
-  QgodNeighbor(6,6) = cpL * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(3,7) = csL * csN / constS;
-  QgodNeighbor(7,7) = csL * neighbor.mu / constS;
-  QgodNeighbor(5,8) = QgodNeighbor(3,7);
-  QgodNeighbor(8,8) = QgodNeighbor(7,7);
 
-  // QgodLocal = I - QgodNeighbor
-  for (unsigned i = 0; i < 9; ++i) {
-    for (unsigned j = 0; j < 9; ++j) {
-      QgodLocal(i,j) = -QgodNeighbor(i,j);
-    }
-  }  
-  for (unsigned idx = 0; idx < 9; ++idx) {
-    QgodLocal(idx,idx) += 1.0;
-  }
-  
-  applyBoundaryConditionToElasticFluxSolver(faceType, QgodLocal, QgodNeighbor);
-}
+  Matrix99 R = Matrix99::Zero();
 
-template<typename T>
-void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                T&              QgodLocal,
-                                                                T&              QgodNeighbor)
-{
-  if (type == freeSurface) {
-    //QgodLocal =  I - (I-Gamma)*QgodNeighbor
-    QgodLocal.setZero();
+  //eigenvectors have been precalculated
+  R(0,0) = local.lambda + 2*local.mu;
+  R(0,8) = neighbor.lambda + 2*neighbor.mu;
+  R(1,0) = local.lambda;
+  R(1,4) = 1;
+  R(1,8) = neighbor.lambda;
+  R(2,0) = local.lambda;
+  R(2,5) = 1;
+  R(2,8) = neighbor.lambda;
+  R(3,1) = local.mu;
+  R(3,7) = neighbor.mu;
+  R(4,3) = 1;
+  R(5,2) = local.mu;
+  R(5,6) = neighbor.mu;
+  R(6,0) = sqrt((local.lambda + 2*local.mu)/local.rho);
+  R(6,8) = -sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho);
+  R(7,1) = sqrt(local.mu/local.rho);
+  R(7,7) = -sqrt(neighbor.mu/neighbor.rho);
+  R(8,2) = sqrt(local.mu/local.rho);
+  R(8,6) = -sqrt(neighbor.mu/neighbor.rho);
 
-    int traction_indices[3] = {0, 3, 5};
-    for (int i = 0; i < 9; i++) {
-      for (int j = 0; j < 3; j++) {
-        QgodLocal(traction_indices[j], i) = -2 * QgodNeighbor(traction_indices[j], i);
+  if(faceType == freeSurface) {
+    getTransposedBoundaryGodunovState(QgodLocal, QgodNeighbor, R);
+
+  } else {
+    Matrix99 R_inv = Matrix99::Zero();
+    R_inv(0,0) = 1/(local.lambda + 2*local.mu) - (neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/((local.lambda + 2*local.mu)*(local.lambda + 2*local.mu)*((neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/(local.lambda + 2*local.mu) + sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho)));
+    R_inv(0,6) = (neighbor.lambda + 2*neighbor.mu)/((local.lambda + 2*local.mu)*((neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/(local.lambda + 2*local.mu) + sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho)));
+    R_inv(1,3) = 1/local.mu - neighbor.mu*sqrt(local.mu/local.rho)/(local.mu*local.mu*(neighbor.mu*sqrt(local.mu/local.rho)/local.mu + sqrt(neighbor.mu/neighbor.rho)));
+    R_inv(1,7) = neighbor.mu/(local.mu*(neighbor.mu*sqrt(local.mu/local.rho)/local.mu + sqrt(neighbor.mu/neighbor.rho)));
+    R_inv(2,5) = 1/local.mu - neighbor.mu*sqrt(local.mu/local.rho)/(local.mu*local.mu*(neighbor.mu*sqrt(local.mu/local.rho)/local.mu + sqrt(neighbor.mu/neighbor.rho)));
+    R_inv(2,8) = neighbor.mu/(local.mu*(neighbor.mu*sqrt(local.mu/local.rho)/local.mu + sqrt(neighbor.mu/neighbor.rho)));
+    R_inv(3,4) = 1;
+    R_inv(4,0) = -local.lambda/(local.lambda + 2*local.mu) + (local.lambda*(neighbor.lambda + 2*neighbor.mu)/(local.lambda + 2*local.mu) - neighbor.lambda)*sqrt((local.lambda + 2*local.mu)/local.rho)/((local.lambda + 2*local.mu)*((neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/(local.lambda + 2*local.mu) + sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho)));
+    R_inv(4,1) = 1;
+    R_inv(4,6) = -(local.lambda*(neighbor.lambda + 2*neighbor.mu)/(local.lambda + 2*local.mu) - neighbor.lambda)/((neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/(local.lambda + 2*local.mu) + sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
+    R_inv(5,0) = -local.lambda/(local.lambda + 2*local.mu) + (local.lambda*(neighbor.lambda + 2*neighbor.mu)/(local.lambda + 2*local.mu) - neighbor.lambda)*sqrt((local.lambda + 2*local.mu)/local.rho)/((local.lambda + 2*local.mu)*((neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/(local.lambda + 2*local.mu) + sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho)));
+    R_inv(5,2) = 1;
+    R_inv(5,6) = -(local.lambda*(neighbor.lambda + 2*neighbor.mu)/(local.lambda + 2*local.mu) - neighbor.lambda)/((neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/(local.lambda + 2*local.mu) + sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
+    R_inv(6,5) = sqrt(local.mu/local.rho)/(local.mu*(neighbor.mu*sqrt(local.mu/local.rho)/local.mu + sqrt(neighbor.mu/neighbor.rho)));
+    R_inv(6,8) = -1/(neighbor.mu*sqrt(local.mu/local.rho)/local.mu + sqrt(neighbor.mu/neighbor.rho));
+    R_inv(7,3) = sqrt(local.mu/local.rho)/(local.mu*(neighbor.mu*sqrt(local.mu/local.rho)/local.mu + sqrt(neighbor.mu/neighbor.rho)));
+    R_inv(7,7) = -1/(neighbor.mu*sqrt(local.mu/local.rho)/local.mu + sqrt(neighbor.mu/neighbor.rho));
+    R_inv(8,0) = sqrt((local.lambda + 2*local.mu)/local.rho)/((local.lambda + 2*local.mu)*((neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/(local.lambda + 2*local.mu) + sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho)));
+    R_inv(8,6) = -1/((neighbor.lambda + 2*neighbor.mu)*sqrt((local.lambda + 2*local.mu)/local.rho)/(local.lambda + 2*local.mu) + sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
+
+    Matrix99 chi = Matrix99::Zero();
+    chi(0,0) = 1.0;
+    chi(1,1) = 1.0;
+    chi(2,2) = 1.0;
+
+    auto godunov = ((R*chi)*R_inv).eval();
+
+    // QgodLocal = I - QgodNeighbor
+    for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
+      for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
+        QgodLocal(i,j) = -godunov(j,i);
+        QgodNeighbor(i,j) = godunov(j,i);
       }
-    }
-    for (int i = 0; i < 9; i++) {
-        QgodLocal(i,i) += 1.0;
-    }
-    //set QgodNeighbor to NaN, because it is not needed any more
-    for (int i = 0; i < 9; i++) {
-      for (int j = 0; j < 9; j++) {
-        QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
-      }
+    }  
+    for (unsigned idx = 0; idx < 9; ++idx) {
+      QgodLocal(idx,idx) += 1.0;
     }
   }
 }
-
 
 #endif
