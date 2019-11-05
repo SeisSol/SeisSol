@@ -1,35 +1,25 @@
 cmake_minimum_required(VERSION 3.5)
 project(SeisSol LANGUAGES C CXX Fortran)
-
 message(WARNING "We do not provide support for CMake currently. Please use scons instead!")
 
-# Library settings:
-option(HDF5 "Use HDF5 library for data output" ON)
-option(NETCDF "Use netcdf library for mesh input" ON)
-option(METIS "Use metis for partitioning" ON)
-option(MPI "Use MPI parallelization" ON)
-option(OPENMP "Use OpenMP parallelization" ON)
-option(ASAGI "Use asagi for material input" OFF)
 
-# todo:
-option(SIONLIB "Use sionlib for checkpointing" OFF)
-option(MEMKIND "Use memkind library for hbw memory support" OFF)
-
-# Other settings
-set(ORDER "6" CACHE STRING "Convergence order.")
-set_property(CACHE ORDER PROPERTY STRINGS "2" "3" "4" "5" "6" "7" "8")
-set(NUMBER_OF_MECHANISMS "0" CACHE STRING "Number of mechanisms")
-set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(ARCH "dsnb" CACHE STRING "Architecture")
-set(DYNAMIC_RUPTURE_METHOD "quadrature" CACHE STRING "Dynamic rupture method.")
-set_property(CACHE DYNAMIC_RUPTURE_METHOD PROPERTY STRINGS "quadrature" "cellaverage")
-option(PLASTICITY "Use plasticity")
-set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method.")
-set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS nb ip)
-set(NUMBER_OF_MULTIPLE_SIMULATIONS "1" CACHE STRING "Fuse multiple simulations in one run.")
-option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
-set(LOG_LEVEL "INFO" CACHE STRING "Log level for the code")
-set_property(CACHE LOG_LEVEL PROPERTY STRINGS "DEBUG" "INFO" "WARNING" "ERROR")
+# set hardware specific definition needed for seissol for compilation
+# 'process_users_input' returns the following:
+#
+#       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND
+#
+#       user's input: ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
+#                     ARCH, PRECISION, DYNAMIC_RUPTURE_METHOD,
+#                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
+#                     MEMEORY_LAYOUT, COMMTHREAD, LOG_LEVEL,
+#                     ACCELERATOR_TYPE
+#
+#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES
+#
+include(cmake/process_users_input.cmake)
+set(HARDWARE_SPECIFIC_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
+                                  "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
+                                  "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
 
 
 # TODO: Move one dir up.
@@ -39,11 +29,12 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-  "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
+        "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
   message(STATUS "Set build type to Debug a none was supplied.")
-endif()  
+endif()
+
 
 find_package(Git QUIET)
 # Generate version.h
@@ -57,17 +48,6 @@ configure_file (
   "${PROJECT_BINARY_DIR}/src/version.h"
   )
 
-# PDE-Settings
-if ("${EQUATIONS}" STREQUAL "elastic" AND ${NUMBER_OF_MECHANISMS} GREATER 0)
-  message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
-endif()
-
-if ("${EQUATIONS}" MATCHES "viscoelastic.?" AND ${NUMBER_OF_MECHANISMS} LESS 1)
-  message(FATAL_ERROR "${EQUATIONS} needs a NUMBER_OF_MECHANISMS > 0.")
-endif()
-
-MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
-
 include(src/sources.cmake)
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
@@ -78,11 +58,11 @@ add_custom_command(
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
-     "--arch" ${ARCH}
+     "--arch" ${ARCH_STRING}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-     "--memLayout" "auto"
-     "--multipleSimulations" ${NUMBER_OF_MULTIPLE_SIMULATIONS}
+     "--memLayout" ${MEMEORY_LAYOUT}
+     "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--dynamicRuptureMethod" ${DYNAMIC_RUPTURE_METHOD}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
@@ -122,62 +102,18 @@ elseif ("${PlasticityMethod}" STREQUAL "nb")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
 endif()
 
-function(target_compiler_flags target)
-  cmake_parse_arguments(
-    TARGET_COMPILER_FLAGS
-    ""
-    "COMPILER"
-    "PUBLIC;PRIVATE"
-    ${ARGN}
-    )
-  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL ${TARGET_COMPILER_FLAGS_COMPILER})
-    target_compile_options(${target}
-      PRIVATE ${TARGET_COMPILER_FLAGS_PRIVATE}
-      PUBLIC ${TARGET_COMPILER_FLAGS_PUBLIC})
-  endif()
-endfunction()
 
-# Set float size
-if ("${ARCH}" MATCHES "^s.*")
-  # single precision
-  target_compile_definitions(SeisSol-lib PUBLIC REAL_SIZE=4)
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNED_REAL_SIZE=4)
-elseif ("${ARCH}" MATCHES "^d.*")
-  # double precision
-  target_compile_definitions(SeisSol-lib PUBLIC REAL_SIZE=8)
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNED_REAL_SIZE=8)
-else()
-  message(FATAL_ERROR "Arch has to begin with s or d.")
-endif()
-  
-# Arch
-set(ALIGNMENT 0)
-if ("${ARCH}" MATCHES "^(s|d)noarch$")
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=16)
-elseif ("${ARCH}" MATCHES "^(s|d)wsm$")
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=16)
-  target_compile_options(SeisSol-lib PUBLIC "-msse3")
-elseif ("${ARCH}" MATCHES "^(s|d)snb$")
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=32)
-  target_compile_options(SeisSol-lib PUBLIC "-mavx")
-elseif ("${ARCH}" MATCHES "^(s|d)hsw$")
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=32)
-  target_compiler_flags(SeisSol-lib COMPILER "Intel" PUBLIC "-xCORE-AVX2" "-fma")
-  target_compiler_flags(SeisSol-lib COMPILER "GNU" PUBLIC "-mavx2" "-mfma")
-elseif ("${ARCH}" MATCHES "^(s|d)knc$")
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=64)
-  target_compile_options(SeisSol-lib PUBLIC "-mmic" "-fma")
-elseif ("${ARCH}" MATCHES "^(s|d)knl$")
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=64)
-  target_compiler_flags(SeisSol-lib COMPILER "Intel" PUBLIC "-xMIC-AVX512" "-fma")
-  target_compiler_flags(SeisSol-lib COMPILER "GNU" PUBLIC "-mavx512f" "-mavx512cd" "-mavx512pf" "-mavx512er" "-mfma")
-elseif ("${ARCH}" MATCHES "^(s|d)skx$")
-  target_compile_definitions(SeisSol-lib PUBLIC ALIGNMENT=64)
-  target_compiler_flags(SeisSol-lib COMPILER "Intel" PUBLIC "-xCORE-AVX512" "-fma")
-  target_compiler_flags(SeisSol-lib COMPILER "GNU" PUBLIC "-march=skylake-avx512")
-else ()
-  message(FATAL_ERROR "Arch is unknown.")
-  endif()
+# Find appropriate compiler flags based on the target computer architecture
+# and the target compiler
+# 'get_arch_specific_flags' returns: CPU_ARCH_SPECIFIC_FLAGS
+include(cmake/cpu_arch_flags.cmake)
+get_arch_specific_flags(${ARCH} ${CMAKE_CXX_COMPILER_ID})
+
+
+# set hardware/compiler specific definitions and flags
+target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_SPECIFIC_DEFINITIONS})
+target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_SPECIFIC_FLAGS})
+
 
 if (LOG_LEVEL STREQUAL "DEBUG")
   target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=3 LOG_LEVEL=3 LOGLEVEL0=3)
@@ -205,9 +141,14 @@ else()
 endif()
 
 # TODO: Write export for impalaJIT
-target_link_libraries(SeisSol-lib PUBLIC yaml-cpp
-			      ${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/libimpalajit.a 
-			      )
+#target_link_libraries(SeisSol-lib PUBLIC yaml-cpp
+				  #${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/libimpalajit.a 
+				  #)
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT)
+target_link_libraries(SeisSol-lib PUBLIC yaml-cpp impalajit-static)
+
+
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
@@ -336,7 +277,7 @@ set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 
-set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH}_${EQUATIONS}_${ORDER}")
+set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
 
 # Testing
 find_package(CxxTest)
@@ -362,14 +303,14 @@ if(CXXTEST_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
     )
-  target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib) 
+  target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
   CXXTEST_ADD_TEST(test_parallel_test_suite
     test_parallel.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
     )
-  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib) 
+  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   target_compile_definitions(test_parallel_test_suite PRIVATE
     SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
