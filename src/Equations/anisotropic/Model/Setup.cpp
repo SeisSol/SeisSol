@@ -46,6 +46,8 @@
 #include <Numerical_aux/Transformation.h>
 #include <generated_code/init.h>
 #include <iostream>
+
+
 template<typename T>
 void getTransposedAnisotropicCoefficientMatrix( seissol::model::Material const&  i_material,
                                                 unsigned                         i_dim,
@@ -131,6 +133,35 @@ void getTransposedAnisotropicCoefficientMatrix( seissol::model::Material const& 
       
     default:
       break;
+  }
+}
+
+void getTransposedBoundaryGodunovState( seissol::init::QgodLocal::view::type&      QgodLocal,
+                                        seissol::init::QgodNeighbor::view::type&   QgodNeighbor,
+                                        Eigen::Matrix<real, 9, 9>& R)
+{
+  for (int i = 0; i < 9; i++) {
+    for (int j = 0; j < 9; j++) {
+      QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+    }
+  }
+
+  QgodLocal.setZero();
+  std::array<std::array<int, 2>, 3> traction_indices = {{{0,0}, {1,3}, {2,5}}};
+  std::array<std::array<int, 2>, 3> velocity_indices = {{{0,6}, {1,7}, {2,8}}};
+  Eigen::Matrix<real, 3, 3> R11 = R.block(0, 0, 3, 3);
+  Eigen::Matrix<real, 3, 3> R21 = R.block(3, 0, 3, 3);
+  auto S = - (R21 * R11.inverse()).eval();
+
+  //set lower left block
+  for (auto &t: traction_indices) {
+    for (auto &v: velocity_indices) {
+      QgodLocal(v[1], t[1]) = S(v[0],t[0]);
+    }
+  }
+  //set lower right block
+  for (auto &v : velocity_indices) {
+    QgodLocal(v[1], v[1]) = 1.0;
   }
 }
 
@@ -239,26 +270,30 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   Matrix99 R;
   R <<  A1L * eigenvectorsL,   E1, A1N * eigenvectorsN, 
        -eigenvectorsL*lambdaL, E2, eigenvectorsN*lambdaN;
-  Eigen::Matrix<real, 9, 1> diag = Eigen::Matrix<real, 9, 1>::Zero();
-  diag(0) = 1.0;
-  diag(1) = 1.0;
-  diag(2) = 1.0;
-  auto chi = Matrix99(diag.asDiagonal());
-  Matrix99 godunov = ((R*chi)*R.inverse()).eval();
-  
-  // QgodLocal = I - QgodNeighbor
-  for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
-    for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-      QgodLocal(i,j) = -godunov(j,i);
-      QgodNeighbor(i,j) = godunov(j,i);
-    }
-  }  
-  for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
-    QgodLocal(idx,idx) += 1.0;
-  }
-  applyBoundaryConditionToElasticFluxSolver(faceType, QgodNeighbor);
-}
 
+  if(faceType == freeSurface) {
+    ::getTransposedBoundaryGodunovState(QgodLocal, QgodNeighbor, R);
+  } else {
+    Eigen::Matrix<real, 9, 1> diag = Eigen::Matrix<real, 9, 1>::Zero();
+    diag(0) = 1.0;
+    diag(1) = 1.0;
+    diag(2) = 1.0;
+    auto chi = Matrix99(diag.asDiagonal());
+    Matrix99 godunov = ((R*chi)*R.inverse()).eval();
+
+    // QgodLocal = I - QgodNeighbor
+    for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
+      for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
+        QgodLocal(i,j) = -godunov(j,i);
+        QgodNeighbor(i,j) = godunov(j,i);
+      }
+    }  
+    for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
+      QgodLocal(idx,idx) += 1.0;
+    }
+  }
+}
+ 
 void seissol::model::getPlaneWaveOperator(  Material const& material,
                                             double const n[3],
                                             std::complex<real> Mdata[9 * 9] )
