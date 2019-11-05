@@ -100,8 +100,6 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
     }
   }
 #endif
-  m_lfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_lfKrnlPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;

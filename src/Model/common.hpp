@@ -186,7 +186,7 @@ void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType 
     //set QgodNeighbor to NaN, because it is not needed any more
     for (int i = 0; i < 9; i++) {
       for (int j = 0; j < 9; j++) {
-        QgodNeighbor(i,j) = std::nan("");
+        QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
       }
     }
   }
