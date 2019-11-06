@@ -75,7 +75,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       neighbor.mu = 3.23980992e10;
       neighbor.lambda = 3.24038016e10;
 
-      std::array<std::array<double, 9>, 9> solution_homogeneous = {{
+      std::array<std::array<real, 9>, 9> solution_homogeneous = {{
         {  0.5000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  8.100000000000001e6,   0.0000000000000000,   0.0000000000000000},
         {  0.1666862222222223,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  2.700316800000001e6,   0.0000000000000000,   0.0000000000000000},
         {  0.1666862222222223,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  2.700316800000001e6,   0.0000000000000000,   0.0000000000000000},
@@ -96,7 +96,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       test_neighbor(QgodNeighbor, solution_homogeneous);
 
       //test free surface
-      std::array<std::array<double, 9>, 9> solution_boundary = {{
+      std::array<std::array<real, 9>, 9> solution_boundary = {{
         {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
         {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
         {   0.0000000000000000,   0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000,    0.0000000000000000},
@@ -125,7 +125,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       neighbor.mu = 1.04e10;
       neighbor.lambda = 2.08e10;
 
-      std::array<std::array<double, 9>, 9> solution_heterogeneous = {{
+      std::array<std::array<real, 9>, 9> solution_heterogeneous = {{
         {  0.6090225563909775,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  6.333834586466166e6,   0.0000000000000000,   0.0000000000000000},
         {  0.2030313383458647,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  2.111525918796993e6,   0.0000000000000000,   0.0000000000000000},
         {  0.2030313383458647,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,   0.0000000000000000,  2.111525918796993e6,   0.0000000000000000,   0.0000000000000000},
@@ -149,32 +149,23 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
 
 
 
-    void test_local(init::QgodLocal::view::type QgodLocal, std::array<std::array<double, 9>, 9> solution) {
+    void test_local(init::QgodLocal::view::type QgodLocal, std::array<std::array<real, 9>, 9> solution) {
       for (int i = 0; i < 9; i++) {
         for (int j = 0; j < 9; j++) {
           if (i == j) {
-            auto abs_solution = std::abs(1-solution[j][i]);
-            auto abs_calculated = std::abs(QgodLocal(i,j));
-            TS_ASSERT_DELTA(QgodLocal(i,j), 1-solution[j][i], abs_solution*1e2*EPSILON);
-            TS_ASSERT_DELTA(QgodLocal(i,j), 1-solution[j][i], abs_calculated*1e2*EPSILON);
+            test_relative(QgodLocal(i,j), 1-solution[j][i]);
           }
           else {
-            auto abs_solution = std::abs(solution[j][i]);
-            auto abs_calculated = std::abs(QgodLocal(i,j));
-            TS_ASSERT_DELTA(QgodLocal(i,j), -solution[j][i], abs_solution*1e2*EPSILON);
-            TS_ASSERT_DELTA(QgodLocal(i,j), -solution[j][i], abs_calculated*1e2*EPSILON);
+            test_relative(QgodLocal(i,j), -solution[j][i]);
           }
         }
       } 
     }
 
-    void test_neighbor(init::QgodLocal::view::type QgodNeighbor, std::array<std::array<double, 9>, 9> solution) {
+    void test_neighbor(init::QgodLocal::view::type QgodNeighbor, std::array<std::array<real, 9>, 9> solution) {
       for (int i = 0; i < 9; i++) {
         for (int j = 0; j < 9; j++) {
-            auto abs_solution = std::abs(solution[j][i]);
-            auto abs_calculated = std::abs(QgodNeighbor(i,j));
-            TS_ASSERT_DELTA(QgodNeighbor(i,j), solution[j][i], abs_solution*1e2*EPSILON);
-            TS_ASSERT_DELTA(QgodNeighbor(i,j), solution[j][i], abs_calculated*1e2*EPSILON);
+            test_relative(QgodNeighbor(i,j), solution[j][i]);
         }
       }
     }
@@ -187,4 +178,16 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
         }
       }
     }
+
+    void test_relative(real a, real b) {
+      if (std::abs(a) < EPSILON) {
+        TS_ASSERT_DELTA(0, b, EPSILON);
+      } else if (std::abs(b) < EPSILON) {
+        TS_ASSERT_DELTA(0, a, EPSILON);
+      } else {
+        TS_ASSERT_DELTA(a, b, std::abs(a)*1e2*EPSILON);
+        TS_ASSERT_DELTA(a, b, std::abs(b)*1e2*EPSILON);
+      }
+    }
+
 };
