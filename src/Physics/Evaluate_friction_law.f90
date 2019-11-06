@@ -59,8 +59,8 @@ MODULE Eval_friction_law_mod
   END INTERFACE
   !---------------------------------------------------------------------------!
   PUBLIC  :: Eval_friction_law
-  PRIVATE :: update_RSF
-  PRIVATE :: Newton_Raphson
+  PRIVATE :: updateStateVariable
+  PRIVATE :: IterativelyInvertSR
   PRIVATE :: no_fault
   PRIVATE :: Linear_slip_weakening_bimaterial
   PRIVATE :: Linear_slip_weakening_TPV1617
@@ -1338,7 +1338,7 @@ MODULE Eval_friction_law_mod
              !
              !fault strength using LocMu and P_f from previous timestep/iteration
              !1.update SV using Vold from the previous time step
-             CALL update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
+             CALL updateStateVariable (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
                  S = -LocMu*(P - P_f)
                  DO iBndGP = 1, nBndGP
@@ -1354,7 +1354,7 @@ MODULE Eval_friction_law_mod
              !2. solve for Vnew , applying the Newton-Raphson algorithm
              !effective normal stress including initial stresses and pore fluid pressure
              n_stress = P - P_f
-             CALL Newton_Raphson (nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
+             CALL IterativelyInvertSR (nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
                                   n_stress, Shtest, invZ, SRtest, has_converged)
 
              ! 3. update theta, now using V=(Vnew+Vold)/2
@@ -1378,7 +1378,7 @@ MODULE Eval_friction_law_mod
          
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
-         CALL update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
+         CALL updateStateVariable (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, SV0, time_inc, SR_tmp, LocSV)
          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
              S = -LocMu*(P - P_f)
              DO iBndGP = 1, nBndGP
@@ -1469,7 +1469,7 @@ MODULE Eval_friction_law_mod
   !
  END SUBROUTINE rate_and_state_nuc103
 
-   SUBROUTINE update_RSF (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, &
+   SUBROUTINE updateStateVariable (nBndGP, RS_f0, RS_b, RS_a, RS_sr0, RS_fw, RS_srW, RS_sl0, &
                          SV0, time_inc, SR_tmp, LocSV)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -1502,9 +1502,9 @@ MODULE Eval_friction_law_mod
     ENDIF
 
 
-  END SUBROUTINE update_RSF
+  END SUBROUTINE updateStateVariable
 
-  SUBROUTINE Newton_Raphson (nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
+  SUBROUTINE IterativelyInvertSR (nBndGP, nSRupdates, LocSR, RS_sr0, LocSV, RS_a, &
                              n_stress, sh_stress, invZ, SRtest, has_converged)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -1568,6 +1568,6 @@ MODULE Eval_friction_law_mod
 
     ENDDO
 
-  END SUBROUTINE Newton_Raphson
+  END SUBROUTINE IterativelyInvertSR
 
  END MODULE
