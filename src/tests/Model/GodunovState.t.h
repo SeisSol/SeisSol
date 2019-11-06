@@ -43,11 +43,8 @@
 #include <Model/Setup.h>
 #include <Model/common_datastructures.hpp>
 
-#if defined(DOUBLE_PRECISION)
-#define EPSILON 1e-16
-#elif defined(SINGLE_PRECISION)
-#define EPSILON 1e-8
-#endif
+
+real const EPSILON = std::numeric_limits<real>::epsilon();
 
 namespace seissol {
   namespace unit_test {
