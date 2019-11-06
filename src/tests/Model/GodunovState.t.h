@@ -60,8 +60,8 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       seissol::model::Material local;
       seissol::model::Material neighbor;
 
-      double localData[seissol::tensor::QgodLocal::size()];
-      double neighborData[seissol::tensor::QgodLocal::size()];
+      real localData[seissol::tensor::QgodLocal::size()];
+      real neighborData[seissol::tensor::QgodLocal::size()];
       init::QgodLocal::view::type QgodLocal = init::QgodLocal::view::create(localData);
       init::QgodNeighbor::view::type QgodNeighbor = init::QgodNeighbor::view::create(neighborData); 
       QgodLocal.setZero();
