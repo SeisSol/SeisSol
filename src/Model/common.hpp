@@ -41,12 +41,8 @@
 #define MODEL_COMMON_HPP_
 
 #include <Eigen/Eigen>
-#include <cmath>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
-#include <Geometry/MeshDefinition.h>
-#include <Numerical_aux/Transformation.h>
-#include <iostream>
 
 namespace seissol {
   namespace model {
@@ -219,7 +215,7 @@ void seissol::model::getTransposedElasticGodunovState( Material const&          
     chi(1,1) = 1.0;
     chi(2,2) = 1.0;
 
-    auto godunov = ((R*chi)*R_inv).eval();
+    const auto godunov = ((R*chi)*R_inv).eval();
 
     // QgodLocal = I - QgodNeighbor
     for (unsigned i = 0; i < godunov.cols(); ++i) {
