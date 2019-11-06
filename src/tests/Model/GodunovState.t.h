@@ -143,13 +143,13 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
     }
 
     void test_relative(real a, real b) {
-      if (std::abs(a) < EPSILON) {
-        TS_ASSERT_DELTA(0, b, EPSILON);
-      } else if (std::abs(b) < EPSILON) {
-        TS_ASSERT_DELTA(0, a, EPSILON);
+      if (std::abs(a) < epsilon) {
+        TS_ASSERT_DELTA(0, b, epsilon);
+      } else if (std::abs(b) < epsilon) {
+        TS_ASSERT_DELTA(0, a, epsilon);
       } else {
-        TS_ASSERT_DELTA(a, b, std::abs(a)*1e2*EPSILON);
-        TS_ASSERT_DELTA(a, b, std::abs(b)*1e2*EPSILON);
+        TS_ASSERT_DELTA(a, b, std::abs(a)*1e2*epsilon);
+        TS_ASSERT_DELTA(a, b, std::abs(b)*1e2*epsilon);
       }
     }
 
