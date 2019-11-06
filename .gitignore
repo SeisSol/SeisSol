@@ -12,6 +12,17 @@ com.apple.timemachine.supported
 *.kdev4
 .kdev_include_paths
 
+# jetbrains
+generated_code/.idea
+.idea
+
+# VisualCode
+.vcode
+
+# VIM
+*.swo
+*.swp
+
 # Kernel generator
 *.exe
 
@@ -41,6 +52,8 @@ Documentation/_build/*
 preprocessing/meshing/cube_c/build
 preprocessing/science/asagiconv/build
 postprocessing/validation/XDMFCubeCheck/build
+cmake-build-debug
+_build
 
 # Python
 *.py[cod]
