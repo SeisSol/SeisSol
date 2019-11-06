@@ -730,7 +730,7 @@ CONTAINS
     DISC%DynRup%DynRup_out_elementwise%refinement = refinement                 ! read info of desired refinement level : default 0
 
     !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
-    IF (OutputMask(11).GE.1) THEN
+    IF (OutputMask(11).EQ.1) THEN
         SELECT CASE (EQN%FL)
                CASE(2,6,13,16,103) !LSW friction law cases
                     !use only if RF_output=1
@@ -1045,7 +1045,7 @@ CONTAINS
              DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
                  logInfo0(*) 'Thermal pressurization assumed'
-                 !pyhsical
+                 !physical
                  DISC%DynRup%TP_hwid = TP_hwid
                  DISC%DynRup%alpha_th = alpha_th
                  DISC%DynRup%alpha_hy = alpha_hy
