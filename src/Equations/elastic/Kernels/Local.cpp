@@ -164,15 +164,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
     case FaceType::dirichlet:
       {
       const auto& easiBoundary = seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader();
-      assert(cellBoundaryMapping != nullptr);
-
-      auto applyRigidBodyBoundary = [](const real* nodes,
-				       init::INodal::view::type& boundaryDofs) {
-          for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
-            const real normalVelocityAtBoundary = 0.0;
-            boundaryDofs(i,6) = 2 * normalVelocityAtBoundary - boundaryDofs(i,6);
-          }
-      };
 
       auto applyEasiBoundary = [&easiBoundary](const real* nodes,
                                                init::INodal::view::type& boundaryDofs) {
@@ -184,9 +175,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 				 face,
 				 (*cellBoundaryMapping)[face],
 				 m_projectRotatedKrnlPrototype,
-				 //m_projectKrnlPrototype,
-				 applyRigidBodyBoundary,
-				 //applyEasiBoundary,
+				 applyEasiBoundary,
 				 dofsFaceBoundaryNodal);
 
       // We need to rotate the boundary data back to the [x,y,z] basis

@@ -39,6 +39,8 @@
  **/
 
 #ifdef USE_HDF
+
+#include <generated_code/kernel.h>
 #include "PUML/PUML.h"
 #include "PUML/Downward.h"
 #endif
@@ -224,56 +226,83 @@ seissol::initializers::EasiBoundary::~EasiBoundary() {
 
 void seissol::initializers::EasiBoundary::query(const real* nodes,
 						init::INodal::view::type& boundaryDofs) const {
-  assert(NUMBER_OF_QUANTITIES == 9); // only supp. for elastic currently.
+  if (model == nullptr) {
+    // TODO(Lukas) Add proper warning if model is nullptr
+    throw -1;
+  }
+  assert(tensor::INodal::Shape[1] == 9); // only supp. for elastic currently.
   assert(model != nullptr);
   constexpr auto numNodes = tensor::INodal::Shape[0];
   auto query = easi::Query{numNodes, 3};
-  auto offset = 0;
-  for (int i = 0; i < numNodes; ++i) {
+  auto offset = size_t{0};
+  for (unsigned i = 0; i < numNodes; ++i) {
     query.x(i, 0) = nodes[offset++];
     query.x(i, 1) = nodes[offset++];
     query.x(i, 2) = nodes[offset++];
-    query.group(i) = 1; // TOOD(Lukas): group needed/possible?
+    query.group(i) = 1;
   }
+  const auto& supplied = model->suppliedParameters();
 
-  auto boundaryValues = std::array<EasiBoundaryData, numNodes>{};
-  easi::ArrayOfStructsAdapter<EasiBoundaryData> adapter(boundaryValues.data());
-  adapter.addBindingPoint("T_n", &EasiBoundaryData::T_n);
-  adapter.addBindingPoint("T_s", &EasiBoundaryData::T_s);
-  adapter.addBindingPoint("T_d", &EasiBoundaryData::T_d);
-  adapter.addBindingPoint("u", &EasiBoundaryData::u);
-  adapter.addBindingPoint("v", &EasiBoundaryData::v);
-  adapter.addBindingPoint("w", &EasiBoundaryData::w);
+  // Shear stresses are irrelevant for riemann problem
+  const auto varNames = std::array<std::string, 9>{
+    "Tn", "Ts", "Td", "unused1", "unused2", "unused3", "u", "v", "w"
+  };
 
-  adapter.addBindingPoint("T_n_mult", &EasiBoundaryData::T_n_mult);
-  adapter.addBindingPoint("T_s_mult", &EasiBoundaryData::T_s_mult);
-  adapter.addBindingPoint("T_d_mult", &EasiBoundaryData::T_d_mult);
-  adapter.addBindingPoint("u_mult", &EasiBoundaryData::u_mult);
-  adapter.addBindingPoint("v_mult", &EasiBoundaryData::v_mult);
-  adapter.addBindingPoint("w_mult", &EasiBoundaryData::w_mult);
-
-  model->evaluate(query, adapter);
-
-  for (int i = 0; i < numNodes; ++i) {
-    // TODO(Lukas): Fix?
-    const auto& curBnd = boundaryValues[i];
-    boundaryDofs(i, 0) = curBnd.T_n_mult * boundaryDofs(i, 0) + curBnd.T_n;
-    boundaryDofs(i, 1) = curBnd.T_s_mult * boundaryDofs(i, 1) + curBnd.T_s;
-    boundaryDofs(i, 2) = curBnd.T_d_mult * boundaryDofs(i, 2) + curBnd.T_d;
-    
-    boundaryDofs(i, 6) = curBnd.u_mult * boundaryDofs(i, 6) + curBnd.u;
-    boundaryDofs(i, 7) = curBnd.v_mult * boundaryDofs(i, 7) + curBnd.v;
-    boundaryDofs(i, 8) = curBnd.w_mult * boundaryDofs(i, 8) + curBnd.w;
-
-    if (i == 2) {
-      std::cout << "New vel = " << boundaryDofs(i,6) << std::endl;
+  auto constantTermsData = std::array<double, init::easiBoundaryConstant::Size>();
+  auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData.data()));
+  auto mapTermsData = std::array<double, init::easiBoundaryMap::Size>();
+  auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData.data());
+  // Terms stores an array of terms for each node.
+  // The first 9 terms are the constant offset, the following
+  // 81 are the linear map.
+  easi::ArraysAdapter adapter{};
+  offset = 0;
+  for (const auto& varName : varNames) {
+    const auto termName = std::string{"const_"} + varName;
+    if (supplied.count(termName) > 0) {
+      adapter.addBindingPoint(
+          termName,
+          constantTermsData.data() + offset,
+          constantTerms.shape(0)
+      );
+    }
+    ++offset;
+  }
+  offset = 0;
+  for (size_t i = 0; i < varNames.size(); ++i){
+    const auto& varName = varNames[i];
+    for (size_t j = 0; j < varNames.size(); ++j)  {
+      const auto& otherVarName = varNames[j];
+      auto termName = std::string{"map_"};
+      termName += varName;
+      termName += "_";
+      termName += otherVarName;
+      if (supplied.count(termName) > 0) {
+        adapter.addBindingPoint(
+            termName,
+            mapTermsData.data() + offset,
+            mapTerms.shape(0) * mapTerms.shape(1)
+        );
+      } else {
+        // Default: Extrapolate
+        for (size_t k = 0; k < mapTerms.shape(2); ++k)
+          mapTerms(i,j,k) = (varName == otherVarName) ? 1.0 : 0.0;
+      }
+      ++offset;
     }
   }
+  model->evaluate(query, adapter);
+
+  kernel::createEasiBoundaryGhostCells kernel{};
+  kernel.easiBoundaryMap = mapTerms.data();
+  kernel.easiBoundaryConstant = constantTerms.data();
+  kernel.easiIdentMap = init::easiIdentMap::Values;
+  kernel.INodal = boundaryDofs.data();
+  kernel.execute();
 }
 #endif  // NUMBER_OF_RELAXATION_MECHANISMS == 0
 
 easi::Component* seissol::initializers::loadEasiModel(const std::string& fileName) {
-  std::cout << "loadEasiModel with file " << fileName << std::endl;
 #ifdef USE_ASAGI
   seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
   easi::YAMLParser parser(3, &asagiReader);

@@ -655,8 +655,8 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
 void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
-  std::cout << "initializeEasiBoundaryReader with file: " << fileName << std::endl;
   if (fileNameStr != "") {
+    std::cout << "initializeEasiBoundaryReader with file: " << fileName << std::endl;
     m_easiBoundary = std::move(EasiBoundary(fileNameStr));
   }
 }

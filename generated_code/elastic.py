@@ -114,6 +114,24 @@ class ADERDG(ADERDGBase):
     localFluxNodalPrefetch = localFluxPrefetch
     generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
 
+    easi_ident_map = np.stack([np.eye(self.numberOfQuantities())] * self.numberOf2DBasisFunctions(), axis=2)
+    assert(easi_ident_map.shape ==
+           (self.numberOfQuantities(), self.numberOfQuantities(), self.numberOf2DBasisFunctions()))
+    easi_ident_map = Tensor('easiIdentMap',
+                            easi_ident_map.shape,
+                            easi_ident_map,
+                            alignStride=False)
+    easi_boundary_constant = Tensor('easiBoundaryConstant',
+                                    (self.numberOfQuantities(), self.numberOf2DBasisFunctions()),
+                                    alignStride=False)
+    easi_boundary_map = Tensor('easiBoundaryMap',
+                               (self.numberOfQuantities(), self.numberOfQuantities(), self.numberOf2DBasisFunctions(),),
+                               alignStride=False)
+    create_easi_boundary_ghost_cells = (
+            self.INodal['la'] <= easi_boundary_map['abl'] * self.INodal['lb'] + easi_ident_map['abl'] * easi_boundary_constant['bl']
+    )
+    generator.add('createEasiBoundaryGhostCells', create_easi_boundary_ghost_cells)
+
   def addNeighbor(self, generator):
     neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
     neighbourFluxPrefetch = lambda h,j,i: self.I
@@ -162,7 +180,8 @@ class ADERDG(ADERDGBase):
                                      self.Q.optName(),
                                      self.Q.optSize(),
                                      self.Q.optPos(),
-                                     (self.numberOf3DBasisFunctions(), 3), alignStride=True)
+                                     (self.numberOf3DBasisFunctions(), 3),
+                                     alignStride=True)
 
     dt = Scalar('dt')
     displacementAvgNodal = lambda side: self.INodalDisplacement['ip'] <= self.db.V3mTo2nFace[side]['ij'] * self.I['jk'] * selectZDisplacement['kp'] \

@@ -69,22 +69,6 @@ namespace seissol {
     class EasiBoundary;
 
     easi::Component* loadEasiModel(const std::string& fileName);
-
-    struct EasiBoundaryData {
-      double T_n;
-      double T_s;
-      double T_d;
-      double u;
-      double v;
-      double w;
-
-      double T_n_mult;
-      double T_s_mult;
-      double T_d_mult;
-      double u_mult;
-      double v_mult;
-      double w_mult;
-    };
   }
 }
 
