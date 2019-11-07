@@ -48,6 +48,10 @@ using seissol::sourceterm::Subfault;
 using seissol::sourceterm::Subfault_units;
 using seissol::sourceterm::Offsets;
 
+struct Point3d {
+  double x, y, z;
+};
+
 void check_err(const int stat, const int line, const char *file) {
     if (stat != NC_NOERR) {
         (void)fprintf(stderr,"line %d of %s: %s\n", line, file, nc_strerror(stat));
@@ -83,26 +87,26 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
     memset(sliprates[sr], 0, numSamples[sr] * sizeof(double));
   }
 
-  glm::dvec3* centres = new glm::dvec3[numSources];
+  Point3d* centres = new Point3d[numSources];
   Subfault* subfaults = new Subfault[numSources];
   for (unsigned i = 0; i < numSources; ++i) {
     SRFPointSource const& source = sources[i];
-    glm::dvec3& centre = centres[i];
+    Point3d& centre = centres[i];
     Subfault& sf = subfaults[i];
     sf.tinit = source.tinit - minTinit;
     sf.timestep = source.dt;
     
 #ifdef noproj
     centre.x = source.longitude;
-    centre.y= source.latitude;
-    centre.z=source.depth;
+    centre.y = source.latitude;
+    centre.x = source.depth;
 #else
     map.map(source.longitude, source.latitude, source.depth, &centre.x, &centre.y, &centre.z);
 #endif
 
-    map.toMCS(source.strike, source.dip, source.rake, 1.0, 0.0, 0.0, &sf.tan1.x, &sf.tan1.y, &sf.tan1.z);
-    map.toMCS(source.strike, source.dip, source.rake, 0.0, 1.0, 0.0, &sf.tan2.x, &sf.tan2.y, &sf.tan2.z);
-    map.toMCS(source.strike, source.dip, source.rake, 0.0, 0.0, 1.0, &sf.normal.x, &sf.normal.y, &sf.normal.z);
+    map.toMCS(source.strike, source.dip, source.rake, 1.0, 0.0, 0.0, &sf.tan1(0), &sf.tan1(1), &sf.tan1(2));
+    map.toMCS(source.strike, source.dip, source.rake, 0.0, 1.0, 0.0, &sf.tan2(0), &sf.tan2(1), &sf.tan2(2));
+    map.toMCS(source.strike, source.dip, source.rake, 0.0, 0.0, 1.0, &sf.normal(0), &sf.normal(1), &sf.normal(2));
     
     // g / (cm s^2) -> Pa (= kg / (m s^2))
     sf.mu = source.shearModulus * 1.0e-1; 
@@ -178,11 +182,11 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
   check_err(stat,__LINE__,__FILE__);
   nrf_grp = ncid;
 
-  stat = nc_def_compound(nrf_grp, sizeof(glm::dvec3), "Vector3", &Vector3_typ);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_def_compound(nrf_grp, sizeof(Point3d), "Vector3", &Vector3_typ);    check_err(stat,__LINE__,__FILE__);
   {
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "x", NC_COMPOUND_OFFSET(glm::dvec3,x), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "y", NC_COMPOUND_OFFSET(glm::dvec3,y), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
-  stat = nc_insert_compound(nrf_grp, Vector3_typ, "z", NC_COMPOUND_OFFSET(glm::dvec3,z), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "x", NC_COMPOUND_OFFSET(Point3d,x), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "y", NC_COMPOUND_OFFSET(Point3d,y), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
+  stat = nc_insert_compound(nrf_grp, Vector3_typ, "z", NC_COMPOUND_OFFSET(Point3d,z), NC_DOUBLE);    check_err(stat,__LINE__,__FILE__);
   }
 
   stat = nc_def_compound(nrf_grp, sizeof(Subfault_units), "Subfault_units", &Subfault_units_typ);    check_err(stat,__LINE__,__FILE__);
