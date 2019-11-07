@@ -40,6 +40,8 @@
 #ifndef MODEL_COMMONDATASTRUCTURES_HPP_
 #define MODEL_COMMONDATASTRUCTURES_HPP_
 
+#include <cmath>
+
 namespace seissol {
   namespace model {
     struct ElasticMaterial {
@@ -136,6 +138,10 @@ namespace seissol {
         fullTensor[78] = 0.0;
         fullTensor[79] = 0.0;
         fullTensor[80] = lambda + 2*mu;
+      }
+      
+      real getMaxWaveSpeed() {
+        return std::sqrt((lambda + 2*mu) / rho);
       }
     };    
     struct IsotropicWaveSpeeds {

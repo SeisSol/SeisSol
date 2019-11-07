@@ -57,5 +57,14 @@ class ADERDG(ADERDGBase):
     self.db.update( parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir), transpose=self.transpose, alignStride=self.alignStride))
     memoryLayoutFromFile(memLayout, self.db, clones)
 
+  def addInit(self, generator):
+      super().addInit(generator)
+      C = Tensor('C', (3, 3, 3, 3))
+      n = Tensor('n', (3,))
+      christoffel = Tensor('christoffel', (3,3))
+
+      computeChristoffel = christoffel['ik'] <= C['ijkl'] * n['j'] * n['l']
+      generator.add('computeChristoffel', computeChristoffel)
+
   def addIncludeTensors(self, tensors):
       tensors.add(self.db.samplingDirections)
