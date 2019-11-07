@@ -5,7 +5,7 @@
 #include <Physics/InitialField.h>
 #include <yateto/TensorView.h>
 
-seissol::physics::Planarwave::Planarwave(real phase)
+seissol::physics::Planarwave::Planarwave(double phase)
   : m_setVar(2),
     m_varField{1,8},
     m_ampField{1.0, 1.0},
@@ -29,15 +29,15 @@ seissol::physics::Planarwave::Planarwave(real phase)
   double omegaP = cp * kVecNorm;
   double omegaS = cs * kVecNorm;
 
-  m_lambdaA = std::array<std::complex<real>, 9>{
+  m_lambdaA = std::array<std::complex<double>, 9>{
     -omegaP, -omegaS, -omegaS, 0, 0, 0, omegaS, omegaS, omegaP
   };
 
-  const auto n = std::array<real, 3>{0.577350269189626,
+  const auto n = std::array<double, 3>{0.577350269189626,
 					 0.577350269189626,
 					 0.577350269189626};
 
-  auto ra = yateto::DenseTensorView<2,std::complex<real>>(m_eigenvectors, {9, 9});
+  auto ra = yateto::DenseTensorView<2,std::complex<double>>(m_eigenvectors, {9, 9});
 
   ra(0,0) = rho0*(-2*n[1]*n[1]*mu-2*n[2]*n[2]*mu+lambda+2*mu);
   ra(0,1) = -2*mu*n[1]*rho0*n[0]*n[0]*n[2];
@@ -136,7 +136,7 @@ void seissol::physics::Planarwave::evaluate(  double time,
 {
   dofsQP.setZero();
 
-  auto ra = yateto::DenseTensorView<2,std::complex<real>>(const_cast<std::complex<real>*>(m_eigenvectors), {9, 9});
+  auto ra = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {9, 9});
   for (int v = 0; v < m_setVar; ++v) {
     for (int j = 0; j < 9; ++j) {
       for (size_t i = 0; i < points.size(); ++i) {

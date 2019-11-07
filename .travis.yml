@@ -15,7 +15,7 @@ before_install:
  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
  - sudo apt-get update -qq
  - wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.6.1.tar.gz
- - wget http://prdownloads.sourceforge.net/scons/scons-3.0.5.tar.gz
+ - wget https://nchc.dl.sourceforge.net/project/scons/scons/3.1.1/scons-3.1.1.tar.gz
  - wget https://github.com/hfp/libxsmm/archive/master.zip
 
 install:
@@ -26,8 +26,8 @@ install:
  - sudo pip3 install setuptools
  - sudo pip3 install sphinx
  - sudo pip3 install sphinx_rtd_theme
- - tar -xaf scons-3.0.5.tar.gz
- - cd scons-3.0.5 && sudo python3 setup.py install --prefix=/usr && cd ..
+ - tar -xaf scons-3.1.1.tar.gz
+ - cd scons-3.1.1 && sudo python3 setup.py install --prefix=/usr && cd ..
  - tar -xaf netcdf-4.6.1.tar.gz
  - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
  - unzip master.zip
@@ -41,6 +41,8 @@ script:
  - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons compileMode=release order=6 plasticity=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
  - scons compileMode=release order=6 plasticity=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
  - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2

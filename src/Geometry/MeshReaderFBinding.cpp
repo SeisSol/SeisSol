@@ -291,16 +291,18 @@ void read_mesh_puml_c(const char* meshfile, const char* checkPointFile, bool has
 
 #if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 	const int rank = seissol::MPI::mpi.rank();
-  
-	logInfo(rank) << "Running mini SeisSol to determine node weight";
-	double tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager());
+  	double tpwgt = 1.0;
+	if (seissol::MPI::mpi.size() > 1) {
+	  logInfo(rank) << "Running mini SeisSol to determine node weight";
+	  tpwgt = 1.0 / seissol::miniSeisSol(seissol::SeisSol::main.getMemoryManager());
 
-  auto summary = seissol::statistics::parallelSummary(tpwgt);
-  logInfo(rank) << "Node weights: mean =" << summary.mean
-    << " std =" << summary.std
-    << " min =" << summary.min
-    << " median =" << summary.median
-    << " max =" << summary.max;
+	  const auto summary = seissol::statistics::parallelSummary(tpwgt);
+	  logInfo(rank) << "Node weights: mean =" << summary.mean
+			<< " std =" << summary.std
+			<< " min =" << summary.min
+			<< " median =" << summary.median
+			<< " max =" << summary.max;
+	}
 	
 	logInfo(rank) << "Reading PUML mesh" << meshfile;
 

@@ -79,7 +79,7 @@ template<typename T>
 void getTransposedSourceCoefficientTensor(  seissol::model::Material const& material, T& E )
 {
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    real const* theta = material.theta[mech];
+    double const* theta = material.theta[mech];
     E(0, mech, 0) = theta[0];
     E(1, mech, 0) = theta[1];
     E(2, mech, 0) = theta[1];
@@ -106,13 +106,13 @@ void seissol::model::getTransposedCoefficientMatrix( Material const&            
 
 void seissol::model::getPlaneWaveOperator(  Material const& material,
                                             double const n[3],
-                                            std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+                                            std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
 {
-  yateto::DenseTensorView<2,std::complex<real>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   M.setZero();
 
-  real data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  yateto::DenseTensorView<2,real> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  double data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  yateto::DenseTensorView<2,double> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
 
   for (unsigned d = 0; d < 3; ++d) {
     Coeff.setZero();
@@ -131,8 +131,8 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
     }
   }
 
-  real Edata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  yateto::DenseTensorView<3,real> E(Edata, tensor::E::Shape);
+  double Edata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  yateto::DenseTensorView<3,double> E(Edata, tensor::E::Shape);
   E.setZero();
   getTransposedSourceCoefficientTensor(material, E);
   Coeff.setZero();
@@ -148,7 +148,7 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
   // E' = diag(-omega_1 I, ..., -omega_L I)
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     unsigned offset = 9 + 6*mech;
-    yateto::DenseTensorView<2,real> ETblock(data + offset + offset * NUMBER_OF_QUANTITIES, {NUMBER_OF_QUANTITIES, 6});
+    yateto::DenseTensorView<2,double> ETblock(data + offset + offset * NUMBER_OF_QUANTITIES, {NUMBER_OF_QUANTITIES, 6});
     for (unsigned i = 0; i < 6; ++i) {
       ETblock(i, i) = -material.omega[mech];
     }
@@ -156,7 +156,7 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
 
   for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
     for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-      M(i,j) -= std::complex<real>(0.0, Coeff(j,i));
+      M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
     }
   }
 }

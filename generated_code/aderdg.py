@@ -38,10 +38,13 @@
 # @section DESCRIPTION
 #
 
+import numpy as np
 from abc import ABC, abstractmethod
 
-from yateto import *
+from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseXMLMatrixFile
+from yateto.ast.node import Add
+from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from multSim import OptionalDimTensor
 
 class ADERDGBase(ABC):
@@ -66,15 +69,17 @@ class ADERDGBase(ABC):
     self.Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=True)
     self.I = OptionalDimTensor('I', 's', multipleSimulations, 0, qShape, alignStride=True)
 
-    Ashape = (self.numberOfQuantities(), self.numberOfExtendedQuantities())
-    self.AplusT = Tensor('AplusT', Ashape)
-    self.AminusT = Tensor('AminusT', Ashape)
+    Aplusminus_spp = self.flux_solver_spp()
+    self.AplusT = Tensor('AplusT', Aplusminus_spp.shape, spp=Aplusminus_spp)
+    self.AminusT = Tensor('AminusT', Aplusminus_spp.shape, spp=Aplusminus_spp)
     Tshape = (self.numberOfExtendedQuantities(), self.numberOfExtendedQuantities())
-    self.T = Tensor('T', Tshape)
-    QgodShape = (self.numberOfQuantities(), self.numberOfQuantities())
-    self.Tinv = Tensor('Tinv', QgodShape)
-    self.QgodLocal = Tensor('QgodLocal', QgodShape)
-    self.QgodNeighbor = Tensor('QgodNeighbor', QgodShape)
+    trans_spp = self.transformation_spp()
+    self.T = Tensor('T', trans_spp.shape, spp=trans_spp)
+    trans_inv_spp = self.transformation_inv_spp()
+    self.Tinv = Tensor('Tinv', trans_inv_spp.shape, spp=trans_inv_spp)
+    godunov_spp = self.godunov_spp()
+    self.QgodLocal = Tensor('QgodLocal', godunov_spp.shape, spp=godunov_spp)
+    self.QgodNeighbor = Tensor('QgodNeighbor', godunov_spp.shape, spp=godunov_spp)
 
     self.oneSimToMultSim = Tensor('oneSimToMultSim', (self.Q.optSize(),), spp={(i,): '1.0' for i in range(self.Q.optSize())})
 
@@ -86,6 +91,21 @@ class ADERDGBase(ABC):
 
   def numberOf3DQuadraturePoints(self):
     return (self.order+1)**3
+
+  def godunov_spp(self):
+    shape = (self.numberOfQuantities(), self.numberOfQuantities())
+    return np.ones(shape, dtype=bool)
+
+  def flux_solver_spp(self):
+    shape = (self.numberOfQuantities(), self.numberOfExtendedQuantities())
+    return np.ones(shape, dtype=bool)
+
+  def transformation_spp(self):
+    shape = (self.numberOfExtendedQuantities(), self.numberOfExtendedQuantities())
+    return np.ones(shape, dtype=bool)
+
+  def transformation_inv_spp(self):
+    return self.godunov_spp()
 
   @abstractmethod
   def numberOfQuantities(self):
@@ -105,10 +125,10 @@ class ADERDGBase(ABC):
 
   def addInit(self, generator):
     fluxScale = Scalar('fluxScale')
-    computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodLocal['kq'] * self.db.star[0]['ql'] * self.T['jl']
+    computeFluxSolverLocal = self.AplusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodLocal['kq'] * self.starMatrix(0)['ql'] * self.T['jl']
     generator.add('computeFluxSolverLocal', computeFluxSolverLocal)
 
-    computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.db.star[0]['ql'] * self.T['jl']
+    computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.starMatrix(0)['ql'] * self.T['jl']
     generator.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
 
     QFortran = Tensor('QFortran', (self.numberOf3DBasisFunctions(), self.numberOfQuantities()))
@@ -131,3 +151,60 @@ class ADERDGBase(ABC):
   @abstractmethod
   def addTime(self, generator):
     pass
+
+class LinearADERDG(ADERDGBase):
+  def sourceMatrix(self):
+    return None
+
+  def extendedQTensor(self):
+    return self.Q
+
+  def numberOfExtendedQuantities(self):
+    return self.numberOfQuantities()
+
+  def addInit(self, generator):
+    super().addInit(generator)
+
+    iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
+    iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
+    dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
+
+    generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
+    generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
+
+  def addLocal(self, generator):
+    volumeSum = self.Q['kp']
+    for i in range(3):
+      volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.starMatrix(i)['qp']
+    if self.sourceMatrix():
+      volumeSum += self.I['kq'] * self.sourceMatrix()['qp']
+    volume = (self.Q['kp'] <= volumeSum)
+    generator.add('volume', volume)
+
+    localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+    localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
+
+  def addNeighbor(self, generator):
+    neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+    neighbourFluxPrefetch = lambda h,j,i: self.I
+    generator.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
+
+  def addTime(self, generator):
+    qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+    dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
+    power = Scalar('power')
+    derivatives = [dQ0]
+    generator.add('derivativeTaylorExpansion(0)', self.I['kp'] <= power * dQ0['kp'])
+    for i in range(1,self.order):
+      derivativeSum = Add()
+      if self.sourceMatrix():
+        derivativeSum += derivatives[-1]['kq'] * self.sourceMatrix()['qp']
+      for j in range(3):
+        derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
+      derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
+      derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
+      dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
+      generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
+      generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
+      derivatives.append(dQ)

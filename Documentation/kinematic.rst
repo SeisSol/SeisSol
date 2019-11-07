@@ -111,8 +111,8 @@ Project geographic coordinates
 The geographic coordinates of source model is projected to Cartesian
 coordinates wit the pre-processing tool *rconv*.
 
-rconv -i northridge.srf -o northridge.nrf -m “+proj=merc +lon\_0=-118
-+y\_0=-4050981.42 +x\_0=57329.54 +units=m +axis=enu” -x
+rconv -i northridge.srf -o northridge.nrf -m "+proj=merc +lon\_0=-118
++y\_0=-4050981.42 +x\_0=57329.54 +units=m +axis=enu" -x
 visualization.xdmf
 
 To find the center of fault, use *cs2cs* in *proj.4* to convert the

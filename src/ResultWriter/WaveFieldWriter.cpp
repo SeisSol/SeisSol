@@ -62,15 +62,15 @@ seissol::refinement::TetrahedronRefiner<double>* seissol::writer::WaveFieldWrite
 		tetRefiner = new refinement::IdentityRefiner<double>();
 		break;
 	case 1:
-		logInfo(rank) << "Refinement Startegy is \"Divide by 4\"";
+		logInfo(rank) << "Refinement Strategy is \"Divide by 4\"";
 		tetRefiner = new refinement::DivideTetrahedronBy4<double>();
 		break;
 	case 2:
-		logInfo(rank) << "Refinement Startegy is \"Divide by 8\"";
+		logInfo(rank) << "Refinement Strategy is \"Divide by 8\"";
 		tetRefiner = new refinement::DivideTetrahedronBy8<double>();
 		break;
 	case 3:
-		logInfo(rank) << "Refinement Startegy is \"Divide by 32\"";
+		logInfo(rank) << "Refinement Strategy is \"Divide by 32\"";
 		tetRefiner = new refinement::DivideTetrahedronBy32<double>();
 		break;
 	default:
