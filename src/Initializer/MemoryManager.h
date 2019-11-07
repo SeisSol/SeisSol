@@ -298,4 +298,11 @@ class seissol::initializers::MemoryManager {
 
 };
 
+
+namespace seissol {
+    namespace initializers {
+        bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
+    }
+}
+
 #endif

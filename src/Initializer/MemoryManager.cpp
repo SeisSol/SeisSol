@@ -531,14 +531,17 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
   for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
     CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
     real** displacements = layer->var(m_lts.displacements);
+    CellMaterialData* cellMaterialData = layer->var(m_lts.material);
 
     unsigned numberOfCells = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       bool hasFreeSurface = false;
-      for (const auto faceType : cellInformation[cell].faceTypes) {
+      for (unsigned int face = 0; face < 4; ++face) {
+        const auto faceType = cellInformation[cell].faceTypes[face];
         hasFreeSurface = hasFreeSurface
-            || faceType == FaceType::freeSurface
-            || faceType == FaceType::freeSurfaceGravity;
+                         || faceType == FaceType::freeSurface
+                         || faceType == FaceType::freeSurfaceGravity
+                         || isAtElasticAcousticInterface(cellMaterialData[cell], face);
       }
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
@@ -614,7 +617,6 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
     cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
 
-  // TODO(Lukas) Should this be called even when no free surface writer/free surface + gravity bc is used?
   deriveDisplacementsBucket();
 
   m_ltsTree.allocateBuckets();
@@ -631,7 +633,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
     initializeFaceNeighbors(tc, cluster.child<Interior>());
   }
 
-  for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
+  for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
     touchBuffersDerivatives(*it);
   }
 
@@ -659,5 +661,12 @@ void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const ch
     std::cout << "initializeEasiBoundaryReader with file: " << fileName << std::endl;
     m_easiBoundary = std::move(EasiBoundary(fileNameStr));
   }
+}
+
+bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
+  // We define the interface cells as all cells that are in the elastic domain but have a
+  // neighbor with acoustic material.
+  constexpr auto eps =std::numeric_limits<real>::epsilon();
+  return material.local.mu > eps && material.neighbor[face].mu < eps;
 }
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0

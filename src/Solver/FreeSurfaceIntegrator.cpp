@@ -40,6 +40,7 @@
 #include "FreeSurfaceIntegrator.h"
 
 #include <Initializer/MemoryAllocator.h>
+#include <Initializer/MemoryManager.h>
 #include <Kernels/common.hpp>
 #include <Kernels/denseMatrixOps.hpp>
 #include <Numerical_aux/Functions.h>
@@ -236,15 +237,17 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
+    CellMaterialData* cellMaterialData = layer->var(lts->material);
 
     unsigned numberOfFreeSurfaces = 0;
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
-	    cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity) {
+        for (unsigned face = 0; face < 4; ++face) {
+        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
+        || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
+        || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
           ++numberOfFreeSurfaces;
         }
       }
@@ -268,17 +271,20 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
         layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
         ++layer, ++surfaceLayer) {
     CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
-    real (*dofs)[tensor::Q::size()]       = layer->var(lts->dofs);
-    real** displacements                  = layer->var(lts->displacements);
-    real** surfaceDofs                    = surfaceLayer->var(surfaceLts.dofs);
-    real** displacementDofs               = surfaceLayer->var(surfaceLts.displacementDofs);
+    real (*dofs)[tensor::Q::size()] = layer->var(lts->dofs);
+    real** displacements = layer->var(lts->displacements);
+    real** surfaceDofs = surfaceLayer->var(surfaceLts.dofs);
+    real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
+    CellMaterialData* cellMaterialData = layer->var(lts->material);
+
     unsigned* side = surfaceLayer->var(surfaceLts.side);
     unsigned* meshId = surfaceLayer->var(surfaceLts.meshId);
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
-	    cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ) {
+        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
+        || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
+        || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
           assert(displacements[cell] != nullptr);
 
           surfaceDofs[surfaceCell]      = dofs[cell];

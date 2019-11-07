@@ -74,6 +74,10 @@ extern "C" {
     e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
   }
 
+  void c_interoperability_initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration) {
+    e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration);
+  }
+
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
@@ -391,6 +395,10 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
                                                          m_meshStructure,
                                                          m_ltsTree->var(m_lts->cellInformation) );
 
+
+}
+
+void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration) {
   // initialize memory layout
   seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout(enableFreeSurfaceIntegration);
 
@@ -407,6 +415,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
   // TODO(Lukas) Is this the best place for this?
   seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
+
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 void seissol::Interoperability::setupNRFPointSources( char const* fileName )

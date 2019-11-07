@@ -81,6 +81,15 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface c_interoperability_initializeMemoryLayout
+    subroutine c_interoperability_initializeMemoryLayout(clustering, enableFreeSurfaceIntegration ) bind( C, name='c_interoperability_initializeMemoryLayout' )
+      use iso_c_binding
+      implicit none
+      integer(kind=c_int), value  :: clustering
+      logical(kind=c_bool), value :: enableFreeSurfaceIntegration
+    end subroutine
+  end interface
+
   interface
     subroutine c_interoperability_initializeEasiBoundaries(fileName) bind( C, name='c_interoperability_initializeEasiBoundaries' )
       use iso_c_binding

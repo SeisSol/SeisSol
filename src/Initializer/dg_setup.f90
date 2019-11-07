@@ -580,6 +580,7 @@ CONTAINS
 
     enddo
   enddo
+    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
 
 #ifdef USE_MPI
   ! synchronize redundant cell data
