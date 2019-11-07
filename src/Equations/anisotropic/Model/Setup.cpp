@@ -135,49 +135,14 @@ void getTransposedAnisotropicCoefficientMatrix( seissol::model::Material const& 
       break;
   }
 }
-
-void getTransposedBoundaryGodunovState( seissol::init::QgodLocal::view::type&      QgodLocal,
-                                        seissol::init::QgodNeighbor::view::type&   QgodNeighbor,
-                                        Eigen::Matrix<real, 9, 9>& R)
+void getEigenBasisForAnisotropicMaterial( seissol::model::Material const& local,
+                                          seissol::model::Material const& neighbor,
+                                          Eigen::Matrix<real, 9, 9>&      R)
 {
-  for (int i = 0; i < 9; i++) {
-    for (int j = 0; j < 9; j++) {
-      QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
-    }
-  }
-
-  QgodLocal.setZero();
-  std::array<std::array<int, 2>, 3> traction_indices = {{{0,0}, {1,3}, {2,5}}};
-  std::array<std::array<int, 2>, 3> velocity_indices = {{{0,6}, {1,7}, {2,8}}};
-  Eigen::Matrix<real, 3, 3> R11 = R.block(0, 0, 3, 3);
-  Eigen::Matrix<real, 3, 3> R21 = R.block(3, 0, 3, 3);
-  auto S = - (R21 * R11.inverse()).eval();
-
-  //set lower left block
-  for (auto &t: traction_indices) {
-    for (auto &v: velocity_indices) {
-      QgodLocal(v[1], t[1]) = S(v[0],t[0]);
-    }
-  }
-  //set lower right block
-  for (auto &v : velocity_indices) {
-    QgodLocal(v[1], v[1]) = 1.0;
-  }
-}
-
-void seissol::model::getTransposedGodunovState( Material const&                   local,
-                                                Material const&                   neighbor,
-                                                enum ::faceType                   faceType,
-                                                init::QgodLocal::view::type&      QgodLocal,
-                                                init::QgodNeighbor::view::type&   QgodNeighbor )
-{
-  QgodNeighbor.setZero();
-  
   using Matrix33 = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>;
   using Matrix63 = Eigen::Matrix<real, 6, 3, Eigen::ColMajor>;
-  using Matrix99 = Eigen::Matrix<real, 9, 9, Eigen::ColMajor>;
   
-//Calculate Eigenvectors and Eigenvalues
+  //Calculate Eigenvectors and Eigenvalues
   Eigen::SelfAdjointEigenSolver<Matrix33> saes;
   
   real aL[9];
@@ -267,19 +232,29 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   E1(4,2) = 1;
   Matrix33 E2 = Matrix33::Zero();
   
-  Matrix99 R;
   R <<  A1L * eigenvectorsL,   E1, A1N * eigenvectorsN, 
        -eigenvectorsL*lambdaL, E2, eigenvectorsN*lambdaN;
+}
+
+void seissol::model::getTransposedGodunovState( Material const&                   local,
+                                                Material const&                   neighbor,
+                                                enum ::faceType                   faceType,
+                                                init::QgodLocal::view::type&      QgodLocal,
+                                                init::QgodNeighbor::view::type&   QgodNeighbor )
+{
+  Matrix99 R = Matrix99::Zero();
+  getEigenBasisForAnisotropicMaterial(local, neighbor, R);
 
   if(faceType == freeSurface) {
-    ::getTransposedBoundaryGodunovState(QgodLocal, QgodNeighbor, R);
+    getTransposedFreeSurfaceGodunovState(QgodLocal, QgodNeighbor, R);
+
   } else {
-    Eigen::Matrix<real, 9, 1> diag = Eigen::Matrix<real, 9, 1>::Zero();
-    diag(0) = 1.0;
-    diag(1) = 1.0;
-    diag(2) = 1.0;
-    auto chi = Matrix99(diag.asDiagonal());
-    Matrix99 godunov = ((R*chi)*R.inverse()).eval();
+    Matrix99 chi = Matrix99::Zero();
+    chi(0,0) = 1.0;
+    chi(1,1) = 1.0;
+    chi(2,2) = 1.0;
+
+    const auto godunov = ((R*chi)*R.inverse()).eval();
 
     // QgodLocal = I - QgodNeighbor
     for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {

@@ -43,6 +43,8 @@
 #include <Eigen/Eigen>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
+#include <Geometry/MeshTools.h>
+#include <Numerical_aux/Transformation.h>
 
 namespace seissol {
   namespace model {
@@ -164,11 +166,11 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( T&                   
 }
 
 template<typename Tloc, typename Tneigh>
-void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
-    Material const&                      neighbor,
-    enum ::faceType                      faceType,
-    Tloc&                                QgodLocal,
-    Tneigh&                              QgodNeighbor )
+void seissol::model::getTransposedElasticGodunovState( ElasticMaterial const& local,
+                                                       ElasticMaterial const& neighbor,
+                                                       enum ::faceType        faceType,
+                                                       Tloc&                  QgodLocal,
+                                                       Tneigh&                QgodNeighbor )
 {
   QgodNeighbor.setZero();
 
