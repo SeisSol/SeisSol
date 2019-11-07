@@ -270,12 +270,12 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
+				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 				   # todo: use reexport from easi?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yaml-cpp/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 
@@ -283,7 +283,6 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   CONVERGENCE_ORDER=${ORDER}
 				   NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
 				   LOGLEVEL=3
 				   LOGLEVEL0=3
