@@ -40,12 +40,14 @@
 #ifndef MODEL_COMMON_HPP_
 #define MODEL_COMMON_HPP_
 
-#include <cmath>
+#include <Eigen/Eigen>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
 
 namespace seissol {
   namespace model {
+    using Matrix99 = Eigen::Matrix<real, 9, 9>;
+
     template<typename T>
     void getTransposedElasticCoefficientMatrix( ElasticMaterial const&          i_material,
                                                 unsigned                        i_dim,
@@ -57,10 +59,12 @@ namespace seissol {
                                            enum ::faceType                      faceType,
                                            Tloc&                                QgodLocal,
                                            Tneigh&                              QgodNeighbor );
-
+    
     template<typename T>
-    void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    T&              QgodNeighbor );
+    void getTransposedFreeSurfaceGodunovState( T& QgodLocal,
+                                               T& QgodNeighbor,
+                                               Matrix99& R);
+
   }
 }
 
@@ -114,65 +118,114 @@ void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::Elas
   }
 }
 
-template<typename Tloc, typename Tneigh>
-void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
-                                                       Material const&                      neighbor,
-                                                       enum ::faceType                      faceType,
-                                                       Tloc&                                QgodLocal,
-                                                       Tneigh&                              QgodNeighbor )
+template<typename T>
+void seissol::model::getTransposedFreeSurfaceGodunovState( T&                         QgodLocal,
+                                                           T&                         QgodNeighbor,
+                                                           Eigen::Matrix<real, 9, 9>& R)
 {
-  QgodNeighbor.setZero();
-  
-  real cpL = sqrt((local.lambda + 2.0 * local.mu)       / local.rho);
-  real cpN = sqrt((neighbor.lambda + 2.0 * neighbor.mu) / neighbor.rho);
-  real csL = sqrt(local.mu / local.rho);
-  real csN = sqrt(neighbor.mu / neighbor.rho);
-  
-  real constP = cpN * (local.lambda + 2.0 * local.mu) + cpL * (neighbor.lambda + 2.0 * neighbor.mu);
-  real constS = csN * local.mu + csL * neighbor.mu;
-  
-  QgodNeighbor(0,0) = cpN * (local.lambda + 2.0 * local.mu) / constP;
-  QgodNeighbor(6,0) = (local.lambda + 2.0 * local.mu) * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(0,1) = cpN * local.lambda / constP;
-  QgodNeighbor(6,1) = local.lambda * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(0,2) = QgodNeighbor(0,1);
-  QgodNeighbor(6,2) = QgodNeighbor(6,1);
-  QgodNeighbor(3,3) = csN * local.mu / constS;
-  QgodNeighbor(7,3) = local.mu * neighbor.mu / constS;
-  QgodNeighbor(5,5) = QgodNeighbor(3,3);
-  QgodNeighbor(8,5) = QgodNeighbor(7,3);
-  QgodNeighbor(0,6) = cpL * cpN / constP;
-  QgodNeighbor(6,6) = cpL * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(3,7) = csL * csN / constS;
-  QgodNeighbor(7,7) = csL * neighbor.mu / constS;
-  QgodNeighbor(5,8) = QgodNeighbor(3,7);
-  QgodNeighbor(8,8) = QgodNeighbor(7,7);
-
-  // QgodLocal = I - QgodNeighbor
-  for (unsigned i = 0; i < 9; ++i) {
-    for (unsigned j = 0; j < 9; ++j) {
-      QgodLocal(i,j) = -QgodNeighbor(i,j);
+  for (int i = 0; i < 9; i++) {
+    for (int j = 0; j < 9; j++) {
+      QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
     }
-  }  
-  for (unsigned idx = 0; idx < 9; ++idx) {
-    QgodLocal(idx,idx) += 1.0;
   }
-  
-  applyBoundaryConditionToElasticFluxSolver(faceType, QgodNeighbor);
+
+  QgodLocal.setZero();
+  std::array<int, 3> traction_indices = {0,3,5};
+  std::array<int, 3> velocity_indices = {6,7,8};
+  using Matrix33 = Eigen::Matrix<real, 3, 3>;
+  Matrix33 R11 = R(traction_indices, {0,1,2});
+  Matrix33 R21 = R(velocity_indices, {0,1,2});
+  auto S = - (R21 * R11.inverse()).eval();
+
+  //set lower left block
+  int row = 0;
+  for (auto &t: traction_indices) {
+    int col = 0;
+    for (auto &v: velocity_indices) {
+      QgodLocal(t, v) = S(row, col);
+      col++;
+    }
+    row++;
+  }
+  //set lower right block
+  for (auto &v : velocity_indices) {
+    QgodLocal(v, v) = 1.0;
+  }
 }
 
-template<typename T>
-void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                T&              QgodNeighbor )
+template<typename Tloc, typename Tneigh>
+void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
+    Material const&                      neighbor,
+    enum ::faceType                      faceType,
+    Tloc&                                QgodLocal,
+    Tneigh&                              QgodNeighbor )
 {
-  if (type == freeSurface) {
-    // Gamma is a diagonal matrix
-    real Gamma[] = { -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0 };
-    // Gamma^T * Fneighbor
-    for (unsigned j = 0; j < QgodNeighbor.shape(1); ++j) {
-      for (unsigned i = 0; i < 9; ++i) {
-        QgodNeighbor(i,j) *= Gamma[i];
+  QgodNeighbor.setZero();
+
+  Matrix99 R = Matrix99::Zero();
+
+  //eigenvectors have been precalculated
+  R(0,0) = local.lambda + 2*local.mu;
+  R(0,8) = neighbor.lambda + 2*neighbor.mu;
+  R(1,0) = local.lambda;
+  R(1,4) = 1;
+  R(1,8) = neighbor.lambda;
+  R(2,0) = local.lambda;
+  R(2,5) = 1;
+  R(2,8) = neighbor.lambda;
+  R(3,1) = local.mu;
+  R(3,7) = neighbor.mu;
+  R(4,3) = 1;
+  R(5,2) = local.mu;
+  R(5,6) = neighbor.mu;
+  R(6,0) = sqrt((local.lambda + 2*local.mu)/local.rho);
+  R(6,8) = -sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho);
+  R(7,1) = sqrt(local.mu/local.rho);
+  R(7,7) = -sqrt(neighbor.mu/neighbor.rho);
+  R(8,2) = sqrt(local.mu/local.rho);
+  R(8,6) = -sqrt(neighbor.mu/neighbor.rho);
+
+  if(faceType == freeSurface) {
+    getTransposedFreeSurfaceGodunovState(QgodLocal, QgodNeighbor, R);
+
+  } else {
+    Matrix99 R_inv = Matrix99::Zero();
+    //we do not need to compute all of R_inv as we will multiply it with the indicator chi later
+    //which extracts the first three rows of R_inv
+    
+    //We can exploit that R only couples 2 values to each other to easily compute an analytic solution
+    //inv_xy computes the (x,y)th entry of ((local_kappa, neighbor_kappa),(local_c, -neighbor_c))^-1
+    auto inv_00 = [](real local_kappa, real neighbor_kappa, real local_c, real neighbor_c) {
+      return neighbor_c / (local_kappa * neighbor_c + neighbor_kappa * local_c);  
+    };
+    auto inv_01 = [](real local_kappa, real neighbor_kappa, real local_c, real neighbor_c) {
+      return neighbor_kappa / (local_kappa * neighbor_c + neighbor_kappa * local_c);  
+    };
+
+
+    R_inv(0,0) = inv_00(local.lambda + 2*local.mu, neighbor.lambda + 2*neighbor.mu, sqrt((local.lambda + 2*local.mu)/local.rho), sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
+    R_inv(0,6) = inv_01(local.lambda + 2*local.mu, neighbor.lambda + 2*neighbor.mu, sqrt((local.lambda + 2*local.mu)/local.rho), sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
+    R_inv(1,3) = inv_00(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
+    R_inv(1,7) = inv_01(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
+    R_inv(2,5) = inv_00(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
+    R_inv(2,8) = inv_01(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
+
+    Matrix99 chi = Matrix99::Zero();
+    chi(0,0) = 1.0;
+    chi(1,1) = 1.0;
+    chi(2,2) = 1.0;
+
+    const auto godunov = ((R*chi)*R_inv).eval();
+
+    // QgodLocal = I - QgodNeighbor
+    for (unsigned i = 0; i < godunov.cols(); ++i) {
+      for (unsigned j = 0; j < godunov.rows(); ++j) {
+        QgodLocal(i,j) = -godunov(j,i);
+        QgodNeighbor(i,j) = godunov(j,i);
       }
+    }  
+    for (unsigned idx = 0; idx < 9; ++idx) {
+      QgodLocal(idx,idx) += 1.0;
     }
   }
 }

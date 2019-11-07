@@ -361,6 +361,7 @@ if(CXXTEST_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
     )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib) 
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
