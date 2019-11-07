@@ -38,10 +38,13 @@
 # @section DESCRIPTION
 #
 
+import numpy as np
 from abc import ABC, abstractmethod
 
-from yateto import *
+from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseXMLMatrixFile
+from yateto.ast.node import Add
+from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from multSim import OptionalDimTensor
 
 class ADERDGBase(ABC):
@@ -131,6 +134,3 @@ class ADERDGBase(ABC):
   @abstractmethod
   def addTime(self, generator):
     pass
-  
-  def addIncludeTensors(self, tensors):
-      pass

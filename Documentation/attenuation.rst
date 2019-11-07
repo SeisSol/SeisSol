@@ -94,6 +94,8 @@ by
    equations = 'viscoelastic2'
    numberOfMechanisms = 3
 
+Note that the equations='viscoelastic' is operational but deprecated.
+
 Dispersion
 ----------
 

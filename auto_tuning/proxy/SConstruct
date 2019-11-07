@@ -41,7 +41,6 @@
 import os
 import arch
 import sys
-import memlayout
 
 # Check if we the user wants to show help only
 helpMode = GetOption('help')
@@ -121,7 +120,7 @@ if int(env['multipleSimulations']) != 1 and int(env['multipleSimulations']) % ar
   ConfigurationError("*** multipleSimulations must be a multiple of {}.".format(arch.getAlignedReals(env['arch'])))
 
 if not 'memLayout' in env:
-  env['memLayout'] = memlayout.guessMemoryLayout(env)
+  env['memLayout'] = 'auto'
 
 # generate help text
 Help(vars.GenerateHelpText(env))
@@ -168,7 +167,7 @@ env.Append(CXXFLAGS=['-std=c++11'])
 if env['compiler'] == 'gcc':
   env.Append(CXXFLAGS = ['-Werror=vla'])
 
-if env['equations'] in ['elastic', 'viscoelastic2']:
+if env['equations'] in ['elastic', 'viscoelastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
 flags = ['-fopenmp']

@@ -20,7 +20,7 @@ testcasefolder=
 #@ output = job$(jobid).out
 #@ error = job$(jobid).err
 #@ notification=always
-#@ notify_user=ulrich@geophysik.uni-muenchen.de
+#@ notify_user=yourmail
 #@ queue
 . /etc/profile
 . /etc/profile.d/modules.sh

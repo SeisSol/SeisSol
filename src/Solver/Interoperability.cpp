@@ -648,6 +648,9 @@ void seissol::Interoperability::synchronizeCellLocalData() {
 
 void seissol::Interoperability::synchronizeCopyLayerDofs() {
   synchronize(m_lts->dofs);
+  if (kernels::size<tensor::Qane>() > 0) {
+    synchronize(m_lts->dofsAne);
+  }
 }
 
 void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename ) {

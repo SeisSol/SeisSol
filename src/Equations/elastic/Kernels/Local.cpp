@@ -52,6 +52,10 @@
 #include <stdint.h>
 #include <cstring>
 
+#include <Kernels/common.hpp>
+GENERATE_HAS_MEMBER(ET)
+GENERATE_HAS_MEMBER(sourceMatrix)
+
 void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
@@ -84,7 +88,10 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.localIntegration.starMatrices[i];
   }
-  
+
+  // Optional source term
+  set_ET(volKrnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
+
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;

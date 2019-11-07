@@ -66,6 +66,17 @@ def ConfigurationError(msg):
     print(msg)
     Exit(1)
 
+def DeprecatedWarning(option, msg):
+  if not helpMode:
+    option_str = '** Deprecated option: {}'.format(option)
+    msg_str = '** {}'.format(msg)
+    star_len = max(len(option_str), len(msg_str))
+    stars = '*' * star_len
+    print(stars)
+    print(option_str)
+    print(msg_str)
+    print(stars)
+
 #
 # set possible variables
 #
@@ -250,6 +261,10 @@ if env['equations'].startswith('viscoelastic'):
     ConfigurationError("*** Number of mechanisms not set.")
 elif env['numberOfMechanisms'] != '0':
   ConfigurationError("*** Number of mechanisms must be 0 for elastic equations.")
+
+if env['equations'] == 'viscoelastic':
+  DeprecatedWarning('viscoelastic', 'Please use viscoelastic2.')
+
 
 if int(env['multipleSimulations']) != 1 and int(env['multipleSimulations']) % arch.getAlignedReals(env['arch']) != 0:
   ConfigurationError("*** multipleSimulations must be a multiple of {}.".format(arch.getAlignedReals(env['arch'])))
@@ -458,8 +473,7 @@ env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['eq
 if env['equations'] == 'anisotropic':
   env.Append(CPPDEFINES=['USE_ANISOTROPIC'])
 
-if env['equations'] in ['elastic', 'anisotropic', 'viscoelastic2']:
-  env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
+env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
 if int(env['multipleSimulations']) > 1:
   env.Append(CPPDEFINES=['MULTIPLE_SIMULATIONS={}'.format(env['multipleSimulations'])])
@@ -531,6 +545,7 @@ env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/in
 #
 # add libraries
 #
+
 env.Tool('cmake')
 
 # Libxsmm
@@ -543,15 +558,8 @@ env.Tool('DirTool', fortran=True)
 # Some C++ GLM features are not working with the Intel Compiler
 env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
-# yaml-cpp
-yaml_cpp = env.CMake( source=[Glob(path + '*/.cpp') for path, dirs, files in os.walk('submodules/yaml-cpp/src')],
-                      target=['#/{}/external/yaml-cpp/libyaml-cpp.a'.format(env['buildDir'])],
-                      CMakeProject = Dir('submodules/yaml-cpp'),
-                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no', '-DCMAKE_CXX_STANDARD=11', '-DYAML_CPP_BUILD_TESTS=OFF'],
-                      cc = env['CC'],
-                      cxx = env['CXX'])
-env.Append(CPPPATH=['#/submodules/yaml-cpp/include'])
-env.Append(LIBS=yaml_cpp)
+# Eigen3
+libs.find(env, 'eigen3', required=False)
 
 # netCDF
 if env['netcdf'] == 'yes':
@@ -589,6 +597,16 @@ if env['asagi']:
 
     libs.find(env, 'asagi', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
+
+# yaml-cpp
+yaml_cpp = env.CMake( source=[Glob(path + '*/.cpp') for path, dirs, files in os.walk('submodules/yaml-cpp/src')],
+                      target=['#/{}/external/yaml-cpp/libyaml-cpp.a'.format(env['buildDir'])],
+                      CMakeProject = Dir('submodules/yaml-cpp'),
+                      CMakeOpts = ['-DYAML_CPP_BUILD_TOOLS=no', '-DCMAKE_CXX_STANDARD=11', '-DYAML_CPP_BUILD_TESTS=OFF'],
+                      cc = env['CC'],
+                      cxx = env['CXX'])
+env.Append(CPPPATH=['#/submodules/yaml-cpp/include'])
+env.Append(LIBS=yaml_cpp)
 
 # impalajit
 impalajit = env.CMake( source=[Glob(path + '*/.cc') for path, dirs, files in os.walk('submodules/ImpalaJIT')],
