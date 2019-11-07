@@ -242,6 +242,9 @@ if (NETCDF)
 endif()
 
 if (HDF5)
+  if (MPI)
+    set(HDF5_PREFER_PARALLEL True)
+  endif()
   find_package(HDF5 REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${HDF5_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
@@ -253,7 +256,6 @@ if (METIS)
   find_package(ParMETIS REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
-  target_link_directories(SeisSol-lib PUBLIC ${PARMETIS_LIBRARY_DIR})
   target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
@@ -360,6 +362,7 @@ if(CXXTEST_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
     )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib) 
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
