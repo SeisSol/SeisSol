@@ -539,8 +539,6 @@ else:
 # add include path for submodules
 env.Append( CPPPATH=['#/submodules', '#/submodules/yateto/include', '#/submodules/eigen3'] )
 
-env.Append(CPPDEFINES=['HAS_EIGEN'])
-
 #
 # add libraries
 #

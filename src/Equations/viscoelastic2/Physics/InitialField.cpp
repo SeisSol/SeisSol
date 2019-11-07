@@ -2,9 +2,7 @@
 #include <array>
 #include <stdexcept>
 #include <numeric>
-#ifdef HAS_EIGEN3
 #include <Eigen/Eigenvalues>
-#endif
 
 #include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
@@ -18,7 +16,6 @@ seissol::physics::Planarwave::Planarwave(double phase)
     m_kVec{3.14159265358979323846, 3.14159265358979323846, 3.14159265358979323846},
     m_phase(phase)
 {
-#ifdef HAS_EIGEN3
   const double rho = 1.0;
   const double mu = 1.0;
   const double lambda = 2.0;
@@ -65,9 +62,6 @@ seissol::physics::Planarwave::Planarwave(double phase)
       R(i,j) = eigenvectors(i,j);
     }
   }
-#else
-  throw std::runtime_error("Eigen3 required for anelastic planarwave.");
-#endif
 }
 
 void seissol::physics::Planarwave::evaluate(  double time,
