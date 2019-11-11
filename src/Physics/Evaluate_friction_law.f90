@@ -401,8 +401,8 @@ MODULE Eval_friction_law_mod
     real        :: tmpSlip(nBndGP)
     real        :: P(nBndGP)
     real        :: Strength(nBndGP), ShTest(nBndGP)
-    real        :: LocSR(nBndGP)
-    real        :: srFactor
+    real        :: LocSR(nBndGP), LocSR1(nBndGP), LocSR2(nBndGP)
+    real        :: eta, Z, Z_neig
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
@@ -417,8 +417,11 @@ MODULE Eval_friction_law_mod
     !-------------------------------------------------------------------------! 
     t_0 = DISC%DynRup%t_0
     tmpSlip = 0.0D0
+
+    Z = rho * w_speed(2)
+    Z_neig = rho_neig * w_speed_neig(2)
+    eta = Z*Z_neig / (Z+Z_neig)
     
-    srFactor = -(1.0D0/(w_speed(2)*rho)+1.0D0/(w_speed_neig(2)*rho_neig))
     tn = time
     
     do iTimeGP=1,nTimeGP
@@ -429,28 +432,16 @@ MODULE Eval_friction_law_mod
       
       Strength = -DISC%DynRup%cohesion(:,iFace) - DISC%DynRup%Mu(:,iFace) * MIN(P,ZERO)      
       ShTest = SQRT((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))**2 + (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))**2)
-      
-      where (ShTest > Strength)
-        ! 1 evaluate friction
-        LocTracXY = (EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP)) / ShTest(:) * Strength(:)
-        LocTracXZ = (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP)) / ShTest(:) * Strength(:)
-        
-        ! 2 update stress change
-        LocTracXY = LocTracXY(:) - EQN%InitialStressInFaultCS(:,4,iFace)
-        LocTracXZ = LocTracXZ(:) - EQN%InitialStressInFaultCS(:,6,iFace)
-      elsewhere
-        LocTracXY = XYStressGP(:,iTimeGP)
-        LocTracXZ = XZStressGP(:,iTimeGP)        
-      end where
-      
-      ! Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-      DISC%DynRup%SlipRate1(:,iFace)     = srFactor*(LocTracXY(:)-XYStressGP(:,iTimeGP))
-      DISC%DynRup%SlipRate2(:,iFace)     = srFactor*(LocTracXZ(:)-XZStressGP(:,iTimeGP))
-      LocSR                              = SQRT(DISC%DynRup%SlipRate1(:,iFace)**2 + DISC%DynRup%SlipRate2(:,iFace)**2)
-      
+
+      LocSR = max(0d0, (ShTest - Strength) / eta)
+      LocSR1 = LocSR * (EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
+      LocSR2 = LocSR * (EQN%InitialStressInFaultCS(:,6,iFace) + XYStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
+      LocTracXY = XYStressGP(:,iTimeGP) - eta * LocSR1
+      LocTracXZ = XZStressGP(:,iTimeGP) - eta * LocSR2
+
       ! Update slip
-      DISC%DynRup%Slip1(:,iFace) = DISC%DynRup%Slip1(:,iFace) + DISC%DynRup%SlipRate1(:,iFace)*time_inc
-      DISC%DynRup%Slip2(:,iFace) = DISC%DynRup%Slip2(:,iFace) + DISC%DynRup%SlipRate2(:,iFace)*time_inc
+      DISC%DynRup%Slip1(:,iFace) = DISC%DynRup%Slip1(:,iFace) + LocSR1(:)*time_inc
+      DISC%DynRup%Slip2(:,iFace) = DISC%DynRup%Slip2(:,iFace) + LocSR2(:)*time_inc
       DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + LocSR(:)*time_inc      
       tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
       
@@ -509,6 +500,8 @@ MODULE Eval_friction_law_mod
 
     DISC%DynRup%TracXY(:,iFace)    = LocTracXY
     DISC%DynRup%TracXZ(:,iFace)    = LocTracXZ
+    DISC%DynRup%SlipRate1(:,iFace) = LocSR1
+    DISC%DynRup%SlipRate2(:,iFace) = LocSR2
 
     !---compute and store slip to determine the magnitude of an earthquake ---
     !    to this end, here the slip is computed and averaged per element

@@ -260,7 +260,8 @@ extern "C" {
 
   extern void f_interoperability_evaluateFrictionLaw( void*   i_domain,
                                                       int     i_face,
-                                                      real*   i_godunov,
+                                                      real*   i_QInterpolatedPlus,
+                                                      real*   i_QInterpolatedMinus,
                                                       real*   i_imposedStatePlus,
                                                       real*   i_imposedStateMinus,
                                                       int     i_numberOfBasisFunctions2D,
@@ -816,9 +817,10 @@ void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
 }
 
 void seissol::Interoperability::evaluateFrictionLaw(  int face,
-                                                      real godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
-                                                      real imposedStatePlus[seissol::tensor::godunovState::size()],
-                                                      real imposedStateMinus[seissol::tensor::godunovState::size()],
+                                                      real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                                      real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                                      real imposedStatePlus[seissol::tensor::QInterpolated::size()],
+                                                      real imposedStateMinus[seissol::tensor::QInterpolated::size()],
                                                       double i_fullUpdateTime,
                                                       double timePoints[CONVERGENCE_ORDER],
                                                       double timeWeights[CONVERGENCE_ORDER],
@@ -826,12 +828,13 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                                       seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
 {
   int fFace = face + 1;
-  int numberOfPoints = tensor::godunovState::Shape[0];
-  int godunovLd = init::godunovState::Stop[0] - init::godunovState::Start[0];
+  int numberOfPoints = tensor::QInterpolated::Shape[0];
+  int godunovLd = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
 
   f_interoperability_evaluateFrictionLaw( m_domain,
                                           fFace,
-                                         &godunov[0][0],
+                                         &QInterpolatedPlus[0][0],
+                                         &QInterpolatedMinus[0][0],
                                          &imposedStatePlus[0],
                                          &imposedStateMinus[0],
                                           numberOfPoints,

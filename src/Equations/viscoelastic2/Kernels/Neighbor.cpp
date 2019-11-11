@@ -118,7 +118,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
 
       kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
-      drKrnl.godunovState = cellDrMapping[l_face].godunov;
+      drKrnl.QInterpolated = cellDrMapping[l_face].godunov;
       drKrnl.Qext = Qext;
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
