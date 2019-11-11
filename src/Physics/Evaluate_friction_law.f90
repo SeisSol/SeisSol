@@ -435,7 +435,7 @@ MODULE Eval_friction_law_mod
 
       LocSR = max(0d0, (ShTest - Strength) / eta)
       LocSR1 = LocSR * (EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
-      LocSR2 = LocSR * (EQN%InitialStressInFaultCS(:,6,iFace) + XYStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
+      LocSR2 = LocSR * (EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP)) / (Strength + eta * LocSR)
       LocTracXY = XYStressGP(:,iTimeGP) - eta * LocSR1
       LocTracXZ = XZStressGP(:,iTimeGP) - eta * LocSR2
 
