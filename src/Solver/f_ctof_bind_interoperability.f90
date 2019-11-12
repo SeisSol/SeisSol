@@ -41,12 +41,6 @@
 
 #include "Initializer/preProcessorMacros.fpp"
 
-#if defined(REAL_SIZE)
-#define REAL_TYPE real*REAL_SIZE
-#else
-#error Unknown real size.
-#endif
-
 module f_ctof_bind_interoperability
   implicit none
 

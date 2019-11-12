@@ -95,7 +95,7 @@ MODULE Eval_friction_law_mod
     REAL        :: NorStressGP(:,:)
     REAL        :: XYStressGP(:,:)
     REAL        :: XZStressGP(:,:)
-    real        :: resampleMatrix(:,:)
+    REAL_TYPE   :: resampleMatrix(:,:)
     REAL        :: time
     real        :: timePoints(:)
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
@@ -410,7 +410,7 @@ MODULE Eval_friction_law_mod
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
-    real        :: resampleMatrix(nBndGP,nBndGP)
+    REAL_TYPE   :: resampleMatrix(nBndGP,nBndGP)
     REAL        :: t_0
     REAL        :: f1(nBndGP), f2(nBndGP)
     real        :: tn

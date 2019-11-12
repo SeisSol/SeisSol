@@ -157,3 +157,10 @@
 
 
 #endif
+
+#if defined(REAL_SIZE)
+#define REAL_TYPE real*REAL_SIZE
+#else
+#error Unknown real size.
+#endif
+
