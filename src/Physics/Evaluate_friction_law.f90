@@ -75,6 +75,7 @@ MODULE Eval_friction_law_mod
                                    NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
                                    iFace,iSide,iElem,time,timePoints,          & ! IN: element ID, time, inv Trafo
                                    rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
+                                   resampleMatrix,                     &
                                    EQN,DISC,MESH,MPI,IO,BND)             ! global variables
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -94,13 +95,14 @@ MODULE Eval_friction_law_mod
     REAL        :: NorStressGP(:,:)
     REAL        :: XYStressGP(:,:)
     REAL        :: XZStressGP(:,:)
+    real        :: resampleMatrix(:,:)
     REAL        :: time
     real        :: timePoints(:)
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     real        :: DeltaT(1:DISC%Galerkin%nTimeGP)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: MESH,MPI,IO,NorStressGP,XYStressGP,XZStressGP
-    INTENT(IN)    :: iFace,iSide,iElem,rho,rho_neig,w_speed,w_speed_neig,time
+    INTENT(IN)    :: iFace,iSide,iElem,rho,rho_neig,w_speed,w_speed_neig,time,resampleMatrix
     INTENT(INOUT) :: EQN,DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
 
@@ -128,6 +130,7 @@ MODULE Eval_friction_law_mod
                                 iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                 rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                                 time,DeltaT,                               & ! IN: time
+                                resampleMatrix,                            &
                                 DISC,EQN,MESH,MPI,IO)                          
                                 
         CASE(3,4) ! Rate-and-state friction
@@ -378,6 +381,7 @@ MODULE Eval_friction_law_mod
                                    iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                    rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                                    time,DeltaT,                               & ! IN: time
+                                   resampleMatrix,                            &
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -406,12 +410,13 @@ MODULE Eval_friction_law_mod
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
+    real        :: resampleMatrix(nBndGP,nBndGP)
     REAL        :: t_0
     REAL        :: f1(nBndGP), f2(nBndGP)
     real        :: tn
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT,resampleMatrix
     INTENT(IN)    :: EQN,MESH,MPI,IO
     INTENT(INOUT) :: DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------! 
@@ -439,10 +444,17 @@ MODULE Eval_friction_law_mod
       LocTracXY = XYStressGP(:,iTimeGP) - eta * LocSR1
       LocTracXZ = XZStressGP(:,iTimeGP) - eta * LocSR2
 
+      ! Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
+      ! resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
+      ! degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
+      LocSR1(:) = matmul(resampleMatrix, LocSR1(:))
+      LocSR2(:) = matmul(resampleMatrix, LocSR2(:))
+      LocSR(:) = matmul(resampleMatrix, LocSR(:))
+
       ! Update slip
       DISC%DynRup%Slip1(:,iFace) = DISC%DynRup%Slip1(:,iFace) + LocSR1(:)*time_inc
       DISC%DynRup%Slip2(:,iFace) = DISC%DynRup%Slip2(:,iFace) + LocSR2(:)*time_inc
-      DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + LocSR(:)*time_inc      
+      DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + LocSR(:)*time_inc
       tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
       
      ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31

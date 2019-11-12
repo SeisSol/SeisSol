@@ -274,7 +274,8 @@ extern "C" {
                                                       double  sWaveVelocityPlus,
                                                       double  densityMinus,
                                                       double  pWaveVelocityMinus,
-                                                      double  sWaveVelocityMinus );
+                                                      double  sWaveVelocityMinus,
+                                                      real const* resampleMatrix );
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
@@ -831,6 +832,8 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
   int numberOfPoints = tensor::QInterpolated::Shape[0];
   int godunovLd = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
 
+  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
+
   f_interoperability_evaluateFrictionLaw( m_domain,
                                           fFace,
                                          &QInterpolatedPlus[0][0],
@@ -847,7 +850,8 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                           waveSpeedsPlus.sWaveVelocity,
                                           waveSpeedsMinus.density,
                                           waveSpeedsMinus.pWaveVelocity,
-                                          waveSpeedsMinus.sWaveVelocity);
+                                          waveSpeedsMinus.sWaveVelocity,
+                                          init::resample::Values );
 }
 
 void seissol::Interoperability::calcElementwiseFaultoutput(double time)

@@ -126,7 +126,9 @@ module f_ctof_bind_interoperability
       l_domain%disc%iterationstep = l_domain%disc%iterationstep + 1
     end subroutine
 
-    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_QInterpolatedPlus, i_QInterpolatedMinus, i_imposedStatePlus, i_imposedStateMinus, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus ) bind (c, name='f_interoperability_evaluateFrictionLaw')
+    subroutine f_interoperability_evaluateFrictionLaw( i_domain, i_face, i_QInterpolatedPlus, i_QInterpolatedMinus, &
+      i_imposedStatePlus, i_imposedStateMinus, i_numberOfPoints, i_godunovLd, i_time, timePoints, timeWeights, densityPlus, &
+      pWaveVelocityPlus, sWaveVelocityPlus, densityMinus, pWaveVelocityMinus, sWaveVelocityMinus, c_resampleMatrix ) bind (c, name='f_interoperability_evaluateFrictionLaw')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -152,6 +154,9 @@ module f_ctof_bind_interoperability
 
       type(c_ptr), value                     :: i_imposedStateMinus
       REAL_TYPE, pointer                     :: l_imposedStateMinus(:,:)
+
+      type(c_ptr), intent(in), value         :: c_resampleMatrix
+      REAL_TYPE, pointer                     :: resampleMatrix(:,:)
 
       type(c_ptr), value                     :: i_time
       real*8, pointer                        :: l_time
@@ -182,6 +187,7 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_QInterpolatedMinus, l_QInterpolatedMinus, [i_godunovLd,9,CONVERGENCE_ORDER])
       call c_f_pointer( i_imposedStatePlus,   l_imposedStatePlus, [i_godunovLd,9])
       call c_f_pointer( i_imposedStateMinus,  l_imposedStateMinus, [i_godunovLd,9])
+      call c_f_pointer( c_resampleMatrix,     resampleMatrix, [i_numberOfPoints, i_numberOfPoints])
       call c_f_pointer( i_time,               l_time  )
       
       call copyDynamicRuptureState(l_domain, i_face, i_face)
@@ -216,7 +222,7 @@ module f_ctof_bind_interoperability
       call Eval_friction_law( TractionGP_XY,TractionGP_XZ,        & ! OUT: updated Traction
                               NorStressGP,XYStressGP,XZStressGP,  & ! IN: Godunov status
                               i_face,iSide,iElem,l_time,timePoints,          & ! IN: element ID, time, inv Trafo
-                              rho,rho_neig,w_speed,w_speed_neig,  & ! IN: background values
+                              rho,rho_neig,w_speed,w_speed_neig, resampleMatrix,  & ! IN: background values
                               l_domain%eqn, l_domain%disc, l_domain%mesh, l_domain%mpi, l_domain%io, l_domain%bnd)
 
       l_imposedStatePlus = 0.0

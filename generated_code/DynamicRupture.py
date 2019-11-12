@@ -54,6 +54,7 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
 
   # Load matrices
   db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, aderdg.order), clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
+  db.update( parseJSONMatrixFile('{}/resample_{}.json'.format(matricesDir, aderdg.order)) )
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
@@ -79,3 +80,5 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
   nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
   generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)
+
+  return {db.resample}
