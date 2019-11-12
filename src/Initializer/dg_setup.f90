@@ -580,13 +580,13 @@ CONTAINS
 
     enddo
   enddo
-    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
-
 #ifdef USE_MPI
   ! synchronize redundant cell data
   logInfo0(*) 'Synchronizing copy cell material data.';
   call c_interoperability_synchronizeCellLocalData;
 #endif
+
+    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
 
   ! Initialize source terms
   select case(SOURCE%Type)
