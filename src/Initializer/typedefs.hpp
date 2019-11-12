@@ -89,6 +89,21 @@ enum faceType {
   periodic = 6
 };
 
+// material types
+enum materialType {
+  // elastic materials
+  elastic = 0,
+  // viscoelastic materials
+  viscoelastic = 1,
+  // elastoplastic materials
+  elastoplastic = 2,
+  // viscoplastic materials
+  viscoplastic = 3,
+  // anisotropic elastic materials
+  anisotropic = 5
+};
+
+
 // cross-cluster time stepping information
 struct TimeStepping {
   /*

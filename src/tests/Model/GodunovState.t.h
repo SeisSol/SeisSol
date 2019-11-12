@@ -19,9 +19,6 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
 
     void testGodunovState()
     {
-      seissol::model::Material local;
-      seissol::model::Material neighbor;
-
       real localData[seissol::tensor::QgodLocal::size()];
       real neighborData[seissol::tensor::QgodLocal::size()];
       init::QgodLocal::view::type QgodLocal = init::QgodLocal::view::create(localData);
@@ -31,6 +28,8 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
 
       //test homogeneous material
 #ifdef USE_ANISOTROPIC
+      seissol::model::AnisotropicMaterial local;
+      seissol::model::AnisotropicMaterial neighbor;
       double materialVal_1[22] = {
         2700,
         97200000000,
@@ -58,6 +57,8 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       setMaterial(materialVal_1, 22, &local);
       setMaterial(materialVal_1, 22, &neighbor);
 #else
+      seissol::model::ElasticMaterial local;
+      seissol::model::ElasticMaterial neighbor;
       double materialVal_1[3] = {
         2700,
         3.23980992e10,

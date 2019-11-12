@@ -41,11 +41,12 @@
 #define MODEL_DATASTRUCTURES_H_
 
 #include <Model/common_datastructures.hpp>
+#include <Equations/anisotropic/Model/datastructures.hpp>
 #include <generated_code/tensor.h>
 
 namespace seissol {
   namespace model {
-    struct Material : public ElasticMaterial {
+    struct ViscoElasticMaterial : public ElasticMaterial {
       //! Relaxation frequencies
       double omega[NUMBER_OF_RELAXATION_MECHANISMS];
       /** Entries of the source matrix (E)
@@ -55,6 +56,9 @@ namespace seissol {
        **/
       double theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
     };
+
+    struct ViscoPlasticMaterial : ViscoElasticMaterial, Plasticity {};
+
     struct LocalData {
       real sourceMatrix[seissol::tensor::ET::size()];
     };

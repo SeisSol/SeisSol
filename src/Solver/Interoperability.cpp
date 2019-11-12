@@ -49,9 +49,12 @@
 #include <Initializer/InitialFieldProjection.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/common.hpp>
+#include <Initializer/typedefs.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
+#include "Model/common_datastructures.hpp"
+#include "Model/common.hpp"
 
 seissol::Interoperability e_interoperability;
 
@@ -136,9 +139,9 @@ extern "C" {
                                               double* memory  ) {
     e_interoperability.addFaultParameter(name, memory);
   }
-
+  
   bool c_interoperability_faultParameterizedByTraction( char* modelFileName ) {
-    return seissol::initializers::ParameterDB::faultParameterizedByTraction( std::string(modelFileName) );
+    return seissol::initializers::ParameterDB<seissol::model::Material>::faultParameterizedByTraction( std::string(modelFileName) );
   }
 
   void c_interoperability_initializeFault(  char*   modelFileName,
@@ -461,59 +464,113 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
                                                   double* plastCo,
                                                   double* iniStress )
 {
-  auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
-  seissol::initializers::ParameterDB parameterDB;
-  parameterDB.addParameter("rho",    materialVal);
-  if (anisotropy == 1) { 
-    parameterDB.addParameter("c11",  materialVal + nElements*1);
-    parameterDB.addParameter("c12",  materialVal + nElements*2);
-    parameterDB.addParameter("c13",  materialVal + nElements*3);
-    parameterDB.addParameter("c14",  materialVal + nElements*4);
-    parameterDB.addParameter("c15",  materialVal + nElements*5);
-    parameterDB.addParameter("c16",  materialVal + nElements*6);
-    parameterDB.addParameter("c22",  materialVal + nElements*7);
-    parameterDB.addParameter("c23",  materialVal + nElements*8);
-    parameterDB.addParameter("c24",  materialVal + nElements*9);
-    parameterDB.addParameter("c25",  materialVal + nElements*10);
-    parameterDB.addParameter("c26",  materialVal + nElements*11);
-    parameterDB.addParameter("c33",  materialVal + nElements*12);
-    parameterDB.addParameter("c34",  materialVal + nElements*13);
-    parameterDB.addParameter("c35",  materialVal + nElements*14);
-    parameterDB.addParameter("c36",  materialVal + nElements*15);
-    parameterDB.addParameter("c44",  materialVal + nElements*16);
-    parameterDB.addParameter("c45",  materialVal + nElements*17);
-    parameterDB.addParameter("c46",  materialVal + nElements*18);
-    parameterDB.addParameter("c55",  materialVal + nElements*19);
-    parameterDB.addParameter("c56",  materialVal + nElements*20);
-    parameterDB.addParameter("c66",  materialVal + nElements*21);
-    
-    if (anelasticity == 1) {
-      parameterDB.addParameter("Qp",  materialVal + nElements*22);
-      parameterDB.addParameter("Qs",  materialVal + nElements*23);
-    }
-  }
-  else {
-    parameterDB.addParameter("mu",     materialVal + nElements*1);
-    parameterDB.addParameter("lambda", materialVal + nElements*2);
-
-    if (anelasticity == 1) {
-      parameterDB.addParameter("Qp",  materialVal + nElements*3);
-      parameterDB.addParameter("Qs",  materialVal + nElements*4);
-    }
-  }
-  if (plasticity == 1) {
-    parameterDB.addParameter("bulkFriction", bulkFriction);
-    parameterDB.addParameter("plastCo",      plastCo);
-    parameterDB.addParameter("s_xx",         iniStress+0, 6);
-    parameterDB.addParameter("s_yy",         iniStress+1, 6);
-    parameterDB.addParameter("s_zz",         iniStress+2, 6);
-    parameterDB.addParameter("s_xy",         iniStress+3, 6);
-    parameterDB.addParameter("s_yz",         iniStress+4, 6);
-    parameterDB.addParameter("s_xz",         iniStress+5, 6);
-  }
+  //There are only some valid combinations of material properties
+  // elastic materials
+  // viscoelastic materials
+  // elastoplastic materials
+  // viscoplastic materials
+  // anisotropic elastic materials
   
+  auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
   seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
-  parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+  if (anisotropy == 1) { 
+    if(anelasticity == 1 || plasticity == 1) {
+      logWarning() << "Anisotropy can not be combined with anelasticity or plasticity";
+    }
+    auto materials = std::vector<seissol::model::AnisotropicMaterial>(nElements);
+    seissol::initializers::ParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
+    parameterDB.setMaterialType(materialType::anisotropic);
+    parameterDB.setMaterialVector(materials);
+    parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+    for (unsigned int i = 0; i < nElements; i++) {
+      materialVal[i] = materials[i].rho;
+      materialVal[nElements + i] = materials[i].c_store[0];
+      materialVal[2*nElements + i] = materials[i].c_store[1];
+      materialVal[3*nElements + i] = materials[i].c_store[2];
+      materialVal[4*nElements + i] = materials[i].c_store[3];
+      materialVal[5*nElements + i] = materials[i].c_store[4];
+      materialVal[6*nElements + i] = materials[i].c_store[5];
+      materialVal[7*nElements + i] = materials[i].c_store[6];
+      materialVal[8*nElements + i] = materials[i].c_store[7];
+      materialVal[9*nElements + i] = materials[i].c_store[8];
+      materialVal[10*nElements + i] = materials[i].c_store[9];
+      materialVal[11*nElements + i] = materials[i].c_store[10];
+      materialVal[12*nElements + i] = materials[i].c_store[11];
+      materialVal[13*nElements + i] = materials[i].c_store[12];
+      materialVal[14*nElements + i] = materials[i].c_store[13];
+      materialVal[15*nElements + i] = materials[i].c_store[14];
+      materialVal[16*nElements + i] = materials[i].c_store[15];
+      materialVal[17*nElements + i] = materials[i].c_store[16];
+      materialVal[18*nElements + i] = materials[i].c_store[17];
+      materialVal[19*nElements + i] = materials[i].c_store[18];
+      materialVal[20*nElements + i] = materials[i].c_store[19];
+      materialVal[21*nElements + i] = materials[i].c_store[20];
+    }
+  } else {
+    if(anelasticity == 0 && plasticity == 0) {
+      auto materials = std::vector<seissol::model::ElasticMaterial>(nElements);
+      seissol::initializers::ParameterDB<seissol::model::ElasticMaterial> parameterDB;
+      parameterDB.setMaterialType(materialType::elastic);
+      parameterDB.setMaterialVector(materials);
+      parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+      for (unsigned int i = 0; i < nElements; i++) {
+        materialVal[i] = materials[i].rho;
+        materialVal[nElements + i] = materials[i].mu;
+        materialVal[2*nElements + i] = materials[i].lambda;
+      }
+    } else if (anelasticity == 1 && plasticity == 0) {
+      auto materials = std::vector<seissol::model::ViscoElasticMaterial>(nElements);
+      seissol::initializers::ParameterDB<seissol::model::ViscoElasticMaterial> parameterDB;
+      parameterDB.setMaterialType(materialType::viscoelastic);
+      parameterDB.setMaterialVector(materials);
+      parameterDB.evaluateModel(std::string(materialFileName), queryGen);
+      for (unsigned int i = 0; i < nElements; i++) {
+        materialVal[i] = materials[i].rho;
+        materialVal[nElements + i] = materials[i].mu;
+        materialVal[2*nElements + i] = materials[i].lambda;
+        materialVal[3*nElements + i] = materials[i].Qp;
+        materialVal[4*nElements + i] = materials[i].Qs;
+      }
+    } else if (anelasticity == 0 && plasticity == 1) {
+      auto materials = std::vector<seissol::model::ElastoPlasticMaterial>(nElements);
+      seissol::initializers::ParameterDB<seissol::model::ElastoPlasticMaterial> parameterDB;
+      parameterDB.setMaterialType(materialType::elastoplastic);
+      parameterDB.setMaterialVector(materials);
+      for (unsigned int i = 0; i < nElements; i++) {
+        materialVal[i] = materials[i].rho;
+        materialVal[nElements + i] = materials[i].mu;
+        materialVal[2*nElements + i] = materials[i].lambda;
+        bulkFriction[i] = materials[i].bulkFriction;
+        plastCo[i] = materials[i].plastCo;
+        iniStress[i+0*nElements] = materials[i].s_xx;
+        iniStress[i+1*nElements] = materials[i].s_yy;
+        iniStress[i+2*nElements] = materials[i].s_zz;
+        iniStress[i+3*nElements] = materials[i].s_xy;
+        iniStress[i+4*nElements] = materials[i].s_yz;
+        iniStress[i+5*nElements] = materials[i].s_xz;
+      }
+    } else if (anelasticity == 1 && plasticity == 1) {
+      auto materials = std::vector<seissol::model::ViscoPlasticMaterial>(nElements);
+      seissol::initializers::ParameterDB<seissol::model::ViscoPlasticMaterial> parameterDB;
+      parameterDB.setMaterialType(materialType::viscoplastic);
+      parameterDB.setMaterialVector(materials);
+      for (unsigned int i = 0; i < nElements; i++) {
+        materialVal[i] = materials[i].rho;
+        materialVal[nElements + i] = materials[i].mu;
+        materialVal[2*nElements + i] = materials[i].lambda;
+        materialVal[3*nElements + i] = materials[i].Qp;
+        materialVal[4*nElements + i] = materials[i].Qs;
+        bulkFriction[i] = materials[i].bulkFriction;
+        plastCo[i] = materials[i].plastCo;
+        iniStress[i+0*nElements] = materials[i].s_xx;
+        iniStress[i+1*nElements] = materials[i].s_yy;
+        iniStress[i+2*nElements] = materials[i].s_zz;
+        iniStress[i+3*nElements] = materials[i].s_xy;
+        iniStress[i+4*nElements] = materials[i].s_yz;
+        iniStress[i+5*nElements] = materials[i].s_xz;
+      }
+    }
+  }
 }
 
 void seissol::Interoperability::fitAttenuation( double rho,
@@ -521,12 +578,14 @@ void seissol::Interoperability::fitAttenuation( double rho,
                                                 double lambda,
                                                 double Qp,
                                                 double Qs,
-                                                seissol::model::Material& material )
+                                                seissol::model::ViscoElasticMaterial& material )
 {
+#ifdef USE_VISCOELASTIC
   constexpr size_t numMaterialVals = 3 + 4*NUMBER_OF_RELAXATION_MECHANISMS;
   double materialFortran[numMaterialVals];
   f_interoperability_fitAttenuation(m_domain, rho, mu, lambda, Qp, Qs, materialFortran);
-  seissol::model::setMaterial(materialFortran, numMaterialVals, &material);
+  seissol::model::setMaterial(materialFortran, numMaterialVals, material);
+#endif
 }
 
 void seissol::Interoperability::initializeFault( char*   modelFileName,
@@ -534,7 +593,7 @@ void seissol::Interoperability::initializeFault( char*   modelFileName,
                                                  double* bndPoints,
                                                  int     numberOfBndPoints )
 {
-  seissol::initializers::ParameterDB parameterDB;
+  seissol::initializers::ParameterDB<seissol::model::Material> parameterDB;
   for (auto const& kv : m_faultParameters) {
     parameterDB.addParameter(kv.first, kv.second);
   }
@@ -567,7 +626,27 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
     material = &m_ltsLut.lookup(m_lts->material, i_meshId - 1).neighbor[side];
   }
 
-  seissol::model::setMaterial(i_materialVal, i_numMaterialVals, material);
+  try {
+    const seissol::model::AnisotropicMaterial* am = dynamic_cast<const seissol::model::AnisotropicMaterial*>(material);
+    seissol::model::setMaterial(i_materialVal, i_numMaterialVals, am);
+  } 
+  catch(std::bad_cast exp) {
+    try {
+      const seissol::model::ElasticMaterial* em = dynamic_cast<const seissol::model::ElasticMaterial*>(material);
+      seissol::model::setMaterial(i_materialVal, i_numMaterialVals, em);
+    }
+    catch(std::bad_cast exp) {
+      try {
+        const seissol::model::ViscoElasticMaterial* vm = dynamic_cast<const seissol::model::ViscoElasticMaterial*>(material);
+        seissol::model::setMaterial(i_materialVal, i_numMaterialVals, vm);
+      } 
+      catch(std::bad_cast exp) {
+        //something went terribly wrong
+      }
+    }
+  }
+
+//  seissol::model::setMaterial(i_materialVal, i_numMaterialVals, material);
 }
 
 #ifdef USE_PLASTICITY

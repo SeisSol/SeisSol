@@ -37,15 +37,16 @@
  * @section DESCRIPTION
  **/
 
-#ifndef MODEL_DATASTRUCTURES_H_
-#define MODEL_DATASTRUCTURES_H_
+#ifndef MODEL_VISCOELASTIC_DATASTRUCTURES_H_
+#define MODEL_VISCOELASTIC_DATASTRUCTURES_H_
 
 #include <Model/common_datastructures.hpp>
+#include <Equations/elastic/Model/datastructures.hpp>
 #include <generated_code/tensor.h>
 
 namespace seissol {
   namespace model {
-    struct Material : public ElasticMaterial {
+    struct ViscoElasticMaterial : public ElasticMaterial {
       //! Relaxation frequencies
       double omega[NUMBER_OF_RELAXATION_MECHANISMS];
       /** Entries of the source matrix (E)
@@ -54,7 +55,17 @@ namespace seissol {
        * theta[2] = -2.0 * mu * Y_mu
        **/
       double theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
+      double Qp;
+      double Qs;
+
+      virtual ~ViscoElasticMaterial() {};
     };
+
+    struct ViscoPlasticMaterial : ViscoElasticMaterial, Plasticity {
+      virtual ~ViscoPlasticMaterial() {};
+    };
+
+#ifdef USE_VISCOELASTIC
     struct LocalData {
       real E[tensor::E::size()];
       real w[tensor::w::size()];
@@ -63,6 +74,7 @@ namespace seissol {
     struct NeighborData {
       real w[tensor::w::size()];
     };
+#endif
   }
 }
 

@@ -5,6 +5,7 @@
 #include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
 #include <Model/Setup.h>
+#include <Model/common.hpp>
 #include <yateto/TensorView.h>
 #include <Equations/elastic/Physics/InitialField.cpp>
 
@@ -39,16 +40,16 @@ seissol::physics::AnisotropicPlanarwave::AnisotropicPlanarwave(real phase)
       0.0, //c56
      49.0, //c66
   };
-  seissol::model::Material material;
+  seissol::model::AnisotropicMaterial material;
   seissol::model::setMaterial(materialVal, 22, &material); 
 
   std::complex<real> planeWaveOperator_1[9*9];
   std::complex<real> planeWaveOperator_2[9*9];
   std::complex<real> planeWaveOperator_3[9*9];
 
-  model::getPlaneWaveOperator(material, m_kVec1.data(), planeWaveOperator_1);
-  model::getPlaneWaveOperator(material, m_kVec2.data(), planeWaveOperator_2);
-  model::getPlaneWaveOperator(material, m_kVec3.data(), planeWaveOperator_3);
+  seissol::model::getPlaneWaveOperator(material, m_kVec1.data(), planeWaveOperator_1);
+  seissol::model::getPlaneWaveOperator(material, m_kVec2.data(), planeWaveOperator_2);
+  seissol::model::getPlaneWaveOperator(material, m_kVec3.data(), planeWaveOperator_3);
 
   using Matrix = Eigen::Matrix<std::complex<real>, 9, 9, Eigen::ColMajor>;
   Matrix op_1(planeWaveOperator_1);

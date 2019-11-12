@@ -190,4 +190,5 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
   target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
+
 endif()

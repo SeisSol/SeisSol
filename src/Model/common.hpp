@@ -45,27 +45,37 @@
 #include <generated_code/init.h>
 #include <Geometry/MeshTools.h>
 #include <Numerical_aux/Transformation.h>
+#include <Model/common_datastructures.hpp>
+#include <Equations/elastic/Model/datastructures.hpp>
+#include <Equations/anisotropic/Model/datastructures.hpp>
+#include <Equations/viscoelastic2/Model/datastructures.hpp>
 
 namespace seissol {
   namespace model {
     using Matrix99 = Eigen::Matrix<real, 9, 9>;
 
-    template<typename T>
-    void getTransposedElasticCoefficientMatrix( ElasticMaterial const&          i_material,
-                                                unsigned                        i_dim,
-                                                T&                              o_M );
+    template<typename Tmaterial, typename Tmatrix>
+    void getTransposedCoefficientMatrix( Tmaterial const& i_material,
+                                         unsigned         i_dim,
+                                         Tmatrix&         o_M );
 
-    template<typename Tloc, typename Tneigh>
-    void getTransposedElasticGodunovState( ElasticMaterial const&                      local,
-                                           ElasticMaterial const&                      neighbor,
-                                           enum ::faceType                      faceType,
-                                           Tloc&                                QgodLocal,
-                                           Tneigh&                              QgodNeighbor );
-    
+    template<typename Tmaterial, typename Tloc, typename Tneigh>
+    void getTransposedGodunovState( Tmaterial const&  local,
+                                    Tmaterial const&  neighbor,
+                                    enum ::faceType   faceType,
+                                    Tloc&             QgodLocal,
+                                    Tneigh&           QgodNeighbor );
+
     template<typename T>
     void getTransposedFreeSurfaceGodunovState( T& QgodLocal,
                                                T& QgodNeighbor,
                                                Matrix99& R);
+
+    template<typename T>
+    void getPlaneWaveOperator( T const& material,
+                               double const n[3],
+                               std::complex<real> Mdata[9 * 9] );
+
 
     void getBondMatrix( VrtxCoords const i_normal,
                         VrtxCoords const i_tangent1,
@@ -73,62 +83,162 @@ namespace seissol {
                         real* o_N );
 
     void getFaceRotationMatrix( VrtxCoords const i_normal,
-                                                VrtxCoords const i_tangent1,
-                                                VrtxCoords const i_tangent2,
-                                                init::T::view::type& o_T,
-                                                init::Tinv::view::type& o_Tinv );
+                                VrtxCoords const i_tangent1,
+                                VrtxCoords const i_tangent2,
+                                init::T::view::type& o_T,
+                                init::Tinv::view::type& o_Tinv );
+
+    template<typename T>
+    void setMaterial( double* i_materialVal,
+                      int i_numMaterialVals,
+                      T* o_material ) {};
+
+  }
+}
+
+template<typename Tmaterial, typename Tmatrix>
+void seissol::model::getTransposedCoefficientMatrix( Tmaterial const& i_material,
+                                                     unsigned                        i_dim,
+                                                     Tmatrix&                              o_M ) {
+  try {
+    const seissol::model::AnisotropicMaterial& am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(i_material);
+    seissol::model::getTransposedCoefficientMatrix(am, i_dim, o_M);
+  } 
+  catch(std::bad_cast exp) {
+    try {
+      const seissol::model::ElasticMaterial& em = dynamic_cast<const seissol::model::ElasticMaterial&>(i_material);
+      seissol::model::getTransposedCoefficientMatrix(em, i_dim, o_M);
+    }
+    catch(std::bad_cast exp) {
+      try {
+        const seissol::model::ViscoElasticMaterial& vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(i_material);
+        seissol::model::getTransposedCoefficientMatrix(vm, i_dim, o_M);
+      } 
+      catch(std::bad_cast exp) {
+        //something went terribly wrong
+      }
+    }
+  }
+}
+
+template<typename Tmaterial, typename Tloc, typename Tneigh>
+void seissol::model::getTransposedGodunovState( Tmaterial const&  local,
+                                                Tmaterial const&  neighbor,
+                                                enum ::faceType  faceType,
+                                                Tloc&            QgodLocal,
+                                                Tneigh&          QgodNeighbor ) {
+  try {
+    const seissol::model::AnisotropicMaterial& local_am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(local);
+    const seissol::model::AnisotropicMaterial& neighbor_am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(neighbor);
+    seissol::model::getTransposedGodunovState(local_am, neighbor_am, faceType, QgodLocal, QgodNeighbor);
+  }
+  catch(std::bad_cast exp) {
+    try {
+      const seissol::model::ElasticMaterial& local_em = dynamic_cast<const seissol::model::ElasticMaterial&>(local); 
+      const seissol::model::ElasticMaterial& neighbor_em = dynamic_cast<const seissol::model::ElasticMaterial&>(neighbor);
+      seissol::model::getTransposedGodunovState(local_em, neighbor_em, faceType, QgodLocal, QgodNeighbor);
+    }
+    catch(std::bad_cast exp) {
+      try {
+        const seissol::model::ViscoElasticMaterial& local_vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(local);
+        const seissol::model::ViscoElasticMaterial& neighbor_vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(neighbor);
+        seissol::model::getTransposedGodunovState(local_vm, neighbor_vm, faceType, QgodLocal, QgodNeighbor);
+      }
+      catch(std::bad_cast exp) {
+        //something went terribly wrong
+      }
+    }
   }
 }
 
 template<typename T>
-void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::ElasticMaterial const&  i_material,
-                                                            unsigned                                i_dim,
-                                                            T&                                      o_M )
+void seissol::model::getPlaneWaveOperator( T const& material,
+                                           double const n[3],
+                                           std::complex<real> Mdata[9 * 9] )
 {
-  o_M.setZero();
+  yateto::DenseTensorView<2,std::complex<real>> M(Mdata, {9, 9});
+  M.setZero();
 
-  real lambda2mu = i_material.lambda + 2.0 * i_material.mu;
-  real rhoInv = 1.0 / i_material.rho;
+  real data[9 * 9];
+  yateto::DenseTensorView<2,real> Coeff(data, {9, 9});
 
-  switch (i_dim)
-  {
-    case 0:
-      o_M(6,0) = -lambda2mu;
-      o_M(6,1) = -i_material.lambda;
-      o_M(6,2) = -i_material.lambda;
-      o_M(7,3) = -i_material.mu;
-      o_M(8,5) = -i_material.mu;
-      o_M(0,6) = -rhoInv;
-      o_M(3,7) = -rhoInv;
-      o_M(5,8) = -rhoInv;
-      break;
+  for (unsigned d = 0; d < 3; ++d) {
+    Coeff.setZero();
+    getTransposedCoefficientMatrix(material, d, Coeff);
 
-    case 1:
-      o_M(7,0) = -i_material.lambda;
-      o_M(7,1) = -lambda2mu;
-      o_M(7,2) = -i_material.lambda;
-      o_M(6,3) = -i_material.mu;
-      o_M(8,4) = -i_material.mu;
-      o_M(3,6) = -rhoInv;
-      o_M(1,7) = -rhoInv;
-      o_M(4,8) = -rhoInv;
-      break;
-
-    case 2:
-      o_M(8,0) = -i_material.lambda;
-      o_M(8,1) = -i_material.lambda;
-      o_M(8,2) = -lambda2mu;
-      o_M(7,4) = -i_material.mu;
-      o_M(6,5) = -i_material.mu;
-      o_M(5,6) = -rhoInv;
-      o_M(4,7) = -rhoInv;
-      o_M(2,8) = -rhoInv;
-      break;
-      
-    default:
-      break;
+    for (unsigned i = 0; i < 9; ++i) {
+      for (unsigned j = 0; j < 9; ++j) {
+        M(i,j) += n[d] * Coeff(j,i);
+      }
+    }
   }
+  //TODO check viscoelastic
 }
+
+namespace seissol {
+  namespace model {
+template<>
+inline void setMaterial<AnisotropicMaterial>( double* i_materialVal,
+                                  int i_numMaterialVals,
+                                  AnisotropicMaterial* o_material )
+{
+  assert(i_numMaterialVals == 22);
+  o_material->rho = i_materialVal[0];
+  std::copy(i_materialVal+1, i_materialVal+22, o_material->c_store);
+}
+
+}}
+
+//TODO move this to elastic
+//template<typename T>
+//void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::ElasticMaterial const&  i_material,
+//                                                            unsigned                                i_dim,
+//                                                            T&                                      o_M )
+//{
+//  o_M.setZero();
+//
+//  real lambda2mu = i_material.lambda + 2.0 * i_material.mu;
+//  real rhoInv = 1.0 / i_material.rho;
+//
+//  switch (i_dim)
+//  {
+//    case 0:
+//      o_M(6,0) = -lambda2mu;
+//      o_M(6,1) = -i_material.lambda;
+//      o_M(6,2) = -i_material.lambda;
+//      o_M(7,3) = -i_material.mu;
+//      o_M(8,5) = -i_material.mu;
+//      o_M(0,6) = -rhoInv;
+//      o_M(3,7) = -rhoInv;
+//      o_M(5,8) = -rhoInv;
+//      break;
+//
+//    case 1:
+//      o_M(7,0) = -i_material.lambda;
+//      o_M(7,1) = -lambda2mu;
+//      o_M(7,2) = -i_material.lambda;
+//      o_M(6,3) = -i_material.mu;
+//      o_M(8,4) = -i_material.mu;
+//      o_M(3,6) = -rhoInv;
+//      o_M(1,7) = -rhoInv;
+//      o_M(4,8) = -rhoInv;
+//      break;
+//
+//    case 2:
+//      o_M(8,0) = -i_material.lambda;
+//      o_M(8,1) = -i_material.lambda;
+//      o_M(8,2) = -lambda2mu;
+//      o_M(7,4) = -i_material.mu;
+//      o_M(6,5) = -i_material.mu;
+//      o_M(5,6) = -rhoInv;
+//      o_M(4,7) = -rhoInv;
+//      o_M(2,8) = -rhoInv;
+//      break;
+//      
+//    default:
+//      break;
+//  }
+//}
 
 template<typename T>
 void seissol::model::getTransposedFreeSurfaceGodunovState( T&                         QgodLocal,
@@ -165,81 +275,82 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( T&                   
   }
 }
 
-template<typename Tloc, typename Tneigh>
-void seissol::model::getTransposedElasticGodunovState( ElasticMaterial const& local,
-                                                       ElasticMaterial const& neighbor,
-                                                       enum ::faceType        faceType,
-                                                       Tloc&                  QgodLocal,
-                                                       Tneigh&                QgodNeighbor )
-{
-  QgodNeighbor.setZero();
-
-  Matrix99 R = Matrix99::Zero();
-
-  //eigenvectors have been precalculated
-  R(0,0) = local.lambda + 2*local.mu;
-  R(0,8) = neighbor.lambda + 2*neighbor.mu;
-  R(1,0) = local.lambda;
-  R(1,4) = 1;
-  R(1,8) = neighbor.lambda;
-  R(2,0) = local.lambda;
-  R(2,5) = 1;
-  R(2,8) = neighbor.lambda;
-  R(3,1) = local.mu;
-  R(3,7) = neighbor.mu;
-  R(4,3) = 1;
-  R(5,2) = local.mu;
-  R(5,6) = neighbor.mu;
-  R(6,0) = sqrt((local.lambda + 2*local.mu)/local.rho);
-  R(6,8) = -sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho);
-  R(7,1) = sqrt(local.mu/local.rho);
-  R(7,7) = -sqrt(neighbor.mu/neighbor.rho);
-  R(8,2) = sqrt(local.mu/local.rho);
-  R(8,6) = -sqrt(neighbor.mu/neighbor.rho);
-
-  if(faceType == freeSurface) {
-    getTransposedFreeSurfaceGodunovState(QgodLocal, QgodNeighbor, R);
-
-  } else {
-    Matrix99 R_inv = Matrix99::Zero();
-    //we do not need to compute all of R_inv as we will multiply it with the indicator chi later
-    //which extracts the first three rows of R_inv
-    
-    //We can exploit that R only couples 2 values to each other to easily compute an analytic solution
-    //inv_xy computes the (x,y)th entry of ((local_kappa, neighbor_kappa),(local_c, -neighbor_c))^-1
-    auto inv_00 = [](real local_kappa, real neighbor_kappa, real local_c, real neighbor_c) {
-      return neighbor_c / (local_kappa * neighbor_c + neighbor_kappa * local_c);  
-    };
-    auto inv_01 = [](real local_kappa, real neighbor_kappa, real local_c, real neighbor_c) {
-      return neighbor_kappa / (local_kappa * neighbor_c + neighbor_kappa * local_c);  
-    };
-
-
-    R_inv(0,0) = inv_00(local.lambda + 2*local.mu, neighbor.lambda + 2*neighbor.mu, sqrt((local.lambda + 2*local.mu)/local.rho), sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
-    R_inv(0,6) = inv_01(local.lambda + 2*local.mu, neighbor.lambda + 2*neighbor.mu, sqrt((local.lambda + 2*local.mu)/local.rho), sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
-    R_inv(1,3) = inv_00(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
-    R_inv(1,7) = inv_01(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
-    R_inv(2,5) = inv_00(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
-    R_inv(2,8) = inv_01(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
-
-    Matrix99 chi = Matrix99::Zero();
-    chi(0,0) = 1.0;
-    chi(1,1) = 1.0;
-    chi(2,2) = 1.0;
-
-    const auto godunov = ((R*chi)*R_inv).eval();
-
-    // QgodLocal = I - QgodNeighbor
-    for (unsigned i = 0; i < godunov.cols(); ++i) {
-      for (unsigned j = 0; j < godunov.rows(); ++j) {
-        QgodLocal(i,j) = -godunov(j,i);
-        QgodNeighbor(i,j) = godunov(j,i);
-      }
-    }  
-    for (unsigned idx = 0; idx < 9; ++idx) {
-      QgodLocal(idx,idx) += 1.0;
-    }
-  }
-}
+//TODO move this to elastic
+//template<typename Tloc, typename Tneigh>
+//void seissol::model::getTransposedElasticGodunovState( ElasticMaterial const& local,
+//                                                       ElasticMaterial const& neighbor,
+//                                                       enum ::faceType        faceType,
+//                                                       Tloc&                  QgodLocal,
+//                                                       Tneigh&                QgodNeighbor )
+//{
+//  QgodNeighbor.setZero();
+//
+//  Matrix99 R = Matrix99::Zero();
+//
+//  //eigenvectors have been precalculated
+//  R(0,0) = local.lambda + 2*local.mu;
+//  R(0,8) = neighbor.lambda + 2*neighbor.mu;
+//  R(1,0) = local.lambda;
+//  R(1,4) = 1;
+//  R(1,8) = neighbor.lambda;
+//  R(2,0) = local.lambda;
+//  R(2,5) = 1;
+//  R(2,8) = neighbor.lambda;
+//  R(3,1) = local.mu;
+//  R(3,7) = neighbor.mu;
+//  R(4,3) = 1;
+//  R(5,2) = local.mu;
+//  R(5,6) = neighbor.mu;
+//  R(6,0) = sqrt((local.lambda + 2*local.mu)/local.rho);
+//  R(6,8) = -sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho);
+//  R(7,1) = sqrt(local.mu/local.rho);
+//  R(7,7) = -sqrt(neighbor.mu/neighbor.rho);
+//  R(8,2) = sqrt(local.mu/local.rho);
+//  R(8,6) = -sqrt(neighbor.mu/neighbor.rho);
+//
+//  if(faceType == freeSurface) {
+//    getTransposedFreeSurfaceGodunovState(QgodLocal, QgodNeighbor, R);
+//
+//  } else {
+//    Matrix99 R_inv = Matrix99::Zero();
+//    //we do not need to compute all of R_inv as we will multiply it with the indicator chi later
+//    //which extracts the first three rows of R_inv
+//    
+//    //We can exploit that R only couples 2 values to each other to easily compute an analytic solution
+//    //inv_xy computes the (x,y)th entry of ((local_kappa, neighbor_kappa),(local_c, -neighbor_c))^-1
+//    auto inv_00 = [](real local_kappa, real neighbor_kappa, real local_c, real neighbor_c) {
+//      return neighbor_c / (local_kappa * neighbor_c + neighbor_kappa * local_c);  
+//    };
+//    auto inv_01 = [](real local_kappa, real neighbor_kappa, real local_c, real neighbor_c) {
+//      return neighbor_kappa / (local_kappa * neighbor_c + neighbor_kappa * local_c);  
+//    };
+//
+//
+//    R_inv(0,0) = inv_00(local.lambda + 2*local.mu, neighbor.lambda + 2*neighbor.mu, sqrt((local.lambda + 2*local.mu)/local.rho), sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
+//    R_inv(0,6) = inv_01(local.lambda + 2*local.mu, neighbor.lambda + 2*neighbor.mu, sqrt((local.lambda + 2*local.mu)/local.rho), sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
+//    R_inv(1,3) = inv_00(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
+//    R_inv(1,7) = inv_01(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
+//    R_inv(2,5) = inv_00(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
+//    R_inv(2,8) = inv_01(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
+//
+//    Matrix99 chi = Matrix99::Zero();
+//    chi(0,0) = 1.0;
+//    chi(1,1) = 1.0;
+//    chi(2,2) = 1.0;
+//
+//    const auto godunov = ((R*chi)*R_inv).eval();
+//
+//    // QgodLocal = I - QgodNeighbor
+//    for (unsigned i = 0; i < godunov.cols(); ++i) {
+//      for (unsigned j = 0; j < godunov.rows(); ++j) {
+//        QgodLocal(i,j) = -godunov(j,i);
+//        QgodNeighbor(i,j) = godunov(j,i);
+//      }
+//    }  
+//    for (unsigned idx = 0; idx < 9; ++idx) {
+//      QgodLocal(idx,idx) += 1.0;
+//    }
+//  }
+//}
 
 #endif

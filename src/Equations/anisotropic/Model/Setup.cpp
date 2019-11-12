@@ -45,13 +45,13 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 #include <generated_code/init.h>
-#include <iostream>
 
-
+namespace seissol {
+  namespace model {
 template<typename T>
-void getTransposedAnisotropicCoefficientMatrix( seissol::model::Material const&  i_material,
-                                                unsigned                         i_dim,
-                                                T&                               o_M )
+void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
+                                                unsigned                                    i_dim,
+                                                T&                                          o_M )
 {
   o_M.setZero();
   
@@ -135,8 +135,9 @@ void getTransposedAnisotropicCoefficientMatrix( seissol::model::Material const& 
       break;
   }
 }
-void getEigenBasisForAnisotropicMaterial( seissol::model::Material const& local,
-                                          seissol::model::Material const& neighbor,
+}}
+void getEigenBasisForAnisotropicMaterial( seissol::model::AnisotropicMaterial const& local,
+                                          seissol::model::AnisotropicMaterial const& neighbor,
                                           Eigen::Matrix<real, 9, 9>&      R)
 {
   using Matrix33 = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>;
@@ -235,13 +236,16 @@ void getEigenBasisForAnisotropicMaterial( seissol::model::Material const& local,
   R <<  A1L * eigenvectorsL,   E1, A1N * eigenvectorsN, 
        -eigenvectorsL*lambdaL, E2, eigenvectorsN*lambdaN;
 }
-
-void seissol::model::getTransposedGodunovState( Material const&                   local,
-                                                Material const&                   neighbor,
-                                                enum ::faceType                   faceType,
-                                                init::QgodLocal::view::type&      QgodLocal,
-                                                init::QgodNeighbor::view::type&   QgodNeighbor )
+namespace seissol{
+  namespace model {
+template<>
+void getTransposedGodunovState( AnisotropicMaterial const&   local,
+                                                           AnisotropicMaterial const&   neighbor,
+                                                           enum ::faceType                             faceType,
+                                                           init::QgodLocal::view::type&                QgodLocal,
+                                                           init::QgodNeighbor::view::type&             QgodNeighbor )
 {
+  
   Matrix99 R = Matrix99::Zero();
   getEigenBasisForAnisotropicMaterial(local, neighbor, R);
 
@@ -268,45 +272,9 @@ void seissol::model::getTransposedGodunovState( Material const&                 
     }
   }
 }
- 
-void seissol::model::getPlaneWaveOperator(  Material const& material,
-                                            double const n[3],
-                                            std::complex<real> Mdata[9 * 9] )
-{
-  yateto::DenseTensorView<2,std::complex<real>> M(Mdata, {9, 9});
-  M.setZero();
 
-  real data[9 * 9];
-  yateto::DenseTensorView<2,real> Coeff(data, {9, 9});
 
-  for (unsigned d = 0; d < 3; ++d) {
-    Coeff.setZero();
-    getTransposedAnisotropicCoefficientMatrix(material, d, Coeff);
-
-    for (unsigned i = 0; i < 9; ++i) {
-      for (unsigned j = 0; j < 9; ++j) {
-        M(i,j) += n[d] * Coeff(j,i);
-      }
-    }
-  }
-}
-
-void seissol::model::getTransposedCoefficientMatrix( Material const&                i_material,
-                                                     unsigned                       i_dim,
-                                                     init::star::view<0>::type&     AT )
-{
-  getTransposedAnisotropicCoefficientMatrix( i_material, i_dim, AT);
-}
- 
-void seissol::model::setMaterial( double* i_materialVal,
-                                  int i_numMaterialVals,
-                                  seissol::model::Material* o_material )
-{
-  assert(i_numMaterialVals == 22);
-  o_material->rho = i_materialVal[0];
-  std::copy(i_materialVal+1, i_materialVal+22, o_material->c_store);
-}
-
+}}
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const&,
                                                   seissol::model::LocalData* )
 {

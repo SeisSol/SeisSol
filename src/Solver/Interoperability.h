@@ -51,6 +51,9 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
+#include "Equations/elastic/Model/datastructures.hpp"
+#include "Equations/anisotropic/Model/datastructures.hpp"
+#include "Equations/viscoelastic2/Model/datastructures.hpp"
 
 namespace seissol {
   class Interoperability;
@@ -182,7 +185,7 @@ class seissol::Interoperability {
                           double lambda,
                           double Qp,
                           double Qs,
-                          seissol::model::Material& material );
+                          seissol::model::ViscoElasticMaterial& material );
 
     void addFaultParameter( std::string const& name,
                            double* memory) {

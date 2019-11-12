@@ -165,8 +165,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         seissol::model::Material rotatedNeighborMaterial;
         real NLocalData[6*6];
         seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-        material[cell].local.getRotatedMaterialCoefficients(NLocalData, rotatedLocalMaterial);
-        material[cell].neighbor[side].getRotatedMaterialCoefficients(NLocalData, rotatedNeighborMaterial);
+        rotatedLocalMaterial = material[cell].local.getRotatedMaterialCoefficients(NLocalData);
+        rotatedNeighborMaterial = material[cell].neighbor[side].getRotatedMaterialCoefficients(NLocalData);
         seissol::model::getTransposedGodunovState(  rotatedLocalMaterial,
                                                     rotatedNeighborMaterial, 
                                                     cellInformation[cell].faceTypes[side],
@@ -382,26 +382,10 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       }
 
       /// Wave speeds
-      waveSpeedsPlus[ltsFace].density = plusMaterial.rho;
-      #ifndef USE_ANISOTROPIC
-      waveSpeedsPlus[ltsFace].pWaveVelocity = sqrt( (plusMaterial.lambda + 2.0*plusMaterial.mu) / plusMaterial.rho);
-      waveSpeedsPlus[ltsFace].sWaveVelocity = sqrt( plusMaterial.mu / plusMaterial.rho);
-      #else
-      real muBarPlus = (plusMaterial.c(3,3) + plusMaterial.c(4,4) + plusMaterial.c(5,5)) / 3.0;
-      real lambdaBarPlus = (plusMaterial.c(0,0) + plusMaterial.c(1,1) + plusMaterial.c(2,2)) / 3.0 - 2.0*muBarPlus;
-      waveSpeedsPlus[ltsFace].pWaveVelocity = sqrt( (lambdaBarPlus + 2.0*muBarPlus) / plusMaterial.rho);
-      waveSpeedsPlus[ltsFace].sWaveVelocity = sqrt( muBarPlus / plusMaterial.rho);
-      #endif
-      waveSpeedsMinus[ltsFace].density = minusMaterial.rho;
-      #ifndef USE_ANISOTROPIC
-      waveSpeedsMinus[ltsFace].pWaveVelocity = sqrt( (minusMaterial.lambda + 2.0*minusMaterial.mu) / minusMaterial.rho);
-      waveSpeedsMinus[ltsFace].sWaveVelocity = sqrt( minusMaterial.mu / minusMaterial.rho);
-      #else
-      real muBarMinus = (plusMaterial.c(3,3) + plusMaterial.c(4,4) + plusMaterial.c(5,5)) / 3.0;
-      real lambdaBarMinus = (plusMaterial.c(0,0) + plusMaterial.c(1,1) + plusMaterial.c(2,2)) / 3.0 - 2.0*muBarMinus;
-      waveSpeedsMinus[ltsFace].pWaveVelocity = sqrt( (lambdaBarMinus + 2.0*muBarMinus) / plusMaterial.rho);
-      waveSpeedsMinus[ltsFace].sWaveVelocity = sqrt( muBarMinus / plusMaterial.rho);
-      #endif
+      waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial.getPWaveSpeed();
+      waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial.getSWaveSpeed();
+      waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial.getPWaveSpeed();
+      waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial.getSWaveSpeed();
 
       /// Godunov state
       auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);

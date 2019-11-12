@@ -42,9 +42,15 @@
 #define INITIALIZER_PARAMETERDB_H_
 
 #include <string>
-#include <unordered_map>
 #include <Geometry/MeshReader.h>
 #include <easi/Query.h>
+#include <set>
+#include <easi/ResultAdapter.h>
+#include <Model/common_datastructures.hpp>
+#include <Equations/anisotropic/Model/datastructures.hpp>
+#include <Equations/elastic/Model/datastructures.hpp>
+#include <Equations/viscoelastic2/Model/datastructures.hpp>
+#include <Initializer/typedefs.hpp>
 
 #ifndef PUML_PUML_H
 namespace PUML
@@ -60,13 +66,14 @@ namespace seissol {
     class ElementBarycentreGeneratorPUML;
     class FaultBarycentreGenerator;
     class FaultGPGenerator;
+    template<class T>
     class ParameterDB;
   }
 }
 
 namespace easi {
   class Component;
-};
+}
 
 class seissol::initializers::QueryGenerator {
 public:
@@ -111,15 +118,27 @@ private:
   unsigned m_numberOfPoints;
 };
 
+template<class T>
 class seissol::initializers::ParameterDB {
 public: 
+  //for material parameters
+  void setMaterialType(enum ::materialType materialType) { m_materialType = materialType; }
+  void setMaterialVector(std::vector<T> materials) { m_materials = materials; }
+  //for fault parameters
   void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
-  void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
   static bool faultParameterizedByTraction(std::string const& fileName);
+  //generic
+  void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
   
 private:
-  static easi::Component* loadModel(std::string const& fileName);
+  //for material parameters
+  void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
+  enum ::materialType m_materialType;
+  std::vector<T> m_materials;
+  //for fault parameters
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
+  //generic
+  static easi::Component* loadModel(std::string const& fileName);
 };
 
 #endif

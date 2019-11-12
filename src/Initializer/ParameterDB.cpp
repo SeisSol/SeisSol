@@ -42,10 +42,9 @@
 #include <PUML/PUML.h>
 #include <PUML/Downward.h>
 #endif
-#include "ParameterDB.h"
 
 #include <easi/YAMLParser.h>
-#include <easi/ResultAdapter.h>
+#include "ParameterDB.h"
 #include <Numerical_aux/Transformation.h>
 #ifdef USE_ASAGI
 #include <Reader/AsagiReader.h>
@@ -179,7 +178,8 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   return query;
 }
 
-easi::Component* seissol::initializers::ParameterDB::loadModel(std::string const& fileName) {
+template<class T>
+easi::Component* seissol::initializers::ParameterDB<T>::loadModel(std::string const& fileName) {
 #ifdef USE_ASAGI
   seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
   easi::YAMLParser parser(3, &asagiReader);
@@ -190,72 +190,165 @@ easi::Component* seissol::initializers::ParameterDB::loadModel(std::string const
   return model;
 }
 
-void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
-  easi::Component* model = ParameterDB::loadModel(fileName);
-  easi::ArraysAdapter adapter;
-#ifdef USE_ANISOTROPIC
-  auto suppliedParameters = model->suppliedParameters();
-  //TODO: inhomogeneous materials, where in some parts only mu and lambda are given
-  //      and in other parts the full elastic tensor is given
-  //if only mu and lambda are supplied, assume isotropic behavior and calculate the parameters accordingly
-  if(suppliedParameters.find("mu") != suppliedParameters.end() && suppliedParameters.find("lambda") != suppliedParameters.end()) {
-    easi::Query query = queryGen.generate();
-    int numPoints = query.numPoints();
-    double* rho = new double[numPoints];
-    double* mu = new double[numPoints];
-    double* lambda = new double[numPoints];
-    adapter.addBindingPoint("rho", rho, 1);
-    adapter.addBindingPoint("mu", mu, 1);
-    adapter.addBindingPoint("lambda", lambda, 1);
-    model->evaluate(query, adapter);
-    for(int i = 0; i < numPoints; i++) {
-      m_parameters["rho"].first[i] = rho[i];
-      m_parameters["c11"].first[i] = lambda[i] + 2*mu[i];
-      m_parameters["c12"].first[i] = lambda[i];
-      m_parameters["c13"].first[i] = lambda[i];
-      m_parameters["c14"].first[i] = 0;
-      m_parameters["c15"].first[i] = 0;
-      m_parameters["c16"].first[i] = 0; 
-      m_parameters["c22"].first[i] = lambda[i] + 2*mu[i];
-      m_parameters["c23"].first[i] = lambda[i];
-      m_parameters["c24"].first[i] = 0;
-      m_parameters["c25"].first[i] = 0;
-      m_parameters["c26"].first[i] = 0;
-      m_parameters["c33"].first[i] = lambda[i] + 2*mu[i];
-      m_parameters["c34"].first[i] = 0;
-      m_parameters["c35"].first[i] = 0;
-      m_parameters["c36"].first[i] = 0;
-      m_parameters["c44"].first[i] = mu[i]; 
-      m_parameters["c45"].first[i] = 0;
-      m_parameters["c46"].first[i] = 0;
-      m_parameters["c55"].first[i] = mu[i]; 
-      m_parameters["c56"].first[i] = 0; 
-      m_parameters["c66"].first[i] = mu[i]; 
+namespace seissol {
+  namespace initializers {
+    template<>
+    void ParameterDB<seissol::model::ElasticMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::ElasticMaterial> &adapter) {
+      adapter.addBindingPoint("rho", &seissol::model::ElasticMaterial::rho);
+      adapter.addBindingPoint("mu", &seissol::model::ElasticMaterial::mu);
+      adapter.addBindingPoint("lambda", &seissol::model::ElasticMaterial::lambda);
     }
-    delete[] rho;
-    delete[] lambda;
-    delete[] mu;
-    delete model;
-  }
-  //else read all 21 anisotropic parameters from file
-  else {
-#ifdef USE_PLASTICITY
-    logWarning() << "You are using plasticity together with an anisotropic material. This is not tested!";
-#endif
-#endif
-    for (auto& kv : m_parameters) {
-      adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
+
+    template<>
+    void ParameterDB<seissol::model::ViscoElasticMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::ViscoElasticMaterial> &adapter) {
+      adapter.addBindingPoint("rho", &seissol::model::ViscoElasticMaterial::rho);
+      adapter.addBindingPoint("mu", &seissol::model::ViscoElasticMaterial::mu);
+      adapter.addBindingPoint("lambda", &seissol::model::ViscoElasticMaterial::lambda);
+      adapter.addBindingPoint("Qp", &seissol::model::ViscoElasticMaterial::Qp);
+      adapter.addBindingPoint("Qs", &seissol::model::ViscoElasticMaterial::Qs);
     }
+
+    template<>
+    void ParameterDB<seissol::model::ElastoPlasticMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::ElastoPlasticMaterial> &adapter) {
+      adapter.addBindingPoint("rho", &seissol::model::ElastoPlasticMaterial::rho);
+      adapter.addBindingPoint("mu", &seissol::model::ElastoPlasticMaterial::mu);
+      adapter.addBindingPoint("lambda", &seissol::model::ElastoPlasticMaterial::lambda);
+      adapter.addBindingPoint("bulkFriction", &seissol::model::ElastoPlasticMaterial::bulkFriction);
+      adapter.addBindingPoint("plastCo", &seissol::model::ElastoPlasticMaterial::plastCo);
+      adapter.addBindingPoint("s_xx", &seissol::model::ElastoPlasticMaterial::s_xx);
+      adapter.addBindingPoint("s_yy", &seissol::model::ElastoPlasticMaterial::s_yy);
+      adapter.addBindingPoint("s_zz", &seissol::model::ElastoPlasticMaterial::s_zz);
+      adapter.addBindingPoint("s_xy", &seissol::model::ElastoPlasticMaterial::s_xy);
+      adapter.addBindingPoint("s_yz", &seissol::model::ElastoPlasticMaterial::s_yz);
+      adapter.addBindingPoint("s_xz", &seissol::model::ElastoPlasticMaterial::s_xz);
+    }
+
+    template<>
+    void ParameterDB<seissol::model::ViscoPlasticMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::ViscoPlasticMaterial> &adapter) {
+      adapter.addBindingPoint("rho", &seissol::model::ViscoPlasticMaterial::rho);
+      adapter.addBindingPoint("mu", &seissol::model::ViscoPlasticMaterial::mu);
+      adapter.addBindingPoint("lambda", &seissol::model::ViscoPlasticMaterial::lambda);
+      adapter.addBindingPoint("Qp", &seissol::model::ViscoPlasticMaterial::Qp);
+      adapter.addBindingPoint("Qs", &seissol::model::ViscoPlasticMaterial::Qs);
+      adapter.addBindingPoint("bulkFriction", &seissol::model::ViscoPlasticMaterial::bulkFriction);
+      adapter.addBindingPoint("plastCo", &seissol::model::ViscoPlasticMaterial::plastCo);
+      adapter.addBindingPoint("s_xx", &seissol::model::ViscoPlasticMaterial::s_xx);
+      adapter.addBindingPoint("s_yy", &seissol::model::ViscoPlasticMaterial::s_yy);
+      adapter.addBindingPoint("s_zz", &seissol::model::ViscoPlasticMaterial::s_zz);
+      adapter.addBindingPoint("s_xy", &seissol::model::ViscoPlasticMaterial::s_xy);
+      adapter.addBindingPoint("s_yz", &seissol::model::ViscoPlasticMaterial::s_yz);
+      adapter.addBindingPoint("s_xz", &seissol::model::ViscoPlasticMaterial::s_xz);
+    }
+
+    template<>
+    void ParameterDB<seissol::model::AnisotropicMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> &adapter) {
+      adapter.addBindingPoint("rho", &seissol::model::AnisotropicMaterial::rho);
+      //TODO
+      //adapter.addBindingPoint("c11", &seissol::model::AnisotropicMaterial::c_store[0]);
+      //adapter.addBindingPoint("c12", &seissol::model::AnisotropicMaterial::c_store[1]);
+      //adapter.addBindingPoint("c13", &seissol::model::AnisotropicMaterial::c_store[2]);
+      //adapter.addBindingPoint("c14", &seissol::model::AnisotropicMaterial::c_store[3]);
+      //adapter.addBindingPoint("c15", &seissol::model::AnisotropicMaterial::c_store[4]);
+      //adapter.addBindingPoint("c16", &seissol::model::AnisotropicMaterial::c_store[5]);
+      //adapter.addBindingPoint("c22", &seissol::model::AnisotropicMaterial::c_store[6]);
+      //adapter.addBindingPoint("c23", &seissol::model::AnisotropicMaterial::c_store[7]);
+      //adapter.addBindingPoint("c24", &seissol::model::AnisotropicMaterial::c_store[8]);
+      //adapter.addBindingPoint("c25", &seissol::model::AnisotropicMaterial::c_store[9]);
+      //adapter.addBindingPoint("c26", &seissol::model::AnisotropicMaterial::c_store[10]);
+      //adapter.addBindingPoint("c33", &seissol::model::AnisotropicMaterial::c_store[11]);
+      //adapter.addBindingPoint("c34", &seissol::model::AnisotropicMaterial::c_store[12]);
+      //adapter.addBindingPoint("c35", &seissol::model::AnisotropicMaterial::c_store[13]);
+      //adapter.addBindingPoint("c36", &seissol::model::AnisotropicMaterial::c_store[14]);
+      //adapter.addBindingPoint("c44", &seissol::model::AnisotropicMaterial::c_store[15]);
+      //adapter.addBindingPoint("c45", &seissol::model::AnisotropicMaterial::c_store[16]);
+      //adapter.addBindingPoint("c46", &seissol::model::AnisotropicMaterial::c_store[17]);
+      //adapter.addBindingPoint("c55", &seissol::model::AnisotropicMaterial::c_store[18]);
+      //adapter.addBindingPoint("c56", &seissol::model::AnisotropicMaterial::c_store[19]);
+      //adapter.addBindingPoint("c66", &seissol::model::AnisotropicMaterial::c_store[20]);
+    }                                                               
     
-    easi::Query query = queryGen.generate();
-    model->evaluate(query, adapter);  
-    delete model;
-#ifdef USE_ANISOTROPIC
+    template<class T>
+    void ParameterDB<T>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
+      easi::Component* model = ParameterDB::loadModel(fileName);
+      easi::Query query = queryGen.generate();
+
+      switch(m_materialType)  {
+        case elastic:
+        case viscoelastic:
+        case elastoplastic:
+        case viscoplastic:
+        case anisotropic: {
+          easi::ArrayOfStructsAdapter<T> adapter(m_materials.data());
+          addBindingPoints(adapter);
+          model->evaluate(query, adapter); 
+          break;
+        }
+        default: {
+          //Fallback for Fault parameters
+          easi::ArraysAdapter adapter;
+          for (auto& kv : m_parameters) {
+            adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
+          }
+          model->evaluate(query, adapter); 
+          break;
+        }
+      }
+      delete model;
+    }
+
+    template<>
+    void ParameterDB<seissol::model::AnisotropicMaterial>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
+      easi::Component* model = ParameterDB::loadModel(fileName);
+      easi::Query query = queryGen.generate();
+      auto suppliedParameters = model->suppliedParameters();
+      //TODO: inhomogeneous materials, where in some parts only mu and lambda are given
+      //      and in other parts the full elastic tensor is given
+
+      //if we look for an anisotropic material and only mu and lambda are supplied, 
+      //assume isotropic behavior and calculate the parameters accordingly
+      if (suppliedParameters.find("mu") != suppliedParameters.end() && suppliedParameters.find("lambda") != suppliedParameters.end()) {
+        std::vector<seissol::model::ElasticMaterial> elasticMaterials(query.numPoints());
+        easi::ArrayOfStructsAdapter<seissol::model::ElasticMaterial> adapter(elasticMaterials.data());
+        adapter.addBindingPoint("rho", &seissol::model::ElasticMaterial::rho);
+        adapter.addBindingPoint("mu", &seissol::model::ElasticMaterial::mu);
+        adapter.addBindingPoint("lambda", &seissol::model::ElasticMaterial::lambda);
+        model->evaluate(query, adapter);
+
+        for(int i = 0; i < query.numPoints(); i++) {
+          m_materials[i] = seissol::model::AnisotropicMaterial(elasticMaterials[i]);
+        }
+        delete model;
+      }
+      else {
+        switch(m_materialType)  {
+          case elastic:
+          case viscoelastic:
+          case elastoplastic:
+          case viscoplastic:
+          case anisotropic: {
+            easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> arrayOfStructsAdapter(m_materials.data());
+            addBindingPoints(arrayOfStructsAdapter);
+            model->evaluate(query, arrayOfStructsAdapter);  
+            break;
+          }
+          default: {
+            //Fallback for Fault parameters
+            easi::ArraysAdapter arraysAdapter;
+            for (auto& kv : m_parameters) {
+              arraysAdapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
+            }
+            model->evaluate(query, arraysAdapter);  
+            break;
+          }
+        }
+        delete model;
+      }
+    }
   }
-#endif
 }
 
-bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::string const& fileName) {
+template<class T>
+bool seissol::initializers::ParameterDB<T>::faultParameterizedByTraction(std::string const& fileName) {
   easi::Component* model = ParameterDB::loadModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
@@ -272,3 +365,10 @@ bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::strin
 
   return containsTraction;
 }
+
+template class seissol::initializers::ParameterDB<seissol::model::Material>;
+template class seissol::initializers::ParameterDB<seissol::model::AnisotropicMaterial>;
+template class seissol::initializers::ParameterDB<seissol::model::ElasticMaterial>;
+template class seissol::initializers::ParameterDB<seissol::model::ElastoPlasticMaterial>;
+template class seissol::initializers::ParameterDB<seissol::model::ViscoElasticMaterial>;
+template class seissol::initializers::ParameterDB<seissol::model::ViscoPlasticMaterial>;

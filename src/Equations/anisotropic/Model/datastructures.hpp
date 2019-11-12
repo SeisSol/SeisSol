@@ -37,19 +37,20 @@
  * @section DESCRIPTION
  **/
 
-#ifndef MODEL_DATASTRUCTURES_H_
-#define MODEL_DATASTRUCTURES_H_
+#ifndef MODEL_ANISOTROPIC_DATASTRUCTURES_H_
+#define MODEL_ANISOTROPIC_DATASTRUCTURES_H_
 
 #include <Model/common_datastructures.hpp>
+#include <Equations/elastic/Model/datastructures.hpp>
 #include <Eigen/Eigen>
 #include <Eigen/Eigenvalues>
 #include <generated_code/init.h>
+#include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 
 namespace seissol {
   namespace model {
-    struct Material {
-      real rho;
+    struct AnisotropicMaterial : Material {
       real c_store[21];
       int c_addr(unsigned i, unsigned j) const {
         auto row = std::min(i,j); 
@@ -61,10 +62,38 @@ namespace seissol {
         return c_store[c_addr(i,j)];
       }
 
-      void getRotatedMaterialCoefficients( real      i_N[(2,5)],
-          Material& o_Material ) 
-      {
-        o_Material.rho = rho;
+      AnisotropicMaterial() {};
+
+      AnisotropicMaterial(ElasticMaterial m) {
+        rho = m.rho;
+        c_store[c_addr(0,0)] = m.lambda + 2*m.mu;
+        c_store[c_addr(0,1)] = m.lambda;
+        c_store[c_addr(0,2)] = m.lambda;
+        c_store[c_addr(0,3)] = 0;
+        c_store[c_addr(0,4)] = 0;
+        c_store[c_addr(0,5)] = 0; 
+        c_store[c_addr(1,1)] = m.lambda + 2*m.mu;
+        c_store[c_addr(1,2)] = m.lambda;
+        c_store[c_addr(1,3)] = 0;
+        c_store[c_addr(1,4)] = 0;
+        c_store[c_addr(1,5)] = 0;
+        c_store[c_addr(2,2)] = m.lambda + 2*m.mu;
+        c_store[c_addr(2,3)] = 0;
+        c_store[c_addr(2,4)] = 0;
+        c_store[c_addr(2,5)] = 0;
+        c_store[c_addr(3,3)] = m.mu; 
+        c_store[c_addr(3,4)] = 0;
+        c_store[c_addr(3,5)] = 0;
+        c_store[c_addr(4,4)] = m.mu; 
+        c_store[c_addr(4,5)] = 0; 
+        c_store[c_addr(5,5)] = m.mu; 
+      }
+
+      virtual ~AnisotropicMaterial() {};
+
+      Material getRotatedMaterialCoefficients(real i_N[36]) {
+        AnisotropicMaterial material;
+        material.rho = rho;
         using Matrix66 = Eigen::Matrix<real, 6, 6>;
         Matrix66 N = Matrix66(i_N);
         Matrix66 C = Matrix66();
@@ -74,7 +103,8 @@ namespace seissol {
         Matrix66 rotatedC = N.transpose()*C*N;
         for(int i = 0; i < 6; i++)
           for(int j = i; j < 6; j++)
-            o_Material.c_store[c_addr(i,j)] = rotatedC(i,j);
+            material.c_store[c_addr(i,j)] = rotatedC(i,j);
+        return material;
       }
 
       void getFullElasticTensor(real fullTensor[81]) {
@@ -162,6 +192,7 @@ namespace seissol {
       }
 
       real getMaxWaveSpeed() {
+#ifdef USE_ANISOTROPIC
         double samplingDirectionsData[seissol::tensor::samplingDirections::Size];
         std::copy_n(init::samplingDirections::Values,
             seissol::tensor::samplingDirections::Size,
@@ -195,11 +226,22 @@ namespace seissol {
           }
         }
         return sqrt(maxEv / rho);
+#else
+        return 0;
+#endif
       }
 
+      real getPWaveSpeed() {
+        real muBar = (c(3,3) + c(4,4) + c(5,5)) / 3.0;
+        real lambdaBar = (c(0,0) + c(1,1) + c(2,2)) / 3.0 - 2.0*muBar;
+        return std::sqrt((lambdaBar + 2*muBar) / rho);
+      }
+
+      real getSWaveSpeed() {
+        real muBar = (c(3,3) + c(4,4) + c(5,5)) / 3.0;
+        return std::sqrt(muBar / rho);
+      }
     };
-    struct LocalData {};
-    struct NeighborData {};
   }
 }
 
