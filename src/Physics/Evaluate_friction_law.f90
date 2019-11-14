@@ -444,17 +444,14 @@ MODULE Eval_friction_law_mod
       LocTracXY = XYStressGP(:,iTimeGP) - eta * LocSR1
       LocTracXZ = XZStressGP(:,iTimeGP) - eta * LocSR2
 
-      ! Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
-      ! resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
-      ! degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
-      LocSR1(:) = matmul(resampleMatrix, LocSR1(:))
-      LocSR2(:) = matmul(resampleMatrix, LocSR2(:))
-      LocSR(:) = matmul(resampleMatrix, LocSR(:))
-
       ! Update slip
       DISC%DynRup%Slip1(:,iFace) = DISC%DynRup%Slip1(:,iFace) + LocSR1(:)*time_inc
       DISC%DynRup%Slip2(:,iFace) = DISC%DynRup%Slip2(:,iFace) + LocSR2(:)*time_inc
-      DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + LocSR(:)*time_inc
+
+      ! Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
+      ! resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
+      ! degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
+      DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + matmul(resampleMatrix, LocSR(:))*time_inc
       tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
       
      ! Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
