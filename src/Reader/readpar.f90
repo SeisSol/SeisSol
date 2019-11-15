@@ -947,7 +947,7 @@ CONTAINS
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
-    SlipRateOutputType = 0
+    SlipRateOutputType = 1
     RS_sv0 = 0
     XRef = 0
     YRef = 0
