@@ -132,10 +132,11 @@ Projected linear slip-weakening
 
 A sudden decrease of slip rate to very small values, as for example occurring at a rupture front about to be arrested, may cause numerical issues and pollute the solution - in the worst case even leading to re-activation of rupture. 
 Such numerical issues are easy to diagnose in the fault output visualization: a checkerboard pattern with unphysical values for the slip rate and slip in the affected region will be visible. 
-This is the sign that the mesh resolution is locally not sufficient.
-SeisSol now mitigates such artifacts (currently only for linear slip-weakening friction) by projecting the slip increment on the 2D fault interface basis function after evaluation of the friction law. 
-This allows lowering the requirement on h-refinement.
+This is a sign of mesh resolution (h-refinement) being locally not sufficient.
+SeisSol mitigates such artifacts (currently only for linear slip-weakening friction) by projecting the slip increment on the 2D fault interface basis function after evaluation of the friction law. 
+This implementation lowers the required h-refinement for linear-slip weakening friction across the fault in comparison to earlier implementations (cf. Pelties et al. , JGR 2012; GMD 2014)
 Note, that the corresponding implementation for rate-and-state friction laws is currently pending - thus, a sudden decrease to small slip rates may cause numerical artifacts. 
+
 
 Visualisation: SlipRateOutputType (default =1)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
