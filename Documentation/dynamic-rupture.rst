@@ -126,6 +126,24 @@ stresses on the main fault are:
    s_xy (nucleation patch) = - 81.6 MPa
    s_xx = s_zz = s_xz = s_yz = 0.0 Pa
 
+
+Projected linear slip-weakening
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A sudden decrease of slip rate to very small values, as for example occurring at a rupture front about to be arrested, may cause numerical issues and pollute the solution - in the worst case even leading to re-activation of rupture. 
+Such numerical issues are easy to diagnose in the fault output visualization: a checkerboard pattern with unphysical values for the slip rate and slip in the affected region will be visible. 
+This is the sign that the mesh resolution is locally not sufficient.
+SeisSol now mitigates such artifacts (currently only for linear slip-weakening friction) by projecting the slip increment on the 2D fault interface basis function after evaluation of the friction law. 
+This allows lowering the requirement on h-refinement.
+Note, that the corresponding implementation for rate-and-state friction laws is currently pending - thus, a sudden decrease to small slip rates may cause numerical artifacts. 
+
+Visualisation: SlipRateOutputType (default =1)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, the fault output will be showing regions affected by numerical problems. However, the user may choose to smooth out such artifacts for visualization purposes. Switching ``SlipRateOutputType`` in the ``DynamicRupture`` namelist from the default value to 0, will evaluate the slip-rate from the difference between the velocity on both sides of the fault, rather than evaluating the slip-rate from the fault tractions and the failure criterion directly. 
+Note that this fix only applies to the output, but does not suppress numerical problems in the simulation.
+Also note that that ``SlipRateOutputType=0`` is slightly less accurate than the default ``SlipRateOutputType=1`` without numerical problems. 
+
 Friction laws
 ~~~~~~~~~~~~~
 
