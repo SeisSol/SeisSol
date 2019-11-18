@@ -34,6 +34,32 @@ then transfer the \*.whl to the cluster. and install the module using:
 pip install --user lxml-4.4.1-cp36-cp36m-manylinux1_x86_64.whl
 ```
 
+# Install OpenQuake
+
+Require python3.6 and some other packages.
+
+Clone from repository
+```
+git clone https://github.com/gem/oq-engine.git
+```
+
+Use pip to install and specify dir_to_install with --target
+```
+# For Linux
+pip install -r oq-engine/requirements-py36-linux64.txt -r oq-engine/requirements-extra-py36-linux64.txt —-target dir_to_install
+```
+Other Linux system can be found here: https://github.com/gem/oq-engine/blob/master/doc/installing/development.md
+
+You can test the installation by running an example
+
+```
+oq engine --run dir_to_oq-engine/demos/hazard/AreaSourceClassicalPSHA/job.ini
+```
+or
+
+```
+oq engine --help
+```
 
 
 # Running the script
