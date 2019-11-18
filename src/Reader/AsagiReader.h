@@ -126,7 +126,7 @@ private:
   m_asagiThreads = utils::Env::get((m_envPrefix  + "_NUM_THREADS").c_str(), 0u);
   if (m_asagiThreads == 0)
     m_asagiThreads = AsagiModule::totalThreads();
-  else if (m_asagiThreads > AsagiModule::totalThreads()) {
+  else if (static_cast<int>(m_asagiThreads) > AsagiModule::totalThreads()) {
     logWarning(rank) << "Only" << AsagiModule::totalThreads()
         << "threads can be used for ASAGI initialization.";
     m_asagiThreads = AsagiModule::totalThreads();

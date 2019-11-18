@@ -43,13 +43,14 @@
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
 
-#include <generated_code/sizes.h>
+#include <yateto/TensorView.h>
 #include <generated_code/init.h>
 
+template<typename T>
 void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
                                                  unsigned        i_dim,
                                                  unsigned        mech,
-                                                 MatrixView      o_M )
+                                                 T&              o_M )
 {
   unsigned col = 9 + mech * 6;
   switch (i_dim)
@@ -74,67 +75,97 @@ void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
   }
 }
 
-void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
-                                                     unsigned        i_dim,
-                                                     real            o_M[seissol::model::AstarT::reals] )
+template<typename T>
+void getTransposedSourceCoefficientTensor( seissol::model::Material const& material, T& sourceMatrix )
 {
-  MatrixView M(o_M, seissol::model::AstarT::reals, seissol::model::AstarT::index);  
-  // M.setZero();
+  sourceMatrix.setZero();
 
-  seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, M);
-  
+  //       | E_1^T |
+  // E^T = |  ...  |
+  //       | E_L^T |
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    getTransposedViscoelasticCoefficientMatrix( i_material.omega[mech],
-                                                i_dim,
-                                                mech,
-                                                M );
+    unsigned offset = 9 + mech * 6;
+    double const* theta = material.theta[mech];
+    sourceMatrix(offset,     0) = theta[0];
+    sourceMatrix(offset + 1, 0) = theta[1];
+    sourceMatrix(offset + 2, 0) = theta[1];
+    sourceMatrix(offset,     1) = theta[1];
+    sourceMatrix(offset + 1, 1) = theta[0];
+    sourceMatrix(offset + 2, 1) = theta[1];  
+    sourceMatrix(offset,     2) = theta[1];
+    sourceMatrix(offset + 1, 2) = theta[1];
+    sourceMatrix(offset + 2, 2) = theta[0];  
+    sourceMatrix(offset + 3, 3) = theta[2];
+    sourceMatrix(offset + 4, 4) = theta[2];
+    sourceMatrix(offset + 5, 5) = theta[2];    
+  }
+  
+  // E' = diag(-omega_1 I, ..., -omega_L I)
+  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+    for (unsigned i = 0; i < 6; ++i) {
+      unsigned idx = 9 + 6*mech + i;
+      sourceMatrix(idx, idx) = -material.omega[mech];
+    }
   }
 }
 
-void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&                        local,
-                                                 seissol::model::Material const&                        neighbor,
-                                                 enum faceType                                          type,
-                                                 //real const                                             Atransposed[STAR_NNZ],
-                                                 DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Flocal,
-                                                 DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> Fneighbor )
+template<typename T>
+void getTransposedCoefficientMatrix(seissol::model::Material const& material, unsigned dim, T& AT)
 {
-  real QgodNeighborData[9 * 9];
-  real QgodLocalData[9 * 9];
-  
-  DenseMatrixView<9, 9> QgodNeighbor(QgodNeighborData);
-  DenseMatrixView<9, 9> QgodLocal(QgodLocalData);
-  
-  seissol::model::getTransposedElasticGodunovState(local, neighbor, QgodLocal, QgodNeighbor);
-  
-  // \todo Generate a kernel for this and use Atransposed instead of the following.
-  real tmp[9 * NUMBER_OF_QUANTITIES];
-  MatrixView At(tmp, sizeof(tmp)/sizeof(real), &colMjrIndex<9>);
-  seissol::model::getTransposedElasticCoefficientMatrix(local, 0, At);
-  Flocal.setZero();
-  Fneighbor.setZero();
-  for (unsigned j = 0; j < 9; ++j) {
-    for (unsigned i = 0; i < 9; ++i) {
-      for (unsigned k = 0; k < 9; ++k) {
-        Flocal(i,j) += QgodLocal(i,k) * At(k,j);
-        Fneighbor(i,j) += QgodNeighbor(i,k) * At(k,j);
-      }
-    }
-  }
-  
+  seissol::model::getTransposedElasticCoefficientMatrix(material, dim, AT);
+
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    getTransposedViscoelasticCoefficientMatrix(local.omega[mech], 0, mech, At);
-    for (unsigned j = 0; j < 6; ++j) {
-      unsigned col =  9 + mech * 6 + j;
-      for (unsigned i = 0; i < 9; ++i) {
-        for (unsigned k = 0; k < 9; ++k) {
-          Flocal(i,col) += QgodLocal(i,k) * At(k,col);
-          Fneighbor(i,col) += QgodNeighbor(i,k) * At(k,col);
-        }
+    getTransposedViscoelasticCoefficientMatrix( material.omega[mech],
+                                                dim,
+                                                mech,
+                                                AT );
+  }
+}
+
+void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
+                                                     unsigned        i_dim,
+                                                     init::star::view<0>::type& AT )
+{
+  ::getTransposedCoefficientMatrix(i_material, i_dim, AT);
+}
+
+void seissol::model::getPlaneWaveOperator(  Material const& material,
+                                            double const n[3],
+                                            std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+{
+  yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  M.setZero();
+
+  double data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  yateto::DenseTensorView<2,double> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+
+  for (unsigned d = 0; d < 3; ++d) {
+    Coeff.setZero();
+    ::getTransposedCoefficientMatrix(material, d, Coeff);
+
+    for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+        M(i,j) += n[d] * Coeff(j,i);
       }
     }
   }
-  
-  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<9, NUMBER_OF_QUANTITIES>(0, 0));
+
+  getTransposedSourceCoefficientTensor(material, Coeff);
+
+  for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+      M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
+    }
+  }
+}
+
+void seissol::model::getTransposedGodunovState( Material const&                   local,
+                                                Material const&                   neighbor,
+                                                enum ::faceType                   faceType,
+                                                init::QgodLocal::view::type&      QgodLocal,
+                                                init::QgodNeighbor::view::type&   QgodNeighbor )
+{
+  seissol::model::getTransposedElasticGodunovState(local, neighbor, faceType, QgodLocal, QgodNeighbor);
 }
 
 void seissol::model::setMaterial( double* i_materialVal,
@@ -159,58 +190,30 @@ void seissol::model::setMaterial( double* i_materialVal,
 void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
                                             VrtxCoords const i_tangent1,
                                             VrtxCoords const i_tangent2,
-                                            DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_T,
-                                            DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES> o_Tinv )
+                                            init::T::view::type& o_T,
+                                            init::Tinv::view::type& o_Tinv )
 {
   o_T.setZero();
   o_Tinv.setZero();
   
-  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<6,6>(0, 0));
-  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<6,6>(0, 0));
+  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T);
+  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv);
   
-  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<3,3>(6, 6));
-  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<3,3>(6, 6));
+  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 6, 6);
+  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
   
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    unsigned origin = 9 + mech * 6;
-    seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T.block<6,6>(origin, origin));
-    seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<6,6>(origin, origin));
+    unsigned const origin = 9 + mech * 6;
+    seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
+    seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
   }
 }
 
 void seissol::model::initializeSpecificLocalData( seissol::model::Material const& material,
                                                   seissol::model::LocalData* localData )
 {
-  MatrixView sourceMatrix(localData->sourceMatrix, seissol::model::source::reals, seissol::model::source::index);
-  sourceMatrix.setZero();
-
-  //       | E_1^T |
-  // E^T = |  ...  |
-  //       | E_L^T |
-  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    unsigned offset = 9 + mech * 6;
-    real const* theta = material.theta[mech];
-    sourceMatrix(offset,     0) = theta[0];
-    sourceMatrix(offset + 1, 0) = theta[1];
-    sourceMatrix(offset + 2, 0) = theta[1];
-    sourceMatrix(offset,     1) = theta[1];
-    sourceMatrix(offset + 1, 1) = theta[0];
-    sourceMatrix(offset + 2, 1) = theta[1];  
-    sourceMatrix(offset,     2) = theta[1];
-    sourceMatrix(offset + 1, 2) = theta[1];
-    sourceMatrix(offset + 2, 2) = theta[0];  
-    sourceMatrix(offset + 3, 3) = theta[2];
-    sourceMatrix(offset + 4, 4) = theta[2];
-    sourceMatrix(offset + 5, 5) = theta[2];    
-  }
-  
-  // E' = diag(-omega_1 I, ..., -omega_L I)
-  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    for (unsigned i = 0; i < 6; ++i) {
-      unsigned idx = 9 + 6*mech + i;
-      sourceMatrix(idx, idx) = -material.omega[mech];
-    }
-  }
+  auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+  getTransposedSourceCoefficientTensor(material, sourceMatrix);
 }
 
 void seissol::model::initializeSpecificNeighborData(  seissol::model::Material const&,

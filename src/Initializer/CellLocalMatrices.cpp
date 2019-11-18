@@ -233,8 +233,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 {
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
-  real QgodLocalData[tensor::QgodLocal::size()];
-  real QgodNeighborData[tensor::QgodNeighbor::size()];
   real APlusData[tensor::star::size(0)];
   real AMinusData[tensor::star::size(0)];
 
@@ -251,8 +249,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[tensor::godunovState::size()]           = it->var(dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::godunovState::size()]          = it->var(dynRup->imposedStateMinus);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]           = it->var(dynRup->imposedStatePlus);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStateMinus);
     DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
     real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
     real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
@@ -261,7 +259,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
 
 #ifdef _OPENMP
-  #pragma omp parallel for private(TData, TinvData, QgodLocalData, QgodNeighborData, APlusData, AMinusData) schedule(static)
+  #pragma omp parallel for private(TData, TinvData, APlusData, AMinusData) schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
@@ -375,22 +373,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsMinus[ltsFace].pWaveVelocity = sqrt( (minusMaterial.lambda + 2.0*minusMaterial.mu) / minusMaterial.rho);
       waveSpeedsMinus[ltsFace].sWaveVelocity = sqrt( minusMaterial.mu / minusMaterial.rho);
 
-      /// Godunov state
-      auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
-      auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
-      seissol::model::getTransposedElasticGodunovState( plusMaterial, minusMaterial, dynamicRupture, QgodLocal, QgodNeighbor );
-
-      kernel::rotateGodunovStateLocal rlKrnl;
-      rlKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixPlus;
-      rlKrnl.Tinv = TinvData;
-      rlKrnl.QgodLocal = QgodLocalData;
-      rlKrnl.execute();
-
-      kernel::rotateGodunovStateNeighbor rnKrnl;
-      rnKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixMinus;
-      rnKrnl.Tinv = TinvData;
-      rnKrnl.QgodNeighbor = QgodNeighborData;
-      rnKrnl.execute();
+      /// Transpose Tinv
+      kernel::transposeTinv ttKrnl;
+      ttKrnl.Tinv = TinvData;
+      ttKrnl.TinvT = godunovData[ltsFace].TinvT;
+      ttKrnl.execute();
 
       auto APlus = init::star::view<0>::create(APlusData);
       auto AMinus = init::star::view<0>::create(AMinusData);

@@ -49,6 +49,7 @@ import DynamicRupture
 import Plasticity
 import SurfaceDisplacement
 import Point
+import memlayout
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--equations')
@@ -63,6 +64,19 @@ cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineArgs = cmdLineParser.parse_args()
 
+if cmdLineArgs.memLayout == 'auto':
+  # TODO(Lukas) Don't hardcode this
+  env = {
+    'equations': cmdLineArgs.equations,
+    'order': cmdLineArgs.order,
+    'arch': cmdLineArgs.arch,
+    'multipleSimulations': cmdLineArgs.multipleSimulations
+  }
+  mem_layout = memlayout.guessMemoryLayout(env)
+else:
+  mem_layout = cmdLineArgs.memLayout
+  
+
 arch = useArchitectureIdentifiedBy(cmdLineArgs.arch)
 
 equationsSpec = importlib.util.find_spec(cmdLineArgs.equations)
@@ -73,9 +87,11 @@ except:
 
 adgArgs = inspect.getargspec(equations.ADERDG.__init__).args[1:]
 cmdArgsDict = vars(cmdLineArgs)
+cmdArgsDict['memLayout'] = mem_layout
 args = [cmdArgsDict[key] for key in adgArgs]
 adg = equations.ADERDG(*args)
 
+include_tensors = set()
 g = Generator(arch)
 
 # Equation-specific kernels
@@ -85,11 +101,11 @@ adg.addNeighbor(g)
 adg.addTime(g)
 
 # Common kernels
-DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
+include_tensors |= DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod)
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
 SurfaceDisplacement.addKernels(g, adg)
 Point.addKernels(g, adg)
 
 # Generate code
 gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
-g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools)
+g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools, include_tensors=include_tensors)

@@ -949,7 +949,7 @@ CONTAINS
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
-    SlipRateOutputType = 0
+    SlipRateOutputType = 1
     RS_sv0 = 0
     XRef = 0
     YRef = 0
@@ -1830,9 +1830,14 @@ CONTAINS
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(1,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(3,:)               ! Read Moment Tensor
-       READ(IO%UNIT%other01,*)                                           ! Read comment
+       READ(IO%UNIT%other01,'(a15)') char_dummy                          ! Read comment
+       SOURCE%RP%VelocityComponent(:) = 0.
+       IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for velocity component (optional)
+           READ(IO%UNIT%other01,*) SOURCE%RP%VelocityComponent           ! Read velocity component
+           READ(IO%UNIT%other01,'(a15)')                                 ! Read comment
+       ENDIF 
        READ(IO%UNIT%other01,*) SOURCE%RP%nSbfs(1)                        ! Read number of subfaults
-       READ(IO%UNIT%other01,*)                                           ! Read comment
+       READ(IO%UNIT%other01,*)                                           ! Read comment 
        ALLOCATE ( dummy(8) )
        ALLOCATE ( SOURCE%RP%SpacePosition(3,SOURCE%RP%nSbfs(1)), &
                   SOURCE%RP%Strks(1,SOURCE%RP%nSbfs(1)),         &
