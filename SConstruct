@@ -383,8 +383,8 @@ if env['scalasca'] == 'kernels_2.x':
 #
 
 # enforce restrictive C/C++-Code
-env.Append(CFLAGS   = ['-Wall','-Werror', '-ansi'],
-           CXXFLAGS = ['-Wall','-Werror', '-ansi'])
+env.Append(CFLAGS   = ['-Wall', '-Werror', '-ansi'],
+           CXXFLAGS = ['-Wall', '-Werror', '-ansi'])
 if env['compiler'] == 'intel':
     env.Append(CXXFLGAS = ['-wd13379'])
 elif env['compiler'] == 'gcc':
