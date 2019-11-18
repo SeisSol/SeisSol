@@ -1,4 +1,6 @@
-#Python functions for determining the Spectral Seismological misfit, corner frequency and falloff rate 
+#!/usr/bin/env python3
+
+#Python (Version 3.6) functions for determining the Spectral Seismological misfit, corner frequency and falloff rate 
 #of a seismological amplitude spectra
 #
 #by Nico Schliwa
