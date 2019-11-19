@@ -142,8 +142,6 @@ class ADERDG(ADERDGBase):
                         simpleParameterSpace(4),
                         projectToNodalBoundary)
 
-    # todo maybe integrate this better in the flux 
-    # todo tinv? t transpose?
     projectToNodalBoundaryRotated = lambda j: self.INodal['kp'] <= self.db.V3mTo2nFace[j]['kl'] \
                                               * self.I['lm'] \
                                               * self.T['mp']
@@ -156,7 +154,7 @@ class ADERDG(ADERDGBase):
     generator.add('rotateBoundaryDofsBack', rotateBoundaryDofsBack)
     
     selectZDisplacement = np.zeros((self.numberOfQuantities(), 1))
-    selectZDisplacement[8,0] = 1
+    selectZDisplacement[8, 0] = 1
     selectZDisplacement = Tensor('selectZDisplacement',
                                  selectZDisplacement.shape,
                                  selectZDisplacement,

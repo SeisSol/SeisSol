@@ -88,8 +88,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               const CellMaterialData* materialData,
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
                                               real (*nodalAvgDisplacements)[4][tensor::INodalDisplacement::size()],
-					      double time,
-					      double timeStepWidth) {
+                                              double time,
+                                              double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
 
@@ -108,7 +108,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   
   volKrnl.execute();
 
-  for (unsigned int face = 0; face < 4; face++ ) {
+  for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
       lfKrnl.AplusT = data.localIntegration.nApNm1[face];
@@ -137,18 +137,18 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       assert(materialData != nullptr);
       auto* displ = (*nodalAvgDisplacements)[face];
       auto displacement = init::INodalDisplacement::view::create(displ);
-      auto applyFreeSurfaceBc =
-          [&](const real* nodes,
-              init::INodal::view::type& boundaryDofs) {
-        for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-          const double rho = materialData->local.rho;
-          const double g = 9.81; // [m/s^2]
-          const double pressureAtBnd = -1 * rho * g * displacement(i,0);
+        auto applyFreeSurfaceBc = [&displacement, &materialData](
+            const real*, // nodes are unused
+            init::INodal::view::type& boundaryDofs) {
+          for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+            const double rho = materialData->local.rho;
+            const double g = 9.81; // [m/s^2]
+            const double pressureAtBnd = -1 * rho * g * displacement(i,0);
 
-          boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
-          boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
-          boundaryDofs(i,2) = 2 * pressureAtBnd - boundaryDofs(i,2);
-        }
+            boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
+            boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
+            boundaryDofs(i,2) = 2 * pressureAtBnd - boundaryDofs(i,2);
+          }
       };
 
       dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
@@ -164,7 +164,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
     case FaceType::dirichlet:
       {
       const auto& easiBoundary = seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader();
-
       auto applyEasiBoundary = [&easiBoundary](const real* nodes,
                                                init::INodal::view::type& boundaryDofs) {
           easiBoundary->query(nodes, boundaryDofs);
@@ -191,8 +190,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       {
       assert(cellBoundaryMapping != nullptr);
       auto applyAnalyticalSolution = [materialData](const real* nodes,
-					double time,
-					init::INodal::view::type& boundaryDofs) {
+                                                    double time,
+                                                    init::INodal::view::type& boundaryDofs) {
           auto nodesVec = std::vector<std::array<double, 3>>{};
           int offset = 0;
           for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
@@ -208,19 +207,18 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       };
 
       dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,
-					      face,
-					      (*cellBoundaryMapping)[face],
-					      m_projectKrnlPrototype,
-					      applyAnalyticalSolution,
-					      dofsFaceBoundaryNodal,
-					      time,
-					      timeStepWidth);
+                                              face,
+                                              (*cellBoundaryMapping)[face],
+                                              m_projectKrnlPrototype,
+                                              applyAnalyticalSolution,
+                                              dofsFaceBoundaryNodal,
+                                              time,
+                                              timeStepWidth);
       nodalLfKrnl.execute(face);
       break;
       }
     default:
       // No boundary condition.
-
       break;
     }
   }

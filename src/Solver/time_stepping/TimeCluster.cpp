@@ -448,7 +448,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     bool l_buffersProvided = (data.cellInformation.ltsSetup >> 8)%2 == 1; // buffers are provided
     bool l_resetBuffers = l_buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || m_resetLtsBuffers ); // they should be reset
 
-    if(l_resetBuffers) {
+    if (l_resetBuffers) {
       // assert presence of the buffer
       assert(buffers[l_cell] != nullptr);
 
@@ -459,10 +459,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     }
 
     // TODO(Lukas) Opt?
-    alignas(ALIGNMENT) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
+    alignas(ALIGNMENT) real tmpDerivativeBuffer[yateto::computeFamilySize<tensor::dQ>()];
     real* derivativeBuffer = derivatives[l_cell];
     if (derivativeBuffer == nullptr) {
-      derivativeBuffer = temporaryBuffer;
+      derivativeBuffer = tmpDerivativeBuffer;
     }
     m_timeKernel.computeAder(m_timeStepWidth,
                              data,
@@ -472,13 +472,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
     // Compute average displacement over timestep if needed.
-    // TODO(Lukas) Check buffers for correctness
     alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
     alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
 
     // Only a fraction of cells need the average displacement
     bool needsAvgDisplacement = false;
-    for (const auto& faceType : cellInformation[l_cell].faceTypes) {
+    for (const auto faceType : cellInformation[l_cell].faceTypes) {
       if (faceType == FaceType::freeSurfaceGravity) {
         needsAvgDisplacement = true;
         break;
@@ -495,8 +494,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
         if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
           assert(displacements[l_cell] != nullptr);
 
-          {
-
           kernel::displacementAvgNodal krnl;
           krnl.I = twiceTimeIntegrated;
           krnl.V3mTo2nFace = m_globalData->V3mTo2nFace;
@@ -508,8 +505,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
           krnl.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
           krnl.INodalDisplacement = nodalAvgDisplacements[side];
           krnl.execute(side);
-          }
-
         }
       }
     }

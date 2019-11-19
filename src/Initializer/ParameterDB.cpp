@@ -227,14 +227,12 @@ seissol::initializers::EasiBoundary::~EasiBoundary() {
 void seissol::initializers::EasiBoundary::query(const real* nodes,
 						init::INodal::view::type& boundaryDofs) const {
   if (model == nullptr) {
-    // TODO(Lukas) Add proper warning if model is nullptr
-    throw -1;
+    logError() << "Model for easiBoundary is not initialized!";
   }
   assert(tensor::INodal::Shape[1] == 9); // only supp. for elastic currently.
-  assert(model != nullptr);
   constexpr auto numNodes = tensor::INodal::Shape[0];
   auto query = easi::Query{numNodes, 3};
-  auto offset = size_t{0};
+  size_t offset{0};
   for (unsigned i = 0; i < numNodes; ++i) {
     query.x(i, 0) = nodes[offset++];
     query.x(i, 1) = nodes[offset++];
@@ -244,18 +242,26 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
   const auto& supplied = model->suppliedParameters();
 
   // Shear stresses are irrelevant for riemann problem
+  // Hence they have dummy names and won't be used for this bc.
+  // We have 9 variables s.t. our tensors have the correct shape.
   const auto varNames = std::array<std::string, 9>{
     "Tn", "Ts", "Td", "unused1", "unused2", "unused3", "u", "v", "w"
   };
 
+  // We read out a affine transformation s.t. val in ghost cell
+  // is equal to A * val_inside + b
+
+  // Constant terms stores all terms of the vector b
   auto constantTermsData = std::array<double, init::easiBoundaryConstant::Size>();
   auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData.data()));
+
+  // Map terms stores all terms of the linear map A
   auto mapTermsData = std::array<double, init::easiBoundaryMap::Size>();
   auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData.data());
-  // Terms stores an array of terms for each node.
-  // The first 9 terms are the constant offset, the following
-  // 81 are the linear map.
+
   easi::ArraysAdapter adapter{};
+
+  // Constant terms are named const_{varName}, e.g. const_u
   offset = 0;
   for (const auto& varName : varNames) {
     const auto termName = std::string{"const_"} + varName;
@@ -268,6 +274,9 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
     }
     ++offset;
   }
+  // Map terms are named map_{varA}_{varB}, e.g. map_u_v
+  // Mirroring the velocity at the ghost cell would imply the param
+  // map_u_u: -1
   offset = 0;
   for (size_t i = 0; i < varNames.size(); ++i){
     const auto& varName = varNames[i];

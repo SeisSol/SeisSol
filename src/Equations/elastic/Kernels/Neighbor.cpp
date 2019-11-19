@@ -75,13 +75,8 @@
 #pragma message "compiling boundary kernel with assertions"
 #endif
 
-#include <yateto.h>
-#include "DirichletBoundary.h"
-
 #include <cassert>
 #include <stdint.h>
-#include <cstddef>
-#include <cstring>
 
 void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
@@ -124,7 +119,8 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(i_timeIntegrated[l_face]) % ALIGNMENT == 0 );
-      assert(data.cellInformation.faceRelations[l_face][0] < 4 && data.cellInformation.faceRelations[l_face][1] < 3);
+      assert(data.cellInformation.faceRelations[l_face][0] < 4
+             && data.cellInformation.faceRelations[l_face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
       nfKrnl.Q = data.dofs;
       nfKrnl.I = i_timeIntegrated[l_face];
@@ -137,7 +133,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
       }
     case FaceType::dynamicRupture:
       {
-      // No neighboring cell contrib., interior bc.
+      // No neighboring cell contribution, interior bc.
       assert(reinterpret_cast<uintptr_t>(cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
@@ -156,7 +152,6 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
   }
 }
 
-// TODO(Lukas) Adopt to nodal boundary flux case!
 void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTypes[4],
                                                         const int i_neighboringIndices[4][2],
                                                         CellDRMapping const (&cellDrMapping)[4],
