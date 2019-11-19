@@ -1500,6 +1500,7 @@ MODULE Eval_friction_law_mod
 
 
     IF (ANY(IsNaN(LocSV)) .EQV. .TRUE.) THEN
+       logError(*) 'NaN detected', time
        STOP
     ENDIF
 
