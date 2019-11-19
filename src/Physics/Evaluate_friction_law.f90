@@ -1219,7 +1219,7 @@ MODULE Eval_friction_law_mod
     REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
     REAL        :: LocMu(nBndGP), LocD_C(nBndGP), LocSlip(nBndGP), LocSlip1(nBndGP), LocSlip2(nBndGP), LocP(nBndGP), P(nBndGP), LocSR(nBndGP), ShTest(nBndGP)
     REAL        :: LocMu_S, LocMu_D, S(nBndGP)
-    REAL        :: Theta_tmp(DISC%dynRup%TP_nz), Sigma_tmp(DISC%dynRup%TP_nz)
+    REAL        :: Theta_tmp(DISC%dynRup%TP_grid_nz), Sigma_tmp(DISC%dynRup%TP_grid_nz)
     REAL        :: LocSR1(nBndGP),LocSR2(nBndGP)
     REAL        :: P_0(nBndGP),Strength(nBndGP),cohesion(nBndGP), n_stress(nBndGP), P_f(nBndGP)
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
@@ -1347,7 +1347,7 @@ MODULE Eval_friction_law_mod
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                          Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
-                         CALL Calc_ThermalPressure(EQN, time_inc, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                         CALL Calc_ThermalPressure(EQN, time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_grid_half_width, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                               DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2) )
                          P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
@@ -1387,7 +1387,7 @@ MODULE Eval_friction_law_mod
                           Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                           Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
                           !use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-                          CALL Calc_ThermalPressure(EQN,time_inc, DISC%DynRup%TP_nz, DISC%DynRup%TP_hwid, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                          CALL Calc_ThermalPressure(EQN,time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_grid_half_width, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
                                DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                                DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2))
                           P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)

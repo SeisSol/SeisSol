@@ -787,15 +787,15 @@ MODULE TypesDef
      REAL                                   :: alpha_hy                         !< hydraulic diffusion parameter for TP
      REAL                                   :: rho_c                            !< heat capacity for TP
      REAL                                   :: TP_lambda                        !< pore pressure increase per unit increase
-     INTEGER                                :: TP_nz                            !< number of grid points to solve advection for TP
-     REAL                                   :: TP_dlDwn                         !< grid space distance for TP_grid
-     REAL                                   :: TP_hwid                          !< half width of the shearing layer for TP
-     REAL                                   :: TP_Dwnmax                        !< max. wavenumber for TP
+     INTEGER                                :: TP_grid_nz                       !< number of grid points to solve advection for TP in z-direction
+     REAL                                   :: TP_grid_space_distance           !< grid space distance for TP_grid
+     REAL                                   :: TP_grid_half_width               !< half width of the shearing layer for TP
+     REAL                                   :: TP_max_wavenumber                !< max. wavenumber for TP
      REAL, ALLOCATABLE                      :: TP_grid(:)                       !< grid for TP
      REAL, ALLOCATABLE                      :: TP_DFinv(:)                      !< inverse Fourier coefficients
      REAL, ALLOCATABLE                      :: TP_Theta(:,:,:)                  !< Fourier transformed pressure
      REAL, ALLOCATABLE                      :: TP_Sigma(:,:,:)                  !< Fourier transformed temperature
-     REAL, ALLOCATABLE                      :: TP(:,:,:)                          !< Temperature and Pressure for TP along each fault point
+     REAL, ALLOCATABLE                      :: TP(:,:,:)                        !< Temperature and Pressure for TP along each fault point
      !RF output handled in tDynRup as it has to be computed in the friction solver
      INTEGER                                :: RF_output_on                     !< rupture front output on = 1, off = 0
      INTEGER                                :: RFtime_on                        !< collect rupture time for Vr or RF output on=1, off=0
