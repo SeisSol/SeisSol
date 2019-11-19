@@ -74,7 +74,7 @@ Other Linux system can be found here: https://github.com/gem/oq-engine/blob/mast
 Put oq-engine in your PATHONPAT
 
 ```
-export PATHONPATH=$PATHONPATH:/dir_to_qo-engine/
+export PYTHONPATH=$PYTHONPATH:/dir_to_qo-engine/
 ```
 
 You can test the installation by running an example
