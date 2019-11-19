@@ -42,15 +42,25 @@
 
 #include <Kernels/precision.hpp>
 
+
 namespace seissol {
   namespace model {
+    enum materialType {
+      elastic,
+      viscoelastic,
+      elastoplastic,
+      viscoplastic,
+      anisotropic
+    };
+
     struct Material {
       real rho;
       virtual real getMaxWaveSpeed() {};
       virtual real getPWaveSpeed() {};
       virtual real getSWaveSpeed() {};
-      virtual Material getRotatedMaterialCoefficients(real i_N[36]) {};
+      virtual Material getRotatedMaterialCoefficients(real i_N[36]) {} ;
       virtual void getFullElasticTensor(real fullTensor[81]) {}; 
+      virtual materialType getMaterialType() const {};
       virtual ~Material() {};
     };
 

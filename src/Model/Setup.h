@@ -113,20 +113,20 @@ namespace seissol {
 //                        real* o_N );
 //
 //
-    /**
-     * Initializes equation specific data for local integration.
-     * LocalData has to be specified in datastructures.hpp.
-     */
-    void initializeSpecificLocalData( seissol::model::Material const& material,
-                                      seissol::model::LocalData* localData );
-
-    /**
-     * Initializes equation specific data for neighbor integration.
-     * NeighborData has to be specified in datastructures.hpp.
-     */
-    void initializeSpecificNeighborData(  seissol::model::Material const& localMaterial,
-                                          seissol::model::Material const (&neighborMaterials)[4],
-                                          seissol::model::NeighborData* neighborData );
+//    /**
+//     * Initializes equation specific data for local integration.
+//     * LocalData has to be specified in datastructures.hpp.
+//     */
+//    void initializeSpecificLocalData( seissol::model::Material const& material,
+//                                      seissol::model::LocalData* localData );
+//
+//    /**
+//     * Initializes equation specific data for neighbor integration.
+//     * NeighborData has to be specified in datastructures.hpp.
+//     */
+//    void initializeSpecificNeighborData(  seissol::model::Material const& localMaterial,
+//                                          seissol::model::Material const (&neighborMaterials)[4],
+//                                          seissol::model::NeighborData* neighborData );
   }
 }
 

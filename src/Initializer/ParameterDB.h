@@ -122,7 +122,7 @@ template<class T>
 class seissol::initializers::ParameterDB {
 public: 
   //for material parameters
-  void setMaterialType(enum ::materialType materialType) { m_materialType = materialType; }
+  void setMaterialType(seissol::model::materialType materialType) { m_materialType = materialType; }
   void setMaterialVector(std::vector<T> materials) { m_materials = materials; }
   //for fault parameters
   void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
@@ -133,7 +133,7 @@ public:
 private:
   //for material parameters
   void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
-  enum ::materialType m_materialType;
+  seissol::model::materialType m_materialType;
   std::vector<T> m_materials;
   //for fault parameters
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;

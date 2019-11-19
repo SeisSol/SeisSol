@@ -151,10 +151,17 @@ namespace seissol {
       real getSWaveSpeed() {
         return std::sqrt(mu / rho);
       }
+
+      materialType getMaterialType() const {
+        return elastic;
+      }
     };
 
     struct ElastoPlasticMaterial : ElasticMaterial, Plasticity {
       virtual ~ElastoPlasticMaterial() {};
+      materialType getMaterialType() const {
+        return elastoplastic;
+      }
     };
   }
 }

@@ -59,10 +59,18 @@ namespace seissol {
       double Qs;
 
       virtual ~ViscoElasticMaterial() {};
+
+      materialType getMaterialType() const {
+        return viscoelastic;
+      }
     };
 
     struct ViscoPlasticMaterial : ViscoElasticMaterial, Plasticity {
       virtual ~ViscoPlasticMaterial() {};
+
+      materialType getMaterialType() const {
+        return viscoplastic;
+      }
     };
 
 #ifdef USE_VISCOELASTIC

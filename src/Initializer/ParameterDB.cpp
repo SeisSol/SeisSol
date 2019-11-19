@@ -243,28 +243,27 @@ namespace seissol {
     template<>
     void ParameterDB<seissol::model::AnisotropicMaterial>::addBindingPoints(easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> &adapter) {
       adapter.addBindingPoint("rho", &seissol::model::AnisotropicMaterial::rho);
-      //TODO
-      //adapter.addBindingPoint("c11", &seissol::model::AnisotropicMaterial::c_store[0]);
-      //adapter.addBindingPoint("c12", &seissol::model::AnisotropicMaterial::c_store[1]);
-      //adapter.addBindingPoint("c13", &seissol::model::AnisotropicMaterial::c_store[2]);
-      //adapter.addBindingPoint("c14", &seissol::model::AnisotropicMaterial::c_store[3]);
-      //adapter.addBindingPoint("c15", &seissol::model::AnisotropicMaterial::c_store[4]);
-      //adapter.addBindingPoint("c16", &seissol::model::AnisotropicMaterial::c_store[5]);
-      //adapter.addBindingPoint("c22", &seissol::model::AnisotropicMaterial::c_store[6]);
-      //adapter.addBindingPoint("c23", &seissol::model::AnisotropicMaterial::c_store[7]);
-      //adapter.addBindingPoint("c24", &seissol::model::AnisotropicMaterial::c_store[8]);
-      //adapter.addBindingPoint("c25", &seissol::model::AnisotropicMaterial::c_store[9]);
-      //adapter.addBindingPoint("c26", &seissol::model::AnisotropicMaterial::c_store[10]);
-      //adapter.addBindingPoint("c33", &seissol::model::AnisotropicMaterial::c_store[11]);
-      //adapter.addBindingPoint("c34", &seissol::model::AnisotropicMaterial::c_store[12]);
-      //adapter.addBindingPoint("c35", &seissol::model::AnisotropicMaterial::c_store[13]);
-      //adapter.addBindingPoint("c36", &seissol::model::AnisotropicMaterial::c_store[14]);
-      //adapter.addBindingPoint("c44", &seissol::model::AnisotropicMaterial::c_store[15]);
-      //adapter.addBindingPoint("c45", &seissol::model::AnisotropicMaterial::c_store[16]);
-      //adapter.addBindingPoint("c46", &seissol::model::AnisotropicMaterial::c_store[17]);
-      //adapter.addBindingPoint("c55", &seissol::model::AnisotropicMaterial::c_store[18]);
-      //adapter.addBindingPoint("c56", &seissol::model::AnisotropicMaterial::c_store[19]);
-      //adapter.addBindingPoint("c66", &seissol::model::AnisotropicMaterial::c_store[20]);
+      adapter.addBindingPoint("c11", &seissol::model::AnisotropicMaterial::c11);
+      adapter.addBindingPoint("c12", &seissol::model::AnisotropicMaterial::c12);
+      adapter.addBindingPoint("c13", &seissol::model::AnisotropicMaterial::c13);
+      adapter.addBindingPoint("c14", &seissol::model::AnisotropicMaterial::c14);
+      adapter.addBindingPoint("c15", &seissol::model::AnisotropicMaterial::c15);
+      adapter.addBindingPoint("c16", &seissol::model::AnisotropicMaterial::c16);
+      adapter.addBindingPoint("c22", &seissol::model::AnisotropicMaterial::c22);
+      adapter.addBindingPoint("c23", &seissol::model::AnisotropicMaterial::c23);
+      adapter.addBindingPoint("c24", &seissol::model::AnisotropicMaterial::c24);
+      adapter.addBindingPoint("c25", &seissol::model::AnisotropicMaterial::c25);
+      adapter.addBindingPoint("c26", &seissol::model::AnisotropicMaterial::c26);
+      adapter.addBindingPoint("c33", &seissol::model::AnisotropicMaterial::c33);
+      adapter.addBindingPoint("c34", &seissol::model::AnisotropicMaterial::c34);
+      adapter.addBindingPoint("c35", &seissol::model::AnisotropicMaterial::c35);
+      adapter.addBindingPoint("c36", &seissol::model::AnisotropicMaterial::c36);
+      adapter.addBindingPoint("c44", &seissol::model::AnisotropicMaterial::c44);
+      adapter.addBindingPoint("c45", &seissol::model::AnisotropicMaterial::c45);
+      adapter.addBindingPoint("c46", &seissol::model::AnisotropicMaterial::c46);
+      adapter.addBindingPoint("c55", &seissol::model::AnisotropicMaterial::c55);
+      adapter.addBindingPoint("c56", &seissol::model::AnisotropicMaterial::c56);
+      adapter.addBindingPoint("c66", &seissol::model::AnisotropicMaterial::c66);
     }                                                               
     
     template<class T>
@@ -273,11 +272,11 @@ namespace seissol {
       easi::Query query = queryGen.generate();
 
       switch(m_materialType)  {
-        case elastic:
-        case viscoelastic:
-        case elastoplastic:
-        case viscoplastic:
-        case anisotropic: {
+        case seissol::model::elastic:
+        case seissol::model::viscoelastic:
+        case seissol::model::elastoplastic:
+        case seissol::model::viscoplastic:
+        case seissol::model::anisotropic: {
           easi::ArrayOfStructsAdapter<T> adapter(m_materials.data());
           addBindingPoints(adapter);
           model->evaluate(query, adapter); 
@@ -321,11 +320,11 @@ namespace seissol {
       }
       else {
         switch(m_materialType)  {
-          case elastic:
-          case viscoelastic:
-          case elastoplastic:
-          case viscoplastic:
-          case anisotropic: {
+          case seissol::model::elastic:
+          case seissol::model::viscoelastic:
+          case seissol::model::elastoplastic:
+          case seissol::model::viscoplastic:
+          case seissol::model::anisotropic: {
             easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> arrayOfStructsAdapter(m_materials.data());
             addBindingPoints(arrayOfStructsAdapter);
             model->evaluate(query, arrayOfStructsAdapter);  

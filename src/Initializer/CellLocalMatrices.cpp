@@ -206,7 +206,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
                                                     &localIntegration[cell].specific );
 
       seissol::model::initializeSpecificNeighborData( material[cell].local,
-                                                      material[cell].neighbor,
                                                       &neighboringIntegration[cell].specific );
     }
 #ifdef _OPENMP

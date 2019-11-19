@@ -52,41 +52,53 @@ namespace seissol {
   namespace model {
     struct AnisotropicMaterial : Material {
       real c_store[21];
-      int c_addr(unsigned i, unsigned j) const {
-        auto row = std::min(i,j); 
-        auto col = std::max(i,j); 
-        auto offset = row*((0,0)-row)/2;
-        return offset + col;
-      }
-      real c(unsigned i, unsigned j) const {
-        return c_store[c_addr(i,j)];
-      }
+      real c11;
+      real c12;
+      real c13;
+      real c14;
+      real c15;
+      real c16;
+      real c22;
+      real c23;
+      real c24;
+      real c25;
+      real c26;
+      real c33;
+      real c34;
+      real c35;
+      real c36;
+      real c44;
+      real c45;
+      real c46;
+      real c55;
+      real c56;
+      real c66;
 
       AnisotropicMaterial() {};
 
       AnisotropicMaterial(ElasticMaterial m) {
         rho = m.rho;
-        c_store[c_addr(0,0)] = m.lambda + 2*m.mu;
-        c_store[c_addr(0,1)] = m.lambda;
-        c_store[c_addr(0,2)] = m.lambda;
-        c_store[c_addr(0,3)] = 0;
-        c_store[c_addr(0,4)] = 0;
-        c_store[c_addr(0,5)] = 0; 
-        c_store[c_addr(1,1)] = m.lambda + 2*m.mu;
-        c_store[c_addr(1,2)] = m.lambda;
-        c_store[c_addr(1,3)] = 0;
-        c_store[c_addr(1,4)] = 0;
-        c_store[c_addr(1,5)] = 0;
-        c_store[c_addr(2,2)] = m.lambda + 2*m.mu;
-        c_store[c_addr(2,3)] = 0;
-        c_store[c_addr(2,4)] = 0;
-        c_store[c_addr(2,5)] = 0;
-        c_store[c_addr(3,3)] = m.mu; 
-        c_store[c_addr(3,4)] = 0;
-        c_store[c_addr(3,5)] = 0;
-        c_store[c_addr(4,4)] = m.mu; 
-        c_store[c_addr(4,5)] = 0; 
-        c_store[c_addr(5,5)] = m.mu; 
+        c11 = m.lambda + 2*m.mu;
+        c12 = m.lambda;
+        c13 = m.lambda;
+        c14 = 0;
+        c15 = 0;
+        c16 = 0; 
+        c22 = m.lambda + 2*m.mu;
+        c23 = m.lambda;
+        c24 = 0;
+        c25 = 0;
+        c26 = 0;
+        c33 = m.lambda + 2*m.mu;
+        c34 = 0;
+        c35 = 0;
+        c36 = 0;
+        c44 = m.mu; 
+        c45 = 0;
+        c46 = 0;
+        c55 = m.mu; 
+        c56 = 0; 
+        c66 = m.mu; 
       }
 
       virtual ~AnisotropicMaterial() {};
@@ -97,98 +109,151 @@ namespace seissol {
         using Matrix66 = Eigen::Matrix<real, 6, 6>;
         Matrix66 N = Matrix66(i_N);
         Matrix66 C = Matrix66();
-        for(int i = 0; i < 6; i++)
-          for(int j = 0; j < 6; j++)
-            C(i,j) = c(i,j);
+        C(0,0) = c11;
+        C(0,1) = c12;
+        C(0,2) = c13;
+        C(0,3) = c14;
+        C(0,4) = c15;
+        C(0,5) = c16;
+        C(1,0) = c12;
+        C(1,1) = c22;
+        C(1,2) = c23;
+        C(1,3) = c24;
+        C(1,4) = c25;
+        C(1,5) = c26;
+        C(2,0) = c13;
+        C(2,1) = c23;
+        C(2,2) = c33;
+        C(2,3) = c34;
+        C(2,4) = c35;
+        C(2,5) = c36;
+        C(3,0) = c14;
+        C(3,1) = c24;
+        C(3,2) = c34;
+        C(3,3) = c44;
+        C(3,4) = c45;
+        C(3,5) = c46;
+        C(4,0) = c15;
+        C(4,1) = c25;
+        C(4,2) = c35;
+        C(4,3) = c45;
+        C(4,4) = c55;
+        C(4,5) = c56;
+        C(5,0) = c16;
+        C(5,1) = c26;
+        C(5,2) = c36;
+        C(5,3) = c46;
+        C(5,4) = c56;
+        C(5,5) = c66;
+
         Matrix66 rotatedC = N.transpose()*C*N;
-        for(int i = 0; i < 6; i++)
-          for(int j = i; j < 6; j++)
-            material.c_store[c_addr(i,j)] = rotatedC(i,j);
+
+        material.c11 = rotatedC(0,0);
+        material.c12 = rotatedC(0,1);
+        material.c13 = rotatedC(0,2);
+        material.c14 = rotatedC(0,3);
+        material.c15 = rotatedC(0,4);
+        material.c16 = rotatedC(0,5);
+        material.c22 = rotatedC(1,1);
+        material.c23 = rotatedC(1,2);
+        material.c24 = rotatedC(1,3);
+        material.c25 = rotatedC(1,4);
+        material.c26 = rotatedC(1,5);
+        material.c33 = rotatedC(2,2);
+        material.c34 = rotatedC(2,3);
+        material.c35 = rotatedC(2,4);
+        material.c36 = rotatedC(2,5);
+        material.c44 = rotatedC(3,3);
+        material.c45 = rotatedC(3,4);
+        material.c46 = rotatedC(3,5);
+        material.c55 = rotatedC(4,4);
+        material.c56 = rotatedC(4,5);
+        material.c66 = rotatedC(5,5);
         return material;
       }
 
       void getFullElasticTensor(real fullTensor[81]) {
-        fullTensor[0]  = c(0,0);
-        fullTensor[1]  = c(0,5);
-        fullTensor[2]  = c(0,4);
-        fullTensor[3]  = c(0,5);
-        fullTensor[4]  = c(0,1);
-        fullTensor[5]  = c(0,3);
-        fullTensor[6]  = c(0,4);
-        fullTensor[7]  = c(0,3);
-        fullTensor[8]  = c(0,2);
-        fullTensor[9]  = c(0,5);
-        fullTensor[10] = c(5,5);
-        fullTensor[11] = c(4,5);
-        fullTensor[12] = c(5,5);
-        fullTensor[13] = c(1,5);
-        fullTensor[14] = c(3,5);
-        fullTensor[15] = c(4,5);
-        fullTensor[16] = c(3,5);
-        fullTensor[17] = c(2,5);
-        fullTensor[18] = c(0,4);
-        fullTensor[19] = c(4,5);
-        fullTensor[20] = c(4,4);
-        fullTensor[21] = c(4,5);
-        fullTensor[22] = c(1,4);
-        fullTensor[23] = c(2,4);
-        fullTensor[24] = c(4,4);
-        fullTensor[25] = c(3,4);
-        fullTensor[26] = c(2,4);
-        fullTensor[27] = c(0,5);
-        fullTensor[28] = c(5,5);
-        fullTensor[29] = c(4,5);
-        fullTensor[30] = c(5,5);
-        fullTensor[31] = c(1,5);
-        fullTensor[32] = c(3,5);
-        fullTensor[33] = c(4,5);
-        fullTensor[34] = c(3,5);
-        fullTensor[35] = c(2,5);
-        fullTensor[36] = c(0,1);
-        fullTensor[37] = c(1,5);
-        fullTensor[38] = c(1,4);
-        fullTensor[39] = c(1,5);
-        fullTensor[40] = c(1,1);
-        fullTensor[41] = c(1,3);
-        fullTensor[42] = c(1,4);
-        fullTensor[43] = c(1,3);
-        fullTensor[44] = c(1,2);
-        fullTensor[45] = c(0,3);
-        fullTensor[46] = c(3,5);
-        fullTensor[47] = c(3,4);
-        fullTensor[48] = c(3,5);
-        fullTensor[49] = c(1,3);
-        fullTensor[50] = c(3,3);
-        fullTensor[51] = c(3,4);
-        fullTensor[52] = c(3,3);
-        fullTensor[53] = c(2,3);
-        fullTensor[54] = c(0,4);
-        fullTensor[55] = c(4,5);
-        fullTensor[56] = c(4,4);
-        fullTensor[57] = c(4,5);
-        fullTensor[58] = c(1,4);
-        fullTensor[59] = c(3,4);
-        fullTensor[60] = c(4,4);
-        fullTensor[61] = c(3,4);
-        fullTensor[62] = c(2,4);
-        fullTensor[63] = c(0,3);
-        fullTensor[64] = c(3,5);
-        fullTensor[65] = c(3,4);
-        fullTensor[66] = c(3,5);
-        fullTensor[67] = c(1,3);
-        fullTensor[68] = c(3,3);
-        fullTensor[69] = c(3,4);
-        fullTensor[70] = c(3,3);
-        fullTensor[71] = c(2,3);
-        fullTensor[72] = c(0,3);
-        fullTensor[73] = c(2,5);
-        fullTensor[74] = c(2,4);
-        fullTensor[75] = c(2,5);
-        fullTensor[76] = c(1,2);
-        fullTensor[77] = c(2,3);
-        fullTensor[78] = c(2,4);
-        fullTensor[79] = c(2,3);
-        fullTensor[80] = c(2,2);
+        fullTensor[0]  = c11;
+        fullTensor[1]  = c16;
+        fullTensor[2]  = c15;
+        fullTensor[3]  = c16;
+        fullTensor[4]  = c12;
+        fullTensor[5]  = c14;
+        fullTensor[6]  = c15;
+        fullTensor[7]  = c14;
+        fullTensor[8]  = c13;
+        fullTensor[9]  = c16;
+        fullTensor[10] = c66;
+        fullTensor[11] = c56;
+        fullTensor[12] = c66;
+        fullTensor[13] = c26;
+        fullTensor[14] = c46;
+        fullTensor[15] = c56;
+        fullTensor[16] = c46;
+        fullTensor[17] = c36;
+        fullTensor[18] = c15;
+        fullTensor[19] = c56;
+        fullTensor[20] = c55;
+        fullTensor[21] = c56;
+        fullTensor[22] = c25;
+        fullTensor[23] = c35;
+        fullTensor[24] = c55;
+        fullTensor[25] = c45;
+        fullTensor[26] = c35;
+        fullTensor[27] = c16;
+        fullTensor[28] = c66;
+        fullTensor[29] = c56;
+        fullTensor[30] = c66;
+        fullTensor[31] = c26;
+        fullTensor[32] = c46;
+        fullTensor[33] = c56;
+        fullTensor[34] = c46;
+        fullTensor[35] = c36;
+        fullTensor[36] = c12;
+        fullTensor[37] = c26;
+        fullTensor[38] = c25;
+        fullTensor[39] = c26;
+        fullTensor[40] = c22;
+        fullTensor[41] = c24;
+        fullTensor[42] = c25;
+        fullTensor[43] = c24;
+        fullTensor[44] = c23;
+        fullTensor[45] = c14;
+        fullTensor[46] = c46;
+        fullTensor[47] = c45;
+        fullTensor[48] = c46;
+        fullTensor[49] = c24;
+        fullTensor[50] = c44;
+        fullTensor[51] = c45;
+        fullTensor[52] = c44;
+        fullTensor[53] = c34;
+        fullTensor[54] = c15;
+        fullTensor[55] = c56;
+        fullTensor[56] = c55;
+        fullTensor[57] = c56;
+        fullTensor[58] = c25;
+        fullTensor[59] = c45;
+        fullTensor[60] = c55;
+        fullTensor[61] = c45;
+        fullTensor[62] = c35;
+        fullTensor[63] = c14;
+        fullTensor[64] = c46;
+        fullTensor[65] = c45;
+        fullTensor[66] = c46;
+        fullTensor[67] = c24;
+        fullTensor[68] = c44;
+        fullTensor[69] = c45;
+        fullTensor[70] = c44;
+        fullTensor[71] = c34;
+        fullTensor[72] = c14;
+        fullTensor[73] = c36;
+        fullTensor[74] = c35;
+        fullTensor[75] = c36;
+        fullTensor[76] = c23;
+        fullTensor[77] = c34;
+        fullTensor[78] = c35;
+        fullTensor[79] = c34;
+        fullTensor[80] = c33;
       }
 
       real getMaxWaveSpeed() {
@@ -232,14 +297,18 @@ namespace seissol {
       }
 
       real getPWaveSpeed() {
-        real muBar = (c(3,3) + c(4,4) + c(5,5)) / 3.0;
-        real lambdaBar = (c(0,0) + c(1,1) + c(2,2)) / 3.0 - 2.0*muBar;
+        real muBar = (c44 + c55 + c66) / 3.0;
+        real lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0*muBar;
         return std::sqrt((lambdaBar + 2*muBar) / rho);
       }
 
       real getSWaveSpeed() {
-        real muBar = (c(3,3) + c(4,4) + c(5,5)) / 3.0;
+        real muBar = (c44 + c55 + c66) / 3.0;
         return std::sqrt(muBar / rho);
+      }
+
+      materialType getMaterialType() const {
+        return anisotropic;
       }
     };
   }

@@ -76,6 +76,18 @@ namespace seissol {
                                double const n[3],
                                std::complex<real> Mdata[9 * 9] );
 
+    template<typename T>
+    void setMaterial( double* i_materialVal,
+                      int i_numMaterialVals,
+                      T* o_material ) {};
+
+    template<typename T>
+    void initializeSpecificLocalData( T const&,
+                                      LocalData* );
+
+    template<typename T>
+    void initializeSpecificNeighborData(  T const&,
+                                          NeighborData* );
 
     void getBondMatrix( VrtxCoords const i_normal,
                         VrtxCoords const i_tangent1,
@@ -87,36 +99,30 @@ namespace seissol {
                                 VrtxCoords const i_tangent2,
                                 init::T::view::type& o_T,
                                 init::Tinv::view::type& o_Tinv );
-
-    template<typename T>
-    void setMaterial( double* i_materialVal,
-                      int i_numMaterialVals,
-                      T* o_material ) {};
-
   }
 }
 
 template<typename Tmaterial, typename Tmatrix>
 void seissol::model::getTransposedCoefficientMatrix( Tmaterial const& i_material,
-                                                     unsigned                        i_dim,
-                                                     Tmatrix&                              o_M ) {
-  try {
-    const seissol::model::AnisotropicMaterial& am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(i_material);
-    seissol::model::getTransposedCoefficientMatrix(am, i_dim, o_M);
-  } 
-  catch(std::bad_cast exp) {
-    try {
+                                                     unsigned          i_dim,
+                                                     Tmatrix&          o_M ) {
+  switch((i_material.getMaterialType())) {
+    case seissol::model::anisotropic: {
+      const seissol::model::AnisotropicMaterial& am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(i_material);
+      seissol::model::getTransposedCoefficientMatrix(am, i_dim, o_M);
+      break;
+    }
+    case seissol::model::elastic:
+    case seissol::model::elastoplastic: {
       const seissol::model::ElasticMaterial& em = dynamic_cast<const seissol::model::ElasticMaterial&>(i_material);
       seissol::model::getTransposedCoefficientMatrix(em, i_dim, o_M);
+      break;
     }
-    catch(std::bad_cast exp) {
-      try {
-        const seissol::model::ViscoElasticMaterial& vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(i_material);
-        seissol::model::getTransposedCoefficientMatrix(vm, i_dim, o_M);
-      } 
-      catch(std::bad_cast exp) {
-        //something went terribly wrong
-      }
+    case seissol::model::viscoelastic:
+    case seissol::model::viscoplastic: {
+      const seissol::model::ViscoElasticMaterial& vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(i_material);
+      seissol::model::getTransposedCoefficientMatrix(vm, i_dim, o_M);
+      break;
     }
   }
 }
@@ -127,26 +133,28 @@ void seissol::model::getTransposedGodunovState( Tmaterial const&  local,
                                                 enum ::faceType  faceType,
                                                 Tloc&            QgodLocal,
                                                 Tneigh&          QgodNeighbor ) {
-  try {
-    const seissol::model::AnisotropicMaterial& local_am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(local);
-    const seissol::model::AnisotropicMaterial& neighbor_am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(neighbor);
-    seissol::model::getTransposedGodunovState(local_am, neighbor_am, faceType, QgodLocal, QgodNeighbor);
-  }
-  catch(std::bad_cast exp) {
-    try {
+  //up to now we do not support coupling
+  assert(local.getMaterialType() == neighbor.getMaterialType);
+  switch((local.getMaterialType())) {
+    case seissol::model::anisotropic: {
+      const seissol::model::AnisotropicMaterial& local_am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(local);
+      const seissol::model::AnisotropicMaterial& neighbor_am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(neighbor);
+      seissol::model::getTransposedGodunovState(local_am, neighbor_am, faceType, QgodLocal, QgodNeighbor);
+      break;
+    }
+    case seissol::model::elastic:
+    case seissol::model::elastoplastic: {
       const seissol::model::ElasticMaterial& local_em = dynamic_cast<const seissol::model::ElasticMaterial&>(local); 
       const seissol::model::ElasticMaterial& neighbor_em = dynamic_cast<const seissol::model::ElasticMaterial&>(neighbor);
       seissol::model::getTransposedGodunovState(local_em, neighbor_em, faceType, QgodLocal, QgodNeighbor);
+      break;
     }
-    catch(std::bad_cast exp) {
-      try {
-        const seissol::model::ViscoElasticMaterial& local_vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(local);
-        const seissol::model::ViscoElasticMaterial& neighbor_vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(neighbor);
-        seissol::model::getTransposedGodunovState(local_vm, neighbor_vm, faceType, QgodLocal, QgodNeighbor);
-      }
-      catch(std::bad_cast exp) {
-        //something went terribly wrong
-      }
+    case seissol::model::viscoelastic:
+    case seissol::model::viscoplastic: {
+      const seissol::model::ViscoElasticMaterial& local_vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(local);
+      const seissol::model::ViscoElasticMaterial& neighbor_vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(neighbor);
+      seissol::model::getTransposedGodunovState(local_vm, neighbor_vm, faceType, QgodLocal, QgodNeighbor);
+      break;
     }
   }
 }
@@ -172,22 +180,59 @@ void seissol::model::getPlaneWaveOperator( T const& material,
       }
     }
   }
-  //TODO check viscoelastic
+  //TODO check viscoelastic for the source term
 }
 
-namespace seissol {
-  namespace model {
-template<>
-inline void setMaterial<AnisotropicMaterial>( double* i_materialVal,
-                                  int i_numMaterialVals,
-                                  AnisotropicMaterial* o_material )
-{
-  assert(i_numMaterialVals == 22);
-  o_material->rho = i_materialVal[0];
-  std::copy(i_materialVal+1, i_materialVal+22, o_material->c_store);
+template<typename T>
+void seissol::model::initializeSpecificLocalData( T const&    localMaterial,
+                                                  LocalData*  localData) {
+  switch((localMaterial.getMaterialType())) {
+    case seissol::model::anisotropic: {
+      const seissol::model::AnisotropicMaterial& am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(localMaterial);
+      seissol::model::initializeSpecificLocalData(am, localData);
+      break;
+    }
+    case seissol::model::elastic:
+    case seissol::model::elastoplastic: {
+      const seissol::model::ElasticMaterial& em = dynamic_cast<const seissol::model::ElasticMaterial&>(localMaterial);
+      seissol::model::initializeSpecificLocalData(em, localData);
+      break;
+    }
+    case seissol::model::viscoelastic:
+    case seissol::model::viscoplastic: {
+      const seissol::model::ViscoElasticMaterial& vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(localMaterial);
+      seissol::model::initializeSpecificLocalData(vm, localData);
+      break;
+    }
+  }
 }
 
-}}
+template<typename T>
+void seissol::model::initializeSpecificNeighborData( T const&       neighborMaterial,
+                                                     NeighborData*  neighborData) {
+  switch((neighborMaterial.getMaterialType())) {
+    case seissol::model::anisotropic: {
+      const seissol::model::AnisotropicMaterial& am = dynamic_cast<const seissol::model::AnisotropicMaterial&>(neighborMaterial);
+      seissol::model::initializeSpecificNeighborData(am, neighborData);
+      break;
+    }
+    case seissol::model::elastic:
+    case seissol::model::elastoplastic: {
+      const seissol::model::ElasticMaterial& em = dynamic_cast<const seissol::model::ElasticMaterial&>(neighborMaterial);
+      seissol::model::initializeSpecificNeighborData(em, neighborData);
+      break;
+    }
+    case seissol::model::viscoelastic:
+    case seissol::model::viscoplastic: {
+      const seissol::model::ViscoElasticMaterial& vm = dynamic_cast<const seissol::model::ViscoElasticMaterial&>(neighborMaterial);
+      seissol::model::initializeSpecificNeighborData(vm, neighborData);
+      break;
+    }
+  }
+}
+
+
+
 
 //TODO move this to elastic
 //template<typename T>

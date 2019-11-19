@@ -48,240 +48,251 @@
 
 namespace seissol {
   namespace model {
-template<typename T>
-void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
-                                                unsigned                                    i_dim,
-                                                T&                                          o_M )
-{
-  o_M.setZero();
-  
-  real rhoInv = 1.0 / i_material.rho;
 
-  switch (i_dim)
-  {
-    case 0:
-      o_M(6,0) = -i_material.c(0,0);
-      o_M(7,0) = -i_material.c(0,5);
-      o_M(8,0) = -i_material.c(0,4);
-      o_M(6,1) = -i_material.c(0,1);
-      o_M(7,1) = -i_material.c(1,5);
-      o_M(8,1) = -i_material.c(1,4);
-      o_M(6,2) = -i_material.c(0,2);
-      o_M(7,2) = -i_material.c(2,5);
-      o_M(8,2) = -i_material.c(2,4);
-      o_M(6,3) = -i_material.c(0,5);
-      o_M(7,3) = -i_material.c(5,5);
-      o_M(8,3) = -i_material.c(4,5);
-      o_M(6,4) = -i_material.c(0,3);
-      o_M(7,4) = -i_material.c(3,5);
-      o_M(8,4) = -i_material.c(3,4);
-      o_M(6,5) = -i_material.c(0,4);
-      o_M(7,5) = -i_material.c(4,5);
-      o_M(8,5) = -i_material.c(4,4);
-      o_M(0,6) = -rhoInv;
-      o_M(3,7) = -rhoInv;
-      o_M(5,8) = -rhoInv;
-      break;
+    template<typename T>
+      void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
+                                           unsigned                    i_dim,
+                                           T&                          o_M )
+      {
+        o_M.setZero();
 
-    case 1:
-      o_M(6,0) = -i_material.c(0,5);
-      o_M(7,0) = -i_material.c(0,1);
-      o_M(8,0) = -i_material.c(0,3);
-      o_M(6,1) = -i_material.c(1,5);
-      o_M(7,1) = -i_material.c(1,1);
-      o_M(8,1) = -i_material.c(1,3);
-      o_M(6,2) = -i_material.c(2,5);
-      o_M(7,2) = -i_material.c(1,2);
-      o_M(8,2) = -i_material.c(2,3);
-      o_M(6,3) = -i_material.c(5,5);
-      o_M(7,3) = -i_material.c(1,5);
-      o_M(8,3) = -i_material.c(3,5);
-      o_M(6,4) = -i_material.c(3,5);
-      o_M(7,4) = -i_material.c(1,3);
-      o_M(8,4) = -i_material.c(3,3);
-      o_M(6,5) = -i_material.c(4,5);
-      o_M(7,5) = -i_material.c(1,4);
-      o_M(8,5) = -i_material.c(3,4);
-      o_M(3,6) = -rhoInv;
-      o_M(1,7) = -rhoInv;
-      o_M(4,8) = -rhoInv;
-      break;
+        real rhoInv = 1.0 / i_material.rho;
 
-    case 2:
-      o_M(6,0) = -i_material.c(0,4);
-      o_M(7,0) = -i_material.c(0,3);
-      o_M(8,0) = -i_material.c(0,2);
-      o_M(6,1) = -i_material.c(1,4);
-      o_M(7,1) = -i_material.c(1,3);
-      o_M(8,1) = -i_material.c(1,2);
-      o_M(6,2) = -i_material.c(2,4);
-      o_M(7,2) = -i_material.c(2,3);
-      o_M(8,2) = -i_material.c(2,2);
-      o_M(6,3) = -i_material.c(4,5);
-      o_M(7,3) = -i_material.c(3,5);
-      o_M(8,3) = -i_material.c(2,5);
-      o_M(6,4) = -i_material.c(3,4);
-      o_M(7,4) = -i_material.c(3,3);
-      o_M(8,4) = -i_material.c(2,3);
-      o_M(6,5) = -i_material.c(4,4);
-      o_M(7,5) = -i_material.c(3,4);
-      o_M(8,5) = -i_material.c(2,4);
-      o_M(5,6) = -rhoInv;
-      o_M(4,7) = -rhoInv;
-      o_M(2,8) = -rhoInv;
-      break;
-      
-    default:
-      break;
-  }
-}
-}}
-void getEigenBasisForAnisotropicMaterial( seissol::model::AnisotropicMaterial const& local,
-                                          seissol::model::AnisotropicMaterial const& neighbor,
-                                          Eigen::Matrix<real, 9, 9>&      R)
-{
-  using Matrix33 = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>;
-  using Matrix63 = Eigen::Matrix<real, 6, 3, Eigen::ColMajor>;
-  
-  //Calculate Eigenvectors and Eigenvalues
-  Eigen::SelfAdjointEigenSolver<Matrix33> saes;
-  
-  real aL[9];
-  aL[0] = local.c(0,0) / local.rho;  
-  aL[1] = local.c(0,5) / local.rho;  
-  aL[2] = local.c(0,4) / local.rho;  
-  aL[3] = local.c(0,5) / local.rho;  
-  aL[4] = local.c(5,5) / local.rho;  
-  aL[5] = local.c(4,5) / local.rho;  
-  aL[6] = local.c(0,4) / local.rho;  
-  aL[7] = local.c(4,5) / local.rho;  
-  aL[8] = local.c(4,4) / local.rho;  
-  Matrix33 AL(aL);
-  saes.compute(AL);
-  auto eigenvaluesL = saes.eigenvalues();
-  auto eigenvectorsL = saes.eigenvectors();
+        switch (i_dim)
+        {
+          case 0:
+            o_M(6,0) = -i_material.c11;
+            o_M(7,0) = -i_material.c16;
+            o_M(8,0) = -i_material.c15;
+            o_M(6,1) = -i_material.c12;
+            o_M(7,1) = -i_material.c26;
+            o_M(8,1) = -i_material.c25;
+            o_M(6,2) = -i_material.c13;
+            o_M(7,2) = -i_material.c36;
+            o_M(8,2) = -i_material.c35;
+            o_M(6,3) = -i_material.c16;
+            o_M(7,3) = -i_material.c66;
+            o_M(8,3) = -i_material.c56;
+            o_M(6,4) = -i_material.c14;
+            o_M(7,4) = -i_material.c46;
+            o_M(8,4) = -i_material.c45;
+            o_M(6,5) = -i_material.c15;
+            o_M(7,5) = -i_material.c56;
+            o_M(8,5) = -i_material.c55;
+            o_M(0,6) = -rhoInv;
+            o_M(3,7) = -rhoInv;
+            o_M(5,8) = -rhoInv;
+            break;
 
-  real aN[9];
-  aN[0] = neighbor.c(0,0) / neighbor.rho;  
-  aN[1] = neighbor.c(0,5) / neighbor.rho;  
-  aN[2] = neighbor.c(0,4) / neighbor.rho;  
-  aN[3] = neighbor.c(0,5) / neighbor.rho;  
-  aN[4] = neighbor.c(5,5) / neighbor.rho;  
-  aN[5] = neighbor.c(4,5) / neighbor.rho;  
-  aN[6] = neighbor.c(0,4) / neighbor.rho;  
-  aN[7] = neighbor.c(4,5) / neighbor.rho;  
-  aN[8] = neighbor.c(4,4) / neighbor.rho;  
-  Matrix33 AN(aN);
-  saes.compute(AN);
-  auto eigenvaluesN = saes.eigenvalues();
-  auto eigenvectorsN = saes.eigenvectors();
+          case 1:
+            o_M(6,0) = -i_material.c16;
+            o_M(7,0) = -i_material.c12;
+            o_M(8,0) = -i_material.c14;
+            o_M(6,1) = -i_material.c26;
+            o_M(7,1) = -i_material.c22;
+            o_M(8,1) = -i_material.c24;
+            o_M(6,2) = -i_material.c36;
+            o_M(7,2) = -i_material.c23;
+            o_M(8,2) = -i_material.c34;
+            o_M(6,3) = -i_material.c66;
+            o_M(7,3) = -i_material.c26;
+            o_M(8,3) = -i_material.c46;
+            o_M(6,4) = -i_material.c46;
+            o_M(7,4) = -i_material.c24;
+            o_M(8,4) = -i_material.c44;
+            o_M(6,5) = -i_material.c56;
+            o_M(7,5) = -i_material.c25;
+            o_M(8,5) = -i_material.c45;
+            o_M(3,6) = -rhoInv;
+            o_M(1,7) = -rhoInv;
+            o_M(4,8) = -rhoInv;
+            break;
 
-  real a1L[18];
-  a1L[0] = -local.c(0,0);
-  a1L[1] = -local.c(0,1);
-  a1L[2] = -local.c(0,2);
-  a1L[3] = -local.c(0,5);
-  a1L[4] = -local.c(0,3);
-  a1L[5] = -local.c(0,4);
-  a1L[6] = -local.c(0,5);
-  a1L[7] = -local.c(1,5);
-  a1L[8] = -local.c(2,5);
-  a1L[9] = -local.c(5,5);
-  a1L[10] = -local.c(3,5);
-  a1L[11] = -local.c(4,5);
-  a1L[12] = -local.c(0,4);
-  a1L[13] = -local.c(1,4);
-  a1L[14] = -local.c(2,4);
-  a1L[15] = -local.c(3,5);
-  a1L[16] = -local.c(3,4);
-  a1L[17] = -local.c(4,4);
-  Matrix63 A1L(a1L);
-  
-  real a1N[18];
-  a1N[0] = -neighbor.c(0,0);
-  a1N[1] = -neighbor.c(0,1);
-  a1N[2] = -neighbor.c(0,2);
-  a1N[3] = -neighbor.c(0,5);
-  a1N[4] = -neighbor.c(0,3);
-  a1N[5] = -neighbor.c(0,4);
-  a1N[6] = -neighbor.c(0,5);
-  a1N[7] = -neighbor.c(1,5);
-  a1N[8] = -neighbor.c(2,5);
-  a1N[9] = -neighbor.c(5,5);
-  a1N[10] = -neighbor.c(3,5);
-  a1N[11] = -neighbor.c(4,5);
-  a1N[12] = -neighbor.c(0,4);
-  a1N[13] = -neighbor.c(1,4);
-  a1N[14] = -neighbor.c(2,4);
-  a1N[15] = -neighbor.c(3,5);
-  a1N[16] = -neighbor.c(3,4);
-  a1N[17] = -neighbor.c(4,4);
-  Matrix63 A1N(a1N);
-  
-  for(unsigned i = 0; i < 3; i++) {
-    eigenvaluesL(i) = sqrt(eigenvaluesL(i));
-  }
-  auto lambdaL = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>(eigenvaluesL.asDiagonal());
-  for(unsigned i = 0; i < 3; i++) {
-     eigenvaluesN(i) = sqrt(eigenvaluesN(i));
-  }
-  auto lambdaN = Matrix33(eigenvaluesN.asDiagonal());
+          case 2:
+            o_M(6,0) = -i_material.c15;
+            o_M(7,0) = -i_material.c14;
+            o_M(8,0) = -i_material.c13;
+            o_M(6,1) = -i_material.c25;
+            o_M(7,1) = -i_material.c24;
+            o_M(8,1) = -i_material.c23;
+            o_M(6,2) = -i_material.c35;
+            o_M(7,2) = -i_material.c34;
+            o_M(8,2) = -i_material.c33;
+            o_M(6,3) = -i_material.c56;
+            o_M(7,3) = -i_material.c46;
+            o_M(8,3) = -i_material.c36;
+            o_M(6,4) = -i_material.c45;
+            o_M(7,4) = -i_material.c44;
+            o_M(8,4) = -i_material.c34;
+            o_M(6,5) = -i_material.c55;
+            o_M(7,5) = -i_material.c45;
+            o_M(8,5) = -i_material.c35;
+            o_M(5,6) = -rhoInv;
+            o_M(4,7) = -rhoInv;
+            o_M(2,8) = -rhoInv;
+            break;
 
-  Matrix63 E1 = Matrix63::Zero();
-  E1(1,0) = 1;
-  E1(2,1) = 1;
-  E1(4,2) = 1;
-  Matrix33 E2 = Matrix33::Zero();
-  
-  R <<  A1L * eigenvectorsL,   E1, A1N * eigenvectorsN, 
-       -eigenvectorsL*lambdaL, E2, eigenvectorsN*lambdaN;
-}
-namespace seissol{
-  namespace model {
-template<>
-void getTransposedGodunovState( AnisotropicMaterial const&   local,
-                                                           AnisotropicMaterial const&   neighbor,
-                                                           enum ::faceType                             faceType,
-                                                           init::QgodLocal::view::type&                QgodLocal,
-                                                           init::QgodNeighbor::view::type&             QgodNeighbor )
-{
-  
-  Matrix99 R = Matrix99::Zero();
-  getEigenBasisForAnisotropicMaterial(local, neighbor, R);
-
-  if(faceType == freeSurface) {
-    getTransposedFreeSurfaceGodunovState(QgodLocal, QgodNeighbor, R);
-
-  } else {
-    Matrix99 chi = Matrix99::Zero();
-    chi(0,0) = 1.0;
-    chi(1,1) = 1.0;
-    chi(2,2) = 1.0;
-
-    const auto godunov = ((R*chi)*R.inverse()).eval();
-
-    // QgodLocal = I - QgodNeighbor
-    for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
-      for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-        QgodLocal(i,j) = -godunov(j,i);
-        QgodNeighbor(i,j) = godunov(j,i);
+          default:
+            break;
+        }
       }
-    }  
-    for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
-      QgodLocal(idx,idx) += 1.0;
+
+    void getEigenBasisForAnisotropicMaterial( AnisotropicMaterial const&  local,
+                                              AnisotropicMaterial const&  neighbor,
+                                              Eigen::Matrix<real, 9, 9>&  R)
+    {
+      using Matrix33 = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>;
+      using Matrix63 = Eigen::Matrix<real, 6, 3, Eigen::ColMajor>;
+
+      //Calculate Eigenvectors and Eigenvalues
+      Eigen::SelfAdjointEigenSolver<Matrix33> saes;
+
+      real aL[9];
+      aL[0] = local.c11 / local.rho;  
+      aL[1] = local.c16 / local.rho;  
+      aL[2] = local.c15 / local.rho;  
+      aL[3] = local.c16 / local.rho;  
+      aL[4] = local.c66 / local.rho;  
+      aL[5] = local.c56 / local.rho;  
+      aL[6] = local.c15 / local.rho;  
+      aL[7] = local.c56 / local.rho;  
+      aL[8] = local.c55 / local.rho;  
+      Matrix33 AL(aL);
+      saes.compute(AL);
+      auto eigenvaluesL = saes.eigenvalues();
+      auto eigenvectorsL = saes.eigenvectors();
+
+      real aN[9];
+      aN[0] = neighbor.c11 / neighbor.rho;  
+      aN[1] = neighbor.c16 / neighbor.rho;  
+      aN[2] = neighbor.c15 / neighbor.rho;  
+      aN[3] = neighbor.c16 / neighbor.rho;  
+      aN[4] = neighbor.c66 / neighbor.rho;  
+      aN[5] = neighbor.c56 / neighbor.rho;  
+      aN[6] = neighbor.c15 / neighbor.rho;  
+      aN[7] = neighbor.c56 / neighbor.rho;  
+      aN[8] = neighbor.c55 / neighbor.rho;  
+      Matrix33 AN(aN);
+      saes.compute(AN);
+      auto eigenvaluesN = saes.eigenvalues();
+      auto eigenvectorsN = saes.eigenvectors();
+
+      real a1L[18];
+      a1L[0] = -local.c11;
+      a1L[1] = -local.c12;
+      a1L[2] = -local.c13;
+      a1L[3] = -local.c16;
+      a1L[4] = -local.c14;
+      a1L[5] = -local.c15;
+      a1L[6] = -local.c16;
+      a1L[7] = -local.c26;
+      a1L[8] = -local.c36;
+      a1L[9] = -local.c66;
+      a1L[10] = -local.c46;
+      a1L[11] = -local.c56;
+      a1L[12] = -local.c15;
+      a1L[13] = -local.c25;
+      a1L[14] = -local.c35;
+      a1L[15] = -local.c46;
+      a1L[16] = -local.c45;
+      a1L[17] = -local.c55;
+      Matrix63 A1L(a1L);
+
+      real a1N[18];
+      a1N[0] = -neighbor.c11;
+      a1N[1] = -neighbor.c12;
+      a1N[2] = -neighbor.c13;
+      a1N[3] = -neighbor.c16;
+      a1N[4] = -neighbor.c14;
+      a1N[5] = -neighbor.c15;
+      a1N[6] = -neighbor.c16;
+      a1N[7] = -neighbor.c26;
+      a1N[8] = -neighbor.c36;
+      a1N[9] = -neighbor.c66;
+      a1N[10] = -neighbor.c46;
+      a1N[11] = -neighbor.c56;
+      a1N[12] = -neighbor.c15;
+      a1N[13] = -neighbor.c25;
+      a1N[14] = -neighbor.c35;
+      a1N[15] = -neighbor.c46;
+      a1N[16] = -neighbor.c45;
+      a1N[17] = -neighbor.c55;
+      Matrix63 A1N(a1N);
+
+      for(unsigned i = 0; i < 3; i++) {
+        eigenvaluesL(i) = sqrt(eigenvaluesL(i));
+      }
+      auto lambdaL = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>(eigenvaluesL.asDiagonal());
+      for(unsigned i = 0; i < 3; i++) {
+        eigenvaluesN(i) = sqrt(eigenvaluesN(i));
+      }
+      auto lambdaN = Matrix33(eigenvaluesN.asDiagonal());
+
+      Matrix63 E1 = Matrix63::Zero();
+      E1(1,0) = 1;
+      E1(2,1) = 1;
+      E1(4,2) = 1;
+      Matrix33 E2 = Matrix33::Zero();
+
+      R <<  A1L * eigenvectorsL,   E1, A1N * eigenvectorsN, 
+        -eigenvectorsL*lambdaL, E2, eigenvectorsN*lambdaN;
+    }
+
+    template<>
+      void getTransposedGodunovState( AnisotropicMaterial const&       local,
+                                      AnisotropicMaterial const&       neighbor,
+                                      enum ::faceType                  faceType,
+                                      init::QgodLocal::view::type&     QgodLocal,
+                                      init::QgodNeighbor::view::type&  QgodNeighbor )
+      {
+
+        Matrix99 R = Matrix99::Zero();
+        getEigenBasisForAnisotropicMaterial(local, neighbor, R);
+
+        if(faceType == freeSurface) {
+          getTransposedFreeSurfaceGodunovState(QgodLocal, QgodNeighbor, R);
+
+        } else {
+          Matrix99 chi = Matrix99::Zero();
+          chi(0,0) = 1.0;
+          chi(1,1) = 1.0;
+          chi(2,2) = 1.0;
+
+          const auto godunov = ((R*chi)*R.inverse()).eval();
+
+          // QgodLocal = I - QgodNeighbor
+          for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
+            for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
+              QgodLocal(i,j) = -godunov(j,i);
+              QgodNeighbor(i,j) = godunov(j,i);
+            }
+          }  
+          for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
+            QgodLocal(idx,idx) += 1.0;
+          }
+        }
+      }
+
+    template<>
+      inline void setMaterial<AnisotropicMaterial>( double*               i_materialVal,
+                                                    int                   i_numMaterialVals,
+                                                    AnisotropicMaterial*  o_material )
+      {
+        assert(i_numMaterialVals == 22);
+        o_material->rho = i_materialVal[0];
+        std::copy(i_materialVal+1, i_materialVal+22, o_material->c_store);
+      }
+
+   template<>
+    void initializeSpecificLocalData( AnisotropicMaterial const&,
+                                      LocalData* )
+    {
+    }
+
+   template<>
+    void initializeSpecificNeighborData(  AnisotropicMaterial const&,
+                                          NeighborData* )
+    {
     }
   }
-}
-
-
-}}
-void seissol::model::initializeSpecificLocalData( seissol::model::Material const&,
-                                                  seissol::model::LocalData* )
-{
-}
-
-void seissol::model::initializeSpecificNeighborData(  seissol::model::Material const&,
-                                                      seissol::model::Material const (&)[4],
-                                                      seissol::model::NeighborData* )
-{
 }
