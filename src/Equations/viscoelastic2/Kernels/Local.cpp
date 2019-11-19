@@ -71,13 +71,13 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
                                               LocalData& data,
-					      LocalTmp& tmp,
+                                              LocalTmp& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-					      const CellMaterialData* materialData,
-					      CellBoundaryMapping const (*cellBoundaryMapping)[4],
-                                              real nodalAvgDisplacement[tensor::I::size()],
-					      double time,
-					      double timeStepWidth) {
+                                              const CellMaterialData* materialData,
+                                              CellBoundaryMapping const (*cellBoundaryMapping)[4],
+                                              real (*nodalAvgDisplacements)[4][tensor::INodalDisplacement::size()],
+                                              double time,
+                                              double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );

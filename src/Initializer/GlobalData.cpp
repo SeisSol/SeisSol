@@ -59,11 +59,8 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   globalMatrixMemSize += yateto::computeFamilySize<init::rT>(yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::computeFamilySize<init::fMrT>(yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::computeFamilySize<init::fP>(yateto::alignedReals<real>(ALIGNMENT));
-  // TODO(Lukas) Move the following somewhere else?
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
   globalMatrixMemSize += yateto::computeFamilySize<nodal::init::V3mTo2nFace>(yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::computeFamilySize<init::rDivMMultV2nTo2m>(yateto::alignedReals<real>(ALIGNMENT));
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 
   globalMatrixMemSize += yateto::alignedUpper(tensor::evalAtQP::size(),  yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(ALIGNMENT));
@@ -77,12 +74,8 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   yateto::copyFamilyToMemAndSetPtr<init::rT, real>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, ALIGNMENT);
   yateto::copyFamilyToMemAndSetPtr<init::fMrT, real>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, ALIGNMENT);
   yateto::copyFamilyToMemAndSetPtr<init::fP, real>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, ALIGNMENT);
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
-  // TODO(Lukas) Move the following somewhere else?
   yateto::copyFamilyToMemAndSetPtr<nodal::init::V3mTo2nFace, real>(globalMatrixMemPtr, globalData.V3mTo2nFace, ALIGNMENT);
   yateto::copyFamilyToMemAndSetPtr<init::rDivMMultV2nTo2m, real>(globalMatrixMemPtr, globalData.rDivMMultV2nTo2m, ALIGNMENT);
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
-
 
   yateto::copyTensorToMemAndSetPtr<init::evalAtQP, real>(globalMatrixMemPtr, globalData.evalAtQPMatrix, ALIGNMENT);
   yateto::copyTensorToMemAndSetPtr<init::projectQP, real>(globalMatrixMemPtr, globalData.projectQPMatrix, ALIGNMENT);

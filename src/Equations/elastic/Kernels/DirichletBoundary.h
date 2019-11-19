@@ -20,8 +20,8 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
 				const CellBoundaryMapping& boundaryMapping) {
-  assert(boundaryMapping.TData != nullptr);
-  projectKernel.T = boundaryMapping.TData;
+  assert(boundaryMapping.TinvData != nullptr);
+  projectKernel.Tinv = boundaryMapping.TinvData;
 }
 
 }

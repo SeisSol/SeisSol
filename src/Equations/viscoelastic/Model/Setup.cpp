@@ -159,11 +159,11 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
   }
 }
 
-void seissol::model::getTransposedGodunovState( Material const&                   local,
-                                                Material const&                   neighbor,
-                                                enum ::faceType                   faceType,
-                                                init::QgodLocal::view::type&      QgodLocal,
-                                                init::QgodNeighbor::view::type&   QgodNeighbor )
+void seissol::model::getTransposedGodunovState(Material const& local,
+                                               Material const& neighbor,
+                                               FaceType faceType,
+                                               init::QgodLocal::view::type& QgodLocal,
+                                               init::QgodNeighbor::view::type& QgodNeighbor)
 {
   seissol::model::getTransposedElasticGodunovState(local, neighbor, faceType, QgodLocal, QgodNeighbor);
 }

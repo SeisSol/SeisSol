@@ -40,7 +40,7 @@
   
 import numpy as np
 from yateto import Tensor, Scalar, simpleParameterSpace, parameterSpaceFromRanges
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.memory import CSCMemoryLayout
@@ -48,8 +48,8 @@ from yateto.memory import CSCMemoryLayout
 from aderdg import ADERDGBase
 from multSim import OptionalDimTensor
 
-class ADERDG(ADERDGBase):
-  def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms):
+class Viscoelastic2ADERDG(ADERDGBase):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms, **kwargs):
     super().__init__(order, multipleSimulations, matricesDir)
 
     self.numberOfMechanisms = numberOfMechanisms
@@ -77,6 +77,16 @@ class ADERDG(ADERDGBase):
     selectAneSpp = np.zeros((self.numberOfExtendedQuantities(), self.numberOfAnelasticQuantities()))
     selectAneSpp[self.numberOfQuantities():self.numberOfExtendedQuantities(),0:self.numberOfAnelasticQuantities()] = np.eye(self.numberOfAnelasticQuantities())
     self.selectAne = Tensor('selectAne', (self.numberOfExtendedQuantities(), self.numberOfAnelasticQuantities()), selectAneSpp, CSCMemoryLayout)
+
+    # todo change path, split nodes and Vandermonde into diff. files?
+    self.db.update(
+      parseJSONMatrixFile('{}/nodal/nodalBoundary_matrices_{}.json'.format(matricesDir,
+                                                                           self.order - 1),
+                          {},
+                          alignStride=self.alignStride,
+                          transpose=self.transpose,
+                          namespace='nodal')
+    )
 
   def numberOfQuantities(self):
     return 9
@@ -175,3 +185,7 @@ class ADERDG(ADERDGBase):
       derivativeTaylorExpansionAne(d)
     ])
     generator.addFamily('derivativeTaylorExpansionEla', simpleParameterSpace(self.order), derivativeTaylorExpansionEla)
+
+  def add_include_tensors(self, include_tensors):
+    super().add_include_tensors(include_tensors)
+    include_tensors.add(self.db.nodes2D)

@@ -204,7 +204,6 @@ bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::strin
   return containsTraction;
 }
 
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
 seissol::initializers::EasiBoundary::EasiBoundary(const std::string& fileName)
   : model(loadEasiModel(fileName)) {
   std::cout << "EasiBoundary() " << fileName << std::endl;
@@ -309,7 +308,6 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
   kernel.INodal = boundaryDofs.data();
   kernel.execute();
 }
-#endif  // NUMBER_OF_RELAXATION_MECHANISMS == 0
 
 easi::Component* seissol::initializers::loadEasiModel(const std::string& fileName) {
 #ifdef USE_ASAGI

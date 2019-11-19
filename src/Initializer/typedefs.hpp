@@ -331,12 +331,8 @@ struct GlobalData {
    **/ 
   seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
 
-  // TODO(Lukas) Comment+Rename or Remove
-
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
   seissol::nodal::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
   seissol::tensor::rDivMMultV2nTo2m::Container<real const*> rDivMMultV2nTo2m;
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 
   /** 
    * Addresses of the global face to nodal matrices

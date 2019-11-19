@@ -41,11 +41,11 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
+from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from multSim import OptionalDimTensor
+from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
 
 class ADERDGBase(ABC):
   def __init__(self, order, multipleSimulations, matricesDir):
@@ -93,6 +93,12 @@ class ADERDGBase(ABC):
                           namespace='nodal')
     )
 
+    self.INodal = OptionalDimTensor('INodal',
+                                    's',
+                                    False, #multipleSimulations,
+                                    0,
+                                    (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
+                                    alignStride=True)
 
   def numberOf2DBasisFunctions(self):
     return self.order*(self.order+1)//2
@@ -166,6 +172,10 @@ class ADERDGBase(ABC):
   def addTime(self, generator):
     pass
 
+  def add_include_tensors(self, include_tensors):
+      pass
+
+
 class LinearADERDG(ADERDGBase):
   def sourceMatrix(self):
     return None
@@ -199,6 +209,8 @@ class LinearADERDG(ADERDGBase):
     localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
     generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
+
+
   def addNeighbor(self, generator):
     neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
     neighbourFluxPrefetch = lambda h,j,i: self.I
@@ -224,6 +236,7 @@ class LinearADERDG(ADERDGBase):
       derivatives.append(dQ)
 
 
-def add_include_tensors(self, include_tensors):
+  def add_include_tensors(self, include_tensors):
+    super().add_include_tensors(include_tensors)
     include_tensors.add(self.db.nodes2D)
 

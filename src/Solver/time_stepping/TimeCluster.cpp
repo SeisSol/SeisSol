@@ -470,10 +470,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                              l_bufferPointer,
                              derivativeBuffer);
 
+    alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
     // Compute average displacement over timestep if needed.
     alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
-    alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
 
     // Only a fraction of cells need the average displacement
     bool needsAvgDisplacement = false;
@@ -508,8 +508,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
         }
       }
     }
-#else
-    real* nodalAvgDisplacement = nullptr;
 #endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 
     // Compute local integrals (including some boundary conditions)

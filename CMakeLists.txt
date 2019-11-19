@@ -100,6 +100,7 @@ add_custom_command(
        generated_code/elastic.py
        generated_code/viscoelastic2.py
        generated_code/SurfaceDisplacement.py
+       generated_code/NodalBoundaryConditions.py
     OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp

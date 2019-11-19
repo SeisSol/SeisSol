@@ -654,7 +654,6 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
   o_globalData              = &m_globalData;
 }
 
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
 void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
   if (fileNameStr != "") {
@@ -669,4 +668,3 @@ bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &mater
   constexpr auto eps =std::numeric_limits<real>::epsilon();
   return material.local.mu > eps && material.neighbor[face].mu < eps;
 }
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
