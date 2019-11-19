@@ -118,10 +118,11 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
         nfKrnl.execute(data.cellInformation.faceRelations[l_face][1], data.cellInformation.faceRelations[l_face][0], l_face);
       } else { // fall back to local matrices in case of free surface boundary conditions
         kernel::localFluxExt lfKrnl = m_lfKrnlPrototype;
-        lfKrnl.Qext = data.dofs;
+        lfKrnl.Qext = Qext;
         lfKrnl.I = i_timeIntegrated[l_face];
         lfKrnl.AplusT = data.neighboringIntegration.nAmNm1[l_face];
         lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
+        lfKrnl._prefetch.Q = faceNeighbors_prefetch[l_face];
         lfKrnl.execute(l_face);
       }
     } else if (data.cellInformation.faceTypes[l_face] == FaceType::dynamicRupture) {
@@ -130,7 +131,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
       drKrnl.godunovState = cellDrMapping[l_face].godunov;
-      drKrnl.Qext = data.dofs;
+      drKrnl.Qext = Qext;
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
     }

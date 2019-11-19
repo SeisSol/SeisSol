@@ -51,12 +51,17 @@ extern seissol::Interoperability e_interoperability;
 
 #include <yateto.h>
 
+
 #include <cassert>
 #include <stdint.h>
 #include <cstring>
 
 #include "SeisSol.h"
 #include "DirichletBoundary.h"
+
+#include <Kernels/common.hpp>
+GENERATE_HAS_MEMBER(ET)
+GENERATE_HAS_MEMBER(sourceMatrix)
 
 void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 #ifndef NDEBUG
@@ -99,7 +104,10 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.localIntegration.starMatrices[i];
   }
-  
+
+  // Optional source term
+  set_ET(volKrnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
+
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs;
   lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
@@ -180,7 +188,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       // We need to rotate the boundary data back to the [x,y,z] basis
       auto rotateBoundaryDofsBack = kernel::rotateBoundaryDofsBack{};
       rotateBoundaryDofsBack.INodal = dofsFaceBoundaryNodal;
-      rotateBoundaryDofsBack.Tinv = (*cellBoundaryMapping)[face].TinvData;
+      rotateBoundaryDofsBack.T = (*cellBoundaryMapping)[face].TData;
       rotateBoundaryDofsBack.execute();
 
       nodalLfKrnl.execute(face);
@@ -260,7 +268,7 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
 	seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face) +
 	seissol::kernel::rotateBoundaryDofsBack::NonZeroFlops;
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-	seissol::kernel::projectToNodalBoundary::hardwareFlops(face) + 
+	seissol::kernel::projectToNodalBoundary::hardwareFlops(face) +
 	seissol::kernel::rotateBoundaryDofsBack::HardwareFlops;
       break;
     case FaceType::analytical:
@@ -275,7 +283,6 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
   }
 }
 
-// TODO(Lukas) Boundary conditions?
 unsigned seissol::kernels::Local::bytesIntegral()
 {
   unsigned reals = 0;

@@ -38,6 +38,7 @@
 # @section DESCRIPTION
 #
   
+from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 import numpy as np
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.util import tensor_collection_from_constant_expression
@@ -46,11 +47,12 @@ from yateto.memory import CSCMemoryLayout
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
+from aderdg import LinearADERDG
 from aderdg import ADERDGBase
 import aderdg
 from multSim import OptionalDimTensor
 
-class ADERDG(ADERDGBase):
+class ADERDG(LinearADERDG):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout):
     super().__init__(order, multipleSimulations, matricesDir)
     clones = {
@@ -72,12 +74,6 @@ class ADERDG(ADERDGBase):
 
   def numberOfQuantities(self):
     return 9
-
-  def numberOfExtendedQuantities(self):
-    return self.numberOfQuantities()
-
-  def extendedQTensor(self):
-    return self.Q
 
   def starMatrix(self, dim):
     return self.db.star[dim]
@@ -152,7 +148,7 @@ class ADERDG(ADERDGBase):
 
     rotateBoundaryDofsBack = self.INodal['kp'] <= self.INodal['kl'] * self.Tinv['lp']
     generator.add('rotateBoundaryDofsBack', rotateBoundaryDofsBack)
-    
+
     selectZDisplacement = np.zeros((self.numberOfQuantities(), 1))
     selectZDisplacement[8, 0] = 1
     selectZDisplacement = Tensor('selectZDisplacement',

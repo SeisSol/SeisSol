@@ -77,6 +77,7 @@
 extern long long libxsmm_num_total_flops;
 #endif
 
+#include <Kernels/common.hpp>
 #include <Kernels/denseMatrixOps.hpp>
 
 #include <cstring>
@@ -85,6 +86,9 @@ extern long long libxsmm_num_total_flops;
 #include <omp.h>
 
 #include <yateto.h>
+
+GENERATE_HAS_MEMBER(ET)
+GENERATE_HAS_MEMBER(sourceMatrix)
 
 seissol::kernels::TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
@@ -117,6 +121,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
+
+  // Optional source term
+  set_ET(krnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
 
   krnl.dQ(0) = const_cast<real*>(data.dofs);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {

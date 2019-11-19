@@ -97,6 +97,7 @@ extern "C" {
   }
 
   void c_interoperability_setupFSRMPointSources( double*  momentTensor,
+                                                 double*  velocityComponent,
                                                  int      numberOfSources,
                                                  double*  centres,
                                                  double*  strikes,
@@ -109,6 +110,7 @@ extern "C" {
                                                  double*  timeHistories )
   {
     e_interoperability.setupFSRMPointSources( momentTensor,
+                                              velocityComponent,
                                               numberOfSources,
                                               centres,
                                               strikes,
@@ -432,6 +434,7 @@ void seissol::Interoperability::setupNRFPointSources( char const* fileName )
 #endif
 
 void seissol::Interoperability::setupFSRMPointSources( double const* momentTensor,
+                                                       double const* velocityComponent,
                                                        int           numberOfSources,
                                                        double const* centres,
                                                        double const* strikes,
@@ -445,6 +448,7 @@ void seissol::Interoperability::setupFSRMPointSources( double const* momentTenso
 {
   SeisSol::main.sourceTermManager().loadSourcesFromFSRM(
     momentTensor,
+    velocityComponent,
     numberOfSources,
     centres,
     strikes,
@@ -634,6 +638,9 @@ void seissol::Interoperability::synchronizeCellLocalData() {
 
 void seissol::Interoperability::synchronizeCopyLayerDofs() {
   synchronize(m_lts->dofs);
+  if (kernels::size<tensor::Qane>() > 0) {
+    synchronize(m_lts->dofsAne);
+  }
 }
 
 void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename ) {

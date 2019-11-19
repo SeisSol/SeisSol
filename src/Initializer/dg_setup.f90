@@ -596,17 +596,18 @@ CONTAINS
     case(42)
       call c_interoperability_setupNRFPointSources(trim(SOURCE%NRFFileName) // c_null_char)
     case(50)
-      call c_interoperability_setupFSRMPointSources( momentTensor     = SOURCE%RP%MomentTensor,  &
-                                                     numberOfSources  = SOURCE%RP%nSbfs(1),      &
-                                                     centres          = SOURCE%RP%SpacePosition, &
-                                                     strikes          = SOURCE%RP%Strks,         &
-                                                     dips             = SOURCE%RP%Dips,          &
-                                                     rakes            = SOURCE%RP%Rake,          &
-                                                     onsets           = SOURCE%RP%Tonset,        &
-                                                     areas            = SOURCE%RP%Area,          &
-                                                     timestep         = SOURCE%RP%t_samp,        &
-                                                     numberOfSamples  = SOURCE%RP%nsteps,        &
-                                                     timeHistories    = SOURCE%RP%TimeHist       )
+      call c_interoperability_setupFSRMPointSources( momentTensor      = SOURCE%RP%MomentTensor,      &
+                                                     velocityComponent = SOURCE%RP%VelocityComponent, &
+                                                     numberOfSources   = SOURCE%RP%nSbfs(1),          &
+                                                     centres           = SOURCE%RP%SpacePosition,     &
+                                                     strikes           = SOURCE%RP%Strks,             &
+                                                     dips              = SOURCE%RP%Dips,              &
+                                                     rakes             = SOURCE%RP%Rake,              &
+                                                     onsets            = SOURCE%RP%Tonset,            &
+                                                     areas             = SOURCE%RP%Area,              &
+                                                     timestep          = SOURCE%RP%t_samp,            &
+                                                     numberOfSamples   = SOURCE%RP%nsteps,            &
+                                                     timeHistories     = SOURCE%RP%TimeHist       )
     case default
       logError(*) 'Generated Kernels: Unsupported source type: ', SOURCE%Type
       stop

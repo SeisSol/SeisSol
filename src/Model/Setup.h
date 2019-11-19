@@ -62,7 +62,7 @@ namespace seissol {
      */
     void getPlaneWaveOperator(  Material const& material,
                                 double const n[3],
-                                std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
+                                std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
 
     /**
      * Solves the Riemann problem at an interface. Note that this routine

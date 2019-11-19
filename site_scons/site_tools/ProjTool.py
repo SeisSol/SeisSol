@@ -49,7 +49,7 @@ def generate(env, **kw):
         
     if not conf.CheckLibWithHeader('proj', 'proj_api.h', 'c'):
         if required:
-            print 'Could not find Proj4!'
+            print('Could not find Proj4!')
             env.Exit(1)
         else:
             conf.Finish()

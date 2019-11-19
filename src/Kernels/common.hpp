@@ -42,11 +42,36 @@
 #ifndef COMMON_HPP_
 #define COMMON_HPP_
 
+#include <type_traits>
+#include <utility>
 #include <algorithm>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
 #include <cassert>
+
+/**
+ * Uses SFINAE to generate the following functions:
+ * 
+ * has_NAME<T>::value -> true if class T has member NAME and false otherwise
+ * set_NAME<T>(kernel, ptr) -> sets kernel.NAME = ptr if class T has member NAME and does nothing otherwise
+ * get_static_ptr_NAME<T>() returns &T::NAME[0] if class T has member NAME and nullptr otherwise
+ * get_ptr_NAME<T>(T& obj) returns &obj.NAME[0] if class T has member NAME and nullptr otherwise 
+ */
+#define GENERATE_HAS_MEMBER(NAME) namespace seissol { namespace kernels { \
+  template<typename T> \
+  struct has_ ## NAME { \
+    template<typename U> static constexpr decltype(std::declval<U>().NAME, bool()) test(int) { return true; } \
+    template<typename U> static constexpr bool test(...) { return false; } \
+    static constexpr bool value = test<T>(int()); \
+  }; \
+  template<class T> auto set_ ## NAME (T& kernel, decltype(T::NAME) ptr) -> typename std::enable_if<has_ ## NAME <T>::value>::type  { kernel.NAME = ptr; } \
+  template<class T> auto set_ ## NAME (T&, void*) -> typename std::enable_if<!has_ ## NAME <T>::value>::type  {} \
+  template<class T> constexpr auto get_static_ptr_ ## NAME () -> typename std::enable_if<has_ ## NAME <T>::value, decltype(&T::NAME[0])>::type  { return &T::NAME[0]; } \
+  template<class T> constexpr auto get_static_ptr_ ## NAME () -> typename std::enable_if<!has_ ## NAME <T>::value, void*>::type { return nullptr; } \
+  template<class T> constexpr auto get_ptr_ ## NAME (T& obj) -> typename std::enable_if<has_ ## NAME <T>::value, decltype(&obj.NAME[0])>::type  { return &obj.NAME[0]; } \
+  template<class T> constexpr auto get_ptr_ ## NAME (T&) -> typename std::enable_if<!has_ ## NAME <T>::value, void*>::type { return nullptr; } \
+  }}
 
 namespace seissol {
   namespace kernels {
@@ -110,6 +135,23 @@ namespace seissol {
         std::copy(unalignedDofs, unalignedDofs + tensor::QFortran::size(), o_unalignedDofs);
       }
     }
+
+    /**
+     * uses SFINAE to check if class T has a size() function.
+     */
+    template<typename T>
+    struct has_size
+    {
+      template<typename U> static constexpr decltype(std::declval<U>().size(), bool()) test(int) { return true; }
+      template<typename U> static constexpr bool test(...) { return false; }
+      static constexpr bool value = test<T>(int());
+    };
+    
+    /**
+     * returns T::size() if T has size function and 0 otherwise
+     */
+    template<class T> constexpr auto size() -> typename std::enable_if<has_size<T>::value, unsigned>::type  { return T::size(); }
+    template<class T> constexpr auto size() -> typename std::enable_if<!has_size<T>::value, unsigned>::type { return 0; }
   }
 }
 
