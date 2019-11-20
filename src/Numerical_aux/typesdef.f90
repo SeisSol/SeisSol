@@ -788,8 +788,8 @@ MODULE TypesDef
      REAL                                   :: rho_c                            !< heat capacity for TP
      REAL                                   :: TP_lambda                        !< pore pressure increase per unit increase
      INTEGER                                :: TP_grid_nz                       !< number of grid points to solve advection for TP in z-direction
-     REAL                                   :: TP_grid_space_distance           !< grid space distance for TP_grid
-     REAL                                   :: TP_grid_half_width               !< half width of the shearing layer for TP
+     REAL                                   :: TP_log_dz                        !< logarithmic grid space distance for TP_grid
+     REAL                                   :: TP_half_width_shear_zone         !< half width of the shearing layer for TP
      REAL                                   :: TP_max_wavenumber                !< max. wavenumber for TP
      REAL, ALLOCATABLE                      :: TP_grid(:)                       !< grid for TP
      REAL, ALLOCATABLE                      :: TP_DFinv(:)                      !< inverse Fourier coefficients

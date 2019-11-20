@@ -925,7 +925,7 @@ CONTAINS
                                               Mu_SNuc_ini, H_Length, RS_f0, &
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
                                               RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
-                                              TP_grid_half_width, alpha_th, alpha_hy, rho_c, TP_lambda, IniTemp, IniPressure, &
+                                              TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, TP_lambda, IniTemp, IniPressure, &
                                               NucRS_sv0, r_s, energy_rate_printtimeinterval
 
     !------------------------------------------------------------------------
@@ -934,7 +934,7 @@ CONTAINS
                                                 GPwise, inst_healing, &
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
                                                 RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, v_star, &
-                                                thermalPress, TP_grid_half_width, alpha_th, alpha_hy, rho_c, TP_lambda, IniTemp, IniPressure, &
+                                                thermalPress, TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, TP_lambda, IniTemp, IniPressure, &
                                                 L, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
                                                 SlipRateOutputType, ModelFileName
@@ -971,7 +971,7 @@ CONTAINS
     NucRS_sv0 = 0
     r_s = 0
     thermalPress = 0
-    TP_grid_half_width = 0.1 
+    TP_half_width_shear_zone = 0.1 
     alpha_th = 0
     alpha_hy = 0
     rho_c = 0
@@ -1046,7 +1046,7 @@ CONTAINS
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
                  logInfo0(*) 'Thermal pressurization assumed'
                  !physical
-                 DISC%DynRup%TP_grid_half_width = TP_grid_half_width
+                 DISC%DynRup%TP_half_width_shear_zone = TP_half_width_shear_zone
                  DISC%DynRup%alpha_th = alpha_th
                  DISC%DynRup%alpha_hy = alpha_hy
                  DISC%DynRup%rho_c = rho_c
@@ -1054,7 +1054,7 @@ CONTAINS
                  EQN%Temp_0 = IniTemp
                  EQN%Pressure_0 = IniPressure
                  !numerical, currently fixed like that but requires further testing
-                 DISC%DynRup%TP_grid_space_distance = 0.3
+                 DISC%DynRup%TP_log_dz = 0.3
                  DISC%DynRup%TP_max_wavenumber = 10.0
                  DISC%DynRup%TP_grid_nz = 60
                  logInfo0(*) 'Temp', EQN%Temp_0

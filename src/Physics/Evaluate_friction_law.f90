@@ -1347,7 +1347,7 @@ MODULE Eval_friction_law_mod
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                          Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
-                         CALL Calc_ThermalPressure(EQN, time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_grid_half_width, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                         CALL Calc_ThermalPressure(EQN, time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_half_width_shear_zone, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                               DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2) )
                          P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
@@ -1387,7 +1387,7 @@ MODULE Eval_friction_law_mod
                           Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                           Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
                           !use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-                          CALL Calc_ThermalPressure(EQN,time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_grid_half_width, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                          CALL Calc_ThermalPressure(EQN,time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_half_width_shear_zone, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
                                DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                                DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2))
                           P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)

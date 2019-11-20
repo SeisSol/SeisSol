@@ -63,7 +63,7 @@ MODULE Thermalpressure_mod
 
 CONTAINS
 
-  SUBROUTINE Calc_ThermalPressure(EQN,dt, TP_grid_nz, TP_grid_half_width, alpha_th, alpha_hy, rho_c, &
+  SUBROUTINE Calc_ThermalPressure(EQN,dt, TP_grid_nz, TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, &
              Lambda, theta, sigma, Sh, SR, Dwn, DFinv, temp, pressure)
     !-------------------------------------------------------------------------!
 
@@ -84,11 +84,11 @@ CONTAINS
     REAL        :: theta_current(TP_grid_nz), sigma_current(TP_grid_nz)                       ! diffusion next timestep
     REAL        :: tmp(TP_grid_nz)
     REAL        :: Lambda, Lambda_prime
-    REAL        :: T,p, TP_grid_half_width
+    REAL        :: T,p, TP_half_width_shear_zone
     REAL        :: temp, pressure                                      ! temperatur, pressure in space domain
     REAL        :: temp_ini, pressure_ini                                      ! temperatur, pressure in space domain
     !-------------------------------------------------------------------------!
-    INTENT(IN)  :: EQN, dt, TP_grid_nz, TP_grid_half_width, alpha_th, alpha_hy, rho_c, Lambda, Sh, SR, Dwn, DFinv
+    INTENT(IN)  :: EQN, dt, TP_grid_nz, TP_half_width_shear_zone, alpha_th, alpha_hy, rho_c, Lambda, Sh, SR, Dwn, DFinv
     INTENT(INOUT):: theta, sigma
     INTENT(OUT) :: temp, pressure
     !-------------------------------------------------------------------------!
@@ -96,7 +96,7 @@ CONTAINS
 
     tauV = Sh*SR !fault strenght*slip rate
     Lambda_prime = Lambda*alpha_th/(alpha_hy-alpha_th)
-    tmp = (Dwn/TP_grid_half_width)**2
+    tmp = (Dwn/TP_half_width_shear_zone)**2
     !1. Calculate diffusion of the field at previous timestep
 
     !temperature
@@ -105,9 +105,9 @@ CONTAINS
     sigma_current = sigma*exp(-alpha_hy*dt*tmp)
 
     !2. Add current contribution and get new temperature
-    CALL heat_source(TP_grid_half_width,alpha_th,dt,Dwn,TP_grid_nz,omega)
+    CALL heat_source(TP_half_width_shear_zone,alpha_th,dt,Dwn,TP_grid_nz,omega)
     theta = theta_current + (tauV/rho_c)*omega
-    CALL heat_source(TP_grid_half_width,alpha_hy,dt,Dwn,TP_grid_nz,omega)
+    CALL heat_source(TP_half_width_shear_zone,alpha_hy,dt,Dwn,TP_grid_nz,omega)
     sigma = sigma_current + ((Lambda+Lambda_prime)*tauV)/(rho_c)*omega
 
     !3. Recover temperature and pressure using inverse Fourier
@@ -118,8 +118,8 @@ CONTAINS
 
     !new contribution
     DO i=1,TP_grid_nz
-       T = T + (DFinv(i)/TP_grid_half_width)*theta(i)
-       p = p + (DFinv(i)/TP_grid_half_width)*sigma(i)
+       T = T + (DFinv(i)/TP_half_width_shear_zone)*theta(i)
+       p = p + (DFinv(i)/TP_half_width_shear_zone)*sigma(i)
     ENDDO
 
     !Update pore pressure change (sigma = pore pressure + lambda'*temp)
@@ -132,7 +132,7 @@ CONTAINS
  
   END SUBROUTINE Calc_ThermalPressure
 
-  SUBROUTINE  heat_source(TP_grid_half_width, alpha, dt, Dwn, TP_grid_nz, omega)
+  SUBROUTINE  heat_source(TP_half_width_shear_zone, alpha, dt, Dwn, TP_grid_nz, omega)
 
     !-------------------------------------------------------------------------!
 
@@ -140,7 +140,7 @@ CONTAINS
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     ! Argument list declaration                                               !
-    REAL        :: TP_grid_half_width
+    REAL        :: TP_half_width_shear_zone
     INTEGER     :: TP_grid_nz                                                         ! number of points at the fault
     REAL        :: Dwn(TP_grid_nz)                                                    ! insert DISC%DynRup%TP_grid
     REAL        :: Sh, SR                                                     ! current shear stress and slip rate
@@ -149,16 +149,16 @@ CONTAINS
     REAL        :: tmp(TP_grid_nz)
     REAL, PARAMETER :: pi=3.141592653589793     ! CONSTANT pi
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: TP_grid_half_width, alpha, dt, Dwn, TP_grid_nz
+    INTENT(IN)    :: TP_half_width_shear_zone, alpha, dt, Dwn, TP_grid_nz
     INTENT(OUT)   :: omega
     !-------------------------------------------------------------------------!
     !Gaussian shear zone in spectral domain, normalized by w
-    tmp = (Dwn/TP_grid_half_width)**2
+    tmp = (Dwn/TP_half_width_shear_zone)**2
     !original function in spatial domain
-    !omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_grid_half_width).^2);
+    !omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_half_width_shear_zone).^2);
     !function in the wavenumber domain *including additional factors in front of the heat source function*
-    !omega = 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_grid_half_width)**2)*(1-exp(-alpha**dt**tmp)) 
-    !inserting Dwn/TP_grid_half_width (scaled) for Dwn cancels out TP_grid_half_width
+    !omega = 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_half_width_shear_zone)**2)*(1-exp(-alpha**dt**tmp)) 
+    !inserting Dwn/TP_half_width_shear_zone (scaled) for Dwn cancels out TP_half_width_shear_zone
     omega = 1.0/(alpha*tmp*(sqrt(2.0*pi)))*exp(-0.5*(Dwn)**2)*(1.0 - exp(-alpha*dt*tmp))
 
     RETURN

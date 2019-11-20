@@ -698,34 +698,34 @@ MODULE ini_model_DR_mod
   !-------------------------------------------------------------------------!
   ! Local variable declaration
   INTEGER                        :: j
-  REAL                           :: TP_grid_space_distance, TP_grid_half_width, TP_max_wavenumber, TP_max_wavenumber_norm
+  REAL                           :: TP_log_dz, TP_half_width_shear_zone, TP_max_wavenumber, TP_max_wavenumber_norm
   REAL, PARAMETER                :: pi=3.141592653589793
   !-------------------------------------------------------------------------!
   INTENT(INOUT) :: DISC,EQN
   !-------------------------------------------------------------------------!
 
   !values currently from bicycle code -> how can we optimize that?
-  TP_grid_space_distance = DISC%DynRup%TP_grid_space_distance !grid space distance, currently set to 0.3
-  TP_grid_half_width = DISC%DynRup%TP_grid_half_width !half width of the shearing layer
+  TP_log_dz = DISC%DynRup%TP_log_dz !grid space distance, currently set to 0.3
+  TP_half_width_shear_zone = DISC%DynRup%TP_half_width_shear_zone !half width of the shearing layer
   TP_max_wavenumber = DISC%DynRup%TP_max_wavenumber !max. wavenumber, currently set to 10.0
-  TP_max_wavenumber_norm = TP_max_wavenumber/TP_grid_half_width
+  TP_max_wavenumber_norm = TP_max_wavenumber/TP_half_width_shear_zone
 
   !Initialization of grid points
   DO j=1,DISC%DynRup%TP_grid_nz
      !use here TP_max_wavenumber and then always Dwn(j)/w (like in the SBIEM code)
      !or use here TP_max_wavenumber/w and then only Dwn(j) in the following
-     DISC%DynRup%TP_grid(j) = TP_max_wavenumber*exp(-TP_grid_space_distance*(DISC%DynRup%TP_grid_nz-j)); !function l_i(x,z) in eq. (14) in Noda/Lapusta 2010 (take exp of 14)
+     DISC%DynRup%TP_grid(j) = TP_max_wavenumber*exp(-TP_log_dz*(DISC%DynRup%TP_grid_nz-j)); !function l_i(x,z) in eq. (14) in Noda/Lapusta 2010 (take exp of 14)
   END DO
 
   !Initialization of Fourier coefficients
   !coefficients from eq. (17) Noda/Lapusta 2010
   DO j=1,DISC%DynRup%TP_grid_nz
      IF (j .EQ. 1) THEN
-         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*(1.d0+TP_grid_space_distance*0.5d0)
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*(1.d0+TP_log_dz*0.5d0)
      ELSEIF(j .EQ. DISC%DynRup%TP_grid_nz) THEN
-         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*TP_grid_space_distance*0.5d0
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*TP_log_dz*0.5d0
      ELSE
-         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*TP_grid_space_distance
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*TP_log_dz
      END IF
   END DO !nz
 
