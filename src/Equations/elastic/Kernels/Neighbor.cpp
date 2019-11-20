@@ -96,8 +96,6 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
     }
   }
 #endif
-  m_lfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_lfKrnlPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
@@ -114,7 +112,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
     switch (data.cellInformation.faceTypes[l_face]) {
     case FaceType::regular:
       // Fallthrough intended
-    case FaceType::periodic:  
+    case FaceType::periodic:
       {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
@@ -138,7 +136,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(NeighborData& data,
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
-      drKrnl.godunovState = cellDrMapping[l_face].godunov;
+      drKrnl.QInterpolated = cellDrMapping[l_face].godunov;
       drKrnl.Q = data.dofs;
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
@@ -170,7 +168,7 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
     switch (i_faceTypes[face]) {
     case FaceType::regular:
       // Fallthrough intended
-    case FaceType::periodic:  
+    case FaceType::periodic:
       // regular neighbor
       assert(i_neighboringIndices[face][0] < 4 && i_neighboringIndices[face][1] < 3);
       o_nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(i_neighboringIndices[face][1], i_neighboringIndices[face][0], face);

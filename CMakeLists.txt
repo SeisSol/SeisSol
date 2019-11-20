@@ -198,12 +198,12 @@ endif()
 # Libs
 find_package(yaml-cpp REQUIRED)
 
-find_package(Eigen3) # maybe enfore 3.3?
-if (EIGEN3_FOUND)
-  target_include_directories(SeisSol-lib PUBLIC ${EIGEN3_INCLUDE_DIR})
-  target_compile_definitions(SeisSol-lib PUBLIC HAS_EIGEN3)
-else()
-endif()
+#find_package(Eigen3) # maybe enfore 3.3?
+#if (EIGEN3_FOUND)
+  #target_include_directories(SeisSol-lib PUBLIC ${EIGEN3_INCLUDE_DIR})
+  #target_compile_definitions(SeisSol-lib PUBLIC HAS_EIGEN3)
+#else()
+#endif()
 
 # TODO: Write export for impalaJIT
 target_link_libraries(SeisSol-lib PUBLIC yaml-cpp
@@ -242,6 +242,9 @@ if (NETCDF)
 endif()
 
 if (HDF5)
+  if (MPI)
+    set(HDF5_PREFER_PARALLEL True)
+  endif()
   find_package(HDF5 REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${HDF5_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
@@ -253,7 +256,6 @@ if (METIS)
   find_package(ParMETIS REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${PARMETIS_INCLUDE_DIRS})
   target_link_libraries(SeisSol-lib PUBLIC ${PARMETIS_LIBRARIES})
-  target_link_directories(SeisSol-lib PUBLIC ${PARMETIS_LIBRARY_DIR})
   target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
@@ -276,6 +278,7 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yaml-cpp/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+                   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
@@ -360,6 +363,7 @@ if(CXXTEST_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
     )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib) 
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})

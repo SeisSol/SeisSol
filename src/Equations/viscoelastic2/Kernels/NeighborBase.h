@@ -48,7 +48,6 @@ namespace seissol {
   namespace kernels {
     class NeighborBase {
     protected:
-      kernel::localFluxExt m_lfKrnlPrototype;
       kernel::neighbourFluxExt m_nfKrnlPrototype;
       kernel::neighbour m_nKrnlPrototype;
       dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;

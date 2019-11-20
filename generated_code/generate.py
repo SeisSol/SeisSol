@@ -97,6 +97,7 @@ else:
     adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
 
 include_tensors = set()
+include_tensors = set()
 g = Generator(arch)
 
 # Equation-specific kernels
@@ -107,7 +108,7 @@ adg.addTime(g)
 adg.add_include_tensors(include_tensors)
 
 # Common kernels
-DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
+include_tensors |= DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod)
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
 NodalBoundaryConditions.addKernels(g, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
 SurfaceDisplacement.addKernels(g, adg)

@@ -62,10 +62,7 @@ void seissol::kernels::DynamicRupture::setGlobalData(GlobalData const* global) {
   }
 #endif
 
-
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
   m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 
   m_timeKernel.setGlobalData(global);
 }
@@ -101,46 +98,48 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
 #endif
 }
 
-void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation const&    faceInfo,
-                                                            GlobalData const*           global,
-                                                            DRGodunovData const*        godunovData,
-                                                            real const*                 timeDerivativePlus,
-                                                            real const*                 timeDerivativeMinus,
-                                                            real                        godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
-                                                            real const*                 timeDerivativePlus_prefetch,
-                                                            real const*                 timeDerivativeMinus_prefetch ) {
+void seissol::kernels::DynamicRupture::spaceTimeInterpolation(  DRFaceInformation const&    faceInfo,
+                                                                GlobalData const*           global,
+                                                                DRGodunovData const*        godunovData,
+                                                                real const*                 timeDerivativePlus,
+                                                                real const*                 timeDerivativeMinus,
+                                                                real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                                                real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                                                real const*                 timeDerivativePlus_prefetch,
+                                                                real const*                 timeDerivativeMinus_prefetch ) {
   // assert alignments
 #ifndef NDEBUG
   assert( timeDerivativePlus != nullptr );
   assert( timeDerivativeMinus != nullptr );
   assert( ((uintptr_t)timeDerivativePlus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)&godunov[0])         % ALIGNMENT == 0 );
+  assert( ((uintptr_t)&QInterpolatedPlus[0]) % ALIGNMENT == 0 );
+  assert( ((uintptr_t)&QInterpolatedMinus[0]) % ALIGNMENT == 0 );
   assert( tensor::Q::size() == tensor::I::size() );
 #endif
 
   real degreesOfFreedomPlus[tensor::Q::size()] __attribute__((aligned(PAGESIZE_STACK)));
   real degreesOfFreedomMinus[tensor::Q::size()] __attribute__((aligned(PAGESIZE_STACK)));
 
-  dynamicRupture::kernel::godunovState krnl = m_krnlPrototype;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
 
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
 
-    real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativePlus_prefetch;
-    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &godunov[timeInterval+1][0] : timeDerivativeMinus_prefetch;
+    real const* plusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlus_prefetch;
+    real const* minusPrefetch = (timeInterval < CONVERGENCE_ORDER-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinus_prefetch;
     
-    krnl.godunovState = &godunov[timeInterval][0];
-    
+    krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0];
     krnl.Q = degreesOfFreedomPlus;
-    krnl.godunovMatrix = godunovData->godunovMatrixPlus;
-    krnl._prefetch.godunovState = plusPrefetch;
+    krnl.TinvT = godunovData->TinvT;
+    krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
     
+    krnl.QInterpolated = &QInterpolatedMinus[timeInterval][0];
     krnl.Q = degreesOfFreedomMinus;
-    krnl.godunovMatrix = godunovData->godunovMatrixMinus;
-    krnl._prefetch.godunovState = minusPrefetch;
+    krnl.TinvT = godunovData->TinvT;
+    krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
   }
 }
@@ -155,11 +154,11 @@ void seissol::kernels::DynamicRupture::flopsGodunovState( DRFaceInformation cons
   o_nonZeroFlops *= 2;
   o_hardwareFlops *= 2;
   
-  o_nonZeroFlops += dynamicRupture::kernel::godunovState::nonZeroFlops(faceInfo.plusSide, 0);
-  o_hardwareFlops += dynamicRupture::kernel::godunovState::hardwareFlops(faceInfo.plusSide, 0);
+  o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.plusSide, 0);
+  o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.plusSide, 0);
   
-  o_nonZeroFlops += dynamicRupture::kernel::godunovState::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
-  o_hardwareFlops += dynamicRupture::kernel::godunovState::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
+  o_nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(faceInfo.minusSide, faceInfo.faceRelation);
+  o_hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(faceInfo.minusSide, faceInfo.faceRelation);
   
   o_nonZeroFlops *= CONVERGENCE_ORDER;
   o_hardwareFlops *= CONVERGENCE_ORDER;

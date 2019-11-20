@@ -70,8 +70,6 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
     }
   }
 #endif
-  m_lfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_lfKrnlPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
@@ -125,12 +123,12 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
         lfKrnl._prefetch.Q = faceNeighbors_prefetch[l_face];
         lfKrnl.execute(l_face);
       }
-    } else if (data.cellInformation.faceTypes[l_face] == FaceType::dynamicRupture) {
+    } else if (data.cellInformation.faceTypes[l_face] == dynamicRupture) {
       assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[l_face].fluxSolver;
-      drKrnl.godunovState = cellDrMapping[l_face].godunov;
+      drKrnl.QInterpolated = cellDrMapping[l_face].godunov;
       drKrnl.Qext = Qext;
       drKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
       drKrnl.execute(cellDrMapping[l_face].side, cellDrMapping[l_face].faceRelation);
