@@ -61,12 +61,11 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
         localFluxNodalPrefetch = lambda i: aderdg.I if i == 0 else (aderdg.Q if i == 1 else None)
         generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
     else:
-        # To generate rDivM_mult_V2nTo2m,
-        # include_tensors doesnt allow tensor families currently.
-        generator.addFamily('localFluxNodalFake',
-                            simpleParameterSpace(4),
-                            lambda i: aderdg.db.rDivMMultV2nTo2m[i]['kn'] <= aderdg.db.rDivMMultV2nTo2m[i]['kn'],
-                            )
+        # Nodal bc not supported for visc2, but we  need to generate rDivM_mult_V2nTo2m.
+        # include_tensors doesnt allow tensor families directly.
+        include_tensors.update([
+            rDivM_mult_V2nTo2m["rDivMMultV2nTo2m"][i] for i in range(4)
+        ])
 
     selectZDisplacement = np.zeros((aderdg.numberOfQuantities(), 1))
     selectZDisplacement[8, 0] = 1

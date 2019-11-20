@@ -59,11 +59,11 @@ void seissol::kernels::Neighbor::setGlobalData(GlobalData const* global) {
     assert( ((uintptr_t)global->localChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
     assert( ((uintptr_t)global->neighbourChangeOfBasisMatricesTransposed(l_neighbor)) % ALIGNMENT == 0 );
   }
-  
+
   for( int h = 0; h < 3; ++h ) {
     assert( ((uintptr_t)global->neighbourFluxMatrices(h)) % ALIGNMENT == 0 );
   }
-  
+
   for (int i = 0; i < 4; ++i) {
     for(int h = 0; h < 3; ++h) {
       assert( ((uintptr_t)global->nodalFluxMatrices(i,h)) % ALIGNMENT == 0 );
@@ -86,8 +86,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
 #ifndef NDEBUG
   for( int l_neighbor = 0; l_neighbor < 4; ++l_neighbor ) {
     // alignment of the time integrated dofs
-    if( data.cellInformation.faceTypes[l_neighbor] != FaceType::outflow &&
-	data.cellInformation.faceTypes[l_neighbor] != FaceType::dynamicRupture ) { // no alignment for outflow and DR boundaries required
+    if( data.cellInformation.faceTypes[l_neighbor] != FaceType::outflow && data.cellInformation.faceTypes[l_neighbor] != FaceType::dynamicRupture ) { // no alignment for outflow and DR boundaries required
       assert( ((uintptr_t)i_timeIntegrated[l_neighbor]) % ALIGNMENT == 0 );
     }
   }
@@ -104,26 +103,18 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
   // iterate over faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
-    if( data.cellInformation.faceTypes[l_face] != FaceType::outflow &&
-	data.cellInformation.faceTypes[l_face] != FaceType::dynamicRupture ) {
+    if( data.cellInformation.faceTypes[l_face] != FaceType::outflow
+        && data.cellInformation.faceTypes[l_face] != FaceType::dynamicRupture ) {
       // compute the neighboring elements flux matrix id.
       if( data.cellInformation.faceTypes[l_face] != FaceType::freeSurface ) {
         assert(data.cellInformation.faceRelations[l_face][0] < 4 && data.cellInformation.faceRelations[l_face][1] < 3);
-        
+
         nfKrnl.I = i_timeIntegrated[l_face];
         nfKrnl.AminusT = data.neighboringIntegration.nAmNm1[l_face];
         nfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
         nfKrnl.execute(data.cellInformation.faceRelations[l_face][1], data.cellInformation.faceRelations[l_face][0], l_face);
-      } else { // fall back to local matrices in case of free surface boundary conditions
-        kernel::localFluxExt lfKrnl = m_lfKrnlPrototype;
-        lfKrnl.Qext = Qext;
-        lfKrnl.I = i_timeIntegrated[l_face];
-        lfKrnl.AplusT = data.neighboringIntegration.nAmNm1[l_face];
-        lfKrnl._prefetch.I = faceNeighbors_prefetch[l_face];
-        lfKrnl._prefetch.Q = faceNeighbors_prefetch[l_face];
-        lfKrnl.execute(l_face);
       }
-    } else if (data.cellInformation.faceTypes[l_face] == dynamicRupture) {
+    } else if (data.cellInformation.faceTypes[l_face] == FaceType::dynamicRupture) {
       assert(((uintptr_t)cellDrMapping[l_face].godunov) % ALIGNMENT == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
@@ -140,7 +131,7 @@ void seissol::kernels::Neighbor::computeNeighborsIntegral(  NeighborData&       
   nKrnl.Q = data.dofs;
   nKrnl.Qane = data.dofsAne;
   nKrnl.w = data.neighboringIntegration.specific.w;
-  
+
   nKrnl.execute();
 }
 
@@ -150,19 +141,19 @@ void seissol::kernels::Neighbor::flopsNeighborsIntegral(const FaceType i_faceTyp
                                                         unsigned int &o_nonZeroFlops,
                                                         unsigned int &o_hardwareFlops,
                                                         long long& o_drNonZeroFlops,
-                                                        long long& o_drHardwareFlops ) {
+                                                        long long& o_drHardwareFlops) {
   // reset flops
   o_nonZeroFlops = 0; o_hardwareFlops = 0;
   o_drNonZeroFlops = 0; o_drHardwareFlops = 0;
-  
+
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary conditions
-    if( i_faceTypes[l_face] != FaceType::outflow &&
-	i_faceTypes[l_face] != FaceType::dynamicRupture ) {
+    if(i_faceTypes[l_face] != FaceType::outflow
+       && i_faceTypes[l_face] != FaceType::dynamicRupture) {
       // compute the neighboring elements flux matrix id.
       if( i_faceTypes[l_face] != FaceType::freeSurface ) {
         assert(i_neighboringIndices[l_face][0] < 4 && i_neighboringIndices[l_face][1] < 3);
-        
+
         o_nonZeroFlops  += seissol::kernel::neighbourFluxExt::nonZeroFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
         o_hardwareFlops += seissol::kernel::neighbourFluxExt::hardwareFlops(i_neighboringIndices[l_face][1], i_neighboringIndices[l_face][0], l_face);
       } else { // fall back to local matrices in case of free surface boundary conditions
@@ -188,6 +179,7 @@ unsigned seissol::kernels::Neighbor::bytesNeighborsIntegral()
   reals += 4 * tensor::I::size() + 2 * tensor::Q::size() + 2 * tensor::Qane::size();
   // flux solvers load
   reals += 4 * tensor::AminusT::size() + tensor::w::size();
-  
+
   return reals * sizeof(real);
 }
+
