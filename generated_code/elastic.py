@@ -38,18 +38,12 @@
 # @section DESCRIPTION
 #
   
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
-import numpy as np
 from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.util import tensor_collection_from_constant_expression
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
-from yateto.memory import CSCMemoryLayout
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 from aderdg import LinearADERDG
-from aderdg import ADERDGBase
-import aderdg
 from multSim import OptionalDimTensor
 
 class ElasticADERDG(LinearADERDG):
@@ -72,7 +66,6 @@ class ElasticADERDG(LinearADERDG):
 
   def addLocal(self, generator):
     super().addLocal(generator)
-
 
   def addTime(self, generator):
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())

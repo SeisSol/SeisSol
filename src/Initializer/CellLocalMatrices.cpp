@@ -178,15 +178,19 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.Tinv = TinvData;
         localKrnl.star(0) = ATData;
         localKrnl.execute();
-        
-	kernel::computeFluxSolverNeighbor neighKrnl;
-	neighKrnl.fluxScale = fluxScale;
-	neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
-	neighKrnl.QgodNeighbor = QgodNeighborData;
-	neighKrnl.T = TData;
-	neighKrnl.Tinv = TinvData;
-	neighKrnl.star(0) = ATData;
-	neighKrnl.execute();
+
+        kernel::computeFluxSolverNeighbor neighKrnl;
+        neighKrnl.fluxScale = fluxScale;
+        neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
+        neighKrnl.QgodNeighbor = QgodNeighborData;
+        neighKrnl.T = TData;
+        neighKrnl.Tinv = TinvData;
+        neighKrnl.star(0) = ATData;
+        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+          // Already rotated!
+          neighKrnl.Tinv = init::identityT::Values;
+        }
+        neighKrnl.execute();
 
       }
 
@@ -289,7 +293,6 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
 	auto T = init::T::view::create(TData);
 	auto Tinv = init::Tinv::view::create(TinvData);
 
-	// TODO(Lukas) This code is duplicated from cellLocalMatrices setup.
 	// The reason for this is that the boundary mappings aren't initialized earlier.
 	VrtxCoords normal;
 	VrtxCoords tangent1;

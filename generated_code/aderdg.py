@@ -209,8 +209,6 @@ class LinearADERDG(ADERDGBase):
     localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
     generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
-
-
   def addNeighbor(self, generator):
     neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
     neighbourFluxPrefetch = lambda h,j,i: self.I
@@ -234,7 +232,6 @@ class LinearADERDG(ADERDGBase):
       generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
       generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
       derivatives.append(dQ)
-
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)

@@ -181,11 +181,9 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 				 applyEasiBoundary,
 				 dofsFaceBoundaryNodal);
 
-      // We need to rotate the boundary data back to the [x,y,z] basis
-      auto rotateBoundaryDofsBack = kernel::rotateBoundaryDofsBack{};
-      rotateBoundaryDofsBack.INodal = dofsFaceBoundaryNodal;
-      rotateBoundaryDofsBack.T = (*cellBoundaryMapping)[face].TData;
-      rotateBoundaryDofsBack.execute();
+      // We do not need to rotate the boundary data back to the [x,y,z] basis
+      // as we set the Tinv matrix to the identity matrix in the flux solver
+      // See init. in CellLocalMatrices.initializeCellLocalMatrices!
 
       nodalLfKrnl.execute(face);
       break;
@@ -261,11 +259,9 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
       break;
     case FaceType::dirichlet:
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-	seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face) +
-	seissol::kernel::rotateBoundaryDofsBack::NonZeroFlops;
+	seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-	seissol::kernel::projectToNodalBoundary::hardwareFlops(face) +
-	seissol::kernel::rotateBoundaryDofsBack::HardwareFlops;
+	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
       break;
     case FaceType::analytical:
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +

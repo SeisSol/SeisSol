@@ -38,15 +38,16 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                         simpleParameterSpace(4),
                         projectToNodalBoundaryRotated)
 
-    if isinstance(aderdg, viscoelastic2.Viscoelastic2ADERDG):
-        # TODO(Lukas) dirty hack, should be removed at some point
-        rotateBoundaryDofsBack = aderdg.INodal['ae'] <= aderdg.INodal['ab'] \
-                                 * aderdg.selectEla['cb'] * aderdg.T['dc'] * aderdg.selectEla['ed']
-    else:
-        rotateBoundaryDofsBack = aderdg.INodal['kp'] <= aderdg.INodal['kl'] * aderdg.T['pl']
-        generator.add('rotateBoundaryDofsBack', rotateBoundaryDofsBack)
+    # To be used as Tinv in flux solver - this way we can save two rotations for
+    # Dirichlet boundary, as ghost cell dofs are already rotated
+    identity_rotation = np.double(aderdg.transformation_spp())
+    identity_rotation[0:9, 0:9] = np.eye(9)
+    identity_rotation = Tensor('identityT',
+                               aderdg.transformation_spp().shape,
+                               identity_rotation,
+                               )
+    include_tensors.add(identity_rotation)
 
-    # not currently supported
     rDivM_mult_V2nTo2m = tensor_collection_from_constant_expression(
         base_name='rDivMMultV2nTo2m',
         expressions=lambda i: aderdg.db.rDivM[i]['jk'] * aderdg.db.V2nTo2m['kl'],
@@ -60,6 +61,8 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
         localFluxNodalPrefetch = lambda i: aderdg.I if i == 0 else (aderdg.Q if i == 1 else None)
         generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
     else:
+        # To generate rDivM_mult_V2nTo2m,
+        # include_tensors doesnt allow tensor families currently.
         generator.addFamily('localFluxNodalFake',
                             simpleParameterSpace(4),
                             lambda i: aderdg.db.rDivMMultV2nTo2m[i]['kn'] <= aderdg.db.rDivMMultV2nTo2m[i]['kn'],
