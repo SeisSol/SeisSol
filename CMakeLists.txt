@@ -278,7 +278,7 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yaml-cpp/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-                   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
 )

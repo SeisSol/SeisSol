@@ -133,10 +133,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
 
     // Include some boundary conditions here.
     switch (data.cellInformation.faceTypes[face]) {
-    case FaceType::freeSurface:
-      lfKrnl.AplusT = data.neighboringIntegration.nAmNm1[face];
-      lfKrnl.execute(face);
-      break;
     case FaceType::freeSurfaceGravity:
       {
       assert(cellBoundaryMapping != nullptr);
