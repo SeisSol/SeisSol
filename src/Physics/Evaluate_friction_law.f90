@@ -1500,7 +1500,7 @@ MODULE Eval_friction_law_mod
 
 
     IF (ANY(IsNaN(LocSV)) .EQV. .TRUE.) THEN
-       logError(*) 'NaN detected', time
+       logError(*) 'NaN detected'
        STOP
     ENDIF
 
@@ -1520,7 +1520,7 @@ MODULE Eval_friction_law_mod
     REAL          :: n_stress(nBndGP), sh_stress(nBndGP), invZ
     REAL          :: NR(nBndGP), dNR(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP)
     REAL          :: mu_f(nBndGP), dmu_f(nBndGP)                              !calculated here in routine
-    REAL          :: AlmostZero = 1D-45, aTolF = 1e-8
+    REAL          :: AlmostZero = 1D-45, aTolF = 5e-14
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: nSRupdates, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
                      sh_stress, invZ

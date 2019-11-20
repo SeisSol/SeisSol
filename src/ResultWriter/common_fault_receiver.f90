@@ -258,23 +258,19 @@ CONTAINS
 
     TYPE(tDiscretization)   :: DISC                   ! Discretization struct.!
 
-    INTEGER                 :: OutVars
+    INTEGER                 :: OutVars, i
     INTEGER                 :: number_of_receivers
+    INTEGER                 :: maskCount(12)
 
     ! options of output components
+    maskCount=(/2,3,1,2,3,2,1,1,1,1,1,2/)
+
     OutVars = 0
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1).EQ.1) OutVars = OutVars + 2
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(2).EQ.1) OutVars = OutVars + 3
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(3).EQ.1) OutVars = OutVars + 1
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(4).EQ.1) OutVars = OutVars + 2
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(5).EQ.1) OutVars = OutVars + 3
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(6).EQ.1) OutVars = OutVars + 2
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(7).EQ.1) OutVars = OutVars + 1
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(8).EQ.1) OutVars = OutVars + 1
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(9).EQ.1) OutVars = OutVars + 1
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(10).EQ.1) OutVars = OutVars + 1
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(11).EQ.1) OutVars = OutVars + 1
-    IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(12).EQ.1) OutVars = OutVars + 2
+    DO i=lbound(maskCount,1),ubound(maskCount,1)
+       IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(i).EQ.1) THEN
+          OutVars = OutVars + maskCount(i)
+       ENDIF
+    ENDDO
 
     number_of_receivers = DISC%DynRup%DynRup_out_atPickpoint%nDR_pick
 
