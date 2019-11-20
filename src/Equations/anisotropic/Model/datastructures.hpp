@@ -103,75 +103,7 @@ namespace seissol {
 
       virtual ~AnisotropicMaterial() {};
 
-      Material getRotatedMaterialCoefficients(real i_N[36]) {
-        AnisotropicMaterial material;
-        material.rho = rho;
-        using Matrix66 = Eigen::Matrix<real, 6, 6>;
-        Matrix66 N = Matrix66(i_N);
-        Matrix66 C = Matrix66();
-        C(0,0) = c11;
-        C(0,1) = c12;
-        C(0,2) = c13;
-        C(0,3) = c14;
-        C(0,4) = c15;
-        C(0,5) = c16;
-        C(1,0) = c12;
-        C(1,1) = c22;
-        C(1,2) = c23;
-        C(1,3) = c24;
-        C(1,4) = c25;
-        C(1,5) = c26;
-        C(2,0) = c13;
-        C(2,1) = c23;
-        C(2,2) = c33;
-        C(2,3) = c34;
-        C(2,4) = c35;
-        C(2,5) = c36;
-        C(3,0) = c14;
-        C(3,1) = c24;
-        C(3,2) = c34;
-        C(3,3) = c44;
-        C(3,4) = c45;
-        C(3,5) = c46;
-        C(4,0) = c15;
-        C(4,1) = c25;
-        C(4,2) = c35;
-        C(4,3) = c45;
-        C(4,4) = c55;
-        C(4,5) = c56;
-        C(5,0) = c16;
-        C(5,1) = c26;
-        C(5,2) = c36;
-        C(5,3) = c46;
-        C(5,4) = c56;
-        C(5,5) = c66;
-
-        Matrix66 rotatedC = N.transpose()*C*N;
-
-        material.c11 = rotatedC(0,0);
-        material.c12 = rotatedC(0,1);
-        material.c13 = rotatedC(0,2);
-        material.c14 = rotatedC(0,3);
-        material.c15 = rotatedC(0,4);
-        material.c16 = rotatedC(0,5);
-        material.c22 = rotatedC(1,1);
-        material.c23 = rotatedC(1,2);
-        material.c24 = rotatedC(1,3);
-        material.c25 = rotatedC(1,4);
-        material.c26 = rotatedC(1,5);
-        material.c33 = rotatedC(2,2);
-        material.c34 = rotatedC(2,3);
-        material.c35 = rotatedC(2,4);
-        material.c36 = rotatedC(2,5);
-        material.c44 = rotatedC(3,3);
-        material.c45 = rotatedC(3,4);
-        material.c46 = rotatedC(3,5);
-        material.c55 = rotatedC(4,4);
-        material.c56 = rotatedC(4,5);
-        material.c66 = rotatedC(5,5);
-        return material;
-      }
-
+      
       void getFullElasticTensor(real fullTensor[81]) {
         fullTensor[0]  = c11;
         fullTensor[1]  = c16;
@@ -292,7 +224,7 @@ namespace seissol {
         }
         return sqrt(maxEv / rho);
 #else
-        return 0;
+        return getPWaveSpeed();
 #endif
       }
 
@@ -307,10 +239,12 @@ namespace seissol {
         return std::sqrt(muBar / rho);
       }
 
-      materialType getMaterialType() const {
-        return anisotropic;
+      MaterialType getMaterialType() const {
+        return MaterialType::anisotropic;
       }
     };
+
+
   }
 }
 

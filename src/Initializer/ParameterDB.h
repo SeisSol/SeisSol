@@ -122,8 +122,8 @@ template<class T>
 class seissol::initializers::ParameterDB {
 public: 
   //for material parameters
-  void setMaterialType(seissol::model::materialType materialType) { m_materialType = materialType; }
-  void setMaterialVector(std::vector<T> materials) { m_materials = materials; }
+  void setMaterialType(seissol::model::MaterialType materialType) { m_materialType = materialType; }
+  void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
   //for fault parameters
   void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
   static bool faultParameterizedByTraction(std::string const& fileName);
@@ -133,8 +133,8 @@ public:
 private:
   //for material parameters
   void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
-  seissol::model::materialType m_materialType;
-  std::vector<T> m_materials;
+  seissol::model::MaterialType m_materialType;
+  std::vector<T>* m_materials;
   //for fault parameters
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
   //generic

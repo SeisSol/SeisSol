@@ -40,94 +40,9 @@
 #ifndef MODEL_SETUP_H_
 #define MODEL_SETUP_H_
 
-#include <complex>
 
-#include <Initializer/typedefs.hpp>
-#include <Equations/anisotropic/Model/datastructures.hpp>
-#include <Equations/elastic/Model/datastructures.hpp>
-#include <Equations/viscoelastic2/Model/datastructures.hpp>
-#include <Geometry/MeshDefinition.h>
-#include <generated_code/init.h>
+#include "Equations/anisotropic/Model/Setup.h"
+#include "Equations/elastic/Model/Setup.h"
 
-namespace seissol {
-  namespace model {
-//    /**
-//     * Returns the transposition of the matrices A, B, C of
-//     * dQp_dt + A_pq dQq_dx + B_pq dQq_dy + C_pq dQq_dz
-//     **/
-//    void getTransposedCoefficientMatrix( Material const& i_material,
-//                                         unsigned                   i_dim,
-//                                         init::star::view<0>::type& AT );
-//    /**
-//     * Returns n_x A + n_y B + n_y C - i E
-//     */
-//    void getPlaneWaveOperator(  Material const* material,
-//                                double const n[3],
-//                                std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
-//    /**
-//     * Solves the Riemann problem at an interface. Note that this routine
-//     * returns the transposed godunov state.
-//     **/
-//
-//    void getTransposedAnisotropicGodunovState( AnisotropicMaterial const&  local,
-//                                               AnisotropicMaterial const&  neighbor,
-//                                               enum ::faceType             faceType,
-//                                               init::QgodLocal::view::type&      QgodLocal,
-//                                               init::QgodNeighbor::view::type&   QgodNeighbor );
-//    void getTransposedElasticGodunovState( ElasticMaterial const&  local,
-//                                           ElasticMaterial const&  neighbor,
-//                                           enum ::faceType         faceType,
-//                                           init::QgodLocal::view::type&      QgodLocal,
-//                                           init::QgodNeighbor::view::type&   QgodNeighbor );
-//    void getTransposedViscoElasticGodunovState( ViscoElasticMaterial const&  local,
-//                                                ViscoElasticMaterial const&  neighbor,
-//                                                enum ::faceType              faceType,
-//                                                init::QgodLocal::view::type&      QgodLocal,
-//                                                init::QgodNeighbor::view::type&   QgodNeighbor );
-//
-//    /**
-//     * Converts the fortran material array to the C++ material struct.
-//     **/
-//    template<typename T>
-//    void setMaterial( double* i_materialVal,
-//                      int i_numMaterialVals,
-//                      T* o_material );
-//    /**
-//     * Returns the rotation and inverse rotation matrices in order to
-//     * rotate the equation system into a face-local coordinate system
-//     * that is aligned with the normal and tangents.
-//     **/
-//    void getFaceRotationMatrix( VrtxCoords const i_normal,
-//                                VrtxCoords const i_tangent1,
-//                                VrtxCoords const i_tangent2,
-//                                init::T::view::type& o_T,
-//                                init::Tinv::view::type& o_Tinv );
-//    /**
-//     * Returns the matrix, which rotates Hooke's tensor into a
-//     * face-local coordinate system that is aligned with the normal and
-//     * the tangents. 
-//     **/
-//    void getBondMatrix( VrtxCoords const i_normal,
-//                        VrtxCoords const i_tangent1,
-//                        VrtxCoords const i_tangent2,
-//                        real* o_N );
-//
-//
-//    /**
-//     * Initializes equation specific data for local integration.
-//     * LocalData has to be specified in datastructures.hpp.
-//     */
-//    void initializeSpecificLocalData( seissol::model::Material const& material,
-//                                      seissol::model::LocalData* localData );
-//
-//    /**
-//     * Initializes equation specific data for neighbor integration.
-//     * NeighborData has to be specified in datastructures.hpp.
-//     */
-//    void initializeSpecificNeighborData(  seissol::model::Material const& localMaterial,
-//                                          seissol::model::Material const (&neighborMaterials)[4],
-//                                          seissol::model::NeighborData* neighborData );
-  }
-}
 
 #endif

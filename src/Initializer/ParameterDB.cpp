@@ -78,7 +78,8 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
 #ifdef USE_HDF
 easi::Query seissol::initializers::ElementBarycentreGeneratorPUML::generate() const {
   std::vector<PUML::TETPUML::cell_t> const& cells = m_mesh.cells();
-	std::vector<PUML::TETPUML::vertex_t> const& vertices = m_mesh.vertices();
+  std::vector<PUML::TETPUML::vertex_t> const& vertices = m_mesh.vertices();
+
   int const* material = m_mesh.cellData(0);
   
   easi::Query query(cells.size(), 3);
@@ -272,12 +273,12 @@ namespace seissol {
       easi::Query query = queryGen.generate();
 
       switch(m_materialType)  {
-        case seissol::model::elastic:
-        case seissol::model::viscoelastic:
-        case seissol::model::elastoplastic:
-        case seissol::model::viscoplastic:
-        case seissol::model::anisotropic: {
-          easi::ArrayOfStructsAdapter<T> adapter(m_materials.data());
+        case seissol::model::MaterialType::elastic:
+        case seissol::model::MaterialType::viscoelastic:
+        case seissol::model::MaterialType::elastoplastic:
+        case seissol::model::MaterialType::viscoplastic:
+        case seissol::model::MaterialType::anisotropic: {
+          easi::ArrayOfStructsAdapter<T> adapter(m_materials->data());
           addBindingPoints(adapter);
           model->evaluate(query, adapter); 
           break;
@@ -311,21 +312,22 @@ namespace seissol {
         adapter.addBindingPoint("rho", &seissol::model::ElasticMaterial::rho);
         adapter.addBindingPoint("mu", &seissol::model::ElasticMaterial::mu);
         adapter.addBindingPoint("lambda", &seissol::model::ElasticMaterial::lambda);
+        unsigned numPoints = query.numPoints();
         model->evaluate(query, adapter);
 
-        for(int i = 0; i < query.numPoints(); i++) {
-          m_materials[i] = seissol::model::AnisotropicMaterial(elasticMaterials[i]);
+        for(unsigned i = 0; i < numPoints; i++) {
+          m_materials->at(i) = seissol::model::AnisotropicMaterial(elasticMaterials[i]);
         }
         delete model;
       }
       else {
         switch(m_materialType)  {
-          case seissol::model::elastic:
-          case seissol::model::viscoelastic:
-          case seissol::model::elastoplastic:
-          case seissol::model::viscoplastic:
-          case seissol::model::anisotropic: {
-            easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> arrayOfStructsAdapter(m_materials.data());
+          case seissol::model::MaterialType::elastic:
+          case seissol::model::MaterialType::viscoelastic:
+          case seissol::model::MaterialType::elastoplastic:
+          case seissol::model::MaterialType::viscoplastic:
+          case seissol::model::MaterialType::anisotropic: {
+            easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
             addBindingPoints(arrayOfStructsAdapter);
             model->evaluate(query, arrayOfStructsAdapter);  
             break;

@@ -45,22 +45,22 @@
 
 namespace seissol {
   namespace model {
-    enum materialType {
+    enum class MaterialType {
       elastic,
       viscoelastic,
       elastoplastic,
       viscoplastic,
-      anisotropic
+      anisotropic,
+      none
     };
 
     struct Material {
       real rho;
-      virtual real getMaxWaveSpeed() {};
-      virtual real getPWaveSpeed() {};
-      virtual real getSWaveSpeed() {};
-      virtual Material getRotatedMaterialCoefficients(real i_N[36]) {} ;
+      virtual real getMaxWaveSpeed() { return 0; };
+      virtual real getPWaveSpeed() { return 0; };
+      virtual real getSWaveSpeed() { return 0; };
       virtual void getFullElasticTensor(real fullTensor[81]) {}; 
-      virtual materialType getMaterialType() const {};
+      virtual MaterialType getMaterialType() const { return MaterialType::none; };
       virtual ~Material() {};
     };
 

@@ -152,7 +152,7 @@ endif()
 # Eqations have to be set at compile time currently.
 if ("${EQUATIONS}" STREQUAL "elastic")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Model/Setup.cpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
@@ -162,7 +162,7 @@ if ("${EQUATIONS}" STREQUAL "elastic")
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Model/Setup.cpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Time.cpp
@@ -172,7 +172,7 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Model/Setup.cpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Time.cpp
@@ -182,7 +182,7 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
 
 elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Model/Setup.cpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp

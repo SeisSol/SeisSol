@@ -369,8 +369,16 @@ struct NeighboringIntegrationData {
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::Material local;
-  seissol::model::Material neighbor[4];
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicMaterial local;
+  seissol::model::AnisotropicMaterial neighbor[4];
+#elif defined USE_VISCOELASTIC
+  seissol::model::ViscoElasticMaterial local;
+  seissol::model::ViscoElasticMaterial neighbor[4];
+#else
+  seissol::model::ElasticMaterial local;
+  seissol::model::ElasticMaterial neighbor[4];
+#endif
 };
 
 // plasticity information per cell

@@ -151,13 +151,13 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
 #ifdef USE_ANISOTROPIC
   std::vector<seissol::model::AnisotropicMaterial> materials(cells.size());
   seissol::initializers::ParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
-  parameterDB.setMaterialType(seissol::model::anisotropic);
+  parameterDB.setMaterialType(seissol::model::MaterialType::anisotropic);
 #else
   std::vector<seissol::model::ElasticMaterial> materials(cells.size());
   seissol::initializers::ParameterDB<seissol::model::ElasticMaterial> parameterDB;
-  parameterDB.setMaterialType(seissol::model::anisotropic);
+  parameterDB.setMaterialType(seissol::model::MaterialType::elastic);
 #endif 
-  parameterDB.setMaterialVector(materials);
+  parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(m_velocityModel, queryGen);
   for(unsigned cell = 0; cell < cells.size(); ++cell) {
     pWaveVel[cell] = materials[cell].getPWaveSpeed();

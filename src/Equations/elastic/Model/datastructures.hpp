@@ -51,11 +51,6 @@ namespace seissol {
 
       virtual ~ElasticMaterial() {};
 
-      Material getRotatedMaterialCoefficients(real i_N[36]) {
-        // isotropic materials are rotationally invariant
-        return *this;
-      }
-
       void getFullElasticTensor(real fullTensor[81]) {
         fullTensor[0]  = lambda + 2*mu;
         fullTensor[1]  = 0.0;
@@ -152,15 +147,15 @@ namespace seissol {
         return std::sqrt(mu / rho);
       }
 
-      materialType getMaterialType() const {
-        return elastic;
+      MaterialType getMaterialType() const {
+        return MaterialType::elastic;
       }
     };
 
     struct ElastoPlasticMaterial : ElasticMaterial, Plasticity {
       virtual ~ElastoPlasticMaterial() {};
-      materialType getMaterialType() const {
-        return elastoplastic;
+      MaterialType getMaterialType() const {
+        return MaterialType::elastoplastic;
       }
     };
   }

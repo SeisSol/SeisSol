@@ -60,16 +60,16 @@ namespace seissol {
 
       virtual ~ViscoElasticMaterial() {};
 
-      materialType getMaterialType() const {
-        return viscoelastic;
+      MaterialType getMaterialType() const {
+        return MaterialType::viscoelastic;
       }
     };
 
     struct ViscoPlasticMaterial : ViscoElasticMaterial, Plasticity {
       virtual ~ViscoPlasticMaterial() {};
 
-      materialType getMaterialType() const {
-        return viscoplastic;
+      MaterialType getMaterialType() const {
+        return MaterialType::viscoplastic;
       }
     };
 
