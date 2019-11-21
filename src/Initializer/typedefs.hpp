@@ -448,6 +448,8 @@ struct CellBoundaryMapping {
   real* nodes;
   real* TData;
   real* TinvData;
+  real* easiBoundaryConstant;
+  real* easiBoundaryMap;
 };
 
 struct BoundaryFaceInformation {
@@ -455,6 +457,8 @@ struct BoundaryFaceInformation {
   real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3];
   real TData[seissol::tensor::T::size()];
   real TinvData[seissol::tensor::Tinv::size()];
+  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
+  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
 #endif

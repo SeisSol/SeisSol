@@ -167,10 +167,20 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       }
     case FaceType::dirichlet:
       {
-      const auto& easiBoundary = seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader();
-      auto applyEasiBoundary = [&easiBoundary](const real* nodes,
-                                               init::INodal::view::type& boundaryDofs) {
-          easiBoundary->query(nodes, boundaryDofs);
+      assert(cellBoundaryMapping != nullptr);
+      auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
+      auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
+      assert(easiBoundaryConstant != nullptr);
+      assert(easiBoundaryMap != nullptr);
+      auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
+          const real* nodes,
+          init::INodal::view::type& boundaryDofs) {
+        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
+        easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
+        easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
+        easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
+        easiBoundaryKernel.INodal = boundaryDofs.data();
+        easiBoundaryKernel.execute();
       };
 
       // Compute boundary in [n, t_1, t_2] basis

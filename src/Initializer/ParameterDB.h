@@ -141,13 +141,11 @@ public:
 
   ~EasiBoundary();
 
-  void query(const real* nodes,
-	     init::INodal::view::type& boundaryDofs) const;
+  void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
 
-  
 private:
-  easi::Component* model;
-  
+    easi::Component* model;
+
 };
 
 #endif

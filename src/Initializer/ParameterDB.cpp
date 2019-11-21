@@ -224,11 +224,14 @@ seissol::initializers::EasiBoundary::~EasiBoundary() {
 }
 
 void seissol::initializers::EasiBoundary::query(const real* nodes,
-						init::INodal::view::type& boundaryDofs) const {
+                                                real* mapTermsData,
+                                                real* constantTermsData) const {
   if (model == nullptr) {
     logError() << "Model for easiBoundary is not initialized!";
   }
   assert(tensor::INodal::Shape[1] == 9); // only supp. for elastic currently.
+  assert(mapTermsData != nullptr);
+  assert(constantTermsData != nullptr);
   constexpr auto numNodes = tensor::INodal::Shape[0];
   auto query = easi::Query{numNodes, 3};
   size_t offset{0};
@@ -251,12 +254,10 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
   // is equal to A * val_inside + b
 
   // Constant terms stores all terms of the vector b
-  auto constantTermsData = std::array<double, init::easiBoundaryConstant::Size>();
-  auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData.data()));
+  auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData));
 
   // Map terms stores all terms of the linear map A
-  auto mapTermsData = std::array<double, init::easiBoundaryMap::Size>();
-  auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData.data());
+  auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
 
   easi::ArraysAdapter adapter{};
 
@@ -267,7 +268,7 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
     if (supplied.count(termName) > 0) {
       adapter.addBindingPoint(
           termName,
-          constantTermsData.data() + offset,
+          constantTermsData + offset,
           constantTerms.shape(0)
       );
     }
@@ -288,7 +289,7 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
       if (supplied.count(termName) > 0) {
         adapter.addBindingPoint(
             termName,
-            mapTermsData.data() + offset,
+            mapTermsData + offset,
             mapTerms.shape(0) * mapTerms.shape(1)
         );
       } else {
@@ -300,13 +301,6 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
     }
   }
   model->evaluate(query, adapter);
-
-  kernel::createEasiBoundaryGhostCells kernel{};
-  kernel.easiBoundaryMap = mapTerms.data();
-  kernel.easiBoundaryConstant = constantTerms.data();
-  kernel.easiIdentMap = init::easiIdentMap::Values;
-  kernel.INodal = boundaryDofs.data();
-  kernel.execute();
 }
 
 easi::Component* seissol::initializers::loadEasiModel(const std::string& fileName) {

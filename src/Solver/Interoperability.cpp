@@ -79,9 +79,7 @@ extern "C" {
   }
 
   void c_interoperability_initializeEasiBoundaries(char* fileName) {
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
     seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   }
 
   void c_interoperability_setInitialConditionType(char* type)
@@ -604,10 +602,11 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
                                                            m_timeStepping );
 
-  seissol::initializers::initializeBoundaryMapppings(seissol::SeisSol::main.meshReader(),
-						     m_ltsTree,
-						     m_lts,
-						     &m_ltsLut);
+  seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
+                                                    seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
+                                                    m_ltsTree,
+                                                    m_lts,
+                                                    &m_ltsLut);
  
 
 }

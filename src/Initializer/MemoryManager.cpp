@@ -467,8 +467,6 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     cluster.child<Interior>().setNumberOfCells(0);
   }
 
-  // TODO(Lukas) Something similar is done in initializeSurfaceLTSTree. Maybe use generic func for this? Interface constructFaceLTS(lts, faceLts, lambda inclusion crit, lambda alloc crit)
-
   // Iterate over layers of standard lts tree and face lts tree together.
   auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
     for (;
@@ -482,10 +480,10 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-	// TODO(Lukas) Refactor these checks into function (code dupl.)
+        // TODO(Lukas) Refactor these checks into function (code dupl.)
         if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
-	    cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+            cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
+            cellInformation[cell].faceTypes[face] == FaceType::analytical) {
           ++numberOfBoundaryFaces;
         }
       }
@@ -498,8 +496,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
   // The boundary tree is now allocated, now we only need to map from cell lts
   // to face lts.
   // We do this by, once again, iterating over both trees at the same time.
-  // TODO(Lukas) Extract this init to own method in Initializer
-    for (auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
+  for (auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
        layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
        ++layer, ++boundaryLayer) {
     auto* cellInformation = layer->var(m_lts.cellInformation);
@@ -509,18 +506,23 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-	if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-	    cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
-	    cellInformation[cell].faceTypes[face] == FaceType::analytical) {
-	  boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
-	  boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
-	  boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
-	  ++boundaryFace;
+        // TODO(Lukas) Refactor these checks into function (code dupl.)
+        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
+            cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
+            cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+          boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
+          boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
+          boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
+          boundaryMapping[cell][face].easiBoundaryMap = faceInformation[boundaryFace].easiBoundaryMap;
+          boundaryMapping[cell][face].easiBoundaryConstant = faceInformation[boundaryFace].easiBoundaryConstant;
+          ++boundaryFace;
         } else {
-	  boundaryMapping[cell][face].nodes = nullptr;
-	  boundaryMapping[cell][face].TData = nullptr;
-	  boundaryMapping[cell][face].TinvData = nullptr;
-	}
+          boundaryMapping[cell][face].nodes = nullptr;
+          boundaryMapping[cell][face].TData = nullptr;
+          boundaryMapping[cell][face].TinvData = nullptr;
+          boundaryMapping[cell][face].easiBoundaryMap = nullptr;
+          boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
+        }
       }
     }
   }
@@ -642,7 +644,6 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
   initializeCommunicationStructure();
 #endif
 
-  // TODO(Lukas) Should this be called even when no free surface writer/free surface + gravity bc is used?
   initializeDisplacements();
 }
 
@@ -658,13 +659,13 @@ void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const ch
   const auto fileNameStr = std::string{fileName};
   if (fileNameStr != "") {
     std::cout << "initializeEasiBoundaryReader with file: " << fileName << std::endl;
-    m_easiBoundary = std::move(EasiBoundary(fileNameStr));
+    m_easiBoundary = EasiBoundary(fileNameStr);
   }
 }
 
 bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-  constexpr auto eps =std::numeric_limits<real>::epsilon();
+  constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.local.mu > eps && material.neighbor[face].mu < eps;
 }

@@ -39,6 +39,7 @@
  **/
 
 #include "CellLocalMatrices.h"
+#include "ParameterDB.h"
 
 #include <cassert>
 
@@ -226,12 +227,11 @@ void surfaceAreaAndVolume(  MeshReader const&      i_meshReader,
   *surfaceArea = MeshTools::surface(normal);
 }
 
-void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i_meshReader,
-							LTSTree*               io_ltsTree,
-							LTS*                   i_lts,
-							Lut*                   i_ltsLut
-							)
-{
+void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshReader,
+                                                       const EasiBoundary* easiBoundary,
+                                                       LTSTree* io_ltsTree,
+                                                       LTS* i_lts,
+                                                       Lut* i_ltsLut) {
   std::vector<Element> const& elements = i_meshReader.getElements();
   std::vector<Vertex> const& vertices = i_meshReader.getVertices();
 
@@ -248,60 +248,77 @@ void seissol::initializers::initializeBoundaryMapppings(MeshReader const&      i
       const auto& element = elements[ltsToMesh[cell]];
       double const* coords[4];
       for (unsigned v = 0; v < 4; ++v) {
-	coords[v] = vertices[ element.vertices[ v ] ].coords;
+        coords[v] = vertices[ element.vertices[ v ] ].coords;
       }
       for (unsigned side = 0; side < 4; ++side) {
-	if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity &&
-	    cellInformation[cell].faceTypes[side] != FaceType::dirichlet &&
-	    cellInformation[cell].faceTypes[side] != FaceType::analytical) {
-	  continue;
-	}
-	// Compute nodal points in global coordinates for each side.
-	double nodesReferenceData[nodal::tensor::nodes2D::Size];
-	std::copy_n(nodal::init::nodes2D::Values,
-		    nodal::tensor::nodes2D::Size,
-		    nodesReferenceData);
-	auto nodesReference = nodal::init::nodes2D::view::create(nodesReferenceData);
-	auto nodes = boundary[cell][side].nodes;
-	assert(nodes != nullptr);
-	auto offset = 0;
-	for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-	  double nodeReference[2];
-	  nodeReference[0] = nodesReference(i,0);
-	  nodeReference[1] = nodesReference(i,1);
-	  // Conpute the global coordinates for the nodal points.
-	  double xiEtaZeta[3], xyz[3];
-	  seissol::transformations::chiTau2XiEtaZeta(side,
-						     nodeReference,
-						     xiEtaZeta);
-	  seissol::transformations::tetrahedronReferenceToGlobal(coords[0],
-								 coords[1],
-								 coords[2],
-								 coords[3],
-								 xiEtaZeta,
-								 xyz);
-	  nodes[offset++] = xyz[0];
-	  nodes[offset++] = xyz[1];
-	  nodes[offset++] = xyz[2];
-	}
+        if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity
+            && cellInformation[cell].faceTypes[side] != FaceType::dirichlet
+            && cellInformation[cell].faceTypes[side] != FaceType::analytical) {
+          continue;
+        }
+        // Compute nodal points in global coordinates for each side.
+        double nodesReferenceData[nodal::tensor::nodes2D::Size];
+        std::copy_n(nodal::init::nodes2D::Values,
+                    nodal::tensor::nodes2D::Size,
+                    nodesReferenceData);
+        auto nodesReference = nodal::init::nodes2D::view::create(nodesReferenceData);
+        auto nodes = boundary[cell][side].nodes;
+        assert(nodes != nullptr);
+        auto offset = 0;
+        for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+          double nodeReference[2];
+          nodeReference[0] = nodesReference(i,0);
+          nodeReference[1] = nodesReference(i,1);
+          // Compute the global coordinates for the nodal points.
+          double xiEtaZeta[3], xyz[3];
+          seissol::transformations::chiTau2XiEtaZeta(side,
+                                                     nodeReference,
+                                                     xiEtaZeta);
+          seissol::transformations::tetrahedronReferenceToGlobal(coords[0],
+                                                                 coords[1],
+                                                                 coords[2],
+                                                                 coords[3],
+                                                                 xiEtaZeta,
+                                                                 xyz);
+          nodes[offset++] = xyz[0];
+          nodes[offset++] = xyz[1];
+          nodes[offset++] = xyz[2];
+        }
 
-	// Compute map that rotates to normal aligned coordinate system.
-	real* TData = boundary[cell][side].TData;
-	real* TinvData = boundary[cell][side].TinvData;
-	assert(TData != nullptr);
-	assert(TinvData != nullptr);
-	auto T = init::T::view::create(TData);
-	auto Tinv = init::Tinv::view::create(TinvData);
+        // Compute map that rotates to normal aligned coordinate system.
+        real* TData = boundary[cell][side].TData;
+        real* TinvData = boundary[cell][side].TinvData;
+        assert(TData != nullptr);
+        assert(TinvData != nullptr);
+        auto T = init::T::view::create(TData);
+        auto Tinv = init::Tinv::view::create(TinvData);
 
-	// The reason for this is that the boundary mappings aren't initialized earlier.
-	VrtxCoords normal;
-	VrtxCoords tangent1;
-	VrtxCoords tangent2;
-	MeshTools::normalAndTangents(element, side, vertices, normal, tangent1, tangent2);
-	MeshTools::normalize(normal, normal);
-	MeshTools::normalize(tangent1, tangent1);
-	MeshTools::normalize(tangent2, tangent2);
+        VrtxCoords normal;
+        VrtxCoords tangent1;
+        VrtxCoords tangent2;
+        MeshTools::normalAndTangents(element, side, vertices, normal, tangent1, tangent2);
+        MeshTools::normalize(normal, normal);
+        MeshTools::normalize(tangent1, tangent1);
+        MeshTools::normalize(tangent2, tangent2);
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
+
+        // Evaluate easi boundary condition matrices if needed
+        real* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;
+        real* easiBoundaryConstant = boundary[cell][side].easiBoundaryConstant;
+        assert(easiBoundaryMap != nullptr);
+        assert(easiBoundaryConstant != nullptr);
+        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+          easiBoundary->query(nodes, easiBoundaryMap, easiBoundaryConstant);
+        } else {
+          // Boundary should not be evaluated
+          std::fill_n(easiBoundaryMap,
+                      seissol::tensor::easiBoundaryMap::size(),
+                      std::numeric_limits<real>::signaling_NaN());
+          std::fill_n(easiBoundaryConstant,
+                      seissol::tensor::easiBoundaryConstant::size(),
+                      std::numeric_limits<real>::signaling_NaN());
+        }
+
       }
     }
     ltsToMesh += it->getNumberOfCells();
