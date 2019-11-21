@@ -101,10 +101,10 @@ namespace seissol {
         }
       }
 
-    template<>
+    template<typename T>
       inline void getTransposedCoefficientMatrix( ViscoElasticMaterial const&    i_material,
-                                           unsigned                       i_dim,
-                                           init::star::view<0>::type&     AT )
+                                                  unsigned                       i_dim,
+                                                  T&                             AT )
       {
         getTransposedCoefficientMatrix(dynamic_cast<ElasticMaterial const&>(i_material), i_dim, AT);
 
@@ -176,11 +176,11 @@ namespace seissol {
       }
 #endif
     }
-    
+
     template<>
-      inline void getPlaneWaveOperator(  ViscoElasticMaterial const& material,
-          double const n[3],
-          std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+    inline void getPlaneWaveOperator( ViscoElasticMaterial const& material,
+                                      double const n[3],
+                                      std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
       {
         yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
         M.setZero();
@@ -204,7 +204,7 @@ namespace seissol {
             }
           }
         }
-
+#ifdef USE_VISCOELASTIC
         double Edata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
         yateto::DenseTensorView<3,double> E(Edata, tensor::E::Shape);
         E.setZero();
@@ -233,7 +233,8 @@ namespace seissol {
             M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
           }
         }
-      }
+#endif
+      } 
   }
 }
 
