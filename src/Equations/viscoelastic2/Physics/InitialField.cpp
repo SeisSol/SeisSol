@@ -26,7 +26,7 @@ seissol::physics::Planarwave::Planarwave(double phase)
   const double Qs = 10.0;
 
 
-  seissol::model::Material material;
+  seissol::model::ViscoElasticMaterial material;
   e_interoperability.fitAttenuation(rho, mu, lambda, Qp, Qs, material);
 
   std::complex<double> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];

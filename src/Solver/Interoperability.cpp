@@ -583,7 +583,7 @@ void seissol::Interoperability::fitAttenuation( double rho,
   constexpr size_t numMaterialVals = 3 + 4*NUMBER_OF_RELAXATION_MECHANISMS;
   double materialFortran[numMaterialVals];
   f_interoperability_fitAttenuation(m_domain, rho, mu, lambda, Qp, Qs, materialFortran);
-  seissol::model::setMaterial(materialFortran, numMaterialVals, material);
+  seissol::model::setMaterial(materialFortran, numMaterialVals, &material);
 #endif
 }
 
