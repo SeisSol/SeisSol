@@ -257,7 +257,7 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
           continue;
         }
         // Compute nodal points in global coordinates for each side.
-        double nodesReferenceData[nodal::tensor::nodes2D::Size];
+        real nodesReferenceData[nodal::tensor::nodes2D::Size];
         std::copy_n(nodal::init::nodes2D::Values,
                     nodal::tensor::nodes2D::Size,
                     nodesReferenceData);

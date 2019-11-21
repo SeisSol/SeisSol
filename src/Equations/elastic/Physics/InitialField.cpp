@@ -158,7 +158,6 @@ void seissol::physics::ScholteWave::evaluate(double time,
     const auto& x = points[i];
     const bool isAcousticPart = std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
     const auto x_1 = x[0];
-    const auto x_2 = x[1];
     const auto x_3 = x[2];
     const auto t = time;
     if (isAcousticPart) {
@@ -197,7 +196,6 @@ void seissol::physics::SnellsLaw::evaluate(double time,
     const bool isAcousticPart = std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
 
     const auto x_1 = x[0];
-    const auto x_2 = x[1];
     const auto x_3 = x[2];
     const auto t = time;
     if (isAcousticPart) {
@@ -236,8 +234,7 @@ void seissol::physics::Ocean::evaluate(double time,
 
     const double g = 9.81; // m/s
     const double pi = std::acos(-1);
-    const double mu = materialData.local.mu;
-    assert(mu == 0); // has to be acoustic
+    assert(materialData.local.mu == 0); // has to be acoustic
     const double rho = materialData.local.rho;
 
     const double k_x = pi/100; // 1/m

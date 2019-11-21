@@ -434,8 +434,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   real** derivatives = i_layerData.var(m_lts->derivatives);
   real** displacements = i_layerData.var(m_lts->displacements);
   CellMaterialData* materialData = i_layerData.var(m_lts->material);
-  CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-  CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
 
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
@@ -475,13 +473,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                              derivativeBuffer);
 
     alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
+    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0
     // Compute average displacement over timestep if needed.
     alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
 
     // Only a fraction of cells need the average displacement
     bool needsAvgDisplacement = false;
-    for (const auto faceType : cellInformation[l_cell].faceTypes) {
+    for (const auto faceType : data.cellInformation.faceTypes) {
       if (faceType == FaceType::freeSurfaceGravity) {
         needsAvgDisplacement = true;
         break;
@@ -495,7 +494,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                           twiceTimeIntegrated);
 
       for (int side = 0; side < 4; ++side) {
-        if (cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
+        if (data.cellInformation.faceTypes[side] == FaceType::freeSurfaceGravity) {
           assert(displacements[l_cell] != nullptr);
 
           kernel::displacementAvgNodal krnl;
@@ -555,7 +554,6 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
   CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
-  CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
   CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
 #ifdef USE_PLASTICITY
   PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
