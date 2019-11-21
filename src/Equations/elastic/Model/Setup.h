@@ -48,9 +48,9 @@ namespace seissol {
   namespace model {
 
     template<typename T>
-      inline void seissol::model::getTransposedCoefficientMatrix( ElasticMaterial const&  i_material,
-          unsigned                i_dim,
-          T&                      o_M )
+      inline void getTransposedCoefficientMatrix( ElasticMaterial const&  i_material,
+                                                  unsigned                i_dim,
+                                                  T&                      o_M )
       {
         o_M.setZero();
 
@@ -98,11 +98,11 @@ namespace seissol {
       }
 
     template<typename Tloc, typename Tneigh>
-      inline void seissol::model::getTransposedGodunovState( ElasticMaterial const& local,
-          ElasticMaterial const& neighbor,
-          enum ::faceType        faceType,
-          Tloc&                  QgodLocal,
-          Tneigh&                QgodNeighbor )
+      inline void getTransposedGodunovState( ElasticMaterial const& local,
+                                             ElasticMaterial const& neighbor,
+                                             enum ::faceType        faceType,
+                                             Tloc&                  QgodLocal,
+                                             Tneigh&                QgodNeighbor )
       {
         QgodNeighbor.setZero();
 
