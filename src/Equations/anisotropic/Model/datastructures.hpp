@@ -51,7 +51,6 @@
 namespace seissol {
   namespace model {
     struct AnisotropicMaterial : Material {
-      real c_store[21];
       real c11;
       real c12;
       real c13;

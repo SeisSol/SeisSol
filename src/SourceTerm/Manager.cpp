@@ -103,7 +103,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
                                                               Offsets const&            offsets,
                                                               Offsets const&            nextOffsets,
                                                               double *const             sliprates[3],
-                                                              seissol::model::Material  material,
+                                                              seissol::model::Material* material,
                                                               PointSources&             pointSources,
                                                               unsigned                  index )
 {
@@ -125,7 +125,14 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   faultBasis[8] = subfault.normal.z;
   
   pointSources.A[index] = subfault.area;
-  material.getFullElasticTensor(pointSources.cij[index]);
+  switch(material->getMaterialType()) {
+    case seissol::model::MaterialType::anisotropic:
+      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullElasticTensor(pointSources.cij[index]);
+      break;
+    default:
+      dynamic_cast<seissol::model::ElasticMaterial*>(material)->getFullElasticTensor(pointSources.cij[index]);
+      break;
+  }
  
   for (unsigned sr = 0; sr < 3; ++sr) {
     unsigned numSamples = nextOffsets[sr] - offsets[sr];
@@ -397,7 +404,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
                                           nrf.sroffsets[nrfIndex],
                                           nrf.sroffsets[nrfIndex+1],
                                           nrf.sliprates,
-                                          ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
+                                          &ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
                                           sources[cluster],
                                           clusterSource );
     }
