@@ -188,8 +188,8 @@ namespace seissol {
 
     template<>
     inline void setMaterial( double*           i_materialVal,
-                      int               i_numMaterialVals,
-                      ElasticMaterial*  o_material )
+                             int               i_numMaterialVals,
+                             ElasticMaterial*  o_material )
     {
       assert(i_numMaterialVals == 3);
 

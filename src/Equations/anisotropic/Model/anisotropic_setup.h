@@ -37,6 +37,10 @@
  *
  * @section DESCRIPTION
  **/
+
+#ifndef ANISOTROPIC_SETUP_H_
+#define ANISOTROPIC_SETUP_H_
+
 #include <Eigen/Eigen>
 #include <Eigen/Eigenvalues>
 
@@ -49,7 +53,7 @@ namespace seissol {
   namespace model {
 
     template<typename T>
-      void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
+      inline void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
           unsigned                    i_dim,
           T&                          o_M )
       {
@@ -136,7 +140,7 @@ namespace seissol {
         }
       }
 
-    void getEigenBasisForAnisotropicMaterial( AnisotropicMaterial const&  local,
+    inline void getEigenBasisForAnisotropicMaterial( AnisotropicMaterial const&  local,
         AnisotropicMaterial const&  neighbor,
         Eigen::Matrix<real, 9, 9>&  R)
     {
@@ -238,7 +242,7 @@ namespace seissol {
     }
 
     template<>
-      void getTransposedGodunovState( AnisotropicMaterial const&       local,
+      inline void getTransposedGodunovState( AnisotropicMaterial const&       local,
           AnisotropicMaterial const&       neighbor,
           enum ::faceType                  faceType,
           init::QgodLocal::view::type&     QgodLocal,
@@ -274,21 +278,21 @@ namespace seissol {
 
 
     template<>
-      void initializeSpecificLocalData( AnisotropicMaterial const&,
+      inline void initializeSpecificLocalData( AnisotropicMaterial const&,
           LocalData* )
       {
       }
 
     template<>
-      void initializeSpecificNeighborData(  AnisotropicMaterial const&,
+      inline void initializeSpecificNeighborData(  AnisotropicMaterial const&,
           NeighborData* )
       {
       }
 
     template<>
       inline void setMaterial( double*               i_materialVal,
-          int                   i_numMaterialVals,
-          AnisotropicMaterial*  o_material )
+                               int                   i_numMaterialVals,
+                               AnisotropicMaterial*  o_material )
       {
         assert(i_numMaterialVals == 22);
         o_material->rho = i_materialVal[0];
@@ -315,5 +319,76 @@ namespace seissol {
         o_material->c66 = i_materialVal[21];
       }
 
+    inline AnisotropicMaterial getRotatedMaterialCoefficients(real i_N[36], AnisotropicMaterial& i_material) {
+        AnisotropicMaterial o_material;
+        o_material.rho = i_material.rho;
+        using Matrix66 = Eigen::Matrix<real, 6, 6>;
+        Matrix66 N = Matrix66(i_N);
+        Matrix66 C = Matrix66();
+        C(0,0) = i_material.c11;
+        C(0,1) = i_material.c12;
+        C(0,2) = i_material.c13;
+        C(0,3) = i_material.c14;
+        C(0,4) = i_material.c15;
+        C(0,5) = i_material.c16;
+        C(1,0) = i_material.c12;
+        C(1,1) = i_material.c22;
+        C(1,2) = i_material.c23;
+        C(1,3) = i_material.c24;
+        C(1,4) = i_material.c25;
+        C(1,5) = i_material.c26;
+        C(2,0) = i_material.c13;
+        C(2,1) = i_material.c23;
+        C(2,2) = i_material.c33;
+        C(2,3) = i_material.c34;
+        C(2,4) = i_material.c35;
+        C(2,5) = i_material.c36;
+        C(3,0) = i_material.c14;
+        C(3,1) = i_material.c24;
+        C(3,2) = i_material.c34;
+        C(3,3) = i_material.c44;
+        C(3,4) = i_material.c45;
+        C(3,5) = i_material.c46;
+        C(4,0) = i_material.c15;
+        C(4,1) = i_material.c25;
+        C(4,2) = i_material.c35;
+        C(4,3) = i_material.c45;
+        C(4,4) = i_material.c55;
+        C(4,5) = i_material.c56;
+        C(5,0) = i_material.c16;
+        C(5,1) = i_material.c26;
+        C(5,2) = i_material.c36;
+        C(5,3) = i_material.c46;
+        C(5,4) = i_material.c56;
+        C(5,5) = i_material.c66;
+
+        Matrix66 rotatedC = N.transpose()*C*N;
+
+        o_material.c11 = rotatedC(0,0);
+        o_material.c12 = rotatedC(0,1);
+        o_material.c13 = rotatedC(0,2);
+        o_material.c14 = rotatedC(0,3);
+        o_material.c15 = rotatedC(0,4);
+        o_material.c16 = rotatedC(0,5);
+        o_material.c22 = rotatedC(1,1);
+        o_material.c23 = rotatedC(1,2);
+        o_material.c24 = rotatedC(1,3);
+        o_material.c25 = rotatedC(1,4);
+        o_material.c26 = rotatedC(1,5);
+        o_material.c33 = rotatedC(2,2);
+        o_material.c34 = rotatedC(2,3);
+        o_material.c35 = rotatedC(2,4);
+        o_material.c36 = rotatedC(2,5);
+        o_material.c44 = rotatedC(3,3);
+        o_material.c45 = rotatedC(3,4);
+        o_material.c46 = rotatedC(3,5);
+        o_material.c55 = rotatedC(4,4);
+        o_material.c56 = rotatedC(4,5);
+        o_material.c66 = rotatedC(5,5);
+        return o_material;
+      }
+
   }
 }
+
+#endif

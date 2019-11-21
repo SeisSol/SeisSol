@@ -54,7 +54,6 @@
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
 #include "Model/common_datastructures.hpp"
-#include "Model/common.hpp"
 
 seissol::Interoperability e_interoperability;
 
@@ -642,12 +641,20 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
     }
     case seissol::model::MaterialType::elastic:
     case seissol::model::MaterialType::elastoplastic: {
+      seissol::model::ElasticMaterial* em = dynamic_cast<seissol::model::ElasticMaterial*>(material);
+      seissol::model::setMaterial(i_materialVal, i_numMaterialVals, em);
       break;
     }                                          
     case seissol::model::MaterialType::viscoelastic:
     case seissol::model::MaterialType::viscoplastic: {
+      seissol::model::ViscoElasticMaterial* vm = dynamic_cast<seissol::model::ViscoElasticMaterial*>(material);
+      seissol::model::setMaterial(i_materialVal, i_numMaterialVals, vm);
       break;
     }                                          
+    case seissol::model::MaterialType::none: {
+      break;
+    }                                          
+
   }
 }
 

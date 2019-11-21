@@ -163,6 +163,9 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
           seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&material[cell].local), 2, CT );
           break;
         }
+        case seissol::model::MaterialType::none: {
+          break;
+        }
       }
       setStarMatrix(ATData, BTData, CTData, gradXi, localIntegration[cell].starMatrices[0]);
       setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
@@ -194,7 +197,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
                                                         QgodLocal,
                                                         QgodNeighbor );
             seissol::model::getTransposedCoefficientMatrix( rotatedLocalMaterial, 0, AT_tilde );
-          break;
+            break;
           }
           case seissol::model::MaterialType::elastic:
           case seissol::model::MaterialType::elastoplastic: {
@@ -204,7 +207,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
                                                         QgodLocal,
                                                         QgodNeighbor );
             seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ElasticMaterial*>(&material[cell].local), 0, AT_tilde );
-          break;
+            break;
           }
           case seissol::model::MaterialType::viscoelastic:
           case seissol::model::MaterialType::viscoplastic: {
@@ -214,7 +217,10 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
                                                         QgodLocal,
                                                         QgodNeighbor );
             seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&material[cell].local), 0, AT_tilde );
-          break;
+            break;
+          }
+          case seissol::model::MaterialType::none: {
+            break;
           }
         }
 
@@ -416,20 +422,20 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       seissol::model::getFaceRotationMatrix(fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, T, Tinv);
 
       /// Materials
-      seissol::model::Material plusMaterial;
-      seissol::model::Material minusMaterial;
+      seissol::model::Material* plusMaterial;
+      seissol::model::Material* minusMaterial;
       unsigned plusLtsId = (fault[meshFace].element >= 0)          ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].element) : std::numeric_limits<unsigned>::max();
       unsigned minusLtsId = (fault[meshFace].neighborElement >= 0) ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].neighborElement) : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() || minusLtsId != std::numeric_limits<unsigned>::max());
 
       if (plusLtsId != std::numeric_limits<unsigned>::max()) {
-        plusMaterial = material[plusLtsId].local;
-        minusMaterial = material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
+        plusMaterial = &material[plusLtsId].local;
+        minusMaterial = &material[plusLtsId].neighbor[ faceInformation[ltsFace].plusSide ];
       } else {
         assert(minusLtsId != std::numeric_limits<unsigned>::max());
-        plusMaterial = material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
-        minusMaterial = material[minusLtsId].local;
+        plusMaterial = &material[minusLtsId].neighbor[ faceInformation[ltsFace].minusSide ];
+        minusMaterial = &material[minusLtsId].local;
       }
 
       auto APlus = init::star::view<0>::create(APlusData);
@@ -437,39 +443,42 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
       auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
 
-      switch (plusMaterial.getMaterialType()) {
+      switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::anisotropic: {
           //TODO: Make DR work with anisotropy 
           break;
         }
         case seissol::model::MaterialType::elastic:
         case seissol::model::MaterialType::elastoplastic: {
-          seissol::model::getTransposedGodunovState(  *dynamic_cast<seissol::model::ElasticMaterial*>(&plusMaterial),
-                                                      *dynamic_cast<seissol::model::ElasticMaterial*>(&minusMaterial),     
+          seissol::model::getTransposedGodunovState(  *dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial),
+                                                      *dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial),     
                                                       dynamicRupture,
                                                       QgodLocal,
                                                       QgodNeighbor );
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(&plusMaterial), 0, APlus);
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(&minusMaterial), 0, AMinus);
-          waveSpeedsPlus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial&>(plusMaterial).getPWaveSpeed();
-          waveSpeedsPlus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial&>(plusMaterial).getSWaveSpeed();
-          waveSpeedsMinus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial&>(minusMaterial).getPWaveSpeed();
-          waveSpeedsMinus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial&>(minusMaterial).getSWaveSpeed();
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
+          waveSpeedsPlus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial)->getPWaveSpeed();
+          waveSpeedsPlus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial)->getSWaveSpeed();
+          waveSpeedsMinus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial)->getPWaveSpeed();
+          waveSpeedsMinus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial)->getSWaveSpeed();
           break;
         }
         case seissol::model::MaterialType::viscoelastic:
         case seissol::model::MaterialType::viscoplastic: {
-          seissol::model::getTransposedGodunovState(  *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&plusMaterial),
-                                                      *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&minusMaterial),     
+          seissol::model::getTransposedGodunovState(  *dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial),
+                                                      *dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial),     
                                                       dynamicRupture,
                                                       QgodLocal,
                                                       QgodNeighbor );
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(&plusMaterial), 0, APlus);
-          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(&minusMaterial), 0, AMinus);
-          waveSpeedsPlus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial&>(plusMaterial).getPWaveSpeed();
-          waveSpeedsPlus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial&>(plusMaterial).getSWaveSpeed();
-          waveSpeedsMinus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial&>(minusMaterial).getPWaveSpeed();
-          waveSpeedsMinus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial&>(minusMaterial).getSWaveSpeed();
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
+          seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
+          waveSpeedsPlus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial)->getPWaveSpeed();
+          waveSpeedsPlus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial)->getSWaveSpeed();
+          waveSpeedsMinus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial)->getPWaveSpeed();
+          waveSpeedsMinus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial)->getSWaveSpeed();
+          break;
+        }
+        case seissol::model::MaterialType::none: {
           break;
         }
       }

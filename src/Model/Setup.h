@@ -40,9 +40,9 @@
 #ifndef MODEL_SETUP_H_
 #define MODEL_SETUP_H_
 
-
-#include "Equations/anisotropic/Model/Setup.h"
-#include "Equations/elastic/Model/Setup.h"
+#include "Equations/anisotropic/Model/anisotropic_setup.h"
+#include "Equations/elastic/Model/elastic_setup.h"
+#include "Equations/viscoelastic2/Model/viscoelastic_setup.h"
 
 
 #endif

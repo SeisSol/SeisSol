@@ -277,7 +277,8 @@ namespace seissol {
         case seissol::model::MaterialType::viscoelastic:
         case seissol::model::MaterialType::elastoplastic:
         case seissol::model::MaterialType::viscoplastic:
-        case seissol::model::MaterialType::anisotropic: {
+        case seissol::model::MaterialType::anisotropic:
+        case seissol::model::MaterialType::none: {
           easi::ArrayOfStructsAdapter<T> adapter(m_materials->data());
           addBindingPoints(adapter);
           model->evaluate(query, adapter); 
@@ -326,7 +327,8 @@ namespace seissol {
           case seissol::model::MaterialType::viscoelastic:
           case seissol::model::MaterialType::elastoplastic:
           case seissol::model::MaterialType::viscoplastic:
-          case seissol::model::MaterialType::anisotropic: {
+          case seissol::model::MaterialType::anisotropic:
+          case seissol::model::MaterialType::none: {
             easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
             addBindingPoints(arrayOfStructsAdapter);
             model->evaluate(query, arrayOfStructsAdapter);  
