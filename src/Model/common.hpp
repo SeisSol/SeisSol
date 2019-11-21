@@ -121,13 +121,7 @@ void seissol::model::getPlaneWaveOperator(  T const& material,
   for (unsigned d = 0; d < 3; ++d) {
     Coeff.setZero();
     getTransposedCoefficientMatrix(material, d, Coeff);
-    for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-      getTransposedViscoelasticCoefficientMatrix( material.omega[mech],
-                                                  d,
-                                                  mech,
-                                                  Coeff );
-    }
-
+    
     for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
       for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
         M(i,j) += n[d] * Coeff(j,i);
