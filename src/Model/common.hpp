@@ -59,6 +59,10 @@ namespace seissol {
     void getTransposedCoefficientMatrix( Tmaterial const& i_material,
                                          unsigned         i_dim,
                                          Tmatrix&         o_M );
+    
+    template<typename Tmaterial, typename T>
+    inline void getTransposedSourceCoefficientTensor(  Tmaterial const& material,
+                                                       T& E);
 
     template<typename Tmaterial, typename Tloc, typename Tneigh>
     void getTransposedGodunovState( Tmaterial const&  local,
