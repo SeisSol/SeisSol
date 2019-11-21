@@ -176,6 +176,64 @@ namespace seissol {
       }
 #endif
     }
+    
+    template<>
+      inline void getPlaneWaveOperator(  ViscoElasticMaterial const& material,
+          double const n[3],
+          std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+      {
+        yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+        M.setZero();
+
+        double data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+        yateto::DenseTensorView<2,double> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+
+        for (unsigned d = 0; d < 3; ++d) {
+          Coeff.setZero();
+          getTransposedCoefficientMatrix(material, d, Coeff);
+          for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+            getTransposedViscoelasticCoefficientMatrix( material.omega[mech],
+                d,
+                mech,
+                Coeff );
+          }
+
+          for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+            for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+              M(i,j) += n[d] * Coeff(j,i);
+            }
+          }
+        }
+
+        double Edata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+        yateto::DenseTensorView<3,double> E(Edata, tensor::E::Shape);
+        E.setZero();
+        getTransposedSourceCoefficientTensor(material, E);
+        Coeff.setZero();
+        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+          unsigned offset = 9 + mech * 6;
+          for (unsigned i = 0; i < tensor::E::Shape[0]; ++i) {
+            for (unsigned j = 0; j < tensor::E::Shape[2]; ++j) {
+              Coeff(offset + i, j) = E(i, mech, j);
+            }
+          }
+        }
+
+        // E' = diag(-omega_1 I, ..., -omega_L I)
+        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+          unsigned offset = 9 + 6*mech;
+          yateto::DenseTensorView<2,double> ETblock(data + offset + offset * NUMBER_OF_QUANTITIES, {NUMBER_OF_QUANTITIES, 6});
+          for (unsigned i = 0; i < 6; ++i) {
+            ETblock(i, i) = -material.omega[mech];
+          }
+        }
+
+        for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+          for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+            M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
+          }
+        }
+      }
   }
 }
 
