@@ -175,7 +175,7 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
 }
 
 void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
-  easi::ArraysAdapter adapter;
+  easi::ArraysAdapter<> adapter;
   for (const auto& kv : m_parameters) {
     adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
   }
@@ -252,6 +252,7 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
 
   // We read out a affine transformation s.t. val in ghost cell
   // is equal to A * val_inside + b
+  // Note that easi only supports
 
   // Constant terms stores all terms of the vector b
   auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData));
@@ -259,7 +260,7 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
   // Map terms stores all terms of the linear map A
   auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
 
-  easi::ArraysAdapter adapter{};
+  easi::ArraysAdapter<real> adapter{};
 
   // Constant terms are named const_{varName}, e.g. const_u
   offset = 0;
