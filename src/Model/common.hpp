@@ -79,7 +79,7 @@ namespace seissol {
     template<typename T>
     void getPlaneWaveOperator( T const& material,
                                double const n[3],
-                               std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
+                               std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
 
     template<typename T>
     void setMaterial( double* i_materialVal,
