@@ -54,7 +54,7 @@ namespace seissol {
 
 class seissol::kernels::DynamicRupture {
   private:
-    kernel::godunovState m_krnlPrototype;
+    kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
     kernels::Time m_timeKernel;
 
   public:
@@ -68,12 +68,13 @@ class seissol::kernels::DynamicRupture {
     
     void setTimeStepWidth(double timestep);
 
-    void computeGodunovState( DRFaceInformation const&    faceInfo,
-                              GlobalData const*           global,
-                              DRGodunovData const*        godunovData,
-                              real const*                 timeDerivativePlus,
-                              real const*                 timeDerivativeMinus,
-                              real                        godunov[CONVERGENCE_ORDER][tensor::godunovState::size()],
+    void spaceTimeInterpolation(  DRFaceInformation const&    faceInfo,
+                                  GlobalData const*           global,
+                                  DRGodunovData const*        godunovData,
+                                  real const*                 timeDerivativePlus,
+                                  real const*                 timeDerivativeMinus,
+                                  real                        QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                  real                        QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
                               real const*                 timeDerivativePlus_prefetch, 
                               real const*                 timeDerivativeMinus_prefetch);
 

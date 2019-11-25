@@ -102,7 +102,7 @@ adg.addTime(g)
 adg.addIncludeTensors(include_tensors)
 
 # Common kernels
-DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
+include_tensors |= DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod)
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
 SurfaceDisplacement.addKernels(g, adg)
 Point.addKernels(g, adg)

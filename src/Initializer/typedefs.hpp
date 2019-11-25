@@ -425,8 +425,7 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  real godunovMatrixPlus[seissol::tensor::godunovMatrix::size()];
-  real godunovMatrixMinus[seissol::tensor::godunovMatrix::size()];
+  real TinvT[seissol::tensor::TinvT::size()];
 };
 
 struct CellDRMapping {

@@ -49,8 +49,6 @@
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
 
-#include <utils/logger.h>
-
 void setStarMatrix( real* i_AT,
                     real* i_BT,
                     real* i_CT,
@@ -232,15 +230,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         // must be subtracted.
         real fluxScale = -2.0 * surface / (6.0 * volume);
 
-        //std::cout << std::endl;
-        //for (int i = 0; i < 9; i++) {
-        //  for (int j = 0; j < 9; j++) {
-        //    std::cout << QgodLocal(i,j) << " ";
-        //  }
-        //  std::cout << std::endl;
-        //}
-        //std::cout << std::endl;
-
         kernel::computeFluxSolverLocal localKrnl;
         localKrnl.fluxScale = fluxScale;
         localKrnl.AplusT = localIntegration[cell].nApNm1[side];
@@ -250,7 +239,6 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.star(0) = AT_tildeData;
         localKrnl.execute();
         
-
         kernel::computeFluxSolverNeighbor neighKrnl;
         neighKrnl.fluxScale = fluxScale;
         neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
@@ -438,10 +426,12 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         minusMaterial = &material[minusLtsId].local;
       }
 
+      /// Wave speeds and Coefficient Matrices
       auto APlus = init::star::view<0>::create(APlusData);
       auto AMinus = init::star::view<0>::create(AMinusData);
-      auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
-      auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+      
+      waveSpeedsPlus[ltsFace].density = plusMaterial->rho;
+      waveSpeedsMinus[ltsFace].density = minusMaterial->rho;
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::anisotropic: {
@@ -450,11 +440,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         }
         case seissol::model::MaterialType::elastic:
         case seissol::model::MaterialType::elastoplastic: {
-          seissol::model::getTransposedGodunovState(  *dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial),
-                                                      *dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial),     
-                                                      dynamicRupture,
-                                                      QgodLocal,
-                                                      QgodNeighbor );
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
           waveSpeedsPlus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial)->getPWaveSpeed();
@@ -465,11 +450,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         }
         case seissol::model::MaterialType::viscoelastic:
         case seissol::model::MaterialType::viscoplastic: {
-          seissol::model::getTransposedGodunovState(  *dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial),
-                                                      *dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial),     
-                                                      dynamicRupture,
-                                                      QgodLocal,
-                                                      QgodNeighbor );
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
           waveSpeedsPlus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial)->getPWaveSpeed();
@@ -483,19 +463,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         }
       }
 
-      kernel::rotateGodunovStateLocal rlKrnl;
-      rlKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixPlus;
-      rlKrnl.Tinv = TinvData;
-      rlKrnl.QgodLocal = QgodLocalData;
-      rlKrnl.execute();
-
-      kernel::rotateGodunovStateNeighbor rnKrnl;
-      rnKrnl.godunovMatrix = godunovData[ltsFace].godunovMatrixMinus;
-      rnKrnl.Tinv = TinvData;
-      rnKrnl.QgodNeighbor = QgodNeighborData;
-      rnKrnl.execute();
-
-
+      /// Transpose Tinv
+      kernel::transposeTinv ttKrnl;
+      ttKrnl.Tinv = TinvData;
+      ttKrnl.TinvT = godunovData[ltsFace].TinvT;
+      ttKrnl.execute();
 
       double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
       if (fault[meshFace].element >= 0) {
