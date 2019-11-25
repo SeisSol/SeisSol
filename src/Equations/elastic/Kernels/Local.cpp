@@ -39,10 +39,6 @@
  * Local kernel of SeisSol.
  **/
 
-// TODO(Lukas) Don't use this global var. here.
-#include "Solver/Interoperability.h"
-extern seissol::Interoperability e_interoperability;
-
 #include "Kernels/Local.h"
 
 #ifndef NDEBUG
@@ -52,11 +48,10 @@ extern seissol::Interoperability e_interoperability;
 #include <yateto.h>
 
 
+#include <array>
 #include <cassert>
 #include <stdint.h>
-#include <cstring>
 
-#include "SeisSol.h"
 #include "DirichletBoundary.h"
 
 #include <Kernels/common.hpp>
@@ -88,11 +83,10 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
                                               LocalData& data,
-                                              LocalTmp&,
+                                              LocalTmp& tmp,
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                                               const CellMaterialData* materialData,
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
-                                              real (*nodalAvgDisplacements)[4][tensor::INodalDisplacement::size()],
                                               double time,
                                               double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
@@ -136,10 +130,8 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
     case FaceType::freeSurfaceGravity:
       {
       assert(cellBoundaryMapping != nullptr);
-      assert(nodalAvgDisplacements != nullptr
-             && nodalAvgDisplacements[face] != nullptr);
       assert(materialData != nullptr);
-      auto* displ = (*nodalAvgDisplacements)[face];
+      auto* displ = tmp.nodalAvgDisplacements[face];
       auto displacement = init::INodalDisplacement::view::create(displ);
         auto applyFreeSurfaceBc = [&displacement, &materialData](
             const real*, // nodes are unused
@@ -201,7 +193,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       case FaceType::analytical:
       {
       assert(cellBoundaryMapping != nullptr);
-      auto applyAnalyticalSolution = [materialData](const real* nodes,
+      auto applyAnalyticalSolution = [materialData, this](const real* nodes,
                                                     double time,
                                                     init::INodal::view::type& boundaryDofs) {
           auto nodesVec = std::vector<std::array<double, 3>>{};
@@ -213,9 +205,10 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             curNode[2] = nodes[offset++];
             nodesVec.push_back(curNode);
           }
-          const auto& initConds = e_interoperability.getInitialConditions();
-          assert(initConds.size() == 1); // TODO(Lukas) Support multiple init. conds?
-          initConds[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);
+          assert(initConds != nullptr);
+          // TODO(Lukas) Support multiple init. conds?
+          assert(initConds->size() == 1);
+          (*initConds)[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);
       };
 
       dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,

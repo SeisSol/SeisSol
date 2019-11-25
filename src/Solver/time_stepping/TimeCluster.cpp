@@ -155,6 +155,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   
   m_timeKernel.setGlobalData(m_globalData);
   m_localKernel.setGlobalData(m_globalData);
+  m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
   m_neighborKernel.setGlobalData(m_globalData);
   m_dynamicRuptureKernel.setGlobalData(m_globalData);
 
@@ -473,7 +474,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   tmp,
                                   &materialData[l_cell],
                                   &boundaryMapping[l_cell],
-                                  &tmp.nodalAvgDisplacements,
                                   m_fullUpdateTime,
                                   m_timeStepWidth
     );

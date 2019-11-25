@@ -63,7 +63,6 @@ class seissol::kernels::Local : public LocalBase {
                          LocalTmp& tmp,
 			 const CellMaterialData* materialData,
 			 CellBoundaryMapping const (*cellBoundaryMapping)[4],
-			 real (*nodalAvgDisplacements)[4][tensor::INodalDisplacement::size()],
 			 double time,
 			 double timeStepWidth);
 

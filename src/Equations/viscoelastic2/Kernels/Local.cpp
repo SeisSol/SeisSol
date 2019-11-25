@@ -75,7 +75,6 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                                               const CellMaterialData* materialData,
                                               CellBoundaryMapping const (*cellBoundaryMapping)[4],
-                                              real (*nodalAvgDisplacements)[4][tensor::INodalDisplacement::size()],
                                               double time,
                                               double timeStepWidth) {
   // assert alignments

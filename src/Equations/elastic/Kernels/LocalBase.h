@@ -41,8 +41,10 @@
 #ifndef KERNELS_VOLUMEBASE_H_
 #define KERNELS_VOLUMEBASE_H_
 
+#include <memory>
 #include "generated_code/kernel.h"
 #include "DirichletBoundary.h"
+#include "Physics/InitialField.h"
 
 namespace seissol {
   namespace kernels {
@@ -60,7 +62,12 @@ class seissol::kernels::LocalBase {
     kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
 
     kernels::DirichletBoundary dirichletBoundary;
-};
 
+    const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
+public:
+    virtual void setInitConds(decltype(initConds) initConds) {
+      this->initConds = initConds;
+    }
+};
 #endif
 

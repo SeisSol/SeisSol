@@ -49,6 +49,9 @@ seissolEquationSourceFiles = [  'Kernels/Time.cpp',
                                 'Kernels/Neighbor.cpp',
                                 'Kernels/Local.cpp']
 
+if env['equations'] in ['elastic', 'viscoelastic']:
+    seissolEquationSourceFiles += ['Kernels/DirichletBoundary.cpp']
+
 sourceFiles = [ 'flop_counter.cpp', 'proxy_seissol.cpp' ]
 
 env.sourceFiles.extend([env.Object(source='seissol_src/' + src) for src in seissolSourceFiles])

@@ -87,8 +87,7 @@ void seissol::physics::Planarwave::evaluate(double time,
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v] *
                         std::exp(std::complex<double>(0.0, 1.0) * (
-                          omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + m_phase
-                        ))).real();
+                          omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + std::complex<double>(m_phase, 0)))).real();
       }
     }
   }

@@ -4,9 +4,9 @@
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+
 #include "Initializer/typedefs.hpp"
 
-#include "Physics/InitialField.h"
 #include "Numerical_aux/Quadrature.h"
 
 namespace {
