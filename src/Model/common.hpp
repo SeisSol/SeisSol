@@ -53,7 +53,7 @@
 
 namespace seissol {
   namespace model {
-    using Matrix99 = Eigen::Matrix<real, 9, 9>;
+    using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename Tmaterial, typename Tmatrix>
     void getTransposedCoefficientMatrix( Tmaterial const& i_material,
@@ -133,7 +133,7 @@ void seissol::model::getPlaneWaveOperator(  T const& material,
 template<typename T>
 void seissol::model::getTransposedFreeSurfaceGodunovState( T&                         QgodLocal,
                                                            T&                         QgodNeighbor,
-                                                           Eigen::Matrix<real, 9, 9>& R)
+                                                           Matrix99& R)
 {
   for (int i = 0; i < 9; i++) {
     for (int j = 0; j < 9; j++) {
@@ -144,7 +144,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( T&                   
   QgodLocal.setZero();
   std::array<int, 3> traction_indices = {0,3,5};
   std::array<int, 3> velocity_indices = {6,7,8};
-  using Matrix33 = Eigen::Matrix<real, 3, 3>;
+  using Matrix33 = Eigen::Matrix<double, 3, 3>;
   Matrix33 R11 = R(traction_indices, {0,1,2});
   Matrix33 R21 = R(velocity_indices, {0,1,2});
   auto S = - (R21 * R11.inverse()).eval();

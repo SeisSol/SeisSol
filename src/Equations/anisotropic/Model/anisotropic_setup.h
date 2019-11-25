@@ -142,15 +142,15 @@ namespace seissol {
 
     inline void getEigenBasisForAnisotropicMaterial( AnisotropicMaterial const&  local,
         AnisotropicMaterial const&  neighbor,
-        Eigen::Matrix<real, 9, 9>&  R)
+        Matrix99&  R)
     {
-      using Matrix33 = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>;
-      using Matrix63 = Eigen::Matrix<real, 6, 3, Eigen::ColMajor>;
+      using Matrix33 = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>;
+      using Matrix63 = Eigen::Matrix<double, 6, 3, Eigen::ColMajor>;
 
       //Calculate Eigenvectors and Eigenvalues
       Eigen::SelfAdjointEigenSolver<Matrix33> saes;
 
-      real aL[9];
+      double aL[9];
       aL[0] = local.c11 / local.rho;  
       aL[1] = local.c16 / local.rho;  
       aL[2] = local.c15 / local.rho;  
@@ -165,7 +165,7 @@ namespace seissol {
       auto eigenvaluesL = saes.eigenvalues();
       auto eigenvectorsL = saes.eigenvectors();
 
-      real aN[9];
+      double aN[9];
       aN[0] = neighbor.c11 / neighbor.rho;  
       aN[1] = neighbor.c16 / neighbor.rho;  
       aN[2] = neighbor.c15 / neighbor.rho;  
@@ -180,7 +180,7 @@ namespace seissol {
       auto eigenvaluesN = saes.eigenvalues();
       auto eigenvectorsN = saes.eigenvectors();
 
-      real a1L[18];
+      double a1L[18];
       a1L[0] = -local.c11;
       a1L[1] = -local.c12;
       a1L[2] = -local.c13;
@@ -201,7 +201,7 @@ namespace seissol {
       a1L[17] = -local.c55;
       Matrix63 A1L(a1L);
 
-      real a1N[18];
+      double a1N[18];
       a1N[0] = -neighbor.c11;
       a1N[1] = -neighbor.c12;
       a1N[2] = -neighbor.c13;
@@ -225,7 +225,7 @@ namespace seissol {
       for(unsigned i = 0; i < 3; i++) {
         eigenvaluesL(i) = sqrt(eigenvaluesL(i));
       }
-      auto lambdaL = Eigen::Matrix<real, 3, 3, Eigen::ColMajor>(eigenvaluesL.asDiagonal());
+      auto lambdaL = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>(eigenvaluesL.asDiagonal());
       for(unsigned i = 0; i < 3; i++) {
         eigenvaluesN(i) = sqrt(eigenvaluesN(i));
       }
