@@ -292,8 +292,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 {
   real TData[tensor::T::size()];
   real TinvData[tensor::Tinv::size()];
-  real QgodLocalData[tensor::QgodLocal::size()];
-  real QgodNeighborData[tensor::QgodNeighbor::size()];
   real APlusData[tensor::star::size(0)];
   real AMinusData[tensor::star::size(0)];
 
