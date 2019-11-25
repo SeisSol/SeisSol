@@ -247,14 +247,9 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
     // Take boundary condition flops into account.
     // Note that this only includes the flops of the kernels but not of the
     // boundary condition implementation.
-    // The (probably incorrect) assumption is that they are neglible.
+    // The (probably incorrect) assumption is that they are negligible.
     switch (i_faceTypes[face]) {
-    case FaceType::freeSurface:
-      o_nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
-      o_hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
-      break;
     case FaceType::freeSurfaceGravity:
-      // TODO(Lukas): Maybe take displacement calculation into acc.?
       o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
 	seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
