@@ -1302,7 +1302,7 @@ MODULE Eval_friction_law_mod
          !                                      mu_ss = mu_w + [mu_lv - mu_w] / [ 1 + (V/Vw)^8 ] ^ (1/8) ]
          !                                      mu_lv = mu_0 - (b-a) ln (V/V0)
          !
-         LocP   = 0.8*NorStressGP(iBndGP,iTimeGP)
+         LocP   = NorStressGP(iBndGP,iTimeGP)
          time_inc = DeltaT(iTimeGP)
          !
          RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
@@ -1404,6 +1404,7 @@ MODULE Eval_friction_law_mod
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
          ! update stress change
+         ShTest=max(AlmostZero,ShTest)
 
          LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXZ = -((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
