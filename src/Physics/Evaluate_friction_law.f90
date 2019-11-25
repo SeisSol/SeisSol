@@ -1294,6 +1294,7 @@ MODULE Eval_friction_law_mod
        !LocTrac  = -(ABS(S_0)-LocMu*(LocP+P_0))*(S_0/ABS(S_0))
        !LocTrac  = ABS(LocTrac)*(-SignSR)  !!! line commented as it leads NOT to correct results
        ! update stress change
+
        LocTracXY = -((Stress(4,iBndGP) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
        LocTracXZ = -((Stress(6,iBndGP) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
        LocTracXY = LocTracXY - Stress(4,iBndGP)
@@ -1567,7 +1568,8 @@ MODULE Eval_friction_law_mod
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
          ! update stress change
-
+         ShTest = max(AlmostZero,ShTest)
+         
          LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXZ = -((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
