@@ -82,6 +82,8 @@ namespace seissol {
 class seissol::kernels::TimeBase {
   protected:
     kernel::derivative m_krnlPrototype;
+    kernel::displacementAvgNodal displacementAvgNodalPrototype;
+    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
 
   public:
     /**
@@ -98,8 +100,6 @@ class seissol::kernels::TimeBase {
      *   ...
      * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
      */
-    // TODO(Lukas) Should this really be public?
-    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
 
 };
 

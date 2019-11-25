@@ -460,66 +460,20 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       l_bufferPointer = l_integrationBuffer;
     }
 
-    // TODO(Lukas) Opt?
-    alignas(ALIGNMENT) real tmpDerivativeBuffer[yateto::computeFamilySize<tensor::dQ>()];
-    real* derivativeBuffer = derivatives[l_cell];
-    if (derivativeBuffer == nullptr) {
-      derivativeBuffer = tmpDerivativeBuffer;
-    }
     m_timeKernel.computeAder(m_timeStepWidth,
                              data,
                              tmp,
                              l_bufferPointer,
-                             derivativeBuffer);
-
-    alignas(ALIGNMENT) real nodalAvgDisplacements[4][tensor::INodalDisplacement::size()];
-    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
-    // Compute average displacement over timestep if needed.
-    alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
-
-    // Only a fraction of cells need the average displacement
-    bool needsAvgDisplacement = false;
-    for (const auto faceType : data.cellInformation.faceTypes) {
-      if (faceType == FaceType::freeSurfaceGravity) {
-        needsAvgDisplacement = true;
-        break;
-      }
-    }
-
-    if (needsAvgDisplacement) {
-      kernels::computeAverageDisplacement(m_timeStepWidth,
-                                          derivativeBuffer,
-                                          m_timeKernel.m_derivativesOffsets,
-                                          twiceTimeIntegrated);
-
-      for (int side = 0; side < 4; ++side) {
-        if (data.cellInformation.faceTypes[side] == FaceType::freeSurfaceGravity) {
-          assert(displacements[l_cell] != nullptr);
-
-          kernel::displacementAvgNodal krnl;
-          krnl.I = twiceTimeIntegrated;
-          krnl.V3mTo2nFace = m_globalData->V3mTo2nFace;
-
-          krnl.displacement = displacements[l_cell];
-          krnl.dt = m_timeStepWidth;
-
-          krnl.selectZDisplacement = init::selectZDisplacement::Values;
-          krnl.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
-          krnl.INodalDisplacement = nodalAvgDisplacements[side];
-          krnl.execute(side);
-        }
-      }
-    }
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
+                             derivatives[l_cell]);
 
     // Compute local integrals (including some boundary conditions)
+    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
     m_localKernel.computeIntegral(l_bufferPointer,
                                   data,
                                   tmp,
                                   &materialData[l_cell],
                                   &boundaryMapping[l_cell],
-                                  &nodalAvgDisplacements,
+                                  &tmp.nodalAvgDisplacements,
                                   m_fullUpdateTime,
                                   m_timeStepWidth
     );

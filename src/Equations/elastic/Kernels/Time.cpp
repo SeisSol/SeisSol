@@ -71,6 +71,7 @@
 
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
+#include "DirichletBoundary.h"
 
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
@@ -105,6 +106,9 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+  displacementAvgNodalPrototype.V3mTo2nFace = global->V3mTo2nFace;
+  displacementAvgNodalPrototype.selectZDisplacement = init::selectZDisplacement::Values;
+  displacementAvgNodalPrototype.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
 }
 
 void seissol::kernels::Time::computeAder(double i_timeStepWidth,
@@ -117,6 +121,18 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
   assert(reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0 );
 
+  // Only a fraction of cells need the average displacement
+  bool needsAvgDisplacement = false;
+  for (const auto faceType : data.cellInformation.faceTypes) {
+    if (faceType == FaceType::freeSurfaceGravity) {
+      needsAvgDisplacement = true;
+      break;
+    }
+  }
+
+  alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
+  auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
+
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
@@ -127,23 +143,27 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   krnl.dQ(0) = const_cast<real*>(data.dofs);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = o_timeDerivatives + m_derivativesOffsets[i];
+    krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
 
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = o_timeIntegrated;
   intKrnl.dQ(0) = data.dofs;
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = o_timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
-  
   // powers in the taylor-series expansion
   intKrnl.power = i_timeStepWidth;
-
   intKrnl.execute0();
 
-  // stream out first derivative (order 0)
-  streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
+  if (needsAvgDisplacement) {
+    // First derivative if needed later in kernel
+    std::copy_n(data.dofs, tensor::dQ::size(0), derivativesBuffer);
+  } else if (o_timeDerivatives != nullptr) {
+    // First derivative is not needed here but later
+    // Hence stream it out
+    streamstore(tensor::dQ::size(0), data.dofs, derivativesBuffer);
+  }
 
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
     krnl.execute(der);
@@ -152,6 +172,33 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     intKrnl.power *= i_timeStepWidth / real(der+1);    
     intKrnl.execute(der);
   }
+
+
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
+  // Compute average displacement over timestep if needed.
+  alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
+
+  if (needsAvgDisplacement) {
+    kernels::computeAverageDisplacement(i_timeStepWidth,
+                                        derivativesBuffer,
+                                        m_derivativesOffsets,
+                                        twiceTimeIntegrated);
+
+    for (int side = 0; side < 4; ++side) {
+      if (data.cellInformation.faceTypes[side] == FaceType::freeSurfaceGravity) {
+        assert(data.displacements != nullptr);
+
+        auto krnl = displacementAvgNodalPrototype;
+        krnl.dt = i_timeStepWidth;
+        krnl.I = twiceTimeIntegrated;
+        krnl.displacement = data.displacements;
+
+        krnl.INodalDisplacement = tmp.nodalAvgDisplacements[side];
+        krnl.execute(side);
+      }
+    }
+  }
+#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
