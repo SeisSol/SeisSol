@@ -10,15 +10,15 @@
 
 
 seissol::physics::AnisotropicPlanarwave::AnisotropicPlanarwave(real phase)
-  : m_kVec1{M_PI, 0.0, 0.0},
-    m_kVec2{0.0, M_PI, 0.0},
-    m_kVec3{0.0, 0.0, M_PI},
+  : m_kVec({{{M_PI, 0.0, 0.0},
+             {0.0, M_PI, 0.0},
+             {0.0, 0.0, M_PI}}}),
     m_phase(phase)
 { 
 
-  m_pw1 = seissol::physics::Planarwave(phase, m_kVec1);
-  m_pw2 = seissol::physics::Planarwave(phase, m_kVec2);
-  m_pw3 = seissol::physics::Planarwave(phase, m_kVec3);
+  for (int i = 0; i < 3; i++) {
+    m_pw.at(i) = seissol::physics::Planarwave(phase, m_kVec.at(i));
+  }
 }
 
 void seissol::physics::AnisotropicPlanarwave::evaluate(  double time,
@@ -26,8 +26,16 @@ void seissol::physics::AnisotropicPlanarwave::evaluate(  double time,
                                               yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
-  
-  m_pw1.evaluate(time, points, dofsQP);
-  m_pw2.evaluate(time, points, dofsQP);
-  m_pw3.evaluate(time, points, dofsQP);
+ 
+  real dofsPW_data[tensor::dofsQP::size()];
+  yateto::DenseTensorView<2,real,unsigned> dofsPW = init::dofsQP::view::create(dofsPW_data);
+
+  for (int pw = 0; pw < 3; pw++) {
+    m_pw.at(pw).evaluate(time, points, dofsPW);
+    for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
+      for (size_t i = 0; i < points.size(); ++i) {
+        dofsQP(i,j) += dofsPW(i,j);
+      }
+    }
+  }
 }

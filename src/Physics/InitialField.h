@@ -54,13 +54,9 @@ namespace seissol {
                       std::vector<std::array<double, 3>> const& points,
                       yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
     private:
-      std::array<double, 3>  m_kVec1;
-      std::array<double, 3>  m_kVec2;
-      std::array<double, 3>  m_kVec3;
-      Planarwave             m_pw1;
-      Planarwave             m_pw2;
-      Planarwave             m_pw3;
-      double                 m_phase;
+      std::array<std::array<double, 3>, 3>  m_kVec;
+      std::array<Planarwave, 3>             m_pw;
+      double                                m_phase;
     };
   }
 }
