@@ -83,10 +83,9 @@ class ADERDGBase(ABC):
 
     self.oneSimToMultSim = Tensor('oneSimToMultSim', (self.Q.optSize(),), spp={(i,): '1.0' for i in range(self.Q.optSize())})
 
-    # todo change path, split nodes and Vandermonde into diff. files?
     self.db.update(
       parseJSONMatrixFile('{}/nodal/nodalBoundary_matrices_{}.json'.format(matricesDir,
-                                                                           self.order - 1),
+                                                                           self.order),
                           {},
                           alignStride=self.alignStride,
                           transpose=self.transpose,
