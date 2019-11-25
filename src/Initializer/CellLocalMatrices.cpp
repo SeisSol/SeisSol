@@ -310,8 +310,8 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   for (LTSTree::leaf_iterator it = dynRupTree->beginLeaf(LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
     real**                                timeDerivativePlus                                        = it->var(dynRup->timeDerivativePlus);
     real**                                timeDerivativeMinus                                       = it->var(dynRup->timeDerivativeMinus);
-    real                                (*imposedStatePlus)[tensor::godunovState::size()]           = it->var(dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::godunovState::size()]          = it->var(dynRup->imposedStateMinus);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]          = it->var(dynRup->imposedStatePlus);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]         = it->var(dynRup->imposedStateMinus);
     DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
     real                                (*fluxSolverPlus)[tensor::fluxSolver::size()]               = it->var(dynRup->fluxSolverPlus);
     real                                (*fluxSolverMinus)[tensor::fluxSolver::size()]              = it->var(dynRup->fluxSolverMinus);
@@ -320,7 +320,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
 
 #ifdef _OPENMP
-  #pragma omp parallel for private(TData, TinvData, QgodLocalData, QgodNeighborData, APlusData, AMinusData) schedule(static)
+  #pragma omp parallel for private(TData, TinvData, APlusData, AMinusData) schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
