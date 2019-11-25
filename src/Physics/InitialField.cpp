@@ -12,26 +12,56 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(double phase)
+seissol::physics::Planarwave::Planarwave(double phase, std::array<double, 3> kVec)
   : m_setVar(2),
     m_varField{1,8},
     m_ampField{1.0, 1.0},
-    m_kVec{M_PI, M_PI, M_PI},
+    m_kVec(kVec),
     m_phase(phase)
 {
 
+#if defined USE_VISCOELASTIC
   const double rho = 1.0;
   const double mu = 1.0;
   const double lambda = 2.0;
-
-#ifdef USE_VISCOELASTIC
   const double Qp = 20.0;
   const double Qs = 10.0;
   seissol::model::ViscoElasticMaterial material;
   e_interoperability.fitAttenuation(rho, mu, lambda, Qp, Qs, material);
+#elif defined USE_ANISOTROPIC
+  double materialVal[22] = { 
+      1.0, //rho
+    192.0, //c11
+     66.0, //c12
+     60.0, //c13
+      0.0, //c14
+      0.0, //c15
+      0.0, //c16
+    160.0, //c22
+     56.0, //c23
+      0.0, //c24
+      0.0, //c25
+      0.0, //c26
+    272.0, //c33
+      0.0, //c34
+      0.0, //c35
+      0.0, //c36
+     60.0, //c44
+      0.0, //c45
+      0.0, //c46
+     62.0, //c55
+      0.0, //c56
+     49.0, //c66
+  };
+  seissol::model::AnisotropicMaterial material;
+  seissol::model::setMaterial(materialVal, 3, &material);
 #else
+  double materialVal[] = {
+    1.0, //rho
+    1.0, //mu
+    2.0  //lambda
+  };
   seissol::model::ElasticMaterial material;
-  double materialVal[] = {rho, mu, lambda};
   seissol::model::setMaterial(materialVal, 3, &material);
 #endif
 

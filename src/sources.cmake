@@ -183,7 +183,6 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Physics/InitialField.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
   target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
