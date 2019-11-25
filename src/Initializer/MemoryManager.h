@@ -230,9 +230,9 @@ class seissol::initializers::MemoryManager {
      * @param i_meshStructrue mesh structure.
      **/
     void fixateLtsTree(struct TimeStepping& i_timeStepping,
-		       struct MeshStructure*i_meshStructure,
-		       unsigned* numberOfDRCopyFaces,
-		       unsigned* numberOfDRInteriorFaces);
+                       struct MeshStructure*i_meshStructure,
+                       unsigned* numberOfDRCopyFaces,
+                       unsigned* numberOfDRInteriorFaces);
 
     void fixateBoundaryLtsTree();
     /**
@@ -297,6 +297,7 @@ class seissol::initializers::MemoryManager {
 namespace seissol {
     namespace initializers {
         bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
+        bool requiresNodalFlux(FaceType f);
     }
 }
 

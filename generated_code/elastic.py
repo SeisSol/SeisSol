@@ -38,13 +38,9 @@
 # @section DESCRIPTION
 #
   
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
-from yateto.ast.node import Add
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
 from aderdg import LinearADERDG
-from multSim import OptionalDimTensor
 
 class ElasticADERDG(LinearADERDG):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
@@ -66,32 +62,3 @@ class ElasticADERDG(LinearADERDG):
 
   def addLocal(self, generator):
     super().addLocal(generator)
-
-  def addTime(self, generator):
-    qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
-    dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
-
-    qNodalShape = (self.numberOf2DBasisFunctions(), self.numberOfQuantities())
-    dQ0Nodal = OptionalDimTensor('dQNodal(0)',
-                                 self.INodal.optName(),
-                                 self.INodal.optSize(),
-                                 self.INodal.optPos(),
-                                 qNodalShape,
-                                 alignStride=True)
-
-    power = Scalar('power')
-    derivatives = [dQ0]
-    generator.add('derivativeTaylorExpansion(0)', self.I['kp'] <= power * dQ0['kp'])
-    for i in range(1,self.order):
-      derivativeSum = Add()
-      for j in range(3):
-        derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.db.star[j]['qp']
-      derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
-      derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
-      dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
-      generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
-      generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
-      derivatives.append(dQ)
-
-  def add_include_tensors(self, include_tensors):
-    super().add_include_tensors(include_tensors)

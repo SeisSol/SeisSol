@@ -480,10 +480,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        // TODO(Lukas) Refactor these checks into function (code dupl.)
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-            cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
-            cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           ++numberOfBoundaryFaces;
         }
       }
@@ -506,10 +503,7 @@ void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
     auto boundaryFace = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
-        // TODO(Lukas) Refactor these checks into function (code dupl.)
-        if (cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
-            cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
-            cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
           boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
           boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
@@ -669,3 +663,10 @@ bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &mater
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.local.mu > eps && material.neighbor[face].mu < eps;
 }
+
+bool seissol::initializers::requiresNodalFlux(FaceType f) {
+  return (f == FaceType::freeSurfaceGravity
+          || f == FaceType::dirichlet
+          || f == FaceType::analytical);
+}
+

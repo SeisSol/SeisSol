@@ -414,7 +414,6 @@ void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enab
 
 
   // initialize face lts trees
-  // TODO(Lukas) Is this the best place for this?
   seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
 

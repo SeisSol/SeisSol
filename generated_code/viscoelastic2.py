@@ -78,10 +78,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
     selectAneSpp[self.numberOfQuantities():self.numberOfExtendedQuantities(),0:self.numberOfAnelasticQuantities()] = np.eye(self.numberOfAnelasticQuantities())
     self.selectAne = Tensor('selectAne', (self.numberOfExtendedQuantities(), self.numberOfAnelasticQuantities()), selectAneSpp, CSCMemoryLayout)
 
-    # todo change path, split nodes and Vandermonde into diff. files?
     self.db.update(
       parseJSONMatrixFile('{}/nodal/nodalBoundary_matrices_{}.json'.format(matricesDir,
-                                                                           self.order - 1),
+                                                                           self.order),
                           {},
                           alignStride=self.alignStride,
                           transpose=self.transpose,

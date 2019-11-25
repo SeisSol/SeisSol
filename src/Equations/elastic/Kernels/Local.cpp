@@ -237,7 +237,7 @@ void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
   o_hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
   for( unsigned int face = 0; face < 4; ++face ) {
-    // Local flux happens for all faces that are not dynamic rupture.
+    // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     if (i_faceTypes[face] != FaceType::dynamicRupture) {
       o_nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);

@@ -82,9 +82,6 @@
 #include <Kernels/TimeCommon.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
-#include "Kernels/DirichletBoundary.h"
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 #include <Monitoring/FlopCounter.hpp>
 
 #include <cassert>
@@ -900,8 +897,6 @@ void seissol::time_stepping::TimeCluster::computeFlops()
                                                   m_flops_hardware[PlasticityCheck],
                                                   m_flops_nonZero[PlasticityYield],
                                                   m_flops_hardware[PlasticityYield] );
-
-  // TODO(Lukas): Compute displacement flops?
 }
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)

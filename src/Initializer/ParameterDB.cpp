@@ -182,8 +182,8 @@ void seissol::initializers::ParameterDB::evaluateModel(std::string const& fileNa
   
   easi::Query query = queryGen.generate();
   auto model = loadEasiModel(fileName);
-
   model->evaluate(query, adapter);
+  delete model;
 }
 
 bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::string const& fileName) {
@@ -206,8 +206,6 @@ bool seissol::initializers::ParameterDB::faultParameterizedByTraction(std::strin
 
 seissol::initializers::EasiBoundary::EasiBoundary(const std::string& fileName)
   : model(loadEasiModel(fileName)) {
-  std::cout << "EasiBoundary() " << fileName << std::endl;
-
 }
 
 

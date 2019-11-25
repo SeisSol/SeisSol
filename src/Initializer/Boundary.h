@@ -3,7 +3,6 @@
 
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
-// #include <generated_code/tensor.h>
 
 namespace seissol {
   namespace initializers {

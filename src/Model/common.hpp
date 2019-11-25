@@ -190,7 +190,7 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
     R(6, 0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
 
     R(3,1) = local.mu;
-    R(7, 1) = std::sqrt(local.mu / local.rho);
+    R(7,1) = std::sqrt(local.mu / local.rho);
 
     R(5,2) = local.mu;
     R(8,2) = std::sqrt(local.mu / local.rho);
@@ -199,10 +199,10 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
     R(0,0) = local.lambda;
     R(1,0) = local.lambda;
     R(2,0) = local.lambda;
-    R(6, 0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
+    R(6,0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
 
     R(3,1) = 1.0;
-    R(5, 2) = 1.0;
+    R(5,2) = 1.0;
   }
 
   R(4,3) = 1;

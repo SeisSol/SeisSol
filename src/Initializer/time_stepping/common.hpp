@@ -125,14 +125,7 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
   // iterate over the faces
   for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
     // continue for boundary conditions
-    // TODO(Lukas) Refactor this!
-    if (i_faceTypes[l_face] != FaceType::regular &&
-        i_faceTypes[l_face] != FaceType::dynamicRupture &&
-        i_faceTypes[l_face] != FaceType::periodic &&
-        i_faceTypes[l_face] != FaceType::freeSurface &&
-	i_faceTypes[l_face] != FaceType::freeSurfaceGravity &&
-	i_faceTypes[l_face] != FaceType::dirichlet &&
-	i_faceTypes[l_face] != FaceType::analytical) {
+    if (i_faceTypes[l_face] == FaceType::outflow) {
       continue;
     }
     // fake neighbors are GTS

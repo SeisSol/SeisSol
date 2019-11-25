@@ -15,7 +15,7 @@ namespace seissol {
       virtual ~InitialField() {}
       virtual void evaluate(double time,
                             std::vector<std::array<double, 3>> const& points,
-			    const CellMaterialData& materialData,
+                            const CellMaterialData& materialData,
                             yateto::DenseTensorView<2,real,unsigned>& dofsQP) const = 0;
     };
 
@@ -23,9 +23,8 @@ namespace seissol {
     public:
       void evaluate(double,
                     std::vector<std::array<double, 3>> const&,
-		    const CellMaterialData& materialData,
-		    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const
-      {
+                    const CellMaterialData& materialData,
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const {
         dofsQP.setZero();
       }
     };
@@ -37,8 +36,8 @@ namespace seissol {
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
-		      const CellMaterialData& materialData,
-		      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
+                      const CellMaterialData& materialData,
+                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
     private:
       std::complex<double> m_eigenvectors[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
       int const                                               m_setVar;
@@ -57,8 +56,8 @@ namespace seissol {
       }
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
-		    const CellMaterialData& materialData,
-		    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+                    const CellMaterialData& materialData,
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
     class SnellsLaw : public InitialField {
     public:
@@ -67,8 +66,8 @@ namespace seissol {
       }
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
-		    const CellMaterialData& materialData,
-		    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+                    const CellMaterialData& materialData,
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
       class Ocean : public InitialField {
       public:
