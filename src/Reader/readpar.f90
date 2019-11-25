@@ -256,7 +256,7 @@ CONTAINS
     EQN%linearized = .TRUE.
     ! aheineck, @TODO these values are used, but not initialized > Begin
     EQN%Poroelasticity = 0
-    EQN%nBackgroundVar = 3
+    EQN%nBackgroundVar = 0
     EQN%Advection = 0
     ! aheineck, @TODO these values are used, but not initialized < End
 
@@ -374,9 +374,12 @@ CONTAINS
     SELECT CASE(Anisotropy)
     CASE(0)
       logInfo(*) 'Isotropic material is assumed. '
-      EQN%nBackgroundVar = 22
+!      EQN%nBackgroundVar = 22
       EQN%nNonZeroEV = 3
     CASE(1)
+      IF(Anelasticity.EQ.1) THEN
+        logError(*) 'Anelasticity does not work together with Anisotropy'
+      END IF
       logInfo(*) 'Full triclinic material is assumed. '
       EQN%nBackgroundVar = 22
       EQN%nNonZeroEV = 3

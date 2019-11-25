@@ -628,7 +628,7 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 #if defined USE_ANISOTROPIC
   new(material) seissol::model::AnisotropicMaterial;
 #elif defined USE_VISCOELASTIC
-  new(material) seissol::model::AnisotropicMaterial;
+  new(material) seissol::model::ViscoElasticMaterial;
 #else 
   new(material) seissol::model::ElasticMaterial;
 #endif

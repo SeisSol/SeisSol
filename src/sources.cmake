@@ -169,6 +169,7 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
   target_sources(SeisSol-lib PUBLIC
@@ -179,6 +180,7 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   target_sources(SeisSol-lib PUBLIC
@@ -187,6 +189,7 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Physics/InitialField.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
   target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
