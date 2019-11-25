@@ -51,27 +51,27 @@
 namespace seissol {
   namespace model {
     struct AnisotropicMaterial : Material {
-      real c11;
-      real c12;
-      real c13;
-      real c14;
-      real c15;
-      real c16;
-      real c22;
-      real c23;
-      real c24;
-      real c25;
-      real c26;
-      real c33;
-      real c34;
-      real c35;
-      real c36;
-      real c44;
-      real c45;
-      real c46;
-      real c55;
-      real c56;
-      real c66;
+      double c11;
+      double c12;
+      double c13;
+      double c14;
+      double c15;
+      double c16;
+      double c22;
+      double c23;
+      double c24;
+      double c25;
+      double c26;
+      double c33;
+      double c34;
+      double c35;
+      double c36;
+      double c44;
+      double c45;
+      double c46;
+      double c55;
+      double c56;
+      double c66;
 
       AnisotropicMaterial() {};
 
@@ -104,90 +104,90 @@ namespace seissol {
 
       
       void getFullElasticTensor(real fullTensor[81]) {
-        fullTensor[0]  = c11;
-        fullTensor[1]  = c16;
-        fullTensor[2]  = c15;
-        fullTensor[3]  = c16;
-        fullTensor[4]  = c12;
-        fullTensor[5]  = c14;
-        fullTensor[6]  = c15;
-        fullTensor[7]  = c14;
-        fullTensor[8]  = c13;
-        fullTensor[9]  = c16;
-        fullTensor[10] = c66;
-        fullTensor[11] = c56;
-        fullTensor[12] = c66;
-        fullTensor[13] = c26;
-        fullTensor[14] = c46;
-        fullTensor[15] = c56;
-        fullTensor[16] = c46;
-        fullTensor[17] = c36;
-        fullTensor[18] = c15;
-        fullTensor[19] = c56;
-        fullTensor[20] = c55;
-        fullTensor[21] = c56;
-        fullTensor[22] = c25;
-        fullTensor[23] = c35;
-        fullTensor[24] = c55;
-        fullTensor[25] = c45;
-        fullTensor[26] = c35;
-        fullTensor[27] = c16;
-        fullTensor[28] = c66;
-        fullTensor[29] = c56;
-        fullTensor[30] = c66;
-        fullTensor[31] = c26;
-        fullTensor[32] = c46;
-        fullTensor[33] = c56;
-        fullTensor[34] = c46;
-        fullTensor[35] = c36;
-        fullTensor[36] = c12;
-        fullTensor[37] = c26;
-        fullTensor[38] = c25;
-        fullTensor[39] = c26;
-        fullTensor[40] = c22;
-        fullTensor[41] = c24;
-        fullTensor[42] = c25;
-        fullTensor[43] = c24;
-        fullTensor[44] = c23;
-        fullTensor[45] = c14;
-        fullTensor[46] = c46;
-        fullTensor[47] = c45;
-        fullTensor[48] = c46;
-        fullTensor[49] = c24;
-        fullTensor[50] = c44;
-        fullTensor[51] = c45;
-        fullTensor[52] = c44;
-        fullTensor[53] = c34;
-        fullTensor[54] = c15;
-        fullTensor[55] = c56;
-        fullTensor[56] = c55;
-        fullTensor[57] = c56;
-        fullTensor[58] = c25;
-        fullTensor[59] = c45;
-        fullTensor[60] = c55;
-        fullTensor[61] = c45;
-        fullTensor[62] = c35;
-        fullTensor[63] = c14;
-        fullTensor[64] = c46;
-        fullTensor[65] = c45;
-        fullTensor[66] = c46;
-        fullTensor[67] = c24;
-        fullTensor[68] = c44;
-        fullTensor[69] = c45;
-        fullTensor[70] = c44;
-        fullTensor[71] = c34;
-        fullTensor[72] = c14;
-        fullTensor[73] = c36;
-        fullTensor[74] = c35;
-        fullTensor[75] = c36;
-        fullTensor[76] = c23;
-        fullTensor[77] = c34;
-        fullTensor[78] = c35;
-        fullTensor[79] = c34;
-        fullTensor[80] = c33;
+        fullTensor[0]  = static_cast<real>(c11);
+        fullTensor[1]  = static_cast<real>(c16);
+        fullTensor[2]  = static_cast<real>(c15);
+        fullTensor[3]  = static_cast<real>(c16);
+        fullTensor[4]  = static_cast<real>(c12);
+        fullTensor[5]  = static_cast<real>(c14);
+        fullTensor[6]  = static_cast<real>(c15);
+        fullTensor[7]  = static_cast<real>(c14);
+        fullTensor[8]  = static_cast<real>(c13);
+        fullTensor[9]  = static_cast<real>(c16);
+        fullTensor[10] = static_cast<real>(c66);
+        fullTensor[11] = static_cast<real>(c56);
+        fullTensor[12] = static_cast<real>(c66);
+        fullTensor[13] = static_cast<real>(c26);
+        fullTensor[14] = static_cast<real>(c46);
+        fullTensor[15] = static_cast<real>(c56);
+        fullTensor[16] = static_cast<real>(c46);
+        fullTensor[17] = static_cast<real>(c36);
+        fullTensor[18] = static_cast<real>(c15);
+        fullTensor[19] = static_cast<real>(c56);
+        fullTensor[20] = static_cast<real>(c55);
+        fullTensor[21] = static_cast<real>(c56);
+        fullTensor[22] = static_cast<real>(c25);
+        fullTensor[23] = static_cast<real>(c35);
+        fullTensor[24] = static_cast<real>(c55);
+        fullTensor[25] = static_cast<real>(c45);
+        fullTensor[26] = static_cast<real>(c35);
+        fullTensor[27] = static_cast<real>(c16);
+        fullTensor[28] = static_cast<real>(c66);
+        fullTensor[29] = static_cast<real>(c56);
+        fullTensor[30] = static_cast<real>(c66);
+        fullTensor[31] = static_cast<real>(c26);
+        fullTensor[32] = static_cast<real>(c46);
+        fullTensor[33] = static_cast<real>(c56);
+        fullTensor[34] = static_cast<real>(c46);
+        fullTensor[35] = static_cast<real>(c36);
+        fullTensor[36] = static_cast<real>(c12);
+        fullTensor[37] = static_cast<real>(c26);
+        fullTensor[38] = static_cast<real>(c25);
+        fullTensor[39] = static_cast<real>(c26);
+        fullTensor[40] = static_cast<real>(c22);
+        fullTensor[41] = static_cast<real>(c24);
+        fullTensor[42] = static_cast<real>(c25);
+        fullTensor[43] = static_cast<real>(c24);
+        fullTensor[44] = static_cast<real>(c23);
+        fullTensor[45] = static_cast<real>(c14);
+        fullTensor[46] = static_cast<real>(c46);
+        fullTensor[47] = static_cast<real>(c45);
+        fullTensor[48] = static_cast<real>(c46);
+        fullTensor[49] = static_cast<real>(c24);
+        fullTensor[50] = static_cast<real>(c44);
+        fullTensor[51] = static_cast<real>(c45);
+        fullTensor[52] = static_cast<real>(c44);
+        fullTensor[53] = static_cast<real>(c34);
+        fullTensor[54] = static_cast<real>(c15);
+        fullTensor[55] = static_cast<real>(c56);
+        fullTensor[56] = static_cast<real>(c55);
+        fullTensor[57] = static_cast<real>(c56);
+        fullTensor[58] = static_cast<real>(c25);
+        fullTensor[59] = static_cast<real>(c45);
+        fullTensor[60] = static_cast<real>(c55);
+        fullTensor[61] = static_cast<real>(c45);
+        fullTensor[62] = static_cast<real>(c35);
+        fullTensor[63] = static_cast<real>(c14);
+        fullTensor[64] = static_cast<real>(c46);
+        fullTensor[65] = static_cast<real>(c45);
+        fullTensor[66] = static_cast<real>(c46);
+        fullTensor[67] = static_cast<real>(c24);
+        fullTensor[68] = static_cast<real>(c44);
+        fullTensor[69] = static_cast<real>(c45);
+        fullTensor[70] = static_cast<real>(c44);
+        fullTensor[71] = static_cast<real>(c34);
+        fullTensor[72] = static_cast<real>(c14);
+        fullTensor[73] = static_cast<real>(c36);
+        fullTensor[74] = static_cast<real>(c35);
+        fullTensor[75] = static_cast<real>(c36);
+        fullTensor[76] = static_cast<real>(c23);
+        fullTensor[77] = static_cast<real>(c34);
+        fullTensor[78] = static_cast<real>(c35);
+        fullTensor[79] = static_cast<real>(c34);
+        fullTensor[80] = static_cast<real>(c33);
       }
 
-      real getMaxWaveSpeed() {
+      double getMaxWaveSpeed() {
 #ifdef USE_ANISOTROPIC
         double samplingDirectionsData[seissol::tensor::samplingDirections::Size];
         std::copy_n(init::samplingDirections::Values,
@@ -195,27 +195,27 @@ namespace seissol {
             samplingDirectionsData);
         auto samplingDirections = init::samplingDirections::view::create(samplingDirectionsData);
 
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix<real, 3, 3>> saes;
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
 
-        real maxEv = 0;
+        double maxEv = 0;
 
-        real fullTensor[81];
+        double fullTensor[81];
         getFullElasticTensor(fullTensor);
         kernel::computeChristoffel computeChristoffel;
         computeChristoffel.C = fullTensor;
 
         for(unsigned j = 0; j < 200; ++j)
         {
-          real n[3] = { samplingDirections(j, 0),
+          double n[3] = { samplingDirections(j, 0),
                         samplingDirections(j, 1),
                         samplingDirections(j, 2)
           };
-          real M[9];
+          double M[9];
           computeChristoffel.n = n;
           computeChristoffel.christoffel = M;
           computeChristoffel.execute();
 
-          saes.compute(Eigen::Matrix<real, 3, 3>(M));
+          saes.compute(Eigen::Matrix<double, 3, 3>(M));
           auto eigenvalues = saes.eigenvalues();
           for(unsigned i = 0; i < 3; ++i) {
             maxEv = eigenvalues(i) > maxEv ? eigenvalues(i) : maxEv;
@@ -227,14 +227,14 @@ namespace seissol {
 #endif
       }
 
-      real getPWaveSpeed() {
-        real muBar = (c44 + c55 + c66) / 3.0;
-        real lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0*muBar;
+      double getPWaveSpeed() {
+        double muBar = (c44 + c55 + c66) / 3.0;
+        double lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0*muBar;
         return std::sqrt((lambdaBar + 2*muBar) / rho);
       }
 
-      real getSWaveSpeed() {
-        real muBar = (c44 + c55 + c66) / 3.0;
+      double getSWaveSpeed() {
+        double muBar = (c44 + c55 + c66) / 3.0;
         return std::sqrt(muBar / rho);
       }
 

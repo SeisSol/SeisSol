@@ -55,30 +55,30 @@ namespace seissol {
     };
 
     struct Material {
-      real rho;
-      virtual real getMaxWaveSpeed() { return 0; };
-      virtual real getPWaveSpeed() { return 0; };
-      virtual real getSWaveSpeed() { return 0; };
+      double rho;
+      virtual double getMaxWaveSpeed() { return 0; };
+      virtual double getPWaveSpeed() { return 0; };
+      virtual double getSWaveSpeed() { return 0; };
       virtual void getFullElasticTensor(real fullTensor[81]) {}; 
       virtual MaterialType getMaterialType() const { return MaterialType::none; };
       virtual ~Material() {};
     };
 
     struct Plasticity {
-      real bulkFriction;
-      real plastCo;  
-      real s_xx;   
-      real s_yy;   
-      real s_zz;   
-      real s_xy;      
-      real s_yz;      
-      real s_xz;        
+      double bulkFriction;
+      double plastCo;  
+      double s_xx;   
+      double s_yy;   
+      double s_zz;   
+      double s_xy;      
+      double s_yz;      
+      double s_xz;        
     };
 
     struct IsotropicWaveSpeeds {
-      real density;
-      real pWaveVelocity;
-      real sWaveVelocity;
+      double density;
+      double pWaveVelocity;
+      double sWaveVelocity;
     };
 #ifndef USE_VISCOELASTIC
     struct LocalData {

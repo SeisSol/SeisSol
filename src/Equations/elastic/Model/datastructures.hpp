@@ -46,21 +46,21 @@
 namespace seissol {
   namespace model {
     struct ElasticMaterial : Material {
-      real lambda;
-      real mu;
+      double lambda;
+      double mu;
 
       virtual ~ElasticMaterial() {};
 
       void getFullElasticTensor(real fullTensor[81]) {
-        fullTensor[0]  = lambda + 2*mu;
+        fullTensor[0]  = static_cast<real>(lambda + 2*mu);
         fullTensor[1]  = 0.0;
         fullTensor[2]  = 0.0;
         fullTensor[3]  = 0.0;
-        fullTensor[4]  = lambda;
+        fullTensor[4]  = static_cast<real>(lambda);
         fullTensor[5]  = 0.0;
         fullTensor[6]  = 0.0;
         fullTensor[7]  = 0.0;
-        fullTensor[8]  = lambda;
+        fullTensor[8]  = static_cast<real>(lambda);
         fullTensor[9]  = 0.0;
         fullTensor[10] = 0.0;
         fullTensor[11] = 0.0;
@@ -72,11 +72,11 @@ namespace seissol {
         fullTensor[17] = 0.0;
         fullTensor[18] = 0.0;
         fullTensor[19] = 0.0;
-        fullTensor[20] = mu;
+        fullTensor[20] = static_cast<real>(mu);
         fullTensor[21] = 0.0;
         fullTensor[22] = 0.0;
         fullTensor[23] = 0.0;
-        fullTensor[24] = mu;
+        fullTensor[24] = static_cast<real>(mu);
         fullTensor[25] = 0.0;
         fullTensor[26] = 0.0;
         fullTensor[27] = 0.0;
@@ -88,31 +88,31 @@ namespace seissol {
         fullTensor[33] = 0.0;
         fullTensor[34] = 0.0;
         fullTensor[35] = 0.0;
-        fullTensor[36] = lambda;
+        fullTensor[36] = static_cast<real>(lambda);
         fullTensor[37] = 0.0;
         fullTensor[38] = 0.0;
         fullTensor[39] = 0.0;
-        fullTensor[40] = lambda + 2*mu;
+        fullTensor[40] = static_cast<real>(lambda + 2*mu);
         fullTensor[41] = 0.0;
         fullTensor[42] = 0.0;
         fullTensor[43] = 0.0;
-        fullTensor[44] = lambda;
+        fullTensor[44] = static_cast<real>(lambda);
         fullTensor[45] = 0.0;
         fullTensor[46] = 0.0;
         fullTensor[47] = 0.0;
         fullTensor[48] = 0.0;
         fullTensor[49] = 0.0;
-        fullTensor[50] = mu;
+        fullTensor[50] = static_cast<real>(mu);
         fullTensor[51] = 0.0;
-        fullTensor[52] = mu;
+        fullTensor[52] = static_cast<real>(mu);
         fullTensor[53] = 0.0;
         fullTensor[54] = 0.0;
         fullTensor[55] = 0.0;
-        fullTensor[56] = mu;
+        fullTensor[56] = static_cast<real>(mu);
         fullTensor[57] = 0.0;
         fullTensor[58] = 0.0;
         fullTensor[59] = 0.0;
-        fullTensor[60] = mu;
+        fullTensor[60] = static_cast<real>(mu);
         fullTensor[61] = 0.0;
         fullTensor[62] = 0.0;
         fullTensor[63] = 0.0;
@@ -120,30 +120,30 @@ namespace seissol {
         fullTensor[65] = 0.0;
         fullTensor[66] = 0.0;
         fullTensor[67] = 0.0;
-        fullTensor[68] = mu;
+        fullTensor[68] = static_cast<real>(mu);
         fullTensor[69] = 0.0;
-        fullTensor[70] = mu;
+        fullTensor[70] = static_cast<real>(mu);
         fullTensor[71] = 0.0;
         fullTensor[72] = 0.0;
         fullTensor[73] = 0.0;
         fullTensor[74] = 0.0;
         fullTensor[75] = 0.0;
-        fullTensor[76] = lambda;
+        fullTensor[76] = static_cast<real>(lambda);
         fullTensor[77] = 0.0;
         fullTensor[78] = 0.0;
         fullTensor[79] = 0.0;
-        fullTensor[80] = lambda + 2*mu;
+        fullTensor[80] = static_cast<real>(lambda + 2*mu);
       }
 
-      real getMaxWaveSpeed() {
+      double getMaxWaveSpeed() {
         return getPWaveSpeed();
       }
 
-      real getPWaveSpeed() {
+      double getPWaveSpeed() {
         return std::sqrt((lambda + 2*mu) / rho);
       }
 
-      real getSWaveSpeed() {
+      double getSWaveSpeed() {
         return std::sqrt(mu / rho);
       }
 

@@ -42,7 +42,7 @@ namespace seissol {
       std::vector<std::complex<double>>                       m_ampField;
       std::array<double, 3>                                   m_kVec;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
-      real                                                    m_phase;
+      double                                                  m_phase;
     };
 
     class AnisotropicPlanarwave : public InitialField {
@@ -65,7 +65,7 @@ namespace seissol {
       std::array<std::complex<real>, NUMBER_OF_QUANTITIES>  m_lambda1;
       std::array<std::complex<real>, NUMBER_OF_QUANTITIES>  m_lambda2;
       std::array<std::complex<real>, NUMBER_OF_QUANTITIES>  m_lambda3;
-      real                                                  m_phase;
+      double                                                m_phase;
     };
   }
 }

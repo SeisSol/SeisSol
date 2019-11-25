@@ -286,7 +286,7 @@ namespace seissol {
         }
         default: {
           //Fallback for Fault parameters
-          easi::ArraysAdapter adapter;
+          easi::ArraysAdapter<double> adapter;
           for (auto& kv : m_parameters) {
             adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
           }
@@ -336,7 +336,7 @@ namespace seissol {
           }
           default: {
             //Fallback for Fault parameters
-            easi::ArraysAdapter arraysAdapter;
+            easi::ArraysAdapter<double> arraysAdapter;
             for (auto& kv : m_parameters) {
               arraysAdapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
             }
