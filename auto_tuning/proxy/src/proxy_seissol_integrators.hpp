@@ -190,21 +190,23 @@ void computeDynRupGodunovState()
   DRGodunovData* godunovData = layerData.var(m_dynRup.godunovData);
   real** timeDerivativePlus = layerData.var(m_dynRup.timeDerivativePlus);
   real** timeDerivativeMinus = layerData.var(m_dynRup.timeDerivativeMinus);
-  real (*godunov)[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()] = layerData.var(m_dynRup.godunov);
+  alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
+  #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
-    m_dynRupKernel.computeGodunovState( faceInformation[face],
-                                        &m_globalData,
-                                       &godunovData[face],
-                                        timeDerivativePlus[face],
-                                        timeDerivativeMinus[face],
-                                        godunov[face],
-                                        timeDerivativePlus[prefetchFace],
-                                        timeDerivativeMinus[prefetchFace] );
+    m_dynRupKernel.spaceTimeInterpolation(  faceInformation[face],
+                                           &m_globalData,
+                                           &godunovData[face],
+                                            timeDerivativePlus[face],
+                                            timeDerivativeMinus[face],
+                                            QInterpolatedPlus,
+                                            QInterpolatedMinus,
+                                            timeDerivativePlus[prefetchFace],
+                                            timeDerivativeMinus[prefetchFace] );
   }
 }
 
