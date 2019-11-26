@@ -1254,7 +1254,7 @@ MODULE Eval_friction_law_mod
 
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
-    AlmostZero = 1d-45
+    AlmostZero = 1d-8
     !
     !PARAMETERS of THE optimisation loops
     !absolute tolerance on the function to be optimzed
@@ -1347,7 +1347,7 @@ MODULE Eval_friction_law_mod
                          !recover original values as it gets overwritten in the ThermalPressure routine
                          Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                          Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
-                         CALL Calc_ThermalPressure(EQN, time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_half_width_shear_zone, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                         CALL Calc_ThermalPressure(EQN, time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_half_width_shear_zone(iBndGP,iFace), DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy(iBndGP,iFace), &
                               DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                               DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2) )
                          P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
@@ -1387,7 +1387,7 @@ MODULE Eval_friction_law_mod
                           Theta_tmp = DISC%DynRup%TP_Theta(iBndGP, iFace,:)
                           Sigma_tmp = DISC%DynRup%TP_sigma(iBndGP, iFace,:)
                           !use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-                          CALL Calc_ThermalPressure(EQN,time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_half_width_shear_zone, DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy, &
+                          CALL Calc_ThermalPressure(EQN,time_inc, DISC%DynRup%TP_grid_nz, DISC%DynRup%TP_half_width_shear_zone(iBndGP,iFace), DISC%DynRup%alpha_th, DISC%DynRup%alpha_hy(iBndGP,iFace), &
                                DISC%DynRup%rho_c, DISC%DynRup%TP_Lambda, Theta_tmp(:), Sigma_tmp(:), S(iBndGP), LocSR(iBndGP), DISC%DynRup%TP_grid, DISC%DynRup%TP_DFinv, & 
                                DISC%DynRup%TP(iBndGP,iFace,1), DISC%DynRup%TP(iBndGP,iFace,2))
                           P_f(iBndGP) = DISC%DynRup%TP(iBndGP,iFace,2)
@@ -1520,7 +1520,7 @@ MODULE Eval_friction_law_mod
     REAL          :: n_stress(nBndGP), sh_stress(nBndGP), invZ
     REAL          :: NR(nBndGP), dNR(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP)
     REAL          :: mu_f(nBndGP), dmu_f(nBndGP)                              !calculated here in routine
-    REAL          :: AlmostZero = 1D-45, aTolF = 5e-14
+    REAL          :: AlmostZero = 1D-8, aTolF = 5e-14
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: nSRupdates, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
                      sh_stress, invZ

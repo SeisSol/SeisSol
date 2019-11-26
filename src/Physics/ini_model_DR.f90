@@ -263,12 +263,15 @@ MODULE ini_model_DR_mod
       end if
       if (DISC%DynRup%ThermalPress.EQ.1) THEN
          nz = DISC%DynRup%TP_grid_nz !number of grid points for the advection equation perpendicular to the fault, currently fixed to 60.0 but requires more testing
-        allocate(DISC%DynRup%TP_grid(nz), DISC%DynRup%TP_DFinv(nz), &
+        ALLOCATE(DISC%DynRup%TP_grid(nz), DISC%DynRup%TP_DFinv(nz), &
                  DISC%DynRup%TP_Theta(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
                  DISC%DynRup%TP_Sigma(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
                  DISC%DynRup%TP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2))
         ! use this for advanced initialization
-        ! call c_interoperability_addFaultParameter("IniTP" // c_null_char, DISC%DynRup%IniTP)
+        ALLOCATE(DISC%DynRup%alpha_hy(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
+                 DISC%DynRup%TP_half_width_shear_zone(DISC%Galerkin%nBndGP, MESH%Fault%nSide))
+        call c_interoperability_addFaultParameter("alpha_hy" // c_null_char, DISC%DynRup%alpha_hy)
+        call c_interoperability_addFaultParameter("TP_half_width_shear_zone" // c_null_char, DISC%DynRup%TP_half_width_shear_zone)
 
         DISC%DynRup%TP_grid(:) = 0.0
         DISC%DynRup%TP_DFinv(:) = 0.0
@@ -698,7 +701,7 @@ MODULE ini_model_DR_mod
   !-------------------------------------------------------------------------!
   ! Local variable declaration
   INTEGER                        :: j
-  REAL                           :: TP_log_dz, TP_half_width_shear_zone, TP_max_wavenumber, TP_max_wavenumber_norm
+  REAL                           :: TP_log_dz, TP_max_wavenumber
   REAL, PARAMETER                :: pi=3.141592653589793
   !-------------------------------------------------------------------------!
   INTENT(INOUT) :: DISC,EQN
@@ -706,20 +709,14 @@ MODULE ini_model_DR_mod
 
   !values currently from bicycle code -> how can we optimize that?
   TP_log_dz = DISC%DynRup%TP_log_dz !grid space distance, currently set to 0.3
-  TP_half_width_shear_zone = DISC%DynRup%TP_half_width_shear_zone !half width of the shearing layer
   TP_max_wavenumber = DISC%DynRup%TP_max_wavenumber !max. wavenumber, currently set to 10.0
-  TP_max_wavenumber_norm = TP_max_wavenumber/TP_half_width_shear_zone
-
-  !Initialization of grid points
-  DO j=1,DISC%DynRup%TP_grid_nz
-     !use here TP_max_wavenumber and then always Dwn(j)/w (like in the SBIEM code)
-     !or use here TP_max_wavenumber/w and then only Dwn(j) in the following
-     DISC%DynRup%TP_grid(j) = TP_max_wavenumber*exp(-TP_log_dz*(DISC%DynRup%TP_grid_nz-j)); !function l_i(x,z) in eq. (14) in Noda/Lapusta 2010 (take exp of 14)
-  END DO
 
   !Initialization of Fourier coefficients
   !coefficients from eq. (17) Noda/Lapusta 2010
   DO j=1,DISC%DynRup%TP_grid_nz
+     !use here TP_max_wavenumber and then always Dwn(j)/w (like in the SBIEM code)
+     !or use here TP_max_wavenumber/w and then only Dwn(j) in the following
+     DISC%DynRup%TP_grid(j) = TP_max_wavenumber*exp(-TP_log_dz*(DISC%DynRup%TP_grid_nz-j)); !function l_i(x,z) in eq. (14) in Noda/Lapusta 2010 (take exp of 14)
      IF (j .EQ. 1) THEN
          DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*(1.d0+TP_log_dz*0.5d0)
      ELSEIF(j .EQ. DISC%DynRup%TP_grid_nz) THEN
