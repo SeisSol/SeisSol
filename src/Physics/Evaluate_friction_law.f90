@@ -1466,7 +1466,7 @@ MODULE Eval_friction_law_mod
          !                                      mu_ss = mu_w + [mu_lv - mu_w] / [ 1 + (V/Vw)^8 ] ^ (1/8) ]
          !                                      mu_lv = mu_0 - (b-a) ln (V/V0)
          !
-         LocP   = 0.8*NorStressGP(iBndGP,iTimeGP)
+         LocP   = NorStressGP(iBndGP,iTimeGP)
          time_inc = DeltaT(iTimeGP)
          !
          RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
@@ -1480,6 +1480,10 @@ MODULE Eval_friction_law_mod
          ! load traction and normal stress
          P      = LocP+P_0
          ShTest = SQRT((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))**2 + (EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))**2)
+
+         if (ShTest.le.1d-6) then
+            logError(*) 'ShTest=',ShTest
+         end if
          !
          SV0=LocSV    ! Careful, the SV must always be corrected using SV0 and not LocSV!
          !
@@ -1517,6 +1521,7 @@ MODULE Eval_friction_law_mod
              SRtest=LocSR  ! We use as first guess the SR value of the previous time step
              !
              SRtest = max(AlmostZero, SRtest)
+             ShTest = max(AlmostZero, ShTest)
 
              
              tmp          = 0.5D0/RS_sr0* EXP(LocSV/RS_a)
@@ -1568,12 +1573,22 @@ MODULE Eval_friction_law_mod
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
          ! update stress change
-         ShTest = max(AlmostZero,ShTest)
          
+         if (abs(ShTest).lt.1d-5) then
+          write(*,*) 'small ShTest'
+          LocTracXY = XYStressGP(iBndGP,iTimeGP)
+          LocTracXZ = XZStressGP(iBndGP,iTimeGP)
+         else
          LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXZ = -((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
          LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(iBndGP,6,iFace)
+        
+         endif
+
+         !if(isnan(LocTracXY).or.isnan(LocTracXZ)) then 
+         !  logError(*) 'LocTracXY=',LocTracXY
+         !end if
          !
          ! Compute slip
          LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
