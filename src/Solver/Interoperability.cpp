@@ -164,6 +164,13 @@ extern "C" {
                                        int    i_numMaterialVals ) {
     e_interoperability.setMaterial(i_meshId, i_side, i_materialVal, i_numMaterialVals);
   }
+      
+  void c_interoperability_getWaveSpeeds( double*  i_materialVal,
+                                         int      i_numMaterialVals,
+                                         double*  o_waveSpeeds ) {
+    e_interoperability.getWaveSpeeds(i_materialVal, i_numMaterialVals, o_waveSpeeds);
+  }
+                                          
 
 #ifdef USE_PLASTICITY
  void c_interoperability_setInitialLoading( int    i_meshId,
@@ -658,6 +665,23 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
     }                                          
 
   }
+}
+
+void seissol::Interoperability::getWaveSpeeds(double* i_materialVal, int i_numMaterialVals, double* o_waveSpeeds) {
+
+ #if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicMaterial material;
+#elif defined USE_VISCOELASTIC
+  seissol::model::ViscoElasticMaterial material;
+#else 
+  seissol::model::ElasticMaterial material;
+#endif
+
+  seissol::model::setMaterial(i_materialVal, i_numMaterialVals, &material);
+  o_waveSpeeds[0] = material.getPWaveSpeed();
+  o_waveSpeeds[1] = material.getSWaveSpeed();
+  o_waveSpeeds[2] = material.getSWaveSpeed();
+  o_waveSpeeds[3] = material.getMaxWaveSpeed();
 }
 
 #ifdef USE_PLASTICITY

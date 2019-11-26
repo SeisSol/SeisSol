@@ -220,6 +220,12 @@ class seissol::Interoperability {
                      double* i_materialVal,
                      int    i_numMaterialVals );
 
+   /***
+    * Get the wavespeeds for elastic materials for a given cell
+    **/
+   void getWaveSpeeds( double* i_materialVal,
+                       int     i_numMaterialVals,
+                       double* o_waveSpeeds );
    /**
     * Sets the initial loading for a cell (plasticity).
     *

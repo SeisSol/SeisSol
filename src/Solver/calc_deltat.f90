@@ -154,6 +154,10 @@ CONTAINS
     ! Compute Velocities                       
     !                                                                         
     !
+       logInfo(*) 'Calc Delta T information:'
+       logInfo(*) 'Advection: ', EQN%Advection
+       logInfo(*) 'pAdaptivity: ', DISC%Galerkin%pAdaptivity
+       logInfo(*) 'DGMethod: ', DISC%Galerkin%DGMethod
        DO iElem = 1, MESH%nElem
            OptionalFields%sound(iElem) = MAXVAL( DISC%Galerkin%MaxWaveSpeed(iElem,:) )
        ENDDO
@@ -196,6 +200,7 @@ CONTAINS
 
     !
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
+      logInfo(*) 'We actually enter this block'
       DISC%LocalDt(:) = OptionalFields%dt_convectiv(:)
       DO iElem = 1, MESH%nElem
         OptionalFields%dtmin(iElem) = DISC%LocalDt(iElem)

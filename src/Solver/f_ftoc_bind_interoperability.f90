@@ -171,6 +171,16 @@ module f_ftoc_bind_interoperability
     end subroutine
   end interface
 
+  interface c_interoperability_getWaveSpeeds
+    subroutine c_interoperability_getWaveSpeeds( i_materialVal, i_numMaterialVals, o_waveSpeeds ) bind( C, name='c_interoperability_getWaveSpeeds' )
+    use iso_c_binding
+    implicit none
+    real(kind=c_double), dimension(*), intent(in) :: i_materialVal
+    integer(kind=c_int), value :: i_numMaterialVals
+    real(kind=c_double), dimension(*), intent(inout) :: o_waveSpeeds 
+    end subroutine
+  end interface
+
   interface c_interoperability_setInitialLoading
     subroutine c_interoperability_setInitialLoading( i_meshId, i_initialLoading ) bind( C, name='c_interoperability_setInitialLoading' )
       use iso_c_binding
