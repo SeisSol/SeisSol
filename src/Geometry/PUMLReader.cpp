@@ -363,7 +363,7 @@ void seissol::PUMLReader::getMesh(const PUML::TETPUML &puml)
 
 			int bcCurrentFace = (boundaryCond[i] >> (j*8)) & 0xFF;
 			int faultTag = bcCurrentFace;
-			if (bcCurrentFace > 8) {
+			if (bcCurrentFace > 64) {
 				bcCurrentFace = 3;
 			}
 			m_elements[i].boundaries[FACE_PUML2SEISSOL[j]] = bcCurrentFace;

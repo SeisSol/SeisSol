@@ -332,7 +332,7 @@ struct GlobalData {
   seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
 
   seissol::nodal::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
-  seissol::tensor::rDivMMultV2nTo2m::Container<real const*> rDivMMultV2nTo2m;
+  seissol::tensor::project2nFaceTo3m::Container<real const*> project2nFaceTo3m;
 
   /** 
    * Addresses of the global face to nodal matrices

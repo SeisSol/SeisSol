@@ -188,3 +188,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)
     include_tensors.add(self.db.nodes2D)
+    # Nodal flux kernel uses this matrix but is not supported by visco2
+    include_tensors.update([
+      self.db.project2nFaceTo3m[i] for i in range(4)
+    ])

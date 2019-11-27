@@ -46,6 +46,7 @@ from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
+from yateto.util import tensor_collection_from_constant_expression
 
 class ADERDGBase(ABC):
   def __init__(self, order, multipleSimulations, matricesDir):
@@ -99,6 +100,14 @@ class ADERDGBase(ABC):
                                     (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
                                     alignStride=True)
 
+    project2nFaceTo3m = tensor_collection_from_constant_expression(
+      base_name='project2nFaceTo3m',
+      expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
+      group_indices=range(4),
+      target_indices='jl')
+
+    self.db.update(project2nFaceTo3m)
+
   def numberOf2DBasisFunctions(self):
     return self.order*(self.order+1)//2
 
@@ -146,9 +155,6 @@ class ADERDGBase(ABC):
 
     computeFluxSolverNeighbor = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.starMatrix(0)['ql'] * self.T['jl']
     generator.add('computeFluxSolverNeighbor', computeFluxSolverNeighbor)
-
-    computeFluxSolverNeighborRotated = self.AminusT['ij'] <= fluxScale * self.Tinv['ki'] * self.QgodNeighbor['kq'] * self.db.star[0]['qj']
-    generator.add('computeFluxSolverNeighborRotated', computeFluxSolverNeighborRotated)
 
     QFortran = Tensor('QFortran', (self.numberOf3DBasisFunctions(), self.numberOfQuantities()))
     multSimToFirstSim = Tensor('multSimToFirstSim', (self.Q.optSize(),), spp={(0,): '1.0'})
@@ -207,6 +213,10 @@ class LinearADERDG(ADERDGBase):
     localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
     localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
     generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
+
+    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
+    localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
 
   def addNeighbor(self, generator):
     neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']

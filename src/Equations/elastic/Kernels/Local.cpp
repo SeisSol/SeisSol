@@ -73,12 +73,10 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
 
-  m_nodalLfKrnlPrototype.rDivMMultV2nTo2m = global->rDivMMultV2nTo2m;
+  m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
-
-  dirichletBoundary = seissol::kernels::DirichletBoundary();
 }
 
 void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
@@ -139,7 +137,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
           for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
             const double rho = materialData->local.rho;
             const double g = 9.81; // [m/s^2]
-            const double pressureAtBnd = -1 * rho * g * displacement(i,0);
+            const double pressureAtBnd = -1 * rho * g * displacement(i);
 
             boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
             boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);

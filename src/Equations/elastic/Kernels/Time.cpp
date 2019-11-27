@@ -107,7 +107,7 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
   displacementAvgNodalPrototype.V3mTo2nFace = global->V3mTo2nFace;
-  displacementAvgNodalPrototype.selectZDisplacement = init::selectZDisplacement::Values;
+  displacementAvgNodalPrototype.selectZDisplacementFromQuantities = init::selectZDisplacementFromQuantities::Values;
   displacementAvgNodalPrototype.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
 }
 
@@ -173,8 +173,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     intKrnl.execute(der);
   }
 
-
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
   // Compute average displacement over timestep if needed.
   alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
 
@@ -198,7 +196,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       }
     }
   }
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
 }
 
 void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,

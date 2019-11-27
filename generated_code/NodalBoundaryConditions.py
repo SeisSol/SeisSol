@@ -2,7 +2,6 @@ import numpy as np
 import viscoelastic2
 from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.memory import CSCMemoryLayout
 from yateto.util import tensor_collection_from_constant_expression
 
 def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMethod):
@@ -48,44 +47,33 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                                )
     include_tensors.add(identity_rotation)
 
-    rDivM_mult_V2nTo2m = tensor_collection_from_constant_expression(
-        base_name='rDivMMultV2nTo2m',
+    project2nFaceTo3m = tensor_collection_from_constant_expression(
+        base_name='project2nFaceTo3m',
         expressions=lambda i: aderdg.db.rDivM[i]['jk'] * aderdg.db.V2nTo2m['kl'],
         group_indices=range(4),
         target_indices='jl')
 
-    aderdg.db.update(rDivM_mult_V2nTo2m)
+    aderdg.db.update(project2nFaceTo3m)
 
-    if not isinstance(aderdg, viscoelastic2.Viscoelastic2ADERDG):
-        localFluxNodal = lambda i: aderdg.Q['kp'] <= aderdg.Q['kp'] + aderdg.db.rDivMMultV2nTo2m[i]['kn'] * aderdg.INodal['no'] * aderdg.AminusT['op']
-        localFluxNodalPrefetch = lambda i: aderdg.I if i == 0 else (aderdg.Q if i == 1 else None)
-        generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
-    else:
-        # Nodal bc not supported for visc2, but we  need to generate rDivM_mult_V2nTo2m.
-        # include_tensors doesnt allow tensor families directly.
-        include_tensors.update([
-            rDivM_mult_V2nTo2m["rDivMMultV2nTo2m"][i] for i in range(4)
-        ])
+    selectZDisplacementFromQuantities = np.zeros(aderdg.numberOfQuantities())
+    selectZDisplacementFromQuantities[8] = 1
+    selectZDisplacementFromQuantities= Tensor('selectZDisplacementFromQuantities',
+                                              selectZDisplacementFromQuantities.shape,
+                                              selectZDisplacementFromQuantities,
+                                              )
 
-    selectZDisplacement = np.zeros((aderdg.numberOfQuantities(), 1))
-    selectZDisplacement[8, 0] = 1
-    selectZDisplacement = Tensor('selectZDisplacement',
-                                 selectZDisplacement.shape,
-                                 selectZDisplacement,
-                                 CSCMemoryLayout)
-
-    selectZDisplacementFromDisplacements = np.zeros((3, 1))
-    selectZDisplacementFromDisplacements[2, 0] = 1
+    selectZDisplacementFromDisplacements = np.zeros(3)
+    selectZDisplacementFromDisplacements[2] = 1
     selectZDisplacementFromDisplacements = Tensor('selectZDisplacementFromDisplacements',
                                                   selectZDisplacementFromDisplacements.shape,
                                                   selectZDisplacementFromDisplacements,
-                                                  CSCMemoryLayout)
+                                                  )
 
     aderdg.INodalDisplacement = OptionalDimTensor('INodalDisplacement',
                                                 aderdg.Q.optName(),
                                                 aderdg.Q.optSize(),
                                                 aderdg.Q.optPos(),
-                                                (aderdg.numberOf2DBasisFunctions(), 1),
+                                                (aderdg.numberOf2DBasisFunctions(),),
                                                 alignStride=True)
 
     displacement = OptionalDimTensor('displacement',
@@ -96,8 +84,9 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
                                      alignStride=True)
 
     dt = Scalar('dt')
-    displacementAvgNodal = lambda side: aderdg.INodalDisplacement['ip'] <= aderdg.db.V3mTo2nFace[side]['ij'] * aderdg.I['jk'] * selectZDisplacement['kp'] \
-                                        + dt * aderdg.db.V3mTo2nFace[side]['ij'] * displacement['jk'] * selectZDisplacementFromDisplacements['kp']
+    displacementAvgNodal = lambda side: aderdg.INodalDisplacement['i'] <= \
+                                        aderdg.db.V3mTo2nFace[side]['ij'] * aderdg.I['jk'] * selectZDisplacementFromQuantities['k'] \
+                                        + dt * aderdg.db.V3mTo2nFace[side]['ij'] * displacement['jk'] * selectZDisplacementFromDisplacements['k']
 
     generator.addFamily('displacementAvgNodal',
                         simpleParameterSpace(4),
