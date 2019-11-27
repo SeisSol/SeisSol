@@ -49,7 +49,7 @@ namespace seissol {
   namespace model {
     using Matrix99 = Eigen::Matrix<real, 9, 9>;
 
-    bool testIfElastic(real mu);
+    bool testIfAcoustic(real mu);
 
     template<typename T>
     void getTransposedElasticCoefficientMatrix(ElasticMaterial const& i_material,
@@ -92,7 +92,7 @@ void seissol::model::getTransposedElasticCoefficientMatrix(seissol::model::Elast
       o_M(7,3) = -i_material.mu;
       o_M(8,5) = -i_material.mu;
       o_M(0,6) = -rhoInv;
-      if (testIfElastic(i_material.mu)) {
+      if (!testIfAcoustic(i_material.mu)) {
         o_M(3,7) = -rhoInv;
         o_M(5,8) = -rhoInv;
       }
@@ -105,7 +105,7 @@ void seissol::model::getTransposedElasticCoefficientMatrix(seissol::model::Elast
       o_M(6,3) = -i_material.mu;
       o_M(8,4) = -i_material.mu;
       o_M(1,7) = -rhoInv;
-      if (testIfElastic(i_material.mu)) {
+      if (!testIfAcoustic(i_material.mu)) {
         o_M(3,6) = -rhoInv;
         o_M(4,8) = -rhoInv;
       }
@@ -118,7 +118,7 @@ void seissol::model::getTransposedElasticCoefficientMatrix(seissol::model::Elast
       o_M(7,4) = -i_material.mu;
       o_M(6,5) = -i_material.mu;
       o_M(2,8) = -rhoInv;
-      if (testIfElastic(i_material.mu)) {
+      if (!testIfAcoustic(i_material.mu)) {
         o_M(5,6) = -rhoInv;
         o_M(4,7) = -rhoInv;
       }
@@ -141,7 +141,12 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(const Material& materi
   }
 
   QgodLocal.setZero();
-  if (testIfElastic(material.mu)) {
+  if (testIfAcoustic(material.mu)) {
+    // Acoustic material only has one traction (=pressure) and one velocity comp.
+    // relevant to the Riemann problem
+    QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
+    QgodLocal(6, 6) = 1.0;
+  } else {
     std::array<int, 3> traction_indices = {0,3,5};
     std::array<int, 3> velocity_indices = {6,7,8};
     using Matrix33 = Eigen::Matrix<real, 3, 3>;
@@ -163,11 +168,6 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(const Material& materi
     for (auto &v : velocity_indices) {
       QgodLocal(v, v) = 1.0;
     }
-  } else {
-    // Acoustic material only has one traction (=pressure) and one velocity comp.
-    // relevant to the Riemann problem
-    QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
-    QgodLocal(6, 6) = 1.0;
   }
 }
 
@@ -183,26 +183,25 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
   // Eigenvectors are precomputed
   Matrix99 R = Matrix99::Zero();
 
-  if (testIfElastic(local.mu)) {
+  if (testIfAcoustic(local.mu)) {
+    R(0,0) = local.lambda;
+    R(1,0) = local.lambda;
+    R(2,0) = local.lambda;
+    R(6,0) = std::sqrt((local.lambda) / local.rho);
+
+    R(3,1) = 1.0;
+    R(5,2) = 1.0;
+  } else {
     R(0,0) = local.lambda + 2*local.mu;
     R(1,0) = local.lambda;
     R(2,0) = local.lambda;
-    R(6, 0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
+    R(6,0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
 
     R(3,1) = local.mu;
     R(7,1) = std::sqrt(local.mu / local.rho);
 
     R(5,2) = local.mu;
     R(8,2) = std::sqrt(local.mu / local.rho);
-
-  } else {
-    R(0,0) = local.lambda;
-    R(1,0) = local.lambda;
-    R(2,0) = local.lambda;
-    R(6,0) = std::sqrt((local.lambda + 2 * local.mu) / local.rho);
-
-    R(3,1) = 1.0;
-    R(5,2) = 1.0;
   }
 
   R(4,3) = 1;
@@ -211,7 +210,15 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
 
   R(2,5) = 1;
 
-  if (testIfElastic(neighbor.mu)) {
+  if (testIfAcoustic(neighbor.mu)) {
+    R(7,6) = 1.0;
+    R(8, 7) = 1.0;
+
+    R(0,8) = neighbor.lambda;
+    R(1,8) = neighbor.lambda;
+    R(2,8) = neighbor.lambda;
+    R(6,8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
+  } else {
     R(5,6) = neighbor.mu;
     R(8,6) = -std::sqrt(neighbor.mu / neighbor.rho);
 
@@ -219,15 +226,6 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
     R(7,7) = -std::sqrt(neighbor.mu / neighbor.rho);
 
     R(0,8) = neighbor.lambda + 2*neighbor.mu;
-    R(1,8) = neighbor.lambda;
-    R(2,8) = neighbor.lambda;
-    R(6,8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
-  } else {
-    R(7,6) = 1.0;
-
-    R(8, 7) = 1.0;
-
-    R(0,8) = neighbor.lambda;
     R(1,8) = neighbor.lambda;
     R(2,8) = neighbor.lambda;
     R(6,8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
