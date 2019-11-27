@@ -163,24 +163,14 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
     }
   }
   
-  real normalDotSlip = 0.0;
-  for (unsigned i = 0; i < 3; ++i) {
-    normalDotSlip += faultBasis[6 + i] * rotatedSlip[i];
-  }
-
-  real momentData[seissol::tensor::moment::Size];
-  kernel::momentFromSlip momentKrnl;
-  momentKrnl.mElasticTensor = cij;
-  momentKrnl.mSlip = rotatedSlip;
-  momentKrnl.mNormal = faultBasis + 6;
-  momentKrnl.mArea = A;
-  momentKrnl.moment = momentData;
-  momentKrnl.execute();
-
   kernel::sourceNRF krnl;
   krnl.Q = o_dofUpdate;
   krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
-  krnl.momentNRF = momentData;
+  krnl.mElasticTensor = cij;
+  krnl.mSlip = rotatedSlip;
+  krnl.mNormal = faultBasis + 6;
+  krnl.mArea = -A;
+  krnl.momentToNRF = init::momentToNRF::Values;
 #ifdef MULTIPLE_SIMULATIONS
   krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
 #endif

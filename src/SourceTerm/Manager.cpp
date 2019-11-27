@@ -127,10 +127,15 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   pointSources.A[index] = subfault.area;
   switch(material->getMaterialType()) {
     case seissol::model::MaterialType::anisotropic:
+      if (subfault.mu != 0) {
+        logWarning(0) << "There are specific fault parameters in the source parameter file. We use anisotropic materials. This is not compatible.";
+      }
       dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullElasticTensor(pointSources.cij[index]);
       break;
     default:
-      dynamic_cast<seissol::model::ElasticMaterial*>(material)->getFullElasticTensor(pointSources.cij[index]);
+      seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
+      em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
+      em.getFullElasticTensor(pointSources.cij[index]);
       break;
   }
  
