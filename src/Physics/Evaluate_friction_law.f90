@@ -1567,25 +1567,28 @@ MODULE Eval_friction_law_mod
          ! SV from mean slip rate in tmp
          flv = RS_f0 -(RS_b-RS_a)* LOG(tmp/RS_sr0)
          fss = RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8)**(1.0D0/8.0D0)
+         fss = max(fss,AlmostZero)
+
          SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
          LocSV=Svss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+        
+         if(SVss.ne.SVss.or.LocSV.ne.LocSV)then
+           logError(*) 'SVss or LocSV NaN'
+         endif
+
          !Mu from LocSR
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
          ! update stress change
+         if(LocMu.ne.LocMu)then
+           logError(*) 'Mu  NaN'
+         end if
          
-         if (abs(ShTest).lt.1d-5) then
-          write(*,*) 'small ShTest'
-          LocTracXY = XYStressGP(iBndGP,iTimeGP)
-          LocTracXZ = XZStressGP(iBndGP,iTimeGP)
-         else
          LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXZ = -((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
          LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(iBndGP,6,iFace)
         
-         endif
-
          !if(isnan(LocTracXY).or.isnan(LocTracXZ)) then 
          !  logError(*) 'LocTracXY=',LocTracXY
          !end if
