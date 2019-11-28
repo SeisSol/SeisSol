@@ -1398,8 +1398,13 @@ MODULE Eval_friction_law_mod
          ! SV from mean slip rate in tmp
          flv = RS_f0 -(RS_b-RS_a)* LOG(tmp/RS_sr0)
          fss = RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8)**(1.0D0/8.0D0)
+         fss = max(AlmostZero,fss)
+
          SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
+         SVss= max(AlmostZero,SVss)
          LocSV=Svss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+         LocSV=max(AlmostZero,LocSV)
+
          !Mu from LocSR
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
