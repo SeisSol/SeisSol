@@ -1329,6 +1329,11 @@ MODULE Eval_friction_law_mod
          invZ = (1.0d0/w_speed(2)/rho+1.0d0/w_speed_neig(2)/rho_neig)
 
 
+         if (isnan(ShTest)) then 
+            logError(*) 'ShTest NaN=', time 
+            ShTest=AlmostZero
+         end if
+
          DO j=1,nSVupdates   !This loop corrects SV values
              !
              !1. update SV using Vold from the previous time step
@@ -1393,6 +1398,11 @@ MODULE Eval_friction_law_mod
                STOP
             endif
          ENDIF
+
+         if (isnan(LocSR)) then
+            logError(*) 'LocSR NaN=', time
+         end if
+
          !
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
@@ -1411,18 +1421,50 @@ MODULE Eval_friction_law_mod
          ! update stress change
          ShTest=max(AlmostZero,ShTest)
 
-         LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
-         LocTracXZ = -((EQN%InitialStressInFaultCS(iBndGP,6,iFace) + XZStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
-         LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
-         LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(iBndGP,6,iFace)
+         if (isnan(P).or.isnan(ShTest)) then
+          logError(*) 'NaN=',P, ShTest
+         endif
+
+        if (isnan(EQN%InitialStressInFaultCS(iBndGP,4,iFace)).or.isnan(EQN%InitialStressInFaultCS(iBndGP,6,iFace))) then 
+            logError(*) 'InitialStress NaN=' 
+         end if
+
+       if(isnan(EQN%InitialStressInFaultCS(iBndGP,4,iFace)).or.isnan(EQN%InitialStressInFaultCS(iBndGP,6,iFace)).or.isnan( XYStressGP(iBndGP,iTimeGP)).or.isnan(XZStressGP(iBndGP,iTimeGP))) then
+            logError(*) 'XYStressGP NaN='
+
+         LocTracXY = 0.d0 
+         LocTracXZ = 0.d0
+      
+        else
+          LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
+          LocTracXY = -((EQN%InitialStressInFaultCS(iBndGP,4,iFace) + XYStressGP(iBndGP,iTimeGP))/ShTest)*LocMu*P
+          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(iBndGP,4,iFace)
+          LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(iBndGP,6,iFace)
+        end if
+
+        
+        if (isnan(LocTracXY).or.isnan(LocTracXZ)) then 
+            logError(*) 'LocTracXY NaNi 2' 
+         end if
+ 
          !
          ! Compute slip
          LocSlip   = LocSlip  + (LocSR)*time_inc ! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
          !
          !Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
+        if(isnan(XYStressGP(iBndGP,iTimeGP)).or.isnan(XZStressGP(iBndGP,iTimeGP)))then
+          LocSR1 = 0.d0
+          LocSR2 = 0.d0
+        else
          LocSR1     = -invZ*(LocTracXY-XYStressGP(iBndGP,iTimeGP))
          LocSR2     = -invZ*(LocTracXZ-XZStressGP(iBndGP,iTimeGP))
+        end if
 
+         if (isnan(LocSR1).or.isnan(LocSR2)) then 
+            logError(*) 'LocSR1 NaN=' 
+         end if
+
+ 
          !TU 07.07.16: correct LocSR1_2 to avoid numerical errors
          tmp = sqrt(LocSR1**2+LocSR2**2)
 
