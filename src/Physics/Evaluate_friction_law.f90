@@ -1570,8 +1570,10 @@ MODULE Eval_friction_law_mod
          fss = max(fss,AlmostZero)
 
          SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
+         SVss = max(SVss,AlmostZero)
          LocSV=Svss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
-        
+         LocSV=max(LocSV,AlmostZero)
+
          if(SVss.ne.SVss.or.LocSV.ne.LocSV)then
            logError(*) 'SVss or LocSV NaN'
          endif
