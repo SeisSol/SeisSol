@@ -41,11 +41,12 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
+from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import parseXMLMatrixFile
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from multSim import OptionalDimTensor
+from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
+from yateto.util import tensor_collection_from_constant_expression
 
 class ADERDGBase(ABC):
   def __init__(self, order, multipleSimulations, matricesDir):
@@ -82,6 +83,30 @@ class ADERDGBase(ABC):
     self.QgodNeighbor = Tensor('QgodNeighbor', godunov_spp.shape, spp=godunov_spp)
 
     self.oneSimToMultSim = Tensor('oneSimToMultSim', (self.Q.optSize(),), spp={(i,): '1.0' for i in range(self.Q.optSize())})
+
+    self.db.update(
+      parseJSONMatrixFile('{}/nodal/nodalBoundary_matrices_{}.json'.format(matricesDir,
+                                                                           self.order),
+                          {},
+                          alignStride=self.alignStride,
+                          transpose=self.transpose,
+                          namespace='nodal')
+    )
+
+    self.INodal = OptionalDimTensor('INodal',
+                                    's',
+                                    False, #multipleSimulations,
+                                    0,
+                                    (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
+                                    alignStride=True)
+
+    project2nFaceTo3m = tensor_collection_from_constant_expression(
+      base_name='project2nFaceTo3m',
+      expressions=lambda i: self.db.rDivM[i]['jk'] * self.db.V2nTo2m['kl'],
+      group_indices=range(4),
+      target_indices='jl')
+
+    self.db.update(project2nFaceTo3m)
 
   def numberOf2DBasisFunctions(self):
     return self.order*(self.order+1)//2
@@ -152,6 +177,10 @@ class ADERDGBase(ABC):
   def addTime(self, generator):
     pass
 
+  def add_include_tensors(self, include_tensors):
+      pass
+
+
 class LinearADERDG(ADERDGBase):
   def sourceMatrix(self):
     return None
@@ -185,6 +214,10 @@ class LinearADERDG(ADERDGBase):
     localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
     generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
 
+    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
+    localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+    generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
+
   def addNeighbor(self, generator):
     neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
     neighbourFluxPrefetch = lambda h,j,i: self.I
@@ -208,3 +241,8 @@ class LinearADERDG(ADERDGBase):
       generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
       generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
       derivatives.append(dQ)
+
+  def add_include_tensors(self, include_tensors):
+    super().add_include_tensors(include_tensors)
+    include_tensors.add(self.db.nodes2D)
+

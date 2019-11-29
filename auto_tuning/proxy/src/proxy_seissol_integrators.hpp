@@ -74,9 +74,13 @@ void computeLocalWithoutAderIntegration() {
 #endif
   for( unsigned int l_cell = 0; l_cell < nrOfCells; l_cell++ ) {
     auto data = loader.entry(l_cell);
-    m_localKernel.computeIntegral(  buffers[l_cell],
-                                    data,
-                                    tmp );
+    m_localKernel.computeIntegral(buffers[l_cell],
+                                  data,
+                                  tmp,
+                                  nullptr,
+                                  nullptr,
+                                  0,
+                                  0);
   }
 #ifdef _OPENMP
   }
@@ -105,10 +109,13 @@ void computeLocalIntegration() {
                                            tmp,
                                            buffers[l_cell],
                                            derivatives[l_cell] );
-
-    m_localKernel.computeIntegral(         buffers[l_cell],
-                                           data,
-                                           tmp );
+    m_localKernel.computeIntegral(buffers[l_cell],
+                                  data,
+                                  tmp,
+                                  nullptr,
+                                  nullptr,
+                                  0,
+                                  0);
   }
 #ifdef _OPENMP
   }
@@ -156,13 +163,17 @@ void computeNeighboringIntegration() {
 
 #ifdef ENABLE_MATRIX_PREFETCH
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != dynamicRupture) ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
-    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != dynamicRupture) ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
-    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != dynamicRupture) ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
+    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture)
+        ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
+    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture)
+        ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
+    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture)
+        ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
 
     // fourth face's prefetches
     if (l_cell < (nrOfCells-1) ) {
-      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != dynamicRupture) ? faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
+      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
+          faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
     } else {
       l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
     }
