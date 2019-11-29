@@ -132,6 +132,13 @@ endif()
 
 # Libs
 find_package(yaml-cpp REQUIRED)
+target_link_libraries(SeisSol-lib PUBLIC yaml-cpp)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ImpalaJIT REQUIRED impalajit)
+target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LIBRARIES})
+target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
+
 
 find_package(Eigen3) # maybe enfore 3.3?
 if (EIGEN3_FOUND)
@@ -141,10 +148,7 @@ else()
 endif()
 
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(ImpalaJIT REQUIRED impalajit)
-target_link_libraries(SeisSol-lib PUBLIC ImpalaJIT_LIBRARIES)
-target_include_directories(SeisSol-lib PUBLIC ImpalaJIT_INCLUDE_DIRS)
+
 
 
 # todo: if parallelization == omp/hybrid

@@ -30,7 +30,7 @@ set(ARCH_ALIGNMENT   16  16  32  32  64  64  64)  # size of a vector registers i
 set_property(CACHE ARCH PROPERTY STRINGS ${ARCH_OPTIONS})
 
 
-set(PRECISION "double" CACHE STRING "type of floating point representation")
+set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/float")
 set(PRECISION_OPTIONS double float)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
 
@@ -49,7 +49,7 @@ set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
 
-set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file of a specific memory layout file or auto")
+set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
 
 
 option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
@@ -60,7 +60,6 @@ set(LOG_LEVEL_OPTIONS "DEBUG" "INFO" "WARNING" "ERROR")
 set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
 
 
-# debugging: relevant for gpu porting
 set(ACCELERATOR_TYPE "NONE" CACHE STRING "type of accelerator")
 set(ACCELERATOR_TYPE_OPTIONS NONE GPU)
 set_property(CACHE ACCELERATOR_TYPE PROPERTY STRINGS ${ACCELERATOR_TYPE_OPTIONS})

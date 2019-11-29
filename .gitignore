@@ -52,8 +52,6 @@ Documentation/_build/*
 preprocessing/meshing/cube_c/build
 preprocessing/science/asagiconv/build
 postprocessing/validation/XDMFCubeCheck/build
-cmake-build-debug
-_build
 
 # Python
 *.py[cod]
