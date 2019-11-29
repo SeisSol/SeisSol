@@ -91,6 +91,7 @@ cmdArgsDict['memLayout'] = mem_layout
 args = [cmdArgsDict[key] for key in adgArgs]
 adg = equations.ADERDG(*args)
 
+include_tensors = set()
 g = Generator(arch)
 
 # Equation-specific kernels
@@ -100,11 +101,11 @@ adg.addNeighbor(g)
 adg.addTime(g)
 
 # Common kernels
-DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
+include_tensors |= DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod)
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
 SurfaceDisplacement.addKernels(g, adg)
 Point.addKernels(g, adg)
 
 # Generate code
 gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
-g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools)
+g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools, include_tensors=include_tensors)

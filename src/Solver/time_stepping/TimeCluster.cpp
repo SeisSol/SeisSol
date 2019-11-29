@@ -231,28 +231,32 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
   real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
-  real                                (*godunov)[CONVERGENCE_ORDER][tensor::godunovState::size()]         = layerData.var(m_dynRup->godunov);
-  real                                (*imposedStatePlus)[tensor::godunovState::size()]                   = layerData.var(m_dynRup->imposedStatePlus);
-  real                                (*imposedStateMinus)[tensor::godunovState::size()]                  = layerData.var(m_dynRup->imposedStateMinus);
+  real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
+  real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
 
+  alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
+  #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
-    m_dynamicRuptureKernel.computeGodunovState( faceInformation[face],
-                                                m_globalData,
-                                               &godunovData[face],
-                                                timeDerivativePlus[face],
-                                                timeDerivativeMinus[face],
-                                                godunov[face],
-                                                timeDerivativePlus[prefetchFace],
-                                                timeDerivativeMinus[prefetchFace] );
+    m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
+                                                    m_globalData,
+                                                   &godunovData[face],
+                                                    timeDerivativePlus[face],
+                                                    timeDerivativeMinus[face],
+                                                    QInterpolatedPlus,
+                                                    QInterpolatedMinus,
+                                                    timeDerivativePlus[prefetchFace],
+                                                    timeDerivativeMinus[prefetchFace] );
 
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
-                                            godunov[face],
+                                            QInterpolatedPlus,
+                                            QInterpolatedMinus,
                                             imposedStatePlus[face],
                                             imposedStateMinus[face],
                                             m_fullUpdateTime,

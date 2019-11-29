@@ -40,52 +40,39 @@ With ddddd the same port number as before.
    ssh-keygen -t rsa 
 
 5. Go to https://github.com/settings/ssh, add a new SSH key, pasting the public key you just created on supermuc  ~/.ssh/id_rsa.pub. 
-Logout of supermuc and log back in (ssh supermucNG). You should now be able to clone SeisSol using:
+Logout of supermuc and log back in (ssh supermucNG). You should now be able to clone SeisSol including the submodules using:
 
 
 ::
 
-  git clone git@github.com:SeisSol/SeisSol.git  
-
+  git clone git@github.com:SeisSol/SeisSol.git
+  cd SeisSol
+  git submodule update --init
 
 Pay attention to the git clone address ('https://github.com/' replaced by 'git@github.com:'). 
 If it works, you will see several lines of ‘cloning ….’.
 
 
-Now for initializing the submodule folder, copy the following to fix_submodules.sh and run it within SeisSol.
-
-.. code-block:: bash
-
-  #!/bin/bash                                                                                                            
-  git submodule init
-  for module_full in `git config -l | awk -F"=" {'print $1'} | grep submodule ` ;
-  do
-   echo $module_full
-   module=$(git config ${module_full} | sed "s/.*github\.com\///")
-   if [ "$module" != "true" ]; then
-      echo $module
-      echo "git config ${module_full} git@github.com:${module}"
-      git config ${module_full} git@github.com:${module}
-   fi
-  done
-  git submodule update
- 
-
 Supermuc-NG
 ===========
 
-1. git clone git@github.com:SeisSol/SeisSol.git  
+1. clone SeisSol including the submodules using 
+
+::
+
+  git clone git@github.com:SeisSol/SeisSol.git
+  cd SeisSol
+  git submodule update --init
+ 
 
 2. Load module. Could add these lines to .bashrc:
 
 ::
 
   ##### module load for SeisSol
-  module load scons cmake/3.6 python/2.7_intel slurm_setup
+  module load scons cmake/3.6 python/3.6_intel slurm_setup
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
-  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel hdf5/1.8.20-intel-impi
-  module switch spack/staging/19.1 spack/master
-  module switch devEnv/Intel devEnv/Intel/2019
+  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel hdf5/1.8.20-intel-impi-threadsafe
   module load libszip/2.1.1
 
   ####### universal setup for SeisSol
@@ -106,7 +93,23 @@ Supermuc-NG
 | See :ref:`installing_libxsmm` and :ref:`installing_ASAGI`. 
 | Note that on project pr63qo, we already installed and shared these library (no need to install).
 | The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
-| If you need to compile ASAGI, note that you need to run fix_submodules.sh to get submodules/utils cloned.
+| If you need to compile ASAGI, copy the following to fix_submodules.sh and run it within ASAGI to get submodules/utils cloned.
+
+.. code-block:: bash
+
+  #!/bin/bash                                                                                                            
+  git submodule init
+  for module_full in `git config -l | awk -F"=" {'print $1'} | grep submodule ` ;
+  do
+   echo $module_full
+   module=$(git config ${module_full} | sed "s/.*github\.com\///")
+   if [ "$module" != "true" ]; then
+      echo $module
+      echo "git config ${module_full} git@github.com:${module}"
+      git config ${module_full} git@github.com:${module}
+   fi
+  done
+  git submodule update
 
 set compiler options:
 
@@ -207,7 +210,6 @@ set compiler options:
   #Number of nodes and MPI tasks per node:
   #SBATCH --nodes=40
   #SBATCH --ntasks-per-node=1
-  #SBATCH --cpus-per-task=96
   module load slurm_setup
   #Run the program:
   export MP_SINGLE_THREAD=no

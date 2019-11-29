@@ -59,8 +59,11 @@ class Candidate(object):
   def score(self, reqs):
     sc = 0
     for key,val in reqs.items():
-      if key in self.atts and val == self.atts[key]:
-        sc += 2**self.IMPORTANCE[key]
+      if key in self.atts:
+        if val == self.atts[key]:
+          sc += 2**self.IMPORTANCE[key]
+        else: # requirement not satisifed
+          return 0
     return sc
 
   def __repr__(self):

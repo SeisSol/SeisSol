@@ -730,7 +730,7 @@ CONTAINS
     DISC%DynRup%DynRup_out_elementwise%refinement = refinement                 ! read info of desired refinement level : default 0
 
     !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
-    IF (OutputMask(11).GE.1) THEN
+    IF (OutputMask(11).EQ.1) THEN
         SELECT CASE (EQN%FL)
                CASE(2,6,13,16,103) !LSW friction law cases
                     !use only if RF_output=1
@@ -925,7 +925,7 @@ CONTAINS
                                               Mu_SNuc_ini, H_Length, RS_f0, &
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
                                               RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
-                                              TP_hwid, alpha_th, alpha_hy, rho_c, TP_lambda, IniTemp, IniPressure, &
+                                              alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                               NucRS_sv0, r_s, energy_rate_printtimeinterval
 
     !------------------------------------------------------------------------
@@ -934,7 +934,7 @@ CONTAINS
                                                 GPwise, inst_healing, &
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
                                                 RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, v_star, &
-                                                thermalPress, TP_hwid, alpha_th, alpha_hy, rho_c, TP_lambda, IniTemp, IniPressure, &
+                                                thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                                 L, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
                                                 SlipRateOutputType, ModelFileName
@@ -949,7 +949,7 @@ CONTAINS
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
-    SlipRateOutputType = 0
+    SlipRateOutputType = 1
     RS_sv0 = 0
     XRef = 0
     YRef = 0
@@ -971,9 +971,7 @@ CONTAINS
     NucRS_sv0 = 0
     r_s = 0
     thermalPress = 0
-    TP_hwid = 0.1 
     alpha_th = 0
-    alpha_hy = 0
     rho_c = 0
     TP_lambda = 0
     IniTemp = 0.0d0 
@@ -1045,19 +1043,16 @@ CONTAINS
              DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
              IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
                  logInfo0(*) 'Thermal pressurization assumed'
-                 !pyhsical
-                 DISC%DynRup%TP_hwid = TP_hwid
+                 !physical
                  DISC%DynRup%alpha_th = alpha_th
-                 DISC%DynRup%alpha_hy = alpha_hy
                  DISC%DynRup%rho_c = rho_c
                  DISC%DynRup%TP_lambda = TP_lambda
                  EQN%Temp_0 = IniTemp
                  EQN%Pressure_0 = IniPressure
                  !numerical, currently fixed like that but requires further testing
-                 DISC%DynRup%TP_dlDwn = 0.3
-                 DISC%DynRup%TP_Dwnmax = 10.0
-                 DISC%DynRup%TP_nz = 60
-                 logInfo0(*) 'Temp', EQN%Temp_0
+                 DISC%DynRup%TP_log_dz = 0.3
+                 DISC%DynRup%TP_max_wavenumber = 10.0
+                 DISC%DynRup%TP_grid_nz = 60
              ENDIF
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
