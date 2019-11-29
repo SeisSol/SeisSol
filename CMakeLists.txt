@@ -11,15 +11,15 @@ message(WARNING "We do not provide support for CMake currently. Please use scons
 #       user's input: ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
 #                     ARCH, PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
-#                     MEMEORY_LAYOUT, COMMTHREAD, LOG_LEVEL,
+#                     MEMORY_LAYOUT, COMMTHREAD, LOG_LEVEL,
 #                     ACCELERATOR_TYPE
 #
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES
 #
 include(cmake/process_users_input.cmake)
-set(HARDWARE_SPECIFIC_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
-                                  "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
-                                  "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
+set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
+                         "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
+                         "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
 
 
 # TODO: Move one dir up.
@@ -61,7 +61,7 @@ add_custom_command(
      "--arch" ${ARCH_STRING}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-     "--memLayout" ${MEMEORY_LAYOUT}
+     "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--dynamicRuptureMethod" ${DYNAMIC_RUPTURE_METHOD}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
@@ -105,14 +105,14 @@ endif()
 
 # Find appropriate compiler flags based on the target computer architecture
 # and the target compiler
-# 'get_arch_specific_flags' returns: CPU_ARCH_SPECIFIC_FLAGS
+# 'get_arch_specific_flags' returns: CPU_ARCH_FLAGS
 include(cmake/cpu_arch_flags.cmake)
-get_arch_specific_flags(${ARCH} ${CMAKE_CXX_COMPILER_ID})
+get_arch_flags(${ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 
 # set hardware/compiler specific definitions and flags
-target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_SPECIFIC_DEFINITIONS})
-target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_SPECIFIC_FLAGS})
+target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_DEFINITIONS})
+target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_FLAGS})
 
 
 if (LOG_LEVEL STREQUAL "DEBUG")
@@ -140,14 +140,11 @@ if (EIGEN3_FOUND)
 else()
 endif()
 
-# TODO: Write export for impalaJIT
-#target_link_libraries(SeisSol-lib PUBLIC yaml-cpp
-				  #${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/libimpalajit.a 
-				  #)
 
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT)
-target_link_libraries(SeisSol-lib PUBLIC yaml-cpp impalajit-static)
-
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ImpalaJIT REQUIRED impalajit)
+target_link_libraries(SeisSol-lib PUBLIC ImpalaJIT_LIBRARIES)
+target_include_directories(SeisSol-lib PUBLIC ImpalaJIT_INCLUDE_DIRS)
 
 
 # todo: if parallelization == omp/hybrid
@@ -201,7 +198,6 @@ endif()
 
 if (ASAGI)
   # todo warn if netcdf is off
-  find_package(PkgConfig REQUIRED)
   pkg_check_modules(ASAGI REQUIRED asagi) # asagi_nompi?
   target_compile_definitions(SeisSol-lib PUBLIC USE_ASAGI)
   target_link_libraries(SeisSol-lib PUBLIC ${ASAGI_STATIC_LDFLAGS})
@@ -216,7 +212,6 @@ target_include_directories(SeisSol-lib PUBLIC
 				   # todo: use reexport from easi?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yaml-cpp/include
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
@@ -257,7 +252,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -qopenmp")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
   # only if openmp
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")

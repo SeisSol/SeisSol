@@ -1,4 +1,3 @@
-
 # Library settings:
 option(HDF5 "Use HDF5 library for data output" ON)
 option(NETCDF "Use netcdf library for mesh input" ON)
@@ -15,6 +14,7 @@ option(MEMKIND "Use memkind library for hbw memory support" OFF)
 set(ORDER 6 CACHE STRING "Convergence order")  # must be INT type, by cmake-3.16 accepts only STRING
 set(ORDER_OPTIONS 2 3 4 5 6 7 8)
 set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
+
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
@@ -49,7 +49,7 @@ set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
 
-set(MEMEORY_LAYOUT "auto" CACHE FILEPATH "A file of a specific memory layout file or autoconfig")
+set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file of a specific memory layout file or auto")
 
 
 option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
@@ -66,7 +66,6 @@ set(ACCELERATOR_TYPE_OPTIONS NONE GPU)
 set_property(CACHE ACCELERATOR_TYPE PROPERTY STRINGS ${ACCELERATOR_TYPE_OPTIONS})
 
 
-
 #-------------------------------------------------------------------------------
 # ------------------------------- ERROR CHECKING -------------------------------
 #-------------------------------------------------------------------------------
@@ -80,6 +79,7 @@ function(check_parameter parameter_name value options)
     endif()
 
 endfunction()
+
 
 check_parameter("ORDER" ${ORDER} "${ORDER_OPTIONS}")
 check_parameter("ARCH" ${ARCH} "${ARCH_OPTIONS}")
@@ -114,7 +114,6 @@ list(FIND ARCH_OPTIONS ${ARCH} INDEX)
 list(GET ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
 
 
-
 # check NUMBER_OF_FUSED_SIMULATIONS
 math(EXPR IS_ALIGNED_MULT_SIMULATIONS 
         "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
@@ -127,10 +126,8 @@ endif()
 #-------------------------------------------------------------------------------
 # ------------------------ COMPUTE ADDITIONAL PARAMETERS -----------------------
 #-------------------------------------------------------------------------------
-
 # PDE-Settings
 MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
-
 
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)
@@ -139,5 +136,3 @@ if (${PRECISION} STREQUAL "double")
 elseif(${PRECISION} STREQUAL "float")
     set(ARCH_STRING "s${ARCH}")
 endif()
-
-
