@@ -21,7 +21,6 @@ set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
                          "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
                          "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
 
-
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
@@ -34,7 +33,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug)
   message(STATUS "Set build type to Debug a none was supplied.")
 endif()
-
 
 find_package(Git QUIET)
 # Generate version.h
@@ -91,7 +89,6 @@ add_custom_command(
        COMMENT "Codegen for tensor stuff."
        )
 
-
 if (PLASTICITY)
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
 endif()
@@ -102,18 +99,15 @@ elseif ("${PlasticityMethod}" STREQUAL "nb")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
 endif()
 
-
 # Find appropriate compiler flags based on the target computer architecture
 # and the target compiler
 # 'get_arch_specific_flags' returns: CPU_ARCH_FLAGS
 include(cmake/cpu_arch_flags.cmake)
 get_arch_flags(${ARCH} ${CMAKE_CXX_COMPILER_ID})
 
-
 # set hardware/compiler specific definitions and flags
 target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_DEFINITIONS})
 target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_FLAGS})
-
 
 if (LOG_LEVEL STREQUAL "DEBUG")
   target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=3 LOG_LEVEL=3 LOGLEVEL0=3)
@@ -139,17 +133,12 @@ pkg_check_modules(ImpalaJIT REQUIRED impalajit)
 target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LIBRARIES})
 target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
 
-
 find_package(Eigen3) # maybe enfore 3.3?
 if (EIGEN3_FOUND)
   target_include_directories(SeisSol-lib PUBLIC ${EIGEN3_INCLUDE_DIR})
   target_compile_definitions(SeisSol-lib PUBLIC HAS_EIGEN3)
 else()
 endif()
-
-
-
-
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
@@ -268,7 +257,6 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "CRAY")
   # TODO: Cray
 endif()
-
 
 # Generated code does only work without red-zone.
 set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
