@@ -90,7 +90,7 @@ CONTAINS
 
     ! Full list of possible variable names
     VName = (/'SRs','SRd','T_s','T_d','P_n','u_n','Mud','StV','Ts0','Td0','Pn0', &
-              'Sls','Sld','Vr','ASI','PSR','RT','DS','P_f','Tmp'/)
+              'Sls','Sld','Vr ','ASI','PSR','RT ','DS ','P_f','Tmp'/)
 
     ! Prepare second header line
     VariableList = TRIM('VARIABLES = "Time"')
