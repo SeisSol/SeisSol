@@ -33,7 +33,7 @@ This output is parametrized by the Elementwise namelist, example:
   &Elementwise
   printIntervalCriterion = 2 ! 1=iteration, 2=time
   printtimeinterval_sec = 1.0
-  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 !described herafter
+  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   refinement_strategy = 1 ! or 2
   refinement = 1
   /
@@ -77,6 +77,7 @@ iOutputMask array.
 9. **PSR**: peak slip rate
 10. **RT**: rupture time
 11. **DS**: only with LSW, time at which ASl>D_c
+12. **P_f** and **Tmp**: pore pressure and temperature
 
 Ascii fault receivers
 ---------------------
@@ -87,7 +88,7 @@ The output is parametrized by the Pickpoint namelist, example:
 
   &Pickpoint
   printtimeinterval = 1
-  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 !described herafter
+  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   nOutpoints = 24
   PPFileName = 'fault_receivers.dat'
   /
