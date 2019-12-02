@@ -58,13 +58,17 @@ class seissol::kernels::Local : public LocalBase {
   public:
     void setGlobalData(GlobalData const* global);
 
-    void computeIntegral( real       i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                          LocalData& data,
-                          LocalTmp&  tmp );
+    void computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                         LocalData& data,
+                         LocalTmp& tmp,
+                         const CellMaterialData* materialData,
+                         CellBoundaryMapping const (*cellBoundaryMapping)[4],
+                         double time,
+                         double timeStepWidth);
 
-    void flopsIntegral( enum faceType const i_faceTypes[4],
-                        unsigned int        &o_nonZeroFlops,
-                        unsigned int        &o_hardwareFlops );
+    void flopsIntegral(FaceType const i_faceTypes[4],
+                       unsigned int &o_nonZeroFlops,
+                       unsigned int &o_hardwareFlops );
                         
     unsigned bytesIntegral();
 };

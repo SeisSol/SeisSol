@@ -38,3 +38,9 @@
  **/
  
 #include <Model/common.hpp>
+#include <cmath>
+#include <iostream>
+
+bool seissol::model::testIfAcoustic(real mu) {
+  return std::abs(mu) <= std::numeric_limits<real>::epsilon();
+}

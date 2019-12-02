@@ -72,14 +72,14 @@ namespace seissol {
        * @param i_integrationBuffer memory where the time integration goes if derived from derivatives. Ensure thread safety!
        * @param o_timeIntegrated pointers to the time integrated DOFs of the four neighboring cells (either local integration buffer or integration buffer of input).
        **/
-      void computeIntegrals(  Time&                             i_time,
-                              unsigned short                    i_ltsSetup,
-                              const enum faceType               i_faceTypes[4],
-                              const double                      i_currentTime[5],
-                              double                            i_timeStepWidth,
-                              real * const                      i_timeDofs[4],
-                              real                              o_integrationBuffer[4][tensor::I::size()],
-                              real *                            o_timeIntegrated[4] );
+      void computeIntegrals(Time& i_time,
+                            unsigned short i_ltsSetup,
+                            const FaceType i_faceTypes[4],
+                            const double i_currentTime[5],
+                            double i_timeStepWidth,
+                            real * const i_timeDofs[4],
+                            real o_integrationBuffer[4][tensor::I::size()],
+                            real * o_timeIntegrated[4]);
 
       /**
        * Special case of the computeIntegrals function, which assumes a common "current time" for all face neighbors which provide derivatives.
@@ -92,14 +92,14 @@ namespace seissol {
        * @param i_integrationBuffer memory where the time integration goes if derived from derivatives. Ensure thread safety!
        * @param o_timeIntegrated pointers to the time integrated DOFs of the four neighboring cells (either local integration buffer or integration buffer of input).
        **/
-      void computeIntegrals(  Time&                             i_time,
-                              unsigned short                    i_ltsSetup,
-                              const enum faceType               i_faceTypes[4],
-                              const double                      i_timeStepStart,
-                              const double                      i_timeStepWidth,
-                              real * const                      i_timeDofs[4],
-                              real                              o_integrationBuffer[4][tensor::I::size()],
-                              real *                            o_timeIntegrated[4] );
+      void computeIntegrals(Time& i_time,
+                            unsigned short i_ltsSetup,
+                            const FaceType i_faceTypes[4],
+                            const double i_timeStepStart,
+                            const double i_timeStepWidth,
+                            real * const i_timeDofs[4],
+                            real o_integrationBuffer[4][tensor::I::size()],
+                            real * o_timeIntegrated[4]);
     }
   }
 }
