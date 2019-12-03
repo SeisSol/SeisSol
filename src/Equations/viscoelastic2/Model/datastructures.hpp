@@ -60,7 +60,7 @@ namespace seissol {
 
       virtual ~ViscoElasticMaterial() {};
 
-      MaterialType getMaterialType() const {
+      MaterialType getMaterialType() const override {
         return MaterialType::viscoelastic;
       }
     };
@@ -68,7 +68,7 @@ namespace seissol {
     struct ViscoPlasticMaterial : ViscoElasticMaterial, Plasticity {
       virtual ~ViscoPlasticMaterial() {};
 
-      MaterialType getMaterialType() const {
+      MaterialType getMaterialType() const final {
         return MaterialType::viscoplastic;
       }
     };

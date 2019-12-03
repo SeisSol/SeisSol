@@ -54,13 +54,14 @@ namespace seissol {
       none
     };
 
+    //could be made abstract, as soon as the LTS-Tree supports polymorphism 
     struct Material {
       double rho;
-      virtual double getMaxWaveSpeed() { return 0; };
-      virtual double getPWaveSpeed() { return 0; };
-      virtual double getSWaveSpeed() { return 0; };
-      virtual void getFullElasticTensor(real fullTensor[81]) {}; 
-      virtual MaterialType getMaterialType() const { return MaterialType::none; };
+      virtual double getMaxWaveSpeed() const { return 0; };
+      virtual double getPWaveSpeed() const { return 0; };
+      virtual double getSWaveSpeed() const { return 0; };
+      virtual void getFullElasticTensor(real fullTensor[81]) const {}; 
+      virtual MaterialType getMaterialType() const { return MaterialType::none; } ;
       virtual ~Material() {};
     };
 

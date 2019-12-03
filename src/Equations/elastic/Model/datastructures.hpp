@@ -53,7 +53,7 @@ namespace seissol {
 
       virtual ~ElasticMaterial() {};
 
-      void getFullElasticTensor(real fullTensor[81]) {
+      void getFullElasticTensor(real fullTensor[81]) const final {
 
         auto elasticTensorView = init::mElasticTensor::view::create(fullTensor);
         elasticTensorView(0,0,0,0) = lambda + 2*mu;
@@ -139,26 +139,26 @@ namespace seissol {
         elasticTensorView(2,2,2,2) = lambda + 2*mu;
       }
 
-      double getMaxWaveSpeed() {
+      double getMaxWaveSpeed() const final {
         return getPWaveSpeed();
       }
 
-      double getPWaveSpeed() {
+      double getPWaveSpeed() const final {
         return std::sqrt((lambda + 2*mu) / rho);
       }
 
-      double getSWaveSpeed() {
+      double getSWaveSpeed() const final {
         return std::sqrt(mu / rho);
       }
 
-      MaterialType getMaterialType() const {
+      MaterialType getMaterialType() const override{
         return MaterialType::elastic;
       }
     };
 
     struct ElastoPlasticMaterial : ElasticMaterial, Plasticity {
       virtual ~ElastoPlasticMaterial() {};
-      MaterialType getMaterialType() const {
+      MaterialType getMaterialType() const final {
         return MaterialType::elastoplastic;
       }
     };

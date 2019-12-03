@@ -103,7 +103,7 @@ namespace seissol {
       virtual ~AnisotropicMaterial() {};
 
       
-      void getFullElasticTensor(real fullTensor[81]) {
+      void getFullElasticTensor(real fullTensor[81]) const final {
         fullTensor[0]  = static_cast<real>(c11);
         fullTensor[1]  = static_cast<real>(c16);
         fullTensor[2]  = static_cast<real>(c15);
@@ -187,7 +187,7 @@ namespace seissol {
         fullTensor[80] = static_cast<real>(c33);
       }
 
-      double getMaxWaveSpeed() {
+      double getMaxWaveSpeed() const final{
 #ifdef USE_ANISOTROPIC
         double samplingDirectionsData[seissol::tensor::samplingDirections::Size];
         std::copy_n(init::samplingDirections::Values,
@@ -227,13 +227,13 @@ namespace seissol {
 #endif
       }
 
-      double getPWaveSpeed() {
+      double getPWaveSpeed() const final {
         double muBar = (c44 + c55 + c66) / 3.0;
         double lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0*muBar;
         return std::sqrt((lambdaBar + 2*muBar) / rho);
       }
 
-      double getSWaveSpeed() {
+      double getSWaveSpeed() const final {
         double muBar = (c44 + c55 + c66) / 3.0;
         return std::sqrt(muBar / rho);
       }
