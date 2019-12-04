@@ -140,31 +140,9 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 
       seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
       
-      switch (material[cell].local.getMaterialType()) {
-        case seissol::model::MaterialType::anisotropic: {
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local), 0, AT );
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local), 1, BT );
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local), 2, CT );
-          break;
-        }
-        case seissol::model::MaterialType::elastic:
-        case seissol::model::MaterialType::elastoplastic: {
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ElasticMaterial*>(&material[cell].local), 0, AT );
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ElasticMaterial*>(&material[cell].local), 1, BT );
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ElasticMaterial*>(&material[cell].local), 2, CT );
-          break;
-        }
-        case seissol::model::MaterialType::viscoelastic:
-        case seissol::model::MaterialType::viscoplastic: {
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&material[cell].local), 0, AT );
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&material[cell].local), 1, BT );
-          seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&material[cell].local), 2, CT );
-          break;
-        }
-        case seissol::model::MaterialType::none: {
-          break;
-        }
-      }
+      seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, AT );
+      seissol::model::getTransposedCoefficientMatrix( material[cell].local, 1, BT );
+      seissol::model::getTransposedCoefficientMatrix( material[cell].local, 2, CT );
       setStarMatrix(ATData, BTData, CTData, gradXi, localIntegration[cell].starMatrices[0]);
       setStarMatrix(ATData, BTData, CTData, gradEta, localIntegration[cell].starMatrices[1]);
       setStarMatrix(ATData, BTData, CTData, gradZeta, localIntegration[cell].starMatrices[2]);
@@ -187,34 +165,24 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
         switch (material[cell].local.getMaterialType()) {
           case seissol::model::MaterialType::anisotropic: {
-            seissol::model::AnisotropicMaterial rotatedLocalMaterial = seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local));
-            seissol::model::AnisotropicMaterial rotatedNeighborMaterial = seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side]));
-            seissol::model::getTransposedGodunovState(  rotatedLocalMaterial,
-                                                        rotatedNeighborMaterial, 
+            seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)),
+                                                        seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side])),
                                                         cellInformation[cell].faceTypes[side],
                                                         QgodLocal,
                                                         QgodNeighbor );
-            seissol::model::getTransposedCoefficientMatrix( rotatedLocalMaterial, 0, AT_tilde );
+            seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, AT_tilde );
             break;
           }
           case seissol::model::MaterialType::elastic:
-          case seissol::model::MaterialType::elastoplastic: {
-            seissol::model::getTransposedGodunovState(  *dynamic_cast<seissol::model::ElasticMaterial*>(&material[cell].local),
-                                                        *dynamic_cast<seissol::model::ElasticMaterial*>(&material[cell].neighbor[side]),     
-                                                        cellInformation[cell].faceTypes[side],
-                                                        QgodLocal,
-                                                        QgodNeighbor );
-            seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ElasticMaterial*>(&material[cell].local), 0, AT_tilde );
-            break;
-          }
+          case seissol::model::MaterialType::elastoplastic: 
           case seissol::model::MaterialType::viscoelastic:
           case seissol::model::MaterialType::viscoplastic: {
-            seissol::model::getTransposedGodunovState(  *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&material[cell].local),
-                                                        *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&material[cell].neighbor[side]),     
+            seissol::model::getTransposedGodunovState(  material[cell].local,
+                                                        material[cell].neighbor[side],     
                                                         cellInformation[cell].faceTypes[side],
                                                         QgodLocal,
                                                         QgodNeighbor );
-            seissol::model::getTransposedCoefficientMatrix( *dynamic_cast<seissol::model::ViscoElasticMaterial*>(&material[cell].local), 0, AT_tilde );
+            seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, AT_tilde );
             break;
           }
           case seissol::model::MaterialType::none: {
@@ -430,6 +398,10 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       
       waveSpeedsPlus[ltsFace].density = plusMaterial->rho;
       waveSpeedsMinus[ltsFace].density = minusMaterial->rho;
+      waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial->getPWaveSpeed();
+      waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
+      waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
+      waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::anisotropic: {
@@ -440,20 +412,12 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
         case seissol::model::MaterialType::elastoplastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
-          waveSpeedsPlus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial)->getPWaveSpeed();
-          waveSpeedsPlus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial)->getSWaveSpeed();
-          waveSpeedsMinus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial)->getPWaveSpeed();
-          waveSpeedsMinus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial)->getSWaveSpeed();
           break;
         }
         case seissol::model::MaterialType::viscoelastic:
         case seissol::model::MaterialType::viscoplastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
-          waveSpeedsPlus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial)->getPWaveSpeed();
-          waveSpeedsPlus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial)->getSWaveSpeed();
-          waveSpeedsMinus[ltsFace].pWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial)->getPWaveSpeed();
-          waveSpeedsMinus[ltsFace].sWaveVelocity = dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial)->getSWaveSpeed();
           break;
         }
         case seissol::model::MaterialType::none: {
