@@ -101,6 +101,7 @@ add_custom_command(
        generated_code/viscoelastic2.py
        generated_code/anisotropic.py
        generated_code/SurfaceDisplacement.py
+       generated_code/NodalBoundaryConditions.py
     OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
@@ -203,12 +204,7 @@ endif()
 # Libs
 find_package(yaml-cpp REQUIRED)
 
-find_package(Eigen3) # maybe enfore 3.3?
-if (EIGEN3_FOUND)
-  target_include_directories(SeisSol-lib PUBLIC ${EIGEN3_INCLUDE_DIR})
-  target_compile_definitions(SeisSol-lib PUBLIC HAS_EIGEN3)
-else()
-endif()
+# In the future, we should maybe use find_package(Eigen3).
 
 # TODO: Write export for impalaJIT
 target_link_libraries(SeisSol-lib PUBLIC yaml-cpp
@@ -283,6 +279,7 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yaml-cpp/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/ImpalaJIT/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
@@ -302,7 +299,7 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   HOST_NAME_MAX=100 # wtf?
 				   )
 
-# Fortran compliler settings				 
+# Fortran compliler settings
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -fdefault-real-8 -fopenmp")

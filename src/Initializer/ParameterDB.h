@@ -41,23 +41,29 @@
 #ifndef INITIALIZER_PARAMETERDB_H_
 #define INITIALIZER_PARAMETERDB_H_
 
-#include <string>
-#include <Geometry/MeshReader.h>
-#include <easi/Query.h>
-#include <set>
-#include <easi/ResultAdapter.h>
-#include <Model/common_datastructures.hpp>
-#include <Equations/anisotropic/Model/datastructures.hpp>
-#include <Equations/elastic/Model/datastructures.hpp>
-#include <Equations/viscoelastic2/Model/datastructures.hpp>
-#include <Initializer/typedefs.hpp>
+#include "memory"
+#include "string"
+#include "unordered_map"
+#include "set"
+
+#include "Geometry/MeshReader.h"
+#include "Kernels/precision.hpp"
+#include "Initializer/typedefs.hpp"
+
+#include "easi/Query.h"
+#include "easi/ResultAdapter.h"
+#include "generated_code/init.h"
+
+#include "Model/common_datastructures.hpp"
+#include "Equations/anisotropic/Model/datastructures.hpp"
+#include "Equations/elastic/Model/datastructures.hpp"
+#include "Equations/viscoelastic2/Model/datastructures.hpp"
 
 #ifndef PUML_PUML_H
-namespace PUML
-{
-	class TETPUML;
-}
+namespace PUML {class TETPUML;}
 #endif // PUML_PUML_H
+
+namespace easi {class Component;}
 
 namespace seissol {
   namespace initializers {
@@ -68,11 +74,10 @@ namespace seissol {
     class FaultGPGenerator;
     template<class T>
     class ParameterDB;
-  }
-}
+    class EasiBoundary;
 
-namespace easi {
-  class Component;
+    easi::Component* loadEasiModel(const std::string& fileName);
+  }
 }
 
 class seissol::initializers::QueryGenerator {
@@ -82,7 +87,7 @@ public:
 
 class seissol::initializers::ElementBarycentreGenerator : public seissol::initializers::QueryGenerator {
 public:
-  ElementBarycentreGenerator(MeshReader const& meshReader) : m_meshReader(meshReader) {}
+  explicit ElementBarycentreGenerator(MeshReader const& meshReader) : m_meshReader(meshReader) {}
   virtual easi::Query generate() const;
 private:
   MeshReader const& m_meshReader;
@@ -91,7 +96,7 @@ private:
 #ifdef USE_HDF
 class seissol::initializers::ElementBarycentreGeneratorPUML : public seissol::initializers::QueryGenerator {
 public:
-  ElementBarycentreGeneratorPUML(PUML::TETPUML const& mesh) : m_mesh(mesh) {}
+  explicit ElementBarycentreGeneratorPUML(PUML::TETPUML const& mesh) : m_mesh(mesh) {}
   virtual easi::Query generate() const;
 private:
   PUML::TETPUML const& m_mesh;
@@ -129,6 +134,7 @@ public:
   static bool faultParameterizedByTraction(std::string const& fileName);
   //generic
   void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
+  static bool faultParameterizedByTraction(std::string const& fileName);
   
 private:
   //for material parameters
@@ -139,6 +145,27 @@ private:
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
   //generic
   static easi::Component* loadModel(std::string const& fileName);
+  std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
+};
+
+
+class seissol::initializers::EasiBoundary {
+public:
+  explicit EasiBoundary(const std::string& fileName);
+
+  EasiBoundary() : model(nullptr) {};
+  EasiBoundary(const EasiBoundary&) = delete;
+  EasiBoundary& operator=(const EasiBoundary&) = delete;
+  EasiBoundary(EasiBoundary&& other);
+  EasiBoundary& operator=(EasiBoundary&& other);
+
+  ~EasiBoundary();
+
+  void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
+
+private:
+    easi::Component* model;
+
 };
 
 #endif

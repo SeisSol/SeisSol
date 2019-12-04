@@ -119,7 +119,7 @@ int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition( int 
                                                                             unsigned cell,
                                                                             unsigned face ) {
   int bcCurrentFace = ((boundaryCond[cell] >> (face*8)) & 0xFF);
-  if (bcCurrentFace > 6) {
+  if (bcCurrentFace > 64) {
      bcCurrentFace = 3;
   }
   return bcCurrentFace;

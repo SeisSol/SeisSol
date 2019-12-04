@@ -232,11 +232,11 @@ CONTAINS
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
     REAL                       :: FreqCentral, FreqRatio, Tv
-    CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
+    CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, pmethod, &
                                            Adjoint,  &
-                                           MaterialFileName, FreqCentral, &
+                                           MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName
     !------------------------------------------------------------------------
     !
@@ -276,6 +276,8 @@ CONTAINS
     pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
     MaterialFileName    = ''
+    BoundaryFileName    = ''
+
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
     IF (readStat.NE.0) THEN
@@ -397,8 +399,15 @@ CONTAINS
      logError(*) 'Material file "', trim(MaterialFileName), '" does not exist.'
      STOP
     endif
+    inquire(file=BoundaryFileName , exist=fileExists)
+    if (.NOT. (BoundaryFileName == "") .AND. (.NOT. fileExists)) then
+     logError(*) 'Boundary file "', trim(BoundaryFileName), '" does not exist.'
+     STOP
+    endif
+
     !
     EQN%MaterialFileName = MaterialFileName
+    EQN%BoundaryFileName = BoundaryFileName
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
     !
@@ -574,11 +583,17 @@ CONTAINS
    !
    CASE('Zero')
        logInfo(*) 'Zero initial condition'
-    CASE('Planarwave')                                                                ! CASE tPlanarwave
+   CASE('Planarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Planarwave initial condition'
-    CASE('AnisotropicPlanarwave')                                                                ! CASE tPlanarwave
+   CASE('AnisotropicPlanarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Anisotropic Planarwave initial condition'
-    CASE DEFAULT                                                             ! CASE DEFAULT
+   CASE('Scholte')
+       logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
+   CASE('Snell')
+       logInfo(*) 'Snells law (elastic-acoustic) initial condition'
+   CASE('Ocean')
+       logInfo(*) 'An uncoupled ocean test case for acoustic equations'
+   CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'
        logError(*) TRIM(IC%cICType),'|'
@@ -987,11 +1002,8 @@ CONTAINS
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "DynamicRupture")
     ENDIF
-      logInfo(*) 'Beginning dynamic rupture initialization. '
-    IF(EQN%Anisotropy.ne.0) THEN  
-      logWarning0(*) 'You are using dynamic rupture together with anisotropy. This is not properly tested.'
-      logWarning0(*) 'Elements adjacent to dynamic rupture surfaces should behave isotropically.'
-    ENDIF
+           logInfo(*) 'Beginning dynamic rupture initialization. '
+           
     inquire(file=ModelFileName , exist=fileExists)
     if (.NOT. fileExists) then
      logError(*) 'Dynamic rupture model file "', trim(ModelFileName), '" does not exist.'
@@ -2730,6 +2742,86 @@ ALLOCATE( SpacePositionx(nDirac), &
          logError(*) 'print_format must be {6,10}'
          STOP
       END SELECT
+
+      IO%TitleMask( 1) = TRIM(' "x"')
+      IO%TitleMask( 2) = TRIM(' "y"')
+      IF(EQN%EQType.EQ.8) THEN
+                IO%TitleMask( 3) = TRIM(' "z"')
+                IO%TitleMask( 4) = TRIM(' "sigma_xx"')
+                IO%TitleMask( 5) = TRIM(' "sigma_yy"')
+                IO%TitleMask( 6) = TRIM(' "sigma_zz"')
+                IO%TitleMask( 7) = TRIM(' "sigma_xy"')
+                IO%TitleMask( 8) = TRIM(' "sigma_yz"')
+                IO%TitleMask( 9) = TRIM(' "sigma_xz"')
+                IO%TitleMask(10) = TRIM(' "u"')
+                IO%TitleMask(11) = TRIM(' "v"')
+                IO%TitleMask(12) = TRIM(' "w"')
+
+                IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN
+                    IO%TitleMask(13) = TRIM(' "rho0"')
+                    IO%TitleMask(14) = TRIM(' "mu"')
+                    IO%TitleMask(15) = TRIM(' "lambda"')
+                ENDIF
+                IF(EQN%Anisotropy.EQ.1.AND.EQN%Poroelasticity.EQ.0) THEN
+                    IO%TitleMask(13) = TRIM(' "rho0"')
+                    IO%TitleMask(14) = TRIM(' "c11"')
+                    IO%TitleMask(15) = TRIM(' "c12"')
+                    IO%TitleMask(16) = TRIM(' "c13"')
+                    IO%TitleMask(17) = TRIM(' "c14"')
+                    IO%TitleMask(18) = TRIM(' "c15"')
+                    IO%TitleMask(19) = TRIM(' "c16"')
+                    IO%TitleMask(20) = TRIM(' "c22"')
+                    IO%TitleMask(21) = TRIM(' "c23"')
+                    IO%TitleMask(22) = TRIM(' "c24"')
+                    IO%TitleMask(23) = TRIM(' "c25"')
+                    IO%TitleMask(24) = TRIM(' "c26"')
+                    IO%TitleMask(25) = TRIM(' "c33"')
+                    IO%TitleMask(26) = TRIM(' "c34"')
+                    IO%TitleMask(27) = TRIM(' "c35"')
+                    IO%TitleMask(28) = TRIM(' "c36"')
+                    IO%TitleMask(29) = TRIM(' "c44"')
+                    IO%TitleMask(30) = TRIM(' "c45"')
+                    IO%TitleMask(31) = TRIM(' "c46"')
+                    IO%TitleMask(32) = TRIM(' "c55"')
+                    IO%TitleMask(33) = TRIM(' "c56"')
+                    IO%TitleMask(34) = TRIM(' "c66"')
+                ENDIF
+                IF(EQN%Plasticity.EQ.1) THEN !plastic strain output
+                    IO%TitleMask(13) = TRIM(' "eps_p_xx"')
+                    IO%TitleMask(14) = TRIM(' "eps_p_yy"')
+                    IO%TitleMask(15) = TRIM(' "eps_p_zz"')
+                    IO%TitleMask(16) = TRIM(' "eps_p_xy"')
+                    IO%TitleMask(17) = TRIM(' "eps_p_yz"')
+                    IO%TitleMask(18) = TRIM(' "eps_p_xz"')
+                    IO%TitleMask(19) = TRIM(' "eta_p"')
+
+                ENDIF
+      ENDIF
+      !
+      !
+!       IF(DISC%Galerkin%pAdaptivity.GT.0) THEN
+!         IO%TitleMask(59) = TRIM(' "N"')
+!       ENDIF
+      !
+      IF(DISC%Galerkin%DGMethod.EQ.3) THEN
+        IO%TitleMask(60) = TRIM(' "t"')
+      ENDIF
+      !
+      IO%Title='VARIABLES = '
+      IO%nrPlotVar = 0
+      logInfo(*) 'Variables plotted: '
+      logInfo(*) ' '
+      DO i=1,IO%nOutputMask
+         IF(IO%OutputMask(i)) THEN
+            Name = TRIM(IO%Title) // TRIM(IO%TitleMask(i))
+            IO%Title     = Name(1:600)
+            IO%nrPlotVar = IO%nrPlotVar + 1
+            logInfo(*) '  - ', TRIM(IO%TitleMask(i))
+         ENDIF
+      ENDDO
+
+      logInfo(*) ' '
+      !
 
       IO%outInterval%printIntervalCriterion = printIntervalCriterion
       !

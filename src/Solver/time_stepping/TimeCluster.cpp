@@ -152,6 +152,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   
   m_timeKernel.setGlobalData(m_globalData);
   m_localKernel.setGlobalData(m_globalData);
+  m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
   m_neighborKernel.setGlobalData(m_globalData);
   m_dynamicRuptureKernel.setGlobalData(m_globalData);
 
@@ -425,11 +426,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   real l_integrationBuffer[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
 
   // pointer for the call of the ADER-function
-  real *l_bufferPointer;
+  real* l_bufferPointer;
 
-  real**                buffers                       = i_layerData.var(m_lts->buffers);
-  real**                derivatives                   = i_layerData.var(m_lts->derivatives);
-  real**                displacements                 = i_layerData.var(m_lts->displacements);
+  real** buffers = i_layerData.var(m_lts->buffers);
+  real** derivatives = i_layerData.var(m_lts->derivatives);
+  real** displacements = i_layerData.var(m_lts->displacements);
+  CellMaterialData* materialData = i_layerData.var(m_lts->material);
 
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
@@ -446,27 +448,35 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     bool l_buffersProvided = (data.cellInformation.ltsSetup >> 8)%2 == 1; // buffers are provided
     bool l_resetBuffers = l_buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || m_resetLtsBuffers ); // they should be reset
 
-    if( l_resetBuffers ) {
+    if (l_resetBuffers) {
       // assert presence of the buffer
-      assert( buffers[l_cell] != NULL );
+      assert(buffers[l_cell] != nullptr);
 
       l_bufferPointer = buffers[l_cell];
-    }
-    // work on local buffer
-    else {
+    } else {
+      // work on local buffer
       l_bufferPointer = l_integrationBuffer;
     }
 
-    m_timeKernel.computeAder( m_timeStepWidth,
-                              data,
-                              tmp,
-                              l_bufferPointer,
-                              derivatives[l_cell] );
-    m_localKernel.computeIntegral( l_bufferPointer,
-                                   data,
-                                   tmp );
+    m_timeKernel.computeAder(m_timeStepWidth,
+                             data,
+                             tmp,
+                             l_bufferPointer,
+                             derivatives[l_cell]);
 
-    if (displacements[l_cell] != NULL) {
+    // Compute local integrals (including some boundary conditions)
+    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
+    m_localKernel.computeIntegral(l_bufferPointer,
+                                  data,
+                                  tmp,
+                                  &materialData[l_cell],
+                                  &boundaryMapping[l_cell],
+                                  m_fullUpdateTime,
+                                  m_timeStepWidth
+    );
+    
+    // Update displacement
+    if (displacements[l_cell] != nullptr) {
       kernel::addVelocity krnl;
       krnl.I = l_bufferPointer;
       krnl.selectVelocity = init::selectVelocity::Values;
@@ -476,11 +486,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
     // update lts buffers if required
     // TODO: Integrate this step into the kernel
-    if( !l_resetBuffers && l_buffersProvided ) {
-      // assert presence of the buffer
-      assert( buffers[l_cell] != NULL );
+    if (!l_resetBuffers && l_buffersProvided) {
+      assert (buffers[l_cell] != nullptr);
 
-      for( unsigned int l_dof = 0; l_dof < tensor::I::size(); l_dof++ ) {
+      for (unsigned int l_dof = 0; l_dof < tensor::I::size(); ++l_dof) {
         buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
       }
     }
@@ -494,13 +503,13 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 
-  real*                     (*faceNeighbors)[4]             = i_layerData.var(m_lts->faceNeighbors);
-  CellDRMapping             (*drMapping)[4]                 = i_layerData.var(m_lts->drMapping);
-  CellLocalInformation*       cellInformation               = i_layerData.var(m_lts->cellInformation);
+  real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
+  CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
+  CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
 #ifdef USE_PLASTICITY
-  PlasticityData*             plasticity                    = i_layerData.var(m_lts->plasticity);
-  real                      (*pstrain)[7]                   = i_layerData.var(m_lts->pstrain);
-  unsigned                   numberOTetsWithPlasticYielding = 0;
+  PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
+  real (*pstrain)[7] = i_layerData.var(m_lts->pstrain);
+  unsigned numberOTetsWithPlasticYielding = 0;
 #endif
 
   kernels::NeighborData::Loader loader;
@@ -518,28 +527,36 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 #endif
   for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
     auto data = loader.entry(l_cell);
-    seissol::kernels::TimeCommon::computeIntegrals( m_timeKernel,
-                                                    data.cellInformation.ltsSetup,
-                                                    data.cellInformation.faceTypes,
-                                                    m_subTimeStart,
-                                                    m_timeStepWidth,
-                                                    faceNeighbors[l_cell],
+    seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
+                                                   data.cellInformation.ltsSetup,
+                                                   data.cellInformation.faceTypes,
+                                                   m_subTimeStart,
+                                                   m_timeStepWidth,
+                                                   faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
+                                                   *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
 #else
-                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
+                                                   *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
 #endif
-                                                    l_timeIntegrated );
+                                                   l_timeIntegrated);
 
 #ifdef ENABLE_MATRIX_PREFETCH
 #pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
-    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != dynamicRupture) ? faceNeighbors[l_cell][1] : drMapping[l_cell][1].godunov;
-    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != dynamicRupture) ? faceNeighbors[l_cell][2] : drMapping[l_cell][2].godunov;
-    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != dynamicRupture) ? faceNeighbors[l_cell][3] : drMapping[l_cell][3].godunov;
+    l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
+      faceNeighbors[l_cell][1] :
+      drMapping[l_cell][1].godunov;
+    l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
+      faceNeighbors[l_cell][2] :
+      drMapping[l_cell][2].godunov;
+    l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
+      faceNeighbors[l_cell][3] :
+      drMapping[l_cell][3].godunov;
 
     // fourth face's prefetches
     if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != dynamicRupture) ? faceNeighbors[l_cell+1][0] : drMapping[l_cell+1][0].godunov;
+      l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
+	faceNeighbors[l_cell+1][0] :
+	drMapping[l_cell+1][0].godunov;
     } else {
       l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
     }
@@ -798,6 +815,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops( unsigned
 
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
     unsigned cellNonZero, cellHardware;
+    // TODO(Lukas) Maybe include avg. displacement computation here at some point.
     m_timeKernel.flopsAder(cellNonZero, cellHardware);
     nonZeroFlops += cellNonZero;
     hardwareFlops += cellHardware;

@@ -41,14 +41,14 @@
 #include "TimeCommon.h"
 #include <stdint.h>
 
-void seissol::kernels::TimeCommon::computeIntegrals(  Time&                             i_time,
-                                                      unsigned short                    i_ltsSetup,
-                                                      const enum faceType               i_faceTypes[4],
-                                                      const double                      i_currentTime[5],
-                                                      double                            i_timeStepWidth,
-                                                      real * const                      i_timeDofs[4],
-                                                      real                              o_integrationBuffer[4][tensor::I::size()],
-                                                      real *                            o_timeIntegrated[4] )
+void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
+                                                    unsigned short i_ltsSetup,
+                                                    const FaceType i_faceTypes[4],
+                                                    const double i_currentTime[5],
+                                                    double i_timeStepWidth,
+                                                    real * const i_timeDofs[4],
+                                                    real o_integrationBuffer[4][tensor::I::size()],
+                                                    real * o_timeIntegrated[4] )
 {
   /*
    * assert valid input.
@@ -69,7 +69,8 @@ void seissol::kernels::TimeCommon::computeIntegrals(  Time&                     
    */
   for( unsigned int l_dofeighbor = 0; l_dofeighbor < 4; l_dofeighbor++ ) {
     // collect information only in the case that neighboring element contributions are required
-    if( i_faceTypes[l_dofeighbor] != outflow && i_faceTypes[l_dofeighbor] != dynamicRupture ) {
+    if (i_faceTypes[l_dofeighbor] != FaceType::outflow &&
+	i_faceTypes[l_dofeighbor] != FaceType::dynamicRupture) {
       // check if the time integration is already done (-> copy pointer)
       if( (i_ltsSetup >> l_dofeighbor ) % 2 == 0 ) {
         o_timeIntegrated[l_dofeighbor] = i_timeDofs[l_dofeighbor];
@@ -88,14 +89,14 @@ void seissol::kernels::TimeCommon::computeIntegrals(  Time&                     
   }
 }
 
-void seissol::kernels::TimeCommon::computeIntegrals(  Time&                             i_time,
-                                                      unsigned short                    i_ltsSetup,
-                                                      const enum faceType               i_faceTypes[4],
-                                                      const double                      i_timeStepStart,
-                                                      const double                      i_timeStepWidth,
-                                                      real * const                      i_timeDofs[4],
-                                                      real                              o_integrationBuffer[4][tensor::I::size()],
-                                                      real *                            o_timeIntegrated[4] )
+void seissol::kernels::TimeCommon::computeIntegrals(Time& i_time,
+                                                    unsigned short i_ltsSetup,
+                                                    const FaceType i_faceTypes[4],
+                                                    const double i_timeStepStart,
+                                                    const double i_timeStepWidth,
+                                                    real * const i_timeDofs[4],
+                                                    real o_integrationBuffer[4][tensor::I::size()],
+                                                    real * o_timeIntegrated[4])
 {
   double l_startTimes[5];
   l_startTimes[0] = i_timeStepStart;

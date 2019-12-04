@@ -82,7 +82,7 @@ namespace seissol {
 class seissol::kernels::NeighborBase {
   protected:
     kernel::neighboringFlux m_nfKrnlPrototype;
-    kernel::nodalFlux m_drKrnlPrototype;
+    dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
 };
 
 #endif

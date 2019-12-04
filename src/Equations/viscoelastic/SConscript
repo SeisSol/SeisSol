@@ -43,7 +43,7 @@ Import('env')
 solverFiles = [ 'Kernels/Time.cpp',
                 'Kernels/Local.cpp',
                 'Kernels/Neighbor.cpp',
-                'Model/Setup.cpp' ]
+                'Kernels/DirichletBoundary.cpp' ]
 for i in solverFiles:
   env.sourceFiles.append(env.Object(i))
 

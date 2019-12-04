@@ -134,7 +134,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   }
 
   /* cell information and integration data*/
-  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? dynamicRupture : regular);
+  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
 
   if (enableDynamicRupture) {
     // From lts tree

@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <complex>
+#include "Initializer/typedefs.hpp"
 #include <Kernels/precision.hpp>
 #include <generated_code/init.h>
 
@@ -12,17 +13,18 @@ namespace seissol {
     class InitialField {
     public:
       virtual ~InitialField() {}
-      virtual void evaluate(  double time,
-                              std::vector<std::array<double, 3>> const& points,
-                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const = 0;
+      virtual void evaluate(double time,
+                            std::vector<std::array<double, 3>> const& points,
+                            const CellMaterialData& materialData,
+                            yateto::DenseTensorView<2,real,unsigned>& dofsQP) const = 0;
     };
 
     class ZeroField : public InitialField {
     public:
-      void evaluate(  double,
-                      std::vector<std::array<double, 3>> const&,
-                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
-      {
+      void evaluate(double,
+                    std::vector<std::array<double, 3>> const&,
+                    const CellMaterialData& materialData,
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const {
         dofsQP.setZero();
       }
     };
@@ -34,6 +36,7 @@ namespace seissol {
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
+                      const CellMaterialData& materialData,
                       yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
     private:
       std::complex<double> m_eigenvectors[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
@@ -58,6 +61,38 @@ namespace seissol {
       std::array<Planarwave, 3>             m_pw;
       double                                m_phase;
     };
+
+
+    class ScholteWave : public InitialField {
+    public:
+      ScholteWave() {
+
+      }
+      void evaluate(double time,
+                    std::vector<std::array<double, 3>> const& points,
+                    const CellMaterialData& materialData,
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+    };
+    class SnellsLaw : public InitialField {
+    public:
+      SnellsLaw() {
+
+      }
+      void evaluate(double time,
+                    std::vector<std::array<double, 3>> const& points,
+                    const CellMaterialData& materialData,
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+    };
+      class Ocean : public InitialField {
+      public:
+          Ocean() {
+
+          }
+          void evaluate(double time,
+                        std::vector<std::array<double, 3>> const& points,
+                        const CellMaterialData& materialData,
+                        yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+      };
   }
 }
 

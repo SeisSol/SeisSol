@@ -44,5 +44,4 @@
 #include "Equations/elastic/Model/elastic_setup.h"
 #include "Equations/viscoelastic2/Model/viscoelastic_setup.h"
 
-
 #endif

@@ -94,7 +94,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
 
       seissol::model::getTransposedGodunovState( local,
           neighbor,
-          regular,
+          FaceType::regular,
           QgodLocal,
           QgodNeighbor );
       test_local(QgodLocal, solution_homogeneous);
@@ -114,7 +114,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       }};
       seissol::model::getTransposedGodunovState( local,
           neighbor,
-          freeSurface,
+          FaceType::freeSurface,
           QgodLocal,
           QgodNeighbor );
       test_neighbor(QgodLocal, solution_boundary);
@@ -181,7 +181,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
 
       seissol::model::getTransposedGodunovState( local,
           neighbor,
-          regular,
+          FaceType::regular,
           QgodLocal,
           QgodNeighbor );
       test_local(QgodLocal, solution_heterogeneous);

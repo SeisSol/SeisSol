@@ -550,42 +550,44 @@ CONTAINS
     !
     ! Initialize sparse star matrices
     !
-    do iElem = 1, MESH%nElem
-      iSide = 0
-  
-      materialVal = OptionalFields%BackgroundValue(iElem,:)
-      call c_interoperability_setMaterial( i_elem = iElem,                                         \
-                                           i_side = iSide,                                         \
-                                           i_materialVal = materialVal,                            \
-                                           i_numMaterialVals = EQN%nBackgroundVar                  )
-  
-      do iSide = 1,4
-        IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
-            iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
-            MPIIndex        = MESH%ELEM%MPINumber(iSide,iElem)
-            materialVal = BND%ObjMPI(iObject)%NeighborBackground(1:EQN%nBackgroundVar,MPIIndex) ! rho,mu,lambda
-        ELSE
-            SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
-            CASE(0)
-                iNeighbor       = MESH%ELEM%SideNeighbor(iSide,iElem)
-                materialVal = OptionalFields%BackgroundValue(iNeighbor,:)
-            CASE DEFAULT ! For boundary conditions take inside material
-                materialVal = OptionalFields%BackgroundValue(iElem,:)
-            END SELECT
-        ENDIF
-        call c_interoperability_setMaterial( i_elem = iElem,                        \
-                                             i_side = iSide,                        \
-                                             i_materialVal = materialVal,       \
-                                             i_numMaterialVals = EQN%nBackgroundVar )
-  
-      enddo
+  do iElem = 1, MESH%nElem
+    iSide = 0
+
+    materialVal = OptionalFields%BackgroundValue(iElem,:)
+    call c_interoperability_setMaterial( i_elem = iElem,                                         \
+                                         i_side = iSide,                                         \
+                                         i_materialVal = materialVal,                            \
+                                         i_numMaterialVals = EQN%nBackgroundVar                  )
+
+    do iSide = 1,4
+      IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
+          iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
+          MPIIndex        = MESH%ELEM%MPINumber(iSide,iElem)
+          materialVal = BND%ObjMPI(iObject)%NeighborBackground(1:EQN%nBackgroundVar,MPIIndex) ! rho,mu,lambda
+      ELSE
+          SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
+          CASE(0)
+              iNeighbor       = MESH%ELEM%SideNeighbor(iSide,iElem)
+              materialVal = OptionalFields%BackgroundValue(iNeighbor,:)
+          CASE DEFAULT ! For boundary conditions take inside material
+              materialVal = OptionalFields%BackgroundValue(iElem,:)
+          END SELECT
+      ENDIF
+      call c_interoperability_setMaterial( i_elem = iElem,                        \
+                                           i_side = iSide,                        \
+                                           i_materialVal = materialVal,       \
+                                           i_numMaterialVals = EQN%nBackgroundVar )
+
     enddo
+  enddo
 
 #ifdef USE_MPI
   ! synchronize redundant cell data
   logInfo0(*) 'Synchronizing copy cell material data.';
   call c_interoperability_synchronizeCellLocalData;
 #endif
+
+    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
 
   ! Initialize source terms
   select case(SOURCE%Type)
@@ -616,6 +618,8 @@ CONTAINS
     logError(*) 'Generated kernels currently supports Godunov fluxes only.'
     stop
   endif
+
+  call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
 
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices;
@@ -2043,11 +2047,9 @@ CONTAINS
 
   SUBROUTINE BuildSpecialDGGeometry3D_new(MaterialVal,EQN,MESH,DISC,BND,MPI,IO)
 
-    USE iso_c_binding, only: c_loc, c_null_char, c_bool
     USE common_operators_mod
     USE DGbasis_mod
     USE ini_faultoutput_mod
-    USE f_ftoc_bind_interoperability
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
@@ -2089,7 +2091,6 @@ CONTAINS
     REAL, POINTER :: zone_minh(:), zone_maxh(:), zone_deltah(:), zone_deltap(:)
     COMPLEX :: solution(3)
     INTEGER :: nDOF,TotDOF, PoroFlux
-    REAL    :: elementWaveSpeeds(4)
     !
     INTEGER :: iErr,iPoly,iVrtx
     INTEGER :: nLocPolyElem(0:100), TempInt(MESH%nSideMax)
@@ -2480,19 +2481,12 @@ CONTAINS
     DISC%Galerkin%WaveSpeed(:,:,:) = 0.
     !
     ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem,MESH%nSideMax) )
-    DO iElem=1,MESH%nElem
-        call c_interoperability_getWaveSpeeds(MaterialVal(iElem,:), EQN%nBackgroundVar, elementWaveSpeeds)
-        DO j=1,MESH%nSideMax
-            DISC%Galerkin%WaveSpeed(iElem,j,1)=elementWaveSpeeds(1)  !P-wave-vel
-            DISC%Galerkin%WaveSpeed(iElem,j,2)=elementWaveSpeeds(2)  !S-Wave-vel
-            DISC%Galerkin%WaveSpeed(iElem,j,3)=elementWaveSpeeds(3)  !S-Wave-vel
-            DISC%Galerkin%MaxWaveSpeed(iElem,j)=elementWaveSpeeds(4) !Max Wave-vel
-        ENDDO
+    DO j=1,MESH%nSideMax
+      DISC%Galerkin%WaveSpeed(:,j,1)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
+      DISC%Galerkin%WaveSpeed(:,j,2)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
+      DISC%Galerkin%WaveSpeed(:,j,3)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
+      DISC%Galerkin%MaxWaveSpeed(:,j)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
     ENDDO
-    logInfo(*) DISC%Galerkin%WaveSpeed(1,1,1)
-    logInfo(*) DISC%Galerkin%WaveSpeed(1,1,2)
-    logInfo(*) DISC%Galerkin%WaveSpeed(1,1,3)
-    logInfo(*) DISC%Galerkin%MaxWaveSpeed(1,1)
     !
     CONTINUE
     !

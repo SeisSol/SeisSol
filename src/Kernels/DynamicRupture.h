@@ -54,7 +54,7 @@ namespace seissol {
 
 class seissol::kernels::DynamicRupture {
   private:
-    kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
+    dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
     kernels::Time m_timeKernel;
 
   public:

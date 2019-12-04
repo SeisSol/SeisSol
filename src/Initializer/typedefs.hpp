@@ -72,21 +72,33 @@ enum TimeClustering {
 };
 
 // face types
-enum faceType {
+// Note: When introducting new types also change
+// int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition
+// and PUMLReader. Otherwise it might become a DR face...
+enum class FaceType {
   // regular: inside the computational domain
   regular = 0,
 
   // free surface boundary
   freeSurface = 1,
+
+  // free surface boundary with gravity
+  freeSurfaceGravity = 2,
   
   // dynamic rupture boundary
   dynamicRupture = 3,
+
+  // Dirichlet boundary
+  dirichlet = 4,
 
   // absorbing/outflow boundary
   outflow = 5,
 
   // periodic boundary
-  periodic = 6
+  periodic = 6,
+
+  // analytical boundary (from initial cond.)
+  analytical = 7
 };
 
 // cross-cluster time stepping information
@@ -125,7 +137,7 @@ struct TimeStepping {
 // cell local information
 struct CellLocalInformation {
   // types of the faces
-  enum faceType faceTypes[4];
+  FaceType faceTypes[4];
 
   // mapping of the neighboring elements to the references element in relation to this element
   int faceRelations[4][2];
@@ -318,7 +330,10 @@ struct GlobalData {
    *    15: \f$ P^{-,4,3} \f$
    **/ 
   seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
-  
+
+  seissol::nodal::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
+  seissol::tensor::project2nFaceTo3m::Container<real const*> project2nFaceTo3m;
+
   /** 
    * Addresses of the global face to nodal matrices
    *
@@ -334,7 +349,9 @@ struct GlobalData {
    *    15: \f$ N^{-,4,3} \f$
    **/ 
 
+ 
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+
   //! Modal basis to quadrature points
   real* evalAtQPMatrix;
 
@@ -433,6 +450,23 @@ struct CellDRMapping {
   unsigned faceRelation;
   real* godunov;
   real* fluxSolver;
+};
+
+struct CellBoundaryMapping {
+  real* nodes;
+  real* TData;
+  real* TinvData;
+  real* easiBoundaryConstant;
+  real* easiBoundaryMap;
+};
+
+struct BoundaryFaceInformation {
+  // nodes is an array of 3d-points in global coordinates.
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3];
+  real TData[seissol::tensor::T::size()];
+  real TinvData[seissol::tensor::Tinv::size()];
+  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
+  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
 #endif

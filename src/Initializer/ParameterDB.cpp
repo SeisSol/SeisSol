@@ -39,17 +39,21 @@
  **/
 
 #ifdef USE_HDF
-#include <PUML/PUML.h>
-#include <PUML/Downward.h>
-#endif
 
-#include <easi/YAMLParser.h>
-#include "ParameterDB.h"
-#include <Numerical_aux/Transformation.h>
-#ifdef USE_ASAGI
-#include <Reader/AsagiReader.h>
+#include <generated_code/kernel.h>
+#include "PUML/PUML.h"
+#include "PUML/Downward.h"
 #endif
-#include <utils/logger.h>
+#include "ParameterDB.h"
+
+#include "easi/YAMLParser.h"
+#include "easi/ResultAdapter.h"
+#include "Numerical_aux/Transformation.h"
+#ifdef USE_ASAGI
+#include "Reader/AsagiReader.h"
+#endif
+#include "utils/logger.h"
+
 
 easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
   std::vector<Element> const& elements = m_meshReader.getElements();
@@ -124,15 +128,7 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
     }
 
     double barycentre[3] = {0.0, 0.0, 0.0};
-    // Compute barycentre
-    for (unsigned vertex = 0; vertex < 3; ++vertex) {
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        barycentre[dim] += vertices[ elements[element].vertices[ MeshTools::FACE2NODES[side][vertex] ] ].coords[dim];
-      }
-    }
-    for (unsigned dim = 0; dim < 3; ++dim) {
-      barycentre[dim] /= 3.0;
-    }
+    MeshTools::center(elements[element], side, vertices, barycentre);
     for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
       for (unsigned dim = 0; dim < 3; ++dim) {
         query.x(q,dim) = barycentre[dim];
@@ -369,9 +365,119 @@ bool seissol::initializers::ParameterDB<T>::faultParameterizedByTraction(std::st
   return containsTraction;
 }
 
+seissol::initializers::EasiBoundary::EasiBoundary(const std::string& fileName)
+  : model(loadEasiModel(fileName)) {
+}
+
+
+seissol::initializers::EasiBoundary::EasiBoundary(EasiBoundary&& other)
+  : model(std::move(other.model)) {}
+
+seissol::initializers::EasiBoundary& seissol::initializers::EasiBoundary::operator=(EasiBoundary&& other) {
+  std::swap(model, other.model);
+  return *this;
+}
+
+seissol::initializers::EasiBoundary::~EasiBoundary() {
+  delete model;
+}
+
+void seissol::initializers::EasiBoundary::query(const real* nodes,
+                                                real* mapTermsData,
+                                                real* constantTermsData) const {
+  if (model == nullptr) {
+    logError() << "Model for easiBoundary is not initialized!";
+  }
+  assert(tensor::INodal::Shape[1] == 9); // only supp. for elastic currently.
+  assert(mapTermsData != nullptr);
+  assert(constantTermsData != nullptr);
+  constexpr auto numNodes = tensor::INodal::Shape[0];
+  auto query = easi::Query{numNodes, 3};
+  size_t offset{0};
+  for (unsigned i = 0; i < numNodes; ++i) {
+    query.x(i, 0) = nodes[offset++];
+    query.x(i, 1) = nodes[offset++];
+    query.x(i, 2) = nodes[offset++];
+    query.group(i) = 1;
+  }
+  const auto& supplied = model->suppliedParameters();
+
+  // Shear stresses are irrelevant for riemann problem
+  // Hence they have dummy names and won't be used for this bc.
+  // We have 9 variables s.t. our tensors have the correct shape.
+  const auto varNames = std::array<std::string, 9>{
+    "Tn", "Ts", "Td", "unused1", "unused2", "unused3", "u", "v", "w"
+  };
+
+  // We read out a affine transformation s.t. val in ghost cell
+  // is equal to A * val_inside + b
+  // Note that easi only supports
+
+  // Constant terms stores all terms of the vector b
+  auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData));
+
+  // Map terms stores all terms of the linear map A
+  auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
+
+  easi::ArraysAdapter<real> adapter{};
+
+  // Constant terms are named const_{varName}, e.g. const_u
+  offset = 0;
+  for (const auto& varName : varNames) {
+    const auto termName = std::string{"const_"} + varName;
+    if (supplied.count(termName) > 0) {
+      adapter.addBindingPoint(
+          termName,
+          constantTermsData + offset,
+          constantTerms.shape(0)
+      );
+    }
+    ++offset;
+  }
+  // Map terms are named map_{varA}_{varB}, e.g. map_u_v
+  // Mirroring the velocity at the ghost cell would imply the param
+  // map_u_u: -1
+  offset = 0;
+  for (size_t i = 0; i < varNames.size(); ++i){
+    const auto& varName = varNames[i];
+    for (size_t j = 0; j < varNames.size(); ++j)  {
+      const auto& otherVarName = varNames[j];
+      auto termName = std::string{"map_"};
+      termName += varName;
+      termName += "_";
+      termName += otherVarName;
+      if (supplied.count(termName) > 0) {
+        adapter.addBindingPoint(
+            termName,
+            mapTermsData + offset,
+            mapTerms.shape(0) * mapTerms.shape(1)
+        );
+      } else {
+        // Default: Extrapolate
+        for (size_t k = 0; k < mapTerms.shape(2); ++k)
+          mapTerms(i,j,k) = (varName == otherVarName) ? 1.0 : 0.0;
+      }
+      ++offset;
+    }
+  }
+  model->evaluate(query, adapter);
+}
+
+easi::Component* seissol::initializers::loadEasiModel(const std::string& fileName) {
+#ifdef USE_ASAGI
+  seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
+  easi::YAMLParser parser(3, &asagiReader);
+#else
+  easi::YAMLParser parser(3);
+#endif
+  return parser.parse(fileName);
+}
+
 template class seissol::initializers::ParameterDB<seissol::model::Material>;
 template class seissol::initializers::ParameterDB<seissol::model::AnisotropicMaterial>;
 template class seissol::initializers::ParameterDB<seissol::model::ElasticMaterial>;
 template class seissol::initializers::ParameterDB<seissol::model::ElastoPlasticMaterial>;
 template class seissol::initializers::ParameterDB<seissol::model::ViscoElasticMaterial>;
 template class seissol::initializers::ParameterDB<seissol::model::ViscoPlasticMaterial>;
+
+
