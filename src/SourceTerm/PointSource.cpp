@@ -185,6 +185,7 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
 #endif
   krnl.execute();
   std::cout << "Time: " << i_fromTime << std::endl;
+  std::cout << "lambda" << lambdaA << "mu" << muA << std::endl;
   for (int i = 0; i < tensor::Q::size(); i++) {
     std::cout << o_dofUpdate[i] << " ";
   };
