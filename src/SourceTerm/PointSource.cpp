@@ -184,6 +184,11 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
   krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
 #endif
   krnl.execute();
+  std::cout << "Time: " << i_fromTime << std::endl;
+  for (int i = 0; i < tensor::Q::size(); i++) {
+    std::cout << o_dofUpdate[i] << " ";
+  };
+  std::cout << std::endl;
 }
 
 void seissol::sourceterm::addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
