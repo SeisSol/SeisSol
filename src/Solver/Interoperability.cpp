@@ -917,10 +917,10 @@ void seissol::Interoperability::initInitialConditions()
 #endif
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      m_iniConds.push_back(new physics::AnisotropicPlanarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+      m_iniConds.emplace_back(new physics::AnisotropicPlanarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
     }
 #else
-    m_iniConds.push_back(new physics::AnisotropicPlanarwave());
+    m_iniConds.emplace_back(new physics::AnisotropicPlanarwave());
 #endif
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.emplace_back(new physics::ZeroField());

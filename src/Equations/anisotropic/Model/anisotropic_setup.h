@@ -51,6 +51,7 @@
 
 namespace seissol {
   namespace model {
+    using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename T>
       inline void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
@@ -244,7 +245,7 @@ namespace seissol {
     template<>
       inline void getTransposedGodunovState( AnisotropicMaterial const&       local,
           AnisotropicMaterial const&       neighbor,
-          enum ::faceType                  faceType,
+          FaceType                         faceType,
           init::QgodLocal::view::type&     QgodLocal,
           init::QgodNeighbor::view::type&  QgodNeighbor )
       {
@@ -252,8 +253,8 @@ namespace seissol {
         Matrix99 R = Matrix99::Zero();
         getEigenBasisForAnisotropicMaterial(local, neighbor, R);
 
-        if(faceType == freeSurface) {
-          getTransposedFreeSurfaceGodunovState(QgodLocal, QgodNeighbor, R);
+        if(faceType == FaceType::freeSurface) {
+          getTransposedFreeSurfaceGodunovState( false, QgodLocal, QgodNeighbor, R);
 
         } else {
           Matrix99 chi = Matrix99::Zero();

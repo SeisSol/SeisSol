@@ -189,7 +189,7 @@ namespace seissol {
 
       double getMaxWaveSpeed() const final{
 #ifdef USE_ANISOTROPIC
-        double samplingDirectionsData[seissol::tensor::samplingDirections::Size];
+        real samplingDirectionsData[seissol::tensor::samplingDirections::Size];
         std::copy_n(init::samplingDirections::Values,
             seissol::tensor::samplingDirections::Size,
             samplingDirectionsData);
@@ -199,23 +199,23 @@ namespace seissol {
 
         double maxEv = 0;
 
-        double fullTensor[81];
+        real fullTensor[81];
         getFullElasticTensor(fullTensor);
         kernel::computeChristoffel computeChristoffel;
         computeChristoffel.C = fullTensor;
 
         for(unsigned j = 0; j < 200; ++j)
         {
-          double n[3] = { samplingDirections(j, 0),
+          real n[3] = { samplingDirections(j, 0),
                         samplingDirections(j, 1),
                         samplingDirections(j, 2)
           };
-          double M[9];
+          real M[9];
           computeChristoffel.n = n;
           computeChristoffel.christoffel = M;
           computeChristoffel.execute();
 
-          saes.compute(Eigen::Matrix<double, 3, 3>(M));
+          saes.compute(Eigen::Matrix<real, 3, 3>(M).cast<double>());
           auto eigenvalues = saes.eigenvalues();
           for(unsigned i = 0; i < 3; ++i) {
             maxEv = eigenvalues(i) > maxEv ? eigenvalues(i) : maxEv;

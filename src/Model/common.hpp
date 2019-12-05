@@ -56,6 +56,8 @@ namespace seissol {
   namespace model {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
+    bool testIfAcoustic(real mu);
+
     template<typename Tmaterial, typename Tmatrix>
     void getTransposedCoefficientMatrix( Tmaterial const& i_material,
                                          unsigned         i_dim,
@@ -68,12 +70,13 @@ namespace seissol {
     template<typename Tmaterial, typename Tloc, typename Tneigh>
     void getTransposedGodunovState( Tmaterial const&  local,
                                     Tmaterial const&  neighbor,
-                                    enum ::faceType   faceType,
+                                    FaceType          faceType,
                                     Tloc&             QgodLocal,
                                     Tneigh&           QgodNeighbor );
 
     template<typename T>
-    void getTransposedFreeSurfaceGodunovState( T& QgodLocal,
+    void getTransposedFreeSurfaceGodunovState( bool isAcoustic,
+                                               T& QgodLocal,
                                                T& QgodNeighbor,
                                                Matrix99& R);
 
@@ -132,8 +135,9 @@ void seissol::model::getPlaneWaveOperator(  T const& material,
 }
 
 template<typename T>
-void seissol::model::getTransposedFreeSurfaceGodunovState( T&                         QgodLocal,
-                                                           T&                         QgodNeighbor,
+void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
+                                                           T&        QgodLocal,
+                                                           T&        QgodNeighbor,
                                                            Matrix99& R)
 {
   for (int i = 0; i < 9; i++) {
@@ -143,104 +147,34 @@ void seissol::model::getTransposedFreeSurfaceGodunovState( T&                   
   }
 
   QgodLocal.setZero();
-  std::array<int, 3> traction_indices = {0,3,5};
-  std::array<int, 3> velocity_indices = {6,7,8};
-  using Matrix33 = Eigen::Matrix<double, 3, 3>;
-  Matrix33 R11 = R(traction_indices, {0,1,2});
-  Matrix33 R21 = R(velocity_indices, {0,1,2});
-  auto S = - (R21 * R11.inverse()).eval();
-
-  //set lower left block
-  int row = 0;
-  for (auto &t: traction_indices) {
-    int col = 0;
-    for (auto &v: velocity_indices) {
-      QgodLocal(t, v) = S(row, col);
-      col++;
-    }
-    row++;
-  }
-  //set lower right block
-  for (auto &v : velocity_indices) {
-    QgodLocal(v, v) = 1.0;
-  }
-}
-
-template<typename Tloc, typename Tneigh>
-void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
-    Material const&                      neighbor,
-    enum ::faceType                      faceType,
-    Tloc&                                QgodLocal,
-    Tneigh&                              QgodNeighbor )
-{
-  QgodNeighbor.setZero();
-
-  Matrix99 R = Matrix99::Zero();
-
-  //eigenvectors have been precalculated
-  R(0,0) = local.lambda + 2*local.mu;
-  R(0,8) = neighbor.lambda + 2*neighbor.mu;
-  R(1,0) = local.lambda;
-  R(1,4) = 1;
-  R(1,8) = neighbor.lambda;
-  R(2,0) = local.lambda;
-  R(2,5) = 1;
-  R(2,8) = neighbor.lambda;
-  R(3,1) = local.mu;
-  R(3,7) = neighbor.mu;
-  R(4,3) = 1;
-  R(5,2) = local.mu;
-  R(5,6) = neighbor.mu;
-  R(6,0) = sqrt((local.lambda + 2*local.mu)/local.rho);
-  R(6,8) = -sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho);
-  R(7,1) = sqrt(local.mu/local.rho);
-  R(7,7) = -sqrt(neighbor.mu/neighbor.rho);
-  R(8,2) = sqrt(local.mu/local.rho);
-  R(8,6) = -sqrt(neighbor.mu/neighbor.rho);
-
-  if(faceType == freeSurface) {
-    getTransposedFreeSurfaceGodunovState(QgodLocal, QgodNeighbor, R);
-
+  if (isAcoustic) {
+    // Acoustic material only has one traction (=pressure) and one velocity comp.
+    // relevant to the Riemann problem
+    QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
+    QgodLocal(6, 6) = 1.0;
   } else {
-    Matrix99 R_inv = Matrix99::Zero();
-    //we do not need to compute all of R_inv as we will multiply it with the indicator chi later
-    //which extracts the first three rows of R_inv
-    
-    //We can exploit that R only couples 2 values to each other to easily compute an analytic solution
-    //inv_xy computes the (x,y)th entry of ((local_kappa, neighbor_kappa),(local_c, -neighbor_c))^-1
-    auto inv_00 = [](real local_kappa, real neighbor_kappa, real local_c, real neighbor_c) {
-      return neighbor_c / (local_kappa * neighbor_c + neighbor_kappa * local_c);  
-    };
-    auto inv_01 = [](real local_kappa, real neighbor_kappa, real local_c, real neighbor_c) {
-      return neighbor_kappa / (local_kappa * neighbor_c + neighbor_kappa * local_c);  
-    };
+    std::array<int, 3> traction_indices = {0,3,5};
+    std::array<int, 3> velocity_indices = {6,7,8};
+    using Matrix33 = Eigen::Matrix<double, 3, 3>;
+    Matrix33 R11 = R(traction_indices, {0,1,2});
+    Matrix33 R21 = R(velocity_indices, {0,1,2});
+    auto S = - (R21 * R11.inverse()).eval();
 
-
-    R_inv(0,0) = inv_00(local.lambda + 2*local.mu, neighbor.lambda + 2*neighbor.mu, sqrt((local.lambda + 2*local.mu)/local.rho), sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
-    R_inv(0,6) = inv_01(local.lambda + 2*local.mu, neighbor.lambda + 2*neighbor.mu, sqrt((local.lambda + 2*local.mu)/local.rho), sqrt((neighbor.lambda + 2*neighbor.mu)/neighbor.rho));
-    R_inv(1,3) = inv_00(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
-    R_inv(1,7) = inv_01(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
-    R_inv(2,5) = inv_00(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
-    R_inv(2,8) = inv_01(local.mu, neighbor.mu, sqrt(local.mu/local.rho), sqrt(neighbor.mu/neighbor.rho));
-
-    Matrix99 chi = Matrix99::Zero();
-    chi(0,0) = 1.0;
-    chi(1,1) = 1.0;
-    chi(2,2) = 1.0;
-
-    const auto godunov = ((R*chi)*R_inv).eval();
-
-    // QgodLocal = I - QgodNeighbor
-    for (unsigned i = 0; i < godunov.cols(); ++i) {
-      for (unsigned j = 0; j < godunov.rows(); ++j) {
-        QgodLocal(i,j) = -godunov(j,i);
-        QgodNeighbor(i,j) = godunov(j,i);
+    //set lower left block
+    int row = 0;
+    for (auto &t: traction_indices) {
+      int col = 0;
+      for (auto &v: velocity_indices) {
+        QgodLocal(t, v) = S(row, col);
+        col++;
       }
-    }  
-    for (unsigned idx = 0; idx < 9; ++idx) {
-      QgodLocal(idx,idx) += 1.0;
+      row++;
+    }
+    //set lower right block
+    for (auto &v : velocity_indices) {
+      QgodLocal(v, v) = 1.0;
     }
   }
 }
-
+  
 #endif

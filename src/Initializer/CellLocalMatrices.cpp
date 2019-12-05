@@ -42,6 +42,7 @@
 
 #include <cassert>
 
+#include <Initializer/ParameterDB.h>
 #include <Numerical_aux/Transformation.h>
 #include <Model/Setup.h>
 #include <Model/common.hpp>
@@ -99,9 +100,11 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     {
 #endif
     real ATData[tensor::star::size(0)];
+    real AT_tildeData[tensor::star::size(0)];
     real BTData[tensor::star::size(1)];
     real CTData[tensor::star::size(2)];
     auto AT = init::star::view<0>::create(ATData);
+    auto AT_tilde = init::star::view<0>::create(AT_tildeData);
     auto BT = init::star::view<0>::create(BTData);
     auto CT = init::star::view<0>::create(CTData);
 
@@ -530,7 +533,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       }
 
       /// Transpose Tinv
-      kernel::transposeTinv ttKrnl;
+      dynamicRupture::kernel::transposeTinv ttKrnl;
       ttKrnl.Tinv = TinvData;
       ttKrnl.TinvT = godunovData[ltsFace].TinvT;
       ttKrnl.execute();

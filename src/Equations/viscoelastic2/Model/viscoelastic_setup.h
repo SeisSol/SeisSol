@@ -50,6 +50,7 @@
 
 namespace seissol {
   namespace model {
+    using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename T>
       inline void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
@@ -115,7 +116,7 @@ namespace seissol {
     template<>
       inline void getTransposedGodunovState( ViscoElasticMaterial const&       local,
                                       ViscoElasticMaterial const&       neighbor,
-                                      enum ::faceType                   faceType,
+                                      FaceType                          faceType,
                                       init::QgodLocal::view::type&      QgodLocal,
                                       init::QgodNeighbor::view::type&   QgodNeighbor )
       {

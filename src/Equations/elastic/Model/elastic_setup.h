@@ -46,6 +46,7 @@
 
 namespace seissol {
   namespace model {
+    using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename T>
       inline void getTransposedCoefficientMatrix( ElasticMaterial const&  i_material,
@@ -106,7 +107,7 @@ namespace seissol {
     template<typename Tloc, typename Tneigh>
       inline void getTransposedGodunovState( ElasticMaterial const& local,
                                              ElasticMaterial const& neighbor,
-                                             enum ::faceType        faceType,
+                                             FaceType               faceType,
                                              Tloc&                  QgodLocal,
                                              Tneigh&                QgodNeighbor )
       {
@@ -165,7 +166,7 @@ namespace seissol {
        
        
          if (faceType == FaceType::freeSurface) {
-           getTransposedFreeSurfaceGodunovState(local, QgodLocal, QgodNeighbor, R);
+           getTransposedFreeSurfaceGodunovState( testIfAcoustic(local.mu), QgodLocal, QgodNeighbor, R);
          } else {
            Matrix99 chi = Matrix99::Zero();
            chi(0,0) = 1.0;

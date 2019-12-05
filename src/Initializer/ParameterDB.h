@@ -134,7 +134,6 @@ public:
   static bool faultParameterizedByTraction(std::string const& fileName);
   //generic
   void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
-  static bool faultParameterizedByTraction(std::string const& fileName);
   
 private:
   //for material parameters
@@ -145,7 +144,6 @@ private:
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
   //generic
   static easi::Component* loadModel(std::string const& fileName);
-  std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
 };
 
 

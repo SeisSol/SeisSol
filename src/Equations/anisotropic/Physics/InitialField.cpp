@@ -21,9 +21,10 @@ seissol::physics::AnisotropicPlanarwave::AnisotropicPlanarwave(real phase)
   }
 }
 
-void seissol::physics::AnisotropicPlanarwave::evaluate(  double time,
-                                              std::vector<std::array<double, 3>> const& points,
-                                              yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
+void seissol::physics::AnisotropicPlanarwave::evaluate( double time,
+                                                        std::vector<std::array<double, 3>> const& points,
+                                                        const CellMaterialData& materialData,
+                                                        yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
 {
   dofsQP.setZero();
  
@@ -31,7 +32,7 @@ void seissol::physics::AnisotropicPlanarwave::evaluate(  double time,
   yateto::DenseTensorView<2,real,unsigned> dofsPW = init::dofsQP::view::create(dofsPW_data);
 
   for (int pw = 0; pw < 3; pw++) {
-    m_pw.at(pw).evaluate(time, points, dofsPW);
+    m_pw.at(pw).evaluate(time, points, materialData, dofsPW);
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += dofsPW(i,j);

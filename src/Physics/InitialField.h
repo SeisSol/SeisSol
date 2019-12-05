@@ -55,6 +55,7 @@ namespace seissol {
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
+                      const CellMaterialData& materialData,
                       yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
     private:
       std::array<std::array<double, 3>, 3>  m_kVec;

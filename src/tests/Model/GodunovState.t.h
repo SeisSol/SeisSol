@@ -63,7 +63,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       materialVal_1[0] = 2700;
       materialVal_1[1] = 3.23980992e10;
       materialVal_1[2] = 3.24038016e10;
-      for (int i = 3; i < 3*NUMBER_OF_RELAXATION_MECHANISMS * 4; i++) {
+      for (int i = 3; i < 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4; i++) {
         materialVal_1[i] = 0;  
       }
       setMaterial(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4, &local);

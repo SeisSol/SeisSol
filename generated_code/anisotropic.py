@@ -44,11 +44,11 @@ from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFr
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
-from elastic import ADERDG as ADERDGBase
+from elastic import ElasticADERDG as ADERDGBase
 from multSim import OptionalDimTensor
 
-class ADERDG(ADERDGBase):
-  def __init__(self, order, multipleSimulations, matricesDir, memLayout):
+class AnisotropicADERDG(ADERDGBase):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
     super().__init__(order, multipleSimulations, matricesDir, memLayout)
     clones = {
       'star': ['star(0)', 'star(1)', 'star(2)'],
@@ -66,5 +66,6 @@ class ADERDG(ADERDGBase):
       computeChristoffel = christoffel['ik'] <= C['ijkl'] * n['j'] * n['l']
       generator.add('computeChristoffel', computeChristoffel)
 
-  def addIncludeTensors(self, tensors):
+  def add_include_tensors(self, tensors):
+      super().add_include_tensors(tensors)
       tensors.add(self.db.samplingDirections)

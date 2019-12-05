@@ -126,6 +126,7 @@ void seissol::physics::ScholteWave::evaluate(double time,
 					     std::vector<std::array<double, 3>> const& points,
 					     const CellMaterialData& materialData,
 					     yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+#ifndef USE_ANISOTROPIC
   const real omega = 2.0 * std::acos(-1);
 
   for (size_t i = 0; i < points.size(); ++i) {
@@ -156,12 +157,14 @@ void seissol::physics::ScholteWave::evaluate(double time,
       dofsQp(i,8) = 1.406466352506812*std::pow(omega, 2)*std::exp(0.98901344820674908*omega*x_3)*std::cos(omega*t - 1.406466352506808*omega*x_1) - 1.050965490997515*std::pow(omega, 2)*std::exp(1.2825031256883821*omega*x_3)*std::cos(omega*t - 1.406466352506808*omega*x_1); // w
     }
   }
+#endif
 }
 
 void seissol::physics::SnellsLaw::evaluate(double time,
 					   std::vector<std::array<double, 3>> const& points,
 					   const CellMaterialData& materialData,
 					   yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+#ifndef USE_ANISOTROPIC
   const double pi = std::acos(-1);
   const double omega = 2.0 * pi;
 
@@ -194,12 +197,14 @@ void seissol::physics::SnellsLaw::evaluate(double time,
       dofsQp(i,8) = -0.16074816713222639*omega*std::sin(omega*t - 1.0/2.0*omega*(0.39733866159012299*x_1 + 0.91767204817721759*x_3)) - 0.34834162029840349*omega*std::sin(omega*t - 1.0/3.0*omega*(0.59600799238518454*x_1 + 0.8029785009656123*x_3)); // w
     }
   }
+#endif
 }
 
 void seissol::physics::Ocean::evaluate(double time,
                                        std::vector<std::array<double, 3>> const& points,
                                        const CellMaterialData& materialData,
                                        yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+#ifndef USE_ANISOTROPIC
   for (size_t i = 0; i < points.size(); ++i) {
     const auto x = points[i][0];
     const auto y = points[i][1];
@@ -233,4 +238,5 @@ void seissol::physics::Ocean::evaluate(double time,
     dofsQp(i,8) = (k_star/(omega*rho))*std::sin(k_x*x)*std::sin(k_y*y)*cos(omega*t)*(std::cosh(k_star*z)
         + B * std::sinh(k_star*z));
   }
+#endif
 }

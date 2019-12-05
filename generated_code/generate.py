@@ -86,20 +86,18 @@ try:
 except:
   raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
 
-adgArgs = inspect.getargspec(equations.ADERDG.__init__).args[1:]
 cmdArgsDict = vars(cmdLineArgs)
 cmdArgsDict['memLayout'] = mem_layout
-args = [cmdArgsDict[key] for key in adgArgs]
-adg = equations.ADERDG(*args)
 
-if cmdLineArgs.equations == 'elastic':
+if cmdLineArgs.equations == 'anisotropic':
+    adg = equations.AnisotropicADERDG(**cmdArgsDict)
+elif cmdLineArgs.equations == 'elastic':
     adg = equations.ElasticADERDG(**cmdArgsDict)
 elif cmdLineArgs.equations == 'viscoelastic':
     adg = equations.ViscoelasticADERDG(**cmdArgsDict)
 else:
     adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
 
-include_tensors = set()
 include_tensors = set()
 g = Generator(arch)
 
@@ -111,7 +109,7 @@ adg.addTime(g)
 adg.add_include_tensors(include_tensors)
 
 # Common kernels
-include_tensors |= DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod)
+include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod))
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
 NodalBoundaryConditions.addKernels(g, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
 SurfaceDisplacement.addKernels(g, adg)
