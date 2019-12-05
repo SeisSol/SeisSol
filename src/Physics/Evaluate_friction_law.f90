@@ -188,6 +188,7 @@ MODULE Eval_friction_law_mod
                                  iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                  rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                                  time,DeltaT,                               & ! IN: time, inv Trafo
+                                 resampleMatrix,                            &
                                  DISC,EQN,MESH,MPI,IO,BND)
 
 
@@ -1190,6 +1191,7 @@ MODULE Eval_friction_law_mod
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                             time,DeltaT,                               & ! IN: time
+                            resampleMatrix,                            &
                             DISC,EQN,MESH,MPI,IO,BND)
     !-------------------------------------------------------------------------!
     USE Thermalpressure_mod
@@ -1230,6 +1232,7 @@ MODULE Eval_friction_law_mod
     REAL        :: tmpSlip(nBndGP)
     REAL        :: RS_f0,RS_a(nBndGP),RS_b,RS_sl0(nBndGP),RS_sr0
     REAL        :: RS_fw,RS_srW(nBndGP),flv(nBndGP),fss(nBndGP),SVss(nBndGP)
+    REAL_TYPE   :: resampleMatrix(nBndGP,nBndGP)
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
     REAL        :: hypox, hypoy, hypoz
     REAL        :: Rnuc, Tnuc, radius, Gnuc, invZ, AlmostZero
@@ -1240,7 +1243,7 @@ MODULE Eval_friction_law_mod
     INTEGER     :: VertexSide(4,3)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT,resampleMatrix
     INTENT(IN)    :: MESH,MPI,IO
     INTENT(INOUT) :: EQN,DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------!
@@ -1463,7 +1466,7 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Slip2(:,iFace)     = LocSlip2
      DISC%DynRup%TracXY(:,iFace)    = LocTracXY
      DISC%DynRup%TracXZ(:,iFace)    = LocTracXZ
-     DISC%DynRup%StateVar(:,iFace)  = LocSV
+     DISC%DynRup%StateVar(:,iFace)  = DISC%DynRup%StateVar(:,iFace) + matmul(resampleMatrix, LocSV - DISC%DynRup%StateVar(:,iFace))
 
      IF (DISC%DynRup%magnitude_out(iFace)) THEN
         DISC%DynRup%averaged_Slip(iFace) = DISC%DynRup%averaged_Slip(iFace) + sum(tmpSlip)/nBndGP
