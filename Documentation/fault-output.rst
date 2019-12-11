@@ -33,7 +33,7 @@ This output is parametrized by the Elementwise namelist, example:
   &Elementwise
   printIntervalCriterion = 2 ! 1=iteration, 2=time
   printtimeinterval_sec = 1.0
-  iOutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
+  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   refinement_strategy = 1 ! or 2
   refinement = 1
   /
@@ -57,12 +57,12 @@ refinement_strategy. if refinement_strategy=1 splits each triangle into
 refinement_strategy=2, triangles are split into 4 triangles. Higher
 refinement would further subdivide each subtriangle.
 
-iOutputMask
+OutputMask
 ~~~~~~~~~~~
 
-iOutputMask allow visualizing only part of the unknown. The unknown can
+OutputMask allow visualizing only part of the unknown. The unknown can
 be switched off or on by changing the corresponding bit in the
-iOutputMask array.
+OutputMask array.
 
 1. **SRs** and **SRd**: slip rates in strike and dip direction
 2. **T_s**, **T_d**: transient shear stress in strike and dip
