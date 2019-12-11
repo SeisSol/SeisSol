@@ -33,7 +33,7 @@ This output is parametrized by the Elementwise namelist, example:
   &Elementwise
   printIntervalCriterion = 2 ! 1=iteration, 2=time
   printtimeinterval_sec = 1.0
-  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
+  iOutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   refinement_strategy = 1 ! or 2
   refinement = 1
   /
@@ -67,7 +67,7 @@ iOutputMask array.
 1. **SRs** and **SRd**: slip rates in strike and dip direction
 2. **T_s**, **T_d**: transient shear stress in strike and dip
    direction, **P_n**: transient normal stress
-3. *U_n**: normal velocity (note that there is no fault opening in SeisSol)
+3. **u_n**: normal velocity (note that there is no fault opening in SeisSol)
 4. **Mud**: current friction, **StV**: state variable in case of RS friction
 5. **Ts0**,\ **Td0**,\ **Pn0**: total stress, including initial stress
 6. **Sls** and **Sld**: slip in strike and dip direction
