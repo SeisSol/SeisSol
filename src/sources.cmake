@@ -172,7 +172,6 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Time.cpp
