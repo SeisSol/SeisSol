@@ -153,3 +153,37 @@ Linear-Slip Weakening Friction
 
 Rate-and-State Friction
 ^^^^^^^^^^^^^^^^^^^^^^^
+
+Thermal Pressurization
+~~~~~~~~~~~~~~~~~~~~~~
+
+Following Noda & Lapusta (2010) Seissol can now account for thermal pressurization of pore fluids mimicking the effects of rapid co-seismic slip generating heat that increases temperature and pore pressure in case of low hydraulic diffusivity of the surrounding rock. Consequently, the elevated pore pressure reduces the effective normal stress, causing dynamic weakening. 
+By default, thermal pressurization is inactive. You can activate thermal pressurization in the following parameter file:
+
+.. code-block:: Fortran
+
+  &DynamicRupture
+  thermalPress = 1                  ! 0: inactive; 1: active
+  IniTemp = 483.15                  ! [K]
+  IniPressure = -80.0e6             ! have to be added to normal stress in your initial stress yaml file [Pa]
+  alpha_th = 1.0e-6                 ! [m^2/s]
+  rho_c = 2.7e6                     ! [Pa/K]
+  TP_lambda = 0.1e6                 ! [Pa/K]
+
+Two additional thermal pressurization parameters are space dependent and therefore have to specified in the initial stress yaml file:
+
+.. code-block:: YAML
+
+  !ConstantMap
+  map:
+    alpha_hy: 1e-4                  ! [m^2/s]
+    TP_half_width_shear_zone: 0.01  ! [m]
+    
+Pore pressure and temperature are additional fault outputs (see fault output).
+
+
+
+
+
+
+
