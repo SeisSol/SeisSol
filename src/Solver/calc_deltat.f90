@@ -154,10 +154,6 @@ CONTAINS
     ! Compute Velocities                       
     !                                                                         
     !
-       logInfo(*) 'Calc Delta T information:'
-       logInfo(*) 'Advection: ', EQN%Advection
-       logInfo(*) 'pAdaptivity: ', DISC%Galerkin%pAdaptivity
-       logInfo(*) 'DGMethod: ', DISC%Galerkin%DGMethod
        DO iElem = 1, MESH%nElem
            OptionalFields%sound(iElem) = MAXVAL( DISC%Galerkin%MaxWaveSpeed(iElem,:) )
        ENDDO

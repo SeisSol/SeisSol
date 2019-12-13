@@ -160,7 +160,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(m_velocityModel, queryGen);
   for(unsigned cell = 0; cell < cells.size(); ++cell) {
-    pWaveVel[cell] = materials[cell].getPWaveSpeed();
+    pWaveVel[cell] = materials[cell].getMaxWaveSpeed();
   }
   double* timestep = new double[cells.size()];
   computeMaxTimesteps(mesh,pWaveVel, timestep);
