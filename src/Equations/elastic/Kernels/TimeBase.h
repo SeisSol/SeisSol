@@ -81,6 +81,16 @@ namespace seissol {
 
 class seissol::kernels::TimeBase {
   protected:
+    kernel::derivative m_krnlPrototype;
+    kernel::displacementAvgNodal displacementAvgNodalPrototype;
+    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
+
+  public:
+    /**
+     * Constructor, which initializes the time kernel.
+     **/
+    TimeBase();
+
     /*
      *! Offsets of the derivatives.
      *
@@ -90,15 +100,7 @@ class seissol::kernels::TimeBase {
      *   ...
      * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
      */
-    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-    
-    kernel::derivative m_krnlPrototype;
 
-  public:
-    /**
-     * Constructor, which initializes the time kernel.
-     **/
-    TimeBase();
 };
 
 #endif

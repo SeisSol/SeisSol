@@ -40,19 +40,21 @@
 #ifndef INITIALIZER_INITIALFIELDPROJECTION_H_
 #define INITIALIZER_INITIALFIELDPROJECTION_H_
 
-#include <Geometry/MeshReader.h>
-#include <Initializer/typedefs.hpp>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/Lut.hpp>
-#include <Physics/InitialField.h>
+#include <memory>
+
+#include "Geometry/MeshReader.h"
+#include "Initializer/typedefs.hpp"
+#include "Initializer/LTS.h"
+#include "Initializer/tree/Lut.hpp"
+#include "Physics/InitialField.h"
 
 namespace seissol {
   namespace initializers {
-    void projectInitialField( std::vector<physics::InitialField*> const&  iniFields,
-                              GlobalData const&                           globalData,
-                              MeshReader const&                           meshReader,
-                              LTS const&                                  lts,
-                              Lut const&                                  ltsLut );
+    void projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
+                             GlobalData const& globalData,
+                             MeshReader const& meshReader,
+                             LTS const& lts,
+                             Lut const& ltsLut );
   }
 }
 

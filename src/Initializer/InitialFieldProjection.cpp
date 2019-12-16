@@ -58,12 +58,11 @@ namespace seissol {
   }
 }
 
-void seissol::initializers::projectInitialField(  std::vector<physics::InitialField*> const&  iniFields,
-                                                  GlobalData const&                           globalData,
-                                                  MeshReader const&                           meshReader,
-                                                  LTS const&                                  lts,
-                                                  Lut const&                                  ltsLut )
-{
+void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
+                                                GlobalData const& globalData,
+                                                MeshReader const& meshReader,
+                                                LTS const& lts,
+                                                Lut const& ltsLut) {
   auto const& vertices = meshReader.getVertices();
   auto const& elements = meshReader.getElements();
 
@@ -102,13 +101,14 @@ void seissol::initializers::projectInitialField(  std::vector<physics::InitialFi
       seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
     }
 
+    const CellMaterialData& material = ltsLut.lookup(lts.material, meshId);
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
       auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());
-      iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, sub);
+      iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, sub);
     }
 #else
-    iniFields[0]->evaluate(0.0, quadraturePointsXyz, iniCond);
+    iniFields[0]->evaluate(0.0, quadraturePointsXyz, material, iniCond);
 #endif
 
     krnl.Q = ltsLut.lookup(lts.dofs, meshId);

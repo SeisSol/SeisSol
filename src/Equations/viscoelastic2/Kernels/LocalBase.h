@@ -42,7 +42,9 @@
 #ifndef KERNELS_LOCALBASE_H_
 #define KERNELS_LOCALBASE_H_
 
+#include <memory>
 #include <generated_code/kernel.h>
+#include "Physics/InitialField.h"
 
 namespace seissol {
   namespace kernels {
@@ -51,6 +53,11 @@ namespace seissol {
       kernel::volumeExt m_volumeKernelPrototype;
       kernel::localFluxExt m_localFluxKernelPrototype;
       kernel::local m_localKernelPrototype;
+      const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
+    public:
+      virtual void setInitConds(decltype(initConds) initConds) {
+        this->initConds = initConds;
+      }
     };
   }
 }

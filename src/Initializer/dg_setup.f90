@@ -580,12 +580,13 @@ CONTAINS
 
     enddo
   enddo
-
 #ifdef USE_MPI
   ! synchronize redundant cell data
   logInfo0(*) 'Synchronizing copy cell material data.';
   call c_interoperability_synchronizeCellLocalData;
 #endif
+
+    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
 
   ! Initialize source terms
   select case(SOURCE%Type)
@@ -616,6 +617,8 @@ CONTAINS
     logError(*) 'Generated kernels currently supports Godunov fluxes only.'
     stop
   endif
+
+  call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
 
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices;

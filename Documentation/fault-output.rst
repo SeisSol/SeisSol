@@ -33,7 +33,7 @@ This output is parametrized by the Elementwise namelist, example:
   &Elementwise
   printIntervalCriterion = 2 ! 1=iteration, 2=time
   printtimeinterval_sec = 1.0
-  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 !described herafter
+  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   refinement_strategy = 1 ! or 2
   refinement = 1
   /
@@ -57,17 +57,17 @@ refinement_strategy. if refinement_strategy=1 splits each triangle into
 refinement_strategy=2, triangles are split into 4 triangles. Higher
 refinement would further subdivide each subtriangle.
 
-iOutputMask
+OutputMask
 ~~~~~~~~~~~
 
-iOutputMask allow visualizing only part of the unknown. The unknown can
+OutputMask allow visualizing only part of the unknown. The unknown can
 be switched off or on by changing the corresponding bit in the
-iOutputMask array.
+OutputMask array.
 
 1. **SRs** and **SRd**: slip rates in strike and dip direction
 2. **T_s**, **T_d**: transient shear stress in strike and dip
    direction, **P_n**: transient normal stress
-3. *U_n**: normal velocity (note that there is no fault opening in SeisSol)
+3. **u_n**: normal velocity (note that there is no fault opening in SeisSol)
 4. **Mud**: current friction, **StV**: state variable in case of RS friction
 5. **Ts0**,\ **Td0**,\ **Pn0**: total stress, including initial stress
 6. **Sls** and **Sld**: slip in strike and dip direction
@@ -77,6 +77,7 @@ iOutputMask array.
 9. **PSR**: peak slip rate
 10. **RT**: rupture time
 11. **DS**: only with LSW, time at which ASl>D_c
+12. **P_f** and **Tmp**: pore pressure and temperature
 
 Ascii fault receivers
 ---------------------
@@ -87,7 +88,7 @@ The output is parametrized by the Pickpoint namelist, example:
 
   &Pickpoint
   printtimeinterval = 1
-  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 !described herafter
+  OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   nOutpoints = 24
   PPFileName = 'fault_receivers.dat'
   /

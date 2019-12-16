@@ -111,10 +111,11 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       krnl.execute();
 
       // Evaluate analytical solution at quad. nodes
+      const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
       iniFields[sim % iniFields.size()]->evaluate(simulationTime,
 						  quadraturePointsXyz,
+						  material,
 						  analyticalSolution);
-
 #ifdef MULTIPLE_SIMULATIONS
       auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
 #else
