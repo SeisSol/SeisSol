@@ -1,11 +1,14 @@
-
+  
 # Description
 
 This folder contains scripts to compute Ground motions parameters (e.g. PGA, PGV, PGD, SA(T)) from a SeisSol surface output file.
 
 # Prerequisites
 
-The main script (ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py) requires gmpe-smtk. No installation is needed, the repository only needs to be cloned:
+The main script (ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py) requires gmpe-smtk. The latest gmpe-smtk depends on openquake, but some older versions do not require this dependency. Therefore, one can choose to either install the deprecated gmpe-smtk without openquake, or the latest gmpe-smtk with openquake.
+
+## Installing a deprecated gmpe-smtk
+In this case, no installation is needed, the repository only needs to be cloned:
 
 ```
 git clone https://github.com/GEMScienceTools/gmpe-smtk
@@ -17,8 +20,33 @@ export PYTHONPATH=$PYTHONPATH:'$(pwd)
 #echo 'export PYTHONPATH=$PYTHONPATH:'$(pwd) >> ~/.bashrc
 
 ```
+## Installing the latest gmpe-smtk and openquake
 
-In addition, you may need to install missing python modules, e.g. for mpi4py (if running the script on multiple ranks). This can be done e.g. through anaconda, using:
+Here is a proposed workflow for installing openquake:
+```
+#Clone the repository
+git clone https://github.com/gem/oq-engine.git
+#Use pip to install and specify dir_to_install with --target
+#This step requires python 3.6 and some other packages
+pip install -r oq-engine/requirements-py36-linux64.txt -r oq-engine/requirements-extra-py36-linux64.txt --target dir_to_install
+#add the oq-engine to your pythonpath
+export PYTHONPATH=$PYTHONPATH:/dir_to_qo-engine/
+```
+The installation on other operating system that Linux is documented here:
+https://github.com/gem/oq-engine/blob/master/doc/installing/development.md
+
+You can test the installation by running an example:
+
+```
+oq-engine --run dir_to_oq-engine/demos/hazard/AreaSourceClassicalPSHA/job.ini
+#alternative
+oq engine --help
+```
+Then the latest gmpe-smtk can be cloned and added to the pythonpath as previously described.
+
+## Installing other python modules
+
+Depending on your system, you may need to install missing python modules, e.g. for mpi4py (if running the script on multiple ranks). This can be done e.g. through anaconda, using:
 
 ```
 conda install -c anaconda mpi4py
@@ -50,40 +78,3 @@ python ComputeGroundMotionParametersFromSurfaceOutput_Hybrid.py --MP 4 prefix-su
 (assuming a 4 cores processors).
 
 The script can also be used on a high performance cluster, see Supermuc2CommandFileComputeGroundMotions.sh and SupermucNGCommandFileComputeGroundMotions.sh for examples of Job File on supermuc2 and supermugNG.
-
-# Alternative
-
-In the latest gmpe-smtk, it requires OpenQuake as a dependent source (https://github.com/gem/oq-engine). Here appendix the installtion for OpenQuake if that scenario happens.
-
-## Install OpenQuake
-
-Require python3.6 and some other packages.
-
-Clone from repository
-```
-git clone https://github.com/gem/oq-engine.git
-```
-
-Use pip to install and specify dir_to_install with --target
-```
-# For Linux
-pip install -r oq-engine/requirements-py36-linux64.txt -r oq-engine/requirements-extra-py36-linux64.txt —-target dir_to_install
-```
-Other Linux system can be found here: https://github.com/gem/oq-engine/blob/master/doc/installing/development.md
-
-Put oq-engine in your PATHONPAT
-
-```
-export PYTHONPATH=$PYTHONPATH:/dir_to_qo-engine/
-```
-
-You can test the installation by running an example
-
-```
-oq engine --run dir_to_oq-engine/demos/hazard/AreaSourceClassicalPSHA/job.ini
-```
-or
-
-```
-oq engine --help
-```
