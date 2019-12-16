@@ -44,8 +44,8 @@ from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
 from aderdg import LinearADERDG
 
-class ADERDG(LinearADERDG):
-  def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms):
+class ViscoelasticADERDG(LinearADERDG):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms, **kwargs):
     self.numberOfMechanisms = numberOfMechanisms
     self.numberOfElasticQuantities = 9
 

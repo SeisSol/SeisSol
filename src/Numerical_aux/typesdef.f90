@@ -1003,6 +1003,7 @@ MODULE TypesDef
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)
      LOGICAL                                :: linearized                       !< Are the equations linearized? (T/F)
+     CHARACTER(LEN=600)                     :: BoundaryFileName                 !< Filename where to load boundary properties
      CHARACTER(LEN=600)                     :: MaterialFileName                 !< Filename where to load material properties
      REAL, POINTER                          :: MaterialGrid(:,:,:,:)            !< Structured grid (x,y,z,rho,mu,lamda columns) of material properties
      REAL, POINTER                          :: MaterialGridSpace(:)             !< Specifications of structured grid spacing holding material values

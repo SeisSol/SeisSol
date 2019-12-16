@@ -41,17 +41,22 @@
 #ifndef INITIALIZER_PARAMETERDB_H_
 #define INITIALIZER_PARAMETERDB_H_
 
-#include <string>
-#include <unordered_map>
-#include <Geometry/MeshReader.h>
-#include <easi/Query.h>
+#include "memory"
+#include "string"
+#include "unordered_map"
+#include "Geometry/MeshReader.h"
+#include "Kernels/precision.hpp"
+
+#include "easi/Query.h"
+#include "generated_code/init.h"
+
+
 
 #ifndef PUML_PUML_H
-namespace PUML
-{
-	class TETPUML;
-}
+namespace PUML {class TETPUML;}
 #endif // PUML_PUML_H
+
+namespace easi {class Component;}
 
 namespace seissol {
   namespace initializers {
@@ -61,12 +66,11 @@ namespace seissol {
     class FaultBarycentreGenerator;
     class FaultGPGenerator;
     class ParameterDB;
+    class EasiBoundary;
+
+    easi::Component* loadEasiModel(const std::string& fileName);
   }
 }
-
-namespace easi {
-  class Component;
-};
 
 class seissol::initializers::QueryGenerator {
 public:
@@ -75,7 +79,7 @@ public:
 
 class seissol::initializers::ElementBarycentreGenerator : public seissol::initializers::QueryGenerator {
 public:
-  ElementBarycentreGenerator(MeshReader const& meshReader) : m_meshReader(meshReader) {}
+  explicit ElementBarycentreGenerator(MeshReader const& meshReader) : m_meshReader(meshReader) {}
   virtual easi::Query generate() const;
 private:
   MeshReader const& m_meshReader;
@@ -84,11 +88,12 @@ private:
 #ifdef USE_HDF
 class seissol::initializers::ElementBarycentreGeneratorPUML : public seissol::initializers::QueryGenerator {
 public:
-  ElementBarycentreGeneratorPUML(PUML::TETPUML const& mesh) : m_mesh(mesh) {}
+  explicit ElementBarycentreGeneratorPUML(PUML::TETPUML const& mesh) : m_mesh(mesh) {}
   virtual easi::Query generate() const;
 private:
   PUML::TETPUML const& m_mesh;
 };
+
 #endif
 
 class seissol::initializers::FaultBarycentreGenerator : public seissol::initializers::QueryGenerator {
@@ -113,13 +118,34 @@ private:
 
 class seissol::initializers::ParameterDB {
 public:  
-  void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
+  void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) {
+    m_parameters[parameter] = std::make_pair(memory, stride);
+  }
   void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
   static bool faultParameterizedByTraction(std::string const& fileName);
   
 private:
-  static easi::Component* loadModel(std::string const& fileName);
   std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
+};
+
+
+class seissol::initializers::EasiBoundary {
+public:
+  explicit EasiBoundary(const std::string& fileName);
+
+  EasiBoundary() : model(nullptr) {};
+  EasiBoundary(const EasiBoundary&) = delete;
+  EasiBoundary& operator=(const EasiBoundary&) = delete;
+  EasiBoundary(EasiBoundary&& other);
+  EasiBoundary& operator=(EasiBoundary&& other);
+
+  ~EasiBoundary();
+
+  void query(const real* nodes, real* mapTermsData, real* constantTermsData) const;
+
+private:
+    easi::Component* model;
+
 };
 
 #endif

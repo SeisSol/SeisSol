@@ -63,14 +63,18 @@ void seissol::localIntegration( struct GlobalData* globalData,
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     auto data = loader.entry(cell);
-    timeKernel.computeAder( 1.0,
-                            data,
-                            tmp,
-                            buffers[cell],
-                            nullptr );
-    localKernel.computeIntegral( buffers[cell],
-                                 data,
-                                 tmp );
+    timeKernel.computeAder(1.0,
+                           data,
+                           tmp,
+                           buffers[cell],
+                           nullptr);
+    localKernel.computeIntegral(buffers[cell],
+                                data,
+                                tmp,
+                                nullptr,
+                                nullptr,
+                                0.0,
+                                0.0);
   }
 }
 
@@ -85,9 +89,9 @@ void seissol::fillWithStuff(  real* buffer,
   }
 }
 
-void seissol::fakeData( initializers::LTS& lts,
-                        initializers::Layer& layer,
-                        enum faceType faceTp ) {
+void seissol::fakeData(initializers::LTS& lts,
+                       initializers::Layer& layer,
+                       FaceType faceTp) {
   real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
   real**                      buffers                       = layer.var(lts.buffers);
   real**                      derivatives                   = layer.var(lts.derivatives);
@@ -116,11 +120,11 @@ void seissol::fakeData( initializers::LTS& lts,
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
     for (unsigned f = 0; f < 4; ++f) {
       switch (faceTp) {
-        case freeSurface:
+      case FaceType::freeSurface:
           faceNeighbors[cell][f] = buffers[cell];
           break;
-        case periodic:
-        case regular:
+      case FaceType::periodic:
+      case FaceType::regular:
           faceNeighbors[cell][f] = buffers[ cellInformation[cell].faceNeighborIds[f] ];
           break;
         default:
