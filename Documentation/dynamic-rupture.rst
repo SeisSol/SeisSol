@@ -163,12 +163,12 @@ By default, thermal pressurization is inactive. You can activate thermal pressur
 .. code-block:: Fortran
 
   &DynamicRupture
-  thermalPress = 1                  ! 0: inactive; 1: active
-  IniTemp = 483.15                  ! [K]
-  IniPressure = -80.0e6             ! have to be added to normal stress in your initial stress yaml file [Pa]
-  alpha_th = 1.0e-6                 ! [m^2/s]
-  rho_c = 2.7e6                     ! [Pa/K]
-  TP_lambda = 0.1e6                 ! [Pa/K]
+  thermalPress = 1                  ! Thermal pressurization 0: inactive; 1: active
+  IniTemp = 483.15                  ! Initial temperature [K]
+  IniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
+  alpha_th = 1.0e-6                 ! Thermal diffusivity [m^2/s]
+  rho_c = 2.7e6                     ! Specific heat [Pa/K]
+  TP_lambda = 0.1e6                 ! Pore pressure change per unit temperature [Pa/K]
 
 Two additional thermal pressurization parameters are space dependent and therefore have to specified in the initial stress yaml file:
 
@@ -176,8 +176,8 @@ Two additional thermal pressurization parameters are space dependent and therefo
 
   !ConstantMap
   map:
-    alpha_hy: 1e-4                  ! [m^2/s]
-    TP_half_width_shear_zone: 0.01  ! [m]
+    alpha_hy: 1e-4                  ! Hydraulic diffusivity [m^2/s]
+    TP_half_width_shear_zone: 0.01  ! Half width of shearing zone [m]
     
 Pore pressure and temperature are additional fault outputs (see fault output).
 
