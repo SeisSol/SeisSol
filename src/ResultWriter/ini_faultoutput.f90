@@ -6,6 +6,7 @@
 !! @author Alice Gabriel (gabriel AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/gabriel)
 !! @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+!! @author Sebastian Anger
 !!
 !! @section LICENSE
 !! Copyright (c) 2012-2017, SeisSol Group
@@ -84,7 +85,7 @@ CONTAINS
     IMPLICIT NONE
 
     TYPE(tDiscretization)   :: DISC                   ! Discretization struct.!
-    CHARACTER (len=30000)   :: VariableList, VariableList_temp
+    CHARACTER (len=30000)   :: VariableList
     CHARACTER(len=3)        :: VName(20)
     INTEGER                 :: k,i,j,maskCount(12)
 
@@ -99,10 +100,9 @@ CONTAINS
 
     k=1
     DO i=lbound(maskCount,1),ubound(maskCount,1)
-       VariableList_temp=TRIM(VariableList)
        IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(i).EQ.1) THEN
           DO j=0,maskCount(i)-1
-             WRITE(VariableList,'(a,a3,a,a1)') TRIM(VariableList_temp),',"',TRIM(VName(k+j)),'"'
+             WRITE(VariableList,'(a,a3,a,a1)') TRIM(VariableList),',"',TRIM(VName(k+j)),'"'
           ENDDO
        ENDIF
        k=k+maskCount(i)
