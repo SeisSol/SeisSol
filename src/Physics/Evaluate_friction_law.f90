@@ -1257,7 +1257,7 @@ MODULE Eval_friction_law_mod
 
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
-    AlmostZero = 1d-8
+    AlmostZero = 1d-45
     !
     !PARAMETERS of THE optimisation loops
     !absolute tolerance on the function to be optimzed
@@ -1523,7 +1523,7 @@ MODULE Eval_friction_law_mod
     REAL          :: n_stress(nBndGP), sh_stress(nBndGP), invZ
     REAL          :: NR(nBndGP), dNR(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP)
     REAL          :: mu_f(nBndGP), dmu_f(nBndGP)                              !calculated here in routine
-    REAL          :: AlmostZero = 1D-8, aTolF = 5e-14
+    REAL          :: AlmostZero = 1d-45, aTolF = 1d-8
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: nSRupdates, LocSR, RS_sr0, LocSV, RS_a, n_stress,&
                      sh_stress, invZ
