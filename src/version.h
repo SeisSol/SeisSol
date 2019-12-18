@@ -4,5 +4,5 @@
 */
 
 #ifndef VERSION_STRING
-#define VERSION_STRING "@PACKAGE_GIT_VERSION@";
+#define VERSION_STRING "201807_Kaikoura-414-ge752b34 (modified)";
 #endif // VERSION_STRING
