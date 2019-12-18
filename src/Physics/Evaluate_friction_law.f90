@@ -186,6 +186,7 @@ MODULE Eval_friction_law_mod
                                  iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                                  rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
                                  time,DeltaT,                               & ! IN: time, inv Trafo
+                                 resampleMatrix,                            &
                                  DISC,EQN,MESH,MPI,IO,BND)
 
 
@@ -1187,7 +1188,7 @@ MODULE Eval_friction_law_mod
                             NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
                             iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
                             rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
-                            time,DeltaT,                               & ! IN: time
+                            time,DeltaT,resampleMatrix,                 & ! IN: time
                             DISC,EQN,MESH,MPI,IO,BND)
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -1232,10 +1233,11 @@ MODULE Eval_friction_law_mod
     LOGICAL     :: has_converged
     LOGICAL     :: nodewise=.FALSE.
     REAL        :: xp(MESH%GlobalElemType), yp(MESH%GlobalElemType), zp(MESH%GlobalElemType)
+    REAL_TYPE   :: resampleMatrix(nBndGP,nBndGP)
     INTEGER     :: VertexSide(4,3)
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
-    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT,resampleMatrix
     INTENT(IN)    :: MESH,MPI,IO
     INTENT(INOUT) :: EQN,DISC,TractionGP_XY,TractionGP_XZ
     !-------------------------------------------------------------------------!
@@ -1331,10 +1333,12 @@ MODULE Eval_friction_law_mod
              !   exact integration assuming constant V in this iteration
              !   low-velocity steady state friction coefficient
              flv = RS_f0 - (RS_b-RS_a)* LOG(tmp/RS_sr0)
+             flv = max(1e-8,flv)
              !   steady state friction coefficient
-             fss = RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8d0)**(1.0D0/8.0D0)
+             fss = (RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8d0)**(1.0D0/8.0D0))/RS_a
+             fss = max(1e-8,fss)
              ! steady-state state variable with SINH(X)=(EXP(X)-EXP(-X))/2
-             SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
+             SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss)-EXP(-fss))/2.0D0)
              !
              LocSV=SVss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
 
@@ -1382,9 +1386,14 @@ MODULE Eval_friction_law_mod
          ! 5. get final theta, mu, traction and slip
          ! SV from mean slip rate in tmp
          flv = RS_f0 -(RS_b-RS_a)* LOG(tmp/RS_sr0)
-         fss = RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8)**(1.0D0/8.0D0)
-         SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss/RS_a)-EXP(-fss/RS_a))/2.0D0)
+         flv = max(1e-8,flv)
+         fss = (RS_fw + (flv - RS_fw)/(1.0D0+(tmp/RS_srW)**8)**(1.0D0/8.0D0))/RS_a
+         fss = max(1e-8,fss)
+
+         SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss)-EXP(-fss))/2.0D0)
+
          LocSV=Svss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+
          !Mu from LocSR
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
          LocMu    = RS_a * LOG(tmp+SQRT(tmp**2+1.0D0))
@@ -1450,6 +1459,7 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%TracXY(:,iFace)    = LocTracXY
      DISC%DynRup%TracXZ(:,iFace)    = LocTracXZ
      DISC%DynRup%StateVar(:,iFace)  = LocSV
+     DISC%DynRup%StateVar(:,iFace)  = DISC%DynRup%StateVar(:,iFace)+matmul(resampleMatrix,LocSV-DISC%DynRup%StateVar(:,iFace))
 
      IF (DISC%DynRup%magnitude_out(iFace)) THEN
         DISC%DynRup%averaged_Slip(iFace) = DISC%DynRup%averaged_Slip(iFace) + sum(tmpSlip)/nBndGP
