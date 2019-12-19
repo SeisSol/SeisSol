@@ -2,10 +2,9 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
+ * @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  * @section LICENSE
- * Copyright (c) 20(0,4), SeisSol Group
+ * Copyright (c) 2019, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -189,6 +188,11 @@ namespace seissol {
         elasticTensorView(2,2,2,2) = c33;
       }
 
+      //calculate maximal wave speed
+      //Wavespeeds for anisotropic materials depend on the direction of propagation.
+      //An analytic solution for the maximal wave speed is hard to obtain.
+      //Instead of solving an optimization problem we sample the velocitiy for
+      //different directions and take the maximum.
       double getMaxWaveSpeed() const final{
 #ifdef USE_ANISOTROPIC
         real samplingDirectionsData[seissol::tensor::samplingDirections::Size];
@@ -220,7 +224,7 @@ namespace seissol {
           saes.compute(Eigen::Matrix<real, 3, 3>(M).cast<double>());
           auto eigenvalues = saes.eigenvalues();
           for(unsigned i = 0; i < 3; ++i) {
-            maxEv = eigenvalues(i) > maxEv ? eigenvalues(i) : maxEv;
+            maxEv = std::max(eigenvalues(i), maxEv);
           }
         }
         return sqrt(maxEv / rho);
@@ -229,12 +233,14 @@ namespace seissol {
 #endif
       }
 
+      //calculate P-wave speed based on averaged material parameters
       double getPWaveSpeed() const final {
         double muBar = (c44 + c55 + c66) / 3.0;
         double lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0*muBar;
         return std::sqrt((lambdaBar + 2*muBar) / rho);
       }
 
+      //calculate S-wave speed based on averaged material parameters
       double getSWaveSpeed() const final {
         double muBar = (c44 + c55 + c66) / 3.0;
         return std::sqrt(muBar / rho);

@@ -660,7 +660,7 @@ void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const ch
 bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-  //TODO: implement more general coupling
+  //TODO (LK): implement more general coupling
 #ifndef USE_ANISOTROPIC
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.local.mu > eps && material.neighbor[face].mu < eps;

@@ -268,28 +268,25 @@ namespace seissol {
       easi::Component* model = ParameterDB::loadModel(fileName);
       easi::Query query = queryGen.generate();
 
-      switch(m_materialType)  {
-        case seissol::model::MaterialType::elastic:
-        case seissol::model::MaterialType::viscoelastic:
-        case seissol::model::MaterialType::elastoplastic:
-        case seissol::model::MaterialType::viscoplastic:
-        case seissol::model::MaterialType::anisotropic:
-        case seissol::model::MaterialType::none: {
-          easi::ArrayOfStructsAdapter<T> adapter(m_materials->data());
-          addBindingPoints(adapter);
-          model->evaluate(query, adapter); 
-          break;
-        }
-        default: {
-          //Fallback for Fault parameters
-          easi::ArraysAdapter<double> adapter;
-          for (auto& kv : m_parameters) {
-            adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
-          }
-          model->evaluate(query, adapter); 
-          break;
-        }
+      if (m_materialType == seissol::model::MaterialType::elastic ||
+          m_materialType == seissol::model::MaterialType::viscoelastic ||
+          m_materialType == seissol::model::MaterialType::elastoplastic ||
+          m_materialType == seissol::model::MaterialType::viscoplastic ||
+          m_materialType == seissol::model::MaterialType::anisotropic ||
+          m_materialType == seissol::model::MaterialType::none) {
+        easi::ArrayOfStructsAdapter<T> adapter(m_materials->data());
+        addBindingPoints(adapter);
+        model->evaluate(query, adapter); 
       }
+      else {
+        //Fallback for Fault parameters
+        easi::ArraysAdapter<double> adapter;
+        for (auto& kv : m_parameters) {
+          adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
+        }
+        model->evaluate(query, adapter); 
+      }
+      
       delete model;
     }
 
@@ -318,28 +315,25 @@ namespace seissol {
         delete model;
       }
       else {
-        switch(m_materialType)  {
-          case seissol::model::MaterialType::elastic:
-          case seissol::model::MaterialType::viscoelastic:
-          case seissol::model::MaterialType::elastoplastic:
-          case seissol::model::MaterialType::viscoplastic:
-          case seissol::model::MaterialType::anisotropic:
-          case seissol::model::MaterialType::none: {
-            easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
-            addBindingPoints(arrayOfStructsAdapter);
-            model->evaluate(query, arrayOfStructsAdapter);  
-            break;
-          }
-          default: {
-            //Fallback for Fault parameters
-            easi::ArraysAdapter<double> arraysAdapter;
-            for (auto& kv : m_parameters) {
-              arraysAdapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
-            }
-            model->evaluate(query, arraysAdapter);  
-            break;
-          }
+        if (m_materialType == seissol::model::MaterialType::elastic ||
+            m_materialType == seissol::model::MaterialType::viscoelastic ||
+            m_materialType == seissol::model::MaterialType::elastoplastic ||
+            m_materialType == seissol::model::MaterialType::viscoplastic ||
+            m_materialType == seissol::model::MaterialType::anisotropic ||
+            m_materialType == seissol::model::MaterialType::none) {
+          easi::ArrayOfStructsAdapter<seissol::model::AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
+          addBindingPoints(arrayOfStructsAdapter);
+          model->evaluate(query, arrayOfStructsAdapter);  
         }
+        else {
+          //Fallback for Fault parameters
+          easi::ArraysAdapter<double> arraysAdapter;
+          for (auto& kv : m_parameters) {
+            arraysAdapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
+          }
+          model->evaluate(query, arraysAdapter);  
+        }
+        
         delete model;
       }
     }

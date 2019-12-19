@@ -118,11 +118,6 @@ if (PLASTICITY)
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
 endif()
 
-if ("${EQUATIONS}" MATCHES "viscoelastic.?")
-  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC)
-endif()
-
-
 if ("${PlasticityMethod}" STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
 elseif ("${PlasticityMethod}" STREQUAL "nb")

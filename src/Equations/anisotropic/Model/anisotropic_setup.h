@@ -6,7 +6,7 @@
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015 - 2019, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -148,98 +148,106 @@ namespace seissol {
       using Matrix33 = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>;
       using Matrix63 = Eigen::Matrix<double, 6, 3, Eigen::ColMajor>;
 
-      //Calculate Eigenvectors and Eigenvalues
+      /* Calculate Eigenvectors and Eigenvalues
+       * We want to solve 
+       * /0  A\  /s\ = l /s\
+       * \R  0/  \u/     \u/
+       * which is equivalent to
+       * R * A * u = l*l * u && s = 1/l A * u
+       * Here A has shape 6x3 and R has shape 3x6
+       */
       Eigen::SelfAdjointEigenSolver<Matrix33> saes;
 
-      double aL[9];
-      aL[0] = local.c11 / local.rho;  
-      aL[1] = local.c16 / local.rho;  
-      aL[2] = local.c15 / local.rho;  
-      aL[3] = local.c16 / local.rho;  
-      aL[4] = local.c66 / local.rho;  
-      aL[5] = local.c56 / local.rho;  
-      aL[6] = local.c15 / local.rho;  
-      aL[7] = local.c56 / local.rho;  
-      aL[8] = local.c55 / local.rho;  
-      Matrix33 AL(aL);
-      saes.compute(AL);
-      auto eigenvaluesL = saes.eigenvalues();
-      auto eigenvectorsL = saes.eigenvectors();
+      double raLocal[9];
+      raLocal[0] = local.c11 / local.rho;  
+      raLocal[1] = local.c16 / local.rho;  
+      raLocal[2] = local.c15 / local.rho;  
+      raLocal[3] = local.c16 / local.rho;  
+      raLocal[4] = local.c66 / local.rho;  
+      raLocal[5] = local.c56 / local.rho;  
+      raLocal[6] = local.c15 / local.rho;  
+      raLocal[7] = local.c56 / local.rho;  
+      raLocal[8] = local.c55 / local.rho;  
+      Matrix33 RALocal(raLocal);
+      saes.compute(RALocal);
+      auto eigenvaluesLocal = saes.eigenvalues();
+      auto eigenvectorsLocal = saes.eigenvectors();
 
-      double aN[9];
-      aN[0] = neighbor.c11 / neighbor.rho;  
-      aN[1] = neighbor.c16 / neighbor.rho;  
-      aN[2] = neighbor.c15 / neighbor.rho;  
-      aN[3] = neighbor.c16 / neighbor.rho;  
-      aN[4] = neighbor.c66 / neighbor.rho;  
-      aN[5] = neighbor.c56 / neighbor.rho;  
-      aN[6] = neighbor.c15 / neighbor.rho;  
-      aN[7] = neighbor.c56 / neighbor.rho;  
-      aN[8] = neighbor.c55 / neighbor.rho;  
-      Matrix33 AN(aN);
-      saes.compute(AN);
-      auto eigenvaluesN = saes.eigenvalues();
-      auto eigenvectorsN = saes.eigenvectors();
+      double raNeighbor[9];
+      raNeighbor[0] = neighbor.c11 / neighbor.rho;  
+      raNeighbor[1] = neighbor.c16 / neighbor.rho;  
+      raNeighbor[2] = neighbor.c15 / neighbor.rho;  
+      raNeighbor[3] = neighbor.c16 / neighbor.rho;  
+      raNeighbor[4] = neighbor.c66 / neighbor.rho;  
+      raNeighbor[5] = neighbor.c56 / neighbor.rho;  
+      raNeighbor[6] = neighbor.c15 / neighbor.rho;  
+      raNeighbor[7] = neighbor.c56 / neighbor.rho;  
+      raNeighbor[8] = neighbor.c55 / neighbor.rho;  
+      Matrix33 RANeighbor(raNeighbor);
+      saes.compute(RANeighbor);
+      auto eigenvaluesNeighbor = saes.eigenvalues();
+      auto eigenvectorsNeighbor = saes.eigenvectors();
 
-      double a1L[18];
-      a1L[0] = -local.c11;
-      a1L[1] = -local.c12;
-      a1L[2] = -local.c13;
-      a1L[3] = -local.c16;
-      a1L[4] = -local.c14;
-      a1L[5] = -local.c15;
-      a1L[6] = -local.c16;
-      a1L[7] = -local.c26;
-      a1L[8] = -local.c36;
-      a1L[9] = -local.c66;
-      a1L[10] = -local.c46;
-      a1L[11] = -local.c56;
-      a1L[12] = -local.c15;
-      a1L[13] = -local.c25;
-      a1L[14] = -local.c35;
-      a1L[15] = -local.c46;
-      a1L[16] = -local.c45;
-      a1L[17] = -local.c55;
-      Matrix63 A1L(a1L);
+      double aLocal[18];
+      aLocal[0] = -local.c11;
+      aLocal[1] = -local.c12;
+      aLocal[2] = -local.c13;
+      aLocal[3] = -local.c16;
+      aLocal[4] = -local.c14;
+      aLocal[5] = -local.c15;
+      aLocal[6] = -local.c16;
+      aLocal[7] = -local.c26;
+      aLocal[8] = -local.c36;
+      aLocal[9] = -local.c66;
+      aLocal[10] = -local.c46;
+      aLocal[11] = -local.c56;
+      aLocal[12] = -local.c15;
+      aLocal[13] = -local.c25;
+      aLocal[14] = -local.c35;
+      aLocal[15] = -local.c46;
+      aLocal[16] = -local.c45;
+      aLocal[17] = -local.c55;
+      Matrix63 ALocal(aLocal);
 
-      double a1N[18];
-      a1N[0] = -neighbor.c11;
-      a1N[1] = -neighbor.c12;
-      a1N[2] = -neighbor.c13;
-      a1N[3] = -neighbor.c16;
-      a1N[4] = -neighbor.c14;
-      a1N[5] = -neighbor.c15;
-      a1N[6] = -neighbor.c16;
-      a1N[7] = -neighbor.c26;
-      a1N[8] = -neighbor.c36;
-      a1N[9] = -neighbor.c66;
-      a1N[10] = -neighbor.c46;
-      a1N[11] = -neighbor.c56;
-      a1N[12] = -neighbor.c15;
-      a1N[13] = -neighbor.c25;
-      a1N[14] = -neighbor.c35;
-      a1N[15] = -neighbor.c46;
-      a1N[16] = -neighbor.c45;
-      a1N[17] = -neighbor.c55;
-      Matrix63 A1N(a1N);
+      double aNeighbor[18];
+      aNeighbor[0] = -neighbor.c11;
+      aNeighbor[1] = -neighbor.c12;
+      aNeighbor[2] = -neighbor.c13;
+      aNeighbor[3] = -neighbor.c16;
+      aNeighbor[4] = -neighbor.c14;
+      aNeighbor[5] = -neighbor.c15;
+      aNeighbor[6] = -neighbor.c16;
+      aNeighbor[7] = -neighbor.c26;
+      aNeighbor[8] = -neighbor.c36;
+      aNeighbor[9] = -neighbor.c66;
+      aNeighbor[10] = -neighbor.c46;
+      aNeighbor[11] = -neighbor.c56;
+      aNeighbor[12] = -neighbor.c15;
+      aNeighbor[13] = -neighbor.c25;
+      aNeighbor[14] = -neighbor.c35;
+      aNeighbor[15] = -neighbor.c46;
+      aNeighbor[16] = -neighbor.c45;
+      aNeighbor[17] = -neighbor.c55;
+      Matrix63 ANeighbor(aNeighbor);
 
+      //remember that the eigenvalues of the complete system are the sqare roots
+      //of the eigenvalues of the reduced system
       for(unsigned i = 0; i < 3; i++) {
-        eigenvaluesL(i) = sqrt(eigenvaluesL(i));
+        eigenvaluesLocal(i) = sqrt(eigenvaluesLocal(i));
       }
-      auto lambdaL = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>(eigenvaluesL.asDiagonal());
+      auto lambdaLocal = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>(eigenvaluesLocal.asDiagonal());
       for(unsigned i = 0; i < 3; i++) {
-        eigenvaluesN(i) = sqrt(eigenvaluesN(i));
+        eigenvaluesNeighbor(i) = sqrt(eigenvaluesNeighbor(i));
       }
-      auto lambdaN = Matrix33(eigenvaluesN.asDiagonal());
+      auto lambdaNeighbor = Matrix33(eigenvaluesNeighbor.asDiagonal());
 
-      Matrix63 E1 = Matrix63::Zero();
-      E1(1,0) = 1;
-      E1(2,1) = 1;
-      E1(4,2) = 1;
-      Matrix33 E2 = Matrix33::Zero();
+      Matrix63 nullSpaceEigenvectors = Matrix63::Zero();
+      nullSpaceEigenvectors(1,0) = 1;
+      nullSpaceEigenvectors(2,1) = 1;
+      nullSpaceEigenvectors(4,2) = 1;
 
-      R <<  A1L * eigenvectorsL,   E1, A1N * eigenvectorsN, 
-        -eigenvectorsL*lambdaL, E2, eigenvectorsN*lambdaN;
+      R <<  ALocal * eigenvectorsLocal, nullSpaceEigenvectors, ANeighbor * eigenvectorsNeighbor, 
+        -eigenvectorsLocal*lambdaLocal, Matrix33::Zero(),      eigenvectorsNeighbor*lambdaNeighbor;
     }
 
     template<>
@@ -254,7 +262,7 @@ namespace seissol {
         getEigenBasisForAnisotropicMaterial(local, neighbor, R);
 
         if(faceType == FaceType::freeSurface) {
-          getTransposedFreeSurfaceGodunovState( false, QgodLocal, QgodNeighbor, R);
+          getTransposedFreeSurfaceGodunovState(false, QgodLocal, QgodNeighbor, R);
 
         } else {
           Matrix99 chi = Matrix99::Zero();
@@ -285,7 +293,7 @@ namespace seissol {
       }
 
     template<>
-      inline void initializeSpecificNeighborData(  AnisotropicMaterial const&,
+      inline void initializeSpecificNeighborData( AnisotropicMaterial const&,
           NeighborData* )
       {
       }
@@ -320,73 +328,73 @@ namespace seissol {
         o_material->c66 = i_materialVal[21];
       }
 
-    inline AnisotropicMaterial getRotatedMaterialCoefficients(real i_N[36], AnisotropicMaterial& i_material) {
-        AnisotropicMaterial o_material;
-        o_material.rho = i_material.rho;
+    inline AnisotropicMaterial getRotatedMaterialCoefficients(real rotationParameters[36], AnisotropicMaterial& material) {
+        AnisotropicMaterial rotatedMaterial;
+        rotatedMaterial.rho = material.rho;
         using Matrix66 = Eigen::Matrix<real, 6, 6>;
-        Matrix66 N = Matrix66(i_N);
+        Matrix66 N = Matrix66(rotationParameters);
         Matrix66 C = Matrix66();
-        C(0,0) = i_material.c11;
-        C(0,1) = i_material.c12;
-        C(0,2) = i_material.c13;
-        C(0,3) = i_material.c14;
-        C(0,4) = i_material.c15;
-        C(0,5) = i_material.c16;
-        C(1,0) = i_material.c12;
-        C(1,1) = i_material.c22;
-        C(1,2) = i_material.c23;
-        C(1,3) = i_material.c24;
-        C(1,4) = i_material.c25;
-        C(1,5) = i_material.c26;
-        C(2,0) = i_material.c13;
-        C(2,1) = i_material.c23;
-        C(2,2) = i_material.c33;
-        C(2,3) = i_material.c34;
-        C(2,4) = i_material.c35;
-        C(2,5) = i_material.c36;
-        C(3,0) = i_material.c14;
-        C(3,1) = i_material.c24;
-        C(3,2) = i_material.c34;
-        C(3,3) = i_material.c44;
-        C(3,4) = i_material.c45;
-        C(3,5) = i_material.c46;
-        C(4,0) = i_material.c15;
-        C(4,1) = i_material.c25;
-        C(4,2) = i_material.c35;
-        C(4,3) = i_material.c45;
-        C(4,4) = i_material.c55;
-        C(4,5) = i_material.c56;
-        C(5,0) = i_material.c16;
-        C(5,1) = i_material.c26;
-        C(5,2) = i_material.c36;
-        C(5,3) = i_material.c46;
-        C(5,4) = i_material.c56;
-        C(5,5) = i_material.c66;
+        C(0,0) = material.c11;
+        C(0,1) = material.c12;
+        C(0,2) = material.c13;
+        C(0,3) = material.c14;
+        C(0,4) = material.c15;
+        C(0,5) = material.c16;
+        C(1,0) = material.c12;
+        C(1,1) = material.c22;
+        C(1,2) = material.c23;
+        C(1,3) = material.c24;
+        C(1,4) = material.c25;
+        C(1,5) = material.c26;
+        C(2,0) = material.c13;
+        C(2,1) = material.c23;
+        C(2,2) = material.c33;
+        C(2,3) = material.c34;
+        C(2,4) = material.c35;
+        C(2,5) = material.c36;
+        C(3,0) = material.c14;
+        C(3,1) = material.c24;
+        C(3,2) = material.c34;
+        C(3,3) = material.c44;
+        C(3,4) = material.c45;
+        C(3,5) = material.c46;
+        C(4,0) = material.c15;
+        C(4,1) = material.c25;
+        C(4,2) = material.c35;
+        C(4,3) = material.c45;
+        C(4,4) = material.c55;
+        C(4,5) = material.c56;
+        C(5,0) = material.c16;
+        C(5,1) = material.c26;
+        C(5,2) = material.c36;
+        C(5,3) = material.c46;
+        C(5,4) = material.c56;
+        C(5,5) = material.c66;
 
         Matrix66 rotatedC = N.transpose()*C*N;
 
-        o_material.c11 = rotatedC(0,0);
-        o_material.c12 = rotatedC(0,1);
-        o_material.c13 = rotatedC(0,2);
-        o_material.c14 = rotatedC(0,3);
-        o_material.c15 = rotatedC(0,4);
-        o_material.c16 = rotatedC(0,5);
-        o_material.c22 = rotatedC(1,1);
-        o_material.c23 = rotatedC(1,2);
-        o_material.c24 = rotatedC(1,3);
-        o_material.c25 = rotatedC(1,4);
-        o_material.c26 = rotatedC(1,5);
-        o_material.c33 = rotatedC(2,2);
-        o_material.c34 = rotatedC(2,3);
-        o_material.c35 = rotatedC(2,4);
-        o_material.c36 = rotatedC(2,5);
-        o_material.c44 = rotatedC(3,3);
-        o_material.c45 = rotatedC(3,4);
-        o_material.c46 = rotatedC(3,5);
-        o_material.c55 = rotatedC(4,4);
-        o_material.c56 = rotatedC(4,5);
-        o_material.c66 = rotatedC(5,5);
-        return o_material;
+        rotatedMaterial.c11 = rotatedC(0,0);
+        rotatedMaterial.c12 = rotatedC(0,1);
+        rotatedMaterial.c13 = rotatedC(0,2);
+        rotatedMaterial.c14 = rotatedC(0,3);
+        rotatedMaterial.c15 = rotatedC(0,4);
+        rotatedMaterial.c16 = rotatedC(0,5);
+        rotatedMaterial.c22 = rotatedC(1,1);
+        rotatedMaterial.c23 = rotatedC(1,2);
+        rotatedMaterial.c24 = rotatedC(1,3);
+        rotatedMaterial.c25 = rotatedC(1,4);
+        rotatedMaterial.c26 = rotatedC(1,5);
+        rotatedMaterial.c33 = rotatedC(2,2);
+        rotatedMaterial.c34 = rotatedC(2,3);
+        rotatedMaterial.c35 = rotatedC(2,4);
+        rotatedMaterial.c36 = rotatedC(2,5);
+        rotatedMaterial.c44 = rotatedC(3,3);
+        rotatedMaterial.c45 = rotatedC(3,4);
+        rotatedMaterial.c46 = rotatedC(3,5);
+        rotatedMaterial.c55 = rotatedC(4,4);
+        rotatedMaterial.c56 = rotatedC(4,5);
+        rotatedMaterial.c66 = rotatedC(5,5);
+        return rotatedMaterial;
       }
 
   }

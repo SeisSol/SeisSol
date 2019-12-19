@@ -60,7 +60,7 @@ Rheological model parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The following parameters need to be set by easi.
 The columms E, A, V, and P denote if the respective parameter is required
-when using an elastic, anisotropic, viscoelastic, and viscoplastic rheological model.
+when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and viscoplastic rheological model.
 
 .. |checkmark| unicode:: U+2713
 
@@ -125,7 +125,7 @@ when using an elastic, anisotropic, viscoelastic, and viscoplastic rheological m
      - |checkmark|
      - Initial stress tensor.
 
-When using anisotropy only the upper half of the symmetric stiffnes tensor has to be supplied: c11, c12, c13, c14, c15, c16, c22, c23, c24, c25, c26, c33, c34, c35, c36, c44, c45, c46, c55, c56, c66.
+When using anisotropy, only the upper half of the symmetric stiffnes tensor has to be supplied: c11, c12, c13, c14, c15, c16, c22, c23, c24, c25, c26, c33, c34, c35, c36, c44, c45, c46, c55, c56, c66.
 All parameters have to be set, even if they are zero.
 
 Fault parameters (dynamic rupture)

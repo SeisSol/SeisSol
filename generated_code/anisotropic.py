@@ -4,9 +4,9 @@
 # This file is part of SeisSol.
 #
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
-#
+# @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
 # @section LICENSE
-# Copyright (c) 2016-2018, SeisSol Group
+# Copyright (c) 2016-2019, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without

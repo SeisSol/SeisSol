@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015 - 2019, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +50,7 @@
 #include <Geometry/MeshTools.h>
 #include <generated_code/tensor.h>
 #include <generated_code/kernel.h>
+#include <utils/logger.h>
 
 void setStarMatrix( real* i_AT,
                     real* i_BT,
@@ -100,11 +102,11 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     {
 #endif
     real ATData[tensor::star::size(0)];
-    real AT_tildeData[tensor::star::size(0)];
+    real ATtildeData[tensor::star::size(0)];
     real BTData[tensor::star::size(1)];
     real CTData[tensor::star::size(2)];
     auto AT = init::star::view<0>::create(ATData);
-    auto AT_tilde = init::star::view<0>::create(AT_tildeData);
+    auto ATtilde = init::star::view<0>::create(ATtildeData);
     auto BT = init::star::view<0>::create(BTData);
     auto CT = init::star::view<0>::create(CTData);
 
@@ -168,33 +170,21 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
 
         real NLocalData[6*6];
         seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-        switch (material[cell].local.getMaterialType()) {
-          case seissol::model::MaterialType::anisotropic: {
-            seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)),
-                                                        seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side])),
-                                                        cellInformation[cell].faceTypes[side],
-                                                        QgodLocal,
-                                                        QgodNeighbor );
-            seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, AT_tilde );
-            break;
-          }
-          case seissol::model::MaterialType::elastic:
-          case seissol::model::MaterialType::elastoplastic: 
-          case seissol::model::MaterialType::viscoelastic:
-          case seissol::model::MaterialType::viscoplastic: {
-            seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                        material[cell].neighbor[side],     
-                                                        cellInformation[cell].faceTypes[side],
-                                                        QgodLocal,
-                                                        QgodNeighbor );
-            seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, AT_tilde );
-            break;
-          }
-          case seissol::model::MaterialType::none: {
-            break;
-          }
+        if (material[cell].local.getMaterialType() == seissol::model::MaterialType::anisotropic) {
+          seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)),
+                                                      seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side])),
+                                                      cellInformation[cell].faceTypes[side],
+                                                      QgodLocal,
+                                                      QgodNeighbor );
+          seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, ATtilde );
+        } else if (material[cell].local.getMaterialType() != seissol::model::MaterialType::none) {
+          seissol::model::getTransposedGodunovState(  material[cell].local,
+                                                      material[cell].neighbor[side],     
+                                                      cellInformation[cell].faceTypes[side],
+                                                      QgodLocal,
+                                                      QgodNeighbor );
+          seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, ATtilde );
         }
-
 
         // Calculate transposed T instead
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
@@ -209,7 +199,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         localKrnl.QgodLocal = QgodLocalData;
         localKrnl.T = TData;
         localKrnl.Tinv = TinvData;
-        localKrnl.star(0) = AT_tildeData;
+        localKrnl.star(0) = ATtildeData;
         localKrnl.execute();
         
         kernel::computeFluxSolverNeighbor neighKrnl;
@@ -218,7 +208,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         neighKrnl.QgodNeighbor = QgodNeighborData;
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
-        neighKrnl.star(0) = AT_tildeData;
+        neighKrnl.star(0) = ATtildeData;
         if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
           // Already rotated!
           neighKrnl.Tinv = init::identityT::Values;
@@ -512,22 +502,26 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::anisotropic: {
-          //TODO: Make DR work with anisotropy 
+          logWarning() << "Dynamic Rupture does not work with anisotropy yet.";
+          //TODO(SW): Make DR work with anisotropy 
           break;
         }
         case seissol::model::MaterialType::elastic:
+        [[fallthrough]];
         case seissol::model::MaterialType::elastoplastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
           break;
         }
         case seissol::model::MaterialType::viscoelastic:
+        [[fallthrough]];
         case seissol::model::MaterialType::viscoplastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
           break;
         }
         case seissol::model::MaterialType::none: {
+          logError() << "Material of None type found.";
           break;
         }
       }
