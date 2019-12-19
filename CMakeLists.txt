@@ -28,9 +28,10 @@ set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method.")
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS nb ip)
 set(NUMBER_OF_MULTIPLE_SIMULATIONS "1" CACHE STRING "Fuse multiple simulations in one run.")
 option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
-set(LOG_LEVEL "INFO" CACHE STRING "Log level for the code")
-set_property(CACHE LOG_LEVEL PROPERTY STRINGS "DEBUG" "INFO" "WARNING" "ERROR")
-
+set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
+set_property(CACHE LOG_LEVEL PROPERTY STRINGS "debug" "info" "warning" "error")
+set(LOG_LEVEL_MASTER "info" CACHE STRING "Log level for the code")
+set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS "debug" "info" "warning" "error")
 
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
@@ -180,17 +181,26 @@ else ()
   message(FATAL_ERROR "Arch is unknown.")
   endif()
 
-if (LOG_LEVEL STREQUAL "DEBUG")
-  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=3 LOG_LEVEL=3 LOGLEVEL0=3)
-elseif (LOG_LEVEL STREQUAL "INFO")
-  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=2 LOG_LEVEL=2 LOGLEVEL0=2)
-elseif (LOG_LEVEL STREQUAL "WARNING")
-  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=1 LOG_LEVEL=1 LOGLEVEL0=1)
-elseif (LOG_LEVEL STREQUAL "ERROR")
-  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=0 LOG_LEVEL=0 LOGLEVEL0=0)
-endif()
-  
-#set_property(CACHE LOG_LEVEL PRPERTY STRINGS "DEBUG" "INFO" "WARNING" "ERROR")
+function(log_level_to_int log_level_str log_level_int)
+  if (${log_level_str} STREQUAL "debug")
+    set(${log_level_int} 3 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "info")
+    set(${log_level_int} 2 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "warning")
+    set(${log_level_int} 1 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "error")
+    set(${log_level_int} 0 PARENT_SCOPE)
+  endif()
+endfunction()
+
+log_level_to_int(LOG_LEVEL LOG_LEVEL_INT)
+target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=${LOG_LEVEL_INT})
+
+log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER_INT)
+target_compile_definitions(SeisSol-lib PUBLIC
+        LOG_LEVEL=${LOG_LEVEL_MASTER_INT}
+        LOGLEVEL0=${LOG_LEVEL_MASTER_INT})
+
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
 #    flags.extend(['-ip'])
@@ -284,8 +294,6 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
 				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
-				   LOGLEVEL=3
-				   LOGLEVEL0=3
 				   # Are the following needed?
 				   GENERATED_KERNELS
 				   GENERATEDKERNELS
