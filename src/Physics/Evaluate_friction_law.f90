@@ -1302,7 +1302,7 @@ MODULE Eval_friction_law_mod
          !                                      mu_ss = mu_w + [mu_lv - mu_w] / [ 1 + (V/Vw)^8 ] ^ (1/8) ]
          !                                      mu_lv = mu_0 - (b-a) ln (V/V0)
          !
-         LocP   = NorStressGP(:,iTimeGP)
+         LocP   = 0.8* NorStressGP(:,iTimeGP)
          time_inc = DeltaT(iTimeGP)
          !
          RS_f0  = DISC%DynRup%RS_f0     ! mu_0, reference friction coefficient
@@ -1339,9 +1339,10 @@ MODULE Eval_friction_law_mod
              fss = max(1e-8,fss)
              ! steady-state state variable with SINH(X)=(EXP(X)-EXP(-X))/2
              SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss)-EXP(-fss))/2.0D0)
+             SVss = max(AlmostZero,SVss)
              !
              LocSV=SVss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
-
+             LocSV = max(AlmostZero,LocSV)
              !2. solve for Vnew , applying the Newton-Raphson algorithm as in Case 3 and 4
              !   but with different mu evolution
              ! SR fulfills g(SR)=f(SR), NR=f-g and dNR = d(NR)/d(SR)
@@ -1391,8 +1392,10 @@ MODULE Eval_friction_law_mod
          fss = max(1e-8,fss)
 
          SVss = RS_a * LOG(2.0D0*RS_sr0/tmp * ( EXP(fss)-EXP(-fss))/2.0D0)
+         SVss = max(AlmostZero,SVss)
 
          LocSV=Svss*(1.0d0-EXP(-tmp*time_inc/RS_sl0))+EXP(-tmp*time_inc/RS_sl0)*SV0
+         LocSV=max(AlmostZero,LocSV)
 
          !Mu from LocSR
          tmp = 0.5D0*(LocSR)/RS_sr0 * EXP(LocSV/RS_a)
@@ -1458,7 +1461,7 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%Slip2(:,iFace)     = LocSlip2
      DISC%DynRup%TracXY(:,iFace)    = LocTracXY
      DISC%DynRup%TracXZ(:,iFace)    = LocTracXZ
-     DISC%DynRup%StateVar(:,iFace)  = LocSV
+     !DISC%DynRup%StateVar(:,iFace)  = LocSV
      DISC%DynRup%StateVar(:,iFace)  = DISC%DynRup%StateVar(:,iFace)+matmul(resampleMatrix,LocSV-DISC%DynRup%StateVar(:,iFace))
 
      IF (DISC%DynRup%magnitude_out(iFace)) THEN
