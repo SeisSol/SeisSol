@@ -1107,10 +1107,6 @@ CONTAINS
            !
            DISC%DynRup%OutputPointType = OutputPointType
            DISC%DynRup%SlipRateOutputType = SlipRateOutputType
-           IF ((DISC%DynRup%SlipRateOutputType.EQ.0).AND.(DISC%DynRup%ThermalPress.EQ.1)) THEN
-               logError(*) 'SlipRateOutputType=0 (smooth slip output) and ThermalPress=1 are incompatible. Please use SlipRateOutputType=1'
-               STOP
-           ENDIF
 
            !
            if (DISC%DynRup%OutputPointType .eq. 0) then
