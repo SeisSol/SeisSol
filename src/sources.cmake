@@ -159,6 +159,7 @@ if ("${EQUATIONS}" STREQUAL "elastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
     )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_ELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(SeisSol-lib PUBLIC

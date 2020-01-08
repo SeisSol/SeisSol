@@ -69,8 +69,8 @@ public:
 };
 
 void seissol::initializers::time_stepping::LtsWeights::computeMaxTimesteps( PUML::TETPUML const&  mesh,
-                                                                            double const*         pWaveVel,
-                                                                            double*               timestep ) {
+                                                                            std::vector<double> const& pWaveVel,
+                                                                            std::vector<double>& timestep ) {
   std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
   std::vector<PUML::TETPUML::vertex_t> const& vertices = mesh.vertices();
 
@@ -145,30 +145,29 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
   int const* boundaryCond = mesh.cellData(1);
 
-  double* pWaveVel = new double[cells.size()];
+  std::vector<double> pWaveVel;
+  pWaveVel.resize(cells.size());
   
   seissol::initializers::ElementBarycentreGeneratorPUML queryGen(mesh);  
   //up to now we only distinguish between anisotropic elastic any other isotropic material
 #ifdef USE_ANISOTROPIC
   std::vector<seissol::model::AnisotropicMaterial> materials(cells.size());
-  seissol::initializers::ParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
-  parameterDB.setMaterialType(seissol::model::MaterialType::anisotropic);
+  seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
 #else
   std::vector<seissol::model::ElasticMaterial> materials(cells.size());
-  seissol::initializers::ParameterDB<seissol::model::ElasticMaterial> parameterDB;
-  parameterDB.setMaterialType(seissol::model::MaterialType::elastic);
+  seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
 #endif 
   parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(m_velocityModel, queryGen);
   for(unsigned cell = 0; cell < cells.size(); ++cell) {
     pWaveVel[cell] = materials[cell].getMaxWaveSpeed();
   }
-  double* timestep = new double[cells.size()];
-  computeMaxTimesteps(mesh,pWaveVel, timestep);
-  delete[] pWaveVel;  
+  std::vector<double> timestep;
+  timestep.resize(cells.size());
+  computeMaxTimesteps(mesh, pWaveVel, timestep);
 
-  double localMinTimestep = *std::min_element(timestep, timestep + cells.size());
-  double localMaxTimestep = *std::max_element(timestep, timestep + cells.size());
+  double localMinTimestep = *std::min_element(timestep.begin(), timestep.end());
+  double localMaxTimestep = *std::max_element(timestep.begin(), timestep.end());
   double globalMinTimestep;
   double globalMaxTimestep;
 #ifdef USE_MPI
@@ -183,7 +182,6 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     cluster[cell] = getCluster(timestep[cell], globalMinTimestep, m_rate);
   } 
-  delete[] timestep;
   
   int totalNumberOfReductions = enforceMaximumDifference(mesh, cluster);
 

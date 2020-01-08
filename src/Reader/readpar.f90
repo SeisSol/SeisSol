@@ -376,7 +376,6 @@ CONTAINS
     SELECT CASE(Anisotropy)
     CASE(0)
       logInfo(*) 'Isotropic material is assumed. '
-!      EQN%nBackgroundVar = 22
       EQN%nNonZeroEV = 3
     CASE(1)
       IF(Anelasticity.EQ.1) THEN

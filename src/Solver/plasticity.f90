@@ -272,7 +272,7 @@ MODULE Plasticity_mod
            2.0*estrain_ini(5)**2 + 2.0*estrain_ini(6)**2
     !Elastic strain energy
     !subtracted the initial elastic strain
-    !TODO ANISOTROPY
+    !TODO(Sebastian)
     EstrainEnergy_tmp = 0.5*lambda*(I1**2-I1_0**2) + mu*(I2-I2_0)
 
     Energy(1) = PlasticEnergy_tmp*parameters(1) !multiplied by volume to get integral over element

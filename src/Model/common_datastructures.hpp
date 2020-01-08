@@ -50,20 +50,17 @@ namespace seissol {
     enum class MaterialType {
       elastic,
       viscoelastic,
-      elastoplastic,
-      viscoplastic,
-      anisotropic,
-      none
+      anisotropic
     };
 
     //could be made abstract, as soon as the LTS-Tree supports polymorphism 
     struct Material {
       double rho;
-      virtual double getMaxWaveSpeed() const { return 0; };
-      virtual double getPWaveSpeed() const { return 0; };
-      virtual double getSWaveSpeed() const { return 0; };
-      virtual void getFullElasticTensor(std::array<real, 81>& fullTensor) const {}; 
-      virtual MaterialType getMaterialType() const { return MaterialType::none; } ;
+      virtual double getMaxWaveSpeed() const = 0;
+      virtual double getPWaveSpeed() const = 0;
+      virtual double getSWaveSpeed() const = 0;
+      virtual void getFullElasticTensor(std::array<real, 81>& fullTensor) const = 0; 
+      virtual MaterialType getMaterialType() const = 0 ;
       virtual ~Material() {};
     };
 

@@ -105,9 +105,8 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 0, 0);
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
 
-  //for viscoelastic2
-  if(o_T.size() > 9*9) {
+#ifdef USE_VISCOELASTIC
     seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 9, 9);
-  }
+#endif 
 }
 

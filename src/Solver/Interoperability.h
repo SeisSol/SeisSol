@@ -175,9 +175,9 @@ class seissol::Interoperability {
 
     //! \todo Documentation
     void initializeModel( char*   materialFileName,
-                          int     anelasticity,
-                          int     anisotropy,
-                          int     plasticity,
+                          bool    anelasticity,
+                          bool    anisotropy,
+                          bool    plasticity,
                           double* materialVal,
                           double* bulkFriction,
                           double* plastCo,

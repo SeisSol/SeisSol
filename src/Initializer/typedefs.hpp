@@ -393,9 +393,11 @@ struct CellMaterialData {
 #elif defined USE_VISCOELASTIC
   seissol::model::ViscoElasticMaterial local;
   seissol::model::ViscoElasticMaterial neighbor[4];
-#else
+#elif defined USE_ELASTIC
   seissol::model::ElasticMaterial local;
   seissol::model::ElasticMaterial neighbor[4];
+#else
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ISOTROPIC, USE_VISCOELASTIC");
 #endif
 };
 

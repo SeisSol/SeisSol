@@ -70,8 +70,8 @@ public:
 
 private:
   void computeMaxTimesteps( PUML::TETPUML const&  mesh,
-                            double const*         pWaveVel,
-                            double*               timestep );
+                            std::vector<double> const& pWaveVel,
+                            std::vector<double>& timestep );
 
   int getCluster( double    timestep,
                   double    globalMinTimestep,

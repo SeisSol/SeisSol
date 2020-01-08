@@ -196,7 +196,6 @@ CONTAINS
 
     !
     IF(DISC%Galerkin%DGMethod.EQ.3) THEN
-      logInfo(*) 'We actually enter this block'
       DISC%LocalDt(:) = OptionalFields%dt_convectiv(:)
       DO iElem = 1, MESH%nElem
         OptionalFields%dtmin(iElem) = DISC%LocalDt(iElem)

@@ -55,8 +55,6 @@
 
 namespace seissol {
   namespace model {
-    using Matrix99 = Eigen::Matrix<double, 9, 9>;
-
     bool testIfAcoustic(real mu);
 
     template<typename Tmaterial, typename Tmatrix>
@@ -79,7 +77,7 @@ namespace seissol {
     void getTransposedFreeSurfaceGodunovState( bool isAcoustic,
                                                T& QgodLocal,
                                                T& QgodNeighbor,
-                                               Matrix99& R);
+                                               Eigen::Matrix<double, 9, 9>& R);
 
     template<typename T>
     void getPlaneWaveOperator( T const& material,
@@ -139,7 +137,7 @@ template<typename T>
 void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
                                                            T&        QgodLocal,
                                                            T&        QgodNeighbor,
-                                                           Matrix99& R)
+                                                           Eigen::Matrix<double, 9, 9>& R)
 {
   for (int i = 0; i < 9; i++) {
     for (int j = 0; j < 9; j++) {

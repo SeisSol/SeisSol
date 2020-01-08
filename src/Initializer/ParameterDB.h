@@ -41,10 +41,10 @@
 #ifndef INITIALIZER_PARAMETERDB_H_
 #define INITIALIZER_PARAMETERDB_H_
 
-#include "memory"
-#include "string"
-#include "unordered_map"
-#include "set"
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <set>
 
 #include "Geometry/MeshReader.h"
 #include "Kernels/precision.hpp"
@@ -72,8 +72,10 @@ namespace seissol {
     class ElementBarycentreGeneratorPUML;
     class FaultBarycentreGenerator;
     class FaultGPGenerator;
-    template<class T>
     class ParameterDB;
+    template<class T>
+    class MaterialParameterDB;
+    class FaultParameterDB;
     class EasiBoundary;
 
     easi::Component* loadEasiModel(const std::string& fileName);
@@ -123,29 +125,32 @@ private:
   unsigned m_numberOfPoints;
 };
 
-template<class T>
 class seissol::initializers::ParameterDB {
-public: 
-  //for material parameters
-  void setMaterialType(seissol::model::MaterialType materialType) { m_materialType = materialType; }
-  void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
-  //for fault parameters
-  void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
-  static bool faultParameterizedByTraction(std::string const& fileName);
-  //generic
-  void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
-  
-private:
-  //for material parameters
-  void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
-  seissol::model::MaterialType m_materialType;
-  std::vector<T>* m_materials;
-  //for fault parameters
-  std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
-  //generic
+public:
+  virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) = 0;
   static easi::Component* loadModel(std::string const& fileName);
 };
 
+template<class T>
+class seissol::initializers::MaterialParameterDB : seissol::initializers::ParameterDB {
+public: 
+  virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
+  void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
+  
+private:
+  void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
+  std::vector<T>* m_materials;
+};
+
+
+class seissol::initializers::FaultParameterDB : seissol::initializers::ParameterDB {
+public:
+  void addParameter(std::string const& parameter, double* memory, unsigned stride = 1) { m_parameters[parameter] = std::make_pair(memory, stride); }
+  virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
+  static bool faultParameterizedByTraction(std::string const& fileName);
+private:
+  std::unordered_map<std::string, std::pair<double*, unsigned>> m_parameters;
+};
 
 class seissol::initializers::EasiBoundary {
 public:

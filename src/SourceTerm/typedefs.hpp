@@ -42,6 +42,8 @@
 #define SOURCETERM_TYPEDEFS_HPP_
 
 #include <cstdlib>
+#include <array>
+#include <vector>
 #include <Initializer/typedefs.hpp>
 #include <generated_code/tensor.h>
 

@@ -177,7 +177,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
                                                       QgodLocal,
                                                       QgodNeighbor );
           seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, ATtilde );
-        } else if (material[cell].local.getMaterialType() != seissol::model::MaterialType::none) {
+        } else {
           seissol::model::getTransposedGodunovState(  material[cell].local,
                                                       material[cell].neighbor[side],     
                                                       cellInformation[cell].faceTypes[side],
@@ -506,22 +506,14 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           //TODO(SW): Make DR work with anisotropy 
           break;
         }
-        case seissol::model::MaterialType::elastic:
-        [[fallthrough]];
-        case seissol::model::MaterialType::elastoplastic: {
+        case seissol::model::MaterialType::elastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, AMinus);
           break;
         }
-        case seissol::model::MaterialType::viscoelastic:
-        [[fallthrough]];
-        case seissol::model::MaterialType::viscoplastic: {
+        case seissol::model::MaterialType::viscoelastic: {
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, APlus);
           seissol::model::getTransposedCoefficientMatrix(*dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, AMinus);
-          break;
-        }
-        case seissol::model::MaterialType::none: {
-          logError() << "Material of None type found.";
           break;
         }
       }

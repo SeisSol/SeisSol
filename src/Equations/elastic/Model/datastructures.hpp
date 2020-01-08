@@ -96,13 +96,6 @@ namespace seissol {
         return MaterialType::elastic;
       }
     };
-
-    struct ElastoPlasticMaterial : ElasticMaterial, Plasticity {
-      virtual ~ElastoPlasticMaterial() {};
-      MaterialType getMaterialType() const final {
-        return MaterialType::elastoplastic;
-      }
-    };
   }
 }
 

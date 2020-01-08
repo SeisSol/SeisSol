@@ -66,14 +66,6 @@ namespace seissol {
       }
     };
 
-    struct ViscoPlasticMaterial : ViscoElasticMaterial, Plasticity {
-      virtual ~ViscoPlasticMaterial() {};
-
-      MaterialType getMaterialType() const final {
-        return MaterialType::viscoplastic;
-      }
-    };
-
 #ifdef USE_VISCOELASTIC
     struct LocalData {
       real E[tensor::E::size()];

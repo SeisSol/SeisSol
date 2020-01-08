@@ -429,8 +429,9 @@ env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['eq
 
 if env['equations'] == 'anisotropic':
   env.Append(CPPDEFINES=['USE_ANISOTROPIC'])
-
-if env['equations'] in  ['viscoelastic', 'viscoelastic2']:
+elif env['equations'] == 'elastic':
+  env.Append(CPPDEFINES=['USE_ELASTIC'])
+elif env['equations'] in  ['viscoelastic', 'viscoelastic2']:
   env.Append(CPPDEFINES=['USE_VISCOELASTIC'])
 
 env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
