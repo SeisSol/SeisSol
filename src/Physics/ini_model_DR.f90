@@ -231,6 +231,20 @@ MODULE ini_model_DR_mod
          call c_interoperability_addFaultParameter("forced_rupture_time" // c_null_char, DISC%DynRup%forced_rupture_time)
        end if
 
+    CASE(33) ! ImposedSlipRateOnDRBoundary
+        allocate( nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+        nuc_xx(:,:) = 0.0d0
+        nuc_yy(:,:) = 0.0d0
+        nuc_zz(:,:) = 0.0d0
+        call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xy)
+        call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_xz)
+        nuc_yz(:,:) = 0.0d0
+
     CASE(3,4,7,101,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
       call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
@@ -297,6 +311,13 @@ MODULE ini_model_DR_mod
       call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,faultParameterizedByTraction)
       deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
     end if
+
+    if (EQN%FL == 33) then !ImposedSlipRateOnDRBoundary
+        allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
+        call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS, .TRUE.)
+        deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
+    endif
+
   END SUBROUTINE DR_basic_ini
   
   SUBROUTINE rotateStressToFaultCS(EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz,stressInFaultCS,faultParameterizedByTraction)

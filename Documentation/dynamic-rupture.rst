@@ -153,3 +153,44 @@ Linear-Slip Weakening Friction
 
 Rate-and-State Friction
 ^^^^^^^^^^^^^^^^^^^^^^^
+
+Slip-rate imposed on a DR Boundary Condition
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This friction law allows imposing slip-rate on a dynamic rupture boundary (potentially any kinematic models, but the current implementation is limited, see below).
+The FL id for this friction law is 33.
+The potential advantages of this approch, compared to a multi point-sources representation are:
+
+- offset discontinuity at the free-surface accurately accounted for
+- wavefield (including final stress or displacement) not impacted by the discretization in the near-field.
+
+The current implementation allows imposing a slip distribution on the DR Boundary using the same arbitrary smooth-step SR function everywhere on the fault.
+The slip distribution is imposed simultaneously everywhere on the fault, smoothly over a time ``t_0``, where ``t_0`` is a parameter of the ``DynamicRupture`` namelist.
+This is an expensive way of getting the final stress distribution from a given slip distribution.
+The slip distribution is defined using easi by the ``strike_slip`` and ``dip_slip`` variables. Below is an example of input file for defining the slip distribution:
+
+.. code-block:: YAML
+
+    !Switch
+    [strike_slip, dip_slip]: !Any
+      components:
+       - !AxisAlignedCuboidalDomainFilter
+          limits:
+            x: [-1000, 0]
+            y: [-1e10, 1e10]
+            z: [-5000, -3000]
+          components: !ConstantMap
+            map:
+              strike_slip:   0.01
+              dip_slip: 0.1
+       - !ConstantMap
+          map:
+            strike_slip: 0.05
+            dip_slip: 0.05
+    #T_n,T_s,T_d are given to avoid crash when SeisSol try defining 'faultParameterizedByTraction' 
+    [T_n,T_s,T_d]: !ConstantMap
+      map:
+        T_n: 0.0
+        T_s: 0.0
+        T_d: 0.0
+
+

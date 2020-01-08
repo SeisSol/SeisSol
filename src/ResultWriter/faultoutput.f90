@@ -269,6 +269,7 @@ CONTAINS
     INTEGER :: nDegFr2d, jBndGP, i1, j1
     REAL    :: chi, tau, phiT, phi2T(2),Slowness, dt_dchi, dt_dtau, Vr
     REAL    :: dt_dx1, dt_dy1
+    REAL    :: Tnuc, Gnuc, eta
     REAL    :: xV(4), yV(4), zV(4)
     REAL    :: xab(3), xac(3), grad2d(2,2), JacobiT2d(2,2)
     REAL, ALLOCATABLE  :: projected_RT(:)
@@ -388,6 +389,21 @@ CONTAINS
           ELSE
              P_f = 0.0
           ENDIF
+
+          if (EQN%FL.eq.33) then 
+             !case of ImposedSlipRateOnDRBoundary 'friction law': we add the additional stress to the fault output
+             !to show the imposed SR
+             Tnuc = DISC%DynRup%t_0
+             eta = (w_speed(2)*rho*w_speed_neig(2)*rho_neig) / (w_speed(2)*rho + w_speed_neig(2)*rho_neig)
+             IF (time.LE.Tnuc) THEN
+                Gnuc = EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
+             else
+                Gnuc=1d0
+             endif
+             S_XY = S_XY + eta * EQN%NucleationStressInFaultCS(iBndGP,4,iFace)*Gnuc
+             S_XZ = S_XZ + eta * EQN%NucleationStressInFaultCS(iBndGP,6,iFace)*Gnuc
+          endif
+
           !
           ! Obtain values at output points
           SideVal  = 0.
@@ -509,6 +525,17 @@ CONTAINS
           !LocP = SideVal(1)+(((SideVal2(1)-SideVal(1))+w_speed_neig(1)*rho_neig*(SideVal2(7)-SideVal(7)))* &
           !       w_speed(1)*rho) * NorDivisor
           ! Store Values into Output vector OutVal
+
+          if (EQN%FL.eq.33) then 
+             !case of ImposedSlipRateOnDRBoundary 'friction law': we plot the Stress from Godunov state, because we want to see the traction change from the imposed slip distribution
+             TracMat(4)=LocMat(4)
+             TracMat(6)=LocMat(6)
+             !if DISC%DynRup%SlipRateOutputType .eq. 1 switch back to 0 
+             if (DISC%DynRup%SlipRateOutputType .eq. 1) then
+                LocSRs = dot_product(SideVal2(8) * NormalVect_s + SideVal2(9) * NormalVect_t, strike_vector) - dot_product(SideVal(8) * NormalVect_s + SideVal(9) * NormalVect_t, strike_vector)
+                LocSRd = dot_product(SideVal2(8) * NormalVect_s + SideVal2(9) * NormalVect_t, dip_vector   ) - dot_product(SideVal(8) * NormalVect_s + SideVal(9) * NormalVect_t, dip_vector   )
+             endif
+          endif
 
           OutVars = 0
           IF (DynRup_output%OutputMask(1).EQ.1) THEN

@@ -64,6 +64,7 @@ MODULE Eval_friction_law_mod
   PRIVATE :: no_fault
   PRIVATE :: Linear_slip_weakening_bimaterial
   PRIVATE :: Linear_slip_weakening_TPV1617
+  PRIVATE :: ImposedSlipRateOnDRBoundary
   PRIVATE :: rate_and_state
   PRIVATE :: rate_and_state_vw
   PRIVATE :: rate_and_state_nuc101
@@ -135,6 +136,15 @@ MODULE Eval_friction_law_mod
                                 resampleMatrix,                            &
                                 DISC,EQN,MESH,MPI,IO)                          
                                 
+        CASE(33)
+           CALL ImposedSlipRateOnDRBoundary(                               & !
+                                TractionGP_XY,TractionGP_XZ,               & ! OUT: traction
+                                NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
+                                iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
+                                rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
+                                time,DeltaT,                               & ! IN: time
+                                DISC,EQN,MESH,MPI,IO)                 
+
         CASE(3,4) ! Rate-and-state friction
         
            CALL rate_and_state(                                            & !
@@ -525,6 +535,109 @@ MODULE Eval_friction_law_mod
 
   END SUBROUTINE Linear_slip_weakening_TPV1617
 
+
+  !< T. Ulrich 27.07.17
+  !< This friction law allows imposing a slip rate on the DR boundary
+  SUBROUTINE ImposedSlipRateOnDRBoundary(TractionGP_XY,TractionGP_XZ,       & ! OUT: traction
+                                   NorStressGP,XYStressGP,XZStressGP,         & ! IN: Godunov status
+                                   iFace,iSide,iElem,nBndGP,nTimeGP,          & ! IN: element ID and GP lengths
+                                   rho,rho_neig,w_speed,w_speed_neig,         & ! IN: background values
+                                   time,DeltaT,                               & ! IN: time
+                                   DISC,EQN,MESH,MPI,IO)
+    !-------------------------------------------------------------------------!
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------!
+    TYPE(tEquations)               :: EQN
+    TYPE(tDiscretization), target  :: DISC
+    TYPE(tUnstructMesh)            :: MESH
+    TYPE(tMPI)                     :: MPI
+    TYPE(tInputOutput)             :: IO    
+    INTEGER     :: iBndGP,iTimeGP,nBndGP,nTimeGP
+    INTEGER     :: iFace,iSide,iElem
+    REAL        :: time
+    REAL        :: NorStressGP(nBndGP,nTimeGP)
+    REAL        :: XYStressGP(nBndGP,nTimeGP)
+    REAL        :: XZStressGP(nBndGP,nTimeGP)
+    REAL        :: TractionGP_XY(nBndGP,nTimeGP)
+    REAL        :: TractionGP_XZ(nBndGP,nTimeGP)
+    real        :: LocTracXY(nBndGP)
+    real        :: LocTracXZ(nBndGP)
+    real        :: tmpSlip(nBndGP)
+    real        :: Strength(nBndGP), ShTest(nBndGP)
+    real        :: LocSR(nBndGP)
+    REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
+    REAL        :: time_inc
+    REAL        :: Deltat(1:nTimeGP)
+    REAL        :: Tnuc, Gnuc, Gnucprev, dt, prevtime
+    real        :: tn, eta
+    !-------------------------------------------------------------------------!
+    INTENT(IN)    :: NorStressGP,XYStressGP,XZStressGP,iFace,iSide,iElem
+    INTENT(IN)    :: rho,rho_neig,w_speed,w_speed_neig,time,nBndGP,nTimeGP,DeltaT
+    INTENT(IN)    :: MESH,MPI,IO
+    INTENT(INOUT) :: EQN, DISC,TractionGP_XY,TractionGP_XZ
+    !-------------------------------------------------------------------------! 
+    Tnuc = DISC%DynRup%t_0
+    tmpSlip = 0.0D0
+    
+    eta = (w_speed(2)*rho*w_speed_neig(2)*rho_neig) / (w_speed(2)*rho + w_speed_neig(2)*rho_neig)
+    tn = time
+    
+    dt = sum(DeltaT(:))
+
+    do iTimeGP=1,nTimeGP
+      time_inc = DeltaT(iTimeGP)
+      prevtime = tn
+      tn=tn + time_inc
+
+      IF (time.LE.Tnuc) THEN
+         Gnucprev = EXP((prevtime-Tnuc)**2/(prevtime*(prevtime-2.0D0*Tnuc)))
+         Gnuc=EXP((tn-Tnuc)**2/(tn*(tn-2.0D0*Tnuc))) - Gnucprev
+         Gnuc=Gnuc/time_inc
+      ELSE
+         Gnuc=0.0D0
+      ENDIF
+
+      !EQN%NucleationStressInFaultCS (4 and 6) contains the slip in FaultCS
+      LocTracXY(:)  = XYStressGP(:,iTimeGP) + eta * EQN%NucleationStressInFaultCS(:,4,iFace)*Gnuc
+      LocTracXZ(:) =  XZStressGP(:,iTimeGP) + eta * EQN%NucleationStressInFaultCS(:,6,iFace)*Gnuc
+      DISC%DynRup%SlipRate1(:,iFace)     = EQN%NucleationStressInFaultCS(:,4,iFace)*Gnuc
+      DISC%DynRup%SlipRate2(:,iFace)     = EQN%NucleationStressInFaultCS(:,6,iFace)*Gnuc
+      LocSR                              = SQRT(DISC%DynRup%SlipRate1(:,iFace)**2 + DISC%DynRup%SlipRate2(:,iFace)**2)
+      
+      ! Update slip
+      DISC%DynRup%Slip1(:,iFace) = DISC%DynRup%Slip1(:,iFace) + DISC%DynRup%SlipRate1(:,iFace)*time_inc
+      DISC%DynRup%Slip2(:,iFace) = DISC%DynRup%Slip2(:,iFace) + DISC%DynRup%SlipRate2(:,iFace)*time_inc
+      DISC%DynRup%Slip(:,iFace)  = DISC%DynRup%Slip(:,iFace)  + LocSR(:)*time_inc      
+      tmpSlip = tmpSlip(:) + LocSR(:)*time_inc
+      
+     TractionGP_XY(:,iTimeGP) = LocTracXY(:)
+     TractionGP_XZ(:,iTimeGP) = LocTracXZ(:)      
+    enddo
+
+     ! output rupture front 
+     ! outside of iTimeGP loop in order to safe an 'if' in a loop
+     ! this way, no subtimestep resolution possible
+    where (DISC%DynRup%RF(:,iFace) .AND. LocSR .GT. 0.001D0)
+      DISC%DynRup%rupture_time(:,iFace)=time
+      DISC%DynRup%RF(:,iFace) = .FALSE.
+    end where
+
+    where (LocSR(:).GT.DISC%DynRup%PeakSR(:,iFace))
+      DISC%DynRup%PeakSR(:,iFace) = LocSR
+    end where
+
+    DISC%DynRup%TracXY(:,iFace)    = LocTracXY
+    DISC%DynRup%TracXZ(:,iFace)    = LocTracXZ
+
+    !---compute and store slip to determine the magnitude of an earthquake ---
+    !    to this end, here the slip is computed and averaged per element
+    !    in calc_seissol.f90 this value will be multiplied by the element surface
+    !    and an output happened once at the end of the simulation
+    IF (DISC%DynRup%magnitude_out(iFace)) THEN
+        DISC%DynRup%averaged_Slip(iFace) = DISC%DynRup%averaged_Slip(iFace) + sum(tmpSlip)/nBndGP
+    ENDIF
+
+  END SUBROUTINE ImposedSlipRateOnDRBoundary
 
   !> friction case 3,4: rate and state friction
   !> aging (3) and slip law (4)
