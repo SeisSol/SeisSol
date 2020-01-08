@@ -1,5 +1,6 @@
 #include <cmath>
 #include <array>
+#include <numeric>
 #include <Eigen/Eigenvalues>
 
 #include <Kernels/precision.hpp>
