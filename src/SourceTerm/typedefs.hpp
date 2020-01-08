@@ -76,10 +76,10 @@ namespace seissol {
       real (*tensor)[TensorSize];
 
       /// Area
-      real *A;
+      std::vector<real> A;
 
       /// elasticity tensor
-      real (*cij)[81];
+      std::vector<std::array<real, 81>> cij;
 
       /** NRF: slip rate in
        * 0: Tan1 direction
@@ -87,13 +87,13 @@ namespace seissol {
        * 2: Normal direction
        * 
        * FSRM: 0: slip rate (all directions) */
-      PiecewiseLinearFunction1D (*slipRates)[3];
+      std::vector<std::array<PiecewiseLinearFunction1D, 3>> slipRates;
 
       /** Number of point sources in this struct. */
       unsigned numberOfSources;
 
-      PointSources() : mode(NRF), mInvJInvPhisAtSources(NULL), tensor(NULL), A(NULL), cij(NULL), slipRates(NULL), numberOfSources(0) {}
-      ~PointSources() { numberOfSources = 0; free(mInvJInvPhisAtSources); free(tensor); delete[] A; delete[] cij; delete[] slipRates; }
+      PointSources() : mode(NRF), mInvJInvPhisAtSources(nullptr), tensor(nullptr), numberOfSources(0) {}
+      ~PointSources() { numberOfSources = 0; free(mInvJInvPhisAtSources); free(tensor); }
     };
 
     struct CellToPointSourcesMapping {

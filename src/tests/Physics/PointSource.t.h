@@ -146,19 +146,19 @@ public:
     seissol::sourceterm::samplesToPiecewiseLinearFunction1D(l_samples, l_numberOfSamples, l_onsetTime, l_samplingInterval, &l_pwlf);
     
     // integrate f(t) from -2 to 1.05 (only first term)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, -2.0, 1.05), 0.5*40.0*(1.05*1.05 - 1.0) - 39*0.05, 200 * EPSILON);
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, -2.0, 1.05), 0.5*40.0*(1.05*1.05 - 1.0) - 39*0.05, 200 * EPSILON);
     
     // integrate f(t) from 1.04 to 1.06 (over boundary)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.04, 1.06), 0.5*40.0*(1.05*1.05 - 1.04*1.04) - 39*0.01 - 0.5*80*(1.06*1.06 - 1.05*1.05) + 87*0.01, 600 * EPSILON);
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, 1.04, 1.06), 0.5*40.0*(1.05*1.05 - 1.04*1.04) - 39*0.01 - 0.5*80*(1.06*1.06 - 1.05*1.05) + 87*0.01, 600 * EPSILON);
     
     // integrate f(t) from 1.10 to 1.10 (on boundary)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.1, 1.1), 0.0, 200 * EPSILON);
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, 1.1, 1.1), 0.0, 200 * EPSILON);
     
     // integrate f(t) from 1.19 to 100 (only last term)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, 1.19, 100.0), 0.5*10.0*(1.2*1.2 - 1.19*1.19) - 9.5*0.01, 200 * EPSILON);
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, 1.19, 100.0), 0.5*10.0*(1.2*1.2 - 1.19*1.19) - 9.5*0.01, 200 * EPSILON);
     
     // integrate f(t) from -100 to 100 (integral over whole support)
-    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(&l_pwlf, -100.0, 100.0),
+    TS_ASSERT_DELTA(seissol::sourceterm::computePwLFTimeIntegral(l_pwlf, -100.0, 100.0),
         0.5*40.0*(1.05*1.05 - 1.00*1.00) - 39.0*0.05
       - 0.5*80.0*(1.10*1.10 - 1.05*1.05) + 87.0*0.05
       + 0.5*60.0*(1.15*1.15 - 1.10*1.10) - 67.0*0.05

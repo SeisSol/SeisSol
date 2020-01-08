@@ -297,7 +297,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
     }
-    sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
+    sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
@@ -396,9 +396,9 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
     }
-    sources[cluster].A         = new real[cmps[cluster].numberOfSources];
-    sources[cluster].cij       = new real[cmps[cluster].numberOfSources][81];
-    sources[cluster].slipRates = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
+    sources[cluster].A.resize(cmps[cluster].numberOfSources);
+    sources[cluster].cij.resize(cmps[cluster].numberOfSources);
+    sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];

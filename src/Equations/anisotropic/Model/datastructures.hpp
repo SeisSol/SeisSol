@@ -102,8 +102,8 @@ namespace seissol {
       virtual ~AnisotropicMaterial() {};
 
       
-      void getFullElasticTensor(real fullTensor[81]) const final {
-        auto elasticTensorView = init::mElasticTensor::view::create(fullTensor);
+      void getFullElasticTensor(std::array<real, 81>& fullTensor) const final {
+        auto elasticTensorView = init::mElasticTensor::view::create(fullTensor.data());
         elasticTensorView.setZero();
         elasticTensorView(0,0,0,0) = c11;
         elasticTensorView(0,0,0,1) = c16;
@@ -205,10 +205,10 @@ namespace seissol {
 
         double maxEv = 0;
 
-        real fullTensor[81];
+        std::array<real, 81> fullTensor;
         getFullElasticTensor(fullTensor);
         kernel::computeChristoffel computeChristoffel;
-        computeChristoffel.C = fullTensor;
+        computeChristoffel.C = fullTensor.data();
 
         for(unsigned j = 0; j < 200; ++j)
         {

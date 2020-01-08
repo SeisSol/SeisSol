@@ -120,15 +120,15 @@ namespace seissol {
     }
 
     /** Returns integral_fromTime^toTime i_pwLF dt. */
-    real computePwLFTimeIntegral(PiecewiseLinearFunction1D const* i_pwLF,
+    real computePwLFTimeIntegral(PiecewiseLinearFunction1D const& i_pwLF,
                                  double i_fromTime,
                                  double i_toTime);
 
     void addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                           real const faultBasis[9],
                                           real A,
-                                          real const cij[21],
-                                          PiecewiseLinearFunction1D const slipRates[3],
+                                          std::array<real, 81> const &cij,
+                                          std::array<PiecewiseLinearFunction1D, 3> const &slipRates,
                                           double i_fromTime,
                                           double i_toTime,
                                           real o_dofUpdate[tensor::Q::size()] );
@@ -142,7 +142,7 @@ namespace seissol {
      **/                                      
     void addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                            real const i_forceComponents[tensor::momentFSRM::size()],
-                                           PiecewiseLinearFunction1D const* i_pwLF,
+                                           PiecewiseLinearFunction1D const& i_pwLF,
                                            double i_fromTime,
                                            double i_toTime,
                                            real o_dofUpdate[tensor::Q::size()] );

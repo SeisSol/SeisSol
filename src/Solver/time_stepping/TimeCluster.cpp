@@ -213,7 +213,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
         for (unsigned source = startSource; source < endSource; ++source) {
           sourceterm::addTimeIntegratedPointSourceFSRM( m_pointSources->mInvJInvPhisAtSources[source],
                                                         m_pointSources->tensor[source],
-                                                        &m_pointSources->slipRates[source][0],
+                                                        m_pointSources->slipRates[source][0],
                                                         m_fullUpdateTime,
                                                         m_fullUpdateTime + m_timeStepWidth,
                                                         *m_cellToPointSources[mapping].dofs );

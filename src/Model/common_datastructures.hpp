@@ -42,6 +42,7 @@
 #define MODEL_COMMONDATASTRUCTURES_HPP_
 
 #include <Kernels/precision.hpp>
+#include <array>
 
 
 namespace seissol {
@@ -61,7 +62,7 @@ namespace seissol {
       virtual double getMaxWaveSpeed() const { return 0; };
       virtual double getPWaveSpeed() const { return 0; };
       virtual double getSWaveSpeed() const { return 0; };
-      virtual void getFullElasticTensor(real fullTensor[81]) const {}; 
+      virtual void getFullElasticTensor(std::array<real, 81>& fullTensor) const {}; 
       virtual MaterialType getMaterialType() const { return MaterialType::none; } ;
       virtual ~Material() {};
     };

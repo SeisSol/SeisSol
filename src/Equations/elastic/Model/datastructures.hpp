@@ -54,9 +54,9 @@ namespace seissol {
 
       virtual ~ElasticMaterial() {};
 
-      void getFullElasticTensor(real fullTensor[81]) const final {
+      void getFullElasticTensor(std::array<real, 81>& fullTensor) const final {
 
-        auto elasticTensorView = init::mElasticTensor::view::create(fullTensor);
+        auto elasticTensorView = init::mElasticTensor::view::create(fullTensor.data());
         elasticTensorView.setZero();
         elasticTensorView(0,0,0,0) = lambda + 2*mu;
         elasticTensorView(0,0,1,1) = lambda;
