@@ -544,8 +544,6 @@ CONTAINS
               DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 - P_f !OutVars =11
           ENDIF
 
-          !IF (DISC%DynRup%OutputPointType.EQ.4) THEN
-
               IF (DynRup_output%OutputMask(6).EQ.1) THEN
                   ! TU 07.15 rotate Slip from face reference coordinate to (strike,dip, normal) reference cordinate
                   cos1 = dot_product(strike_vector(:),NormalVect_s(:))
@@ -714,7 +712,6 @@ CONTAINS
                       DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,1) !OutVars = 20
                   ENDIF
               ENDIF
-          !ENDIF
 
 
           ! Store output
