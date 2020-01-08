@@ -418,7 +418,7 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
         env.Append(F90FLAGS = ['-fno-alias'])
 
 # C++ Standard
-env.Append(CXXFLAGS=['-std=c++11'])
+env.Append(CXXFLAGS=['-std=c++17'])
 
 #
 # Basic preprocessor defines
