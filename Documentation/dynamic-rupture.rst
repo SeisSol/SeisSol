@@ -154,7 +154,7 @@ Linear-Slip Weakening Friction
 Rate-and-State Friction
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Slip-rate imposed on a DR Boundary Condition
+Slip-rate imposed on a DR boundary condition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 This friction law allows imposing slip-rate on a dynamic rupture boundary (potentially any kinematic models, but the current implementation is limited, see below).
 The FL id for this friction law is 33.
