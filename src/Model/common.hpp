@@ -97,6 +97,14 @@ namespace seissol {
     void initializeSpecificNeighborData(  T const&,
                                           NeighborData* );
 
+    /* 
+     * Calculates the so called Bond matrix. Anisotropic materials are characterized by 
+     * 21 different material parameters. Due to the directional dependence of anisotropic
+     * materials the parameters are not independet of the choice of the coordinate system.
+     * The Bond matrix transforms materials from one orthogonal coordinate system to
+     * another one.
+     * c.f. 10.1111/j.1365-246X.2007.03381.x
+     */
     void getBondMatrix( VrtxCoords const i_normal,
                         VrtxCoords const i_tangent1,
                         VrtxCoords const i_tangent2,

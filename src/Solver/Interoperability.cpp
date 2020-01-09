@@ -582,6 +582,7 @@ void seissol::Interoperability::fitAttenuation( double rho,
                                                 seissol::model::ViscoElasticMaterial& material )
 {
 #ifdef USE_VISCOELASTIC
+  assert(USE_VISCOELASTIC);
   constexpr size_t numMaterialVals = 3 + 4*NUMBER_OF_RELAXATION_MECHANISMS;
   double materialFortran[numMaterialVals];
   f_interoperability_fitAttenuation(m_domain, rho, mu, lambda, Qp, Qs, materialFortran);
