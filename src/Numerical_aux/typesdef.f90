@@ -704,7 +704,7 @@ MODULE TypesDef
      INTEGER                                :: printtimeinterval                !< Iteration interval at which output will be written
      INTEGER                                :: printIntervalCriterion           !< 1=iteration, 2=time
      REAL                                   :: printtimeinterval_sec            !< Time interval at which output will be written
-     INTEGER                                :: OutputMask(1:11)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed 8/accumulated slip 9/Peak SR 10/Rupture arrival 11/Dyn.ShearStress arrival
+     INTEGER                                :: OutputMask(1:12)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed 8/accumulated slip 9/Peak SR 10/Rupture arrival 11/Dyn.ShearStress arrival 12/TP output
      INTEGER                      , POINTER :: OutputLabel(:)    => NULL()      !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
      LOGICAL                                :: DR_pick_output                   !< DR output at certain receiver stations
      INTEGER                                :: nDR_pick                         !< number of DR output receiver for this domain
@@ -781,7 +781,21 @@ MODULE TypesDef
      ! case(6) bimaterial with LSW
      REAL                                   :: v_Star                           !< reference velocity of prakash-cliff regularization
      REAL                                   :: L                                !< reference length of prakash-cliff regularization
-     REAL, POINTER                          :: Strength(:,:) => NULL()                   !< save strength since it is used for bimaterial
+     REAL, POINTER                          :: Strength(:,:) => NULL()          !< save strength since it is used for bimaterial
+     INTEGER                                :: thermalPress                     !< thermal pressurization switch
+     REAL                                   :: alpha_th                         !< thermal diffusion parameter for TP
+     REAL, ALLOCATABLE                      :: alpha_hy(:,:)                    !< spatial dependent hydraulic diffusion parameter for TP
+     REAL                                   :: rho_c                            !< heat capacity for TP
+     REAL                                   :: TP_lambda                        !< pore pressure increase per unit increase
+     INTEGER                                :: TP_grid_nz                       !< number of grid points to solve advection for TP in z-direction
+     REAL                                   :: TP_log_dz                        !< logarithmic grid space distance for TP_grid
+     REAL, ALLOCATABLE                      :: TP_half_width_shear_zone(:,:)    !< spatial dependent half width of the shearing layer for TP
+     REAL                                   :: TP_max_wavenumber                !< max. wavenumber for TP
+     REAL, ALLOCATABLE                      :: TP_grid(:)                       !< grid for TP
+     REAL, ALLOCATABLE                      :: TP_DFinv(:)                      !< inverse Fourier coefficients
+     REAL, ALLOCATABLE                      :: TP_Theta(:,:,:)                  !< Fourier transformed pressure
+     REAL, ALLOCATABLE                      :: TP_Sigma(:,:,:)                  !< Fourier transformed temperature
+     REAL, ALLOCATABLE                      :: TP(:,:,:)                        !< Temperature and Pressure for TP along each fault point
      !RF output handled in tDynRup as it has to be computed in the friction solver
      INTEGER                                :: RF_output_on                     !< rupture front output on = 1, off = 0
      INTEGER                                :: RFtime_on                        !< collect rupture time for Vr or RF output on=1, off=0
@@ -1015,6 +1029,8 @@ MODULE TypesDef
      REAL                                   :: Bulk_xx_0                        !< Initial bulk stress
      REAL                                   :: Bulk_yy_0                        !< Initial bulk stress
      REAL                                   :: Bulk_zz_0                        !< Initial bulk stress
+     REAL                                   :: Temp_0                           !< Initial temperature for TP
+     REAL                                   :: Pressure_0                       !< Initial pressure for TP
      REAL                                   :: XRef, YRef, ZRef                 !< Location of reference point, which is used for fault orientation
      INTEGER                                :: GPwise                           !< Switch for heterogeneous background field distribution: elementwise =0 ; GPwise =1
 
