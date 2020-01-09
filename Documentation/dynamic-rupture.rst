@@ -157,8 +157,12 @@ Rate-and-State Friction
 Thermal Pressurization
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Following Noda & Lapusta (2010) Seissol can now account for thermal pressurization of pore fluids mimicking the effects of rapid co-seismic slip generating heat that increases temperature and pore pressure in case of low hydraulic diffusivity of the surrounding rock. Consequently, the elevated pore pressure reduces the effective normal stress, causing dynamic weakening. 
-By default, thermal pressurization is inactive. You can activate thermal pressurization in the following parameter file:
+Seissol can account for thermal pressurization (TP) of pore fluids.
+As deformation occurs within the fault gauge, frictional heating increases the temperature of the rock matrix and pore fluids.
+The pore fluids then pressurize, which weakens the fault.
+The evolution of the pore fluid pressure and temperature is governed by the diffusion of heat and fluid.
+TP can be activated using ``thermalPress`` in the ``DynamicRupture`` namelist.
+The TP parameters for which no spatial dependence has been implemented are defined directly in the ``DynamicRupture`` namelist:
 
 .. code-block:: Fortran
 
@@ -170,7 +174,7 @@ By default, thermal pressurization is inactive. You can activate thermal pressur
   rho_c = 2.7e6                     ! Specific heat [Pa/K]
   TP_lambda = 0.1e6                 ! Pore pressure change per unit temperature [Pa/K]
 
-Two additional thermal pressurization parameters are space dependent and therefore have to specified in the initial stress yaml file:
+Two additional thermal pressurization parameters are space-dependent and therefore have to be specified in the dynamic rupture yaml file:
 
 .. code-block:: YAML
 
@@ -178,12 +182,5 @@ Two additional thermal pressurization parameters are space dependent and therefo
   map:
     alpha_hy: 1e-4                  ! Hydraulic diffusivity [m^2/s]
     TP_half_width_shear_zone: 0.01  ! Half width of shearing zone [m]
-    
-Pore pressure and temperature are additional fault outputs (see fault output).
 
-
-
-
-
-
-
+TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
