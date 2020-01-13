@@ -58,8 +58,6 @@ namespace seissol {
       double theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
     };
 
-    struct ViscoPlasticMaterial : ViscoElasticMaterial, Plasticity {};
-
     struct LocalData {
       real sourceMatrix[seissol::tensor::ET::size()];
     };
