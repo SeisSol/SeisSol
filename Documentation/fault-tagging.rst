@@ -9,9 +9,9 @@ Fault tagging
 | 6: periodic
 
 Recently, we added the possibility to also tag dynamic rupture also with
-n>6. It is then possible to initialized fault parameters segment-wise
+n>64. It is then possible to initialized fault parameters segment-wise
 easily. For example, if we have 2 segments, and we want them to have
-different dynamic friction, we can tag them with 3 and 10 and then use:
+different dynamic friction, we can tag them with 3 and 65 and then use:
 
 .. code-block:: yaml
 
@@ -23,20 +23,20 @@ different dynamic friction, we can tag them with 3 and 10 and then use:
            map:
              mu_d:    0.3
        - !GroupFilter
-         groups: 10
+         groups: 65
          components: !ConstantMap
            map:
              mu_d:    0.4
 
 Currently the only way to tag fault faces using simModeler library and
 pumgen is to compile pumgen in the xml branch and make use of the xml
-feature. For example to tag face 2 as 3 and face 8 and 9 as 15, we would
+feature. For example to tag face 2 as 3 and face 8 and 9 as 65, we would
 use:
 
 .. code-block:: xml
 
    <boundaryCondition tag="3">2</boundaryCondition>
-   <boundaryCondition tag="15">8,9</boundaryCondition>
+   <boundaryCondition tag="65">8,9</boundaryCondition>
 
 Then pumgen is run using the xml option:
 
