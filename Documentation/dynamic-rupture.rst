@@ -154,6 +154,37 @@ Linear-Slip Weakening Friction
 Rate-and-State Friction
 ^^^^^^^^^^^^^^^^^^^^^^^
 
+Thermal Pressurization
+~~~~~~~~~~~~~~~~~~~~~~
+
+Seissol can account for thermal pressurization (TP) of pore fluids.
+As deformation occurs within the fault gauge, frictional heating increases the temperature of the rock matrix and pore fluids.
+The pore fluids then pressurize, which weakens the fault.
+The evolution of the pore fluid pressure and temperature is governed by the diffusion of heat and fluid.
+TP can be activated using ``thermalPress`` in the ``DynamicRupture`` namelist.
+The TP parameters for which no spatial dependence has been implemented are defined directly in the ``DynamicRupture`` namelist:
+
+.. code-block:: Fortran
+
+  &DynamicRupture
+  thermalPress = 1                  ! Thermal pressurization 0: inactive; 1: active
+  IniTemp = 483.15                  ! Initial temperature [K]
+  IniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
+  alpha_th = 1.0e-6                 ! Thermal diffusivity [m^2/s]
+  rho_c = 2.7e6                     ! Specific heat [Pa/K]
+  TP_lambda = 0.1e6                 ! Pore pressure change per unit temperature [Pa/K]
+
+Two additional thermal pressurization parameters are space-dependent and therefore have to be specified in the dynamic rupture yaml file:
+
+.. code-block:: YAML
+
+  !ConstantMap
+  map:
+    alpha_hy: 1e-4                  ! Hydraulic diffusivity [m^2/s]
+    TP_half_width_shear_zone: 0.01  ! Half width of shearing zone [m]
+
+TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
+
 Slip-rate imposed on a DR boundary condition
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 This friction law allows imposing slip-rate on a dynamic rupture boundary (potentially any kinematic models, but the current implementation is limited, see below).
