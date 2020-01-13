@@ -598,10 +598,10 @@ MODULE Eval_friction_law_mod
       ENDIF
 
       !EQN%NucleationStressInFaultCS (4 and 6) contains the slip in FaultCS
-      LocTracXY(:)  = XYStressGP(:,iTimeGP) + eta * EQN%NucleationStressInFaultCS(:,4,iFace)*Gnuc
-      LocTracXZ(:) =  XZStressGP(:,iTimeGP) + eta * EQN%NucleationStressInFaultCS(:,6,iFace)*Gnuc
-      DISC%DynRup%SlipRate1(:,iFace)     = EQN%NucleationStressInFaultCS(:,4,iFace)*Gnuc
-      DISC%DynRup%SlipRate2(:,iFace)     = EQN%NucleationStressInFaultCS(:,6,iFace)*Gnuc
+      LocTracXY(:)  = XYStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
+      LocTracXZ(:) =  XZStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
+      DISC%DynRup%SlipRate1(:,iFace)     = EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
+      DISC%DynRup%SlipRate2(:,iFace)     = EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
       LocSR                              = SQRT(DISC%DynRup%SlipRate1(:,iFace)**2 + DISC%DynRup%SlipRate2(:,iFace)**2)
       
       ! Update slip

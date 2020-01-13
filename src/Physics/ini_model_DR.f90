@@ -195,23 +195,24 @@ MODULE ini_model_DR_mod
               ENDIF
           ENDDO
     ENDIF
-
-    faultParameterizedByTraction = c_interoperability_faultParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
-    
-    if (faultParameterizedByTraction) then
-      call c_interoperability_addFaultParameter("T_n" // c_null_char, EQN%IniBulk_xx)
-      call c_interoperability_addFaultParameter("T_s" // c_null_char, EQN%IniShearXY)
-      call c_interoperability_addFaultParameter("T_d" // c_null_char, EQN%IniShearXZ)
-      EQN%IniBulk_yy(:,:) = 0.0d0
-      EQN%IniBulk_zz(:,:) = 0.0d0
-      EQN%IniShearYZ(:,:) = 0.0d0
-    else
-      call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
-      call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
-      call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
-      call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
-      call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
-      call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
+    if (EQN%FL .NE. 33) then !33 is ImposedSlipRateOnDRBoundary
+        faultParameterizedByTraction = c_interoperability_faultParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
+        
+        if (faultParameterizedByTraction) then
+          call c_interoperability_addFaultParameter("T_n" // c_null_char, EQN%IniBulk_xx)
+          call c_interoperability_addFaultParameter("T_s" // c_null_char, EQN%IniShearXY)
+          call c_interoperability_addFaultParameter("T_d" // c_null_char, EQN%IniShearXZ)
+          EQN%IniBulk_yy(:,:) = 0.0d0
+          EQN%IniBulk_zz(:,:) = 0.0d0
+          EQN%IniShearYZ(:,:) = 0.0d0
+        else
+          call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
+          call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
+          call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
+          call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
+          call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
+          call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
+        endif
     endif
 
     !frictional parameter initialization
@@ -233,17 +234,11 @@ MODULE ini_model_DR_mod
 
     CASE(33) ! ImposedSlipRateOnDRBoundary
         allocate( nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
         nuc_xx(:,:) = 0.0d0
         nuc_yy(:,:) = 0.0d0
-        nuc_zz(:,:) = 0.0d0
-        call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xy)
-        call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_xz)
-        nuc_yz(:,:) = 0.0d0
+        call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xx)
+        call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_yy)
 
     CASE(3,4,7,101,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
@@ -304,8 +299,10 @@ MODULE ini_model_DR_mod
 
     ! Rotate initial stresses to fault coordinate system
     allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-    call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS,faultParameterizedByTraction)
-    
+    if (EQN%FL .NE. 33) then !ImposedSlipRateOnDRBoundary
+        call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS,faultParameterizedByTraction)
+    endif
+
     if (EQN%FL == 103) then
       allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
       call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,faultParameterizedByTraction)
@@ -313,9 +310,9 @@ MODULE ini_model_DR_mod
     end if
 
     if (EQN%FL == 33) then !ImposedSlipRateOnDRBoundary
-        allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-        call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS, .TRUE.)
-        deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
+        allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,2,MESH%Fault%nSide))
+        call rotateSlipToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,EQN%NucleationStressInFaultCS)
+        deallocate(nuc_xx,nuc_yy)
     endif
 
   END SUBROUTINE DR_basic_ini
@@ -383,6 +380,50 @@ MODULE ini_model_DR_mod
       enddo
     enddo
   END SUBROUTINE rotateStressToFaultCS
+
+  SUBROUTINE rotateSlipToFaultCS(EQN, MESH, nBndGP, StrikeSlip , DipSlip, SlipInFaultCS)
+    USE common_operators_mod
+    !-------------------------------------------------------------------------!
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------!
+    TYPE(tEquations)                      :: EQN
+    TYPE(tUnstructMesh)                   :: MESH
+    integer                               :: nBndGP
+    real, allocatable, dimension(:,:)     :: StrikeSlip, DipSlip
+    real, allocatable, dimension(:,:,:)   :: SlipInFaultCS
+    !-------------------------------------------------------------------------!
+    ! Local variable declaration
+    integer                             :: i
+    real                                :: NormalVect_n(3), NormalVect_s(3), NormalVect_t(3)
+    real                                :: strike_vector(3), dip_vector(3),crossprod(3)
+    real                                :: scalarprod, cos1, sin1
+    !-------------------------------------------------------------------------!
+    intent(in)                          :: EQN,MESH,nBndGP
+    intent(inout)                       :: StrikeSlip, DipSlip
+    intent(inout)                       :: SlipInFaultCS
+    do i = 1, MESH%Fault%nSide
+          NormalVect_n = MESH%Fault%geoNormals(1:3,i)
+          NormalVect_s = MESH%Fault%geoTangent1(1:3,i)
+          NormalVect_t = MESH%Fault%geoTangent2(1:3,i)
+ 
+          strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
+          strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
+          strike_vector(3) = 0.0D0
+          dip_vector = NormalVect_n .x. strike_vector
+          dip_vector = dip_vector / sqrt(dip_vector(1)**2+dip_vector(2)**2+dip_vector(3)**2)
+          cos1 = dot_product(strike_vector(:),NormalVect_s(:))
+          crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
+          scalarprod = dot_product(crossprod(:),NormalVect_n(:))
+          !cos1**2 can be greater than 1 because of rounding errors -> min
+          IF (scalarprod.GT.0) THEN
+             sin1=sqrt(1-min(1d0,cos1**2))
+          ELSE
+             sin1=-sqrt(1-min(1d0,cos1**2))
+          ENDIF
+          SlipInFaultCS(:,1,i) =  cos1 * StrikeSlip(:,i) + sin1* DipSlip(:,i)
+          SlipInFaultCS(:,2,i) = -sin1 * StrikeSlip(:,i) + cos1* DipSlip(:,i)
+    enddo
+  END SUBROUTINE rotateSlipToFaultCS
 
 
   !> Initialization of initial slip rate and friction for rate and state friction

@@ -400,8 +400,8 @@ CONTAINS
              else
                 Gnuc=1d0
              endif
-             S_XY = S_XY + eta * EQN%NucleationStressInFaultCS(iBndGP,4,iFace)*Gnuc
-             S_XZ = S_XZ + eta * EQN%NucleationStressInFaultCS(iBndGP,6,iFace)*Gnuc
+             S_XY = S_XY - eta * EQN%NucleationStressInFaultCS(iBndGP,1,iFace)*Gnuc
+             S_XZ = S_XZ - eta * EQN%NucleationStressInFaultCS(iBndGP,2,iFace)*Gnuc
           endif
 
           !
@@ -530,11 +530,6 @@ CONTAINS
              !case of ImposedSlipRateOnDRBoundary 'friction law': we plot the Stress from Godunov state, because we want to see the traction change from the imposed slip distribution
              TracMat(4)=LocMat(4)
              TracMat(6)=LocMat(6)
-             !if DISC%DynRup%SlipRateOutputType .eq. 1 switch back to 0 
-             if (DISC%DynRup%SlipRateOutputType .eq. 1) then
-                LocSRs = dot_product(SideVal2(8) * NormalVect_s + SideVal2(9) * NormalVect_t, strike_vector) - dot_product(SideVal(8) * NormalVect_s + SideVal(9) * NormalVect_t, strike_vector)
-                LocSRd = dot_product(SideVal2(8) * NormalVect_s + SideVal2(9) * NormalVect_t, dip_vector   ) - dot_product(SideVal(8) * NormalVect_s + SideVal(9) * NormalVect_t, dip_vector   )
-             endif
           endif
 
           OutVars = 0
