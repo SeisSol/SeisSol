@@ -116,10 +116,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
                                          LocalTmp& tmp,
                                          real o_timeIntegrated[tensor::I::size()],
                                          real* o_timeDerivatives) {
-  assert(o_timeDerivatives != nullptr);
+
   assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
   assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
-  assert(reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0 );
+  assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
 
   // Only a fraction of cells need the average displacement
   bool needsAvgDisplacement = false;
