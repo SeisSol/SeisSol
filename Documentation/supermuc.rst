@@ -90,7 +90,7 @@ Supermuc-NG
 
 3. Install libxsmm, PSpaMM and ASAGI
 
-| See :ref:`installing_libxsmm`, :ref:`Installing_PSpaMM` and :ref:`installing_ASAGI`. 
+| See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
 | Note that on project pr63qo, we already installed and shared these library (no need to install).
 | The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
 | If you need to compile ASAGI, copy the following to fix_submodules.sh and run it within ASAGI to get submodules/utils cloned.

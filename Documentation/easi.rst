@@ -179,7 +179,7 @@ Debugging easi script
 
 
 An example illustrating some subtleties of easi error logs
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Let suppose suppose that we try to retrieve s_zz located at (x,y,z)=(0,0,0) in group 1 from the following easi file:
 
@@ -203,14 +203,14 @@ Let suppose suppose that we try to retrieve s_zz located at (x,y,z)=(0,0,0) in g
 and get the following error log:
 
 
-.. code-block::
+.. code-block:: none
 
     terminate called after throwing an instance of 'std::runtime_error'
       what():  fault2.yaml@2: Could not find model for point [ 348441 4.76021e+06 0 ] in group 1.
 
 How to interpret this error log?
 The component at Line 2 is throwing the error (the AffineMap). 
-The AffineMap component is complaining that it's output point is not accepted by any of its child components.
+The AffineMap component is complaining that its output point is not accepted by any of its child components.
 In this case, the point is outside the bounds of the ASAGI file.
 
 
@@ -224,10 +224,10 @@ Note that in the slightly different example below, without the AffineMap, easi w
               var: data
               interpolation: nearest
 
-In fact, in this case, ASAGI is directly querried and easi do no verify that the point querried in inside the bounds of ASAGI.
+In fact, in this case, ASAGI is directly querried and easi, therefore, does no verify that the point querried in inside the bounds of the ASAGI file.
 If the point is out of bounds, ASAGI will pick the value of the nearest grid point and issue a warning:
 
-.. code-block::
+.. code-block:: none
 
     Thu Jan 09 14:32:22, Warn:  ASAGI: Coordinate in dimension 2  is out of range. Fixing.
 
