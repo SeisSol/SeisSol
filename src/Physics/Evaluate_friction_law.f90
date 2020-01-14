@@ -1302,6 +1302,7 @@ MODULE Eval_friction_law_mod
                             DISC,EQN,MESH,MPI,IO,BND)
     !-------------------------------------------------------------------------!
     USE Thermalpressure_mod
+    USE NucleationFunctions_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -1376,15 +1377,7 @@ MODULE Eval_friction_law_mod
     !dt = DISC%Galerkin%TimeGaussP(nTimeGP) + DeltaT(1)
     dt = sum(DeltaT(:))
     IF (time.LE.Tnuc) THEN
-    IF (time.GT.0.0D0) THEN
-        Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
-        prevtime = time - dt
-        IF (prevtime.GT.0.0D0) THEN
-        Gnuc= Gnuc - EXP((prevtime-Tnuc)**2/(prevtime*(prevtime-2.0D0*Tnuc)))
-        ENDIF
-    ELSE
-        Gnuc=0.0D0
-    ENDIF
+    Gnuc = Calc_SmoothStepIncrement(time, Tnuc, dt)
 
     !DISC%DynRup%NucBulk_** is already in fault coordinate system
     EQN%InitialStressInFaultCS(:,1,iFace)=EQN%InitialStressInFaultCS(:,1,iFace)+EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
