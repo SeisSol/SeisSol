@@ -545,6 +545,8 @@ MODULE Eval_friction_law_mod
                                    time,DeltaT,                               & ! IN: time
                                    DISC,EQN,MESH,MPI,IO)
     !-------------------------------------------------------------------------!
+    USE NucleationFunctions_mod
+    !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
     TYPE(tEquations)               :: EQN
@@ -586,18 +588,10 @@ MODULE Eval_friction_law_mod
 
     do iTimeGP=1,nTimeGP
       time_inc = DeltaT(iTimeGP)
-      prevtime = tn
       tn=tn + time_inc
+      Gnuc = Calc_SmoothStepIncrement(tn, Tnuc, time_inc)/time_inc
 
-      IF (time.LE.Tnuc) THEN
-         Gnucprev = EXP((prevtime-Tnuc)**2/(prevtime*(prevtime-2.0D0*Tnuc)))
-         Gnuc=EXP((tn-Tnuc)**2/(tn*(tn-2.0D0*Tnuc))) - Gnucprev
-         Gnuc=Gnuc/time_inc
-      ELSE
-         Gnuc=0.0D0
-      ENDIF
-
-      !EQN%NucleationStressInFaultCS (4 and 6) contains the slip in FaultCS
+      !EQN%NucleationStressInFaultCS (1 and 2) contains the slip in FaultCS
       LocTracXY(:)  = XYStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
       LocTracXZ(:) =  XZStressGP(:,iTimeGP) - eta * EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
       DISC%DynRup%SlipRate1(:,iFace)     = EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc

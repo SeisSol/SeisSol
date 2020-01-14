@@ -214,6 +214,7 @@ CONTAINS
     USE common_operators_mod
     USE JacobiNormal_mod
     USE DGBasis_mod
+    USE NucleationFunctions_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -393,13 +394,8 @@ CONTAINS
           if (EQN%FL.eq.33) then 
              !case of ImposedSlipRateOnDRBoundary 'friction law': we add the additional stress to the fault output
              !to show the imposed SR
-             Tnuc = DISC%DynRup%t_0
              eta = (w_speed(2)*rho*w_speed_neig(2)*rho_neig) / (w_speed(2)*rho + w_speed_neig(2)*rho_neig)
-             IF (time.LE.Tnuc) THEN
-                Gnuc = EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
-             else
-                Gnuc=1d0
-             endif
+             Gnuc = Calc_SmoothStep(time, DISC%DynRup%t_0)
              S_XY = S_XY - eta * EQN%NucleationStressInFaultCS(iBndGP,1,iFace)*Gnuc
              S_XZ = S_XZ - eta * EQN%NucleationStressInFaultCS(iBndGP,2,iFace)*Gnuc
           endif
