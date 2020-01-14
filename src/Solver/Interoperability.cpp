@@ -7,7 +7,7 @@
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015-2019, SeisSol Group
+ * Copyright (c) 2015-2020, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -581,8 +581,8 @@ void seissol::Interoperability::fitAttenuation( double rho,
                                                 double Qs,
                                                 seissol::model::ViscoElasticMaterial& material )
 {
-#ifdef USE_VISCOELASTIC
-  assert(USE_VISCOELASTIC);
+#if defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  assert(USE_VISCOELASTIC || USE_VISCOELASTIC2);
   constexpr size_t numMaterialVals = 3 + 4*NUMBER_OF_RELAXATION_MECHANISMS;
   double materialFortran[numMaterialVals];
   f_interoperability_fitAttenuation(m_domain, rho, mu, lambda, Qp, Qs, materialFortran);
@@ -631,7 +631,7 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
   //Use placement new because pointer to virtual function table gets overwritten by 0 during init.
 #if defined USE_ANISOTROPIC
   new(material) seissol::model::AnisotropicMaterial;
-#elif defined USE_VISCOELASTIC
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
   new(material) seissol::model::ViscoElasticMaterial;
 #else 
   new(material) seissol::model::ElasticMaterial;
@@ -660,7 +660,7 @@ void seissol::Interoperability::getWaveSpeeds(double* i_materialVal, int i_numMa
 
  #if defined USE_ANISOTROPIC
   seissol::model::AnisotropicMaterial material;
-#elif defined USE_VISCOELASTIC
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
   seissol::model::ViscoElasticMaterial material;
 #else 
   seissol::model::ElasticMaterial material;

@@ -179,7 +179,7 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Time.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC2)
 
 elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   target_sources(SeisSol-lib PUBLIC

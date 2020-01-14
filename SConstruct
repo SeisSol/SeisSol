@@ -418,7 +418,7 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
         env.Append(F90FLAGS = ['-fno-alias'])
 
 # C++ Standard
-env.Append(CXXFLAGS=['-std=c++17'])
+env.Append(CXXFLAGS=['-std=c++11'])
 
 #
 # Basic preprocessor defines
@@ -431,8 +431,10 @@ if env['equations'] == 'anisotropic':
   env.Append(CPPDEFINES=['USE_ANISOTROPIC'])
 elif env['equations'] == 'elastic':
   env.Append(CPPDEFINES=['USE_ELASTIC'])
-elif env['equations'] in  ['viscoelastic', 'viscoelastic2']:
+elif env['equations'] ==  'viscoelastic':
   env.Append(CPPDEFINES=['USE_VISCOELASTIC'])
+elif env['equations'] == 'viscoelastic2':
+  env.Append(CPPDEFINES=['USE_VISCOELASTIC2'])
 
 env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 

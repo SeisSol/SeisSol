@@ -71,7 +71,10 @@
 
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
+#pragma GCC diagnostic pop
 
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"

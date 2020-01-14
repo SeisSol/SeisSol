@@ -56,7 +56,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       };
       setMaterial(materialVal_1, 22, &local);
       setMaterial(materialVal_1, 22, &neighbor);
-#elif defined USE_VISCOELASTIC
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
       seissol::model::ViscoElasticMaterial local;
       seissol::model::ViscoElasticMaterial neighbor;
       double materialVal_1[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4];
@@ -149,7 +149,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
         10400000000
       };
       setMaterial(materialVal_2, 22, &neighbor);
-#elif defined USE_VISCOELASTIC
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
       double materialVal_2[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4];
       materialVal_2[0] = 2600;
       materialVal_2[1] = 1.04e10;

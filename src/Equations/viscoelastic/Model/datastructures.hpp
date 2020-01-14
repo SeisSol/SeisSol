@@ -6,7 +6,7 @@
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015 - 2019, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -37,31 +37,21 @@
  *
  * @section DESCRIPTION
  **/
-
 #ifndef MODEL_DATASTRUCTURES_H_
 #define MODEL_DATASTRUCTURES_H_
 
 #include <Model/common_datastructures.hpp>
-#include <Equations/anisotropic/Model/datastructures.hpp>
 #include <generated_code/tensor.h>
 
 namespace seissol {
   namespace model {
-    struct ViscoElasticMaterial : public ElasticMaterial {
-      //! Relaxation frequencies
-      double omega[NUMBER_OF_RELAXATION_MECHANISMS];
-      /** Entries of the source matrix (E)
-       * theta[0] = -(lambda * Y_lambda + 2.0 * mu * Y_mu)
-       * theta[1] = -lambda * Y_lambda
-       * theta[2] = -2.0 * mu * Y_mu
-       **/
-      double theta[NUMBER_OF_RELAXATION_MECHANISMS][3];
-    };
 
+#ifdef USE_VISCOELASTIC
     struct LocalData {
       real sourceMatrix[seissol::tensor::ET::size()];
     };
     struct NeighborData {};
+#endif
   }
 }
 

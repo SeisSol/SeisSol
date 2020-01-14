@@ -6,7 +6,7 @@
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015 - 2019, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,7 @@
 
 namespace seissol {
   namespace model {
+
     struct ViscoElasticMaterial : public ElasticMaterial {
       //! Relaxation frequencies
       double omega[NUMBER_OF_RELAXATION_MECHANISMS];
@@ -66,7 +67,7 @@ namespace seissol {
       }
     };
 
-#ifdef USE_VISCOELASTIC
+#ifdef USE_VISCOELASTIC2
     struct LocalData {
       real E[tensor::E::size()];
       real w[tensor::w::size()];

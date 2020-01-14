@@ -52,7 +52,10 @@
 #include <cassert>
 #include <stdint.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
+#pragma GCC diagnostic pop
 
 #include <Kernels/common.hpp>
 GENERATE_HAS_MEMBER(ET)

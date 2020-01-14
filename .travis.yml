@@ -41,9 +41,8 @@ script:
  - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons compileMode=release order=6 plasticity=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
  - scons compileMode=release order=6 plasticity=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
-   # viscoelastic does not work for now
-   # - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
-   # - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
  - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons equations=anisotropic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2

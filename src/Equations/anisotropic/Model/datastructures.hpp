@@ -4,7 +4,7 @@
  *
  * @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  * @section LICENSE
- * Copyright (c) 2019, SeisSol Group
+ * Copyright (c) 2019 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -74,7 +74,7 @@ namespace seissol {
 
       AnisotropicMaterial() {};
 
-      AnisotropicMaterial(ElasticMaterial m) {
+      explicit AnisotropicMaterial(ElasticMaterial m) {
         rho = m.rho;
         c11 = m.lambda + 2*m.mu;
         c12 = m.lambda;

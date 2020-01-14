@@ -6,7 +6,7 @@
  * author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015 - 2019, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 
 #include "Equations/anisotropic/Model/AnisotropicSetup.h"
 #include "Equations/elastic/Model/ElasticSetup.h"
+#include "Equations/viscoelastic/Model/ViscoelasticSetup.h"
 #include "Equations/viscoelastic2/Model/ViscoelasticSetup.h"
 
 #endif

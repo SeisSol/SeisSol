@@ -6,7 +6,7 @@
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015 - 2019, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -106,6 +106,7 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
     real BTData[tensor::star::size(1)];
     real CTData[tensor::star::size(2)];
     auto AT = init::star::view<0>::create(ATData);
+    // AT with elastic parameters in local coordinate system, used for flux kernel
     auto ATtilde = init::star::view<0>::create(ATtildeData);
     auto BT = init::star::view<0>::create(BTData);
     auto CT = init::star::view<0>::create(CTData);

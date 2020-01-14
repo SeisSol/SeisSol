@@ -6,7 +6,7 @@
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015 - 2019, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -82,6 +82,11 @@ namespace seissol {
         }
       }
 
+/*
+ * The new implemenation of attenuation (viscoelastic2) is considered standard. This part will be 
+ * used unless the old attenuation (viscoelastic) implementation is chosen. 
+ */
+#ifndef USE_VISCOELASTIC
     template<typename T>
       inline void getTransposedSourceCoefficientTensor(  ViscoElasticMaterial const& material,
                                                   T& E )
@@ -146,12 +151,12 @@ namespace seissol {
           }
         }
       }
-
+#endif
+#ifdef USE_VISCOELASTIC2
     template<>
     inline void initializeSpecificLocalData( ViscoElasticMaterial const& material,
                                              LocalData* localData )
     {
-#ifdef USE_VISCOELASTIC
       auto E = init::E::view::create(localData->E);
       E.setZero();
       getTransposedSourceCoefficientTensor(material, E);
@@ -163,20 +168,17 @@ namespace seissol {
         w(mech) = material.omega[mech];
         W(mech,mech) = -material.omega[mech];
       }
-#endif
     }
 
     template<>
     inline void initializeSpecificNeighborData(  ViscoElasticMaterial const& localMaterial,
                                                  NeighborData* neighborData )
     {
-#ifdef USE_VISCOELASTIC
       // We only need the local omegas
       auto w = init::w::view::create(neighborData->w);
       for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
         w(mech) = localMaterial.omega[mech];
       }
-#endif
     }
 
     template<>
@@ -206,7 +208,6 @@ namespace seissol {
             }
           }
         }
-#ifdef USE_VISCOELASTIC
         double Edata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
         yateto::DenseTensorView<3,double> E(Edata, tensor::E::Shape);
         E.setZero();
@@ -235,8 +236,8 @@ namespace seissol {
             M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
           }
         }
-#endif
       } 
+#endif
   }
 }
 

@@ -21,7 +21,7 @@ seissol::physics::Planarwave::Planarwave(double phase, std::array<double, 3> kVe
     m_phase(phase)
 {
 
-#if defined USE_VISCOELASTIC
+#if defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
   const double rho = 1.0;
   const double mu = 1.0;
   const double lambda = 2.0;

@@ -7,7 +7,7 @@
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2013-2019, SeisSol Group
+ * Copyright (c) 2013-2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,10 @@
 #include <Initializer/preProcessorMacros.fpp>
 #include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
-#include <Model/datastructures.hpp>
+#include <Equations/anisotropic/Model/datastructures.hpp>
+#include <Equations/elastic/Model/datastructures.hpp>
+#include <Equations/viscoelastic/Model/datastructures.hpp>
+#include <Equations/viscoelastic2/Model/datastructures.hpp>
 #include <generated_code/tensor.h>
 
 #include <cstddef>
@@ -390,14 +393,14 @@ struct CellMaterialData {
 #if defined USE_ANISOTROPIC
   seissol::model::AnisotropicMaterial local;
   seissol::model::AnisotropicMaterial neighbor[4];
-#elif defined USE_VISCOELASTIC
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
   seissol::model::ViscoElasticMaterial local;
   seissol::model::ViscoElasticMaterial neighbor[4];
 #elif defined USE_ELASTIC
   seissol::model::ElasticMaterial local;
   seissol::model::ElasticMaterial neighbor[4];
 #else
-  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ISOTROPIC, USE_VISCOELASTIC");
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ISOTROPIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
 #endif
 };
 

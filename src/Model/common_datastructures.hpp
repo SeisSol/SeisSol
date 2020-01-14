@@ -6,7 +6,7 @@
  * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015 - 2019, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -53,7 +53,6 @@ namespace seissol {
       anisotropic
     };
 
-    //could be made abstract, as soon as the LTS-Tree supports polymorphism 
     struct Material {
       double rho;
       virtual double getMaxWaveSpeed() const = 0;
@@ -80,7 +79,7 @@ namespace seissol {
       double pWaveVelocity;
       double sWaveVelocity;
     };
-#ifndef USE_VISCOELASTIC
+#if !defined USE_VISCOELASTIC && !defined USE_VISCOELASTIC2
     struct LocalData {
     };
     struct NeighborData {

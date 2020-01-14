@@ -43,7 +43,10 @@
 
 #include <memory>
 #include "generated_code/kernel.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
+#pragma GCC diagnostic pop
 #include "Physics/InitialField.h"
 
 namespace seissol {
