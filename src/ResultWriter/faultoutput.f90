@@ -208,6 +208,7 @@ CONTAINS
 !<
   SUBROUTINE calc_FaultOutput( DynRup_output, DISC, EQN, MESH, MaterialVal, BND, time )
     use  f_ftoc_bind_interoperability
+    USE create_fault_rotationmatrix_mod, only: create_strike_dip_unit_vectors
     use iso_c_binding, only: c_loc
 
     !-------------------------------------------------------------------------!
@@ -496,13 +497,8 @@ CONTAINS
 
           ! rotate into fault system
           LocMat = MATMUL(rotmat,tmp_mat)
-          
-          ! z must not be +/- (0,0,1) for the following to work (see also create_fault_rotationmatrix)
-          strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-          strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-          strike_vector(3) = 0.0D0
-          dip_vector = NormalVect_n .x. strike_vector
-          dip_vector = dip_vector / sqrt(dip_vector(1)**2+dip_vector(2)**2+dip_vector(3)**2)
+         
+          CALL create_strike_dip_unit_vectors(NormalVect_n, strike_vector, dip_vector)
 
           ! sliprate
           if (DISC%DynRup%SlipRateOutputType .eq. 1) then

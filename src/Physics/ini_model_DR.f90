@@ -383,6 +383,7 @@ MODULE ini_model_DR_mod
 
   SUBROUTINE rotateSlipToFaultCS(EQN, MESH, nBndGP, StrikeSlip , DipSlip, SlipInFaultCS)
     USE common_operators_mod
+    USE create_fault_rotationmatrix_mod, only: create_strike_dip_unit_vectors
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -402,15 +403,12 @@ MODULE ini_model_DR_mod
     intent(inout)                       :: StrikeSlip, DipSlip
     intent(inout)                       :: SlipInFaultCS
     do i = 1, MESH%Fault%nSide
+          
           NormalVect_n = MESH%Fault%geoNormals(1:3,i)
           NormalVect_s = MESH%Fault%geoTangent1(1:3,i)
           NormalVect_t = MESH%Fault%geoTangent2(1:3,i)
- 
-          strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-          strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-          strike_vector(3) = 0.0D0
-          dip_vector = NormalVect_n .x. strike_vector
-          dip_vector = dip_vector / sqrt(dip_vector(1)**2+dip_vector(2)**2+dip_vector(3)**2)
+          CALL create_strike_dip_unit_vectors(NormalVect_n, strike_vector, dip_vector)
+
           cos1 = dot_product(strike_vector(:),NormalVect_s(:))
           crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
           scalarprod = dot_product(crossprod(:),NormalVect_n(:))
