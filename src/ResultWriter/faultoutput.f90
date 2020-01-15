@@ -208,12 +208,14 @@ CONTAINS
 !<
   SUBROUTINE calc_FaultOutput( DynRup_output, DISC, EQN, MESH, MaterialVal, BND, time )
     use  f_ftoc_bind_interoperability
+    USE create_fault_rotationmatrix_mod, only: create_strike_dip_unit_vectors
     use iso_c_binding, only: c_loc
 
     !-------------------------------------------------------------------------!
     USE common_operators_mod
     USE JacobiNormal_mod
     USE DGBasis_mod
+    USE NucleationFunctions_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -269,6 +271,7 @@ CONTAINS
     INTEGER :: nDegFr2d, jBndGP, i1, j1
     REAL    :: chi, tau, phiT, phi2T(2),Slowness, dt_dchi, dt_dtau, Vr
     REAL    :: dt_dx1, dt_dy1
+    REAL    :: Tnuc, Gnuc, eta
     REAL    :: xV(4), yV(4), zV(4)
     REAL    :: xab(3), xac(3), grad2d(2,2), JacobiT2d(2,2)
     REAL, ALLOCATABLE  :: projected_RT(:)
@@ -388,6 +391,16 @@ CONTAINS
           ELSE
              P_f = 0.0
           ENDIF
+
+          if (EQN%FL.eq.33) then 
+             !case of ImposedSlipRateOnDRBoundary 'friction law': we add the additional stress to the fault output
+             !to show the imposed SR
+             eta = (w_speed(2)*rho*w_speed_neig(2)*rho_neig) / (w_speed(2)*rho + w_speed_neig(2)*rho_neig)
+             Gnuc = Calc_SmoothStep(time, DISC%DynRup%t_0)
+             S_XY = S_XY - eta * EQN%NucleationStressInFaultCS(iBndGP,1,iFace)*Gnuc
+             S_XZ = S_XZ - eta * EQN%NucleationStressInFaultCS(iBndGP,2,iFace)*Gnuc
+          endif
+
           !
           ! Obtain values at output points
           SideVal  = 0.
@@ -484,13 +497,8 @@ CONTAINS
 
           ! rotate into fault system
           LocMat = MATMUL(rotmat,tmp_mat)
-          
-          ! z must not be +/- (0,0,1) for the following to work (see also create_fault_rotationmatrix)
-          strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-          strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-          strike_vector(3) = 0.0D0
-          dip_vector = NormalVect_n .x. strike_vector
-          dip_vector = dip_vector / sqrt(dip_vector(1)**2+dip_vector(2)**2+dip_vector(3)**2)
+         
+          CALL create_strike_dip_unit_vectors(NormalVect_n, strike_vector, dip_vector)
 
           ! sliprate
           if (DISC%DynRup%SlipRateOutputType .eq. 1) then
@@ -509,6 +517,12 @@ CONTAINS
           !LocP = SideVal(1)+(((SideVal2(1)-SideVal(1))+w_speed_neig(1)*rho_neig*(SideVal2(7)-SideVal(7)))* &
           !       w_speed(1)*rho) * NorDivisor
           ! Store Values into Output vector OutVal
+
+          if (EQN%FL.eq.33) then 
+             !case of ImposedSlipRateOnDRBoundary 'friction law': we plot the Stress from Godunov state, because we want to see the traction change from the imposed slip distribution
+             TracMat(4)=LocMat(4)
+             TracMat(6)=LocMat(6)
+          endif
 
           OutVars = 0
           IF (DynRup_output%OutputMask(1).EQ.1) THEN

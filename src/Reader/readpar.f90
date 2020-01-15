@@ -1056,6 +1056,12 @@ CONTAINS
              DISC%DynRup%v_star = v_star
              DISC%DynRup%L = L
              CONTINUE
+           CASE(33) !ImposedSlipRateOnDRBoundary
+             DISC%DynRup%t_0 = t_0
+             IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
+               logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
+               DISC%DynRup%SlipRateOutputType = 0
+             ENDIF
            CASE(3,4,7,101,103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale

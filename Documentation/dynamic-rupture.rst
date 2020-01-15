@@ -184,3 +184,37 @@ Two additional thermal pressurization parameters are space-dependent and therefo
     TP_half_width_shear_zone: 0.01  ! Half width of shearing zone [m]
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
+
+Slip-rate imposed on a DR boundary condition
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This friction law allows imposing slip-rate on a dynamic rupture boundary (potentially any kinematic models, but the current implementation is limited, see below).
+The FL id for this friction law is 33.
+The advantage of this approach compared to a multi point-sources representation is that the fault slip is not condensed to points. 
+Therefore the discontinuity of the displacement across the fault can be accurately accounted for, and more generally the wavefield is accurate in the near-field.
+
+The current implementation allows imposing a slip distribution on the DR Boundary using the same arbitrary smooth-step SR function everywhere on the fault.
+The slip distribution is imposed simultaneously everywhere on the fault, smoothly over a time ``t_0``, where ``t_0`` is a parameter of the ``DynamicRupture`` namelist.
+This is an expensive way of getting the final stress distribution from a given slip distribution.
+The slip distribution is defined using easi by the ``strike_slip`` and ``dip_slip`` variables. 
+Warning: the direction of positive ``strike_slip`` and ``dip_slip`` is based on the convention of Seissol (e.g. positive strike_slip for right-lateral faulting). 
+Below is an example of input file for defining the slip distribution:
+
+.. code-block:: YAML
+
+    !Switch
+    [strike_slip, dip_slip]: !Any
+      components:
+       - !AxisAlignedCuboidalDomainFilter
+          limits:
+            x: [-1000, 0]
+            y: [-1e10, 1e10]
+            z: [-5000, -3000]
+          components: !ConstantMap
+            map:
+              strike_slip:   0.01
+              dip_slip: 0.1
+       - !ConstantMap
+          map:
+            strike_slip: 0.05
+            dip_slip: 0.05
+
