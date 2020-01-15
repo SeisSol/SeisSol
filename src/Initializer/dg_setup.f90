@@ -2046,10 +2046,11 @@ CONTAINS
   END SUBROUTINE icGalerkin3D_us_new
 
   SUBROUTINE BuildSpecialDGGeometry3D_new(MaterialVal,EQN,MESH,DISC,BND,MPI,IO)
-
+    USE iso_c_binding, only: c_loc, c_null_char, c_bool
     USE common_operators_mod
     USE DGbasis_mod
     USE ini_faultoutput_mod
+    USE f_ftoc_bind_interoperability
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
@@ -2091,6 +2092,7 @@ CONTAINS
     REAL, POINTER :: zone_minh(:), zone_maxh(:), zone_deltah(:), zone_deltap(:)
     COMPLEX :: solution(3)
     INTEGER :: nDOF,TotDOF, PoroFlux
+    REAL    :: elementWaveSpeeds(4)
     !
     INTEGER :: iErr,iPoly,iVrtx
     INTEGER :: nLocPolyElem(0:100), TempInt(MESH%nSideMax)
@@ -2481,11 +2483,15 @@ CONTAINS
     DISC%Galerkin%WaveSpeed(:,:,:) = 0.
     !
     ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem,MESH%nSideMax) )
-    DO j=1,MESH%nSideMax
-      DISC%Galerkin%WaveSpeed(:,j,1)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%WaveSpeed(:,j,2)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%WaveSpeed(:,j,3)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%MaxWaveSpeed(:,j)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
+    DO iElem=1,MESH%nElem
+        call c_interoperability_getWaveSpeeds(MaterialVal(iElem,:), EQN%nBackgroundVar, elementWaveSpeeds)
+        DO j=1,MESH%nSideMax
+            DISC%Galerkin%WaveSpeed(iElem,j,1)=elementWaveSpeeds(1)  !P-wave-vel
+            DISC%Galerkin%WaveSpeed(iElem,j,2)=elementWaveSpeeds(2)  !S-Wave-vel
+            DISC%Galerkin%WaveSpeed(iElem,j,3)=elementWaveSpeeds(3)  !S-Wave-vel
+            DISC%Galerkin%MaxWaveSpeed(iElem,j)=elementWaveSpeeds(4) !Max Wave-vel
+        ENDDO
+      
     ENDDO
     !
     CONTINUE
