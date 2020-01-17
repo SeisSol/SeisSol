@@ -55,9 +55,13 @@ set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or
 option(COMMTHREAD "Use a communication thread for MPI+MP." OFF)
 
 
-set(LOG_LEVEL "INFO" CACHE STRING "Log level for the code")
-set(LOG_LEVEL_OPTIONS "DEBUG" "INFO" "WARNING" "ERROR")
+set(LOG_LEVEL "info" CACHE STRING "Log level for the code")
+set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
 set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
+
+set(LOG_LEVEL_MASTER "info" CACHE STRING "Log level for the code")
+set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
+set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS})
 
 
 set(ACCELERATOR_TYPE "NONE" CACHE STRING "type of accelerator")
@@ -88,6 +92,7 @@ check_parameter("DYNAMIC_RUPTURE_METHOD" ${DYNAMIC_RUPTURE_METHOD} "${RUPTURE_OP
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 check_parameter("ACCELERATOR_TYPE" ${ACCELERATOR_TYPE} "${ACCELERATOR_TYPE_OPTIONS}")
 check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
+check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
 
 # check NUMBER_OF_MECHANISMS

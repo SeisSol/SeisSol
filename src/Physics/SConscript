@@ -43,7 +43,9 @@ Import('env')
 # physics source files
 physicsFiles = [ 'Evaluate_friction_law.f90',
                  'ini_model.f90',
-                 'ini_model_DR.f90']
+                 'ini_model_DR.f90',
+                 'thermalpressure.f90',
+                 'NucleationFunctions.f90' ]
 
 for i in physicsFiles:
   env.sourceFiles.append(env.Object(i))

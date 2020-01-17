@@ -239,24 +239,6 @@ CONTAINS
     EPIK_USER_END(r_read_compute_mesh)
     SCOREP_USER_REGION_END( r_read_compute_mesh )
 
-    logInfo(*) 'Generated Kernels: Checking boundary conditions'
-
-    do iElem = 1, mesh%nElem
-      do iSide = 1,4
-        ! write an error message in the case of not supported boundary conditions
-        if(       ( mesh%elem%reference( iSide, iElem ) .ne. 0 )& ! no boundary conditions: insides the computational domain
-            .and. ( mesh%elem%reference( iSide, iElem ) .ne. 6 )& ! periodic boundary conditions
-            .and. ( mesh%elem%reference( iSide, iElem ) .ne. 5 )& ! absorbing boundary conditions
-            .and. ( mesh%elem%reference( iSide, iElem ) .ne. 1 )& ! free surface boundary conditions
-            .and. ( mesh%elem%reference( iSide, iElem ) .ne. 3 )& ! dynamic rupture boundary conditions
-          ) then
-          logError(*) 'boundary conditions not supported'
-          stop
-        endif
-      enddo
-    enddo
-
-    !                                                                               !
     DISC%NGP = 1                                                               !
     !                                                                          !
     !                                                                          !

@@ -53,9 +53,8 @@ namespace seissol {
 struct seissol::initializers::DynamicRupture {
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
-  Variable<real[CONVERGENCE_ORDER][tensor::godunovState::size()]>   godunov;
-  Variable<real[tensor::godunovState::size()]>                      imposedStatePlus;
-  Variable<real[tensor::godunovState::size()]>                      imposedStateMinus;
+  Variable<real[tensor::QInterpolated::size()]>                     imposedStatePlus;
+  Variable<real[tensor::QInterpolated::size()]>                     imposedStateMinus;
   Variable<DRGodunovData>                                           godunovData;
   Variable<real[tensor::fluxSolver::size()]>                        fluxSolverPlus;
   Variable<real[tensor::fluxSolver::size()]>                        fluxSolverMinus;
@@ -68,7 +67,6 @@ struct seissol::initializers::DynamicRupture {
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(                 godunov,             mask,     PAGESIZE_HEAP,      seissol::memory::Standard );
     tree.addVar(        imposedStatePlus,             mask,     PAGESIZE_HEAP,      seissol::memory::Standard );
     tree.addVar(       imposedStateMinus,             mask,     PAGESIZE_HEAP,      seissol::memory::Standard );
     tree.addVar(             godunovData,             mask,                 1,      seissol::memory::Standard );

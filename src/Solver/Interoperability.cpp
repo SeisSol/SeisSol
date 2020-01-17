@@ -74,6 +74,14 @@ extern "C" {
     e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
   }
 
+  void c_interoperability_initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration) {
+    e_interoperability.initializeMemoryLayout(clustering, enableFreeSurfaceIntegration);
+  }
+
+  void c_interoperability_initializeEasiBoundaries(char* fileName) {
+    seissol::SeisSol::main.getMemoryManager().initializeEasiBoundaryReader(fileName);
+  }
+
   void c_interoperability_setInitialConditionType(char* type)
   {
     e_interoperability.setInitialConditionType(type);
@@ -260,7 +268,8 @@ extern "C" {
 
   extern void f_interoperability_evaluateFrictionLaw( void*   i_domain,
                                                       int     i_face,
-                                                      real*   i_godunov,
+                                                      real*   i_QInterpolatedPlus,
+                                                      real*   i_QInterpolatedMinus,
                                                       real*   i_imposedStatePlus,
                                                       real*   i_imposedStateMinus,
                                                       int     i_numberOfBasisFunctions2D,
@@ -273,7 +282,8 @@ extern "C" {
                                                       double  sWaveVelocityPlus,
                                                       double  densityMinus,
                                                       double  pWaveVelocityMinus,
-                                                      double  sWaveVelocityMinus );
+                                                      double  sWaveVelocityMinus,
+                                                      real const* resampleMatrix );
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
@@ -314,9 +324,6 @@ seissol::Interoperability::Interoperability() :
 seissol::Interoperability::~Interoperability()
 {
   delete[] m_ltsFaceToMeshFace;
-  for (auto& iniCond : m_iniConds) {
-    delete iniCond;
-  }
 }
 
 void seissol::Interoperability::setInitialConditionType(char const* type) {
@@ -361,10 +368,10 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
                                                                       numberOfDRCopyFaces,
                                                                       numberOfDRInteriorFaces );
 
-  seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
-                                                            m_meshStructure,
-                                                            numberOfDRCopyFaces,
-                                                            numberOfDRInteriorFaces );
+  seissol::SeisSol::main.getMemoryManager().fixateLtsTree(m_timeStepping,
+                                                          m_meshStructure,
+                                                          numberOfDRCopyFaces,
+                                                          numberOfDRInteriorFaces);
 
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
@@ -390,6 +397,10 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
                                                          m_meshStructure,
                                                          m_ltsTree->var(m_lts->cellInformation) );
 
+
+}
+
+void seissol::Interoperability::initializeMemoryLayout(int clustering, bool enableFreeSurfaceIntegration) {
   // initialize memory layout
   seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout(enableFreeSurfaceIntegration);
 
@@ -400,7 +411,12 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
 
   // get backward coupling
   m_globalData = seissol::SeisSol::main.getMemoryManager().getGlobalData();
+
+
+  // initialize face lts trees
+  seissol::SeisSol::main.getMemoryManager().fixateBoundaryLtsTree();
 }
+
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 void seissol::Interoperability::setupNRFPointSources( char const* fileName )
@@ -584,6 +600,14 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            m_ltsFaceToMeshFace,
                                                            *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
                                                            m_timeStepping );
+
+  seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
+                                                    seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
+                                                    m_ltsTree,
+                                                    m_lts,
+                                                    &m_ltsLut);
+ 
+
 }
 
 template<typename T>
@@ -736,13 +760,21 @@ void seissol::Interoperability::initInitialConditions()
   if (m_initialConditionType == "Planarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      m_iniConds.push_back(new physics::Planarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+      m_iniConds.emplace_back(new physics::Planarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
     }
 #else
-    m_iniConds.push_back(new physics::Planarwave());
+    m_iniConds.emplace_back(new physics::Planarwave());
 #endif
   } else if (m_initialConditionType == "Zero") {
-    m_iniConds.push_back(new physics::ZeroField());
+    m_iniConds.emplace_back(new physics::ZeroField());
+#if NUMBER_OF_RELAXATION_MECHANISMS == 0
+  } else if (m_initialConditionType == "Scholte") {
+    m_iniConds.emplace_back(new physics::ScholteWave());
+  } else if (m_initialConditionType == "Snell") {
+    m_iniConds.emplace_back(new physics::SnellsLaw());
+  } else if (m_initialConditionType == "Ocean") {
+    m_iniConds.emplace_back(new physics::Ocean());
+#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
   } else {
     throw std::runtime_error("Unknown initial condition type" + getInitialConditionType());
   }
@@ -816,9 +848,10 @@ void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
 }
 
 void seissol::Interoperability::evaluateFrictionLaw(  int face,
-                                                      real godunov[CONVERGENCE_ORDER][seissol::tensor::godunovState::size()],
-                                                      real imposedStatePlus[seissol::tensor::godunovState::size()],
-                                                      real imposedStateMinus[seissol::tensor::godunovState::size()],
+                                                      real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                                      real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+                                                      real imposedStatePlus[seissol::tensor::QInterpolated::size()],
+                                                      real imposedStateMinus[seissol::tensor::QInterpolated::size()],
                                                       double i_fullUpdateTime,
                                                       double timePoints[CONVERGENCE_ORDER],
                                                       double timeWeights[CONVERGENCE_ORDER],
@@ -826,12 +859,15 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                                       seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
 {
   int fFace = face + 1;
-  int numberOfPoints = tensor::godunovState::Shape[0];
-  int godunovLd = init::godunovState::Stop[0] - init::godunovState::Start[0];
+  int numberOfPoints = tensor::QInterpolated::Shape[0];
+  int godunovLd = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
+
+  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
 
   f_interoperability_evaluateFrictionLaw( m_domain,
                                           fFace,
-                                         &godunov[0][0],
+                                         &QInterpolatedPlus[0][0],
+                                         &QInterpolatedMinus[0][0],
                                          &imposedStatePlus[0],
                                          &imposedStateMinus[0],
                                           numberOfPoints,
@@ -844,7 +880,8 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
                                           waveSpeedsPlus.sWaveVelocity,
                                           waveSpeedsMinus.density,
                                           waveSpeedsMinus.pWaveVelocity,
-                                          waveSpeedsMinus.sWaveVelocity);
+                                          waveSpeedsMinus.sWaveVelocity,
+                                          init::resample::Values );
 }
 
 void seissol::Interoperability::calcElementwiseFaultoutput(double time)

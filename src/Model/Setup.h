@@ -68,11 +68,11 @@ namespace seissol {
      * Solves the Riemann problem at an interface. Note that this routine
      * returns the transposed godunov state.
      **/
-    void getTransposedGodunovState( Material const&                   local,
-                                    Material const&                   neighbor,
-                                    enum ::faceType                   faceType,
-                                    init::QgodLocal::view::type&      QgodLocal,
-                                    init::QgodNeighbor::view::type&   QgodNeighbor );
+    void getTransposedGodunovState(Material const& local,
+                                   Material const& neighbor,
+                                   ::FaceType faceType,
+                                   init::QgodLocal::view::type& QgodLocal,
+                                   init::QgodNeighbor::view::type& QgodNeighbor);
 
     /**
      * Converts the fortran material array to the C++ material struct.

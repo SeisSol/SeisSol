@@ -78,6 +78,7 @@ add_custom_command(
        generated_code/elastic.py
        generated_code/viscoelastic2.py
        generated_code/SurfaceDisplacement.py
+       generated_code/NodalBoundaryConditions.py
     OUTPUT src/generated_code/subroutine.h
        src/generated_code/tensor.cpp
        src/generated_code/subroutine.cpp
@@ -109,17 +110,26 @@ get_arch_flags(${ARCH} ${CMAKE_CXX_COMPILER_ID})
 target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_DEFINITIONS})
 target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_FLAGS})
 
-if (LOG_LEVEL STREQUAL "DEBUG")
-  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=3 LOG_LEVEL=3 LOGLEVEL0=3)
-elseif (LOG_LEVEL STREQUAL "INFO")
-  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=2 LOG_LEVEL=2 LOGLEVEL0=2)
-elseif (LOG_LEVEL STREQUAL "WARNING")
-  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=1 LOG_LEVEL=1 LOGLEVEL0=1)
-elseif (LOG_LEVEL STREQUAL "ERROR")
-  target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=0 LOG_LEVEL=0 LOGLEVEL0=0)
-endif()
-  
-#set_property(CACHE LOG_LEVEL PRPERTY STRINGS "DEBUG" "INFO" "WARNING" "ERROR")
+function(log_level_to_int log_level_str log_level_int)
+  if (${log_level_str} STREQUAL "debug")
+    set(${log_level_int} 3 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "info")
+    set(${log_level_int} 2 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "warning")
+    set(${log_level_int} 1 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "error")
+    set(${log_level_int} 0 PARENT_SCOPE)
+  endif()
+endfunction()
+
+log_level_to_int(LOG_LEVEL LOG_LEVEL_INT)
+target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=${LOG_LEVEL_INT})
+
+log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER_INT)
+target_compile_definitions(SeisSol-lib PUBLIC
+        LOG_LEVEL=${LOG_LEVEL_MASTER_INT}
+        LOGLEVEL0=${LOG_LEVEL_MASTER_INT})
+
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
 #    flags.extend(['-ip'])
@@ -133,12 +143,7 @@ pkg_check_modules(ImpalaJIT REQUIRED impalajit)
 target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LINK_LIBRARIES})
 target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
 
-find_package(Eigen3) # maybe enfore 3.3?
-if (EIGEN3_FOUND)
-  target_include_directories(SeisSol-lib PUBLIC ${EIGEN3_INCLUDE_DIR})
-  target_compile_definitions(SeisSol-lib PUBLIC HAS_EIGEN3)
-else()
-endif()
+# In the future, we should maybe use find_package(Eigen3).
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
@@ -206,6 +211,7 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
 				   ${YAML_CPP_INCLUDE_DIR}
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
+				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
@@ -216,8 +222,6 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
 				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
-				   LOGLEVEL=3
-				   LOGLEVEL0=3
 				   # Are the following needed?
 				   GENERATED_KERNELS
 				   GENERATEDKERNELS
@@ -225,7 +229,7 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   HOST_NAME_MAX=100 # wtf?
 				   )
 
-# Fortran compliler settings				 
+# Fortran compliler settings
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -fdefault-real-8 -fopenmp")
@@ -289,6 +293,7 @@ if(CXXTEST_FOUND)
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
     )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})

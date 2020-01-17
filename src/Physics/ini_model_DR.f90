@@ -72,6 +72,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: friction_RSF103
   PRIVATE :: friction_LSW
   PRIVATE :: friction_LSW6
+  PRIVATE :: thermalPress_init
   !---------------------------------------------------------------------------!
 
   CONTAINS
@@ -114,6 +115,10 @@ MODULE ini_model_DR_mod
      ! Initialization of initial slip rate and friction for SCEC TPV103
      CALL friction_RSF101(DISC,EQN,MESH,BND)
     CASE(103)
+     ! Initialization of initial temperature and pressure for TP
+     IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+         CALL thermalPress_init(DISC,EQN)
+     ENDIF
      ! Initialization of initial slip rate and friction for SCEC TPV103
      CALL friction_RSF103(DISC,EQN,MESH,BND)
     END SELECT  ! Initialize model dependent rate-and-state friction law parameters type
@@ -136,7 +141,7 @@ MODULE ini_model_DR_mod
     TYPE (tBoundary)               :: BND
     !-------------------------------------------------------------------------!
     ! Local variable declaration
-    integer                             :: i
+    integer                             :: i, nz
     real, allocatable, dimension(:,:)   :: nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz
     logical(kind=c_bool)                :: faultParameterizedByTraction
     !-------------------------------------------------------------------------!
@@ -190,23 +195,24 @@ MODULE ini_model_DR_mod
               ENDIF
           ENDDO
     ENDIF
-
-    faultParameterizedByTraction = c_interoperability_faultParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
-    
-    if (faultParameterizedByTraction) then
-      call c_interoperability_addFaultParameter("T_n" // c_null_char, EQN%IniBulk_xx)
-      call c_interoperability_addFaultParameter("T_s" // c_null_char, EQN%IniShearXY)
-      call c_interoperability_addFaultParameter("T_d" // c_null_char, EQN%IniShearXZ)
-      EQN%IniBulk_yy(:,:) = 0.0d0
-      EQN%IniBulk_zz(:,:) = 0.0d0
-      EQN%IniShearYZ(:,:) = 0.0d0
-    else
-      call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
-      call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
-      call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
-      call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
-      call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
-      call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
+    if (EQN%FL .NE. 33) then !33 is ImposedSlipRateOnDRBoundary
+        faultParameterizedByTraction = c_interoperability_faultParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
+        
+        if (faultParameterizedByTraction) then
+          call c_interoperability_addFaultParameter("T_n" // c_null_char, EQN%IniBulk_xx)
+          call c_interoperability_addFaultParameter("T_s" // c_null_char, EQN%IniShearXY)
+          call c_interoperability_addFaultParameter("T_d" // c_null_char, EQN%IniShearXZ)
+          EQN%IniBulk_yy(:,:) = 0.0d0
+          EQN%IniBulk_zz(:,:) = 0.0d0
+          EQN%IniShearYZ(:,:) = 0.0d0
+        else
+          call c_interoperability_addFaultParameter("s_xx" // c_null_char, EQN%IniBulk_xx)
+          call c_interoperability_addFaultParameter("s_yy" // c_null_char, EQN%IniBulk_yy)
+          call c_interoperability_addFaultParameter("s_zz" // c_null_char, EQN%IniBulk_zz)
+          call c_interoperability_addFaultParameter("s_xy" // c_null_char, EQN%IniShearXY)
+          call c_interoperability_addFaultParameter("s_yz" // c_null_char, EQN%IniShearYZ)
+          call c_interoperability_addFaultParameter("s_xz" // c_null_char, EQN%IniShearXZ)
+        endif
     endif
 
     !frictional parameter initialization
@@ -225,6 +231,14 @@ MODULE ini_model_DR_mod
          ALLOCATE(  DISC%DynRup%forced_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
          call c_interoperability_addFaultParameter("forced_rupture_time" // c_null_char, DISC%DynRup%forced_rupture_time)
        end if
+
+    CASE(33) ! ImposedSlipRateOnDRBoundary
+        allocate( nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+        nuc_xx(:,:) = 0.0d0
+        nuc_yy(:,:) = 0.0d0
+        call c_interoperability_addFaultParameter("strike_slip" // c_null_char, nuc_xx)
+        call c_interoperability_addFaultParameter("dip_slip" // c_null_char, nuc_yy)
 
     CASE(3,4,7,101,103)
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
@@ -256,6 +270,26 @@ MODULE ini_model_DR_mod
           call c_interoperability_addFaultParameter("nuc_xz" // c_null_char, nuc_xz)
         endif
       end if
+      if (DISC%DynRup%ThermalPress.EQ.1) THEN
+         nz = DISC%DynRup%TP_grid_nz !number of grid points for the advection equation perpendicular to the fault, currently fixed to 60.0 but requires more testing
+        ALLOCATE(DISC%DynRup%TP_grid(nz), DISC%DynRup%TP_DFinv(nz), &
+                 DISC%DynRup%TP_Theta(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
+                 DISC%DynRup%TP_Sigma(DISC%Galerkin%nBndGP, MESH%Fault%nSide, nz), &
+                 DISC%DynRup%TP(DISC%Galerkin%nBndGP, MESH%Fault%nSide, 2))
+        ! use this for advanced initialization
+        ALLOCATE(DISC%DynRup%alpha_hy(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
+                 DISC%DynRup%TP_half_width_shear_zone(DISC%Galerkin%nBndGP, MESH%Fault%nSide))
+        call c_interoperability_addFaultParameter("alpha_hy" // c_null_char, DISC%DynRup%alpha_hy)
+        call c_interoperability_addFaultParameter("TP_half_width_shear_zone" // c_null_char, DISC%DynRup%TP_half_width_shear_zone)
+
+        DISC%DynRup%TP_grid(:) = 0.0
+        DISC%DynRup%TP_DFinv(:) = 0.0
+        DISC%DynRup%TP_Theta(:,:,:) = 0.0
+        DISC%DynRup%TP_Sigma(:,:,:) = 0.0
+        DISC%DynRup%TP(:,:,1) = EQN%Temp_0
+        DISC%DynRup%TP(:,:,2) = EQN%Pressure_0
+
+      end if
     END SELECT
 
     call c_interoperability_initializeFault(  trim(DISC%DynRup%ModelFileName) // c_null_char, &
@@ -265,13 +299,22 @@ MODULE ini_model_DR_mod
 
     ! Rotate initial stresses to fault coordinate system
     allocate(EQN%InitialStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-    call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS,faultParameterizedByTraction)
-    
+    if (EQN%FL .NE. 33) then !ImposedSlipRateOnDRBoundary
+        call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,EQN%IniBulk_xx,EQN%IniBulk_yy,EQN%IniBulk_zz,EQN%IniShearXY,EQN%IniShearYZ,EQN%IniShearXZ,EQN%InitialStressInFaultCS,faultParameterizedByTraction)
+    endif
+
     if (EQN%FL == 103) then
       allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
       call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,faultParameterizedByTraction)
       deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
     end if
+
+    if (EQN%FL == 33) then !ImposedSlipRateOnDRBoundary
+        allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,2,MESH%Fault%nSide))
+        call rotateSlipToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,EQN%NucleationStressInFaultCS)
+        deallocate(nuc_xx,nuc_yy)
+    endif
+
   END SUBROUTINE DR_basic_ini
   
   SUBROUTINE rotateStressToFaultCS(EQN,MESH,nBndGP,s_xx,s_yy,s_zz,s_xy,s_yz,s_xz,stressInFaultCS,faultParameterizedByTraction)
@@ -337,6 +380,48 @@ MODULE ini_model_DR_mod
       enddo
     enddo
   END SUBROUTINE rotateStressToFaultCS
+
+  SUBROUTINE rotateSlipToFaultCS(EQN, MESH, nBndGP, StrikeSlip , DipSlip, SlipInFaultCS)
+    USE common_operators_mod
+    USE create_fault_rotationmatrix_mod, only: create_strike_dip_unit_vectors
+    !-------------------------------------------------------------------------!
+    IMPLICIT NONE
+    !-------------------------------------------------------------------------!
+    TYPE(tEquations)                      :: EQN
+    TYPE(tUnstructMesh)                   :: MESH
+    integer                               :: nBndGP
+    real, allocatable, dimension(:,:)     :: StrikeSlip, DipSlip
+    real, allocatable, dimension(:,:,:)   :: SlipInFaultCS
+    !-------------------------------------------------------------------------!
+    ! Local variable declaration
+    integer                             :: i
+    real                                :: NormalVect_n(3), NormalVect_s(3), NormalVect_t(3)
+    real                                :: strike_vector(3), dip_vector(3),crossprod(3)
+    real                                :: scalarprod, cos1, sin1
+    !-------------------------------------------------------------------------!
+    intent(in)                          :: EQN,MESH,nBndGP
+    intent(inout)                       :: StrikeSlip, DipSlip
+    intent(inout)                       :: SlipInFaultCS
+    do i = 1, MESH%Fault%nSide
+          
+          NormalVect_n = MESH%Fault%geoNormals(1:3,i)
+          NormalVect_s = MESH%Fault%geoTangent1(1:3,i)
+          NormalVect_t = MESH%Fault%geoTangent2(1:3,i)
+          CALL create_strike_dip_unit_vectors(NormalVect_n, strike_vector, dip_vector)
+
+          cos1 = dot_product(strike_vector(:),NormalVect_s(:))
+          crossprod(:) = strike_vector(:) .x. NormalVect_s(:)
+          scalarprod = dot_product(crossprod(:),NormalVect_n(:))
+          !cos1**2 can be greater than 1 because of rounding errors -> min
+          IF (scalarprod.GT.0) THEN
+             sin1=sqrt(1-min(1d0,cos1**2))
+          ELSE
+             sin1=-sqrt(1-min(1d0,cos1**2))
+          ENDIF
+          SlipInFaultCS(:,1,i) =  cos1 * StrikeSlip(:,i) + sin1* DipSlip(:,i)
+          SlipInFaultCS(:,2,i) = -sin1 * StrikeSlip(:,i) + cos1* DipSlip(:,i)
+    enddo
+  END SUBROUTINE rotateSlipToFaultCS
 
 
   !> Initialization of initial slip rate and friction for rate and state friction
@@ -587,6 +672,7 @@ MODULE ini_model_DR_mod
   ! Local variable declaration
   INTEGER                        :: iFace, iBndGP
   REAL                           :: iniSlipRate, tmp
+  REAL                           :: P_f(DISC%Galerkin%nBndGP, MESH%Fault%nSide)
 
   !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH,BND
@@ -597,11 +683,16 @@ MODULE ini_model_DR_mod
   EQN%IniSlipRate2 = DISC%DynRup%RS_iniSlipRate2
   iniSlipRate = SQRT(EQN%IniSlipRate1**2 + EQN%IniSlipRate2**2)
 
+  IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+     P_f = EQN%Pressure_0
+  ELSE
+     P_f = 0.0
+  ENDIF
 
   ! Loop over every mesh element
   DO iFace = 1, MESH%Fault%nSide
       DO iBndGP = 1,DISC%Galerkin%nBndGP ! Loop over all Gauss integration points
-          tmp = ABS(SQRT(EQN%InitialStressInFaultCS(iBndGP,4,iFace)**2+EQN%InitialStressInFaultCS(iBndGP,6,iFace)**2)/(DISC%DynRup%RS_a_array(iBndGP,iFace)*EQN%InitialStressInFaultCS(iBndGP,1,iFace)))
+          tmp = ABS(SQRT(EQN%InitialStressInFaultCS(iBndGP,4,iFace)**2+EQN%InitialStressInFaultCS(iBndGP,6,iFace)**2)/(DISC%DynRup%RS_a_array(iBndGP,iFace)*(EQN%InitialStressInFaultCS(iBndGP,1,iFace)-P_f(iBndGP, iFace))))
           EQN%IniStateVar(iBndGP,iFace)=DISC%DynRup%RS_a_array(iBndGP,iFace)*LOG(2.0D0*DISC%DynRup%RS_sr0/iniSlipRate * (EXP(tmp)-EXP(-tmp))/2.0D0)
           ! ASINH(X)=LOG(X+SQRT(X^2+1))
           tmp  = iniSlipRate*0.5/DISC%DynRup%RS_sr0 * EXP(EQN%IniStateVar(iBndGP,iFace)/ DISC%DynRup%RS_a_array(iBndGP,iFace))
@@ -659,6 +750,42 @@ MODULE ini_model_DR_mod
 
   END SUBROUTINE friction_LSW6    ! Initialization of friction for bimaterial linear slip weakening
 
+!> Initialization of TP grid, Fourier coefficients and initial temperature/pressure for TP
+  !<
+  SUBROUTINE thermalPress_init(DISC,EQN)
+  !-------------------------------------------------------------------------!
+  IMPLICIT NONE
+  !-------------------------------------------------------------------------!
+  TYPE(tDiscretization), target  :: DISC
+  TYPE(tEquations)               :: EQN
+  !-------------------------------------------------------------------------!
+  ! Local variable declaration
+  INTEGER                        :: j
+  REAL                           :: TP_log_dz, TP_max_wavenumber
+  REAL, PARAMETER                :: pi=3.141592653589793
+  !-------------------------------------------------------------------------!
+  INTENT(INOUT) :: DISC,EQN
+  !-------------------------------------------------------------------------!
 
+  !values currently from bicycle code -> how can we optimize that?
+  TP_log_dz = DISC%DynRup%TP_log_dz !grid space distance, currently set to 0.3
+  TP_max_wavenumber = DISC%DynRup%TP_max_wavenumber !max. wavenumber, currently set to 10.0
+
+  !Initialization of Fourier coefficients
+  !coefficients from eq. (17) Noda/Lapusta 2010
+  DO j=1,DISC%DynRup%TP_grid_nz
+     !use here TP_max_wavenumber and then always Dwn(j)/w (like in the SBIEM code)
+     !or use here TP_max_wavenumber/w and then only Dwn(j) in the following
+     DISC%DynRup%TP_grid(j) = TP_max_wavenumber*exp(-TP_log_dz*(DISC%DynRup%TP_grid_nz-j)); !function l_i(x,z) in eq. (14) in Noda/Lapusta 2010 (take exp of 14)
+     IF (j .EQ. 1) THEN
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*(1.d0+TP_log_dz*0.5d0)
+     ELSEIF(j .EQ. DISC%DynRup%TP_grid_nz) THEN
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*TP_log_dz*0.5d0
+     ELSE
+         DISC%DynRup%TP_DFinv(j)=SQRT(2/pi)*DISC%DynRup%TP_grid(j)*TP_log_dz
+     END IF
+  END DO !nz
+
+  END SUBROUTINE thermalPress_init
 
   END MODULE ini_model_DR_mod
