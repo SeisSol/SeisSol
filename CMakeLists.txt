@@ -126,11 +126,11 @@ endif()
 
 # Libs
 find_package(yaml-cpp REQUIRED)
-target_link_libraries(SeisSol-lib PUBLIC yaml-cpp)
+target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ImpalaJIT REQUIRED impalajit)
-target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LIBRARIES})
+target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LINK_LIBRARIES})
 target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
 
 find_package(Eigen3) # maybe enfore 3.3?
@@ -204,7 +204,7 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 				   # todo: use reexport from easi?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yaml-cpp/include
+				   ${YAML_CPP_INCLUDE_DIR}
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
