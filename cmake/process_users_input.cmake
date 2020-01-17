@@ -95,6 +95,7 @@ check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
 
+
 # check NUMBER_OF_MECHANISMS
 if ("${EQUATIONS}" STREQUAL "elastic" AND ${NUMBER_OF_MECHANISMS} GREATER 0)
     message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
@@ -128,7 +129,7 @@ if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULAT
 endif()
 
 #-------------------------------------------------------------------------------
-# ------------------------ COMPUTE ADDITIONAL PARAMETERS -----------------------
+# -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
 #-------------------------------------------------------------------------------
 # PDE-Settings
 MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
@@ -140,3 +141,19 @@ if (${PRECISION} STREQUAL "double")
 elseif(${PRECISION} STREQUAL "float")
     set(ARCH_STRING "s${ARCH}")
 endif()
+
+
+function(cast_log_level_to_int log_level_str log_level_int)
+  if (${log_level_str} STREQUAL "debug")
+    set(${log_level_int} 3 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "info")
+    set(${log_level_int} 2 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "warning")
+    set(${log_level_int} 1 PARENT_SCOPE)
+  elseif (${log_level_str} STREQUAL "error")
+    set(${log_level_int} 0 PARENT_SCOPE)
+  endif()
+endfunction()
+
+cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
+cast_log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER)

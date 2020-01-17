@@ -12,7 +12,7 @@ message(WARNING "We do not provide support for CMake currently. Please use scons
 #                     ARCH, PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT, COMMTHREAD, LOG_LEVEL,
-#                     ACCELERATOR_TYPE
+#                     LOG_LEVEL_MASTER, ACCELERATOR_TYPE
 #
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES
 #
@@ -110,25 +110,9 @@ get_arch_flags(${ARCH} ${CMAKE_CXX_COMPILER_ID})
 target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_DEFINITIONS})
 target_compile_options(SeisSol-lib PUBLIC ${CPU_ARCH_FLAGS})
 
-function(log_level_to_int log_level_str log_level_int)
-  if (${log_level_str} STREQUAL "debug")
-    set(${log_level_int} 3 PARENT_SCOPE)
-  elseif (${log_level_str} STREQUAL "info")
-    set(${log_level_int} 2 PARENT_SCOPE)
-  elseif (${log_level_str} STREQUAL "warning")
-    set(${log_level_int} 1 PARENT_SCOPE)
-  elseif (${log_level_str} STREQUAL "error")
-    set(${log_level_int} 0 PARENT_SCOPE)
-  endif()
-endfunction()
-
-log_level_to_int(LOG_LEVEL LOG_LEVEL_INT)
-target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=${LOG_LEVEL_INT})
-
-log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER_INT)
-target_compile_definitions(SeisSol-lib PUBLIC
-        LOG_LEVEL=${LOG_LEVEL_MASTER_INT}
-        LOGLEVEL0=${LOG_LEVEL_MASTER_INT})
+target_compile_definitions(SeisSol-lib PUBLIC LOGLEVEL=${LOG_LEVEL})
+target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
+                                              LOGLEVEL0=${LOG_LEVEL_MASTER})
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -137,8 +121,10 @@ target_compile_definitions(SeisSol-lib PUBLIC
 # Libs
 find_package(yaml-cpp REQUIRED)
 target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
+target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
 
 find_package(PkgConfig REQUIRED)
+
 pkg_check_modules(ImpalaJIT REQUIRED impalajit)
 target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LINK_LIBRARIES})
 target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
@@ -209,7 +195,6 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 				   # todo: use reexport from easi?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
-				   ${YAML_CPP_INCLUDE_DIR}
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
