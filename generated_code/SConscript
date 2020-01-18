@@ -49,7 +49,7 @@ def subdirs(directory):
 
 def generate_code(target, source, env, for_signature):
   basePath = os.path.split(str(source[0]))[0]
-  return './{} --equations {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --memLayout {} --multipleSimulations {} --dynamicRuptureMethod {} --PlasticityMethod {}'.format(
+  return './{} --equations {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --memLayout {} --multipleSimulations {} --dynamicRuptureMethod {} --PlasticityMethod {} --gemm_tools {}'.format(
     os.path.join(basePath, 'generate.py'),
     env['equations'],
     os.path.join(basePath, 'matrices'),
@@ -60,7 +60,8 @@ def generate_code(target, source, env, for_signature):
     env['memLayout'],
     env['multipleSimulations'],
     env['dynamicRuptureMethod'],
-    env['PlasticityMethod']
+    env['PlasticityMethod'],
+    env['GemmTools']
   )
 
 env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})

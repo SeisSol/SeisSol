@@ -172,6 +172,12 @@ vars.AddVariables(
                 'choose between two plasticity methods, nodal one in general faster',
                 'nb',
                 allowed_values=('ip', 'nb')
+              ),
+  
+  EnumVariable( 'GemmTools',
+                'choose a gemm tool(s) for the code generator',
+                'LIBXSMM,PSpaMM',
+                 allowed_values=('LIBXSMM', 'PSpaMM', 'LIBXSMM', 'MKL', 'OpenBLAS', 'BLIS')
               )
 )
 
