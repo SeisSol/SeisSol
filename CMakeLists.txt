@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 3.5)
+
+if(POLICY CMP0075)
+  cmake_policy(SET CMP0075 NEW)
+endif()
+
 project(SeisSol LANGUAGES C CXX Fortran)
 message(WARNING "We do not provide support for CMake currently. Please use scons instead!")
 
-
-# set hardware specific definition needed for seissol for compilation
+# set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
 #       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND
@@ -12,7 +16,8 @@ message(WARNING "We do not provide support for CMake currently. Please use scons
 #                     ARCH, PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT, COMMTHREAD, LOG_LEVEL,
-#                     LOG_LEVEL_MASTER, ACCELERATOR_TYPE
+#                     LOG_LEVEL_MASTER, ACCELERATOR_TYPE, 
+#                     GEMM_TOOLS_LIST
 #
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES
 #
@@ -46,7 +51,20 @@ configure_file (
   "${PROJECT_BINARY_DIR}/src/version.h"
   )
 
+
+find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
+
+if(GemmTools_INCLUDE_DIRS)
+  target_include_directories(SeisSol-lib PUBLIC ${GemmTools_INCLUDE_DIRS})
+endif()
+if(GemmTools_LIBRARIES)
+  target_link_libraries(SeisSol-lib PUBLIC ${GemmTools_LIBRARIES})
+endif()
+if(GemmTools_COMPILER_DEFINITIONS)  
+  target_compile_definitions(SeisSol-lib PUBLIC ${GemmTools_COMPILER_DEFINITIONS})
+endif()
+
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
 
@@ -63,6 +81,7 @@ add_custom_command(
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
      "--dynamicRuptureMethod" ${DYNAMIC_RUPTURE_METHOD}
      "--PlasticityMethod" ${PLASTICITY_METHOD}
+     "--gemm_tools" ${GEMM_TOOLS_LIST}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
      DEPENDS
        build-time-make-directory
