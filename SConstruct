@@ -177,7 +177,7 @@ vars.AddVariables(
   EnumVariable( 'GemmTools',
                 'choose a gemm tool(s) for the code generator',
                 'LIBXSMM,PSpaMM',
-                 allowed_values=('LIBXSMM', 'PSpaMM', 'LIBXSMM', 'MKL', 'OpenBLAS', 'BLIS')
+                 allowed_values=('LIBXSMM,PSpaMM', 'LIBXSMM', 'MKL', 'OpenBLAS', 'BLIS')
               )
 )
 
