@@ -47,7 +47,7 @@
 
 namespace seissol {
   namespace model {
-    using Matrix99 = Eigen::Matrix<real, 9, 9>;
+    using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     bool testIfAcoustic(real mu);
 
@@ -133,7 +133,7 @@ template<typename T>
 void seissol::model::getTransposedFreeSurfaceGodunovState(const Material& material,
                                                           T& QgodLocal,
                                                           T& QgodNeighbor,
-                                                          Eigen::Matrix<real, 9, 9>& R) {
+                                                          Matrix99& R) {
   for (int i = 0; i < 9; i++) {
     for (int j = 0; j < 9; j++) {
       QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
@@ -149,7 +149,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(const Material& materi
   } else {
     std::array<int, 3> traction_indices = {0,3,5};
     std::array<int, 3> velocity_indices = {6,7,8};
-    using Matrix33 = Eigen::Matrix<real, 3, 3>;
+    using Matrix33 = Eigen::Matrix<double, 3, 3>;
     Matrix33 R11 = R(traction_indices, {0,1,2});
     Matrix33 R21 = R(velocity_indices, {0,1,2});
     auto S = - (R21 * R11.inverse()).eval();
