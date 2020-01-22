@@ -42,6 +42,7 @@
 
 #include <Eigen/Eigen>
 
+#include "utils/logger.h"
 #include "Initializer/typedefs.hpp"
 #include "generated_code/init.h"
 
@@ -240,8 +241,12 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
     chi(1,1) = 1.0;
     chi(2,2) = 1.0;
 
-    assert(Eigen::FullPivLU<Matrix99>(R).isInvertible());
-    const auto godunov = ((R*chi)*R.inverse()).eval();
+    const auto RDecomp = Eigen::FullPivLU<Matrix99>(R);
+    if (!RDecomp.isInvertible()) {
+      logError() << "Matrix of eigenvectors is not invertible - failed to construct Riemann solver.";
+    }
+
+    const auto godunov = ((R*chi)*RDecomp.inverse()).eval();
 
     // QgodLocal = I - QgodNeighbor
     for (unsigned i = 0; i < godunov.cols(); ++i) {
