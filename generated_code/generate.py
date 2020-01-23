@@ -43,7 +43,8 @@ import importlib.util
 import inspect
 
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM 
+from yateto import gemm_configuration
+from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS
 
 import DynamicRupture
 import Plasticity
@@ -63,6 +64,7 @@ cmdLineParser.add_argument('--memLayout')
 cmdLineParser.add_argument('--multipleSimulations', type=int)
 cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
+cmdLineParser.add_argument('--gemm_tools')
 cmdLineArgs = cmdLineParser.parse_args()
 
 if cmdLineArgs.memLayout == 'auto':
@@ -114,8 +116,21 @@ NodalBoundaryConditions.addKernels(g, adg, include_tensors, cmdLineArgs.matrices
 SurfaceDisplacement.addKernels(g, adg)
 Point.addKernels(g, adg)
 
+# pick up the user's defined gemm tools
+gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
+generators = []
+
+for tool in gemm_tool_list:
+  if hasattr(gemm_configuration, tool):
+    specific_gemm_class = getattr(gemm_configuration, tool)
+    generators.append(specific_gemm_class(arch))
+  else:
+    print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
+          "Please, refer to the documentation".format(tool))
+    sys.exit("failure")
+
 # Generate code
-gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
+gemmTools = GeneratorCollection(generators)
 g.generate(outputDir=cmdLineArgs.outputDir,
            namespace='seissol',
            gemm_cfg=gemmTools,
