@@ -75,6 +75,7 @@ class Lowpass(Filter):
     cutoffLabel = QLabel('Cutoff (Hz)', self)
     self.cutoff = QDoubleSpinBox(self)
     self.cutoff.setValue(3.0)
+    self.cutoff.setMinimum(1.0)
     self.cutoff.valueChanged.connect(self.filterChanged)
 
     filterLayout = QFormLayout(self)
