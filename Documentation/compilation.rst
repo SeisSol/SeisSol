@@ -87,20 +87,7 @@ Installing Libxsmm
    cp bin/libxsmm_gemm_generator $HOME/bin
    cd ..
 
-
-Installing ImpalaJIT (relevant only for CMake)
-----------------------------------------------
-
-.. code-block:: bash
- 
-   git clone https://github.com/uphoffc/ImpalaJIT.git
-   cd ImpalaJIT
-   mkdir build
-   cd build 
-   cmake .. -DCMAKE_INSTALL_PREFIX=$HOME
-   make
-   make install
-
+.. _installing_pspamm:
 
 Installing PSpaMM
 -----------------
