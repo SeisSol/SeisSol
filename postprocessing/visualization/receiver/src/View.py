@@ -181,7 +181,7 @@ class View(QWidget):
             f = scipy.fftpack.fftfreq(n, dt)
             W = dt * scipy.fftpack.fft(waveform)
             maxFreqIndices = numpy.argwhere(f > self.maxFreq.value())
-            L = maxFreqIndices[0] if len(maxFreqIndices) > 0 else n/2
+            L = maxFreqIndices[0,0] if numpy.size(maxFreqIndices) > 0 else n/2
             p.loglog(f[1:L], numpy.absolute(W[1:L]), label=str(nWf))
             p.set_xlabel('f [Hz]')
           elif self.diff.isChecked():
