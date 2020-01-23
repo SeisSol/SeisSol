@@ -43,14 +43,14 @@
 namespace seissol {
   namespace model {
     struct ElasticMaterial {
-      real lambda;
-      real mu;
-      real rho;
+      double lambda;
+      double mu;
+      double rho;
     };    
     struct IsotropicWaveSpeeds {
-      real density;
-      real pWaveVelocity;
-      real sWaveVelocity;
+      double density;
+      double pWaveVelocity;
+      double sWaveVelocity;
     };
   }
 }

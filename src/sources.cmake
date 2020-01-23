@@ -153,12 +153,24 @@ endif()
 if ("${EQUATIONS}" STREQUAL "elastic")
   target_sources(SeisSol-lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Model/Setup.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
+
+elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Model/Setup.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/DirichletBoundary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Time.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Physics/InitialField.cpp
+  )
+  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
   target_sources(SeisSol-lib PUBLIC

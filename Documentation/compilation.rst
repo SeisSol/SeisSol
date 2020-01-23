@@ -87,6 +87,8 @@ Installing Libxsmm
    cp bin/libxsmm_gemm_generator $HOME/bin
    cd ..
 
+.. _installing_pspamm:
+
 Installing PSpaMM
 -----------------
 

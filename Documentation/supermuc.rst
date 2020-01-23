@@ -70,7 +70,7 @@ Supermuc-NG
 ::
 
   ##### module load for SeisSol
-  module load scons cmake/3.6 python/3.6_intel slurm_setup
+  module load scons gcc cmake/3.6 python/3.6_intel slurm_setup
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
   module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel hdf5/1.8.20-intel-impi-threadsafe
   module load libszip/2.1.1
@@ -88,9 +88,9 @@ Supermuc-NG
   export LD_LIBRARY_PATH=/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib:$LD_LIBRARY_PATH
 
 
-3. Install libxsmm and ASAGI
+3. Install libxsmm, PSpaMM and ASAGI
 
-| See :ref:`installing_libxsmm` and :ref:`installing_ASAGI`. 
+| See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
 | Note that on project pr63qo, we already installed and shared these library (no need to install).
 | The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
 | If you need to compile ASAGI, copy the following to fix_submodules.sh and run it within ASAGI to get submodules/utils cloned.

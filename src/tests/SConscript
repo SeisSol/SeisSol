@@ -41,7 +41,7 @@
 
 Import('env')
 
-sourceDirectories = ['Geometry', 'Initializer', 'minimal', 'Numerical_aux', 'Physics', 'Solver']
+sourceDirectories = ['Geometry', 'Initializer', 'minimal', 'Numerical_aux', 'Physics', 'Solver', 'Model']
 
 for sourceDir in sourceDirectories:
   Export('env')

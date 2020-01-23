@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##
 # @file
 # This file is part of SeisSol.
@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2015, SeisSol Group
+# Copyright (c) 2016-2019, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,104 +37,77 @@
 #
 # @section DESCRIPTION
 #
-
-from gemmgen import DB, Tools, Arch
+  
 import numpy as np
-import argparse
+from yateto import Tensor
+from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
-cmdLineParser = argparse.ArgumentParser()
-cmdLineParser.add_argument('--matricesDir')
-cmdLineParser.add_argument('--outputDir')
-cmdLineParser.add_argument('--arch')
-cmdLineParser.add_argument('--order')
-cmdLineParser.add_argument('--numberOfMechanisms')
-cmdLineParser.add_argument('--generator')
-cmdLineParser.add_argument('--memLayout')
-cmdLineArgs = cmdLineParser.parse_args()
+from aderdg import LinearADERDG
 
-architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
-libxsmmGenerator = cmdLineArgs.generator
-order = int(cmdLineArgs.order)
-numberOfMechanisms = int(cmdLineArgs.numberOfMechanisms)
-numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
-numberOfQuantities = 9 + 6*numberOfMechanisms
+class ViscoelasticADERDG(LinearADERDG):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms, **kwargs):
+    self.numberOfMechanisms = numberOfMechanisms
+    self.numberOfElasticQuantities = 9
 
-clones = {
-  'star': [ 'AstarT', 'BstarT', 'CstarT' ]
-}
+    super().__init__(order, multipleSimulations, matricesDir)
+    clones = {
+      'star': ['star(0)', 'star(1)', 'star(2)'],
+    }
+    self.db.update( parseXMLMatrixFile('{}/matrices_viscoelastic.xml'.format(matricesDir), clones) )
 
-# Load matrices
-db = Tools.parseMatrixFile('{}/matrices_{}.xml'.format(cmdLineArgs.matricesDir, numberOfBasisFunctions), clones)
-db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArgs.matricesDir), clones))
+    star_spp = self.db.star[0].spp().as_ndarray()
+    star_rows, star_cols = star_spp.shape
+    aniso_cols = star_cols - self.numberOfElasticQuantities
+    star_spp_new = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
+    star_spp_new[0:star_rows,0:star_cols] = star_spp
+    ''' The last 6 columns of star_spp contain the prototype sparsity pattern for
+        a mechanism. Therefore, the spp is repeated for every mechanism. '''
+    for mech in range(1,numberOfMechanisms):
+      offset0 = self.numberOfElasticQuantities
+      offsetm = self.numberOfElasticQuantities + mech*aniso_cols
+      star_spp_new[0:star_rows,offsetm:offsetm+aniso_cols] = star_spp[0:star_rows,offset0:offset0+aniso_cols]
+    for dim in range(3):
+      self.db.star[dim] = Tensor(self.db.star[dim].name(), star_spp_new.shape, spp=star_spp_new)
 
-# Determine sparsity patterns that depend on the number of mechanisms
-riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfQuantities-9, numberOfQuantities), dtype=np.float64)]])
-db.insert(DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp))
-db.insert(DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp))
+    source_spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
+    ET_spp = self.db['ET'].spp().as_ndarray()
+    ''' ET is a prototype sparsity pattern for a mechanism. Therefore, repeated for every
+        mechanism. See Kaeser and Dumbser 2006, III. Viscoelastic attenuation.
+    '''
+    for mech in range(numberOfMechanisms):
+      offset = self.numberOfElasticQuantities + mech*aniso_cols
+      r = slice(offset, offset+aniso_cols)
+      source_spp[r,0:aniso_cols] = ET_spp
+      source_spp[r,r] = np.identity(aniso_cols, dtype=bool)
+    self.db.ET = Tensor('ET', source_spp.shape, spp=source_spp)
 
-mechMatrix = np.matlib.zeros((15, numberOfQuantities))
-mechMatrix[0:9,0:9] = np.matlib.identity(9)
-for m in range(0, numberOfMechanisms):
-  mechMatrix[9:15,9+6*m:9+6*(m+1)] = np.matlib.identity(6)
-tallMatrix = np.matlib.zeros((numberOfQuantities, 15))
-tallMatrix[0:15,0:15] = db[clones['star'][0]].spp
-starMatrix = tallMatrix * mechMatrix
-for clone in clones['star']:
-  db.insert(DB.MatrixInfo(clone, starMatrix.shape[0], starMatrix.shape[1], starMatrix))
+    memoryLayoutFromFile(memLayout, self.db, clones)
 
-source = np.matlib.zeros((numberOfQuantities, numberOfQuantities))
-for m in range(0, numberOfMechanisms):
-  r = slice(9+6*m, 9+6*(m+1))
-  source[r,0:6] = db['ET'].spp
-  source[r,r] = np.matlib.identity(6)
-db.insert(DB.MatrixInfo('source', numberOfQuantities, numberOfQuantities, source))
+  def numberOfQuantities(self):
+    return 9 + 6*self.numberOfMechanisms
 
-# Load sparse-, dense-, block-dense-config
-Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
+  def starMatrix(self, dim):
+    return self.db.star[dim]
 
-# Set rules for the global matrix memory order
-stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
-globalMatrixIdRules = [
-  (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: stiffnessOrder[x[0]]),
-  (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 3 + stiffnessOrder[x[0]]),  
-  (r'^fM(\d{1})$', lambda x: 6 + int(x[0])-1),
-  (r'^fP(\d{1})(\d{1})(\d{1})$', lambda x: 10 + (int(x[0])-1)*12 + (int(x[1])-1)*3 + (int(x[2])-1))
-]
-DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
+  def sourceMatrix(self):
+    return self.db.ET
 
-# Kernels
-kernels = list()
+  def godunov_spp(self):
+    spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
+    spp[0:self.numberOfElasticQuantities,:] = True
+    return spp
 
-db.insert(DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities))
-db.insert(DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities))
+  def flux_solver_spp(self):
+    return self.godunov_spp()
 
-volume = db['kXiDivM'] * db['timeIntegrated'] * db['AstarT'] \
-       + db['kEtaDivM'] * db['timeIntegrated'] * db['BstarT'] \
-       + db['kZetaDivM'] * db['timeIntegrated'] * db['CstarT'] \
-       + db['timeIntegrated'] * db['source']
-kernels.append(('volume', volume))
+  def transformation_spp(self):
+    spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
+    spp[0:6,0:6] = 1
+    spp[6:9,6:9] = 1
+    for mechs in range(self.numberOfMechanisms):
+      offset = 9 + mechs*6
+      spp[offset:offset+6,offset:offset+6] = 1
+    return spp
 
-for i in range(0, 4):
-  localFlux = db['fM{}'.format(i+1)] * db['timeIntegrated'] * db['AplusT']
-  kernels.append(('localFlux[{}]'.format(i), localFlux))
-
-for i in range(0, 4):
-  for j in range(0, 4):
-    for h in range(0, 3):
-      neighboringFlux = db['fP{}{}{}'.format(i+1, j+1, h+1)] * db['timeIntegrated'] * db['AminusT']
-      kernels.append(('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux))
-
-for i in range(1, order):
-  lastD = 'timeDerivative{}'.format(str(i-1))
-  newD  = 'timeDerivative{}'.format(str(i))
-  derivative = db['kXiDivMT'] * db[lastD] * db['AstarT'] \
-             + db['kEtaDivMT'] * db[lastD] * db['BstarT'] \
-             + db['kZetaDivMT'] * db[lastD] * db['CstarT'] \
-             + db[lastD] * db['source']
-  derivative.fitBlocksToSparsityPattern()
-  kernels.append(('derivative[{}]'.format(i), derivative))
-  db.insert(derivative.flat(newD))
-  db[newD].fitBlocksToSparsityPattern()
-
-# Generate code
-Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)
+  def transformation_inv_spp(self):
+    return self.transformation_spp()

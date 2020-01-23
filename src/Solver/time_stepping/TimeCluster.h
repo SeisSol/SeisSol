@@ -101,7 +101,7 @@ namespace seissol {
 }
 
 /**
- * Time cluster, which represents a collection of elements havign the same time step width.
+ * Time cluster, which represents a collection of elements having the same time step width.
  **/
 class seissol::time_stepping::TimeCluster
 {

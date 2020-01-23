@@ -91,6 +91,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   m_timeKernel.setGlobalData(&m_globalData);
   m_localKernel.setGlobalData(&m_globalData);
   m_neighborKernel.setGlobalData(&m_globalData);
+  m_dynRupKernel.setGlobalData(&m_globalData);
   
   m_lts.addTo(m_ltsTree);
   m_ltsTree.setNumberOfTimeClusters(1);
@@ -133,7 +134,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
   }
 
   /* cell information and integration data*/
-  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? dynamicRupture : regular);
+  seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::dynamicRupture : FaceType::regular);
 
   if (enableDynamicRupture) {
     // From lts tree
@@ -141,7 +142,7 @@ unsigned int init_data_structures(unsigned int i_cells, bool enableDynamicRuptur
 
     // From dynamic rupture tree
     seissol::initializers::Layer& interior = m_dynRupTree.child(0).child<Interior>();
-    real (*imposedStatePlus)[seissol::tensor::godunovState::size()] = interior.var(m_dynRup.imposedStatePlus);
+    real (*imposedStatePlus)[seissol::tensor::QInterpolated::size()] = interior.var(m_dynRup.imposedStatePlus);
     real (*fluxSolverPlus)[seissol::tensor::fluxSolver::size()]     = interior.var(m_dynRup.fluxSolverPlus);
     real** timeDerivativePlus = interior.var(m_dynRup.timeDerivativePlus);
     real** timeDerivativeMinus = interior.var(m_dynRup.timeDerivativeMinus);

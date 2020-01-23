@@ -46,12 +46,23 @@
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
 
-void seissol::initializers::projectInitialField(  std::vector<physics::InitialField*> const&  iniFields,
-                                                  GlobalData const&                           globalData,
-                                                  MeshReader const&                           meshReader,
-                                                  LTS const&                                  lts,
-                                                  Lut const&                                  ltsLut )
-{
+GENERATE_HAS_MEMBER(selectAneFull)
+GENERATE_HAS_MEMBER(selectElaFull)
+GENERATE_HAS_MEMBER(Values)
+GENERATE_HAS_MEMBER(Qane)
+
+namespace seissol {
+  namespace init {
+    class selectAneFull;
+    class selectElaFull;
+  }
+}
+
+void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<physics::InitialField>> const&  iniFields,
+                                                GlobalData const& globalData,
+                                                MeshReader const& meshReader,
+                                                LTS const& lts,
+                                                Lut const& ltsLut) {
   auto const& vertices = meshReader.getVertices();
   auto const& elements = meshReader.getElements();
 
@@ -75,10 +86,8 @@ void seissol::initializers::projectInitialField(  std::vector<physics::InitialFi
   kernel::projectIniCond krnl;
   krnl.projectQP = globalData.projectQPMatrix;
   krnl.iniCond = iniCondData;
-#if NUMBER_OF_RELAXATION_MECHANISMS > 0
-  krnl.selectAneFull = init::selectAneFull::Values;
-  krnl.selectElaFull = init::selectElaFull::Values;
-#endif
+  kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
+  kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
 #ifdef _OPENMP
   #pragma omp for schedule(static)
@@ -92,19 +101,20 @@ void seissol::initializers::projectInitialField(  std::vector<physics::InitialFi
       seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], quadraturePoints[i], quadraturePointsXyz[i].data());
     }
 
+    const CellMaterialData& material = ltsLut.lookup(lts.material, meshId);
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
       auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());
-      iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, sub);
+      iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, sub);
     }
 #else
-    iniFields[0]->evaluate(0.0, quadraturePointsXyz, iniCond);
+    iniFields[0]->evaluate(0.0, quadraturePointsXyz, material, iniCond);
 #endif
 
     krnl.Q = ltsLut.lookup(lts.dofs, meshId);
-#if NUMBER_OF_RELAXATION_MECHANISMS > 0
-    krnl.Qane = ltsLut.lookup(lts.dofsAne, meshId);
-#endif
+    if (kernels::has_size<tensor::Qane>::value) {
+      kernels::set_Qane(krnl, &ltsLut.lookup(lts.dofsAne, meshId)[0]);
+    }
     krnl.execute();
   }
 #ifdef _OPENMP

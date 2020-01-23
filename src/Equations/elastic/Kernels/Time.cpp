@@ -71,12 +71,14 @@
 
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
+#include "DirichletBoundary.h"
 
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
 extern long long libxsmm_num_total_flops;
 #endif
 
+#include <Kernels/common.hpp>
 #include <Kernels/denseMatrixOps.hpp>
 
 #include <cstring>
@@ -85,6 +87,9 @@ extern long long libxsmm_num_total_flops;
 #include <omp.h>
 
 #include <yateto.h>
+
+GENERATE_HAS_MEMBER(ET)
+GENERATE_HAS_MEMBER(sourceMatrix)
 
 seissol::kernels::TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
@@ -101,32 +106,40 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
   assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % ALIGNMENT == 0 );
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+  displacementAvgNodalPrototype.V3mTo2nFace = global->V3mTo2nFace;
+  displacementAvgNodalPrototype.selectZDisplacementFromQuantities = init::selectZDisplacementFromQuantities::Values;
+  displacementAvgNodalPrototype.selectZDisplacementFromDisplacements = init::selectZDisplacementFromDisplacements::Values;
 }
 
-void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
-                                          LocalData&                  data,
-                                          LocalTmp&                   tmp,
-                                          real                        o_timeIntegrated[tensor::I::size()],
-                                          real*                       o_timeDerivatives )
-{
-  /*
-   * assert alignments.
-   */
-  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
+void seissol::kernels::Time::computeAder(double i_timeStepWidth,
+                                         LocalData& data,
+                                         LocalTmp& tmp,
+                                         real o_timeIntegrated[tensor::I::size()],
+                                         real* o_timeDerivatives) {
 
-  /*
-   * compute ADER scheme.
-   */
-  // temporary result
-  real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()] __attribute__((aligned(PAGESIZE_STACK)));
-  real* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
+  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
+  assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
+  assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
+
+  // Only a fraction of cells need the average displacement
+  bool needsAvgDisplacement = false;
+  for (const auto faceType : data.cellInformation.faceTypes) {
+    if (faceType == FaceType::freeSurfaceGravity) {
+      needsAvgDisplacement = true;
+      break;
+    }
+  }
+
+  alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
+  auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
+
+  // Optional source term
+  set_ET(krnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
 
   krnl.dQ(0) = const_cast<real*>(data.dofs);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
@@ -139,23 +152,49 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
-  
   // powers in the taylor-series expansion
   intKrnl.power = i_timeStepWidth;
-
   intKrnl.execute0();
 
-  // stream out frist derivative (order 0)
-  if (o_timeDerivatives != nullptr) {
-    streamstore(tensor::dQ::size(0), data.dofs, o_timeDerivatives);
+  if (needsAvgDisplacement) {
+    // First derivative if needed later in kernel
+    std::copy_n(data.dofs, tensor::dQ::size(0), derivativesBuffer);
+  } else if (o_timeDerivatives != nullptr) {
+    // First derivative is not needed here but later
+    // Hence stream it out
+    streamstore(tensor::dQ::size(0), data.dofs, derivativesBuffer);
   }
-  
+
   for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
     krnl.execute(der);
 
     // update scalar for this derivative
     intKrnl.power *= i_timeStepWidth / real(der+1);    
     intKrnl.execute(der);
+  }
+
+  // Compute average displacement over timestep if needed.
+  alignas(ALIGNMENT) real twiceTimeIntegrated[tensor::I::size()];
+
+  if (needsAvgDisplacement) {
+    kernels::computeAverageDisplacement(i_timeStepWidth,
+                                        derivativesBuffer,
+                                        m_derivativesOffsets,
+                                        twiceTimeIntegrated);
+
+    for (int side = 0; side < 4; ++side) {
+      if (data.cellInformation.faceTypes[side] == FaceType::freeSurfaceGravity) {
+        assert(data.displacements != nullptr);
+
+        auto krnl = displacementAvgNodalPrototype;
+        krnl.dt = i_timeStepWidth;
+        krnl.I = twiceTimeIntegrated;
+        krnl.displacement = data.displacements;
+
+        krnl.INodalDisplacement = tmp.nodalAvgDisplacements[side];
+        krnl.execute(side);
+      }
+    }
   }
 }
 

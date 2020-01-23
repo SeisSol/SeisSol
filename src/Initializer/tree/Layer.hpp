@@ -106,7 +106,7 @@ public:
 
   void* bucket(Bucket const& handle) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_buckets != NULL && m_buckets[handle.index] != NULL);
+    assert(m_buckets != nullptr && m_buckets[handle.index] != nullptr);
     return m_buckets[handle.index];
   }
   
@@ -145,6 +145,11 @@ public:
     assert(m_bucketSizes != NULL);
     m_bucketSizes[handle.index] = size;
   }
+
+  inline size_t getBucketSize(Bucket const& handle) {
+    assert(m_bucketSizes != nullptr);
+    return m_bucketSizes[handle.index];
+    }
   
   void addVariableSizes(std::vector<MemoryInfo> const& vars, std::vector<size_t>& bytes) {
     for (unsigned var = 0; var < vars.size(); ++var) {
