@@ -90,8 +90,8 @@ public:
             unsigned int numAlignedDOF
             );
 
-    void get(const double* inData, const unsigned int* cellMap,
-            int variable, double* outData) const;
+    void get(const real* inData, const unsigned int* cellMap,
+            int variable, real* outData) const;
 };
 
 //------------------------------------------------------------------------------
@@ -108,8 +108,8 @@ VariableSubsampler<T>::VariableSubsampler(
     kNumVariables(numVariables), kNumAlignedDOF(numAlignedDOF)
 {
     // Generate cell centerpoints in the reference or unit tetrahedron.
-	Tetrahedron<T>* subCells = new Tetrahedron<T>[kSubCellsPerCell];
-	glm::tvec3<T>* additionalVertices = new glm::tvec3<T>[tetRefiner.additionalVerticesPerCell()];
+	auto* subCells = new Tetrahedron<T>[kSubCellsPerCell];
+	auto* additionalVertices = new glm::tvec3<T>[tetRefiner.additionalVerticesPerCell()];
 
     tetRefiner.refine(Tetrahedron<T>::unitTetrahedron(), 0,
     		subCells, additionalVertices);
@@ -129,8 +129,8 @@ VariableSubsampler<T>::VariableSubsampler(
 //------------------------------------------------------------------------------
 
 template<typename T>
-void VariableSubsampler<T>::get(const double* inData,  const unsigned int* cellMap,
-        int variable, double* outData) const
+void VariableSubsampler<T>::get(const real* inData,  const unsigned int* cellMap,
+        int variable, real* outData) const
 {
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static)

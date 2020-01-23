@@ -110,13 +110,13 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	unsigned int m_numLowCells;
 
 	/** Pointer to the degrees of freedom */
-	const double* m_dofs;
+	const real* m_dofs;
 
 	/** Pointer to the plastic strain */
-	const double* m_pstrain;
+	const real* m_pstrain;
 
 	/** Pointer to the integrals */
-	const double* m_integrals;
+	const real* m_integrals;
 
 	/** Mapping from the cell order to dofs order */
 	unsigned int* m_map;
@@ -144,13 +144,13 @@ public:
 	WaveFieldWriter()
 		: m_enabled(false),
 		  m_extractRegion(false),
-		  m_variableSubsampler(0L),
+		  m_variableSubsampler(nullptr),
 		  m_numVariables(0),
-		  m_outputFlags(0L),
-		  m_lowOutputFlags(0L),
+		  m_outputFlags(nullptr),
+		  m_lowOutputFlags(nullptr),
 		  m_numCells(0), m_numLowCells(0),
-		  m_dofs(0L), m_pstrain(0L), m_integrals(0L),
-		  m_map(0L)
+		  m_dofs(nullptr), m_pstrain(nullptr), m_integrals(nullptr),
+		  m_map(nullptr)
 	{
 	}
 
@@ -203,7 +203,7 @@ public:
 	 */
 	void init(unsigned int numVars, int order, int numAlignedDOF,
 			const MeshReader &meshReader,
-			const double* dofs,  const double* pstrain, const double* integrals,
+			const real* dofs,  const real* pstrain, const real* integrals,
 			unsigned int* map,
 			int refinement, int* outputMask, double* outputRegionBounds,
       xdmfwriter::BackendType backend);
