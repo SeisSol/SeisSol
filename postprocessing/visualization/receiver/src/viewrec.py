@@ -39,10 +39,10 @@
 #
 
 import sys
-from PyQt4 import QtGui
+from PyQt5 import QtWidgets
 import View
 
-app = QtGui.QApplication(sys.argv)
+app = QtWidgets.QApplication(sys.argv)
 
 w = View.View()
 w.setWindowTitle('SeisSol receiver view')

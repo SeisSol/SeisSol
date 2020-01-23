@@ -38,12 +38,13 @@
 # @section DESCRIPTION
 #
 
-from PyQt4.QtGui import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 try:
-	from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+	from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 except ImportError:
-	from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
+	from matplotlib.backends.backend_qt5agg import NavigationToolbar2QTAgg as NavigationToolbar
 import matplotlib.pyplot as plt
 
 import Navigation
@@ -157,7 +158,7 @@ class View(QWidget):
       for nWf, wf in enumerate(wfc):
         wfc[nWf].subtract(wf0)
 
-    names = set([name for wf in wfc for name in wf.waveforms.iterkeys()])
+    names = set([name for wf in wfc for name in wf.waveforms.keys()])
     numPlots = len(names)
 
     self.figure.clear()
@@ -172,7 +173,7 @@ class View(QWidget):
         subplots[ names[i] ] = self.figure.add_subplot(numRows, numCols, i+1)
 
       for nWf, wf in enumerate(wfc):
-        for name, waveform in wf.waveforms.iteritems():
+        for name, waveform in wf.waveforms.items():
           p = subplots[name]
           if self.spectrum.isChecked():
             n = len(waveform)
@@ -202,7 +203,7 @@ class View(QWidget):
     defaultFiletype = self.canvas.get_default_filetype()
     filters = []
     selectedFilter = ''
-    for name, extensions in sorted(filetypes.iteritems()):
+    for name, extensions in sorted(filetypes.items()):
       filtr = '{0} ({1})'.format(name, ' '.join(['*.{0}'.format(ext) for ext in extensions]))
       if defaultFiletype in extensions:
         selectedFilter = filtr

@@ -37,8 +37,8 @@
 # @section DESCRIPTION
 #
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 import math
 import scipy.signal
 import numpy
@@ -86,7 +86,7 @@ class Lowpass(Filter):
     Fs = 1.0 / (wf.time[1] - wf.time[0])
     fc = self.cutoff.value() * 2.0 / Fs
     b, a = scipy.signal.cheby2(self.lowpassOrder.value(), self.attenuation.value(), fc)
-    for name in wf.waveforms.iterkeys():
+    for name in wf.waveforms.keys():
       wf.waveforms[name] = scipy.signal.filtfilt(b, a, wf.waveforms[name])
       
 class Deconvolve(Filter):
@@ -138,7 +138,7 @@ class Deconvolve(Filter):
     dt = wf.time[1] - wf.time[0]
     keys = 'uvw'
     for k in keys:
-      if wf.waveforms.has_key(k):
+      if k in wf.waveforms:
         wf.waveforms[k] = self.deconv(wf.waveforms[k], dt)
 
 class Rotate(Filter):
@@ -168,7 +168,7 @@ class Rotate(Filter):
     filterLayout.addRow(epicenterYLabel, self.epicenterY)
     
   def apply(self, wf):
-    if wf.waveforms.has_key('u') and wf.waveforms.has_key('v') and wf.waveforms.has_key('w'):
+    if 'u' in wf.waveforms and 'v' in wf.waveforms and 'w' in wf.waveforms:
       epicenter = numpy.array([self.epicenterX.value(), self.epicenterY.value(), 0.0])
       radial = wf.coordinates - epicenter
       phi = math.acos(radial[0] / numpy.linalg.norm(radial))
