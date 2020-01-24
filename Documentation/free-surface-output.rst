@@ -5,7 +5,7 @@ Introduction
 ------------
 
 Velocities and ground deformations can be imaged as a surface
-representation, in a file that can be opened in paraview. Threads or
+representation, in a file that can be opened in ParaView. Threads or
 nodes can be dedicated to write this output (see :ref:`asynchronous-output`),
 but it is usually not necessary. The output to enabled in the Output
 namelist:

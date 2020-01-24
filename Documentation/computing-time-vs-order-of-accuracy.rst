@@ -10,7 +10,7 @@ The expected increase in computed time can then be estimated as follow:
   :math:`(N+1)(N+2)(N+3)/((n+1)(n+2)(n+3))`
 | with:
 | n: initial order of accuracy -1
-| N: ne w order of accuracy -1
+| N: new order of accuracy -1
 
 Here is an example of the theoretical increase of the compute time
 relative to order 3
@@ -24,7 +24,7 @@ theoretical increase relative to order 3  1 2.8 6.3 12.32 21.84 36 56.1 83.6
 observed increase (on SM2)                1 2.0 4.6 11.5               
 ========================================= = === === ===== ===== == ==== ====
 
-The last line show the observed time increase on SuperMUC Phase 2 on a small
+The last line shows the observed time increase on SuperMUC Phase 2 on a small
 run with dynamic rupture and LTS-DR. Low order calculation (up to order
 5 included) are memory bounds, and are then less efficient. As a
 consequence, the higher-order simulations cost less than expected in

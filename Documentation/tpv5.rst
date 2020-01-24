@@ -47,14 +47,14 @@ the fault in a cubit region.
 
 The toolbox of **gmsh2gambit** is used for converting gmsh file to Gambit neutrual file. It can be found in SeisSol GitHub https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing
 
-4. The 3D Gambit file can be convert to PUML format for LTS in latest version of SeisSol by:
+4. The 3D Gambit file can be converted to PUML format for LTS in latest version of SeisSol by:
   
 ``$ pumgen tpv5.neu tpv5``
 
 The compilation and usage of PUMGen can be found in https://github.com/SeisSol/PUMGen/wiki and https://seissol.readthedocs.io/en/latest/
 The geometry file (.geo) can be found in this repository. 
 
-We strongly recommend users to repeat the geometry and mesh generationg processing. However, the generated mesh file (.h5) is also available through the link (https://syncandshare.lrz.de/dl/fiNdYwqvK8cdfM5h8uRZMv9e).
+We strongly recommend users to repeat the geometry and mesh generation processing. However, the generated mesh file (.h5) is also available through the link (https://syncandshare.lrz.de/dl/fiNdYwqvK8cdfM5h8uRZMv9e).
 
 .. figure:: LatexFigures/mesh5.png
    :alt: Diagram of fault geometry of TPV5. 
@@ -69,10 +69,9 @@ Parameters
 Nucleation
 ^^^^^^^^^^
 
-Nucleation occurs because the initial shear stress in a 3000 m :math:`\times` 3000
+Nucleation occurs because of the initial shear stress in a 3000 m :math:`\times` 3000
 m square nucleation patch is set to be higher than the initial static
-yield stress in that patch. Failure occurs everywhere on the fault
-plane, including in the nucleation patch, following a linear
+yield stress in that patch. Failure occurs everywhere on the fault plane, including in the nucleation patch, following a linear
 slip-weakening fracture criterion.
 
 TPV5 uses a linear-slip weakening friction everywhere on the fault.
@@ -111,7 +110,7 @@ compared with that elsewhere. The parameters in TPV5 are listed in Table
 
 Table: Table of LSR parameters on the fault in tpv5.
 
-Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This inital stress is included in the fault.yaml file.
+Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This initial stress is included in the fault.yaml file.
 
 Results
 ~~~~~~~
@@ -149,7 +148,7 @@ prefix\_cell.hf), the variables are shown in Table [table:wavefield]
 | 6       | w           | particular velocity in z-axis   |
 +---------+-------------+---------------------------------+
 
-Table: Table of wave field output in SeisSol. Index denotes the position
+Table: Table of wavefield output in SeisSol. Index denotes the position
 used in *iOutputMask* in SeisSol parameter file.
 
 In the fault dynamics output file (prefix-fault.xdmf,

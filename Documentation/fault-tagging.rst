@@ -28,9 +28,9 @@ different dynamic friction, we can tag them with 3 and 65 and then use:
            map:
              mu_d:    0.4
 
-Currently the only way to tag fault faces using simModeler library and
+Currently, the only way to tag fault faces using simModeler library and
 pumgen is to compile pumgen in the xml branch and make use of the xml
-feature. For example to tag face 2 as 3 and face 8 and 9 as 65, we would
+feature. For example, to tag face 2 as 3 and face 8 and 9 as 65, we would
 use:
 
 .. code-block:: xml

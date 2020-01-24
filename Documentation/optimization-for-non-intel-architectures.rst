@@ -50,7 +50,7 @@ Definition of your architecture
 -------------------------------
 
 Let's suppose you want to run SeisSol on Your Awesome Architecture
-(YAA). YAA features 256 bit SIMD instructions which requires 32 bytes
+(YAA). YAA features 256 bit SIMD instructions which require 32 bytes
 memory alignment for optimal performance (aligned loads and stores). In
 order to pass this information to SeisSol, we are going to create a new
 architecture definition.
@@ -62,7 +62,7 @@ First, open the file ``generated_code/gemmgen/Arch.py`` and add
 Second, open the file ``site_scons/arch.py`` and add ``'yaa'`` in
 ``getArchitecture`` and ``'yaa': 32`` in the ``getAlignment`` function
 (yes, it's redundant). In this file, you also have the option to set
-architecture specific compiler flags. Here, we will use the same flags
+architecture-specific compiler flags. Here, we will use the same flags
 as for the Haswell architecture and replace ``elif cpu == 'hsw':`` with
 ``elif cpu in ['hsw', 'yaa']:``. Inside the latter if statement, we add
 

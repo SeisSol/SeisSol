@@ -2,8 +2,8 @@ SCEC TPV24
 ==========
 
 TPV24 is designed to illustrate dynamic rupture in a **fault branching**
-system. TPV24 contains two vertical, planar strike-slip faults; a main
-fault and a branch fault intersecting at an angle of 30 degree (Figure
+system. TPV24 contains two vertical, planar strike-slip faults; the main
+fault and a branch fault intersecting at an angle of 30 degrees (Figure
 [fig:tpv24]). The earthquake rupture is artificially nucleated in a
 circular zone on the main fault surface and then spontaneously
 propagates to the branching fault.
@@ -13,10 +13,8 @@ propagates to the branching fault.
    :width: 11.00000cm
 
    Diagram of TPV24 branching fault geometry. The main fault is (16 000
-   + 12 000) m and a branching fault is 12 000 m. Both faults are 15 000
-   m wide. The intersecting angle is 30 degree. The nucleation patch
-   locates at 10 000 m depth and 8000 m horizontally from the joint
-   point.
+   + 12 000) m and the branching fault is 12 000 m. Both faults are 15 000
+   m wide. The intersecting angle is 30 degrees. The nucleation patch locates at 10 000 m depth and 8000 m horizontally from the joint point.
 
 Geometry
 ~~~~~~~~
@@ -34,25 +32,25 @@ it.
 The branch fault makes an angle of 30 degrees to the main fault. The
 branch fault ends at the junction point.
 
-The hypocenter is centered along-strike at a depth of 10 km in the left
+The hypocenter is centered along-strike at a depth of 10 km on the left
 side of the main fault. That is, the hypocenter is 8000 m from the
 junction point, and 10 000 m deep.
 
 Figure [fig:tpv24mesh] shows the fault model generated in Gmsh. The mesh
-file can be found at . The mesh can be generated following the detailed
+file can be found at. The mesh can be generated following the detailed
 process in Section [sec:tpv5].
 
 .. figure:: LatexFigures/tpv24mesh.png
    :alt: Geometry generated in Gmsh of TPV24. Main fault lies in y-plane.
    :width: 9.00000cm
 
-   Geometry generated in Gmsh of TPV24. Main fault lies in y-plane. 
+   Geometry generated in Gmsh of TPV24. The main fault lies in y-plane. 
 
 Initial stress
 ~~~~~~~~~~~~~~
 
 The initial stress condition is depth-dependent at the depth above 15600
-m. Table [table:tpv24] summarizes the initial stress contidions in
+m. Table [table:tpv24] summarizes the initial stress conditions in
 TPV24.
 
 +----------------------------+--------------------------------+---------+-----------------+
@@ -101,10 +99,10 @@ Nucleation parameters
 **Nucleation** is performed by forcing the fault to rupture, within a
 circular zone surrounding the hypocenter. Forced rupture is achieved by
 artificially reducing the friction coefficient, beginning at a specified
-time . The parameter specifies how long it takes for the friction
+time. The parameter specifies how long it takes for the friction
 coefficient to be artificially reduced from its static value to its
 dynamic value. So, the friction coefficient reaches its dynamic value at
-time . We reduce the friction coefficient gradually, over an interval of
+time. We reduce the friction coefficient gradually, over an interval of
 time, in order to smooth the nucleation process and reduce unwanted
 oscillations.
 

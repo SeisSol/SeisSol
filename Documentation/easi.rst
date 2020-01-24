@@ -59,7 +59,7 @@ the DynamicRupture block, e.g.
 Rheological model parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The following parameters need to be set by easi.
-The columms E, V, and P denote if the respective parameter is required
+The columns E, V, and P denote if the respective parameter is required
 when using an elastic, viscoelastic, and viscoplastic rheological model.
 
 .. |checkmark| unicode:: U+2713
@@ -115,7 +115,7 @@ Fault parameters (dynamic rupture)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following parameters need to be set by easi.
-The columm FL denotes for which friction law the respective parameter is required.
+The column FL denotes for which friction law the respective parameter is required.
 Please note that there are two ways to specify the initial stress on the fault:
 You may either specify a stress tensor (s_xx, s_yy, s_zz, s_xy, s_yz, s_xz),
 which has to be given for the same cartesian coordinate system as the mesh,
@@ -170,10 +170,10 @@ Debugging easi script
 
 | Most easi components return easy to track error, for example
 | ``test.yaml: yaml-cpp: error at line 6, column 9: illegal map value``
-| Yet implajit function map are more complex to debug. The following
+| Yet implajit function maps are more complex to debug. The following
   example:
 | ``27.1: syntax error, unexpected '}', expecting ;``
-| indicates that an error occur in the 27th line of the function, but
+| indicates that an error occurred in the 27th line of the function, but
   does not indicate which file and which function.
 | Hopefully this will be improved in the future.
 
@@ -181,7 +181,7 @@ Debugging easi script
 An example illustrating some subtleties of easi error logs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Let suppose suppose that we try to retrieve s_zz located at (x,y,z)=(0,0,0) in group 1 from the following easi file:
+Let suppose that we try to retrieve s_zz located at (x,y,z)=(0,0,0) in group 1 from the following easi file:
 
 .. code-block:: YAML
 
@@ -224,7 +224,7 @@ Note that in the slightly different example below, without the AffineMap, easi w
               var: data
               interpolation: nearest
 
-In fact, in this case, ASAGI is directly querried and easi, therefore, does no verify that the point querried in inside the bounds of the ASAGI file.
+In fact, in this case, ASAGI is directly queried and easi, therefore, does no verify that the point queried in inside the bounds of the ASAGI file.
 If the point is out of bounds, ASAGI will pick the value of the nearest grid point and issue a warning:
 
 .. code-block:: none

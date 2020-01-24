@@ -55,7 +55,7 @@ Lxml
    python setup.py install --prefix $HOME/local
 
 If an "internal error" appears, copy the last calls to icc, remove
-"-ipo" and call them manually. Afterwards call setup.py again.
+"-ipo" and call them manually. Afterwards, call setup.py again.
 
 Building SeisSol
 ----------------
