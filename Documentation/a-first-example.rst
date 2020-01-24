@@ -40,7 +40,7 @@ Execution
 ---------
 
 To execute SeisSol, change to the ``launch_SeisSol`` directory and run:
-``OMP_NUM_THREADS=<threads> mpiexec  -np <n> ./SeisSol_<configuration> parameters_<branch>.par``,
+``OMP_NUM_THREADS=<threads> mpiexec  -np <n> ./SeisSol_<configuration> parameters_master.par``,
 where:
 
 -  ``<configuration>`` depends on your compilation setting (e.g.
@@ -49,13 +49,6 @@ where:
 -  ``<n>`` is the number of processes/ the number of partitions used.
 -  ``<threads>`` is the number of OpenMP threads per process (we usually
    use the number of CPU per core).
--  ``<branch>`` here we provide 2 parameters files, for the master and
-   the hardcoded_ini branch. We recommend using the master branch. The
-   master branch relies on easi parameter files (\*.yaml files) for
-   setting up some of the properties of the simulation. On the other hand, the
-   hardcoded_ini branch call FORTRAN routines hardcoded in SeisSol to
-   set the material and fault properties (in src/Physics/ ini_model.f90
-   and ini_model_DR.f90).
 
 **Hint:** Depending on the system you are using, the MPI launcher might
 be different from ``mpiexec`` (e.g. ``mpiexec.hydra``).
