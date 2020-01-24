@@ -17,8 +17,9 @@ is available  `here <https://github.com/SeisSol/Meshing/tree/master/GocadRelated
 They are documented (try -h option).
 The most important script are:
 
--  createFaultFromCurve.py allows creating a ts surface from a fault trace. The fault trace is resampled, smoothed and extended
-   using either a constant dip, a depth varying dip or an along-strike varying dip. This script has been used to generate all the faults of the Kaikoura model (Ulrich et al., 2019).
+-  createFaultFromCurve.py allows creating a ts surface from a fault trace. 
+   The fault trace is resampled, smoothed and extended using either a constant dip, a depth varying dip or an along-strike varying dip. 
+   This script has been used to generate all the faults of the Kaikoura model (Ulrich et al., 2019).
 -  createGOCADTSurf_NXNY.py, which allows creating a ts surface from a structured grid of points.
 -  createGOCADTSurf.py, which allows creating a ts surface from a partially structured grid of points.
    Contrary to createGOCADTSurf_NXNY.py, the number of nodes on a line (resp. on a column) should not constant.
@@ -62,8 +63,8 @@ Topographic data coarsening with SimModeler
 To avoid dealing with too large files when building the CAD model, topography data can be coarsened where
 fine resolution is not necessary. For further details, see :doc:`remeshing-the-topography`.
 
-The same procedure can be also useful when the intersection between 2 surfaces fails in gocad. In fact, remeshing one
-of the surfaces can facilitate the intersection step in Gocad. In such a
+The same procedure can be also useful when the intersection between 2 surfaces fails in gocad. 
+In fact, remeshing one of the surfaces can facilitate the intersection step in Gocad. In such a
 case, all surface already intersected with the surface that we want to
 remesh have to be exported to SimModeler. The mesh attributes "Use
 Discrete Geometry Mesh" and "No mesh" have to be assigned to these

@@ -17,8 +17,8 @@ PUMGen
 
 | The Analysis and meshing attributes of the model file test.smd have
   been first defined using the GUI of SimModeler, as detailed in :ref:`Meshing_with_SimModeler`.
-  In particular, the --mesh and --analysis attributes are set according to the mesh attributes and analysis attributes defined in the mesh and analysis tabs (SimModeler GUI). This script will generate
-  2 files: test and test.xdmf describing the mesh (see :ref:`PUML_mesh_format`).
+  In particular, the --mesh and --analysis attributes are set according to the mesh attributes and analysis attributes defined in the mesh and analysis tabs (SimModeler GUI). 
+  This script will generate 2 files: test and test.xdmf describing the mesh (see :ref:`PUML_mesh_format`).
 
 The "Minimum insphere found" output of PUMgen allows checking the mesh
 quality. The minimum insphere of a quality mesh is of
@@ -57,7 +57,8 @@ Parametrizing PUMGen with an xml file
 | The parametrization of meshing and analysis attributes using the GUI
   of SimModeler can be tedious, particularly for heavy models (>Gb smd
   file, with finely sampled topography or fault surface) or when running parametric studies with different meshes or analysis attributes. The 'xml'
-  branch of PUMGen offers a way to tag boundary conditions surfaces and to set mesh attributes using a xml file. In addition, this allows keeping track of the meshing parameters in an xml file. A typical xml file can be found `here <https://github.com/TUM-I5/PUML/blob/drlts/XmlExample/meshAttributes.xml>`__.
+  branch of PUMGen offers a way to tag boundary conditions surfaces and to set mesh attributes using a xml file. 
+  In addition, this allows keeping track of the meshing parameters in an xml file. A typical xml file can be found `here <https://github.com/TUM-I5/PUML/blob/drlts/XmlExample/meshAttributes.xml>`__.
 | A typical use of the parametrization through xml file could be:
 
 .. code-block:: bash

@@ -128,6 +128,7 @@ The energy rate outputs are combined using `this
 script <https://github.com/Thomas-Ulrich/SeisSol/blob/master/postprocessing/science/concatenate_EnF_t.py>`__
 (use -h for all available options).
 
-Because of the high sampling rate of the energy rate output (outputted for each simulated time step), these ASCII files can easily become large. Writing these files may impact scalability. Postprocessing these files may also be time-consuming.
+Because of the high sampling rate of the energy rate output (outputted for each simulated time step), these ASCII files can easily become large. Writing these files may impact scalability. 
+Postprocessing these files may also be time-consuming.
 Therefore, we recommend deriving the moment rate function from the Paraview fault output if this output is sufficiently sampled.
 Similarly, the Paraview fault output can be used for the rupture time instead of the ASCII output.

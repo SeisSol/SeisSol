@@ -25,7 +25,8 @@ Implementation
 -  Each damping mechanism can be parametrized by its own relaxation
    frequency.
 -  It aims at resolving a frequency-independent Q with an adequate
-   number of anelastic functions and relaxation frequencies to cover the frequency range under interest. Usually, 3 Maxwell bodies are enough for 5% error.
+   number of anelastic functions and relaxation frequencies to cover the frequency range under interest. 
+   Usually, 3 Maxwell bodies are enough for 5% error.
 
 Stability with Local time stepping
 ----------------------------------

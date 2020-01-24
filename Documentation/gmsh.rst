@@ -72,7 +72,8 @@ gmsh to SimModeler
   "physical surface", mesh them (-2) and output them to an stl file (e.g.
   -o test.stl). Then the stl file can be opened with SimModeler and the mesh can be generated.
 | If SimModeler merges some features of the geometry, it is then
-  necessary to isolate the features in different stl files (i.e. running several times ``gmsh ___.geo -2 -o ___.stl`` with different surfaces listed in the physical surface listing). Then the solid name attribute of the stl files has to be modified. Finally, the stl files can be
+  necessary to isolate the features in different stl files (i.e. running several times ``gmsh ___.geo -2 -o ___.stl`` with different surfaces listed in the physical surface listing). 
+  Then the solid name attribute of the stl files has to be modified. Finally, the stl files can be
   merged into a single stl file, to be opened in SimModeler.
 
 mirroring a mesh

@@ -66,7 +66,8 @@ knowing to which extend the CAD model has to be matched.
 
 | + > Surface Shape Metric > Aspect Ratio > e.g. 3 and
 | + > Volume Shape Metric > Aspect Ratio > e.g. 6 will define quality
-  levels that the mesher will try to enforce. The mesher will not necessarily create a mesh which passes all the Shape Metric set. From our experience, setting additional shape metrics does not help improving the mesh. An easy mesh can reach AR < 10. For more complex meshes, AR
+  levels that the mesher will try to enforce. The mesher will not necessarily create a mesh which passes all the Shape Metric set. 
+  From our experience, setting additional shape metrics does not help improving the mesh. An easy mesh can reach AR < 10. For more complex meshes, AR
   < 40 should be expected.
 
 Generating the mesh
