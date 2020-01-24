@@ -3,11 +3,11 @@ ASAGI
 
 The software package `ASAGI <https://github.com/TUM-I5/ASAGI>`__ can be
 used to map gridded material properties of the domain to the mesh used
-for a SeisSol simulation. As input a netcdf file with x-y-z coordinates
+for a SeisSol simulation. As an input a netcdf file with x-y-z coordinates
 and corresponding material properties :math:`(\rho,\mu, \lambda )` is
 required. By using
 `asagiconv <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/asagiconv>`__
-in a pre-processing step it is also possible to create a netcdf file
+in a pre-processing step, it is also possible to create a netcdf file
 containing the velocity model directly from the Community Velocity Model
 (CVM-H).
 
@@ -42,7 +42,7 @@ On a cluster without restricted access to outside sources, you could then clone 
 
    git clone --recursive https://github.com/TUM-I5/ASAGI.github
    
-On supermuc, you have to setup port forwarding as described in :ref:`compile_run_supermuc`.
+On supermuc, you have to set up port forwarding as described in :ref:`compile_run_supermuc`.
 
 Then you can clone the project with 
 
@@ -50,7 +50,7 @@ Then you can clone the project with
 
    git clone git@github.com:TUM-I5/ASAGI.git
 
-followed by running ``fix_submodules`` to clone and setup the submodules.
+followed by running ``fix_submodules`` to clone and set up the submodules.
 
 -  set compiler options:
 
@@ -109,7 +109,7 @@ using asagiconv
 
 Asagiconv (Located
 `here <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/asagiconv>`__)
-allow querying data, vizualising and exporting to netcdf data from the
+allow querying data, visualising and exporting to netcdf data from the
 3D Velocity Model for Southern California. For more detail, see `ASAGI
 docu <http://www.seissol.org/sites/default/files/asagi.pdf>`__.
 
@@ -180,4 +180,4 @@ docu <http://www.seissol.org/sites/default/files/asagi.pdf>`__.
 Known issues
 ------------
 
-There is a bug, when using ASAGI with MPI. A workaround is described in https://github.com/SeisSol/SeisSol/issues/46.
+There is a bug when using ASAGI with MPI. A workaround is described in https://github.com/SeisSol/SeisSol/issues/46.

@@ -1,7 +1,7 @@
 SCEC TPV29
 ==========
 
-TPV 29 constains a vertical, right-lateral fault with **rough fault
+TPV 29 contains a vertical, right-lateral fault with **rough fault
 interface** (Figure [fig:tpv29]). The fault surface has 3D stochastic
 geometrical roughness (blue and red colors). In TPV 29, the surrounding
 rocks respond elastically.
@@ -10,11 +10,7 @@ rocks respond elastically.
    :alt: Diagram of TPV 29. 
    :width: 9.00000cm
 
-   Diagram of TPV 29. The fault is 40 km long along the strike. There is
-   a circular nucleation zone on the right-lateral fault surface. The
-   fault surface has 3D stochastic geometrical roughness (blue and red
-   colors). The hypocenter is located 15 km from the left edge of the
-   fault, at a depth of 10 km. 
+   Diagram of TPV 29. The fault is 40 km long along the strike. There is a circular nucleation zone on the right-lateral fault surface. The fault surface has 3D stochastic geometrical roughness (blue and red colors). The hypocenter is located 15 km from the left edge of the fault, at a depth of 10 km. 
 
 Geometry
 ~~~~~~~~
@@ -25,7 +21,7 @@ the model.
 
 1.Download fault topography data from SCEC. There are 2001 nodes
   along the strike and 1201 nodes along the downdip. The node files
-  should contains:
+  should contain:
   
 ::
   
@@ -44,8 +40,7 @@ tpv29.geo file can be found at
    :alt: Diagram showing the geometry of TPV 29.
    :width: 11.00000cm
 
-   Diagram showing the geometry of TPV 29. The center of nucleation is
-   at (-8, 0, -10) km on the main fault. 
+   Diagram showing the geometry of TPV 29. The center of nucleation is at (-8, 0, -10) km on the main fault. 
 
 3.Use *gmsh_plane2topo.f90* and interpol_topo.in* to shift the planar
 fault according to positions given in *mytopo_tpv29*.
@@ -64,8 +59,7 @@ following general Gmsh process.
    :alt: Diagram showing the geometry of TPV 29.
    :width: 11.00000cm
 
-   Diagram showing the geometry of TPV 29. The center of nucleation is
-   at (-8, 0, -10) km on the main fault. 
+   Diagram showing the geometry of TPV 29. The center of nucleation is at (-8, 0, -10) km on the main fault. 
    
 5. Generate MSH mesh with the command line:
 ::
@@ -112,17 +106,17 @@ The initial stress are listed in Table [table:tpv29fault].
 +---------------+-------------------------------------+---------------------------------------------------+--------+
 | d\_c          | critical distance                   | 0.30                                              | m      |
 +---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_zz         | :math:`\sigma_{zz} `                | -2670\*9.8\*depth                                 | Pa     |
+| s\_zz         | :math:`\sigma_{zz}`                 | -2670\*9.8\*depth                                 | Pa     |
 +---------------+-------------------------------------+---------------------------------------------------+--------+
 | Pf            | fluid pressure                      | 1000\*9.8\*depth                                  | Pa     |
 +---------------+-------------------------------------+---------------------------------------------------+--------+
 | s\_xz,s\_yz   | :math:`\sigma_{xz},  \sigma_{yz}`   | 0                                                 | Pa     |
 +---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_yy         |                                     | :math:`\Omega * b33*(\sigma_{zz} + P_f) - P_f `   | Pa     |
+| s\_yy         |                                     | :math:`\Omega * b33*(\sigma_{zz} + P_f) - P_f`    | Pa     |
 +---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_xx         |                                     | :math:`\Omega * b11*(\sigma_{zz} + P_f) - P_f `   | Pa     |
+| s\_xx         |                                     | :math:`\Omega * b11*(\sigma_{zz} + P_f) - P_f`    | Pa     |
 +---------------+-------------------------------------+---------------------------------------------------+--------+
-| s\_xy         |                                     | :math:`\Omega * b13*(\sigma_{zz} + P_f)  `        | Pa     |
+| s\_xy         |                                     | :math:`\Omega * b13*(\sigma_{zz} + P_f)`          | Pa     |
 +---------------+-------------------------------------+---------------------------------------------------+--------+
 
 Table: Table of initial stress in TPV 29. :math:`b11, b33,b13` are
@@ -155,7 +149,7 @@ where :math:`\Omega` is defined as:
 Nucleation parameters
 ~~~~~~~~~~~~~~~~~~~~~
 
-TPV29 use the similar strategy for dynamic rupture nucleation.
+TPV29 uses a similar strategy for dynamic rupture nucleation.
 
 .. math::
 
@@ -204,6 +198,5 @@ the fault surface.
    :alt: Snapshot of slip rate along the strike
    :width: 11.00000cm
 
-   Snapshot of slip rate along the strike at T=3 s in TPV 29. The fault
-   has a rough surface. 
+   Snapshot of slip rate along the strike at T=3 s in TPV 29. The fault has a rough surface. 
    

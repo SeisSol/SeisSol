@@ -1,7 +1,7 @@
 SCEC TPV13
 ==========
 
-TPV13 is similar with TPV12 except for that material properties are **non-associative Drucker-Prager plastic**. TPV13 is using non-associative Drucker-Prager plasticity with yielding in shear. The material is characterized by six constitutive parameters:
+TPV13 is similar to TPV12 except for that material properties are **non-associative Drucker-Prager plastic**. TPV13 is using non-associative Drucker-Prager plasticity with yielding in shear. The material is characterized by six constitutive parameters:
 
  *Bulk friction = 0.85*
   *Fluid pressure = 1000 kg/m3*
@@ -31,7 +31,7 @@ The Drucker-Prager material is required to satisfy the yield equation:
   :math:`F(\sigma)\leq 0`
   
 When :math:`F(\sigma) < 0`, the material behaves like a linear isotropic elastic material, 
-with Lame paramters :math:`\lambda` and  :math:`\mu`.
+with Lame parameters :math:`\lambda` and  :math:`\mu`.
 
 Wen :math:`F(\sigma) = 0`, if the material is subjected to a strain that 
 tends to cause an increase in :math:`F(\sigma)`, then the material
@@ -69,7 +69,7 @@ Results
 ~~~~~~~
 
 Figure [fig:tpv13compare] shows the comparison between TPV12 (elastic)
-and TPV13 (plastic). The peak of slip rate in TPV12 is higher than
+and TPV13 (plastic). The peak slip rate in TPV12 is higher than
 TPV13. This difference attributes to the response of the off-fault
 plasticity. Refer to Wollherr et al. [2018] for detailed
 discussions.

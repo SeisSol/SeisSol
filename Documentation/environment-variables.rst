@@ -45,7 +45,7 @@ be used.
 Checkpointing
 ~~~~~~~~~~~~~
 
-Some environement variables related to checkpointing are described in the :ref:`Checkpointing section <Checkpointing>`.
+Some environment variables related to checkpointing are described in the :ref:`Checkpointing section <Checkpointing>`.
 
 
 Optimal environment variables on SuperMuc
@@ -54,10 +54,10 @@ Optimal environment variables on SuperMuc
 NG
 ~~
 
-On NG, we recommand using SeisSol with asyn output in thread mode.
-That is SeisSol should be compiled with commThread='yes', and then run with the environement variables proposed below.
-Also we recommand using hyperthreading capabilities (that is using 96 cpus instead of 48. 2 threads out of 96 are used as communication threads).
-Here are some proposed environement variables, to be added prior to invoking SeisSol in your batch file:
+On NG, we recommend using SeisSol with asyn output in thread mode.
+That is SeisSol should be compiled with commThread='yes', and then run with the environment variables proposed below.
+Also, we recommend using hyperthreading capabilities (that is using 96 CPUs instead of 48. 2 threads out of 96 are used as communication threads).
+Here are some proposed environment variables, to be added prior to invoking SeisSol in your batch file:
 
 .. code:: bash
 

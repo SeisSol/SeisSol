@@ -7,8 +7,8 @@ Accessing github from SuperMUC
 ==============================
 
 SuperMUC restricts access to outside sources and thus does not allow connections to https servers. 
-Nevetheless, github can be used if remote port forwarding is correctly set.
-Here, we described the procedure to setup such port forwarding.
+Nevertheless, GitHub can be used if remote port forwarding is correctly set.
+Here, we described the procedure to set up such port forwarding.
 
 
 1. Add to you ~/.ssh/config the following lines:
@@ -91,7 +91,7 @@ Supermuc-NG
 3. Install libxsmm, PSpaMM and ASAGI
 
 | See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
-| Note that on project pr63qo, we already installed and shared these library (no need to install).
+| Note that on project pr63qo, we already installed and shared these libraries (no need to install).
 | The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
 | If you need to compile ASAGI, copy the following to fix_submodules.sh and run it within ASAGI to get submodules/utils cloned.
 

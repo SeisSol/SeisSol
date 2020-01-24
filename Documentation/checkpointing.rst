@@ -19,7 +19,7 @@ It is parametrized within 'output' namelist of the parameter file by setting up 
 
 If the active checkpoint back-end finds a valid checkpoint during the initialization, it will load it automatically. (You cannot explicitly specify to load a checkpoint)
 
-Hint: Currently only the output of the wave field is designed to work with checkpoints. Other outputs such as receivers and fault output might require an additional post-processing when SeisSol is restarted from a checkpoint.
+Hint: Currently only the output of the wavefield is designed to work with checkpoints. Other outputs such as receivers and fault output might require additional post-processing when SeisSol is restarted from a checkpoint.
 
 
 Checkpointing Environment variables
@@ -34,7 +34,7 @@ The parallel checkpoint back-ends (HDF5, MPI-IO, SIONlib) support several tuning
    back-end only)
 -  **SEISSOL_CHECKPOINT_ROMIO_CB_READ** If set, the ``romio_cb_read`` in
    the MPI info object when opening the file. (default: no value, MPI-IO
-   and HDF5 back-end only)
+   and HDF5 backend only)
 -  **SEISSOL_CHECKPOINT_ROMIO_CB_WRITE** See
    *SEISSOL_CHECKPOINT_ROMIO_CB_READ*
 -  **SEISSOL_CHECKPOINT_CB_NODES** See

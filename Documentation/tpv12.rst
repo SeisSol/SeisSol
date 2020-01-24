@@ -11,7 +11,7 @@ dependent on depth. Strongly super-shear rupture conditions.
    :alt: Diagram of geometry of TPV12/13.
    :width: 9.00000cm
 
-   Diagram of geometry of TPV12/13. 60-degree dipping normal fault.
+   Diagram of the geometry of TPV12/13. 60-degree dipping normal fault.
 
 Geometry
 ~~~~~~~~
@@ -42,11 +42,10 @@ the simulation are provided in
    :width: 9.00000cm
 
    Diagram of a 60-degree dipping fault in Gmsh. The surrouding box is
-   500 km long and 500 km wide and 50 km hight. The fault cuts through
-   the free surface. 
+   500 km long and 500 km wide and 50 km high. The fault cuts through the free surface. 
 
-The geometry and mesh generation process is similar as TPV5. The
-planar-fault geometry is build with Gmsh (Figure [fig:tpv12geo]). All
+The geometry and mesh generation process is similar to TPV5. The
+planar-fault geometry is built with Gmsh (Figure [fig:tpv12geo]). All
 the files that are needed for the simulation are provided in .
 
 Nucleation
@@ -138,6 +137,5 @@ wave field and fault output files have the same format as in TPV5.
    :width: 11.00000cm
 
    Paraivew figure of TPV12 output. Fault slip rate in dip-direction
-   (SRd) and vertical velocity (w) in wave field. The roughed cutoff
-   surface demonstrates the unstructured tetrahedral meshing. 
+   (SRd) and vertical velocity (w) in wave field. The roughed cutoff surface demonstrates the unstructured tetrahedral meshing. 
    

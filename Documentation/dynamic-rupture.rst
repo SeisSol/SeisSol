@@ -10,9 +10,9 @@ Sign conventions
 ~~~~~~~~~~~~~~~~
 
 The following definitions regarding fault and stress orientation are
-convention. The initial stresses need to be given in the global
+conventions. The initial stresses need to be given in the global
 coordinate system. The Matlab script
-'/preprocessing/science/stressrotation3D' is available for a correct
+'/preprocessing/science/stressrotation3D' is available for correct
 rotation of initial stress values on arbitrary orientated faults.
 
 Definitions
@@ -35,7 +35,7 @@ Definitions
 Fault geometry
 ^^^^^^^^^^^^^^
 
-Right-handed coordinate system required. Please, make sure to follow
+The right-handed coordinate system is required. Please, make sure to follow
 this convention during model/mesh generation!
 
 .. ~ TODO: what's the point of these arrows?
@@ -102,8 +102,7 @@ the stresses for the right-lateral strike-slip fault in xz-plane are:
    s_xy (nucleation patch) = + 81.6 MPa
    s_xx = s_zz = s_xz = s_yz = 0.0 Pa
 
-For the 30° branch in -y direction we rotate the given stresses (in that
-case they are the same as on the main fault) by 330° counter clockwise
+For the 30° branch in -y direction we rotate the given stresses (in that case, they are the same as on the main fault) by 330° counterclockwise
 (or 30° clockwise) around the z-axis using the script
 '/preprocessing/science/stressrotation3D'.
 
@@ -197,7 +196,7 @@ The slip distribution is imposed simultaneously everywhere on the fault, smoothl
 This is an expensive way of getting the final stress distribution from a given slip distribution.
 The slip distribution is defined using easi by the ``strike_slip`` and ``dip_slip`` variables. 
 Warning: the direction of positive ``strike_slip`` and ``dip_slip`` is based on the convention of Seissol (e.g. positive strike_slip for right-lateral faulting). 
-Below is an example of input file for defining the slip distribution:
+Below is an example of an input file for defining the slip distribution:
 
 .. code-block:: YAML
 

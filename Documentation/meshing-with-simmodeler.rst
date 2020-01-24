@@ -19,7 +19,7 @@ SimModeler version
 ------------------
 
 We have used so far 3 main versions of SimModeler (3, 4 and 5).
-Sometimes, quality meshes can be obtained on older version of SimModeler
+Sometimes, quality meshes can be obtained on older versions of SimModeler
 whereas the latest version of SimModeler is not able to get quality
 meshes (in that case the support of SimModeler is very reactive and
 helpful). It is then important to notice that smd file created in older
@@ -33,7 +33,7 @@ Analysis tab
 
 tab Analysis > Click twice on "New Case" on the Analysis Attributes panel.
 give a name. If your SimModeler is set for SeisSol, the solver
-seisSol should appear in the drop down menu.
+seisSol should appear in the drop-down menu.
 
 Select the top surface (several surfaces can be selected by holding
 Shift), click on the + sign > Boundary conditions > Free Surface. And
@@ -51,27 +51,22 @@ algorithm will generally produce better results, but at some performance
 cost"). The Smoothing level can also be changed (max 1 for Volume
 meshing and 4 for Surface meshing according to the manual). Finally, the
 Discrete Face Rotation Angle Limit is also a parameter to consider, for
-knowing to which extend the CAD model have to be matched.
+knowing to which extend the CAD model has to be matched.
 
 | + > Mesh Size > Absolute > e.g. 5000 will define a maximum mesh size
   in the model.
 | + > Gradation > Rate > e.g. 0.15 will define the coarsening rate
-  within the mesh. The smaller the value, the slower the coarsening
-  within the mesh.
+  within the mesh. The smaller the value, the slower the coarsening within the mesh.
 | Click on the fault then + > Mesh Size > Absolute > e.g. 250 to define
   the on-fault size.
 | Click on the fault then + > Mesh Size Propagation > propagation
-  distance: e.g. 1000, scaling Factor e.g. 2. This allow the mesh to
-  remain fine in a box bounding the fault. For example here, the mesh is
+  distance: e.g. 1000, scaling Factor e.g. 2. This allows the mesh to remain fine in a box bounding the fault. For example here, the mesh is
   coarsened away from the fault according to the gradation rate set,
   with a maximum value of 2*250m = 500m within this box.
 
 | + > Surface Shape Metric > Aspect Ratio > e.g. 3 and
 | + > Volume Shape Metric > Aspect Ratio > e.g. 6 will define quality
-  level that the mesher will try to enforce. The mesher will not
-  necessarily create a mesh which passes all the Shape Metric set. From
-  our experience, setting additional shape metrics do not help improving
-  the mesh. An easy mesh can reach AR < 10. For more complex meshes, AR
+  levels that the mesher will try to enforce. The mesher will not necessarily create a mesh which passes all the Shape Metric set. From our experience, setting additional shape metrics does not help improving the mesh. An easy mesh can reach AR < 10. For more complex meshes, AR
   < 40 should be expected.
 
 Generating the mesh
@@ -83,7 +78,7 @@ Checking mesh quality
 ---------------------
 
 | Display tab > Mesh Stats > check Aspect Ratio > look at extreme value
-  and results spreads.
+  and results spread.
 | Display tab > Region Select > change the Aspect Ratio range and
   visualize where are the badly shaped elements. If they are related to
   some geometric features of the CAD model (e.g. narrow layers, shallow
