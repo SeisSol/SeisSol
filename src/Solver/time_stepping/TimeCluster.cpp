@@ -946,3 +946,60 @@ void seissol::time_stepping::TimeCluster::startSendCopyLayer() {
 }
 #endif
 
+namespace seissol {
+namespace time_stepping {
+  void TimeCluster::act() {
+    switch (state) {
+      case ActorState::Corrected:
+        if (correctedTime >= nextSyncTime) {
+          state = ActorState::Synced;
+        } else if (!localBuffer->isInUse()) {
+          predict();
+          localBuffer->send();
+          neighborBuffer->recv();
+          predictedTime += timeStepSize(predictedTime, maxTimeStepSize);
+          state = ActorState::PredictedLocal;
+        }
+        break;
+      case ActorState::PredictedLocal:
+        for (auto& neighbor : neighbors) {
+          if (predictedTime > neighbor.predictedTime &&
+              neighborBuffer->test()) {
+            // process message
+            neighbor.predictedTime += timeStepSize(neighbor.predictedTime,
+                                                   neighbor.maxTimeStepSize);
+            state = ActorState::MaybeReady;
+          }
+        }
+        break;
+      case ActorState::MaybeReady: {
+        const bool mayAdvance = predictedTime <=
+            std::min_element(neighbors.begin(), neighbors.end(),
+                              [] (NeighborCluster const& a, NeighborCluster const& b) {
+              return a.predictedTime < b.predictedTime;
+            })->predictedTime;
+        if (mayAdvance) {
+          correct();
+          neighborBuffer->free();
+          correctedTime += timeStepSize(correctedTime, maxTimeStepSize);
+          state = ActorState::Corrected;
+        }
+        break;
+      }
+      case ActorState::Synced:
+        // Sync point handling here
+        if (correctedTime >= endTime) {
+          state = ActorState::Finished;
+        } else if (correctedTime < nextSyncTime) {
+          state = ActorState::Corrected;
+        }
+        break;
+      case ActorState::Finished:
+        // Do nothing
+        break;
+      default:
+        throw;
+    }
+  }
+}
+}
