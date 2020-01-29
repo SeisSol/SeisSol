@@ -169,7 +169,7 @@ MeshRefiner<T>::MeshRefiner(
 #ifdef _OPENMP
     }
 #endif
-};
+}
 
 template<typename T>
 MeshRefiner<T>::MeshRefiner(
@@ -255,7 +255,7 @@ MeshRefiner<T>::MeshRefiner(
 #ifdef _OPENMP
     }
 #endif
-};
+}
 
 template<typename T>
 MeshRefiner<T>::~MeshRefiner()
