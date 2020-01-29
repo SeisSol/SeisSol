@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.9)
 
 if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
@@ -160,11 +160,13 @@ endif()
 
 if (MPI)
   find_package(MPI REQUIRED)
-  target_include_directories(SeisSol-lib PUBLIC ${MPI_CXX_INCLUDE_PATH})
-  target_link_libraries(SeisSol-lib PUBLIC ${MPI_CXX_LIBRARIES})
-  target_link_libraries(SeisSol-lib PUBLIC ${MPI_C_LIBRARIES})
-  target_include_directories(SeisSol-lib PUBLIC ${MPI_Fortran_INCLUDE_PATH})
-  target_link_libraries(SeisSol-lib PUBLIC ${MPI_Fortran_LIBRARIES})
+
+  target_include_directories(SeisSol-lib SYSTEM PUBLIC ${MPI_CXX_INCLUDE_PATH})
+  target_link_libraries(SeisSol-lib PUBLIC MPI::MPI_C)
+
+  target_include_directories(SeisSol-lib SYSTEM PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+  target_link_libraries(SeisSol-lib PUBLIC MPI::MPI_Fortran)
+
   target_compile_definitions(SeisSol-lib PUBLIC USE_MPI PARALLEL)
 endif()
 
@@ -215,9 +217,12 @@ target_include_directories(SeisSol-lib PUBLIC
 				   # todo: use reexport from easi?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
+)
+
+target_include_directories(SeisSol-lib SYSTEM PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
@@ -236,7 +241,7 @@ target_compile_definitions(SeisSol-lib PUBLIC
 # Fortran compliler settings
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -fdefault-real-8 -fopenmp")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -fdefault-real-8 -fopenmp -Wno-unused-parameter")
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
