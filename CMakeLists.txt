@@ -279,38 +279,49 @@ target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
 
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
 
-# Testing
-find_package(CxxTest)
+if (TESTING)
+  include(cmake/testing.cmake)
 
-if(CXXTEST_FOUND)
-  # todo: if mpi set CXXTEST_COMMAND to mpirun -np 1 %t
+  # Testing
+  set(CXXTEST_TESTGEN_ARGS "--template=${CMAKE_CURRENT_SOURCE_DIR}/src/tests/mpirunner.tpl")
+  find_package(CxxTest REQUIRED)
+
+  # todo: only if mpi set CXXTEST_COMMAND to mpirun -np 1 %t
   # maybe enable CXXTEST_HAVE_EH CXXTEST_ABORT_ON_FAIL
   enable_testing()
-  set(CXXTEST_USE_PYTHON TRUE)
 
   # what about the unit tests for the lts layout?
 
-  # test is generated...
-  #CXXTEST_ADD_TEST(test_generated_kernels
-  #  test_generated_kernels.cpp
-  #  ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h)
-  #target_link_libraries(test_generated_kernels PRIVATE SeisSol-lib) 
-  #target_include_directories(test_generated_kernels PRIVATE ${CXXTEST_INCLUDE_DIR})
-
-  CXXTEST_ADD_TEST(test_serial_test_suite
-    test_serial.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+  if (TESTING_GENERATED)
+    CXXTEST_ADD_TEST_MPI(
+            test_kernel_test_suite
+            1
+            test_kernel.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h
     )
+
+    target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
+    target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  endif()
+
+  CXXTEST_ADD_TEST_MPI(
+          test_serial_test_suite
+          1
+          test_serial.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+  )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
-  CXXTEST_ADD_TEST(test_parallel_test_suite
-    test_parallel.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
-    )
+  CXXTEST_ADD_TEST_MPI(
+          test_parallel_test_suite
+          4
+          test_parallel.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
+  )
   target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   target_compile_definitions(test_parallel_test_suite PRIVATE
