@@ -113,9 +113,9 @@ if (PLASTICITY)
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
 endif()
 
-if ("${PlasticityMethod}" STREQUAL "ip")
+if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
-elseif ("${PlasticityMethod}" STREQUAL "nb")
+elseif (PLASTICITY_METHOD STREQUAL "nb")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
 endif()
 
@@ -231,11 +231,6 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
 				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
-				   # Are the following needed?
-				   GENERATED_KERNELS
-				   GENERATEDKERNELS
-				   CLUSTERED_LTS
-				   HOST_NAME_MAX=100 # wtf?
 				   )
 
 # Fortran compliler settings
