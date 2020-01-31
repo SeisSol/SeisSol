@@ -281,7 +281,6 @@ if (TESTING)
   set(CXXTEST_TESTGEN_ARGS "--template=${CMAKE_CURRENT_SOURCE_DIR}/src/tests/mpirunner.tpl")
   find_package(CxxTest REQUIRED)
 
-  # todo: only if mpi set CXXTEST_COMMAND to mpirun -np 1 %t
   # maybe enable CXXTEST_HAVE_EH CXXTEST_ABORT_ON_FAIL
   enable_testing()
 
