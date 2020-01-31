@@ -210,6 +210,13 @@ if (ASAGI)
   target_compile_options(SeisSol-lib PUBLIC ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
 endif()
 
+if (MEMKIND)
+  find_package(Memkind REQUIRED)
+  target_include_directories(SeisSol-lib PUBLIC ${MEMKIND_INCLUDE_DIR})
+  target_link_libraries(SeisSol-lib PUBLIC ${MEMKIND_LIBRARIES})
+  target_compile_definitions(SeisSol-lib PUBLIC USE_MEMKIND)
+endif()
+
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
