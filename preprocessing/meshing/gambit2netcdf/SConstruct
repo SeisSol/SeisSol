@@ -113,7 +113,7 @@ vars.AddVariables(
                 PathVariable.PathAccept ),
 
   BoolVariable( 'useExecutionEnvironment',
-                'set variables set in the execution environment ($PATH, $LIBRARY_PATH, $LD_LIBRARY_PATH, $CPLUS_INCLUDE_PATH, $INTEL_LICENSE_FILE, $OMPI_FC, $OMPI_CXX)',
+                'set variables set in the execution environment ($PATH, $LIBRARY_PATH, $LD_LIBRARY_PATH, $CPATH, $C_INCLUDE_PATH, $CPLUS_INCLUDE_PATH, $INTEL_LICENSE_FILE, $OMPI_FC, $OMPI_CXX)',
                 True )
 )
 
