@@ -271,8 +271,15 @@ set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
+
+add_executable(SeisSol-proxy
+        auto_tuning/proxy/src/proxy_seissol.cpp
+        auto_tuning/proxy/src/flop_counter.cpp
+)
+target_link_libraries(SeisSol-proxy PUBLIC SeisSol-lib)
+set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
+
 
 if (TESTING)
   include(cmake/testing.cmake)
