@@ -50,7 +50,7 @@ One of the main ideas of Spack is to produce a consistent build of your software
 However, if you don't have any or you want to try another one you can install it with Spack. 
 For example, you have to do the following to install gcc 8.3.0:
 ```console
-spack install gcc%8.3.0
+spack install gcc@8.3.0
 ```
 Don't forget to add it to Spack once it has been installed:
 ```console
