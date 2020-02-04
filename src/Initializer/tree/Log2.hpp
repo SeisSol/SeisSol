@@ -51,8 +51,8 @@ namespace seissol {
     struct Log2<1> {
       static unsigned const Result = 0;
     };
-  };
-};
+  }
+}
 
 
 #endif

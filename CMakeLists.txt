@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.9)
 
 if(POLICY CMP0075)
   cmake_policy(SET CMP0075 NEW)
@@ -113,9 +113,9 @@ if (PLASTICITY)
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
 endif()
 
-if ("${PlasticityMethod}" STREQUAL "ip")
+if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
-elseif ("${PlasticityMethod}" STREQUAL "nb")
+elseif (PLASTICITY_METHOD STREQUAL "nb")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
 endif()
 
@@ -160,11 +160,13 @@ endif()
 
 if (MPI)
   find_package(MPI REQUIRED)
-  target_include_directories(SeisSol-lib PUBLIC ${MPI_CXX_INCLUDE_PATH})
-  target_link_libraries(SeisSol-lib PUBLIC ${MPI_CXX_LIBRARIES})
-  target_link_libraries(SeisSol-lib PUBLIC ${MPI_C_LIBRARIES})
-  target_include_directories(SeisSol-lib PUBLIC ${MPI_Fortran_INCLUDE_PATH})
-  target_link_libraries(SeisSol-lib PUBLIC ${MPI_Fortran_LIBRARIES})
+
+  target_include_directories(SeisSol-lib SYSTEM PUBLIC ${MPI_CXX_INCLUDE_PATH})
+  target_link_libraries(SeisSol-lib PUBLIC MPI::MPI_C)
+
+  target_include_directories(SeisSol-lib SYSTEM PUBLIC ${MPI_Fortran_INCLUDE_PATH})
+  target_link_libraries(SeisSol-lib PUBLIC MPI::MPI_Fortran)
+
   target_compile_definitions(SeisSol-lib PUBLIC USE_MPI PARALLEL)
 endif()
 
@@ -208,6 +210,13 @@ if (ASAGI)
   target_compile_options(SeisSol-lib PUBLIC ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
 endif()
 
+if (MEMKIND)
+  find_package(Memkind REQUIRED)
+  target_include_directories(SeisSol-lib PUBLIC ${MEMKIND_INCLUDE_DIR})
+  target_link_libraries(SeisSol-lib PUBLIC ${MEMKIND_LIBRARIES})
+  target_compile_definitions(SeisSol-lib PUBLIC USE_MEMKIND)
+endif()
+
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
@@ -215,9 +224,12 @@ target_include_directories(SeisSol-lib PUBLIC
 				   # todo: use reexport from easi?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
-				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 				   ${CMAKE_CURRENT_BINARY_DIR}/src/
+)
+
+target_include_directories(SeisSol-lib SYSTEM PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
+        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
@@ -226,17 +238,12 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
 				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
-				   # Are the following needed?
-				   GENERATED_KERNELS
-				   GENERATEDKERNELS
-				   CLUSTERED_LTS
-				   HOST_NAME_MAX=100 # wtf?
 				   )
 
 # Fortran compliler settings
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp")
 if ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -fdefault-real-8 -fopenmp")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -ffree-line-length-none -fdefault-real-8 -fopenmp -Wno-unused-parameter")
 elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   # todo intel, is needed:  -align -align array64byte
   # todo -r8 -WB is needed for intel (8 byte precision for reals)
@@ -271,41 +278,58 @@ set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-
 set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
 
-# Testing
-find_package(CxxTest)
+add_executable(SeisSol-proxy
+        auto_tuning/proxy/src/proxy_seissol.cpp
+        auto_tuning/proxy/src/flop_counter.cpp
+)
+target_link_libraries(SeisSol-proxy PUBLIC SeisSol-lib)
+set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
 
-if(CXXTEST_FOUND)
-  # todo: if mpi set CXXTEST_COMMAND to mpirun -np 1 %t
+
+if (TESTING)
+  include(cmake/testing.cmake)
+
+  # Testing
+  set(CXXTEST_TESTGEN_ARGS "--template=${CMAKE_CURRENT_SOURCE_DIR}/src/tests/mpirunner.tpl")
+  find_package(CxxTest REQUIRED)
+
   # maybe enable CXXTEST_HAVE_EH CXXTEST_ABORT_ON_FAIL
   enable_testing()
-  set(CXXTEST_USE_PYTHON TRUE)
 
   # what about the unit tests for the lts layout?
 
-  # test is generated...
-  #CXXTEST_ADD_TEST(test_generated_kernels
-  #  test_generated_kernels.cpp
-  #  ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h)
-  #target_link_libraries(test_generated_kernels PRIVATE SeisSol-lib) 
-  #target_include_directories(test_generated_kernels PRIVATE ${CXXTEST_INCLUDE_DIR})
-
-  CXXTEST_ADD_TEST(test_serial_test_suite
-    test_serial.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+  if (TESTING_GENERATED)
+    CXXTEST_ADD_TEST_MPI(
+            test_kernel_test_suite
+            1
+            test_kernel.cpp
+            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/KernelTest.t.h
     )
+
+    target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
+    target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  endif()
+
+  CXXTEST_ADD_TEST_MPI(
+          test_serial_test_suite
+          1
+          test_serial.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+  )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
-  CXXTEST_ADD_TEST(test_parallel_test_suite
-    test_parallel.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
-    )
+  CXXTEST_ADD_TEST_MPI(
+          test_parallel_test_suite
+          4
+          test_parallel.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
+  )
   target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   target_compile_definitions(test_parallel_test_suite PRIVATE
