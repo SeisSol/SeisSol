@@ -29,7 +29,7 @@ class SeissolCore(CMakePackage):
     homepage = "http://www.seissol.org"
     version('develop',
             git='https://github.com/SeisSol/SeisSol.git',
-            branch='master'
+            branch='master',
             submodules=True)
 
     maintainers = ['ravil-mobile']

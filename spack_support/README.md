@@ -126,3 +126,5 @@ Seissol with Intel tools:
 
 
 3. Some compilers, especially new ones, are not always able to successfully install all SeisSol software stack. The solution is to look at the building log-file of Spack. If you suspect a compiler issue then try to use a previous version of your compiler and try again.
+
+4. ImpalaJIT has a limitted support w.r.t GNU compilers. It compiles with gcc v. 5.5.0 or lower.
