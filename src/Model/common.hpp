@@ -205,11 +205,13 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
     R(8,2) = std::sqrt(local.mu / local.rho);
   }
 
-  R(4,3) = 1;
-
-  R(1,4) = 1;
-
-  R(2,5) = 1;
+  //span the null space
+  //if we scale the eigenvectors, which span the null space of A, to
+  //a comparable magnitude as the other eigenvectors, the matrix R
+  //has a lower condition number
+  R(4,3) = local.lambda;
+  R(1,4) = local.lambda;
+  R(2,5) = local.lambda;
 
   if (testIfAcoustic(neighbor.mu)) {
     R(7,6) = 1.0;
