@@ -26,9 +26,9 @@ from spack import *
 class Impalajit(CMakePackage):
     """A lightweight JIT compiler for flexible data access in simulation applications."""
 
-    homepage = "https://github.com/Manuel1605/ImpalaJIT/blob/master/README.md"
+    homepage = "https://github.com/ravil-mobile/ImpalaJIT/blob/master/README.md"
     version('develop',
-            git='https://github.com/Manuel1605/ImpalaJIT.git',
+            git='https://github.com/ravil-mobile/ImpalaJIT.git',
             branch='master')
 
     variant('static', default=True, description="compile as a static lib")
@@ -39,7 +39,6 @@ class Impalajit(CMakePackage):
     
 
     depends_on('cmake', type='build')
-    conflicts('%gcc@6.1.0:', msg="imapaljit requires gcc <= 5.4")
 
     def cmake_args(self):
         args = []
