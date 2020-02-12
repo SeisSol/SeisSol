@@ -39,7 +39,7 @@ class Impalajit(CMakePackage):
     
 
     depends_on('cmake', type='build')
-
+    conflicts('%gcc@6.1.0:', msg="imapaljit requires gcc <= 5.4")
 
     def cmake_args(self):
         args = []

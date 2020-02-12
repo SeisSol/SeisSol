@@ -28,28 +28,26 @@ class SeissolEnv(BundlePackage):
     This package only provides all necessary libs for seissol installation.
     """
 
-    # FIXME: Add a proper url for your package's homepage here.
     homepage = "http://www.seissol.org"
     version('develop',
             git='https://github.com/SeisSol/SeisSol.git',
             branch='master')
 
-    #version('master',  branch='master')
     maintainers = ['ravil-mobile']
     
     variant('mpi', default=True, description="use inter-node computing")
     variant('openmp', default=True, description="use intra-node computing")
     variant('asagi', default=True, description="use asagi for material input")
 
+    variant('extra_blas', default='openblas', description='add an extra blas implementation along with libxsmm',
+            values=('mkl', 'openblas', 'blis'), 
+            multi=False)
+
 
     depends_on('mpi', when="+mpi")
 
-    #depends_on('parmetis ^metis+int64', when="+mpi")
-    #depends_on('metis +int64+shared', when='+mpi')
-    #depends_on('parmetis +shared', when='+mpi')
-
     depends_on('parmetis', when="+mpi")
-    depends_on('metis+int64', when="~mpi")
+    depends_on('metis +int64', when="+mpi")
 
     depends_on('libxsmm +generator')
     depends_on('memkind')
@@ -62,12 +60,12 @@ class SeissolEnv(BundlePackage):
 
     depends_on('asagi ~mpi ~mpi3', when="+asagi ~mpi")
     depends_on('asagi +mpi +mpi3', when="+asagi +mpi")
+    
+    #depends_on('intel-mkl -threads', when='+extra_blas=mkl')
+    #depends_on('openblas -threads', when='+extra_blas=openblas')
+    #depends_on('blis -threads', when='+extra_blas=blis')
 
-
-    # instsall cxx_test manually
-    # spack install seissol-env +mpi %gcc@8.3.0 ^openmpi@3.1.5 ^metis+int64
-    # spack install seissol-env +mpi %intel@17.0.2 ^intel-mpi@2018.0.128
-    # spack install seissol-env +mpi %intel@17.0.2 ^intel-mpi@2018.0.128 ^metis+int64
-    #with working_dir("build", create=True):
-    #   cmake("..", *std_cmake_args)
-    #   make()
+    depends_on('pspamm')
+    depends_on('impalajit')
+    depends_on('yaml-cpp@0.6.2')
+    depends_on('cxxtest')
