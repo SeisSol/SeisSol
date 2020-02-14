@@ -17,11 +17,11 @@ commented example:
   iOutputMask = 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1
   /
 
-If pickDtType = 2, output is generated every N time steps, where N is
+If pickDtType = 2, the output is generated every N time steps, where N is
 set by pickdt. If pickDtType = 1, output is generated every pickdt
 second.
 
-receivers.dat is an ascii file describing the receivers coordinates in
+receivers.dat is an ASCII file describing the coordinates of the receivers in
 the form:
 
 ::

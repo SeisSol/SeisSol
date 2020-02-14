@@ -62,6 +62,7 @@ The following parameters need to be set by easi.
 The columms E, A, V, and P denote if the respective parameter is required
 when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and viscoplastic rheological model.
 
+
 .. |checkmark| unicode:: U+2713
 
 .. list-table::
@@ -132,7 +133,7 @@ Fault parameters (dynamic rupture)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following parameters need to be set by easi.
-The columm FL denotes for which friction law the respective parameter is required.
+The column FL denotes for which friction law the respective parameter is required.
 Please note that there are two ways to specify the initial stress on the fault:
 You may either specify a stress tensor (s_xx, s_yy, s_zz, s_xy, s_yz, s_xz),
 which has to be given for the same cartesian coordinate system as the mesh,
@@ -184,11 +185,68 @@ You must not specify both.
 Debugging easi script
 ---------------------
 
+
 | Most easi components return easy to track error, for example
 | ``test.yaml: yaml-cpp: error at line 6, column 9: illegal map value``
-| Yet implajit function map are more complex to debug. The following
+| Yet implajit function maps are more complex to debug. The following
   example:
 | ``27.1: syntax error, unexpected '}', expecting ;``
-| indicates that an error occur in the 27th line of the function, but
+| indicates that an error occurred in the 27th line of the function, but
   does not indicate which file and which function.
 | Hopefully this will be improved in the future.
+
+
+An example illustrating some subtleties of easi error logs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Let suppose that we try to retrieve s_zz located at (x,y,z)=(0,0,0) in group 1 from the following easi file:
+
+.. code-block:: YAML
+
+    [s_zz,s_yy,s_yz,s_xx,s_xz,s_xy,d_c,mu_s]: !AffineMap
+      matrix:
+        xf: [0.4054811 , -0.91410343,  0.   ]
+        yf: [-0.62424723, -0.2769057 ,  0.73050574]
+        zf: [-0.6677578 , -0.29620627, -0.68290656]
+      translation:
+        xf: 348441.377459
+        yf: 4760209.93637
+        zf: 0.0
+      components: !ASAGI
+              file: norciax_210fault_nncia.nc
+              parameters: [s_zz,s_yy,s_yz,s_xx,s_xz,s_xy,d_c,mu_s]
+              var: data
+              interpolation: nearest
+
+and get the following error log:
+
+
+.. code-block:: none
+
+    terminate called after throwing an instance of 'std::runtime_error'
+      what():  fault2.yaml@2: Could not find model for point [ 348441 4.76021e+06 0 ] in group 1.
+
+How to interpret this error log?
+The component at Line 2 is throwing the error (the AffineMap). 
+The AffineMap component is complaining that its output point is not accepted by any of its child components.
+In this case, the point is outside the bounds of the ASAGI file.
+
+
+Note that in the slightly different example below, without the AffineMap, easi will not verify that the point is outside the bounds of ASAGI file:
+
+.. code-block:: YAML
+
+    [s_zz,s_yy,s_yz,s_xx,s_xz,s_xy,d_c,mu_s]: !ASAGI
+              file: norciax_210fault_nncia.nc
+              parameters: [s_zz,s_yy,s_yz,s_xx,s_xz,s_xy,d_c,mu_s]
+              var: data
+              interpolation: nearest
+
+In fact, in this case, ASAGI is directly queried and easi, therefore, does no verify that the point queried in inside the bounds of the ASAGI file.
+If the point is out of bounds, ASAGI will pick the value of the nearest grid point and issue a warning:
+
+.. code-block:: none
+
+    Thu Jan 09 14:32:22, Warn:  ASAGI: Coordinate in dimension 2  is out of range. Fixing.
+
+

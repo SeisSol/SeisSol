@@ -20,7 +20,7 @@ If you don't have access please see
 for support.
 
 To start the pvserver processes on the cluster use a jobscript to
-specify all the parameters. Here is an example how this can look like
+specify all the parameters. Here is an example of how this can look like
 (save as start_paraview.sh):
 
 .. code-block:: bash
@@ -51,9 +51,9 @@ specify all the parameters. Here is an example how this can look like
    module load mpi.intel paraview/5.2.0_mesa
    mpiexec -n 56 pvserver --use-offscreen-rendering
 
-It is important to use a paraview version that has been built with MPI
-and MESA support, because usually the compute nodes in the cluster don't
-have a graphics hardware and we want to use it in parallel. See
+It is important to use a ParaView version that has been built with MPI
+and MESA support because usually the compute nodes in the cluster don't
+have graphics hardware and we want to use it in parallel. See
 `https://www.paraview.org/Wiki/Setting_up_a_ParaView_Server <https://www.paraview.org/Wiki/Setting_up_a_ParaView_Server>`__
 for more information.
 
@@ -144,9 +144,9 @@ load the right modules:
    module load mpi.intel paraview/5.2.0
    unset I_MPI_DEVICE
 
-Start the paraview client with ``vglrun paraview``. Klick on ``connect``
+Start the ParaView client with ``vglrun paraview``. Klick on ``connect``
 and enter a new server. The host must be the leading compute node from
-above, in this example it is ``i20r01c02s09ib``. The port is ``11111``.
+above, in this example, it is ``i20r01c02s09ib``. The port is ``11111``.
 When you hit the connect button in the menu, you should have access to
 all the resources you asked for in your job script and are ready to open
 your data.

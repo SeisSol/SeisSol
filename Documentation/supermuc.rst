@@ -7,8 +7,8 @@ Accessing github from SuperMUC
 ==============================
 
 SuperMUC restricts access to outside sources and thus does not allow connections to https servers. 
-Nevetheless, github can be used if remote port forwarding is correctly set.
-Here, we described the procedure to setup such port forwarding.
+Nevertheless, GitHub can be used if remote port forwarding is correctly set.
+Here, we described the procedure to set up such port forwarding.
 
 
 1. Add to you ~/.ssh/config the following lines:
@@ -72,26 +72,26 @@ Supermuc-NG
   ##### module load for SeisSol
   module load scons gcc cmake/3.6 python/3.6_intel slurm_setup
   module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
-  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel hdf5/1.8.20-intel-impi-threadsafe
+  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel hdf5/1.8.21-intel-impi-cxx-frt-threadsafe
   module load libszip/2.1.1
 
   ####### universal setup for SeisSol
   export PATH=~/local/bin:$PATH
   export PKG_CONFIG_PATH=~/local/lib/pkgconfig/:$PKG_CONFIG_PATH
   export LD_LIBRARY_PATH=~/local/lib:$PARMETIS_LIB:$METIS_LIB:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LD_LIBRARY_PATH
-  export CPATH=~/local/include:$PARMETIS_INC:$METIS_INC:$NETCDF_BASE/include:$HDF5_BASE/include:$CPATH
+  export CPATH=~/local/include:$PARMETIS_BASE/include:$METIS_BASE/include:$NETCDF_BASE/include:$HDF5_BASE/include:$CPATH
   export LIBRARY_PATH=~/local/lib:$PARMETIS_LIB:$METIS_LIB:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LIBRARY_PATH
     
-  ####  local setup for SeisSol. I installed libxsmm and ASAGI in my own folder (/dss/dsshome1/02/di52lak2/myLib). 
-  export PATH=/dss/dsshome1/02/di52lak2/myLib/libxsmm/bin:$PATH
-  export PKG_CONFIG_PATH=/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib/pkgconfig:$PKG_CONFIG_PATH
-  export LD_LIBRARY_PATH=/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib:$LD_LIBRARY_PATH
+  ####  local setup for SeisSol. 
+  export PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/libxsmm/bin:$PATH
+  export PKG_CONFIG_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib/pkgconfig:$PKG_CONFIG_PATH
+  export LD_LIBRARY_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib:$LD_LIBRARY_PATH
 
 
-3. Install libxsmm and ASAGI
+3. Install libxsmm, PSpaMM and ASAGI
 
-| See :ref:`installing_libxsmm` and :ref:`installing_ASAGI`. 
-| Note that on project pr63qo, we already installed and shared these library (no need to install).
+| See :ref:`installing_libxsmm`, :ref:`installing_pspamm` and :ref:`installing_ASAGI`. 
+| Note that on project pr63qo, we already installed and shared these libraries (no need to install).
 | The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
 | If you need to compile ASAGI, copy the following to fix_submodules.sh and run it within ASAGI to get submodules/utils cloned.
 
@@ -229,128 +229,4 @@ set compiler options:
 
   echo $SLURM_NTASKS
   srun ./SeisSol_release_generatedKernels_dskx_hybrid_none_9_4 parameters.par
-
-  
-
-
- 
-Supermuc-2
-==========
-
-1. Load modules
-
-You can create a folder ~/.modules and copy these to ~/.modules/bash (Must use intel/17.0)
-:: 
-
-  module load python/3.5_intel
-  module load scons/3.0.1
-  module unload netcdf
-  module load netcdf/mpi
-  module load hdf5/mpi/1.8.18
-  module unload intel
-  module load intel/17.0
-  module load gcc
-  module load cmake
-  module load szip
-  Module load parmetis/4.0
-
-2. Add these lines to .bashrc (there are shared libs under /home/hpc/pr63qo/di52lak/ but you can install by yourself)
-::
-
-  ## need installation before and added here ######
-  export PATH = $PATH:$HOME/bin:/home/hpc/pr63qo/di52lak/software/libxsmm-master/bin
-  export PKG_CONFIG_PATH =/home/hpc/pr63qo/di52lak/software/ASAGI/build/lib/pkgconfig
-  export LD_LIBRARY_PATH = $LD_LIBRARY_PATH:/home/hpc/pr63qo/di52lak/software/ASAGI/build/lib
-
-  ## existing lib in supermuc
-  export LD_LIBRARY_PATH = /usr/lib64:/lib64:/lib:$LD_LIBRARY_PATH
-
-  ######  parmetis library necessary  ##############
-  export PARMETIS_BASE='/lrz/sys/libraries/parmetis/4.0.2/ibmmpi'
-  export PARMETIS_LIBDIR='/lrz/sys/libraries/parmetis/4.0.2/ibmmpi/lib'
-  export PATH=$PATH:/lrz/sys/libraries/hdf5/1.8.14/ibmmpi_poe1.4_15.0.5/bin
- 
-
-3. Build variable file — updated on July 2018
-
-Copy this to a supermuc_hw.py file in SeisSol/:
-::
-
-  import os
-  # build options
-  compileMode = 'release' # or relWithDebInfo or debug
-  generatedKernels = 'yes'
-  arch = 'dhsw'  # use 'dsnb' for SuperMUC phase 1 or use 'dhsw' for SuperMUC phase 2
-  parallelization = 'hybrid'
-  order = '4' # valid values are 'none', '2', '3', '4', '5', '6', '7', and '8'.
-  equations = 'elastic' # valid values are 'elastic', 'viscoelastic', 'viscoelastic2'
-  plasticity = 'no' # start with elastic at the beginning.
-
-  useExecutionEnvironment = 'yes'
-  logLevel = 'warning'
-  logLevel0 = 'info'
-
-  netcdf = 'yes'
-  hdf5 = 'yes'
-  metis = 'yes'
-  netcdfDir=os.environ['NETCDF_BASE']
-  hdf5Dir=os.environ['HDF5_BASE']
-  metisDir = '/lrz/sys/libraries/parmetis/4.0.2/ibmmpi'
-
-  asagi = 'yes’
-  zlibDir='/home/hpc/pr63po/di52lak/software/ASAGI/build/lib/'
-
-  # Put a 'yes' here on Phase 2 and a 'no' on Phase 1
-  commThread = 'no'
-  # If you put a 'yes' for the last option on Phase 2, it is vital that your environment settings are correct, otherwise your performance will be bad.
-
-
-4. compile SeisSol as:
-
-::
-
-  scons buildVariablesFile=supermuc_hw.py
-  
-  
-5. Submit job on Phase 2. Here is an example:
-
-::
-
-  #!/bin/bash
-  # this job command file is called submit.cmd
-  #@ energy_policy_tag = <account id>_etag
-  #@ minimize_time_to_solution = yes
-  #@ wall_clock_limit = 12:00:00
-
-  #@ job_name = <job name>
-  #@ class = micro
-  #@ island_count=1
-  ## #@ input= job.$(schedd_host).$(jobid).in
-  #@ output= job.$(schedd_host).$(jobid).out
-  #@ error= job.$(schedd_host).$(jobid).err
-  #@ job_type= parallel 
-  #@ node= 7
-  #@ tasks_per_node= 1
-  ## #@ total_tasks= 512
-  #@ network.MPI = sn_all,not_shared,us
-  #@ notification=always
-  #@ notify_user=dli@geophysik.uni-muenchen.de
-  #@ queue
-  . /etc/profile
-  . /etc/profile.d/modules.sh
-
-  export PARMETIS_BASE='/lrz/sys/libraries/parmetis/4.0.2/ibmmpi'
-  export PARMETIS_LIBDIR='/lrz/sys/libraries/parmetis/4.0.2/ibmmpi/lib'
-
-  export MP_SINGLE_THREAD=yes
-  export OMP_NUM_THREADS=28
-  export MP_TASK_AFFINITY=core:$OMP_NUM_THREADS
-
-
-  # ############## dsnb for phase 1 and dhsw for phase 2 ###########################
-  cd <working directory>
-  poe ./SeisSol_release_generatedKernels_dhsw_hybrid_none_9_4 parameters.par
-  echo "JOB is run"
-
-see the enviroment variables section concerning :ref:`environement_variables_supermuc_phase_2` for more details.
 

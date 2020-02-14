@@ -43,6 +43,7 @@
 
 #include <Eigen/Eigen>
 
+#include "utils/logger.h"
 #include "Initializer/typedefs.hpp"
 #include "generated_code/init.h"
 #include "Geometry/MeshTools.h"
@@ -55,6 +56,8 @@
 
 namespace seissol {
   namespace model {
+    using Matrix99 = Eigen::Matrix<double, 9, 9>;
+
     bool testIfAcoustic(real mu);
 
     template<typename Tmaterial, typename Tmatrix>
