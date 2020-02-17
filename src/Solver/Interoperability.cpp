@@ -780,20 +780,23 @@ void seissol::Interoperability::initInitialConditions()
   if (m_initialConditionType == "Planarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-#ifdef USE_POROELASTIC
-      //assume homogeneous material -> take the material parameters from cell 0
-      m_iniConds.emplace_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0), (2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
-#else
       m_iniConds.emplace_back(new physics::Planarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
-#endif
     }
 #else
-#ifdef USE_POROELASTIC
-    //assume homogeneous material -> take the material parameters from cell 0
-    m_iniConds.emplace_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0).local));
+    m_iniConds.emplace_back(new physics::Planarwave());
+#endif // MULTIPLE_SIMULATIONS
+  } else if (m_initialConditionType == "PoroelasticPlanarwave") {
+#ifndef USE_POROELASTIC
+    throw std::runtime_error("Poroelastic Planarwave InitialCondition is only applicable if SeisSol is compiled with Poroelasticity");
+#endif // USE_POROELASTIC
+#ifdef MULTIPLE_SIMULATIONS
+    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+      //assume homogeneous material -> take the material parameters from cell 0
+      m_iniConds.emplace_back(new physics::PoroelasticPlanarwave(m_ltsLut.lookup(m_lts->material, 0), (2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+    }
 #else
-    m_iniConds.push_back(new physics::Planarwave());
-#endif
+    m_iniConds.emplace_back(new physics::PoroelasticPlanarwave(m_ltsLut.lookup(m_lts->material, 0).local));
+#endif // MULTIPLE_SIMULATIONS
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.emplace_back(new physics::ZeroField());
 #if NUMBER_OF_RELAXATION_MECHANISMS == 0

@@ -96,6 +96,7 @@ add_custom_command(
        generated_code/Point.py
        generated_code/elastic.py
        generated_code/viscoelastic2.py
+       generated_code/poroelastic.py
        generated_code/SurfaceDisplacement.py
        generated_code/NodalBoundaryConditions.py
     OUTPUT src/generated_code/subroutine.h
@@ -117,6 +118,11 @@ if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_IP)
 elseif (PLASTICITY_METHOD STREQUAL "nb")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
+endif()
+
+if (EQUATIONS STREQUAL "poroelastic")
+  target_compile_definitions(SeisSol-lib PUBLIC USE_STP)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_POROELASTIC)
 endif()
 
 # Find appropriate compiler flags based on the target computer architecture
@@ -324,17 +330,17 @@ if (TESTING)
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
 
-  CXXTEST_ADD_TEST_MPI(
-          test_parallel_test_suite
-          4
-          test_parallel.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
-  )
-  target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
-  target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
-  target_compile_definitions(test_parallel_test_suite PRIVATE
-    SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
-    )
+  #CXXTEST_ADD_TEST_MPI(
+  #        test_parallel_test_suite
+  #        4
+  #        test_parallel.cpp
+  #        ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/minimal/Minimal.t.h
+  #)
+  #target_link_libraries(test_parallel_test_suite PRIVATE SeisSol-lib)
+  #target_include_directories(test_parallel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
+  #target_compile_definitions(test_parallel_test_suite PRIVATE
+  #  SEISSOL_TESTS=\"${CMAKE_CURRENT_SOURCE_DIR}/src/tests/\"
+  #  )
 endif()
 
 # https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/

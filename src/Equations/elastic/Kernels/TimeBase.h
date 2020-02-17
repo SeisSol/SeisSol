@@ -81,7 +81,11 @@ namespace seissol {
 
 class seissol::kernels::TimeBase {
   protected:
+#ifdef USE_STP
+    kernel::stp m_krnlPrototype;
+#else    
     kernel::derivative m_krnlPrototype;
+#endif
     kernel::displacementAvgNodal displacementAvgNodalPrototype;
     unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
 
@@ -100,12 +104,6 @@ class seissol::kernels::TimeBase {
      *   ...
      * * Offset are always counted from positition zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
      */
-    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
-#ifdef USE_STP
-        kernel::stp m_krnlPrototype;
-#else    
-    kernel::derivative m_krnlPrototype;
-#endif
 
 };
 

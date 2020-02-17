@@ -147,7 +147,31 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
-  krnl.Zinv = data.localIntegration.specific.Zinv;
+
+  using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
+  using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
+  real Zinv_data[init::Zinv::size()];
+  auto Zinv = init::Zinv::view::create(Zinv_data); 
+  auto sourceMatrix = init::ET::view::create(data.localIntegration.specific.sourceMatrix);
+  for(int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    Matrix Z(init::Z::Values);
+    if(i >= 10) {
+      for(int j = 0; j < CONVERGENCE_ORDER; j++) {
+        Z(j,j) = Z(j,j) - i_timeStepWidth * sourceMatrix(i,i);
+      }
+    }
+    auto solver = Z.colPivHouseholderQr();
+    for(int col = 0; col < CONVERGENCE_ORDER; col++) {
+      Vector rhs = Vector::Zero();
+      rhs(col) = 1.0;
+      auto Zinv_col = solver.solve(rhs);
+        for(int row = 0; row < CONVERGENCE_ORDER; row++) {
+          Zinv(i,row,col) = Zinv_col(row);
+      }
+    }
+  }
+
+  krnl.Zinv = Zinv_data;
   krnl.Q = const_cast<real*>(data.dofs);
   krnl.I = o_timeIntegrated;
   krnl.G = data.localIntegration.specific.sourceMatrix;

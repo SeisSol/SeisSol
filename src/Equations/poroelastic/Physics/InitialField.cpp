@@ -11,7 +11,7 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(seissol::model::Material material, double phase)
+seissol::physics::PoroelasticPlanarwave::PoroelasticPlanarwave(seissol::model::Material material, double phase)
   : m_setVar(2),
     m_kVec{3.14159265358979323846, 3.14159265358979323846, 3.14159265358979323846},
     m_phase(phase)
@@ -19,7 +19,7 @@ seissol::physics::Planarwave::Planarwave(seissol::model::Material material, doub
 
   std::cout << "material values: " << std::endl
   << "bulk_solid   = " << material.bulk_solid  << std::endl
-  << "rho_solid    = " << material.rho_solid  << std::endl
+  << "rho_solid    = " << material.rho  << std::endl
   << "lambda       = " << material.lambda  << std::endl
   << "mu           = " << material.mu  << std::endl
   << "porosity     = " << material.porosity  << std::endl
@@ -78,9 +78,10 @@ seissol::physics::Planarwave::Planarwave(seissol::model::Material material, doub
   }
 }
 
-void seissol::physics::Planarwave::evaluate(  double time,
-                                              std::vector<std::array<double, 3>> const& points,
-                                              yateto::DenseTensorView<2,double,unsigned>& dofsQP ) const
+void seissol::physics::PoroelasticPlanarwave::evaluate(double time,
+                                                       std::vector<std::array<double, 3>> const& points,
+                                                       const CellMaterialData& materialData,
+                                                       yateto::DenseTensorView<2,double,unsigned>& dofsQP) const
 {
   dofsQP.setZero();
 

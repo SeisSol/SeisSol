@@ -95,10 +95,11 @@ if cmdLineArgs.equations == 'elastic':
     adg = equations.ElasticADERDG(**cmdArgsDict)
 elif cmdLineArgs.equations == 'viscoelastic':
     adg = equations.ViscoelasticADERDG(**cmdArgsDict)
-else:
+elif cmdLineArgs.equations == 'viscoelastic2':
     adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
+else:
+    adg = equations.PoroelasticADERDG(**cmdArgsDict)
 
-include_tensors = set()
 include_tensors = set()
 g = Generator(arch)
 
@@ -115,6 +116,19 @@ Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMet
 NodalBoundaryConditions.addKernels(g, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
 SurfaceDisplacement.addKernels(g, adg)
 Point.addKernels(g, adg)
+
+# pick up the user's defined gemm tools
+gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
+generators = []
+
+for tool in gemm_tool_list:
+  if hasattr(gemm_configuration, tool):
+    specific_gemm_class = getattr(gemm_configuration, tool)
+    generators.append(specific_gemm_class(arch))
+  else:
+    print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
+          "Please, refer to the documentation".format(tool))
+    sys.exit("failure")
 
 # Generate code
 gemmTools = GeneratorCollection(generators)

@@ -59,60 +59,60 @@ void getTransposedCoefficientMatrix( seissol::model::Material const& material,
 {
   switch(dim){
     case 0:
-      AT(0,6) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(0,10) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
-      AT(3,7) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(3,11) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
-      AT(5,8) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(5,12) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
+      AT(0,6) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(0,10) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
+      AT(3,7) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(3,11) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
+      AT(5,8) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(5,12) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
       AT(6,0) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda - 2*material.mu;
       AT(6,1) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda;
       AT(6,2) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda;
       AT(6,9) = -material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(7,3) = -material.mu;
       AT(8,5) = -material.mu;
-      AT(9,6) = -material.porosity/(material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
-      AT(9,10) = -(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
+      AT(9,6) = -material.porosity/(material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
+      AT(9,10) = -(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
       AT(10,0) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(10,1) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(10,2) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(10,9) = 3*material.bulk_solid/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       break;
     case 1:
-      AT(1,7) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(1,11) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
-      AT(3,6) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(3,10) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
-      AT(4,8) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(4,12) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
+      AT(1,7) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(1,11) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
+      AT(3,6) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(3,10) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
+      AT(4,8) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(4,12) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
       AT(6,3) = -material.mu;
       AT(7,0) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda;
       AT(7,1) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda - 2*material.mu;
       AT(7,2) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda;
       AT(7,9) = -material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(8,4) = -material.mu;
-      AT(9,7) = -material.porosity/(material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
-      AT(9,11) = -(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
+      AT(9,7) = -material.porosity/(material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
+      AT(9,11) = -(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
       AT(11,0) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(11,1) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(11,2) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(11,9) = 3*material.bulk_solid/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       break;
     case 2:
-      AT(2,8) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(2,12) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
-      AT(4,7) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(4,11) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
-      AT(5,6) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1));
-      AT(5,10) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity);
+      AT(2,8) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(2,12) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
+      AT(4,7) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(4,11) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
+      AT(5,6) = -1/(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1));
+      AT(5,10) = -1/(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity);
       AT(6,5) = -material.mu;
       AT(7,4) = -material.mu;
       AT(8,0) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda;
       AT(8,1) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda;
       AT(8,2) = -1.0/3.0*material.bulk_solid*pow(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid, 2)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid) - material.lambda - 2*material.mu;
       AT(8,9) = -material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
-      AT(9,8) = -material.porosity/(material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
-      AT(9,12) = -(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
+      AT(9,8) = -material.porosity/(material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
+      AT(9,12) = -(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
       AT(12,0) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(12,1) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
       AT(12,2) = material.bulk_solid*(-3 + (3*material.lambda + 2*material.mu)/material.bulk_solid)/(3*material.porosity*(-1 + material.bulk_solid/material.bulk_fluid) + 3 - (3*material.lambda + 2*material.mu)/material.bulk_solid);
@@ -135,13 +135,13 @@ void seissol::model::getTransposedCoefficientMatrix( Material const& material,
 template<typename T>
 void getTransposedSourceCoefficientTensor(seissol::model::Material const& material, T& ET) {
   ET.setZero();
-  ET(10,10) = material.viscosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
-  ET(11,11) = material.viscosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
-  ET(12,12) = material.viscosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho_solid*(material.porosity - 1))/material.porosity));
+  ET(10,10) = material.viscosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
+  ET(11,11) = material.viscosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
+  ET(12,12) = material.viscosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/(material.permeability*material.rho_fluid*(material.rho_fluid - material.tortuosity*(material.porosity*material.rho_fluid - material.rho*(material.porosity - 1))/material.porosity));
 
-  ET(10,6) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
-  ET(11,7) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
-  ET(12,8) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho_solid*(material.porosity - 1)));
+  ET(10,6) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
+  ET(11,7) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
+  ET(12,8) = material.porosity*material.viscosity/(material.permeability*material.tortuosity*(material.porosity*material.rho_fluid - material.porosity*material.rho_fluid/material.tortuosity - material.rho*(material.porosity - 1)));
 }
 
 void seissol::model::getPlaneWaveOperator(  Material const& material,
@@ -176,7 +176,7 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
 
 void seissol::model::getTransposedGodunovState( Material const&                   local,
                                                 Material const&                   neighbor,
-                                                enum ::faceType                   faceType,
+                                                FaceType                          faceType,
                                                 init::QgodLocal::view::type&      QgodLocal,
                                                 init::QgodNeighbor::view::type&   QgodNeighbor )
 {
@@ -240,7 +240,7 @@ void seissol::model::getTransposedGodunovState( Material const&                 
     QgodNeighbor(i,i) = 0.5;
   }*/
 
-  if(faceType == freeSurface)
+  if(faceType == FaceType::freeSurface)
     throw std::runtime_error("Free Surface boundary not implemented");
 }
 
@@ -250,7 +250,7 @@ void seissol::model::setMaterial( double* i_materialVal,
 {
   assert(i_numMaterialVals == 10);
   o_material->bulk_solid = i_materialVal[0];
-  o_material->rho_solid = i_materialVal[1]; 
+  o_material->rho = i_materialVal[1]; 
   o_material->lambda = i_materialVal[2];    
   o_material->mu = i_materialVal[3];
   o_material->porosity = i_materialVal[4]; 

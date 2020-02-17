@@ -47,7 +47,7 @@ namespace seissol {
   namespace model {
     struct Material{
       real bulk_solid;
-      real rho_solid;
+      real rho;
       real lambda;
       real mu;
       real porosity;
