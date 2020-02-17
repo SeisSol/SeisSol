@@ -6,7 +6,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 # @section LICENSE
-# Copyright (c) 2016-2018, SeisSol Group
+# Copyright (c) 2016-2019, SeisSol Group
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -42,10 +42,10 @@ import numpy as np
 from yateto import Tensor
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
-from aderdg import ADERDGStandard
+from aderdg import LinearADERDG
 
-class ADERDG(ADERDGStandard):
-  def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms):
+class ViscoelasticADERDG(LinearADERDG):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout, numberOfMechanisms, **kwargs):
     self.numberOfMechanisms = numberOfMechanisms
     self.numberOfElasticQuantities = 9
 
@@ -60,6 +60,8 @@ class ADERDG(ADERDGStandard):
     aniso_cols = star_cols - self.numberOfElasticQuantities
     star_spp_new = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
     star_spp_new[0:star_rows,0:star_cols] = star_spp
+    ''' The last 6 columns of star_spp contain the prototype sparsity pattern for
+        a mechanism. Therefore, the spp is repeated for every mechanism. '''
     for mech in range(1,numberOfMechanisms):
       offset0 = self.numberOfElasticQuantities
       offsetm = self.numberOfElasticQuantities + mech*aniso_cols
@@ -69,6 +71,9 @@ class ADERDG(ADERDGStandard):
 
     source_spp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool)
     ET_spp = self.db['ET'].spp().as_ndarray()
+    ''' ET is a prototype sparsity pattern for a mechanism. Therefore, repeated for every
+        mechanism. See Kaeser and Dumbser 2006, III. Viscoelastic attenuation.
+    '''
     for mech in range(numberOfMechanisms):
       offset = self.numberOfElasticQuantities + mech*aniso_cols
       r = slice(offset, offset+aniso_cols)
@@ -80,9 +85,6 @@ class ADERDG(ADERDGStandard):
 
   def numberOfQuantities(self):
     return 9 + 6*self.numberOfMechanisms
-
-  def numberOfExtendedQuantities(self):
-    return self.numberOfQuantities()
 
   def starMatrix(self, dim):
     return self.db.star[dim]

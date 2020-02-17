@@ -42,13 +42,15 @@ import argparse
 import importlib.util
 import inspect
 
-from yateto import useArchitectureIdentifiedBy, Generator
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM 
+from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
+from yateto import gemm_configuration
+from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS
 
 import DynamicRupture
 import Plasticity
 import SurfaceDisplacement
 import Point
+import NodalBoundaryConditions
 import memlayout
 
 cmdLineParser = argparse.ArgumentParser()
@@ -62,6 +64,7 @@ cmdLineParser.add_argument('--memLayout')
 cmdLineParser.add_argument('--multipleSimulations', type=int)
 cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
+cmdLineParser.add_argument('--gemm_tools')
 cmdLineArgs = cmdLineParser.parse_args()
 
 if cmdLineArgs.memLayout == 'auto':
@@ -85,13 +88,17 @@ try:
 except:
   raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
 
-adgArgs = inspect.getargspec(equations.ADERDG.__init__).args[1:]
 cmdArgsDict = vars(cmdLineArgs)
 cmdArgsDict['memLayout'] = mem_layout
-args = [cmdArgsDict[key] for key in adgArgs]
-print(equations)
-adg = equations.ADERDG(*args)
 
+if cmdLineArgs.equations == 'elastic':
+    adg = equations.ElasticADERDG(**cmdArgsDict)
+elif cmdLineArgs.equations == 'viscoelastic':
+    adg = equations.ViscoelasticADERDG(**cmdArgsDict)
+else:
+    adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
+
+include_tensors = set()
 include_tensors = set()
 g = Generator(arch)
 
@@ -100,14 +107,18 @@ adg.addInit(g)
 adg.addLocal(g)
 adg.addNeighbor(g)
 adg.addTime(g)
-adg.addIncludeTensors(include_tensors)
+adg.add_include_tensors(include_tensors)
 
 # Common kernels
-DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
+include_tensors |= DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod)
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
+NodalBoundaryConditions.addKernels(g, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
 SurfaceDisplacement.addKernels(g, adg)
 Point.addKernels(g, adg)
 
 # Generate code
-gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
-g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools, include_tensors=include_tensors)
+gemmTools = GeneratorCollection(generators)
+g.generate(outputDir=cmdLineArgs.outputDir,
+           namespace='seissol',
+           gemm_cfg=gemmTools,
+           include_tensors=include_tensors)

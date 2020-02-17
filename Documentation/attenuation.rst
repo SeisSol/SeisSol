@@ -5,12 +5,11 @@ Introduction
 ------------
 
 -  Q is measuring the decay of wave amplitude during its propagation in
-   the medium and is physically defined as the ratio of wave energy to
-   the energy dissipated per cycle of oscillation.
--  The actual dissipation mechanisms, as scattering,heat generation,
+   the medium and is physically defined as the ratio of wave energy to the energy dissipated per cycle of oscillation.
+-  The actual dissipation mechanisms, as scattering, heat generation,
    frictional losses in the vibrating crystal lattice, etc., "causing Q"
    can be manifold and do not have to follow similar physics.
--  Q is not very frequency dependent over a large range of (lower)
+-  Q is not very frequency-dependent over a large range of (lower)
    frequencies but observations are ambiguous at higher frequencies.
 -  Common choices are :math:`Q_s \sim 0.5 Q_p` and :math:`Q_s \sim 40-50V_s` (in km/s) (e.g.
    Olsen et al., 2009). :math:`Q_s = 100-200` for shallow sediments.
@@ -25,15 +24,14 @@ Implementation
    Maxwell or Zener body.
 -  Each damping mechanism can be parametrized by its own relaxation
    frequency.
--  It aims at resolving a frequency independent Q with an adequate
-   number of anelastic functions and relaxation frequencies to cover the
-   frequency range under interest. Usually, 3 Maxwell bodies is enough
-   for 5% error.
+-  It aims at resolving a frequency-independent Q with an adequate
+   number of anelastic functions and relaxation frequencies to cover the frequency range under interest. 
+   Usually, 3 Maxwell bodies are enough for 5% error.
 
 Stability with Local time stepping
 ----------------------------------
 
-To ensure stability of SeisSol using attenuation and local time stepping (LTS),
+To ensure the stability of SeisSol using attenuation and local time-stepping (LTS),
 it seems necessary to limit the number of clusters of the local time stepping.
 Else, very large elements, rarely updated by the LTS, get unstable.
 This can be achieved by using the following patch, which in most cases should not affect the LTS speed-up.
@@ -73,7 +71,7 @@ This can be achieved by using the following patch, which in most cases should no
 l_id_max, the maximum cluster id, is here hardcoded to 6. 
 This probably depends on the minimum mesh size and the order of accuracy used.
 The higher the order and the smaller the minimum mesh size, the larger l_id_max.
-As we did not investigate in detail the dependance of l_id_max with the simulation order and the minimum mesh size, we did not include the patch in the master branch yet.
+As we did not investigate in detail the dependence of l_id_max with the simulation order and the minimum mesh size, we did not include the patch in the master branch yet.
 
 Compiling
 ---------
@@ -91,6 +89,8 @@ by
 
    equations = 'viscoelastic2'
    numberOfMechanisms = 3
+
+Note that the equations='viscoelastic' is operational but deprecated.
 
 Dispersion
 ----------
@@ -139,7 +139,7 @@ FreqCentral and FreqRatio
 
 | :math:`log(w_{i+1})-log(w_i) =` constant. 
 
-In the parameter file one has to give a frequency ratio of maximum to minimum frequency and a central frequency. 
+In the parameter file, one has to give a frequency ratio of maximum to minimum frequency and a central frequency. 
 For example, in the case of 3 mechanisms the following relations define the relaxation frequencies:
 
 | :math:`w_2 = FreqCentral`  
@@ -149,5 +149,5 @@ For example, in the case of 3 mechanisms the following relations define the rela
 | :math:`w_3 / w_1 = FreqRatio`  
 
 Outside of the frequency band :math:`w_1 - w_3`, Q goes to infinity, yielding
-elastic behaviour.
+elastic behavior.
 

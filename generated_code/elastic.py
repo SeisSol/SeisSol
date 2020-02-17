@@ -40,22 +40,25 @@
   
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
-from aderdg import ADERDGStandard
+from aderdg import LinearADERDG
 
-class ADERDG(ADERDGStandard):
-  def __init__(self, order, multipleSimulations, matricesDir, memLayout):
+class ElasticADERDG(LinearADERDG):
+  def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
     super().__init__(order, multipleSimulations, matricesDir)
     clones = {
       'star': ['star(0)', 'star(1)', 'star(2)'],
     }
-    self.db.update( parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones) )
+    self.db.update(
+      parseXMLMatrixFile('{}/star.xml'.format(matricesDir), clones)
+    )
+
     memoryLayoutFromFile(memLayout, self.db, clones)
 
   def numberOfQuantities(self):
     return 9
 
-  def numberOfExtendedQuantities(self):
-    return self.numberOfQuantities()
-
   def starMatrix(self, dim):
     return self.db.star[dim]
+
+  def addLocal(self, generator):
+    super().addLocal(generator)

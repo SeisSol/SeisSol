@@ -38,8 +38,10 @@
 # @section DESCRIPTION
 #
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+
 import os
 import copy
 
@@ -85,7 +87,7 @@ class Navigation(QWidget):
 
   def selectFolder(self):
     folder = QFileDialog.getExistingDirectory(self, 'Open directory', self.currentFolder, QFileDialog.ShowDirsOnly)
-    if not folder.isEmpty():
+    if not folder=='':
       folder = str(folder)
       self.readFolder(folder)
       self.folderChanged.emit(self.currentFolder, folder)
@@ -116,7 +118,7 @@ class Navigation(QWidget):
   def getActiveWaveforms(self):      
     waveforms = []
     for index in self.receiverList.selectedIndexes():
-      wf = self.model.itemFromIndex(index).data().toPyObject()
+      wf = self.model.itemFromIndex(index).data()
       waveforms.append( copy.deepcopy(wf) )
     return waveforms
     

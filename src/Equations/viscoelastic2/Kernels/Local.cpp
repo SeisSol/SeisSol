@@ -69,10 +69,14 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   m_localKernelPrototype.selectAne = init::selectAne::Values;
 }
 
-void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                                LocalData& data,
-                                                LocalTmp&  tmp )
-{
+void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                              LocalData& data,
+                                              LocalTmp& tmp,
+                                              // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                                              const CellMaterialData* materialData,
+                                              CellBoundaryMapping const (*cellBoundaryMapping)[4],
+                                              double time,
+                                              double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
   assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
@@ -99,7 +103,7 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
   
   for( unsigned int face = 0; face < 4; ++face ) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( data.cellInformation.faceTypes[face] != dynamicRupture ) {
+    if( data.cellInformation.faceTypes[face] != FaceType::dynamicRupture ) {
       lfKrnl.AplusT = data.localIntegration.nApNm1[face];
       lfKrnl.execute(face);
     }
@@ -117,15 +121,15 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
   lKrnl.execute();
 }
 
-void seissol::kernels::Local::flopsIntegral(  enum faceType const i_faceTypes[4],
-                                              unsigned int        &o_nonZeroFlops,
-                                              unsigned int        &o_hardwareFlops )
+void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
+                                            unsigned int &o_nonZeroFlops,
+                                            unsigned int &o_hardwareFlops )
 {
   o_nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
   o_hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
 
   for( unsigned int face = 0; face < 4; ++face ) {
-    if( i_faceTypes[face] != dynamicRupture ) {
+    if (i_faceTypes[face] != FaceType::dynamicRupture) {
       o_nonZeroFlops  += seissol::kernel::localFluxExt::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
     }

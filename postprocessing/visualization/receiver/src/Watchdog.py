@@ -38,7 +38,7 @@
 # @section DESCRIPTION
 #
 
-from PyQt4.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal
 
 class Watchdog(QThread):
 	fileChanged = pyqtSignal(name='fileChanged')

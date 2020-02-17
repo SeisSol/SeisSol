@@ -4,8 +4,8 @@ Wave field output
 Introduction
 ------------
 
-The wavefield can be written in a hdf5 file, in order to visualize it in
-paraview. To speed-up the process, it is recommanded to dedicate a few
+The wavefield can be written in an hdf5 file, in order to visualize it in
+ParaView. To speed up the process, it is recommended to dedicate a few
 nodes to the writing tasks (see :ref:`asynchronous-output`).
 
 Refinement
@@ -13,18 +13,18 @@ Refinement
 
 | 0 (default): Refinement is disabled, i.e. only one cell is outputted
   for each element.
-| 1: Refinement strategy is Face Extraction : 4 subcells per cell
-| 2: Refinement strategy is Equal Face Area : 8 subcells per cell
-| 3: Refinement strategy is Equal Face Area and Face Extraction : 32
+| 1: Refinement strategy is Face Extraction: 4 subcells per cell
+| 2: Refinement strategy is Equal Face Area: 8 subcells per cell
+| 3: Refinement strategy is Equal Face Area and Face Extraction: 32
   subcells per cell
-| The unknowns are always evaluated at the centre of the subcell.
+| The unknowns are always evaluated at the center of the subcell.
 
 .. _wavefield-iouputmask:
 
 iOutputMask
 -----------
 
-iOutputMask allow visualizing only part of the unknown. The stress
+iOutputMask allows visualizing only part of the unknown. The stress
 tensor (6), the velocities (3), the plastic strain tensor (6) and the
 accumulated plastic strain eta, can be switched off or on by changing
 the corresponding bit in the iOutputMask array.
@@ -44,7 +44,7 @@ format:
 Example
 -------
 
-| Here is an example of wavefield output parametrisation:
+| Here is an example of wavefield output parametrization:
 
 .. code-block:: Fortran
 

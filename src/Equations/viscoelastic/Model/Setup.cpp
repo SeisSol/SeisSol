@@ -85,7 +85,7 @@ void getTransposedSourceCoefficientTensor( seissol::model::Material const& mater
   //       | E_L^T |
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     unsigned offset = 9 + mech * 6;
-    real const* theta = material.theta[mech];
+    double const* theta = material.theta[mech];
     sourceMatrix(offset,     0) = theta[0];
     sourceMatrix(offset + 1, 0) = theta[1];
     sourceMatrix(offset + 2, 0) = theta[1];
@@ -109,29 +109,35 @@ void getTransposedSourceCoefficientTensor( seissol::model::Material const& mater
   }
 }
 
-void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
-                                                     unsigned        i_dim,
-                                                     init::star::view<0>::type& AT )
+template<typename T>
+void getTransposedCoefficientMatrix(seissol::model::Material const& material, unsigned dim, T& AT)
 {
-  seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, AT);
+  seissol::model::getTransposedElasticCoefficientMatrix(material, dim, AT);
 
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    getTransposedViscoelasticCoefficientMatrix( i_material.omega[mech],
-                                                i_dim,
+    getTransposedViscoelasticCoefficientMatrix( material.omega[mech],
+                                                dim,
                                                 mech,
                                                 AT );
   }
 }
 
+void seissol::model::getTransposedCoefficientMatrix( Material const& i_material,
+                                                     unsigned        i_dim,
+                                                     init::star::view<0>::type& AT )
+{
+  ::getTransposedCoefficientMatrix(i_material, i_dim, AT);
+}
+
 void seissol::model::getPlaneWaveOperator(  Material const& material,
                                             double const n[3],
-                                            std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+                                            std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
 {
-  yateto::DenseTensorView<2,std::complex<real>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   M.setZero();
 
-  real data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  yateto::DenseTensorView<2,real> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  double data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  yateto::DenseTensorView<2,double> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
 
   for (unsigned d = 0; d < 3; ++d) {
     Coeff.setZero();
@@ -148,16 +154,16 @@ void seissol::model::getPlaneWaveOperator(  Material const& material,
 
   for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
     for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-      M(i,j) -= std::complex<real>(0.0, Coeff(j,i));
+      M(i,j) -= std::complex<double>(0.0, Coeff(j,i));
     }
   }
 }
 
-void seissol::model::getTransposedGodunovState( Material const&                   local,
-                                                Material const&                   neighbor,
-                                                enum ::faceType                   faceType,
-                                                init::QgodLocal::view::type&      QgodLocal,
-                                                init::QgodNeighbor::view::type&   QgodNeighbor )
+void seissol::model::getTransposedGodunovState(Material const& local,
+                                               Material const& neighbor,
+                                               FaceType faceType,
+                                               init::QgodLocal::view::type& QgodLocal,
+                                               init::QgodNeighbor::view::type& QgodNeighbor)
 {
   seissol::model::getTransposedElasticGodunovState(local, neighbor, faceType, QgodLocal, QgodNeighbor);
 }
@@ -197,7 +203,7 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
   
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    unsigned origin = 9 + mech * 6;
+    unsigned const origin = 9 + mech * 6;
     seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
     seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
   }

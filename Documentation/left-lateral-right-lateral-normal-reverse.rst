@@ -21,7 +21,7 @@ the strike vector **s** points to left, we have a left-lateral motion
 where **u** is the unit vector which points up (e.g. (0,0,1) for *enu*
 or (0,0,-1) for *ned*).
 
-In SeisSol, the strike vector is (not normalised)
+In SeisSol, the strike vector is (not normalized)
 
 :math:`s:=(-e_3)\times n`
 
@@ -39,14 +39,14 @@ wall and the fault is known as *reverse*. (...) the opposite happens and
 the fault is said to be *normal*." [J. Pujol, Elastic Wave Propagation
 and Generation in Seismology]
 
-In SeisSol, the dip vector is (not normalised)
+In SeisSol, the dip vector is (not normalized)
 
 
 :math:`d:=n\times s=n\times(-e_3\times n)=-e_3+n_zn`
 
 We used Grassmann's Identity for the last step. In particular, we
 observe that the dip vector **d** is independent of the reference point,
-as we obtain the same vector for -**n** and, as **n** is normalised and
+as we obtain the same vector for -**n** and, as **n** is normalized and
 
 :math:`d_z:=-e_3+n_z^2`,
 

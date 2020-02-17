@@ -9,11 +9,10 @@ verifying numerical modeling methods in seismology. Numerical-method
 developers and numerical modelers may compare their solutions with other
 solutions. SISMOWINE is a continuation of the original SPICE Code
 Validation interface established within the 6th Framework Programme
-project .
+project.
 
 LOH1 is used as an example here to illustrate the implementation of
-source point for earthquake nucleation in SeisSol. The details of LOH1
-model can also be found at .
+source point for earthquake nucleation in SeisSol. The details of the LOH1 model can also be found at .
 
 The model uses Right-handed Cartesian, x positive North, y positive
 East, z positive downward, all coordinates in meters. The source is
@@ -29,18 +28,18 @@ are listed in Table [table:loh1].
 | half-space   | 6000       | 3464      | 2700      | Inf   | Inf   |
 +--------------+------------+-----------+-----------+-------+-------+
 
-Table: Material properties in LOH1 .
+Table: Material properties in LOH1.
 
 .. figure:: LatexFigures/LOH1.jpg
    :alt: Geometry of LOH1 .
    :width: 11.00000cm
 
-   Geometry of LOH1 .
+   Geometry of LOH1.
 
 Geometry
 ~~~~~~~~
 
-The mesh is generate using Gmsh.
+The mesh is generated using Gmsh.
 
 .. figure:: LatexFigures/loh1_mesh.png
    :alt: Geometry of LOH1 model (Gmsh)

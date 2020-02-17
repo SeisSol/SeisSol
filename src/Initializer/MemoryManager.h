@@ -83,6 +83,8 @@
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <Initializer/Boundary.h>
+#include <Initializer/ParameterDB.h>
 
 namespace seissol {
   namespace initializers {
@@ -155,6 +157,11 @@ class seissol::initializers::MemoryManager {
     LTSTree               m_dynRupTree;
     DynamicRupture        m_dynRup;
 
+    LTSTree m_boundaryTree;
+    Boundary m_boundary;
+
+    EasiBoundary m_easiBoundary;
+
     /**
      * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
      **/
@@ -222,11 +229,12 @@ class seissol::initializers::MemoryManager {
      *
      * @param i_meshStructrue mesh structure.
      **/
-    void fixateLtsTree( struct TimeStepping&        i_timeStepping,
-                        struct MeshStructure*       i_meshStructure,
-                        unsigned*                   numberOfDRCopyFaces,
-                        unsigned*                   numberOfDRInteriorFaces );
+    void fixateLtsTree(struct TimeStepping& i_timeStepping,
+                       struct MeshStructure*i_meshStructure,
+                       unsigned* numberOfDRCopyFaces,
+                       unsigned* numberOfDRInteriorFaces);
 
+    void fixateBoundaryLtsTree();
     /**
      * Set up the internal structure.
      *
@@ -269,6 +277,28 @@ class seissol::initializers::MemoryManager {
     inline DynamicRupture* getDynamicRupture() {
       return &m_dynRup;
     }
+
+    inline LTSTree* getBoundaryTree() {
+      return &m_boundaryTree;
+    }
+
+    inline Boundary* getBoundary() {
+      return &m_boundary;
+    }
+
+    void initializeEasiBoundaryReader(const char* fileName);
+
+    inline EasiBoundary* getEasiBoundaryReader() {
+      return &m_easiBoundary;
+    }
 };
+
+
+namespace seissol {
+    namespace initializers {
+        bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
+        bool requiresNodalFlux(FaceType f);
+    }
+}
 
 #endif

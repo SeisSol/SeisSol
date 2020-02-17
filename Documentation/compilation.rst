@@ -15,8 +15,8 @@ In order to run SeisSol, you need to first install:
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
 -  CMake (for compiling submodules ImpalaJIT and yaml-cpp)
 
-Inital Adjustments to .bashrc
------------------------------
+Initial Adjustments to .bashrc
+------------------------------
 
 Add the following lines to your .bashrc (vi ~/.bashrc).
 
@@ -32,7 +32,7 @@ Add the following lines to your .bashrc (vi ~/.bashrc).
   export EDITOR=vi
   export CPATH=$HOME/include:$CPATH 
 
-  # run "exec bash" or "source ~/.bashrc" to apply environment to current shell
+  # run "exec bash" or "source ~/.bashrc" to apply environment to the current shell
 
 Installing SCons
 ----------------
@@ -87,8 +87,11 @@ Installing Libxsmm
    cp bin/libxsmm_gemm_generator $HOME/bin
    cd ..
 
+.. _installing_pspamm:
+
 Installing PSpaMM
 -----------------
+
 
 .. code-block:: bash
 
@@ -111,7 +114,7 @@ Installing ParMetis (Optional: PUML mesh format)
   cd ..
 
 (Make sure $HOME/include contains metis.h and $HOME/lib contains
-libmetis.a. Ortherwise, compile error: cannot find parmetis.)
+libmetis.a. Otherwise, compile error: cannot find parmetis.)
 
 
 Installing ASAGI (Optional)

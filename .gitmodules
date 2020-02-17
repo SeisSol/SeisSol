@@ -37,3 +37,4 @@
 [submodule "submodules/eigen3"]
 	path = submodules/eigen3
 	url = ../../eigenteam/eigen-git-mirror
+

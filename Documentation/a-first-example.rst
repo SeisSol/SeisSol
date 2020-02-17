@@ -13,7 +13,7 @@ with the options ``parallelization=hybrid`` and ``generatedKernels=yes``
 Setup
 -----
 
--  Follow the steps 1. - 3. from the [[configuration
+-  Follow steps 1. - 3. from the [[configuration
    documentation|configuration]].
 -  Download the `parameter file and additional setup
    files <https://github.com/SeisSol/Examples/tree/master/tpv33>`__ and
@@ -40,22 +40,15 @@ Execution
 ---------
 
 To execute SeisSol, change to the ``launch_SeisSol`` directory and run:
-``OMP_NUM_THREADS=<threads> mpiexec  -np <n> ./SeisSol_<configuration> parameters_<branch>.par``,
+``OMP_NUM_THREADS=<threads> mpiexec  -np <n> ./SeisSol_<configuration> parameters_master.par``,
 where:
 
 -  ``<configuration>`` depends on your compilation setting (e.g.
    SeisSol_release_generatedKernels_dsnb_hybrid_none_9_4 for a Sandy
    Bridge architecture and order 4 accuracy in space and time).
--  ``<n>`` is the number of processes/ the number of partition used.
+-  ``<n>`` is the number of processes/ the number of partitions used.
 -  ``<threads>`` is the number of OpenMP threads per process (we usually
    use the number of CPU per core).
--  ``<branch>`` here we provide 2 parameters files, for the master and
-   the hardcoded_ini branch. We recommend to use the master branch. The
-   master branch relies on easi parameter files (\*.yaml files) for
-   setting up some of the simulations properties. On the other hand, the
-   hardcoded_ini branch call FORTRAN routines hardcoded in SeisSol to
-   set the material and fault properties (in src/Physics/ ini_model.f90
-   and ini_model_DR.f90).
 
 **Hint:** Depending on the system you are using, the MPI launcher might
 be different from ``mpiexec`` (e.g. ``mpiexec.hydra``).

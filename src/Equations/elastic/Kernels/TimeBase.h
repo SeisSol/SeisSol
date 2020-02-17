@@ -81,6 +81,16 @@ namespace seissol {
 
 class seissol::kernels::TimeBase {
   protected:
+    kernel::derivative m_krnlPrototype;
+    kernel::displacementAvgNodal displacementAvgNodalPrototype;
+    unsigned int m_derivativesOffsets[CONVERGENCE_ORDER];
+
+  public:
+    /**
+     * Constructor, which initializes the time kernel.
+     **/
+    TimeBase();
+
     /*
      *! Offsets of the derivatives.
      *
@@ -97,11 +107,6 @@ class seissol::kernels::TimeBase {
     kernel::derivative m_krnlPrototype;
 #endif
 
-  public:
-    /**
-     * Constructor, which initializes the time kernel.
-     **/
-    TimeBase();
 };
 
 #endif

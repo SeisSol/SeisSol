@@ -7,7 +7,7 @@ Introduction
 `Gmsh <http://gmsh.info/>`_ is an open-source
 mesher, able to generate quality meshes for not too complex models.
 Contrary to SimModeler, it can build geometric models from scratch. It
-is particularly useful for simple idealised models, e.g. planar fault,
+is particularly useful for simple idealized models, e.g. planar fault,
 no topography. Two examples of model generation using Gmsh are provided
 at this `link <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing/gmsh_example>`_.
 The purpose of this tutorial is not to explain all functions of gmsh,
@@ -33,7 +33,7 @@ Boundary conditions
 The free-surface (resp. dynamic rupture, resp. absorbing) boundary
 conditions are set using Physical Surfaces 101 (resp. 103, resp. 105). 
 The volumes should also be put into Physical Volume to be exported into
-the mesh.Here is an example from tpv33:
+the mesh. Here is an example from tpv33:
 
 .. code-block:: bash
 
@@ -68,21 +68,18 @@ gmsh to SimModeler
 ------------------
 
 | It is possible to create the geometry with gmsh and then mesh it with
-  SimModeler. A way of doing so it to put all surfaces of the model in a
-  "physical surface", mesh them (-2) and output them to a stl file (e.g.
-  -o test.stl). Then the stl file can be opened with SimModeler and the
-  mesh can be generated.
+  SimModeler. A way of doing so is to put all surfaces of the model in a
+  "physical surface", mesh them (-2) and output them to an stl file (e.g.
+  -o test.stl). Then the stl file can be opened with SimModeler and the mesh can be generated.
 | If SimModeler merges some features of the geometry, it is then
-  necessary to isolate the features in different stl files (i.e. running
-  several times ``gmsh ___.geo -2 -o ___.stl`` with different surfaces
-  listed in the physical surface listing). Then the solid name attribute
-  of the stl files have to be modified. Finally, the stl files can be
+  necessary to isolate the features in different stl files (i.e. running several times ``gmsh ___.geo -2 -o ___.stl`` with different surfaces listed in the physical surface listing). 
+  Then the solid name attribute of the stl files has to be modified. Finally, the stl files can be
   merged into a single stl file, to be opened in SimModeler.
 
 mirroring a mesh
 ----------------
 
-In order to get a maximum accuracy, it is sometimes necessary (e.g. for
+In order to get maximum accuracy, it is sometimes necessary (e.g. for
 benchmarks) to mirror a mesh. To get a mirrored mesh, a half mesh is
 first generated. The half mesh is then converted to PUML format
 using PUMGen (if not already in this format). Finally, this
@@ -96,25 +93,25 @@ The roughed fault interface model is generated with Gmsh is complicated
 than planar faults in previous sections. There are 5 steps to generate
 the model.
 
-1.Create topography data . The format is following:
+1.Create topography data. The format is the following:
   
 ::
   
    Line 1: num_x, num_y
    Line 2 to nx: positions of nodes along the strike (in meters)
    Line nx+3 to ny+nx+3: positions of nodes along the downdip (in meters)
-   Line to the end: topography of each nodes (nx\*ny, in meters)
+   Line to the end: the topography of each node (nx\*ny, in meters)
    
 
 Save this file as *mytopo.dat*.
 
-2.Make a model with plane surface first (step1.geo).
+2.Make a model with a plane surface first (step1.geo).
 
 ::
 
     cl = 1;
 
-    // This file builds a rectanuglar box domain region which is exactly the same as topographic data.
+    // This file builds a rectangular box domain region which is exactly the same as topographic data.
 
     level = 0.0; // horizontal elevation
     region = 220; // range in meter
@@ -193,10 +190,10 @@ The format of interpol_topo.in is following:
   / ! end of data
   
 
-This will generate a step1\_modified.msh file which containing topography. Load this in Gmsh to double check.
+This will generate a step1\_modified.msh file containing topography. Load this in Gmsh to double-check.
 
 4.Make a new step2.geo file that contains the topography and mesh
-follow general GMSH process.
+follow the general GMSH process.
 
 The format of step2.geo is following:
 

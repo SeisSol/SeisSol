@@ -66,6 +66,17 @@ def ConfigurationError(msg):
     print(msg)
     Exit(1)
 
+def DeprecatedWarning(option, msg):
+  if not helpMode:
+    option_str = '** Deprecated option: {}'.format(option)
+    msg_str = '** {}'.format(msg)
+    star_len = max(len(option_str), len(msg_str))
+    stars = '*' * star_len
+    print(stars)
+    print(option_str)
+    print(msg_str)
+    print(stars)
+
 #
 # set possible variables
 #
@@ -161,6 +172,12 @@ vars.AddVariables(
                 'choose between two plasticity methods, nodal one in general faster',
                 'nb',
                 allowed_values=('ip', 'nb')
+              ),
+  
+  EnumVariable( 'GemmTools',
+                'choose a gemm tool(s) for the code generator',
+                'LIBXSMM,PSpaMM',
+                 allowed_values=('LIBXSMM,PSpaMM', 'LIBXSMM', 'MKL', 'OpenBLAS', 'BLIS')
               )
 )
 
@@ -250,6 +267,10 @@ if env['equations'].startswith('viscoelastic'):
     ConfigurationError("*** Number of mechanisms not set.")
 elif env['numberOfMechanisms'] != '0':
   ConfigurationError("*** Number of mechanisms must be 0 for elastic equations.")
+
+if env['equations'] == 'viscoelastic':
+  DeprecatedWarning('viscoelastic', 'Please use viscoelastic2.')
+
 
 if int(env['multipleSimulations']) != 1 and int(env['multipleSimulations']) % arch.getAlignedReals(env['arch']) != 0:
   ConfigurationError("*** multipleSimulations must be a multiple of {}.".format(arch.getAlignedReals(env['arch'])))
@@ -455,8 +476,7 @@ env.Append(CXXFLAGS=['-std=c++11'])
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
-if env['equations'] in ['elastic', 'viscoelastic', 'viscoelastic2', 'poroelastic']:
-  env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
+env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 
 if int(env['multipleSimulations']) > 1:
   env.Append(CPPDEFINES=['MULTIPLE_SIMULATIONS={}'.format(env['multipleSimulations'])])
@@ -527,7 +547,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include','#/submodules/eigen3'] )
 
 #
 # add libraries

@@ -58,7 +58,7 @@ namespace writer
 
 struct FaultInitParam
 {
-	static const unsigned int OUTPUT_MASK_SIZE = 18;
+	static const unsigned int OUTPUT_MASK_SIZE = 20;
 
 	bool outputMask[OUTPUT_MASK_SIZE];
 	int timestep;
