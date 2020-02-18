@@ -274,6 +274,7 @@ CONTAINS
     REAL    :: Tnuc, Gnuc, eta
     REAL    :: xV(4), yV(4), zV(4)
     REAL    :: xab(3), xac(3), grad2d(2,2), JacobiT2d(2,2)
+    REAL    :: NucleationStressXYZ(1:6), NucleationStressLocalCS(1:6)
     REAL, ALLOCATABLE  :: projected_RT(:)
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiElem_ptr ! no: it's not a pointer..
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiNeigh_ptr ! no pointer again
@@ -550,12 +551,29 @@ CONTAINS
               DynRup_output%OutVal(iOutPoints,1,OutVars) = LocSV !OutVars =8
           ENDIF
           IF (DynRup_output%OutputMask(5).EQ.1) THEN
+
+              !add transient nucleation stress to fault output
+              IF (EQN%FL.EQ.103) THEN
+                 NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%NucleationStressInFaultCS(iBndGP,:,iFace))
+                 Tnuc = DISC%DynRup%t_0
+                 IF (time.LE.0) THEN
+                    Gnuc = 0d0
+                 ELSEIF (time.LT.Tnuc) THEN
+                    Gnuc = exp((time-Tnuc)**2/(time*(time-2*Tnuc)))
+                 ELSE
+                    Gnuc = 1d0
+                 ENDIF
+                 NucleationStressLocalCS = MATMUL(rotmat, NucleationStressXYZ)*Gnuc
+              ELSE
+                 NucleationStressLocalCS(:) = 0d0
+              ENDIF
+
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(4)+DISC%DynRup%DynRup_Constants(iOutPoints)%ts0 !OutVars =9
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(4)+DISC%DynRup%DynRup_Constants(iOutPoints)%ts0 + NucleationStressLocalCS(4) !OutVars =9
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6)+DISC%DynRup%DynRup_Constants(iOutPoints)%td0 !OutVars =10
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6)+DISC%DynRup%DynRup_Constants(iOutPoints)%td0 + NucleationStressLocalCS(6) !OutVars =10
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 - P_f !OutVars =11
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 - P_f + NucleationStressLocalCS(1)!OutVars =11
           ENDIF
 
               IF (DynRup_output%OutputMask(6).EQ.1) THEN
