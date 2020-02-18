@@ -12,7 +12,7 @@
 extern seissol::Interoperability e_interoperability;
 
 seissol::physics::PoroelasticPlanarwave::PoroelasticPlanarwave(seissol::model::Material material, double phase)
-  : m_setVar(2),
+  : m_setVar(3),
     m_kVec{3.14159265358979323846, 3.14159265358979323846, 3.14159265358979323846},
     m_phase(phase)
 {
@@ -51,12 +51,12 @@ seissol::physics::PoroelasticPlanarwave::PoroelasticPlanarwave(seissol::model::M
       return eigenvalues[a].real() < eigenvalues[b].real();
       });
 
-  // Select S-wave in opposite direction (1) and P-wave along direction (last)
-  std::array<size_t, 2> selectVars = {1, NUMBER_OF_QUANTITIES-1};
+  // Select S-wave and slow P-wave in opposite direction (1, 3) and P-wave along direction (last)
+  std::array<size_t, 3> selectVars = {1, 3, NUMBER_OF_QUANTITIES-1};
   assert(m_setVar == selectVars.size());
   for (int i = 0; i < m_setVar; i++) {
     m_varField.push_back(selectVars[i]);
-    m_ampField.push_back(1.0);
+    m_ampField.push_back(100.0);
   }
 
 //  using Vector = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, 1, Eigen::ColMajor>;
