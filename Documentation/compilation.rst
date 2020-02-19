@@ -64,7 +64,7 @@ Installing netCDF
 
 .. code-block:: bash
 
-  wget ftp://ftp.unidata.ucar.edu/pub/netcdf/netcdf-4.6.1.tar.gz
+  wget https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
   tar -xaf netcdf-4.6.1.tar.gz
   cd netcdf-4.6.1
   CFLAGS="-fPIC ${CFLAGS}" CC=h5pcc ./configure --enable-shared=no --prefix=$HOME 
