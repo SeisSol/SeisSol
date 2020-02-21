@@ -29,6 +29,7 @@ seissol::physics::Planarwave::Planarwave(seissol::model::Material material, doub
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(op);
   
+  //sort eigenvalues so that we know which eigenvalue corresponds to which mode
   auto eigenvalues = ces.eigenvalues();
   std::vector<size_t> sortedIndices(NUMBER_OF_QUANTITIES);
   std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
