@@ -48,7 +48,7 @@
 
 namespace seissol {
   namespace model {
-    using Matrix99 = Eigen::Matrix<double, 9, 9>;
+    using Matrix = Eigen::Matrix<double, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES>;
 
     bool testIfAcoustic(real mu);
 
@@ -68,7 +68,7 @@ namespace seissol {
     void getTransposedFreeSurfaceGodunovState(const Material& local,
                                               T& QgodLocal,
                                               T& QgodNeighbor,
-                                              Matrix99& R);
+                                              Matrix& R);
     template<typename T>
     void applyBoundaryConditionToElasticFluxSolver(::FaceType type,
                                                    T& QgodNeighbor);
@@ -134,9 +134,9 @@ template<typename T>
 void seissol::model::getTransposedFreeSurfaceGodunovState(const Material& material,
                                                           T& QgodLocal,
                                                           T& QgodNeighbor,
-                                                          Matrix99& R) {
-  for (int i = 0; i < 9; i++) {
-    for (int j = 0; j < 9; j++) {
+                                                          Matrix& R) {
+  for (int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
+    for (int j = 0; j < NUMBER_OF_QUANTITIES; j++) {
       QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
     }
   }
@@ -148,12 +148,22 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(const Material& materi
     QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
     QgodLocal(6, 6) = 1.0;
   } else {
+#ifdef USE_POROELASTIC
+    std::array<int, 4> traction_indices = {0,3,5,9};
+    std::array<int, 6> velocity_indices = {6,7,8,10,11,12};
+    using Matrix44 = Eigen::Matrix<double, 4, 4>;
+    using Matrix64 = Eigen::Matrix<double, 6, 4>;
+    Matrix44 R11 = R(traction_indices, {0,1,2,3});
+    Matrix64 R21 = R(velocity_indices, {0,1,2,3});
+    auto S = - (R21 * R11.inverse()).eval();
+#else
     std::array<int, 3> traction_indices = {0,3,5};
     std::array<int, 3> velocity_indices = {6,7,8};
     using Matrix33 = Eigen::Matrix<double, 3, 3>;
     Matrix33 R11 = R(traction_indices, {0,1,2});
     Matrix33 R21 = R(velocity_indices, {0,1,2});
     auto S = - (R21 * R11.inverse()).eval();
+#endif
 
     //set lower left block
     int row = 0;
@@ -182,7 +192,7 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
   QgodNeighbor.setZero();
 
   // Eigenvectors are precomputed
-  Matrix99 R = Matrix99::Zero();
+  Matrix R = Matrix::Zero();
 
   if (testIfAcoustic(local.mu)) {
     R(0,0) = local.lambda;
@@ -238,7 +248,7 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
   if (faceType == FaceType::freeSurface) {
     getTransposedFreeSurfaceGodunovState(local, QgodLocal, QgodNeighbor, R);
   } else {
-    Matrix99 chi = Matrix99::Zero();
+    Matrix chi = Matrix::Zero();
     chi(0,0) = 1.0;
     chi(1,1) = 1.0;
     chi(2,2) = 1.0;

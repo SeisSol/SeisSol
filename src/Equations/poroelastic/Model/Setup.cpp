@@ -221,15 +221,20 @@ void seissol::model::getTransposedGodunovState( Material const&                 
   CMatrix R;
   R = eigen_local.eigenvectors() * chi_minus + eigen_neighbor.eigenvectors() * chi_plus;
   //R = eigen_local.eigenvectors();
- 
-  CMatrix godunov_minus = ((R*chi_minus)*R.inverse()).eval();
-  CMatrix godunov_plus = ((R*chi_plus)*R.inverse()).eval();
-  
+  if (faceType == FaceType::freeSurface) {
+    logWarning() << "Poroelastic Free Surface is not tested yet.";
+    Matrix R_real = R.real().eval();
+    getTransposedFreeSurfaceGodunovState(local, QgodLocal, QgodNeighbor, R_real);
+  } else {
+    CMatrix godunov_minus = ((R*chi_minus)*R.inverse()).eval();
+    CMatrix godunov_plus = ((R*chi_plus)*R.inverse()).eval();
 
-  for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
-    for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-      QgodLocal(i,j) = godunov_plus(j,i).real();
-      QgodNeighbor(i,j) = godunov_minus(j,i).real();
+
+    for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
+      for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
+        QgodLocal(i,j) = godunov_plus(j,i).real();
+        QgodNeighbor(i,j) = godunov_minus(j,i).real();
+      }
     }
   }
 
@@ -240,8 +245,6 @@ void seissol::model::getTransposedGodunovState( Material const&                 
     QgodNeighbor(i,i) = 0.5;
   }*/
 
-  if(faceType == FaceType::freeSurface)
-    throw std::runtime_error("Free Surface boundary not implemented");
 }
 
 void seissol::model::setMaterial( double* i_materialVal,
