@@ -71,16 +71,17 @@ Supermuc-NG
 
   ##### module load for SeisSol
   module load scons gcc cmake/3.6 python/3.6_intel slurm_setup
-  module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
-  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel hdf5/1.8.21-intel-impi-cxx-frt-threadsafe
   module load libszip/2.1.1
+  module load parmetis/4.0.3-intel-impi-i64-r64 metis/5.1.0-intel-i64-r64
+  module load hdf5/1.8.20-intel-impi-threadsafe
+  module load netcdf/4.6.1-intel-impi-hdf5v1.8-parallel
 
   ####### universal setup for SeisSol
   export PATH=~/local/bin:$PATH
   export PKG_CONFIG_PATH=~/local/lib/pkgconfig/:$PKG_CONFIG_PATH
-  export LD_LIBRARY_PATH=~/local/lib:$PARMETIS_LIB:$METIS_LIB:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LD_LIBRARY_PATH
+  export LD_LIBRARY_PATH=~/local/lib:$PARMETIS_LIBDIR:$METIS_LIBDIR:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LD_LIBRARY_PATH
   export CPATH=~/local/include:$PARMETIS_BASE/include:$METIS_BASE/include:$NETCDF_BASE/include:$HDF5_BASE/include:$CPATH
-  export LIBRARY_PATH=~/local/lib:$PARMETIS_LIB:$METIS_LIB:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LIBRARY_PATH
+  export LIBRARY_PATH=~/local/lib:$PARMETIS_LIBDIR:$METIS_LIBDIR:$NETCDF_BASE/lib:$HDF5_BASE/lib:$LIBRARY_PATH
     
   ####  local setup for SeisSol. 
   export PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/libxsmm/bin:$PATH
@@ -156,7 +157,8 @@ set compiler options:
   metis='yes'
   netcdfDir=os.environ['NETCDF_BASE']
   hdf5Dir=os.environ['HDF5_BASE']
-
+  metisDir=os.environ['PARMETIS_BASE']
+  
   # ASAGI folder need to be verified.
   asagi='yes'
   zlibDir='/dss/dsshome1/02/di52lak2/myLib/ASAGI/build/lib'

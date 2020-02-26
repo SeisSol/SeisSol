@@ -43,9 +43,7 @@ Import('env')
 solverFiles = [ 'Kernels/Time.cpp',
                 'Kernels/Local.cpp',
                 'Kernels/Neighbor.cpp',
-                'Model/Setup.cpp',
-                'Physics/InitialField.cpp',
-                '../elastic/Physics/InitialField.cpp']
+                'Model/Setup.cpp' ]
 for i in solverFiles:
   env.sourceFiles.append(env.Object(i))
 

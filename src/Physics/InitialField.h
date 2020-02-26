@@ -7,9 +7,6 @@
 #include "Initializer/typedefs.hpp"
 #include <Kernels/precision.hpp>
 #include <generated_code/init.h>
-#ifdef USE_POROELASTIC
-#include <Equations/poroelastic/Model/datastructures.hpp>
-#endif
 
 namespace seissol {
   namespace physics {
@@ -35,38 +32,19 @@ namespace seissol {
     class Planarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
-      Planarwave(double phase = 0.0);
+      Planarwave(model::Material material, double phase = 0.0);
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
                       const CellMaterialData& materialData,
                       yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
     private:
-      std::complex<double> m_eigenvectors[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
-      int const                                               m_setVar;
-      std::vector<int>                                        m_varField;
-      std::vector<std::complex<double>>                       m_ampField;
-      std::array<double, 3>                                   m_kVec;
+      const std::vector<int>                                        m_varField;
+      const std::vector<std::complex<double>>                       m_ampField;
+      const double                                                  m_phase;
+      const std::array<double, 3>                                   m_kVec;
       std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
-      real                                                    m_phase;
-    };
-
-    class PoroelasticPlanarwave : public InitialField {
-    public:
-      PoroelasticPlanarwave(model::Material material, double phase = 0);
-
-      void evaluate(  double time,
-                      std::vector<std::array<double, 3>> const& points,
-                      const CellMaterialData& materialData,
-                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
-    private:
       std::complex<double> m_eigenvectors[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
-      int const                                               m_setVar;
-      std::vector<int>                                        m_varField;
-      std::vector<std::complex<double>>                       m_ampField;
-      std::array<double, 3>                                   m_kVec;
-      std::array<std::complex<double>, NUMBER_OF_QUANTITIES>  m_lambdaA;
-      real                                                    m_phase;
     };
 
     class ScholteWave : public InitialField {
@@ -79,7 +57,6 @@ namespace seissol {
                     const CellMaterialData& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
-
     class SnellsLaw : public InitialField {
     public:
       SnellsLaw() {
@@ -90,17 +67,16 @@ namespace seissol {
                     const CellMaterialData& materialData,
                     yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
+      class Ocean : public InitialField {
+      public:
+          Ocean() {
 
-    class Ocean : public InitialField {
-    public:
-        Ocean() {
-
-        }
-        void evaluate(double time,
-                      std::vector<std::array<double, 3>> const& points,
-                      const CellMaterialData& materialData,
-                      yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
-    };
+          }
+          void evaluate(double time,
+                        std::vector<std::array<double, 3>> const& points,
+                        const CellMaterialData& materialData,
+                        yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+      };
   }
 }
 
