@@ -556,13 +556,7 @@ CONTAINS
               IF (EQN%FL.EQ.103) THEN
                  NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%NucleationStressInFaultCS(iBndGP,:,iFace))
                  Tnuc = DISC%DynRup%t_0
-                 IF (time.LE.0) THEN
-                    Gnuc = 0d0
-                 ELSEIF (time.LT.Tnuc) THEN
-                    Gnuc = exp((time-Tnuc)**2/(time*(time-2*Tnuc)))
-                 ELSE
-                    Gnuc = 1d0
-                 ENDIF
+                 Gnuc = Calc_SmoothStep(time, Tnuc)
                  NucleationStressLocalCS = MATMUL(rotmat, NucleationStressXYZ)*Gnuc
               ELSE
                  NucleationStressLocalCS(:) = 0d0
