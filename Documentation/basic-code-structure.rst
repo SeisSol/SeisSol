@@ -13,7 +13,7 @@ Geometry      Everything related to reading tetrahedral meshes and setting up ge
 Initializer   Code that is called during initialization, e.g. allocating memory, setting up matrices, parsing material information.
 Kernels       Common kernel code.
 Model         Common model code.
-Modules       Modules system implementation which allows to add code at pre-defined hooks.
+Modules       Modules system implementation which allows adding code at pre-defined hooks.
 Monitoring    Contains code for HPC statistics collected during a run.
 Numerical_aux Helper code for numerics, e.g. quadrature rules.
 Parallel      MPI communicator related code.

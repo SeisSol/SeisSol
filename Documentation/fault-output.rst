@@ -5,12 +5,12 @@ Introduction
 ------------
 
 Two types of outputs are available for imaging the rupture. The rupture
-characteristics can be assessed at a set of location, using ASCII
-receiver files, or over all the whole fault using files that can be
-opened in paraview. Threads or nodes can be dedicated to write this
+characteristics can be assessed at a set of locations, using ASCII
+receiver files, or overall the whole fault using files that can be
+opened in ParaView. Threads or nodes can be dedicated to write this
 latter output (see :ref:`asynchronous-output`),
-but it is usually not necessary. The type of output to generate is
-specified in the DynamicRupture namelist:
+but it is usually not necessary. The type of output generated depends on the value
+of the variable `OutputPointType` of the DynamicRupture namelist:
 
 .. code-block:: Fortran
 
@@ -41,7 +41,7 @@ This output is parametrized by the Elementwise namelist, example:
 printIntervalCriterion
 ~~~~~~~~~~~~~~~~~~~~~~
 
-If printIntervalCriterion = 1, output is generated every N time steps,
+If printIntervalCriterion = 1, the output is generated every N time steps,
 where N is set by printInterval. This option only works with Global time
 stepping. If printIntervalCriterion = 2, output is generated every
 printtimeinterval_sec.
@@ -60,7 +60,7 @@ refinement would further subdivide each subtriangle.
 OutputMask
 ~~~~~~~~~~~
 
-OutputMask allow visualizing only part of the unknown. The unknown can
+OutputMask allows visualizing only part of the unknown. The unknown can
 be switched off or on by changing the corresponding bit in the
 OutputMask array.
 
@@ -96,8 +96,8 @@ The output is parametrized by the Pickpoint namelist, example:
 printtimeinterval
 ~~~~~~~~~~~~~~~~~
 
-Output is generated every printtimeinterval (local) time step. Using
-this output with local time stepping may results in differently sampled
+The output is generated every printtimeinterval (local) time step. Using
+this output with local time-stepping may result in differently sampled
 receiver files.
 
 .. _ioutputmask-1:
@@ -105,12 +105,13 @@ receiver files.
 iOutputMask
 ~~~~~~~~~~~
 
-same as for paraview output.
+same as for ParaView output.
 
 Additional Ascii output
 -----------------------
 
-Magnitude and Moment rate can be enabled in the DynamicRupture namelist.
+Final seismic moment and energy rate (moment rate and frictional energy rate) outputs
+can be enabled in the DynamicRupture namelist.
 The rupture front can also be outputted at every gauss points by
 enabling RF_output_on.
 
@@ -118,12 +119,16 @@ enabling RF_output_on.
 
   &DynamicRupture
   magnitude_output_on = 1
-  RF_output_on = 0
   energy_rate_output_on =1
+  RF_output_on = 0
   /
 
-Each compute node write its own Ascii file, so the files have to be
-postprocessed after SeisSol run. The energy rate outputs (including
-moment rate) are combined using `this
+Because each MPI rank writes its own ASCII file, output files need to be merged in a postprocessing step.
+The energy rate outputs are combined using `this
 script <https://github.com/Thomas-Ulrich/SeisSol/blob/master/postprocessing/science/concatenate_EnF_t.py>`__
 (use -h for all available options).
+
+Because of the high sampling rate of the energy rate output (outputted for each simulated time step), these ASCII files can easily become large. Writing these files may impact scalability. 
+Postprocessing these files may also be time-consuming.
+Therefore, we recommend deriving the moment rate function from the Paraview fault output if this output is sufficiently sampled.
+Similarly, the Paraview fault output can be used for the rupture time instead of the ASCII output.

@@ -609,7 +609,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: allocStat, OutputMask(5), i
+    INTEGER                    :: allocStat, OutputMask(12), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
     INTEGER                    :: readStat
@@ -625,7 +625,7 @@ CONTAINS
     !Setting default values
     printtimeinterval = 1
     OutputMask(1:3) = 1
-    OutputMask(4:5) = 0
+    OutputMask(4:12) = 0
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Pickpoint)
     IF (readStat.NE.0) THEN
@@ -633,7 +633,7 @@ CONTAINS
     ENDIF
     !
      DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
-     DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:5) =  OutputMask(1:5)      ! read info of desired output 1/ yes, 0/ no
+     DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
                                                                                 ! position: 1/ slip rate 2/ stress 3/ normal velocity
      DISC%DynRup%DynRup_out_atPickpoint%nOutPoints = nOutPoints                 ! 4/ in case of rate and state output friction and state variable
      logInfo(*) '| '
@@ -690,7 +690,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: OutputMask(11)
+    INTEGER                    :: OutputMask(12)
     INTEGER                    :: printtimeinterval
     INTEGER                    :: printIntervalCriterion
     INTEGER                    :: refinement_strategy, refinement
@@ -706,7 +706,7 @@ CONTAINS
     printtimeinterval_sec = 1d0
     printIntervalCriterion = 1
     OutputMask(:) = 1
-    OutputMask(4:11) = 0
+    OutputMask(4:12) = 0
     refinement_strategy = 2
     refinement = 2
     !
@@ -725,11 +725,12 @@ CONTAINS
     endif
 
     ! if 2, printtimeinterval is set afterwards, when dt is known
-    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:11) =  OutputMask(1:11)      ! read info of desired output 1/ yes, 0/ no
+    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
                                                                                      ! position: 1/ slip rate 2/ stress 3/ normal velocity
                                                                                      ! 4/ in case of rate and state output friction and state variable
                                                                                      ! 5/ background values 6/Slip 7/rupture speed 8/final slip 9/peak SR
                                                                                      ! 10/rupture arrival 11/dynamic shear stress arrival
+                                                                                     ! 12/TP output
 
 
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
@@ -929,8 +930,8 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
-                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, SlipRateOutputType
-    INTEGER                                :: readStat
+                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, &
+                                              thermalPress, SlipRateOutputType, readStat
     LOGICAL                                :: fileExists
 
     CHARACTER(600)                         :: FileName_BackgroundStress
@@ -939,6 +940,7 @@ CONTAINS
                                               Mu_SNuc_ini, H_Length, RS_f0, &
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
                                               RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
+                                              alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                               NucRS_sv0, r_s, energy_rate_printtimeinterval
 
     !------------------------------------------------------------------------
@@ -946,9 +948,9 @@ CONTAINS
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, &
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
-                                                RS_sr0, RS_b, RS_iniSlipRate1, &
-                                                RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
-                                                NucRS_sv0, r_s, RF_output_on, DS_output_on, &
+                                                RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, v_star, &
+                                                thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
+                                                L, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
                                                 SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
@@ -983,12 +985,18 @@ CONTAINS
     Mu_W = 0
     NucRS_sv0 = 0
     r_s = 0
+    thermalPress = 0
+    alpha_th = 0
+    rho_c = 0
+    TP_lambda = 0
+    IniTemp = 0.0d0 
+    IniPressure = 0.0d0
     ModelFileName = ''
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
 
-           ! Read-in dynamic rupture parameters
-           READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = DynamicRupture)
+    ! Read-in dynamic rupture parameters
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = DynamicRupture)
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "DynamicRupture")
     ENDIF
@@ -1039,6 +1047,12 @@ CONTAINS
              DISC%DynRup%v_star = v_star
              DISC%DynRup%L = L
              CONTINUE
+           CASE(33) !ImposedSlipRateOnDRBoundary
+             DISC%DynRup%t_0 = t_0
+             IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
+               logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
+               DISC%DynRup%SlipRateOutputType = 0
+             ENDIF
            CASE(3,4,7,101,103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
@@ -1047,6 +1061,20 @@ CONTAINS
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
+             DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
+             IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
+                 logInfo0(*) 'Thermal pressurization assumed'
+                 !physical
+                 DISC%DynRup%alpha_th = alpha_th
+                 DISC%DynRup%rho_c = rho_c
+                 DISC%DynRup%TP_lambda = TP_lambda
+                 EQN%Temp_0 = IniTemp
+                 EQN%Pressure_0 = IniPressure
+                 !numerical, currently fixed like that but requires further testing
+                 DISC%DynRup%TP_log_dz = 0.3
+                 DISC%DynRup%TP_max_wavenumber = 10.0
+                 DISC%DynRup%TP_grid_nz = 60
+             ENDIF
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
              STOP

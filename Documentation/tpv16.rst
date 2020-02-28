@@ -6,7 +6,7 @@ strike-slip fault in a homogeneous half-space with **randomly-generated
 heterogeneous initial stress conditions**. The earthquake rupture is
 artificially nucleated in a circular zone on the fault surface. The
 rupture then spontaneously propagates outward on the fault surface and
-encounters heterogeneous stochastic initial stress conditions,some of
+encounters heterogeneous stochastic initial stress conditions, some of
 which prevent it from propagating into certain regions on the fault
 surface.
 
@@ -14,8 +14,7 @@ surface.
    :alt: Diagram of TPV16/17.
    :width: 11.00000cm
 
-   Diagram of TPV16/17. The fault is 40 km long. Colors indicate the
-   ratio of shear stress to normal stress at locations on the fault
+   Diagram of TPV16/17. The fault is 40 km long. Colors indicate the ratio of shear stress to normal stress at locations on the fault
    surface, at the beginning of the simulation.
 
 Geometry
@@ -94,7 +93,7 @@ The second stage is a circular zone of reduced which surrounds the
 hypocenter. Its radius is approximately 4 km (the exact radius is
 determined as part of the stochastic method that generates the initial
 stresses). In the innermost 10% of the zone, equals 0.04 m. The value of
-then increases linearly with distance from the hypocenter, and reaches
+then increases linearly with distance from the hypocenter and reaches
 its final value of 0.4 m at the edge of the zone. Outside the zone,
 equals 0.4 m. The effect is to create a circular region of reduced
 fracture energy surrounding the hypocenter, which helps the rupture to

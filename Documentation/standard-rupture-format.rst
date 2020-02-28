@@ -4,18 +4,18 @@ Standard Rupture Format
 SeisSol supports the Standard Rupture Format (SRF) for kinematic rupture
 models. Details about the file format can be found at the `SCEC
 Wiki <https://scec.usc.edu/scecpedia/Standard_Rupture_Format>`__. With
-help of the SRF format, one may specify several subfaults (point
+the help of the SRF format, one may specify several subfaults (point
 sources), where one may give individual source time function for each
 subfault. The location, however, is given in latitude, longitude, and
 depth such that it becomes necessary to convert those into the
 coordinate system used by the mesh, which we call the Mesh Coordinate
 System (MCS). In a software package, one usually has the option to
 directly convert coordinate systems during runtime or to use an
-intermediate format which does not require coordinate conversion. Here,
+intermediate format that does not require coordinate conversion. Here,
 we opted for the second approach, because
 
 -  we do not complicate the build and use of SeisSol and
--  we are able to use a binary format which greatly reduces the loading
+-  we can use a binary format which greatly reduces the loading
    time.
 
 **Hint:** Use
@@ -35,10 +35,10 @@ NetCDF Rupture Format (NRF)
 
 The NRF is an intermediate format for describing kinematic rupture
 models. It is not meant to be used directly but it should be generated
-from a SRF file. To do so, you require the tool
+from an SRF file. To do so, you require the tool
 `rconv <https://github.com/SeisSol/SeisSol/blob/master/preprocessing/science/rconv/>`__.
 Note that some python scripts required for compiling rconv are given as
-a symbolic link in rconv, the link being a relative path. This mean that
+a symbolic link in rconv, the link being a relative path. This means that
 **you need the whole SeisSol repository to compile it**.
 
 Specifying the MCS
@@ -93,7 +93,7 @@ More projection options can be found in proj.4 website.
 Checking the NRF file
 ^^^^^^^^^^^^^^^^^^^^^
 
-You may manually inspect a NRF file in order to verify its correctness.
+You may manually inspect an NRF file to verify its correctness.
 If you have NetCDF installed, you may enter
 
 ::

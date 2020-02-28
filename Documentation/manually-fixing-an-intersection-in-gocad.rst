@@ -3,7 +3,7 @@ Manually fixing an intersection in Gocad
 
 | The mutual intersection in Gocad is the keystone of our geometry
   building framework, but is also the bottleneck. In fact, it is a black
-  box, which fails in a given geometric configurations: Sometimes it
+  box, which fails in given geometric configurations: Sometimes it
   generates tiny holes preventing building a volume out of the surfaces,
   or it creates tiny misoriented faces, that cannot be attached to an
   existing surface, and then lead to very small time steps, so small
@@ -18,7 +18,7 @@ Manually fixing an intersection in Gocad
 |overall view|
 
 | The first step of the workflow is to carry out the intersection, to
-  vizualize the problematic area of the mesh to be fixed.
+  visualize the problematic area of the mesh to be fixed.
 | Surface>Tools>Cut>Mutual cut among surfaces>select the surface and
   Apply
 | The next step is to import the intersected surfaces in SimModeler.
@@ -29,7 +29,7 @@ Manually fixing an intersection in Gocad
 | Finally we import the stl file in SimModeler using:
 | File > Import Discrete Data > unclick all option, select file and
   click on OK.
-| Now lets check for small features in the geometry:
+| Now let's check for small features in the geometry:
 | Model Tab > Remove Small Features > Find (note that we do now remove
   the small features here, but we only localize them).
 | SimModeler will list faces and edges. Nevertheless, we only focus on
@@ -38,7 +38,7 @@ Manually fixing an intersection in Gocad
 Graphic search for the small features
 -------------------------------------
 
-At this point one possible option is to select on of the small feature,
+At this point, one possible option is to select one of the small feature,
 click on focus on selected, and then try to zoom out to see where the
 face is located. In practice, it might not be so easy. Once you have
 localized the face in SimModeler, you can try to find it in gocad by
@@ -53,14 +53,12 @@ meshing the small features to get their coordinates
 ---------------------------------------------------
 
 | A preferable option, because more systematic, for localizing the small
-  features is to mesh them in SimModeler, export the mesh in an ascii
-  file, and read the node's coordinates. Then mouse over the intersected
-  surface, along the intersection line up to each of the coordinates. To
-  mesh them, click on each small features faces, and choose 'Use
+  features is to mesh them in SimModeler, export the mesh in an ascii file, and read the node's coordinates. 
+  Then mouse over the intersected surface, along the intersection line up to each of the coordinates. 
+  To mesh them, click on each small features faces, and choose 'Use
   discrete Geometry mesh'. Then click on all other faces, and choose 'No
-  mesh/Entity'. Finally, remove the 'Volume meshing' attribute, and
-  click on 'Generate Mesh'. The surface mesh can then be exported:
-| File>Export Mesh> Format ABAQUS 2D (for instance), enter a filenmame
+  mesh/Entity'. Finally, remove the 'Volume meshing' attribute, and click on 'Generate Mesh'. The surface mesh can then be exported:
+| File>Export Mesh> Format ABAQUS 2D (for instance), enter a filename
   and save.
 | The ascii mesh look like that:
 
@@ -82,7 +80,7 @@ meshing the small features to get their coordinates
    | 909933, 5, 86, 6
 
 It features 237 nodes, but actually only 5 faces. We then look for the
-coordinates of each face's node, here for instance the coordinates of
+coordinates of each face's node, here, for instance, the coordinates of
 nodes 42,59,4,2,42,etc.
 
 Fixing the intersection
@@ -91,7 +89,7 @@ Fixing the intersection
 Now that the small features have been localized, we will try to fix
 them. To do that we first load the gocad model prior to the
 intersection, and we also load the intersected surfaces (previously save
-in a ts file), to keep track of the localisation of the small features.
+in a ts file), to keep track of the localization of the small features.
 Then for each small features, we identify why the intersection failure,
 and we amend the triangulation, to remove the cause of the failure.
 Usually, the failure is due to intersecting or almost intersecting
@@ -100,14 +98,12 @@ edges. For instance here:
 |fixing intersection|
 
 | We see that the small feature seems related to the edge intersection
-  circled. We then switch 2 triangles of the blue surface sharing the
-  incriminated edge, which has the virtue of moving the edge. For that
-  we use (for instance):
-| Right click on the surface>Tools>Triangles>Switch Triangles> click on
+  circled. We then switch 2 triangles of the blue surface sharing the incriminated edge, which has the virtue of moving the edge. 
+  For that we use (for instance):
+| Right-click on the surface>Tools>Triangles>Switch Triangles> click on
   both triangles.
 | When then apply this manual procedure on all detected small features,
-  and we finally make the mutual intersection. Hopefully, the model once
-  loaded in SimModeler is then free of small features!
+  and we finally make the mutual intersection. Hopefully, the model once loaded in SimModeler is then free of small features!
 
 .. |overall view| image:: https://www.geophysik.uni-muenchen.de/~ulrich/ManuallyFixingAnIntersection0.png
 .. |localizing small features| image:: https://www.geophysik.uni-muenchen.de/~ulrich/ManuallyFixingAnIntersection1.png

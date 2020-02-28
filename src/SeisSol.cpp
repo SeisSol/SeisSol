@@ -78,16 +78,15 @@ bool seissol::SeisSol::init(int argc, char* argv[])
 
   // Print welcome message
   logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012-2016, SeisSol Group";
-  logInfo(rank) << "Built on:" << __DATE__ << __TIME__
-                << "(generated kernels)"
-  ;
+  logInfo(rank) << "Copyright (c) 2012-2020, SeisSol Group";
+  logInfo(rank) << "Built on:" << __DATE__ << __TIME__ ;
   logInfo(rank) << "Version:" << VERSION_STRING;
 
   if (MPI::mpi.rank() == 0) {
-	char hostname[HOST_NAME_MAX+1];
-	if (gethostname(hostname, HOST_NAME_MAX+1) == 0)
-		logInfo() << "Running on:" << hostname;
+    constexpr size_t hostNameMaxLength = 100;
+    char hostname[hostNameMaxLength+1];
+    if (gethostname(hostname, hostNameMaxLength+1) == 0)
+      logInfo() << "Running on:" << hostname;
   }
 
 #ifdef _OPENMP

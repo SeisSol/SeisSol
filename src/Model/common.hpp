@@ -42,12 +42,13 @@
 
 #include <Eigen/Eigen>
 
+#include "utils/logger.h"
 #include "Initializer/typedefs.hpp"
 #include "generated_code/init.h"
 
 namespace seissol {
   namespace model {
-    using Matrix99 = Eigen::Matrix<real, 9, 9>;
+    using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     bool testIfAcoustic(real mu);
 
@@ -133,7 +134,7 @@ template<typename T>
 void seissol::model::getTransposedFreeSurfaceGodunovState(const Material& material,
                                                           T& QgodLocal,
                                                           T& QgodNeighbor,
-                                                          Eigen::Matrix<real, 9, 9>& R) {
+                                                          Matrix99& R) {
   for (int i = 0; i < 9; i++) {
     for (int j = 0; j < 9; j++) {
       QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
@@ -149,7 +150,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(const Material& materi
   } else {
     std::array<int, 3> traction_indices = {0,3,5};
     std::array<int, 3> velocity_indices = {6,7,8};
-    using Matrix33 = Eigen::Matrix<real, 3, 3>;
+    using Matrix33 = Eigen::Matrix<double, 3, 3>;
     Matrix33 R11 = R(traction_indices, {0,1,2});
     Matrix33 R21 = R(velocity_indices, {0,1,2});
     auto S = - (R21 * R11.inverse()).eval();
@@ -204,11 +205,13 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
     R(8,2) = std::sqrt(local.mu / local.rho);
   }
 
-  R(4,3) = 1;
-
-  R(1,4) = 1;
-
-  R(2,5) = 1;
+  //span the null space
+  //if we scale the eigenvectors, which span the null space of A, to
+  //a comparable magnitude as the other eigenvectors, the matrix R
+  //has a lower condition number
+  R(4,3) = local.lambda;
+  R(1,4) = local.lambda;
+  R(2,5) = local.lambda;
 
   if (testIfAcoustic(neighbor.mu)) {
     R(7,6) = 1.0;
@@ -240,7 +243,6 @@ void seissol::model::getTransposedElasticGodunovState(Material const& local,
     chi(1,1) = 1.0;
     chi(2,2) = 1.0;
 
-    assert(Eigen::FullPivLU<Matrix99>(R).isInvertible());
     const auto godunov = ((R*chi)*R.inverse()).eval();
 
     // QgodLocal = I - QgodNeighbor

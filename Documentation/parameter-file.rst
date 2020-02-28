@@ -5,8 +5,7 @@ General Information
 -------------------
 
 The parameter file in SeisSol is based on the Fortran NAMELIST format.
-The file is divided into the different sections. Each
-section has a set of configuration parameters that influences the
+The file is divided into different sections. Each section has a set of configuration parameters that influences the
 execution of SeisSol. Each configuration parameter can be one of the
 following:
 
@@ -16,10 +15,7 @@ following:
    size. The elements are separated by spaces (``1 2 3 4``)
 -  **String**
 -  **Path** A path references a file or a directory and is given as a
-   string in the parameter file with additional restrictions. Paths
-   might be an absolute or relative to the starting directory of the
-   execution. If the path is used for an output file, the user has to
-   make sure that the directory exists. (E.g. If the path is set to
+   string in the parameter file with additional restrictions. A path might be absolute or relative to the starting directory of the execution. If the path is used for an output file, the user has to make sure that the directory exists. (E.g. If the path is set to
    "output/wavefield", then the directory "output" must exist.)
 -  **Path prefix** Path prefixes are similar to paths. However, SeisSol
    will automatically append a filename extension or other suffixes
@@ -35,7 +31,7 @@ Commented parameter file
 Sections
 --------
 
-Additional, more detailed information on several section are listed
+Additional, more detailed information on several sections are listed
 here.
 
 DynamicRupture
@@ -44,7 +40,7 @@ DynamicRupture
 Reference point
 ^^^^^^^^^^^^^^^
 
-The slip rate is defined as the velocity difference of the two sides of
+The slip rate is defined as the velocity difference between the two sides of
 a fault, that is,
 
 :math:`\Delta v=v^{+}-v^{-}`.
@@ -71,7 +67,7 @@ following.
    | :math:`\text{isPlus}:=\left<\mathbf{r}-\mathbf{x},\mathbf{n}\right>\cdot\left<\mathbf{y}-\mathbf{x},\mathbf{n}\right>>0`
    | isPlus is only true whenever **r**-**x** and **y**-**x** point in
      the same direction (lie in the same half-space w.r.t. **n**). 
-   | This method works, as long as sign of the first dot product is the
+   | This method works, as long as the sign of the first dot product is the
      same for all faces tagged as being part of the fault.
    | *Example:* One has a planar fault with normal **N** and an
      arbitrary point **z** on the plane. Then a good reference point
