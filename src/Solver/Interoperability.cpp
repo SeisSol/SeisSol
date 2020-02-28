@@ -147,6 +147,10 @@ extern "C" {
     return seissol::initializers::ParameterDB::faultParameterizedByTraction( std::string(modelFileName) );
   }
 
+  bool c_interoperability_nucleationParameterizedByTraction( char* modelFileName ) {
+    return seissol::initializers::ParameterDB::nucleationParameterizedByTraction( std::string(modelFileName) );
+  }
+
   void c_interoperability_initializeFault(  char*   modelFileName,
                                             int     gpwise,
                                             double* bndPoints,
