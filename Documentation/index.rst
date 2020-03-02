@@ -44,6 +44,7 @@ Characteristics of the SeisSol simulation software are:
   
   configuration
   parameter-file
+  initial-condition
   easi
   fault-tagging
   environment-variables
