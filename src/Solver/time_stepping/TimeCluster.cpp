@@ -203,7 +203,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
           sourceterm::addTimeIntegratedPointSourceNRF( m_pointSources->mInvJInvPhisAtSources[source],
                                                        m_pointSources->tensor[source],
                                                        m_pointSources->A[source],
-                                                       m_pointSources->cij[source],
+                                                       m_pointSources->stiffnessTensor[source],
                                                        m_pointSources->slipRates[source],
                                                        m_fullUpdateTime,
                                                        m_fullUpdateTime + m_timeStepWidth,

@@ -130,14 +130,14 @@ module f_ftoc_bind_interoperability
   
   ! Don't forget to add // c_null_char to materialFileName when using this interface
   interface
-    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, materialVal, bulkFriction, plastCo, iniStress) bind( C, name='c_interoperability_initializeModel' )
+    subroutine c_interoperability_initializeModel(materialFileName, anelasticity, plasticity, anisotropy, materialVal, bulkFriction, plastCo, iniStress, waveSpeeds) bind( C, name='c_interoperability_initializeModel' )
       use iso_c_binding, only: c_double, c_int, c_char
       implicit none
       character(kind=c_char), dimension(*), intent(in)  :: materialFileName
       integer(kind=c_int), value                        :: anelasticity
       integer(kind=c_int), value                        :: plasticity
       integer(kind=c_int), value                        :: anisotropy
-      real(kind=c_double), dimension(*), intent(out)    :: materialVal, bulkFriction, plastCo, iniStress
+      real(kind=c_double), dimension(*), intent(out)    :: materialVal, bulkFriction, plastCo, iniStress, waveSpeeds
     end subroutine
   end interface
 
@@ -195,16 +195,6 @@ module f_ftoc_bind_interoperability
     integer(kind=c_int), value :: i_side
     real(kind=c_double), dimension(*), intent(in) :: i_materialVal
     integer(kind=c_int), value :: i_numMaterialVals
-    end subroutine
-  end interface
-
-  interface c_interoperability_getWaveSpeeds
-    subroutine c_interoperability_getWaveSpeeds( i_materialVal, i_numMaterialVals, o_waveSpeeds ) bind( C, name='c_interoperability_getWaveSpeeds' )
-    use iso_c_binding
-    implicit none
-    real(kind=c_double), dimension(*), intent(in) :: i_materialVal
-    integer(kind=c_int), value :: i_numMaterialVals
-    real(kind=c_double), dimension(*), intent(inout) :: o_waveSpeeds 
     end subroutine
   end interface
 

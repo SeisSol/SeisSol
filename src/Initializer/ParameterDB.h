@@ -138,9 +138,9 @@ class seissol::initializers::MaterialParameterDB : seissol::initializers::Parame
 public: 
   virtual void evaluateModel(std::string const& fileName, QueryGenerator const& queryGen);
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
+  void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
   
 private:
-  void addBindingPoints(easi::ArrayOfStructsAdapter<T> &adapter) {};
   std::vector<T>* m_materials;
 };
 

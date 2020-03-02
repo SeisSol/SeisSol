@@ -54,30 +54,30 @@ namespace seissol {
 
       virtual ~ElasticMaterial() {};
 
-      void getFullElasticTensor(std::array<real, 81>& fullTensor) const final {
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const final {
 
-        auto elasticTensorView = init::mElasticTensor::view::create(fullTensor.data());
-        elasticTensorView.setZero();
-        elasticTensorView(0,0,0,0) = lambda + 2*mu;
-        elasticTensorView(0,0,1,1) = lambda;
-        elasticTensorView(0,0,2,2) = lambda;
-        elasticTensorView(0,1,0,1) = mu;
-        elasticTensorView(0,1,1,0) = mu;
-        elasticTensorView(0,2,0,2) = mu;
-        elasticTensorView(0,2,2,0) = mu;
-        elasticTensorView(1,0,0,1) = mu;
-        elasticTensorView(1,0,1,0) = mu;
-        elasticTensorView(1,1,0,0) = lambda;
-        elasticTensorView(1,1,1,1) = lambda + 2*mu;
-        elasticTensorView(1,1,2,2) = lambda;
-        elasticTensorView(1,2,1,2) = mu;
-        elasticTensorView(1,2,2,1) = mu;
-        elasticTensorView(2,0,0,2) = mu;
-        elasticTensorView(2,0,2,0) = mu;
-        elasticTensorView(2,1,2,1) = mu;
-        elasticTensorView(2,2,0,0) = lambda;
-        elasticTensorView(2,2,1,1) = lambda;
-        elasticTensorView(2,2,2,2) = lambda + 2*mu;
+        auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
+        stiffnessTensorView.setZero();
+        stiffnessTensorView(0,0,0,0) = lambda + 2*mu;
+        stiffnessTensorView(0,0,1,1) = lambda;
+        stiffnessTensorView(0,0,2,2) = lambda;
+        stiffnessTensorView(0,1,0,1) = mu;
+        stiffnessTensorView(0,1,1,0) = mu;
+        stiffnessTensorView(0,2,0,2) = mu;
+        stiffnessTensorView(0,2,2,0) = mu;
+        stiffnessTensorView(1,0,0,1) = mu;
+        stiffnessTensorView(1,0,1,0) = mu;
+        stiffnessTensorView(1,1,0,0) = lambda;
+        stiffnessTensorView(1,1,1,1) = lambda + 2*mu;
+        stiffnessTensorView(1,1,2,2) = lambda;
+        stiffnessTensorView(1,2,1,2) = mu;
+        stiffnessTensorView(1,2,2,1) = mu;
+        stiffnessTensorView(2,0,0,2) = mu;
+        stiffnessTensorView(2,0,2,0) = mu;
+        stiffnessTensorView(2,1,2,1) = mu;
+        stiffnessTensorView(2,2,0,0) = lambda;
+        stiffnessTensorView(2,2,1,1) = lambda;
+        stiffnessTensorView(2,2,2,2) = lambda + 2*mu;
       }
 
       double getMaxWaveSpeed() const final {

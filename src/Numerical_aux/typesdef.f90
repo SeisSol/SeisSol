@@ -541,8 +541,8 @@ MODULE TypesDef
     !< u_h can be written into a file for more than one point per element.         !
     INTEGER           :: DGFineOut1D                 !< Number of 1D Gausspoints
     !<
-    REAL, POINTER     :: MaxWaveSpeed(:,:) => NULL()           !< Max. wavespeed over edges
-    REAL, POINTER     :: WaveSpeed(:,:,:) => NULL()           !< All Wavespeeds over edges
+    REAL, POINTER     :: MaxWaveSpeed(:) => NULL()           !< Max. wavespeed over edges
+    REAL, POINTER     :: WaveSpeed(:,:) => NULL()           !< All Wavespeeds over edges
     REAL, POINTER     :: cTimePoly(:,:,:) => NULL()           !< Coefficients and matrices
     REAL, POINTER     :: TimeMassMatrix(:,:,:) => NULL()      !< for projection on series
     REAL, POINTER     :: iTimeMassMatrix(:,:,:) => NULL()     !< in time. Basis: Legendre

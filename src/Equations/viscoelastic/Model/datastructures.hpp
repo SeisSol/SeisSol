@@ -45,6 +45,7 @@
 
 namespace seissol {
   namespace model {
+    //ViscoelasticMaterial is defined in src/Eqations/viscoelastic2/Model/datastructures.h
 
 #ifdef USE_VISCOELASTIC
     struct LocalData {

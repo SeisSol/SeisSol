@@ -230,7 +230,7 @@ namespace seissol {
       aNeighbor[17] = -neighbor.c55;
       Matrix63 ANeighbor(aNeighbor);
 
-      //remember that the eigenvalues of the complete system are the sqare roots
+      //remember that the eigenvalues of the complete system are the square roots
       //of the eigenvalues of the reduced system
       for(unsigned i = 0; i < 3; i++) {
         eigenvaluesLocal(i) = sqrt(eigenvaluesLocal(i));

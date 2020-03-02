@@ -59,11 +59,11 @@ class AnisotropicADERDG(ADERDGBase):
 
   def addInit(self, generator):
       super().addInit(generator)
-      C = Tensor('C', (3, 3, 3, 3))
-      n = Tensor('n', (3,))
+      stiffnessTensor = Tensor('stiffnessTensor', (3, 3, 3, 3))
+      direction = Tensor('direction', (3,))
       christoffel = Tensor('christoffel', (3,3))
 
-      computeChristoffel = christoffel['ik'] <= C['ijkl'] * n['j'] * n['l']
+      computeChristoffel = christoffel['ik'] <= stiffnessTensor['ijkl'] * direction['j'] * direction['l']
       generator.add('computeChristoffel', computeChristoffel)
 
   def add_include_tensors(self, tensors):

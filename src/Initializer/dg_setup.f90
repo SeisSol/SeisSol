@@ -2478,22 +2478,6 @@ CONTAINS
         DEALLOCATE( zone_minh, zone_maxh, zone_deltah, zone_deltap )
     ENDIF
 
-    ALLOCATE( DISC%Galerkin%WaveSpeed(MESH%nElem,MESH%nSideMax,EQN%nNonZeroEV) )
-    !
-    DISC%Galerkin%WaveSpeed(:,:,:) = 0.
-    !
-    ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem,MESH%nSideMax) )
-    DO iElem=1,MESH%nElem
-        call c_interoperability_getWaveSpeeds(MaterialVal(iElem,:), EQN%nBackgroundVar, elementWaveSpeeds)
-        DO j=1,MESH%nSideMax
-            DISC%Galerkin%WaveSpeed(iElem,j,1)=elementWaveSpeeds(1)  !P-wave-vel
-            DISC%Galerkin%WaveSpeed(iElem,j,2)=elementWaveSpeeds(2)  !S-Wave-vel
-            DISC%Galerkin%WaveSpeed(iElem,j,3)=elementWaveSpeeds(3)  !S-Wave-vel
-            DISC%Galerkin%MaxWaveSpeed(iElem,j)=elementWaveSpeeds(4) !Max Wave-vel
-        ENDDO
-      
-    ENDDO
-    !
     CONTINUE
     !
   END SUBROUTINE BuildSpecialDGGeometry3D_new

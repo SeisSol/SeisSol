@@ -1,4 +1,4 @@
-# operation system (required for exectuion environment)
+# operation system (required for execution environment)
 import os
 import sys
 
@@ -433,14 +433,7 @@ env.Append(CXXFLAGS=['-std=c++11'])
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
-if env['equations'] == 'anisotropic':
-  env.Append(CPPDEFINES=['USE_ANISOTROPIC'])
-elif env['equations'] == 'elastic':
-  env.Append(CPPDEFINES=['USE_ELASTIC'])
-elif env['equations'] ==  'viscoelastic':
-  env.Append(CPPDEFINES=['USE_VISCOELASTIC'])
-elif env['equations'] == 'viscoelastic2':
-  env.Append(CPPDEFINES=['USE_VISCOELASTIC2'])
+env.Append(CPPDEFINES=['USE_{}'.format(env['equations'].upper())])
 
 env.Append(CPPDEFINES=['ENABLE_MATRIX_PREFETCH'])
 

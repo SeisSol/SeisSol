@@ -47,7 +47,7 @@ def addKernels(generator, aderdg):
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
   ## Point sources
-  mElasticTensor = Tensor('mElasticTensor', (3,3,3,3))
+  mStiffnessTensor = Tensor('stiffnessTensor', (3,3,3,3))
   mSlip = Tensor('mSlip', (3,))
   mNormal = Tensor('mNormal', (3,))
   mArea = Scalar('mArea')
@@ -64,9 +64,7 @@ def addKernels(generator, aderdg):
   momentToNRF_spp[5, 0, 2] = 1
   momentToNRF = Tensor('momentToNRF', (numberOfQuantities, 3, 3), spp=momentToNRF_spp) 
 
-  momentNRF = Tensor('momentNRF', (numberOfQuantities,), spp=np.array([1]*6 + [0]*(numberOfQuantities-6), dtype=bool))
-
-  momentNRFKernel = momentToNRF['tpq'] * mArea * mElasticTensor['pqij'] * mSlip['i'] * mNormal['j'] 
+  momentNRFKernel = momentToNRF['tpq'] * mArea * mStiffnessTensor['pqij'] * mSlip['i'] * mNormal['j'] 
 
   if aderdg.Q.hasOptDim():
     sourceNRF = aderdg.Q['kt'] <= aderdg.Q['kt'] + mInvJInvPhisAtSources['k'] * momentNRFKernel * aderdg.oneSimToMultSim['s'] 

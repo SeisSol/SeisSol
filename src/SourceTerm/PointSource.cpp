@@ -144,7 +144,7 @@ real seissol::sourceterm::computePwLFTimeIntegral(PiecewiseLinearFunction1D cons
 void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                                            real const faultBasis[9],
                                                            real A,
-                                                           std::array<real, 81> const &cij,
+                                                           std::array<real, 81> const &stiffnessTensor,
                                                            std::array<PiecewiseLinearFunction1D, 3> const &slipRates,
                                                            double i_fromTime,
                                                            double i_toTime,
@@ -167,7 +167,7 @@ void seissol::sourceterm::addTimeIntegratedPointSourceNRF( real const i_mInvJInv
   kernel::sourceNRF krnl;
   krnl.Q = o_dofUpdate;
   krnl.mInvJInvPhisAtSources = i_mInvJInvPhisAtSources;
-  krnl.mElasticTensor = cij.data();
+  krnl.stiffnessTensor = stiffnessTensor.data();
   krnl.mSlip = rotatedSlip;
   krnl.mNormal = faultBasis + 6;
   krnl.mArea = -A;

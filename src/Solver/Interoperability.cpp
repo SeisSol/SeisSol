@@ -131,7 +131,8 @@ extern "C" {
                                             double* materialVal,
                                             double* bulkFriction,
                                             double* plastCo,
-                                            double* iniStress )
+                                            double* iniStress,
+                                            double* waveSpeeds )
   {
     e_interoperability.initializeModel( materialFileName,
                                         anelasticity,
@@ -140,7 +141,8 @@ extern "C" {
                                         materialVal,
                                         bulkFriction,
                                         plastCo,
-                                        iniStress );
+                                        iniStress,
+                                        waveSpeeds );
   }
   
   void c_interoperability_addFaultParameter(  char* name,
@@ -178,13 +180,6 @@ extern "C" {
     e_interoperability.setMaterial(i_meshId, i_side, i_materialVal, i_numMaterialVals);
   }
       
-  void c_interoperability_getWaveSpeeds( double*  i_materialVal,
-                                         int      i_numMaterialVals,
-                                         double*  o_waveSpeeds ) {
-    e_interoperability.getWaveSpeeds(i_materialVal, i_numMaterialVals, o_waveSpeeds);
-  }
-                                          
-
 #ifdef USE_PLASTICITY
  void c_interoperability_setInitialLoading( int    i_meshId,
                                             double *i_initialLoading ) {
@@ -489,7 +484,8 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
                                                   double* materialVal,
                                                   double* bulkFriction,
                                                   double* plastCo,
-                                                  double* iniStress )
+                                                  double* iniStress,
+                                                  double* waveSpeeds)
 {
   //There are only some valid combinations of material properties
   // elastic materials
@@ -502,6 +498,11 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   //first initialize the (visco-)elastic part
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
   seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
+  auto calcWaveSpeeds = [] (seissol::model::Material* material, double* waveSpeeds) {
+    waveSpeeds[0] = material->getMaxWaveSpeed();
+    waveSpeeds[1] = material->getSWaveSpeed();
+    waveSpeeds[2] = material->getSWaveSpeed();
+  };
   if (anisotropy) { 
     if(anelasticity || plasticity) {
       logError() << "Anisotropy can not be combined with anelasticity or plasticity";
@@ -533,6 +534,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       materialVal[19*nElements + i] = materials[i].c55;
       materialVal[20*nElements + i] = materials[i].c56;
       materialVal[21*nElements + i] = materials[i].c66;
+      calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
     }
   } else {
     if (anelasticity) {
@@ -546,6 +548,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         materialVal[2*nElements + i] = materials[i].lambda;
         materialVal[3*nElements + i] = materials[i].Qp;
         materialVal[4*nElements + i] = materials[i].Qs;
+        calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
       }
     } else {
       auto materials = std::vector<seissol::model::ElasticMaterial>(nElements);
@@ -556,6 +559,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         materialVal[i] = materials[i].rho;
         materialVal[nElements + i] = materials[i].mu;
         materialVal[2*nElements + i] = materials[i].lambda;
+        calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
       }
     } 
 
@@ -658,23 +662,6 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
       break;
     }                                          
   }
-}
-
-void seissol::Interoperability::getWaveSpeeds(double* i_materialVal, int i_numMaterialVals, double* o_waveSpeeds) {
-
- #if defined USE_ANISOTROPIC
-  seissol::model::AnisotropicMaterial material;
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  seissol::model::ViscoElasticMaterial material;
-#else 
-  seissol::model::ElasticMaterial material;
-#endif
-
-  seissol::model::setMaterial(i_materialVal, i_numMaterialVals, &material);
-  o_waveSpeeds[0] = material.getPWaveSpeed();
-  o_waveSpeeds[1] = material.getSWaveSpeed();
-  o_waveSpeeds[2] = material.getSWaveSpeed();
-  o_waveSpeeds[3] = material.getMaxWaveSpeed();
 }
 
 #ifdef USE_PLASTICITY

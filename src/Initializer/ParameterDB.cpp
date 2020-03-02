@@ -268,9 +268,7 @@ namespace seissol {
       if (suppliedParameters.find("mu") != suppliedParameters.end() && suppliedParameters.find("lambda") != suppliedParameters.end()) {
         std::vector<seissol::model::ElasticMaterial> elasticMaterials(query.numPoints());
         easi::ArrayOfStructsAdapter<seissol::model::ElasticMaterial> adapter(elasticMaterials.data());
-        adapter.addBindingPoint("rho", &seissol::model::ElasticMaterial::rho);
-        adapter.addBindingPoint("mu", &seissol::model::ElasticMaterial::mu);
-        adapter.addBindingPoint("lambda", &seissol::model::ElasticMaterial::lambda);
+        MaterialParameterDB<seissol::model::ElasticMaterial>().addBindingPoints(adapter);
         unsigned numPoints = query.numPoints();
         model->evaluate(query, adapter);
 

@@ -72,7 +72,7 @@ namespace seissol {
       double c56;
       double c66;
 
-      AnisotropicMaterial() {};
+      AnisotropicMaterial() {}
 
       explicit AnisotropicMaterial(ElasticMaterial m) {
         rho = m.rho;
@@ -102,90 +102,90 @@ namespace seissol {
       virtual ~AnisotropicMaterial() {};
 
       
-      void getFullElasticTensor(std::array<real, 81>& fullTensor) const final {
-        auto elasticTensorView = init::mElasticTensor::view::create(fullTensor.data());
-        elasticTensorView.setZero();
-        elasticTensorView(0,0,0,0) = c11;
-        elasticTensorView(0,0,0,1) = c16;
-        elasticTensorView(0,0,0,2) = c15;
-        elasticTensorView(0,0,1,0) = c16;
-        elasticTensorView(0,0,1,1) = c12;
-        elasticTensorView(0,0,1,2) = c14;
-        elasticTensorView(0,0,2,0) = c15;
-        elasticTensorView(0,0,2,1) = c14;
-        elasticTensorView(0,0,2,2) = c13;
-        elasticTensorView(0,1,0,0) = c16;
-        elasticTensorView(0,1,0,1) = c66;
-        elasticTensorView(0,1,0,2) = c56;
-        elasticTensorView(0,1,1,0) = c66;
-        elasticTensorView(0,1,1,1) = c26;
-        elasticTensorView(0,1,1,2) = c46;
-        elasticTensorView(0,1,2,0) = c56;
-        elasticTensorView(0,1,2,1) = c46;
-        elasticTensorView(0,1,2,2) = c36;
-        elasticTensorView(0,2,0,0) = c15;
-        elasticTensorView(0,2,0,1) = c56;
-        elasticTensorView(0,2,0,2) = c55;
-        elasticTensorView(0,2,1,0) = c56;
-        elasticTensorView(0,2,1,1) = c25;
-        elasticTensorView(0,2,1,2) = c45;
-        elasticTensorView(0,2,2,0) = c55;
-        elasticTensorView(0,2,2,1) = c45;
-        elasticTensorView(0,2,2,2) = c35;
-        elasticTensorView(1,0,0,0) = c16;
-        elasticTensorView(1,0,0,1) = c66;
-        elasticTensorView(1,0,0,2) = c56;
-        elasticTensorView(1,0,1,0) = c66;
-        elasticTensorView(1,0,1,1) = c26;
-        elasticTensorView(1,0,1,2) = c46;
-        elasticTensorView(1,0,2,0) = c56;
-        elasticTensorView(1,0,2,1) = c46;
-        elasticTensorView(1,0,2,2) = c36;
-        elasticTensorView(1,1,0,0) = c12;
-        elasticTensorView(1,1,0,1) = c26;
-        elasticTensorView(1,1,0,2) = c25;
-        elasticTensorView(1,1,1,0) = c26;
-        elasticTensorView(1,1,1,1) = c22;
-        elasticTensorView(1,1,1,2) = c24;
-        elasticTensorView(1,1,2,0) = c25;
-        elasticTensorView(1,1,2,1) = c24;
-        elasticTensorView(1,1,2,2) = c23;
-        elasticTensorView(1,2,0,0) = c14;
-        elasticTensorView(1,2,0,1) = c46;
-        elasticTensorView(1,2,0,2) = c45;
-        elasticTensorView(1,2,1,0) = c46;
-        elasticTensorView(1,2,1,1) = c24;
-        elasticTensorView(1,2,1,2) = c44;
-        elasticTensorView(1,2,2,0) = c45;
-        elasticTensorView(1,2,2,1) = c44;
-        elasticTensorView(1,2,2,2) = c34;
-        elasticTensorView(2,0,0,0) = c15;
-        elasticTensorView(2,0,0,1) = c56;
-        elasticTensorView(2,0,0,2) = c55;
-        elasticTensorView(2,0,1,0) = c56;
-        elasticTensorView(2,0,1,1) = c25;
-        elasticTensorView(2,0,1,2) = c45;
-        elasticTensorView(2,0,2,0) = c55;
-        elasticTensorView(2,0,2,1) = c45;
-        elasticTensorView(2,0,2,2) = c35;
-        elasticTensorView(2,1,0,0) = c14;
-        elasticTensorView(2,1,0,1) = c46;
-        elasticTensorView(2,1,0,2) = c45;
-        elasticTensorView(2,1,1,0) = c46;
-        elasticTensorView(2,1,1,1) = c24;
-        elasticTensorView(2,1,1,2) = c44;
-        elasticTensorView(2,1,2,0) = c45;
-        elasticTensorView(2,1,2,1) = c44;
-        elasticTensorView(2,1,2,2) = c34;
-        elasticTensorView(2,2,0,0) = c13;
-        elasticTensorView(2,2,0,1) = c36;
-        elasticTensorView(2,2,0,2) = c35;
-        elasticTensorView(2,2,1,0) = c36;
-        elasticTensorView(2,2,1,1) = c23;
-        elasticTensorView(2,2,1,2) = c34;
-        elasticTensorView(2,2,2,0) = c35;
-        elasticTensorView(2,2,2,1) = c34;
-        elasticTensorView(2,2,2,2) = c33;
+      void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const final {
+        auto stiffnessTensorView = init::stiffnessTensor::view::create(fullTensor.data());
+        stiffnessTensorView.setZero();
+        stiffnessTensorView(0,0,0,0) = c11;
+        stiffnessTensorView(0,0,0,1) = c16;
+        stiffnessTensorView(0,0,0,2) = c15;
+        stiffnessTensorView(0,0,1,0) = c16;
+        stiffnessTensorView(0,0,1,1) = c12;
+        stiffnessTensorView(0,0,1,2) = c14;
+        stiffnessTensorView(0,0,2,0) = c15;
+        stiffnessTensorView(0,0,2,1) = c14;
+        stiffnessTensorView(0,0,2,2) = c13;
+        stiffnessTensorView(0,1,0,0) = c16;
+        stiffnessTensorView(0,1,0,1) = c66;
+        stiffnessTensorView(0,1,0,2) = c56;
+        stiffnessTensorView(0,1,1,0) = c66;
+        stiffnessTensorView(0,1,1,1) = c26;
+        stiffnessTensorView(0,1,1,2) = c46;
+        stiffnessTensorView(0,1,2,0) = c56;
+        stiffnessTensorView(0,1,2,1) = c46;
+        stiffnessTensorView(0,1,2,2) = c36;
+        stiffnessTensorView(0,2,0,0) = c15;
+        stiffnessTensorView(0,2,0,1) = c56;
+        stiffnessTensorView(0,2,0,2) = c55;
+        stiffnessTensorView(0,2,1,0) = c56;
+        stiffnessTensorView(0,2,1,1) = c25;
+        stiffnessTensorView(0,2,1,2) = c45;
+        stiffnessTensorView(0,2,2,0) = c55;
+        stiffnessTensorView(0,2,2,1) = c45;
+        stiffnessTensorView(0,2,2,2) = c35;
+        stiffnessTensorView(1,0,0,0) = c16;
+        stiffnessTensorView(1,0,0,1) = c66;
+        stiffnessTensorView(1,0,0,2) = c56;
+        stiffnessTensorView(1,0,1,0) = c66;
+        stiffnessTensorView(1,0,1,1) = c26;
+        stiffnessTensorView(1,0,1,2) = c46;
+        stiffnessTensorView(1,0,2,0) = c56;
+        stiffnessTensorView(1,0,2,1) = c46;
+        stiffnessTensorView(1,0,2,2) = c36;
+        stiffnessTensorView(1,1,0,0) = c12;
+        stiffnessTensorView(1,1,0,1) = c26;
+        stiffnessTensorView(1,1,0,2) = c25;
+        stiffnessTensorView(1,1,1,0) = c26;
+        stiffnessTensorView(1,1,1,1) = c22;
+        stiffnessTensorView(1,1,1,2) = c24;
+        stiffnessTensorView(1,1,2,0) = c25;
+        stiffnessTensorView(1,1,2,1) = c24;
+        stiffnessTensorView(1,1,2,2) = c23;
+        stiffnessTensorView(1,2,0,0) = c14;
+        stiffnessTensorView(1,2,0,1) = c46;
+        stiffnessTensorView(1,2,0,2) = c45;
+        stiffnessTensorView(1,2,1,0) = c46;
+        stiffnessTensorView(1,2,1,1) = c24;
+        stiffnessTensorView(1,2,1,2) = c44;
+        stiffnessTensorView(1,2,2,0) = c45;
+        stiffnessTensorView(1,2,2,1) = c44;
+        stiffnessTensorView(1,2,2,2) = c34;
+        stiffnessTensorView(2,0,0,0) = c15;
+        stiffnessTensorView(2,0,0,1) = c56;
+        stiffnessTensorView(2,0,0,2) = c55;
+        stiffnessTensorView(2,0,1,0) = c56;
+        stiffnessTensorView(2,0,1,1) = c25;
+        stiffnessTensorView(2,0,1,2) = c45;
+        stiffnessTensorView(2,0,2,0) = c55;
+        stiffnessTensorView(2,0,2,1) = c45;
+        stiffnessTensorView(2,0,2,2) = c35;
+        stiffnessTensorView(2,1,0,0) = c14;
+        stiffnessTensorView(2,1,0,1) = c46;
+        stiffnessTensorView(2,1,0,2) = c45;
+        stiffnessTensorView(2,1,1,0) = c46;
+        stiffnessTensorView(2,1,1,1) = c24;
+        stiffnessTensorView(2,1,1,2) = c44;
+        stiffnessTensorView(2,1,2,0) = c45;
+        stiffnessTensorView(2,1,2,1) = c44;
+        stiffnessTensorView(2,1,2,2) = c34;
+        stiffnessTensorView(2,2,0,0) = c13;
+        stiffnessTensorView(2,2,0,1) = c36;
+        stiffnessTensorView(2,2,0,2) = c35;
+        stiffnessTensorView(2,2,1,0) = c36;
+        stiffnessTensorView(2,2,1,1) = c23;
+        stiffnessTensorView(2,2,1,2) = c34;
+        stiffnessTensorView(2,2,2,0) = c35;
+        stiffnessTensorView(2,2,2,1) = c34;
+        stiffnessTensorView(2,2,2,2) = c33;
       }
 
       //calculate maximal wave speed
@@ -195,20 +195,16 @@ namespace seissol {
       //different directions and take the maximum.
       double getMaxWaveSpeed() const final{
 #ifdef USE_ANISOTROPIC
-        real samplingDirectionsData[seissol::tensor::samplingDirections::Size];
-        std::copy_n(init::samplingDirections::Values,
-            seissol::tensor::samplingDirections::Size,
-            samplingDirectionsData);
-        auto samplingDirections = init::samplingDirections::view::create(samplingDirectionsData);
+        auto samplingDirections = init::samplingDirections::view::create(const_cast<double*>(init::samplingDirections::Values));
 
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
 
         double maxEv = 0;
 
         std::array<real, 81> fullTensor;
-        getFullElasticTensor(fullTensor);
+        getFullStiffnessTensor(fullTensor);
         kernel::computeChristoffel computeChristoffel;
-        computeChristoffel.C = fullTensor.data();
+        computeChristoffel.stiffnessTensor = fullTensor.data();
 
         for(unsigned j = 0; j < 200; ++j)
         {
@@ -217,7 +213,7 @@ namespace seissol {
                         samplingDirections(j, 2)
           };
           real M[9];
-          computeChristoffel.n = n;
+          computeChristoffel.direction = n;
           computeChristoffel.christoffel = M;
           computeChristoffel.execute();
 

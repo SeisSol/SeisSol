@@ -130,12 +130,12 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
       if (subfault.mu != 0) {
         logWarning(0) << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
       }
-      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullElasticTensor(pointSources.cij[index]);
+      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
     default:
       seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
       em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
-      em.getFullElasticTensor(pointSources.cij[index]);
+      em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;
   }
  
@@ -397,7 +397,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
       logError() << "posix_memalign failed in source term manager.";
     }
     sources[cluster].A.resize(cmps[cluster].numberOfSources);
-    sources[cluster].cij.resize(cmps[cluster].numberOfSources);
+    sources[cluster].stiffnessTensor.resize(cmps[cluster].numberOfSources);
     sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {

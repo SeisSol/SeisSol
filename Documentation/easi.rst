@@ -1,3 +1,5 @@
+.. _easi:
+
 easi
 ====
 
@@ -90,7 +92,7 @@ when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and visc
      - |checkmark|
      - |checkmark|
      - Lamé parameters.
-   * - c11, ..., c66 
+   * - c11, ..., c66 [#]_ 
      - Pa
      - 
      - |checkmark|
@@ -126,8 +128,8 @@ when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and visc
      - |checkmark|
      - Initial stress tensor.
 
-When using anisotropy, only the upper half of the symmetric stiffnes tensor has to be supplied: c11, c12, c13, c14, c15, c16, c22, c23, c24, c25, c26, c33, c34, c35, c36, c44, c45, c46, c55, c56, c66.
-All parameters have to be set, even if they are zero.
+
+.. [#] See :ref:`anisotropic` for more details.
 
 Fault parameters (dynamic rupture)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

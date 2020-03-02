@@ -123,8 +123,9 @@ namespace seissol {
            R(2,0) = local.lambda;
            R(6,0) = std::sqrt((local.lambda) / local.rho);
        
-           R(3,1) = 1.0;
-           R(5,2) = 1.0;
+           // scale for better condition number of R
+           R(3,1) = local.lambda;
+           R(5,2) = local.lambda;
          } else {
            R(0,0) = local.lambda + 2*local.mu;
            R(1,0) = local.lambda;
@@ -137,16 +138,16 @@ namespace seissol {
            R(5,2) = local.mu;
            R(8,2) = std::sqrt(local.mu / local.rho);
          }
-       
-         R(4,3) = 1;
-       
-         R(1,4) = 1;
-       
-         R(2,5) = 1;
+          
+         // scale for better condition number of R
+         R(4,3) = local.lambda + 2*local.mu;
+         R(1,4) = local.lambda + 2*local.mu;
+         R(2,5) = local.lambda + 2*local.mu;
        
          if (testIfAcoustic(neighbor.mu)) {
-           R(7,6) = 1.0;
-           R(8, 7) = 1.0;
+           // scale for better condition number of R
+           R(7,6) = neighbor.lambda;
+           R(8,7) = neighbor.lambda;
        
            R(0,8) = neighbor.lambda;
            R(1,8) = neighbor.lambda;

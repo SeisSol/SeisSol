@@ -181,7 +181,8 @@ class seissol::Interoperability {
                           double* materialVal,
                           double* bulkFriction,
                           double* plastCo,
-                          double* iniStress );
+                          double* iniStress,
+                          double* waveSpeeds );
 
     void fitAttenuation(  double rho,
                           double mu,

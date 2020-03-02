@@ -81,7 +81,7 @@ namespace seissol {
       std::vector<real> A;
 
       /// elasticity tensor
-      std::vector<std::array<real, 81>> cij;
+      std::vector<std::array<real, 81>> stiffnessTensor;
 
       /** NRF: slip rate in
        * 0: Tan1 direction
