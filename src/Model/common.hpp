@@ -63,7 +63,8 @@ namespace seissol {
     template<typename Tmaterial, typename Tmatrix>
     void getTransposedCoefficientMatrix( Tmaterial const& i_material,
                                          unsigned         i_dim,
-                                         Tmatrix&         o_M );
+                                         Tmatrix&         o_M )
+    { o_M.setZero(); };
     
     template<typename Tmaterial, typename T>
     void getTransposedSourceCoefficientTensor(  Tmaterial const& material,
@@ -120,6 +121,9 @@ namespace seissol {
                                 init::Tinv::view::type& o_Tinv );
   }
 }
+
+
+
 
 template<typename T>
 void seissol::model::getPlaneWaveOperator(  T const& material,

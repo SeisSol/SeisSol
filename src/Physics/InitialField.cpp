@@ -13,92 +13,40 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(double phase, std::array<double, 3> kVec)
-  : m_setVar(2),
-    m_varField{1,8},
+seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, double phase, std::array<double, 3> kVec)
+  : m_varField{1,8},
     m_ampField{1.0, 1.0},
-    m_kVec(kVec),
-    m_phase(phase)
+    m_phase(phase),
+    m_kVec(kVec)
 {
-
-#if defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  const double rho = 1.0;
-  const double mu = 1.0;
-  const double lambda = 2.0;
-  const double Qp = 20.0;
-  const double Qs = 10.0;
-  seissol::model::ViscoElasticMaterial material;
-  e_interoperability.fitAttenuation(rho, mu, lambda, Qp, Qs, material);
-#elif defined USE_ANISOTROPIC
-  double materialVal[22] = { 
-      1.0, //rho
-    192.0, //c11
-     66.0, //c12
-     60.0, //c13
-      0.0, //c14
-      0.0, //c15
-      0.0, //c16
-    160.0, //c22
-     56.0, //c23
-      0.0, //c24
-      0.0, //c25
-      0.0, //c26
-    272.0, //c33
-      0.0, //c34
-      0.0, //c35
-      0.0, //c36
-     60.0, //c44
-      0.0, //c45
-      0.0, //c46
-     62.0, //c55
-      0.0, //c56
-     49.0, //c66
-  };
-  seissol::model::AnisotropicMaterial material;
-  seissol::model::setMaterial(materialVal, 3, &material);
-#else
-  double materialVal[] = {
-    1.0, //rho
-    1.0, //mu
-    2.0  //lambda
-  };
-  seissol::model::ElasticMaterial material;
-  seissol::model::setMaterial(materialVal, 3, &material);
-#endif
+  assert(m_varField.size() == m_ampField.size());
 
   std::complex<double> planeWaveOperator[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
-  seissol::model::getPlaneWaveOperator(material, m_kVec.data(), planeWaveOperator);
+  seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator);
 
   using Matrix = Eigen::Matrix<std::complex<double>, NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, Eigen::ColMajor>;
   Matrix op(planeWaveOperator);
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(op);
   
+  //sort eigenvalues so that we know which eigenvalue corresponds to which mode
   auto eigenvalues = ces.eigenvalues();
-  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-    m_lambdaA[i] = eigenvalues(i,0);
-  }
-  std::vector<size_t> varField(NUMBER_OF_QUANTITIES);
-  std::iota(varField.begin(), varField.end(), 0);
-
-  std::sort(varField.begin(), varField.end(), [&eigenvalues](size_t a, size_t b) {
+  std::vector<size_t> sortedIndices(NUMBER_OF_QUANTITIES);
+  std::iota(sortedIndices.begin(), sortedIndices.end(), 0);
+  std::sort(sortedIndices.begin(), sortedIndices.end(), [&eigenvalues](size_t a, size_t b) {
     return eigenvalues[a].real() < eigenvalues[b].real();
   });
 
-  // Select S-wave in opposite direction (1) and P-wave along direction (last)
-  std::array<size_t, 2> selectVars = {1, NUMBER_OF_QUANTITIES-1};
-  assert(m_setVar == selectVars.size());
-
-  for (auto& var : selectVars) {
-    m_varField.push_back(var);
-    m_ampField.push_back(1.0);
+  for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+    m_lambdaA[i] = eigenvalues(sortedIndices[i],0);
   }
+
   auto eigenvectors = ces.eigenvectors();
 
   auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
   for (size_t j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
     for (size_t i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-      R(i,j) = eigenvectors(i,j);
+      R(i,j) = eigenvectors(i,sortedIndices[j]);
     }
   }
 }
@@ -111,13 +59,46 @@ void seissol::physics::Planarwave::evaluate(double time,
   dofsQP.setZero();
 
   auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
-  for (int v = 0; v < m_setVar; ++v) {
+  for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega =  m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
       for (size_t i = 0; i < points.size(); ++i) {
         dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v] *
                         std::exp(std::complex<double>(0.0, 1.0) * (
                           omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + std::complex<double>(m_phase, 0)))).real();
+      }
+    }
+  }
+}
+
+seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(const CellMaterialData& materialData, real phase)
+  : m_kVec({{{M_PI, 0.0, 0.0},
+             {0.0, M_PI, 0.0},
+             {0.0, 0.0, M_PI}}}),
+    m_phase(phase),
+    m_pw({Planarwave(materialData, phase, m_kVec.at(0)),
+          Planarwave(materialData, phase, m_kVec.at(1)),
+          Planarwave(materialData, phase, m_kVec.at(2))})
+{ 
+}
+
+void seissol::physics::SuperimposedPlanarwave::evaluate( double time,
+                                                        std::vector<std::array<double, 3>> const& points,
+                                                        const CellMaterialData& materialData,
+                                                        yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const
+{
+  dofsQP.setZero();
+ 
+  real dofsPW_data[tensor::dofsQP::size()];
+  yateto::DenseTensorView<2,real,unsigned> dofsPW = init::dofsQP::view::create(dofsPW_data);
+
+  for (int pw = 0; pw < 3; pw++) {
+    //evaluate each planarwave
+    m_pw.at(pw).evaluate(time, points, materialData, dofsPW);
+    //and add results together
+    for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
+      for (size_t i = 0; i < points.size(); ++i) {
+        dofsQP(i,j) += dofsPW(i,j);
       }
     }
   }
@@ -158,6 +139,8 @@ void seissol::physics::ScholteWave::evaluate(double time,
       dofsQp(i,8) = 1.406466352506812*std::pow(omega, 2)*std::exp(0.98901344820674908*omega*x_3)*std::cos(omega*t - 1.406466352506808*omega*x_1) - 1.050965490997515*std::pow(omega, 2)*std::exp(1.2825031256883821*omega*x_3)*std::cos(omega*t - 1.406466352506808*omega*x_1); // w
     }
   }
+#else
+  dofsQp.setZero();
 #endif
 }
 
@@ -198,6 +181,8 @@ void seissol::physics::SnellsLaw::evaluate(double time,
       dofsQp(i,8) = -0.16074816713222639*omega*std::sin(omega*t - 1.0/2.0*omega*(0.39733866159012299*x_1 + 0.91767204817721759*x_3)) - 0.34834162029840349*omega*std::sin(omega*t - 1.0/3.0*omega*(0.59600799238518454*x_1 + 0.8029785009656123*x_3)); // w
     }
   }
+#else
+  dofsQp.setZero();
 #endif
 }
 
@@ -239,5 +224,7 @@ void seissol::physics::Ocean::evaluate(double time,
     dofsQp(i,8) = (k_star/(omega*rho))*std::sin(k_x*x)*std::sin(k_y*y)*cos(omega*t)*(std::cosh(k_star*z)
         + B * std::sinh(k_star*z));
   }
+#else
+  dofsQp.setZero();
 #endif
 }

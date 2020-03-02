@@ -152,6 +152,10 @@ extern "C" {
     return seissol::initializers::FaultParameterDB::faultParameterizedByTraction( std::string(modelFileName) );
   }
 
+  bool c_interoperability_nucleationParameterizedByTraction( char* modelFileName ) {
+    return seissol::initializers::FaultParameterDB::nucleationParameterizedByTraction( std::string(modelFileName) );
+  }
+
   void c_interoperability_initializeFault(  char*   modelFileName,
                                             int     gpwise,
                                             double* bndPoints,
@@ -881,21 +885,18 @@ void seissol::Interoperability::initInitialConditions()
   if (m_initialConditionType == "Planarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      m_iniConds.emplace_back(new physics::Planarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+      m_iniConds.emplace_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0), (2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
     }
 #else
-    m_iniConds.emplace_back(new physics::Planarwave());
+    m_iniConds.emplace_back(new physics::Planarwave(m_ltsLut.lookup(m_lts->material, 0)));
 #endif
-  } else if (m_initialConditionType == "AnisotropicPlanarwave") {
-#ifndef USE_ANISOTROPIC
-    throw std::runtime_error("Anisotropic Planarwave InitialCondition is only applicable if SeisSol is compiled with Anisotropy");
-#endif
+  } else if (m_initialConditionType == "SuperimposedPlanarwave") {
 #ifdef MULTIPLE_SIMULATIONS
     for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      m_iniConds.emplace_back(new physics::AnisotropicPlanarwave((2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
+      m_iniConds.emplace_back(new physics::SuperimposedPlanarwave(m_ltsLut.lookup(m_lts->material, 0), (2.0*M_PI*s) / MULTIPLE_SIMULATIONS));
     }
 #else
-    m_iniConds.emplace_back(new physics::AnisotropicPlanarwave());
+    m_iniConds.emplace_back(new physics::SuperimposedPlanarwave(m_ltsLut.lookup(m_lts->material, 0)));
 #endif
   } else if (m_initialConditionType == "Zero") {
     m_iniConds.emplace_back(new physics::ZeroField());

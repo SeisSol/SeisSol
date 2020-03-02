@@ -143,7 +143,7 @@ MODULE ini_model_DR_mod
     ! Local variable declaration
     integer                             :: i, nz
     real, allocatable, dimension(:,:)   :: nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz
-    logical(kind=c_bool)                :: faultParameterizedByTraction
+    logical(kind=c_bool)                :: faultParameterizedByTraction, nucleationParameterizedByTraction
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: MESH, BND
     INTENT(INOUT) :: EQN,DISC
@@ -244,6 +244,7 @@ MODULE ini_model_DR_mod
       ALLOCATE(  DISC%DynRup%RS_a_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide)        )
       call c_interoperability_addFaultParameter("rs_a" // c_null_char, DISC%DynRup%RS_a_array)
       if (EQN%FL == 103) then
+        nucleationParameterizedByTraction = c_interoperability_nucleationParameterizedByTraction(trim(DISC%DynRup%ModelFileName) // c_null_char)    
         allocate( DISC%DynRup%RS_srW_array(DISC%Galerkin%nBndGP, MESH%Fault%nSide), &
                   DISC%DynRup%RS_sl0_array(DISC%Galerkin%nBndGP,MESH%Fault%nSide),  &
                   nuc_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
@@ -254,7 +255,7 @@ MODULE ini_model_DR_mod
                   nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
         call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
         call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
-        if (faultParameterizedByTraction) then
+        if (nucleationParameterizedByTraction) then
           call c_interoperability_addFaultParameter("Tnuc_n" // c_null_char, nuc_xx)
           call c_interoperability_addFaultParameter("Tnuc_s" // c_null_char, nuc_xy)
           call c_interoperability_addFaultParameter("Tnuc_d" // c_null_char, nuc_xz)
@@ -305,7 +306,7 @@ MODULE ini_model_DR_mod
 
     if (EQN%FL == 103) then
       allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,faultParameterizedByTraction)
+      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,nucleationParameterizedByTraction)
       deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
     end if
 

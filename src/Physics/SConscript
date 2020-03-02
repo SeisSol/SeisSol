@@ -46,7 +46,8 @@ physicsFiles = [ 'Evaluate_friction_law.f90',
                  'ini_model_DR.f90',
                  'InitialField.cpp',
                  'thermalpressure.f90',
-                 'NucleationFunctions.f90' ]
+                 'NucleationFunctions.f90',
+                 'InitialField.cpp' ]
 
 for i in physicsFiles:
   env.sourceFiles.append(env.Object(i))

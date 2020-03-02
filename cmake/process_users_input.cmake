@@ -23,7 +23,7 @@ set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic viscoelastic viscoelastic2)
+set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 

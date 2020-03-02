@@ -10,6 +10,15 @@ FreqRatio=100
 /
 
 &IniCondition
+cICType = 'Zero'                  ! Initial Condition
+!If not specified the default value is Zero
+!Possible values are
+!Zero        All zero - the standard case to work with point source or dynamic rupture
+!Planarwave  A planar wave for convergence tests, needs periodic boundary conditions
+!Scholte     A Scholte wave to test elastic-acoustic coupling
+!Snell       Snells law to test elastic-acoustic coupling
+!Ocean       An uncoupled ocean test case for acoustic equations
+
 /
 
 &Boundaries
