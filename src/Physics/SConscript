@@ -44,7 +44,6 @@ Import('env')
 physicsFiles = [ 'Evaluate_friction_law.f90',
                  'ini_model.f90',
                  'ini_model_DR.f90',
-                 'InitialField.cpp',
                  'thermalpressure.f90',
                  'NucleationFunctions.f90',
                  'InitialField.cpp' ]
