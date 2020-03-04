@@ -90,6 +90,7 @@ void seissol::kernels::DynamicRupture::setTimeStepWidth(double timestep)
     timeWeights[timeInterval] = subIntervalWidth;
   }*/
 #else
+  // TODO(Lukas) Cache unscaled points/weights to avoid costly recomputation every timestep.
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, CONVERGENCE_ORDER);
   for (unsigned point = 0; point < CONVERGENCE_ORDER; ++point) {
     timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);

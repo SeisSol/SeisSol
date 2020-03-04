@@ -115,25 +115,14 @@ public:
 
     bool act();
     void connect(TimeCluster& other);
-    bool finished() const;
+    bool synced() const;
 
 private:
-    ActorState state;
+    ActorState state = ActorState::Corrected;
     std::vector<NeighborCluster> neighbors;
     ClusterTimes ct;
-    double nextSyncTime;
-    double endTime;
+    double syncTime = 0.0;
     bool processMessages();
-
-  //! Returns time step s.t. we won't miss the sync point
-    double timeStepSize(double time, double maxDt) const {
-      assert(time < nextSyncTime);
-      return std::min(maxDt, nextSyncTime - time);
-    }
-
-    void communicate() {
-
-    }
 
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
@@ -173,14 +162,11 @@ private:
     //! pending ghost region receives
     std::list< MPI_Request* > m_receiveQueue;
 #endif    
-    seissol::initializers::TimeCluster* m_clusterData;
-    seissol::initializers::TimeCluster* m_dynRupClusterData;
+    seissol::initializers::Layer* m_clusterData;
+    seissol::initializers::Layer* m_dynRupClusterData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
 
-    //! time step width of the performed time step.
-    double m_timeStepWidth;
-    
     //! Mapping of cells to point sources
     sourceterm::CellToPointSourcesMapping const* m_cellToPointSources;
 
@@ -298,7 +284,7 @@ private:
      * @param io_derivatives time derivatives.
      * @param io_dofs degrees of freedom.
      **/
-    void computeLocalIntegration( seissol::initializers::Layer&  i_layerData );
+    void computeLocalIntegration( seissol::initializers::Layer&  i_layerData, bool resetBuffers);
 
     /**
      * Computes the contribution of the neighboring cells to the boundary integral.
@@ -312,7 +298,7 @@ private:
      * @param i_faceNeighbors pointers to neighboring time buffers or derivatives.
      * @param io_dofs degrees of freedom.
      **/
-    void computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData );
+    void computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData, double subTimeStart );
 
     void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
                                         CellLocalInformation const* cellInformation,
@@ -335,7 +321,7 @@ private:
     
     //! Update relax time for plasticity
     void updateRelaxTime() {
-      m_relaxTime = (m_tv > 0.0) ? 1.0 - exp(-m_timeStepWidth / m_tv) : 1.0;
+      m_relaxTime = (m_tv > 0.0) ? 1.0 - exp(-timeStepSize() / m_tv) : 1.0;
     }
 
   public:
@@ -351,9 +337,6 @@ private:
     //! send true LTS buffers
     volatile bool m_sendLtsBuffers;
 #endif
-
-    //! reset lts buffers before performing time predictions
-    volatile bool m_resetLtsBuffers;
 
     /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
      * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time refers to the derivation of the surrounding time derivatives, which
@@ -374,16 +357,16 @@ private:
      *   computeNeighboringCopy is called to accomplish the next full update to reach 3dt (+++). Besides working on the buffers of own buffers and those of previous clusters,
      *   Cc needs to evaluate the time prediction of Cn in the interval [2dt, 3dt].
      */
-    double m_subTimeStart;
+    //double m_subTimeStart;
 
     //! number of full updates the cluster has performed since the last synchronization
     unsigned int m_numberOfFullUpdates;
 
     //! simulation time of the last full update (this is a complete volume and boundary integration)
-    double m_fullUpdateTime;
+    //double m_fullUpdateTime;
 
     //! final time of the prediction (derivatives and time integrated DOFs).
-    double m_predictionTime;
+    //double m_predictionTime;
 
     //! time of the next receiver output
     double m_receiverTime;
@@ -404,30 +387,30 @@ private:
      * @param i_interiorCellData cell data in the interior.
      * @param i_cells degrees of freedom, time buffers, time derivatives.
      **/
-    TimeCluster( unsigned int                   i_clusterId,
-                 unsigned int                   i_globalClusterId,
-                 struct MeshStructure          *i_meshStructure,
-                 struct GlobalData             *i_globalData,
-                 seissol::initializers::TimeCluster* i_clusterData,
-                 seissol::initializers::TimeCluster* i_dynRupClusterData,
-                 seissol::initializers::LTS*         i_lts,
-                 seissol::initializers::DynamicRupture* i_dynRup,
-                 LoopStatistics*                        i_loopStatistics );
+    TimeCluster(unsigned int i_clusterId,
+                unsigned int i_globalClusterId,
+                double maxTimeStepSize,
+                struct MeshStructure *i_meshStructure,
+                struct GlobalData *i_globalData,
+                seissol::initializers::Layer *i_clusterData,
+                seissol::initializers::Layer *i_dynRupClusterData,
+                seissol::initializers::LTS *i_lts,
+                seissol::initializers::DynamicRupture *i_dynRup,
+                LoopStatistics *i_loopStatistics);
 
     /**
      * Destructor of a LTS cluster.
      * TODO: Currently prints only statistics in debug mode.
      **/
     ~TimeCluster();
-    
-    double timeStepWidth() const {
-      return m_timeStepWidth;
+
+    double timeStepSize() const {
+      return ct.timeStepSize(syncTime);
     }
-    
-    void setTimeStepWidth(double timestep) {
-      m_timeStepWidth = timestep;
-      updateRelaxTime();
-      m_dynamicRuptureKernel.setTimeStepWidth(timestep);
+
+    void updateSyncTime(double newSyncTime) {
+      assert(newSyncTime > syncTime);
+      syncTime = newSyncTime;
     }
 
     /**

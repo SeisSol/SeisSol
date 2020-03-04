@@ -95,38 +95,40 @@ extern volatile unsigned int* volatile g_handleSends;
 //! fortran interoperability
 extern seissol::Interoperability e_interoperability;
 
-seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
-                                                  unsigned int                   i_globalClusterId,
-                                                  struct MeshStructure          *i_meshStructure,
-                                                  struct GlobalData             *i_globalData,
-                                                  seissol::initializers::TimeCluster* i_clusterData,
-                                                  seissol::initializers::TimeCluster* i_dynRupClusterData,
-                                                  seissol::initializers::LTS*         i_lts,
-                                                  seissol::initializers::DynamicRupture* i_dynRup,
-                                                  LoopStatistics*                        i_loopStatistics ):
- // cluster ids
- m_clusterId(               i_clusterId                ),
- m_globalClusterId(         i_globalClusterId          ),
- // mesh structure
- m_meshStructure(           i_meshStructure            ),
- // global data
- m_globalData(              i_globalData               ),
- m_clusterData(             i_clusterData              ),
- m_dynRupClusterData(       i_dynRupClusterData        ),
- m_lts(                     i_lts                      ),
- m_dynRup(                  i_dynRup                   ),
- // cells
- m_cellToPointSources(      NULL                       ),
- m_numberOfCellToPointSourcesMappings(0                ),
- m_pointSources(            NULL                       ),
+seissol::time_stepping::TimeCluster::TimeCluster(
+    unsigned int i_clusterId,
+    unsigned int i_globalClusterId,
+    double maxTimeStepSize,
+    struct MeshStructure *i_meshStructure,
+    struct GlobalData *i_globalData,
+    seissol::initializers::Layer* i_clusterData,
+    seissol::initializers::Layer* i_dynRupClusterData,
+    seissol::initializers::LTS* i_lts,
+    seissol::initializers::DynamicRupture* i_dynRup,
+    LoopStatistics* i_loopStatistics):
+    // cluster ids
+    m_clusterId(i_clusterId),
+    m_globalClusterId(i_globalClusterId),
+    // mesh structure
+    m_meshStructure(i_meshStructure),
+    // global data
+    m_globalData(i_globalData),
+    m_clusterData(i_clusterData),
+    m_dynRupClusterData(i_dynRupClusterData),
+    m_lts(i_lts),
+    m_dynRup(i_dynRup),
+    // cells
+    m_cellToPointSources(nullptr),
+    m_numberOfCellToPointSourcesMappings(0),
+    m_pointSources(nullptr),
 
- m_loopStatistics(          i_loopStatistics           ),
- m_receiverCluster(          nullptr                   )
+    m_loopStatistics(i_loopStatistics),
+    m_receiverCluster(nullptr)
 {
     // assert all pointers are valid
-    assert( m_meshStructure                            != NULL );
-    assert( m_globalData                               != NULL );
-    assert( m_clusterData                              != NULL );
+    assert( m_meshStructure                            != nullptr);
+    assert( m_globalData                               != nullptr);
+    assert( m_clusterData                              != nullptr);
 
   // default: no updates are allowed
   m_updatable.localCopy           = false;
@@ -136,20 +138,14 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 #ifdef USE_MPI
   m_sendLtsBuffers                = false;
 #endif
-  m_resetLtsBuffers               = false;
   // set timings to zero
   m_numberOfTimeSteps             = 0;
   m_receiverTime                  = 0;
-  m_timeStepWidth                 = 0;
-  m_subTimeStart                  = 0;
+  ct.maxTimeStepSize              = maxTimeStepSize;
   m_numberOfFullUpdates           = 0;
-  m_fullUpdateTime                = 0;
-  m_predictionTime                = 0;
 
-  m_dynamicRuptureFaces = (i_dynRupClusterData->child<Ghost>().getNumberOfCells() > 0)
-	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
-	|| (i_dynRupClusterData->child<Interior>().getNumberOfCells() > 0);
-  
+  m_dynamicRuptureFaces = i_dynRupClusterData->getNumberOfCells() > 0;
+
   m_timeKernel.setGlobalData(m_globalData);
   m_localKernel.setGlobalData(m_globalData);
   m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
@@ -182,7 +178,7 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
   SCOREP_USER_REGION( "writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   if (m_receiverCluster != nullptr) {
-    m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, m_fullUpdateTime, m_timeStepWidth);
+    m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize());
   }
 }
 
@@ -205,8 +201,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                        m_pointSources->muA[source],
                                                        m_pointSources->lambdaA[source],
                                                        m_pointSources->slipRates[source],
-                                                       m_fullUpdateTime,
-                                                       m_fullUpdateTime + m_timeStepWidth,
+                                                       ct.correctionTime,
+                                                       ct.correctionTime + timeStepSize(),
                                                        *m_cellToPointSources[mapping].dofs );
         }
       } else {
@@ -214,8 +210,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
           sourceterm::addTimeIntegratedPointSourceFSRM( m_pointSources->mInvJInvPhisAtSources[source],
                                                         m_pointSources->tensor[source],
                                                         &m_pointSources->slipRates[source][0],
-                                                        m_fullUpdateTime,
-                                                        m_fullUpdateTime + m_timeStepWidth,
+                                                        ct.correctionTime,
+                                                        ct.correctionTime + timeStepSize(),
                                                         *m_cellToPointSources[mapping].dofs );
         }
       }
@@ -240,6 +236,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
+  m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
@@ -260,7 +257,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             QInterpolatedMinus,
                                             imposedStatePlus[face],
                                             imposedStateMinus[face],
-                                            m_fullUpdateTime,
+                                            ct.correctionTime,
                                             m_dynamicRuptureKernel.timePoints,
                                             m_dynamicRuptureKernel.timeWeights,
                                             waveSpeedsPlus[face],
@@ -294,11 +291,12 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::i
  * MPI-Communication during the simulation; exchange of DOFs.
  */
 void seissol::time_stepping::TimeCluster::receiveGhostLayer(){
+  /*
   SCOREP_USER_REGION( "receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  /*
-   * Receive data of the ghost regions
-   */
+  //
+  // Receive data of the ghost regions
+  //
   for( unsigned int l_region = 0; l_region < m_meshStructure->numberOfRegions; l_region++ ) {
     // continue only if the cluster qualifies for communication
     if( m_resetLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= static_cast<int>(m_globalClusterId) ) {
@@ -316,14 +314,16 @@ void seissol::time_stepping::TimeCluster::receiveGhostLayer(){
       m_receiveQueue.push_back( m_meshStructure->receiveRequests + l_region );
     }
   }
+   */
 }
 
 void seissol::time_stepping::TimeCluster::sendCopyLayer(){
+  /*
   SCOREP_USER_REGION( "sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  /*
-   * Send data of the copy regions
-   */
+  //
+  //Send data of the copy regions
+  //
   for( unsigned int l_region = 0; l_region < m_meshStructure->numberOfRegions; l_region++ ) {
     if( m_sendLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= static_cast<int>(m_globalClusterId) ) {
       // post send request
@@ -340,9 +340,11 @@ void seissol::time_stepping::TimeCluster::sendCopyLayer(){
       m_sendQueue.push_back(m_meshStructure->sendRequests + l_region );
     }
   }
+  */
 }
 
 bool seissol::time_stepping::TimeCluster::testForGhostLayerReceives(){
+  /*
   SCOREP_USER_REGION( "testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION )
 
 #if defined(_OPENMP) && defined(USE_COMM_THREAD)
@@ -370,9 +372,11 @@ bool seissol::time_stepping::TimeCluster::testForGhostLayerReceives(){
   // return true if the communication is finished
   return m_receiveQueue.empty();
 #endif
+   */
 }
 
 bool seissol::time_stepping::TimeCluster::testForCopyLayerSends(){
+  /*
   SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
 
 #if defined(_OPENMP) && defined(USE_COMM_THREAD)
@@ -399,25 +403,26 @@ bool seissol::time_stepping::TimeCluster::testForCopyLayerSends(){
   // return true if the communication is finished
   return m_sendQueue.empty();
 #endif
+   */
 }
 
 #if defined(_OPENMP) && defined(USE_COMM_THREAD)
 void seissol::time_stepping::TimeCluster::initReceiveGhostLayer(){
-  g_handleRecvs[m_clusterId] = 1;
+  //g_handleRecvs[m_clusterId] = 1;
 }
 
 void seissol::time_stepping::TimeCluster::initSendCopyLayer(){
-  g_handleSends[m_clusterId] = 1;
+  //g_handleSends[m_clusterId] = 1;
 }
 
 void seissol::time_stepping::TimeCluster::waitForInits() {
-  while( g_handleRecvs[m_clusterId] == 1 || g_handleSends[m_clusterId] == 1 );
+  //while( g_handleRecvs[m_clusterId] == 1 || g_handleSends[m_clusterId] == 1 );
 }
 #endif
 
 #endif
 
-void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData ) {
+void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData, bool resetBuffers ) {
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
@@ -446,7 +451,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     // TODO: Integrate this step into the kernel
 
     bool l_buffersProvided = (data.cellInformation.ltsSetup >> 8)%2 == 1; // buffers are provided
-    bool l_resetBuffers = l_buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || m_resetLtsBuffers ); // they should be reset
+    bool l_resetBuffers = l_buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
 
     if (l_resetBuffers) {
       // assert presence of the buffer
@@ -458,7 +463,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       l_bufferPointer = l_integrationBuffer;
     }
 
-    m_timeKernel.computeAder(m_timeStepWidth,
+    m_timeKernel.computeAder(timeStepSize(),
                              data,
                              tmp,
                              l_bufferPointer,
@@ -471,8 +476,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   tmp,
                                   &materialData[l_cell],
                                   &boundaryMapping[l_cell],
-                                  m_fullUpdateTime,
-                                  m_timeStepWidth
+                                  ct.correctionTime,
+                                  timeStepSize()
     );
     
     // Update displacement
@@ -498,7 +503,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells());
 }
 
-void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
+void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData, double subTimeStart ) {
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
@@ -507,6 +512,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
   CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
 #ifdef USE_PLASTICITY
+  updateRelaxTime();
   PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
   real (*pstrain)[7] = i_layerData.var(m_lts->pstrain);
   unsigned numberOTetsWithPlasticYielding = 0;
@@ -517,6 +523,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   real *l_timeIntegrated[4];
   real *l_faceNeighbors_prefetch[4];
+
+  //std::cout << "dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize() << " t_sub=" << subTimeStart << std::endl;
 
 #ifdef _OPENMP
 #ifdef USE_PLASTICITY
@@ -530,8 +538,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
     seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
                                                    data.cellInformation.ltsSetup,
                                                    data.cellInformation.faceTypes,
-                                                   m_subTimeStart,
-                                                   m_timeStepWidth,
+                                                   subTimeStart,
+                                                   timeStepSize(),
                                                    faceNeighbors[l_cell],
 #ifdef _OPENMP
                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
@@ -573,14 +581,14 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
 #ifdef USE_PLASTICITY
   numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
-                                                                                     m_timeStepWidth,
+                                                                                     timeStepSize(),
                                                                                      m_globalData,
                                                                                      &plasticity[l_cell],
                                                                                      data.dofs,
                                                                                      pstrain[l_cell] );
 #endif
 #ifdef INTEGRATE_QUANTITIES
-  seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
+  seissol::SeisSol::main.postProcessor().integrateQuantities( timeStepSize(),
                                                               i_layerData,
                                                               l_cell,
                                                               dofs[l_cell] );
@@ -597,13 +605,14 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
 #ifdef USE_MPI
 bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
+  /*
   SCOREP_USER_REGION( "computeLocalCopy", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   // ensure a valid call
   if( !m_updatable.localCopy ) {
     logError() << "Invalid call of computeLocalCopy, aborting:"
       << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
-      << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
+      << m_fullUpdateTime << m_predictionTime << timeStepSize()   << m_subTimeStart      << m_resetLtsBuffers;
   }
 
   // continue only if copy layer sends are complete
@@ -622,7 +631,7 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
   }
 
   // integrate copy layer locally
-  computeLocalIntegration( m_clusterData->child<Copy>() );
+  computeLocalIntegration(*m_clusterData);
 
   g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[LocalCopy];
   g_SeisSolHardwareFlopsLocal += m_flops_hardware[LocalCopy];
@@ -641,7 +650,7 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
   // compute sources, update simulation time
   if( !m_updatable.localInterior ) {
     computeSources();
-    m_predictionTime += m_timeStepWidth;
+    m_predictionTime += timeStepSize();
   }
 
   // update finished
@@ -653,17 +662,19 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
 #endif
 
   return true;
+  */
 }
 #endif
 
 void seissol::time_stepping::TimeCluster::computeLocalInterior(){
+  /*
   SCOREP_USER_REGION( "computeLocalInterior", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   // ensure a valid call
   if( !m_updatable.localInterior ) {
     logError() << "Invalid call of computeLocalInterior, aborting:"
       << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
-      << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
+      << m_fullUpdateTime << m_predictionTime << timeStepSize()   << m_subTimeStart      << m_resetLtsBuffers;
   }
 
   // MPI checks for receiver writes receivers either in the copy layer or interior
@@ -693,22 +704,24 @@ void seissol::time_stepping::TimeCluster::computeLocalInterior(){
   // compute sources, update simulation time
   if( !m_updatable.localCopy ) {
     computeSources();
-    m_predictionTime += m_timeStepWidth;
+    m_predictionTime += timeStepSize();
   }
 
   // update finished
   m_updatable.localInterior = false;
+  */
 }
 
 #ifdef USE_MPI
 bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
+  /*
   SCOREP_USER_REGION( "computeNeighboringCopy", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   // ensure a valid call
   if( !m_updatable.neighboringCopy ) {
     logError() << "Invalid call of computeNeighboringCopy aborting:"
       << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
-      << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
+      << m_fullUpdateTime << m_predictionTime << timeStepSize()   << m_subTimeStart      << m_resetLtsBuffers;
   }
 
   // continue only of ghost layer receives are complete
@@ -719,19 +732,19 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
   testForCopyLayerSends();
 #endif
 
-  if (m_dynamicRuptureFaces == true) {
+  if (m_dynamicRuptureFaces) {
     if (m_updatable.neighboringInterior) {
-      computeDynamicRupture(m_dynRupClusterData->child<Interior>());
+      computeDynamicRupture(*m_dynRupClusterData);
       g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawInterior];
       g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawInterior];
     }
 
-    computeDynamicRupture(m_dynRupClusterData->child<Copy>());
+    computeDynamicRupture(*m_dynRupClusterData);
     g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawCopy];
     g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawCopy];
   }
 
-  computeNeighboringIntegration( m_clusterData->child<Copy>() );
+  //computeNeighboringIntegration(*m_clusterData);
 
   g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[NeighborCopy];
   g_SeisSolHardwareFlopsNeighbor += m_flops_hardware[NeighborCopy];
@@ -748,11 +761,11 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
     // First cluster calls fault receiver output
     // TODO: Change from iteration based to time based
     if (m_clusterId == 0) {
-      e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
+      e_interoperability.faultOutput( m_fullUpdateTime, timeStepSize() );
     }
 
-    m_fullUpdateTime      += m_timeStepWidth;
-    m_subTimeStart        += m_timeStepWidth;
+    m_fullUpdateTime      += timeStepSize();
+    m_subTimeStart        += timeStepSize();
     m_numberOfFullUpdates += 1;
     m_numberOfTimeSteps   += 1;
   }
@@ -761,16 +774,18 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
   m_updatable.neighboringCopy = false;
 
   return true;
+   */
 }
 #endif
 
 void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
+  /*
   SCOREP_USER_REGION( "computeNeighboringInterior", SCOREP_USER_REGION_TYPE_FUNCTION )
   // ensure a valid call
   if( !m_updatable.neighboringInterior ) {
     logError() << "Invalid call of computeNeighboringInterior, aborting:"
       << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
-      << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
+      << m_fullUpdateTime << m_predictionTime << timeStepSize()   << m_subTimeStart      << m_resetLtsBuffers;
   }
 
   if (m_dynamicRuptureFaces == true && m_updatable.neighboringCopy == true) {
@@ -792,17 +807,18 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
     // First cluster calls fault receiver output
     // TODO: Change from iteration based to time based
     if (m_clusterId == 0) {
-      e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
+      e_interoperability.faultOutput( m_fullUpdateTime, timeStepSize() );
     }
 
-    m_fullUpdateTime      += m_timeStepWidth;
-    m_subTimeStart        += m_timeStepWidth;
+    m_fullUpdateTime      += timeStepSize();
+    m_subTimeStart        += timeStepSize();
     m_numberOfFullUpdates += 1;
     m_numberOfTimeSteps   += 1;
   }
 
   // update finished
   m_updatable.neighboringInterior = false;
+   */
 }
 
 void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops( unsigned                    numberOfCells,
@@ -860,6 +876,7 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(  unsi
 
 void seissol::time_stepping::TimeCluster::computeFlops()
 {
+  /*
 #ifdef USE_MPI
   computeLocalIntegrationFlops( m_meshStructure->numberOfCopyCells,
                                 m_clusterData->child<Copy>().var(m_lts->cellInformation),
@@ -897,9 +914,11 @@ void seissol::time_stepping::TimeCluster::computeFlops()
                                                   m_flops_hardware[PlasticityCheck],
                                                   m_flops_nonZero[PlasticityYield],
                                                   m_flops_hardware[PlasticityYield] );
-}
+*/
+   }
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
+/*
 void seissol::time_stepping::TimeCluster::pollForCopyLayerSends(){
   for( std::list<MPI_Request*>::iterator l_send = m_sendQueue.begin(); l_send != m_sendQueue.end(); ) {
     int l_mpiStatus = 0;
@@ -944,6 +963,7 @@ void seissol::time_stepping::TimeCluster::startReceiveGhostLayer() {
 void seissol::time_stepping::TimeCluster::startSendCopyLayer() {
   sendCopyLayer();
 }
+ */
 #endif
 
 namespace seissol::time_stepping {
@@ -953,23 +973,32 @@ namespace seissol::time_stepping {
       case ActorState::Corrected: {
         const auto minNeighbor = std::min_element(
             neighbors.begin(), neighbors.end(),
-            [] (NeighborCluster const& a, NeighborCluster const& b) {
-              return a.ct.nextCorrectionTime() < b.ct.nextCorrectionTime();
+            [this] (NeighborCluster const& a, NeighborCluster const& b) {
+              return a.ct.nextCorrectionTime(syncTime) < b.ct.nextCorrectionTime(syncTime);
             });
         const bool mayPredict = minNeighbor == neighbors.end() ||
-            ct.predictionTime < minNeighbor->ct.nextCorrectionTime();
-        if (ct.correctionTime >= endTime) {
-          state = ActorState::Finished;
+            ct.predictionTime < minNeighbor->ct.nextCorrectionTime(syncTime);
+        if (ct.correctionTime >= syncTime) {
+          state = ActorState::Synced;
         } else if (mayPredict) {
-          //computeLocalIntegration(clusterId);
-
-//#pragma omp taskgroup
-          //scheduleTasksRecursive(clusterId, static_cast<int>(state), taskGroup, 0, taskGroup.ntasks);
-
-          ct.predictionTime += ct.timeStepSize;
+          bool resetBuffers = true;
           for (auto& neighbor : neighbors) {
-            if (ct.predictionTime >= neighbor.ct.nextCorrectionTime())  {
-              AdvancedPredictionTimeMessage message;
+            if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize &&
+                ct.correctionTime - neighbor.ct.correctionTime > std::numeric_limits<double>::epsilon()) {
+                resetBuffers = false;
+                break;
+            }
+          }
+          std::cout << "pred dt_max=" << ct.maxTimeStepSize  << " dt=" << timeStepSize() <<
+                    " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime << " reset=" << resetBuffers << std::endl;
+          computeLocalIntegration(*m_clusterData, resetBuffers);
+
+          ct.predictionTime += timeStepSize();
+          for (auto& neighbor : neighbors) {
+            /*std::cout << ct.maxTimeStepSize << " sends?? " << ct.predictionTime << " " << neighbor.ct.nextCorrectionTime(syncTime) <<
+            " " << (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime)) << std::endl;*/
+            if (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime))  {
+              AdvancedPredictionTimeMessage message{};
               message.time = ct.predictionTime;
               neighbor.outbox->push(message);
             }
@@ -990,13 +1019,20 @@ namespace seissol::time_stepping {
         const bool mayCorrect = minNeighbor == neighbors.end() ||
             ct.predictionTime <= minNeighbor->ct.predictionTime;
         if (mayCorrect) {
-          //computeNeighboringIntegration(clusterId);
-
-//#pragma omp taskgroup
-//          scheduleTasksRecursive(clusterId, static_cast<int>(state), taskGroup, 0, taskGroup.ntasks);
-
-          ct.correctionTime += ct.timeStepSize;
+          double subTimeStart = 0.0;
           for (auto& neighbor : neighbors) {
+            if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize) {
+              subTimeStart = ct.correctionTime - neighbor.ct.correctionTime;
+              break;
+            }
+          }
+          std::cout << "corr dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize()
+                    << " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime << std::endl;
+          computeNeighboringIntegration(*m_clusterData, subTimeStart);
+
+          ct.correctionTime += timeStepSize();
+          for (auto& neighbor : neighbors) {
+            //std::cout << ct.maxTimeStepSize << " sends? " << ct.correctionTime << " " << neighbor.ct.predictionTime << std::endl;
             if (ct.correctionTime >= neighbor.ct.predictionTime) {
               AdvancedCorrectionTimeMessage message{};
               message.time = ct.correctionTime;
@@ -1010,8 +1046,12 @@ namespace seissol::time_stepping {
         }
         break;
       }
-      case ActorState::Finished:
-        // Do nothing
+      case ActorState::Synced:
+        if (ct.correctionTime < syncTime) {
+          state = ActorState::Corrected;
+        } else {
+          yield = true;
+        }
         break;
       default:
         throw;
@@ -1019,8 +1059,8 @@ namespace seissol::time_stepping {
     return yield;
   }
   void TimeCluster::connect(TimeCluster& other) {
-    neighbors.emplace_back(other.ct.timeStepSize);
-    other.neighbors.emplace_back(ct.timeStepSize);
+    neighbors.emplace_back(other.ct.maxTimeStepSize);
+    other.neighbors.emplace_back(ct.maxTimeStepSize);
     neighbors.back().inbox = std::make_shared<MessageQueue>();
     other.neighbors.back().inbox = std::make_shared<MessageQueue>();
     neighbors.back().outbox = other.neighbors.back().inbox;
@@ -1033,14 +1073,18 @@ namespace seissol::time_stepping {
       if (neighbor.inbox->hasMessages()) {
         processed = true;
         Message message = neighbor.inbox->pop();
-        std::visit([neighbor](auto&& msg) {
-          using T = std::decay_t<decltype(neighbor)>;
+        std::visit([&neighbor,this](auto&& msg) {
+          using T = std::decay_t<decltype(msg)>;
           if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
             assert(msg.time > neighbor.ct.predictionTime);
             neighbor.ct.predictionTime = msg.time;
+            //std::cout << "AdvancedPred " << ct.maxTimeStepSize << " " << msg.time << std::endl;
           } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
             assert(msg.time > neighbor.ct.correctionTime);
             neighbor.ct.correctionTime = msg.time;
+            //std::cout << "AdvancedCorr " << ct.maxTimeStepSize << " " << msg.time << std::endl;
+          } else {
+            static_assert(always_false<T>::value, "non-exhaustive visitor!");
           }
         }, message);
       }
@@ -1048,7 +1092,7 @@ namespace seissol::time_stepping {
     return processed;
 }
 
-  bool TimeCluster::finished() const {
-    return state == ActorState::Finished;
+  bool TimeCluster::synced() const {
+    return state == ActorState::Synced;
   }
 }

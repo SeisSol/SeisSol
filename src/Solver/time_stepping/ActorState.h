@@ -4,6 +4,7 @@
 #include <variant>
 #include <omp.h>
 #include <memory>
+#include <algorithm>
 
 namespace seissol {
 namespace time_stepping {
@@ -55,19 +56,23 @@ class MessageQueue {
   enum class ActorState {
     Corrected,
     Predicted,
-    Synced,
-    Finished
+    Synced
   };
 
 
 struct ClusterTimes {
   double predictionTime = 0.0;
   double correctionTime = 0.0;
-  double timeStepSize = std::numeric_limits<double>::infinity();
+  double maxTimeStepSize = std::numeric_limits<double>::infinity();
 
-  // TODO(Lukas) Sync points
-  double nextCorrectionTime() const {
-    return correctionTime + timeStepSize;
+  double nextCorrectionTime(double syncTime) const {
+    return std::min(syncTime, correctionTime + maxTimeStepSize);
+  }
+
+  //! Returns time step s.t. we won't miss the sync point
+  double timeStepSize(double syncTime) const {
+    assert(correctionTime < syncTime);
+    return std::min(syncTime - correctionTime, maxTimeStepSize);
   }
 };
 
@@ -76,14 +81,14 @@ struct NeighborCluster {
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
 
-  NeighborCluster(double timeStepSize) {
-    ct.timeStepSize = timeStepSize;
+  NeighborCluster(double maxTimeStepSize) {
+    ct.maxTimeStepSize = maxTimeStepSize;
   }
 
 
 };
 
-
+template<class T> struct always_false : std::false_type {};
 }
 }
 
