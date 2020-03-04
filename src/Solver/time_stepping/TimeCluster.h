@@ -90,8 +90,6 @@
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
 #include "ActorState.h"
-#include "PostOffice.h"
-#include "NeighborCluster.h"
 
 namespace seissol {
   namespace time_stepping {
@@ -115,18 +113,19 @@ public:
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
 
-    void act();
+    bool act();
+    void connect(TimeCluster& other);
+    bool finished() const;
 
 private:
     ActorState state;
     std::vector<NeighborCluster> neighbors;
-    double predictedTime;
-    double correctedTime;
+    ClusterTimes ct;
     double nextSyncTime;
     double endTime;
-    double maxTimeStepSize;
+    bool processMessages();
 
-    //! Returns time step s.t. we won't miss the sync point
+  //! Returns time step s.t. we won't miss the sync point
     double timeStepSize(double time, double maxDt) const {
       assert(time < nextSyncTime);
       return std::min(maxDt, nextSyncTime - time);

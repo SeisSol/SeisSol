@@ -946,60 +946,109 @@ void seissol::time_stepping::TimeCluster::startSendCopyLayer() {
 }
 #endif
 
-namespace seissol {
-namespace time_stepping {
-  void TimeCluster::act() {
+namespace seissol::time_stepping {
+  bool TimeCluster::act() {
+    bool yield = false;
     switch (state) {
-      case ActorState::Corrected:
-        if (correctedTime >= nextSyncTime) {
-          state = ActorState::Synced;
-        } else if (!localBuffer->isInUse()) {
-          predict();
-          localBuffer->send();
-          neighborBuffer->recv();
-          predictedTime += timeStepSize(predictedTime, maxTimeStepSize);
-          state = ActorState::PredictedLocal;
-        }
-        break;
-      case ActorState::PredictedLocal:
-        for (auto& neighbor : neighbors) {
-          if (predictedTime > neighbor.predictedTime &&
-              neighborBuffer->test()) {
-            // process message
-            neighbor.predictedTime += timeStepSize(neighbor.predictedTime,
-                                                   neighbor.maxTimeStepSize);
-            state = ActorState::MaybeReady;
+      case ActorState::Corrected: {
+        const auto minNeighbor = std::min_element(
+            neighbors.begin(), neighbors.end(),
+            [] (NeighborCluster const& a, NeighborCluster const& b) {
+              return a.ct.nextCorrectionTime() < b.ct.nextCorrectionTime();
+            });
+        const bool mayPredict = minNeighbor == neighbors.end() ||
+            ct.predictionTime < minNeighbor->ct.nextCorrectionTime();
+        if (ct.correctionTime >= endTime) {
+          state = ActorState::Finished;
+        } else if (mayPredict) {
+          //computeLocalIntegration(clusterId);
+
+//#pragma omp taskgroup
+          //scheduleTasksRecursive(clusterId, static_cast<int>(state), taskGroup, 0, taskGroup.ntasks);
+
+          ct.predictionTime += ct.timeStepSize;
+          for (auto& neighbor : neighbors) {
+            if (ct.predictionTime >= neighbor.ct.nextCorrectionTime())  {
+              AdvancedPredictionTimeMessage message;
+              message.time = ct.predictionTime;
+              neighbor.outbox->push(message);
+            }
           }
-        }
-        break;
-      case ActorState::MaybeReady: {
-        const bool mayAdvance = predictedTime <=
-            std::min_element(neighbors.begin(), neighbors.end(),
-                              [] (NeighborCluster const& a, NeighborCluster const& b) {
-              return a.predictedTime < b.predictedTime;
-            })->predictedTime;
-        if (mayAdvance) {
-          correct();
-          neighborBuffer->free();
-          correctedTime += timeStepSize(correctedTime, maxTimeStepSize);
-          state = ActorState::Corrected;
+          state = ActorState::Predicted;
+        } else {
+          bool processed = processMessages();
+          yield = !processed;
         }
         break;
       }
-      case ActorState::Synced:
-        // Sync point handling here
-        if (correctedTime >= endTime) {
-          state = ActorState::Finished;
-        } else if (correctedTime < nextSyncTime) {
+      case ActorState::Predicted: {
+        const auto minNeighbor = std::min_element(
+            neighbors.begin(), neighbors.end(),
+            [] (NeighborCluster const& a, NeighborCluster const& b) {
+              return a.ct.predictionTime < b.ct.predictionTime;
+            });
+        const bool mayCorrect = minNeighbor == neighbors.end() ||
+            ct.predictionTime <= minNeighbor->ct.predictionTime;
+        if (mayCorrect) {
+          //computeNeighboringIntegration(clusterId);
+
+//#pragma omp taskgroup
+//          scheduleTasksRecursive(clusterId, static_cast<int>(state), taskGroup, 0, taskGroup.ntasks);
+
+          ct.correctionTime += ct.timeStepSize;
+          for (auto& neighbor : neighbors) {
+            if (ct.correctionTime >= neighbor.ct.predictionTime) {
+              AdvancedCorrectionTimeMessage message{};
+              message.time = ct.correctionTime;
+              neighbor.outbox->push(message);
+            }
+          }
           state = ActorState::Corrected;
+        } else {
+          bool processed = processMessages();
+          yield = !processed;
         }
         break;
+      }
       case ActorState::Finished:
         // Do nothing
         break;
       default:
         throw;
     }
+    return yield;
   }
+  void TimeCluster::connect(TimeCluster& other) {
+    neighbors.emplace_back(other.ct.timeStepSize);
+    other.neighbors.emplace_back(ct.timeStepSize);
+    neighbors.back().inbox = std::make_shared<MessageQueue>();
+    other.neighbors.back().inbox = std::make_shared<MessageQueue>();
+    neighbors.back().outbox = other.neighbors.back().inbox;
+    other.neighbors.back().outbox = neighbors.back().inbox;
+  }
+
+  bool TimeCluster::processMessages() {
+    bool processed = false;
+    for (auto& neighbor : neighbors) {
+      if (neighbor.inbox->hasMessages()) {
+        processed = true;
+        Message message = neighbor.inbox->pop();
+        std::visit([neighbor](auto&& msg) {
+          using T = std::decay_t<decltype(neighbor)>;
+          if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
+            assert(msg.time > neighbor.ct.predictionTime);
+            neighbor.ct.predictionTime = msg.time;
+          } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
+            assert(msg.time > neighbor.ct.correctionTime);
+            neighbor.ct.correctionTime = msg.time;
+          }
+        }, message);
+      }
+    }
+    return processed;
 }
+
+  bool TimeCluster::finished() const {
+    return state == ActorState::Finished;
+  }
 }
