@@ -142,7 +142,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
+  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration.specific));
 
   krnl.dQ(0) = const_cast<real*>(data.dofs);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {

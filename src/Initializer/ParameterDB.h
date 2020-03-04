@@ -55,10 +55,7 @@
 #include "easi/ResultAdapter.h"
 #include "generated_code/init.h"
 
-#include "Model/common_datastructures.hpp"
-#include "Equations/anisotropic/Model/datastructures.hpp"
-#include "Equations/elastic/Model/datastructures.hpp"
-#include "Equations/viscoelastic2/Model/datastructures.hpp"
+#include "Equations/datastructures.hpp"
 
 #ifndef PUML_PUML_H
 namespace PUML {class TETPUML;}

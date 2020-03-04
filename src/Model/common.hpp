@@ -50,9 +50,7 @@
 #include "Numerical_aux/Transformation.h"
 
 #include "Model/common_datastructures.hpp"
-#include "Equations/elastic/Model/datastructures.hpp"
-#include "Equations/anisotropic/Model/datastructures.hpp"
-#include "Equations/viscoelastic2/Model/datastructures.hpp"
+
 
 namespace seissol {
   namespace model {
@@ -64,7 +62,7 @@ namespace seissol {
     void getTransposedCoefficientMatrix( Tmaterial const& i_material,
                                          unsigned         i_dim,
                                          Tmatrix&         o_M )
-    { o_M.setZero(); };
+    { o_M.setZero(); }
     
     template<typename Tmaterial, typename T>
     void getTransposedSourceCoefficientTensor(  Tmaterial const& material,
@@ -88,18 +86,13 @@ namespace seissol {
                                double const n[3],
                                std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
 
-    template<typename T>
-    void setMaterial( double* i_materialVal,
-                      int i_numMaterialVals,
-                      T* o_material ); 
-
-    template<typename T>
+    template<typename T, typename S>
     void initializeSpecificLocalData( T const&,
-                                      LocalData* );
+                                      S* LocalData ) {}
 
-    template<typename T>
+    template<typename T, typename S>
     void initializeSpecificNeighborData(  T const&,
-                                          NeighborData* );
+                                          S* NeighborData ) {}
 
     /* 
      * Calculates the so called Bond matrix. Anisotropic materials are characterized by 

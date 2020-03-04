@@ -38,8 +38,8 @@
  * @section DESCRIPTION
  **/
 
-#ifndef MODEL_VISCOELASTIC_DATASTRUCTURES_H_
-#define MODEL_VISCOELASTIC_DATASTRUCTURES_H_
+#ifndef MODEL_VISCOELASTIC2_DATASTRUCTURES_H_
+#define MODEL_VISCOELASTIC2_DATASTRUCTURES_H_
 
 #include <Model/common_datastructures.hpp>
 #include <Equations/elastic/Model/datastructures.hpp>
@@ -60,23 +60,34 @@ namespace seissol {
       double Qp;
       double Qs;
 
+      ViscoElasticMaterial() {};
+      ViscoElasticMaterial( double* materialValues, int numMaterialValues)
+      {
+        assert(numMaterialValues == 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
+
+        this->rho = materialValues[0];
+        this->mu = materialValues[1];
+        this->lambda = materialValues[2];
+
+        for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
+          this->omega[mech] = materialValues[3 + 4*mech];
+          for (unsigned i = 1; i < 4; ++i) {
+            this->theta[mech][i-1] = materialValues[3 + 4*mech + i];
+          }
+        }
+        //This constructor is used to initialize a ViscoElasticMaterial
+        //from the values in Fortran. Qp and Qs are not part of the 
+        //material in Fortran, so we set these to NaN.
+        Qp = std::numeric_limits<double>::signaling_NaN();
+        Qs = std::numeric_limits<double>::signaling_NaN();
+      }
+
       virtual ~ViscoElasticMaterial() {};
 
       MaterialType getMaterialType() const override {
         return MaterialType::viscoelastic;
       }
     };
-
-#ifdef USE_VISCOELASTIC2
-    struct LocalData {
-      real E[tensor::E::size()];
-      real w[tensor::w::size()];
-      real W[tensor::W::size()];
-    };
-    struct NeighborData {
-      real w[tensor::w::size()];
-    };
-#endif
   }
 }
 

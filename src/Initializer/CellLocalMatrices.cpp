@@ -45,7 +45,7 @@
 
 #include <Initializer/ParameterDB.h>
 #include <Numerical_aux/Transformation.h>
-#include <Model/Setup.h>
+#include <Equations/Setup.h>
 #include <Model/common.hpp>
 #include <Geometry/MeshTools.h>
 #include <generated_code/tensor.h>

@@ -52,6 +52,16 @@ namespace seissol {
       double lambda;
       double mu;
 
+      ElasticMaterial() {};
+      ElasticMaterial(double* materialValues, int numMaterialValues)
+      {
+        assert(numMaterialValues == 3);
+
+        this->rho = materialValues[0];
+        this->mu = materialValues[1];
+        this->lambda = materialValues[2];
+      }
+
       virtual ~ElasticMaterial() {};
 
       void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const final {

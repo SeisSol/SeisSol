@@ -79,14 +79,7 @@ namespace seissol {
       double pWaveVelocity;
       double sWaveVelocity;
     };
-#if !defined USE_VISCOELASTIC && !defined USE_VISCOELASTIC2
-    struct LocalData {
-    };
-    struct NeighborData {
-    };
-#endif
   }
-  
 }
 
 #endif

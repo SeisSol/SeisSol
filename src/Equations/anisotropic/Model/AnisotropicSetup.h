@@ -54,9 +54,9 @@ namespace seissol {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename T>
-      inline void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
-          unsigned                    i_dim,
-          T&                          o_M )
+    inline void getTransposedCoefficientMatrix( AnisotropicMaterial const&  i_material,
+                                                unsigned                    i_dim,
+                                                T&                          o_M )
       {
         o_M.setZero();
 
@@ -142,8 +142,8 @@ namespace seissol {
       }
 
     inline void getEigenBasisForAnisotropicMaterial( AnisotropicMaterial const&  local,
-        AnisotropicMaterial const&  neighbor,
-        Matrix99&  R)
+                                                     AnisotropicMaterial const&  neighbor,
+                                                     Matrix99&  R)
     {
       using Matrix33 = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>;
       using Matrix63 = Eigen::Matrix<double, 6, 3, Eigen::ColMajor>;
@@ -251,11 +251,11 @@ namespace seissol {
     }
 
     template<>
-      inline void getTransposedGodunovState( AnisotropicMaterial const&       local,
-          AnisotropicMaterial const&       neighbor,
-          FaceType                         faceType,
-          init::QgodLocal::view::type&     QgodLocal,
-          init::QgodNeighbor::view::type&  QgodNeighbor )
+    inline void getTransposedGodunovState( AnisotropicMaterial const&       local,
+                                           AnisotropicMaterial const&       neighbor,
+                                           FaceType                         faceType,
+                                           init::QgodLocal::view::type&     QgodLocal,
+                                           init::QgodNeighbor::view::type&  QgodNeighbor )
       {
 
         Matrix99 R = Matrix99::Zero();
@@ -283,49 +283,6 @@ namespace seissol {
             QgodLocal(idx,idx) += 1.0;
           }
         }
-      }
-
-
-    template<>
-      inline void initializeSpecificLocalData( AnisotropicMaterial const&,
-          LocalData* )
-      {
-      }
-
-    template<>
-      inline void initializeSpecificNeighborData( AnisotropicMaterial const&,
-          NeighborData* )
-      {
-      }
-
-    template<>
-      inline void setMaterial( double*               i_materialVal,
-                               int                   i_numMaterialVals,
-                               AnisotropicMaterial*  o_material )
-      {
-        assert(i_numMaterialVals == 22);
-        o_material->rho = i_materialVal[0];
-        o_material->c11 = i_materialVal[1];
-        o_material->c12 = i_materialVal[2];
-        o_material->c13 = i_materialVal[3];
-        o_material->c14 = i_materialVal[4];
-        o_material->c15 = i_materialVal[5];
-        o_material->c16 = i_materialVal[6];
-        o_material->c22 = i_materialVal[7];
-        o_material->c23 = i_materialVal[8];
-        o_material->c24 = i_materialVal[9];
-        o_material->c25 = i_materialVal[10];
-        o_material->c26 = i_materialVal[11];
-        o_material->c33 = i_materialVal[12];
-        o_material->c34 = i_materialVal[13];
-        o_material->c35 = i_materialVal[14];
-        o_material->c36 = i_materialVal[15];
-        o_material->c44 = i_materialVal[16];
-        o_material->c45 = i_materialVal[17];
-        o_material->c46 = i_materialVal[18];
-        o_material->c55 = i_materialVal[19];
-        o_material->c56 = i_materialVal[20];
-        o_material->c66 = i_materialVal[21];
       }
 
     inline AnisotropicMaterial getRotatedMaterialCoefficients(real rotationParameters[36], AnisotropicMaterial& material) {
@@ -396,7 +353,6 @@ namespace seissol {
         rotatedMaterial.c66 = rotatedC(5,5);
         return rotatedMaterial;
       }
-
   }
 }
 

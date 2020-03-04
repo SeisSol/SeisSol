@@ -5,7 +5,7 @@
 
 #include <Kernels/precision.hpp>
 #include <Physics/InitialField.h>
-#include <Model/Setup.h>
+#include <Equations/Setup.h>
 #include <Model/common.hpp>
 #include <yateto/TensorView.h>
 #include <utils/logger.h>

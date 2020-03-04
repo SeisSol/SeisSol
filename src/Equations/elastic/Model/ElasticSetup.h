@@ -50,9 +50,9 @@ namespace seissol {
     using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
     template<typename T>
-      inline void getTransposedCoefficientMatrix( ElasticMaterial const&  i_material,
-                                                  unsigned                i_dim,
-                                                  T&                      o_M )
+    inline void getTransposedCoefficientMatrix( ElasticMaterial const&  i_material,
+                                                unsigned                i_dim,
+                                                T&                      o_M )
       {
         o_M.setZero();
 
@@ -106,11 +106,11 @@ namespace seissol {
       }
 
     template<typename Tloc, typename Tneigh>
-      inline void getTransposedGodunovState( ElasticMaterial const& local,
-                                             ElasticMaterial const& neighbor,
-                                             FaceType               faceType,
-                                             Tloc&                  QgodLocal,
-                                             Tneigh&                QgodNeighbor )
+    inline void getTransposedGodunovState( ElasticMaterial const& local,
+                                           ElasticMaterial const& neighbor,
+                                           FaceType               faceType,
+                                           Tloc&                  QgodLocal,
+                                           Tneigh&                QgodNeighbor )
       {
          QgodNeighbor.setZero();
 
@@ -190,31 +190,6 @@ namespace seissol {
            }
          }
       }
-
-    template<>
-    inline void initializeSpecificLocalData( ElasticMaterial const&,
-                                      LocalData* )
-    {
-    }
-
-    template<>
-    inline void initializeSpecificNeighborData( ElasticMaterial const&,
-                                         NeighborData* )
-    {
-    }
-
-    template<>
-    inline void setMaterial( double*           i_materialVal,
-                             int               i_numMaterialVals,
-                             ElasticMaterial*  o_material )
-    {
-      assert(i_numMaterialVals == 3);
-
-      o_material->rho = i_materialVal[0];
-      o_material->mu = i_materialVal[1];
-      o_material->lambda = i_materialVal[2];
-    }
-
   }
 }
 #endif

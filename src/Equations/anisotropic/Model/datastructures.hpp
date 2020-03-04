@@ -99,6 +99,34 @@ namespace seissol {
         c66 = m.mu; 
       }
 
+      AnisotropicMaterial( double* materialValues, int numMaterialValues)
+      {
+        assert(numMaterialValues == 22);
+
+        this->rho = materialValues[0];
+        this->c11 = materialValues[1];
+        this->c12 = materialValues[2];
+        this->c13 = materialValues[3];
+        this->c14 = materialValues[4];
+        this->c15 = materialValues[5];
+        this->c16 = materialValues[6];
+        this->c22 = materialValues[7];
+        this->c23 = materialValues[8];
+        this->c24 = materialValues[9];
+        this->c25 = materialValues[10];
+        this->c26 = materialValues[11];
+        this->c33 = materialValues[12];
+        this->c34 = materialValues[13];
+        this->c35 = materialValues[14];
+        this->c36 = materialValues[15];
+        this->c44 = materialValues[16];
+        this->c45 = materialValues[17];
+        this->c46 = materialValues[18];
+        this->c55 = materialValues[19];
+        this->c56 = materialValues[20];
+        this->c66 = materialValues[21];
+      }
+
       virtual ~AnisotropicMaterial() {};
 
       

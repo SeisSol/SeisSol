@@ -101,7 +101,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
   }
 
   // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
+  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration.specific));
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs;

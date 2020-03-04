@@ -51,10 +51,9 @@
 #include <Initializer/ParameterDB.h>
 #include <Initializer/time_stepping/common.hpp>
 #include <Initializer/typedefs.hpp>
-#include <Model/Setup.h>
+#include <Equations/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
 #include <ResultWriter/common.hpp>
-#include "Model/common_datastructures.hpp"
 
 seissol::Interoperability e_interoperability;
 
@@ -590,11 +589,10 @@ void seissol::Interoperability::fitAttenuation( double rho,
                                                 seissol::model::ViscoElasticMaterial& material )
 {
 #if defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  assert(USE_VISCOELASTIC || USE_VISCOELASTIC2);
   constexpr size_t numMaterialVals = 3 + 4*NUMBER_OF_RELAXATION_MECHANISMS;
   double materialFortran[numMaterialVals];
   f_interoperability_fitAttenuation(m_domain, rho, mu, lambda, Qp, Qs, materialFortran);
-  seissol::model::setMaterial(materialFortran, numMaterialVals, &material);
+  material =  seissol::model::ViscoElasticMaterial(materialFortran, numMaterialVals);
 #endif
 }
 
@@ -636,32 +634,15 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
     material = &m_ltsLut.lookup(m_lts->material, i_meshId - 1).neighbor[side];
   }
   //TODO(Lukas)
+  //Prepare for different materials in the same simulation
   //Use placement new because pointer to virtual function table gets overwritten by 0 during init.
 #if defined USE_ANISOTROPIC
-  new(material) seissol::model::AnisotropicMaterial;
+  new(material) seissol::model::AnisotropicMaterial(i_materialVal, i_numMaterialVals);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  new(material) seissol::model::ViscoElasticMaterial;
+  new(material) seissol::model::ViscoElasticMaterial(i_materialVal, i_numMaterialVals);
 #else 
-  new(material) seissol::model::ElasticMaterial;
+  new(material) seissol::model::ElasticMaterial(i_materialVal, i_numMaterialVals);
 #endif
-
-  switch(material->getMaterialType()) {
-    case seissol::model::MaterialType::anisotropic: {
-      seissol::model::AnisotropicMaterial* am = dynamic_cast<seissol::model::AnisotropicMaterial*>(material);
-      seissol::model::setMaterial(i_materialVal, i_numMaterialVals, am);
-      break;
-    }
-    case seissol::model::MaterialType::elastic: {
-      seissol::model::ElasticMaterial* em = dynamic_cast<seissol::model::ElasticMaterial*>(material);
-      seissol::model::setMaterial(i_materialVal, i_numMaterialVals, em);
-      break;
-    }                                          
-    case seissol::model::MaterialType::viscoelastic: {
-      seissol::model::ViscoElasticMaterial* vm = dynamic_cast<seissol::model::ViscoElasticMaterial*>(material);
-      seissol::model::setMaterial(i_materialVal, i_numMaterialVals, vm);
-      break;
-    }                                          
-  }
 }
 
 #ifdef USE_PLASTICITY

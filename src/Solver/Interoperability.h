@@ -53,9 +53,7 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
-#include "Equations/elastic/Model/datastructures.hpp"
-#include "Equations/anisotropic/Model/datastructures.hpp"
-#include "Equations/viscoelastic2/Model/datastructures.hpp"
+#include "Equations/datastructures.hpp"
 
 namespace seissol {
   class Interoperability;

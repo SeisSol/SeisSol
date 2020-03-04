@@ -38,7 +38,9 @@
  * @section DESCRIPTION
  **/
 
-#include <Equations/viscoelastic2/Model/ViscoelasticSetup.h>
+#ifndef VISCOELASTIC_SETUP_H_
+#define VISCOELASTIC_SETUP_H_
+
 #include <Model/common.hpp>
 #include <Kernels/common.hpp>
 #include <Numerical_aux/Transformation.h>
@@ -48,11 +50,37 @@
 
 namespace seissol {
   namespace model {
-
-
-#ifdef USE_VISCOELASTIC
     template<typename T>
-    void getTransposedSourceCoefficientTensor( ViscoElasticMaterial const& material, T& sourceMatrix )
+    inline void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
+                                                            unsigned        i_dim,
+                                                            unsigned        mech,
+                                                            T&              o_M )
+    {
+      unsigned col = 9 + mech * 6;
+      switch (i_dim)
+      {
+        case 0:
+          o_M(6, col)     = -i_omega;
+          o_M(7, col + 3) = -0.5 * i_omega;
+          o_M(8, col + 5) = -0.5 * i_omega;
+          break;
+
+        case 1:
+          o_M(7, col + 1) = -i_omega;
+          o_M(6, col + 3) = -0.5 * i_omega;
+          o_M(8, col + 4) = -0.5 * i_omega;
+          break;
+
+        case 2:
+          o_M(8, col + 2) = -i_omega;
+          o_M(7, col + 4) = -0.5 * i_omega;
+          o_M(6, col + 5) = -0.5 * i_omega;
+          break;
+      }
+    }
+
+    template<typename T>
+    inline void getTransposedSourceCoefficientTensor( ViscoElasticMaterial const& material, T& sourceMatrix )
     {
       sourceMatrix.setZero();
     
@@ -86,7 +114,7 @@ namespace seissol {
     }
     
     template<typename T>
-    void getTransposedCoefficientMatrix(ViscoElasticMaterial const& i_material, unsigned i_dim, T& AT)
+    inline void getTransposedCoefficientMatrix(ViscoElasticMaterial const& i_material, unsigned i_dim, T& AT)
     {
       getTransposedCoefficientMatrix(dynamic_cast<ElasticMaterial const&>(i_material), i_dim, AT);
     
@@ -142,39 +170,15 @@ namespace seissol {
                                  QgodLocal, 
                                  QgodNeighbor);
     }
-    
-    template<>
-    inline void setMaterial( double* i_materialVal,
-                             int i_numMaterialVals,
-                             ViscoElasticMaterial* o_material )
-    {
-      assert(i_numMaterialVals == 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
-     
-      o_material->rho = i_materialVal[0];
-      o_material->mu = i_materialVal[1];
-      o_material->lambda = i_materialVal[2];
-      
-      for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-        o_material->omega[mech] = i_materialVal[3 + 4*mech];
-        for (unsigned i = 1; i < 4; ++i) {
-          o_material->theta[mech][i-1] = i_materialVal[3 + 4*mech + i];
-        }
-      }
-    }
-    
+
     template<>
     inline void initializeSpecificLocalData( ViscoElasticMaterial const& material,
-                                             LocalData* localData )
+                                             ViscoElasticLocalData* localData )
     {
       auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
       getTransposedSourceCoefficientTensor(material, sourceMatrix);
     }
-    
-    template<>
-    inline void initializeSpecificNeighborData( ViscoElasticMaterial const&,
-                                                NeighborData* )
-    {
-    }
-    #endif
- }
+  }
 }
+
+#endif

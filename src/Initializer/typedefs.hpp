@@ -50,10 +50,7 @@
 #include <Initializer/preProcessorMacros.fpp>
 #include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
-#include <Equations/anisotropic/Model/datastructures.hpp>
-#include <Equations/elastic/Model/datastructures.hpp>
-#include <Equations/viscoelastic/Model/datastructures.hpp>
-#include <Equations/viscoelastic2/Model/datastructures.hpp>
+#include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
 
 #include <cstddef>
@@ -376,7 +373,15 @@ struct LocalIntegrationData {
   real nApNm1[4][seissol::tensor::AplusT::size()];
 
   // equation-specific data
-  seissol::model::LocalData specific;
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicLocalData specific;
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  seissol::model::ViscoElasticLocalData specific;
+#elif defined USE_ELASTIC
+  seissol::model::ElasticLocalData specific;
+#endif
 };
 
 // data for the neighboring boundary integration
@@ -385,11 +390,21 @@ struct NeighboringIntegrationData {
   real nAmNm1[4][seissol::tensor::AminusT::size()];
 
   // equation-specific data
-  seissol::model::NeighborData specific;
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicNeighborData specific;
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  seissol::model::ViscoElasticNeighborData specific;
+#elif defined USE_ELASTIC
+  seissol::model::ElasticNeighborData specific;
+#endif
 };
 
 // material constants per cell
 struct CellMaterialData {
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
 #if defined USE_ANISOTROPIC
   seissol::model::AnisotropicMaterial local;
   seissol::model::AnisotropicMaterial neighbor[4];

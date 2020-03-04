@@ -2,9 +2,9 @@
 #include <cassert>
 #include <cmath>
 
-#include <Model/common_datastructures.hpp>
+#include <Equations/datastructures.hpp>
 #include <Model/common.hpp>
-#include <Model/Setup.h>
+#include <Equations/Setup.h>
 
 namespace seissol {
   namespace unit_test {
@@ -28,8 +28,6 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
 
       //test homogeneous material
 #ifdef USE_ANISOTROPIC
-      seissol::model::AnisotropicMaterial local;
-      seissol::model::AnisotropicMaterial neighbor;
       double materialVal_1[22] = {
         2700,
         97200000000,
@@ -54,11 +52,9 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
         0,
         32398099200
       };
-      setMaterial(materialVal_1, 22, &local);
-      setMaterial(materialVal_1, 22, &neighbor);
+      seissol::model::AnisotropicMaterial local(materialVal_1, 22);
+      seissol::model::AnisotropicMaterial neighbor(materialVal_1, 22);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-      seissol::model::ViscoElasticMaterial local;
-      seissol::model::ViscoElasticMaterial neighbor;
       double materialVal_1[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4];
       materialVal_1[0] = 2700;
       materialVal_1[1] = 3.23980992e10;
@@ -66,18 +62,16 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       for (int i = 3; i < 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4; i++) {
         materialVal_1[i] = 0;  
       }
-      setMaterial(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4, &local);
-      setMaterial(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4, &neighbor);
+      seissol::model::ViscoElasticMaterial local(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS*4);
+      seissol::model::ViscoElasticMaterial neighbor(materialVal_1, 3 + NUMBER_OF_RELAXATION_MECHANISMS*4);
 #else
-      seissol::model::ElasticMaterial local;
-      seissol::model::ElasticMaterial neighbor;
       double materialVal_1[3] = {
         2700,
         3.23980992e10,
         3.24038016e10
       };
-      setMaterial(materialVal_1, 3, &local);
-      setMaterial(materialVal_1, 3, &neighbor);
+      seissol::model::ElasticMaterial local(materialVal_1, 3);
+      seissol::model::ElasticMaterial neighbor(materialVal_1, 3);
 #endif
 
       std::array<std::array<real, 9>, 9> solution_homogeneous = {{
@@ -148,7 +142,7 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
         0,
         10400000000
       };
-      setMaterial(materialVal_2, 22, &neighbor);
+      neighbor = seissol::model::AnisotropicMaterial(materialVal_2, 22);
 #elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
       double materialVal_2[3 + NUMBER_OF_RELAXATION_MECHANISMS * 4];
       materialVal_2[0] = 2600;
@@ -157,14 +151,14 @@ class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
       for (int i = 3; i < 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4; i++) {
         materialVal_2[i] = 0;  
       }
-      setMaterial(materialVal_2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4, &neighbor);
+      neighbor = seissol::model::ViscoElasticMaterial(materialVal_2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
 #else
       double materialVal_2[3] = {
         2600,
         1.04e10,
         2.08e10
       };
-      setMaterial(materialVal_2, 3, &neighbor);
+      neighbor = seissol::model::ElasticMaterial(materialVal_2, 3);
 #endif
 
       std::array<std::array<real, 9>, 9> solution_heterogeneous = {{
