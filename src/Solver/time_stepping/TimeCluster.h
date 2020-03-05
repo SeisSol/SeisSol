@@ -122,6 +122,8 @@ private:
     std::vector<NeighborCluster> neighbors;
     ClusterTimes ct;
     double syncTime = 0.0;
+    double timeTolerance;
+    double lastSubTime = 0.0;
     bool processMessages();
 
     //! number of time steps
@@ -326,16 +328,16 @@ private:
 
   public:
     //! flags identifiying if the respective part is allowed to be updated
-    struct {
+    /*struct {
       bool localCopy;
       bool neighboringCopy;
       bool localInterior;
       bool neighboringInterior;
-    } m_updatable;
+    } m_updatable;*/
 
 #ifdef USE_MPI
     //! send true LTS buffers
-    volatile bool m_sendLtsBuffers;
+    //volatile bool m_sendLtsBuffers;
 #endif
 
     /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
@@ -360,7 +362,7 @@ private:
     //double m_subTimeStart;
 
     //! number of full updates the cluster has performed since the last synchronization
-    unsigned int m_numberOfFullUpdates;
+    //unsigned int m_numberOfFullUpdates;
 
     //! simulation time of the last full update (this is a complete volume and boundary integration)
     //double m_fullUpdateTime;
@@ -390,6 +392,7 @@ private:
     TimeCluster(unsigned int i_clusterId,
                 unsigned int i_globalClusterId,
                 double maxTimeStepSize,
+                double timeTolerance,
                 struct MeshStructure *i_meshStructure,
                 struct GlobalData *i_globalData,
                 seissol::initializers::Layer *i_clusterData,

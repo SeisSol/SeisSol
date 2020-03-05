@@ -100,6 +100,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
           l_cluster,
           m_timeStepping.clusterIds[l_cluster],
           timeStepSize,
+          getTimeTolerance(),
           l_meshStructure,
           l_globalData,
           &i_memoryManager.getLtsTree()->child(l_cluster).child(type),
@@ -323,9 +324,9 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     finished = true;
     for (auto* cluster : m_clusters) {
       bool yield = false;
-      while (!(yield || cluster->synced())) {
+      do {
         yield = cluster->act();
-      }
+      } while (!(yield || cluster->synced()));
       finished = finished && cluster->synced();
     }
   }
@@ -436,8 +437,9 @@ void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
   assert( i_time >= 0 );
 
   for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
-    m_clusters[l_cluster]->m_predictionTime = i_time;
-    m_clusters[l_cluster]->m_fullUpdateTime = i_time;
+    // TODO set initial times for checkpointing
+    //m_clusters[l_cluster]->m_predictionTime = i_time;
+    //m_clusters[l_cluster]->m_fullUpdateTime = i_time;
     m_clusters[l_cluster]->m_receiverTime   = i_time;
   }
 }

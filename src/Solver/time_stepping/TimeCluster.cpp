@@ -99,6 +99,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(
     unsigned int i_clusterId,
     unsigned int i_globalClusterId,
     double maxTimeStepSize,
+    double timeTolerance,
     struct MeshStructure *i_meshStructure,
     struct GlobalData *i_globalData,
     seissol::initializers::Layer* i_clusterData,
@@ -109,6 +110,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(
     // cluster ids
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
+    timeTolerance(timeTolerance),
     // mesh structure
     m_meshStructure(i_meshStructure),
     // global data
@@ -131,18 +133,13 @@ seissol::time_stepping::TimeCluster::TimeCluster(
     assert( m_clusterData                              != nullptr);
 
   // default: no updates are allowed
-  m_updatable.localCopy           = false;
-  m_updatable.neighboringCopy     = false;
-  m_updatable.localInterior       = false;
-  m_updatable.neighboringInterior = false;
 #ifdef USE_MPI
-  m_sendLtsBuffers                = false;
+  //m_sendLtsBuffers                = false;
 #endif
   // set timings to zero
   m_numberOfTimeSteps             = 0;
   m_receiverTime                  = 0;
   ct.maxTimeStepSize              = maxTimeStepSize;
-  m_numberOfFullUpdates           = 0;
 
   m_dynamicRuptureFaces = i_dynRupClusterData->getNumberOfCells() > 0;
 
@@ -977,27 +974,29 @@ namespace seissol::time_stepping {
               return a.ct.nextCorrectionTime(syncTime) < b.ct.nextCorrectionTime(syncTime);
             });
         const bool mayPredict = minNeighbor == neighbors.end() ||
-            ct.predictionTime < minNeighbor->ct.nextCorrectionTime(syncTime);
-        if (ct.correctionTime >= syncTime) {
+            ct.predictionTime < minNeighbor->ct.nextCorrectionTime(syncTime) - timeTolerance;
+        if (ct.correctionTime + timeTolerance >= syncTime) {
           state = ActorState::Synced;
         } else if (mayPredict) {
           bool resetBuffers = true;
           for (auto& neighbor : neighbors) {
             if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize &&
-                ct.correctionTime - neighbor.ct.correctionTime > std::numeric_limits<double>::epsilon()) {
+                ct.correctionTime - neighbor.ct.correctionTime > timeTolerance) {
                 resetBuffers = false;
                 break;
             }
           }
           std::cout << "pred dt_max=" << ct.maxTimeStepSize  << " dt=" << timeStepSize() <<
-                    " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime << " reset=" << resetBuffers << std::endl;
+                    " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime << " reset=" << resetBuffers <<
+                    " t_minnext=" << minNeighbor->ct.nextCorrectionTime(syncTime) <<
+                    " t_delta=" << ct.predictionTime - minNeighbor->ct.nextCorrectionTime(syncTime) << std::endl;
           computeLocalIntegration(*m_clusterData, resetBuffers);
 
           ct.predictionTime += timeStepSize();
           for (auto& neighbor : neighbors) {
             /*std::cout << ct.maxTimeStepSize << " sends?? " << ct.predictionTime << " " << neighbor.ct.nextCorrectionTime(syncTime) <<
             " " << (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime)) << std::endl;*/
-            if (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime))  {
+            if (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime) - timeTolerance)  {
               AdvancedPredictionTimeMessage message{};
               message.time = ct.predictionTime;
               neighbor.outbox->push(message);
@@ -1017,23 +1016,18 @@ namespace seissol::time_stepping {
               return a.ct.predictionTime < b.ct.predictionTime;
             });
         const bool mayCorrect = minNeighbor == neighbors.end() ||
-            ct.predictionTime <= minNeighbor->ct.predictionTime;
+            ct.predictionTime <= minNeighbor->ct.predictionTime + timeTolerance;
         if (mayCorrect) {
-          double subTimeStart = 0.0;
-          for (auto& neighbor : neighbors) {
-            if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize) {
-              subTimeStart = ct.correctionTime - neighbor.ct.correctionTime;
-              break;
-            }
-          }
+          double subTimeStart = ct.correctionTime - lastSubTime;
           std::cout << "corr dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize()
-                    << " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime << std::endl;
+                    << " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime
+                    << " t_sub=" << subTimeStart << std::endl;
           computeNeighboringIntegration(*m_clusterData, subTimeStart);
 
           ct.correctionTime += timeStepSize();
           for (auto& neighbor : neighbors) {
             //std::cout << ct.maxTimeStepSize << " sends? " << ct.correctionTime << " " << neighbor.ct.predictionTime << std::endl;
-            if (ct.correctionTime >= neighbor.ct.predictionTime) {
+            if (ct.correctionTime >= neighbor.ct.predictionTime - timeTolerance) {
               AdvancedCorrectionTimeMessage message{};
               message.time = ct.correctionTime;
               neighbor.outbox->push(message);
@@ -1047,7 +1041,7 @@ namespace seissol::time_stepping {
         break;
       }
       case ActorState::Synced:
-        if (ct.correctionTime < syncTime) {
+        if (ct.correctionTime + timeTolerance < syncTime) {
           state = ActorState::Corrected;
         } else {
           yield = true;
@@ -1078,6 +1072,9 @@ namespace seissol::time_stepping {
           if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
             assert(msg.time > neighbor.ct.predictionTime);
             neighbor.ct.predictionTime = msg.time;
+            if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize) {
+              lastSubTime = neighbor.ct.correctionTime;
+            }
             //std::cout << "AdvancedPred " << ct.maxTimeStepSize << " " << msg.time << std::endl;
           } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
             assert(msg.time > neighbor.ct.correctionTime);
