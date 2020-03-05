@@ -370,6 +370,7 @@ bool seissol::time_stepping::TimeCluster::testForGhostLayerReceives(){
   return m_receiveQueue.empty();
 #endif
    */
+  return false;
 }
 
 bool seissol::time_stepping::TimeCluster::testForCopyLayerSends(){
@@ -401,6 +402,7 @@ bool seissol::time_stepping::TimeCluster::testForCopyLayerSends(){
   return m_sendQueue.empty();
 #endif
    */
+  return false;
 }
 
 #if defined(_OPENMP) && defined(USE_COMM_THREAD)
@@ -660,6 +662,7 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
 
   return true;
   */
+  return false;
 }
 #endif
 
@@ -772,6 +775,7 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
 
   return true;
    */
+  return false;
 }
 #endif
 

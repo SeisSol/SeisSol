@@ -389,8 +389,8 @@ if env['scalasca'] == 'kernels_2.x':
 #
 
 # enforce restrictive C/C++-Code
-env.Append(CFLAGS   = ['-Wall', '-Werror', '-ansi'],
-           CXXFLAGS = ['-Wall', '-Werror', '-ansi'])
+env.Append(CFLAGS   = ['-Wall', '-Werror', '-ansi', '-Wno-unused-function'],
+           CXXFLAGS = ['-Wall', '-Werror', '-ansi', '-Wno-unused-function'])
 if env['compiler'] == 'intel':
     env.Append(CXXFLGAS = ['-wd13379'])
 elif env['compiler'] == 'gcc':
@@ -466,7 +466,7 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
         env.Append(F90FLAGS = ['-fno-alias'])
 
 # C++ Standard
-env.Append(CXXFLAGS=['-std=c++11'])
+env.Append(CXXFLAGS=['-std=c++17'])
 
 #
 # Basic preprocessor defines
