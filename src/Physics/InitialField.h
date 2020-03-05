@@ -32,13 +32,13 @@ namespace seissol {
     class Planarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
-      Planarwave(model::Material material, double phase = 0.0);
+      Planarwave(model::Material material, double phase = 0.0, std::array<double, 3> = {M_PI, M_PI, M_PI});
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
                       const CellMaterialData& materialData,
                       yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
-    private:
+    protected:
       const std::vector<int>                                        m_varField;
       const std::vector<std::complex<double>>                       m_ampField;
       const double                                                  m_phase;
@@ -47,6 +47,17 @@ namespace seissol {
       std::complex<double> m_eigenvectors[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES];
     };
 
+    class TravellingWave : public Planarwave{
+    public:
+      TravellingWave(model::Material material);
+
+      void evaluate(double time,
+                    std::vector<std::array<double, 3>> const& points,
+                    const CellMaterialData& materialData,
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+      private:
+      std::array<double, 3> m_origin;
+    };
     class ScholteWave : public InitialField {
     public:
       ScholteWave() {

@@ -13,11 +13,11 @@
 
 extern seissol::Interoperability e_interoperability;
 
-seissol::physics::Planarwave::Planarwave(seissol::model::Material material, double phase)
+seissol::physics::Planarwave::Planarwave(seissol::model::Material material, double phase, std::array<double, 3> kVec)
   : m_varField{1,8},
     m_ampField{1.0, 1.0},
     m_phase(phase),
-    m_kVec({M_PI, M_PI, M_PI})
+    m_kVec(kVec)
 {
   assert(m_varField.size() == m_ampField.size());
 
@@ -66,6 +66,40 @@ void seissol::physics::Planarwave::evaluate(double time,
         dofsQP(i,j) += (R(j,m_varField[v]) * m_ampField[v] *
                         std::exp(std::complex<double>(0.0, 1.0) * (
                           omega * time - m_kVec[0]*points[i][0] - m_kVec[1]*points[i][1] - m_kVec[2]*points[i][2] + std::complex<double>(m_phase, 0)))).real();
+      }
+    }
+  }
+}
+
+seissol::physics::TravellingWave::TravellingWave(seissol::model::Material material) 
+  //set the wave number vector such that it points in the direction of intendet travelling
+  //the magnitude of the vector is the inverse of the wavelength
+  : Planarwave(material, 0.0, {0.0, 0.0, -0.001}),
+  //origin is a point on the wavefront at time zero
+    m_origin({0.0, 0.0, 5000})
+{
+}
+
+void seissol::physics::TravellingWave::evaluate(double time,
+				       	        std::vector<std::array<double, 3>> const& points,
+				       	        const CellMaterialData& materialData,
+				       	        yateto::DenseTensorView<2,real,unsigned>& dofsQp) const {
+  dofsQp.setZero();
+
+  auto R = yateto::DenseTensorView<2,std::complex<double>>(const_cast<std::complex<double>*>(m_eigenvectors), {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  for (unsigned v = 0; v < m_varField.size(); ++v) {
+    const auto omega =  m_lambdaA[m_varField[v]];
+    for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
+      for (size_t i = 0; i < points.size(); ++i) {
+        auto arg = std::complex<double>(0.0, 1.0) * (
+                          omega * time
+                        - m_kVec[0]*(points[i][0] - m_origin[0]) 
+                        - m_kVec[1]*(points[i][1] - m_origin[1]) 
+                        - m_kVec[2]*(points[i][2] - m_origin[2]) 
+                        + m_phase);
+        if(arg.imag() > -M_PI && arg.imag() < M_PI) {
+          dofsQp(i,j) += (R(j,m_varField[v]) * m_ampField[v] * std::exp(arg)).real();
+        }
       }
     }
   }
