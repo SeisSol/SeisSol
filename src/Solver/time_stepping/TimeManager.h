@@ -55,6 +55,7 @@
 #include <ResultWriter/ReceiverWriter.h>
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
+#include "GhostTimeCluster.h"
 
 namespace seissol {
   namespace time_stepping {
@@ -82,20 +83,23 @@ class seissol::time_stepping::TimeManager {
     //! time stepping
     TimeStepping m_timeStepping;
 
-    //! all LTS clusters, which are under control of this time manager
-    std::vector< TimeCluster* > m_clusters;
+    //! all local (copy & interior) LTS clusters, which are under control of this time manager
+    std::vector<TimeCluster*> clusters;
+
+    //! all MPI (ghost) LTS clusters, which are under control of this time manager
+    std::vector<std::unique_ptr<GhostTimeCluster>> ghostClusters;
 
     //! queue of clusters, which are allowed to update their copy layer locally
-    std::list< TimeCluster* > m_localCopyQueue;
+    //std::list< TimeCluster* > m_localCopyQueue;
 
     //! queue of clusters, which are allowed to update their interior locally
-    std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_localInteriorQueue;
+    //std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_localInteriorQueue;
 
     //! queue of clusters which are allowed to update their copy layer with the neighboring cells contribution
-    std::list< TimeCluster* > m_neighboringCopyQueue;
+    //std::list< TimeCluster* > m_neighboringCopyQueue;
 
     //! queue of clusters which are allowed to update their interior with the neighboring cells contribution
-    std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_neighboringInteriorQueue;
+    //std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_neighboringInteriorQueue;
     
     //! Stopwatch
     LoopStatistics m_loopStatistics;

@@ -31,6 +31,8 @@ src/Solver/FreeSurfaceIntegrator.cpp
 src/Solver/Interoperability.cpp
 src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
+src/Solver/time_stepping/GhostTimeCluster.cpp
+
 src/Solver/time_stepping/TimeManager.cpp
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
@@ -121,9 +123,8 @@ src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
-src/Solver/time_stepping/ActorState.h
-src/Solver/time_stepping/PostOffice.h
-src/Solver/time_stepping/NeighborCluster.h)
+
+)
 
 if (HDF5)
   target_sources(SeisSol-lib PUBLIC

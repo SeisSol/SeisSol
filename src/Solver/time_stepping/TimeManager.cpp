@@ -63,14 +63,14 @@ seissol::time_stepping::TimeManager::TimeManager():
 
 seissol::time_stepping::TimeManager::~TimeManager() {
   // free memory of the clusters
-  for( unsigned l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
-    delete m_clusters[l_cluster];
+  for(unsigned l_cluster = 0; l_cluster < clusters.size(); l_cluster++ ) {
+    delete clusters[l_cluster];
   }
 }
 
-void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&               i_timeStepping,
-                                                       struct MeshStructure*              i_meshStructure,
-                                                       initializers::MemoryManager&       i_memoryManager ) {
+void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_timeStepping,
+                                                      struct MeshStructure* i_meshStructure,
+                                                      initializers::MemoryManager& i_memoryManager) {
   SCOREP_USER_REGION( "addClusters", SCOREP_USER_REGION_TYPE_FUNCTION );
 
   // assert non-zero pointers
@@ -90,18 +90,17 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                      l_globalData
                                      );
 
-    unsigned int l_globalClusterId = m_timeStepping.clusterIds[l_cluster];
+    const unsigned int l_globalClusterId = m_timeStepping.clusterIds[l_cluster];
     // chop of at synchronization time
-    auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
+    const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
         // add this time cluster
-    auto layerTypes = {Copy, Interior};
+    const auto layerTypes = {Copy, Interior};
     for (auto type : layerTypes) {
-      m_clusters.push_back(new TimeCluster(
+      clusters.push_back(new TimeCluster(
           l_cluster,
           m_timeStepping.clusterIds[l_cluster],
           timeStepSize,
           getTimeTolerance(),
-          l_meshStructure,
           l_globalData,
           &i_memoryManager.getLtsTree()->child(l_cluster).child(type),
           &i_memoryManager.getDynamicRuptureTree()->child(l_cluster).child(type),
@@ -110,8 +109,8 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
           &m_loopStatistics)
       );
     }
-    auto* interior = m_clusters[m_clusters.size() - 1];
-    auto* copy = m_clusters[m_clusters.size() - 2];
+    auto* interior = clusters[clusters.size() - 1];
+    auto* copy = clusters[clusters.size() - 2];
     // Copy/interior with same timestep are neighbors
     interior->connect(*copy);
 
@@ -120,16 +119,42 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
     // Note: Only clusters with a distance of 1 time step factor
     // are connected.
     if (l_cluster > 0) {
-      assert(m_clusters.size() >= 4);
+      assert(clusters.size() >= 4);
       for (int i = 0; i < 2; ++i)  {
         copy->connect(
-            *m_clusters[m_clusters.size() - 2 - i - 1]
+            *clusters[clusters.size() - 2 - i - 1]
         );
         interior->connect(
-            *m_clusters[m_clusters.size() - 2 - i - 1]
+            *clusters[clusters.size() - 2 - i - 1]
         );
       }
     }
+
+#ifdef USE_MPI
+    // Create ghost time clusters for MPI
+    const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[l_cluster]);
+    for (int otherGlobalClusterId = std::max(globalClusterId - 1, 0);
+         otherGlobalClusterId < std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters));
+         ++otherGlobalClusterId) {
+      const bool hasNeighborRegions = std::any_of(l_meshStructure->neighboringClusters,
+      l_meshStructure->neighboringClusters + l_meshStructure->numberOfRegions,
+      [otherGlobalClusterId](const auto& neighbor) {
+        return neighbor[1] == otherGlobalClusterId;
+      });
+      if (hasNeighborRegions) {
+        const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
+        ghostClusters.push_back(
+          std::make_unique<GhostTimeCluster>(
+              otherTimeStepSize,
+              getTimeTolerance(),
+              otherGlobalClusterId,
+              l_meshStructure)
+        );
+        // Connect with previous copy layer.
+        ghostClusters.back()->connect(*clusters[clusters.size() - 2]);
+      }
+    }
+#endif
   }
 }
 
@@ -182,19 +207,19 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
     // get the relevant times
     double l_previousPredictionTime     = std::numeric_limits<double>::max();
     double l_previousFullUpdateTime     = std::numeric_limits<double>::max();
-    double l_predictionTime             = m_clusters[l_cluster]->m_predictionTime;
-    double l_fullUpdateTime             = m_clusters[l_cluster]->m_fullUpdateTime;
+    double l_predictionTime             = clusters[l_cluster]->m_predictionTime;
+    double l_fullUpdateTime             = clusters[l_cluster]->m_fullUpdateTime;
     double l_nextPredictionTime         = std::numeric_limits<double>::max();
     double l_nextUpcomingFullUpdateTime = std::numeric_limits<double>::max();
 
     if( l_cluster > 0 ) {
-      l_previousPredictionTime = m_clusters[l_cluster-1]->m_predictionTime;
-      l_previousFullUpdateTime = m_clusters[l_cluster-1]->m_fullUpdateTime;
+      l_previousPredictionTime = clusters[l_cluster-1]->m_predictionTime;
+      l_previousFullUpdateTime = clusters[l_cluster-1]->m_fullUpdateTime;
     }
 
     if( l_cluster < m_timeStepping.numberOfLocalClusters - 1 ) {
-      l_nextPredictionTime             = m_clusters[l_cluster+1]->m_predictionTime;
-      l_nextUpcomingFullUpdateTime     = m_clusters[l_cluster+1]->m_fullUpdateTime + m_clusters[l_cluster+1]->timeStepWidth();
+      l_nextPredictionTime             = clusters[l_cluster+1]->m_predictionTime;
+      l_nextUpcomingFullUpdateTime     = clusters[l_cluster+1]->m_fullUpdateTime + clusters[l_cluster+1]->timeStepWidth();
     }*/
 
     /*
@@ -222,18 +247,18 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
      * _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _|  _|
      *
      */
-     /*if( !m_clusters[l_cluster]->m_updatable.neighboringCopy && !m_clusters[l_cluster]->m_updatable.neighboringInterior                 &&  // 1)
+     /*if( !clusters[l_cluster]->m_updatable.neighboringCopy && !clusters[l_cluster]->m_updatable.neighboringInterior                 &&  // 1)
           std::abs( l_fullUpdateTime - m_timeStepping.synchronizationTime )                        > l_timeTolerance                    &&  // 2)
           l_previousPredictionTime                                                                 > l_predictionTime - l_timeTolerance &&  // 3)
           std::abs( l_predictionTime - l_fullUpdateTime )                                          > l_timeTolerance                    &&  // 4)
           l_nextPredictionTime                                                                     > l_predictionTime - l_timeTolerance ) { // 5)
        // enqueue the cluster
 #ifdef USE_MPI
-       m_clusters[l_cluster]->m_updatable.neighboringCopy     = true;
-       m_neighboringCopyQueue.push_back( m_clusters[l_cluster] );
+       clusters[l_cluster]->m_updatable.neighboringCopy     = true;
+       m_neighboringCopyQueue.push_back( clusters[l_cluster] );
 #endif
-       m_clusters[l_cluster]->m_updatable.neighboringInterior = true;
-       m_neighboringInteriorQueue.push( m_clusters[l_cluster] );
+       clusters[l_cluster]->m_updatable.neighboringInterior = true;
+       m_neighboringInteriorQueue.push( clusters[l_cluster] );
      }*/
 
      /*
@@ -260,48 +285,48 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
       *                          prediction                        |   |--- Status of the next cluster.
       * _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _|  _|
       */
-      /*if( !m_clusters[l_cluster]->m_updatable.localCopy && !m_clusters[l_cluster]->m_updatable.localInterior                             &&  // 1)
+      /*if( !clusters[l_cluster]->m_updatable.localCopy && !clusters[l_cluster]->m_updatable.localInterior                             &&  // 1)
           std::abs( l_fullUpdateTime - m_timeStepping.synchronizationTime )                        > l_timeTolerance                     &&  // 2)
           l_previousFullUpdateTime                                                                 > l_predictionTime - l_timeTolerance  &&  // 3)
           std::abs( l_fullUpdateTime - l_predictionTime )                                          < l_timeTolerance                     &&  // 4)
           l_nextUpcomingFullUpdateTime                                                             > l_predictionTime + l_timeTolerance  ) { // 5)
         // enqueue the cluster
 #ifdef USE_MPI
-        m_clusters[l_cluster]->m_updatable.localCopy = true;
-        m_localCopyQueue.push_back( m_clusters[l_cluster] );
+        clusters[l_cluster]->m_updatable.localCopy = true;
+        m_localCopyQueue.push_back( clusters[l_cluster] );
 #endif
-        m_clusters[l_cluster]->m_updatable.localInterior = true;
-        m_localInteriorQueue.push( m_clusters[l_cluster] );
+        clusters[l_cluster]->m_updatable.localInterior = true;
+        m_localInteriorQueue.push( clusters[l_cluster] );
 
         // derive next time step width of the cluster
         unsigned int l_globalClusterId = m_timeStepping.clusterIds[l_cluster];
         // chop of at synchronization time
-        m_clusters[l_cluster]->setTimeStepWidth( std::min( m_timeStepping.globalCflTimeStepWidths[l_globalClusterId],
-                                                           m_timeStepping.synchronizationTime - m_clusters[l_cluster]->m_fullUpdateTime ) );
+        clusters[l_cluster]->setTimeStepWidth( std::min( m_timeStepping.globalCflTimeStepWidths[l_globalClusterId],
+                                                           m_timeStepping.synchronizationTime - clusters[l_cluster]->m_fullUpdateTime ) );
 
         // derive if the cluster is required to reset its lts buffers, reset sub time start and receive derivatives
-        if( m_clusters[l_cluster]->m_numberOfFullUpdates % m_timeStepping.globalTimeStepRates[l_globalClusterId] == 0 ) {
-          m_clusters[l_cluster]->m_resetLtsBuffers       = true;
-          m_clusters[l_cluster]->m_subTimeStart          = 0;
+        if( clusters[l_cluster]->m_numberOfFullUpdates % m_timeStepping.globalTimeStepRates[l_globalClusterId] == 0 ) {
+          clusters[l_cluster]->m_resetLtsBuffers       = true;
+          clusters[l_cluster]->m_subTimeStart          = 0;
         }
         else {
-          m_clusters[l_cluster]->m_resetLtsBuffers       = false;
+          clusters[l_cluster]->m_resetLtsBuffers       = false;
         }
 
 #ifdef USE_MPI
         // TODO please check if this ifdef is correct
 
         // derive if the cluster is required to send its lts buffers
-        if( (m_clusters[l_cluster]->m_numberOfFullUpdates + 1) % m_timeStepping.globalTimeStepRates[l_globalClusterId] == 0 ) {
-          m_clusters[l_cluster]->m_sendLtsBuffers = true;
+        if( (clusters[l_cluster]->m_numberOfFullUpdates + 1) % m_timeStepping.globalTimeStepRates[l_globalClusterId] == 0 ) {
+          clusters[l_cluster]->m_sendLtsBuffers = true;
         }
         else {
-          m_clusters[l_cluster]->m_sendLtsBuffers = false;
+          clusters[l_cluster]->m_sendLtsBuffers = false;
         }
 
         // derive if cluster is ready for synchronization
-        if( std::abs( m_timeStepping.synchronizationTime - (m_clusters[l_cluster]->m_fullUpdateTime + m_clusters[l_cluster]->timeStepWidth()) ) < l_timeTolerance ) {
-          m_clusters[l_cluster]->m_sendLtsBuffers = true;
+        if( std::abs( m_timeStepping.synchronizationTime - (clusters[l_cluster]->m_fullUpdateTime + clusters[l_cluster]->timeStepWidth()) ) < l_timeTolerance ) {
+          clusters[l_cluster]->m_sendLtsBuffers = true;
         }
 #endif // USE_MPI
       }
@@ -311,21 +336,29 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
 void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchronizationTime ) {
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  // asssert we are not moving back in time
+  // assert we are not moving back in time
   assert( m_timeStepping.synchronizationTime <= i_synchronizationTime );
 
   m_timeStepping.synchronizationTime = i_synchronizationTime;
-  for (auto* cluster : m_clusters) {
+  for (auto* cluster : clusters) {
     cluster->updateSyncTime(i_synchronizationTime);
+  }
+  for (auto& ghostCluster : ghostClusters) {
+    ghostCluster->updateSyncTime(i_synchronizationTime);
   }
 
   bool finished = false;
   while (!finished) {
     finished = true;
-    for (auto* cluster : m_clusters) {
+    for (auto* cluster : clusters) {
       bool yield = false;
       do {
         yield = cluster->act();
+        // Check ghost cells often for communication progress
+        for (auto& ghostCluster : ghostClusters) {
+          // TODO(Lukas) Can we ignore yield here?
+          ghostCluster->act();
+        }
       } while (!(yield || cluster->synced()));
       finished = finished && cluster->synced();
     }
@@ -334,16 +367,16 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
   // iterate over all clusters and set default values
   /*for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
 #ifdef USE_MPI
-    m_clusters[l_cluster]->m_updatable.localCopy           = false;
-    m_clusters[l_cluster]->m_updatable.neighboringCopy     = false;
+    clusters[l_cluster]->m_updatable.localCopy           = false;
+    clusters[l_cluster]->m_updatable.neighboringCopy     = false;
 #endif
-    m_clusters[l_cluster]->m_updatable.localInterior       = false;
-    m_clusters[l_cluster]->m_updatable.neighboringInterior = false;
+    clusters[l_cluster]->m_updatable.localInterior       = false;
+    clusters[l_cluster]->m_updatable.neighboringInterior = false;
 
-    m_clusters[l_cluster]->m_resetLtsBuffers               = true;
-    m_clusters[l_cluster]->setTimeStepWidth(0.);
-    m_clusters[l_cluster]->m_subTimeStart                  = 0;
-    m_clusters[l_cluster]->m_numberOfFullUpdates           = 0;
+    clusters[l_cluster]->m_resetLtsBuffers               = true;
+    clusters[l_cluster]->setTimeStepWidth(0.);
+    clusters[l_cluster]->m_subTimeStart                  = 0;
+    clusters[l_cluster]->m_numberOfFullUpdates           = 0;
   }
 
   // initialize prediction queues
@@ -393,14 +426,14 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     }
 
     // print progress of largest time cluster
-    if( m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates != m_logUpdates &&
-        m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates % 100 == 0 ) {
-      m_logUpdates = m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates;
+    if( clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates != m_logUpdates &&
+        clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates % 100 == 0 ) {
+      m_logUpdates = clusters[m_timeStepping.numberOfLocalClusters-1]->m_numberOfFullUpdates;
 
       const int rank = MPI::mpi.rank();
 
       logInfo(rank) << "#max-updates since sync: " << m_logUpdates
-                         << " @ "                  << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
+                         << " @ "                  << clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
     }
   }*/
 }
@@ -419,34 +452,34 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources )
 {
-  for (unsigned cluster = 0; cluster < m_clusters.size(); ++cluster) {
-    m_clusters[cluster]->setPointSources( cms[cluster].cellToSources,
-                                          cms[cluster].numberOfMappings,
-                                          &pointSources[cluster] );
+  for (unsigned cluster = 0; cluster < clusters.size(); ++cluster) {
+    clusters[cluster]->setPointSources(cms[cluster].cellToSources,
+                                       cms[cluster].numberOfMappings,
+                                       &pointSources[cluster] );
   }
 }
 
 void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
 {
-  for (unsigned cluster = 0; cluster < m_clusters.size(); ++cluster) {
-    m_clusters[cluster]->setReceiverCluster(receiverWriter.receiverCluster(cluster));
+  for (unsigned cluster = 0; cluster < clusters.size(); ++cluster) {
+    clusters[cluster]->setReceiverCluster(receiverWriter.receiverCluster(cluster));
   }
 }
 
 void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
   assert( i_time >= 0 );
 
-  for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
+  for(unsigned int l_cluster = 0; l_cluster < clusters.size(); l_cluster++ ) {
     // TODO set initial times for checkpointing
-    //m_clusters[l_cluster]->m_predictionTime = i_time;
-    //m_clusters[l_cluster]->m_fullUpdateTime = i_time;
-    m_clusters[l_cluster]->m_receiverTime   = i_time;
+    //clusters[l_cluster]->m_predictionTime = i_time;
+    //clusters[l_cluster]->m_fullUpdateTime = i_time;
+    clusters[l_cluster]->m_receiverTime   = i_time;
   }
 }
 
 void seissol::time_stepping::TimeManager::setTv(double tv) {
-  for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
-    m_clusters[l_cluster]->setTv(tv);
+  for(unsigned int l_cluster = 0; l_cluster < clusters.size(); l_cluster++ ) {
+    clusters[l_cluster]->setTv(tv);
   }
 }
 
@@ -461,24 +494,24 @@ void seissol::time_stepping::TimeManager::pollForCommunication() {
 
   // now let's enter the polling loop
   while (g_executeCommThread == true || l_signalSum > 0) {
-    for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
+    for( unsigned int l_cluster = 0; l_cluster < clusters.size(); l_cluster++ ) {
       if (g_handleRecvs[l_cluster] == 1) {
-        m_clusters[l_cluster]->startReceiveGhostLayer();
+        clusters[l_cluster]->startReceiveGhostLayer();
         g_handleRecvs[l_cluster] = 2;
       }
       if (g_handleSends[l_cluster] == 1) {
-        m_clusters[l_cluster]->startSendCopyLayer();
+        clusters[l_cluster]->startSendCopyLayer();
         g_handleSends[l_cluster] = 2;
       }
       if (g_handleRecvs[l_cluster] == 2) {
-        m_clusters[l_cluster]->pollForGhostLayerReceives();
+        clusters[l_cluster]->pollForGhostLayerReceives();
       }
       if (g_handleSends[l_cluster] == 2) {
-        m_clusters[l_cluster]->pollForCopyLayerSends();
+        clusters[l_cluster]->pollForCopyLayerSends();
       }
     }
     l_signalSum = 0;
-    for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
+    for( unsigned int l_cluster = 0; l_cluster < clusters.size(); l_cluster++ ) {
       l_signalSum += g_handleRecvs[l_cluster];
       l_signalSum += g_handleSends[l_cluster];
     }

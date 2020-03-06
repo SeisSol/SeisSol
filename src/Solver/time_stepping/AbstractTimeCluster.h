@@ -16,9 +16,15 @@ protected:
   double syncTime = 0.0;
   double timeTolerance;
 
+  double timeStepSize() const {
+    return ct.timeStepSize(syncTime);
+  }
+
 public:
-  AbstractTimeCluster(double timeTolerance)
-    : timeTolerance(timeTolerance) {}
+  AbstractTimeCluster(double maxTimeStepSize, double timeTolerance)
+    : timeTolerance(timeTolerance) {
+    ct.maxTimeStepSize = maxTimeStepSize;
+  }
   virtual ~AbstractTimeCluster() {}
 
   virtual bool act() = 0;

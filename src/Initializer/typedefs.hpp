@@ -104,7 +104,7 @@ enum class FaceType {
 // cross-cluster time stepping information
 struct TimeStepping {
   /*
-   * Number of lts clusters prensent throughout the entire domain.
+   * Number of lts clusters present throughout the entire domain.
    */
   unsigned int numberOfGlobalClusters;
 

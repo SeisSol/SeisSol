@@ -95,24 +95,20 @@ extern volatile unsigned int* volatile g_handleSends;
 //! fortran interoperability
 extern seissol::Interoperability e_interoperability;
 
-seissol::time_stepping::TimeCluster::TimeCluster(
-    unsigned int i_clusterId,
-    unsigned int i_globalClusterId,
-    double maxTimeStepSize,
-    double timeTolerance,
-    struct MeshStructure *i_meshStructure,
-    struct GlobalData *i_globalData,
-    seissol::initializers::Layer* i_clusterData,
-    seissol::initializers::Layer* i_dynRupClusterData,
-    seissol::initializers::LTS* i_lts,
-    seissol::initializers::DynamicRupture* i_dynRup,
-    LoopStatistics* i_loopStatistics) :
-    AbstractTimeCluster(timeTolerance),
+seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
+                                                 unsigned int i_globalClusterId,
+                                                 double maxTimeStepSize,
+                                                 double timeTolerance,
+                                                 struct GlobalData *i_globalData,
+                                                 seissol::initializers::Layer *i_clusterData,
+                                                 seissol::initializers::Layer *i_dynRupClusterData,
+                                                 seissol::initializers::LTS *i_lts,
+                                                 seissol::initializers::DynamicRupture *i_dynRup,
+                                                 LoopStatistics *i_loopStatistics) :
+    AbstractTimeCluster(maxTimeStepSize, timeTolerance),
     // cluster ids
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
-    // mesh structure
-    m_meshStructure(i_meshStructure),
     // global data
     m_globalData(i_globalData),
     m_clusterData(i_clusterData),
@@ -127,8 +123,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(
     m_loopStatistics(i_loopStatistics),
     m_receiverCluster(nullptr)
 {
-    // assert all pointers are valid
-    assert( m_meshStructure                            != nullptr);
     assert( m_globalData                               != nullptr);
     assert( m_clusterData                              != nullptr);
 
@@ -139,7 +133,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(
   // set timings to zero
   m_numberOfTimeSteps             = 0;
   m_receiverTime                  = 0;
-  ct.maxTimeStepSize              = maxTimeStepSize;
 
   m_dynamicRuptureFaces = i_dynRupClusterData->getNumberOfCells() > 0;
 
@@ -1039,8 +1032,7 @@ namespace seissol::time_stepping {
           }
           state = ActorState::Corrected;
         } else {
-          bool processed = processMessages();
-          yield = !processed;
+          yield = !processMessages();
         }
         break;
       }

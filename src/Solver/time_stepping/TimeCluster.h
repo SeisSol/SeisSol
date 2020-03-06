@@ -136,14 +136,9 @@ private:
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
-    /*
-     * mesh structure
-     */
-    struct MeshStructure *m_meshStructure;
-
-    /*
-     * global data
-     */
+  /*
+   * global data
+   */
      //! global data structures
     struct GlobalData *m_globalData;
 
@@ -374,7 +369,6 @@ private:
      * @param i_timeKernel time integration kernel.
      * @param i_volumeKernel volume integration kernel.
      * @param i_boundaryKernel boundary integration kernel.
-     * @param i_meshStructure mesh structure of this cluster.
      * @param i_copyCellInformation cell information in the copy layer.
      * @param i_interiorCellInformation cell information in the interior.
      * @param i_globalData global data.
@@ -386,7 +380,6 @@ private:
                 unsigned int i_globalClusterId,
                 double maxTimeStepSize,
                 double timeTolerance,
-                struct MeshStructure *i_meshStructure,
                 struct GlobalData *i_globalData,
                 seissol::initializers::Layer *i_clusterData,
                 seissol::initializers::Layer *i_dynRupClusterData,
@@ -400,9 +393,6 @@ private:
      **/
     ~TimeCluster();
 
-    double timeStepSize() const {
-      return ct.timeStepSize(syncTime);
-    }
 
     /**
      * Adds a source to the cluster.
