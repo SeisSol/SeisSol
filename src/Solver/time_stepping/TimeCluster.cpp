@@ -106,11 +106,11 @@ seissol::time_stepping::TimeCluster::TimeCluster(
     seissol::initializers::Layer* i_dynRupClusterData,
     seissol::initializers::LTS* i_lts,
     seissol::initializers::DynamicRupture* i_dynRup,
-    LoopStatistics* i_loopStatistics):
+    LoopStatistics* i_loopStatistics) :
+    AbstractTimeCluster(timeTolerance),
     // cluster ids
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
-    timeTolerance(timeTolerance),
     // mesh structure
     m_meshStructure(i_meshStructure),
     // global data
@@ -1056,14 +1056,6 @@ namespace seissol::time_stepping {
     }
     return yield;
   }
-  void TimeCluster::connect(TimeCluster& other) {
-    neighbors.emplace_back(other.ct.maxTimeStepSize);
-    other.neighbors.emplace_back(ct.maxTimeStepSize);
-    neighbors.back().inbox = std::make_shared<MessageQueue>();
-    other.neighbors.back().inbox = std::make_shared<MessageQueue>();
-    neighbors.back().outbox = other.neighbors.back().inbox;
-    other.neighbors.back().outbox = neighbors.back().inbox;
-  }
 
   bool TimeCluster::processMessages() {
     bool processed = false;
@@ -1092,8 +1084,4 @@ namespace seissol::time_stepping {
     }
     return processed;
 }
-
-  bool TimeCluster::synced() const {
-    return state == ActorState::Synced;
-  }
 }

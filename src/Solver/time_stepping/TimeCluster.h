@@ -89,7 +89,7 @@
 #include <Kernels/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
-#include "ActorState.h"
+#include "AbstractTimeCluster.h"
 
 namespace seissol {
   namespace time_stepping {
@@ -104,7 +104,7 @@ namespace seissol {
 /**
  * Time cluster, which represents a collection of elements having the same time step width.
  **/
-class seissol::time_stepping::TimeCluster
+class seissol::time_stepping::TimeCluster : public seissol::time_stepping::AbstractTimeCluster
 {
 public:
     //! cluster id on this rank
@@ -114,15 +114,8 @@ public:
     const unsigned int m_globalClusterId;
 
     bool act();
-    void connect(TimeCluster& other);
-    bool synced() const;
 
 private:
-    ActorState state = ActorState::Corrected;
-    std::vector<NeighborCluster> neighbors;
-    ClusterTimes ct;
-    double syncTime = 0.0;
-    double timeTolerance;
     double lastSubTime = 0.0;
     bool processMessages();
 
@@ -409,11 +402,6 @@ private:
 
     double timeStepSize() const {
       return ct.timeStepSize(syncTime);
-    }
-
-    void updateSyncTime(double newSyncTime) {
-      assert(newSyncTime > syncTime);
-      syncTime = newSyncTime;
     }
 
     /**

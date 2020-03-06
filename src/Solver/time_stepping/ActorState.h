@@ -1,5 +1,7 @@
 #ifndef SEISSOL_ACTORSTATE_H
 #define SEISSOL_ACTORSTATE_H
+
+#include <cassert>
 #include <queue>
 #include <variant>
 #include <omp.h>
