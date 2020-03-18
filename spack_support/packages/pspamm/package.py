@@ -21,7 +21,7 @@
 # ----------------------------------------------------------------------------
 
 from spack import *
-2
+
 
 class Pspamm(Package):
     homepage = "https://github.com/peterwauligmann/PSpaMM/blob/master/README.md"

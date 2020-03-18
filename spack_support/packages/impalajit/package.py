@@ -26,10 +26,11 @@ from spack import *
 class Impalajit(CMakePackage):
     """A lightweight JIT compiler for flexible data access in simulation applications."""
 
-    homepage = "https://github.com/ravil-mobile/ImpalaJIT/blob/master/README.md"
+    homepage = "https://github.com/uphoffc/ImpalaJIT/blob/master/README.md"
     version('develop',
-            git='https://github.com/ravil-mobile/ImpalaJIT.git',
-            branch='master')
+            git='https://github.com/uphoffc/ImpalaJIT.git',
+            branch='master',
+            commit='0b2a2f503ab16')
 
     variant('static', default=True, description="compile as a static lib")
     

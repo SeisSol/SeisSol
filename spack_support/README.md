@@ -30,9 +30,13 @@ Close and open your terminal to make sure that the changes have been applied. Fo
 :~$ git clone https://github.com/SeisSol/SeisSol.git
 :~$ cd SeisSol
 ```
-To make SeisSol installation scripts be visiable inside Spack, one has to copy them to Spack as following:
+To make SeisSol installation scripts be visiable inside of Spack, one has to add them to the Spack repository. We recomend to install our scripts into a separete directory to avoid problems with dangling files inside of Spack in case if you decide to delete the current SeisSol repository.
+
 ```console
-:~$ cp -rf spack_support/seissol-* $SPACK_ROOT/var/spack/repos/builtin/packages/
+$ cd spack_support
+$ mkdir build && cd build
+$ cmake .. -DCMAKE_INSTALL_PREFIX=<install_dir>
+$ spack repo add <install_dir>/spack_support
 ```
 To make sure that everything went well, query avaliable packages in Spack.
 ```console
@@ -41,6 +45,13 @@ To make sure that everything went well, query avaliable packages in Spack.
 seissol-core  seissol-env
 ```
 If you can see the output similar as above then we are ready to proceed!
+
+Please, keep in mind that we update installation scripts from time to time. Therefore, you have remove old scripts from spack as following:
+```console
+:~$ spack repo remove spack_support
+```
+
+Don't forget to add new ones into the spack in the same way how we did above.
 
 ### Prerequisites
 One of the main ideas of Spack is to produce a consistent build of your software stack, i. e. when everything is compiled with the same set of compilers. You may have your preferable compilers installed on your system. If so, you can add them to Spack.
