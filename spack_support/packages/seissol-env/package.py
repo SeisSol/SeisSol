@@ -53,8 +53,8 @@ class SeissolEnv(BundlePackage):
     depends_on('hdf5@1.8.21 +fortran +shared ~mpi', when="~mpi")
     depends_on('hdf5@1.8.21 +fortran +shared +mpi', when="+mpi")
 
-    depends_on('netcdf-c@4.6.1 +shared ~mpi', when="~mpi")
-    depends_on('netcdf-c@4.6.1 +shared +mpi', when="+mpi")
+    depends_on('netcdf-c@4.7.2 +shared ~mpi', when="~mpi")
+    depends_on('netcdf-c@4.7.2 +shared +mpi', when="+mpi")
 
     depends_on('asagi ~mpi ~mpi3', when="+asagi ~mpi")
     depends_on('asagi +mpi +mpi3', when="+asagi +mpi")
@@ -69,16 +69,16 @@ class SeissolEnv(BundlePackage):
     depends_on('yaml-cpp@0.6.2')
     depends_on('cxxtest')
     
-    depends_on('python@3.5.0:3.6.0', when='+python')
+    depends_on('python@3.5.2', when='+python')
     depends_on('py-numpy', when='+python')
     depends_on('py-scipy', when='+python')
     
-    depends_on('cmake@3.12.0:3.16.0', when='+building_tools')
+    depends_on('cmake@3.12.0:3.16.2', when='+building_tools')
     depends_on('scons@3.0.1:3.1.2', when='+building_tools')
 
     def setup_run_environment(self, env):
         
-        roots = []; bins = []; libs = []; includes = []; pkgconfigs = []
+        roots = []; bins = []; libs = []; includes = []; pkgconfigs = []; pythonpath = []
         for child_spec in self.spec.dependencies():
             roots.append(child_spec.prefix if os.path.isdir(child_spec.prefix) else None)
             bins.append(child_spec.prefix.bin if os.path.isdir(child_spec.prefix.bin) else None)
@@ -87,7 +87,11 @@ class SeissolEnv(BundlePackage):
 
             # one has to walk from the current root down in order to find pkgconfig folder
             # The reason is that some people include "pkgconfig" into "lib" but some put it into "share"
+            # The second reason is to find all 'site-packages' and add them to PYTHONPATH
             for path, dirs, files in os.walk(child_spec.prefix):
+                if "site-packages" in dirs:
+                    pythonpath.append(os.path.join(path, "site-packages"))
+
                 for file in files:
                     if file.endswith(".pc"):
                         pkgconfigs.append(path)
@@ -104,3 +108,5 @@ class SeissolEnv(BundlePackage):
         env.prepend_path('CPPPATH', ":".join(filter(None, includes)))
         env.prepend_path('C_INCLUDE_PATH', ":".join(filter(None, includes)))
         env.prepend_path('CPLUS_INCLUDE_PATH', ":".join(filter(None, includes)))
+
+        env.prepend_path('PYTHONPATH', ":".join(filter(None, pythonpath)))

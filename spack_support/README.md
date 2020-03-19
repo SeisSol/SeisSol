@@ -33,10 +33,10 @@ Close and open your terminal to make sure that the changes have been applied. Fo
 To make SeisSol installation scripts be visiable inside of Spack, one has to add them to the Spack repository. We recomend to install our scripts into a separete directory to avoid problems with dangling files inside of Spack in case if you decide to delete the current SeisSol repository.
 
 ```console
-$ cd spack_support
-$ mkdir build && cd build
-$ cmake .. -DCMAKE_INSTALL_PREFIX=<install_dir>
-$ spack repo add <install_dir>/spack_support
+:~$ cd spack_support
+:~$ mkdir build && cd build
+:~$ cmake .. -DCMAKE_INSTALL_PREFIX=<install_dir>
+:~$ spack repo add <install_dir>/spack_support
 ```
 To make sure that everything went well, query avaliable packages in Spack.
 ```console
