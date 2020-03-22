@@ -53,8 +53,8 @@ class SeissolEnv(BundlePackage):
     depends_on('hdf5@1.8.21 +fortran +shared ~mpi', when="~mpi")
     depends_on('hdf5@1.8.21 +fortran +shared +mpi', when="+mpi")
 
-    depends_on('netcdf-c@4.7.2 +shared ~mpi', when="~mpi")
-    depends_on('netcdf-c@4.7.2 +shared +mpi', when="+mpi")
+    depends_on('netcdf-c@4.4.0 +shared ~mpi', when="~mpi")
+    depends_on('netcdf-c@4.4.0 +shared +mpi', when="+mpi")
 
     depends_on('asagi ~mpi ~mpi3', when="+asagi ~mpi")
     depends_on('asagi +mpi +mpi3', when="+asagi +mpi")
