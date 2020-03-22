@@ -27,6 +27,7 @@ class SeissolUtils(Package):
             description="fetches benchmarks. Be sure that you "
                         "have access to the SeisSol LRZ-gitlab repo.")
 
+    variant('gmsh_gui', default=False, description="enables gui support for gmsh")
     variant('paraview', default=False, description="installs Paraview for visualization")
     variant('building_tools', default=False, description="installs scons")
 
@@ -44,7 +45,9 @@ class SeissolUtils(Package):
     depends_on('pumgen')
     depends_on('glm@0.9.7.1')
     depends_on('proj@4.9.2')
-    depends_on("gmsh+hdf5+metis+openmp") 
+
+    depends_on("gmsh+hdf5+metis+openmp", when='~gmsh_gui') 
+    depends_on("gmsh+hdf5+metis+openmp+fltk", when='+gmsh_gui') 
 
     depends_on("paraview+hdf5", when="+paraview") 
     depends_on('scons@3.0.1:3.1.2', when='+building_tools')
@@ -91,7 +94,7 @@ class SeissolUtils(Package):
         bins = [self.spec.prefix.gmsh2gambit, 
                 self.spec.prefix.cube_c, 
                 self.spec.prefix.rconv,
-                dependencies["pumgen"].spec.prefix.bin
+                dependencies["pumgen"].spec.prefix.bin,
                 dependencies["gmsh"].spec.prefix.bin]
 
         if "+paraview" in self.spec:
