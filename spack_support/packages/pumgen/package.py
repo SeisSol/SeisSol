@@ -3,22 +3,6 @@
 #
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-# ----------------------------------------------------------------------------
-# If you submit this package back to Spack as a pull request,
-# please first remove this boilerplate and all FIXME comments.
-#
-# This is a template package file for Spack.  We've put "FIXME"
-# next to all the things you'll want to change. Once you've handled
-# them, you can save this file and test your package like this:
-#
-#     spack install pumgen
-#
-# You can edit this file again by typing:
-#
-#     spack edit pumgen
-#
-# See the Spack documentation for more information on packaging.
-# ----------------------------------------------------------------------------
 
 from spack import *
 
@@ -27,17 +11,18 @@ class Pumgen(SConsPackage):
     homepage = "https://github.com/SeisSol/PUMGen/wiki/How-to-compile-PUMGen"
     version('develop',
             git='https://github.com/SeisSol/PUMGen.git',
-            branch='master')
+            branch='master',
+            submodules=True)
 
     maintainers = ['ravil-mobile']
-    variant('simmetrix', default=False)
+    variant('simmetrix_support', default=False)
     depends_on('mpi')
         
-    depends_on('netcdf-c@4.4.0 +shared +mpi')
-    depends_on('hdf5@1.8.21 +fortran +shared +mpi')
-    depends_on('pumi +int64 +zoltan +fortran', when='-simmetrix')
-    depends_on('pumi +int64 simmodsuite=kernels +zoltan +fortran', when='+simmetrix')
-    depends_on('zoltan@3.83 +parmetis+int64')
+    depends_on('netcdf-c +shared +mpi') # NOTE: only tested with 4.4.0 version
+    depends_on('hdf5 +fortran +shared +mpi') # NOTE: only tested with 1.8.21 version
+    depends_on('pumi +int64 +zoltan -fortran', when='~simmetrix_support')
+    depends_on('pumi +int64 simmodsuite=kernels +zoltan -fortran', when='+simmetrix_support')
+    depends_on('zoltan@3.83 +parmetis+int64 -fortran')
 
     def build_args(self, spec, prefix):                                                                               
         args=[]                                                                                                                                                                                                                         
@@ -45,7 +30,7 @@ class Pumgen(SConsPackage):
         args.append('mpiLib=' + mpi_id)                                                                               
         args.append('cc=mpicc')                                                                                       
         args.append('cxx=mpicxx')                                                                                                                                                                                                   
-        if '+simModSuite' in spec:     
+        if '+simmetrix_support' in spec:     
             args.append('simModSuite=yes')                                                                            
         return args                                                                                                   
                                                                                                                   
@@ -53,8 +38,5 @@ class Pumgen(SConsPackage):
         args = self.build_args(spec, prefix)                                                                          
         scons(*args)                                                                                                  
     
-
-    def install(self,spec,prefix):                                                                                  
-        pass
-        #make()
-    
+    def install(self,spec,prefix):
+        install_tree('build',prefix.bin)
