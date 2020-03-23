@@ -46,10 +46,11 @@ class SeissolUtils(Package):
     depends_on('glm@0.9.7.1')
     depends_on('proj@4.9.2')
 
-    depends_on("gmsh+hdf5+metis+openmp", when='~gmsh_gui') 
-    depends_on("gmsh+hdf5+metis+openmp+fltk", when='+gmsh_gui') 
+    depends_on("gmsh+hdf5+metis", when='~gmsh_gui') 
+    depends_on("gmsh+hdf5+metis+fltk", when='+gmsh_gui') 
 
     depends_on("paraview+hdf5", when="+paraview") 
+    depends_on("mesa~llvm", when="+paraview") 
     depends_on('scons@3.0.1:3.1.2', when='+building_tools')
     
     def install(self, spec, prefix):
