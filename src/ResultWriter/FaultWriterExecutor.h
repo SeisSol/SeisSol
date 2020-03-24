@@ -44,6 +44,7 @@
 #include <mpi.h>
 #endif // USE_MPI
 
+#include "Kernels/precision.hpp"
 #include "xdmfwriter/XdmfWriter.h"
 
 #include "async/ExecInfo.h"
@@ -119,7 +120,7 @@ public:
 		m_xdmfWriter->addTimeStep(param.time);
 
 		for (unsigned int i = 0; i < m_numVariables; i++)
-			m_xdmfWriter->writeCellData(i, static_cast<const double*>(info.buffer(VARIABLES0 + i)));
+			m_xdmfWriter->writeCellData(i, static_cast<const real*>(info.buffer(VARIABLES0 + i)));
 
 		m_xdmfWriter->flush();
 

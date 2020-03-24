@@ -288,13 +288,24 @@ class seissol::Interoperability {
     **/
    void getIntegrationMask( int* i_integrationMask );
 
-   void initializeIO(double* mu, double* slipRate1, double* slipRate2,
-			double* slip, double* slip1, double* slip2, double* state, double* strength,
-			int numSides, int numBndGP, int refinement, int* outputMask,
-			double* outputRegionBounds,
-			double freeSurfaceInterval, const char* freeSurfaceFilename,
-      char const* xdmfWriterBackend,
-      double receiverSamplingInterval, double receiverSyncInterval);
+   void initializeIO(real* mu,
+                     real* slipRate1,
+                     real* slipRate2,
+			               real* slip,
+			               real* slip1,
+			               real* slip2,
+			               real* state,
+			               real* strength,
+			               int numSides,
+			               int numBndGP,
+			               int refinement,
+			               int* outputMask,
+			               double* outputRegionBounds,
+			               double freeSurfaceInterval,
+			               const char* freeSurfaceFilename,
+                     char const* xdmfWriterBackend,
+                     double receiverSamplingInterval,
+                     double receiverSyncInterval);
 
    /**
     * Copy dynamic rupture variables for output.

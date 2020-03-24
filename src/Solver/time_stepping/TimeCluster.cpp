@@ -762,6 +762,7 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
 
   return true;
 }
+
 #endif
 
 void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {

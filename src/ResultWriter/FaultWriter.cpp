@@ -51,13 +51,15 @@
 
 extern seissol::Interoperability e_interoperability;
 
-void seissol::writer::FaultWriter::init(const unsigned int* cells, const double* vertices,
-	unsigned int nCells, unsigned int nVertices,
-	int* outputMask, const double** dataBuffer,
-	const char* outputPrefix,
-	double interval,
-  xdmfwriter::BackendType backend)
-{
+void seissol::writer::FaultWriter::init(const unsigned int* cells,
+                                        const double* vertices,
+                                        unsigned int nCells,
+                                        unsigned int nVertices,
+	                                      int* outputMask,
+	                                      const real** dataBuffer,
+	                                      const char* outputPrefix,
+	                                      double interval,
+                                        xdmfwriter::BackendType backend) {
 	const int rank = seissol::MPI::mpi.rank();
 
 	logInfo(rank) << "Initializing XDMF fault output.";
@@ -119,13 +121,15 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells, const double*
 		param.outputMask[16] = true;
 	if (outputMask[10])
 		param.outputMask[17] = true;
-        if (outputMask[11]) {
-                param.outputMask[18] = true;
-                param.outputMask[19] = true;
-        }
+	if (outputMask[11]) {
+	  param.outputMask[18] = true;
+	  param.outputMask[19] = true;
+	}
+
+
 	for (unsigned int i = 0; i < FaultInitParam::OUTPUT_MASK_SIZE; i++) {
 		if (param.outputMask[i]) {
-			addBuffer(dataBuffer[m_numVariables++], nCells * sizeof(double));
+			addBuffer(dataBuffer[m_numVariables++], nCells * sizeof(real));
 		}
 	}
 

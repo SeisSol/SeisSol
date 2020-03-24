@@ -108,13 +108,17 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
 }
 
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
-		int order, int numAlignedDOF,
-		const MeshReader &meshReader,
-		const real* dofs,  const real* pstrain, const real* integrals,
-		unsigned int* map,
-		int refinement, int* outputMask, double* outputRegionBounds,
-    xdmfwriter::BackendType backend)
-{
+		                                        int order,
+		                                        int numAlignedDOF,
+		                                        const MeshReader &meshReader,
+		                                        const real* dofs,
+		                                        const real* pstrain,
+		                                        const real* integrals,
+		                                        unsigned int* map,
+		                                        int refinement,
+		                                        int* outputMask,
+		                                        double* outputRegionBounds,
+                                            xdmfwriter::BackendType backend) {
 	if (!m_enabled)
 		return;
 

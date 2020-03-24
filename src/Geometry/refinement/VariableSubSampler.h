@@ -129,8 +129,10 @@ VariableSubsampler<T>::VariableSubsampler(
 //------------------------------------------------------------------------------
 
 template<typename T>
-void VariableSubsampler<T>::get(const real* inData,  const unsigned int* cellMap,
-        int variable, real* outData) const
+void VariableSubsampler<T>::get(const real* inData,
+                                const unsigned int* cellMap,
+                                int variable,
+                                real* outData) const
 {
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static)

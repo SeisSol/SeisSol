@@ -215,11 +215,25 @@ extern "C" {
     e_interoperability.getIntegrationMask( i_integrationMask );
   }
 
-  void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
-		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
-		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
-      double receiverSamplingInterval, double receiverSyncInterval) {
+  void c_interoperability_initializeIO( real* mu,
+                                        real* slipRate1,
+                                        real* slipRate2,
+                                        real* slip,
+                                        real* slip1,
+                                        real* slip2,
+                                        real* state,
+                                        real* strength,
+		                                    int numSides,
+		                                    int numBndGP,
+		                                    int refinement,
+		                                    int* outputMask,
+		                                    double* outputRegionBounds,
+		                                    double freeSurfaceInterval,
+		                                    const char* freeSurfaceFilename,
+		                                    char const* xdmfWriterBackend,
+		                                    double receiverSamplingInterval,
+		                                    double receiverSyncInterval) {
+
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
 			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
 			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
@@ -683,23 +697,44 @@ void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
 }
 
 void seissol::Interoperability::initializeIO(
-		double* mu, double* slipRate1, double* slipRate2,
-		double* slip, double* slip1, double* slip2, double* state, double* strength,
-		int numSides, int numBndGP, int refinement, int* outputMask,
+		real* mu,
+    real* slipRate1,
+    real* slipRate2,
+    real* slip,
+    real* slip1,
+    real* slip2,
+    real* state,
+    real* strength,
+		int numSides,
+		int numBndGP,
+		int refinement,
+		int* outputMask,
 		double* outputRegionBounds,
-		double freeSurfaceInterval, const char* freeSurfaceFilename,
+		double freeSurfaceInterval,
+		const char* freeSurfaceFilename,
     char const* xdmfWriterBackend,
-    double receiverSamplingInterval, double receiverSyncInterval)
+    double receiverSamplingInterval,
+    double receiverSyncInterval)
 {
   auto type = writer::backendType(xdmfWriterBackend);
   
 	// Initialize checkpointing
 	int faultTimeStep;
-	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
+	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(
+	    reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
 			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * tensor::Q::size(),
-			mu, slipRate1, slipRate2, slip, slip1, slip2,
-			state, strength, numSides, numBndGP,
+			mu,
+			slipRate1,
+			slipRate2,
+			slip,
+			slip1,
+			slip2,
+			state,
+			strength,
+			numSides,
+			numBndGP,
 			faultTimeStep);
+
 	if (hasCheckpoint) {
 		seissol::SeisSol::main.simulator().setCurrentTime(
 			seissol::SeisSol::main.checkPointManager().header().time());
@@ -710,14 +745,17 @@ void seissol::Interoperability::initializeIO(
 
 	// Initialize wave field output
 	seissol::SeisSol::main.waveFieldWriter().init(
-			numberOfQuantities, CONVERGENCE_ORDER,
+			numberOfQuantities,
+			CONVERGENCE_ORDER,
 			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			seissol::SeisSol::main.meshReader(),
 			reinterpret_cast<const real*>(m_ltsTree->var(m_lts->dofs)),
 			reinterpret_cast<const real*>(m_ltsTree->var(m_lts->pstrain)),
 			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
 			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			refinement, outputMask, outputRegionBounds,
+			refinement,
+			outputMask,
+			outputRegionBounds,
       type);
 
 	// Initialize free surface output

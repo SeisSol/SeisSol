@@ -972,11 +972,11 @@ CONTAINS
     ALLOCATE(DISC%DynRup%DynRup_out_elementwise%TmpState(0,0,0))
   ENDIF
    call initFaultOutput(DISC%DynRup%DynRup_out_elementwise%RecPoint, &
-        DISC%DynRup%DynRup_out_elementwise%OutputMask, &
-        DISC%DynRup%DynRup_out_elementwise%TmpState, &
-        IO%OutputFile, &
-        DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec, &
-        IO%xdmfWriterBackend)
+                        DISC%DynRup%DynRup_out_elementwise%OutputMask, &
+                        DISC%DynRup%DynRup_out_elementwise%TmpState, &
+                        IO%OutputFile, &
+                        DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec, &
+                        IO%xdmfWriterBackend)
 
   END SUBROUTINE
 !
