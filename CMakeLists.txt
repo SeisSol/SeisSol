@@ -35,8 +35,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
-  message(STATUS "Set build type to Debug a none was supplied.")
+  set(CMAKE_BUILD_TYPE Release)
+  message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
 find_package(Git QUIET)
@@ -178,8 +178,7 @@ endif()
 if (NETCDF)
   find_package(NetCDF REQUIRED)
   target_include_directories(SeisSol-lib PUBLIC ${NetCDF_INCLUDE_DIRS})
-  # todo: HL destroys search for hdf5 locally, set flags manually
-  target_link_libraries(SeisSol-lib PUBLIC ${NetCDF_LIBRARY} "-lhdf5" "-lhdf5_hl")
+  target_link_libraries(SeisSol-lib PUBLIC ${NetCDF_LIBRARY})
   target_compile_definitions(SeisSol-lib PUBLIC USE_NETCDF)
 endif()
 
@@ -187,9 +186,10 @@ if (HDF5)
   if (MPI)
     set(HDF5_PREFER_PARALLEL True)
   endif()
-  find_package(HDF5 REQUIRED)
+  find_package(HDF5 REQUIRED
+          COMPONENTS C HL)
   target_include_directories(SeisSol-lib PUBLIC ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(SeisSol-lib PUBLIC ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
+  target_link_libraries(SeisSol-lib PUBLIC ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
   target_compile_definitions(SeisSol-lib PUBLIC USE_HDF)
 endif()  
 
