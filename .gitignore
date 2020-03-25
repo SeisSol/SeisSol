@@ -62,4 +62,5 @@ config.log
 .sconf_temp
 
 # Doxygen
-SourceCodeDocs/build
+SourceCodeDocs/docs
+SourceCodeDocs/extended_docs
