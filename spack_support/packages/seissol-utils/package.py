@@ -49,7 +49,7 @@ class SeissolUtils(Package):
     depends_on("gmsh+hdf5+metis", when='~gmsh_gui') 
     depends_on("gmsh+hdf5+metis+fltk", when='+gmsh_gui') 
 
-    depends_on("paraview+hdf5", when="+paraview") 
+    depends_on("paraview+hdf5+qt", when="+paraview") 
     depends_on("mesa~llvm", when="+paraview") 
     depends_on('scons@3.0.1:3.1.2', when='+building_tools')
     

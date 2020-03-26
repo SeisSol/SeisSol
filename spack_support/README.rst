@@ -1,0 +1,1 @@
+../Documentation/installation-with-spack.rst

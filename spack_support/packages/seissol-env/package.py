@@ -35,14 +35,13 @@ class SeissolEnv(BundlePackage):
 
     maintainers = ['ravil-mobile']
     
-    variant('mpi', default=True, description="use inter-node computing")
-    variant('openmp', default=True, description="use intra-node computing")
-    variant('asagi', default=True, description="use asagi for material input")
-    variant('extra_blas', default='none', description='install an extra blas implementation along with libxsmm',
+    variant('mpi', default=True, description="installs an MPI implementation")
+    variant('asagi', default=True, description="installs asagi for material input")
+    variant('extra_blas', default='none', description='installs an extra blas implementation',
             values=('mkl', 'openblas', 'blis', 'none'), 
             multi=True)
-    variant('python', default=False, description="installes python, numpy and scipy if your platform doesn't privide it")
-    variant('building_tools', default=True, description="install scons and cmake")
+    variant('python', default=False, description="installs python, pip, numpy and scipy")
+    variant('building_tools', default=True, description="installs scons and cmake")
     
 
     depends_on('mpi', when="+mpi")
@@ -69,10 +68,16 @@ class SeissolEnv(BundlePackage):
     depends_on('yaml-cpp@0.6.2')
     depends_on('cxxtest')
     
-    depends_on('python@3.5.2', when='+python')
+
+    
     depends_on('py-numpy', when='+python')
     depends_on('py-scipy', when='+python')
+    depends_on('py-matplotlib', when='+python')
+    depends_on('py-pip', when='+python')
+    depends_on('py-pyopenssl', when='+python')
+    depends_on('python@3.6.0', when='+python')
     
+
     depends_on('cmake@3.12.0:3.16.2', when='+building_tools')
     depends_on('scons@3.0.1:3.1.2', when='+building_tools')
 

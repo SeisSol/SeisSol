@@ -20,11 +20,12 @@ Characteristics of the SeisSol simulation software are:
 - to produce reliable and sufficiently accurate synthetic seismograms or other seismological data sets
 
 .. toctree::
-  :maxdepth: 2
+  :maxdepth: 3
   :caption: Introduction
 
   introduction
   compilation
+  installation-with-spack
   a-first-example
   acknowledge
   related-publications

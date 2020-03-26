@@ -17,7 +17,7 @@ generated_code/.idea
 .idea
 
 # VisualCode
-.vcode
+.vscode
 
 # VIM
 *.swo
