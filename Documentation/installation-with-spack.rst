@@ -336,7 +336,21 @@ considerably. You will need to modify and edit **~/.spack/packages.yaml** file.
 Known Issues
 ------------
 
-1. You may need to reload **setup-env.sh** script if you cannot see 
+1. Spack is a really live project with dozens of commits per day. It is 
+diffucult for us to keep the same pace with Spack. A new version of Spack
+may not work because of new added features what we may not be aware of. 
+Therefore, it may be necessary to use an older version of Spack. You
+can simply do it by moving the HEAD of your locally installed Spack
+repository to an old commit:
+
+.. code-block:: bash
+
+  cd $SPACK_ROOT
+  git checkout <a previous SPACK commit>
+
+
+
+2. You may need to reload **setup-env.sh** script if you cannot see 
 packages in the module system right after their installation.
 
 .. code-block:: bash
@@ -344,19 +358,19 @@ packages in the module system right after their installation.
   source $SPACK_ROOT/share/spack/setup-env.sh
 
 
-2. Some low-level packages are sensitive to your environment variables and 
+3. Some low-level packages are sensitive to your environment variables and 
 small syntactic mistakes can lead to weird compilation errors. Please, check 
 your environment variables in advance to avoid it. Make sure that you don't 
 have trailing or leading **colons and dots** in PATH, LD_LIBRARY_PATH, 
 C_INCLUDE_PATH, etc.
 
 
-3. Some compilers, especially new ones, are not always able to successfully 
+4. Some compilers, especially new ones, are not always able to successfully 
 install all SeisSol software stack. If it is a case you can try the 
 installation process again using an older version of your compiler.
 
 
-4. Spack is an HPC package manager. Most of HPC systems have a fast-access 
+5. Spack is an HPC package manager. Most of HPC systems have a fast-access 
 file storage attached to **/tmp** directory to handle temporary files as 
 fast as possible. Spack knows about it and takes advantage out of it. 
 By default, Spack use **/tmp** for compiling, building and caching your 
