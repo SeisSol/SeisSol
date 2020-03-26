@@ -78,7 +78,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info,
 		m_numVariables = variables.size();
 
 		// TODO get the timestep from the checkpoint
-		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>(param.backend,
+		m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, real>(param.backend,
 			outputName.c_str(), param.timestep);
 
 #ifdef USE_MPI
@@ -89,7 +89,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo &info,
 		m_xdmfWriter->setMesh(nCells,
 		                     static_cast<const unsigned int*>(info.buffer(CELLS)),
 			                   nVertices,
-			                   static_cast<const double*>(info.buffer(VERTICES)),
+			                   static_cast<const real*>(info.buffer(VERTICES)),
 			                   param.timestep != 0);
 
 		logInfo(rank) << "Initializing XDMF fault output. Done.";

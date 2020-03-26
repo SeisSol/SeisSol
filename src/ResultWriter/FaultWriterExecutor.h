@@ -82,7 +82,7 @@ public:
 	};
 
 private:
-	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double>* m_xdmfWriter;
+	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, real>* m_xdmfWriter;
 
 #ifdef USE_MPI
 	/** The MPI communicator for the writer */
