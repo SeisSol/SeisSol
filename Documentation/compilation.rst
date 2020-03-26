@@ -5,15 +5,14 @@ In order to run SeisSol, you need to first install:
 
 -  Python (>= 3.5)
 -  Numpy (>= 1.12.0)
--  SCons (>= 3.0, for instructions see below)
 -  hdf5 (>= 1.8, for instructions see below)
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Intel compiler (>= 17.0, icc, icpc, ifort) or GCC (>= 5.0, gcc, g++, gfortran)
+-  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 7.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (for compiling submodules ImpalaJIT and yaml-cpp)
+-  CMake (>3.15), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself)
 
 Initial Adjustments to .bashrc
 ------------------------------
@@ -29,23 +28,23 @@ Add the following lines to your .bashrc (vi ~/.bashrc).
   export LIBRARY_PATH=$HOME/lib:$LIBRARY_PATH
   export LD_LIBRARY_PATH=$HOME/lib:$LD_LIBRARY_PATH
   export PKG_CONFIG_PATH=$HOME/lib/pkgconfig:$PKG_CONFIG_PATH
+  export CMAKE_PREFIX_PATH=$HOME
   export EDITOR=vi
   export CPATH=$HOME/include:$CPATH 
 
   # run "exec bash" or "source ~/.bashrc" to apply environment to the current shell
 
-Installing SCons
+Installing CMake
 ----------------
 
 .. code-block:: bash
 
-  wget http://prdownloads.sourceforge.net/scons/scons-3.0.5.tar.gz
-  tar -xaf scons-3.0.5.tar.gz
-  cd scons-3.0.5
-  python setup.py install --prefix=$HOME
-  cd ..
+  wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.4/cmake-3.16.4-Linux-x86_64.tar.gz | tar -xvz -C "/" && mv "/cmake-3.16.4-Linux-x86_64" "${HOME}/bin/cmake"
+  ln -s ${HOME}/bin/cmake/bin/cmake ${HOME}/bin
 
 
+Note that this extracts CMake to the directory ${HOME}/bin/cmake, if you wish you can adjust that path.
+  
 Installing HDF5
 ---------------
 
@@ -135,58 +134,40 @@ including all submodules:
    git clone https://github.com/SeisSol/SeisSol.git
    git submodule update --init
 
+First, you need to compile SeisSol's submodules:
+
+.. code-block:: bash
+
+   # Impala
+   cd submodules/ImpalaJIT
+   mkdir build && cd build
+   CC=mpiicc CXX=mpiicpc FC=mpiifort cmake -DCMAKE_INSTALL_PREFIX=$HOME -- ..
+   make -j12 install
+
+   # yaml-cpp
+   cd ../../yaml-cpp
+   mkdir build && cd build
+   CC=mpiicc CXX=mpiicpc FC=mpiifort cmake -DCMAKE_INSTALL_PREFIX=$HOME -- ..
+   make -j12 install
+
+   # go back to SeisSol root
+   cd ../..
+
+
 Compile SeisSol with (e.g.)
 
 .. code-block:: bash
 
-  scons compiler=gcc netcdf=yes hdf5=yes order=4 parallelization=hybrid 
+    mkdir build-release && cd build-release
+    CC=mpiicc CXX=mpiicpc FC=mpiifort  CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake cmake -DNETCDF=ON -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF  -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=skx -DPRECISION=double ..
+    make -j48
 
-You may also save your favorite settings in a configuration file:
-Add the following build variables to the file
-build/options/supermuc_mac_cluster.py
+Here, the DCMAKE_INSTALL_PREFIX controlls, in which folder the software is installed.
+Note that you have to adjust the CMAKE_PREFIX_PATH and PKG_CONFIG_PATH in the same manner - if you install all dependencies in a different directory, you need to replace ${HOME} by the path to this directory.
+   
+NOTE: CMake tries to detect the correct MPI wrappers.
 
-.. code-block:: python
-
-   compileMode='release' 
-   parallelization='hybrid' 
-   arch='$ARCH' 
-   order='$ORDER' 
-   generatedKernels = 'yes'
-   compiler = 'gcc' # alternative: 'intel'
-   logLevel = 'info'
-
-   netcdf='yes' 
-   netcdfDir='path_to_netcdf' 
-   hdf5='yes'
-   hdf5Dir='path_to_hdf5'
-
-   ##  additionally for puml mesh format
-   metis = 'yes'
-   metisDir='path_to_parmetis'
-
-   ##  optional for ASAGI
-   asagi = 'yes'
-   zlibDir = 'path_to_asagi' #e.g. <path_to_ASAGI>/build/lib/
-
-| with: 
-| compileMode - release / relWithDebInfo/ debug
-| parallelization - omp/ mpi / hybrid (mpi/openmp)
-| logLevel - info/ debug, warning or error 
-| ARCH - target architecture 
-| ORDER - convergence order (=max polynomial order +1)
-| generatedKernels - yes/no
-
-Get your executable with
-
-.. code-block:: bash
-
-   scons -j 32 buildVariablesFile=build/options/supermuc_mac_cluster.py
-
-NOTE: SCons will try to detect the correct MPI wrappers. If this fails,
-you can overwrite the detected wrappers with the variables "mpicc",
-"mpicxx" and "mpif90".
-
-you can run ``scons -h`` to get some help on options
+You can also run ccmake .. to see all available options and toggle them.
 
 Running SeisSol
 ---------------
