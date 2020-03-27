@@ -85,12 +85,12 @@ bool GhostTimeCluster::act() {
       if (ct.correctionTime + timeTolerance >= syncTime) {
         state = ActorState::Synced;
       } else if (testForGhostLayerReceives()) {
-        std::cout << "mpi pred dt_max=" << ct.maxTimeStepSize  << " dt=" << timeStepSize()
+        std::cout << "MPI pred dt_max=" << ct.maxTimeStepSize  << " dt=" << timeStepSize()
                   << " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime
                   << std::endl;
         ct.predictionTime += timeStepSize();
         for (auto& neighbor : neighbors) {
-          std::cout << ct.maxTimeStepSize << " mpi send pred " << ct.predictionTime << " " << neighbor.ct.nextCorrectionTime(syncTime) <<
+          std::cout << ct.maxTimeStepSize << " MPI send pred " << ct.predictionTime << " " << neighbor.ct.nextCorrectionTime(syncTime) <<
           " " << (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime)) << std::endl;
           if (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime) - timeTolerance)  {
             AdvancedPredictionTimeMessage message{};
@@ -106,7 +106,7 @@ bool GhostTimeCluster::act() {
       break;
     case ActorState::Predicted:
       if (testForCopyLayerSends()) {
-        std::cout << "mpi corr dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize()
+        std::cout << "MPI corr dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize()
                   << " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime
                   << std::endl;
         ct.correctionTime += timeStepSize();
@@ -125,7 +125,7 @@ bool GhostTimeCluster::act() {
       break;
     case ActorState::Synced:
       if (ct.correctionTime + timeTolerance < syncTime) {
-        std::cout << "trlalaalala " << ct.correctionTime << " " << syncTime << std::endl;
+        std::cout << "Synced at  " << ct.correctionTime << " " << syncTime << std::endl;
         receiveGhostLayer();
         state = ActorState::Corrected;
       } else {
