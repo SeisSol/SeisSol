@@ -29,11 +29,14 @@ class Pspamm(Package):
             git='https://github.com/peterwauligmann/PSpaMM',
             branch='master')
 
-    variant('numpy', default=False, description="installes numpy if your platform doen't have numpy")
-    variant('scipy', default=False, description="installes scipy if your platform doen't have scipy")
+    variant('numpy', default=False, description="installs numpy")
+    variant('scipy', default=False, description="installs scipy")
 
     depends_on('py-numpy', when='+numpy')
     depends_on('py-scipy', when='+scipy')
 
     def install(self, spec, prefix):
-        install_tree('.', prefix.bin)
+        install_tree('.', prefix)
+
+    def setup_run_environment(self, env):
+        env.prepend_path('PYTHONPATH', self.spec.prefix)
