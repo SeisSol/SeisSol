@@ -49,7 +49,7 @@ namespace seissol {
     typedef X type;
   };
 
-  template<template<typename> typename F, typename X>
+  template<template<typename> class F, typename X>
   struct extract_type<F<X>>
   {
     typedef X type;

@@ -106,6 +106,7 @@ src/Physics/Evaluate_friction_law.f90
 src/Physics/ini_model_DR.f90
 src/Physics/NucleationFunctions.f90
 src/Physics/thermalpressure.f90
+src/Physics/InitialField.cpp
 src/Reader/readpar.f90
 src/Reader/read_backgroundstress.f90
 src/ResultWriter/inioutput_seissol.f90
@@ -159,7 +160,6 @@ if ("${EQUATIONS}" STREQUAL "elastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
 
@@ -170,7 +170,6 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Time.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
 
@@ -180,7 +179,6 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Time.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Physics/InitialField.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
 endif()

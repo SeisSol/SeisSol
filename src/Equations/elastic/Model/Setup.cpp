@@ -52,27 +52,27 @@ void seissol::model::getTransposedCoefficientMatrix( Material const&            
   seissol::model::getTransposedElasticCoefficientMatrix(i_material, i_dim, AT);
 }
 
-//~ void seissol::model::getPlaneWaveOperator(  Material const& material,
-                                            //~ double const n[3],
-                                            //~ std::complex<real> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
-//~ {
-  //~ DenseMatrixView<NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES, std::complex<real>> M(Mdata);
-  //~ M.setZero();
-//~ 
-  //~ real Adata[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
-  //~ MatrixView AT(Adata, sizeof(Adata)/sizeof(real), &colMjrIndex<NUMBER_OF_QUANTITIES>);
-//~ 
-  //~ for (unsigned d = 0; d < 3; ++d) {
-    //~ AT.setZero();
-    //~ getTransposedElasticCoefficientMatrix(material, d, AT);
-    //~ 
-    //~ for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
-      //~ for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
-        //~ M(i,j) += n[i] * AT(j,i);
-      //~ }
-    //~ }
-  //~ }
-//~ }
+void seissol::model::getPlaneWaveOperator(  Material const& material,
+                                            double const n[3],
+                                            std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
+{
+  yateto::DenseTensorView<2, std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  M.setZero();
+
+  double data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  yateto::DenseTensorView<2, double> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+
+  for (unsigned d = 0; d < 3; ++d) {
+    Coeff.setZero();
+    getTransposedElasticCoefficientMatrix(material, d, Coeff);
+
+    for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+        M(i,j) += n[d] * Coeff(j,i);
+      }
+    }
+  }
+}
 
 void seissol::model::getTransposedGodunovState(Material const& local,
                                                Material const& neighbor,
