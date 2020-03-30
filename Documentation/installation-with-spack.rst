@@ -3,7 +3,7 @@ Installation with Spack
 
 Installation of any HPC application can be tricky. SeisSol is not an exception. 
 To considerably alleviate the installation process, we provide few scripts which 
-relies on `Spack <https://github.com/spack/spack/wiki>`_, which is a new HPC 
+rely on `Spack <https://github.com/spack/spack/wiki>`_, which is a new HPC 
 software package manager. 
 
 Spack installs everything from sources and it is the main feature of Spack, 
@@ -76,9 +76,9 @@ the root directory of the application.
   cd SeisSol
 
 
-To make SeisSol installation scripts are visiable inside of Spack, one has 
-to add them to Spack repositories. We recomend to install our scripts 
-into a separete directory to avoid problems with dangling files inside of 
+To make SeisSol installation scripts visible inside of Spack, one has 
+to add them to Spack repositories. We recommend to install our scripts 
+into a separate directory to avoid problems with dangling files inside of 
 Spack in case if you decide to delete the current SeisSol repository.
 
 
@@ -87,6 +87,7 @@ Spack in case if you decide to delete the current SeisSol repository.
   cd spack_support
   mkdir build && cd build
   cmake .. -DCMAKE_INSTALL_PREFIX=<install_dir>
+  make install
   spack repo add <install_dir>/spack_support
 
 
@@ -108,7 +109,7 @@ Therefore, you have to remove old ones from spack as following:
 
   spack repo remove spack_support
 
-Don't forget to add new scripts into the Spack in the same way how we did above.
+Don't forget to add new scripts into the Spack in the same way as we did above.
 
 
 Getting Started
@@ -168,7 +169,7 @@ After that you can work with the installed software as following:
   module unload <package>
   module purge
 
-You can also look at the list of installed software as following:
+You can also look at a list of installed software as following:
 
 .. code-block:: bash
 
@@ -228,19 +229,19 @@ Examples
 .. code-block:: bash
 
   # 1. with intel compiler suite
-  spack install seissol-env +mpi +asagi ^intel-mpi@2018.2.199 %intel@17.0.2
+  spack install seissol-env +mpi +asagi %intel@17.0.2 ^intel-mpi@2018.2.199
 
   # 2. with gcc compiler suite
-  spack install seissol-env +mpi +asagi ^openmpi@3.1.5 %gcc@8.3.0
+  spack install seissol-env +mpi +asagi %gcc@8.3.0 ^openmpi@3.1.5
 
   # 3. with openblas as an extra option
-  spack install seissol-env +mpi +asagi extra_blas=openblas ^openmpi@3.1.5 %gcc@8.3.0 
+  spack install seissol-env +mpi +asagi extra_blas=openblas %gcc@8.3.0 ^openmpi@3.1.5
 
   # 4. with a gpu support
-  spack install seissol-env +mpi +asagi ^openmpi@3.1.5+cuda ^cuda@10.1.243 %gcc@8.3.0
+  spack install seissol-env +mpi +asagi %gcc@8.3.0 ^openmpi@3.1.5+cuda ^cuda@10.1.243
 
   # 5. with python, numpy and scipy
-  spack install seissol-env +mpi +asagi +python ^openmpi@3.1.5 %gcc@8.3.0
+  spack install seissol-env +mpi +asagi +python %gcc@8.3.0 ^openmpi@3.1.5
 
 
 Usage
@@ -251,18 +252,18 @@ Usage
   module load seissol-env-develop-<compiler>-<hash>
 
   # if you compile seissol-env with a compiler installed with Spack
-  # you may be required to load that compiler as well
+  # you may need to load that compiler as well
   module load <compiler>
 
 
-After that, you can compiler SiesSol using either CMake or 
+After that, you can compile SeisSol using either CMake or 
 :ref:`Scons <compiling-seissol>`.
 
 
 SeisSol-Utils
 -------------
 
-By default, the scrip installs:
+By default, the script installs:
 
 - pumgen (without a Simmetrix support)
 - gmsh (without a GPU support)
@@ -299,7 +300,7 @@ Examples
   spack install seissol-utils+gmsh_gui+paraview+building_tools %gcc@8.3.0
 
   # 4. essential packages with simmetrix support for pumgen
-  spack install seissol-utils ^pumgen+simmetrix_support %gcc@8.3.0 
+  spack install seissol-utils %gcc@8.3.0 ^pumgen+simmetrix_support 
 
 Usage
 ~~~~~
@@ -329,7 +330,7 @@ affect performance of your application but help Spack to install it.
 Therefore, it is not necessary to install them again and again. You can 
 install such  packages only once and mark them as Default 
 `(External) <https://spack-tutorial.readthedocs.io/en/latest/tutorial_configuration.html#external-packages>`_.
-and Non-Buildable. It can speed-up installation of SeisSol-Env and SeisSol-utils 
+and Non-Buildable. It can speed-up installation of SeisSol-Env and SeisSol-Utils 
 considerably. You will need to modify and edit **~/.spack/packages.yaml** file.
 
 
@@ -337,7 +338,7 @@ Known Issues
 ------------
 
 1. Spack is a really live project with dozens of commits per day. It is 
-diffucult for us to keep the same pace with Spack. A new version of Spack
+difficult for us to keep the same pace with Spack. A new version of Spack
 may not work because of new added features what we may not be aware of. 
 Therefore, it may be necessary to use an older version of Spack. You
 can simply do it by moving the HEAD of your locally installed Spack
