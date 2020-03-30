@@ -7,11 +7,12 @@ void GhostTimeCluster::sendCopyLayer(){
 
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(globalClusterId)) {
-      std::cout << seissol::MPI::mpi.rank() << " region: " << region << " out of "
+      std::cout << seissol::MPI::mpi.rank() << " cluster " << globalClusterId << " region: "
+        << region << " out of "
       << meshStructure->numberOfRegions
       << " sending copy layer for tag " <<  timeData + meshStructure->sendIdentifiers[region] << std::endl;
 
-      MPI_Isend(meshStructure->copyRegions[region],
+     MPI_Isend(meshStructure->copyRegions[region],
                 static_cast<int>(meshStructure->copyRegionSizes[region]),
                 MPI_C_REAL,
                 meshStructure->neighboringClusters[region][0],
@@ -29,7 +30,8 @@ void GhostTimeCluster::receiveGhostLayer(){
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
 
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(globalClusterId) ) {
-      std::cout << seissol::MPI::mpi.rank() << " region: " << region << " recv copy layer for tag " <<  timeData + meshStructure->receiveIdentifiers[region] << std::endl;
+      std::cout << seissol::MPI::mpi.rank() << " cluster " << globalClusterId << " region: " <<
+        region << " recv copy layer for tag " <<  timeData + meshStructure->receiveIdentifiers[region] << std::endl;
       MPI_Irecv(meshStructure->ghostRegions[region],
                 static_cast<int>(meshStructure->ghostRegionSizes[region]),
                 MPI_C_REAL,
@@ -81,11 +83,20 @@ bool GhostTimeCluster::act() {
   testForCopyLayerSends();
   bool yield = false;
   switch (state) {
-    case ActorState::Corrected:
+    case ActorState::Corrected: {
+      const auto minNeighbor = std::min_element(
+          neighbors.begin(), neighbors.end(),
+          [this] (NeighborCluster const& a, NeighborCluster const& b) {
+            return a.ct.nextCorrectionTime(syncTime) < b.ct.nextCorrectionTime(syncTime);
+          });
+      const bool mayPredict = minNeighbor == neighbors.end() ||
+          ct.predictionTime < minNeighbor->ct.nextCorrectionTime(syncTime) - timeTolerance;
       if (ct.correctionTime + timeTolerance >= syncTime) {
+        std::cout << this << " " << globalClusterId << " SHOULD NOT HAPPEN " << 
+          ct.correctionTime << " " << timeTolerance << " " << syncTime << std::endl;
         state = ActorState::Synced;
-      } else if (testForGhostLayerReceives()) {
-        std::cout << "mpi pred dt_max=" << ct.maxTimeStepSize  << " dt=" << timeStepSize()
+      } else if (testForGhostLayerReceives() && mayPredict) {
+        std::cout << this << " " << "mpi pred dt_max=" << ct.maxTimeStepSize  << " dt=" << timeStepSize()
                   << " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime
                   << std::endl;
         ct.predictionTime += timeStepSize();
@@ -104,8 +115,16 @@ bool GhostTimeCluster::act() {
       }
 
       break;
-    case ActorState::Predicted:
-      if (testForCopyLayerSends()) {
+    }
+    case ActorState::Predicted: {
+      const auto minNeighbor = std::min_element(
+          neighbors.begin(), neighbors.end(),
+          [] (NeighborCluster const& a, NeighborCluster const& b) {
+            return a.ct.predictionTime < b.ct.predictionTime;
+          });
+      const bool mayCorrect = minNeighbor == neighbors.end() ||
+          ct.predictionTime <= minNeighbor->ct.predictionTime + timeTolerance;
+      if (testForCopyLayerSends() && mayCorrect) {
         std::cout << "mpi corr dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize()
                   << " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime
                   << std::endl;
@@ -123,6 +142,7 @@ bool GhostTimeCluster::act() {
         yield = !processMessages();
       }
       break;
+    }
     case ActorState::Synced:
       if (ct.correctionTime + timeTolerance < syncTime) {
         std::cout << "trlalaalala " << ct.correctionTime << " " << syncTime << std::endl;
