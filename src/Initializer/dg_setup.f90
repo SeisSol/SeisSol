@@ -1903,6 +1903,7 @@ CONTAINS
     REAL, POINTER :: MassMatrix(:,:)    =>NULL()
     ! temporary degrees of freedom
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
+    REAL    :: oneRankedShaped_iniloading(NUMBER_OF_BASIS_FUNCTIONS*6)        ! l_iniloading to one rank array  (allows removing warning we running with plasticity))
     real    :: l_plasticParameters(2)
     !-------------------------------------------------------------------------!
     !
@@ -2022,8 +2023,9 @@ CONTAINS
         l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
         
         ! initialize loading in C
+        oneRankedShaped_iniloading = pack( l_initialLoading, .true. ) 
         call c_interoperability_setInitialLoading( i_meshId = iElem, \
-                                                   i_initialLoading = pack( l_initialLoading, .true. ) )
+                                                   i_initialLoading = oneRankedShaped_iniloading)
 
         !initialize parameters in C
         call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
