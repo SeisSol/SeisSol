@@ -6,7 +6,6 @@
 
 from spack import *
 
-
 class Pumgen(SConsPackage):
     homepage = "https://github.com/SeisSol/PUMGen/wiki/How-to-compile-PUMGen"
     version('develop',
