@@ -270,7 +270,7 @@ By default, the script installs:
 - gmsh2gambit
 - cube_c
 - rconv
-- SiesSol Cookbook, which contains some examples to run
+- SeisSol Cookbook, which contains some examples to run
 
 As in case of *seissol-env*, you need **scons** and, therefore, **python3** for 
 compiling. However, installation of these packages is optional to save 
@@ -322,7 +322,7 @@ Tips and Tricks
 
 .. _spack_known_issues:
 
-1. Spack builds the entire dependency graph before compaling and installing. 
+1. Spack builds the entire dependency graph before compiling and installing. 
 The graph includes all libs and packages which are necessary to build your 
 application, including packages like: *tar, gzip, zlib,  autoconf, 
 cmake, automake, pkgconf, m4, ncurses, etc*. Packages like these do not 
