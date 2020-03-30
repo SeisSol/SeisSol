@@ -53,6 +53,7 @@ solverFiles = [ 'calc_seissol.f90',
                 'time_stepping/MiniSeisSol.cpp',
                 'time_stepping/TimeCluster.cpp',
                 'time_stepping/TimeManager.cpp',
+                'time_stepping/GhostTimeCluster.cpp',
                 'Simulator.cpp' ]
 
 # source files for mpi parallelizazion
