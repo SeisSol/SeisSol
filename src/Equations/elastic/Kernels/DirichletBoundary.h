@@ -16,13 +16,18 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 				const CellBoundaryMapping& boundaryMapping) {
   // do nothing
 }
- 
+
+//
+// GCC warns that the method below is unused. This is not correct.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
 				const CellBoundaryMapping& boundaryMapping) {
   assert(boundaryMapping.TinvData != nullptr);
   projectKernel.Tinv = boundaryMapping.TinvData;
 }
+#pragma GCC diagnostic pop
 
 }
 
