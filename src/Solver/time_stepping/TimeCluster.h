@@ -113,13 +113,48 @@ public:
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
 
-    bool act();
+    void predict() override {
+        assert(state == ActorState::Corrected);
+        bool resetBuffers = true;
+        for (auto& neighbor : neighbors) {
+            if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize &&
+                ct.correctionTime - neighbor.ct.correctionTime > timeTolerance) {
+                resetBuffers = false;
+                break;
+            }
+        }
+
+        writeReceivers(); // TODO(Lukas) Is this correct?
+        computeLocalIntegration(*m_clusterData, resetBuffers);
+        computeSources();
+    };
+    void correct() override {
+        assert(state == ActorState::Predicted);
+
+        double subTimeStart = ct.correctionTime - lastSubTime;
+        // Note, the following is likely wrong
+        // TODO(Lukas) Check scheduling if this is correct
+        if (m_dynamicRuptureFaces > 0) {
+            computeDynamicRupture(*m_dynRupClusterData);
+        }
+        computeNeighboringIntegration(*m_clusterData, subTimeStart);
+
+
+        // First cluster calls fault receiver output
+        // TODO: Change from iteration based to time based
+        if (m_clusterId == 0) {
+            //e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+        }
+        ++m_numberOfTimeSteps;
+    };
+
 
 private:
     double lastSubTime = 0.0;
-    bool processMessages();
+    void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
+    void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
 
-    //! number of time steps
+  //! number of time steps
     unsigned long m_numberOfTimeSteps;
 
     /*
@@ -391,7 +426,7 @@ private:
      * Destructor of a LTS cluster.
      * TODO: Currently prints only statistics in debug mode.
      **/
-    ~TimeCluster();
+    ~TimeCluster() override;
 
 
     /**

@@ -18,7 +18,6 @@ class GhostTimeCluster : public AbstractTimeCluster {
   void receiveGhostLayer();
   bool testForCopyLayerSends();
   bool testForGhostLayerReceives();
-  bool processMessages();
 
  public:
   GhostTimeCluster(double maxTimeStepSize,
@@ -28,9 +27,16 @@ class GhostTimeCluster : public AbstractTimeCluster {
       : AbstractTimeCluster(maxTimeStepSize, timeTolerance),
         globalClusterId(globalTimeClusterId),
         meshStructure(meshStructure) {}
-  bool act();
+  bool act() override;
 
+  void predict() override;
+  void correct() override;
+  bool mayPredict() override;
+  bool mayCorrect() override;
+  void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
+  void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
 };
+
 
 }
 
