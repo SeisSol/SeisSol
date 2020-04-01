@@ -171,9 +171,12 @@ namespace seissol {
            getTransposedFreeSurfaceGodunovState( testIfAcoustic(local.mu), QgodLocal, QgodNeighbor, R);
          } else {
            Matrix99 chi = Matrix99::Zero();
+           if (!testIfAcoustic(local.mu)) {
+             chi(2,2) = 1.0;
+             chi(1,1) = 1.0;
+
+           }
            chi(0,0) = 1.0;
-           chi(1,1) = 1.0;
-           chi(2,2) = 1.0;
        
            assert(Eigen::FullPivLU<Matrix99>(R).isInvertible());
            const auto godunov = ((R*chi)*R.inverse()).eval();
