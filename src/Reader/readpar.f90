@@ -268,6 +268,8 @@ CONTAINS
 #endif
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     Anelasticity        = 1
+    FreqCentral = 0.0
+    FreqRatio = 0.0
 #else
     Anelasticity        = 0
 #endif
@@ -409,6 +411,12 @@ CONTAINS
     EQN%BoundaryFileName = BoundaryFileName
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
+#if NUMBER_OF_RELAXATION_MECHANISMS != 0
+    IF ((EQN%FreqCentral.EQ.0.0) .OR. (EQN%FreqRatio.EQ.0.0)) THEN
+        logError(*) 'FreqCentral or FreqRatio not defined'
+        stop 
+    ENDIF
+#endif
     !
     intDummy = 1                                                  ! coordinate type index
     !                                                             ! (1=cartesian)
