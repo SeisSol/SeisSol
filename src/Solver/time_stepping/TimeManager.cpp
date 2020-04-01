@@ -336,10 +336,11 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
 void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchronizationTime ) {
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  // assert we are not moving back in time
-  assert( m_timeStepping.synchronizationTime <= i_synchronizationTime );
+  // We should always move forward in time
+  assert(m_timeStepping.synchronizationTime <= i_synchronizationTime);
 
   m_timeStepping.synchronizationTime = i_synchronizationTime;
+  std::cout << seissol::MPI::mpi.rank() << " new sync time = " << i_synchronizationTime << std::endl;
   for (auto* cluster : clusters) {
     cluster->updateSyncTime(i_synchronizationTime);
   }
@@ -347,18 +348,24 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     ghostCluster->updateSyncTime(i_synchronizationTime);
   }
 
-  bool finished = false;
+  bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
     for (auto* cluster : clusters) {
+      // A cluster yields once it is blocked by other cluster.
       bool yield = false;
       do {
         yield = cluster->act();
         // Check ghost cells often for communication progress
+        // Note: This replaces the need for a communication thread.
         for (auto& ghostCluster : ghostClusters) {
           // TODO(Lukas) Can we ignore yield here?
           ghostCluster->act();
+
         }
+      if (!(yield || cluster->synced())) {
+              //std::cout << seissol::MPI::mpi.rank() <<  "Ghost cluster act" << std::endl;
+          }
       } while (!(yield || cluster->synced()));
       finished = finished && cluster->synced();
     }

@@ -987,7 +987,9 @@ namespace seissol::time_stepping {
                     " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime << " reset=" << resetBuffers <<
                     " t_minnext=" << minNeighbor->ct.nextCorrectionTime(syncTime) <<
                     " t_delta=" << ct.predictionTime - minNeighbor->ct.nextCorrectionTime(syncTime) << std::endl;
+          writeReceivers(); // TODO(Lukas) Is this correct?
           computeLocalIntegration(*m_clusterData, resetBuffers);
+          computeSources();
 
           ct.predictionTime += timeStepSize();
           for (auto& neighbor : neighbors) {
@@ -1019,9 +1021,21 @@ namespace seissol::time_stepping {
           std::cout << "corr dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize()
                     << " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime
                     << " t_sub=" << subTimeStart << std::endl;
+          // Note, the following is likely wrong
+          // TODO(Lukas) Check scheduling if this is correct
+          if (m_dynamicRuptureFaces > 0) {
+            computeDynamicRupture(*m_dynRupClusterData);
+          }
           computeNeighboringIntegration(*m_clusterData, subTimeStart);
 
           ct.correctionTime += timeStepSize();
+
+          // First cluster calls fault receiver output
+          // TODO: Change from iteration based to time based
+          if (m_clusterId == 0) {
+            e_interoperability.faultOutput(ct.correctionTime, timeStepSize());
+          }
+
           for (auto& neighbor : neighbors) {
             //std::cout << ct.maxTimeStepSize << " sends? " << ct.correctionTime << " " << neighbor.ct.predictionTime << std::endl;
             if (ct.correctionTime >= neighbor.ct.predictionTime - timeTolerance) {
