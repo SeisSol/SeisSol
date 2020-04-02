@@ -178,7 +178,6 @@ namespace seissol {
            }
            chi(0,0) = 1.0;
        
-           assert(Eigen::FullPivLU<Matrix99>(R).isInvertible());
            const auto godunov = ((R*chi)*R.inverse()).eval();
        
            // QgodLocal = I - QgodNeighbor

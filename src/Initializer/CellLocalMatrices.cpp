@@ -503,7 +503,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
 
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::anisotropic: {
-          logWarning() << "Dynamic Rupture does not work with anisotropy yet.";
+          logError() << "Dynamic Rupture does not work with anisotropy yet.";
           //TODO(SW): Make DR work with anisotropy 
           break;
         }

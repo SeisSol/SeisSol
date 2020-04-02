@@ -54,18 +54,10 @@ class AnisotropicADERDG(ADERDGBase):
       'star': ['star(0)', 'star(1)', 'star(2)'],
     }
     self.db.update( parseXMLMatrixFile('{}/star_anisotropic.xml'.format(matricesDir), clones) )
-    self.db.update( parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir), transpose=self.transpose, alignStride=self.alignStride))
     memoryLayoutFromFile(memLayout, self.db, clones)
 
   def addInit(self, generator):
       super().addInit(generator)
-      stiffnessTensor = Tensor('stiffnessTensor', (3, 3, 3, 3))
-      direction = Tensor('direction', (3,))
-      christoffel = Tensor('christoffel', (3,3))
 
-      computeChristoffel = christoffel['ik'] <= stiffnessTensor['ijkl'] * direction['j'] * direction['l']
-      generator.add('computeChristoffel', computeChristoffel)
-
-  def add_include_tensors(self, tensors):
-      super().add_include_tensors(tensors)
-      tensors.add(self.db.samplingDirections)
+  def add_include_tensors(self, include_tensors):
+      super().add_include_tensors(include_tensors)

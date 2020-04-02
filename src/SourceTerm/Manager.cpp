@@ -128,7 +128,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   switch(material->getMaterialType()) {
     case seissol::model::MaterialType::anisotropic:
       if (subfault.mu != 0) {
-        logWarning(0) << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
+        logError() << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
       }
       dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
       break;

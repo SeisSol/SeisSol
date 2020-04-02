@@ -222,8 +222,7 @@ namespace seissol {
       //Instead of solving an optimization problem we sample the velocitiy for
       //different directions and take the maximum.
       double getMaxWaveSpeed() const final{
-#ifdef USE_ANISOTROPIC
-        auto samplingDirections = init::samplingDirections::view::create(const_cast<double*>(init::samplingDirections::Values));
+        auto samplingDirections = init::samplingDirections::view::create(const_cast<real*>(init::samplingDirections::Values));
 
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 3, 3>> saes;
 
@@ -252,9 +251,6 @@ namespace seissol {
           }
         }
         return sqrt(maxEv / rho);
-#else
-        return getPWaveSpeed();
-#endif
       }
 
       //calculate P-wave speed based on averaged material parameters

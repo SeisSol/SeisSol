@@ -176,17 +176,6 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   return query;
 }
 
-easi::Component* seissol::initializers::ParameterDB::loadModel(std::string const& fileName) {
-#ifdef USE_ASAGI
-  seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
-  easi::YAMLParser parser(3, &asagiReader);
-#else
-  easi::YAMLParser parser(3);
-#endif
-  easi::Component* model = parser.parse(fileName);
-  return model;
-}
-
 namespace seissol {
   namespace initializers {
     template<>
@@ -245,7 +234,7 @@ namespace seissol {
     
     template<class T>
     void MaterialParameterDB<T>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
-      easi::Component* model = ParameterDB::loadModel(fileName);
+      easi::Component* model = loadEasiModel(fileName);
       easi::Query query = queryGen.generate();
 
       easi::ArrayOfStructsAdapter<T> adapter(m_materials->data());
@@ -257,7 +246,7 @@ namespace seissol {
     
     template<>
     void MaterialParameterDB<seissol::model::AnisotropicMaterial>::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
-      easi::Component* model = ParameterDB::loadModel(fileName);
+      easi::Component* model = loadEasiModel(fileName);
       easi::Query query = queryGen.generate();
       auto suppliedParameters = model->suppliedParameters();
       //TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
@@ -287,7 +276,7 @@ namespace seissol {
     }
 
     void FaultParameterDB::evaluateModel(std::string const& fileName, QueryGenerator const& queryGen) {
-      easi::Component* model = ParameterDB::loadModel(fileName);
+      easi::Component* model = loadEasiModel(fileName);
       easi::Query query = queryGen.generate();
 
       easi::ArraysAdapter<double> adapter;
@@ -303,7 +292,7 @@ namespace seissol {
 }
 
 bool seissol::initializers::FaultParameterDB::faultParameterizedByTraction(std::string const& fileName) {
-  easi::Component* model = ParameterDB::loadModel(fileName);
+  easi::Component* model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
 
