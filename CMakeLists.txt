@@ -39,18 +39,19 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
-find_package(Git QUIET)
 # Generate version.h
-execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+Add_custom_target(run ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/src/version.h)
+find_package(Git QUIET)
+execute_process(COMMAND ${GIT_EXECUTABLE} describe --dirty=\ \(modified\) --always
                 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
                 OUTPUT_VARIABLE PACKAGE_GIT_VERSION
                 ERROR_QUIET
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 configure_file (
-  "${PROJECT_SOURCE_DIR}/src/version.h"
+  "${PROJECT_SOURCE_DIR}/src/version_template.h"
   "${PROJECT_BINARY_DIR}/src/version.h"
   )
-
+message(STATUS "Current Git description: " ${PACKAGE_GIT_VERSION})
 
 find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
