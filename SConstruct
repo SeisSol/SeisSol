@@ -673,7 +673,7 @@ env.generatedSourceFiles = []
 env.generatedTestSourceFiles = []
 
 # Generate the version file
-utils.gitversion.generateHeader(env, target='#/src/version.h')
+utils.gitversion.generateHeader(env, target=env['buildDir']+'/version.h')
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir=env['buildDir'] + '/generated_code', duplicate=0)
