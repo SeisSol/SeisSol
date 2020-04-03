@@ -40,17 +40,10 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Generate version.h
-Add_custom_target(run ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/src/version.h)
-find_package(Git QUIET)
-execute_process(COMMAND ${GIT_EXECUTABLE} describe --dirty=\ \(modified\) --always
-                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                OUTPUT_VARIABLE PACKAGE_GIT_VERSION
-                ERROR_QUIET
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-configure_file (
-  "${PROJECT_SOURCE_DIR}/src/version_template.h"
-  "${PROJECT_BINARY_DIR}/src/version.h"
-  )
+include(GetGitRevisionDescription)
+git_describe(PACKAGE_GIT_VERSION  --dirty=\ \(modified\) --always)
+configure_file("src/version_template.h"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/version.h")
 message(STATUS "Current Git description: " ${PACKAGE_GIT_VERSION})
 
 find_package(GemmTools REQUIRED)
