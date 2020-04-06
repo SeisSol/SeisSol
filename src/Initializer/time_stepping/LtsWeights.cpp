@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
+ * Copyright (c) 2017 - 2020, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +38,9 @@
  * @section DESCRIPTION
  * 
  **/
+#include <Eigen/Eigenvalues>
+#include <Kernels/precision.hpp>
+#include <Initializer/typedefs.hpp>
 
 #include <PUML/PUML.h>
 #include <PUML/Downward.h>
@@ -48,6 +52,9 @@
 
 #include <Initializer/ParameterDB.h>
 #include <Parallel/MPI.h>
+
+#include <generated_code/tensor.h>
+#include <generated_code/init.h>
 
 class FaceSorter {
 private:
@@ -62,17 +69,12 @@ public:
 };
 
 void seissol::initializers::time_stepping::LtsWeights::computeMaxTimesteps( PUML::TETPUML const&  mesh,
-                                                                            double const*         lambda,
-                                                                            double const*         mu,
-                                                                            double const*         rho,
-                                                                            double*               timestep ) {
+                                                                            std::vector<double> const& pWaveVel,
+                                                                            std::vector<double>& timestep ) {
   std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
-	std::vector<PUML::TETPUML::vertex_t> const& vertices = mesh.vertices();
+  std::vector<PUML::TETPUML::vertex_t> const& vertices = mesh.vertices();
 
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
-    // Compute maximum wavespeed
-    double pWaveVel = sqrt( (lambda[cell] + 2.0 * mu[cell]) / rho[cell] );
-    
     // Compute insphere radius
     glm::dvec3 barycentre(0.,0.,0.);
     glm::dvec3 x[4];
@@ -92,7 +94,7 @@ void seissol::initializers::time_stepping::LtsWeights::computeMaxTimesteps( PUML
     double insphere = std::fabs(alpha) / (Nabc + Nabd + Nacd + Nbcd);
     
     // Compute maximum timestep (CFL=1)
-    timestep[cell] = 2.0 * insphere / (pWaveVel * (2*CONVERGENCE_ORDER-1));
+    timestep[cell] = 2.0 * insphere / (pWaveVel[cell] * (2*CONVERGENCE_ORDER-1));
   }
 }
 
@@ -143,26 +145,29 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   std::vector<PUML::TETPUML::cell_t> const& cells = mesh.cells();
   int const* boundaryCond = mesh.cellData(1);
 
-  double* rho = new double[cells.size()];
-  double* mu = new double[cells.size()];
-  double* lambda = new double[cells.size()];
+  std::vector<double> pWaveVel;
+  pWaveVel.resize(cells.size());
   
   seissol::initializers::ElementBarycentreGeneratorPUML queryGen(mesh);  
-  seissol::initializers::ParameterDB parameterDB;
-  parameterDB.addParameter("rho", rho);
-  parameterDB.addParameter("mu", mu);
-  parameterDB.addParameter("lambda", lambda);
+  //up to now we only distinguish between anisotropic elastic any other isotropic material
+#ifdef USE_ANISOTROPIC
+  std::vector<seissol::model::AnisotropicMaterial> materials(cells.size());
+  seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial> parameterDB;
+#else
+  std::vector<seissol::model::ElasticMaterial> materials(cells.size());
+  seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial> parameterDB;
+#endif 
+  parameterDB.setMaterialVector(&materials);
   parameterDB.evaluateModel(m_velocityModel, queryGen);
-  
-  double* timestep = new double[cells.size()];
-  computeMaxTimesteps(mesh, lambda, mu, rho, timestep);
-    
-  delete[] lambda;
-  delete[] mu;
-  delete[] rho;
+  for(unsigned cell = 0; cell < cells.size(); ++cell) {
+    pWaveVel[cell] = materials[cell].getMaxWaveSpeed();
+  }
+  std::vector<double> timestep;
+  timestep.resize(cells.size());
+  computeMaxTimesteps(mesh, pWaveVel, timestep);
 
-  double localMinTimestep = *std::min_element(timestep, timestep + cells.size());
-  double localMaxTimestep = *std::max_element(timestep, timestep + cells.size());
+  double localMinTimestep = *std::min_element(timestep.begin(), timestep.end());
+  double localMaxTimestep = *std::max_element(timestep.begin(), timestep.end());
   double globalMinTimestep;
   double globalMaxTimestep;
 #ifdef USE_MPI
@@ -177,7 +182,6 @@ void seissol::initializers::time_stepping::LtsWeights::computeWeights(PUML::TETP
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     cluster[cell] = getCluster(timestep[cell], globalMinTimestep, m_rate);
   } 
-  delete[] timestep;
   
   int totalNumberOfReductions = enforceMaximumDifference(mesh, cluster);
 

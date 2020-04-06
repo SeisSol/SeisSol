@@ -40,6 +40,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Generate version.h
+
 include(GetGitRevisionDescription)
 git_describe(PACKAGE_GIT_VERSION  --dirty=\ \(modified\) --always)
 configure_file("src/version_template.h"
@@ -90,6 +91,7 @@ add_custom_command(
        generated_code/Point.py
        generated_code/elastic.py
        generated_code/viscoelastic2.py
+       generated_code/anisotropic.py
        generated_code/SurfaceDisplacement.py
        generated_code/NodalBoundaryConditions.py
     OUTPUT src/generated_code/subroutine.h
