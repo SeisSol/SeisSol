@@ -30,7 +30,6 @@ class SeissolUtils(Package):
 
     variant('gmsh_gui', default=False, description="enables gui support for gmsh")
     variant('paraview', default=False, description="installs Paraview for visualization")
-    variant('building_tools', default=False, description="installs scons")
 
     resource(name='cookbook', 
              git='https://github.com/daisy20170101/SeisSol_Cookbook',
@@ -52,44 +51,59 @@ class SeissolUtils(Package):
 
     depends_on("paraview+hdf5+qt", when="+paraview") 
     depends_on("mesa~llvm", when="+paraview") 
-    depends_on('scons@3.0.1:3.1.2', when='+building_tools')
+    depends_on('scons@3.0.1:3.1.2')
     
+    utils = {'gmsh2gambit': 'preprocessing/meshing/gmsh2gambit',
+             'cube_c': 'preprocessing/meshing/cube_c',
+             'rconv': 'preprocessing/science/rconv'}
+
+    phases = ['build', 'install']
+
+    def build(self, spec, prefix):
+        CC = os.getenv('CC')
+        CXX = os.getenv('CXX')
+
+        if spec['mpi'].compiler.name == 'intel':
+            c_compiler_name = 'mpiicc'
+            cxx_compiler_name = 'mpiicpc'
+        else:
+            c_compiler_name = 'mpicc'
+            cxx_compiler_name = 'mpic++'
+
+        os.environ['CC'] = os.path.join(spec['mpi'].prefix.bin, c_compiler_name)
+        os.environ['CXX'] = os.path.join(spec['mpi'].prefix.bin, cxx_compiler_name)
+
+        for util in SeissolUtils.utils:
+            path = join_path(self.stage.source_path, SeissolUtils.utils[util])
+            with working_dir(path, create=False):
+                if util == 'rconv':
+                    args = []
+                    args.append('compiler={}'.format(spec.compiler.name))
+                    args.append('netcdfDir={}'.format(spec['netcdf-c'].prefix))
+                    args.append('proj4Dir={}'.format(spec['proj'].prefix))
+                    scons(*args)
+                else:
+                    scons()
+
+        os.environ['CC'] = "" if CC == None else CC
+        os.environ['CXX'] = "" if CXX == None else CXX
+
     def install(self, spec, prefix):
         install_tree("cookbook", prefix.cookbook)
 
         if "+benchmarks" in spec:
             install_tree("benchmarks", prefix.benchmarks)
 
-        source_directory = self.stage.source_path
+        copy_list = {}
+        for util in SeissolUtils.utils:
+            copy_list[util] = [os.path.join(self.stage.source_path, SeissolUtils.utils[util], "build", "bin"), None]
 
-        # gmsh2gambit
-        build_gmsh2gambit_dir = join_path(source_directory, 'preprocessing/meshing/gmsh2gambit')
-        with working_dir(build_gmsh2gambit_dir, create=False):
-            scons()
-            install_tree(os.path.join(build_gmsh2gambit_dir, "build", "bin"), prefix.gmsh2gambit)
+        copy_list['gmsh2gambit'][1] = prefix.gmsh2gambit
+        copy_list['cube_c'][1] = prefix.cube_c
+        copy_list['rconv'][1] = prefix.rconv
 
-        """
-        #TODO: find a way how to install gambit2netcdf
-        build_gambit2netcdf_dir = join_path(source_directory, 'preprocessing/meshing/gambit2netcdf')
-        with working_dir(build_gambit2netcdf_dir, create=False):
-            scons()
-            files = glob.glob(join_path(build_gambit2netcdf_dir, 'build/bin', '*'))
-            for file in files:
-                install(file, prefix)
-        """
-        
-        # cubes
-        build_cube_dir = join_path(source_directory, 'preprocessing/meshing/cube_c')
-        with working_dir(build_cube_dir, create=False):
-            scons()
-            install_tree(os.path.join(build_cube_dir, "build", "bin"), prefix.cube_c)
-
-        # rconv for point sources
-        build_rconv_dir = join_path(source_directory, 'preprocessing/science/rconv')
-        with working_dir(build_rconv_dir, create=False):
-            scons('compiler={}'.format(*self.compiler.cc_names))
-            install_tree(os.path.join(build_rconv_dir, "build", "bin"), prefix.rconv)
-    
+        for key in copy_list:
+            install_tree(copy_list[key][0], copy_list[key][1])
     
     def setup_run_environment(self, env):
         dependencies = self.spec.dependencies_dict()
