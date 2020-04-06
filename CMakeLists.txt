@@ -51,11 +51,6 @@ configure_file (
   "${PROJECT_BINARY_DIR}/src/version.h"
   )
 
-# PDE-Settings
-if (("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "anisotropic") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
-  message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
-endif()
-
 find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
 
