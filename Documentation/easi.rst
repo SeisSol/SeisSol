@@ -1,3 +1,5 @@
+.. _easi:
+
 easi
 ====
 
@@ -59,18 +61,20 @@ the DynamicRupture block, e.g.
 Rheological model parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The following parameters need to be set by easi.
-The columns E, V, and P denote if the respective parameter is required
-when using an elastic, viscoelastic, and viscoplastic rheological model.
+The columms E, A, V, and P denote if the respective parameter is required
+when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and viscoplastic rheological model.
+
 
 .. |checkmark| unicode:: U+2713
 
 .. list-table::
-   :widths: 25 10 5 5 5 50
+   :widths: 25 10 5 5 5 5 50
    :header-rows: 1
 
    * - Parameter
      - Unit
      - E
+     - A
      - V
      - P
      - Description
@@ -79,15 +83,25 @@ when using an elastic, viscoelastic, and viscoplastic rheological model.
      - |checkmark|
      - |checkmark|
      - |checkmark|
+     - |checkmark|
      - Density.
    * - mu, lambda
      - Pa
      - |checkmark|
+     - 
      - |checkmark|
      - |checkmark|
      - Lamé parameters.
+   * - c11, ..., c66 [#]_ 
+     - Pa
+     - 
+     - |checkmark|
+     -
+     -
+     - stiffness tensor.
    * - Qp, Qs
      -
+     - 
      - 
      - |checkmark|
      -
@@ -95,11 +109,13 @@ when using an elastic, viscoelastic, and viscoplastic rheological model.
    * - bulkFriction
      -
      - 
+     - 
      -
      - |checkmark|
      - Bulk friction coefficient.
    * - plastCo
      - Pa
+     - 
      - 
      -
      - |checkmark|
@@ -108,8 +124,12 @@ when using an elastic, viscoelastic, and viscoplastic rheological model.
      - Pa
      - 
      - 
+     - 
      - |checkmark|
      - Initial stress tensor.
+
+
+.. [#] See :ref:`anisotropic` for more details.
 
 Fault parameters (dynamic rupture)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
