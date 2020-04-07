@@ -265,10 +265,6 @@ namespace seissol {
         double muBar = (c44 + c55 + c66) / 3.0;
         return std::sqrt(muBar / rho);
       }
-
-      MaterialType getMaterialType() const {
-        return MaterialType::anisotropic;
-      }
     };
 
 

@@ -43,23 +43,17 @@
 
 #include <Kernels/precision.hpp>
 #include <array>
+#include "Visitor.h"
 
 
 namespace seissol {
   namespace model {
-    enum class MaterialType {
-      elastic,
-      viscoelastic,
-      anisotropic
-    };
-
     struct Material {
       double rho;
       virtual double getMaxWaveSpeed() const = 0;
       virtual double getPWaveSpeed() const = 0;
       virtual double getSWaveSpeed() const = 0;
       virtual void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const = 0; 
-      virtual MaterialType getMaterialType() const = 0 ;
       virtual ~Material() {};
     };
 

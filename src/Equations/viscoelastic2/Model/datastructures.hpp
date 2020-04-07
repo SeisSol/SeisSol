@@ -83,10 +83,6 @@ namespace seissol {
       }
 
       virtual ~ViscoElasticMaterial() {};
-
-      MaterialType getMaterialType() const override {
-        return MaterialType::viscoelastic;
-      }
     };
   }
 }
