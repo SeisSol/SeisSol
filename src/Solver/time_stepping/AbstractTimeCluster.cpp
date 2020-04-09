@@ -1,3 +1,4 @@
+#include <iostream>
 #include "Solver/time_stepping/AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {
@@ -5,8 +6,8 @@ double AbstractTimeCluster::timeStepSize() const {
   return ct.timeStepSize(syncTime);
 }
 
-AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, double timeTolerance)
-    : timeTolerance(timeTolerance) {
+AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, int timeStepRate)
+    : timeTolerance(timeTolerance), timeStepRate(timeStepRate), numberOfTimeSteps(0) {
   ct.maxTimeStepSize = maxTimeStepSize;
 }
 
@@ -26,7 +27,7 @@ bool AbstractTimeCluster::act() {
       for (auto &neighbor : neighbors) {
         /*std::cout << ct.maxTimeStepSize << " sends?? " << ct.predictionTime << " " << neighbor.ct.nextCorrectionTime(syncTime) <<
         " " << (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime)) << std::endl;*/
-        if (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime) - timeTolerance) {
+        if (ct.predictionTime >= (neighbor.ct.nextCorrectionTime(syncTime) - timeTolerance)) {
           AdvancedPredictionTimeMessage message{};
           message.time = ct.predictionTime;
           neighbor.outbox->push(message);
@@ -45,6 +46,7 @@ bool AbstractTimeCluster::act() {
       //<< " t_p=" << ct.predictionTime << " t_c=" << ct.correctionTime
       //<< " t_sub=" << subTimeStart << std::endl;
       ct.correctionTime += timeStepSize();
+      ++numberOfTimeSteps;
       for (auto &neighbor : neighbors) {
         if (ct.correctionTime >= neighbor.ct.predictionTime - timeTolerance) {
           AdvancedCorrectionTimeMessage message{};
@@ -97,6 +99,7 @@ bool AbstractTimeCluster::processMessages() {
 }
 
 bool AbstractTimeCluster::mayPredict() {
+  // We can predict, if our prediction time is smaller than the next correction time of all neighbors.
   const auto minNeighbor = std::min_element(
       neighbors.begin(), neighbors.end(),
       [this](NeighborCluster const &a, NeighborCluster const &b) {
@@ -107,6 +110,7 @@ bool AbstractTimeCluster::mayPredict() {
 }
 
 bool AbstractTimeCluster::mayCorrect() {
+  // We can correct, if our prediction time is larger than the one of all neighbors.
   const auto minNeighbor = std::min_element(
       neighbors.begin(), neighbors.end(),
       [](NeighborCluster const &a, NeighborCluster const &b) {
@@ -132,6 +136,20 @@ void AbstractTimeCluster::updateSyncTime(double newSyncTime) {
 
 bool AbstractTimeCluster::synced() const {
   return state == ActorState::Synced;
+}
+void AbstractTimeCluster::reset() {
+  assert(state == ActorState::Synced);
+  for (auto& neighbor : neighbors) {
+    // TODO(Lukas) Think this through!
+    neighbor.inbox->clear();
+    neighbor.outbox->clear();
+    neighbor.ct.predictionTime = ct.predictionTime;
+    neighbor.ct.correctionTime = ct.correctionTime;
+  }
+
+  // TODO(Lukas): Don't -> just to try out scheduling
+  // If this works, create numberOfTimeStepsSinceSyn
+  numberOfTimeSteps = 0;
 }
 
 }

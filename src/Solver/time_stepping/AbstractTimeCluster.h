@@ -19,7 +19,7 @@ protected:
 
 public:
   // TODO(Lukas) Move a lot of these to protected or private
-  AbstractTimeCluster(double maxTimeStepSize, double timeTolerance);
+  AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, int timeStepRate);
   virtual ~AbstractTimeCluster() = default;
 
   virtual bool act();
@@ -30,10 +30,14 @@ public:
   virtual bool processMessages();
   virtual void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
+  virtual void reset();
 
   void connect(AbstractTimeCluster& other);
   void updateSyncTime(double newSyncTime);
   [[nodiscard]] bool synced() const;
+  int timeStepRate;
+  //! number of time steps
+  long numberOfTimeSteps;
 };
 
 }

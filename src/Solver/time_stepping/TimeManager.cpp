@@ -39,6 +39,7 @@
  * Time Step width management in SeisSol.
  **/
 
+#include <numeric>
 #include "Parallel/MPI.h"
 
 #include "TimeManager.h"
@@ -93,6 +94,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     const unsigned int l_globalClusterId = m_timeStepping.clusterIds[l_cluster];
     // chop of at synchronization time
     const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
+    const auto timeStepRate =  static_cast<int>(m_timeStepping.globalTimeStepRates[l_globalClusterId]);
         // add this time cluster
     const auto layerTypes = {Copy, Interior};
     for (auto type : layerTypes) {
@@ -100,6 +102,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
           l_cluster,
           m_timeStepping.clusterIds[l_cluster],
           timeStepSize,
+          timeStepRate,
           getTimeTolerance(),
           l_globalData,
           &i_memoryManager.getLtsTree()->child(l_cluster).child(type),
@@ -133,9 +136,11 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[l_cluster]);
-    for (int otherGlobalClusterId = std::max(globalClusterId - 1, 0);
+    /*for (int otherGlobalClusterId = std::max(globalClusterId - 1, 0);
          otherGlobalClusterId < std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters));
          ++otherGlobalClusterId) {
+         */
+    for (unsigned int otherGlobalClusterId = 0; otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters; ++otherGlobalClusterId) {
       const bool hasNeighborRegions = std::any_of(l_meshStructure->neighboringClusters,
       l_meshStructure->neighboringClusters + l_meshStructure->numberOfRegions,
       [otherGlobalClusterId](const auto& neighbor) {
@@ -146,6 +151,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
         ghostClusters.push_back(
           std::make_unique<GhostTimeCluster>(
               otherTimeStepSize,
+              timeStepRate,
               getTimeTolerance(),
               otherGlobalClusterId,
               l_meshStructure)
@@ -333,25 +339,40 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
   }*/
 }
 
-void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchronizationTime ) {
+void seissol::time_stepping::TimeManager::advanceInTime(const double &synchronizationTime) {
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   // We should always move forward in time
-  assert(m_timeStepping.synchronizationTime <= i_synchronizationTime);
+  assert(m_timeStepping.synchronizationTime <= synchronizationTime);
 
-  m_timeStepping.synchronizationTime = i_synchronizationTime;
-  std::cout << seissol::MPI::mpi.rank() << " new sync time = " << i_synchronizationTime << std::endl;
+  m_timeStepping.synchronizationTime = synchronizationTime;
+  std::cout << seissol::MPI::mpi.rank() << " new sync time = " << synchronizationTime << std::endl;
+
+  // TODO(Lukas) WTF...
+  //MPI_Comm newComm;
+  //MPI_Comm_dup(seissol::MPI::mpi.comm(), &newComm);
+  //seissol::MPI::mpi.setComm(newComm);
+
   for (auto* cluster : clusters) {
-    cluster->updateSyncTime(i_synchronizationTime);
+    cluster->reset();
+    cluster->updateSyncTime(synchronizationTime);
   }
   for (auto& ghostCluster : ghostClusters) {
-    ghostCluster->updateSyncTime(i_synchronizationTime);
+    // TODO(Lukas) Not sure about cancel + reset
+    ghostCluster->cancelPendingMessages();
+    ghostCluster->reset();
+
+    ghostCluster->updateSyncTime(synchronizationTime);
   }
+  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
     finished = true;
     for (auto* cluster : clusters) {
+      // TODO(Lukas) Remove
+      cluster->resetBuffersOld = cluster->numberOfTimeSteps % m_timeStepping.globalTimeStepRates[cluster->m_globalClusterId] == 0;
+
       // A cluster yields once it is blocked by other cluster.
       bool yield = false;
       do {
@@ -359,9 +380,8 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
         // Check ghost cells often for communication progress
         // Note: This replaces the need for a communication thread.
         for (auto& ghostCluster : ghostClusters) {
-          // TODO(Lukas) Can we ignore yield here?
           ghostCluster->act();
-
+          finished = finished && ghostCluster->synced();
         }
       if (!(yield || cluster->synced())) {
               //std::cout << seissol::MPI::mpi.rank() <<  "Ghost cluster act" << std::endl;
@@ -485,8 +505,13 @@ void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
 }
 
 void seissol::time_stepping::TimeManager::setTv(double tv) {
-  for(unsigned int l_cluster = 0; l_cluster < clusters.size(); l_cluster++ ) {
-    clusters[l_cluster]->setTv(tv);
+  for(auto& cluster : clusters) {
+    cluster->setTv(tv);
+  }
+}
+void seissol::time_stepping::TimeManager::cancelPendingMessages() {
+  for (auto& cluster : ghostClusters) {
+    cluster->cancelPendingMessages();
   }
 }
 

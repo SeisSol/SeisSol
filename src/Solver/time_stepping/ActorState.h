@@ -7,9 +7,10 @@
 #include <omp.h>
 #include <memory>
 #include <algorithm>
+#include <type_traits>
 
-namespace seissol {
-namespace time_stepping {
+
+namespace seissol::time_stepping {
 
 
 struct AdvancedPredictionTimeMessage {
@@ -20,11 +21,27 @@ struct AdvancedCorrectionTimeMessage {
 };
 
 using Message = std::variant<AdvancedPredictionTimeMessage, AdvancedCorrectionTimeMessage>;
+// Helper for std::visit variant pattern
+template<class T> struct always_false : std::false_type {};
+
+inline std::ostream& operator<<(std::ostream& stream, const Message& message) {
+  std::visit([&stream](auto&& msg) {
+    using T = std::decay_t<decltype(msg)>;
+    if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
+      stream << "AdvancedPredictionTimeMessage, t = " << msg.time;
+    } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
+      stream << "AdvancedCorrectionTimeMessage, t = " << msg.time;
+    } else {
+      static_assert(always_false<T>::value, "non-exhaustive visitor");
+    }
+  }, message);
+}
+
 
 class MessageQueue {
  private:
   std::queue<Message> queue;
-  omp_lock_t lock;
+  omp_lock_t lock{};
 
  public:
   MessageQueue() {
@@ -41,10 +58,8 @@ class MessageQueue {
   }
 
   Message pop() {
-    Message message;
     omp_set_lock(&lock);
-    message = queue.front();
-    queue.front();
+    const Message message = queue.front();
     queue.pop();
     omp_unset_lock(&lock);
     return message;
@@ -52,6 +67,26 @@ class MessageQueue {
 
   bool hasMessages() {
     return !queue.empty();
+  }
+
+  void clear() {
+    omp_set_lock(&lock);
+    while(!queue.empty()) {
+      std::visit([](auto&& msg) {
+        using T = std::decay_t<decltype(msg)>;
+        if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
+          assert(("Should never cancel AdvancedPredictionTime Message!", false)) ;
+        } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
+          // nop
+        } else {
+          static_assert(always_false<T>::value, "non-exhaustive visitor");
+        }
+      }, queue.front());
+      std::cout << "Cancelled " << queue.front() << std::endl;
+      queue.pop();
+    }
+    //queue = {};
+    omp_unset_lock(&lock);
   }
 };
 
@@ -67,12 +102,12 @@ struct ClusterTimes {
   double correctionTime = 0.0;
   double maxTimeStepSize = std::numeric_limits<double>::infinity();
 
-  double nextCorrectionTime(double syncTime) const {
+  [[nodiscard]] double nextCorrectionTime(double syncTime) const {
     return std::min(syncTime, correctionTime + maxTimeStepSize);
   }
 
   //! Returns time step s.t. we won't miss the sync point
-  double timeStepSize(double syncTime) const {
+  [[nodiscard]] double timeStepSize(double syncTime) const {
     assert(correctionTime < syncTime);
     return std::min(syncTime - correctionTime, maxTimeStepSize);
   }
@@ -83,15 +118,13 @@ struct NeighborCluster {
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
 
-  NeighborCluster(double maxTimeStepSize) {
+  explicit NeighborCluster(double maxTimeStepSize) {
     ct.maxTimeStepSize = maxTimeStepSize;
   }
 
 
 };
 
-template<class T> struct always_false : std::false_type {};
-}
 }
 
 #endif //SEISSOL_ACTORSTATE_H

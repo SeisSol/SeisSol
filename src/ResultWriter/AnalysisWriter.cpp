@@ -161,7 +161,14 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     // TODO(Lukas) Print hs, fortran: MESH%MaxSQRTVolume, MESH%MaxCircle
 
 #ifdef USE_MPI
-    const auto& comm = mpi.comm();
+    // TODO(Lukas) Fix underlying issue,
+    // Problem: Old messages flying around with same tag as analysis
+    // Solution: New communicator...
+    const auto& oldComm = mpi.comm();
+    MPI_Comm comm{};
+    MPI_Comm_dup(oldComm, &comm);
+
+    //const auto& comm = mpi.comm();
 
     // Reduce error over all MPI ranks.
     auto errL1MPI = ErrorArray_t{0.0};
@@ -182,8 +189,8 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       MPI_MAXLOC,
       comm);
 
-    for (unsigned int i = 0; i < numberOfQuantities; ++i) {
-      VrtxCoords centerSend;
+    for (int i = 0; i < numberOfQuantities; ++i) {
+      VrtxCoords centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]],
             vertices,
             centerSend);
@@ -194,7 +201,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       }
 
       if (mpi.rank() == 0) {
-        VrtxCoords centerRecv;
+        VrtxCoords centerRecv{};
         if (errLInfRecv[i].rank == 0) {
           std::copy_n(centerSend, 3, centerRecv);
         } else {

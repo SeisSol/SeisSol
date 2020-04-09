@@ -98,6 +98,7 @@ extern seissol::Interoperability e_interoperability;
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
                                                  unsigned int i_globalClusterId,
                                                  double maxTimeStepSize,
+                                                 int timeStepRate,
                                                  double timeTolerance,
                                                  struct GlobalData *i_globalData,
                                                  seissol::initializers::Layer *i_clusterData,
@@ -105,7 +106,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
                                                  seissol::initializers::LTS *i_lts,
                                                  seissol::initializers::DynamicRupture *i_dynRup,
                                                  LoopStatistics *i_loopStatistics) :
-    AbstractTimeCluster(maxTimeStepSize, timeTolerance),
+    AbstractTimeCluster(maxTimeStepSize, timeTolerance, timeStepRate),
     // cluster ids
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
@@ -131,7 +132,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
   //m_sendLtsBuffers                = false;
 #endif
   // set timings to zero
-  m_numberOfTimeSteps             = 0;
   m_receiverTime                  = 0;
 
   m_dynamicRuptureFaces = i_dynRupClusterData->getNumberOfCells() > 0;
@@ -151,7 +151,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
 #ifndef NDEBUG
-  logInfo() << "#(time steps):" << m_numberOfTimeSteps;
+  logInfo() << "#(time steps):" << numberOfTimeSteps;
 #endif
 }
 
@@ -432,20 +432,22 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp tmp{};
 
 #ifdef _OPENMP
   #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer, tmp) schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
+  for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
     auto data = loader.entry(l_cell);
-    // overwrite cell buffer
-    // TODO: Integrate this step into the kernel
 
-    bool l_buffersProvided = (data.cellInformation.ltsSetup >> 8)%2 == 1; // buffers are provided
-    bool l_resetBuffers = l_buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
+    // We need to check, whether we can overwrite the buffer or if it is
+    // needed by some other time cluster.
+    // If we cannot overwrite the buffer, we compute everything in a temporary
+    // local buffer and accumulate the results later in the shared buffer.
+    const bool buffersProvided = (data.cellInformation.ltsSetup >> 8) % 2 == 1; // buffers are provided
+    resetBuffers = buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
 
-    if (l_resetBuffers) {
+    if (resetBuffers) {
       // assert presence of the buffer
       assert(buffers[l_cell] != nullptr);
 
@@ -481,10 +483,11 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       krnl.execute();
     }
 
-    // update lts buffers if required
     // TODO: Integrate this step into the kernel
-    if (!l_resetBuffers && l_buffersProvided) {
-      assert (buffers[l_cell] != nullptr);
+    // We've used a temporary buffer -> need to accumulate update in
+    // shared buffer.
+    if (!resetBuffers && buffersProvided) {
+      assert(buffers[l_cell] != nullptr);
 
       for (unsigned int l_dof = 0; l_dof < tensor::I::size(); ++l_dof) {
         buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
@@ -968,5 +971,48 @@ void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& nei
 }
 void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
   // Doesn't do anything
+}
+void TimeCluster::predict() {
+  assert(state == ActorState::Corrected);
+  bool resetBuffers = true;
+  for (auto& neighbor : neighbors) {
+    if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize &&
+        // ct.correctionTime > neighbor.ct.correctionTime
+        ct.correctionTime - neighbor.ct.correctionTime > timeTolerance) {
+      resetBuffers = false;
+      break;
+    }
+  }
+  /*
+  if( clusters[l_cluster]->m_numberOfFullUpdates % m_timeStepping.globalTimeStepRates[l_globalClusterId] == 0 ) {
+   */
+  resetBuffers = resetBuffersOld; // TODO(Lukas) :(
+  assert(resetBuffers == resetBuffersOld);
+  if (numberOfTimeSteps == 0) {
+    assert(resetBuffers);
+  }
+
+  writeReceivers(); // TODO(Lukas) Is this correct?
+  computeLocalIntegration(*m_clusterData, resetBuffers);
+  computeSources();
+  std::cout << "Predicted to t=" << ct.correctionTime + timeStepSize() << std::endl;
+}
+void TimeCluster::correct() {
+  assert(state == ActorState::Predicted);
+
+  double subTimeStart = ct.correctionTime - lastSubTime;
+  // Note, the following is likely wrong
+  // TODO(Lukas) Check scheduling if this is correct
+  if (m_dynamicRuptureFaces > 0) {
+    computeDynamicRupture(*m_dynRupClusterData);
+  }
+  computeNeighboringIntegration(*m_clusterData, subTimeStart);
+
+  // First cluster calls fault receiver output
+  // TODO: Change from iteration based to time based
+  if (m_clusterId == 0) {
+    //e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+  }
+  std::cout << "Corrected to t=" << ct.correctionTime + timeStepSize() << std::endl;
 }
 }

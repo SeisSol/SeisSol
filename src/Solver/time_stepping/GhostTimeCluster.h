@@ -21,12 +21,11 @@ class GhostTimeCluster : public AbstractTimeCluster {
 
  public:
   GhostTimeCluster(double maxTimeStepSize,
-      double timeTolerance,
-      int globalTimeClusterId,
-      const MeshStructure* meshStructure)
-      : AbstractTimeCluster(maxTimeStepSize, timeTolerance),
-        globalClusterId(globalTimeClusterId),
-        meshStructure(meshStructure) {}
+                   int timeStepRate,
+                   double timeTolerance,
+                   int globalTimeClusterId,
+                   const MeshStructure* meshStructure
+  );
   bool act() override;
 
   void predict() override;
@@ -35,6 +34,13 @@ class GhostTimeCluster : public AbstractTimeCluster {
   bool mayCorrect() override;
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
+  void cancelPendingMessages();
+  void reset() override;
+  [[nodiscard]] bool hasPendingMessages();
+
+  double lastSendTime = -1.0;
+  double lastReceiveTime = -1.0;
+
 };
 
 

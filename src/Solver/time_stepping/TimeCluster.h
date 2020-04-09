@@ -107,46 +107,15 @@ namespace seissol {
 class seissol::time_stepping::TimeCluster : public seissol::time_stepping::AbstractTimeCluster
 {
 public:
+    bool resetBuffersOld = false;
     //! cluster id on this rank
     const unsigned int m_clusterId;
 
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
 
-    void predict() override {
-        assert(state == ActorState::Corrected);
-        bool resetBuffers = true;
-        for (auto& neighbor : neighbors) {
-            if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize &&
-                ct.correctionTime - neighbor.ct.correctionTime > timeTolerance) {
-                resetBuffers = false;
-                break;
-            }
-        }
-
-        writeReceivers(); // TODO(Lukas) Is this correct?
-        computeLocalIntegration(*m_clusterData, resetBuffers);
-        computeSources();
-    };
-    void correct() override {
-        assert(state == ActorState::Predicted);
-
-        double subTimeStart = ct.correctionTime - lastSubTime;
-        // Note, the following is likely wrong
-        // TODO(Lukas) Check scheduling if this is correct
-        if (m_dynamicRuptureFaces > 0) {
-            computeDynamicRupture(*m_dynRupClusterData);
-        }
-        computeNeighboringIntegration(*m_clusterData, subTimeStart);
-
-
-        // First cluster calls fault receiver output
-        // TODO: Change from iteration based to time based
-        if (m_clusterId == 0) {
-            //e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
-        }
-        ++m_numberOfTimeSteps;
-    };
+    void predict() override;
+    void correct() override;
 
 
 private:
@@ -154,8 +123,8 @@ private:
     void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
     void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
 
-  //! number of time steps
-    unsigned long m_numberOfTimeSteps;
+public:
+private:
 
     /*
      * integrators
@@ -414,6 +383,7 @@ private:
     TimeCluster(unsigned int i_clusterId,
                 unsigned int i_globalClusterId,
                 double maxTimeStepSize,
+                int timeStepRate,
                 double timeTolerance,
                 struct GlobalData *i_globalData,
                 seissol::initializers::Layer *i_clusterData,

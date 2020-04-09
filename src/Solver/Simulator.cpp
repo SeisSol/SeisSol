@@ -57,7 +57,7 @@ seissol::Simulator::Simulator():
   m_finalTime(          0 ),
   m_checkPointTime(     0 ),
   m_checkPointInterval( std::numeric_limits< double >::max() ),
-  m_loadCheckPoint( false ) {};
+  m_loadCheckPoint( false ) {}
 
 void seissol::Simulator::setCheckPointInterval( double i_checkPointInterval ) {
   assert( m_checkPointInterval > 0 );
@@ -144,6 +144,11 @@ void seissol::Simulator::simulate() {
 
   // stop the communication thread (if applicable)
   seissol::SeisSol::main.timeManager().stopCommunicationThread();
+
+  // stop pending MPI requests from ghost clusters
+  // this can happen sometimes and can lead to confusing errors
+  // TODO(Lukas) Should this happen?
+  seissol::SeisSol::main.timeManager().cancelPendingMessages();
 
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
