@@ -1,4 +1,7 @@
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 #include "Kernels/DirichletBoundary.h"
+#pragma GCC diagnostic pop
 void seissol::kernels::computeAverageDisplacement(double deltaT,
 					 const real* timeDerivatives,
 					 const unsigned int derivativesOffsets[CONVERGENCE_ORDER],

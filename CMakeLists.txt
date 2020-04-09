@@ -51,7 +51,6 @@ configure_file (
   "${PROJECT_BINARY_DIR}/src/version.h"
   )
 
-
 find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
 
@@ -97,6 +96,7 @@ add_custom_command(
        generated_code/elastic.py
        generated_code/viscoelastic2.py
        generated_code/poroelastic.py
+       generated_code/anisotropic.py
        generated_code/SurfaceDisplacement.py
        generated_code/NodalBoundaryConditions.py
     OUTPUT src/generated_code/subroutine.h
@@ -120,10 +120,6 @@ elseif (PLASTICITY_METHOD STREQUAL "nb")
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY_NB)
 endif()
 
-if (EQUATIONS STREQUAL "poroelastic")
-  target_compile_definitions(SeisSol-lib PUBLIC USE_STP)
-  target_compile_definitions(SeisSol-lib PUBLIC USE_POROELASTIC)
-endif()
 
 # Find appropriate compiler flags based on the target computer architecture
 # and the target compiler

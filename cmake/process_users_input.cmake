@@ -23,7 +23,7 @@ set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic viscoelastic viscoelastic2 poroelastic)
+set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
@@ -104,7 +104,7 @@ check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIO
 
 
 # check NUMBER_OF_MECHANISMS
-if ("${EQUATIONS}" STREQUAL "elastic" AND ${NUMBER_OF_MECHANISMS} GREATER 0)
+if ((NOT "${EQUATIONS}" MATCHES "viscoelastic.?") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
     message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
 endif()
 

@@ -128,7 +128,24 @@ CONTAINS
       allocate (EQN%BulkFriction(0), EQN%PlastCo(0), EQN%IniStress(0,0))
     ENDIF
 
-    call c_interoperability_initializeModel(trim(EQN%MaterialFileName) // c_null_char, EQN%Anelasticity, EQN%Plasticity, MaterialVal, EQN%BulkFriction, EQN%PlastCo, EQN%IniStress)
+    ALLOCATE( DISC%Galerkin%WaveSpeed(MESH%nElem,EQN%nNonZeroEV) )
+    DISC%Galerkin%WaveSpeed(:,:) = 0.
+
+    call c_interoperability_initializeModel(trim(EQN%MaterialFileName) // c_null_char,\
+                                            EQN%Anelasticity,\
+                                            EQN%Plasticity,\
+                                            EQN%Anisotropy,\
+                                            EQN%Poroelasticity,\
+                                            MaterialVal,\
+                                            EQN%BulkFriction,\
+                                            EQN%PlastCo,\
+                                            EQN%IniStress,\
+                                            DISC%Galerkin%WaveSpeed)
+    
+    ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem) )
+    DO iElem=1,MESH%nElem
+            DISC%Galerkin%MaxWaveSpeed(iElem)=maxval(DISC%Galerkin%WaveSpeed(iElem,:))
+    ENDDO
     
     if (EQN%Anelasticity == 1) then
       do iElem=1, MESH%nElem

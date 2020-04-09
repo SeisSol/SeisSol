@@ -159,38 +159,50 @@ endif()
 # Eqations have to be set at compile time currently.
 if ("${EQUATIONS}" STREQUAL "elastic")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/Time.cpp
-  )
+    )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_ELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/Time.cpp
-  )
+    )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC)
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2/Kernels/Time.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic2)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_VISCOELASTIC2)
+
+elseif ("${EQUATIONS}" STREQUAL "anisotropic")
+  target_sources(SeisSol-lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/DirichletBoundary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic/Kernels/Time.cpp
+  )
+  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_ANISOTROPIC)
+
 elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(SeisSol-lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Model/Setup.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Time.cpp
   )
   target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_STP)
+  target_compile_definitions(SeisSol-lib PUBLIC USE_POROELASTIC)
 endif()

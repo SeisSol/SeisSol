@@ -71,7 +71,10 @@
 
 #include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 #include "DirichletBoundary.h"
+#pragma GCC diagnostic pop
 
 #ifndef NDEBUG
 #pragma message "compiling time kernel with assertions"
@@ -166,7 +169,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
+  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration.specific));
 
   krnl.dQ(0) = const_cast<real*>(data.dofs);
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {

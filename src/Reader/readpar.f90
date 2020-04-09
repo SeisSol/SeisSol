@@ -261,9 +261,15 @@ CONTAINS
     ! aheineck, @TODO these values are used, but not initialized < End
 
     ! Setting the default values
+#if defined(USE_ANISOTROPIC)
+    Anisotropy          = 1
+#else
     Anisotropy          = 0
+#endif
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     Anelasticity        = 1
+    FreqCentral = 0.0
+    FreqRatio = 0.0
 #else
     Anelasticity        = 0
 #endif
@@ -280,21 +286,7 @@ CONTAINS
         CALL RaiseErrorNml(IO%UNIT%FileIn, "Equations")
     ENDIF
     !
-    SELECT CASE(Anisotropy)
-    CASE(0)
-      logInfo(*) 'Isotropic material is assumed. '
-      EQN%Anisotropy = Anisotropy
-      EQN%nBackgroundVar = 3+EQN%nBackgroundVar
-      EQN%nNonZeroEV = 3
-    CASE(1)
-      logInfo(*) 'Full triclinic material is assumed. '
-      EQN%Anisotropy = Anisotropy
-      EQN%nBackgroundVar = 22+EQN%nBackgroundVar
-      EQN%nNonZeroEV = 3
-    CASE DEFAULT
-      logError(*) 'Choose 0 or 1 as anisotropy assumption. '
-      STOP
-    END SELECT
+
     !
 
 #if defined(USE_PLASTICITY)
@@ -352,6 +344,7 @@ CONTAINS
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
 #if defined(USE_POROELASTIC)      
+      EQN%Poroelasticity = 1
       EQN%nVarTotal = 13 
       EQN%nBackgroundVar = 10
 #else
@@ -386,6 +379,23 @@ CONTAINS
         logError(*) 'Choose 0, 1 as adjoint wavefield assumption. '
         STOP
       END SELECT
+    
+    EQN%Anisotropy = Anisotropy
+    SELECT CASE(Anisotropy)
+    CASE(0)
+      logInfo(*) 'Isotropic material is assumed. '
+      EQN%nNonZeroEV = 3
+    CASE(1)
+      IF(Anelasticity.EQ.1) THEN
+        logError(*) 'Anelasticity does not work together with Anisotropy'
+      END IF
+      logInfo(*) 'Full triclinic material is assumed. '
+      EQN%nBackgroundVar = 22
+      EQN%nNonZeroEV = 3
+    CASE DEFAULT
+      logError(*) 'Choose 0 or 1 as anisotropy assumption. '
+      STOP
+    END SELECT
 
     IF(EQN%Adjoint.EQ.1) THEN
      call readadjoint(IO, DISC, SOURCE, AdjFileName)
@@ -407,6 +417,12 @@ CONTAINS
     EQN%BoundaryFileName = BoundaryFileName
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
+#if NUMBER_OF_RELAXATION_MECHANISMS != 0
+    IF ((EQN%FreqCentral.EQ.0.0) .OR. (EQN%FreqRatio.EQ.0.0)) THEN
+        logError(*) 'FreqCentral or FreqRatio not defined'
+        stop 
+    ENDIF
+#endif
     !
     intDummy = 1                                                  ! coordinate type index
     !                                                             ! (1=cartesian)
@@ -580,17 +596,17 @@ CONTAINS
    !
    CASE('Zero')
        logInfo(*) 'Zero initial condition'
-    CASE('Planarwave')                                                                ! CASE tPlanarwave
+   CASE('Planarwave')
        logInfo(*) 'Planarwave initial condition'
-    CASE('PoroelasticPlanarwave')
-       logInfo(*) 'Poroelastic Planarwave initial condition'
-    CASE('Scholte')
+   CASE('SuperimposedPlanarwave')
+       logInfo(*) 'Superimposed Planarwave initial condition'
+   CASE('Scholte')
        logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
-    CASE('Snell')
+   CASE('Snell')
        logInfo(*) 'Snells law (elastic-acoustic) initial condition'
    CASE('Ocean')
        logInfo(*) 'An uncoupled ocean test case for acoustic equations'
-   CASE DEFAULT                                                             ! CASE DEFAULT
+   CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'
        logError(*) TRIM(IC%cICType),'|'

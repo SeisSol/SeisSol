@@ -155,7 +155,7 @@ CONTAINS
     !                                                                         
     !
        DO iElem = 1, MESH%nElem
-           OptionalFields%sound(iElem) = MAXVAL( DISC%Galerkin%MaxWaveSpeed(iElem,:) )
+           OptionalFields%sound(iElem) = DISC%Galerkin%MaxWaveSpeed(iElem)
        ENDDO
 
        SELECT CASE(EQN%Advection)
