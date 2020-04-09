@@ -51,7 +51,6 @@ configure_file (
   "${PROJECT_BINARY_DIR}/src/version.h"
   )
 
-
 find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
 
@@ -96,6 +95,7 @@ add_custom_command(
        generated_code/Point.py
        generated_code/elastic.py
        generated_code/viscoelastic2.py
+       generated_code/anisotropic.py
        generated_code/SurfaceDisplacement.py
        generated_code/NodalBoundaryConditions.py
     OUTPUT src/generated_code/subroutine.h

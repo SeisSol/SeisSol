@@ -4,6 +4,7 @@
 # This file is part of SeisSol.
 #
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
 #
 # @section LICENSE
 # Copyright (c) 2019, SeisSol Group
@@ -91,14 +92,15 @@ except:
 cmdArgsDict = vars(cmdLineArgs)
 cmdArgsDict['memLayout'] = mem_layout
 
-if cmdLineArgs.equations == 'elastic':
+if cmdLineArgs.equations == 'anisotropic':
+    adg = equations.AnisotropicADERDG(**cmdArgsDict)
+elif cmdLineArgs.equations == 'elastic':
     adg = equations.ElasticADERDG(**cmdArgsDict)
 elif cmdLineArgs.equations == 'viscoelastic':
     adg = equations.ViscoelasticADERDG(**cmdArgsDict)
 else:
     adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
 
-include_tensors = set()
 include_tensors = set()
 g = Generator(arch)
 
@@ -110,7 +112,7 @@ adg.addTime(g)
 adg.add_include_tensors(include_tensors)
 
 # Common kernels
-include_tensors |= DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod)
+include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod))
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
 NodalBoundaryConditions.addKernels(g, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
 SurfaceDisplacement.addKernels(g, adg)

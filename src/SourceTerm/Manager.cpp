@@ -103,7 +103,7 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
                                                               Offsets const&            offsets,
                                                               Offsets const&            nextOffsets,
                                                               double *const             sliprates[3],
-                                                              seissol::model::Material  material,
+                                                              seissol::model::Material* material,
                                                               PointSources&             pointSources,
                                                               unsigned                  index )
 {
@@ -123,11 +123,22 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   faultBasis[6] = subfault.normal.x;
   faultBasis[7] = subfault.normal.y;
   faultBasis[8] = subfault.normal.z;
-
-  double mu = (subfault.mu == 0.0) ? material.mu : subfault.mu;
-  pointSources.muA[index] = mu * subfault.area;
-  pointSources.lambdaA[index] = material.lambda * subfault.area;
-
+  
+  pointSources.A[index] = subfault.area;
+  switch(material->getMaterialType()) {
+    case seissol::model::MaterialType::anisotropic:
+      if (subfault.mu != 0) {
+        logError() << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
+      }
+      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+      break;
+    default:
+      seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
+      em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
+      em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+      break;
+  }
+ 
   for (unsigned sr = 0; sr < 3; ++sr) {
     unsigned numSamples = nextOffsets[sr] - offsets[sr];
     double const* samples = (numSamples > 0) ? &sliprates[sr][ offsets[sr] ] : NULL;
@@ -286,7 +297,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
     }
-    sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
+    sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
@@ -385,9 +396,9 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
     if (error) {
       logError() << "posix_memalign failed in source term manager.";
     }
-    sources[cluster].muA                   = new real[cmps[cluster].numberOfSources];
-    sources[cluster].lambdaA               = new real[cmps[cluster].numberOfSources];
-    sources[cluster].slipRates             = new PiecewiseLinearFunction1D[cmps[cluster].numberOfSources][3];
+    sources[cluster].A.resize(cmps[cluster].numberOfSources);
+    sources[cluster].stiffnessTensor.resize(cmps[cluster].numberOfSources);
+    sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
@@ -398,7 +409,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
                                           nrf.sroffsets[nrfIndex],
                                           nrf.sroffsets[nrfIndex+1],
                                           nrf.sliprates,
-                                          ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
+                                          &ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
                                           sources[cluster],
                                           clusterSource );
     }

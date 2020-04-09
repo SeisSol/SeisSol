@@ -313,7 +313,7 @@ CONTAINS
           iNeighbor           = MESH%Fault%Face(iFace,1,2)
           iLocalNeighborSide  = MESH%Fault%Face(iFace,2,2)
           !
-          w_speed(:)      = DISC%Galerkin%WaveSpeed(iElem,iSide,:)
+          w_speed(:)      = DISC%Galerkin%WaveSpeed(iElem,:)
           rho             = MaterialVal(iElem,1)
           !
           if( iElem == 0 ) then
@@ -346,7 +346,7 @@ CONTAINS
             ! normal case: iNeighbor present in local domain
             call c_interoperability_getDofsFromDerivatives( i_meshId = iNeighbor, \
                                                             o_dofs   = DOFiNeigh_ptr )
-            w_speed_neig(:) = DISC%Galerkin%WaveSpeed(iNeighbor,iLocalNeighborSide,:)
+            w_speed_neig(:) = DISC%Galerkin%WaveSpeed(iNeighbor,:)
             rho_neig        = MaterialVal(iNeighbor,1)
           ENDIF
           !
