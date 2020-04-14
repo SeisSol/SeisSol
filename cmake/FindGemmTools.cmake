@@ -46,6 +46,9 @@ foreach(component ${_GEMM_TOOLS_LIST})
     elseif ("${component}" STREQUAL "BLIS")
         find_package(BLIS REQUIRED)
 
+    elseif ("${component}" STREQUAL "Eigen")
+        # already included by default!
+
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \
                 Please, refer to the documentation")
