@@ -13,6 +13,12 @@
 
 extern seissol::Interoperability e_interoperability;
 
+void seissol::physics::InitialField::evaluateDisplacement(double time,
+                                                          std::vector<std::array<double, 3>> const& points,
+                                                          const CellMaterialData& materialData,
+                                                          yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
+  dofsQP.setZero();
+}
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData, double phase, std::array<double, 3> kVec)
   : m_varField{1,8},
     m_ampField{1.0, 1.0},
@@ -227,4 +233,32 @@ void seissol::physics::Ocean::evaluate(double time,
 #else
   dofsQp.setZero();
 #endif
+}
+
+
+
+void seissol::physics::SloshingLake::evaluate(double time,
+                                              std::vector<std::array<double, 3>> const& points,
+                                              const CellMaterialData& materialData,
+                                              yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+  zeroField.evaluate(time, points, materialData, dofsQp);
+}
+
+void seissol::physics::SloshingLake::evaluateDisplacement(double time,
+                                                          std::vector<std::array<double, 3>> const& points,
+                                                          const CellMaterialData& materialData,
+                                                          yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+
+  for (size_t i = 0; i < points.size(); ++i) {
+    const auto x = points[i][0];
+    const auto y = points[i][1];
+    const auto z = points[i][2];
+    const auto t = time;
+    const double pi = std::acos(-1);
+    const double k = 2 * pi * (1.0 / 50.0);
+
+    dofsQp(i, 0) = 0;
+    dofsQp(i, 1) = 0;
+    dofsQp(i, 2) = 1.0 * (std::sin(k * x)  * std::sin(k * y));
+  }
 }

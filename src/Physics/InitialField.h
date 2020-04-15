@@ -12,11 +12,16 @@ namespace seissol {
   namespace physics {
     class InitialField {
     public:
-      virtual ~InitialField() {}
+      virtual ~InitialField() = default;
       virtual void evaluate(double time,
                             std::vector<std::array<double, 3>> const& points,
                             const CellMaterialData& materialData,
                             yateto::DenseTensorView<2,real,unsigned>& dofsQP) const = 0;
+      virtual void evaluateDisplacement(
+          double time,
+          std::vector<std::array<double, 3>> const& points,
+          const CellMaterialData& materialData,
+          yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
     };
 
     class ZeroField : public InitialField {
@@ -52,12 +57,12 @@ namespace seissol {
     class SuperimposedPlanarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
-      SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
+      explicit SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,
                       const CellMaterialData& materialData,
-                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const;
+                      yateto::DenseTensorView<2,real,unsigned>& dofsQP ) const override;
     private:
       const std::array<std::array<double, 3>, 3>  m_kVec;
       const double                                m_phase;
@@ -66,34 +71,43 @@ namespace seissol {
 
     class ScholteWave : public InitialField {
     public:
-      ScholteWave() {
-
-      }
+      ScholteWave() = default;
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
                     const CellMaterialData& materialData,
-                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
     };
     class SnellsLaw : public InitialField {
     public:
-      SnellsLaw() {
-
-      }
+      SnellsLaw() = default;
       void evaluate(double time,
                     std::vector<std::array<double, 3>> const& points,
                     const CellMaterialData& materialData,
-                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+                    yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
     };
       class Ocean : public InitialField {
       public:
-          Ocean() {
-
-          }
+          Ocean() = default;
           void evaluate(double time,
                         std::vector<std::array<double, 3>> const& points,
                         const CellMaterialData& materialData,
-                        yateto::DenseTensorView<2,real,unsigned>& dofsQP) const;
+                        yateto::DenseTensorView<2,real,unsigned>& dofsQP) const override;
       };
+
+  class SloshingLake : public InitialField {
+  public:
+    SloshingLake() = default;
+    void evaluate(double time,
+                  std::vector<std::array<double, 3>> const& points,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2,real,unsigned>& dofsQp) const override;
+    void evaluateDisplacement(double time,
+                              std::vector<std::array<double, 3>> const& points,
+                              const CellMaterialData& materialData,
+                              yateto::DenseTensorView<2, real, unsigned>& dofsQp) const override;
+  private:
+    ZeroField zeroField{};
+  };
   }
 }
 

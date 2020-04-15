@@ -600,6 +600,8 @@ CONTAINS
        logInfo(*) 'Snells law (elastic-acoustic) initial condition'
    CASE('Ocean')
        logInfo(*) 'An uncoupled ocean test case for acoustic equations'
+   CASE('SloshingLake')
+       logInfo(*) 'A sloshing lake test case for elastic-acoustic coupling'
    CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'

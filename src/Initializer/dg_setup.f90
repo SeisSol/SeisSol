@@ -483,13 +483,9 @@ CONTAINS
 
 #ifdef PERIODIC_LTS_SCALING
       ! perform the scaling of the time step width
-      if(     mesh%elem%xybary(1,iElem) > -l_cuts(2) .and.  mesh%elem%xybary(1,iElem) < -l_cuts(1) .or. \
-              mesh%elem%xybary(1,iElem) >  l_cuts(1) .and.  mesh%elem%xybary(1,iElem) <  l_cuts(2) )    \
-      then
+      if(     mesh%elem%xybary(1,iElem) > -l_cuts(2) .and.  mesh%elem%xybary(1,iElem) < -l_cuts(1) .or. mesh%elem%xybary(1,iElem) >  l_cuts(1) .and.  mesh%elem%xybary(1,iElem) <  l_cuts(2) )  then
         l_timeStepWidth = l_gts / ( l_timeScalings(2) - 1.0E-2 )
-      elseif( mesh%elem%xybary(1,iElem) > -l_cuts(1) .and.  mesh%elem%xybary(1,iElem) <  0.d0 .or.      \
-              mesh%elem%xybary(1,iElem) >  0.d0      .and.  mesh%elem%xybary(1,iElem) <  l_cuts(1) )    \
-      then
+      elseif( mesh%elem%xybary(1,iElem) > -l_cuts(1) .and.  mesh%elem%xybary(1,iElem) <  0.d0 .or. mesh%elem%xybary(1,iElem) >  0.d0      .and.  mesh%elem%xybary(1,iElem) <  l_cuts(1) ) then
         l_timeStepWidth = l_gts / ( l_timeScalings(1) + 1.0E-2 )
       else
         l_timeStepWidth = l_gts

@@ -205,9 +205,23 @@ class LinearADERDG(ADERDGBase):
 
     iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
     iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
+
+    displacementModal = OptionalDimTensor('displacementModal',
+                                          self.Q.optName(),
+                                          self.Q.optSize(),
+                                          self.Q.optPos(),
+                                          (self.numberOf3DBasisFunctions(), 3),
+                                          alignStride=True)
+    displacementQP = OptionalDimTensor('displacementQP',
+                                          self.Q.optName(),
+                                          self.Q.optSize(),
+                                          self.Q.optPos(),
+                                          (self.numberOf3DQuadraturePoints(), 3),
+                                          alignStride=True)
     dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
 
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
+    generator.add('projectIniCondDisplacement', displacementModal['kp'] <= self.db.projectQP[self.t('kl')] * displacementQP['lp'])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
   def addLocal(self, generator):

@@ -116,7 +116,31 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
       kernels::set_Qane(krnl, &ltsLut.lookup(lts.dofsAne, meshId)[0]);
     }
     krnl.execute();
+
+    // Project initial displacement
+    real* displacements = ltsLut.lookup(lts.displacements, meshId);
+    if (displacements != nullptr) {
+      //std::cout << "Init displ" << std::endl;
+      alignas(ALIGNMENT) real iniCondDisplacementData[tensor::displacementQP::size()] = {};
+      auto iniCondDisplacement = init::displacementQP::view::create(iniCondDisplacementData);
+
+      kernel::projectIniCondDisplacement displacementProjectionKrnl{};
+      displacementProjectionKrnl.projectQP = globalData.projectQPMatrix;
+      displacementProjectionKrnl.displacementQP = iniCondDisplacementData;
+      displacementProjectionKrnl.displacementModal = displacements;
+#ifdef MULTIPLE_SIMULATIONS
+      for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
+        auto sub = iniCondDisplacement.subtensor(s, yateto::slice<>(), yateto::slice<>());
+        iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, sub);
+      }
+#else
+      iniFields[0]->evaluateDisplacement(0.0, quadraturePointsXyz, material, iniCondDisplacement);
+#endif
+      displacementProjectionKrnl.execute();
+    }
+
   }
+
 #ifdef _OPENMP
   }
 #endif
