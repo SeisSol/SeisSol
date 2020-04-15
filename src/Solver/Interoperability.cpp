@@ -500,10 +500,10 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   //first initialize the (visco-)elastic part
   auto nElements = seissol::SeisSol::main.meshReader().getElements().size();
   seissol::initializers::ElementBarycentreGenerator queryGen(seissol::SeisSol::main.meshReader());
-  auto calcWaveSpeeds = [] (seissol::model::Material* material, double* waveSpeeds) {
-    waveSpeeds[0] = material->getMaxWaveSpeed();
-    waveSpeeds[1] = material->getSWaveSpeed();
-    waveSpeeds[2] = material->getSWaveSpeed();
+  auto calcWaveSpeeds = [&] (seissol::model::Material* material, int pos) {
+    waveSpeeds[pos] = material->getMaxWaveSpeed();
+    waveSpeeds[nElements + pos] = material->getSWaveSpeed();
+    waveSpeeds[nElements + 2*pos] = material->getSWaveSpeed();
   };
   if (anisotropy) { 
     if(anelasticity || plasticity) {
@@ -536,7 +536,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       materialVal[19*nElements + i] = materials[i].c55;
       materialVal[20*nElements + i] = materials[i].c56;
       materialVal[21*nElements + i] = materials[i].c66;
-      calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
+      calcWaveSpeeds(&materials[i], i);
     }
   } else if (poroelasticity) {
     if(anelasticity || plasticity) {
@@ -571,7 +571,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         materialVal[2*nElements + i] = materials[i].lambda;
         materialVal[3*nElements + i] = materials[i].Qp;
         materialVal[4*nElements + i] = materials[i].Qs;
-        calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
+        calcWaveSpeeds(&materials[i], i);
       }
     } else {
       auto materials = std::vector<seissol::model::ElasticMaterial>(nElements);
@@ -582,7 +582,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
         materialVal[i] = materials[i].rho;
         materialVal[nElements + i] = materials[i].mu;
         materialVal[2*nElements + i] = materials[i].lambda;
-        calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
+        calcWaveSpeeds(&materials[i], i);
       }
     } 
 
