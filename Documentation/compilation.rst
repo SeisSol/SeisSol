@@ -12,7 +12,7 @@ In order to run SeisSol, you need to first install:
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>3.15), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself)
+-  CMake (>3.15), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself
 
 Initial Adjustments to .bashrc
 ------------------------------
@@ -147,7 +147,7 @@ First, you need to compile SeisSol's submodules:
    # yaml-cpp
    cd ../../yaml-cpp
    mkdir build && cd build
-   CC=mpiicc CXX=mpiicpc FC=mpiifort cmake -DCMAKE_INSTALL_PREFIX=$HOME -- ..
+   CC=mpiicc CXX=mpiicpc FC=mpiifort cmake -DCMAKE_INSTALL_PREFIX=$HOME -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_TESTS=OFF -- ..
    make -j12 install
 
    # go back to SeisSol root
@@ -162,19 +162,21 @@ Compile SeisSol with (e.g.)
     CC=mpiicc CXX=mpiicpc FC=mpiifort  CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake cmake -DNETCDF=ON -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF  -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=skx -DPRECISION=double ..
     make -j48
 
-Here, the DCMAKE_INSTALL_PREFIX controlls, in which folder the software is installed.
-Note that you have to adjust the CMAKE_PREFIX_PATH and PKG_CONFIG_PATH in the same manner - if you install all dependencies in a different directory, you need to replace ${HOME} by the path to this directory.
-   
+Here, the :code:`DCMAKE_INSTALL_PREFIX` controlls, in which folder the software is installed.
+You have to adjust the :code:`CMAKE_PREFIX_PATH` and :code:`PKG_CONFIG_PATH` in the same manner - if you install all dependencies in a different directory, you need to replace :code:`${HOME}` by the path to this directory.
+It is also important that the executables of the matrix mutiplication generators (Libxsmm, PSpaMM) have to be in :code:`$PATH`.
+You can also compile just the proxy by :command:`make SeisSol-proxy` or only SeisSol with :command:`make SeisSol-bin`   
+
 NOTE: CMake tries to detect the correct MPI wrappers.
 
-You can also run ccmake .. to see all available options and toggle them.
+You can also run :command:`ccmake ..` to see all available options and toggle them.
 
 Running SeisSol
 ---------------
 
 1. Follow the instructions on :ref:`Configuration <Configuration>`.
 2. run SeisSol version of interest. To run the example:
-   ``./SeisSol_release_.... PARAMETER.PAR``
+   :command:`./SeisSol_release_.... PARAMETER.PAR`
 
 Further information regarding meshing and parameter files etc. can be
 found in the documentation folder. See also :ref:`A first example <a_first_example>`.
