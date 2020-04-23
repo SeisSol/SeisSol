@@ -5,7 +5,6 @@ if(POLICY CMP0075)
 endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)
-message(WARNING "We do not provide support for CMake currently. Please use scons instead!")
 
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
@@ -107,6 +106,7 @@ add_custom_command(
 
 if (PLASTICITY)
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
+  set(PLASTICITY_NAME_SUFFIX "_plasticity")
 endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
@@ -143,9 +143,6 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(ImpalaJIT REQUIRED IMPORTED_TARGET impalajit)
 target_link_libraries(SeisSol-lib PUBLIC PkgConfig::ImpalaJIT)
 target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
-
-
-# In the future, we should maybe use find_package(Eigen3).
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
@@ -274,7 +271,7 @@ endif()
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
+set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}${PLASTICITY_NAME_SUFFIX}_${ORDER}")
 
 add_executable(SeisSol-proxy
         auto_tuning/proxy/src/proxy_seissol.cpp

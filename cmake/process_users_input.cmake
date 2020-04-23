@@ -33,8 +33,8 @@ set(ARCH_ALIGNMENT   16  16  32  32  64  64  64 16)  # size of a vector register
 set_property(CACHE ARCH PROPERTY STRINGS ${ARCH_OPTIONS})
 
 
-set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/float")
-set(PRECISION_OPTIONS double float)
+set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/single")
+set(PRECISION_OPTIONS single float)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
 
 
@@ -44,7 +44,7 @@ set_property(CACHE DYNAMIC_RUPTURE_METHOD PROPERTY STRINGS ${RUPTURE_OPTIONS})
 
 
 option(PLASTICITY "Use plasticity")
-set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method")
+set(PLASTICITY_METHOD "nb" CACHE STRING "Dynamic rupture method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
 set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
@@ -116,7 +116,7 @@ endif()
 # derive a byte representation of real numbers
 if ("${PRECISION}" STREQUAL "double")
     set(REAL_SIZE_IN_BYTES 8)
-elseif ("${PRECISION}" STREQUAL "float")
+elseif ("${PRECISION}" STREQUAL "single")
     set(REAL_SIZE_IN_BYTES 4)
 endif()
 
@@ -145,7 +145,7 @@ MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)
 if (${PRECISION} STREQUAL "double")
     set(ARCH_STRING "d${ARCH}")
-elseif(${PRECISION} STREQUAL "float")
+elseif(${PRECISION} STREQUAL "single")
     set(ARCH_STRING "s${ARCH}")
 endif()
 
