@@ -167,9 +167,13 @@ You have to adjust the :code:`CMAKE_PREFIX_PATH` and :code:`PKG_CONFIG_PATH` in 
 It is also important that the executables of the matrix mutiplication generators (Libxsmm, PSpaMM) have to be in :code:`$PATH`.
 You can also compile just the proxy by :command:`make SeisSol-proxy` or only SeisSol with :command:`make SeisSol-bin`   
 
-NOTE: CMake tries to detect the correct MPI wrappers.
+Note: CMake tries to detect the correct MPI wrappers.
 
 You can also run :command:`ccmake ..` to see all available options and toggle them.
+
+.. figure:: LatexFigures/ccmake.png
+   :alt: An example of ccmake with some options
+
 
 Running SeisSol
 ---------------
