@@ -1,38 +1,45 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- master
 - azure-pipelines
 
 pool:
-  vmImage: 'ubuntu-latest'
-
-container: krenzland/seissol-build-dependencies:latest
+  vmImage: 'ubuntu-18.04'
 
 steps:
 - bash: |
     whoami
+    pwd
+    ls
+    sudo apt-get update
+    sudo apt-get install gcc-8 g++-8 gfortran-9
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
+    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 100
+    sudo update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-8 100
+    gcc --version
+    sudo apt-get install -qq openmpi-bin openmpi-common libopenmpi-dev hdf5-tools libhdf5-openmpi-100 libhdf5-openmpi-dev python3 python3-pip libmetis-dev libparmetis-dev 
+    sudo pip3 install --upgrade pip
+    sudo pip3 install 'numpy>=1.12.0'
+    #sudo pip3 install lxml
+    #sudo pip3 install setuptools
+    #sudo pip3 install sphinx
+    #sudo pip3 install sphinx_rtd_theme
+
+
     git submodule update --init
-    scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
-    scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
-    scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
-    scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
-    scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
-    scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast check
-    scons compileMode=release order=6 parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast -j2
-    scons compileMode=release order=6 parallelization=hybrid hdf5=yes arch=dsnb compiler=gcc unitTests=fast check
-    scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes metis=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
-    scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes metis=yes commThread=yes arch=dsnb compiler=gcc unitTests=fast check
-    scons compileMode=release order=6 parallelization=none arch=dsnb compiler=gcc unitTests=fast -j2
-    scons compileMode=release order=6 parallelization=none arch=dsnb compiler=gcc unitTests=fast check
-    scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
-    scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
-    scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
-    scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
-    scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast -j2
-    scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast check
-    scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
-    scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
+    # Compile dependencies
+    
+    # Impala
+    cd submodules/ImpalaJIT
+    mkdir build && cd build
+    cmake -DCMAKE_INSTALL_PREFIX=$HOME -- ..
+    make -j12 install
+
+    # yaml-cpp
+    cd ../../yaml-cpp
+    mkdir build && cd build
+    cmake -DCMAKE_INSTALL_PREFIX=$HOME -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_TESTS=OFF -- ..
+    make -j12 install
+
+    cd ../../../
+    mkdir build_cmake && cd build_cmake
+    CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=OFF -DMETIS=OFN-DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=OFF -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=double -DGEMM_TOOLS_LIST=Eigen ..
+    make -j48
