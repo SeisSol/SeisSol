@@ -153,6 +153,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
               otherTimeStepSize,
               timeStepRate,
               getTimeTolerance(),
+              globalClusterId,
               otherGlobalClusterId,
               l_meshStructure)
         );
@@ -348,15 +349,13 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   m_timeStepping.synchronizationTime = synchronizationTime;
   std::cout << seissol::MPI::mpi.rank() << " new sync time = " << synchronizationTime << std::endl;
 
-  // TODO(Lukas) WTF...
-  //MPI_Comm newComm;
-  //MPI_Comm_dup(seissol::MPI::mpi.comm(), &newComm);
-  //seissol::MPI::mpi.setComm(newComm);
-
   for (auto* cluster : clusters) {
     cluster->reset();
     cluster->updateSyncTime(synchronizationTime);
   }
+  // TODO(Lukas) Remove.
+  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+
   for (auto& ghostCluster : ghostClusters) {
     // TODO(Lukas) Not sure about cancel + reset
     ghostCluster->cancelPendingMessages();
@@ -371,7 +370,7 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
     finished = true;
     for (auto* cluster : clusters) {
       // TODO(Lukas) Remove
-      cluster->resetBuffersOld = cluster->numberOfTimeSteps % m_timeStepping.globalTimeStepRates[cluster->m_globalClusterId] == 0;
+        cluster->resetBuffersOld = cluster->numberOfTimeSteps % m_timeStepping.globalTimeStepRates[cluster->m_globalClusterId] == 0;
 
       // A cluster yields once it is blocked by other cluster.
       bool yield = false;

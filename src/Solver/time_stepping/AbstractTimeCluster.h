@@ -25,6 +25,7 @@ public:
   virtual bool act();
   virtual bool mayPredict();
   virtual bool mayCorrect();
+  virtual bool maySync();
   virtual void predict() = 0;
   virtual void correct() = 0;
   virtual bool processMessages();
@@ -38,6 +39,7 @@ public:
   int timeStepRate;
   //! number of time steps
   long numberOfTimeSteps;
+
 };
 
 }

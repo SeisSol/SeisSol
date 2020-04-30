@@ -10,6 +10,7 @@ namespace seissol::time_stepping {
 class GhostTimeCluster : public AbstractTimeCluster {
  private:
   const int globalClusterId;
+  const int otherGlobalClusterId;
   const MeshStructure* meshStructure;
   std::list<MPI_Request*> sendQueue;
   std::list<MPI_Request*> receiveQueue;
@@ -24,6 +25,7 @@ class GhostTimeCluster : public AbstractTimeCluster {
                    int timeStepRate,
                    double timeTolerance,
                    int globalTimeClusterId,
+                   int otherGlobalTimeClusterId,
                    const MeshStructure* meshStructure
   );
   bool act() override;
@@ -32,6 +34,7 @@ class GhostTimeCluster : public AbstractTimeCluster {
   void correct() override;
   bool mayPredict() override;
   bool mayCorrect() override;
+  bool maySync() override;
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
   void cancelPendingMessages();

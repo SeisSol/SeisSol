@@ -995,7 +995,7 @@ void TimeCluster::predict() {
   writeReceivers(); // TODO(Lukas) Is this correct?
   computeLocalIntegration(*m_clusterData, resetBuffers);
   computeSources();
-  std::cout << "Predicted to t=" << ct.correctionTime + timeStepSize() << std::endl;
+  std::cout << m_globalClusterId << ": Predicted to t=" << ct.correctionTime + timeStepSize() << std::endl;
 }
 void TimeCluster::correct() {
   assert(state == ActorState::Predicted);
@@ -1013,6 +1013,6 @@ void TimeCluster::correct() {
   if (m_clusterId == 0) {
     //e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
   }
-  std::cout << "Corrected to t=" << ct.correctionTime + timeStepSize() << std::endl;
+  std::cout << m_globalClusterId << ": Corrected to t=" << ct.correctionTime + timeStepSize() << std::endl;
 }
 }

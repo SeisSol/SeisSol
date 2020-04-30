@@ -15,7 +15,11 @@ bool AbstractTimeCluster::act() {
   bool yield = false;
   switch (state) {
   case ActorState::Corrected: {
-    if (ct.correctionTime + timeTolerance >= syncTime) {
+    if (maySync()) {
+        std::cout << "synced at " << syncTime
+        << ", corrTIme =" << ct.correctionTime
+        << ", time tolerence " << timeTolerance
+        << std::endl;
       state = ActorState::Synced;
     } else if (mayPredict()) {
       predict();
@@ -24,6 +28,7 @@ bool AbstractTimeCluster::act() {
       //" t_minnext=" << minNeighbor->ct.nextCorrectionTime(syncTime) <<
       //" t_delta=" << ct.predictionTime - minNeighbor->ct.nextCorrectionTime(syncTime) << std::endl;
       ct.predictionTime += timeStepSize();
+
       for (auto &neighbor : neighbors) {
         /*std::cout << ct.maxTimeStepSize << " sends?? " << ct.predictionTime << " " << neighbor.ct.nextCorrectionTime(syncTime) <<
         " " << (ct.predictionTime >= neighbor.ct.nextCorrectionTime(syncTime)) << std::endl;*/
@@ -72,7 +77,8 @@ bool AbstractTimeCluster::act() {
   return yield;
 }
 
-bool AbstractTimeCluster::processMessages() {
+
+    bool AbstractTimeCluster::processMessages() {
   bool processed = false;
   for (auto& neighbor : neighbors) {
     if (neighbor.inbox->hasMessages()) {
@@ -99,7 +105,7 @@ bool AbstractTimeCluster::processMessages() {
 }
 
 bool AbstractTimeCluster::mayPredict() {
-  // We can predict, if our prediction time is smaller than the next correction time of all neighbors.
+  // We can predict, if our prediction time is smaller/equals than the next correction time of all neighbors.
   const auto minNeighbor = std::min_element(
       neighbors.begin(), neighbors.end(),
       [this](NeighborCluster const &a, NeighborCluster const &b) {
@@ -110,7 +116,7 @@ bool AbstractTimeCluster::mayPredict() {
 }
 
 bool AbstractTimeCluster::mayCorrect() {
-  // We can correct, if our prediction time is larger than the one of all neighbors.
+  // We can correct, if our prediction time is smaller than the one of all neighbors.
   const auto minNeighbor = std::min_element(
       neighbors.begin(), neighbors.end(),
       [](NeighborCluster const &a, NeighborCluster const &b) {
@@ -118,6 +124,11 @@ bool AbstractTimeCluster::mayCorrect() {
       });
   return minNeighbor == neighbors.end()
       || ct.predictionTime <= minNeighbor->ct.predictionTime + timeTolerance;
+}
+
+
+bool AbstractTimeCluster::maySync() {
+    return ct.correctionTime + timeTolerance >= syncTime;
 }
 
 void AbstractTimeCluster::connect(AbstractTimeCluster &other) {
@@ -139,6 +150,7 @@ bool AbstractTimeCluster::synced() const {
 }
 void AbstractTimeCluster::reset() {
   assert(state == ActorState::Synced);
+  /*
   for (auto& neighbor : neighbors) {
     // TODO(Lukas) Think this through!
     neighbor.inbox->clear();
@@ -146,6 +158,7 @@ void AbstractTimeCluster::reset() {
     neighbor.ct.predictionTime = ct.predictionTime;
     neighbor.ct.correctionTime = ct.correctionTime;
   }
+   */
 
   // TODO(Lukas): Don't -> just to try out scheduling
   // If this works, create numberOfTimeStepsSinceSyn

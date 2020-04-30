@@ -69,6 +69,10 @@ class MessageQueue {
     return !queue.empty();
   }
 
+  size_t size() {
+      return queue.size();
+  }
+
   void clear() {
     omp_set_lock(&lock);
     while(!queue.empty()) {
