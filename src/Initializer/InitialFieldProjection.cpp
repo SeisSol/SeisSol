@@ -119,8 +119,22 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
 
     // Project initial displacement
     real* displacements = ltsLut.lookup(lts.displacements, meshId);
-    if (displacements != nullptr) {
-      //std::cout << "Init displ" << std::endl;
+    const CellLocalInformation& cellInformation = ltsLut.lookup(lts.cellInformation, meshId);
+    // We only want to initialize the displacement on cells which have at
+    // least one free surface w/ gravity boundary condition.
+    // Otherwise, the initial displacement will have no effect and is likely to be confusing.
+    // Note: The free surface output will still show an initial displacement for faces w/
+    // standard free surface boundary condition. This may be confusing but comes directly from
+    // the fact we store the displacement as volume-dofs.
+    const bool hasAtLeastOneRelevantFace = std::all_of(
+            std::begin(cellInformation.faceTypes),
+            std::end(cellInformation.faceTypes),
+            [](const FaceType faceType) {
+                return faceType == FaceType::freeSurfaceGravity;
+            });
+
+    if (hasAtLeastOneRelevantFace) {
+      assert(displacements != nullptr);
       alignas(ALIGNMENT) real iniCondDisplacementData[tensor::displacementQP::size()] = {};
       auto iniCondDisplacement = init::displacementQP::view::create(iniCondDisplacementData);
 
