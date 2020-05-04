@@ -254,11 +254,19 @@ void seissol::physics::SloshingLake::evaluateDisplacement(double time,
     const auto y = points[i][1];
     const auto z = points[i][2];
     const auto t = time;
-    const double pi = std::acos(-1);
-    const double k = 2 * pi * (1.0 / 50.0);
+
+    const double xCenter = 2.604584249773606e+05;
+    const double yCenter = 2.147270125870880e+06;
+
+    const double dX = (x - xCenter);
+    const double dY = (y - yCenter);
+    const double distance = dX * dX + dY * dY;
+
+    const double variance = 5.0;
+    const double displacementMax = 5.0;
 
     dofsQp(i, 0) = 0;
     dofsQp(i, 1) = 0;
-    dofsQp(i, 2) = 1.0 * (std::sin(k * x)  * std::sin(k * y));
+    dofsQp(i, 2) = displacementMax * std::exp(-distance/(2 * variance));
   }
 }
