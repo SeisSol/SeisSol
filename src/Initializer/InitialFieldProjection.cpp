@@ -126,7 +126,7 @@ void seissol::initializers::projectInitialField(std::vector<std::unique_ptr<phys
     // Note: The free surface output will still show an initial displacement for faces w/
     // standard free surface boundary condition. This may be confusing but comes directly from
     // the fact we store the displacement as volume-dofs.
-    const bool hasAtLeastOneRelevantFace = std::all_of(
+    const bool hasAtLeastOneRelevantFace = std::any_of(
             std::begin(cellInformation.faceTypes),
             std::end(cellInformation.faceTypes),
             [](const FaceType faceType) {
