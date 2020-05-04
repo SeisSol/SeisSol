@@ -25,7 +25,7 @@ steps:
 
     git clone https://github.com/hfp/libxsmm
     cd libxsmm
-    make generator -j2
+    make generator -j $(nproc)
     mkdir -p $HOME/bin
     cp bin/libxsmm_gemm_generator $HOME/bin
     export PATH=$HOME/bin:$PATH
@@ -38,17 +38,32 @@ steps:
     cd submodules/ImpalaJIT
     mkdir build && cd build
     cmake -DCMAKE_INSTALL_PREFIX=$HOME -- ..
-    make -j4 install
+    make -j $(nproc) install
 
     # yaml-cpp
     cd ../../yaml-cpp
     mkdir build && cd build
     cmake -DCMAKE_INSTALL_PREFIX=$HOME -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_TESTS=OFF -- ..
-    make -j4 install
+    make -j $(nproc) install
 
     export CTEST_OUTPUT_ON_FAILURE=1
     cd ../../../
-    mkdir build_cmake && cd build_cmake
-    CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=double -DGEMM_TOOLS_LIST=LIBXSMM ..
-    make -j4
-    make test
+
+    for equation in elastic viscoelastic2 anisotropy; do
+        if [ "$equation" = viscoelastic2 ]; then
+            mechanisms=3
+        else
+            mechanisms=0
+        fi
+        for precision in float double; do
+            for build_type in Debug Release; do
+                dirname="build_${equation}_${precision}_${build_type}"
+                echo "mkdir ${dirname}"
+                mkdir -p $dirname && cd $dirname
+                CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM ..
+                make -j $(nproc)
+                make test
+                cd ..
+            done
+        done
+    done 
