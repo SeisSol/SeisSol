@@ -26,6 +26,7 @@ steps:
     git clone https://github.com/hfp/libxsmm
     cd libxsmm
     make generator -j2
+    mkdir -p $HOME/bin
     cp bin/libxsmm_gemm_generator $HOME/bin
     export PATH=$HOME/bin:$PATH
     cd ..
