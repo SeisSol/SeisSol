@@ -23,6 +23,12 @@ steps:
     #sudo pip3 install sphinx
     #sudo pip3 install sphinx_rtd_theme
 
+    git clone https://github.com/hfp/libxsmm
+    cd libxsmm
+    make generator -j2
+    cp bin/libxsmm_gemm_generator $HOME/bin
+    export PATH=$HOME/bin:$PATH
+    cd ..
 
     git submodule update --init
     # Compile dependencies
@@ -42,6 +48,6 @@ steps:
     export CTEST_OUTPUT_ON_FAILURE=1
     cd ../../../
     mkdir build_cmake && cd build_cmake
-    CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=OFF -DMETIS=OFN-DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=double -DGEMM_TOOLS_LIST=Eigen ..
+    CMAKE_PREFIX_PATH=~:$CMAKE_PREFIX_PATH PKG_CONFIG_PATH=~/lib/pkgconfig/:$PKG_CONFIG_PATH cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Release -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=double -DGEMM_TOOLS_LIST=LIBXSMM ..
     make -j4
     make test

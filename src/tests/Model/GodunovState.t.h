@@ -15,7 +15,7 @@ namespace seissol {
 class seissol::unit_test::GodunovStateTestSuite : public CxxTest::TestSuite
 {
   public:
-    const real epsilon = std::numeric_limits<real>::epsilon();
+  const real epsilon = 1e-5;
 
     void testGodunovState()
     {
