@@ -262,7 +262,7 @@ void seissol::physics::SloshingLake::evaluateDisplacement(double time,
     const double dY = (y - yCenter);
     const double distance = dX * dX + dY * dY;
 
-    const double variance = 5.0;
+    const double variance = 5.0 * 5.0;
     const double displacementMax = 5.0;
 
     dofsQp(i, 0) = 0;
