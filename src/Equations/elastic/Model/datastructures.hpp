@@ -101,10 +101,6 @@ namespace seissol {
       double getSWaveSpeed() const final {
         return std::sqrt(mu / rho);
       }
-
-      MaterialType getMaterialType() const override{
-        return MaterialType::elastic;
-      }
     };
   }
 }

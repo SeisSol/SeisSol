@@ -68,6 +68,8 @@
  * @section DESCRIPTION
  **/
 
+#include <typeinfo>
+
 #include "Parallel/MPI.h"
 
 #include "Manager.h"
@@ -125,18 +127,15 @@ void seissol::sourceterm::transformNRFSourceToInternalSource( glm::dvec3 const& 
   faultBasis[8] = subfault.normal.z;
   
   pointSources.A[index] = subfault.area;
-  switch(material->getMaterialType()) {
-    case seissol::model::MaterialType::anisotropic:
-      if (subfault.mu != 0) {
-        logError() << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
-      }
-      dynamic_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
-      break;
-    default:
-      seissol::model::ElasticMaterial em = *dynamic_cast<seissol::model::ElasticMaterial*>(material);
-      em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
-      em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
-      break;
+  if (typeid(material) == typeid(seissol::model::AnisotropicMaterial)) {
+    if (subfault.mu != 0) {
+      logError() << "There are specific fault parameters for the fault. This version of SeisSol was compiled for anisotropic materials. This is only compatible if the material around the source is actually isotropic.";
+    }
+    static_cast<seissol::model::AnisotropicMaterial*>(material)->getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
+  } else {
+    seissol::model::ElasticMaterial em = *static_cast<seissol::model::ElasticMaterial*>(material);
+    em.mu = (subfault.mu == 0.0) ? em.mu : subfault.mu;
+    em.getFullStiffnessTensor(pointSources.stiffnessTensor[index]);
   }
  
   for (unsigned sr = 0; sr < 3; ++sr) {
