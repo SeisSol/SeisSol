@@ -142,6 +142,7 @@ namespace seissol {
 
     template<>
     inline void initializeSpecificLocalData( ViscoElasticMaterial const& material,
+                                             real timeStepWidth,
                                              ViscoElasticLocalData* localData )
     {
       auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);

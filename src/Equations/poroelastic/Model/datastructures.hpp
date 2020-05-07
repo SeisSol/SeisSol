@@ -49,7 +49,7 @@ namespace seissol {
       }
 
       double getPWaveSpeed() const final {
-        return std::sqrt((lambda + 2*mu) / rho);
+        return std::sqrt(bulk_solid / (rho - porosity * rho_fluid / tortuosity));
       }
 
       double getSWaveSpeed() const final {

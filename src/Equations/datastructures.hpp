@@ -7,7 +7,9 @@
 #include "Equations/elastic/Model/datastructures.hpp"
 #include "Equations/elastic/Model/integrationData.hpp"
 #include "Equations/poroelastic/Model/datastructures.hpp"
+#ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/integrationData.hpp"
+#endif
 #include "Equations/viscoelastic2/Model/datastructures.hpp"
 #ifdef USE_VISCOELASTIC
 #include "Equations/viscoelastic/Model/integrationData.hpp"

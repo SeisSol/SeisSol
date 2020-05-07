@@ -33,7 +33,11 @@ namespace seissol {
     class Planarwave : public InitialField {
     public:
       //! Choose phase in [0, 2*pi]
+#ifdef USE_POROELASTIC
+    Planarwave(const CellMaterialData& materialData, double phase = 0.0, std::array<double, 3> kVec = {M_PI*0.001, M_PI*0.001, M_PI*0.001});
+#else
     Planarwave(const CellMaterialData& materialData, double phase = 0.0, std::array<double, 3> kVec = {M_PI, M_PI, M_PI});
+#endif
 
       void evaluate(  double time,
                       std::vector<std::array<double, 3>> const& points,

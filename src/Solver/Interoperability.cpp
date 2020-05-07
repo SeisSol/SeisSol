@@ -503,7 +503,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   auto calcWaveSpeeds = [&] (seissol::model::Material* material, int pos) {
     waveSpeeds[pos] = material->getMaxWaveSpeed();
     waveSpeeds[nElements + pos] = material->getSWaveSpeed();
-    waveSpeeds[nElements + 2*pos] = material->getSWaveSpeed();
+    waveSpeeds[2*nElements + pos] = material->getSWaveSpeed();
   };
   if (anisotropy) { 
     if(anelasticity || plasticity) {
@@ -557,7 +557,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       materialVal[7*nElements + i] =  materials[i].bulk_fluid;
       materialVal[8*nElements + i] =  materials[i].rho_fluid;
       materialVal[9*nElements + i] =  materials[i].viscosity; 
-      calcWaveSpeeds(&materials[i], &waveSpeeds[3*i]);
+      calcWaveSpeeds(&materials[i], i);
     }
   } else {
     if (anelasticity) {
@@ -708,7 +708,8 @@ void seissol::Interoperability::initializeCellLocalMatrices()
   seissol::initializers::initializeCellLocalMatrices( seissol::SeisSol::main.meshReader(),
                                                       m_ltsTree,
                                                       m_lts,
-                                                      &m_ltsLut );
+                                                      &m_ltsLut,
+                                                      m_timeStepping);
 
   seissol::initializers::initializeDynamicRuptureMatrices( seissol::SeisSol::main.meshReader(),
                                                            m_ltsTree,

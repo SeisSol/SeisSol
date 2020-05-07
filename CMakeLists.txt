@@ -219,6 +219,11 @@ if (MEMKIND)
   target_compile_definitions(SeisSol-lib PUBLIC USE_MEMKIND)
 endif()
 
+if (ADDRESS_SANITIZER)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+endif() 
+
 target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules

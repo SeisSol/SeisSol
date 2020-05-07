@@ -109,7 +109,7 @@ namespace seissol {
 
       using Matrix = Eigen::Matrix<double, 13, 13, Eigen::ColMajor>;
       using CMatrix = Eigen::Matrix<std::complex<double>, 13, 13, Eigen::ColMajor>;
-      auto eigenDecomposition = [&tolerance](Material const& material) {
+      auto eigenDecomposition = [&tolerance](PoroElasticMaterial const& material) {
         Matrix t = Matrix::Zero();
         getTransposedCoefficientMatrix(material, 0, t);
         Eigen::EigenSolver<Matrix> es;
@@ -172,23 +172,16 @@ namespace seissol {
 
     }
 
-    template<>
-    inline void initializeSpecificLocalData( PoroElasticMaterial const& material,
-        PoroelasticLocalData* localData )
-    {
-      auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
-      sourceMatrix.setZero();
-      getTransposedSourceCoefficientTensor(material, sourceMatrix);
-
+    inline void calcZinv( yateto::DenseTensorView<3, real, unsigned> &Zinv, 
+        yateto::DenseTensorView<2, real, unsigned> &sourceMatrix, 
+        real timeStepWidth) {
       using Matrix = Eigen::Matrix<real, CONVERGENCE_ORDER, CONVERGENCE_ORDER>;
       using Vector = Eigen::Matrix<real, CONVERGENCE_ORDER, 1>;
-
-      auto Zinv = init::Zinv::view::create(localData->Zinv); 
       for(int i = 0; i < NUMBER_OF_QUANTITIES; i++) {
         Matrix Z(init::Z::Values);
         if(i >= 10) {
           for(int j = 0; j < CONVERGENCE_ORDER; j++) {
-            Z(j,j) = Z(j,j) - sourceMatrix(i,i);
+            Z(j,j) = Z(j,j) - timeStepWidth * sourceMatrix(i,i);
           }
         }
         auto solver = Z.colPivHouseholderQr();
@@ -201,6 +194,20 @@ namespace seissol {
           }
         }
       }
+    }
+
+    inline void initializeSpecificLocalData( PoroElasticMaterial const& material,
+        real timeStepWidth,
+        PoroelasticLocalData* localData )
+    {
+      auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+      sourceMatrix.setZero();
+      getTransposedSourceCoefficientTensor(material, sourceMatrix);
+
+      auto Zinv = init::Zinv::view::create(localData->Zinv); 
+      calcZinv(Zinv, sourceMatrix, timeStepWidth);
+
+      localData->typicalTimeStepWidth = timeStepWidth;
     }
   }
 }

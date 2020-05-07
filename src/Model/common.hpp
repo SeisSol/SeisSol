@@ -64,7 +64,7 @@ namespace seissol {
     
     template<typename Tmaterial, typename T>
     void getTransposedSourceCoefficientTensor(  Tmaterial const& material,
-                                                T& E);
+                                                T& E) {}
 
     template<typename Tmaterial, typename Tloc, typename Tneigh>
     void getTransposedGodunovState( Tmaterial const&  local,
@@ -86,6 +86,7 @@ namespace seissol {
 
     template<typename T, typename S>
     void initializeSpecificLocalData( T const&,
+                                      real timeStepWidth,
                                       S* LocalData ) {}
 
     template<typename T, typename S>
