@@ -10,9 +10,9 @@ Sign conventions
 ~~~~~~~~~~~~~~~~
 
 The following definitions regarding fault and stress orientation are
-convention. The initial stresses need to be given in the global
+conventions. The initial stresses need to be given in the global
 coordinate system. The Matlab script
-'/preprocessing/science/stressrotation3D' is available for a correct
+'/preprocessing/science/stressrotation3D' is available for correct
 rotation of initial stress values on arbitrary orientated faults.
 
 Definitions
@@ -35,7 +35,7 @@ Definitions
 Fault geometry
 ^^^^^^^^^^^^^^
 
-Right-handed coordinate system required. Please, make sure to follow
+The right-handed coordinate system is required. Please, make sure to follow
 this convention during model/mesh generation!
 
 .. ~ TODO: what's the point of these arrows?
@@ -102,8 +102,7 @@ the stresses for the right-lateral strike-slip fault in xz-plane are:
    s_xy (nucleation patch) = + 81.6 MPa
    s_xx = s_zz = s_xz = s_yz = 0.0 Pa
 
-For the 30° branch in -y direction we rotate the given stresses (in that
-case they are the same as on the main fault) by 330° counter clockwise
+For the 30° branch in -y direction we rotate the given stresses (in that case, they are the same as on the main fault) by 330° counterclockwise
 (or 30° clockwise) around the z-axis using the script
 '/preprocessing/science/stressrotation3D'.
 
@@ -126,6 +125,25 @@ stresses on the main fault are:
    s_xy (nucleation patch) = - 81.6 MPa
    s_xx = s_zz = s_xz = s_yz = 0.0 Pa
 
+
+Projected linear slip-weakening
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A sudden decrease of slip rate to very small values, as for example occurring at a rupture front about to be arrested, may cause numerical issues and pollute the solution - in the worst case even leading to re-activation of rupture. 
+Such numerical issues are easy to diagnose in the fault output visualization: a checkerboard pattern with unphysical values for the slip rate and slip in the affected region will be visible. 
+This is a sign of mesh resolution (h-refinement) being locally not sufficient.
+SeisSol mitigates such artifacts (currently only for linear slip-weakening friction) by projecting the slip increment on the 2D fault interface basis function after evaluation of the friction law. 
+This implementation lowers the required h-refinement for linear-slip weakening friction across the fault in comparison to earlier implementations (cf. Pelties et al. , JGR 2012; GMD 2014)
+Note, that the corresponding implementation for rate-and-state friction laws is currently pending - thus, a sudden decrease to small slip rates may cause numerical artifacts. 
+
+
+Visualisation: SlipRateOutputType (default =1)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, the fault output will be showing regions affected by numerical problems. However, the user may choose to smooth out such artifacts for visualization purposes. Switching ``SlipRateOutputType`` in the ``DynamicRupture`` namelist from the default value to 0, will evaluate the slip-rate from the difference between the velocity on both sides of the fault, rather than evaluating the slip-rate from the fault tractions and the failure criterion directly. 
+Note that this fix only applies to the output, but does not suppress numerical problems in the simulation.
+Also note that that ``SlipRateOutputType=0`` is slightly less accurate than the default ``SlipRateOutputType=1`` without numerical problems. 
+
 Friction laws
 ~~~~~~~~~~~~~
 
@@ -134,3 +152,68 @@ Linear-Slip Weakening Friction
 
 Rate-and-State Friction
 ^^^^^^^^^^^^^^^^^^^^^^^
+
+Thermal Pressurization
+~~~~~~~~~~~~~~~~~~~~~~
+
+Seissol can account for thermal pressurization (TP) of pore fluids.
+As deformation occurs within the fault gauge, frictional heating increases the temperature of the rock matrix and pore fluids.
+The pore fluids then pressurize, which weakens the fault.
+The evolution of the pore fluid pressure and temperature is governed by the diffusion of heat and fluid.
+TP can be activated using ``thermalPress`` in the ``DynamicRupture`` namelist.
+The TP parameters for which no spatial dependence has been implemented are defined directly in the ``DynamicRupture`` namelist:
+
+.. code-block:: Fortran
+
+  &DynamicRupture
+  thermalPress = 1                  ! Thermal pressurization 0: inactive; 1: active
+  IniTemp = 483.15                  ! Initial temperature [K]
+  IniPressure = -80.0e6             ! Initial pore pressure; have to be added to normal stress in your initial stress yaml file [Pa]
+  alpha_th = 1.0e-6                 ! Thermal diffusivity [m^2/s]
+  rho_c = 2.7e6                     ! Specific heat [Pa/K]
+  TP_lambda = 0.1e6                 ! Pore pressure change per unit temperature [Pa/K]
+
+Two additional thermal pressurization parameters are space-dependent and therefore have to be specified in the dynamic rupture yaml file:
+
+.. code-block:: YAML
+
+  !ConstantMap
+  map:
+    alpha_hy: 1e-4                  ! Hydraulic diffusivity [m^2/s]
+    TP_half_width_shear_zone: 0.01  ! Half width of shearing zone [m]
+
+TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
+
+Slip-rate imposed on a DR boundary condition
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This friction law allows imposing slip-rate on a dynamic rupture boundary (potentially any kinematic models, but the current implementation is limited, see below).
+The FL id for this friction law is 33.
+The advantage of this approach compared to a multi point-sources representation is that the fault slip is not condensed to points. 
+Therefore the discontinuity of the displacement across the fault can be accurately accounted for, and more generally the wavefield is accurate in the near-field.
+
+The current implementation allows imposing a slip distribution on the DR Boundary using the same arbitrary smooth-step SR function everywhere on the fault.
+The slip distribution is imposed simultaneously everywhere on the fault, smoothly over a time ``t_0``, where ``t_0`` is a parameter of the ``DynamicRupture`` namelist.
+This is an expensive way of getting the final stress distribution from a given slip distribution.
+The slip distribution is defined using easi by the ``strike_slip`` and ``dip_slip`` variables. 
+Warning: the direction of positive ``strike_slip`` and ``dip_slip`` is based on the convention of Seissol (e.g. positive strike_slip for right-lateral faulting). 
+Below is an example of an input file for defining the slip distribution:
+
+.. code-block:: YAML
+
+    !Switch
+    [strike_slip, dip_slip]: !Any
+      components:
+       - !AxisAlignedCuboidalDomainFilter
+          limits:
+            x: [-1000, 0]
+            y: [-1e10, 1e10]
+            z: [-5000, -3000]
+          components: !ConstantMap
+            map:
+              strike_slip:   0.01
+              dip_slip: 0.1
+       - !ConstantMap
+          map:
+            strike_slip: 0.05
+            dip_slip: 0.05
+

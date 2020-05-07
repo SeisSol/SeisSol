@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -40,13 +41,39 @@
 #ifndef MODEL_COMMONDATASTRUCTURES_HPP_
 #define MODEL_COMMONDATASTRUCTURES_HPP_
 
+#include <Kernels/precision.hpp>
+#include <array>
+
+
 namespace seissol {
   namespace model {
-    struct ElasticMaterial {
-      double lambda;
-      double mu;
+    enum class MaterialType {
+      elastic,
+      viscoelastic,
+      anisotropic
+    };
+
+    struct Material {
       double rho;
-    };    
+      virtual double getMaxWaveSpeed() const = 0;
+      virtual double getPWaveSpeed() const = 0;
+      virtual double getSWaveSpeed() const = 0;
+      virtual void getFullStiffnessTensor(std::array<real, 81>& fullTensor) const = 0; 
+      virtual MaterialType getMaterialType() const = 0 ;
+      virtual ~Material() {};
+    };
+
+    struct Plasticity {
+      double bulkFriction;
+      double plastCo;  
+      double s_xx;   
+      double s_yy;   
+      double s_zz;   
+      double s_xy;      
+      double s_yz;      
+      double s_xz;        
+    };
+
     struct IsotropicWaveSpeeds {
       double density;
       double pWaveVelocity;

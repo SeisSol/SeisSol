@@ -48,9 +48,14 @@
 #include <yateto.h>
 
 
+#include <array>
 #include <cassert>
 #include <stdint.h>
-#include <cstring>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#include "DirichletBoundary.h"
+#pragma GCC diagnostic pop
 
 #include <Kernels/common.hpp>
 GENERATE_HAS_MEMBER(ET)
@@ -70,17 +75,23 @@ void seissol::kernels::Local::setGlobalData(GlobalData const* global) {
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
+
+  m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
+
+  m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
 }
 
-void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                                LocalData& data,
-                                                LocalTmp& )
-{
-  // assert alignments
-#ifndef NDEBUG
-  assert( ((uintptr_t)i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0 );
-  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
-#endif
+void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                                              LocalData& data,
+                                              LocalTmp& tmp,
+                                              // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                                              const CellMaterialData* materialData,
+                                              CellBoundaryMapping const (*cellBoundaryMapping)[4],
+                                              double time,
+                                              double timeStepWidth) {
+  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs;
@@ -90,7 +101,7 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
   }
 
   // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix<seissol::model::LocalData>(data.localIntegration.specific));
+  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration.specific));
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs;
@@ -99,27 +110,166 @@ void seissol::kernels::Local::computeIntegral(  real       i_timeIntegratedDegre
   lfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
   
   volKrnl.execute();
-  
-  for( unsigned int face = 0; face < 4; face++ ) {
+
+  for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( data.cellInformation.faceTypes[face] != dynamicRupture ) {
+    if (data.cellInformation.faceTypes[face] != FaceType::dynamicRupture) {
       lfKrnl.AplusT = data.localIntegration.nApNm1[face];
       lfKrnl.execute(face);
+    }
+
+    alignas(ALIGNMENT) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+    auto nodalLfKrnl = m_nodalLfKrnlPrototype;
+    nodalLfKrnl.Q = data.dofs;
+    nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+    nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+    nodalLfKrnl._prefetch.Q = data.dofs + tensor::Q::size();
+    nodalLfKrnl.AminusT = data.neighboringIntegration.nAmNm1[face];
+
+    // Include some boundary conditions here.
+    switch (data.cellInformation.faceTypes[face]) {
+    case FaceType::freeSurfaceGravity:
+      {
+      assert(cellBoundaryMapping != nullptr);
+      assert(materialData != nullptr);
+      auto* displ = tmp.nodalAvgDisplacements[face];
+      auto displacement = init::INodalDisplacement::view::create(displ);
+        auto applyFreeSurfaceBc = [&displacement, &materialData](
+            const real*, // nodes are unused
+            init::INodal::view::type& boundaryDofs) {
+          for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+            const double rho = materialData->local.rho;
+            const double g = 9.81; // [m/s^2]
+            const double pressureAtBnd = -1 * rho * g * displacement(i);
+
+            boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
+            boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
+            boundaryDofs(i,2) = 2 * pressureAtBnd - boundaryDofs(i,2);
+          }
+      };
+
+      dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
+                                 face,
+                                 (*cellBoundaryMapping)[face],
+                                 m_projectKrnlPrototype,
+                                 applyFreeSurfaceBc,
+                                 dofsFaceBoundaryNodal);
+
+      nodalLfKrnl.execute(face);
+      break;
+      }
+    case FaceType::dirichlet:
+      {
+      assert(cellBoundaryMapping != nullptr);
+      auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
+      auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
+      assert(easiBoundaryConstant != nullptr);
+      assert(easiBoundaryMap != nullptr);
+      auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
+          const real* nodes,
+          init::INodal::view::type& boundaryDofs) {
+        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
+        easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
+        easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
+        easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
+        easiBoundaryKernel.INodal = boundaryDofs.data();
+        easiBoundaryKernel.execute();
+      };
+
+      // Compute boundary in [n, t_1, t_2] basis
+      dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
+				 face,
+				 (*cellBoundaryMapping)[face],
+				 m_projectRotatedKrnlPrototype,
+				 applyEasiBoundary,
+				 dofsFaceBoundaryNodal);
+
+      // We do not need to rotate the boundary data back to the [x,y,z] basis
+      // as we set the Tinv matrix to the identity matrix in the flux solver
+      // See init. in CellLocalMatrices.initializeCellLocalMatrices!
+
+      nodalLfKrnl.execute(face);
+      break;
+      }
+      case FaceType::analytical:
+      {
+      assert(cellBoundaryMapping != nullptr);
+      auto applyAnalyticalSolution = [materialData, this](const real* nodes,
+                                                    double time,
+                                                    init::INodal::view::type& boundaryDofs) {
+          auto nodesVec = std::vector<std::array<double, 3>>{};
+          int offset = 0;
+          for (unsigned int i = 0; i < tensor::INodal::Shape[0]; ++i) {
+            auto curNode = std::array<double, 3>{};
+            curNode[0] = nodes[offset++];
+            curNode[1] = nodes[offset++];
+            curNode[2] = nodes[offset++];
+            nodesVec.push_back(curNode);
+          }
+          assert(initConds != nullptr);
+          // TODO(Lukas) Support multiple init. conds?
+          assert(initConds->size() == 1);
+          (*initConds)[0]->evaluate(time, nodesVec, *materialData, boundaryDofs);
+      };
+
+      dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,
+                                              face,
+                                              (*cellBoundaryMapping)[face],
+                                              m_projectKrnlPrototype,
+                                              applyAnalyticalSolution,
+                                              dofsFaceBoundaryNodal,
+                                              time,
+                                              timeStepWidth);
+      nodalLfKrnl.execute(face);
+      break;
+      }
+    default:
+      // No boundary condition.
+      break;
     }
   }
 }
 
-void seissol::kernels::Local::flopsIntegral(  enum faceType const i_faceTypes[4],
-                                              unsigned int        &o_nonZeroFlops,
-                                              unsigned int        &o_hardwareFlops )
+void seissol::kernels::Local::flopsIntegral(FaceType const i_faceTypes[4],
+                                            unsigned int &o_nonZeroFlops,
+                                            unsigned int &o_hardwareFlops)
 {
   o_nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
   o_hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
   for( unsigned int face = 0; face < 4; ++face ) {
-    if( i_faceTypes[face] != dynamicRupture ) {
-      o_nonZeroFlops  += seissol::kernel::localFlux::nonZeroFlops(face);
+    // Local flux is executed for all faces that are not dynamic rupture.
+    // For those cells, the flux is taken into account during the neighbor kernel.
+    if (i_faceTypes[face] != FaceType::dynamicRupture) {
+      o_nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
       o_hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
+    }
+
+    // Take boundary condition flops into account.
+    // Note that this only includes the flops of the kernels but not of the
+    // boundary condition implementation.
+    // The (probably incorrect) assumption is that they are negligible.
+    switch (i_faceTypes[face]) {
+    case FaceType::freeSurfaceGravity:
+      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+	seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
+      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      break;
+    case FaceType::dirichlet:
+      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+	seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
+      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      break;
+    case FaceType::analytical:
+      o_nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
+	CONVERGENCE_ORDER * seissol::kernel::updateINodal::NonZeroFlops;
+      o_hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
+	CONVERGENCE_ORDER * seissol::kernel::updateINodal::HardwareFlops;
+      break;
+    default:
+      break;
     }
   }
 }

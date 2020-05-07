@@ -587,6 +587,8 @@ CONTAINS
   call c_interoperability_synchronizeCellLocalData;
 #endif
 
+    call c_interoperability_initializeMemoryLayout(clustering = disc%galerkin%clusteredLts,enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
+
   ! Initialize source terms
   select case(SOURCE%Type)
     case(0)
@@ -616,6 +618,8 @@ CONTAINS
     logError(*) 'Generated kernels currently supports Godunov fluxes only.'
     stop
   endif
+
+  call c_interoperability_initializeEasiBoundaries(trim(EQN%BoundaryFileName) // c_null_char)
 
   logInfo0(*) 'Initializing element local matrices.'
   call c_interoperability_initializeCellLocalMatrices;
@@ -1900,6 +1904,7 @@ CONTAINS
     REAL, POINTER :: MassMatrix(:,:)    =>NULL()
     ! temporary degrees of freedom
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
+    REAL    :: oneRankedShaped_iniloading(NUMBER_OF_BASIS_FUNCTIONS*6)        ! l_iniloading to one rank array  (allows removing warning we running with plasticity))
     real    :: l_plasticParameters(2)
     !-------------------------------------------------------------------------!
     !
@@ -2019,8 +2024,9 @@ CONTAINS
         l_plasticParameters(2) = EQN%BulkFriction(iElem) !element-dependent bulk friction
         
         ! initialize loading in C
+        oneRankedShaped_iniloading = pack( l_initialLoading, .true. ) 
         call c_interoperability_setInitialLoading( i_meshId = iElem, \
-                                                   i_initialLoading = pack( l_initialLoading, .true. ) )
+                                                   i_initialLoading = oneRankedShaped_iniloading)
 
         !initialize parameters in C
         call c_interoperability_setPlasticParameters( i_meshId            = iElem, \
@@ -2042,10 +2048,11 @@ CONTAINS
   END SUBROUTINE icGalerkin3D_us_new
 
   SUBROUTINE BuildSpecialDGGeometry3D_new(MaterialVal,EQN,MESH,DISC,BND,MPI,IO)
-
+    USE iso_c_binding, only: c_loc, c_null_char, c_bool
     USE common_operators_mod
     USE DGbasis_mod
     USE ini_faultoutput_mod
+    USE f_ftoc_bind_interoperability
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
@@ -2087,6 +2094,7 @@ CONTAINS
     REAL, POINTER :: zone_minh(:), zone_maxh(:), zone_deltah(:), zone_deltap(:)
     COMPLEX :: solution(3)
     INTEGER :: nDOF,TotDOF, PoroFlux
+    REAL    :: elementWaveSpeeds(4)
     !
     INTEGER :: iErr,iPoly,iVrtx
     INTEGER :: nLocPolyElem(0:100), TempInt(MESH%nSideMax)
@@ -2472,18 +2480,6 @@ CONTAINS
         DEALLOCATE( zone_minh, zone_maxh, zone_deltah, zone_deltap )
     ENDIF
 
-    ALLOCATE( DISC%Galerkin%WaveSpeed(MESH%nElem,MESH%nSideMax,EQN%nNonZeroEV) )
-    !
-    DISC%Galerkin%WaveSpeed(:,:,:) = 0.
-    !
-    ALLOCATE( DISC%Galerkin%MaxWaveSpeed(MESH%nElem,MESH%nSideMax) )
-    DO j=1,MESH%nSideMax
-      DISC%Galerkin%WaveSpeed(:,j,1)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%WaveSpeed(:,j,2)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%WaveSpeed(:,j,3)=SQRT((MaterialVal(:,2))/(MaterialVal(:,1)))
-      DISC%Galerkin%MaxWaveSpeed(:,j)=SQRT((MaterialVal(:,3)+2.*MaterialVal(:,2))/(MaterialVal(:,1)))
-    ENDDO
-    !
     CONTINUE
     !
   END SUBROUTINE BuildSpecialDGGeometry3D_new

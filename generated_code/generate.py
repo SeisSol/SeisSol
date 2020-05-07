@@ -4,6 +4,7 @@
 # This file is part of SeisSol.
 #
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
 #
 # @section LICENSE
 # Copyright (c) 2019, SeisSol Group
@@ -42,13 +43,15 @@ import argparse
 import importlib.util
 import inspect
 
-from yateto import useArchitectureIdentifiedBy, Generator
-from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM 
+from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
+from yateto import gemm_configuration
+from yateto.gemm_configuration import GeneratorCollection, LIBXSMM, PSpaMM, MKL, BLIS, OpenBLAS
 
 import DynamicRupture
 import Plasticity
 import SurfaceDisplacement
 import Point
+import NodalBoundaryConditions
 import memlayout
 
 cmdLineParser = argparse.ArgumentParser()
@@ -62,6 +65,7 @@ cmdLineParser.add_argument('--memLayout')
 cmdLineParser.add_argument('--multipleSimulations', type=int)
 cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineParser.add_argument('--PlasticityMethod')
+cmdLineParser.add_argument('--gemm_tools')
 cmdLineArgs = cmdLineParser.parse_args()
 
 if cmdLineArgs.memLayout == 'auto':
@@ -85,12 +89,19 @@ try:
 except:
   raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
 
-adgArgs = inspect.getargspec(equations.ADERDG.__init__).args[1:]
 cmdArgsDict = vars(cmdLineArgs)
 cmdArgsDict['memLayout'] = mem_layout
-args = [cmdArgsDict[key] for key in adgArgs]
-adg = equations.ADERDG(*args)
 
+if cmdLineArgs.equations == 'anisotropic':
+    adg = equations.AnisotropicADERDG(**cmdArgsDict)
+elif cmdLineArgs.equations == 'elastic':
+    adg = equations.ElasticADERDG(**cmdArgsDict)
+elif cmdLineArgs.equations == 'viscoelastic':
+    adg = equations.ViscoelasticADERDG(**cmdArgsDict)
+else:
+    adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
+
+include_tensors = set()
 g = Generator(arch)
 
 # Equation-specific kernels
@@ -98,13 +109,31 @@ adg.addInit(g)
 adg.addLocal(g)
 adg.addNeighbor(g)
 adg.addTime(g)
+adg.add_include_tensors(include_tensors)
 
 # Common kernels
-DynamicRupture.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod) 
+include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(g, namespace="dynamicRupture"), adg, cmdLineArgs.matricesDir, cmdLineArgs.dynamicRuptureMethod))
 Plasticity.addKernels(g, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
+NodalBoundaryConditions.addKernels(g, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)
 SurfaceDisplacement.addKernels(g, adg)
 Point.addKernels(g, adg)
 
+# pick up the user's defined gemm tools
+gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
+generators = []
+
+for tool in gemm_tool_list:
+  if hasattr(gemm_configuration, tool):
+    specific_gemm_class = getattr(gemm_configuration, tool)
+    generators.append(specific_gemm_class(arch))
+  else:
+    print("YATETO::ERROR: unknown \"{}\" GEMM tool. "
+          "Please, refer to the documentation".format(tool))
+    sys.exit("failure")
+
 # Generate code
-gemmTools = GeneratorCollection([LIBXSMM(arch), PSpaMM(arch)])
-g.generate(cmdLineArgs.outputDir, 'seissol', gemmTools)
+gemmTools = GeneratorCollection(generators)
+g.generate(outputDir=cmdLineArgs.outputDir,
+           namespace='seissol',
+           gemm_cfg=gemmTools,
+           include_tensors=include_tensors)

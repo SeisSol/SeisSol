@@ -47,9 +47,13 @@ MODULE create_fault_rotationmatrix_mod
   PRIVATE
   !---------------------------------------------------------------------------!
   PUBLIC  :: create_fault_rotationmatrix
+  PUBLIC  :: create_strike_dip_unit_vectors
   !---------------------------------------------------------------------------!  
   INTERFACE create_fault_rotationmatrix
      MODULE PROCEDURE create_fault_rotationmatrix
+  END INTERFACE
+  INTERFACE create_strike_dip_unit_vectors
+     MODULE PROCEDURE create_strike_dip_unit_vectors
   END INTERFACE
 
 CONTAINS
@@ -91,6 +95,29 @@ CONTAINS
     ! s = MESH%Fault%geoTangent1(1:3,iFace)
     ! t = MESH%Fault%geoTangent2(1:3,iFace)
 
+    CALL create_strike_dip_unit_vectors(n, strike_vector, dip_vector)
+    
+    CALL RotationMatrix3D(n,strike_vector,dip_vector,T(:,:),iT(:,:),EQN)
+    rotmat = iT(1:6,1:6)
+
+    if(present(iRotmat)) then
+      iRotmat = T(1:6,1:6)
+    endif  
+  END SUBROUTINE create_fault_rotationmatrix
+
+  SUBROUTINE create_strike_dip_unit_vectors(n, strike_vector, dip_vector)
+    !> creates strike and dip unit vectors given a fautl normal vector
+    !-------------------------------------------------------------------------!
+    IMPLICIT NONE    
+    ! Local variable declaration                                              !
+    REAL                            :: n(1:3)                                 !< normal vector to fault, pointing away from reference point
+    REAL                            :: strike_vector(1:3)                     !< strike vector
+    REAL                            :: dip_vector(1:3)                        !< dip vector
+    REAL                            :: norm                                   !< norm
+    !-------------------------------------------------------------------------!
+    INTENT(IN)    :: n                                                        !
+    intent(out)   :: strike_vector, dip_vector                                !
+    !-------------------------------------------------------------------------!
     strike_vector(1) = n(2)/sqrt(n(1)**2+n(2)**2)
     strike_vector(2) = -n(1)/sqrt(n(1)**2+n(2)**2)
     strike_vector(3) = 0.0D0
@@ -102,13 +129,6 @@ CONTAINS
     dip_vector(1) = dip_vector(1)*norm
     dip_vector(2) = dip_vector(2)*norm
     dip_vector(3) = dip_vector(3)*norm
-    
-    CALL RotationMatrix3D(n,strike_vector,dip_vector,T(:,:),iT(:,:),EQN)
-    rotmat = iT(1:6,1:6)
-
-    if(present(iRotmat)) then
-      iRotmat = T(1:6,1:6)
-    endif  
-  END SUBROUTINE create_fault_rotationmatrix
-  
+  END SUBROUTINE create_strike_dip_unit_vectors
+ 
 END MODULE create_fault_rotationmatrix_mod

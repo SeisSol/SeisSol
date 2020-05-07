@@ -3,8 +3,8 @@
 Configuration
 =============
 
-To set up a SeisSol run, you need to do the following steps (assuming,
-your are in the root directory of the code repository):
+To set up a SeisSol run, you need to do the following steps (assuming
+you are in the root directory of the code repository):
 
 1. Create the launch directory:
 

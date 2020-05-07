@@ -208,12 +208,14 @@ CONTAINS
 !<
   SUBROUTINE calc_FaultOutput( DynRup_output, DISC, EQN, MESH, MaterialVal, BND, time )
     use  f_ftoc_bind_interoperability
+    USE create_fault_rotationmatrix_mod, only: create_strike_dip_unit_vectors
     use iso_c_binding, only: c_loc
 
     !-------------------------------------------------------------------------!
     USE common_operators_mod
     USE JacobiNormal_mod
     USE DGBasis_mod
+    USE NucleationFunctions_mod
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -254,7 +256,7 @@ CONTAINS
     REAL    :: phi(2),rho, rho_neig, mu, mu_neig, lambda, lambda_neig
     REAL    :: LocXYStress, LocXZStress, TracXY, TracXZ, LocSRs, LocSRd
     REAL    :: w_speed(EQN%nNonZeroEV), TracEla, Trac, Strength, LocU, LocP, w_speed_neig(EQN%nNonZeroEV)
-    REAL    :: S_0,P_0,S_XY,S_XZ
+    REAL    :: S_0,P_0,S_XY,S_XZ,P_f, Temperature
     REAL    :: MuVal, cohesion, LocSV
     REAL    :: LocYY, LocZZ, LocYZ                                            ! temporary stress values
     REAL    :: tmp_mat(1:6), LocMat(1:6), TracMat(1:6)                        ! temporary stress tensors
@@ -269,8 +271,10 @@ CONTAINS
     INTEGER :: nDegFr2d, jBndGP, i1, j1
     REAL    :: chi, tau, phiT, phi2T(2),Slowness, dt_dchi, dt_dtau, Vr
     REAL    :: dt_dx1, dt_dy1
+    REAL    :: Tnuc, Gnuc, eta
     REAL    :: xV(4), yV(4), zV(4)
     REAL    :: xab(3), xac(3), grad2d(2,2), JacobiT2d(2,2)
+    REAL    :: NucleationStressXYZ(1:6), NucleationStressLocalCS(1:6)
     REAL, ALLOCATABLE  :: projected_RT(:)
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiElem_ptr ! no: it's not a pointer..
     real, dimension( NUMBER_OF_BASIS_FUNCTIONS, NUMBER_OF_QUANTITIES ) :: DOFiNeigh_ptr ! no pointer again
@@ -309,7 +313,7 @@ CONTAINS
           iNeighbor           = MESH%Fault%Face(iFace,1,2)
           iLocalNeighborSide  = MESH%Fault%Face(iFace,2,2)
           !
-          w_speed(:)      = DISC%Galerkin%WaveSpeed(iElem,iSide,:)
+          w_speed(:)      = DISC%Galerkin%WaveSpeed(iElem,:)
           rho             = MaterialVal(iElem,1)
           !
           if( iElem == 0 ) then
@@ -342,7 +346,7 @@ CONTAINS
             ! normal case: iNeighbor present in local domain
             call c_interoperability_getDofsFromDerivatives( i_meshId = iNeighbor, \
                                                             o_dofs   = DOFiNeigh_ptr )
-            w_speed_neig(:) = DISC%Galerkin%WaveSpeed(iNeighbor,iLocalNeighborSide,:)
+            w_speed_neig(:) = DISC%Galerkin%WaveSpeed(iNeighbor,:)
             rho_neig        = MaterialVal(iNeighbor,1)
           ENDIF
           !
@@ -382,6 +386,22 @@ CONTAINS
           S_XY  = Stress(4)
           S_XZ  = Stress(6)
           P_0   = Stress(1)
+          IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+             P_f = DISC%DynRup%TP(iBndGP, iFace, 2)
+             Temperature = DISC%DynRup%TP(iBndGP, iFace, 1)
+          ELSE
+             P_f = 0.0
+          ENDIF
+
+          if (EQN%FL.eq.33) then 
+             !case of ImposedSlipRateOnDRBoundary 'friction law': we add the additional stress to the fault output
+             !to show the imposed SR
+             eta = (w_speed(2)*rho*w_speed_neig(2)*rho_neig) / (w_speed(2)*rho + w_speed_neig(2)*rho_neig)
+             Gnuc = Calc_SmoothStep(time, DISC%DynRup%t_0)
+             S_XY = S_XY - eta * EQN%NucleationStressInFaultCS(iBndGP,1,iFace)*Gnuc
+             S_XZ = S_XZ - eta * EQN%NucleationStressInFaultCS(iBndGP,2,iFace)*Gnuc
+          endif
+
           !
           ! Obtain values at output points
           SideVal  = 0.
@@ -425,10 +445,10 @@ CONTAINS
           SELECT CASE(EQN%FL)
           CASE DEFAULT
             ! linear slip weakening
-            Strength = -MuVal*MIN(LocP+P_0,ZERO) - cohesion
+            Strength = -MuVal*MIN(LocP+P_0 -P_f,ZERO) - cohesion
           CASE(3,4)
              ! rate and state (once everything is tested and cohesion works for RS, this option could be merged to default)
-             Strength = -MuVal*(LocP+P_0)
+             Strength = -MuVal*(LocP+P_0 -P_f)
           CASE(6)
             ! exception for bimaterial with LSW case
             ! modify strength according to prakash clifton
@@ -478,13 +498,8 @@ CONTAINS
 
           ! rotate into fault system
           LocMat = MATMUL(rotmat,tmp_mat)
-          
-          ! z must not be +/- (0,0,1) for the following to work (see also create_fault_rotationmatrix)
-          strike_vector(1) = NormalVect_n(2)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-          strike_vector(2) = -NormalVect_n(1)/sqrt(NormalVect_n(1)**2+NormalVect_n(2)**2)
-          strike_vector(3) = 0.0D0
-          dip_vector = NormalVect_n .x. strike_vector
-          dip_vector = dip_vector / sqrt(dip_vector(1)**2+dip_vector(2)**2+dip_vector(3)**2)
+         
+          CALL create_strike_dip_unit_vectors(NormalVect_n, strike_vector, dip_vector)
 
           ! sliprate
           if (DISC%DynRup%SlipRateOutputType .eq. 1) then
@@ -504,6 +519,12 @@ CONTAINS
           !       w_speed(1)*rho) * NorDivisor
           ! Store Values into Output vector OutVal
 
+          if (EQN%FL.eq.33) then 
+             !case of ImposedSlipRateOnDRBoundary 'friction law': we plot the Stress from Godunov state, because we want to see the traction change from the imposed slip distribution
+             TracMat(4)=LocMat(4)
+             TracMat(6)=LocMat(6)
+          endif
+
           OutVars = 0
           IF (DynRup_output%OutputMask(1).EQ.1) THEN
               OutVars = OutVars + 1
@@ -517,7 +538,7 @@ CONTAINS
               OutVars = OutVars + 1
               DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6) !OutVars =4
               OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP !OutVars =5
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP-P_f !OutVars =5
           ENDIF
           IF (DynRup_output%OutputMask(3).EQ.1) THEN
               OutVars = OutVars + 1
@@ -530,15 +551,24 @@ CONTAINS
               DynRup_output%OutVal(iOutPoints,1,OutVars) = LocSV !OutVars =8
           ENDIF
           IF (DynRup_output%OutputMask(5).EQ.1) THEN
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(4)+DISC%DynRup%DynRup_Constants(iOutPoints)%ts0 !OutVars =9
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6)+DISC%DynRup%DynRup_Constants(iOutPoints)%td0 !OutVars =10
-              OutVars = OutVars + 1
-              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 !OutVars =11
-          ENDIF
 
-          IF (DISC%DynRup%OutputPointType.EQ.4) THEN
+              !add transient nucleation stress to fault output
+              IF (EQN%FL.EQ.103) THEN
+                 NucleationStressXYZ = MATMUL(T(1:6,1:6), EQN%NucleationStressInFaultCS(iBndGP,:,iFace))
+                 Tnuc = DISC%DynRup%t_0
+                 Gnuc = Calc_SmoothStep(time, Tnuc)
+                 NucleationStressLocalCS = MATMUL(rotmat, NucleationStressXYZ)*Gnuc
+              ELSE
+                 NucleationStressLocalCS(:) = 0d0
+              ENDIF
+
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(4)+DISC%DynRup%DynRup_Constants(iOutPoints)%ts0 + NucleationStressLocalCS(4) !OutVars =9
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = TracMat(6)+DISC%DynRup%DynRup_Constants(iOutPoints)%td0 + NucleationStressLocalCS(6) !OutVars =10
+              OutVars = OutVars + 1
+              DynRup_output%OutVal(iOutPoints,1,OutVars) = LocP+DISC%DynRup%DynRup_Constants(iOutPoints)%p0 - P_f + NucleationStressLocalCS(1)!OutVars =11
+          ENDIF
 
               IF (DynRup_output%OutputMask(6).EQ.1) THEN
                   ! TU 07.15 rotate Slip from face reference coordinate to (strike,dip, normal) reference cordinate
@@ -700,7 +730,14 @@ CONTAINS
                   OutVars = OutVars + 1
                   DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%output_dynStress_time(iBndGP,iFace)
               ENDIF
-          ENDIF
+              IF (DISC%DynRup%ThermalPress.EQ.1) THEN
+                  IF (DynRup_output%OutputMask(12).EQ.1) THEN
+                      OutVars = OutVars + 1
+                      DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,2) !OutVars = 19
+                      OutVars = OutVars + 1
+                      DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%TP(iBndGP,iFace,1) !OutVars = 20
+                  ENDIF
+              ENDIF
 
 
           ! Store output

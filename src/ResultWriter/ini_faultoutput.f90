@@ -6,6 +6,7 @@
 !! @author Alice Gabriel (gabriel AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/gabriel)
 !! @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+!! @author Sebastian Anger
 !!
 !! @section LICENSE
 !! Copyright (c) 2012-2017, SeisSol Group
@@ -84,29 +85,27 @@ CONTAINS
     IMPLICIT NONE
 
     TYPE(tDiscretization)   :: DISC                   ! Discretization struct.!
-    CHARACTER (len=30000)   :: VariableList, VariableList_temp
-    CHARACTER(len=3)        :: VName(8)
-    INTEGER                 :: j
+    CHARACTER (len=30000)   :: VariableList
+    CHARACTER(len=3)        :: VName(20)
+    INTEGER                 :: k,i,j,maskCount(12)
 
     ! Full list of possible variable names
-    VName = (/'SRs','SRd','T_s','T_d','P_n','u_n','Mud','StV'/)
+    VName = (/'SRs','SRd','T_s','T_d','P_n','u_n','Mud','StV','Ts0','Td0','Pn0', &
+              'Sls','Sld','Vr ','ASI','PSR','RT ','DS ','P_f','Tmp'/)
 
     ! Prepare second header line
     VariableList = TRIM('VARIABLES = "Time"')
-    !
-    DO j=1,8
-       VariableList_temp=TRIM(VariableList)
-       IF (j.EQ.1.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1).NE.1) CYCLE
-       IF (j.EQ.2.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1).NE.1) CYCLE
-       IF (j.EQ.3.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(2).NE.1) CYCLE
-       IF (j.EQ.4.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(2).NE.1) CYCLE
-       IF (j.EQ.5.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(2).NE.1) CYCLE
-       IF (j.EQ.6.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(3).NE.1) CYCLE
-       IF (j.EQ.7.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(4).NE.1) CYCLE
-       IF (j.EQ.8.AND.DISC%DynRup%DynRup_out_atPickpoint%OutputMask(4).NE.1) CYCLE
 
-       WRITE(VariableList,'(a,a3,a,a1)')                   &
-       TRIM(VariableList_temp),',"',TRIM(VName(j)),'"'
+    maskCount=(/2,3,1,2,3,2,1,1,1,1,1,2/)
+
+    k=1
+    DO i=lbound(maskCount,1),ubound(maskCount,1)
+       IF (DISC%DynRup%DynRup_out_atPickpoint%OutputMask(i).EQ.1) THEN
+          DO j=0,maskCount(i)-1
+             WRITE(VariableList,'(a,a3,a,a1)') TRIM(VariableList),',"',TRIM(VName(k+j)),'"'
+          ENDDO
+       ENDIF
+       k=k+maskCount(i)
     ENDDO
   END SUBROUTINE
 
@@ -968,6 +967,10 @@ CONTAINS
   TYPE(tInputOutput)      :: IO
   !-------------------------------------------------------------------------!
 
+  IF( .NOT.associated(DISC%DynRup%DynRup_out_elementwise%RecPoint) ) THEN
+    ALLOCATE(DISC%DynRup%DynRup_out_elementwise%RecPoint(0))
+    ALLOCATE(DISC%DynRup%DynRup_out_elementwise%TmpState(0,0,0))
+  ENDIF
    call initFaultOutput(DISC%DynRup%DynRup_out_elementwise%RecPoint, &
         DISC%DynRup%DynRup_out_elementwise%OutputMask, &
         DISC%DynRup%DynRup_out_elementwise%TmpState, &
@@ -1154,6 +1157,7 @@ CONTAINS
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(9).EQ.1) OutVars = OutVars + 1
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(10).EQ.1) OutVars = OutVars + 1
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(11).EQ.1) OutVars = OutVars + 1
+       IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(12).EQ.1) OutVars = OutVars + 2
        !
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%CurrentPick(DISC%DynRup%DynRup_out_elementwise%nDR_pick))
        ALLOCATE( DISC%DynRup%DynRup_out_elementwise%TmpTime(DISC%DynRup%DynRup_out_elementwise%MaxPickStore))
@@ -1220,6 +1224,12 @@ CONTAINS
        ENDIF
        IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(11).EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 18
+        k=k+1
+       ENDIF
+       IF (DISC%DynRup%DynRup_out_elementwise%OutputMask(12).EQ.1) THEN
+        DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 19
+        k=k+1
+        DISC%DynRup%DynRup_out_elementwise%OutputLabel(k) = 20
         k=k+1
        ENDIF
        !

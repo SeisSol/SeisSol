@@ -56,7 +56,7 @@ namespace seissol {
                                              Offsets const&           offsets,
                                              Offsets const&           nextOffsets,
                                              double *const            sliprates[3],
-                                             seissol::model::Material material,
+                                             seissol::model::Material* material,
                                              PointSources&            pointSources,
                                              unsigned                 index );
     class Manager;

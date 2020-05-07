@@ -95,7 +95,8 @@ CONTAINS
     
     REAL                    :: x,y,z                                          !<
     REAL                    :: dx,dy,dz
-    REAL                    :: xf_max,xf_min,yf_max,yf_min,zf_max,zf_min
+    ! must be volatile, otherwise Intel Compiler 19 segfaults when log level does not show info messages
+    REAL, VOLATILE          :: xf_max,xf_min,yf_max,yf_min,zf_max,zf_min
     REAL                    :: posx_max,posx_min,posy_max,posy_min,posz_max,posz_min
     REAL                    :: chi,tau,xi,eta,zeta
     REAL                    :: xGP,yGP,zGP

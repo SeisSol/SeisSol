@@ -54,32 +54,31 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
 
   # Load matrices
   db = parseJSONMatrixFile('{}/dr_{}_matrices_{}.json'.format(matricesDir, dynamicRuptureMethod, aderdg.order), clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
+  db.update( parseJSONMatrixFile('{}/resample_{}.json'.format(matricesDir, aderdg.order)) )
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
-  godunov_spp = aderdg.godunov_spp()
-  godunovMatrix = Tensor('godunovMatrix', godunov_spp.shape, spp=godunov_spp)
+  trans_inv_spp_T = aderdg.transformation_inv_spp().transpose()
+  TinvT = Tensor('TinvT', trans_inv_spp_T.shape, spp=trans_inv_spp_T)
   flux_solver_spp = aderdg.flux_solver_spp()
   fluxSolver    = Tensor('fluxSolver', flux_solver_spp.shape, spp=flux_solver_spp)
   
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
-  godunovState = OptionalDimTensor('godunovState', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+  QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
 
-  generator.add('rotateGodunovStateLocal', godunovMatrix['qp'] <= aderdg.Tinv['kq'] * aderdg.QgodLocal['kp'])
-  generator.add('rotateGodunovStateNeighbor', godunovMatrix['qp'] <= aderdg.Tinv['kq'] * aderdg.QgodNeighbor['kp'])
+  generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
 
   fluxScale = Scalar('fluxScale')
   generator.add('rotateFluxMatrix', fluxSolver['qp'] <= fluxScale * aderdg.starMatrix(0)['qk'] * aderdg.T['pk'])
 
-  def godunovStateGenerator(i,h):
-    target = godunovState['kp']
-    term = db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * godunovMatrix['qp']
-    if h == 0:
-      return target <= term
-    return target <= target + term
-  godunovStatePrefetch = lambda i,h: godunovState
-  generator.addFamily('godunovState', simpleParameterSpace(4,4), godunovStateGenerator, godunovStatePrefetch)
+  def interpolateQGenerator(i,h):
+    return QInterpolated['kp'] <= db.V3mTo2n[i,h][aderdg.t('kl')] * aderdg.Q['lq'] * TinvT['qp']
 
-  nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * godunovState['lq'] * fluxSolver['qp']
+  interpolateQPrefetch = lambda i,h: QInterpolated
+  generator.addFamily('evaluateAndRotateQAtInterpolationPoints', simpleParameterSpace(4,4), interpolateQGenerator, interpolateQPrefetch)
+
+  nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
   generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)
+
+  return {db.resample}

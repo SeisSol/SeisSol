@@ -232,11 +232,11 @@ CONTAINS
     LOGICAL                    :: fileExists
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint
     REAL                       :: FreqCentral, FreqRatio, Tv
-    CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
+    CHARACTER(LEN=600)         :: MaterialFileName, BoundaryFileName, AdjFileName
     NAMELIST                   /Equations/ Anisotropy, Plasticity, &
                                            Tv, pmethod, &
                                            Adjoint,  &
-                                           MaterialFileName, FreqCentral, &
+                                           MaterialFileName, BoundaryFileName, FreqCentral, &
                                            FreqRatio, AdjFileName
     !------------------------------------------------------------------------
     !
@@ -261,9 +261,15 @@ CONTAINS
     ! aheineck, @TODO these values are used, but not initialized < End
 
     ! Setting the default values
+#if defined(USE_ANISOTROPIC)
+    Anisotropy          = 1
+#else
     Anisotropy          = 0
+#endif
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     Anelasticity        = 1
+    FreqCentral = 0.0
+    FreqRatio = 0.0
 #else
     Anelasticity        = 0
 #endif
@@ -272,27 +278,15 @@ CONTAINS
     pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
     MaterialFileName    = ''
+    BoundaryFileName    = ''
+
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "Equations")
     ENDIF
     !
-    SELECT CASE(Anisotropy)
-    CASE(0)
-      logInfo(*) 'Isotropic material is assumed. '
-      EQN%Anisotropy = Anisotropy
-      EQN%nBackgroundVar = 3+EQN%nBackgroundVar
-      EQN%nNonZeroEV = 3
-    CASE(1)
-      logInfo(*) 'Full triclinic material is assumed. '
-      EQN%Anisotropy = Anisotropy
-      EQN%nBackgroundVar = 22+EQN%nBackgroundVar
-      EQN%nNonZeroEV = 3
-    CASE DEFAULT
-      logError(*) 'Choose 0 or 1 as anisotropy assumption. '
-      STOP
-    END SELECT
+
     !
 
 #if defined(USE_PLASTICITY)
@@ -379,6 +373,23 @@ CONTAINS
         logError(*) 'Choose 0, 1 as adjoint wavefield assumption. '
         STOP
       END SELECT
+    
+    EQN%Anisotropy = Anisotropy
+    SELECT CASE(Anisotropy)
+    CASE(0)
+      logInfo(*) 'Isotropic material is assumed. '
+      EQN%nNonZeroEV = 3
+    CASE(1)
+      IF(Anelasticity.EQ.1) THEN
+        logError(*) 'Anelasticity does not work together with Anisotropy'
+      END IF
+      logInfo(*) 'Full triclinic material is assumed. '
+      EQN%nBackgroundVar = 22
+      EQN%nNonZeroEV = 3
+    CASE DEFAULT
+      logError(*) 'Choose 0 or 1 as anisotropy assumption. '
+      STOP
+    END SELECT
 
     IF(EQN%Adjoint.EQ.1) THEN
      call readadjoint(IO, DISC, SOURCE, AdjFileName)
@@ -389,10 +400,23 @@ CONTAINS
      logError(*) 'Material file "', trim(MaterialFileName), '" does not exist.'
      STOP
     endif
+    inquire(file=BoundaryFileName , exist=fileExists)
+    if (.NOT. (BoundaryFileName == "") .AND. (.NOT. fileExists)) then
+     logError(*) 'Boundary file "', trim(BoundaryFileName), '" does not exist.'
+     STOP
+    endif
+
     !
     EQN%MaterialFileName = MaterialFileName
+    EQN%BoundaryFileName = BoundaryFileName
     EQN%FreqCentral = FreqCentral
     EQN%FreqRatio = FreqRatio
+#if NUMBER_OF_RELAXATION_MECHANISMS != 0
+    IF ((EQN%FreqCentral.EQ.0.0) .OR. (EQN%FreqRatio.EQ.0.0)) THEN
+        logError(*) 'FreqCentral or FreqRatio not defined'
+        stop 
+    ENDIF
+#endif
     !
     intDummy = 1                                                  ! coordinate type index
     !                                                             ! (1=cartesian)
@@ -566,9 +590,17 @@ CONTAINS
    !
    CASE('Zero')
        logInfo(*) 'Zero initial condition'
-    CASE('Planarwave')                                                                ! CASE tPlanarwave
+   CASE('Planarwave')                                                                ! CASE tPlanarwave
        logInfo(*) 'Planarwave initial condition'
-    CASE DEFAULT                                                             ! CASE DEFAULT
+   CASE('SuperimposedPlanarwave')                                                                ! CASE tPlanarwave
+       logInfo(*) 'Superimposed Planarwave initial condition'
+   CASE('Scholte')
+       logInfo(*) 'Scholte wave (elastic-acoustic) initial condition'
+   CASE('Snell')
+       logInfo(*) 'Snells law (elastic-acoustic) initial condition'
+   CASE('Ocean')
+       logInfo(*) 'An uncoupled ocean test case for acoustic equations'
+   CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
             ' initial conditions was chosen'
        logError(*) TRIM(IC%cICType),'|'
@@ -594,7 +626,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: allocStat, OutputMask(5), i
+    INTEGER                    :: allocStat, OutputMask(12), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
     INTEGER                    :: readStat
@@ -610,7 +642,7 @@ CONTAINS
     !Setting default values
     printtimeinterval = 1
     OutputMask(1:3) = 1
-    OutputMask(4:5) = 0
+    OutputMask(4:12) = 0
     !
     READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Pickpoint)
     IF (readStat.NE.0) THEN
@@ -618,7 +650,7 @@ CONTAINS
     ENDIF
     !
      DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
-     DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:5) =  OutputMask(1:5)      ! read info of desired output 1/ yes, 0/ no
+     DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
                                                                                 ! position: 1/ slip rate 2/ stress 3/ normal velocity
      DISC%DynRup%DynRup_out_atPickpoint%nOutPoints = nOutPoints                 ! 4/ in case of rate and state output friction and state variable
      logInfo(*) '| '
@@ -675,7 +707,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: OutputMask(11)
+    INTEGER                    :: OutputMask(12)
     INTEGER                    :: printtimeinterval
     INTEGER                    :: printIntervalCriterion
     INTEGER                    :: refinement_strategy, refinement
@@ -691,7 +723,7 @@ CONTAINS
     printtimeinterval_sec = 1d0
     printIntervalCriterion = 1
     OutputMask(:) = 1
-    OutputMask(4:11) = 0
+    OutputMask(4:12) = 0
     refinement_strategy = 2
     refinement = 2
     !
@@ -710,11 +742,12 @@ CONTAINS
     endif
 
     ! if 2, printtimeinterval is set afterwards, when dt is known
-    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:11) =  OutputMask(1:11)      ! read info of desired output 1/ yes, 0/ no
+    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:12) =  OutputMask(1:12)      ! read info of desired output 1/ yes, 0/ no
                                                                                      ! position: 1/ slip rate 2/ stress 3/ normal velocity
                                                                                      ! 4/ in case of rate and state output friction and state variable
                                                                                      ! 5/ background values 6/Slip 7/rupture speed 8/final slip 9/peak SR
                                                                                      ! 10/rupture arrival 11/dynamic shear stress arrival
+                                                                                     ! 12/TP output
 
 
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
@@ -914,8 +947,8 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
-                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, SlipRateOutputType
-    INTEGER                                :: readStat
+                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, &
+                                              thermalPress, SlipRateOutputType, readStat
     LOGICAL                                :: fileExists
 
     CHARACTER(600)                         :: FileName_BackgroundStress
@@ -924,6 +957,7 @@ CONTAINS
                                               Mu_SNuc_ini, H_Length, RS_f0, &
                                               RS_sr0, RS_b, RS_iniSlipRate1, &
                                               RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
+                                              alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
                                               NucRS_sv0, r_s, energy_rate_printtimeinterval
 
     !------------------------------------------------------------------------
@@ -931,9 +965,9 @@ CONTAINS
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, &
                                                 Mu_SNuc_ini, H_Length, RS_f0, &
-                                                RS_sr0, RS_b, RS_iniSlipRate1, &
-                                                RS_iniSlipRate2, v_star, L, t_0, Mu_W, &
-                                                NucRS_sv0, r_s, RF_output_on, DS_output_on, &
+                                                RS_sr0, RS_b, RS_iniSlipRate1, RS_iniSlipRate2, v_star, &
+                                                thermalPress, alpha_th, rho_c, TP_lambda, IniTemp, IniPressure, &
+                                                L, t_0, Mu_W, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval,  &
                                                 SlipRateOutputType, ModelFileName
     !------------------------------------------------------------------------
@@ -947,7 +981,7 @@ CONTAINS
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
-    SlipRateOutputType = 0
+    SlipRateOutputType = 1
     RS_sv0 = 0
     XRef = 0
     YRef = 0
@@ -968,12 +1002,18 @@ CONTAINS
     Mu_W = 0
     NucRS_sv0 = 0
     r_s = 0
+    thermalPress = 0
+    alpha_th = 0
+    rho_c = 0
+    TP_lambda = 0
+    IniTemp = 0.0d0 
+    IniPressure = 0.0d0
     ModelFileName = ''
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
 
-           ! Read-in dynamic rupture parameters
-           READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = DynamicRupture)
+    ! Read-in dynamic rupture parameters
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = DynamicRupture)
     IF (readStat.NE.0) THEN
         CALL RaiseErrorNml(IO%UNIT%FileIn, "DynamicRupture")
     ENDIF
@@ -1024,6 +1064,12 @@ CONTAINS
              DISC%DynRup%v_star = v_star
              DISC%DynRup%L = L
              CONTINUE
+           CASE(33) !ImposedSlipRateOnDRBoundary
+             DISC%DynRup%t_0 = t_0
+             IF (DISC%DynRup%SlipRateOutputType.EQ.1) THEN
+               logInfo0(*) 'ImposedSlipRateOnDRBoundary only works with SlipRateOutputType=0, and this parameter is therefore set to 0'
+               DISC%DynRup%SlipRateOutputType = 0
+             ENDIF
            CASE(3,4,7,101,103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
@@ -1032,6 +1078,20 @@ CONTAINS
              DISC%DynRup%RS_iniSlipRate1 = RS_iniSlipRate1! V_ini1, initial sliding velocity
              DISC%DynRup%RS_iniSlipRate2 = RS_iniSlipRate2! V_ini2, initial sliding velocity
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
+             DISC%DynRup%ThermalPress = thermalPress !switches TP on (1) or off(0)
+             IF (DISC%DynRup%ThermalPress.EQ.1) THEN !additional parameters
+                 logInfo0(*) 'Thermal pressurization assumed'
+                 !physical
+                 DISC%DynRup%alpha_th = alpha_th
+                 DISC%DynRup%rho_c = rho_c
+                 DISC%DynRup%TP_lambda = TP_lambda
+                 EQN%Temp_0 = IniTemp
+                 EQN%Pressure_0 = IniPressure
+                 !numerical, currently fixed like that but requires further testing
+                 DISC%DynRup%TP_log_dz = 0.3
+                 DISC%DynRup%TP_max_wavenumber = 10.0
+                 DISC%DynRup%TP_grid_nz = 60
+             ENDIF
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
              STOP

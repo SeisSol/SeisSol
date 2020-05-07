@@ -1,8 +1,8 @@
 Kinematic source example - 1994 Northridge earthquake
 =====================================================
 
-We use this earthquake to demonstrate how to setup dynamic rupture model
-with kinematic rupture source in SeisSol.
+We use this earthquake to demonstrate how to set up dynamic rupture model
+with a kinematic rupture source in SeisSol.
 
 The 1994 Northridge earthquake occurred on January 17, at 4:30:55 a.m.
 PST and had its epicenter in Reseda, a neighborhood in the north-central
@@ -10,7 +10,7 @@ San Fernando Valley region of Los Angeles, California, USA. It had a
 duration of approximately 10–20 seconds. The blind thrust earthquake had
 a magnitude of 6.7 (Mw). This is a typical reverse-slip earthquake. The
 fault orients to N122\ :math:`^\circ`\ E and dips at 40\ :math:`^\circ`.
-The simulation can be used to build similar model with moderate
+The simulation can be used to build a similar model with moderate
 modifications.
 
 Geometry
@@ -25,9 +25,8 @@ Region: 100 km\*100 km \*60 km.
    :alt: Geometry of 1994 northridge earthquake.
    :width: 12.00000cm
 
-   Geometry of 1994 northridge earthquake. A planar fault orients at 122
-   degree and dip at 40 degree. The dimension of fault is 20 km along
-   strike and 25 km along down-dip.
+   Geometry of 1994 Northridge earthquake. A planar fault orients at 122
+   degrees and dip at 40 degrees. The dimension of the fault is 20 km along strike and 25 km along down-dip.
 
 Kinematic rupture Source
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -47,7 +46,7 @@ Download standard rupture format file (northridge.srf) can be found in https://s
 Please note that the SCEC units are different with SeisSol units in some
 aspect.
 
-The fault are divided in to 20 grids along the strike and 25 grids
+The fault is divided into 20 grids along the strike and 25 grids
   along the dip. The source time function (STF) of each rectangular
   elements is given in the file , whose format looks like the following:
   
@@ -108,7 +107,7 @@ SR3[1],…,SR3[NT3] slip rate at each time step for u3 direction (cm/sec)
 Project geographic coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The geographic coordinates of source model is projected to Cartesian
+The geographic coordinates of the source model are projected to Cartesian
 coordinates wit the pre-processing tool *rconv*.
 
 rconv -i northridge.srf -o northridge.nrf -m "+proj=merc +lon\_0=-118
@@ -128,7 +127,7 @@ Results
 ~~~~~~~
 
 Source rupture starts at 7.0 s and propagates in the domain. A snapshot
-of velocity is show in Figure [fig:northridge1]. The surface velocity
+of velocity is shown in Figure [fig:northridge1]. The surface velocity
 output is refined by subdividing each triangle into 4 subtriangles while
 the domain output is not.
 
@@ -136,9 +135,7 @@ the domain output is not.
    :alt: Cross-section of vertical velocity
    :width: 12.00000cm
 
-   Cross-section of vertical velocity at surface at 7 s. The surface velocity output is refined by
-   subdividing each triangle into 4 subtriangles while the domain output
-   is not. The plane demonstrates the fault orientation. 
+   Cross-section of vertical velocity at the surface at 7 s. The surface velocity output is refined by subdividing each triangle into 4 subtriangles while the domain output is not. The plane demonstrates the fault orientation. 
 
 
 

@@ -4,9 +4,10 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +50,7 @@
 #include <Initializer/preProcessorMacros.fpp>
 #include <Kernels/precision.hpp>
 #include <Kernels/equations.hpp>
-#include <Model/datastructures.hpp>
+#include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
 
 #include <cstddef>
@@ -72,21 +73,33 @@ enum TimeClustering {
 };
 
 // face types
-enum faceType {
+// Note: When introducting new types also change
+// int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition
+// and PUMLReader. Otherwise it might become a DR face...
+enum class FaceType {
   // regular: inside the computational domain
   regular = 0,
 
   // free surface boundary
   freeSurface = 1,
+
+  // free surface boundary with gravity
+  freeSurfaceGravity = 2,
   
   // dynamic rupture boundary
   dynamicRupture = 3,
+
+  // Dirichlet boundary
+  dirichlet = 4,
 
   // absorbing/outflow boundary
   outflow = 5,
 
   // periodic boundary
-  periodic = 6
+  periodic = 6,
+
+  // analytical boundary (from initial cond.)
+  analytical = 7
 };
 
 // cross-cluster time stepping information
@@ -125,7 +138,7 @@ struct TimeStepping {
 // cell local information
 struct CellLocalInformation {
   // types of the faces
-  enum faceType faceTypes[4];
+  FaceType faceTypes[4];
 
   // mapping of the neighboring elements to the references element in relation to this element
   int faceRelations[4][2];
@@ -318,7 +331,10 @@ struct GlobalData {
    *    15: \f$ P^{-,4,3} \f$
    **/ 
   seissol::tensor::V3mTo2nTWDivM::Container<real const*> nodalFluxMatrices;
-  
+
+  seissol::nodal::tensor::V3mTo2nFace::Container<real const*> V3mTo2nFace;
+  seissol::tensor::project2nFaceTo3m::Container<real const*> project2nFaceTo3m;
+
   /** 
    * Addresses of the global face to nodal matrices
    *
@@ -334,7 +350,9 @@ struct GlobalData {
    *    15: \f$ N^{-,4,3} \f$
    **/ 
 
+ 
   seissol::tensor::V3mTo2n::Container<real const*> faceToNodalMatrices;
+
   //! Modal basis to quadrature points
   real* evalAtQPMatrix;
 
@@ -355,7 +373,15 @@ struct LocalIntegrationData {
   real nApNm1[4][seissol::tensor::AplusT::size()];
 
   // equation-specific data
-  seissol::model::LocalData specific;
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicLocalData specific;
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  seissol::model::ViscoElasticLocalData specific;
+#elif defined USE_ELASTIC
+  seissol::model::ElasticLocalData specific;
+#endif
 };
 
 // data for the neighboring boundary integration
@@ -364,13 +390,33 @@ struct NeighboringIntegrationData {
   real nAmNm1[4][seissol::tensor::AminusT::size()];
 
   // equation-specific data
-  seissol::model::NeighborData specific;
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicNeighborData specific;
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  seissol::model::ViscoElasticNeighborData specific;
+#elif defined USE_ELASTIC
+  seissol::model::ElasticNeighborData specific;
+#endif
 };
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::Material local;
-  seissol::model::Material neighbor[4];
+  //TODO(Lukas/Sebastian):
+  //Get rid of ifdefs
+#if defined USE_ANISOTROPIC
+  seissol::model::AnisotropicMaterial local;
+  seissol::model::AnisotropicMaterial neighbor[4];
+#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
+  seissol::model::ViscoElasticMaterial local;
+  seissol::model::ViscoElasticMaterial neighbor[4];
+#elif defined USE_ELASTIC
+  seissol::model::ElasticMaterial local;
+  seissol::model::ElasticMaterial neighbor[4];
+#else
+  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ISOTROPIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
+#endif
 };
 
 // plasticity information per cell
@@ -417,8 +463,7 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  real godunovMatrixPlus[seissol::tensor::godunovMatrix::size()];
-  real godunovMatrixMinus[seissol::tensor::godunovMatrix::size()];
+  real TinvT[seissol::tensor::TinvT::size()];
 };
 
 struct CellDRMapping {
@@ -426,6 +471,23 @@ struct CellDRMapping {
   unsigned faceRelation;
   real* godunov;
   real* fluxSolver;
+};
+
+struct CellBoundaryMapping {
+  real* nodes;
+  real* TData;
+  real* TinvData;
+  real* easiBoundaryConstant;
+  real* easiBoundaryMap;
+};
+
+struct BoundaryFaceInformation {
+  // nodes is an array of 3d-points in global coordinates.
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3];
+  real TData[seissol::tensor::T::size()];
+  real TinvData[seissol::tensor::Tinv::size()];
+  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
+  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
 #endif

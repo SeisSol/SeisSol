@@ -12,6 +12,7 @@ rconv relies on a deprecated version of the PROJ library (as it includes the fil
 ```
 module load gcc
 git clone git@github.com:OSGeo/PROJ
+cd PROJ
 git checkout 4.9.3
 mkdir build
 cd build

@@ -22,7 +22,7 @@ extremities to the coarse topography to roughly match the segmentation
 of the fine topography border, resulting from the fault intersection.
 This is done by:
 
-Right clicking on the surface >Tools > Border Extremity >Add.
+Right-clicking on the surface >Tools > Border Extremity >Add.
 
 |adding border Extremities|
 

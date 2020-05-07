@@ -301,9 +301,9 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned face = 0; face < 4; ++face) {
-      if (  cellInformation[cell].faceTypes[face] == regular
-         || cellInformation[cell].faceTypes[face] == periodic
-         || cellInformation[cell].faceTypes[face] == dynamicRupture ) {
+      if (cellInformation[cell].faceTypes[face] == FaceType::regular ||
+	  cellInformation[cell].faceTypes[face] == FaceType::periodic ||
+	  cellInformation[cell].faceTypes[face] == FaceType::dynamicRupture) {
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
           faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
@@ -312,26 +312,29 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
         else {
           faceNeighbors[cell][face] = buffers[ cellInformation[cell].faceNeighborIds[face] ];
         }
-        assert( faceNeighbors[cell][face] != NULL );
+        assert(faceNeighbors[cell][face] != nullptr);
       }
-      // free surface boundary
-      else if( cellInformation[cell].faceTypes[face] == freeSurface ) {
+      // boundaries using local cells
+      else if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
+	       cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
+	       cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
+	       cellInformation[cell].faceTypes[face] == FaceType::analytical) {
         if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
           faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
         }
         else { // free surface on derivatives
           faceNeighbors[cell][face] = layer.var(m_lts.derivatives)[cell];
         }
-        assert( faceNeighbors[cell][face] != NULL );
+        assert(faceNeighbors[cell][face] != nullptr);
       }
       // absorbing
-      else if( cellInformation[cell].faceTypes[face] == outflow ) {
+      else if( cellInformation[cell].faceTypes[face] == FaceType::outflow ) {
         // NULL pointer; absorbing: data is not used
-        faceNeighbors[cell][face] = NULL;
+        faceNeighbors[cell][face] = nullptr;
       }
       else {
         // assert all cases are covered
-        assert( false );
+        assert(false);
       }
     }
   }
@@ -406,11 +409,10 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
   }
 }
 
-void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
-                                                          struct MeshStructure*       i_meshStructure,
-                                                          unsigned*                   numberOfDRCopyFaces,
-                                                          unsigned*                   numberOfDRInteriorFaces )
-{
+void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_timeStepping,
+                                                         struct MeshStructure*i_meshStructure,
+                                                         unsigned* numberOfDRCopyFaces,
+                                                         unsigned* numberOfDRInteriorFaces) {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
 
@@ -449,25 +451,103 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
   m_dynRupTree.touchVariables();
 }
 
+void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
+  seissol::initializers::LayerMask ghostMask(Ghost);
+
+  // Boundary face tree
+  m_boundary.addTo(m_boundaryTree);
+  m_boundaryTree.setNumberOfTimeClusters(m_ltsTree.numChildren());
+  m_boundaryTree.fixate();
+
+  // First count the number of faces with relevant boundary condition.
+  for (unsigned tc = 0; tc < m_boundaryTree.numChildren(); ++tc) {
+    auto& cluster = m_boundaryTree.child(tc);
+    cluster.child<Ghost>().setNumberOfCells(0);
+    cluster.child<Copy>().setNumberOfCells(0);
+    cluster.child<Interior>().setNumberOfCells(0);
+  }
+
+  // Iterate over layers of standard lts tree and face lts tree together.
+  auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
+    for (;
+       layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
+       ++layer, ++boundaryLayer) {
+    CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
+
+    unsigned numberOfBoundaryFaces = 0;
+#ifdef _OPENMP
+    #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
+#endif // _OPENMP
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      for (unsigned face = 0; face < 4; ++face) {
+        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+          ++numberOfBoundaryFaces;
+        }
+      }
+    }
+    boundaryLayer->setNumberOfCells(numberOfBoundaryFaces);
+  }
+  m_boundaryTree.allocateVariables();
+  m_boundaryTree.touchVariables();
+
+  // The boundary tree is now allocated, now we only need to map from cell lts
+  // to face lts.
+  // We do this by, once again, iterating over both trees at the same time.
+  for (auto layer = m_ltsTree.beginLeaf(ghostMask), boundaryLayer = m_boundaryTree.beginLeaf(ghostMask);
+       layer != m_ltsTree.endLeaf() && boundaryLayer != m_boundaryTree.endLeaf();
+       ++layer, ++boundaryLayer) {
+    auto* cellInformation = layer->var(m_lts.cellInformation);
+    auto* boundaryMapping = layer->var(m_lts.boundaryMapping);
+    auto* faceInformation = boundaryLayer->var(m_boundary.faceInformation);
+
+    auto boundaryFace = 0;
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      for (unsigned face = 0; face < 4; ++face) {
+        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+          boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
+          boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
+          boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
+          boundaryMapping[cell][face].easiBoundaryMap = faceInformation[boundaryFace].easiBoundaryMap;
+          boundaryMapping[cell][face].easiBoundaryConstant = faceInformation[boundaryFace].easiBoundaryConstant;
+          ++boundaryFace;
+        } else {
+          boundaryMapping[cell][face].nodes = nullptr;
+          boundaryMapping[cell][face].TData = nullptr;
+          boundaryMapping[cell][face].TinvData = nullptr;
+          boundaryMapping[cell][face].easiBoundaryMap = nullptr;
+          boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
+        }
+      }
+    }
+  }
+}
+
 void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
 {
-  for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+  for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
     CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
     real** displacements = layer->var(m_lts.displacements);
+    CellMaterialData* cellMaterialData = layer->var(m_lts.material);
 
     unsigned numberOfCells = 0;
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
       bool hasFreeSurface = false;
-      for (unsigned face = 0; face < 4; ++face) {
-        hasFreeSurface = hasFreeSurface || (cellInformation[cell].faceTypes[face] == freeSurface);
+      for (unsigned int face = 0; face < 4; ++face) {
+        const auto faceType = cellInformation[cell].faceTypes[face];
+        hasFreeSurface = hasFreeSurface
+                         || faceType == FaceType::freeSurface
+                         || faceType == FaceType::freeSurfaceGravity
+                         || isAtElasticAcousticInterface(cellMaterialData[cell], face);
       }
       if (hasFreeSurface) {
         // We add the base address later when the bucket is allocated
-        // +1 is necessary as we want to reserve the NULL pointer for cell without displacement.
-        displacements[cell] = static_cast<real*>(NULL) + 1 + numberOfCells * tensor::displacement::size();
+        // +1 is necessary as we want to reserve the nullptr for cell without displacement.
+        // Thanks to this hack, the array contains a constant plus the offset of the current
+        // cell.
+        displacements[cell] = static_cast<real*>(nullptr) + 1 + numberOfCells * tensor::displacement::size();
         ++numberOfCells;
       } else {
-        displacements[cell] = NULL;
+        displacements[cell] = nullptr;
       }
     }
     layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * tensor::displacement::size() * sizeof(real));
@@ -476,7 +556,10 @@ void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
 
 void seissol::initializers::MemoryManager::initializeDisplacements()
 {
-  for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+  for (auto layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+    if (layer->getBucketSize(m_lts.displacementsBuffer) == 0) {
+      continue;
+    }
     real** displacements = layer->var(m_lts.displacements);
     real* bucket = static_cast<real*>(layer->bucket(m_lts.displacementsBuffer));
 
@@ -484,8 +567,12 @@ void seissol::initializers::MemoryManager::initializeDisplacements()
     #pragma omp parallel for schedule(static)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
-      if (displacements[cell] != NULL) {
-        displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
+      if (displacements[cell] != nullptr) {
+        // Remove constant part that was added in deriveDisplacementsBucket.
+        // We then have the pointer offset that needs to be added to the bucket.
+        // The final value of this pointer then points to a valid memory address
+        // somewhere in the bucket.
+        displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(nullptr)) - 1);
         for (unsigned dof = 0; dof < tensor::displacement::size(); ++dof) {
           // zero displacements
           displacements[cell][dof] = static_cast<real>(0.0);
@@ -526,10 +613,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
     cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
 
-  if (enableFreeSurfaceIntegration) {
-    deriveDisplacementsBucket();
-  }
-
+  deriveDisplacementsBucket();
 
   m_ltsTree.allocateBuckets();
 
@@ -545,7 +629,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
     initializeFaceNeighbors(tc, cluster.child<Interior>());
   }
 
-  for (LTSTree::leaf_iterator it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
+  for (auto it = m_ltsTree.beginLeaf(); it != m_ltsTree.endLeaf(); ++it) {
     touchBuffersDerivatives(*it);
   }
 
@@ -554,9 +638,7 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFre
   initializeCommunicationStructure();
 #endif
 
-  if (enableFreeSurfaceIntegration) {
-    initializeDisplacements();
-  }
+  initializeDisplacements();
 }
 
 void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,
@@ -566,3 +648,30 @@ void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int        
   o_meshStructure           =  m_meshStructure + i_cluster;
   o_globalData              = &m_globalData;
 }
+
+void seissol::initializers::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
+  const auto fileNameStr = std::string{fileName};
+  if (fileNameStr != "") {
+    std::cout << "initializeEasiBoundaryReader with file: " << fileName << std::endl;
+    m_easiBoundary = EasiBoundary(fileNameStr);
+  }
+}
+
+bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
+  // We define the interface cells as all cells that are in the elastic domain but have a
+  // neighbor with acoustic material.
+  //TODO (LK): implement more general coupling
+#ifndef USE_ANISOTROPIC
+  constexpr auto eps = std::numeric_limits<real>::epsilon();
+  return material.local.mu > eps && material.neighbor[face].mu < eps;
+#else
+  return false;
+#endif
+}
+
+bool seissol::initializers::requiresNodalFlux(FaceType f) {
+  return (f == FaceType::freeSurfaceGravity
+          || f == FaceType::dirichlet
+          || f == FaceType::analytical);
+}
+

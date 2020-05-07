@@ -41,7 +41,13 @@
 #ifndef KERNELS_VOLUMEBASE_H_
 #define KERNELS_VOLUMEBASE_H_
 
-#include <generated_code/kernel.h>
+#include <memory>
+#include "generated_code/kernel.h"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#include "DirichletBoundary.h"
+#pragma GCC diagnostic pop
+#include "Physics/InitialField.h"
 
 namespace seissol {
   namespace kernels {
@@ -53,7 +59,18 @@ class seissol::kernels::LocalBase {
   protected:
     kernel::volume m_volumeKernelPrototype;
     kernel::localFlux m_localFluxKernelPrototype;
-};
+    kernel::localFluxNodal m_nodalLfKrnlPrototype;
 
+    kernel::projectToNodalBoundary m_projectKrnlPrototype;
+    kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
+
+    kernels::DirichletBoundary dirichletBoundary;
+
+    const std::vector<std::unique_ptr<physics::InitialField>> *initConds;
+public:
+    virtual void setInitConds(decltype(initConds) initConds) {
+      this->initConds = initConds;
+    }
+};
 #endif
 

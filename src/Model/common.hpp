@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -40,141 +41,147 @@
 #ifndef MODEL_COMMON_HPP_
 #define MODEL_COMMON_HPP_
 
-#include <cmath>
-#include <Initializer/typedefs.hpp>
-#include <generated_code/init.h>
+#include <Eigen/Eigen>
+
+#include "utils/logger.h"
+#include "Initializer/typedefs.hpp"
+#include "generated_code/init.h"
+#include "Geometry/MeshTools.h"
+#include "Numerical_aux/Transformation.h"
+
+#include "Model/common_datastructures.hpp"
+
 
 namespace seissol {
   namespace model {
-    template<typename T>
-    void getTransposedElasticCoefficientMatrix( ElasticMaterial const&          i_material,
-                                                unsigned                        i_dim,
-                                                T&                              o_M );
+    using Matrix99 = Eigen::Matrix<double, 9, 9>;
 
-    template<typename Tloc, typename Tneigh>
-    void getTransposedElasticGodunovState( Material const&                      local,
-                                           Material const&                      neighbor,
-                                           enum ::faceType                      faceType,
-                                           Tloc&                                QgodLocal,
-                                           Tneigh&                              QgodNeighbor );
+    bool testIfAcoustic(real mu);
+
+    template<typename Tmaterial, typename Tmatrix>
+    void getTransposedCoefficientMatrix( Tmaterial const& i_material,
+                                         unsigned         i_dim,
+                                         Tmatrix&         o_M )
+    { o_M.setZero(); }
+    
+    template<typename Tmaterial, typename T>
+    void getTransposedSourceCoefficientTensor(  Tmaterial const& material,
+                                                T& E);
+
+    template<typename Tmaterial, typename Tloc, typename Tneigh>
+    void getTransposedGodunovState( Tmaterial const&  local,
+                                    Tmaterial const&  neighbor,
+                                    FaceType          faceType,
+                                    Tloc&             QgodLocal,
+                                    Tneigh&           QgodNeighbor );
 
     template<typename T>
-    void applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                    T&              QgodNeighbor );
+    void getTransposedFreeSurfaceGodunovState( bool isAcoustic,
+                                               T& QgodLocal,
+                                               T& QgodNeighbor,
+                                               Eigen::Matrix<double, 9, 9>& R);
+
+    template<typename T>
+    void getPlaneWaveOperator( T const& material,
+                               double const n[3],
+                               std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] );
+
+    template<typename T, typename S>
+    void initializeSpecificLocalData( T const&,
+                                      S* LocalData ) {}
+
+    template<typename T, typename S>
+    void initializeSpecificNeighborData(  T const&,
+                                          S* NeighborData ) {}
+
+    /* 
+     * Calculates the so called Bond matrix. Anisotropic materials are characterized by 
+     * 21 different material parameters. Due to the directional dependence of anisotropic
+     * materials the parameters are not independet of the choice of the coordinate system.
+     * The Bond matrix transforms materials from one orthogonal coordinate system to
+     * another one.
+     * c.f. 10.1111/j.1365-246X.2007.03381.x
+     */
+    void getBondMatrix( VrtxCoords const i_normal,
+                        VrtxCoords const i_tangent1,
+                        VrtxCoords const i_tangent2,
+                        real* o_N );
+
+    void getFaceRotationMatrix( VrtxCoords const i_normal,
+                                VrtxCoords const i_tangent1,
+                                VrtxCoords const i_tangent2,
+                                init::T::view::type& o_T,
+                                init::Tinv::view::type& o_Tinv );
   }
 }
+
+
+
 
 template<typename T>
-void seissol::model::getTransposedElasticCoefficientMatrix( seissol::model::ElasticMaterial const&  i_material,
-                                                            unsigned                                i_dim,
-                                                            T&                                      o_M )
+void seissol::model::getPlaneWaveOperator(  T const& material,
+                                            double const n[3],
+                                            std::complex<double> Mdata[NUMBER_OF_QUANTITIES*NUMBER_OF_QUANTITIES] )
 {
-  o_M.setZero();
+  yateto::DenseTensorView<2,std::complex<double>> M(Mdata, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
+  M.setZero();
 
-  real lambda2mu = i_material.lambda + 2.0 * i_material.mu;
-  real rhoInv = 1.0 / i_material.rho;
+  double data[NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES];
+  yateto::DenseTensorView<2,double> Coeff(data, {NUMBER_OF_QUANTITIES, NUMBER_OF_QUANTITIES});
 
-  switch (i_dim)
-  {
-    case 0:
-      o_M(6,0) = -lambda2mu;
-      o_M(6,1) = -i_material.lambda;
-      o_M(6,2) = -i_material.lambda;
-      o_M(7,3) = -i_material.mu;
-      o_M(8,5) = -i_material.mu;
-      o_M(0,6) = -rhoInv;
-      o_M(3,7) = -rhoInv;
-      o_M(5,8) = -rhoInv;
-      break;
-
-    case 1:
-      o_M(7,0) = -i_material.lambda;
-      o_M(7,1) = -lambda2mu;
-      o_M(7,2) = -i_material.lambda;
-      o_M(6,3) = -i_material.mu;
-      o_M(8,4) = -i_material.mu;
-      o_M(3,6) = -rhoInv;
-      o_M(1,7) = -rhoInv;
-      o_M(4,8) = -rhoInv;
-      break;
-
-    case 2:
-      o_M(8,0) = -i_material.lambda;
-      o_M(8,1) = -i_material.lambda;
-      o_M(8,2) = -lambda2mu;
-      o_M(7,4) = -i_material.mu;
-      o_M(6,5) = -i_material.mu;
-      o_M(5,6) = -rhoInv;
-      o_M(4,7) = -rhoInv;
-      o_M(2,8) = -rhoInv;
-      break;
-      
-    default:
-      break;
-  }
-}
-
-template<typename Tloc, typename Tneigh>
-void seissol::model::getTransposedElasticGodunovState( Material const&                      local,
-                                                       Material const&                      neighbor,
-                                                       enum ::faceType                      faceType,
-                                                       Tloc&                                QgodLocal,
-                                                       Tneigh&                              QgodNeighbor )
-{
-  QgodNeighbor.setZero();
-  
-  real cpL = sqrt((local.lambda + 2.0 * local.mu)       / local.rho);
-  real cpN = sqrt((neighbor.lambda + 2.0 * neighbor.mu) / neighbor.rho);
-  real csL = sqrt(local.mu / local.rho);
-  real csN = sqrt(neighbor.mu / neighbor.rho);
-  
-  real constP = cpN * (local.lambda + 2.0 * local.mu) + cpL * (neighbor.lambda + 2.0 * neighbor.mu);
-  real constS = csN * local.mu + csL * neighbor.mu;
-  
-  QgodNeighbor(0,0) = cpN * (local.lambda + 2.0 * local.mu) / constP;
-  QgodNeighbor(6,0) = (local.lambda + 2.0 * local.mu) * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(0,1) = cpN * local.lambda / constP;
-  QgodNeighbor(6,1) = local.lambda * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(0,2) = QgodNeighbor(0,1);
-  QgodNeighbor(6,2) = QgodNeighbor(6,1);
-  QgodNeighbor(3,3) = csN * local.mu / constS;
-  QgodNeighbor(7,3) = local.mu * neighbor.mu / constS;
-  QgodNeighbor(5,5) = QgodNeighbor(3,3);
-  QgodNeighbor(8,5) = QgodNeighbor(7,3);
-  QgodNeighbor(0,6) = cpL * cpN / constP;
-  QgodNeighbor(6,6) = cpL * (neighbor.lambda + 2.0 * neighbor.mu) / constP;
-  QgodNeighbor(3,7) = csL * csN / constS;
-  QgodNeighbor(7,7) = csL * neighbor.mu / constS;
-  QgodNeighbor(5,8) = QgodNeighbor(3,7);
-  QgodNeighbor(8,8) = QgodNeighbor(7,7);
-
-  // QgodLocal = I - QgodNeighbor
-  for (unsigned i = 0; i < 9; ++i) {
-    for (unsigned j = 0; j < 9; ++j) {
-      QgodLocal(i,j) = -QgodNeighbor(i,j);
-    }
-  }  
-  for (unsigned idx = 0; idx < 9; ++idx) {
-    QgodLocal(idx,idx) += 1.0;
-  }
-  
-  applyBoundaryConditionToElasticFluxSolver(faceType, QgodNeighbor);
-}
-
-template<typename T>
-void seissol::model::applyBoundaryConditionToElasticFluxSolver( enum ::faceType type,
-                                                                T&              QgodNeighbor )
-{
-  if (type == freeSurface) {
-    // Gamma is a diagonal matrix
-    real Gamma[] = { -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 1.0, 1.0 };
-    // Gamma^T * Fneighbor
-    for (unsigned j = 0; j < QgodNeighbor.shape(1); ++j) {
-      for (unsigned i = 0; i < 9; ++i) {
-        QgodNeighbor(i,j) *= Gamma[i];
+  for (unsigned d = 0; d < 3; ++d) {
+    Coeff.setZero();
+    getTransposedCoefficientMatrix(material, d, Coeff);
+    
+    for (unsigned i = 0; i < NUMBER_OF_QUANTITIES; ++i) {
+      for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; ++j) {
+        M(i,j) += n[d] * Coeff(j,i);
       }
     }
   }
 }
 
+template<typename T>
+void seissol::model::getTransposedFreeSurfaceGodunovState( bool      isAcoustic,
+                                                           T&        QgodLocal,
+                                                           T&        QgodNeighbor,
+                                                           Eigen::Matrix<double, 9, 9>& R)
+{
+  for (int i = 0; i < 9; i++) {
+    for (int j = 0; j < 9; j++) {
+      QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
+    }
+  }
+
+  QgodLocal.setZero();
+  if (isAcoustic) {
+    // Acoustic material only has one traction (=pressure) and one velocity comp.
+    // relevant to the Riemann problem
+    QgodLocal(0, 6) = -1 * R(6,0) * 1/R(0,0); // S
+    QgodLocal(6, 6) = 1.0;
+  } else {
+    std::array<int, 3> traction_indices = {0,3,5};
+    std::array<int, 3> velocity_indices = {6,7,8};
+    using Matrix33 = Eigen::Matrix<double, 3, 3>;
+    Matrix33 R11 = R(traction_indices, {0,1,2});
+    Matrix33 R21 = R(velocity_indices, {0,1,2});
+    auto S = - (R21 * R11.inverse()).eval();
+
+    //set lower left block
+    int row = 0;
+    for (auto &t: traction_indices) {
+      int col = 0;
+      for (auto &v: velocity_indices) {
+        QgodLocal(t, v) = S(row, col);
+        col++;
+      }
+      row++;
+    }
+    //set lower right block
+    for (auto &v : velocity_indices) {
+      QgodLocal(v, v) = 1.0;
+    }
+  }
+}
+  
 #endif
