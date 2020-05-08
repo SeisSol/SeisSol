@@ -268,7 +268,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 endif()
 
 # Generated code does only work without red-zone.
-if (HAS_READZONE)
+if (HAS_REDZONE)
   set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
 endif()
 

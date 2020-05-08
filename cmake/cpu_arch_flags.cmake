@@ -4,12 +4,10 @@ function(get_arch_flags architecture compiler)
     # Westmere cpu architecture
     if ("${ARCH}" STREQUAL "wsm")
         set(CPU_ARCH_FLAGS "-msse3" PARENT_SCOPE)
-	set(HAS_REDZONE ON PARENT_SCOPE)
     
     # Sandy Bridge cpu architecture
     elseif ("${ARCH}" STREQUAL "snb")
         set(CPU_ARCH_FLAGS "-mavx" PARENT_SCOPE)
-	set(HAS_REDZONE ON PARENT_SCOPE)
     
     # Haswell cpu architecture
     elseif ("${ARCH}" STREQUAL "hsw")
@@ -18,12 +16,10 @@ function(get_arch_flags architecture compiler)
         elseif(compiler STREQUAL "GNU")
             set(CPU_ARCH_FLAGS "-mavx2" "-mfma" PARENT_SCOPE)
         endif()
-	set(HAS_REDZONE ON PARENT_SCOPE)
 
     # Knights Corner (Xeon Phi)
     elseif ("${ARCH}" STREQUAL "knc")
         set(CPU_ARCH_FLAGS "-mmic" "-fma" PARENT_SCOPE)
-	set(HAS_REDZONE ON PARENT_SCOPE)
     
     # Knight Landing (Xeon Phi)
     elseif ("${ARCH}" STREQUAL "knl")
@@ -32,7 +28,6 @@ function(get_arch_flags architecture compiler)
         elseif(compiler STREQUAL "GNU")
             set(CPU_ARCH_FLAGS "-mavx512f" "-mavx512cd" "-mavx512pf" "-mavx512er" "-mfma" PARENT_SCOPE)
         endif()
-	set(HAS_REDZONE ON PARENT_SCOPE)
     
     # Skylake cpu architecture
     elseif ("${ARCH}" STREQUAL "skx")
@@ -41,9 +36,9 @@ function(get_arch_flags architecture compiler)
         elseif(compiler STREQUAL "GNU")
             set(CPU_ARCH_FLAGS "-march=skylake-avx512" PARENT_SCOPE)
         endif()
-	set(HAS_REDZONE ON PARENT_SCOPE)
 
     elseif ("${ARCH}" STREQUAL "thunderx2t99")
+        set(HAS_REDZONE OFF PARENT_SCOPE)
         if (compiler STREQUAL "Intel")
 
         elseif(compiler STREQUAL "GNU")
