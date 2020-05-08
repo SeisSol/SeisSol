@@ -140,8 +140,8 @@ target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
 
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(ImpalaJIT REQUIRED impalajit)
-target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LINK_LIBRARIES})
+pkg_check_modules(ImpalaJIT REQUIRED IMPORTED_TARGET impalajit)
+target_link_libraries(SeisSol-lib PUBLIC PkgConfig::ImpalaJIT)
 target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
 
 # In the future, we should maybe use find_package(Eigen3).
@@ -250,7 +250,7 @@ endif()
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib PUBLIC -fopenmp -Wall -Wextra -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wno-unused-parameter -Wno-unknown-pragmas>)
-  target_link_options(SeisSol-lib PUBLIC -fopenmp)
+  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp")
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -265,12 +265,12 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fopenmp=libomp")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "CRAY")
-  # TODO: Cray
 endif()
 
 # Generated code does only work without red-zone.
-set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+if (HAS_REDZONE)
+  set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+endif()
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
