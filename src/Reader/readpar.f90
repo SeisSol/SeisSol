@@ -320,10 +320,10 @@ CONTAINS
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
-#if defined(USE_POROELASTIC)      
+#if defined(USE_POROELASTIC)
       EQN%Poroelasticity = 1
       EQN%nVar = 13
-      EQN%nVarTotal = 13 
+      EQN%nVarTotal = 13
       EQN%nBackgroundVar = 10
 #else
       EQN%nVarTotal = EQN%nVar
@@ -400,7 +400,7 @@ CONTAINS
 #if NUMBER_OF_RELAXATION_MECHANISMS != 0
     IF ((EQN%FreqCentral.EQ.0.0) .OR. (EQN%FreqRatio.EQ.0.0)) THEN
         logError(*) 'FreqCentral or FreqRatio not defined'
-        call exit(134) 
+        call exit(134)
     ENDIF
 #endif
     !
@@ -1753,7 +1753,7 @@ CONTAINS
 
        CASE DEFAULT
           logError(*)  'The format type of the Finite Source Rupture Model is unknown! '
-          call exit(134)                                                                                   
+          call exit(134)
 
        END SELECT
 
@@ -1840,12 +1840,12 @@ CONTAINS
        IF( index(char_dummy, 'velocity').gt.0 ) THEN                     ! Check for (solid) velocity component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%SolidVelocityComponent      ! Read (solid) velocity component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
-       ENDIF 
+       ENDIF
        SOURCE%RP%PressureComponent(:) = 0.
        IF( index(char_dummy, 'pressure').gt.0 ) THEN                     ! Check for pressure component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%PressureComponent           ! Read pressure component
            READ(IO%UNIT%other01,'(a15)') char_dummy                      ! Read comment
-       ENDIF 
+       ENDIF
        SOURCE%RP%FluidVelocityComponent(:) = 0.
        IF( index(char_dummy, 'fluid').gt.0 ) THEN                        ! Check for fluid component (optional)
            READ(IO%UNIT%other01,*) SOURCE%RP%FluidVelocityComponent      ! Read fluid component
@@ -1892,7 +1892,7 @@ CONTAINS
        !
     CASE DEFAULT                                                                                   !
        logError(*)  'The sourctype specified (', SOURCE%Type, ') is unknown! '                  !
-       call exit(134)                                                                                       
+       call exit(134)
     END SELECT                                                                                     !
 
                                                                                                    !
@@ -2599,6 +2599,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, &
                                           OutputRegionBounds(1:6), SurfaceOutputInterval, &
                                           ReceiverOutputInterval
+      INTEGER :: OutputGroups(100) ! Larger buffer than necessary (probably)
+
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       !> The checkpoint back-end is specified via a string.
       !!
@@ -2616,7 +2618,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, &
                                                 FaultOutputFlag, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask, &
+                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
                                                 ReceiverOutputInterval, nRecordPoints
     !------------------------------------------------------------------------
@@ -2637,6 +2639,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       energy_output_on = 0
       pickdt_energy = 1.0
       OutputRegionBounds(:) = 0.0
+      outputGroups(:) = -1
       RFileName = ''
       nRecordPoints = -1
       pickDtType = 1
@@ -2772,7 +2775,9 @@ ALLOCATE( SpacePositionx(nDirac), &
           ENDIF
       END IF
 
-      ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
+    IO%OutputGroups = pack(OutputGroups, OutputGroups >= 0)
+
+	  ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
       IF (allocStat .NE. 0) THEN                                             !
         logError(*) 'could not allocate IO%IntegrationMask in readpar!'      !
         call exit(134)                                                                 !

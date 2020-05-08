@@ -1091,6 +1091,7 @@ MODULE TypesDef
                                                                                 !< .FALSE. = do not integrate and output for this variable
      REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
                                                                                 !< Format is xMin, xMax, yMin, yMax, zMin, zMax
+     INTEGER, ALLOCATABLE :: OutputGroups(:) !< Stores an array of group ids that should be included in output. All others are excluded.
      LOGICAL                      ,POINTER  :: RotationMask(:)                  !< Mask for rotational output
      INTEGER                      ,POINTER  :: ScalList(:) !<List of Scalar Vars
      INTEGER                      ,POINTER  :: VectList(:) !<List of Vector Vars
