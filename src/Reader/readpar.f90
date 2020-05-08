@@ -2586,6 +2586,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, &
                                           OutputRegionBounds(1:6), SurfaceOutputInterval, &
                                           ReceiverOutputInterval
+      INTEGER :: OutputGroups(100) ! Larger buffer than necessary (probably)
+
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       !> The checkpoint back-end is specified via a string.
       !!
@@ -2603,7 +2605,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask, &
+                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, OutputGroups, IntegrationMask, &
                                                 SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval, xdmfWriterBackend, &
                                                 ReceiverOutputInterval
     !------------------------------------------------------------------------
@@ -2625,6 +2627,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       energy_output_on = 0
       pickdt_energy = 1.0
       OutputRegionBounds(:) = 0.0
+      outputGroups(:) = -1
 !      RFileName = 'RecordPoints'
       pickDtType = 1
       PGMFlag = 0
@@ -2752,6 +2755,8 @@ ALLOCATE( SpacePositionx(nDirac), &
               STOP
           ENDIF
       END IF
+
+        IO%OutputGroups = pack(OutputGroups, OutputGroups >= 0)
 
 	  ALLOCATE(IO%IntegrationMask(9),STAT=allocstat )                        !
       IF (allocStat .NE. 0) THEN                                             !

@@ -167,6 +167,8 @@ CONTAINS
         i_refinement= io%Refinement,         &
         i_outputMask= outputMaskInt,         &
         i_outputRegionBounds = io%OutputRegionBounds, &
+        i_outputGroups = io%OutputGroups, &
+        i_outputGroupsSize = size(io%OutputGroups), &
         freeSurfaceInterval = io%SurfaceOutputInterval, &
         freeSurfaceFilename = trim(io%OutputFile) // c_null_char, &
         xdmfWriterBackend = trim(io%xdmfWriterBackend) // c_null_char, &

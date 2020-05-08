@@ -228,10 +228,12 @@ extern "C" {
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
 		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
+		  int* outputGroups, int outputGroupsSize,
 		  double freeSurfaceInterval, const char* freeSurfaceFilename, char const* xdmfWriterBackend,
       double receiverSamplingInterval, double receiverSyncInterval) {
+      auto outputGroupBounds = std::unordered_set<int>(outputGroups, outputGroups + outputGroupsSize);
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
+			numSides, numBndGP, refinement, outputMask, outputRegionBounds, outputGroupBounds,
 			freeSurfaceInterval, freeSurfaceFilename, xdmfWriterBackend,
       receiverSamplingInterval, receiverSyncInterval);
   }
@@ -779,7 +781,7 @@ void seissol::Interoperability::initializeIO(
 		double* mu, double* slipRate1, double* slipRate2,
 		double* slip, double* slip1, double* slip2, double* state, double* strength,
 		int numSides, int numBndGP, int refinement, int* outputMask,
-		double* outputRegionBounds,
+		double* outputRegionBounds, const std::unordered_set<int>& outputGroups,
 		double freeSurfaceInterval, const char* freeSurfaceFilename,
     char const* xdmfWriterBackend,
     double receiverSamplingInterval, double receiverSyncInterval)
@@ -810,8 +812,11 @@ void seissol::Interoperability::initializeIO(
 			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
 			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
 			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			refinement, outputMask, outputRegionBounds,
-      type);
+			refinement,
+			outputMask,
+			outputRegionBounds,
+			outputGroups,
+			type);
 
 	// Initialize free surface output
 	seissol::SeisSol::main.freeSurfaceWriter().init(

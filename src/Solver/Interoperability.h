@@ -45,6 +45,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <glm/vec3.hpp>
 #include <Initializer/typedefs.hpp>
@@ -302,6 +303,7 @@ class seissol::Interoperability {
 			double* slip, double* slip1, double* slip2, double* state, double* strength,
 			int numSides, int numBndGP, int refinement, int* outputMask,
 			double* outputRegionBounds,
+			const std::unordered_set<int>& outputGroups,
 			double freeSurfaceInterval, const char* freeSurfaceFilename,
       char const* xdmfWriterBackend,
       double receiverSamplingInterval, double receiverSyncInterval);

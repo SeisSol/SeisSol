@@ -47,6 +47,7 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include <unordered_set>
 
 #include "utils/logger.h"
 
@@ -202,11 +203,12 @@ public:
 	 * @param timeTolerance The tolerance in the time for ignoring duplicate time steps
 	 */
 	void init(unsigned int numVars, int order, int numAlignedDOF,
-			const MeshReader &meshReader,
-			const double* dofs,  const double* pstrain, const double* integrals,
-			unsigned int* map,
-			int refinement, int* outputMask, double* outputRegionBounds,
-      xdmfwriter::BackendType backend);
+              const MeshReader &meshReader,
+              const double* dofs, const double* pstrain, const double* integrals,
+              unsigned int* map,
+              int refinement, int* outputMask, const double* outputRegionBounds,
+              const std::unordered_set<int>& outputGroups,
+              xdmfwriter::BackendType backend);
 
 	/**
 	 * Write a time step
