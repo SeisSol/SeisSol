@@ -308,6 +308,12 @@ if (TESTING)
     target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   endif()
 
+  configure_file(
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
+          ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf 
+          COPYONLY
+  )
+
   CXXTEST_ADD_TEST_MPI(
           test_serial_test_suite
           1
@@ -316,6 +322,7 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h
   )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
