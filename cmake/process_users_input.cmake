@@ -33,7 +33,7 @@ set_property(CACHE ARCH PROPERTY STRINGS ${ARCH_OPTIONS})
 
 
 set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/single")
-set(PRECISION_OPTIONS single float)
+set(PRECISION_OPTIONS single double)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
 
 
