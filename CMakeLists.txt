@@ -134,15 +134,32 @@ target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
 #    flags.extend(['-ip'])
 
 # Libs
-find_package(yaml-cpp REQUIRED)
-target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
-target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
+include(ExternalProject)
+ExternalProject_Add(yaml-cpp-build
+  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
+  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
+  CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+  -DYAML_CPP_BUILD_TOOLS=OFF
+  -DYAML_CPP_BUILD_TESTS=OFF
+)
+add_dependencies(SeisSol-lib yaml-cpp-build)
+target_link_libraries(SeisSol-lib PUBLIC yaml-cpp)
+target_link_directories(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/yaml-cpp/")
+target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 
-find_package(PkgConfig REQUIRED)
-
-pkg_check_modules(ImpalaJIT REQUIRED IMPORTED_TARGET impalajit)
-target_link_libraries(SeisSol-lib PUBLIC PkgConfig::ImpalaJIT)
-target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
+ExternalProject_Add(ImpalaJIT-build
+  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
+  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
+  CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+)
+add_dependencies(SeisSol-lib ImpalaJIT-build)
+target_link_libraries(SeisSol-lib PUBLIC impalajit)
+target_link_directories(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/ImpalaJIT/")
+target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
