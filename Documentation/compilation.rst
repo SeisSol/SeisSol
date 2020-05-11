@@ -134,26 +134,6 @@ including all submodules:
    git clone https://github.com/SeisSol/SeisSol.git
    git submodule update --init
 
-First, you need to compile SeisSol's submodules:
-
-.. code-block:: bash
-
-   # Impala
-   cd submodules/ImpalaJIT
-   mkdir build && cd build
-   CC=mpiicc CXX=mpiicpc FC=mpiifort cmake -DCMAKE_INSTALL_PREFIX=$HOME -- ..
-   make -j12 install
-
-   # yaml-cpp
-   cd ../../yaml-cpp
-   mkdir build && cd build
-   CC=mpiicc CXX=mpiicpc FC=mpiifort cmake -DCMAKE_INSTALL_PREFIX=$HOME -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_TESTS=OFF -- ..
-   make -j12 install
-
-   # go back to SeisSol root
-   cd ../..
-
-
 Compile SeisSol with (e.g.)
 
 .. code-block:: bash
