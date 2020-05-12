@@ -212,6 +212,7 @@ if (METIS)
   target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
+find_package(PkgConfig REQUIRED) 
 if (ASAGI)
   # todo warn if netcdf is off
   pkg_check_modules(ASAGI REQUIRED asagi) # asagi_nompi?
