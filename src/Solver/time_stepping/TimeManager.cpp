@@ -94,10 +94,19 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     const unsigned int l_globalClusterId = m_timeStepping.clusterIds[l_cluster];
     // chop of at synchronization time
     const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
-    const auto timeStepRate =  static_cast<int>(m_timeStepping.globalTimeStepRates[l_globalClusterId]);
+    //const auto maximumRate = m_timeStepping.globalTimeStepRates[0];
+    const auto maximumRate = std::pow(2, m_timeStepping.numberOfGlobalClusters-1);
+    //const auto curRate = m_timeStepping.globalTimeStepRates[l_globalClusterId];
+    const auto curRate = std::pow(2, l_globalClusterId);
+    const auto timeStepRate =
+            curRate;//static_cast<int>(std::round(maximumRate/curRate));
+    const auto minDt = m_timeStepping.globalCflTimeStepWidths[0];
+    const auto maxDt = m_timeStepping.globalCflTimeStepWidths[m_timeStepping.numberOfGlobalClusters-1];
+    const auto curDtFactor = maxDt/m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
         // add this time cluster
     const auto layerTypes = {Copy, Interior};
     for (auto type : layerTypes) {
+        // TODO(Lukas) With new timerate def resetBuffers is wrong!
       clusters.push_back(new TimeCluster(
           l_cluster,
           m_timeStepping.clusterIds[l_cluster],
@@ -147,11 +156,16 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
         return neighbor[1] == otherGlobalClusterId;
       });
       if (hasNeighborRegions) {
+          assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
+          assert(otherGlobalClusterId < std::min(globalClusterId +2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
         const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
+        const auto otherTimeStepRate = std::pow(2, otherGlobalClusterId);
+
+        // TODO(Lukas) Should also pass own timeStepRate for checking whether to send etc
         ghostClusters.push_back(
           std::make_unique<GhostTimeCluster>(
               otherTimeStepSize,
-              timeStepRate,
+              otherTimeStepRate,
               getTimeTolerance(),
               globalClusterId,
               otherGlobalClusterId,
@@ -350,18 +364,17 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   std::cout << seissol::MPI::mpi.rank() << " new sync time = " << synchronizationTime << std::endl;
 
   for (auto* cluster : clusters) {
-    cluster->reset();
     cluster->updateSyncTime(synchronizationTime);
+    cluster->reset();
   }
   // TODO(Lukas) Remove.
   seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 
   for (auto& ghostCluster : ghostClusters) {
     // TODO(Lukas) Not sure about cancel + reset
-    ghostCluster->cancelPendingMessages();
-    ghostCluster->reset();
-
+    //ghostCluster->cancelPendingMessages();
     ghostCluster->updateSyncTime(synchronizationTime);
+    ghostCluster->reset();
   }
   seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 

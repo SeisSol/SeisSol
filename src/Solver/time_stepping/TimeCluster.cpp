@@ -980,6 +980,15 @@ void TimeCluster::predict() {
         // ct.correctionTime > neighbor.ct.correctionTime
         ct.correctionTime - neighbor.ct.correctionTime > timeTolerance) {
       resetBuffers = false;
+      /*
+      std::cout
+      << "Resetting predict buffers, our rate > their rate = "
+      << int{ct.timeStepRate > neighbor.ct.timeStepRate}
+      << " timeStepFractions = " << rateDiff
+      << " our steps / rateFractions" << ct.stepsSinceLastSync / rateDiff
+      << " their steps = " << neighbor.ct.stepsSinceLastSync
+      << std::endl;
+       */
       break;
     }
   }

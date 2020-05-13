@@ -2,6 +2,7 @@
 #define SEISSOL_ACTORSTATE_H
 
 #include <cassert>
+#include <cmath>
 #include <queue>
 #include <variant>
 #include <omp.h>
@@ -15,9 +16,11 @@ namespace seissol::time_stepping {
 
 struct AdvancedPredictionTimeMessage {
   double time;
+  long stepsSinceSync;
 };
 struct AdvancedCorrectionTimeMessage {
   double time;
+  long stepsSinceSync;
 };
 
 using Message = std::variant<AdvancedPredictionTimeMessage, AdvancedCorrectionTimeMessage>;
@@ -35,6 +38,7 @@ inline std::ostream& operator<<(std::ostream& stream, const Message& message) {
       static_assert(always_false<T>::value, "non-exhaustive visitor");
     }
   }, message);
+  return stream;
 }
 
 
@@ -105,6 +109,11 @@ struct ClusterTimes {
   double predictionTime = 0.0;
   double correctionTime = 0.0;
   double maxTimeStepSize = std::numeric_limits<double>::infinity();
+  long stepsUntilSync = 0;
+  long stepsSinceLastSync = 0;
+  long predictionsSinceLastSync = 0;
+  int timeStepRate = -1;
+
 
   [[nodiscard]] double nextCorrectionTime(double syncTime) const {
     return std::min(syncTime, correctionTime + maxTimeStepSize);
@@ -115,6 +124,13 @@ struct ClusterTimes {
     assert(correctionTime < syncTime);
     return std::min(syncTime - correctionTime, maxTimeStepSize);
   }
+
+  [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
+          double newSyncTime) const {
+      const double timeDiff = newSyncTime-oldSyncTime;
+      return static_cast<int>(std::ceil(timeDiff/maxTimeStepSize)) * timeStepRate;
+  }
+
 };
 
 struct NeighborCluster {
@@ -122,9 +138,14 @@ struct NeighborCluster {
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
 
-  explicit NeighborCluster(double maxTimeStepSize) {
+  explicit NeighborCluster(double maxTimeStepSize, int timeStepRate) {
     ct.maxTimeStepSize = maxTimeStepSize;
+    ct.timeStepRate = timeStepRate;
   }
+
+  //long timeStepFactor = 1;
+  //bool isFasterCluster = false;
+
 
 
 };
