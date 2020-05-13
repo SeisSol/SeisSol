@@ -21,21 +21,21 @@ public:
     seissol::sourceterm::NRF nrf;
     seissol::sourceterm::readNRF("Testing/source_loh.nrf", nrf);
 
-    TS_ASSERT_DELTA(nrf.centres[0].x,    0.0, eps);
-    TS_ASSERT_DELTA(nrf.centres[0].y,    0.0, eps);
-    TS_ASSERT_DELTA(nrf.centres[0].z, 2000.0, eps);
+    TS_ASSERT_DELTA(nrf.centres[0](0),    0.0, eps);
+    TS_ASSERT_DELTA(nrf.centres[0](1),    0.0, eps);
+    TS_ASSERT_DELTA(nrf.centres[0](2), 2000.0, eps);
 
-    TS_ASSERT_DELTA(nrf.subfaults[0].tan1.x, 0.0, eps); 
-    TS_ASSERT_DELTA(nrf.subfaults[0].tan1.y, 1.0, eps); 
-    TS_ASSERT_DELTA(nrf.subfaults[0].tan1.z, 0.0, eps); 
+    TS_ASSERT_DELTA(nrf.subfaults[0].tan1(0), 0.0, eps); 
+    TS_ASSERT_DELTA(nrf.subfaults[0].tan1(1), 1.0, eps); 
+    TS_ASSERT_DELTA(nrf.subfaults[0].tan1(2), 0.0, eps); 
 
-    TS_ASSERT_DELTA(nrf.subfaults[0].tan2.x, 0.0, eps); 
-    TS_ASSERT_DELTA(nrf.subfaults[0].tan2.y, 0.0, eps); 
-    TS_ASSERT_DELTA(nrf.subfaults[0].tan2.z, 1.0, eps); 
+    TS_ASSERT_DELTA(nrf.subfaults[0].tan2(0), 0.0, eps); 
+    TS_ASSERT_DELTA(nrf.subfaults[0].tan2(1), 0.0, eps); 
+    TS_ASSERT_DELTA(nrf.subfaults[0].tan2(2), 1.0, eps); 
 
-    TS_ASSERT_DELTA(nrf.subfaults[0].normal.x, 1.0, eps); 
-    TS_ASSERT_DELTA(nrf.subfaults[0].normal.y, 0.0, eps); 
-    TS_ASSERT_DELTA(nrf.subfaults[0].normal.z, 0.0, eps);
+    TS_ASSERT_DELTA(nrf.subfaults[0].normal(0), 1.0, eps); 
+    TS_ASSERT_DELTA(nrf.subfaults[0].normal(1), 0.0, eps); 
+    TS_ASSERT_DELTA(nrf.subfaults[0].normal(2), 0.0, eps);
 
     TS_ASSERT_DELTA(nrf.subfaults[0].area, 3.0866008336686616479e+07, eps);
     TS_ASSERT_DELTA(nrf.subfaults[0].tinit, 0.0, eps);
