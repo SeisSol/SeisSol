@@ -63,6 +63,7 @@ Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference( double c
        v2[0]-v0[0], v2[1]-v0[1], v2[2]-v0[2], 0.0,
        v3[0]-v0[0], v3[1]-v0[1], v3[2]-v0[2], 0.0,
        v0[0], v0[1], v0[2], 1.0;
+  A = A.transpose().eval();
 
   Eigen::Vector4d rhs(xyz[0], xyz[1], xyz[2], 1.0);
   Eigen::Vector4d sol = A.partialPivLu().solve(rhs);

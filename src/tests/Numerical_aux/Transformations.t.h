@@ -1,6 +1,5 @@
 #include <cxxtest/TestSuite.h>
 #include <Eigen/Dense>
-#include <glm/vec3.hpp>
 
 #include <Numerical_aux/Transformation.h>
 
@@ -29,19 +28,15 @@ public:
 	{
 
           auto center = 0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3]);
-          glm::dvec3 xyz;
-          xyz.x = center[0];
-          xyz.y = center[1];
-          xyz.z = center[2];
 
           auto res = seissol::transformations::tetrahedronGlobalToReference(  
               vertices[0].data(),
               vertices[1].data(),
               vertices[2].data(),
               vertices[3].data(),
-              xyz );
-          TS_ASSERT_DELTA(res.x, 0.25, epsilon);
-          TS_ASSERT_DELTA(res.y, 0.25, epsilon);
-          TS_ASSERT_DELTA(res.z, 0.25, epsilon);
+              center );
+          TS_ASSERT_DELTA(res(0), 0.25, epsilon*10);
+          TS_ASSERT_DELTA(res(1), 0.25, epsilon*10);
+          TS_ASSERT_DELTA(res(2), 0.25, epsilon*10);
         }
 };
