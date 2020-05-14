@@ -308,6 +308,16 @@ if (TESTING)
     target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
     target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   endif()
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/mesh.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
+    COPYONLY
+    )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/material.yaml
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
+    COPYONLY
+    )
 
   configure_file(
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
@@ -328,6 +338,7 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
   )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
