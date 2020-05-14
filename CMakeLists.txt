@@ -317,6 +317,7 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
   )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)

@@ -10,18 +10,18 @@
 
 namespace seissol {
   namespace unit_test {
-    class RefinerTestSuite;
+    class MeshRefinerTestSuite;
   }
 }
 
-class seissol::unit_test::RefinerTestSuite : public CxxTest::TestSuite
+class seissol::unit_test::MeshRefinerTestSuite : public CxxTest::TestSuite
 {
   public:
     //We do all tests in double precision
-    const real epsilon = std::numeric_limits<double>::epsilon();
+    const double epsilon = std::numeric_limits<double>::epsilon();
     std::array<Eigen::Vector3d, 4> vertices;
     
-    RefinerTestSuite() {
+    MeshRefinerTestSuite() {
       std::srand(0);
       vertices = {{
         Eigen::Vector3d((double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX, (double)std::rand()/RAND_MAX),
