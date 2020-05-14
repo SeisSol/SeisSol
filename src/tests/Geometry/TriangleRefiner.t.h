@@ -48,8 +48,7 @@ class seissol::unit_test::TriangleRefinerTestSuite : public CxxTest::TestSuite
         {Eigen::Vector2d( 0.25,0.125), Eigen::Vector2d(0.375,0.125), Eigen::Vector2d( 0.25, 0.25)},
         {Eigen::Vector2d(0.375,0.125), Eigen::Vector2d( 0.25,0.125), Eigen::Vector2d(0.375,    0)},
         {Eigen::Vector2d(    0, 0.25), Eigen::Vector2d(0.125, 0.25), Eigen::Vector2d(    0,0.375)},
-        {Eigen::Vector2d(0.125, 0.25), Eigen::Vector2d( 0.25, 0.25), Eigen::Vector2d(0.125,0.375)},
-        {Eigen::Vector2d(    0,0.375), Eigen::Vector2d(0.125,0.375), Eigen::Vector2d(    0,  0.5)},
+        {Eigen::Vector2d(0.125, 0.25), Eigen::Vector2d( 0.25, 0.25), Eigen::Vector2d(0.125,0.375)}, {Eigen::Vector2d(    0,0.375), Eigen::Vector2d(0.125,0.375), Eigen::Vector2d(    0,  0.5)},
         {Eigen::Vector2d(0.125,0.375), Eigen::Vector2d(    0,0.375), Eigen::Vector2d(0.125, 0.25)},
         {Eigen::Vector2d( 0.25, 0.25), Eigen::Vector2d(0.125, 0.25), Eigen::Vector2d( 0.25,0.125)},
         {Eigen::Vector2d(0.125, 0.25), Eigen::Vector2d(    0, 0.25), Eigen::Vector2d(0.125,0.125)},
@@ -118,8 +117,8 @@ class seissol::unit_test::TriangleRefinerTestSuite : public CxxTest::TestSuite
         std::array<Eigen::Vector2d, 3>& b, double area) {
       TS_ASSERT_DELTA(a.area, area, epsilon);
       for (int i = 0; i < 3; i++) {
-        TS_ASSERT_DELTA(a.x[i].x, b[i][0], epsilon);
-        TS_ASSERT_DELTA(a.x[i].y, b[i][1], epsilon);
+        TS_ASSERT_DELTA(a.x[i][0], b[i][0], epsilon);
+        TS_ASSERT_DELTA(a.x[i][1], b[i][1], epsilon);
       }
     }
 
