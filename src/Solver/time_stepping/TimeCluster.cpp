@@ -445,9 +445,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     // If we cannot overwrite the buffer, we compute everything in a temporary
     // local buffer and accumulate the results later in the shared buffer.
     const bool buffersProvided = (data.cellInformation.ltsSetup >> 8) % 2 == 1; // buffers are provided
-    resetBuffers = buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
+    const bool resetMyBuffers = buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
 
-    if (resetBuffers) {
+    if (resetMyBuffers) {
       // assert presence of the buffer
       assert(buffers[l_cell] != nullptr);
 
@@ -486,7 +486,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
     // TODO: Integrate this step into the kernel
     // We've used a temporary buffer -> need to accumulate update in
     // shared buffer.
-    if (!resetBuffers && buffersProvided) {
+    if (!resetMyBuffers && buffersProvided) {
       assert(buffers[l_cell] != nullptr);
 
       for (unsigned int l_dof = 0; l_dof < tensor::I::size(); ++l_dof) {
