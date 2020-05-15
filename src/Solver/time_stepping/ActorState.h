@@ -128,7 +128,7 @@ struct ClusterTimes {
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
           double newSyncTime) const {
       const double timeDiff = newSyncTime-oldSyncTime;
-      return static_cast<int>(std::ceil(timeDiff/maxTimeStepSize)) * timeStepRate;
+      return static_cast<int>(std::ceil(timeStepRate*timeDiff/maxTimeStepSize));
   }
 
 };

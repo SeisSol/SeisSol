@@ -33,7 +33,7 @@ bool AbstractTimeCluster::act() {
           const bool sendMessageTime = ct.predictionTime >= (neighbor.ct.nextCorrectionTime(syncTime) - timeTolerance);
           // TODO(Lukas) Does this handle sync points correctly?
           // Maybe check also how many steps neighbor has to sync!
-          const bool justBeforeSync = (ct.stepsUntilSync - ct.predictionsSinceLastSync) == 0;
+          const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
                   || ct.predictionsSinceLastSync >= (neighbor.ct.stepsSinceLastSync + neighbor.ct.timeStepRate);
           std::cerr << "AdvancedPredictionTimeMessage: justBeforeSync = " << justBeforeSync
@@ -65,7 +65,7 @@ bool AbstractTimeCluster::act() {
       ct.stepsSinceLastSync += ct.timeStepRate;
       for (auto &neighbor : neighbors) {
           const bool sendMessageTime = ct.correctionTime >= neighbor.ct.predictionTime - timeTolerance;
-          const bool justBeforeSync = (ct.stepsUntilSync - ct.predictionsSinceLastSync) == 0;
+          const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
                   || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
           std::cerr << "AdvancedCorrectionTimeMessage: justBeforeSync = " << justBeforeSync
@@ -178,7 +178,7 @@ bool AbstractTimeCluster::mayCorrect() {
       //const double rateDiff = (1.0*neighbor.ct.timeStepRate) / ct.timeStepRate;
       //const int ourPredictions = static_cast<int>(std::round(
               //rateDiff * ct.predictionsSinceLastSync));
-      const bool isSynced = (neighbor.ct.stepsUntilSync - neighbor.ct.predictionsSinceLastSync) == 0;
+      const bool isSynced = neighbor.ct.stepsUntilSync <= neighbor.ct.predictionsSinceLastSync;
       stepBasedCorrect = stepBasedCorrect
               && (isSynced || (ct.predictionsSinceLastSync <= neighbor.ct.predictionsSinceLastSync));
       //std::cout << stepBasedCorrect << std::endl;
@@ -217,7 +217,7 @@ bool AbstractTimeCluster::mayCorrect() {
 
 bool AbstractTimeCluster::maySync() {
     const bool timeBasedSync = ct.correctionTime + timeTolerance >= syncTime;
-    const bool stepBasedSync = (ct.stepsUntilSync - ct.stepsSinceLastSync) == 0;
+    const bool stepBasedSync = ct.stepsUntilSync <= ct.stepsSinceLastSync;
     assert(timeBasedSync == stepBasedSync);
     return stepBasedSync && processMessages();
 }
