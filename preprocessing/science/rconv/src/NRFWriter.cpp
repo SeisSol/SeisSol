@@ -99,7 +99,7 @@ void writeNRF(char const* filename, std::vector<SRFPointSource> const& sources, 
 #ifdef noproj
     centre.x = source.longitude;
     centre.y = source.latitude;
-    centre.x = source.depth;
+    centre.z = source.depth;
 #else
     map.map(source.longitude, source.latitude, source.depth, &centre.x, &centre.y, &centre.z);
 #endif

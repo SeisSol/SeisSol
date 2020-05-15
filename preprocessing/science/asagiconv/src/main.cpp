@@ -100,7 +100,7 @@ static void* runInput(void* p)
 	inputData_t* i = reinterpret_cast<inputData_t*>(p);
 
 	// Project from mesh to sample code
-	unsigned long totalArea = i->gridDist(0) * i->gridSize(1);
+	unsigned long totalArea = i->gridSize(0) * i->gridSize(1);
 	double* projX = new double[totalArea];
 	double* projY = new double[totalArea];
 
