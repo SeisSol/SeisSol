@@ -114,6 +114,7 @@ public:
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
 
+    void start() override {}
     void predict() override;
     void correct() override;
 

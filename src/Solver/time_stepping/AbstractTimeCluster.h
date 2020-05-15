@@ -26,6 +26,7 @@ public:
   virtual bool mayPredict();
   virtual bool mayCorrect();
   virtual bool maySync();
+  virtual void start() = 0;
   virtual void predict() = 0;
   virtual void correct() = 0;
   virtual bool processMessages();

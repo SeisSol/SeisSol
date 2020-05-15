@@ -114,6 +114,11 @@ bool GhostTimeCluster::act() {
   return AbstractTimeCluster::act();
 }
 
+void GhostTimeCluster::start() {
+  assert(("Pending recv in start", testForGhostLayerReceives()));
+  receiveGhostLayer();
+}
+
 void GhostTimeCluster::predict() {
     // Doesn't do anything
 }
@@ -140,9 +145,12 @@ void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster
   std::cout << globalClusterId << "," << otherGlobalClusterId << ":GhostTimeCluster: handled AdvancedCorrectionTime Message at t = "
               << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
   assert(testForGhostLayerReceives());
-  //if(numberOfTimeSteps % timeStepRate == 0) {
-  if (std::abs(neighborCluster.ct.correctionTime - syncTime) < timeTolerance) {
-    assert(false);
+
+  auto upcomingCorrectionTime = ct.correctionTime;
+  if (state == ActorState::Predicted) {
+      upcomingCorrectionTime = ct.nextCorrectionTime(syncTime);
+  }
+  if (std::abs(upcomingCorrectionTime - syncTime) < timeTolerance) {
     std::cout << "GhostTimeCluster: ignore AdvancedCorrectionTime Message at t = "
     << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
     return;
@@ -190,7 +198,6 @@ GhostTimeCluster::GhostTimeCluster(double maxTimeStepSize,
       otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure) {
   //reset();
-  receiveGhostLayer();
 }
 void GhostTimeCluster::reset() {
   std::cout << "Begin reset ghost " << globalClusterId << "\n"

@@ -91,6 +91,7 @@ bool AbstractTimeCluster::act() {
   }
   case ActorState::Synced:
     if (ct.correctionTime + timeTolerance < syncTime) {
+      start();
       state = ActorState::Corrected;
     } else {
       yield = true;
@@ -151,12 +152,11 @@ bool AbstractTimeCluster::mayPredict() {
     for (const auto& neighbor : neighbors) {
         const auto neighStepsAfterUpdate = std::min(
                 neighbor.ct.stepsSinceLastSync + neighbor.ct.timeStepRate,
-                neighbor.ct.stepsUntilSync
+                ct.stepsUntilSync
                 );
-        const bool curStepBasedPredict = (ct.stepsSinceLastSync < neighStepsAfterUpdate);
+        const bool curStepBasedPredict = (ct.predictionsSinceLastSync < neighStepsAfterUpdate);
         stepBasedPredict = stepBasedPredict && curStepBasedPredict;
     }
-
     assert(timeBasedPredict == stepBasedPredict);
 
     return stepBasedPredict;
@@ -219,7 +219,7 @@ bool AbstractTimeCluster::maySync() {
     const bool timeBasedSync = ct.correctionTime + timeTolerance >= syncTime;
     const bool stepBasedSync = (ct.stepsUntilSync - ct.stepsSinceLastSync) == 0;
     assert(timeBasedSync == stepBasedSync);
-    return stepBasedSync;
+    return stepBasedSync && processMessages();
 }
 
 void AbstractTimeCluster::connect(AbstractTimeCluster &other) {

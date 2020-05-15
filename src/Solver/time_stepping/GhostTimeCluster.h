@@ -30,6 +30,7 @@ class GhostTimeCluster : public AbstractTimeCluster {
   );
   bool act() override;
 
+  void start() override;
   void predict() override;
   void correct() override;
   bool mayPredict() override;
