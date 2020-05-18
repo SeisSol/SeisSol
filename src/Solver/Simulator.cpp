@@ -102,9 +102,6 @@ void seissol::Simulator::simulate() {
   m_checkPointTime = m_currentTime;
   Modules::setSimulationStartTime(m_currentTime);
 
-  // start the communication thread (if applicable)
-  seissol::SeisSol::main.timeManager().startCommunicationThread();
-
   // derive next synchronization time
   double upcomingTime = m_finalTime;
   // NOTE: This will not call the module specific implementation of the synchronization hook
@@ -141,9 +138,6 @@ void seissol::Simulator::simulate() {
   }
   
   Modules::callSyncHook(m_currentTime, l_timeTolerance, true);
-
-  // stop the communication thread (if applicable)
-  seissol::SeisSol::main.timeManager().stopCommunicationThread();
 
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";

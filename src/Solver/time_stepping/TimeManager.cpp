@@ -170,31 +170,6 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
   }
 }
 
-void seissol::time_stepping::TimeManager::startCommunicationThread() {
-  /*
-#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-  g_executeCommThread = true;
-  g_handleRecvs = (volatile unsigned int* volatile) malloc(sizeof(unsigned int) * m_timeStepping.numberOfLocalClusters);
-  g_handleSends = (volatile unsigned int* volatile) malloc(sizeof(unsigned int) * m_timeStepping.numberOfLocalClusters);
-  for ( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
-    g_handleRecvs[l_cluster] = 0;
-    g_handleSends[l_cluster] = 0;
-  }
-  pthread_create(&g_commThread, NULL, seissol::time_stepping::TimeManager::static_pollForCommunication, this);
-#endif
-   */
-}
-
-void seissol::time_stepping::TimeManager::stopCommunicationThread() {
-  /*
-#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-  g_executeCommThread = false;
-  pthread_join(g_commThread, NULL);
-  free((void*)g_handleRecvs);
-  free((void*)g_handleSends);
-#endif
-   */
-}
 
 
 void seissol::time_stepping::TimeManager::advanceInTime(const double &synchronizationTime) {

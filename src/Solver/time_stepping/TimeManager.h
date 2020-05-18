@@ -150,18 +150,6 @@ class seissol::time_stepping::TimeManager {
                       initializers::MemoryManager&       i_memoryManager );
 
     /**
-     * Starts the communication thread.
-     * Remark: This method has no effect when not compiled for communication thread support.
-     **/
-    void startCommunicationThread();
-
-    /**
-     * Stops the communication thread.
-     * Remark: This method has no effect when not compiled for communication thread support.
-     **/
-    void stopCommunicationThread();
-
-    /**
      * Advance in time until all clusters reach the next synchronization time.
      **/
     void advanceInTime( const double &synchronizationTime );
