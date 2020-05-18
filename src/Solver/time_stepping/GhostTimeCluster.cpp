@@ -4,9 +4,12 @@
 namespace seissol::time_stepping {
 void GhostTimeCluster::sendCopyLayer(){
   SCOREP_USER_REGION( "sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
+  /*
+
   std::cout << globalClusterId << "," << otherGlobalClusterId << ": sendCopyLayer, predTime = " << ct.predictionTime
   << ", corTime = " << ct.correctionTime << ", lastSendTime = " << lastSendTime
   << std::endl;
+   */
     //if (ct.correctionTime <= lastSendTime) return;
     assert(ct.correctionTime > lastSendTime);
   //if (ct.correctionTime <= lastSendTime) {
@@ -14,6 +17,7 @@ void GhostTimeCluster::sendCopyLayer(){
   //};
   lastSendTime = ct.correctionTime;
 
+  /*
   // Check how we compare to old sendLts flag
   auto shouldSend1Mod = (numberOfTimeSteps + 1) % timeStepRate;
   auto shouldSend2 = std::abs(syncTime - ct.correctionTime + timeStepSize());
@@ -22,9 +26,11 @@ void GhostTimeCluster::sendCopyLayer(){
   if (shouldSend1Mod != 0 && shouldSend2 > timeTolerance) {
       std::cout << "\nWarning: should not send here!\n" << std::endl;
   }
+   */
 
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
+        /*
       std::cout
       << "rank =" << seissol::MPI::mpi.rank()
       << " cluster =" << globalClusterId
@@ -32,6 +38,7 @@ void GhostTimeCluster::sendCopyLayer(){
       << " sending copy layer for tag " <<  timeData + meshStructure->sendIdentifiers[region]
       <<" to rank=" << meshStructure->neighboringClusters[region][0]
       << std::endl;
+         */
 
      MPI_Isend(meshStructure->copyRegions[region],
                 static_cast<int>(meshStructure->copyRegionSizes[region]),
@@ -48,12 +55,15 @@ void GhostTimeCluster::sendCopyLayer(){
 } void GhostTimeCluster::receiveGhostLayer(){
   SCOREP_USER_REGION( "receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
   assert(ct.predictionTime > lastSendTime);
+  /*
 std::cout << globalClusterId << "," << otherGlobalClusterId << ": receiveGhostLayer, predTime = " << ct.predictionTime
             << ", corTime = " << ct.correctionTime << ", lastReceiveTime = " << lastReceiveTime
             << std::endl;
+            */
   lastReceiveTime = ct.predictionTime;
   for (unsigned int region = 0; region < meshStructure->numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId) ) {
+        /*
       std::cout
           << "rank =" << seissol::MPI::mpi.rank()
           << " cluster =" << globalClusterId
@@ -61,6 +71,7 @@ std::cout << globalClusterId << "," << otherGlobalClusterId << ": receiveGhostLa
           << " recv copy layer for tag " <<  timeData + meshStructure->receiveIdentifiers[region]
           <<" from rank=" << meshStructure->neighboringClusters[region][0]
           << std::endl;
+          */
       MPI_Irecv(meshStructure->ghostRegions[region],
                 static_cast<int>(meshStructure->ghostRegionSizes[region]),
                 MPI_C_REAL,
@@ -82,7 +93,7 @@ bool GhostTimeCluster::testForGhostLayerReceives(){
     int testSuccess = 0;
     MPI_Test(*receive, &testSuccess, MPI_STATUS_IGNORE);
     if (testSuccess) {
-      std::cout << globalClusterId << ":test for receive succ" << std::endl;
+      //std::cout << globalClusterId << ":test for receive succ" << std::endl;
       receive = receiveQueue.erase(receive);
     } else {
       ++receive;
@@ -98,7 +109,7 @@ bool GhostTimeCluster::testForCopyLayerSends(){
     int testSuccess = 0;
     MPI_Test(*send, &testSuccess, MPI_STATUS_IGNORE);
     if (testSuccess) {
-        std::cout << globalClusterId << ":test for send succ" << std::endl;
+        //std::cout << globalClusterId << ":test for send succ" << std::endl;
         send = sendQueue.erase(send);
     } else {
       ++send;
@@ -115,7 +126,7 @@ bool GhostTimeCluster::act() {
 }
 
 void GhostTimeCluster::start() {
-  assert(("Pending recv in start", testForGhostLayerReceives()));
+  assert(testForGhostLayerReceives());
   receiveGhostLayer();
 }
 
@@ -142,8 +153,10 @@ void GhostTimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster
   sendCopyLayer();
 }
 void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) {
+    /*
   std::cout << globalClusterId << "," << otherGlobalClusterId << ":GhostTimeCluster: handled AdvancedCorrectionTime Message at t = "
               << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
+              */
   assert(testForGhostLayerReceives());
 
   auto upcomingCorrectionTime = ct.correctionTime;
@@ -153,6 +166,7 @@ void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster
   if (std::abs(upcomingCorrectionTime - syncTime) < timeTolerance) {
     std::cout << "GhostTimeCluster: ignore AdvancedCorrectionTime Message at t = "
     << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
+      //assert(false);
     return;
   } else {
 
@@ -200,8 +214,10 @@ GhostTimeCluster::GhostTimeCluster(double maxTimeStepSize,
   //reset();
 }
 void GhostTimeCluster::reset() {
+    /*
   std::cout << "Begin reset ghost " << globalClusterId << "\n"
   << "---------------------------" << std::endl;
+     */
   AbstractTimeCluster::reset();
   //assert(testForGhostLayerReceives());
   //if (testForGhostLayerReceives()) {
@@ -209,8 +225,10 @@ void GhostTimeCluster::reset() {
   //}
   lastSendTime = -1;
   lastReceiveTime = -1;
+  /*
   std::cout << "End reset ghost\n"
             << "---------------------------" << std::endl;
+*/
 
 }
 

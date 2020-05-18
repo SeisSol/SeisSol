@@ -36,6 +36,7 @@ bool AbstractTimeCluster::act() {
           const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
                   || ct.predictionsSinceLastSync >= (neighbor.ct.stepsSinceLastSync + neighbor.ct.timeStepRate);
+          /*
           std::cerr << "AdvancedPredictionTimeMessage: justBeforeSync = " << justBeforeSync
           << " our preds = " << ct.predictionsSinceLastSync
           << " their preds = " << neighbor.ct.stepsSinceLastSync
@@ -43,6 +44,7 @@ bool AbstractTimeCluster::act() {
           << " our pred time = " << ct.predictionTime
           << " their next corr time = " << neighbor.ct.nextCorrectionTime(syncTime)
           << std::endl;
+           */
           assert(sendMessageSteps == sendMessageTime);
         if (sendMessageTime) {
           AdvancedPredictionTimeMessage message{};
@@ -68,6 +70,7 @@ bool AbstractTimeCluster::act() {
           const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
                   || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
+          /*
           std::cerr << "AdvancedCorrectionTimeMessage: justBeforeSync = " << justBeforeSync
                     << " our corrs = " << ct.stepsUntilSync
                     << " their preds = " << neighbor.ct.predictionsSinceLastSync
@@ -75,6 +78,7 @@ bool AbstractTimeCluster::act() {
                     << " their time = " << neighbor.ct.correctionTime
                     << " their new preds = " << neighbor.ct.stepsSinceLastSync + neighbor.ct.timeStepRate
                     << std::endl;
+                    */
           assert(sendMessageTime == sendMessageSteps);
         if (sendMessageTime) {
           AdvancedCorrectionTimeMessage message{};
@@ -124,11 +128,13 @@ bool AbstractTimeCluster::act() {
           //neighbor.ct.stepsSinceLastSync += neighbor.ct.timeStepRate;
           neighbor.ct.stepsSinceLastSync = msg.stepsSinceSync;
           handleAdvancedCorrectionTimeMessage(neighbor);
+          /*
           std::cout << "Neighbor corrected, rate = " << neighbor.ct.timeStepRate
           <<  " our rate " << ct.timeStepRate
           << " neighbor steps since sync " << neighbor.ct.stepsSinceLastSync
           << " out steps since sync " << ct.stepsSinceLastSync
           << std::endl;
+           */
         } else {
           static_assert(always_false<T>::value, "non-exhaustive visitor!");
         }

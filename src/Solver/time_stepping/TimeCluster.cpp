@@ -976,35 +976,25 @@ void TimeCluster::predict() {
   assert(state == ActorState::Corrected);
   bool resetBuffers = true;
   for (auto& neighbor : neighbors) {
-    if (neighbor.ct.maxTimeStepSize > ct.maxTimeStepSize &&
-        // ct.correctionTime > neighbor.ct.correctionTime
-        ct.correctionTime - neighbor.ct.correctionTime > timeTolerance) {
-      resetBuffers = false;
-      /*
-      std::cout
-      << "Resetting predict buffers, our rate > their rate = "
-      << int{ct.timeStepRate > neighbor.ct.timeStepRate}
-      << " timeStepFractions = " << rateDiff
-      << " our steps / rateFractions" << ct.stepsSinceLastSync / rateDiff
-      << " their steps = " << neighbor.ct.stepsSinceLastSync
-      << std::endl;
-       */
-      break;
-    }
+      if (neighbor.ct.timeStepRate > ct.timeStepRate
+          && ct.stepsSinceLastSync > neighbor.ct.stepsSinceLastSync) {
+          resetBuffers = false;
+        }
   }
   /*
   if( clusters[l_cluster]->m_numberOfFullUpdates % m_timeStepping.globalTimeStepRates[l_globalClusterId] == 0 ) {
    */
-  resetBuffers = resetBuffersOld; // TODO(Lukas) :(
-  assert(resetBuffers == resetBuffersOld);
+  //resetBuffers = resetBuffersOld; // TODO(Lukas) :(
+  //assert(resetBuffers == resetBuffersOld);
+  if (ct.stepsSinceLastSync == 0) resetBuffers = true;
   if (numberOfTimeSteps == 0) {
     assert(resetBuffers);
   }
 
-  writeReceivers(); // TODO(Lukas) Is this correct?
+  //writeReceivers(); // TODO(Lukas) Is this correct?
   computeLocalIntegration(*m_clusterData, resetBuffers);
-  computeSources();
-  std::cout << m_globalClusterId << ": Predicted to t=" << ct.correctionTime + timeStepSize() << std::endl;
+  //computeSources();
+  //std::cout << m_globalClusterId << ": Predicted to t=" << ct.correctionTime + timeStepSize() << std::endl;
 }
 void TimeCluster::correct() {
   assert(state == ActorState::Predicted);
@@ -1013,7 +1003,7 @@ void TimeCluster::correct() {
   // Note, the following is likely wrong
   // TODO(Lukas) Check scheduling if this is correct
   if (m_dynamicRuptureFaces > 0) {
-    computeDynamicRupture(*m_dynRupClusterData);
+    //computeDynamicRupture(*m_dynRupClusterData);
   }
   computeNeighboringIntegration(*m_clusterData, subTimeStart);
 
@@ -1022,6 +1012,6 @@ void TimeCluster::correct() {
   if (m_clusterId == 0) {
     //e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
   }
-  std::cout << m_globalClusterId << ": Corrected to t=" << ct.correctionTime + timeStepSize() << std::endl;
+  //std::cout << m_globalClusterId << ": Corrected to t=" << ct.correctionTime + timeStepSize() << std::endl;
 }
 }
