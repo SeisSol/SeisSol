@@ -160,10 +160,18 @@ void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster
   assert(testForGhostLayerReceives());
 
   auto upcomingCorrectionTime = ct.correctionTime;
+  auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
   if (state == ActorState::Predicted) {
       upcomingCorrectionTime = ct.nextCorrectionTime(syncTime);
+      upcomingCorrectionSteps = std::min(
+              ct.stepsUntilSync + ct.timeStepRate,
+              ct.stepsUntilSync
+              );
   }
-  if (std::abs(upcomingCorrectionTime - syncTime) < timeTolerance) {
+  const bool ignoreTime = std::abs(upcomingCorrectionTime - syncTime) < timeTolerance;
+  const bool ignoreSteps = upcomingCorrectionSteps >= ct.stepsUntilSync;
+  assert(ignoreTime == ignoreSteps);
+  if (ignoreTime) {
     std::cout << "GhostTimeCluster: ignore AdvancedCorrectionTime Message at t = "
     << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
       //assert(false);
@@ -174,33 +182,6 @@ void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster
   receiveGhostLayer();
 }
 
-void GhostTimeCluster::cancelPendingMessages() {
-    return;
-  auto cancelRequest = [](MPI_Request*& request) {
-    MPI_Cancel(request);
-    // Note: It is neccessary to wait for cancellation and MPI_Cancel is non-blocking.
-    // see: https://www.mpi-forum.org/docs/mpi-3.1/mpi31-report/node72.htm
-    MPI_Wait(request, MPI_STATUS_IGNORE);
-  };
-  assert(sendQueue.empty());
-  assert(receiveQueue.empty());
-  std::cout << "Begin cancelling messages" << std::endl;
-  // TODO(Lukas) Should we cancel sends as well? Can be quite expensive.
-  // See: https://www.mpich.org/static/docs/latest/www3/MPI_Cancel.html
-  std::cout << "Cancelling sends, n=" << sendQueue.size() << std::endl;
-  std::for_each(sendQueue.begin(), sendQueue.end(), cancelRequest);
-  sendQueue.clear();
-  std::cout << "Cancelling receives, n=" << receiveQueue.size() << std::endl;
-  std::for_each(receiveQueue.begin(), receiveQueue.end(), cancelRequest);
-  receiveQueue.clear();
-  std::cout << "Cancelled all messages" << std::endl;
-
-
-}
-bool GhostTimeCluster::hasPendingMessages() {
-  // & instead of && on purpose
-  return !testForGhostLayerReceives() & !testForCopyLayerSends();
-}
 GhostTimeCluster::GhostTimeCluster(double maxTimeStepSize,
                                    int timeStepRate,
                                    double timeTolerance,
@@ -211,7 +192,6 @@ GhostTimeCluster::GhostTimeCluster(double maxTimeStepSize,
       globalClusterId(globalTimeClusterId),
       otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure) {
-  //reset();
 }
 void GhostTimeCluster::reset() {
     /*
@@ -219,10 +199,7 @@ void GhostTimeCluster::reset() {
   << "---------------------------" << std::endl;
      */
   AbstractTimeCluster::reset();
-  //assert(testForGhostLayerReceives());
-  //if (testForGhostLayerReceives()) {
-    //receiveGhostLayer();
-  //}
+  assert(testForGhostLayerReceives());
   lastSendTime = -1;
   lastReceiveTime = -1;
   /*

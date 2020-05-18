@@ -106,26 +106,14 @@ namespace seissol {
  **/
 class seissol::time_stepping::TimeCluster : public seissol::time_stepping::AbstractTimeCluster
 {
-public:
-    bool resetBuffersOld = false;
-    //! cluster id on this rank
-    const unsigned int m_clusterId;
+private:
+    double lastSubTime;
 
-    //! global cluster cluster id
-    const unsigned int m_globalClusterId;
-
+    void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
+    void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
     void start() override {}
     void predict() override;
     void correct() override;
-
-
-private:
-    double lastSubTime = 0.0;
-    void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
-    void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
-
-public:
-private:
 
     /*
      * integrators
@@ -148,15 +136,8 @@ private:
     struct GlobalData *m_globalData;
 
     /*
-     * element data and mpi queues
+     * element data
      */     
-#ifdef USE_MPI
-    //! pending copy region sends
-    std::list< MPI_Request* > m_sendQueue;
-
-    //! pending ghost region receives
-    std::list< MPI_Request* > m_receiveQueue;
-#endif    
     seissol::initializers::Layer* m_clusterData;
     seissol::initializers::Layer* m_dynRupClusterData;
     seissol::initializers::LTS*         m_lts;
@@ -173,7 +154,7 @@ private:
 
     //! true if dynamic rupture faces are present
     bool m_dynamicRuptureFaces;
-    
+
     enum ComputePart {
       LocalInterior = 0,
       NeighborInterior,
@@ -189,7 +170,7 @@ private:
       PlasticityYield,
       NUM_COMPUTE_PARTS
     };
-    
+
     long long m_flops_nonZero[NUM_COMPUTE_PARTS];
     long long m_flops_hardware[NUM_COMPUTE_PARTS];
     
@@ -206,45 +187,6 @@ private:
     unsigned        m_regionComputeDynamicRupture;
 
     kernels::ReceiverCluster* m_receiverCluster;
-
-#ifdef USE_MPI
-    /**
-     * Receives the copy layer data from relevant neighboring MPI clusters.
-     **/
-    void receiveGhostLayer();
-
-    /**
-     * Sends the associated regions of the copy layer to relevant neighboring MPI clusters
-     **/
-    void sendCopyLayer();
-
-#if defined(_OPENMP) && defined(USE_COMM_THREAD)
-    /**
-     * Inits Receives the copy layer data from relevant neighboring MPI clusters, active when using communication thread
-     **/
-    void initReceiveGhostLayer();
-
-    /**
-     * Inits Sends the associated regions of the copy layer to relevant neighboring MPI clusters, active when using communication thread
-     **/
-    void initSendCopyLayer();
-
-    /**
-     * Waits until the initialization of the communication is finished.
-     **/
-    void waitForInits();
-#endif
-
-    /**
-     * Tests for pending ghost layer communication.
-     **/
-    bool testForGhostLayerReceives();
-
-    /**
-     * Tests for pending copy layer communication.
-     **/
-    bool testForCopyLayerSends();
-#endif
 
     /**
      * Writes the receiver output if applicable (receivers present, receivers have to be written).
@@ -319,50 +261,7 @@ private:
       m_relaxTime = (m_tv > 0.0) ? 1.0 - exp(-timeStepSize() / m_tv) : 1.0;
     }
 
-  public:
-    //! flags identifiying if the respective part is allowed to be updated
-    /*struct {
-      bool localCopy;
-      bool neighboringCopy;
-      bool localInterior;
-      bool neighboringInterior;
-    } m_updatable;*/
-
-#ifdef USE_MPI
-    //! send true LTS buffers
-    //volatile bool m_sendLtsBuffers;
-#endif
-
-    /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
-     * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time refers to the derivation of the surrounding time derivatives, which
-     * coincides with the last completed time step of the next cluster. The start/end of the time step is the start/end of this clusters time step relative to the zero point.
-     *   Example:
-     *   <verb>
-     *                                              5 dt
-     *   |-----------------------------------------------------------------------------------------| <<< Time stepping of the next cluster (Cn) (5x larger than the current).
-     *   |                 |                 |                 |                 |                 |
-     *   |*****************|*****************|+++++++++++++++++|                 |                 | <<< Status of the current cluster.
-     *   |                 |                 |                 |                 |                 |
-     *   |-----------------|-----------------|-----------------|-----------------|-----------------| <<< Time stepping of the current cluster (Cc).
-     *   0                 dt               2dt               3dt               4dt               5dt
-     *   </verb>
-     *
-     *   In the example above two clusters are illustrated: Cc and Cn. Cc is the current cluster under consideration and Cn the next cluster with respect to LTS terminology.
-     *   Cn is currently at time 0 and provided Cc with derivatives valid until 5dt. Cc updated already twice and did its last full update to reach 2dt (== subTimeStart). Next
-     *   computeNeighboringCopy is called to accomplish the next full update to reach 3dt (+++). Besides working on the buffers of own buffers and those of previous clusters,
-     *   Cc needs to evaluate the time prediction of Cn in the interval [2dt, 3dt].
-     */
-    //double m_subTimeStart;
-
-    //! number of full updates the cluster has performed since the last synchronization
-    //unsigned int m_numberOfFullUpdates;
-
-    //! simulation time of the last full update (this is a complete volume and boundary integration)
-    //double m_fullUpdateTime;
-
-    //! final time of the prediction (derivatives and time integrated DOFs).
-    //double m_predictionTime;
-
+public:
     //! time of the next receiver output
     double m_receiverTime;
 
@@ -430,67 +329,12 @@ private:
       updateRelaxTime();
     }
 
-#ifdef USE_MPI
-    /**
-     * Computes cell local integration of all cells in the copy layer and initiates the corresponding communication.
-     * LTS buffers (updated more than once in general) are reset to zero up on request; GTS-Buffers are reset independently of the request.
-     *
-     * Cell local integration is:
-     *  * time integration
-     *  * volume integration
-     *  * local boundary integration
-     *
-     * @return true if the update (incl. communication requests), false if the update failed due to unfinshed sends of copy data to MPI neighbors.
-     **/
-    bool computeLocalCopy();
-#endif
+    //! cluster id on this rank
+    const unsigned int m_clusterId;
 
-    /**
-     * Computes cell local integration of all cells in the interior.
-     * LTS buffers (updated more than once in general) are reset to zero up on request; GTS-Buffers are reset independently of the request.
-     *
-     * Cell local integration is:
-     *  * time integration
-     *  * volume integration
-     *  * local boundary integration
-     **/
-    void computeLocalInterior();
+    //! global cluster cluster id
+    const unsigned int m_globalClusterId;
 
-#ifdef USE_MPI
-    /**
-     * Computes the neighboring contribution to the boundary integral for all cells in the copy layer.
-     *
-     * @return true if the update (incl. communication requests), false if the update failed due to missing data from neighboring ranks.
-     **/
-    bool computeNeighboringCopy();
-#endif
-
-    /**
-     * Computes the neighboring contribution to the boundary integral for all cells in the interior.
-     **/
-    void computeNeighboringInterior();
-
-#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-    /**
-     * Tests for pending ghost layer communication, active when using communication thread 
-     **/
-    void pollForGhostLayerReceives();
-
-    /**
-     * Polls for pending copy layer communication, active when using communication thread 
-     **/
-    void pollForCopyLayerSends();
-
-    /**
-     * Start Receives the copy layer data from relevant neighboring MPI clusters, active when using communication thread
-     **/
-    void startReceiveGhostLayer();
-
-    /**
-     * start Sends the associated regions of the copy layer to relevant neighboring MPI clusters, active when using communication thread
-     **/
-    void startSendCopyLayer();
-#endif
 };
 
 #endif

@@ -161,14 +161,6 @@ class seissol::time_stepping::TimeManager {
      **/
     void stopCommunicationThread();
 
-
-    /*
-     * Cancels all pending sends/recv after computation is done.
-     * TODO(Lukas) Is this needed?
-     * TODO(Lukas) Should we cancel only recv or also sends?
-     **/
-    void cancelPendingMessages();
-
     /**
      * Advance in time until all clusters reach the next synchronization time.
      **/

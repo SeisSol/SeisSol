@@ -38,9 +38,7 @@ class GhostTimeCluster : public AbstractTimeCluster {
   bool maySync() override;
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
-  void cancelPendingMessages();
   void reset() override;
-  [[nodiscard]] bool hasPendingMessages();
 
   double lastSendTime = -1.0;
   double lastReceiveTime = -1.0;

@@ -13,7 +13,6 @@
 
 namespace seissol::time_stepping {
 
-
 struct AdvancedPredictionTimeMessage {
   double time;
   long stepsSinceSync;
@@ -52,7 +51,7 @@ class MessageQueue {
     omp_init_lock(&lock);
   }
   ~MessageQueue() {
-    //omp_destroy_lock(&lock);
+    omp_destroy_lock(&lock);
   }
 
   void push(Message const& message) {
@@ -69,41 +68,20 @@ class MessageQueue {
     return message;
   }
 
-  bool hasMessages() {
+  [[nodiscard]] bool hasMessages() const {
     return !queue.empty();
   }
 
-  size_t size() {
+  [[nodiscard]] size_t size() const {
       return queue.size();
-  }
-
-  void clear() {
-    omp_set_lock(&lock);
-    while(!queue.empty()) {
-      std::visit([](auto&& msg) {
-        using T = std::decay_t<decltype(msg)>;
-        if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
-          assert(("Should never cancel AdvancedPredictionTime Message!", false)) ;
-        } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
-          // nop
-        } else {
-          static_assert(always_false<T>::value, "non-exhaustive visitor");
-        }
-      }, queue.front());
-      std::cout << "Cancelled " << queue.front() << std::endl;
-      queue.pop();
-    }
-    //queue = {};
-    omp_unset_lock(&lock);
   }
 };
 
   enum class ActorState {
-    Corrected,
-    Predicted,
-    Synced
-  };
-
+      Corrected,
+      Predicted,
+      Synced
+};
 
 struct ClusterTimes {
   double predictionTime = 0.0;
@@ -113,7 +91,6 @@ struct ClusterTimes {
   long stepsSinceLastSync = 0;
   long predictionsSinceLastSync = 0;
   int timeStepRate = -1;
-
 
   [[nodiscard]] double nextCorrectionTime(double syncTime) const {
     return std::min(syncTime, correctionTime + maxTimeStepSize);
@@ -142,11 +119,6 @@ struct NeighborCluster {
     ct.maxTimeStepSize = maxTimeStepSize;
     ct.timeStepRate = timeStepRate;
   }
-
-  //long timeStepFactor = 1;
-  //bool isFasterCluster = false;
-
-
 
 };
 

@@ -248,25 +248,12 @@ bool AbstractTimeCluster::synced() const {
 }
 void AbstractTimeCluster::reset() {
   assert(state == ActorState::Synced);
+
+  // There can be handing messages from before the sync point
   processMessages();
-    for (auto& neighbor : neighbors) {
-        assert(!neighbor.inbox->hasMessages());
-    }
-  /*
   for (auto& neighbor : neighbors) {
-    // TODO(Lukas) Think this through!
-    neighbor.inbox->clear();
-    neighbor.outbox->clear();
-    neighbor.ct.predictionTime = ct.predictionTime;
-    neighbor.ct.correctionTime = ct.correctionTime;
+    assert(!neighbor.inbox->hasMessages());
   }
-   */
-
-  // TODO(Lukas): Don't -> just to try out scheduling
-  // If this works, create numberOfTimeStepsSinceSyn
-
-  // Always use our time, as messages from neighbors may have to be processed.
-  numberOfTimeSteps = 0;
   ct.stepsSinceLastSync = 0;
   ct.predictionsSinceLastSync = 0;
   ct.stepsUntilSync = ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);

@@ -161,14 +161,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
     // TODO(Lukas) Print hs, fortran: MESH%MaxSQRTVolume, MESH%MaxCircle
 
 #ifdef USE_MPI
-    // TODO(Lukas) Fix underlying issue,
-    // Problem: Old messages flying around with same tag as analysis
-    // Solution: New communicator...
-    const auto& oldComm = mpi.comm();
-    MPI_Comm comm{};
-    MPI_Comm_dup(oldComm, &comm);
-
-    //const auto& comm = mpi.comm();
+    const auto& comm = mpi.comm();
 
     // Reduce error over all MPI ranks.
     auto errL1MPI = ErrorArray_t{0.0};

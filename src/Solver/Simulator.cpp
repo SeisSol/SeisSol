@@ -145,11 +145,6 @@ void seissol::Simulator::simulate() {
   // stop the communication thread (if applicable)
   seissol::SeisSol::main.timeManager().stopCommunicationThread();
 
-  // stop pending MPI requests from ghost clusters
-  // this can happen sometimes and can lead to confusing errors
-  // TODO(Lukas) Should this happen?
-  seissol::SeisSol::main.timeManager().cancelPendingMessages();
-
   double wallTime = stopwatch.split();
   logInfo(seissol::MPI::mpi.rank()) << "Elapsed time (via clock_gettime):" << wallTime << "seconds.";
 
