@@ -265,6 +265,9 @@ public:
     //! time of the next receiver output
     double m_receiverTime;
 
+    //! print status every 100th timestep
+    bool printProgress;
+
     /**
      * Constructs a new LTS cluster.
      *
@@ -285,6 +288,7 @@ public:
                 double maxTimeStepSize,
                 int timeStepRate,
                 double timeTolerance,
+                bool printProgress,
                 struct GlobalData *i_globalData,
                 seissol::initializers::Layer *i_clusterData,
                 seissol::initializers::Layer *i_dynRupClusterData,

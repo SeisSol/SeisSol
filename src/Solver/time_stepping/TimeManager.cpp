@@ -97,13 +97,14 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     const auto timeStepRate = std::pow(2, l_globalClusterId);
     const auto layerTypes = {Copy, Interior};
     for (auto type : layerTypes) {
-        // TODO(Lukas) With new timerate def resetBuffers is wrong!
+      const bool printProgress = (timeStepRate == 1) && (type == Copy);
       clusters.push_back(new TimeCluster(
           l_cluster,
           m_timeStepping.clusterIds[l_cluster],
           timeStepSize,
           timeStepRate,
           getTimeTolerance(),
+          printProgress,
           l_globalData,
           &i_memoryManager.getLtsTree()->child(l_cluster).child(type),
           &i_memoryManager.getDynamicRuptureTree()->child(l_cluster).child(type),

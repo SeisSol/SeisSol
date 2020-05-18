@@ -100,6 +100,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
                                                  double maxTimeStepSize,
                                                  int timeStepRate,
                                                  double timeTolerance,
+                                                 bool printProgress,
                                                  struct GlobalData *i_globalData,
                                                  seissol::initializers::Layer *i_clusterData,
                                                  seissol::initializers::Layer *i_dynRupClusterData,
@@ -122,7 +123,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
     m_pointSources(nullptr),
 
     m_loopStatistics(i_loopStatistics),
-    m_receiverCluster(nullptr)
+    m_receiverCluster(nullptr),
+    printProgress(printProgress)
 {
     assert( m_globalData                               != nullptr);
     assert( m_clusterData                              != nullptr);
@@ -600,5 +602,15 @@ void TimeCluster::correct() {
   if (m_clusterId == 0) {
     //e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
   }
+  const auto nextCorrectionSteps = ct.nextCorrectionSteps();
+  if constexpr (USE_MPI) {
+    if (printProgress && ((nextCorrectionSteps % 100) == 0)) {
+      const int rank = MPI::mpi.rank();
+      logInfo(rank) << "#max-updates since sync: " << nextCorrectionSteps
+                    << " @ " << ct.nextCorrectionTime(syncTime);
+
+      }
+  }
+
 }
 }

@@ -96,6 +96,10 @@ struct ClusterTimes {
     return std::min(syncTime, correctionTime + maxTimeStepSize);
   }
 
+  [[nodiscard]] long nextCorrectionSteps() const {
+     return std::min(stepsSinceLastSync + timeStepRate, stepsUntilSync);
+  }
+
   //! Returns time step s.t. we won't miss the sync point
   [[nodiscard]] double timeStepSize(double syncTime) const {
     assert(correctionTime < syncTime);
