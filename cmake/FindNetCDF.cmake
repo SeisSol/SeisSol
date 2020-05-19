@@ -53,11 +53,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 find_path(NetCDF_INCLUDE_DIR
   NAMES netcdf.h
+  HINTS $ENV{NETCDF_DIR}/include
   DOC "netcdf include directories")
 mark_as_advanced(NetCDF_INCLUDE_DIR)
 
 find_library(NetCDF_LIBRARY
   NAMES netcdf
+  HINTS $ENV{NETCDF_DIR}/lib
   DOC "netcdf library")
 mark_as_advanced(NetCDF_LIBRARY)
 
@@ -75,11 +77,6 @@ if (NetCDF_INCLUDE_DIR)
   unset(_netcdf_version_note)
   unset(_netcdf_version_lines)
 endif ()
-
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(NetCDF
-  REQUIRED_VARS NetCDF_LIBRARY NetCDF_INCLUDE_DIR
-  VERSION_VAR NetCDF_VERSION)
 
 if (NetCDF_FOUND)
   set(NetCDF_INCLUDE_DIRS "${NetCDF_INCLUDE_DIR}")
@@ -128,3 +125,10 @@ else()
     endif ()
   endif ()
 endif ()
+
+
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(NetCDF
+  REQUIRED_VARS NetCDF_LIBRARY NetCDF_INCLUDE_DIR
+  VERSION_VAR NetCDF_VERSION)
+
