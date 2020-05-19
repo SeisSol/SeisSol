@@ -1,6 +1,8 @@
+#include <array>
+
 namespace seissol {
   namespace unit_test {
-    double slipRates[] = {
+    std::array<double,80> slipRates = {
       0.0,
       1.996003997334666e+00,
       3.984031957375965e+00,

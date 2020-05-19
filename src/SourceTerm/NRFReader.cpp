@@ -126,7 +126,8 @@ void seissol::sourceterm::readNRF(char const* filename, NRF& nrf)
   check_err(stat,__LINE__,__FILE__);
 
   /* allocate memory */
-  assert(sizeof(Eigen::Vector3d) == 3*sizeof(double));
+  static_assert(sizeof(Eigen::Vector3d) == 3*sizeof(double), 
+      "sizeof(Eigen::Vector3d) does not equal 3*sizeof(double).");
   nrf.centres = new Eigen::Vector3d[nrf.source];
   nrf.sroffsets = new Offsets[nrf.source + 1];
   nrf.subfaults = new Subfault[nrf.source];

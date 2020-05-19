@@ -25,28 +25,5 @@ namespace seissol
         m_elements.at(0).vertices[3] = 3;
 
       }
-//
-//	std::vector<Element> m_elements;
-//
-//	std::vector<Vertex> m_vertices;
-//
-//	/** Convert global element index to local */
-//	std::map<int, int> m_g2lElements;
-//
-//	/** Convert global vertex index to local */
-//	std::map<int, int> m_g2lVertices;
-//
-//	/** Number of MPI neighbors */
-//	std::map<int, MPINeighbor> m_MPINeighbors;
-//
-//	/** Number of MPI fault neighbors */
-//	std::map<int, std::vector<MPINeighborElement> > m_MPIFaultNeighbors;
-//
-//	/** Fault information */
-//	std::vector<Fault> m_fault;
-//
-//	/** Has a plus fault side */
-//	bool m_hasPlusFault;
-
   };
 }
