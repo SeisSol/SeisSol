@@ -155,24 +155,18 @@ private:
     //! true if dynamic rupture faces are present
     bool m_dynamicRuptureFaces;
 
-    enum ComputePart {
-      LocalInterior = 0,
-      NeighborInterior,
-      DRNeighborInterior,
-#ifdef USE_MPI
-      LocalCopy,
-      NeighborCopy,
-      DRNeighborCopy,
-#endif
-      DRFrictionLawCopy,
-      DRFrictionLawInterior,
+    enum class ComputePart {
+      Local = 0,
+      Neighbor,
+      DRNeighbor,
+      DRFrictionLaw,
       PlasticityCheck,
       PlasticityYield,
       NUM_COMPUTE_PARTS
     };
 
-    long long m_flops_nonZero[NUM_COMPUTE_PARTS];
-    long long m_flops_hardware[NUM_COMPUTE_PARTS];
+    long long m_flops_nonZero[static_cast<int>(ComputePart::NUM_COMPUTE_PARTS)];
+    long long m_flops_hardware[static_cast<int>(ComputePart::NUM_COMPUTE_PARTS)];
     
     //! Tv parameter for plasticity
     double m_tv;
@@ -237,22 +231,11 @@ private:
      **/
     void computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData, double subTimeStart );
 
-    void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
-                                        CellLocalInformation const* cellInformation,
-                                        long long&                  nonZeroFlops,
-                                        long long&                  hardwareFlops  );
+    void computeLocalIntegrationFlops(seissol::initializers::Layer& layerData);
 
-    void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
-                                          CellLocalInformation const* cellInformation,
-                                          CellDRMapping const       (*drMapping)[4],
-                                          long long&                  nonZeroFlops,
-                                          long long&                  hardwareFlops,
-                                          long long&                  drNonZeroFlops,
-                                          long long&                  drHardwareFlops );
+    void computeNeighborIntegrationFlops(seissol::initializers::Layer &layerData);
 
-    void computeDynamicRuptureFlops(  seissol::initializers::Layer& layerData,
-                                      long long&                    nonZeroFlops,
-                                      long long&                    hardwareFlops );
+    void computeDynamicRuptureFlops(seissol::initializers::Layer& layerData);
                                           
     void computeFlops();
     
