@@ -120,7 +120,7 @@ libmetis.a. Otherwise, compile error: cannot find parmetis.)
 Installing ASAGI (Optional)
 ---------------------------
 
-See section :ref:`Installing ASAGI <installing_ASAGI>`.
+See section :ref:`ASAGI <ASAGI>`.
 
 .. _compiling-seissol:
 
