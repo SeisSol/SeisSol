@@ -45,10 +45,7 @@
 
 #include <pstream.h>
 
-#define GLM_SWIZZLE
-#include <glm/vec3.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/component_wise.hpp>
+#include <Eigen/Dense>
 
 #include <netcdf.h>
 
@@ -60,17 +57,14 @@
 
 const static float MIN_VALID = -10000;
 
-namespace xglm
-{
-typedef glm::tvec2<unsigned long> ulvec2;
-typedef glm::tvec3<unsigned long> ulvec3;
-}
+typedef Eigen::Array<unsigned long, 3, 1> ularr3;
+typedef Eigen::Array<unsigned long, 2, 1> ularr2;
 
 struct inputData_t
 {
-	glm::dvec3 minVert;
-	xglm::ulvec3 gridSize;
-	glm::dvec3 gridDist;
+        Eigen::Array3d minVert;
+        ularr3 gridSize;
+	Eigen::Array3d gridDist;
 
 	const char* meshProj;
 	bool meshIsGeo;
@@ -106,21 +100,21 @@ static void* runInput(void* p)
 	inputData_t* i = reinterpret_cast<inputData_t*>(p);
 
 	// Project from mesh to sample code
-	unsigned long totalArea = glm::compMul(i->gridSize.xy());
+	unsigned long totalArea = i->gridSize(0) * i->gridSize(1);
 	double* projX = new double[totalArea];
 	double* projY = new double[totalArea];
 
 	const bool meshIsGeo = i->meshIsGeo;
 
-	for (unsigned long y = 0; y < i->gridSize.y; y++) {
-		for (unsigned long x = 0; x < i->gridSize.x; x++) {
-			xglm::ulvec2 pos(x, y);
-			glm::dvec2 coord = i->minVert.xy() + static_cast<glm::dvec2>(pos) * i->gridDist.xy();
+	for (unsigned long y = 0; y < i->gridSize(1); y++) {
+		for (unsigned long x = 0; x < i->gridSize(0); x++) {
+			ularr2 pos(x, y);
+                        Eigen::Array2d coord = i->minVert.block<2,1>(0,0) + pos.cast<double>() * i->gridDist.block<2,1>(0,0);
 			if (meshIsGeo)
-				coord *= glm::dvec2(DEG_TO_RAD, DEG_TO_RAD);
+				coord *= Eigen::Array2d(DEG_TO_RAD, DEG_TO_RAD);
 
-			projX[y*i->gridSize.x + x] = coord.x;
-			projY[y*i->gridSize.x + x] = coord.y;
+			projX[y*i->gridSize(0) + x] = coord(0);
+			projY[y*i->gridSize(0) + x] = coord(1);
 		}
 	}
 
@@ -139,9 +133,9 @@ static void* runInput(void* p)
 	}
 
 	// Send the input data
-	i->query << (totalArea * i->gridSize.z) << std::endl;
-	for (unsigned long z = 0; z < i->gridSize.z; z++) {
-		double depth = i->minVert.z + z * i->gridDist.z;
+	i->query << (totalArea * i->gridSize(2)) << std::endl;
+	for (unsigned long z = 0; z < i->gridSize(2); z++) {
+		double depth = i->minVert(2) + z * i->gridDist(2);
 		for (unsigned long x = 0; x < totalArea; x++)
 			i->query << projX[x] << ' ' << projY[x] << ' ' << depth << std::endl;
 	}
@@ -200,12 +194,12 @@ int main(int argc, char* argv[])
 	std::vector<std::string> sizeVec = utils::StringUtils::split(args.getArgument<std::string>("size"), ':');
 	if (sizeVec.size() != 3)
 		logError() << "Size format must be \"x:y:z\"";
-	xglm::ulvec3 gridSize(utils::StringUtils::parse<unsigned long>(sizeVec[0]),
+	ularr3 gridSize(utils::StringUtils::parse<unsigned long>(sizeVec[0]),
 			utils::StringUtils::parse<unsigned long>(sizeVec[1]),
 			utils::StringUtils::parse<unsigned long>(sizeVec[2]));
 
 	logInfo() << "Grid size:" << utils::nospace
-			<< "[" << gridSize.x << ", " << gridSize.y << ", " << gridSize.z << "]";
+			<< "[" << gridSize(0) << ", " << gridSize(1) << ", " << gridSize(2) << "]";
 
 	// Read the coordinates from the mesh
 	const char* mesh = args.getArgument<const char*>("mesh");
@@ -226,11 +220,11 @@ int main(int argc, char* argv[])
 	checkNcIError(nc_inq_dimlen(ncFile, ncDimVertices, &maxVertices));
 
 	// Get min/max vertices
-	glm::dvec3 minVert(
+	Eigen::Array3d minVert(
 			std::numeric_limits<double>::infinity(),
 			std::numeric_limits<double>::infinity(),
 			std::numeric_limits<double>::infinity());
-	glm::dvec3 maxVert(
+	Eigen::Array3d maxVert(
 			-std::numeric_limits<double>::infinity(),
 			-std::numeric_limits<double>::infinity(),
 			-std::numeric_limits<double>::infinity());
@@ -250,10 +244,10 @@ int main(int argc, char* argv[])
 		checkNcIError(nc_get_vara_double(ncFile, ncVarVrtxCoords, start, count, vertices));
 
 		for (int j = 0; j < size; j++) {
-			glm::dvec3 v = glm::make_vec3(&vertices[j*3]);
+			Eigen::Array3d v = Eigen::Map<Eigen::Array3d>(&vertices[j*3]);
 
-			minVert = glm::min(minVert, v);
-			maxVert = glm::max(maxVert, v);
+			minVert = minVert.min(v);
+			maxVert = maxVert.max(v);
 		}
 	}
 
@@ -263,19 +257,19 @@ int main(int argc, char* argv[])
 
 	// Add borders
 	double border = args.getArgument("border", 0.);
-	minVert -= glm::dvec3(border, border, border);
-	maxVert += glm::dvec3(border, border, border);
+	minVert -= Eigen::Array3d(border, border, border);
+	maxVert += Eigen::Array3d(border, border, border);
 
 	logInfo() << "Grid dimension (incl. border):" << utils::nospace
-			<< "[" << minVert.x << ", " << minVert.y << ", " << minVert.z << "] x ["
-			<< maxVert.x << ", " << maxVert.y << ", " << maxVert.z << "]";
+			<< "[" << minVert(0) << ", " << minVert(1) << ", " << minVert(2) << "] x ["
+			<< maxVert(0) << ", " << maxVert(1) << ", " << maxVert(2) << "]";
 
 	// Distance between grid points
-	glm::dvec3 gridDist = (maxVert - minVert)
-			/ static_cast<glm::dvec3>(gridSize - xglm::ulvec3(1, 1, 1));
+	Eigen::Vector3d gridDist = (maxVert - minVert)
+			* (gridSize - ularr3(1, 1, 1)).cast<double>().inverse();
 
 	logInfo() << "Grid interval:" << utils::nospace
-			<< "[" << gridDist.x << ", " << gridDist.y << ", " << gridDist.z << "]";
+			<< "[" << gridDist(0) << ", " << gridDist(1) << ", " << gridDist(2) << "]";
 
 	// Create query process
 	redi::rpstream pstream(args.getArgument("query", "./scripts/vx_lite_wrapper"),
@@ -305,9 +299,9 @@ int main(int argc, char* argv[])
 
 	// Create dimensions
 	int ncDims[3];
-	checkNcOError(nc_def_dim(ncFile, "x", gridSize.x, &ncDims[2]));
-	checkNcOError(nc_def_dim(ncFile, "y", gridSize.y, &ncDims[1]));
-	checkNcOError(nc_def_dim(ncFile, "z", gridSize.z, &ncDims[0]));
+	checkNcOError(nc_def_dim(ncFile, "x", gridSize(0), &ncDims[2]));
+	checkNcOError(nc_def_dim(ncFile, "y", gridSize(1), &ncDims[1]));
+	checkNcOError(nc_def_dim(ncFile, "z", gridSize(2), &ncDims[0]));
 
 	// Create dimension variables
 	int ncX, ncY, ncZ;
@@ -342,36 +336,36 @@ int main(int argc, char* argv[])
 	checkNcOError(nc_enddef(ncFile));
 
 	// Fill dimension variables
-	float* x = new float[gridSize.x];
-	for (unsigned int i = 0; i < gridSize.x; i++) {
-		x[i] = minVert.x + gridDist.x * i;
+	float* x = new float[gridSize(0)];
+	for (unsigned int i = 0; i < gridSize(0); i++) {
+		x[i] = minVert(0) + gridDist(0) * i;
 	}
 	checkNcOError(nc_put_var_float(ncFile, ncX, x));
 	delete [] x;
 
-	float* y = new float[gridSize.y];
-	for (unsigned int i = 0; i < gridSize.y; i++) {
-		y[i] = minVert.y + gridDist.y * i;
+	float* y = new float[gridSize(1)];
+	for (unsigned int i = 0; i < gridSize(1); i++) {
+		y[i] = minVert(1) + gridDist(1) * i;
 	}
 	checkNcOError(nc_put_var_float(ncFile, ncY, y));
 	delete [] y;
 
-	float* z = new float[gridSize.z];
-	for (unsigned int i = 0; i < gridSize.z; i++) {
-		z[i] = minVert.z + gridDist.z * i;
+	float* z = new float[gridSize(2)];
+	for (unsigned int i = 0; i < gridSize(2); i++) {
+		z[i] = minVert(2) + gridDist(2) * i;
 	}
 	checkNcOError(nc_put_var_float(ncFile, ncZ, z));
 	delete [] z;
 
 	// Read the data from the query tool
-	unsigned long totalArea = glm::compMul(gridSize.xy());
+	unsigned long totalArea = gridSize(0) * gridSize(1);
 	float* data = new float[totalArea*3];
 
 	// Initialize data with invalid values
 	for (unsigned long i = 0; i < totalArea*3; i++)
 		data[i] = std::numeric_limits<float>::infinity();
 
-	for (unsigned long z = 0; z < gridSize.z; z++) {
+	for (unsigned long z = 0; z < gridSize(2); z++) {
 		for (unsigned long i = 0; i < totalArea; i++) {
 			// Ignore the coordinates
 			float x, y, z;
@@ -401,7 +395,7 @@ int main(int argc, char* argv[])
 		}
 
 		size_t start[3] = {z, 0, 0};
-		size_t count[3] = {1, gridSize.y, gridSize.x};
+		size_t count[3] = {1, gridSize(1), gridSize(0)};
 
 		if (paraview) {
 			checkNcOError(nc_put_vara_float(ncFile, ncRho, start, count, data));

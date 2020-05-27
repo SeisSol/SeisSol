@@ -42,7 +42,7 @@
 #define SOURCETERM_NRF_H_
 
 #include <cstddef>
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 
 namespace seissol {
   namespace sourceterm {
@@ -61,15 +61,15 @@ namespace seissol {
         double timestep;
         double mu;
         double area;
-        glm::dvec3 tan1;
-        glm::dvec3 tan2;
-        glm::dvec3 normal;
+        Eigen::Vector3d tan1;
+        Eigen::Vector3d tan2;
+        Eigen::Vector3d normal;
     } Subfault;
     
     typedef unsigned Offsets[3];
 
     struct NRF {
-      glm::dvec3* centres;
+      Eigen::Vector3d* centres;
       Subfault* subfaults;
       Offsets* sroffsets;
       double* sliprates[3];
