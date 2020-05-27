@@ -42,8 +42,7 @@
 
 #include <vector>
 
-#include <glm/vec3.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#include <Eigen/Dense>
 
 namespace seissol {
 namespace refinement {
@@ -51,7 +50,7 @@ namespace refinement {
 //------------------------------------------------------------------------------
 
 template<class T>
-const glm::tvec3<T> middle(const glm::tvec3<T>& a, const glm::tvec3<T>& b)
+const Eigen::Matrix<T, 3, 1> middle(const Eigen::Matrix<T, 3, 1>& a, const Eigen::Matrix<T, 3, 1>& b)
 {
     return (a+b)/static_cast<T>(2);
 }
@@ -62,20 +61,20 @@ template<class T>
 struct Tetrahedron {
 	/** Indices of the vertices */
 	unsigned int i, j, k, l;
-    glm::tvec3<T> a, b, c, d;
+    Eigen::Matrix<T, 3, 1> a, b, c, d;
 
     Tetrahedron()
     	: i(0), j(0), k(0), l(0)
 	{};
 
-    Tetrahedron(const glm::tvec3<T>& A, const glm::tvec3<T>& B, const glm::tvec3<T>& C,
-            const glm::tvec3<T>& D)
+    Tetrahedron(const Eigen::Matrix<T, 3, 1>& A, const Eigen::Matrix<T, 3, 1>& B, const Eigen::Matrix<T, 3, 1>& C,
+            const Eigen::Matrix<T, 3, 1>& D)
     	: i(0), j(0), k(0), l(0),
 		  a(A), b(B), c(C), d(D)
     {};
 
-    Tetrahedron(const glm::tvec3<T>& A, const glm::tvec3<T>& B, const glm::tvec3<T>& C,
-            const glm::tvec3<T>& D,
+    Tetrahedron(const Eigen::Matrix<T, 3, 1>& A, const Eigen::Matrix<T, 3, 1>& B, const Eigen::Matrix<T, 3, 1>& C,
+            const Eigen::Matrix<T, 3, 1>& D,
 			unsigned int I, unsigned int J, unsigned int K, unsigned int L)
     	: i(I), j(J), k(K), l(L),
 		  a(A), b(B), c(C), d(D)
@@ -84,20 +83,20 @@ struct Tetrahedron {
     Tetrahedron(const T A[3], const T B[3], const T C[3], const T D[3],
     		unsigned int I, unsigned int J, unsigned int K, unsigned int L)
             : i(I), j(J), k(K), l(L),
-			  a(glm::make_vec3(A)), b(glm::make_vec3(B)),
-			  c(glm::make_vec3(C)), d(glm::make_vec3(D))
+			  a(Eigen::Matrix<T, 3, 1>(A)), b(Eigen::Matrix<T, 3, 1>(B)),
+			  c(Eigen::Matrix<T, 3, 1>(C)), d(Eigen::Matrix<T, 3, 1>(D))
     {};
 
     static const Tetrahedron<T> unitTetrahedron()
     {
         return Tetrahedron(
-                glm::tvec3<T>(0,0,0),
-                glm::tvec3<T>(0,0,1),
-                glm::tvec3<T>(1,0,0),
-                glm::tvec3<T>(0,1,0));
+                Eigen::Matrix<T, 3, 1>(0,0,0),
+                Eigen::Matrix<T, 3, 1>(0,0,1),
+                Eigen::Matrix<T, 3, 1>(1,0,0),
+                Eigen::Matrix<T, 3, 1>(0,1,0));
     }
 
-    const glm::tvec3<T> center() const
+    const Eigen::Matrix<T, 3, 1> center() const
     {
         return middle(middle(a, b), middle(c, d));
     }
@@ -111,7 +110,7 @@ public:
 	virtual ~TetrahedronRefiner() {}
 	/** Generates the new cells */
     virtual void refine(const Tetrahedron<T>& in, unsigned int addVertexStart,
-    		Tetrahedron<T>* out, glm::tvec3<T>* addVertices) const = 0;
+    		Tetrahedron<T>* out, Eigen::Matrix<T, 3, 1>* addVertices) const = 0;
     /** The additional number of vertices generated per original tetrahedron */
     virtual unsigned int additionalVerticesPerCell() const = 0;
     virtual unsigned int getDivisionCount() const = 0;
@@ -123,7 +122,7 @@ template<class T>
 class IdentityRefiner : public TetrahedronRefiner<T> {
 public:
 	void refine(const Tetrahedron<T>& in, unsigned int addVertexStart,
-		Tetrahedron<T>* out, glm::tvec3<T>* addVertices) const
+		Tetrahedron<T>* out, Eigen::Matrix<T, 3, 1>* addVertices) const
 	{
 		out[0] = in;
 	}
@@ -145,7 +144,7 @@ template<class T>
 class DivideTetrahedronBy4 : public TetrahedronRefiner<T> {
 public:
 	void refine(const Tetrahedron<T>& in, unsigned int addVertexStart,
-		Tetrahedron<T>* out, glm::tvec3<T>* addVertices) const
+		Tetrahedron<T>* out, Eigen::Matrix<T, 3, 1>* addVertices) const
 	{
 		addVertices[0] = in.center();
 
@@ -176,12 +175,12 @@ template<class T>
 class DivideTetrahedronBy8 : public TetrahedronRefiner<T> {
 public:
 	void refine(const Tetrahedron<T>& in, unsigned int addVertexStart,
-		Tetrahedron<T>* out, glm::tvec3<T>* addVertices) const
+		Tetrahedron<T>* out, Eigen::Matrix<T, 3, 1>* addVertices) const
 	{
-        const glm::tvec3<T>& a = in.a;
-        const glm::tvec3<T>& b = in.b;
-        const glm::tvec3<T>& c = in.c;
-        const glm::tvec3<T>& d = in.d;
+        const Eigen::Matrix<T, 3, 1>& a = in.a;
+        const Eigen::Matrix<T, 3, 1>& b = in.b;
+        const Eigen::Matrix<T, 3, 1>& c = in.c;
+        const Eigen::Matrix<T, 3, 1>& d = in.d;
         addVertices[0] = middle(a, b);
         addVertices[1] = middle(a, c);
         addVertices[2] = middle(a, d);
@@ -189,12 +188,12 @@ public:
         addVertices[4] = middle(b, d);
         addVertices[5] = middle(c, d);
 
-        const glm::tvec3<T>& ab = addVertices[0];
-        const glm::tvec3<T>& ac = addVertices[1];
-        const glm::tvec3<T>& ad = addVertices[2];
-        const glm::tvec3<T>& bc = addVertices[3];
-        const glm::tvec3<T>& bd = addVertices[4];
-        const glm::tvec3<T>& cd = addVertices[5];
+        const Eigen::Matrix<T, 3, 1>& ab = addVertices[0];
+        const Eigen::Matrix<T, 3, 1>& ac = addVertices[1];
+        const Eigen::Matrix<T, 3, 1>& ad = addVertices[2];
+        const Eigen::Matrix<T, 3, 1>& bc = addVertices[3];
+        const Eigen::Matrix<T, 3, 1>& bd = addVertices[4];
+        const Eigen::Matrix<T, 3, 1>& cd = addVertices[5];
 
         const unsigned int iab = addVertexStart;
         const unsigned int iac = addVertexStart+1;
@@ -245,7 +244,7 @@ private:
 
 public:
 	void refine(const Tetrahedron<T>& in, unsigned int addVertexStart,
-		Tetrahedron<T>* out, glm::tvec3<T>* addVertices) const
+		Tetrahedron<T>* out, Eigen::Matrix<T, 3, 1>* addVertices) const
 	{
 	        auto tmp = std::vector<Tetrahedron<T>>(div8.getDivisionCount());
 

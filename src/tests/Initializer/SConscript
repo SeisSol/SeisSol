@@ -40,6 +40,9 @@ import os
 
 Import('env')
 
+env.testSourceFiles.append(os.path.abspath('PointMapper.t.h'))
+if env['metis'] and env['hdf5'] and env['parallelization'] in ['mpi', 'hybrid']:
+    env.testSourceFiles.append(os.path.abspath('time_stepping/LTSWeights.t.h'))
 env.testSourceFiles.extend([
   #~ os.path.abspath('InternalStateTestSuite.t.h'),
   #~ os.path.abspath('time_stepping/commonTestSuite.t.h')

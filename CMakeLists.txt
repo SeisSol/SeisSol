@@ -140,9 +140,10 @@ target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
 
 find_package(PkgConfig REQUIRED)
 
-pkg_check_modules(ImpalaJIT REQUIRED impalajit)
-target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LINK_LIBRARIES})
+pkg_check_modules(ImpalaJIT REQUIRED IMPORTED_TARGET impalajit)
+target_link_libraries(SeisSol-lib PUBLIC PkgConfig::ImpalaJIT)
 target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
+
 
 # In the future, we should maybe use find_package(Eigen3).
 
@@ -217,6 +218,7 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
+				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 				   # todo: use reexport from easi?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
@@ -232,7 +234,6 @@ target_compile_definitions(SeisSol-lib PUBLIC
 				   CONVERGENCE_ORDER=${ORDER}
 				   NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
 				   )
 
@@ -250,7 +251,7 @@ endif()
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib PUBLIC -fopenmp -Wall -Wextra -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wno-unused-parameter -Wno-unknown-pragmas>)
-  target_link_options(SeisSol-lib PUBLIC -fopenmp)
+  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp")
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -265,12 +266,12 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fopenmp=libomp")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "CRAY")
-  # TODO: Cray
 endif()
 
 # Generated code does only work without red-zone.
-set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+if (HAS_REDZONE)
+  set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+endif()
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
@@ -307,6 +308,22 @@ if (TESTING)
     target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
     target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   endif()
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/mesh.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
+    COPYONLY
+    )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/material.yaml
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
+    COPYONLY
+    )
+
+  configure_file(
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
+          ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf 
+          COPYONLY
+  )
 
   CXXTEST_ADD_TEST_MPI(
           test_serial_test_suite
@@ -314,8 +331,15 @@ if (TESTING)
           test_serial.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
   )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})

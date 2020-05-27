@@ -39,7 +39,7 @@
  **/
 
 #include "Transformation.h"
-#include <glm/glm.hpp>
+#include <Eigen/Dense>
 
 void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
                                                              double const v1[3],
@@ -52,27 +52,22 @@ void seissol::transformations::tetrahedronReferenceToGlobal( double const v0[3],
   }
 }
 
-glm::dvec3 seissol::transformations::tetrahedronGlobalToReference( double const       v0[3],
-                                                                   double const       v1[3],
-                                                                   double const       v2[3],
-                                                                   double const      v3[3],
-                                                                   glm::dvec3 const& xyz ) {
+Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference( double const           v0[3],
+                                                                        double const           v1[3],
+                                                                        double const           v2[3],
+                                                                        double const           v3[3],
+                                                                        Eigen::Vector3d const& xyz ) {
   // Forward transformation
-  glm::dmat4 A( glm::dvec4(v1[0]-v0[0], v1[1]-v0[1], v1[2]-v0[2], 0.0),
-                glm::dvec4(v2[0]-v0[0], v2[1]-v0[1], v2[2]-v0[2], 0.0),
-                glm::dvec4(v3[0]-v0[0], v3[1]-v0[1], v3[2]-v0[2], 0.0),
-                glm::dvec4(v0[0], v0[1], v0[2], 1.0)
-              );
+  Eigen::Matrix4d A;
+  A << v1[0]-v0[0], v1[1]-v0[1], v1[2]-v0[2], 0.0,
+       v2[0]-v0[0], v2[1]-v0[1], v2[2]-v0[2], 0.0,
+       v3[0]-v0[0], v3[1]-v0[1], v3[2]-v0[2], 0.0,
+       v0[0], v0[1], v0[2], 1.0;
+  A = A.transpose().eval();
 
-  double inverseDeterminant = 1.0 / glm::determinant(A);
-
-  glm::dvec4 rhs(xyz[0], xyz[1], xyz[2], 1.0);
-
-  glm::dvec3 xiEtaZeta;
-  // Rule of Cramer
-  xiEtaZeta[0] = glm::determinant(glm::dmat4(rhs,  A[1], A[2], A[3])) * inverseDeterminant;
-  xiEtaZeta[1] = glm::determinant(glm::dmat4(A[0], rhs,  A[2], A[3])) * inverseDeterminant;
-  xiEtaZeta[2] = glm::determinant(glm::dmat4(A[0], A[1], rhs,  A[3])) * inverseDeterminant;
+  Eigen::Vector4d rhs(xyz[0], xyz[1], xyz[2], 1.0);
+  Eigen::Vector4d sol = A.partialPivLu().solve(rhs);
+  Eigen::Vector3d xiEtaZeta(sol[0], sol[1], sol[2]);
 
   return xiEtaZeta;
 }
