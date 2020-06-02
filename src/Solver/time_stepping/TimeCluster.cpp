@@ -83,9 +83,11 @@
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Receiver.h>
 #include <Monitoring/FlopCounter.hpp>
+#include <Physics/Evaluate_friction_law.h>
 
 #include <cassert>
 #include <cstring>
+
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 extern volatile unsigned int* volatile g_handleRecvs;
@@ -94,6 +96,7 @@ extern volatile unsigned int* volatile g_handleSends;
 
 //! fortran interoperability
 extern seissol::Interoperability e_interoperability;
+
 
 seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
                                                   unsigned int                   i_globalClusterId,
@@ -255,7 +258,65 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
-    e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
+
+    //Code added by ADRIAN
+    //insert c++ evaluate_friction_law here:
+    /*
+
+    rho = densityPlus
+    w_speed(:) = (/ pWaveVelocityPlus, sWaveVelocityPlus, sWaveVelocityPlus /)
+    rho_neig = densityMinus
+    w_speed_neig(:) = (/ pWaveVelocityMinus, sWaveVelocityMinus, sWaveVelocityMinus /)
+
+    Zp_inv = 1d0 / (rho * pWaveVelocityPlus)
+    Zp_neig_inv = 1d0 / (rho_neig * pWaveVelocityMinus)
+    Zs_inv = 1d0 / (rho * sWaveVelocityPlus)
+    Zs_neig_inv = 1d0 / (rho_neig * sWaveVelocityMinus)
+
+    eta_p = 1d0 / (Zp_inv + Zp_neig_inv)
+    eta_s = 1d0 / (Zs_inv + Zs_neig_inv)
+
+    do j=1,CONVERGENCE_ORDER
+    do i=1,i_numberOfPoints
+    NorStressGP(i,j) = eta_p * (l_QInterpolatedMinus(i,7,j) - l_QInterpolatedPlus(i,7,j) +&
+                                                                                                l_QInterpolatedPlus(i,1,j) * Zp_inv + l_QInterpolatedMinus(i,1,j) * Zp_neig_inv)
+    XYStressGP(i,j)  = eta_s * (l_QInterpolatedMinus(i,8,j) - l_QInterpolatedPlus(i,8,j) +&
+                                                                                                l_QInterpolatedPlus(i,4,j) * Zs_inv + l_QInterpolatedMinus(i,4,j) * Zs_neig_inv)
+    XZStressGP(i,j)  = eta_s * (l_QInterpolatedMinus(i,9,j) - l_QInterpolatedPlus(i,9,j) +&
+                                                                                                l_QInterpolatedPlus(i,6,j) * Zs_inv + l_QInterpolatedMinus(i,6,j) * Zs_neig_inv)
+    enddo
+          enddo
+    */
+      //added code ADRIAN
+      double **TractionGP_XY;                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+      double **TractionGP_XZ;                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+      double **NorStressGP;
+      double **XYStressGP;
+      double **XZStressGP;
+      int iFace;
+      int iSide;     //= l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
+      int iElem;     //= l_domain%MESH%Fault%Face(i_face,1,1)
+      double time;
+      double *timePoints;
+      double rho = waveSpeedsPlus->density;
+      double rho_neig = waveSpeedsMinus->density;
+      double *w_speed;
+      double *w_speed_neig;
+      real const **resampleMatrix;
+      void*EQN;
+      void *DISC;
+      void *MESH;
+      void *MPI;
+      void *IO;
+      void *BND;
+
+
+      seissol::physics::Evaluate_friction_law evaluateFriction;
+      evaluateFriction.Eval_friction_law( TractionGP_XY, TractionGP_XZ, NorStressGP, XYStressGP, XZStressGP,
+              iFace, iSide, iElem, time, timePoints, rho, rho_neig, w_speed, w_speed_neig, resampleMatrix,
+              EQN, DISC, MESH, MPI, IO, BND );
+
+      e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus,
                                             QInterpolatedMinus,
                                             imposedStatePlus[face],
