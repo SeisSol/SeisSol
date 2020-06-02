@@ -59,7 +59,7 @@ void seissol::physics::Evaluate_friction_law::Eval_friction_law(
     double DeltaT[nTimeGP];
 
     DeltaT[0]=timePoints[0];
-    for(int iTimeGP = 2; iTimeGP< nTimeGP; iTimeGP++ ){
+    for(int iTimeGP = 1; iTimeGP< nTimeGP; iTimeGP++ ){
         DeltaT[iTimeGP] = timePoints[iTimeGP]-timePoints[iTimeGP-1];
     }
     DeltaT[nTimeGP] = DeltaT[nTimeGP] + DeltaT[0];  // to fill last segment of Gaussian integration
@@ -118,14 +118,12 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial(
     //***********************************
     // GET THESE FROM required DATA STRUCT
     // input:
-    double InitialStressInFaultCS[nBndGP][7][nFace]; // = EQN%InitialStressInFaultCS[i][1][iFace] //TODO: check right size and maybe all indecis need to be shifted by 1
+    double InitialStressInFaultCS[nBndGP][6][nFace]; // = EQN%InitialStressInFaultCS[i][1][iFace] //TODO: check right size and maybe all indecis need to be shifted by 1
     double Cohesion[nBndGP][nFace];   //DISC%DynRup%cohesion(nBndGP,iFace)
     double D_C[nBndGP][nFace];         // DISC%DynRup%D_C(nBndGP,iFace)
     double Mu_S[nBndGP][nFace]; //DISC%DynRup%Mu_S(nBndGP,iFace)
     double Mu_D[nBndGP][nFace]; //DISC%DynRup%Mu_D(nBndGP,iFace)
-    int inst_healing;    //DISC%DynRup%inst_healing //TODO is actually a bool?
-    double SlipRate1[nBndGP][nFace];  //DISC%DynRup%SlipRate1(:,iFace) = LocSR1
-    double SlipRate2[nBndGP][nFace];  //DISC%DynRup%SlipRate2(:,iFace) = LocSR2
+    bool inst_healing;    //DISC%DynRup%inst_healing //TODO is actually a bool?
     double v_star;          //DISC%DynRup%v_star         // !< reference velocity of prakash-cliff regularization
     double prakash_length;   //DISC%DynRup%L  reference length of prakash-cliff regularization
 
@@ -134,6 +132,8 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial(
     double Slip[nBndGP][nFace];   //DISC%DynRup%Slip(nBndGP,iFace)
     double Slip1[nBndGP][nFace];   //DISC%DynRup%Slip1(nBndGP,iFace)
     double Slip2[nBndGP][nFace];   //DISC%DynRup%Slip2(nBndGP,iFace)
+    double SlipRate1[nBndGP][nFace];  //DISC%DynRup%SlipRate1(:,iFace) = LocSR1
+    double SlipRate2[nBndGP][nFace];  //DISC%DynRup%SlipRate2(:,iFace) = LocSR2
     bool RF[nBndGP][nFace];            //DISC%DynRup%RF(nBndGP,iFace)
     double rupture_time[nBndGP][nFace];     //DISC%DynRup%rupture_time(nBndGP,iFace)
     bool DS[nBndGP][nFace];             //DISC%DynRup%DS(:,iFace)
@@ -162,7 +162,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial(
     double LocTracXY, LocTracXZ;
 
 
-    for(int iBndGP = 1; iBndGP <= nBndGP; iBndGP++){ //loop over all points
+    for(int iBndGP = 0; iBndGP < nBndGP; iBndGP++){ //loop over all points
 
         LocMu     = Mu[iBndGP][iFace];     // Current friction coefficient at given fault node
         LocMu_S   = Mu_S[iBndGP][iFace];  //DISC%DynRup%Mu_S(iBndGP,iFace)               //!< Static friction coefficient at given fault node - seisolxx.f90->ini_seisol.f90->readpar.f90->parameters.par found in fault.yaml
@@ -174,10 +174,10 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial(
         LocSR1    = SlipRate1[iBndGP][iFace]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSR2    = SlipRate2[iBndGP][iFace]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
         cohesion  = Cohesion[iBndGP][iFace]; //DISC%DynRup%cohesion(iBndGP,iFace)          // !< cohesion at given fault node  (should be negative since negative normal stress is compression)
-        P_0       = InitialStressInFaultCS[iBndGP][1][iFace]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
+        P_0       = InitialStressInFaultCS[iBndGP][0][iFace]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
         Strength_exp = StrengthData[iBndGP][iFace]; //DISC%DynRup%Strength[iBndGP][iFace];         //!< save strength since it is used for bimaterial
 
-        for(int iTimeGP = 1; iTimeGP <= nTimeGP; iTimeGP++){ //loop over time steps
+        for(int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++){ //loop over time steps
 
             LocP   = NorStressGP[iBndGP][iTimeGP];
             time_inc = DeltaT[iTimeGP];
@@ -185,16 +185,16 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial(
             LocSR = std::sqrt(LocSR1*LocSR1 + LocSR2*LocSR1);
             sigma = LocP+P_0;
             prak_clif_mod(Strength_exp, sigma, LocSR, v_star, prakash_length, LocMu, time_inc);
-            ShTest = sqrt(std::pow(InitialStressInFaultCS[iBndGP][4][iFace] + XYStressGP[iBndGP][iTimeGP], 2) + std::pow(InitialStressInFaultCS[iBndGP][6][iFace] + XZStressGP[iBndGP][iTimeGP],2) );
+            ShTest = sqrt(std::pow(InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP], 2) + std::pow(InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP],2) );
 
             if(ShTest > Strength){
                 // 1 evaluate friction
-                LocTracXY = ((InitialStressInFaultCS[iBndGP][4][iFace] + XYStressGP[iBndGP][iTimeGP])/ShTest)*Strength;
-                LocTracXZ = ((InitialStressInFaultCS[iBndGP][6][iFace] + XZStressGP[iBndGP][iTimeGP])/ShTest)*Strength;
+                LocTracXY = ((InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP])/ShTest)*Strength;
+                LocTracXZ = ((InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP])/ShTest)*Strength;
 
                 // 2 update stress change
-                LocTracXY = LocTracXY - InitialStressInFaultCS[iBndGP][4][iFace];
-                LocTracXZ = LocTracXZ - InitialStressInFaultCS[iBndGP][6][iFace];
+                LocTracXY = LocTracXY - InitialStressInFaultCS[iBndGP][3][iFace];
+                LocTracXZ = LocTracXZ - InitialStressInFaultCS[iBndGP][5][iFace];
             }else{
                 LocTracXY = XYStressGP[iBndGP][iTimeGP];
                 LocTracXZ = XZStressGP[iBndGP][iTimeGP];
@@ -214,7 +214,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial(
             }
 
             // instantaneous healing
-            if(inst_healing == 1){
+            if(inst_healing == true){
                 if(LocSR < u_0){
                     LocMu = LocMu_S;
                     // reset slip history for LSW
@@ -284,14 +284,14 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     // GET THESE FROM DATA STRUCT
     //required input:
     double t_0 = 0; //= DISC%DynRup%t_0
-    double InitialStressInFaultCS[nBndGP][7][nFace]; // = EQN%InitialStressInFaultCS[i][1][iFace] //TODO: check right size and maybe all indecis need to be shifted by 1
+    double InitialStressInFaultCS[nBndGP][6][nFace]; // = EQN%InitialStressInFaultCS[i][1][iFace] //TODO: check right size and maybe all indecis need to be shifted by 1
     double cohesion[nBndGP][nFace];   //DISC%DynRup%cohesion(nBndGP,iFace)
     double D_C[nBndGP][nFace];         // DISC%DynRup%D_C(nBndGP,iFace)
     int FL;                  //EQN%FL
     double forced_rupture_time[nBndGP][nFace]; //DISC%DynRup%forced_rupture_time(nBndGP,iFace)
     double Mu_S[nBndGP][nFace]; //DISC%DynRup%Mu_S(nBndGP,iFace)
     double Mu_D[nBndGP][nFace]; //DISC%DynRup%Mu_D(nBndGP,iFace)
-    int inst_healing;    //DISC%DynRup%inst_healing //TODO is actually a bool?
+    bool inst_healing;    //DISC%DynRup%inst_healing //TODO is actually a bool?
     bool magnitude_out[nFace];        //DISC%DynRup%magnitude_out(iFace) //TODO is this a bool?
 
     //in and output:
@@ -336,21 +336,21 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     double f2[nBndGP];
 
     for(int iBndGP = 0; iBndGP < nBndGP; iBndGP++) {
-        for (int iTimeGP = 1; iTimeGP <= nTimeGP; iTimeGP++) {  //loop over time steps
+        for (int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++) {  //loop over time steps
 
             time_inc = DeltaT[iTimeGP];
             tn = tn + time_inc;
 
 
-            P[iBndGP] = InitialStressInFaultCS[iBndGP][1][iFace] + NorStressGP[iBndGP][iTimeGP];
+            P[iBndGP] = InitialStressInFaultCS[iBndGP][0][iFace] + NorStressGP[iBndGP][iTimeGP];
             Strength[iBndGP][iFace] = -cohesion[iBndGP][iFace] - Mu[iBndGP][iFace] * std::min(P[iBndGP], 0.0);
             ShTest[iBndGP] = std::sqrt(
-                    std::pow(InitialStressInFaultCS[iBndGP][4][iFace] + XYStressGP[iBndGP][iTimeGP], 2) +
-                    std::pow(InitialStressInFaultCS[iBndGP][6][iFace] + XZStressGP[iBndGP][iTimeGP], 2));
+                    std::pow(InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP], 2) +
+                    std::pow(InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP], 2));
             LocSR[iBndGP] = std::max(0.0, (ShTest[iBndGP] - Strength[iBndGP][iFace]) / eta);
-            LocSR1[iBndGP] = LocSR[iBndGP] * (InitialStressInFaultCS[iBndGP][4][iFace] + XYStressGP[iBndGP][iTimeGP]) /
+            LocSR1[iBndGP] = LocSR[iBndGP] * (InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP]) /
                              (Strength[iBndGP][iFace] + eta * LocSR[iBndGP]);
-            LocSR2[iBndGP] = LocSR[iBndGP] * (InitialStressInFaultCS[iBndGP][6][iFace] + XZStressGP[iBndGP][iTimeGP]) /
+            LocSR2[iBndGP] = LocSR[iBndGP] * (InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP]) /
                              (Strength[iBndGP][iFace] + eta * LocSR[iBndGP]);
             LocTracXY[iBndGP] = XYStressGP[iBndGP][iTimeGP] - eta * LocSR1[iBndGP];
             LocTracXZ[iBndGP] = XZStressGP[iBndGP][iTimeGP] - eta * LocSR2[iBndGP];
@@ -392,7 +392,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
                                 (Mu_S[iBndGP][iFace] - Mu_D[iBndGP][iFace]) * std::max(f1[iBndGP], f2[iBndGP]);
 
             //instantaneous healing
-            if (inst_healing == 1) {
+            if (inst_healing == true) {
                 if (LocSR[iBndGP] < u_0) {
                     Mu[iBndGP][iFace] = Mu_S[iBndGP][iFace];
                     Slip[iBndGP][iFace] = 0.0;
@@ -501,12 +501,12 @@ void seissol::physics::Evaluate_friction_law::ImposedSlipRateOnDRBoundary(
 
     double eta = (w_speed[2]*rho*w_speed_neig[2]*rho_neig) / (w_speed[2]*rho + w_speed_neig[2]*rho_neig);
     double tn = time;
-    for (int iTimeGP = 1; iTimeGP <= nTimeGP; iTimeGP++) {
+    for (int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++) {
         dt += DeltaT[iTimeGP];
     }
 
     for(int iBndGP = 0; iBndGP < nBndGP; iBndGP++) {
-        for (int iTimeGP = 1; iTimeGP <= nTimeGP; iTimeGP++) {
+        for (int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++) {
             time_inc = DeltaT[iTimeGP];
             tn=tn + time_inc;
             Gnuc = Calc_SmoothStepIncrement(tn, Tnuc, time_inc)/time_inc;
@@ -629,8 +629,8 @@ void seissol::physics::Evaluate_friction_law::rate_and_state(
         LocSR2    = SlipRate2[iBndGP][iFace]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSV   = StateVar[iBndGP][iFace];     //DISC%DynRup%StateVar(iBndGP,iFace)
         cohesion  = Cohesion[iBndGP][iFace]; //DISC%DynRup%cohesion(iBndGP,iFace)          // !< cohesion at given fault node  (should be negative since negative normal stress is compression)
-        P_0       = InitialStressInFaultCS[iBndGP][1][iFace]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
-        for (int iTimeGP = 1; iTimeGP <= nTimeGP; iTimeGP++) {
+        P_0       = InitialStressInFaultCS[iBndGP][0][iFace]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
+        for (int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++) {
             LocP   = NorStressGP[iBndGP][iTimeGP];
             time_inc = DeltaT[iTimeGP];
 
@@ -640,8 +640,8 @@ void seissol::physics::Evaluate_friction_law::rate_and_state(
             // load traction and normal stress
             P = LocP+P_0;
             ShTest = std::sqrt(
-                    std::pow(InitialStressInFaultCS[iBndGP][4][iFace] + XYStressGP[iBndGP][iTimeGP], 2) +
-                    std::pow(InitialStressInFaultCS[iBndGP][6][iFace] + XZStressGP[iBndGP][iTimeGP], 2));
+                    std::pow(InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP], 2) +
+                    std::pow(InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP], 2));
 
             // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
             // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
@@ -694,10 +694,10 @@ void seissol::physics::Evaluate_friction_law::rate_and_state(
             // LocTrac  = -(ABS(S_0)-LocMu*(LocP+P_0))*(S_0/ABS(S_0))
             // LocTrac  = ABS(LocTrac)*(-SignSR)  !!! line commented as it leads NOT to correct results
             // update stress change
-            LocTracXY = -((InitialStressInFaultCS[iBndGP][4][iFace] + XYStressGP[iBndGP][iTimeGP])/ShTest)*(LocMu*P+abs(cohesion));
-            LocTracXZ = -((InitialStressInFaultCS[iBndGP][6][iFace] + XZStressGP[iBndGP][iTimeGP])/ShTest)*(LocMu*P+abs(cohesion));
-            LocTracXY = LocTracXY - InitialStressInFaultCS[iBndGP][4][iFace];
-            LocTracXZ = LocTracXZ - InitialStressInFaultCS[iBndGP][6][iFace];
+            LocTracXY = -((InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP])/ShTest)*(LocMu*P+abs(cohesion));
+            LocTracXZ = -((InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP])/ShTest)*(LocMu*P+abs(cohesion));
+            LocTracXY = LocTracXY - InitialStressInFaultCS[iBndGP][3][iFace];
+            LocTracXZ = LocTracXZ - InitialStressInFaultCS[iBndGP][5][iFace];
 
             // Compute slip
             LocSlip   = LocSlip  + (LocSR)*time_inc; // ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
@@ -760,13 +760,13 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_vw(
     // GET THESE FROM DATA STRUCT
     //required input:
     double InitialStressInFaultCS[nBndGP][6][nFace]; //EQN%InitialStressInFaultCS(iBndGP,6?,iFace)
-    double Cohesion[nBndGP][nFace];   //DISC%DynRup%cohesion(nBndGP,iFace)
+    //double Cohesion[nBndGP][nFace];   //DISC%DynRup%cohesion(nBndGP,iFace)
     double RS_f0;  //DISC%DynRup%RS_f0  !< Reference friction coefficient, equivalent to static friction coefficient
     double RS_a;    //DISC%DynRup%RS_a  !< RS constitutive parameter "a", direct effect
     double RS_b;       //DISC%DynRup%RS_b  !< RS constitutive parameter "b", evolution effect
     double RS_sl0;  //DISC%DynRup%RS_sl0     !< Reference slip  , Dc, char. lengt scale
     double RS_sr0;  //DISC%DynRup%RS_sr0     !< Reference slip rate, Vc, char. velocity scale
-    int FL;     //EQN%FL
+    //int FL;     //EQN%FL
 
     //in and output:
     bool RF[nBndGP][nFace];            //DISC%DynRup%RF(nBndGP,iFace)
@@ -811,8 +811,8 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_vw(
         LocSR1 = SlipRate1[iBndGP][iFace]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSR2 = SlipRate2[iBndGP][iFace]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSV = StateVar[iBndGP][iFace];     //DISC%DynRup%StateVar(iBndGP,iFace)
-        P_0 = InitialStressInFaultCS[iBndGP][1][iFace]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
-        for (int iTimeGP = 1; iTimeGP <= nTimeGP; iTimeGP++) {
+        P_0 = InitialStressInFaultCS[iBndGP][0][iFace]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
+        for (int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++) {
             LocP = NorStressGP[iBndGP][iTimeGP];
             time_inc = DeltaT[iTimeGP];
 
@@ -820,8 +820,8 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_vw(
             // load traction and normal stress
             P = LocP + P_0;
             ShTest = std::sqrt(
-                    std::pow(InitialStressInFaultCS[iBndGP][4][iFace] + XYStressGP[iBndGP][iTimeGP], 2) +
-                    std::pow(InitialStressInFaultCS[iBndGP][6][iFace] + XZStressGP[iBndGP][iTimeGP], 2));
+                    std::pow(InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP], 2) +
+                    std::pow(InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP], 2));
 
             // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
             // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
@@ -878,10 +878,10 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_vw(
 
 
             // update stress change
-            LocTracXY = -((InitialStressInFaultCS[iBndGP][4][iFace] + XYStressGP[iBndGP][iTimeGP]) / ShTest) *LocMu * P;
-            LocTracXZ = -((InitialStressInFaultCS[iBndGP][6][iFace] + XZStressGP[iBndGP][iTimeGP]) / ShTest) *LocMu * P;
-            LocTracXY = LocTracXY - InitialStressInFaultCS[iBndGP][4][iFace];
-            LocTracXZ = LocTracXZ - InitialStressInFaultCS[iBndGP][6][iFace];
+            LocTracXY = -((InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP]) / ShTest) *LocMu * P;
+            LocTracXZ = -((InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP]) / ShTest) *LocMu * P;
+            LocTracXY = LocTracXY - InitialStressInFaultCS[iBndGP][3][iFace];
+            LocTracXZ = LocTracXZ - InitialStressInFaultCS[iBndGP][5][iFace];
 
             // Compute slip
             LocSlip = LocSlip + LocSR * time_inc; // ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
@@ -986,7 +986,7 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc101(
 
     //unkown origin???
     int VertexSide[4][3];
-    //double iT[6][6];            function argument // inverse Transformation matrix    !
+    //double iT[6][6];            function argument // inverse Transformation matrix   = resampleMatrix
     //***********************************
 
     //initialize local variables
@@ -1302,23 +1302,6 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc103(
     double pressure_0;            //EQN%Pressure_0           !< Initial pressure for TP
     bool magnitude_out[nFace];        //DISC%DynRup%magnitude_out(iFace) //TODO is this a bool?
 
-    //--
-//    int Face[nFace][unkown][unkown];              //MESH%Fault%Face(iFace,1,1)  !<Assigns each element's side in domain a fault-plane-index
-//    int BoundaryToObject[unkown][unkown];    //MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor) //!<Mapping from element and side index to boundary object nr
-//    int MPINumber[unkown][unkown];      //MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)   !<Index into MPI communication structure
-//    double NeighborCoords[unkown][unkown][unkown][nObject];  //BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex);     !< Vertex coordinates of elements adjacent to MPI boundary (outside)
-//    double xyNode[unkown][unkown];      //MESH%VRTX%xyNode(1,Vertex(1:4,iElem))     !<Coordinates of the nodes
-//    int Vertex[4][nElem];           //MESH%ELEM%Vertex(1:4,iElem)   !<Connection index to element's vertices
-//    double BndGP_Tri[unkown][nBndGP]; //MESH%ELEM%BndGP_Tri(1,iBndGP)    !<GaussWeights in 2D boundary
-//    double ShearXY_0;               //EQN%ShearXY_0      !< Initial shear stress
-//    int GlobalElemType;             //MESH%GlobalElemType    !<Triangle=3, quads=4, tets = 4, hex = 6, mixed = 7
-//    double IniBulk_xx[nBndGP][nFace];    //EQN%IniBulk_xx(iBndGP,iFace)  !< Initial bulk stress at fault
-//    double IniBulk_yy[nBndGP][nFace]; //EQN%IniBulk_yy(:,iFace)
-//    double IniBulk_zz[nBndGP][nFace]; //EQN%IniBulk_zz(:,iFace)
-//    double IniShearYZ[nBndGP][nFace]; //EQN%IniShearYZ(:,iFace)
-//    double IniShearXZ[nBndGP][nFace]; //EQN%IniShearXZ(:,iFace)
-//    int FL;     //EQN%FL
-
     //in and output:
     bool DS[nBndGP][nFace];             //DISC%DynRup%DS(:,iFace)
     bool RF[nBndGP][nFace];            //DISC%DynRup%RF(nBndGP,iFace)
@@ -1329,7 +1312,6 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc103(
     double Slip[nBndGP][nFace];  //DISC%DynRup%Slip(iBndGP,iFace)
     double SlipRate1[nBndGP][nFace];  //DISC%DynRup%SlipRate1(:,iFace) = LocSR1
     double SlipRate2[nBndGP][nFace];  //DISC%DynRup%SlipRate2(:,iFace) = LocSR2
-    //double IniShearXY[nFace][nBndGP];   // EQN%IniShearXY(iFace,iBndGP)      !< Initial shear stress at fault
 
     //only output
     double rupture_time[nBndGP][nFace];     //DISC%DynRup%rupture_time(nBndGP,iFace)
@@ -1338,10 +1320,7 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc103(
     double Mu[nBndGP][nFace];         //DISC%DynRup%Mu(iBndGP,iFace)
     double dynStress_time[nBndGP][nFace]; //DISC%DynRup%dynStress_time(:,iFace)
     double averaged_Slip[nFace];    //DISC%DynRup%averaged_Slip(iFace)
-
-    //unkown origin???
-    int VertexSide[4][3];
-    //double iT[6][6];            function argument // inverse Transformation matrix    !
+    
     //***********************************
 
     //initialize local variables
