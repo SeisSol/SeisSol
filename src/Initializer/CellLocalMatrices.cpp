@@ -219,137 +219,13 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         }
         neighKrnl.execute();
       }
-      ///****
-      // * Begin Poro Test
-      // */
-      //seissol::model::initializeSpecificLocalData(  material[cell].local,
-      //                                              timeStepWidth,
-      //                                              &localIntegration[cell].specific );
 
-      //seissol::model::initializeSpecificNeighborData( material[cell].local,
-      //                                                &neighboringIntegration[cell].specific );
+      seissol::model::initializeSpecificLocalData(  material[cell].local,
+                                                    timeStepWidth,
+                                                    &localIntegration[cell].specific );
 
-      //const int N = NUMBER_OF_QUANTITIES*NUMBER_OF_BASIS_FUNCTIONS*CONVERGENCE_ORDER;
-      //auto E = init::G::view::create(localIntegration[cell].specific.sourceMatrix);
-      //auto Z = init::Z::view::create(const_cast<double*>(init::Z::Values));
-      //auto starMatrices0 = init::star::view<0>::create(localIntegration[cell].starMatrices[0]);
-      //auto starMatrices1 = init::star::view<1>::create(localIntegration[cell].starMatrices[1]);
-      //auto starMatrices2 = init::star::view<2>::create(localIntegration[cell].starMatrices[2]);
-      //auto stiffnessMatrices0 = init::kDivMT::view<0>::create(const_cast<double*>(init::kDivMT::Values0));
-      //auto stiffnessMatrices1 = init::kDivMT::view<1>::create(const_cast<double*>(init::kDivMT::Values1));
-      //auto stiffnessMatrices2 = init::kDivMT::view<2>::create(const_cast<double*>(init::kDivMT::Values2));
-
-      //auto tuple2index = [](Eigen::Vector3i tuple) {
-      //  return tuple(0)*CONVERGENCE_ORDER + tuple(1)*NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER + tuple(2);
-      //};
-
-      //auto index2tuple = [](int i) {
-      //  int r = i / (NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER);
-      //  int o = (i - r*NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER) / CONVERGENCE_ORDER;
-      //  int s = i - r*NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER - o*CONVERGENCE_ORDER;
-      //  return Eigen::Vector3i(o, r, s);
-      //};
-
-      //auto checkSparsitiyPatternStar = [](int i, int j) {
-      //  std::pair<int, int> sparsityPatternStar[] = {
-      //    std::make_pair(7,1),
-      //    std::make_pair(11,1),
-      //    std::make_pair(8,2),
-      //    std::make_pair(12,2),
-      //    std::make_pair(9,3),
-      //    std::make_pair(13,3),
-      //    std::make_pair(7,4),
-      //    std::make_pair(8,4),
-      //    std::make_pair(11,4),
-      //    std::make_pair(12,4),
-      //    std::make_pair(8,5),
-      //    std::make_pair(9,5),
-      //    std::make_pair(12,5),
-      //    std::make_pair(13,5),
-      //    std::make_pair(7,6),
-      //    std::make_pair(9,6),
-      //    std::make_pair(11,6),
-      //    std::make_pair(13,6),
-      //    std::make_pair(1,7),
-      //    std::make_pair(2,7),
-      //    std::make_pair(3,7),
-      //    std::make_pair(4,7),
-      //    std::make_pair(6,7),
-      //    std::make_pair(10,7),
-      //    std::make_pair(1,8),
-      //    std::make_pair(2,8),
-      //    std::make_pair(3,8),
-      //    std::make_pair(4,8),
-      //    std::make_pair(5,8),
-      //    std::make_pair(10,8),
-      //    std::make_pair(1,9),
-      //    std::make_pair(2,9),
-      //    std::make_pair(3,9),
-      //    std::make_pair(5,9),
-      //    std::make_pair(6,9),
-      //    std::make_pair(10,9),
-      //    std::make_pair(7,10),
-      //    std::make_pair(8,10),
-      //    std::make_pair(9,10),
-      //    std::make_pair(11,10),
-      //    std::make_pair(12,10),
-      //    std::make_pair(13,10),
-      //    std::make_pair(1,11),
-      //    std::make_pair(2,11),
-      //    std::make_pair(3,11),
-      //    std::make_pair(10,11),
-      //    std::make_pair(1,12),
-      //    std::make_pair(2,12),
-      //    std::make_pair(3,12),
-      //    std::make_pair(10,12),
-      //    std::make_pair(1,13),
-      //    std::make_pair(2,13),
-      //    std::make_pair(3,13),
-      //    std::make_pair(10,13)};
-      //  std::pair<int, int> *foo = std::find(std::begin(sparsityPatternStar), 
-      //      std::end(sparsityPatternStar), std::make_pair(i+1,j+1));
-      //  if (foo != std::end(sparsityPatternStar)) {
-      //    return true;
-      //  } else {
-      //    return false;
-      //  }
-      //};
-
-      //auto kron = [](int i, int j) {
-      //  return i == j ? 1 : 0;
-      //};
-
-      //std::vector<Eigen::Triplet<double>> tripletM;
-      //for (int i = 0; i < N; i++) {
-      //  auto t = index2tuple(i);
-      //  auto o = t[0];
-      //  auto m = t[1];
-      //  auto u = t[2];
-      //  for (int j = 0; j < N; j++) {
-      //    auto s = index2tuple(j);
-      //    auto q = s[0];
-      //    auto l = s[1];
-      //    auto k = s[2];
-      //    double val = 0;
-      //    val += kron(o, q) * kron(m, l) * Z(u, k);
-      //    if (o > 6 && q > 9)
-      //      val -= timeStepWidth*E(q,o) * kron(u, k) * kron(m, l);
-      //    if (l > 0 && m < 4 && checkSparsitiyPatternStar(o,q)) {
-      //      val += timeStepWidth*starMatrices0(q, o) * kron(u, k) * stiffnessMatrices0(m,l);
-      //      val += timeStepWidth*starMatrices1(q, o) * kron(u, k) * stiffnessMatrices1(m,l);
-      //      val += timeStepWidth*starMatrices2(q, o) * kron(u, k) * stiffnessMatrices2(m,l);
-      //    }
-      //    tripletM.emplace_back(Eigen::Triplet<double>(i, j, val));
-      //  }
-      //}
-      //Eigen::SparseMatrix<double> M(N,N);
-      //M.setFromTriplets(tripletM.begin(), tripletM.end());
-      //auto solver = new Eigen::SparseLU<Eigen::SparseMatrix<double>>();
-      //solver->compute(M);
-      //localIntegration[cell].unrolledYOperator = solver;
-      ///****
-      // * End Poro Test
-      // */
+      seissol::model::initializeSpecificNeighborData( material[cell].local,
+                                                      &neighboringIntegration[cell].specific );
 
     }
 #ifdef _OPENMP
@@ -632,6 +508,11 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
       switch (plusMaterial->getMaterialType()) {
+        case seissol::model::MaterialType::poroelastic: {
+          logError() << "Dynamic Rupture does not work with poroelasticity yet.";
+          //TODO(SW): Make DR work with poroelasticity
+          break;
+        }
         case seissol::model::MaterialType::anisotropic: {
           logError() << "Dynamic Rupture does not work with anisotropy yet.";
           //TODO(SW): Make DR work with anisotropy 
