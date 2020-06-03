@@ -39,11 +39,10 @@ seissol::physics::Evaluate_friction_law::~Evaluate_friction_law() {
 }
 */
 
-
 void seissol::physics::Evaluate_friction_law::Eval_friction_law(
         double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
         double **TractionGP_XZ,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-        double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
+        double (&NorStressGP)[numberOfPoints][convergenceOrder], double **XYStressGP, double **XZStressGP,        // IN: Godunov status
         int &iFace, int &iSide, int &iElem, double &time, double *timePoints,  // IN: element ID, time, inv Trafo
         double &rho, double &rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
         real const **resampleMatrix,                                         //
