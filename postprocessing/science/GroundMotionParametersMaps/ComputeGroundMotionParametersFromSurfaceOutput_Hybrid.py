@@ -52,7 +52,7 @@ import argparse
 from multiprocessing import Pool,cpu_count,Manager
 import time
 import lxml.etree as ET
-from submodules.pythonXdmfReader.pythonXdmfReader import *
+from pythonXdmfReader.pythonXdmfReader import *
 
 sys.path.append("%s/gmpe-smtk/" %(os.path.dirname(sys.argv[0])))
 try:

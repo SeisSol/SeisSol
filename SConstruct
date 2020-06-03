@@ -506,7 +506,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include', '#/submodules/eigen3'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/yateto/include', '#/submodules/eigen3'] )
 #
 # add libraries
 #
@@ -518,13 +518,6 @@ env.Tool('LibxsmmTool', required=True)
 
 # Library pathes
 env.Tool('DirTool', fortran=True)
-
-# GLM
-# Some C++ GLM features are not working with the Intel Compiler
-env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
-
-# Eigen3
-env.Append(CPPPATH=['#/submodules/eigen3'])
 
 # netCDF
 if env['netcdf'] == 'yes':
@@ -638,7 +631,7 @@ env.generatedSourceFiles = []
 env.generatedTestSourceFiles = []
 
 # Generate the version file
-utils.gitversion.generateHeader(env, target='#/src/version.h')
+utils.gitversion.generateHeader(env, target=env['buildDir']+'/version.h')
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir=env['buildDir'] + '/generated_code', duplicate=0)

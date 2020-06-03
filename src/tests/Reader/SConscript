@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+
+import os
+
+Import('env')
+
+if env['netcdf'] == 'yes':
+    env.testSourceFiles.append(os.path.abspath('NRFReader.t.h'))
+
+Export('env')

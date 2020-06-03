@@ -41,7 +41,7 @@
 #define RESULTWRITER_RECEIVERWRITER_H_
 
 #include <vector>
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 #include <Geometry/MeshReader.h>
 #include <Initializer/tree/Lut.hpp>
 #include <Initializer/LTS.h>
@@ -59,11 +59,11 @@ namespace seissol {
                   double              samplingInterval,
                   double              syncPointInterval);
 
-      void addPoints( std::vector<glm::dvec3> const&    points,
-                      MeshReader const&                 mesh,
-                      seissol::initializers::Lut const& ltsLut,
-                      seissol::initializers::LTS const& lts,
-                      GlobalData const*                 global );
+      void addPoints( std::vector<Eigen::Vector3d> const& points,
+                      MeshReader const&                   mesh,
+                      seissol::initializers::Lut const&   ltsLut,
+                      seissol::initializers::LTS const&   lts,
+                      GlobalData const*                   global );
 
       kernels::ReceiverCluster* receiverCluster(unsigned clusterId) {
         if (clusterId < m_receiverClusters.size()) {
@@ -78,7 +78,7 @@ namespace seissol {
 
     private:
       std::string fileName(unsigned pointId) const;
-      void writeHeader(unsigned pointId, glm::dvec3 const& point);
+      void writeHeader(unsigned pointId, Eigen::Vector3d const& point);
 
       std::string m_fileNamePrefix;
       double      m_samplingInterval;
