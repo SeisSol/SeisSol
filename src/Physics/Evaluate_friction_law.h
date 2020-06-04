@@ -111,8 +111,7 @@ private:
             double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
             int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
             double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
-            double time, double *DeltaT,
-            real const **resampleMatrix,                                         //
+            double time, double *DeltaT,             //
             void *EQN, void *DISC, void *MESH, void *MPI, void *IO
             //initializers::LTSTree* io_ltsTree, initializers::LTS*  i_lts, initializers::LTSTree* dynRupTree,  initializers::DynamicRupture* dynRup,             //data structs
             //checkpoint::Fault fault
@@ -130,7 +129,7 @@ private:
             int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
             double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
             double time, double *DeltaT,
-            real const **resampleMatrix,                                         //
+            double resampleMatrix[],                                         //
             void *EQN, void *DISC, void *MESH, void *MPI, void *IO
     );
 
@@ -187,7 +186,7 @@ private:
             double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
             int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
             double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
-            double time, double *DeltaT, double iT[6][6],                           //IN: time, inv Trafo
+            double time, double *DeltaT, double resampleMatrix[],                           //IN: time, inv Trafo
             void *EQN, void *DISC, void *MESH, void *MPI, void *IO, void *BND
     );
 
@@ -204,7 +203,7 @@ private:
             int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
             double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
             double time, double *DeltaT,                                        //IN: time
-            real const **resampleMatrix,
+            double resampleMatrix[],
             void *EQN, void *DISC, void *MESH, void *MPI, void *IO, void *BND
     );
 
@@ -271,14 +270,13 @@ public:
      *
      */
 
-     template <size_t numberOfPoints, size_t convergenceOrder>
      void Eval_friction_law(
             double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
             double **TractionGP_XZ,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-            double (&NorStressGP)[numberOfPoints][convergenceOrder], double **XYStressGP, double **XZStressGP,        // IN: Godunov status
+            double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
             int &iFace, int &iSide, int &iElem, double &time, double *timePoints,  // IN: element ID, time, inv Trafo
             double &rho, double &rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
-            real const **resampleMatrix,                                         //
+            double resampleMatrix[],                                         //
             void *EQN, void *DISC, void *MESH, void *MPI, void *IO, void *BND                                           //data structs
     );
 

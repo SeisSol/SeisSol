@@ -39,13 +39,14 @@ seissol::physics::Evaluate_friction_law::~Evaluate_friction_law() {
 }
 */
 
+
 void seissol::physics::Evaluate_friction_law::Eval_friction_law(
         double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
         double **TractionGP_XZ,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-        double (&NorStressGP)[numberOfPoints][convergenceOrder], double **XYStressGP, double **XZStressGP,        // IN: Godunov status
+        double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
         int &iFace, int &iSide, int &iElem, double &time, double *timePoints,  // IN: element ID, time, inv Trafo
         double &rho, double &rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
-        real const **resampleMatrix,                                         //
+        double resampleMatrix[],                                         //
         void*EQN, void *DISC, void *MESH, void *MPI, void *IO, void *BND                                           //global variables
 ){
     //required input
@@ -70,7 +71,7 @@ void seissol::physics::Evaluate_friction_law::Eval_friction_law(
                 nBndGP, nTimeGP, rho, rho_neig, w_speed, w_speed_neig, time, DeltaT, resampleMatrix, EQN, DISC, MESH, MPI, IO);
     }else if(FL == 6){
         seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial( TractionGP_XY, TractionGP_XZ, NorStressGP, XYStressGP, XZStressGP, iFace, iSide, iElem,
-                                                                                   nBndGP, nTimeGP, rho, rho_neig, w_speed, w_speed_neig, time, DeltaT, resampleMatrix, EQN, DISC, MESH, MPI, IO);
+                                                                                   nBndGP, nTimeGP, rho, rho_neig, w_speed, w_speed_neig, time, DeltaT, EQN, DISC, MESH, MPI, IO);
     }else if(FL == 33){
 
     }else if(FL == 3 || FL == 4){
@@ -105,8 +106,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial(
         double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
         int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
         double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
-        double time, double *DeltaT,
-        real const **resampleMatrix,                                         //
+        double time, double *DeltaT,         //
         void *EQN, void *DISC, void *MESH, void *MPI, void *IO
         //initializers::LTSTree* io_ltsTree, initializers::LTS*  i_lts, initializers::LTSTree* dynRupTree, initializers::DynamicRupture* dynRup,  //data structs
         //checkpoint::Fault fault
@@ -271,7 +271,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
         int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
         double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
         double time, double *DeltaT,
-        real const **resampleMatrix,                                         //
+        double resampleMatrix[],
         void *EQN, void *DISC, void *MESH, void *MPI, void *IO
 ){
     //dummy:
@@ -282,6 +282,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     //***********************************
     // GET THESE FROM DATA STRUCT
     //required input:
+    auto resampleMatrixView = init::resample::view::create(resampleMatrix);
     double t_0 = 0; //= DISC%DynRup%t_0
     double InitialStressInFaultCS[nBndGP][6][nFace]; // = EQN%InitialStressInFaultCS[i][1][iFace] //TODO: check right size and maybe all indecis need to be shifted by 1
     double cohesion[nBndGP][nFace];   //DISC%DynRup%cohesion(nBndGP,iFace)
@@ -362,9 +363,10 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
             //resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
             //degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
             matmul[iBndGP] = 0;
+
             for (int j = 0; j < nBndGP; j++) {
                 //TODO: deck if resampleMatrix is symmetric  = dimension (nBndGP,nBndGP)
-                matmul[iBndGP] += resampleMatrix[iBndGP][j] * LocSR[j];
+                matmul[iBndGP] += resampleMatrixView(iBndGP,j) * LocSR[j];
             }
             Slip[iBndGP][iFace] = Slip[iBndGP][iFace] + matmul[iBndGP] * time_inc;
             tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSR[iBndGP] * time_inc;
@@ -931,7 +933,7 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc101(
         double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
         int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
         double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
-        double time, double *DeltaT, double iT[6][6],                           //IN: time, inv Trafo
+        double time, double *DeltaT, double iT[],                           //IN: time, inv Trafo
         void *EQN, void *DISC, void *MESH, void *MPI, void *IO, void *BND
 ){
     //dummy:
@@ -944,6 +946,7 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc101(
     //***********************************
     // GET THESE FROM DATA STRUCT
     //required input:
+    auto resampleMatrixView = init::resample::view::create(iT);
     int Face[nFace][unkown][unkown];              //MESH%Fault%Face(iFace,1,1)  !<Assigns each element's side in domain a fault-plane-index
     int BoundaryToObject[unkown][unkown];    //MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor) //!<Mapping from element and side index to boundary object nr
     int MPINumber[unkown][unkown];      //MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)   !<Index into MPI communication structure
@@ -1125,7 +1128,7 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc101(
         matmul = 0;
         for(int j = 0; j <6; j++){
             for(int k = 0; k <6; k++){
-                matmul += iT[j][k] * Stress[k][iBndGP];
+                matmul += resampleMatrixView(j,k) * Stress[k][iBndGP];
             }
             Stress[j][iBndGP] = matmul;
         }
@@ -1226,8 +1229,8 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc101(
             //LocSR2     = SignSR2*ABS(LocSR2)
 
             //Save traction for flux computation
-            TractionGP_XY[iBndGP,iTimeGP] = &LocTracXY;
-            TractionGP_XZ[iBndGP,iTimeGP] = &LocTracXZ;
+            TractionGP_XY[iBndGP][iTimeGP] = LocTracXY;
+            TractionGP_XZ[iBndGP][iTimeGP] = LocTracXZ;
 
         } // End of iTimeGP loop
 
@@ -1262,7 +1265,7 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc103(
         int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
         double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
         double time, double *DeltaT,                                        //IN: time
-        real const **resampleMatrix,
+        double resampleMatrix[],
         void *EQN, void *DISC, void *MESH, void *MPI, void *IO, void *BND
 ){
     //dummy:
@@ -1275,6 +1278,7 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc103(
     //***********************************
     // GET THESE FROM DATA STRUCT
     //required input:
+    auto resampleMatrixView = init::resample::view::create(resampleMatrix);
     int TP_grid_nz; //DISC%dynRup%TP_grid_nz;  !< number of grid points to solve advection for TP in z-direction
     double t_0 = 0; //= DISC%DynRup%t_0
     double InitialStressInFaultCS[nBndGP][6][nFace]; //EQN%InitialStressInFaultCS(iBndGP,6?,iFace)
@@ -1594,7 +1598,7 @@ void seissol::physics::Evaluate_friction_law::rate_and_state_nuc103(
 
         matmul = 0.0;
         for (int j = 0; j < nBndGP; j++) {
-            matmul += resampleMatrix[iBndGP][j] * (LocSV[j] - StateVar[j][iFace]);
+            matmul += resampleMatrixView(iBndGP,j) * (LocSV[j] - StateVar[j][iFace]);
         }
         StateVar[iBndGP][iFace]   += matmul;
 

@@ -261,12 +261,28 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
     //Code added by ADRIAN
     //insert c++ evaluate_friction_law here:
-    size_t numberOfPoints = tensor::QInterpolated::Shape[0];
-    double **TractionGP_XY; //[numberOfPoints][CONVERGENCE_ORDER];
-    double **TractionGP_XZ; //[numberOfPoints][CONVERGENCE_ORDER];
-    double NorStressGP[numberOfPoints][CONVERGENCE_ORDER];
-    double XYStressGP[numberOfPoints][CONVERGENCE_ORDER];
-    double XZStressGP[numberOfPoints][CONVERGENCE_ORDER];
+    const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
+    double TractionGP_XY[numberOfPoints][CONVERGENCE_ORDER] = {{}};
+    double TractionGP_XZ[numberOfPoints][CONVERGENCE_ORDER] = {{}};
+    double NorStressGP[numberOfPoints][CONVERGENCE_ORDER] = {{}};
+    double XYStressGP[numberOfPoints][CONVERGENCE_ORDER]= {{}};
+    double XZStressGP[numberOfPoints][CONVERGENCE_ORDER]= {{}};
+
+    double *TractionGP_XY2[numberOfPoints];
+    double *TractionGP_XZ2[numberOfPoints];
+    double *NorStressGP2[numberOfPoints];
+    double *XYStressGP2[numberOfPoints];
+    double *XZStressGP2[numberOfPoints];
+    for (size_t i = 0; i < numberOfPoints; ++i){
+        TractionGP_XY2[i] = TractionGP_XY[i];
+        TractionGP_XZ2[i] = TractionGP_XZ[i];
+        NorStressGP2[i] = NorStressGP[i];
+        XYStressGP2[i] = XYStressGP[i];
+        XZStressGP2[i] = XZStressGP[i];
+    }
+
+
+
     int iFace = face;
     int iSide;     //= l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
     int iElem;     //= l_domain%MESH%Fault%Face(i_face,1,1)
@@ -276,11 +292,11 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     double rho_neig= waveSpeedsMinus->density;
     double w_speed[3] = {waveSpeedsPlus->pWaveVelocity, waveSpeedsPlus->sWaveVelocity, waveSpeedsPlus->sWaveVelocity};
     double w_speed_neig[3] = {waveSpeedsMinus->pWaveVelocity, waveSpeedsMinus->sWaveVelocity, waveSpeedsMinus->sWaveVelocity};
-    real const *resampleMatrix;
-    yateto::DenseTensorView<2, double> view = init::resample::view::create(const_cast<double *>(init::resample::Values));
+    //double resampleMatrix[]  = {};
+    //resampleMatrix =    init::resample::Values;
+    //yateto::DenseTensorView<2, double> view = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
-
-    view(1,2);
+    //view(1,2);
 
     void*EQN;
     void *DISC;
@@ -310,9 +326,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
 
     seissol::physics::Evaluate_friction_law evaluateFriction;
-    evaluateFriction.Eval_friction_law( TractionGP_XY, TractionGP_XZ, NorStressGP, XYStressGP, XZStressGP,
-          iFace, iSide, iElem, time, timePoints, rho, rho_neig, w_speed, w_speed_neig, resampleMatrix,
-          EQN, DISC, MESH, MPI, IO, BND );
+    evaluateFriction.Eval_friction_law(TractionGP_XY2, TractionGP_XZ2, NorStressGP2, XYStressGP2, XZStressGP2,
+                                       iFace, iSide, iElem, time, timePoints, rho, rho_neig, w_speed, w_speed_neig,
+                                       const_cast<double *>(init::resample::Values),
+                                       EQN, DISC, MESH, MPI, IO, BND );
 
     auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus[face]);
     auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[face]);

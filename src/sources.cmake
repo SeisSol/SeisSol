@@ -122,7 +122,15 @@ src/Initializer/dg_setup.f90
 src/Initializer/ini_optionalfields.f90
 src/Initializer/ini_seissol.f90
 src/Parallel/mpiF.f90
+
+
+src/Physics/Evaluate_friction_law.cpp
+src/Physics/Evaluate_friction_law.h
+src/Physics/tmpFrictionDataStruct.cpp
+
 )
+
+
 
 if (HDF5)
   target_sources(SeisSol-lib PUBLIC
