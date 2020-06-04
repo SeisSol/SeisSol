@@ -128,26 +128,19 @@ void seissol::kernels::Time::setGlobalData(GlobalData const* global) {
 #endif
 }
 
-void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
-                                          LocalData&                  data,
-                                          LocalTmp&                   tmp,
-                                          real                        o_timeIntegrated[tensor::I::size()],
-                                          real*                       o_timeDerivatives )
-{
-  /*
-   * assert alignments.
-   */
-  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
 #ifdef USE_STP
+void seissol::kernels::Time::executeSTP( double                      i_timeStepWidth,
+                                         LocalData&                  data,
+                                         real                        o_timeIntegrated[tensor::I::size()],
+                                         real*                       stp )
+
+{
   real stpRhs[tensor::stpRhs::size()] __attribute__((aligned(PAGESIZE_STACK)));
-  real stp[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK))) = {};
+  assert( ((uintptr_t)stp) % PAGESIZE_STACK  == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
-  std::fill(std::begin(stp), std::end(stp), 0);
+  std::fill(stp, stp + tensor::stp::size(), 0);
   kernel::stp krnl = m_krnlPrototype;
   
-
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration.starMatrices[i];
   }
@@ -173,112 +166,25 @@ void seissol::kernels::Time::computeAder( double                      i_timeStep
   krnl.stp = stp;
   krnl.stpRhs = stpRhs;
   krnl.execute();
-//  const int N = NUMBER_OF_QUANTITIES*NUMBER_OF_BASIS_FUNCTIONS*CONVERGENCE_ORDER;
-//  auto w_hat = init::wHat::view::create(const_cast<double*>(init::wHat::Values));
-//  auto Q_0 = init::Q::view::create(data.dofs);
-//
-//  auto tuple2index = [](Eigen::Vector3i tuple) {
-//    return tuple(0)*CONVERGENCE_ORDER + tuple(1)*NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER + tuple(2);
-//  };
-//
-//  auto index2tuple = [](int i) {
-//    int r = i / (NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER);
-//    int o = (i - r*NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER) / CONVERGENCE_ORDER;
-//    int s = i - r*NUMBER_OF_QUANTITIES*CONVERGENCE_ORDER - o*CONVERGENCE_ORDER;
-//    return Eigen::Vector3i(o, r, s);
-//  };
-//
-//  auto checkSparsitiyPatternStar = [](int i, int j) {
-//    std::pair<int, int> sparsityPatternStar[] = {
-//      std::make_pair(7,1),
-//      std::make_pair(11,1),
-//      std::make_pair(8,2),
-//      std::make_pair(12,2),
-//      std::make_pair(9,3),
-//      std::make_pair(13,3),
-//      std::make_pair(7,4),
-//      std::make_pair(8,4),
-//      std::make_pair(11,4),
-//      std::make_pair(12,4),
-//      std::make_pair(8,5),
-//      std::make_pair(9,5),
-//      std::make_pair(12,5),
-//      std::make_pair(13,5),
-//      std::make_pair(7,6),
-//      std::make_pair(9,6),
-//      std::make_pair(11,6),
-//      std::make_pair(13,6),
-//      std::make_pair(1,7),
-//      std::make_pair(2,7),
-//      std::make_pair(3,7),
-//      std::make_pair(4,7),
-//      std::make_pair(6,7),
-//      std::make_pair(10,7),
-//      std::make_pair(1,8),
-//      std::make_pair(2,8),
-//      std::make_pair(3,8),
-//      std::make_pair(4,8),
-//      std::make_pair(5,8),
-//      std::make_pair(10,8),
-//      std::make_pair(1,9),
-//      std::make_pair(2,9),
-//      std::make_pair(3,9),
-//      std::make_pair(5,9),
-//      std::make_pair(6,9),
-//      std::make_pair(10,9),
-//      std::make_pair(7,10),
-//      std::make_pair(8,10),
-//      std::make_pair(9,10),
-//      std::make_pair(11,10),
-//      std::make_pair(12,10),
-//      std::make_pair(13,10),
-//      std::make_pair(1,11),
-//      std::make_pair(2,11),
-//      std::make_pair(3,11),
-//      std::make_pair(10,11),
-//      std::make_pair(1,12),
-//      std::make_pair(2,12),
-//      std::make_pair(3,12),
-//      std::make_pair(10,12),
-//      std::make_pair(1,13),
-//      std::make_pair(2,13),
-//      std::make_pair(3,13),
-//      std::make_pair(10,13)};
-//    std::pair<int, int> *foo = std::find(std::begin(sparsityPatternStar), 
-//        std::end(sparsityPatternStar), std::make_pair(i+1,j+1));
-//    if (foo != std::end(sparsityPatternStar)) {
-//      return true;
-//    } else {
-//      return false;
-//    }
-//  };
-//
-//  auto kron = [](int i, int j) {
-//    return i == j ? 1 : 0;
-//  };
-//
-//  Eigen::SparseVector<double> b(N);
-//  for (int i = 0; i < N; i++) {
-//    auto t = index2tuple(i);
-//    auto o = t[0];
-//    auto m = t[1];
-//    auto u = t[2];
-//    b.coeffRef(i,0) = w_hat(u) * Q_0(m, o);
-//  }
-//
-//  auto x = data.localIntegration.unrolledYOperator->solve(b).eval();
-//  auto I_view = init::I::view::create(o_timeIntegrated);
-//  unsigned index = 0;
-//  for (unsigned i = 0; i < NUMBER_OF_BASIS_FUNCTIONS; i++) {
-//    for (unsigned j = 0; j < NUMBER_OF_QUANTITIES; j++) {
-//      for (unsigned k = 0; k < CONVERGENCE_ORDER; k++) {
-//        if (k == 1) {
-//          I_view(i,j) = x.coeff(index,0);
-//        }
-//        index++;
-//      }
-//    }
-//  }
+}
+#endif
+                                          
+
+void seissol::kernels::Time::computeAder( double                      i_timeStepWidth,
+                                          LocalData&                  data,
+                                          LocalTmp&                   tmp,
+                                          real                        o_timeIntegrated[tensor::I::size()],
+                                          real*                       o_timeDerivatives )
+{
+  /*
+   * assert alignments.
+   */
+  assert( ((uintptr_t)data.dofs)              % ALIGNMENT == 0 );
+  assert( ((uintptr_t)o_timeIntegrated )      % ALIGNMENT == 0 );
+  assert( ((uintptr_t)o_timeDerivatives)      % ALIGNMENT == 0 || o_timeDerivatives == NULL );
+#ifdef USE_STP
+  real stp[tensor::stp::size()] __attribute__((aligned(PAGESIZE_STACK)));
+  executeSTP( i_timeStepWidth, data, o_timeIntegrated, stp );
 #else
   /*
    * compute ADER scheme.

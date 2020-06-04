@@ -95,6 +95,13 @@ class seissol::kernels::Time : public TimeBase {
                       real                        o_timeIntegrated[tensor::I::size()],
                       real*                       o_timeDerivatives = NULL );
 
+#ifdef USE_STP
+void executeSTP( double     i_timeStepWidth,
+                 LocalData& data,
+                 real       o_timeIntegrated[tensor::I::size()],
+                 real*      stp );
+#endif
+
     void flopsAder( unsigned int &o_nonZeroFlops,
                     unsigned int &o_hardwareFlops );
 

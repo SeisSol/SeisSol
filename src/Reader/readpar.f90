@@ -345,6 +345,7 @@ CONTAINS
       EQN%nAneFuncperMech= 0
 #if defined(USE_POROELASTIC)      
       EQN%Poroelasticity = 1
+      EQN%nVar = 13
       EQN%nVarTotal = 13 
       EQN%nBackgroundVar = 10
 #else
@@ -632,7 +633,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: allocStat, OutputMask(12), i
+    INTEGER                    :: allocStat, OutputMask(16), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
     INTEGER                    :: readStat
@@ -2687,7 +2688,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       IO%OutputMask = .FALSE.                                                                      !
          IO%OutputMask(:)      = .FALSE.                                                    !
          IO%OutputMask(1:3)    = .TRUE.                                                     ! x-y-z Coordinates
-         IO%OutputMask(4:12)   = iOutputMask(1:9)                                           ! State vector
+         IO%OutputMask(4:16)   = iOutputMask(1:13)                                           ! State vector
 
          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN                           ! Isotropic material
             IO%OutputMask(13:15)  = iOutputMaskMaterial(1:3)                                      ! Constants for Jacobians
@@ -2797,6 +2798,13 @@ ALLOCATE( SpacePositionx(nDirac), &
                 IO%TitleMask(10) = TRIM(' "u"')
                 IO%TitleMask(11) = TRIM(' "v"')
                 IO%TitleMask(12) = TRIM(' "w"')
+
+                IF(EQN%Poroelasticity.EQ.1) THEN
+                    IO%TitleMask(13) = TRIM(' "p"')
+                    IO%TitleMask(14) = TRIM(' "u_f"')
+                    IO%TitleMask(15) = TRIM(' "v_f"')
+                    IO%TitleMask(16) = TRIM(' "w_f"')
+                ENDIF
 
                 IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0.AND.EQN%Plasticity.EQ.0) THEN
                     IO%TitleMask(13) = TRIM(' "rho0"')

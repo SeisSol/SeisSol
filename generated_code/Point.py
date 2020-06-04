@@ -46,6 +46,7 @@ from multSim import OptionalDimTensor
 def addKernels(generator, aderdg):
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
+  order = aderdg.order
   ## Point sources
   mStiffnessTensor = Tensor('stiffnessTensor', (3,3,3,3))
   mSlip = Tensor('mSlip', (3,))
@@ -85,3 +86,9 @@ def addKernels(generator, aderdg):
   QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
   evaluateDOFSAtPoint = QAtPoint['p'] <= aderdg.Q['kp'] * basisFunctionsAtPoint['k']
   generator.add('evaluateDOFSAtPoint', evaluateDOFSAtPoint)
+
+  stpShape = (numberOf3DBasisFunctions, numberOfQuantities, order)
+  stp = OptionalDimTensor('stp', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), stpShape, alignStride=True)
+  timeBasisFunctionsAtPoint = Tensor('timeBasisFunctions', (order,))
+  evaluateDOFSAtPointSTP = QAtPoint['p'] <= stp['kpt'] * basisFunctionsAtPoint['k'] * timeBasisFunctionsAtPoint['t']
+  generator.add('evaluateDOFSAtPointSTP', evaluateDOFSAtPointSTP)

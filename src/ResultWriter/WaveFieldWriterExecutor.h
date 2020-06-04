@@ -147,7 +147,7 @@ public:
 		m_numVariables = info.bufferSize(param.bufferIds[OUTPUT_FLAGS]) / sizeof(bool);
 		m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OUTPUT_FLAGS]));
 
-		const char* varNames[9] = {
+		const char* varNames[13] = {
 			"sigma_xx",
 			"sigma_yy",
 			"sigma_zz",
@@ -157,14 +157,18 @@ public:
 			"u",
 			"v",
 			"w",
+			"p",
+			"u_f",
+			"v_f",
+			"w_f",
 		};
 
 		std::vector<const char*> variables;
 		for (unsigned int i = 0; i < m_numVariables; i++) {
 			if (m_outputFlags[i]) {
-        assert(i < 9);
-				variables.push_back(varNames[i]);
-      }
+                          assert(i < 13);
+                          variables.push_back(varNames[i]);
+                        }
 		}
 
 #ifdef USE_MPI

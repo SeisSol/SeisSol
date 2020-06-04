@@ -103,6 +103,11 @@ namespace seissol {
       }
       return 0.5*(n+a+b+1.0)*JacobiP(n-1, a+1, b+1, x);
     }
+
+    inline double LineDubinerP(unsigned i, double xi) {
+        double r = 2*xi - 1;
+        return JacobiP(i, 0, 0, r);
+    }
     
     /** Evaluate Dubiner basis on triangle
      *
