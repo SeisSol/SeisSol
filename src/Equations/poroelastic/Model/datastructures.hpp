@@ -6,16 +6,16 @@
 namespace seissol {
   namespace model {
     struct PoroElasticMaterial : Material {
-      real bulk_solid;
-      real rho;
-      real lambda;
-      real mu;
-      real porosity;
-      real permeability;
-      real tortuosity;
-      real bulk_fluid;
-      real rho_fluid;
-      real viscosity;
+      double bulk_solid;
+      double rho;
+      double lambda;
+      double mu;
+      double porosity;
+      double permeability;
+      double tortuosity;
+      double bulk_fluid;
+      double rho_fluid;
+      double viscosity;
 
       PoroElasticMaterial() {}
 
