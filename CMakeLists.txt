@@ -331,11 +331,14 @@ if (TESTING)
     COPYONLY
     )
 
+  if (NETCDF)
   configure_file(
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
           ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf 
           COPYONLY
   )
+  set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
+  endif()
 
   CXXTEST_ADD_TEST_MPI(
           test_serial_test_suite
@@ -346,7 +349,7 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h
+	  ${SeisSol_NETCDF_TEST_FILES}
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
