@@ -41,14 +41,14 @@ script:
  - scons compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons compileMode=release order=6 plasticity=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
  - scons compileMode=release order=6 plasticity=yes parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons equations=viscoelastic numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons equations=viscoelastic2 numberOfMechanisms=3 compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons equations=poroelastic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons equations=poroelastic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
- - scons equations=anisotropic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
- - scons equations=anisotropic compileMode=release order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release equations=viscoelastic numberOfMechanisms=3 order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release equations=viscoelastic numberOfMechanisms=3 order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release equations=viscoelastic2 numberOfMechanisms=3 order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release equations=viscoelastic2 numberOfMechanisms=3 order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release equations=poroelastic order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release equations=poroelastic order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
+ - scons compileMode=release equations=anisotropic order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast -j2
+ - scons compileMode=release equations=anisotropic order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast -j2
  - scons compileMode=release order=6 parallelization=hybrid commThread=yes arch=dsnb compiler=gcc unitTests=fast check
    # netcdf is built statically with hdf5 support, hence the following do not link
@@ -64,7 +64,8 @@ script:
  - scons compileMode=debug order=6 parallelization=hybrid arch=dsnb compiler=gcc unitTests=fast check
  - scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
  - scons compileMode=release order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
- - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast -j2
- - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast check
- - scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
- - scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
+   # Remove some builds to make it into the 50 minute limit of travis
+   #  - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast -j2
+   #  - scons compileMode=release order=6 parallelization=hybrid netcdf=yes hdf5=yes commThread=yes arch=ssnb compiler=gcc unitTests=fast check
+   #  - scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast -j2
+   #  - scons compileMode=debug order=6 parallelization=hybrid arch=ssnb compiler=gcc unitTests=fast check
