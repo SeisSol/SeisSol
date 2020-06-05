@@ -145,8 +145,7 @@ ExternalProject_Add(yaml-cpp-build
   -DYAML_CPP_BUILD_TESTS=OFF
 )
 add_dependencies(SeisSol-lib yaml-cpp-build)
-target_link_libraries(SeisSol-lib PUBLIC yaml-cpp)
-target_link_directories(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/")
+target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
 target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 
 ExternalProject_Add(ImpalaJIT-build
@@ -157,8 +156,7 @@ ExternalProject_Add(ImpalaJIT-build
   -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
 )
 add_dependencies(SeisSol-lib ImpalaJIT-build)
-target_link_libraries(SeisSol-lib PUBLIC impalajit)
-target_link_directories(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/")
+target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
 target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
 
 # todo: if parallelization == omp/hybrid
