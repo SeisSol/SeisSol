@@ -189,8 +189,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
         for (unsigned source = startSource; source < endSource; ++source) {
           sourceterm::addTimeIntegratedPointSourceNRF( m_pointSources->mInvJInvPhisAtSources[source],
                                                        m_pointSources->tensor[source],
-                                                       m_pointSources->muA[source],
-                                                       m_pointSources->lambdaA[source],
+                                                       m_pointSources->A[source],
+                                                       m_pointSources->stiffnessTensor[source],
                                                        m_pointSources->slipRates[source],
                                                        ct.correctionTime,
                                                        ct.correctionTime + timeStepSize(),
@@ -200,7 +200,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
         for (unsigned source = startSource; source < endSource; ++source) {
           sourceterm::addTimeIntegratedPointSourceFSRM( m_pointSources->mInvJInvPhisAtSources[source],
                                                         m_pointSources->tensor[source],
-                                                        &m_pointSources->slipRates[source][0],
+                                                        m_pointSources->slipRates[source][0],
                                                         ct.correctionTime,
                                                         ct.correctionTime + timeStepSize(),
                                                         *m_cellToPointSources[mapping].dofs );

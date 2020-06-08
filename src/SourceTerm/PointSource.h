@@ -3,9 +3,10 @@
  * This file is part of SeisSol.
  *
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015 - 2020, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -120,15 +121,15 @@ namespace seissol {
     }
 
     /** Returns integral_fromTime^toTime i_pwLF dt. */
-    real computePwLFTimeIntegral(PiecewiseLinearFunction1D const* i_pwLF,
+    real computePwLFTimeIntegral(PiecewiseLinearFunction1D const& i_pwLF,
                                  double i_fromTime,
                                  double i_toTime);
 
     void addTimeIntegratedPointSourceNRF( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                           real const faultBasis[9],
-                                          real muA,
-                                          real lambdaA,
-                                          PiecewiseLinearFunction1D const slipRates[3],
+                                          real A,
+                                          std::array<real, 81> const &stiffnessTensor,
+                                          std::array<PiecewiseLinearFunction1D, 3> const &slipRates,
                                           double i_fromTime,
                                           double i_toTime,
                                           real o_dofUpdate[tensor::Q::size()] );
@@ -142,7 +143,7 @@ namespace seissol {
      **/                                      
     void addTimeIntegratedPointSourceFSRM( real const i_mInvJInvPhisAtSources[tensor::mInvJInvPhisAtSources::size()],
                                            real const i_forceComponents[tensor::momentFSRM::size()],
-                                           PiecewiseLinearFunction1D const* i_pwLF,
+                                           PiecewiseLinearFunction1D const& i_pwLF,
                                            double i_fromTime,
                                            double i_toTime,
                                            real o_dofUpdate[tensor::Q::size()] );

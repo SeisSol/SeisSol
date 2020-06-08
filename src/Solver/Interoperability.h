@@ -4,9 +4,10 @@
  *
  * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
+ * Copyright (c) 2015-2020, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,13 +46,14 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/NRF.h>
 #include <Initializer/LTS.h>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
+#include "Equations/datastructures.hpp"
 
 namespace seissol {
   class Interoperability;
@@ -96,7 +98,7 @@ class seissol::Interoperability {
     //! Set of parameters that have to be initialized for dynamic rupture
     std::unordered_map<std::string, double*> m_faultParameters;
 
-    std::vector<glm::dvec3>           m_recPoints;
+    std::vector<Eigen::Vector3d>           m_recPoints;
 
     //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
@@ -171,19 +173,21 @@ class seissol::Interoperability {
 
     //! \todo Documentation
     void initializeModel( char*   materialFileName,
-                          int     anelasticity,
-                          int     plasticity,
+                          bool    anelasticity,
+                          bool    anisotropy,
+                          bool    plasticity,
                           double* materialVal,
                           double* bulkFriction,
                           double* plastCo,
-                          double* iniStress );
+                          double* iniStress,
+                          double* waveSpeeds );
 
     void fitAttenuation(  double rho,
                           double mu,
                           double lambda,
                           double Qp,
                           double Qs,
-                          seissol::model::Material& material );
+                          seissol::model::ViscoElasticMaterial& material );
 
     void addFaultParameter( std::string const& name,
                            double* memory) {
@@ -202,7 +206,7 @@ class seissol::Interoperability {
     * @param x,y,z coordinates in physical space
     **/
    void addRecPoint(double x, double y, double z) {
-     m_recPoints.emplace_back(glm::dvec3(x, y, z));
+     m_recPoints.emplace_back(Eigen::Vector3d(x, y, z));
    }
 
    /**
@@ -218,6 +222,12 @@ class seissol::Interoperability {
                      double* i_materialVal,
                      int    i_numMaterialVals );
 
+   /***
+    * Get the wavespeeds for elastic materials for a given cell
+    **/
+   void getWaveSpeeds( double* i_materialVal,
+                       int     i_numMaterialVals,
+                       double* o_waveSpeeds );
    /**
     * Sets the initial loading for a cell (plasticity).
     *
