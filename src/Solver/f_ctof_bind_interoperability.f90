@@ -52,6 +52,11 @@ module f_ctof_bind_interoperability
     module procedure f_interoperability_evaluateFrictionLaw
   end interface
 
+  !!Code added by ADRIAN
+  interface f_interoperability_getFrictionData
+    module procedure f_interoperability_getFrictionData
+  end interface
+
   contains
     subroutine copyDynamicRuptureState(domain, fromMeshId, toMeshId)
       use typesDef
@@ -242,6 +247,144 @@ module f_ctof_bind_interoperability
 
       SCOREP_USER_REGION_END( r_dr )
     end subroutine
+
+
+    !!Code added by ADRIAN
+    subroutine f_interoperability_getFrictionData(i_domain, i_numberOfPoints, &
+            i_Elem, i_Side, i_InitialStressInFaultCS, i_cohesion, i_D_C, i_mu_S, i_mu_D, &
+            i_inst_healing, i_t_0, i_FL, i_forced_rupture_time, i_magnitude_out,&
+            i_mu, i_slip, i_slip1, i_slip2, i_slipRate1, i_slipRate2, i_rupture_time,&
+            i_RF, i_DS, i_PeakSR, i_dynStress_time, i_TracXY, i_TracXZ)&
+            bind (c, name='f_interoperability_getFrictionData')
+        use iso_c_binding
+        implicit none
+
+
+        type(c_ptr), value                     :: i_domain
+        type(tUnstructDomainDescript), pointer :: l_domain
+        integer(kind=c_int), value             :: i_numberOfPoints
+
+        type(c_ptr), value                     :: i_Elem
+        integer(kind=c_int), pointer           :: l_Elem(:)
+        type(c_ptr), value                     :: i_Side
+        integer(kind=c_int), pointer           :: l_Side(:)
+        type(c_ptr), value                     :: i_InitialStressInFaultCS
+        REAL_TYPE, pointer                     :: l_InitialStressInFaultCS(:,:,:)
+        type(c_ptr), value                     :: i_cohesion
+        REAL_TYPE, pointer                     :: l_cohesion(:,:)
+        type(c_ptr), value                     :: i_D_C
+        REAL_TYPE, pointer                     :: l_D_C(:,:)
+        type(c_ptr), value                     :: i_mu_S
+        REAL_TYPE, pointer                     :: l_mu_S(:,:)
+        type(c_ptr), value                     :: i_mu_D
+        REAL_TYPE, pointer                     :: l_mu_D(:,:)
+
+        type(c_ptr), value                     :: i_inst_healing
+        integer(kind=c_int), pointer           :: l_inst_healing
+        type(c_ptr), value                     :: i_t_0
+        real*8, pointer                        :: l_t_0
+        type(c_ptr), value                     :: i_FL
+        integer(kind=c_int), pointer           :: l_FL
+
+        type(c_ptr), value                     :: i_forced_rupture_time
+        REAL_TYPE, pointer                     :: l_forced_rupture_time(:,:)
+        type(c_ptr), value                     :: i_magnitude_out
+        LOGICAL, pointer                       :: l_magnitude_out(:)
+        type(c_ptr), value                     :: i_mu
+        REAL_TYPE, pointer                     :: l_mu(:,:)
+        type(c_ptr), value                     :: i_slip
+        REAL_TYPE, pointer                     :: l_slip(:,:)
+        type(c_ptr), value                     :: i_slip1
+        REAL_TYPE, pointer                     :: l_slip1(:,:)
+        type(c_ptr), value                     :: i_slip2
+        REAL_TYPE, pointer                     :: l_slip2(:,:)
+        type(c_ptr), value                     :: i_slipRate1
+        REAL_TYPE, pointer                     :: l_slipRate1(:,:)
+        type(c_ptr), value                     :: i_slipRate2
+        REAL_TYPE, pointer                     :: l_slipRate2(:,:)
+        type(c_ptr), value                     :: i_rupture_time
+        REAL_TYPE, pointer                     :: l_rupture_time(:,:)
+        type(c_ptr), value                     :: i_RF
+        LOGICAL, pointer                       :: l_RF(:,:)
+        type(c_ptr), value                     :: i_DS
+        LOGICAL, pointer                       :: l_DS(:,:)
+        type(c_ptr), value                     :: i_PeakSR
+        REAL_TYPE, pointer                     :: l_PeakSR(:,:)
+        type(c_ptr), value                     :: i_dynStress_time
+        REAL_TYPE, pointer                     :: l_dynStress_time(:,:)
+        type(c_ptr), value                     :: i_TracXY
+        REAL_TYPE, pointer                     :: l_TracXY(:,:)
+        type(c_ptr), value                     :: i_TracXZ
+        REAL_TYPE, pointer                     :: l_TracXZ(:,:)
+
+
+        integer :: nFace
+
+        ! convert c to fortran pointers
+        call c_f_pointer( i_domain,             l_domain)
+        call c_f_pointer( i_inst_healing,       l_inst_healing  )
+        call c_f_pointer( i_t_0,                l_t_0  )
+        call c_f_pointer( i_FL,                 l_FL  )
+
+        nFace = l_domain%MESH%Fault%nSide
+
+        call c_f_pointer( i_Elem,               l_Elem, [nFace]  )
+        call c_f_pointer( i_Side,               l_Side, [nFace] )
+        call c_f_pointer( i_magnitude_out, l_magnitude_out, [nFace])
+
+        call c_f_pointer( i_InitialStressInFaultCS, l_InitialStressInFaultCS, [i_numberOfPoints,6,nFace])
+        call c_f_pointer( i_cohesion, l_cohesion, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_D_C, l_D_C, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_mu_S, l_mu_S, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_mu_D, l_mu_D, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_forced_rupture_time, l_forced_rupture_time, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_mu, l_mu, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_slip, l_slip, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_slip1, l_slip1, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_slip2, l_slip2, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_slipRate1, l_slipRate1, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_slipRate2, l_slipRate2, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_rupture_time, l_rupture_time, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_RF, l_RF, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_DS, l_DS, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_PeakSR, l_PeakSR, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_dynStress_time, l_dynStress_time, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_TracXY, l_TracXY, [i_numberOfPoints,nFace])
+        call c_f_pointer( i_TracXZ, l_TracXZ, [i_numberOfPoints,nFace])
+
+
+        !call copyDynamicRuptureState(l_domain, i_face, i_face)
+
+        l_Elem                   = l_domain%MESH%Fault%Face(:,1,1)          ! Remark:
+        l_Side                   = l_domain%MESH%Fault%Face(:,2,1)          ! iElem denotes "+" side
+        l_InitialStressInFaultCS = l_domain%EQN%InitialStressInFaultCS
+        l_cohesion              = l_domain%DISC%DynRup%cohesion
+        l_D_C                   = l_domain%DISC%DynRup%D_C
+        l_mu_S                  = l_domain%DISC%DynRup%Mu_S
+        l_mu_D                  = l_domain%DISC%DynRup%Mu_D
+        l_inst_healing          = l_domain%DISC%DynRup%inst_healing
+        l_t_0                   = l_domain%DISC%DynRup%t_0
+        l_FL                    = l_domain%EQN%FL
+        l_forced_rupture_time   = l_domain%DISC%DynRup%forced_rupture_time
+        l_magnitude_out         = l_domain%DISC%DynRup%magnitude_out
+
+        l_mu                    = l_domain%DISC%DynRup%Mu
+        l_slip                  = l_domain%DISC%DynRup%Slip
+        l_slip1                 = l_domain%DISC%DynRup%Slip1
+        l_slip2                 = l_domain%DISC%DynRup%Slip2
+        l_slipRate1             = l_domain%DISC%DynRup%SlipRate1
+        l_slipRate2             = l_domain%DISC%DynRup%SlipRate2
+        l_rupture_time          = l_domain%DISC%DynRup%rupture_time
+        l_RF                    = l_domain%DISC%DynRup%RF
+        l_DS                    = l_domain%DISC%DynRup%DS
+
+        l_PeakSR                = l_domain%DISC%DynRup%PeakSR
+        l_dynStress_time        = l_domain%DISC%DynRup%dynStress_time
+        l_TracXY                = l_domain%DISC%DynRup%TracXY
+        l_TracXZ                = l_domain%DISC%DynRup%TracXZ
+
+    end subroutine
+
 
     subroutine f_interoperability_calcElementwiseFaultoutput(i_domain, time) bind (c, name="f_interoperability_calcElementwiseFaultoutput")
       use iso_c_binding

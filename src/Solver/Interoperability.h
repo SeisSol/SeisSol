@@ -54,6 +54,7 @@
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
 #include "Equations/datastructures.hpp"
+#include "Physics/tmpFrictionDataStruct.cpp"
 
 namespace seissol {
   class Interoperability;
@@ -381,6 +382,18 @@ class seissol::Interoperability {
                               double timeWeights[CONVERGENCE_ORDER],
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
+
+  /**
+  * Code added by Adrian
+  *
+  * gets friction data from fortran domain to c++
+  *
+  * @param input: i_numberOfPoints
+   * remain are outputs
+  */
+  void getFrictionData( int i_numberOfPoints, seissol::physics::FrictionData &friction_data);
+
+
 
 
    /**
