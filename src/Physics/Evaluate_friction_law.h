@@ -5,7 +5,7 @@
 #ifndef SEISSOL_EVALUATE_FRICTION_LAW_H
 #define SEISSOL_EVALUATE_FRICTION_LAW_H
 
-#endif //SEISSOL_EVALUATE_FRICTION_LAW_H
+
 
 #include <Initializer/typedefs.hpp>
 #include <Initializer/tree/LTSTree.hpp>
@@ -13,7 +13,7 @@
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/tree/Layer.hpp>
 #include <Checkpoint/Fault.h>
-
+#include "Physics/tmpFrictionDataStruct.cpp"
 
 namespace seissol {
     namespace physics {
@@ -24,7 +24,7 @@ class seissol::physics::Evaluate_friction_law {
 private:
     //TODO: Interface Eval_friction_law??
     float const u_0 = 10e-14; //slip rate is considered as being zero for instaneous healing
-    double const ZERO = 0.0;; // CHECK: 0.0D0 -> double precision exponent
+    double const ZERO = 0.0;  // CHECK: 0.0D0 -> double precision exponent
 
     //Methods:
     /*
@@ -130,7 +130,7 @@ private:
             double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
             double time, double *DeltaT,
             double resampleMatrix[],                                         //
-            void *EQN, void *DISC, void *MESH, void *MPI, void *IO
+            seissol::physics::FrictionData &friction_data
     );
 
     /*
@@ -277,8 +277,11 @@ public:
             int &iFace, int &iSide, int &iElem, double &time, double *timePoints,  // IN: element ID, time, inv Trafo
             double &rho, double &rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
             double resampleMatrix[],                                         //
-            void *EQN, void *DISC, void *MESH, void *MPI, void *IO, void *BND                                           //data structs
+            seissol::physics::FrictionData &friction_data                                           //data structs
     );
 
 
 };
+
+
+#endif //SEISSOL_EVALUATE_FRICTION_LAW_H

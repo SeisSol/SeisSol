@@ -257,8 +257,9 @@ module f_ctof_bind_interoperability
             i_RF, i_DS, i_PeakSR, i_dynStress_time, i_TracXY, i_TracXZ)&
             bind (c, name='f_interoperability_getFrictionData')
         use iso_c_binding
+        use typesDef
+        use f_ftoc_bind_interoperability
         implicit none
-
 
         type(c_ptr), value                     :: i_domain
         type(tUnstructDomainDescript), pointer :: l_domain
@@ -278,6 +279,9 @@ module f_ctof_bind_interoperability
         REAL_TYPE, pointer                     :: l_mu_S(:,:)
         type(c_ptr), value                     :: i_mu_D
         REAL_TYPE, pointer                     :: l_mu_D(:,:)
+
+        ! TODO add: DISC%DynRup%averaged_Slip
+
 
         type(c_ptr), value                     :: i_inst_healing
         integer(kind=c_int), pointer           :: l_inst_healing

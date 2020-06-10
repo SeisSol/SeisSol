@@ -304,6 +304,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
     //Code added by ADRIAN
     //insert c++ evaluate_friction_law here:
+    /*
     int iFace = face;
     //int iSide = friction_data.side[iFace];     //= l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
     //int iElem = friction_data.elem[iFace];     //= l_domain%MESH%Fault%Face(i_face,1,1)
@@ -331,7 +332,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     evaluateFriction.Eval_friction_law(TractionGP_XY2, TractionGP_XZ2, NorStressGP2, XYStressGP2, XZStressGP2,
                                        iFace, friction_data.side[iFace], friction_data.elem[iFace], time, timePoints, rho, rho_neig, w_speed, w_speed_neig,
                                        const_cast<double *>(init::resample::Values),
-                                       EQN, DISC, MESH, MPI, IO, BND );
+                                       friction_data );
 
     auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus[face]);
     auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[face]);
@@ -358,8 +359,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
           imposedStatePlusView(i,9) += m_dynamicRuptureKernel.timeWeights[j]  * (QInterpolatedPlusView(i,8) + Zs_inv * (TractionGP_XZ[i][j]-QInterpolatedPlusView(i,5)));
       }
     }
-        /*
-         * legacy code:
+        /*/
+         //* legacy code:
       e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus,
                                             QInterpolatedMinus,
@@ -370,7 +371,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             m_dynamicRuptureKernel.timeWeights,
                                             waveSpeedsPlus[face],
                                             waveSpeedsMinus[face] );
-                                            */
+
   }
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());

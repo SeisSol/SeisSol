@@ -1,6 +1,9 @@
 //
 // Created by adrian on 02.06.20.
 //
+#ifndef TMPFRICTIONDATASTRUCT_CPP_
+#define TMPFRICTIONDATASTRUCT_CPP_
+
 
 #include <Initializer/typedefs.hpp>
 
@@ -36,6 +39,8 @@ namespace seissol {
                 real **TracXY;
                 real **TracXZ;
 
+                real *averaged_Slip;
+
                 FrictionData(const size_t numberOfPoints_in, const size_t nFace_in): numberOfPoints(numberOfPoints_in), nFace(nFace_in){
 
                     int inst_healing= -1;
@@ -51,6 +56,10 @@ namespace seissol {
                     magnitude_out = new bool [nFace];
                     elem = new int [nFace];
                     side = new int [nFace];
+                    averaged_Slip = new double [nFace];
+                    for (int i = 0; i < nFace; i++) {
+                        averaged_Slip[i] = 0;
+                    }
 
                     cohesion = new double *[nFace];
                     D_C = new double *[nFace];
@@ -141,3 +150,4 @@ DISC%DynRup%dynStress_time = 0.0D0
 
  */
 
+#endif
