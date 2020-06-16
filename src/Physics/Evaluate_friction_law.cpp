@@ -4,6 +4,7 @@
 
 #include "Evaluate_friction_law.h"
 
+
 //test
 //protected
 /*
@@ -51,13 +52,14 @@ void seissol::physics::Evaluate_friction_law::Eval_friction_law(
                                                    //global variables
 ){
     //required input
-    int FL;     //EQN%FL
-    int nBndGP;// DISC%Galerkin%nBndGP
-    int nTimeGP; // DISC%Galerkin%nTimeGP
+
+    int FL = friction_data.FL;     //EQN%FL
+    int nBndGP = friction_data.numberOfPoints;// DISC%Galerkin%nBndGP
+    const int nTimeGP = CONVERGENCE_ORDER; // DISC%Galerkin%nTimeGP
     void*EQN, *DISC, *MESH, *MPI,  *IO, *BND;
 
     //local variables
-    double DeltaT[nTimeGP];
+    double DeltaT[nTimeGP] = {};
 
     DeltaT[0]=timePoints[0];
     for(int iTimeGP = 1; iTimeGP< nTimeGP; iTimeGP++ ){
@@ -66,24 +68,28 @@ void seissol::physics::Evaluate_friction_law::Eval_friction_law(
     DeltaT[nTimeGP] = DeltaT[nTimeGP] + DeltaT[0];  // to fill last segment of Gaussian integration
 
     if(FL == 0){
+        std::cout << "FL = 0" << std::endl;
         seissol::physics::Evaluate_friction_law::no_fault(XYStressGP,  XZStressGP,  TractionGP_XY, TractionGP_XZ);
     }else if(FL == 2 || FL == 16 ){
         seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(   TractionGP_XY, TractionGP_XZ, NorStressGP, XYStressGP, XZStressGP, iFace, iSide, iElem,
                 nBndGP, nTimeGP, rho, rho_neig, w_speed, w_speed_neig, time, DeltaT, resampleMatrix, friction_data);
     }else if(FL == 6){
+        std::cout << "FL = 6"<< std::endl;
         seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial( TractionGP_XY, TractionGP_XZ, NorStressGP, XYStressGP, XZStressGP, iFace, iSide, iElem,
                                                                                    nBndGP, nTimeGP, rho, rho_neig, w_speed, w_speed_neig, time, DeltaT, EQN, DISC, MESH, MPI, IO);
     }else if(FL == 33){
+        std::cout << "FL = 33"<< std::endl;
 
     }else if(FL == 3 || FL == 4){
-
+        std::cout << "FL = 3 or 4"<< std::endl;
     }else if(FL == 7){
-
+        std::cout << "FL = 7"<< std::endl;
     }else if(FL == 101){
-
+        std::cout << "FL = 101"<< std::endl;
     }else if(FL == 103){
-
+        std::cout << "FL = 103"<< std::endl;
     }else{
+        std::cout << "ERROR: FL = unkown"<< std::endl;
         //TODO:  logError(*) 'ERROR in friction.f90: friction law case',EQN%FL,' not implemented!'
     }
 }
@@ -273,7 +279,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
         double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
         double time, double *DeltaT,
         double resampleMatrix[],
-        seissol::physics::FrictionData &friction_data
+        seissol::physics::FrictionData &frD
 ){
     //dummy:
     int nFace;
@@ -284,34 +290,34 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     // GET THESE FROM DATA STRUCT
     //required input:
     auto resampleMatrixView = init::resample::view::create(resampleMatrix);
-    double t_0 = friction_data.t_0; //= DISC%DynRup%t_0
-    double ***InitialStressInFaultCS = friction_data.initialStressInFaultCS; // = EQN%InitialStressInFaultCS[i][1][iFace] //TODO: check right size and maybe all indecis need to be shifted by 1
-    double **cohesion = friction_data.cohesion;   //DISC%DynRup%cohesion(nBndGP,iFace)
-    double **D_C = friction_data.D_C;         // DISC%DynRup%D_C(nBndGP,iFace)
-    int FL = friction_data.FL;                  //EQN%FL
-    double **forced_rupture_time = friction_data.forced_rupture_time; //DISC%DynRup%forced_rupture_time(nBndGP,iFace)
-    double **Mu_S = friction_data.mu_S; //DISC%DynRup%Mu_S(nBndGP,iFace)
-    double **Mu_D = friction_data.mu_D; //DISC%DynRup%Mu_D(nBndGP,iFace)
-    bool inst_healing = friction_data.inst_healing;    //DISC%DynRup%inst_healing //TODO is actually a bool?
-    bool *magnitude_out = friction_data.magnitude_out;        //DISC%DynRup%magnitude_out(iFace) //TODO is this a bool?
+    double t_0 = frD.t_0; //= DISC%DynRup%t_0
+    //double ***InitialStressInFaultCS; //= friction_data.initialStressInFaultCS; // = EQN%InitialStressInFaultCS[i][1][iFace] //TODO: check right size and maybe all indecis need to be shifted by 1
+    //double **cohesion; //= friction_data.cohesion;   //DISC%DynRup%cohesion(nBndGP,iFace)
+    //double **D_C = friction_data.D_C;         // DISC%DynRup%D_C(nBndGP,iFace)
+    int FL = frD.FL;                  //EQN%FL
+    //double **forced_rupture_time = friction_data.forced_rupture_time; //DISC%DynRup%forced_rupture_time(nBndGP,iFace)
+    //double **Mu_S = friction_data.mu_S; //DISC%DynRup%Mu_S(nBndGP,iFace)
+    //double **Mu_D = friction_data.mu_D; //DISC%DynRup%Mu_D(nBndGP,iFace)
+    bool inst_healing = frD.inst_healing;    //DISC%DynRup%inst_healing //TODO is actually a bool?
+    bool *magnitude_out = frD.magnitude_out;        //DISC%DynRup%magnitude_out(iFace) //TODO is this a bool?
 
     //in and output:
-    double **Mu = friction_data.mu;           //DISC%DynRup%Mu(nBndGP,iFace)
-    double **Slip1 = friction_data.slip1; //DISC%DynRup%Slip1(nBndGP,iFace)
-    double **Slip2 = friction_data.slip2;   //DISC%DynRup%Slip2(nBndGP,iFace)
-    double **Slip = friction_data.slip;   //DISC%DynRup%Slip(nBndGP,iFace)
-    bool **RF = friction_data.RF;            //DISC%DynRup%RF(nBndGP,iFace)
-    double **rupture_time = friction_data.rupture_time;    //DISC%DynRup%rupture_time(nBndGP,iFace)
-    bool **DS = friction_data.DS;             //DISC%DynRup%DS(:,iFace)
-    double **PeakSR = friction_data.PeakSR;       //DISC%DynRup%PeakSR(:,iFace)
-    double *averaged_Slip = friction_data.averaged_Slip;    //DISC%DynRup%averaged_Slip(iFace)
+    //double **Mu = friction_data.mu;           //DISC%DynRup%Mu(nBndGP,iFace)
+    //double **Slip1 = friction_data.slip1; //DISC%DynRup%Slip1(nBndGP,iFace)
+    //double **Slip2 = friction_data.slip2;   //DISC%DynRup%Slip2(nBndGP,iFace)
+    //double **Slip = friction_data.slip;   //DISC%DynRup%Slip(nBndGP,iFace)
+    //bool **RF = friction_data.RF;            //DISC%DynRup%RF(nBndGP,iFace)
+    //double **rupture_time = friction_data.rupture_time;    //DISC%DynRup%rupture_time(nBndGP,iFace)
+    //bool **DS = friction_data.DS;             //DISC%DynRup%DS(:,iFace)
+    //double **PeakSR = friction_data.PeakSR;       //DISC%DynRup%PeakSR(:,iFace)
+    double *averaged_Slip = frD.averaged_Slip;    //DISC%DynRup%averaged_Slip(iFace)
 
     //only output
-    double **dynStress_time = friction_data.dynStress_time; //DISC%DynRup%dynStress_time(:,iFace)
-    double **TracXY = friction_data.TracXY;           //DISC%DynRup%TracXY(:,iFace)
-    double **TracXZ = friction_data.TracXY;       //DISC%DynRup%TracXZ(:,iFace)
-    double **SlipRate1 = friction_data.slipRate1;  //DISC%DynRup%SlipRate1(:,iFace) = LocSR1
-    double **SlipRate2 = friction_data.slipRate2;  //DISC%DynRup%SlipRate2(:,iFace) = LocSR2
+    //double **dynStress_time = friction_data.dynStress_time; //DISC%DynRup%dynStress_time(:,iFace)
+    //double **TracXY = friction_data.TracXY;           //DISC%DynRup%TracXY(:,iFace)
+    //double **TracXZ = friction_data.TracXY;       //DISC%DynRup%TracXZ(:,iFace)
+    //double **SlipRate1 = friction_data.slipRate1;  //DISC%DynRup%SlipRate1(:,iFace) = LocSR1
+    //double **SlipRate2 = friction_data.slipRate2;  //DISC%DynRup%SlipRate2(:,iFace) = LocSR2
     //***********************************
 
 
@@ -326,7 +332,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     double tn = time;
     double time_inc = 0;
     double P[nBndGP];
-    double Strength[nBndGP][iFace];
+    double Strength[nBndGP];
     double ShTest[nBndGP];
     double LocSR[nBndGP];
     double LocSR1[nBndGP];
@@ -343,22 +349,23 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
             tn = tn + time_inc;
 
 
-            P[iBndGP] = InitialStressInFaultCS[iBndGP][0][iFace] + NorStressGP[iBndGP][iTimeGP];
-            Strength[iBndGP][iFace] = -cohesion[iBndGP][iFace] - Mu[iBndGP][iFace] * std::min(P[iBndGP], 0.0);
+            P[iBndGP] = frD.getInitialStressInFaultCS(iBndGP,0,iFace) + NorStressGP[iBndGP][iTimeGP];
+            Strength[iBndGP] = -frD.getCohesion(iBndGP,iFace) + frD.getMu(iBndGP, iFace) * std::min(P[iBndGP], 0.0);
+            //Strength[iBndGP] = -cohesion[iBndGP][iFace] - Mu[iBndGP][iFace] * std::min(P[iBndGP], 0.0);
             ShTest[iBndGP] = std::sqrt(
-                    std::pow(InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP], 2) +
-                    std::pow(InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP], 2));
-            LocSR[iBndGP] = std::max(0.0, (ShTest[iBndGP] - Strength[iBndGP][iFace]) / eta);
-            LocSR1[iBndGP] = LocSR[iBndGP] * (InitialStressInFaultCS[iBndGP][3][iFace] + XYStressGP[iBndGP][iTimeGP]) /
-                             (Strength[iBndGP][iFace] + eta * LocSR[iBndGP]);
-            LocSR2[iBndGP] = LocSR[iBndGP] * (InitialStressInFaultCS[iBndGP][5][iFace] + XZStressGP[iBndGP][iTimeGP]) /
-                             (Strength[iBndGP][iFace] + eta * LocSR[iBndGP]);
+                    std::pow(frD.getInitialStressInFaultCS(iBndGP,3,iFace)+ XYStressGP[iBndGP][iTimeGP], 2) +
+                    std::pow(frD.getInitialStressInFaultCS(iBndGP,5,iFace) + XZStressGP[iBndGP][iTimeGP], 2));
+            LocSR[iBndGP] = std::max(0.0, (ShTest[iBndGP] - Strength[iBndGP]) / eta);
+            LocSR1[iBndGP] = LocSR[iBndGP] * (frD.getInitialStressInFaultCS(iBndGP,3,iFace)+ XYStressGP[iBndGP][iTimeGP]) /
+                             (Strength[iBndGP] + eta * LocSR[iBndGP]);
+            LocSR2[iBndGP] = LocSR[iBndGP] * (frD.getInitialStressInFaultCS(iBndGP,5,iFace) + XZStressGP[iBndGP][iTimeGP]) /
+                             (Strength[iBndGP] + eta * LocSR[iBndGP]);
             LocTracXY[iBndGP] = XYStressGP[iBndGP][iTimeGP] - eta * LocSR1[iBndGP];
             LocTracXZ[iBndGP] = XZStressGP[iBndGP][iTimeGP] - eta * LocSR2[iBndGP];
 
             //Update slip
-            Slip1[iBndGP][iFace] = Slip1[iBndGP][iFace] + LocSR1[iBndGP] * time_inc;
-            Slip2[iBndGP][iFace] = Slip2[iBndGP][iFace] + LocSR2[iBndGP] * time_inc;
+            frD.getSlip1(iBndGP,iFace) = frD.getSlip1(iBndGP,iFace) + LocSR1[iBndGP] * time_inc;
+            frD.getSlip2(iBndGP,iFace) = frD.getSlip2(iBndGP,iFace) + LocSR2[iBndGP] * time_inc;
 
             //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
             //resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
@@ -369,35 +376,35 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
                 //TODO: deck if resampleMatrix is symmetric  = dimension (nBndGP,nBndGP)
                 matmul[iBndGP] += resampleMatrixView(iBndGP,j) * LocSR[j];
             }
-            Slip[iBndGP][iFace] = Slip[iBndGP][iFace] + matmul[iBndGP] * time_inc;
+            frD.getSlip(iBndGP,iFace)  = frD.getSlip(iBndGP,iFace) + matmul[iBndGP] * time_inc;
             tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSR[iBndGP] * time_inc;
 
             //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-            f1[iBndGP] = std::min(std::abs(Slip[iBndGP][iFace]) / D_C[iBndGP][iFace], 1.0);
+            f1[iBndGP] = std::min(std::abs(frD.getSlip(iBndGP,iFace)) / frD.getD_C(iBndGP,iFace), 1.0);
 
             if (FL == 16) {
                 if (t_0 == 0) {
-                    if (tn >= forced_rupture_time[iBndGP][iFace]) {
+                    if (tn >= frD.getforced_rupture_time(iBndGP,iFace) ) {
                         f2[iBndGP] = 1.0;
                     } else {
                         f2[iBndGP] = 0.0;
                     }
                 } else {
                     //TODO: why unreachable?
-                    f2[iBndGP] = std::max(0.0, std::min((time - forced_rupture_time[iBndGP][iFace]) / t_0, 1.0));
+                    f2[iBndGP] = std::max(0.0, std::min((time - frD.getforced_rupture_time(iBndGP,iFace) ) / t_0, 1.0));
                 }
             } else {
                 f2[iBndGP] = 0.0;
             }
 
-            Mu[iBndGP][iFace] = Mu_S[iBndGP][iFace] -
-                                (Mu_S[iBndGP][iFace] - Mu_D[iBndGP][iFace]) * std::max(f1[iBndGP], f2[iBndGP]);
+            frD.getMu(iBndGP,iFace) = frD.getMu_S(iBndGP,iFace) -
+                                (frD.getMu_S(iBndGP,iFace) - frD.getMu_D(iBndGP,iFace)) * std::max(f1[iBndGP], f2[iBndGP]);
 
             //instantaneous healing
             if (inst_healing == true) {
                 if (LocSR[iBndGP] < u_0) {
-                    Mu[iBndGP][iFace] = Mu_S[iBndGP][iFace];
-                    Slip[iBndGP][iFace] = 0.0;
+                    frD.getMu(iBndGP,iFace) = frD.getMu_S(iBndGP,iFace);
+                    frD.getSlip(iBndGP,iFace) = 0.0;
                 }
             }
 
@@ -408,29 +415,29 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
         // output rupture front
         // outside of iTimeGP loop in order to safe an 'if' in a loop
         // this way, no subtimestep resolution possible
-        if (RF[iBndGP][iFace] && LocSR[iBndGP] > 0.001) {
-            rupture_time[iBndGP][iFace] = time;
-            RF[iBndGP][iFace] = false;
+        if (frD.getRF(iBndGP,iFace) && LocSR[iBndGP] > 0.001) {
+            frD.getRupture_time(iBndGP,iFace) = time;
+            frD.getRF(iBndGP,iFace) = false;
         }
         //output time when shear stress is equal to the dynamic stress after rupture arrived
         //currently only for linear slip weakening
-        if (rupture_time[iBndGP][iFace] > 0.0 &&
-                rupture_time[iBndGP][iFace] <= time &&
-                DS[iBndGP][iFace] &&
-                std::abs(Slip[iBndGP][iFace] >= D_C[iBndGP][iFace]))
+        if (frD.getRupture_time(iBndGP,iFace) > 0.0 &&
+                frD.getRupture_time(iBndGP,iFace) <= time &&
+                frD.getDS(iBndGP,iFace) &&
+                std::abs(frD.getSlip(iBndGP,iFace) >= frD.getD_C(iBndGP,iFace)))
         {
-            dynStress_time[iBndGP][iFace] = time;
-            DS[iBndGP][iFace] = false;
+            frD.getDynStress_time(iBndGP,iFace) = time;
+            frD.getDS(iBndGP,iFace) = false;
         }
 
-        if(LocSR[iBndGP] > PeakSR[iBndGP][iFace]){
-            PeakSR[iBndGP][iFace] = LocSR[iBndGP];
+        if(LocSR[iBndGP] >  frD.getPeakSR(iBndGP,iFace) ){
+            frD.getPeakSR(iBndGP,iFace) = LocSR[iBndGP];
         }
 
-        TracXY[iBndGP][iFace] = LocTracXY[iBndGP];
-        TracXZ[iBndGP][iFace] = LocTracXZ[iBndGP];
-        SlipRate1[iBndGP][iFace] = LocSR1[iBndGP];
-        SlipRate2[iBndGP][iFace] = LocSR2[iBndGP];
+        frD.getTracXY(iBndGP,iFace) = LocTracXY[iBndGP];
+        frD.getTracXZ(iBndGP,iFace) = LocTracXZ[iBndGP];
+        frD.getSlipRate1(iBndGP,iFace) = LocSR1[iBndGP];
+        frD.getSlipRate2(iBndGP,iFace) = LocSR2[iBndGP];
 
     } //end i < nBndGP loop
 

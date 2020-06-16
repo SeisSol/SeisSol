@@ -386,11 +386,13 @@ class seissol::Interoperability {
   /**
   * Code added by Adrian
   *
+  *
   * gets friction data from fortran domain to c++
   *
   * @param input: i_numberOfPoints
    * remain are outputs
   */
+  void getnSide(int &nSide);
   void getFrictionData( int i_numberOfPoints, seissol::physics::FrictionData &friction_data);
 
 

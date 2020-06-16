@@ -296,11 +296,13 @@ extern "C" {
                                                       real const* resampleMatrix );
 
   //Code added by ADRIAN
+  extern void f_interoperability_getnSide(void*  i_domain, int* i_nSide);
+
   extern void f_interoperability_getFrictionData( void*  i_domain, int i_numberOfPoints,
         int* iElem, int* iSide, real* i_InitialStressInFaultCS, real* i_cohesion, real* i_D_C, real* i_mu_S, real* i_mu_D,
         int* inst_healing, double* t_0, int* FL, real* i_forced_rupture_time, bool* i_magnitude_out,
         real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time,
-        bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
+        bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_averaged_Slip, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
 
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
@@ -995,33 +997,37 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
 
 
 //Code added by ADRIAN
+void seissol::Interoperability::getnSide(int &nSide){
+    f_interoperability_getnSide(m_domain, &nSide);
+}
 void seissol::Interoperability::getFrictionData(int i_numberOfPoints, seissol::physics::FrictionData &friction_data){
 
     f_interoperability_getFrictionData(m_domain, i_numberOfPoints,
                                        &friction_data.elem[0],
                                        &friction_data.side[0],
-                                       &friction_data.initialStressInFaultCS[0][0][0],
-                                       &friction_data.cohesion[0][0],
-                                       &friction_data.D_C[0][0],
-                                       &friction_data.mu_S[0][0],
-                                       &friction_data.mu_D[0][0],
+                                       &friction_data.initialStressInFaultCS[0],
+                                       &friction_data.cohesion[0],
+                                       &friction_data.D_C[0],
+                                       &friction_data.mu_S[0],
+                                       &friction_data.mu_D[0],
                                        &friction_data.inst_healing, &friction_data.t_0,
                                        &friction_data.FL,
-                                       &friction_data.forced_rupture_time[0][0],
+                                       &friction_data.forced_rupture_time[0],
                                        &friction_data.magnitude_out[0],
-                                       &friction_data.mu[0][0],
-                                       &friction_data.slip[0][0],
-                                       &friction_data.slip1[0][0],
-                                       &friction_data.slip2[0][0],
-                                       &friction_data.slipRate1[0][0],
-                                       &friction_data.slipRate2[0][0],
-                                       &friction_data.rupture_time[0][0],
-                                       &friction_data.RF[0][0],
-                                       &friction_data.DS[0][0],
-                                       &friction_data.PeakSR[0][0],
-                                       &friction_data.dynStress_time[0][0],
-                                       &friction_data.TracXY[0][0],
-                                       &friction_data.TracXZ[0][0]);
+                                       &friction_data.mu[0],
+                                       &friction_data.slip[0],
+                                       &friction_data.slip1[0],
+                                       &friction_data.slip2[0],
+                                       &friction_data.slipRate1[0],
+                                       &friction_data.slipRate2[0],
+                                       &friction_data.rupture_time[0],
+                                       &friction_data.RF[0],
+                                       &friction_data.DS[0],
+                                       &friction_data.peakSR[0],
+                                       &friction_data.averaged_Slip[0],
+                                       &friction_data.dynStress_time[0],
+                                       &friction_data.tracXY[0],
+                                       &friction_data.tracXZ[0]);
 
 }
 
