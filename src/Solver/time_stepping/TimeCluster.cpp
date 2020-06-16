@@ -251,7 +251,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   e_interoperability.getnSide(nSide_Fortran);
   const size_t nSide = nSide_Fortran;
 
-  std::cout << "before initializing fric data" << std::endl;
+  //std::cout << "before initializing fric data" << std::endl;
 
   struct seissol::physics::FrictionData friction_data(numberOfPoints, nSide);
 
@@ -287,8 +287,17 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   //yateto::DenseTensorView<2, double> view = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
   e_interoperability.getFrictionData(numberOfPoints, friction_data);
-
 /*
+
+    std::cout << "getRF before:" << std::endl;
+    for(int j = 0; j < nSide; j++){
+        std::cout << " (j: " << j << ") ";
+        for (int i = 0; i < numberOfPoints; i++){
+            std::cout << friction_data.getRF(i,j) << " ";
+        }
+        std::cout << std::endl;
+    }
+
 
 
     for(int k = 0; k < nSide ; k++){
@@ -419,10 +428,17 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
           imposedStatePlusView(i,8) += m_dynamicRuptureKernel.timeWeights[j]  * (QInterpolatedPlusView(i,8) + Zs_inv * (TractionGP_XZ[i][j]-QInterpolatedPlusView(i,5)));
       }
     }
-
-
-
   }
+    /*
+    std::cout << "getRF after:" << std::endl;
+    for(int j = 0; j < nSide; j++){
+        std::cout << " (Face: " << j << ") ";
+        for (int i = 0; i < numberOfPoints; i++){
+            std::cout << friction_data.getRF(i,j) << " ";
+        }
+        std::cout << std::endl;
+    }
+     */
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 }

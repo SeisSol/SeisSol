@@ -325,9 +325,9 @@ module f_ctof_bind_interoperability
         type(c_ptr), value                     :: i_rupture_time
         REAL_TYPE, pointer                     :: l_rupture_time(:,:)
         type(c_ptr), value                     :: i_RF
-        LOGICAL, pointer                       :: l_RF(:,:)
+        logical(kind=C_bool), pointer          :: l_RF(:,:)
         type(c_ptr), value                     :: i_DS
-        LOGICAL, pointer                       :: l_DS(:,:)
+        logical(kind=C_bool), pointer          :: l_DS(:,:)
         type(c_ptr), value                     :: i_PeakSR
         REAL_TYPE, pointer                     :: l_PeakSR(:,:)
         type(c_ptr), value                     :: i_averaged_Slip

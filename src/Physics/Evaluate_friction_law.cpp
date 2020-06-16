@@ -299,7 +299,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     //double **Mu_S = friction_data.mu_S; //DISC%DynRup%Mu_S(nBndGP,iFace)
     //double **Mu_D = friction_data.mu_D; //DISC%DynRup%Mu_D(nBndGP,iFace)
     bool inst_healing = frD.inst_healing;    //DISC%DynRup%inst_healing //TODO is actually a bool?
-    bool *magnitude_out = frD.magnitude_out;        //DISC%DynRup%magnitude_out(iFace) //TODO is this a bool?
+    //bool *magnitude_out = frD.magnitude_out;        //DISC%DynRup%magnitude_out(iFace) //TODO is this a bool?
 
     //in and output:
     //double **Mu = friction_data.mu;           //DISC%DynRup%Mu(nBndGP,iFace)
@@ -310,7 +310,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     //double **rupture_time = friction_data.rupture_time;    //DISC%DynRup%rupture_time(nBndGP,iFace)
     //bool **DS = friction_data.DS;             //DISC%DynRup%DS(:,iFace)
     //double **PeakSR = friction_data.PeakSR;       //DISC%DynRup%PeakSR(:,iFace)
-    double *averaged_Slip = frD.averaged_Slip;    //DISC%DynRup%averaged_Slip(iFace)
+    //double *averaged_Slip = frD.averaged_Slip;    //DISC%DynRup%averaged_Slip(iFace)
 
     //only output
     //double **dynStress_time = friction_data.dynStress_time; //DISC%DynRup%dynStress_time(:,iFace)
@@ -397,8 +397,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
                 f2[iBndGP] = 0.0;
             }
 
-            frD.getMu(iBndGP,iFace) = frD.getMu_S(iBndGP,iFace) -
-                                (frD.getMu_S(iBndGP,iFace) - frD.getMu_D(iBndGP,iFace)) * std::max(f1[iBndGP], f2[iBndGP]);
+            frD.getMu(iBndGP,iFace) = frD.getMu_S(iBndGP,iFace) - (frD.getMu_S(iBndGP,iFace) - frD.getMu_D(iBndGP,iFace)) * std::max(f1[iBndGP], f2[iBndGP]);
 
             //instantaneous healing
             if (inst_healing == true) {
@@ -417,7 +416,8 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
         // this way, no subtimestep resolution possible
         if (frD.getRF(iBndGP,iFace) && LocSR[iBndGP] > 0.001) {
             frD.getRupture_time(iBndGP,iFace) = time;
-            frD.getRF(iBndGP,iFace) = false;
+            //frD.getRF(iBndGP,iFace) = false;
+            frD.setRF(false,iBndGP,iFace);
         }
         //output time when shear stress is equal to the dynamic stress after rupture arrived
         //currently only for linear slip weakening
@@ -445,11 +445,11 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     //    to this end, here the slip is computed and averaged per element
     //    in calc_seissol.f90 this value will be multiplied by the element surface
     //    and an output happened once at the end of the simulation
-    if(magnitude_out[iFace] ){
+    if(frD.magnitude_out[iFace] ){
         for(int iBndGP = 0; iBndGP < nBndGP; iBndGP++) {
             sum_tmpSlip += tmpSlip[iBndGP];
         }
-        averaged_Slip[iFace] = averaged_Slip[iFace] + sum_tmpSlip / nBndGP;
+        frD.averaged_Slip[iFace] = frD.averaged_Slip[iFace] + sum_tmpSlip / nBndGP;
     }
 }
 
