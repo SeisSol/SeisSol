@@ -1,4 +1,5 @@
 #include <iostream>
+#include <Parallel/MPI.h>
 #include "Solver/time_stepping/AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {
@@ -17,7 +18,7 @@ bool AbstractTimeCluster::act() {
   switch (state) {
   case ActorState::Corrected: {
     if (maySync()) {
-        std::cout << "synced at " << syncTime
+        logDebug(MPI::mpi.rank()) << "synced at " << syncTime
         << ", corrTIme =" << ct.correctionTime
         << ", time tolerence " << timeTolerance
         << " stepsSinceLastSync " << ct.stepsSinceLastSync

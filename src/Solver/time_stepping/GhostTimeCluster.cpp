@@ -172,8 +172,8 @@ void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster
   const bool ignoreSteps = upcomingCorrectionSteps >= ct.stepsUntilSync;
   assert(ignoreTime == ignoreSteps);
   if (ignoreTime) {
-    std::cout << "GhostTimeCluster: ignore AdvancedCorrectionTime Message at t = "
-    << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
+      logDebug(MPI::mpi.rank()) << "GhostTimeCluster: ignore AdvancedCorrectionTime Message at t = "
+              << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
       //assert(false);
     return;
   } else {
