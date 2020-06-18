@@ -10,10 +10,12 @@
 namespace seissol {
         namespace physics {
             struct FrictionData{
+                //TODO make members private
                 const size_t numberOfPoints;
                 const size_t nFace;
                 const size_t nsize;
                 bool initialized = false;
+                bool allocated = false;
 
                 int inst_healing;
                 double t_0;
@@ -48,17 +50,15 @@ namespace seissol {
                 real *tracXY;
                 real *tracXZ;
 
-
                 FrictionData(const size_t numberOfPoints_in, const size_t nFace_in):
                     numberOfPoints(numberOfPoints_in),
                     nFace(nFace_in),
                     nsize(numberOfPoints_in * nFace_in){
-                    if(!initialized){
-
-                        initialized = true;
-                        int inst_healing= -1;
-                        double t_0= -1;
-                        int FL= -1;
+                    if(!allocated){
+                        allocated = true;
+                        inst_healing= -1;
+                        t_0= -1;
+                        FL= -1;
 
 
                         //size nFace
@@ -132,16 +132,16 @@ namespace seissol {
                          */
 
                     }
-
-
                 }
 
                 FrictionData(const FrictionData& that) : nFace(0), nsize(0), numberOfPoints(0) {
+                    //dont use copy constructor
                     assert(nFace == 0);
                     assert(nFace != 0);
                 }
 
                 FrictionData& operator=(const FrictionData& that) {
+                    //dont assign
                     assert(nFace == 0);
                     assert(nFace != 0);
                     return *this;
@@ -171,11 +171,14 @@ namespace seissol {
                     delete [] elem;
                     delete [] side;
                     delete [] averaged_Slip;
-
-                    //TODO: write destructor and copy constructor and copy assignment operator
-
                 }
                 //*/
+
+                bool isInitialized(){
+                    bool val = initialized;
+                    initialized = true;
+                    return val;
+                }
 
                 real getInitialStressInFaultCS(int iBndGP, int i,int iFace){
                     assert(iBndGP < numberOfPoints);

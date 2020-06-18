@@ -399,9 +399,8 @@ module f_ctof_bind_interoperability
         l_t_0                   = l_domain%DISC%DynRup%t_0
         l_FL                    = l_domain%EQN%FL
 
-        l_forced_rupture_time(:,:)     = 0.0 !l_domain%DISC%DynRup%forced_rupture_time
         l_magnitude_out              = l_domain%DISC%DynRup%magnitude_out
-        l_averaged_Slip(:)          = 0.0 !l_domain%DISC%DynRup%averaged_Slip
+
 
         !do k=1,nSide
         !    do j=1,6
@@ -411,16 +410,20 @@ module f_ctof_bind_interoperability
         !    enddo
         !enddo
 
-        do i=1,i_numberOfPoints
-            do j=1,nSide
+        !do i=1,i_numberOfPoints
+        !    do j=1,nSide
                 !l_cohesion(i,j) = i + (j-1)*i_numberOfPoints
                 !l_cohesion(i,j) = j
                 !l_domain%DISC%DynRup%cohesion(i,j) = -j
-            enddo
-        enddo
+        !    enddo
+        !enddo
 
         !l_InitialStressInFaultCS(11,2,33) = -5
         !l_cohesion(22,44) = -5
+
+        !TODO test
+        l_forced_rupture_time(:,:)     = 0.0 !l_domain%DISC%DynRup%forced_rupture_time
+        l_averaged_Slip(:)          = 0.0 !l_domain%DISC%DynRup%averaged_Slip
 
         l_mu                    = l_domain%DISC%DynRup%Mu
         l_slip                  = l_domain%DISC%DynRup%Slip
@@ -430,12 +433,12 @@ module f_ctof_bind_interoperability
         l_slipRate2             = l_domain%DISC%DynRup%SlipRate2
         l_rupture_time     = l_domain%DISC%DynRup%rupture_time
         l_RF                    = l_domain%DISC%DynRup%RF
-        l_DS(:,:)               = .false. !l_domain%DISC%DynRup%DS
+        l_DS(:,:)               = l_domain%DISC%DynRup%DS !.false.
 
-        l_PeakSR(:,:)                = 0.0 ! l_domain%DISC%DynRup%PeakSR
-        l_dynStress_time(:,:)       = 0.0 ! l_domain%DISC%DynRup%dynStress_time
-        l_TracXY(:,:)                = 0.0 ! l_domain%DISC%DynRup%TracXY
-        l_TracXZ(:,:)               = 0.0 ! l_domain%DISC%DynRup%TracXZ
+        l_PeakSR(:,:)                = l_domain%DISC%DynRup%PeakSR
+        l_dynStress_time(:,:)       = l_domain%DISC%DynRup%dynStress_time
+        l_TracXY(:,:)                = l_domain%DISC%DynRup%TracXY
+        l_TracXZ(:,:)               = l_domain%DISC%DynRup%TracXZ
 
     end subroutine
 

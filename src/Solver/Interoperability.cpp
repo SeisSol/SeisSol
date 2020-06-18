@@ -997,12 +997,14 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
 
 
 //Code added by ADRIAN
-void seissol::Interoperability::getnSide(int &nSide){
+int seissol::Interoperability::getnSide(){
+    int nSide = 0;
     f_interoperability_getnSide(m_domain, &nSide);
+    return nSide;
 }
 void seissol::Interoperability::getFrictionData(int i_numberOfPoints, seissol::physics::FrictionData &friction_data){
-
-    f_interoperability_getFrictionData(m_domain, i_numberOfPoints,
+     if(friction_data.initialized == false){
+         f_interoperability_getFrictionData(m_domain, i_numberOfPoints,
                                        &friction_data.elem[0],
                                        &friction_data.side[0],
                                        &friction_data.initialStressInFaultCS[0],
@@ -1028,7 +1030,8 @@ void seissol::Interoperability::getFrictionData(int i_numberOfPoints, seissol::p
                                        &friction_data.dynStress_time[0],
                                        &friction_data.tracXY[0],
                                        &friction_data.tracXZ[0]);
-
+         friction_data.initialized = true;
+     }
 }
 
 void seissol::Interoperability::calcElementwiseFaultoutput(double time)

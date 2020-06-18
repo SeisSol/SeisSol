@@ -392,7 +392,8 @@ class seissol::Interoperability {
   * @param input: i_numberOfPoints
    * remain are outputs
   */
-  void getnSide(int &nSide);
+  int getnSide();
+
   void getFrictionData( int i_numberOfPoints, seissol::physics::FrictionData &friction_data);
 
 

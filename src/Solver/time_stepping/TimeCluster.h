@@ -89,6 +89,7 @@
 #include <Kernels/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
+#include <Physics/Evaluate_friction_law.h>
 
 namespace seissol {
   namespace time_stepping {
@@ -142,8 +143,14 @@ private:
     struct GlobalData *m_globalData;
 
     /*
+     * Code added by Adrian:
+     * Friction data struct
+     */
+    struct seissol::physics::FrictionData m_friction_data;
+
+    /*
      * element data and mpi queues
-     */     
+     */
 #ifdef USE_MPI
     //! pending copy region sends
     std::list< MPI_Request* > m_sendQueue;

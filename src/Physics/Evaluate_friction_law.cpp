@@ -89,7 +89,7 @@ void seissol::physics::Evaluate_friction_law::Eval_friction_law(
     }else if(FL == 103){
         std::cout << "FL = 103"<< std::endl;
     }else{
-        std::cout << "ERROR: FL = unkown"<< std::endl;
+        std::cout << "ERROR in Evaulate_friction_law.cpp: FL = unkown"<< std::endl;
         //TODO:  logError(*) 'ERROR in friction.f90: friction law case',EQN%FL,' not implemented!'
     }
 }
@@ -323,11 +323,9 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
 
     //initialize local variables
     double tmpSlip[nBndGP];
-    for(int i = 0; i < nBndGP; i++){
-        tmpSlip[i] = 0.0; //D0
-    }
-    double Z = rho * w_speed[2];
-    double Z_neig = rho_neig * w_speed_neig[2];
+
+    double Z = rho * w_speed[1];
+    double Z_neig = rho_neig * w_speed_neig[1];
     double eta = Z*Z_neig / (Z+Z_neig);
     double tn = time;
     double time_inc = 0;
@@ -342,6 +340,21 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     double f1[nBndGP];
     double f2[nBndGP];
 
+    //TODO change this to calloc with free
+    for(int i = 0; i < nBndGP; i++){
+        tmpSlip[i] = 0.0; //D0
+         P[i] = 0.0;
+         Strength[i]= 0.0;
+         ShTest[i]= 0.0;
+         LocSR[i]= 0.0;
+         LocSR1[i]= 0.0;
+         LocSR2[i]= 0.0;
+         LocTracXY[i]= 0.0;
+         LocTracXZ[i]= 0.0;
+         f1[nBndGP]= 0.0;
+         f2[nBndGP]= 0.0;
+    }
+
     for(int iBndGP = 0; iBndGP < nBndGP; iBndGP++) {
         for (int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++) {  //loop over time steps
 
@@ -350,7 +363,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
 
 
             P[iBndGP] = frD.getInitialStressInFaultCS(iBndGP,0,iFace) + NorStressGP[iBndGP][iTimeGP];
-            Strength[iBndGP] = -frD.getCohesion(iBndGP,iFace) + frD.getMu(iBndGP, iFace) * std::min(P[iBndGP], 0.0);
+            Strength[iBndGP] = - frD.getCohesion(iBndGP,iFace) - frD.getMu(iBndGP, iFace) * std::min(P[iBndGP], 0.0);
             //Strength[iBndGP] = -cohesion[iBndGP][iFace] - Mu[iBndGP][iFace] * std::min(P[iBndGP], 0.0);
             ShTest[iBndGP] = std::sqrt(
                     std::pow(frD.getInitialStressInFaultCS(iBndGP,3,iFace)+ XYStressGP[iBndGP][iTimeGP], 2) +
