@@ -442,7 +442,7 @@ module f_ctof_bind_interoperability
     end subroutine
 
     !!Code added by ADRIAN
-    subroutine f_interoperability_setFrictionOutput(i_domain, i_numberOfPoints, &
+    subroutine f_interoperability_setFrictionOutput(i_domain, i_face, i_numberOfPoints, &
               i_mu, i_slip, i_slip1, i_slip2, i_slipRate1, i_slipRate2, i_rupture_time,&
               i_RF, i_DS, i_PeakSR, i_averaged_Slip, i_dynStress_time, i_TracXY, i_TracXZ)&
               bind (c, name='f_interoperability_setFrictionOutput')
@@ -456,6 +456,7 @@ module f_ctof_bind_interoperability
         type(c_ptr), value                     :: i_domain
         type(tUnstructDomainDescript), pointer :: l_domain
         integer(kind=c_int), value             :: i_numberOfPoints
+        integer(kind=c_int), value             :: i_face
 
         type(c_ptr), value                     :: i_mu
         REAL_TYPE, pointer                     :: l_mu(:,:)
@@ -520,20 +521,25 @@ module f_ctof_bind_interoperability
         !    enddo
         !enddo
 
-        l_domain%DISC%DynRup%averaged_Slip = l_averaged_Slip
-        l_domain%DISC%DynRup%Mu                    = l_mu
-        l_domain%DISC%DynRup%Slip                  = l_slip
-        l_domain%DISC%DynRup%Slip1                 = l_slip1
-        l_domain%DISC%DynRup%Slip2                 = l_slip2
-        l_domain%DISC%DynRup%SlipRate1             = l_slipRate1
-        l_domain%DISC%DynRup%SlipRate2             = l_slipRate2
-        l_domain%DISC%DynRup%rupture_time     = l_rupture_time
-        l_domain%DISC%DynRup%RF                  = l_RF
-        l_domain%DISC%DynRup%DS               = l_DS
-        l_domain%DISC%DynRup%PeakSR                 = l_PeakSR
-        l_domain%DISC%DynRup%dynStress_time        =  l_dynStress_time
-        l_domain%DISC%DynRup%TracXY                = l_TracXY
-        l_domain%DISC%DynRup%TracXZ               = l_TracXZ
+        !copy to output
+        call copyDynamicRuptureState(l_domain, i_face, i_face)
+
+        IF (l_domain%DISC%DynRup%magnitude_out(i_face)) THEN
+            l_domain%DISC%DynRup%averaged_Slip(i_face) = l_averaged_Slip(i_face)
+        ENDIF
+        l_domain%DISC%DynRup%Mu(:,i_face)                    = l_mu(:,i_face)
+        l_domain%DISC%DynRup%Slip(:,i_face)                  = l_slip(:,i_face)
+        l_domain%DISC%DynRup%Slip1(:,i_face)                 = l_slip1(:,i_face)
+        l_domain%DISC%DynRup%Slip2(:,i_face)                 = l_slip2(:,i_face)
+        l_domain%DISC%DynRup%SlipRate1(:,i_face)             = l_slipRate1(:,i_face)
+        l_domain%DISC%DynRup%SlipRate2(:,i_face)             = l_slipRate2(:,i_face)
+        l_domain%DISC%DynRup%rupture_time(:,i_face)          = l_rupture_time(:,i_face)
+        l_domain%DISC%DynRup%RF(:,i_face)                    = l_RF(:,i_face)
+        l_domain%DISC%DynRup%DS(:,i_face)                    = l_DS(:,i_face)
+        l_domain%DISC%DynRup%PeakSR(:,i_face)                = l_PeakSR(:,i_face)
+        l_domain%DISC%DynRup%dynStress_time(:,i_face)        = l_dynStress_time(:,i_face)
+        l_domain%DISC%DynRup%TracXY(:,i_face)                = l_TracXY(:,i_face)
+        l_domain%DISC%DynRup%TracXZ(:,i_face)                = l_TracXZ(:,i_face)
 
         !print *, "l_domain after"
         !do i=1,i_numberOfPoints

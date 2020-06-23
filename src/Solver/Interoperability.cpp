@@ -304,7 +304,7 @@ extern "C" {
         real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time,
         bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_averaged_Slip, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
 
-  extern void f_interoperability_setFrictionOutput( void*  i_domain, int i_numberOfPoints,
+  extern void f_interoperability_setFrictionOutput( void*  i_domain, int i_face, int i_numberOfPoints,
         real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time,
         bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_averaged_Slip, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
 
@@ -1006,9 +1006,8 @@ int seissol::Interoperability::getnSide(){
     f_interoperability_getnSide(m_domain, &nSide);
     return nSide;
 }
-void seissol::Interoperability::getFrictionData(int i_numberOfPoints, seissol::physics::FrictionData &friction_data){
-     if(friction_data.initialized == false){
-         f_interoperability_getFrictionData(m_domain, i_numberOfPoints,
+void seissol::Interoperability::getFrictionData(seissol::physics::FrictionData &friction_data){
+         f_interoperability_getFrictionData(m_domain, friction_data.numberOfPoints,
                                        &friction_data.elem[0],
                                        &friction_data.side[0],
                                        &friction_data.initialStressInFaultCS[0],
@@ -1034,12 +1033,12 @@ void seissol::Interoperability::getFrictionData(int i_numberOfPoints, seissol::p
                                        &friction_data.dynStress_time[0],
                                        &friction_data.tracXY[0],
                                        &friction_data.tracXZ[0]);
-         friction_data.initialized = true;
-     }
+
 }
 
-void seissol::Interoperability::setFrictionOutput(int i_numberOfPoints, seissol::physics::FrictionData &friction_data){
-    f_interoperability_setFrictionOutput(m_domain, i_numberOfPoints,
+void seissol::Interoperability::setFrictionOutput(seissol::physics::FrictionData &friction_data, int face){
+    int fFace = face + 1;
+    f_interoperability_setFrictionOutput(m_domain, friction_data.numberOfPoints, fFace,
                                        &friction_data.mu[0],
                                        &friction_data.slip[0],
                                        &friction_data.slip1[0],

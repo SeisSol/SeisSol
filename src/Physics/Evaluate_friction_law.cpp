@@ -420,9 +420,8 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
                 f2[iBndGP] = 0.0;
             }
 
-            frD.getMu(iBndGP, iFace) = frD.getMu_S(iBndGP, iFace) -
-                                       (frD.getMu_S(iBndGP, iFace) - frD.getMu_D(iBndGP, iFace)) *
-                                       std::max(f1[iBndGP], f2[iBndGP]);
+            frD.getMu(iBndGP, iFace) = frD.getMu_S(iBndGP, iFace) - (frD.getMu_S(iBndGP, iFace) -
+                    frD.getMu_D(iBndGP, iFace)) * std::max(f1[iBndGP], f2[iBndGP]);
 
             //instantaneous healing
             if (inst_healing == true) {
