@@ -521,8 +521,7 @@ module f_ctof_bind_interoperability
         !    enddo
         !enddo
 
-        !copy to output
-        call copyDynamicRuptureState(l_domain, i_face, i_face)
+
 
         IF (l_domain%DISC%DynRup%magnitude_out(i_face)) THEN
             l_domain%DISC%DynRup%averaged_Slip(i_face) = l_averaged_Slip(i_face)
@@ -547,6 +546,19 @@ module f_ctof_bind_interoperability
                 !write (*,*) l_domain%DISC%DynRup%TracXY
             !enddo
         !enddo
+
+        !copy to output
+        call copyDynamicRuptureState(l_domain, i_face, i_face)
+
+        !l_domain%disc%DynRup%output_Mu(:,i_face)             = l_mu(:,i_face)
+        !l_domain%disc%DynRup%output_Strength(:,i_face)       = l_domain%disc%DynRup%Strength(:,i_face)
+        !l_domain%disc%DynRup%output_Slip(:,i_face)           = l_slip(:,i_face)
+        !l_domain%disc%DynRup%output_Slip1(:,i_face)          = l_slip1(:,i_face)
+        !l_domain%disc%DynRup%output_Slip2(:,i_face)          = l_slip2(:,i_face)
+        !l_domain%disc%DynRup%output_rupture_time(:,i_face)   = l_rupture_time(:,i_face)
+        !l_domain%disc%DynRup%output_PeakSR(:,i_face)         = l_PeakSR(:,i_face)
+        !l_domain%disc%DynRup%output_dynStress_time(:,i_face) = l_dynStress_time(:,i_face)
+        !l_domain%disc%DynRup%output_StateVar(:,i_face)       = l_domain%disc%DynRup%StateVar(:,i_face)
 
     end subroutine
 

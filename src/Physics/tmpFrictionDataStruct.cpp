@@ -4,8 +4,9 @@
 #ifndef TMPFRICTIONDATASTRUCT_CPP_
 #define TMPFRICTIONDATASTRUCT_CPP_
 
-
 #include <Initializer/typedefs.hpp>
+#include <c++/8.3.0/iostream>
+
 
 namespace seissol {
         namespace physics {
@@ -16,6 +17,7 @@ namespace seissol {
                 const size_t nsize;
                 bool initialized = false;
                 bool allocated = false;
+                int function_call = 0;
 
                 int inst_healing;
                 double t_0;
@@ -178,6 +180,119 @@ namespace seissol {
                     bool val = initialized;
                     initialized = true;
                     return val;
+                }
+
+                bool isEqualToFortran(struct seissol::physics::FrictionData &fortran_data){
+
+
+                    bool b_initialStressInFaultCS = true;
+                    bool b_cohesion = true;
+                    bool b_D_C = true;
+                    bool b_mu_S = true;
+                    bool b_mu_D = true;
+                    bool b_inst_healing = true;
+                    bool b_t_0 = true;
+                    bool b_FL = true;
+                    bool b_forced_rupture_time = true;
+                    bool b_magnitude_out = true;
+                    bool b_mu = true;
+                    bool b_slip = true;
+                    bool b_slip1 = true;
+                    bool b_slip2 = true;
+                    bool b_slipRate1 = true;
+                    bool b_slipRate2 = true;
+                    bool b_rupture_time = true;
+                    bool b_RF = true;
+                    bool b_DS = true;
+                    bool b_peakSR = true;
+
+                    bool b_averaged_Slip = true;
+                    bool b_dynStress_time = true;
+                    bool b_tracXY = true;
+                    bool b_tracXZ = true;
+
+                    bool inputs = true;
+                    bool outputs = true;
+
+
+                    b_FL = fortran_data.FL == this->FL;
+                    b_inst_healing = fortran_data.inst_healing == this->inst_healing;
+                    b_t_0 = fortran_data.t_0 == this->t_0;
+                    for (int i = 0; i < nFace; i++) {
+                        if( fortran_data.magnitude_out[i] != magnitude_out[i])
+                            b_magnitude_out = false;
+                        if(magnitude_out[i] == true){
+                            if(  fortran_data.averaged_Slip[i] != averaged_Slip[i]){
+                                b_averaged_Slip = false;
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < nsize; i++) {
+                        //inputs
+                        if (fortran_data.initialStressInFaultCS[i] != initialStressInFaultCS[i])
+                            b_initialStressInFaultCS = false;
+                        if (fortran_data.cohesion[i] != cohesion[i])
+                            b_cohesion = false;
+                        if (fortran_data.D_C[i] != D_C[i])
+                            b_D_C = false;
+                        if (fortran_data.mu_S[i] != mu_S[i])
+                            b_mu_S = false;
+                        if (fortran_data.mu_D[i] != mu_D[i])
+                            b_mu_D = false;
+                        if (fortran_data.forced_rupture_time[i] != forced_rupture_time[i])
+                            b_forced_rupture_time = false;
+
+                        //outputs
+                        if (fortran_data.mu[i] != mu[i]) {
+                            b_mu = false;
+                            //int nSides = i / numberOfPoints;
+                            //std::cout << " mu not equal: ( iBnGP: " << i%numberOfPoints << " , iFace: " << nSides << " ) " << std::endl;
+                            //std::cout << " mu c++ equal: " << mu[i] << " ,  mu fortran: " << fortran_data.mu[i] << " ) " << std::endl;
+                        }
+
+                        if (fortran_data.slip[i] != slip[i]){
+                            b_slip = false;
+                            int nSides = i / numberOfPoints;
+                            //std::cout << " slip not equal: ( iBnGP: " << i % numberOfPoints << " , iFace: " << nSides << " ) " << std::endl;
+                            //std::cout << " slip c++ equal: " << slip[i] << " ,  slip fortran: " << fortran_data.slip[i] << " ) " << std::endl;
+                        }
+                        if(  fortran_data.slip1[i] != slip1[i] ){
+                            b_slip1 = false;
+                            //int nSides = i / numberOfPoints;
+                            //std::cout << " slip1 not equal: ( iBnGP: " << i%numberOfPoints << " , iFace: " << nSides << " ) " << std::endl;
+                            //std::cout << " slip1 c++ equal: " << slip1[i] << " ,  slip1 fortran: " << fortran_data.slip1[i] << " ) " << std::endl;
+                        }
+                        if(  fortran_data.slip2[i] != slip2[i] )
+                            b_slip2 = false;
+                        if(  fortran_data.slipRate1[i] != slipRate1[i] )
+                            b_slipRate1 = false;
+                        if(  fortran_data.slipRate2[i] != slipRate2[i] )
+                            b_slipRate2 = false;
+                        if(  fortran_data.rupture_time[i] != rupture_time[i] )
+                            b_rupture_time = false;
+                        if(  fortran_data.RF[i] != RF[i] )
+                            b_RF = false;
+                        if(  fortran_data.DS[i] != DS[i] )
+                            b_DS = false;
+                        if(  fortran_data.peakSR[i] != peakSR[i] )
+                            b_peakSR = false;
+                        if(  fortran_data.dynStress_time[i] != dynStress_time[i] )
+                            b_dynStress_time = false;
+                        if(  fortran_data.tracXY[i] != tracXY[i] )
+                            b_tracXY = false;
+                        if(  fortran_data.tracXZ[i] != tracXZ[i] )
+                            b_tracXZ = false;
+                    }
+
+                    inputs = (b_initialStressInFaultCS && b_cohesion && b_D_C && b_mu_S && b_mu_D && b_inst_healing &&
+                            b_t_0 && b_FL && b_forced_rupture_time && b_magnitude_out);
+                    outputs = (b_mu && b_slip  && b_slip1  && b_slip2  && b_slipRate1  && b_slipRate2  && b_rupture_time
+                            && b_RF  && b_DS  && b_peakSR  && b_averaged_Slip &&
+                            b_dynStress_time  && b_tracXY && b_tracXZ);
+
+                    //assert( (inputs && outputs) == true );
+                    return (inputs && outputs);
                 }
 
                 real getInitialStressInFaultCS(int iBndGP, int i,int iFace){

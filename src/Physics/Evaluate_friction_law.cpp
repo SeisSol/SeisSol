@@ -65,7 +65,7 @@ void seissol::physics::Evaluate_friction_law::Eval_friction_law(
     for(int iTimeGP = 1; iTimeGP< nTimeGP; iTimeGP++ ){
         DeltaT[iTimeGP] = timePoints[iTimeGP]-timePoints[iTimeGP-1];
     }
-    DeltaT[nTimeGP] = DeltaT[nTimeGP] + DeltaT[0];  // to fill last segment of Gaussian integration
+    DeltaT[nTimeGP-1] = DeltaT[nTimeGP-1] + DeltaT[0];  // to fill last segment of Gaussian integration
 
     if(FL == 0){
         std::cout << "FL = 0" << std::endl;
@@ -342,8 +342,13 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
 
     //Test TODO remove:
     double getSlip[nBndGP];
+    double getDeltaT[nTimeGP];
+    for (int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++) {
+        getDeltaT[iTimeGP]  = DeltaT[iTimeGP];
+    }
 
-    //TODO change this to calloc with free
+
+        //TODO change this to calloc with free
     for(int i = 0; i < nBndGP; i++){
         tmpSlip[i] = 0.0; //D0
          P[i] = 0.0;
@@ -381,11 +386,12 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
             LocTracXY[iBndGP] = XYStressGP[iBndGP][iTimeGP] - eta * LocSR1[iBndGP];
             LocTracXZ[iBndGP] = XZStressGP[iBndGP][iTimeGP] - eta * LocSR2[iBndGP];
 
+
             //Update slip
             frD.getSlip1(iBndGP, iFace) = frD.getSlip1(iBndGP, iFace) + LocSR1[iBndGP] * time_inc;
             frD.getSlip2(iBndGP, iFace) = frD.getSlip2(iBndGP, iFace) + LocSR2[iBndGP] * time_inc;
-
         }
+
         for(int iBndGP = 0; iBndGP < nBndGP; iBndGP++) {
             //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
             //resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
@@ -402,6 +408,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
 
             frD.getSlip(iBndGP, iFace) = frD.getSlip(iBndGP, iFace) + matmul[iBndGP] * time_inc;
             tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSR[iBndGP] * time_inc;
+            getSlip[iBndGP] = frD.getSlip1(iBndGP, iFace);
 
             //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
             f1[iBndGP] = std::min(std::abs(frD.getSlip(iBndGP, iFace)) / frD.getD_C(iBndGP, iFace), 1.0);
