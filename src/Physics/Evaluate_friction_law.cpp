@@ -347,7 +347,6 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
         getDeltaT[iTimeGP]  = DeltaT[iTimeGP];
     }
 
-
         //TODO change this to calloc with free
     for(int i = 0; i < nBndGP; i++){
         tmpSlip[i] = 0.0; //D0

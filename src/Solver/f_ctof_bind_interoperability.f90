@@ -442,7 +442,7 @@ module f_ctof_bind_interoperability
     end subroutine
 
     !!Code added by ADRIAN
-    subroutine f_interoperability_setFrictionOutput(i_domain, i_face, i_numberOfPoints, &
+    subroutine f_interoperability_setFrictionOutput(i_domain, i_face, i_numberOfPoints, nSide, &
               i_mu, i_slip, i_slip1, i_slip2, i_slipRate1, i_slipRate2, i_rupture_time,&
               i_RF, i_DS, i_PeakSR, i_averaged_Slip, i_dynStress_time, i_TracXY, i_TracXZ)&
               bind (c, name='f_interoperability_setFrictionOutput')
@@ -456,6 +456,7 @@ module f_ctof_bind_interoperability
         type(c_ptr), value                     :: i_domain
         type(tUnstructDomainDescript), pointer :: l_domain
         integer(kind=c_int), value             :: i_numberOfPoints
+        integer(kind=c_int), value             :: nSide
         integer(kind=c_int), value             :: i_face
 
         type(c_ptr), value                     :: i_mu
@@ -486,8 +487,11 @@ module f_ctof_bind_interoperability
         REAL_TYPE, pointer                     :: l_TracXY(:,:)
         type(c_ptr), value                     :: i_TracXZ
         REAL_TYPE, pointer                     :: l_TracXZ(:,:)
+        !REAL                                   :: tmp_rupture_time(:,:)
+        !REAL                                   :: tmp_PeakSR(:,:)
 
-        integer :: nSide
+        !integer :: nSide
+
         ! convert c to fortran pointers
         call c_f_pointer( i_domain,             l_domain)
         nSide = l_domain%MESH%Fault%nSide
@@ -540,6 +544,9 @@ module f_ctof_bind_interoperability
         l_domain%DISC%DynRup%TracXY(:,i_face)                = l_TracXY(:,i_face)
         l_domain%DISC%DynRup%TracXZ(:,i_face)                = l_TracXZ(:,i_face)
 
+        !tmp_rupture_time = l_rupture_time(:,:)
+        !tmp_PeakSR = l_PeakSR(:,:)
+
         !print *, "l_domain after"
         !do i=1,i_numberOfPoints
             !do j=1,nSide
@@ -550,15 +557,16 @@ module f_ctof_bind_interoperability
         !copy to output
         call copyDynamicRuptureState(l_domain, i_face, i_face)
 
-        !l_domain%disc%DynRup%output_Mu(:,i_face)             = l_mu(:,i_face)
-        !l_domain%disc%DynRup%output_Strength(:,i_face)       = l_domain%disc%DynRup%Strength(:,i_face)
-        !l_domain%disc%DynRup%output_Slip(:,i_face)           = l_slip(:,i_face)
-        !l_domain%disc%DynRup%output_Slip1(:,i_face)          = l_slip1(:,i_face)
-        !l_domain%disc%DynRup%output_Slip2(:,i_face)          = l_slip2(:,i_face)
-        !l_domain%disc%DynRup%output_rupture_time(:,i_face)   = l_rupture_time(:,i_face)
-        !l_domain%disc%DynRup%output_PeakSR(:,i_face)         = l_PeakSR(:,i_face)
-        !l_domain%disc%DynRup%output_dynStress_time(:,i_face) = l_dynStress_time(:,i_face)
-        !l_domain%disc%DynRup%output_StateVar(:,i_face)       = l_domain%disc%DynRup%StateVar(:,i_face)
+!        l_domain%disc%DynRup%output_Mu            = l_mu(:,:)
+!        l_domain%disc%DynRup%output_Strength      = l_domain%disc%DynRup%Strength(:,:)
+!        l_domain%disc%DynRup%output_Slip           = l_slip(:,:)
+!        l_domain%disc%DynRup%output_Slip1         = l_slip1(:,:)
+!        l_domain%disc%DynRup%output_Slip2(:,:)          = l_slip2(:,:)
+!        l_domain%disc%DynRup%output_rupture_time(:,:)   = l_rupture_time(:,:)
+!        l_domain%disc%DynRup%output_PeakSR(:,:) = -10
+!        l_domain%disc%DynRup%output_PeakSR(:,:)         = l_PeakSR(:,:)
+!        l_domain%disc%DynRup%output_dynStress_time(:,:) = l_dynStress_time(:,:)
+!        l_domain%disc%DynRup%output_StateVar(:,:)       = l_domain%disc%DynRup%StateVar(:,:)
 
     end subroutine
 
