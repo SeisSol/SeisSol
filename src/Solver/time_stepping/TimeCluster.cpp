@@ -155,8 +155,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 //Code added by adrian
 //e_interoperability.getFrictionData(tensor::QInterpolated::Shape[0], m_friction_data);
 
-
-
   m_dynamicRuptureFaces = (i_dynRupClusterData->child<Ghost>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Interior>().getNumberOfCells() > 0);
@@ -247,115 +245,19 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
+  //seilsol:friction::data              my_data                                                           = layerData.var(m_friction_data->...);
 
   alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
   //Code added by ADRIAN
 
-  //TODO: outsource this to initialisation:
-  /*
-  int nSide_Fortran = 0;
-  e_interoperability.getnSide(nSide_Fortran);
-  const size_t nSide = nSide_Fortran;
-    struct seissol::physics::FrictionData friction_data(numberOfPoints, nSide);
-    e_interoperability.getFrictionData(numberOfPoints, friction_data);
-*/
-  //std::cout << "before initializing fric data" << std::endl;
-
+    //TODO: outsource this to initialisation:
     const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
     if(m_friction_data.initialized == false){
         e_interoperability.getFrictionData(m_friction_data);
         m_friction_data.initialized = true;
     }
-    m_friction_data.function_call++;
-
-
-    //double resampleMatrix[]  = {};
-  //resampleMatrix =    init::resample::Values;
-  //yateto::DenseTensorView<2, double> view = init::resample::view::create(const_cast<double *>(init::resample::Values));
-
-
-/*
-    const size_t nSide = e_interoperability.getnSide();
-
-    std::cout << "l_slip before:" << std::endl;
-    for(int j = 0; j < nSide; j++){
-        std::cout << " (iSide: " << j << ") ";
-        for (int i = 0; i < numberOfPoints; i++){
-            std::cout << m_friction_data.getSlip(i,j) << " ";
-        }
-        std::cout << std::endl;
-    }
-    std::cout << "l_slip1 before:" << std::endl;
-    for(int j = 0; j < nSide; j++){
-        std::cout << " (iSide: " << j << ") ";
-        for (int i = 0; i < numberOfPoints; i++){
-            std::cout << m_friction_data.getSlip1(i,j) << " ";
-        }
-        std::cout << std::endl;
-    }
-    std::cout << "l_slip2 before:" << std::endl;
-    for(int j = 0; j < nSide; j++){
-        std::cout << " (iSide: " << j << ") ";
-        for (int i = 0; i < numberOfPoints; i++){
-            std::cout << m_friction_data.getSlip2(i,j) << " ";
-        }
-        std::cout << std::endl;
-    }
-
-
-    std::cout << "l_rupture_time before:" << std::endl;
-    for(int j = 0; j < nSide; j++){
-        std::cout << " (iSide: " << j << ") ";
-        for (int i = 0; i < numberOfPoints; i++){
-            std::cout << m_friction_data.getRupture_time(i,j) << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    std::cout << "l_averaged_Slip before:" << std::endl;
-    for(int j = 0; j < nSide; j++){
-        std::cout << " (iSide: " << j << ") ";
-        std::cout << m_friction_data.averaged_Slip[j] << " ";
-    }
-    std::cout << std::endl;
-/*
-
-    for(int k = 0; k < nSide ; k++){
-        std::cout << " (k: " << k << ") ";
-        for(int j = 0; j < 6; j++){
-            for (int i = 0; i < numberOfPoints; i++){
-                std::cout << friction_data.initialStressInFaultCS[i + j* numberOfPoints+ k*6*numberOfPoints] << " ";
-            }
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
-    }
-
-
-
-    for(int j = 0; j < nSide; j++){
-        //std::cout << " (j: " << j << ") ";
-        for (int i = 0; i < numberOfPoints; i++){
-            //std::cout << friction_data.mu_S[j][i] << " ";
-        }
-        //std::cout << std::endl;
-    }
-    std::cout << "cohesion(21,43): " << friction_data.getCohesion(21,43) << std::endl;
-    std::cout << "initialStressInFaultCS(10,1,32): " << friction_data.getInitialStressInFaultCS(10,1,32) << std::endl;
-
-    std::cout << "cohesion:" << std::endl;
-    for(int j = 0; j < nSide; j++){
-        std::cout << " (j: " << j << ") ";
-        for (int i = 0; i < numberOfPoints; i++){
-            std::cout << friction_data.cohesion[i + j* numberOfPoints] << " ";
-        }
-        std::cout << std::endl;
-    }
-
-
-   //*/
 
     struct seissol::physics::FrictionData fortran_data_before(m_friction_data.numberOfPoints, m_friction_data.nFace);
     e_interoperability.getFrictionData(fortran_data_before);
@@ -382,7 +284,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
     //Code added by ADRIAN
     //insert c++ evaluate_friction_law here:
-
 /*
     // legacy code:
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
@@ -395,16 +296,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             m_dynamicRuptureKernel.timeWeights,
                                             waveSpeedsPlus[face],
                                             waveSpeedsMinus[face] );
-
-      std::cout << "Fortran imposedStatePlusView: " << std::endl;
-      auto imposedStatePlusView3 = init::QInterpolated::view::create(imposedStatePlus[face]);
-      for(int j = 0; j < 9; j++){
-          std::cout << " (j: " << j << ") " <<  "(face: " << face << ") ";
-          for (int i = 0; i < numberOfPoints; i++) {
-              std::cout << imposedStatePlusView3(i,j) << " ";
-          }
-          std::cout << std::endl;
-      }
       //*/
 
 
@@ -437,20 +328,12 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 
     iFace = static_cast<int>(faceInformation[face].meshFace);
-    //int godunovLd = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
-    //int iSide = friction_data.side[iFace];     //= l_domain%MESH%Fault%Face(i_face,2,1)          ! iElem denotes "+" side
-    //int iElem = friction_data.elem[iFace];     //= l_domain%MESH%Fault%Face(i_face,1,1)
     Zp_inv = 1.0 / (rho * w_speed[0]);       //(rho * waveSpeedsPlus->pWaveVelocity);
     Zp_neig_inv = 1.0 / (rho_neig *w_speed_neig[0]);     //(rho_neig * waveSpeedsMinus->pWaveVelocity);
     Zs_inv = 1.0 / (rho * w_speed[1]);               //(rho * waveSpeedsPlus->sWaveVelocity);
     Zs_neig_inv = 1.0 / (rho_neig *w_speed_neig[1]); //(rho_neig * waveSpeedsMinus->sWaveVelocity);
     eta_p = 1.0 / (Zp_inv + Zp_neig_inv);
     eta_s = 1.0 / (Zs_inv + Zs_neig_inv);
-
-    //int numberOfPointest = tensor::QInterpolated::Shape[0];
-    //int BasisfuncStart = init::QInterpolated::Start[0];
-    //int BasisfuncStop = init::QInterpolated::Stop[0];
-
 
     for(int j = 0; j < CONVERGENCE_ORDER; j++){
         auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
@@ -463,21 +346,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     }
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
 
-    /*
-    e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
-                                          QInterpolatedPlus,
-                                          QInterpolatedMinus,
-                                          imposedStatePlus[face],
-                                          imposedStateMinus[face],
-                                          m_fullUpdateTime,
-                                          m_dynamicRuptureKernel.timePoints,
-                                          m_dynamicRuptureKernel.timeWeights,
-                                          waveSpeedsPlus[face],
-                                          waveSpeedsMinus[face] );
-    //*/
-
-
-    //std::cout << "(face: " << face << ") ";
     seissol::physics::Evaluate_friction_law evaluateFriction;
     evaluateFriction.Eval_friction_law(TractionGP_XY2, TractionGP_XZ2, NorStressGP2, XYStressGP2, XZStressGP2,
                                        iFace, m_friction_data.side[iFace],
@@ -514,66 +382,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
       e_interoperability.setFrictionOutput( m_friction_data, iFace);
 
-      //*/
-
-
-
-
-    //std::cout << " finished: " <<  "(face: " << face << ") "  << std::endl;
-/*
-      std::cout << "C++ imposedStatePlusView: " << std::endl;
-      auto imposedStatePlusView2 = init::QInterpolated::view::create(imposedStatePlus[face]);
-      for(int j = 0; j < 9; j++){
-          std::cout << " (j: " << j << ") " <<  "(face: " << face << ") ";
-          for (int i = 0; i < numberOfPoints; i++) {
-              std::cout << imposedStatePlusView2(i,j) << " ";
-          }
-          std::cout << std::endl;
-      }
-
-      //*/
   } //End layerData.getNumberOfCells()-loop
-
-
-    /*
-    std::cout << "C++ imposedStatePlusView: " << std::endl;
-    auto imposedStatePlusView2 = init::QInterpolated::view::create(imposedStatePlus[4]);
-    for(int j = 0; j < 9; j++){
-        std::cout << " (j: " << j << ") " <<  "(face: " << 4 << ") ";
-        for (int i = 0; i < numberOfPoints; i++) {
-            std::cout << imposedStatePlusView2(i,j) << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    double getRupture_time[m_friction_data.numberOfPoints][m_friction_data.nFace];
-    for(int j = 0; j < m_friction_data.nFace; j++){
-        for (int i = 0; i < numberOfPoints; i++){
-            getRupture_time[i][j] = m_friction_data.getRupture_time(i, j);
-        }
-    }
-    m_friction_data.getRupture_time(0,0) = 100;
-    e_interoperability.setFrictionOutput(m_friction_data);
-    m_friction_data.getRupture_time(0,0) = -3;
-    m_friction_data.getRupture_time(1,1) = -1;
-    e_interoperability.getFrictionData(m_friction_data);
-    double getRupture_time_old[m_friction_data.numberOfPoints][m_friction_data.nFace];
-    for(int j = 0; j < m_friction_data.nFace; j++){
-        for (int i = 0; i < numberOfPoints; i++){
-            getRupture_time_old[i][j] = m_friction_data.getRupture_time(i, j);
-        }
-    }
-
-
-     //*/
-
-  //compare fortran with c++ calc
-  //struct seissol::physics::FrictionData fortran_data(m_friction_data.numberOfPoints, m_friction_data.nFace);
-  //e_interoperability.getFrictionData(fortran_data);
-  //m_friction_data.isEqualToFortran(fortran_data);
-
-
-
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 }

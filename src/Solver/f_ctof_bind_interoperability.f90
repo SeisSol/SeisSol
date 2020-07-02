@@ -338,8 +338,6 @@ module f_ctof_bind_interoperability
         REAL_TYPE, pointer                     :: l_TracXY(:,:)
         type(c_ptr), value                     :: i_TracXZ
         REAL_TYPE, pointer                     :: l_TracXZ(:,:)
-
-
         integer :: nSide
 
         ! convert c to fortran pointers
@@ -349,10 +347,6 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_FL,                 l_FL  )
 
         nSide = l_domain%MESH%Fault%nSide
-        !write (*,*) "nSide"
-        !write (*,*) nSide
-        !write (*,*) "i_numberOfPoints"
-        !write (*,*) i_numberOfPoints
 
         call c_f_pointer( i_Elem,               l_Elem, [nSide]  )
         call c_f_pointer( i_Side,               l_Side, [nSide] )
@@ -379,15 +373,6 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_TracXY, l_TracXY, [i_numberOfPoints,nSide])
         call c_f_pointer( i_TracXZ, l_TracXZ, [i_numberOfPoints,nSide])
 
-
-        !call copyDynamicRuptureState(l_domain, i_face, i_face)
-
-        !do j=1,nSide
-        !    do i=1,6
-        !        write (*,*) l_domain%EQN%InitialStressInFaultCS(1,i,j)
-        !    enddo
-        !enddo
-
         l_Elem                   = l_domain%MESH%Fault%Face(:,1,1)          ! TODO: i_Face in fortran != face c++ actually i_Face = static_cast<int>(faceInformation[face].meshFace)
         l_Side                   = l_domain%MESH%Fault%Face(:,2,1)          ! Remark: iElem denotes "+" side
         l_InitialStressInFaultCS = l_domain%EQN%InitialStressInFaultCS
@@ -401,27 +386,7 @@ module f_ctof_bind_interoperability
 
         l_magnitude_out              = l_domain%DISC%DynRup%magnitude_out
 
-
-        !do k=1,nSide
-        !    do j=1,6
-        !        do i=1,i_numberOfPoints
-        !            l_InitialStressInFaultCS(i,j,k) = i + (j-1)*100 + (k-1) * 100 * 100
-        !        enddo
-        !    enddo
-        !enddo
-
-        !do i=1,i_numberOfPoints
-        !    do j=1,nSide
-                !l_cohesion(i,j) = i + (j-1)*i_numberOfPoints
-                !l_cohesion(i,j) = j
-                !l_domain%DISC%DynRup%cohesion(i,j) = -j
-        !    enddo
-        !enddo
-
-        !l_InitialStressInFaultCS(11,2,33) = -5
-        !l_cohesion(22,44) = -5
-
-        !TODO test
+        !TODO remove from f_interoperability_getFrictionData and initialize only in c++
         l_forced_rupture_time(:,:)     = 0.0 !l_domain%DISC%DynRup%forced_rupture_time
         l_averaged_Slip(:)          = 0.0 !l_domain%DISC%DynRup%averaged_Slip
 
@@ -435,6 +400,7 @@ module f_ctof_bind_interoperability
         l_RF                    = l_domain%DISC%DynRup%RF
         l_DS(:,:)               = l_domain%DISC%DynRup%DS !.false.
 
+        !TODO: only output values dont need to be copyied from fortran. Directly initializing in C++ is enough
         l_PeakSR(:,:)                = l_domain%DISC%DynRup%PeakSR
         l_dynStress_time(:,:)       = l_domain%DISC%DynRup%dynStress_time
         l_TracXY(:,:)                = l_domain%DISC%DynRup%TracXY
@@ -443,8 +409,8 @@ module f_ctof_bind_interoperability
 
     !!Code added by ADRIAN
     subroutine f_interoperability_setFrictionOutput(i_domain, i_face, i_numberOfPoints, nSide, &
-              i_mu, i_slip, i_slip1, i_slip2, i_slipRate1, i_slipRate2, i_rupture_time,&
-              i_RF, i_DS, i_PeakSR, i_averaged_Slip, i_dynStress_time, i_TracXY, i_TracXZ)&
+              i_mu, i_slip, i_slip1, i_slip2, i_rupture_time,&
+              i_PeakSR, i_dynStress_time)&
               bind (c, name='f_interoperability_setFrictionOutput')
 
         use iso_c_binding
@@ -467,107 +433,38 @@ module f_ctof_bind_interoperability
         REAL_TYPE, pointer                     :: l_slip1(:,:)
         type(c_ptr), value                     :: i_slip2
         REAL_TYPE, pointer                     :: l_slip2(:,:)
-        type(c_ptr), value                     :: i_slipRate1
-        REAL_TYPE, pointer                     :: l_slipRate1(:,:)
-        type(c_ptr), value                     :: i_slipRate2
-        REAL_TYPE, pointer                     :: l_slipRate2(:,:)
         type(c_ptr), value                     :: i_rupture_time
         REAL_TYPE, pointer                     :: l_rupture_time(:,:)
-        type(c_ptr), value                     :: i_RF
-        logical(kind=C_bool), pointer          :: l_RF(:,:)
-        type(c_ptr), value                     :: i_DS
-        logical(kind=C_bool), pointer          :: l_DS(:,:)
         type(c_ptr), value                     :: i_PeakSR
         REAL_TYPE, pointer                     :: l_PeakSR(:,:)
-        type(c_ptr), value                     :: i_averaged_Slip
-        REAL_TYPE, pointer                     :: l_averaged_Slip(:)
         type(c_ptr), value                     :: i_dynStress_time
         REAL_TYPE, pointer                     :: l_dynStress_time(:,:)
-        type(c_ptr), value                     :: i_TracXY
-        REAL_TYPE, pointer                     :: l_TracXY(:,:)
-        type(c_ptr), value                     :: i_TracXZ
-        REAL_TYPE, pointer                     :: l_TracXZ(:,:)
-        !REAL                                   :: tmp_rupture_time(:,:)
-        !REAL                                   :: tmp_PeakSR(:,:)
 
         !integer :: nSide
 
         ! convert c to fortran pointers
         call c_f_pointer( i_domain,             l_domain)
         nSide = l_domain%MESH%Fault%nSide
-
-        call c_f_pointer( i_averaged_Slip,      l_averaged_Slip, [nSide] )
         call c_f_pointer( i_mu, l_mu, [i_numberOfPoints,nSide])
         call c_f_pointer( i_slip, l_slip, [i_numberOfPoints,nSide])
         call c_f_pointer( i_slip1, l_slip1, [i_numberOfPoints,nSide])
         call c_f_pointer( i_slip2, l_slip2, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_slipRate1, l_slipRate1, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_slipRate2, l_slipRate2, [i_numberOfPoints,nSide])
         call c_f_pointer( i_rupture_time, l_rupture_time, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_RF, l_RF, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_DS, l_DS, [i_numberOfPoints,nSide])
         call c_f_pointer( i_PeakSR, l_PeakSR, [i_numberOfPoints,nSide])
         call c_f_pointer( i_dynStress_time, l_dynStress_time, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_TracXY, l_TracXY, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_TracXZ, l_TracXZ, [i_numberOfPoints,nSide])
-
-        !print *, "l_TracXY before"
-        !do i=1,i_numberOfPoints
-            !do j=1,nSide
-             !   write (*,*) l_TracXY
-            !enddo
-        !enddo
-
-        !print *, "l_domain before"
-        !do i=1,i_numberOfPoints
-        !    do j=1,nSide
-        !        write (*,*) l_domain%DISC%DynRup%TracXY
-        !    enddo
-        !enddo
-
-
-
-        IF (l_domain%DISC%DynRup%magnitude_out(i_face)) THEN
-            l_domain%DISC%DynRup%averaged_Slip(i_face) = l_averaged_Slip(i_face)
-        ENDIF
-        l_domain%DISC%DynRup%Mu(:,i_face)                    = l_mu(:,i_face)
-        l_domain%DISC%DynRup%Slip(:,i_face)                  = l_slip(:,i_face)
-        l_domain%DISC%DynRup%Slip1(:,i_face)                 = l_slip1(:,i_face)
-        l_domain%DISC%DynRup%Slip2(:,i_face)                 = l_slip2(:,i_face)
-        l_domain%DISC%DynRup%SlipRate1(:,i_face)             = l_slipRate1(:,i_face)
-        l_domain%DISC%DynRup%SlipRate2(:,i_face)             = l_slipRate2(:,i_face)
-        l_domain%DISC%DynRup%rupture_time(:,i_face)          = l_rupture_time(:,i_face)
-        l_domain%DISC%DynRup%RF(:,i_face)                    = l_RF(:,i_face)
-        l_domain%DISC%DynRup%DS(:,i_face)                    = l_DS(:,i_face)
-        l_domain%DISC%DynRup%PeakSR(:,i_face)                = l_PeakSR(:,i_face)
-        l_domain%DISC%DynRup%dynStress_time(:,i_face)        = l_dynStress_time(:,i_face)
-        l_domain%DISC%DynRup%TracXY(:,i_face)                = l_TracXY(:,i_face)
-        l_domain%DISC%DynRup%TracXZ(:,i_face)                = l_TracXZ(:,i_face)
-
-        !tmp_rupture_time = l_rupture_time(:,:)
-        !tmp_PeakSR = l_PeakSR(:,:)
-
-        !print *, "l_domain after"
-        !do i=1,i_numberOfPoints
-            !do j=1,nSide
-                !write (*,*) l_domain%DISC%DynRup%TracXY
-            !enddo
-        !enddo
 
         !copy to output
-        call copyDynamicRuptureState(l_domain, i_face, i_face)
+        l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:,i_face)
+        l_domain%DISC%DynRup%output_Slip(:,i_face)                  = l_slip(:,i_face)
+        l_domain%DISC%DynRup%output_Slip1(:,i_face)                 = l_slip1(:,i_face)
+        l_domain%DISC%DynRup%output_Slip2(:,i_face)                 = l_slip2(:,i_face)
+        l_domain%DISC%DynRup%output_rupture_time(:,i_face)          = l_rupture_time(:,i_face)
+        l_domain%DISC%DynRup%output_PeakSR(:,i_face)                = l_PeakSR(:,i_face)
+        l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStress_time(:,i_face)
 
-!        l_domain%disc%DynRup%output_Mu            = l_mu(:,:)
-!        l_domain%disc%DynRup%output_Strength      = l_domain%disc%DynRup%Strength(:,:)
-!        l_domain%disc%DynRup%output_Slip           = l_slip(:,:)
-!        l_domain%disc%DynRup%output_Slip1         = l_slip1(:,:)
-!        l_domain%disc%DynRup%output_Slip2(:,:)          = l_slip2(:,:)
-!        l_domain%disc%DynRup%output_rupture_time(:,:)   = l_rupture_time(:,:)
-!        l_domain%disc%DynRup%output_PeakSR(:,:) = -10
-!        l_domain%disc%DynRup%output_PeakSR(:,:)         = l_PeakSR(:,:)
-!        l_domain%disc%DynRup%output_dynStress_time(:,:) = l_dynStress_time(:,:)
-!        l_domain%disc%DynRup%output_StateVar(:,:)       = l_domain%disc%DynRup%StateVar(:,:)
-
+        !TODO implement for other friction laws:
+        !l_domain%disc%DynRup%output_Strength                       =  l_Strength(:,i_face)
+        !l_domain%disc%DynRup%output_StateVar(:,:)                  =  l_StateVar(:,i_face)
     end subroutine
 
 

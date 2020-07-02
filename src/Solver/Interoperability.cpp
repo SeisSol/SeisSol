@@ -305,8 +305,8 @@ extern "C" {
         bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_averaged_Slip, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
 
   extern void f_interoperability_setFrictionOutput( void*  i_domain, int i_face, int i_numberOfPoints, int nSide,
-        real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time,
-        bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_averaged_Slip, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
+        real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_rupture_time,
+        real* i_PeakSR, real* i_dynStress_time);
 
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
@@ -1043,16 +1043,9 @@ void seissol::Interoperability::setFrictionOutput(seissol::physics::FrictionData
                                        &friction_data.slip[0],
                                        &friction_data.slip1[0],
                                        &friction_data.slip2[0],
-                                       &friction_data.slipRate1[0],
-                                       &friction_data.slipRate2[0],
                                        &friction_data.rupture_time[0],
-                                       &friction_data.RF[0],
-                                       &friction_data.DS[0],
                                        &friction_data.peakSR[0],
-                                       &friction_data.averaged_Slip[0],
-                                       &friction_data.dynStress_time[0],
-                                       &friction_data.tracXY[0],
-                                       &friction_data.tracXZ[0]);
+                                       &friction_data.dynStress_time[0]);
 }
 
 void seissol::Interoperability::calcElementwiseFaultoutput(double time)

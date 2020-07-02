@@ -8,6 +8,20 @@
 #include <c++/8.3.0/iostream>
 
 
+//TODO use enum for FL
+enum FL_type {
+    no_fault = 0,
+    Linear_slip_weakening = 2,
+    rate_and_state_aging_law = 3,
+    rate_and_state_slip_law =4,
+    Linear_slip_weakening_bimaterial = 6,
+    rate_and_state_vw = 7,
+    Linear_slip_weakening_forced_time_rapture = 16,
+    ImposedSlipRateOnDRBoundary = 33,
+    rate_and_state_nuc101 = 101, //Currently_disabled TODO: why?
+    rate_and_state_nuc103 = 103
+};
+
 namespace seissol {
         namespace physics {
             struct FrictionData{
@@ -89,50 +103,6 @@ namespace seissol {
                         tracXZ = new double [nsize];
 
                         initialStressInFaultCS = new real [nsize*6];
-
-
-
-
-                        /*
-                         *
-                        for (int i = 0; i < nFace; i++) {
-                            averaged_Slip[i] = 0;
-                            side
-                            elem
-                            magnitude_out
-
-                        }
-
-                         for (int i = 0; i < nFace; i++) {
-                            initialStressInFaultCS[i] = new real *[6]();
-                            for (int j = 0; j < 6; j++) {
-                                initialStressInFaultCS[i][j] = new real[numberOfPoints]();
-                            }
-                        }
-                        cohesion = new double *[nFace];
-                        for (int i = 0; i < nFace; i++) {
-                            //cohesion[i] = new double[numberOfPoints]();
-                            D_C[i] = new double[numberOfPoints]();
-                            mu_S[i] = new double[nFace]();      //testing
-                            mu_D[i] = new double[numberOfPoints]();
-                            forced_rupture_time[i] = new double[numberOfPoints]();
-                            mu[i] = new double[numberOfPoints]();
-                            slip[i] = new double[numberOfPoints]();
-                            slip1[i] = new double[numberOfPoints]();
-                            slip2[i] = new double[numberOfPoints]();
-                            slipRate1[i] = new double[numberOfPoints]();
-                            slipRate2[i] = new double[numberOfPoints]();
-                            rupture_time[i] = new double[numberOfPoints]();
-                            RF[i] = new bool[numberOfPoints]();
-                            DS[i] = new bool[numberOfPoints]();
-                            PeakSR[i] = new double[numberOfPoints]();
-                            dynStress_time[i] = new double[numberOfPoints]();
-                            TracXY[i] = new double[numberOfPoints]();
-                            TracXZ[i] = new double[numberOfPoints]();
-                        }
-
-                         */
-
                     }
                 }
 
@@ -174,14 +144,8 @@ namespace seissol {
                     delete [] side;
                     delete [] averaged_Slip;
                 }
-                //*/
 
-                bool isInitialized(){
-                    bool val = initialized;
-                    initialized = true;
-                    return val;
-                }
-
+                //Debugger Function
                 bool isEqualToFortran(struct seissol::physics::FrictionData &fortran_data){
 
 
@@ -458,38 +422,7 @@ namespace seissol {
                     return tracXZ[iBndGP + iFace* numberOfPoints];
                 }
             };
-
     }
 }
-
-
-//in Initializer/typedefs.hpp:PlasticityData
-/*
-// plasticity information per cell
-struct PlasticityData {
-    // initial loading (stress tensor)
-    real initialLoading[6];
-    real cohesionTimesCosAngularFriction;
-    real sinAngularFriction;
-    real mufactor;
-};
- */
-
-/*
-/src/Initializer/
-DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
-DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
-DISC%DynRup%Slip          = 0.0D0
-DISC%DynRup%Slip1         = 0.0D0
-DISC%DynRup%Slip2         = 0.0D0
-DISC%DynRup%TracXY        = 0.0D0
-DISC%DynRup%TracXZ        = 0.0D0
-DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
-DISC%DynRup%StateVar(:,:) = EQN%IniStateVar
-        DISC%DynRup%PeakSR        = 0.0D0
-DISC%DynRup%rupture_time  = 0.0D0
-DISC%DynRup%dynStress_time = 0.0D0
-
- */
 
 #endif

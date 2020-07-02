@@ -340,14 +340,8 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     double f1[nBndGP];
     double f2[nBndGP];
 
-    //Test TODO remove:
-    double getSlip[nBndGP];
-    double getDeltaT[nTimeGP];
-    for (int iTimeGP = 0; iTimeGP < nTimeGP; iTimeGP++) {
-        getDeltaT[iTimeGP]  = DeltaT[iTimeGP];
-    }
 
-        //TODO change this to calloc with free
+    //TODO change this to calloc with free
     for(int i = 0; i < nBndGP; i++){
         tmpSlip[i] = 0.0; //D0
          P[i] = 0.0;
@@ -382,6 +376,12 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
             LocSR2[iBndGP] =
                     LocSR[iBndGP] * (frD.getInitialStressInFaultCS(iBndGP, 5, iFace) + XZStressGP[iBndGP][iTimeGP]) /
                     (Strength[iBndGP] + eta * LocSR[iBndGP]);
+            
+            //TODO: check alternative faster calc??
+            //LocSR1[iBndGP] =  LocSR[iBndGP] * (frD.getInitialStressInFaultCS(iBndGP, 3, iFace) + XYStressGP[iBndGP][iTimeGP]) /
+            //        (std::max(ShTest[iBndGP] , Strength[iBndGP]) );
+
+
             LocTracXY[iBndGP] = XYStressGP[iBndGP][iTimeGP] - eta * LocSR1[iBndGP];
             LocTracXZ[iBndGP] = XZStressGP[iBndGP][iTimeGP] - eta * LocSR2[iBndGP];
 
@@ -399,15 +399,12 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
 
 
             for (int j = 0; j < nBndGP; j++) {
-                //TODO: deck if resampleMatrix is symmetric  = dimension (nBndGP,nBndGP)
                 matmul[iBndGP] += resampleMatrixView(iBndGP, j) * LocSR[j];
             }
-            //TODO remove test:
-            //getSlip[iBndGP] = frD.getSlip(iBndGP, iFace) + matmul[iBndGP] * time_inc;
 
             frD.getSlip(iBndGP, iFace) = frD.getSlip(iBndGP, iFace) + matmul[iBndGP] * time_inc;
             tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSR[iBndGP] * time_inc;
-            getSlip[iBndGP] = frD.getSlip1(iBndGP, iFace);
+
 
             //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
             f1[iBndGP] = std::min(std::abs(frD.getSlip(iBndGP, iFace)) / frD.getD_C(iBndGP, iFace), 1.0);
