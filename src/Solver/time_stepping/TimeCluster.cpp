@@ -259,11 +259,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
         m_friction_data.initialized = true;
     }
 
-    struct seissol::physics::FrictionData fortran_data_before(m_friction_data.numberOfPoints, m_friction_data.nFace);
-    e_interoperability.getFrictionData(fortran_data_before);
-    m_friction_data.isEqualToFortran(fortran_data_before);
-
-//TODO: change back to parallel
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
