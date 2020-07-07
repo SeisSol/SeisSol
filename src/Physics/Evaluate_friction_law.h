@@ -130,7 +130,7 @@ private:
             double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
             double time, double *DeltaT,
             double resampleMatrix[],                                         //
-            seissol::physics::FrictionData &friction_data
+            seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData
     );
 
     /*
@@ -277,7 +277,7 @@ public:
             int &iFace, int &iSide, int &iElem, double &time, double *timePoints,  // IN: element ID, time, inv Trafo
             double &rho, double &rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
             double resampleMatrix[],                                         //
-            seissol::physics::FrictionData &friction_data                                           //data structs
+            seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData                                           //data structs
     );
 
 

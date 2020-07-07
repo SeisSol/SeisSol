@@ -48,6 +48,10 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
 
+//added by adrian TODO remove:
+#include "Physics/tmpFrictionDataStruct.cpp"
+#include <unordered_map>
+
 namespace seissol {
   namespace initializers {
       class EasiBoundary;
@@ -71,9 +75,11 @@ namespace seissol {
                                             Lut*                   i_ltsLut,
                                             LTSTree*               dynRupTree,
                                             DynamicRupture*        dynRup,
+                                            std::unordered_map<std::string, double*> faultParameters,
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
+
   }
 }
 

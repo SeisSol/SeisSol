@@ -24,7 +24,7 @@ enum FL_type {
 
 namespace seissol {
         namespace physics {
-            struct FrictionData{
+            struct TmpFrictionData{
                 //TODO make members private
                 const size_t numberOfPoints;
                 const size_t nFace;
@@ -32,6 +32,7 @@ namespace seissol {
                 bool initialized = false;
                 bool allocated = false;
                 int function_call = 0;
+
 
                 int inst_healing;
                 double t_0;
@@ -66,7 +67,7 @@ namespace seissol {
                 real *tracXY;
                 real *tracXZ;
 
-                FrictionData(const size_t numberOfPoints_in, const size_t nFace_in):
+                TmpFrictionData(const size_t numberOfPoints_in, const size_t nFace_in):
                     numberOfPoints(numberOfPoints_in),
                     nFace(nFace_in),
                     nsize(numberOfPoints_in * nFace_in){
@@ -106,20 +107,20 @@ namespace seissol {
                     }
                 }
 
-                FrictionData(const FrictionData& that) : nFace(0), nsize(0), numberOfPoints(0) {
+                TmpFrictionData(const TmpFrictionData& that) : nFace(0), nsize(0), numberOfPoints(0) {
                     //dont use copy constructor
                     assert(nFace == 0);
                     assert(nFace != 0);
                 }
 
-                FrictionData& operator=(const FrictionData& that) {
+                TmpFrictionData& operator=(const TmpFrictionData& that) {
                     //dont assign
                     assert(nFace == 0);
                     assert(nFace != 0);
                     return *this;
                 }
 
-                ~FrictionData() {
+                ~TmpFrictionData() {
                     delete [] initialStressInFaultCS;
                     delete [] cohesion;
                     delete [] D_C;
@@ -146,7 +147,7 @@ namespace seissol {
                 }
 
                 //Debugger Function
-                bool isEqualToFortran(struct seissol::physics::FrictionData &fortran_data){
+                bool isEqualToFortran(struct seissol::physics::TmpFrictionData &fortran_data){
 
 
                     bool b_initialStressInFaultCS = true;
@@ -270,6 +271,12 @@ namespace seissol {
                     assert(iFace < nFace);
                     return cohesion[iBndGP + iFace* numberOfPoints];
                 }
+                real* getCohesionFace(int iFace){
+                    assert(iFace < nFace);
+                    return &cohesion[iFace* numberOfPoints];
+                }
+
+
                 real getD_C(int iBndGP,int iFace){
                     assert(iBndGP < numberOfPoints);
                     assert(iFace < nFace);

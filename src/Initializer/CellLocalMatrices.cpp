@@ -352,6 +352,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
                                                               Lut*                   i_ltsLut,
                                                               LTSTree*               dynRupTree,
                                                               DynamicRupture*        dynRup,
+                                                              std::unordered_map<std::string, double*> faultParameters,
                                                               unsigned*              ltsFaceToMeshFace,
                                                               GlobalData const&      global,
                                                               TimeStepping const&/*    timeStepping*/ )
@@ -382,6 +383,10 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
+    //edit adrian test
+    real*                                mu                                                         = it->var(dynRup->mu);
+    real**                               cohesion                                                   = it->var(dynRup->cohesion);
+    FrictionData*                        frictionData                                               = it->var(dynRup->frictionData);
 
 #ifdef _OPENMP
   #pragma omp parallel for private(TData, TinvData, APlusData, AMinusData) schedule(static)
@@ -389,6 +394,54 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
+
+      ///adrian test
+      //real array[2]={1,2};
+//      unsigned iFace = meshFace;
+      mu[ltsFace] = 1;
+//      e_interoperability.getFrictionData(m_friction_data);
+//      cohesion[ltsFace] = friction_data.getCohesionFace(meshFace);
+      size_t numberOfPoints = tensor::QInterpolated::Shape[0];
+
+      //TODO: be careful here a double* of faultParameters is set to a real*
+      //TODO: also memory of each face is now not alligned anymore!? (it never was in old version)
+      frictionData[ltsFace].initialStressInFaultCS;   //not in faultParameters
+
+      frictionData[ltsFace].d_c = &faultParameters["d_c"][meshFace * numberOfPoints];
+      frictionData[ltsFace].cohesion = &faultParameters["cohesion"][meshFace * numberOfPoints];
+      frictionData[ltsFace].mu_S = &faultParameters["mu_s"][meshFace * numberOfPoints];
+      frictionData[ltsFace].mu_D = &faultParameters["mu_d"][meshFace * numberOfPoints];
+      frictionData[ltsFace].forced_rupture_time = &faultParameters["forced_rupture_time"][meshFace * numberOfPoints];
+
+      frictionData[ltsFace].inst_healing ;   //in readpar.f90 inst_healing
+      frictionData[ltsFace].t_0;                   //in readpar.f90 t_0
+      frictionData[ltsFace].FL;     //TODO: enum FL
+
+
+
+      //TODO: memory allocation somewhere else or use fortran memory allocation??
+      //in-outputs:
+      frictionData[ltsFace].mu;     // = EQN%IniMu(:,:)
+      frictionData[ltsFace].slip = (double*) calloc (numberOfPoints,sizeof(double));
+      frictionData[ltsFace].slip1 = (double*) calloc (numberOfPoints,sizeof(double));
+      frictionData[ltsFace].slip2 = (double*) calloc (numberOfPoints,sizeof(double));
+      frictionData[ltsFace].slipRate1 = //EQN%IniSlipRate1
+      frictionData[ltsFace].slipRate2 = // EQN%IniSlipRate1
+      frictionData[ltsFace].rupture_time = (double*) calloc (numberOfPoints,sizeof(double));
+      frictionData[ltsFace].RF;     //ini_model_DR.f90
+      frictionData[ltsFace].DS;     //ini_model_DR.f90
+      frictionData[ltsFace].peakSR = (double*) calloc (numberOfPoints,sizeof(double));
+      frictionData[ltsFace].StateVar;   //EQN%IniStateVar
+
+      //if(DISC%DynRup%magnitude_output_on.EQ.1.)
+      //frictionData[ltsFace].magnitude_out = true;   //in readpar.f90 magnitude_out
+      frictionData[ltsFace].averaged_Slip = (double*) calloc (numberOfPoints,sizeof(double));
+
+      //outputs
+      frictionData[ltsFace].dynStress_time  = (double*) calloc (numberOfPoints,sizeof(double));
+      frictionData[ltsFace].tracXY = (double*) calloc (numberOfPoints,sizeof(double));
+      frictionData[ltsFace].tracXZ = (double*) calloc (numberOfPoints,sizeof(double));
+
 
       /// Face information
       faceInformation[ltsFace].meshFace = meshFace;
@@ -556,3 +609,4 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
   }
 }
+

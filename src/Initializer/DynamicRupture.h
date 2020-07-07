@@ -61,7 +61,11 @@ struct seissol::initializers::DynamicRupture {
   Variable<DRFaceInformation>                                       faceInformation;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
-  
+
+  //test
+  Variable<real>                                                    mu;
+  Variable<real*>                                                   cohesion;
+  Variable<FrictionData>                                            frictionData;
   
   void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
@@ -75,6 +79,11 @@ struct seissol::initializers::DynamicRupture {
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
+    //test
+    tree.addVar(      mu,                             mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      cohesion,                       mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      frictionData,                   mask,                 1,      seissol::memory::Standard );
+
   }
 };
 #endif

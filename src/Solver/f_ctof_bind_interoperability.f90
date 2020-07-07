@@ -390,7 +390,7 @@ module f_ctof_bind_interoperability
         l_forced_rupture_time(:,:)     = 0.0 !l_domain%DISC%DynRup%forced_rupture_time
         l_averaged_Slip(:)          = 0.0 !l_domain%DISC%DynRup%averaged_Slip
 
-        l_mu                    = l_domain%DISC%DynRup%Mu
+        l_mu                    = l_domain%EQN%IniMu(:,:) !l_domain%DISC%DynRup%Mu
         l_slip                  = l_domain%DISC%DynRup%Slip
         l_slip1                 = l_domain%DISC%DynRup%Slip1
         l_slip2                 = l_domain%DISC%DynRup%Slip2

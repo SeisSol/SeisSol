@@ -698,15 +698,23 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                       m_lts,
                                                       &m_ltsLut );
 
+  //added by adrian
+  //struct seissol::physics::TmpFrictionData  friction_data(tensor::QInterpolated::Shape[0], e_interoperability.getnSide() );
+  //getFrictionData(friction_data);
+
+
   seissol::initializers::initializeDynamicRuptureMatrices( seissol::SeisSol::main.meshReader(),
                                                            m_ltsTree,
                                                            m_lts,
                                                            &m_ltsLut,
                                                            seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
                                                            seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+                                                           m_faultParameters,
                                                            m_ltsFaceToMeshFace,
                                                            *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
                                                            m_timeStepping );
+
+
 
   seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
                                                     seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
@@ -1006,7 +1014,7 @@ int seissol::Interoperability::getnSide(){
     f_interoperability_getnSide(m_domain, &nSide);
     return nSide;
 }
-void seissol::Interoperability::getFrictionData(seissol::physics::FrictionData &friction_data){
+void seissol::Interoperability::getFrictionData(seissol::physics::TmpFrictionData &friction_data){
          f_interoperability_getFrictionData(m_domain, friction_data.numberOfPoints,
                                        &friction_data.elem[0],
                                        &friction_data.side[0],
@@ -1036,7 +1044,7 @@ void seissol::Interoperability::getFrictionData(seissol::physics::FrictionData &
 
 }
 
-void seissol::Interoperability::setFrictionOutput(seissol::physics::FrictionData &friction_data, int face){
+void seissol::Interoperability::setFrictionOutput(seissol::physics::TmpFrictionData &friction_data, int face){
     int fFace = face + 1;
     f_interoperability_setFrictionOutput(m_domain, fFace, friction_data.numberOfPoints, friction_data.nFace,
                                        &friction_data.mu[0],

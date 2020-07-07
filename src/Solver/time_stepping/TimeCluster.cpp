@@ -88,6 +88,8 @@
 #include <cassert>
 #include <cstring>
 
+#include <generated_code/kernel.h>
+#include "../../../generated_code/kernel.h"
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 extern volatile unsigned int* volatile g_handleRecvs;
@@ -245,19 +247,31 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
-  //seilsol:friction::data              my_data                                                           = layerData.var(m_friction_data->...);
+  real*                                 my_data                                                           = layerData.var(m_dynRup->mu);
+  real**                                cohesion                                                          = layerData.var(m_dynRup->cohesion);
+  FrictionData*                         frictionData                                                      = layerData.var(m_dynRup->frictionData);
+
+//    std::cout << "data: "<< my_data[0] << std::endl;
+//    seissol::tensor::frictionData fric;
+//    dynamicRupture::kernel::calcfrictionData krnl;
+
+//    krnl.frictionData = fric;
+//    krnl.execute();
 
   alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
   //Code added by ADRIAN
 
-    //TODO: outsource this to initialisation:
+    //TODO: outsource this to initialization:
     const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
     if(m_friction_data.initialized == false){
         e_interoperability.getFrictionData(m_friction_data);
         m_friction_data.initialized = true;
     }
+
+
+
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
@@ -346,7 +360,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                        iFace, m_friction_data.side[iFace],
                                        m_friction_data.elem[iFace], time, timePoints, rho, rho_neig, w_speed, w_speed_neig,
                                        const_cast<double *>(init::resample::Values),
-                                       m_friction_data );
+                                       m_friction_data, frictionData[face]);
 
 
     auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus[face]);

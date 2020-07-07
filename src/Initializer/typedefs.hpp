@@ -490,4 +490,51 @@ struct BoundaryFaceInformation {
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
+struct FrictionData{
+    //inputs
+    real* initialStressInFaultCS; // 2d array of size [nBndGP][6]
+    real* cohesion; //array of size [number of points]
+    real* d_c;
+    real* mu_S;
+    real* mu_D;
+    real* forced_rupture_time;
+
+    bool inst_healing;
+    real t_0;
+    int FL;     //TODO: enum FL
+    bool* magnitude_out;
+
+
+    //in-outputs:
+    real* mu;
+    double* slip;
+    double* slip1;
+    double* slip2;
+    real* slipRate1;
+    real* slipRate2;
+    double* rupture_time;
+    bool* RF;
+    bool* DS;
+    double* peakSR;
+    double* averaged_Slip;
+    real* StateVar;
+
+    //outputs
+    real* dynStress_time;
+    double* tracXY;
+    double* tracXZ;
+
+    ~FrictionData() {
+        free(slip);
+        free(slip1);
+        free(slip2);
+        free(rupture_time);
+        free(peakSR);
+        free(dynStress_time);
+        free(tracXY);
+        free(tracXZ);
+        free(averaged_Slip);
+    }
+};
+
 #endif

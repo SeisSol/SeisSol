@@ -146,7 +146,7 @@ private:
      * Code added by Adrian:
      * Friction data struct
      */
-    struct seissol::physics::FrictionData m_friction_data;
+    struct seissol::physics::TmpFrictionData m_friction_data;
 
     /*
      * element data and mpi queues
