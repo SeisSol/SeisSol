@@ -399,13 +399,13 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       //real array[2]={1,2};
 //      unsigned iFace = meshFace;
       mu[ltsFace] = 1;
-//      e_interoperability.getFrictionData(m_friction_data);
+//      e_interoperability.getTmpFrictionData(m_friction_data);
 //      cohesion[ltsFace] = friction_data.getCohesionFace(meshFace);
       size_t numberOfPoints = tensor::QInterpolated::Shape[0];
 
       //TODO: be careful here a double* of faultParameters is set to a real*
       //TODO: also memory of each face is now not alligned anymore!? (it never was in old version)
-      frictionData[ltsFace].initialStressInFaultCS;   //not in faultParameters
+      //frictionData[ltsFace].initialStressInFaultCS = &TmpFricData.initialStressInFaultCS[meshFace*6*numberOfPoints];   //not in faultParameters
 
       frictionData[ltsFace].d_c = &faultParameters["d_c"][meshFace * numberOfPoints];
       frictionData[ltsFace].cohesion = &faultParameters["cohesion"][meshFace * numberOfPoints];
@@ -413,29 +413,31 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       frictionData[ltsFace].mu_D = &faultParameters["mu_d"][meshFace * numberOfPoints];
       frictionData[ltsFace].forced_rupture_time = &faultParameters["forced_rupture_time"][meshFace * numberOfPoints];
 
-      frictionData[ltsFace].inst_healing ;   //in readpar.f90 inst_healing
-      frictionData[ltsFace].t_0;                   //in readpar.f90 t_0
-      frictionData[ltsFace].FL;     //TODO: enum FL
+      //frictionData[ltsFace].inst_healing = TmpFricData.inst_healing;   //in readpar.f90 inst_healing
+      //frictionData[ltsFace].t_0 = TmpFricData.t_0;                   //in readpar.f90 t_0
+
+      //FL fric independent
+      //frictionData[ltsFace].FL = TmpFricData.FL;     //TODO: enum FL
 
 
 
       //TODO: memory allocation somewhere else or use fortran memory allocation??
       //in-outputs:
-      frictionData[ltsFace].mu;     // = EQN%IniMu(:,:)
+      //frictionData[ltsFace].mu = &TmpFricData.mu[meshFace * numberOfPoints];     // = EQN%IniMu(:,:)
       frictionData[ltsFace].slip = (double*) calloc (numberOfPoints,sizeof(double));
       frictionData[ltsFace].slip1 = (double*) calloc (numberOfPoints,sizeof(double));
       frictionData[ltsFace].slip2 = (double*) calloc (numberOfPoints,sizeof(double));
-      frictionData[ltsFace].slipRate1 = //EQN%IniSlipRate1
-      frictionData[ltsFace].slipRate2 = // EQN%IniSlipRate1
+      //frictionData[ltsFace].slipRate1 = //EQN%IniSlipRate1
+      //frictionData[ltsFace].slipRate2 = // EQN%IniSlipRate1
       frictionData[ltsFace].rupture_time = (double*) calloc (numberOfPoints,sizeof(double));
-      frictionData[ltsFace].RF;     //ini_model_DR.f90
-      frictionData[ltsFace].DS;     //ini_model_DR.f90
+      //frictionData[ltsFace].RF;     //ini_model_DR.f90
+      //frictionData[ltsFace].DS;     //ini_model_DR.f90
       frictionData[ltsFace].peakSR = (double*) calloc (numberOfPoints,sizeof(double));
-      frictionData[ltsFace].StateVar;   //EQN%IniStateVar
+      //frictionData[ltsFace].StateVar;   //EQN%IniStateVar
 
       //if(DISC%DynRup%magnitude_output_on.EQ.1.)
       //frictionData[ltsFace].magnitude_out = true;   //in readpar.f90 magnitude_out
-      frictionData[ltsFace].averaged_Slip = (double*) calloc (numberOfPoints,sizeof(double));
+      frictionData[ltsFace].averaged_Slip = 0.0;
 
       //outputs
       frictionData[ltsFace].dynStress_time  = (double*) calloc (numberOfPoints,sizeof(double));

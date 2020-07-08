@@ -516,7 +516,7 @@ struct FrictionData{
     bool* RF;
     bool* DS;
     double* peakSR;
-    double* averaged_Slip;
+    double averaged_Slip;
     real* StateVar;
 
     //outputs
@@ -533,7 +533,6 @@ struct FrictionData{
         free(dynStress_time);
         free(tracXY);
         free(tracXZ);
-        free(averaged_Slip);
     }
 };
 

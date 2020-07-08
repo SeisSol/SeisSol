@@ -155,7 +155,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 
 
 //Code added by adrian
-//e_interoperability.getFrictionData(tensor::QInterpolated::Shape[0], m_friction_data);
+//e_interoperability.getTmpFrictionData(tensor::QInterpolated::Shape[0], m_friction_data);
 
   m_dynamicRuptureFaces = (i_dynRupClusterData->child<Ghost>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
@@ -266,7 +266,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     //TODO: outsource this to initialization:
     const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
     if(m_friction_data.initialized == false){
-        e_interoperability.getFrictionData(m_friction_data);
+        e_interoperability.getTmpFrictionData(m_friction_data);
         m_friction_data.initialized = true;
     }
 
@@ -389,7 +389,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
       } //End numberOfPoints-loop
     } //End CONVERGENCE_ORDER-loop
 
-      e_interoperability.setFrictionOutput( m_friction_data, iFace);
+      e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], iFace);
 
   } //End layerData.getNumberOfCells()-loop
 

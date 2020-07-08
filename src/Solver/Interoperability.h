@@ -394,9 +394,9 @@ class seissol::Interoperability {
   */
   int getnSide();
 
-  void getFrictionData(seissol::physics::TmpFrictionData &friction_data);
+  void getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data);
 
-  void setFrictionOutput(seissol::physics::TmpFrictionData &friction_data, int face);
+  void setFrictionOutput(seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData, int face);
 
 
    /**

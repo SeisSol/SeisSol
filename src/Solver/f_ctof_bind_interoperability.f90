@@ -53,8 +53,8 @@ module f_ctof_bind_interoperability
   end interface
 
   !!Code added by ADRIAN
-  interface f_interoperability_getFrictionData
-    module procedure f_interoperability_getFrictionData
+  interface f_interoperability_getTmpFrictionData
+    module procedure f_interoperability_getTmpFrictionData
   end interface
 
   contains
@@ -268,12 +268,12 @@ module f_ctof_bind_interoperability
     end subroutine
 
     !!Code added by ADRIAN
-    subroutine f_interoperability_getFrictionData(i_domain, i_numberOfPoints, &
+    subroutine f_interoperability_getTmpFrictionData(i_domain, i_numberOfPoints, &
             i_Elem, i_Side, i_InitialStressInFaultCS, i_cohesion, i_D_C, i_mu_S, i_mu_D, &
             i_inst_healing, i_t_0, i_FL, i_forced_rupture_time, i_magnitude_out,&
             i_mu, i_slip, i_slip1, i_slip2, i_slipRate1, i_slipRate2, i_rupture_time,&
             i_RF, i_DS, i_PeakSR, i_averaged_Slip, i_dynStress_time, i_TracXY, i_TracXZ)&
-            bind (c, name='f_interoperability_getFrictionData')
+            bind (c, name='f_interoperability_getTmpFrictionData')
         use iso_c_binding
         use typesDef
         use f_ftoc_bind_interoperability
@@ -386,7 +386,7 @@ module f_ctof_bind_interoperability
 
         l_magnitude_out              = l_domain%DISC%DynRup%magnitude_out
 
-        !TODO remove from f_interoperability_getFrictionData and initialize only in c++
+        !TODO remove from f_interoperability_getTmpFrictionData and initialize only in c++
         l_forced_rupture_time(:,:)     = 0.0 !l_domain%DISC%DynRup%forced_rupture_time
         l_averaged_Slip(:)          = 0.0 !l_domain%DISC%DynRup%averaged_Slip
 
@@ -405,6 +405,68 @@ module f_ctof_bind_interoperability
         l_dynStress_time(:,:)       = l_domain%DISC%DynRup%dynStress_time
         l_TracXY(:,:)                = l_domain%DISC%DynRup%TracXY
         l_TracXZ(:,:)               = l_domain%DISC%DynRup%TracXZ
+    end subroutine
+    !!Code added by ADRIAN
+    subroutine f_interoperability_getFrictionData(i_domain, i_numberOfPoints, &
+          i_inst_healing, i_t_0, i_FL, i_magnitude_out, i_mu, i_RF, i_DS )&
+          bind (c, name='f_interoperability_getFrictionData')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      INTEGER     :: i ,j, k
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      integer(kind=c_int), value             :: i_numberOfPoints
+
+      type(c_ptr), value                     :: i_inst_healing
+      integer(kind=c_int), pointer           :: l_inst_healing
+      type(c_ptr), value                     :: i_t_0
+      real*8, pointer                        :: l_t_0
+      type(c_ptr), value                     :: i_FL
+      integer(kind=c_int), pointer           :: l_FL
+
+
+      type(c_ptr), value                     :: i_magnitude_out
+      logical(kind=C_bool), pointer          :: l_magnitude_out(:)
+      type(c_ptr), value                     :: i_mu
+      REAL_TYPE, pointer                     :: l_mu(:,:)
+      type(c_ptr), value                     :: i_RF
+      logical(kind=C_bool), pointer          :: l_RF(:,:)
+      type(c_ptr), value                     :: i_DS
+      logical(kind=C_bool), pointer          :: l_DS(:,:)
+
+      integer :: nSide
+
+      ! convert c to fortran pointers
+      call c_f_pointer( i_domain,             l_domain)
+      call c_f_pointer( i_inst_healing,       l_inst_healing  )
+      call c_f_pointer( i_t_0,                l_t_0  )
+      call c_f_pointer( i_FL,                 l_FL  )
+
+      nSide = l_domain%MESH%Fault%nSide
+
+      call c_f_pointer( i_magnitude_out,      l_magnitude_out, [nSide])
+      call c_f_pointer( i_mu, l_mu, [i_numberOfPoints,nSide])
+      call c_f_pointer( i_RF, l_RF, [i_numberOfPoints,nSide])
+      call c_f_pointer( i_DS, l_DS, [i_numberOfPoints,nSide])
+
+
+      !TODO: don't use this existing function. create own and call it in the fortran code part
+      call c_interoperability_addFaultParameter("SlipRate1" // c_null_char, l_domain%DISC%DynRup%SlipRate1)
+      call c_interoperability_addFaultParameter("SlipRate2" // c_null_char, l_domain%DISC%DynRup%SlipRate2)
+      call c_interoperability_addFaultParameter("InitialStressInFaultCS" // c_null_char, l_domain%EQN%InitialStressInFaultCS)
+
+
+      l_inst_healing               = l_domain%DISC%DynRup%inst_healing
+      l_t_0                        = l_domain%DISC%DynRup%t_0
+      l_FL                         = l_domain%EQN%FL
+      l_magnitude_out              = l_domain%DISC%DynRup%magnitude_out
+      l_mu                         = l_domain%EQN%IniMu(:,:) !l_domain%DISC%DynRup%Mu
+      l_RF                         = l_domain%DISC%DynRup%RF
+      l_DS                         = l_domain%DISC%DynRup%DS !.false.
+
     end subroutine
 
     !!Code added by ADRIAN
@@ -428,17 +490,17 @@ module f_ctof_bind_interoperability
         type(c_ptr), value                     :: i_mu
         REAL_TYPE, pointer                     :: l_mu(:,:)
         type(c_ptr), value                     :: i_slip
-        REAL_TYPE, pointer                     :: l_slip(:,:)
+        REAL_TYPE, pointer                     :: l_slip(:)
         type(c_ptr), value                     :: i_slip1
-        REAL_TYPE, pointer                     :: l_slip1(:,:)
+        REAL_TYPE, pointer                     :: l_slip1(:)
         type(c_ptr), value                     :: i_slip2
-        REAL_TYPE, pointer                     :: l_slip2(:,:)
+        REAL_TYPE, pointer                     :: l_slip2(:)
         type(c_ptr), value                     :: i_rupture_time
-        REAL_TYPE, pointer                     :: l_rupture_time(:,:)
+        REAL_TYPE, pointer                     :: l_rupture_time(:)
         type(c_ptr), value                     :: i_PeakSR
-        REAL_TYPE, pointer                     :: l_PeakSR(:,:)
+        REAL_TYPE, pointer                     :: l_PeakSR(:)
         type(c_ptr), value                     :: i_dynStress_time
-        REAL_TYPE, pointer                     :: l_dynStress_time(:,:)
+        REAL_TYPE, pointer                     :: l_dynStress_time(:)
 
         !integer :: nSide
 
@@ -446,26 +508,28 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_domain,             l_domain)
         nSide = l_domain%MESH%Fault%nSide
         call c_f_pointer( i_mu, l_mu, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_slip, l_slip, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_slip1, l_slip1, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_slip2, l_slip2, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_rupture_time, l_rupture_time, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_PeakSR, l_PeakSR, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_dynStress_time, l_dynStress_time, [i_numberOfPoints,nSide])
+        call c_f_pointer( i_slip, l_slip, [i_numberOfPoints])
+        call c_f_pointer( i_slip1, l_slip1, [i_numberOfPoints])
+        call c_f_pointer( i_slip2, l_slip2, [i_numberOfPoints])
+        call c_f_pointer( i_rupture_time, l_rupture_time, [i_numberOfPoints])
+        call c_f_pointer( i_PeakSR, l_PeakSR, [i_numberOfPoints])
+        call c_f_pointer( i_dynStress_time, l_dynStress_time, [i_numberOfPoints])
 
         !copy to output
         l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:,i_face)
-        l_domain%DISC%DynRup%output_Slip(:,i_face)                  = l_slip(:,i_face)
-        l_domain%DISC%DynRup%output_Slip1(:,i_face)                 = l_slip1(:,i_face)
-        l_domain%DISC%DynRup%output_Slip2(:,i_face)                 = l_slip2(:,i_face)
-        l_domain%DISC%DynRup%output_rupture_time(:,i_face)          = l_rupture_time(:,i_face)
-        l_domain%DISC%DynRup%output_PeakSR(:,i_face)                = l_PeakSR(:,i_face)
-        l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStress_time(:,i_face)
+        l_domain%DISC%DynRup%output_Slip(:,i_face)                  = l_slip(:)    !l_domain%DISC%DynRup%Slip(:,i_face)
+        l_domain%DISC%DynRup%output_Slip1(:,i_face)                 = l_slip1(:)       !l_domain%DISC%DynRup%Slip1(:,i_face)
+        l_domain%DISC%DynRup%output_Slip2(:,i_face)                 = l_slip2(:)        !l_domain%DISC%DynRup%Slip2(:,i_face)
+        l_domain%DISC%DynRup%output_rupture_time(:,i_face)          = l_rupture_time(:) !l_domain%DISC%DynRup%rupture_time(:,i_face)
+        l_domain%DISC%DynRup%output_PeakSR(:,i_face)                = l_PeakSR(:)       !l_domain%DISC%DynRup%PeakSR(:,i_face)
+        l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStress_time(:)  !l_domain%DISC%DynRup%dynStress_time(:,i_face)
 
         !TODO implement for other friction laws:
         !l_domain%disc%DynRup%output_Strength                       =  l_Strength(:,i_face)
         !l_domain%disc%DynRup%output_StateVar(:,:)                  =  l_StateVar(:,i_face)
     end subroutine
+
+
 
 
     subroutine f_interoperability_calcElementwiseFaultoutput(i_domain, time) bind (c, name="f_interoperability_calcElementwiseFaultoutput")
