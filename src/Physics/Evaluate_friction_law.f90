@@ -1343,7 +1343,7 @@ MODULE Eval_friction_law_mod
     REAL_TYPE   :: resampleMatrix(nBndGP,nBndGP)
     REAL        :: chi, tau, xi, eta, zeta, XGp, YGp, ZGp
     REAL        :: hypox, hypoy, hypoz
-    REAL        :: Rnuc, Tnuc, radius, Gnuc, invZ, AlmostZero
+    REAL        :: Rnuc, Tnuc, t02, radius, Gnuc, Gnuc2, invZ, AlmostZero
     REAL        :: prevtime,dt
     LOGICAL     :: has_converged
     LOGICAL     :: nodewise=.FALSE.
@@ -1362,6 +1362,7 @@ MODULE Eval_friction_law_mod
     !Apply time dependent nucleation at global time step not sub time steps for simplicity
     !initialize time and space dependent nucleation
     Tnuc = DISC%DynRup%t_0
+    t02 = 100.0D0 ! Tnuc2
 
     !TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     !as a consequence, the SR is affected the AlmostZero value when too small
@@ -1376,9 +1377,22 @@ MODULE Eval_friction_law_mod
 
     !dt = DISC%Galerkin%TimeGaussP(nTimeGP) + DeltaT(1)
     dt = sum(DeltaT(:))
-    IF (time.LE.Tnuc) THEN
-    Gnuc = Calc_SmoothStepIncrement(time, Tnuc, dt)
+    !IF (time.LE.Tnuc) THEN
+    !Gnuc = Calc_SmoothStepIncrement(time, Tnuc, dt)
 
+    ! FIRST NUCLEATION
+    IF (time.LE.Tnuc) THEN ! Tnuc
+    !IF (time.LE.(t02+Tnuc)) THEN ! Tnuc
+    IF (time.GT.0.0D0) THEN
+        Gnuc=EXP((time-Tnuc)**2/(time*(time-2.0D0*Tnuc)))
+        prevtime = time - dt
+        IF (prevtime.GT.0.0D0) THEN
+        Gnuc= Gnuc - EXP((prevtime-Tnuc)**2/(prevtime*(prevtime-2.0D0*Tnuc)))
+        ENDIF
+    ELSE
+        Gnuc=0.0D0
+    ENDIF
+    
     !DISC%DynRup%NucBulk_** is already in fault coordinate system
     EQN%InitialStressInFaultCS(:,1,iFace)=EQN%InitialStressInFaultCS(:,1,iFace)+EQN%NucleationStressInFaultCS(:,1,iFace)*Gnuc
     EQN%InitialStressInFaultCS(:,2,iFace)=EQN%InitialStressInFaultCS(:,2,iFace)+EQN%NucleationStressInFaultCS(:,2,iFace)*Gnuc
@@ -1389,6 +1403,29 @@ MODULE Eval_friction_law_mod
 
     ENDIF ! Tnuc
     !
+
+    ! SECOND NUCLEATION
+    IF (time.GT.t02 .AND. time.LE.(t02+Tnuc)) THEN ! Tnuc2
+    IF (time.GT.t02) THEN
+        Gnuc2=EXP((time-t02-Tnuc)**2/((time-t02)*((time-t02)-2.0D0*Tnuc)))
+        prevtime = time-t02 - dt
+        IF (prevtime.GT.0.0D0) THEN
+        Gnuc2= Gnuc2 - EXP((prevtime-Tnuc)**2/(prevtime*(prevtime-2.0D0*Tnuc)))
+        ENDIF
+    ELSE
+        Gnuc2=0.0D0
+    ENDIF
+
+    !DISC%DynRup%NucBulk_** is already in fault coordinate system
+    EQN%InitialStressInFaultCS(:,1,iFace)=EQN%InitialStressInFaultCS(:,1,iFace)+EQN%NucleationStressInFaultCS2(:,1,iFace)*Gnuc2
+    EQN%InitialStressInFaultCS(:,2,iFace)=EQN%InitialStressInFaultCS(:,2,iFace)+EQN%NucleationStressInFaultCS2(:,2,iFace)*Gnuc2
+    EQN%InitialStressInFaultCS(:,3,iFace)=EQN%InitialStressInFaultCS(:,3,iFace)+EQN%NucleationStressInFaultCS2(:,3,iFace)*Gnuc2
+    EQN%InitialStressInFaultCS(:,4,iFace)=EQN%InitialStressInFaultCS(:,4,iFace)+EQN%NucleationStressInFaultCS2(:,4,iFace)*Gnuc2
+    EQN%InitialStressInFaultCS(:,5,iFace)=EQN%InitialStressInFaultCS(:,5,iFace)+EQN%NucleationStressInFaultCS2(:,5,iFace)*Gnuc2
+    EQN%InitialStressInFaultCS(:,6,iFace)=EQN%InitialStressInFaultCS(:,6,iFace)+EQN%NucleationStressInFaultCS2(:,6,iFace)*Gnuc2
+
+    ENDIF ! Tnuc2
+
      !
      LocSlip   = DISC%DynRup%Slip(:,iFace)
      LocSlip1   = DISC%DynRup%Slip1(:,iFace)

@@ -142,7 +142,7 @@ MODULE ini_model_DR_mod
     !-------------------------------------------------------------------------!
     ! Local variable declaration
     integer                             :: i, nz
-    real, allocatable, dimension(:,:)   :: nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz
+    real, allocatable, dimension(:,:)   :: nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,nuc2_xx,nuc2_yy,nuc2_zz,nuc2_xy,nuc2_yz,nuc2_xz
     logical(kind=c_bool)                :: faultParameterizedByTraction, nucleationParameterizedByTraction
     !-------------------------------------------------------------------------!
     INTENT(IN)    :: MESH, BND
@@ -252,16 +252,28 @@ MODULE ini_model_DR_mod
                   nuc_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
                   nuc_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
-                  nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                     )
+                  nuc_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                    &
+                  nuc2_xx(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                   &
+                  nuc2_yy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                   &
+                  nuc2_zz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                   &
+                  nuc2_xy(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                   &
+                  nuc2_yz(DISC%Galerkin%nBndGP,MESH%Fault%nSide),                   &
+                  nuc2_xz(DISC%Galerkin%nBndGP,MESH%Fault%nSide)                    )
         call c_interoperability_addFaultParameter("rs_srW" // c_null_char, DISC%DynRup%RS_srW_array)
         call c_interoperability_addFaultParameter("RS_sl0" // c_null_char, DISC%DynRup%RS_sl0_array)
         if (nucleationParameterizedByTraction) then
           call c_interoperability_addFaultParameter("Tnuc_n" // c_null_char, nuc_xx)
           call c_interoperability_addFaultParameter("Tnuc_s" // c_null_char, nuc_xy)
           call c_interoperability_addFaultParameter("Tnuc_d" // c_null_char, nuc_xz)
+          call c_interoperability_addFaultParameter("Tnuc2_n" // c_null_char, nuc2_xx)
+          call c_interoperability_addFaultParameter("Tnuc2_s" // c_null_char, nuc2_xy)
+          call c_interoperability_addFaultParameter("Tnuc2_d" // c_null_char, nuc2_xz)
           nuc_yy(:,:) = 0.0d0
           nuc_zz(:,:) = 0.0d0
           nuc_yz(:,:) = 0.0d0
+          nuc2_yy(:,:) = 0.0d0
+          nuc2_zz(:,:) = 0.0d0
+          nuc2_yz(:,:) = 0.0d0
         else
           call c_interoperability_addFaultParameter("nuc_xx" // c_null_char, nuc_xx)
           call c_interoperability_addFaultParameter("nuc_yy" // c_null_char, nuc_yy)
@@ -305,9 +317,15 @@ MODULE ini_model_DR_mod
     endif
 
     if (EQN%FL == 103) then
-      allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
-      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,nucleationParameterizedByTraction)
-      deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
+      !allocate(EQN%NucleationStressInFaultCS(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
+      !call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz,EQN%NucleationStressInFaultCS,nucleationParameterizedByTraction)
+      !deallocate(nuc_xx,nuc_yy,nuc_zz,nuc_xy,nuc_yz,nuc_xz)
+      allocate(EQN%NucleationStressInFaultCS( DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
+      allocate(EQN%NucleationStressInFaultCS2(DISC%Galerkin%nBndGP,6,MESH%Fault%nSide))
+      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP, nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, nuc_xz,EQN%NucleationStressInFaultCS, nucleationParameterizedByTraction)
+      call rotateStressToFaultCS(EQN,MESH,DISC%Galerkin%nBndGP,nuc2_xx,nuc2_yy,nuc2_zz,nuc2_xy,nuc2_yz,nuc2_xz,EQN%NucleationStressInFaultCS2,nucleationParameterizedByTraction)
+      deallocate( nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, nuc_xz)
+      deallocate(nuc2_xx,nuc2_yy,nuc2_zz,nuc2_xy,nuc2_yz,nuc2_xz)
     end if
 
     if (EQN%FL == 33) then !ImposedSlipRateOnDRBoundary
