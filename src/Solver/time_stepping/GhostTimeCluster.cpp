@@ -1,4 +1,6 @@
 #include <Parallel/MPI.h>
+#include <Solver/time_stepping/GhostTimeCluster.h>
+
 #include "GhostTimeCluster.h"
 
 namespace seissol::time_stepping {
@@ -174,7 +176,6 @@ void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster
   if (ignoreTime) {
       logDebug(MPI::mpi.rank()) << "GhostTimeCluster: ignore AdvancedCorrectionTime Message at t = "
               << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
-      //assert(false);
     return;
   } else {
 
@@ -194,19 +195,22 @@ GhostTimeCluster::GhostTimeCluster(double maxTimeStepSize,
       meshStructure(meshStructure) {
 }
 void GhostTimeCluster::reset() {
-    /*
-  std::cout << "Begin reset ghost " << globalClusterId << "\n"
-  << "---------------------------" << std::endl;
-     */
   AbstractTimeCluster::reset();
   assert(testForGhostLayerReceives());
   lastSendTime = -1;
   lastReceiveTime = -1;
-  /*
-  std::cout << "End reset ghost\n"
-            << "---------------------------" << std::endl;
-*/
-
 }
+
+  void GhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
+    const auto rank = MPI::mpi.rank();
+    logWarning(rank)
+        << "Ghost: No update since " << timeSinceLastUpdate.count()
+        << "[s] for global cluster " << globalClusterId
+        << " with other cluster id " << otherGlobalClusterId
+        << " at state " << actorStateToString(state)
+        << " mayPredict = " << mayPredict()
+        << " mayCorrect = " << mayCorrect()
+        << " maySync = " << maySync();
+    }
 
 }

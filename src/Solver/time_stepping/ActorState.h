@@ -83,6 +83,18 @@ class MessageQueue {
       Synced
 };
 
+  inline std::string actorStateToString(ActorState state) {
+    switch (state) {
+      case ActorState::Corrected:
+        return "Corrected";
+      case ActorState::Predicted:
+        return "Predicted";
+      case ActorState::Synced:
+        return "Synced";
+      }
+    throw;
+  }
+
 struct ClusterTimes {
   double predictionTime = 0.0;
   double correctionTime = 0.0;
@@ -90,7 +102,7 @@ struct ClusterTimes {
   long stepsUntilSync = 0;
   long stepsSinceLastSync = 0;
   long predictionsSinceLastSync = 0;
-  int timeStepRate = -1;
+  long timeStepRate = -1;
 
   [[nodiscard]] double nextCorrectionTime(double syncTime) const {
     return std::min(syncTime, correctionTime + maxTimeStepSize);
@@ -109,7 +121,7 @@ struct ClusterTimes {
   [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
           double newSyncTime) const {
       const double timeDiff = newSyncTime-oldSyncTime;
-      return static_cast<int>(std::ceil(timeStepRate*timeDiff/maxTimeStepSize));
+      return static_cast<long>(std::ceil(timeStepRate*timeDiff/maxTimeStepSize));
   }
 
 };

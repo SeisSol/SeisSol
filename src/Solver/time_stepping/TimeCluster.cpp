@@ -98,7 +98,7 @@ extern seissol::Interoperability e_interoperability;
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
                                                  unsigned int i_globalClusterId,
                                                  double maxTimeStepSize,
-                                                 int timeStepRate,
+                                                 long timeStepRate,
                                                  double timeTolerance,
                                                  bool printProgress,
                                                  struct GlobalData *i_globalData,
@@ -595,5 +595,17 @@ void TimeCluster::correct() {
       }
   }
 
+}
+
+void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
+  const auto rank = MPI::mpi.rank();
+  logWarning(rank)
+      << "Ghost: No update since " << timeSinceLastUpdate.count()
+      << "[s] for global cluster " << m_globalClusterId
+      << " with local cluster id " << m_clusterId
+      << " at state " << actorStateToString(state)
+      << " mayPredict = " << mayPredict()
+      << " mayCorrect = " << mayCorrect()
+      << " maySync = " << maySync();
 }
 }

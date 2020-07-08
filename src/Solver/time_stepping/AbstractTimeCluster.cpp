@@ -7,13 +7,15 @@ double AbstractTimeCluster::timeStepSize() const {
   return ct.timeStepSize(syncTime);
 }
 
-AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, int timeStepRate)
-    : timeTolerance(timeTolerance), timeStepRate(timeStepRate), numberOfTimeSteps(0) {
+AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, long timeStepRate)
+    : timeTolerance(timeTolerance), timeStepRate(timeStepRate), numberOfTimeSteps(0),
+    lastStateChange(std::chrono::steady_clock::now()) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
 
 bool AbstractTimeCluster::act() {
+  auto stateBefore = state;
   bool yield = false;
   switch (state) {
   case ActorState::Corrected: {
@@ -36,16 +38,7 @@ bool AbstractTimeCluster::act() {
           // Maybe check also how many steps neighbor has to sync!
           const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
-                  || ct.predictionsSinceLastSync >= (neighbor.ct.stepsSinceLastSync + neighbor.ct.timeStepRate);
-          /*
-          std::cerr << "AdvancedPredictionTimeMessage: justBeforeSync = " << justBeforeSync
-          << " our preds = " << ct.predictionsSinceLastSync
-          << " their preds = " << neighbor.ct.stepsSinceLastSync
-          << " their new preds = " << neighbor.ct.stepsSinceLastSync + neighbor.ct.timeStepRate
-          << " our pred time = " << ct.predictionTime
-          << " their next corr time = " << neighbor.ct.nextCorrectionTime(syncTime)
-          << std::endl;
-           */
+                  || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
           assert(sendMessageSteps == sendMessageTime);
         if (sendMessageTime) {
           AdvancedPredictionTimeMessage message{};
@@ -71,15 +64,6 @@ bool AbstractTimeCluster::act() {
           const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
                   || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
-          /*
-          std::cerr << "AdvancedCorrectionTimeMessage: justBeforeSync = " << justBeforeSync
-                    << " our corrs = " << ct.stepsUntilSync
-                    << " their preds = " << neighbor.ct.predictionsSinceLastSync
-                    << " our time = " << ct.correctionTime
-                    << " their time = " << neighbor.ct.correctionTime
-                    << " their new preds = " << neighbor.ct.stepsSinceLastSync + neighbor.ct.timeStepRate
-                    << std::endl;
-                    */
           assert(sendMessageTime == sendMessageSteps);
         if (sendMessageTime) {
           AdvancedCorrectionTimeMessage message{};
@@ -95,7 +79,8 @@ bool AbstractTimeCluster::act() {
     break;
   }
   case ActorState::Synced:
-    if (ct.correctionTime + timeTolerance < syncTime) {
+    //if (ct.correctionTime + timeTolerance < syncTime) {
+    if (ct.stepsSinceLastSync == 0) {
       start();
       state = ActorState::Corrected;
     } else {
@@ -103,6 +88,15 @@ bool AbstractTimeCluster::act() {
     }
     break;
   default: throw;
+  }
+  const auto currentTime = std::chrono::steady_clock::now();
+  if (stateBefore == state) {
+    const auto timeSinceLastUpdate = currentTime - lastStateChange;
+    if (timeSinceLastUpdate > timeout) {
+        printTimeoutMessage(std::chrono::duration_cast<std::chrono::seconds>(timeSinceLastUpdate));
+    }
+  } else {
+    lastStateChange = currentTime;
   }
   return yield;
 }
@@ -120,22 +114,13 @@ bool AbstractTimeCluster::act() {
         if constexpr (std::is_same_v<T, AdvancedPredictionTimeMessage>) {
           assert(msg.time > neighbor.ct.predictionTime);
           neighbor.ct.predictionTime = msg.time;
-          //neighbor.ct.predictionsSinceLastSync += neighbor.ct.timeStepRate;
           neighbor.ct.predictionsSinceLastSync = msg.stepsSinceSync;
           handleAdvancedPredictionTimeMessage(neighbor);
         } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
           assert(msg.time > neighbor.ct.correctionTime);
           neighbor.ct.correctionTime = msg.time;
-          //neighbor.ct.stepsSinceLastSync += neighbor.ct.timeStepRate;
           neighbor.ct.stepsSinceLastSync = msg.stepsSinceSync;
           handleAdvancedCorrectionTimeMessage(neighbor);
-          /*
-          std::cout << "Neighbor corrected, rate = " << neighbor.ct.timeStepRate
-          <<  " our rate " << ct.timeStepRate
-          << " neighbor steps since sync " << neighbor.ct.stepsSinceLastSync
-          << " out steps since sync " << ct.stepsSinceLastSync
-          << std::endl;
-           */
         } else {
           static_assert(always_false<T>::value, "non-exhaustive visitor!");
         }
@@ -155,15 +140,13 @@ bool AbstractTimeCluster::mayPredict() {
   const bool timeBasedPredict =
           minNeighbor == neighbors.end()
           || ct.predictionTime < minNeighbor->ct.nextCorrectionTime(syncTime) - timeTolerance;
-    bool stepBasedPredict = true;
-    for (const auto& neighbor : neighbors) {
-        const auto neighStepsAfterUpdate = std::min(
-                neighbor.ct.stepsSinceLastSync + neighbor.ct.timeStepRate,
-                ct.stepsUntilSync
-                );
-        const bool curStepBasedPredict = (ct.predictionsSinceLastSync < neighStepsAfterUpdate);
-        stepBasedPredict = stepBasedPredict && curStepBasedPredict;
-    }
+    const auto minNeighborSteps = std::min_element(
+            neighbors.begin(), neighbors.end(),
+            [this](NeighborCluster const &a, NeighborCluster const &b) {
+                return a.ct.nextCorrectionSteps() <= b.ct.nextCorrectionSteps();
+            });
+    bool stepBasedPredict = minNeighborSteps == neighbors.end()
+            || ct.predictionsSinceLastSync < minNeighborSteps->ct.nextCorrectionSteps();
     assert(timeBasedPredict == stepBasedPredict);
 
     return stepBasedPredict;
@@ -182,41 +165,11 @@ bool AbstractTimeCluster::mayCorrect() {
 
   bool stepBasedCorrect = true;
   for (auto& neighbor : neighbors) {
-      //const double rateDiff = (1.0*neighbor.ct.timeStepRate) / ct.timeStepRate;
-      //const int ourPredictions = static_cast<int>(std::round(
-              //rateDiff * ct.predictionsSinceLastSync));
       const bool isSynced = neighbor.ct.stepsUntilSync <= neighbor.ct.predictionsSinceLastSync;
       stepBasedCorrect = stepBasedCorrect
               && (isSynced || (ct.predictionsSinceLastSync <= neighbor.ct.predictionsSinceLastSync));
-      //std::cout << stepBasedCorrect << std::endl;
-      /*
-      std::cout
-              << "rateDiff = " << rateDiff
-              << " ourRate = " << ct.timeStepRate
-              << " theirRate = " << neighbor.ct.timeStepRate
-              << " ourDt = " << ct.maxTimeStepSize
-              << " theirDt = " << neighbor.ct.maxTimeStepSize
-              << " ourPreds = " << ourPredictions
-              << " ourPredsWOFact = " << ct.predictionsSinceLastSync
-              << " neighborPreds = " << neighbor.ct.predictionsSinceLastSync
-              << " our pred.time = " <<  ct.predictionTime
-              << " their pred.time = " << neighbor.ct.predictionTime
-              << " mayCorrect (step based) = " << stepBasedCorrect
-              << std::endl;
-      const auto ourPredComp = ct.predictionsSinceLastSync * ct.maxTimeStepSize / ct.timeStepRate;
-      const auto neighPredComp = neighbor.ct.predictionsSinceLastSync * neighbor.ct.maxTimeStepSize / ct.timeStepRate;
-
-      std::cout
-              << "our predict * rate * timesteps = " << ourPredComp
-              << " neigh predict * rate * timesteps = " << neighPredComp
-              << std::endl;
-              */
   }
-  /*std::cout
-  << "stepBased = " << stepBasedCorrect
-  << " timeBased = " << timeBasedCorrect
-  << std::endl;
-   */
+
   assert(timeBasedCorrect == stepBasedCorrect);
   return stepBasedCorrect;
 }
@@ -224,7 +177,7 @@ bool AbstractTimeCluster::mayCorrect() {
 
 bool AbstractTimeCluster::maySync() {
     const bool timeBasedSync = ct.correctionTime + timeTolerance >= syncTime;
-    const bool stepBasedSync = ct.stepsUntilSync <= ct.stepsSinceLastSync;
+    const bool stepBasedSync = ct.stepsSinceLastSync >= ct.stepsUntilSync;
     assert(timeBasedSync == stepBasedSync);
     return stepBasedSync && processMessages();
 }
@@ -250,7 +203,7 @@ bool AbstractTimeCluster::synced() const {
 void AbstractTimeCluster::reset() {
   assert(state == ActorState::Synced);
 
-  // There can be handing messages from before the sync point
+  // There can be pending messages from before the sync point
   processMessages();
   for (auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
@@ -258,10 +211,24 @@ void AbstractTimeCluster::reset() {
   ct.stepsSinceLastSync = 0;
   ct.predictionsSinceLastSync = 0;
   ct.stepsUntilSync = ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);
+  std::cout << "Cluster with rate "
+  << ct.timeStepRate
+  << " has stepsUntilSync = "
+  << ct.stepsUntilSync
+  << std::endl;
+
+  std::cout
+  << "Our correction time = "
+  << ct.correctionTime
+  << std::endl;
   for (auto& neighbor : neighbors) {
     neighbor.ct.stepsUntilSync = neighbor.ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);
     neighbor.ct.stepsSinceLastSync = 0;
     neighbor.ct.predictionsSinceLastSync = 0;
+    std::cout
+    << "\tneighbor correction time = "
+    << neighbor.ct.correctionTime
+    << std::endl;
   }
 
 }

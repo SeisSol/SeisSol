@@ -94,7 +94,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     const unsigned int l_globalClusterId = m_timeStepping.clusterIds[l_cluster];
     // chop of at synchronization time
     const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
-    const auto timeStepRate = std::pow(2, l_globalClusterId);
+    const long timeStepRate = ipow(2l, static_cast<long>(l_globalClusterId));
     const auto layerTypes = {Copy, Interior};
     for (auto type : layerTypes) {
       const bool printProgress = (timeStepRate == 1) && (type == Copy);
@@ -151,7 +151,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
           assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
           assert(otherGlobalClusterId < std::min(globalClusterId +2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
         const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
-        const auto otherTimeStepRate = std::pow(2, otherGlobalClusterId);
+        const auto otherTimeStepRate = ipow(2l, static_cast<long>(otherGlobalClusterId));
 
         // TODO(Lukas) Should also pass own timeStepRate for checking whether to send etc
         ghostClusters.push_back(

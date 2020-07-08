@@ -60,8 +60,24 @@
 namespace seissol {
   namespace time_stepping {
     class TimeManager;
+
+      template<typename T>
+      constexpr T ipow(T x, T y) {
+          static_assert(std::is_integral_v<T>);
+          assert(y >= 0);
+
+          if (y == 0) {
+              return 1;
+          }
+          T result = x;
+          while(--y) {
+              result *= x;
+          }
+          return result;
+      }
   }
 }
+
 
 /**
  * Time manager, which takes care of the time stepping.

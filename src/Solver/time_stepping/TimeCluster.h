@@ -269,7 +269,7 @@ public:
     TimeCluster(unsigned int i_clusterId,
                 unsigned int i_globalClusterId,
                 double maxTimeStepSize,
-                int timeStepRate,
+                long timeStepRate,
                 double timeTolerance,
                 bool printProgress,
                 struct GlobalData *i_globalData,
@@ -322,6 +322,7 @@ public:
     //! global cluster cluster id
     const unsigned int m_globalClusterId;
 
+    void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 };
 
 #endif

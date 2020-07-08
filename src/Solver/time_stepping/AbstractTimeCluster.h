@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <chrono>
 #include "ActorState.h"
 
 namespace seissol::time_stepping {
@@ -19,7 +20,7 @@ protected:
 
 public:
   // TODO(Lukas) Move a lot of these to protected or private
-  AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, int timeStepRate);
+  AbstractTimeCluster(double maxTimeStepSize, double timeTolerance, long timeStepRate);
   virtual ~AbstractTimeCluster() = default;
 
   virtual bool act();
@@ -33,13 +34,16 @@ public:
   virtual void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void reset();
+  virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
 
   void connect(AbstractTimeCluster& other);
   void updateSyncTime(double newSyncTime);
   [[nodiscard]] bool synced() const;
-  int timeStepRate;
+  long timeStepRate;
   //! number of time steps
   long numberOfTimeSteps;
+  std::chrono::steady_clock::time_point lastStateChange;
+  const std::chrono::minutes timeout = std::chrono::minutes(2); // minutes
 
 };
 

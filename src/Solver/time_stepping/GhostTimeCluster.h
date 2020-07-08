@@ -39,6 +39,7 @@ class GhostTimeCluster : public AbstractTimeCluster {
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
   void reset() override;
+  void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   double lastSendTime = -1.0;
   double lastReceiveTime = -1.0;
