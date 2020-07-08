@@ -5,7 +5,6 @@ if(POLICY CMP0075)
 endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)
-message(WARNING "We do not provide support for CMake currently. Please use scons instead!")
 
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
@@ -107,6 +106,7 @@ add_custom_command(
 
 if (PLASTICITY)
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
+  set(PLASTICITY_NAME_SUFFIX "_plasticity")
 endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
@@ -134,18 +134,30 @@ target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
 #    flags.extend(['-ip'])
 
 # Libs
-find_package(yaml-cpp REQUIRED)
-target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
-target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
+include(ExternalProject)
+ExternalProject_Add(yaml-cpp-build
+  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
+  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
+  CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+  -DYAML_CPP_BUILD_TOOLS=OFF
+  -DYAML_CPP_BUILD_TESTS=OFF
+)
+add_dependencies(SeisSol-lib yaml-cpp-build)
+target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
+target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 
-find_package(PkgConfig REQUIRED)
-
-pkg_check_modules(ImpalaJIT REQUIRED IMPORTED_TARGET impalajit)
-target_link_libraries(SeisSol-lib PUBLIC PkgConfig::ImpalaJIT)
-target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
-
-
-# In the future, we should maybe use find_package(Eigen3).
+ExternalProject_Add(ImpalaJIT-build
+  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
+  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
+  CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+)
+add_dependencies(SeisSol-lib ImpalaJIT-build)
+target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
+target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
@@ -198,6 +210,7 @@ if (METIS)
   target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
+find_package(PkgConfig REQUIRED) 
 if (ASAGI)
   # todo warn if netcdf is off
   pkg_check_modules(ASAGI REQUIRED asagi) # asagi_nompi?
@@ -227,7 +240,6 @@ target_include_directories(SeisSol-lib PUBLIC
 
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
-        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
@@ -265,7 +277,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
 endif()
 
 # Generated code does only work without red-zone.
@@ -275,7 +287,7 @@ endif()
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
+set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}${PLASTICITY_NAME_SUFFIX}_${ORDER}")
 
 add_executable(SeisSol-proxy
         auto_tuning/proxy/src/proxy_seissol.cpp
@@ -319,11 +331,14 @@ if (TESTING)
     COPYONLY
     )
 
+  if (NETCDF)
   configure_file(
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
           ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf 
           COPYONLY
   )
+  set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
+  endif()
 
   CXXTEST_ADD_TEST_MPI(
           test_serial_test_suite
@@ -334,7 +349,7 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h
+	  ${SeisSol_NETCDF_TEST_FILES}
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h

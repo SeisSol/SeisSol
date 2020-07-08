@@ -500,7 +500,7 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
   auto calcWaveSpeeds = [&] (seissol::model::Material* material, int pos) {
     waveSpeeds[pos] = material->getMaxWaveSpeed();
     waveSpeeds[nElements + pos] = material->getSWaveSpeed();
-    waveSpeeds[nElements + 2*pos] = material->getSWaveSpeed();
+    waveSpeeds[2*nElements + pos] = material->getSWaveSpeed();
   };
   if (anisotropy) { 
     if(anelasticity || plasticity) {
