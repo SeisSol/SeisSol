@@ -5,41 +5,6 @@
 #include "Evaluate_friction_law.h"
 
 
-//test
-//protected
-/*
-m_data[0] = mu;
-m_data[1] = slipRate1;
-m_data[2] = slipRate2;
-m_data[3] = slip;
-m_data[4] = slip1;
-m_data[5] = slip2;
-m_data[6] = state;
-m_data[7] = strength;
-*/
-//fault.data()
-/*
- *     CellMaterialData* material = io_ltsTree->var(i_lts->material);
-for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
-    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-        DRGodunovData*                        godunovData                                               = it->var(dynRup->godunovData);
-        seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
-        seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
-
-    }
-}
-*/
-
-/*
-//Constructor
-seissol::physics::Evaluate_friction_law ::Evaluate_friction_law()
-{
-}
-//Destructor
-seissol::physics::Evaluate_friction_law::~Evaluate_friction_law() {
-}
-*/
-
 
 void seissol::physics::Evaluate_friction_law::Eval_friction_law(
         double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
@@ -390,7 +355,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
 
             //Update slip
             frictionData.slip1[iBndGP] =   frictionData.slip1[iBndGP]  + LocSR1[iBndGP] * time_inc;
-            frictionData.slip2[iBndGP] =   frictionData.slip2[iBndGP]  + LocSR1[iBndGP] * time_inc;
+            frictionData.slip2[iBndGP] =   frictionData.slip2[iBndGP]  + LocSR2[iBndGP] * time_inc;
         }
 
         for(int iBndGP = 0; iBndGP < nBndGP; iBndGP++) {
