@@ -38,6 +38,9 @@
 # @section DESCRIPTION
 #
 
+#adrian numpy added for testing:
+import numpy as np
+
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
@@ -65,6 +68,13 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
   
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
+
+  #Adrian Test Code:
+  #frictionData = Tensor('frictionData', (numberOfPoints, aderdg.order) )
+  identiy = np.eye(aderdg.order)
+  frictionData = Tensor('frictionData', (aderdg.order, aderdg.order) , spp=identiy)
+  generator.add('calcfrictionData', frictionData['ij'] <= 2 * frictionData['ij'] )
+
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
 
