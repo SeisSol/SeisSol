@@ -298,6 +298,8 @@ extern "C" {
   //Code added by ADRIAN
   extern void f_interoperability_getnSide(void*  i_domain, int* i_nSide);
 
+  extern void f_interoperability_getFL(void*  i_domain, int* FL);
+
   extern void f_interoperability_getTmpFrictionData(void*  i_domain, int i_numberOfPoints,
                                                     int* iElem, int* iSide, real* i_InitialStressInFaultCS, real* i_cohesion, real* i_D_C, real* i_mu_S, real* i_mu_D,
                                                     int* inst_healing, double* t_0, int* FL, real* i_forced_rupture_time, bool* i_magnitude_out,
@@ -1014,6 +1016,16 @@ int seissol::Interoperability::getnSide(){
     f_interoperability_getnSide(m_domain, &nSide);
     return nSide;
 }
+
+//Code added by ADRIAN
+void seissol::Interoperability::getFL(){
+    int FL = 0;
+    f_interoperability_getFL(m_domain, &FL);
+    m_FL = static_cast<Friction_law_type>(FL);
+}
+
+
+
 void seissol::Interoperability::getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data){
     f_interoperability_getTmpFrictionData(m_domain, friction_data.numberOfPoints,
                                           &friction_data.elem[0],

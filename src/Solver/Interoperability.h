@@ -104,6 +104,9 @@ class seissol::Interoperability {
     //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
+    //adrian:
+    Friction_law_type m_FL;
+
     void initInitialConditions();
  public:
    /**
@@ -393,6 +396,8 @@ class seissol::Interoperability {
    * remain are outputs
   */
   int getnSide();
+
+  void getFL();
 
   void getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data);
 
