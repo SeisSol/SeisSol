@@ -7,36 +7,86 @@
 
 
 void seissol::physics::Evaluate_friction_law::Eval_friction_law(
-        double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-        double **TractionGP_XZ,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-        double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
-        int &iFace, int &iSide, int &iElem, double &time, double *timePoints,  // IN: element ID, time, inv Trafo
-        double &rho, double &rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
+        real imposedStatePlus[tensor::QInterpolated::size()],        //output
+        real imposedStateMinus[tensor::QInterpolated::size()],        //output
+        real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+        real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+        DRFaceInformation faceInformation,
+        double &time, double timePoints[CONVERGENCE_ORDER], double timeWeights[CONVERGENCE_ORDER],
+        seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus, seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus,
         double resampleMatrix[],                                         //
-        seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData
+        seissol::physics::TmpFrictionData &tmp_friction_data, FrictionData &frictionData
                                                    //global variables
 ){
     //required input
 
-    int FL = friction_data.FL;     //EQN%FL
-    constexpr int nBndGP =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
+    int FL = tmp_friction_data.FL;     //EQN%FL
+    constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
     void*EQN, *DISC, *MESH, *MPI,  *IO, *BND;
 
     //local variables
     double DeltaT[CONVERGENCE_ORDER] = {};
 
+    //TODO: precalculate
     DeltaT[0]=timePoints[0];
     for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
         DeltaT[iTimeGP] = timePoints[iTimeGP]-timePoints[iTimeGP-1];
     }
     DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
 
+    double TractionGP_XY[numberOfPoints][CONVERGENCE_ORDER] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+    double TractionGP_XZ[numberOfPoints][CONVERGENCE_ORDER] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+    double NorStressGP[numberOfPoints][CONVERGENCE_ORDER] = {{}};
+    double XYStressGP[numberOfPoints][CONVERGENCE_ORDER]= {{}};
+    double XZStressGP[numberOfPoints][CONVERGENCE_ORDER]= {{}};
+
+    double *TractionGP_XY2[numberOfPoints];
+    double *TractionGP_XZ2[numberOfPoints];
+    double *NorStressGP2[numberOfPoints];
+    double *XYStressGP2[numberOfPoints];
+    double *XZStressGP2[numberOfPoints];
+    for (size_t i = 0; i < numberOfPoints; ++i){
+        TractionGP_XY2[i] = TractionGP_XY[i];
+        TractionGP_XZ2[i] = TractionGP_XZ[i];
+        NorStressGP2[i] = NorStressGP[i];
+        XYStressGP2[i] = XYStressGP[i];
+        XZStressGP2[i] = XZStressGP[i];
+    }
+
+    double Zp_inv, Zp_neig_inv, Zs_inv, Zs_neig_inv, eta_p, eta_s;
+//    double rho = waveSpeedsPlus->density;
+//    double rho_neig= waveSpeedsMinus->density;
+//    double w_speed[3] = {waveSpeedsPlus->pWaveVelocity, waveSpeedsPlus->sWaveVelocity, waveSpeedsPlus->sWaveVelocity};
+//    double w_speed_neig[3] = {waveSpeedsMinus->pWaveVelocity, waveSpeedsMinus->sWaveVelocity, waveSpeedsMinus->sWaveVelocity};
+
+
+    int iFace = static_cast<int>(faceInformation.meshFace);
+    Zp_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
+    Zp_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
+    Zs_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
+    Zs_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
+    eta_p = 1.0 / (Zp_inv + Zp_neig_inv);
+    eta_s = 1.0 / (Zs_inv + Zs_neig_inv);
+
+    for(int j = 0; j < CONVERGENCE_ORDER; j++){
+        auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
+        auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
+        for(int i = 0; i < numberOfPoints; i++){
+            NorStressGP[i][j] = eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) * Zp_inv + QInterpolatedMinusView(i,0) * Zp_neig_inv);
+            XYStressGP[i][j]  = eta_s * (QInterpolatedMinusView(i,7) - QInterpolatedPlusView(i,7) + QInterpolatedPlusView(i,3) * Zs_inv + QInterpolatedMinusView(i,3) * Zs_neig_inv);
+            XZStressGP[i][j] = eta_s * (QInterpolatedMinusView(i,8) - QInterpolatedPlusView(i,8) + QInterpolatedPlusView(i,5) * Zs_inv + QInterpolatedMinusView(i,5) * Zs_neig_inv);
+        }
+    }
+    static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
+
+
+
     if(FL == 0){
         std::cout << "FL = 0" << std::endl;
-        seissol::physics::Evaluate_friction_law::no_fault(XYStressGP,  XZStressGP,  TractionGP_XY, TractionGP_XZ);
+        seissol::physics::Evaluate_friction_law::no_fault(XYStressGP2,  XZStressGP2,  TractionGP_XY2, TractionGP_XZ2);
     }else if(FL == 2 || FL == 16 ){
-        seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(   TractionGP_XY, TractionGP_XZ, NorStressGP, XYStressGP, XZStressGP, iFace, iSide, iElem,
-                nBndGP, rho, rho_neig, w_speed, w_speed_neig, time, DeltaT, resampleMatrix, friction_data, frictionData);
+        seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(   TractionGP_XY2, TractionGP_XZ2, NorStressGP2, XYStressGP2, XZStressGP2, iFace,
+                numberOfPoints, waveSpeedsPlus, waveSpeedsMinus, time, DeltaT, resampleMatrix, tmp_friction_data, frictionData);
     }else if(FL == 6){
         std::cout << "FL = 6"<< std::endl;
         //seissol::physics::Evaluate_friction_law::Linear_slip_weakening_bimaterial( TractionGP_XY, TractionGP_XZ, NorStressGP, XYStressGP, XZStressGP, iFace, iSide, iElem,
@@ -49,6 +99,8 @@ void seissol::physics::Evaluate_friction_law::Eval_friction_law(
     }else if(FL == 7){
         std::cout << "FL = 7"<< std::endl;
     }else if(FL == 101){
+        int iElem = tmp_friction_data.elem[iFace];
+        int iSide = tmp_friction_data.side[iFace];
         std::cout << "FL = 101"<< std::endl;
     }else if(FL == 103){
         std::cout << "FL = 103"<< std::endl;
@@ -56,6 +108,33 @@ void seissol::physics::Evaluate_friction_law::Eval_friction_law(
         std::cout << "ERROR in Evaulate_friction_law.cpp: FL = unkown"<< std::endl;
         //TODO:  logError(*) 'ERROR in friction.f90: friction law case',EQN%FL,' not implemented!'
     }
+
+    auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus);
+    auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus);
+    //initialize to 0
+    imposedStateMinusView.setZero();
+    imposedStatePlusView.setZero();
+
+    for(int j = 0; j < CONVERGENCE_ORDER; j++) {
+        auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
+        auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
+        for (int i = 0; i < numberOfPoints; i++) {
+            imposedStateMinusView(i,0) += timeWeights[j] * NorStressGP[i][j];
+            imposedStateMinusView(i,3) += timeWeights[j] * TractionGP_XY[i][j];
+            imposedStateMinusView(i,5) += timeWeights[j] * TractionGP_XZ[i][j];
+            imposedStateMinusView(i,6) += timeWeights[j] * (QInterpolatedMinusView(i,6) - Zp_neig_inv * (NorStressGP[i][j]-QInterpolatedMinusView(i,0)));
+            imposedStateMinusView(i,7) += timeWeights[j] * (QInterpolatedMinusView(i,7) - Zs_neig_inv * (TractionGP_XY[i][j]-QInterpolatedMinusView(i,3)));
+            imposedStateMinusView(i,8) += timeWeights[j] * (QInterpolatedMinusView(i,8) - Zs_neig_inv * (TractionGP_XZ[i][j]-QInterpolatedMinusView(i,5)));
+
+            imposedStatePlusView(i,0) += timeWeights[j] * NorStressGP[i][j];
+            imposedStatePlusView(i,3) += timeWeights[j] * TractionGP_XY[i][j];
+            imposedStatePlusView(i,5) += timeWeights[j] * TractionGP_XZ[i][j];
+            imposedStatePlusView(i,6) += timeWeights[j] * (QInterpolatedPlusView(i,6) + Zp_inv * (NorStressGP[i][j]-QInterpolatedPlusView(i,0)));
+            imposedStatePlusView(i,7) += timeWeights[j] * (QInterpolatedPlusView(i,7) + Zs_inv * (TractionGP_XY[i][j]-QInterpolatedPlusView(i,3)));
+            imposedStatePlusView(i,8) += timeWeights[j] * (QInterpolatedPlusView(i,8) + Zs_inv * (TractionGP_XZ[i][j]-QInterpolatedPlusView(i,5)));
+        } //End numberOfPoints-loop
+    } //End CONVERGENCE_ORDER-loop
+
 }
 
 void seissol::physics::Evaluate_friction_law::no_fault(
@@ -239,17 +318,12 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
         double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
         double **TractionGP_XZ,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
         double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
-        int iFace, int iSide, int iElem, const int nBndGP,          // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
-        double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
+        int iFace, const int nBndGP,          // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
+        seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus, seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus, // IN: background values
         double time, double *DeltaT,
         double resampleMatrix[],
         seissol::physics::TmpFrictionData &frD, FrictionData &frictionData
 ){
-    //dummy:
-    int nFace;
-    double matmul[nBndGP];
-    double sum_tmpSlip;
-
     //***********************************
     // GET THESE FROM DATA STRUCT
     //required input:
@@ -285,11 +359,18 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     //***********************************
 
 
-    //initialize local variables
+    //declare local variables
+    double sum_tmpSlip;
     double tmpSlip[nBndGP];
-
-    double Z = rho * w_speed[1];
-    double Z_neig = rho_neig * w_speed_neig[1];
+    double matmul[nBndGP];
+    /*
+    double rho = waveSpeedsPlus->density;
+    double rho_neig= waveSpeedsMinus->density;
+    double w_speed[3] = {waveSpeedsPlus->pWaveVelocity, waveSpeedsPlus->sWaveVelocity, waveSpeedsPlus->sWaveVelocity};
+    double w_speed_neig[3] = {waveSpeedsMinus->pWaveVelocity, waveSpeedsMinus->sWaveVelocity, waveSpeedsMinus->sWaveVelocity};
+    */
+    double Z = waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity;
+    double Z_neig = waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity;
     double eta = Z*Z_neig / (Z+Z_neig);
     double tn = time;
     double time_inc = 0;
@@ -301,11 +382,12 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     double LocSR2[nBndGP];
     double LocTracXY[nBndGP];
     double LocTracXZ[nBndGP];
-    double f1[nBndGP];
-    double f2[nBndGP];
+    double f1;
+    double f2;
 
 
     //TODO change this to calloc with free
+    //initialize to 0
     for(int i = 0; i < nBndGP; i++){
         tmpSlip[i] = 0.0; //D0
          P[i] = 0.0;
@@ -316,8 +398,9 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
          LocSR2[i]= 0.0;
          LocTracXY[i]= 0.0;
          LocTracXZ[i]= 0.0;
-         f1[nBndGP]= 0.0;
-         f2[nBndGP]= 0.0;
+         matmul[i] = 0.0;
+         //f1[nBndGP]= 0.0;
+         //f2[nBndGP]= 0.0;
     }
 
 
@@ -374,23 +457,23 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
 
             //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
 
-            f1[iBndGP] = std::min(std::abs( frictionData.slip[iBndGP] ) / frictionData.d_c[iBndGP], 1.0);
+            f1 = std::min(std::abs( frictionData.slip[iBndGP] ) / frictionData.d_c[iBndGP], 1.0);
 
             if (FL == 16) {
                 if (t_0 == 0) {
                     if (tn >= frictionData.forced_rupture_time[iBndGP] ) {
-                        f2[iBndGP] = 1.0;
+                        f2 = 1.0;
                     } else {
-                        f2[iBndGP] = 0.0;
+                        f2 = 0.0;
                     }
                 } else {
-                    f2[iBndGP] = std::max(0.0, std::min((time - frictionData.forced_rupture_time[iBndGP] ) / t_0, 1.0));
+                    f2 = std::max(0.0, std::min((time - frictionData.forced_rupture_time[iBndGP] ) / t_0, 1.0));
                 }
             } else {
-                f2[iBndGP] = 0.0;
+                f2 = 0.0;
             }
 
-            frD.getMu(iBndGP, iFace) = frD.getMu_S(iBndGP, iFace) - (frictionData.mu_S[iBndGP] - frictionData.mu_D[iBndGP]) * std::max(f1[iBndGP], f2[iBndGP]);
+            frD.getMu(iBndGP, iFace) = frD.getMu_S(iBndGP, iFace) - (frictionData.mu_S[iBndGP] - frictionData.mu_D[iBndGP]) * std::max(f1, f2);
 
             //instantaneous healing
             if (inst_healing == true) {

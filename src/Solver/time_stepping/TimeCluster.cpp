@@ -247,22 +247,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
-  real*                                 my_data                                                           = layerData.var(m_dynRup->mu);
-  real**                                cohesion                                                          = layerData.var(m_dynRup->cohesion);
   FrictionData*                         frictionData                                                      = layerData.var(m_dynRup->frictionData);
 
-//    std::cout << "data: "<< my_data[0] << std::endl;
-//    seissol::tensor::frictionData fric;
-//    dynamicRupture::kernel::calcfrictionData krnl;
-
-//    krnl.frictionData = fric;
-//    krnl.execute();
 
   alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
   //Code added by ADRIAN
-
     //TODO: outsource this to initialization:
     const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
     if(m_friction_data.initialized == false){
@@ -270,7 +261,12 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
         m_friction_data.initialized = true;
     }
 
+//    std::cout << "data: "<< my_data[0] << std::endl;
+//    seissol::tensor::frictionData fric;
+//    dynamicRupture::kernel::calcfrictionData krnl;
 
+//    krnl.frictionData = fric;
+//    krnl.execute();
 
 
 #ifdef _OPENMP
@@ -288,11 +284,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
-
-
-
-    //Code added by ADRIAN
-    //insert c++ evaluate_friction_law here:
 /*
     // legacy code:
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
@@ -307,89 +298,18 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             waveSpeedsMinus[face] );
       //*/
 
-
-    double TractionGP_XY[numberOfPoints][CONVERGENCE_ORDER] = {{}};
-    double TractionGP_XZ[numberOfPoints][CONVERGENCE_ORDER] = {{}};
-    double NorStressGP[numberOfPoints][CONVERGENCE_ORDER] = {{}};
-    double XYStressGP[numberOfPoints][CONVERGENCE_ORDER]= {{}};
-    double XZStressGP[numberOfPoints][CONVERGENCE_ORDER]= {{}};
-
-    double *TractionGP_XY2[numberOfPoints];
-    double *TractionGP_XZ2[numberOfPoints];
-    double *NorStressGP2[numberOfPoints];
-    double *XYStressGP2[numberOfPoints];
-    double *XZStressGP2[numberOfPoints];
-    for (size_t i = 0; i < numberOfPoints; ++i){
-      TractionGP_XY2[i] = TractionGP_XY[i];
-      TractionGP_XZ2[i] = TractionGP_XZ[i];
-      NorStressGP2[i] = NorStressGP[i];
-      XYStressGP2[i] = XYStressGP[i];
-      XZStressGP2[i] = XZStressGP[i];
-    }
-    int iFace;
-    double Zp_inv, Zp_neig_inv, Zs_inv, Zs_neig_inv, eta_p, eta_s;
-    double time = m_fullUpdateTime;
-    double *timePoints = &m_dynamicRuptureKernel.timePoints[0];
-    double rho = waveSpeedsPlus->density;
-    double rho_neig= waveSpeedsMinus->density;
-    double w_speed[3] = {waveSpeedsPlus->pWaveVelocity, waveSpeedsPlus->sWaveVelocity, waveSpeedsPlus->sWaveVelocity};
-    double w_speed_neig[3] = {waveSpeedsMinus->pWaveVelocity, waveSpeedsMinus->sWaveVelocity, waveSpeedsMinus->sWaveVelocity};
-
-
-    iFace = static_cast<int>(faceInformation[face].meshFace);
-    Zp_inv = 1.0 / (rho * w_speed[0]);       //(rho * waveSpeedsPlus->pWaveVelocity);
-    Zp_neig_inv = 1.0 / (rho_neig *w_speed_neig[0]);     //(rho_neig * waveSpeedsMinus->pWaveVelocity);
-    Zs_inv = 1.0 / (rho * w_speed[1]);               //(rho * waveSpeedsPlus->sWaveVelocity);
-    Zs_neig_inv = 1.0 / (rho_neig *w_speed_neig[1]); //(rho_neig * waveSpeedsMinus->sWaveVelocity);
-    eta_p = 1.0 / (Zp_inv + Zp_neig_inv);
-    eta_s = 1.0 / (Zs_inv + Zs_neig_inv);
-
-    for(int j = 0; j < CONVERGENCE_ORDER; j++){
-        auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
-        auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
-      for(int i = 0; i < numberOfPoints; i++){
-          NorStressGP[i][j] = eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) * Zp_inv + QInterpolatedMinusView(i,0) * Zp_neig_inv);
-          XYStressGP[i][j]  = eta_s * (QInterpolatedMinusView(i,7) - QInterpolatedPlusView(i,7) + QInterpolatedPlusView(i,3) * Zs_inv + QInterpolatedMinusView(i,3) * Zs_neig_inv);
-          XZStressGP[i][j] = eta_s * (QInterpolatedMinusView(i,8) - QInterpolatedPlusView(i,8) + QInterpolatedPlusView(i,5) * Zs_inv + QInterpolatedMinusView(i,5) * Zs_neig_inv);
-      }
-    }
-    static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
-
+      //Code added by ADRIAN
+      // insert c++ evaluate_friction_law here:
     seissol::physics::Evaluate_friction_law evaluateFriction;
-    evaluateFriction.Eval_friction_law(TractionGP_XY2, TractionGP_XZ2, NorStressGP2, XYStressGP2, XZStressGP2,
-                                       iFace, m_friction_data.side[iFace],
-                                       m_friction_data.elem[iFace], time, timePoints, rho, rho_neig, w_speed, w_speed_neig,
-                                       const_cast<double *>(init::resample::Values),
-                                       m_friction_data, frictionData[face]);
+    evaluateFriction.Eval_friction_law(imposedStatePlus[face], imposedStateMinus[face],
+            QInterpolatedPlus, QInterpolatedMinus,
+            faceInformation[face], m_fullUpdateTime, m_dynamicRuptureKernel.timePoints, m_dynamicRuptureKernel.timeWeights,
+            waveSpeedsPlus, waveSpeedsMinus,
+            const_cast<double *>(init::resample::Values),
+            m_friction_data, frictionData[face]);
 
-
-    auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus[face]);
-    auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[face]);
-    //initialize to 0
-    imposedStateMinusView.setZero();
-    imposedStatePlusView.setZero();
-
-    for(int j = 0; j < CONVERGENCE_ORDER; j++) {
-        auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
-        auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
-      for (int i = 0; i < numberOfPoints; i++) {
-          imposedStateMinusView(i,0) += m_dynamicRuptureKernel.timeWeights[j] * NorStressGP[i][j];
-          imposedStateMinusView(i,3) += m_dynamicRuptureKernel.timeWeights[j] * TractionGP_XY[i][j];
-          imposedStateMinusView(i,5) += m_dynamicRuptureKernel.timeWeights[j] * TractionGP_XZ[i][j];
-          imposedStateMinusView(i,6) += m_dynamicRuptureKernel.timeWeights[j] * (QInterpolatedMinusView(i,6) - Zp_neig_inv * (NorStressGP[i][j]-QInterpolatedMinusView(i,0)));
-          imposedStateMinusView(i,7) += m_dynamicRuptureKernel.timeWeights[j] * (QInterpolatedMinusView(i,7) - Zs_neig_inv * (TractionGP_XY[i][j]-QInterpolatedMinusView(i,3)));
-          imposedStateMinusView(i,8) += m_dynamicRuptureKernel.timeWeights[j] * (QInterpolatedMinusView(i,8) - Zs_neig_inv * (TractionGP_XZ[i][j]-QInterpolatedMinusView(i,5)));
-
-          imposedStatePlusView(i,0) += m_dynamicRuptureKernel.timeWeights[j] * NorStressGP[i][j];
-          imposedStatePlusView(i,3) += m_dynamicRuptureKernel.timeWeights[j] * TractionGP_XY[i][j];
-          imposedStatePlusView(i,5) += m_dynamicRuptureKernel.timeWeights[j] * TractionGP_XZ[i][j];
-          imposedStatePlusView(i,6) += m_dynamicRuptureKernel.timeWeights[j] * (QInterpolatedPlusView(i,6) + Zp_inv * (NorStressGP[i][j]-QInterpolatedPlusView(i,0)));
-          imposedStatePlusView(i,7) += m_dynamicRuptureKernel.timeWeights[j] * (QInterpolatedPlusView(i,7) + Zs_inv * (TractionGP_XY[i][j]-QInterpolatedPlusView(i,3)));
-          imposedStatePlusView(i,8) += m_dynamicRuptureKernel.timeWeights[j] * (QInterpolatedPlusView(i,8) + Zs_inv * (TractionGP_XZ[i][j]-QInterpolatedPlusView(i,5)));
-      } //End numberOfPoints-loop
-    } //End CONVERGENCE_ORDER-loop
-
-      e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], iFace);
+    //write some friction values back to fortran for output writing
+    e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], faceInformation[face].meshFace);
 
   } //End layerData.getNumberOfCells()-loop
 

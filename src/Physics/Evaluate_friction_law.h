@@ -126,8 +126,8 @@ private:
             double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
             double **TractionGP_XZ,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
             double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
-            int iFace, int iSide, int iElem, int nBndGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
-            double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
+            int iFace, int nBndGP,                                  // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
+            seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus, seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus, // IN: background values
             double time, double *DeltaT,
             double resampleMatrix[],                                         //
             seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData
@@ -271,11 +271,13 @@ public:
      */
 
      void Eval_friction_law(
-            double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-            double **TractionGP_XZ,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-            double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
-            int &iFace, int &iSide, int &iElem, double &time, double *timePoints,  // IN: element ID, time, inv Trafo
-            double &rho, double &rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
+            real imposedStatePlus[tensor::QInterpolated::size()],        //output
+            real imposedStateMinus[tensor::QInterpolated::size()],        //output
+            real QInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+            real QInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()],
+            DRFaceInformation faceInformation,
+            double &time, double timePoints[CONVERGENCE_ORDER], double timeWeights[CONVERGENCE_ORDER],  // IN: element ID, time, inv Trafo
+            seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus, seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus, // IN: background values
             double resampleMatrix[],                                         //
             seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData                                           //data structs
     );
