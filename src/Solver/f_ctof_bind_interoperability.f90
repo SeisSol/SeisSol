@@ -267,6 +267,24 @@ module f_ctof_bind_interoperability
         l_nSide                    = l_domain%MESH%Fault%nSide
     end subroutine
 
+    subroutine f_interoperability_getFL(i_domain, i_FL) bind (c, name='f_interoperability_getFL')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      type(c_ptr), value                     :: i_FL
+      integer(kind=c_int), pointer           :: l_FL
+
+      ! convert c to fortran pointers
+      call c_f_pointer( i_domain,             l_domain)
+      call c_f_pointer( i_FL,                 l_FL  )
+      l_FL                    = l_domain%EQN%FL
+    end subroutine
+
+
+
     !!Code added by ADRIAN
     subroutine f_interoperability_getTmpFrictionData(i_domain, i_numberOfPoints, &
             i_Elem, i_Side, i_InitialStressInFaultCS, i_cohesion, i_D_C, i_mu_S, i_mu_D, &
