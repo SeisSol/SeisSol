@@ -147,6 +147,10 @@ private:
      * Friction data struct
      */
     struct seissol::physics::TmpFrictionData m_friction_data;
+    //added by Adrian
+    dr::fr_law::Base* m_FrictonLaw;
+    dr::lts::Base* m_DrLts;
+
 
     /*
      * element data and mpi queues
@@ -162,6 +166,7 @@ private:
     seissol::initializers::TimeCluster* m_dynRupClusterData;
     seissol::initializers::LTS*         m_lts;
     seissol::initializers::DynamicRupture* m_dynRup;
+
 
     //! time step width of the performed time step.
     double m_timeStepWidth;
@@ -397,6 +402,8 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
+                 seissol::dr::fr_law::Base* i_FrictonLaw,
+                 dr::lts::Base* i_DrLts,
                  LoopStatistics*                        i_loopStatistics );
 
     /**

@@ -449,6 +449,11 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
+
+  //added by adrian
+  m_DrLts->addVars(m_dynRupTree /*+ DrLtsTree*/);
+  m_DrInitializer->initializeFrictionMatrices(m_DrLts, &m_dynRupTree /*+ DrLtsTree, + something from Easy*/);
+
 }
 
 void seissol::initializers::MemoryManager::fixateBoundaryLtsTree() {
@@ -675,3 +680,9 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
           || f == FaceType::analytical);
 }
 
+//added by adrian
+void seissol::initializers::MemoryManager::initializeFrictionFactory(Friction_law_type FrictionLaw) {
+    dr::factory::AbstractFactory *Factory = dr::factory::getFactory(FrictionLaw);
+    std::tie(m_DrLts, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
+    delete Factory;    // prepare the data
+}

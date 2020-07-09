@@ -387,6 +387,10 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
 
 
+  //added by Adrian
+  getFL();
+  seissol::SeisSol::main.getMemoryManager().initializeFrictionFactory(m_FL);
+
   unsigned* numberOfDRCopyFaces;
   unsigned* numberOfDRInteriorFaces;
   // get cell information & mappings

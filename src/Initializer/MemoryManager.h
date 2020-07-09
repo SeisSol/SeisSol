@@ -86,6 +86,9 @@
 #include <Initializer/Boundary.h>
 #include <Initializer/ParameterDB.h>
 
+//added by adrian
+#include <DynamicRupture/DR_factory.h>
+
 namespace seissol {
   namespace initializers {
     class MemoryManager;
@@ -156,6 +159,12 @@ class seissol::initializers::MemoryManager {
     
     LTSTree               m_dynRupTree;
     DynamicRupture        m_dynRup;
+
+    //added by Adrian
+    seissol::dr::lts::Base* m_DrLts = nullptr;
+    seissol::dr::initializer::Base* m_DrInitializer = nullptr;
+    seissol::dr::fr_law::Base* m_FrictonLaw = nullptr;
+    seissol::dr::output::Base* m_DrOutput = nullptr;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -290,6 +299,16 @@ class seissol::initializers::MemoryManager {
 
     inline EasiBoundary* getEasiBoundaryReader() {
       return &m_easiBoundary;
+    }
+
+    //added by Adrian
+    void initializeFrictionFactory(Friction_law_type FrictionLaw);
+
+    inline dr::fr_law::Base* getFrictionLaw() {
+        return m_FrictonLaw;
+    }
+    inline dr::lts::Base* getDrLts() {
+        return m_DrLts;
     }
 };
 

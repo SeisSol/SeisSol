@@ -363,12 +363,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
     double sum_tmpSlip;
     double tmpSlip[nBndGP];
     double matmul[nBndGP];
-    /*
-    double rho = waveSpeedsPlus->density;
-    double rho_neig= waveSpeedsMinus->density;
-    double w_speed[3] = {waveSpeedsPlus->pWaveVelocity, waveSpeedsPlus->sWaveVelocity, waveSpeedsPlus->sWaveVelocity};
-    double w_speed_neig[3] = {waveSpeedsMinus->pWaveVelocity, waveSpeedsMinus->sWaveVelocity, waveSpeedsMinus->sWaveVelocity};
-    */
+
     double Z = waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity;
     double Z_neig = waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity;
     double eta = Z*Z_neig / (Z+Z_neig);
