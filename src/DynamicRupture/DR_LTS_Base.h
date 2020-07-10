@@ -2,6 +2,7 @@
 // Created by adrian on 09.07.20.
 //
 
+
 #ifndef SEISSOL_DRBASE_H
 #define SEISSOL_DRBASE_H
 
@@ -10,7 +11,9 @@
 #include <Initializer/tree/LTSTree.hpp>
 #include <generated_code/tensor.h>
 
-
+/*
+ * file can be deleted
+ *
 namespace seissol {
     namespace dr {
         namespace lts {
@@ -47,5 +50,6 @@ namespace seissol {
         }
     }
 }
+*/
 
 #endif //SEISSOL_DRBASE_H

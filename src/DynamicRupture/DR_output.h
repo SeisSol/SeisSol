@@ -14,32 +14,44 @@ namespace seissol {
             public:
                 virtual ~Base() {}
 
-                virtual void tiePointers(lts::Base &Lts) = 0;
+                virtual void tiePointers(seissol::initializers::DynamicRupture &DynRup) = 0;
 
-                virtual void postCompute(lts::Base &Lts) = 0;
+                virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) = 0;
+            };
+
+            class FL_2 : public Base {
+            public:
+                virtual void tiePointers(seissol::initializers::DynamicRupture &DynRup) override {
+                    seissol::initializers::DR_FL_2 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 &>(DynRup);
+                    //std::cout << "tie ptr for FL_2\n";
+                }
+
+                virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
+                    std::cout << "output vars for FL_2\n";
+                }
             };
 
             class FL_16 : public Base {
             public:
-                virtual void tiePointers(lts::Base &Lts) override {
-                    lts::FL_16 &ConcreteLts = dynamic_cast<lts::FL_16 &>(Lts);
+                virtual void tiePointers(seissol::initializers::DynamicRupture &DynRup) override {
+                    seissol::initializers::DR_FL_16 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 &>(DynRup);
                     std::cout << "tie ptr for FL_16\n";
                 }
 
-                virtual void postCompute(lts::Base &Lts) override {
+                virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
                     std::cout << "output vars for FL_16\n";
                 }
             };
 
             class FL_33 : public Base {
             public:
-                virtual void tiePointers(lts::Base &Lts) override {
-                    lts::FL_33 &ConcreteLts = dynamic_cast<lts::FL_33 &>(Lts);
+                virtual void tiePointers(seissol::initializers::DynamicRupture &DynRup) override {
+                    seissol::initializers::DR_FL_33 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 &>(DynRup);
                     std::cout << "tie ptr for FL_33\n";
                 }
 
-                virtual void postCompute(lts::Base &Lts) override {
-                    lts::FL_33 &ConcreteLts = dynamic_cast<lts::FL_33 &>(Lts);
+                virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
+                    seissol::initializers::DR_FL_33 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 &>(DynRup);
                     std::cout << "output vars for FL_33\n";
                 }
             };

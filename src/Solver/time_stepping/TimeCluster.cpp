@@ -109,7 +109,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   seissol::initializers::LTS*         i_lts,
                                                   seissol::initializers::DynamicRupture* i_dynRup,
                                                   seissol::dr::fr_law::Base*        i_FrictonLaw,
-                                                  dr::lts::Base*            i_DrLts,
+                                                  dr::output::Base*            i_DrOutput,
                                                   LoopStatistics*                        i_loopStatistics ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
@@ -131,7 +131,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_receiverCluster(          nullptr                   ),
  //Code added by Adrian:
  m_FrictonLaw(              i_FrictonLaw               ),
- m_DrLts(                   i_DrLts                    ),
+ m_DrOutput(                   i_DrOutput                    ),
  m_friction_data(tensor::QInterpolated::Shape[0], e_interoperability.getnSide() )
 
 {
@@ -313,10 +313,12 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
             const_cast<double *>(init::resample::Values),
             m_friction_data, frictionData[face]);
 
-    m_FrictonLaw->evaluate(*m_DrLts);
+    m_FrictonLaw->evaluate(*m_dynRup);
+    m_DrOutput->tiePointers(*m_dynRup /*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
 
     //write some friction values back to fortran for output writing
     e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], faceInformation[face].meshFace);
+
 
   } //End layerData.getNumberOfCells()-loop
 

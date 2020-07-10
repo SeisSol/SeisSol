@@ -100,7 +100,7 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            i_memoryManager.getLts(),
                                            i_memoryManager.getDynamicRupture(),
                                            i_memoryManager.getFrictionLaw(),
-                                           i_memoryManager.getDrLts(),
+                                           i_memoryManager.getDrOutput(),
                                            &m_loopStatistics )
                         );
   }

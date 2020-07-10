@@ -722,7 +722,7 @@ void seissol::Interoperability::initializeCellLocalMatrices()
 
   //added by adrian
   //TODO: maybe put this into a function like above
-  seissol::SeisSol::main.getMemoryManager().getDrInitializer()->initializeFrictionMatrices( seissol::SeisSol::main.getMemoryManager().getDrLts(),
+  seissol::SeisSol::main.getMemoryManager().getDrInitializer()->initializeFrictionMatrices( seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
           seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree() /* + something from Easy*/);
 
   seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),

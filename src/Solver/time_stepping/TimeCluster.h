@@ -149,7 +149,7 @@ private:
     struct seissol::physics::TmpFrictionData m_friction_data;
     //added by Adrian
     dr::fr_law::Base* m_FrictonLaw;
-    dr::lts::Base* m_DrLts;
+    dr::output::Base* m_DrOutput;
 
 
     /*
@@ -403,7 +403,7 @@ private:
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
                  seissol::dr::fr_law::Base* i_FrictonLaw,
-                 dr::lts::Base* i_DrLts,
+                 dr::output::Base*            i_DrOutput,
                  LoopStatistics*                        i_loopStatistics );
 
     /**

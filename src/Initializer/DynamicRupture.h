@@ -47,10 +47,14 @@
 namespace seissol {
   namespace initializers {
     struct DynamicRupture;
+    struct DR_FL_2;
+    struct DR_FL_16;
+    struct DR_FL_33;
   }
 }
 
 struct seissol::initializers::DynamicRupture {
+  virtual ~DynamicRupture() {}
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStatePlus;
@@ -66,8 +70,8 @@ struct seissol::initializers::DynamicRupture {
   Variable<real>                                                    mu;
   Variable<real*>                                                   cohesion;
   Variable<FrictionData>                                            frictionData;
-  
-  void addTo(LTSTree& tree) {
+
+  virtual void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      timeDerivativePlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(     timeDerivativeMinus,             mask,                 1,      seissol::memory::Standard );
@@ -86,4 +90,32 @@ struct seissol::initializers::DynamicRupture {
 
   }
 };
+
+struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRupture {
+    int InitStress{};
+
+    virtual void addTo(initializers::LTSTree& tree) {
+        seissol::initializers::DynamicRupture::addTo(tree);
+        std::cout << "add additional variables for FL_2\n";
+    }
+};
+
+struct seissol::initializers::DR_FL_16 : public seissol::initializers::DynamicRupture {
+    int InitStress{};
+
+    virtual void addTo(initializers::LTSTree& tree) {
+        seissol::initializers::DynamicRupture::addTo(tree);
+        std::cout << "add additional variables for FL_16\n";
+    }
+};
+
+struct seissol::initializers::DR_FL_33 : public seissol::initializers::DynamicRupture {
+    int InitPressure{};
+
+    virtual void addTo(initializers::LTSTree& tree) {
+        seissol::initializers::DynamicRupture::addTo(tree);
+        std::cout << "add additional variables for FL_33\n";
+    }
+};
+
 #endif

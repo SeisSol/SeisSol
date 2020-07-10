@@ -436,10 +436,7 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   m_ltsTree.touchVariables();
 
   /// Dynamic rupture tree
-  m_dynRup.addTo(m_dynRupTree);
-  //added by adrian
-  m_DrLts->addVars(m_dynRupTree /*+ DrLtsTree*/);
-
+  m_dynRup->addTo(m_dynRupTree);
 
   m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
   m_dynRupTree.fixate();
@@ -685,6 +682,6 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
 //added by adrian
 void seissol::initializers::MemoryManager::initializeFrictionFactory(Friction_law_type FrictionLaw) {
     dr::factory::AbstractFactory *Factory = dr::factory::getFactory(FrictionLaw);
-    std::tie(m_DrLts, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
+    std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
     delete Factory;    // prepare the data
 }

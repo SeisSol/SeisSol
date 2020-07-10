@@ -158,10 +158,9 @@ class seissol::initializers::MemoryManager {
     LTS                   m_lts;
     
     LTSTree               m_dynRupTree;
-    DynamicRupture        m_dynRup;
+    DynamicRupture*        m_dynRup;
 
     //added by Adrian
-    seissol::dr::lts::Base* m_DrLts = nullptr;
     seissol::dr::initializer::Base* m_DrInitializer = nullptr;
     seissol::dr::fr_law::Base* m_FrictonLaw = nullptr;
     seissol::dr::output::Base* m_DrOutput = nullptr;
@@ -225,7 +224,13 @@ class seissol::initializers::MemoryManager {
     /**
      * Destructor, memory is freed by managed allocator
      **/
-    ~MemoryManager() {}
+    ~MemoryManager() {
+        //added by adrian
+        delete m_dynRup;
+        delete m_DrInitializer;
+        delete m_FrictonLaw;
+        delete m_DrOutput;
+    }
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
@@ -284,7 +289,7 @@ class seissol::initializers::MemoryManager {
     }
                           
     inline DynamicRupture* getDynamicRupture() {
-      return &m_dynRup;
+      return m_dynRup;
     }
 
     inline LTSTree* getBoundaryTree() {
@@ -306,9 +311,6 @@ class seissol::initializers::MemoryManager {
 
     inline dr::fr_law::Base* getFrictionLaw() {
         return m_FrictonLaw;
-    }
-    inline dr::lts::Base* getDrLts() {
-        return m_DrLts;
     }
     inline  dr::initializer::Base* getDrInitializer() {
         return m_DrInitializer;

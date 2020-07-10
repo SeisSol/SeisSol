@@ -15,15 +15,23 @@ namespace seissol {
             public:
                 virtual ~Base() {}
 
-                virtual void evaluate(lts::Base &Lts) = 0;
+                virtual void evaluate(seissol::initializers::DynamicRupture &dynRup) = 0;
+            };
+
+            class FL_2 : public Base {
+            public:
+                virtual void evaluate(seissol::initializers::DynamicRupture &dynRup) override {
+                    seissol::initializers::DR_FL_2 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 &>(dynRup);
+                    //std::cout << "computing DR for FL_2\n";
+                }
             };
 
             class FL_17 : public Base {
             public:
                 virtual void hook() {}
 
-                virtual void evaluate(lts::Base &Lts) override {
-                    lts::FL_16 &ConcreteLts = dynamic_cast<lts::FL_16 &>(Lts);
+                virtual void evaluate(seissol::initializers::DynamicRupture &dynRup) override {
+                    seissol::initializers::DR_FL_16 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 &>(dynRup);
                     //std::cout << "computing ";
                     hook();
                     //std::cout << " DR for FL_16\n";
@@ -39,8 +47,8 @@ namespace seissol {
 
             class FL_33 : public Base {
             public:
-                virtual void evaluate(lts::Base &Lts) override {
-                    lts::FL_33 &ConcreteLts = dynamic_cast<lts::FL_33 &>(Lts);
+                virtual void evaluate(seissol::initializers::DynamicRupture &dynRup) override {
+                    seissol::initializers::DR_FL_33 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 &>(dynRup);
                     std::cout << "computing DR for FL_33\n";
                 }
             };
