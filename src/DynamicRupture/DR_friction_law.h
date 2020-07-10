@@ -24,16 +24,16 @@ namespace seissol {
 
                 virtual void evaluate(lts::Base &Lts) override {
                     lts::FL_16 &ConcreteLts = dynamic_cast<lts::FL_16 &>(Lts);
-                    std::cout << "computing ";
+                    //std::cout << "computing ";
                     hook();
-                    std::cout << " DR for FL_16\n";
+                    //std::cout << " DR for FL_16\n";
                 }
             };
 
             class FL_16 : public FL_17 {
             public:
                 virtual void hook() override {
-                    std::cout << "(hook)";
+                    //std::cout << "(hook)";
                 }
             };
 

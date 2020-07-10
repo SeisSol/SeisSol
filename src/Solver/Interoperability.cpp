@@ -720,7 +720,10 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
                                                            m_timeStepping );
 
-
+  //added by adrian
+  //TODO: maybe put this into a function like above
+  seissol::SeisSol::main.getMemoryManager().getDrInitializer()->initializeFrictionMatrices( seissol::SeisSol::main.getMemoryManager().getDrLts(),
+          seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree() /* + something from Easy*/);
 
   seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
                                                     seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),

@@ -437,6 +437,10 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
 
   /// Dynamic rupture tree
   m_dynRup.addTo(m_dynRupTree);
+  //added by adrian
+  m_DrLts->addVars(m_dynRupTree /*+ DrLtsTree*/);
+
+
   m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
   m_dynRupTree.fixate();
 
@@ -450,9 +454,7 @@ void seissol::initializers::MemoryManager::fixateLtsTree(struct TimeStepping& i_
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
 
-  //added by adrian
-  m_DrLts->addVars(m_dynRupTree /*+ DrLtsTree*/);
-  m_DrInitializer->initializeFrictionMatrices(m_DrLts, &m_dynRupTree /*+ DrLtsTree, + something from Easy*/);
+
 
 }
 

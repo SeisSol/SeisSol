@@ -52,6 +52,9 @@ int temporary_main() {
     //in memory manager.cpp
     //void seissol::initializers::MemoryManager::fixateLtsTree
     DrLts->addVars(*dynRupTree /*+ DrLtsTree*/);
+
+    //in interoperability
+    //void seissol::Interoperability::initializeCellLocalMatrices()
     DrInitializer->initializeFrictionMatrices(DrLts, dynRupTree /*+ DrLtsTree, + something from Easy*/);
 
     //TODO: Dont know where to put this
