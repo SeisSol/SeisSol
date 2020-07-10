@@ -260,6 +260,7 @@ elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
 endif()
 
+string( REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib PUBLIC -fopenmp -Wall -Wextra -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wno-unused-parameter -Wno-unknown-pragmas>)

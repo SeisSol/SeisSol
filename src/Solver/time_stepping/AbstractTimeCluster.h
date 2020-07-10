@@ -43,7 +43,7 @@ public:
   //! number of time steps
   long numberOfTimeSteps;
   std::chrono::steady_clock::time_point lastStateChange;
-  const std::chrono::minutes timeout = std::chrono::minutes(2); // minutes
+  const std::chrono::seconds timeout = std::chrono::seconds(120);
 
 };
 
