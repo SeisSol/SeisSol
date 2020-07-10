@@ -310,6 +310,12 @@ class seissol::initializers::MemoryManager {
     inline dr::lts::Base* getDrLts() {
         return m_DrLts;
     }
+    inline  dr::initializer::Base* getDrInitializer() {
+        return m_DrInitializer;
+    }
+    inline seissol::dr::output::Base* getDrOutput() {
+        return m_DrOutput;
+    }
 };
 
 
