@@ -600,12 +600,26 @@ void TimeCluster::correct() {
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   const auto rank = MPI::mpi.rank();
   logWarning(rank)
-      << "Ghost: No update since " << timeSinceLastUpdate.count()
+      << "No update since " << timeSinceLastUpdate.count()
       << "[s] for global cluster " << m_globalClusterId
       << " with local cluster id " << m_clusterId
       << " at state " << actorStateToString(state)
+      << " predTime = " << ct.predictionTime
+      << " predictionsSinceSync = " << ct.predictionsSinceLastSync
+      << " corrTime = " << ct.correctionTime
+      << " correctionsSinceSync = " << ct.stepsSinceLastSync
+      << " stepsTillSync = " << ct.stepsUntilSync
       << " mayPredict = " << mayPredict()
       << " mayCorrect = " << mayCorrect()
       << " maySync = " << maySync();
+  for (auto& neighbor : neighbors) {
+    logWarning(rank)
+    << "Neighbor with rate = " << neighbor.ct.timeStepRate
+    << "PredTime = " << neighbor.ct.predictionTime
+    << "CorrTime = " << neighbor.ct.correctionTime
+    << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
+    << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
+  }
+
 }
 }

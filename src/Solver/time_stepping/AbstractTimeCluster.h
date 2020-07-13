@@ -44,6 +44,7 @@ public:
   long numberOfTimeSteps;
   std::chrono::steady_clock::time_point lastStateChange;
   const std::chrono::seconds timeout = std::chrono::seconds(120);
+  bool alreadyPrintedTimeOut = false;
 
 };
 

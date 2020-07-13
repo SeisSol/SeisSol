@@ -92,17 +92,19 @@ bool AbstractTimeCluster::act() {
   const auto currentTime = std::chrono::steady_clock::now();
   if (stateBefore == state) {
     const auto timeSinceLastUpdate = currentTime - lastStateChange;
-    if (timeSinceLastUpdate > timeout) {
+    if (timeSinceLastUpdate > timeout && !alreadyPrintedTimeOut) {
+        alreadyPrintedTimeOut = true;
         printTimeoutMessage(std::chrono::duration_cast<std::chrono::seconds>(timeSinceLastUpdate));
     }
   } else {
     lastStateChange = currentTime;
+    alreadyPrintedTimeOut = false;
   }
   return yield;
 }
 
 
-    bool AbstractTimeCluster::processMessages() {
+bool AbstractTimeCluster::processMessages() {
   bool processed = false;
   for (auto& neighbor : neighbors) {
     if (neighbor.inbox->hasMessages()) {
