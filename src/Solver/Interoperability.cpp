@@ -567,15 +567,16 @@ void seissol::Interoperability::initializeModel(  char*   materialFileName,
       auto materials = std::vector<seissol::model::Plasticity>(nElements);
       seissol::initializers::MaterialParameterDB<seissol::model::Plasticity> parameterDB;
       parameterDB.setMaterialVector(&materials);
+      parameterDB.evaluateModel(std::string(materialFileName), queryGen);
       for (unsigned int i = 0; i < nElements; i++) {
         bulkFriction[i] = materials[i].bulkFriction;
         plastCo[i] = materials[i].plastCo;
-        iniStress[i+0*nElements] = materials[i].s_xx;
-        iniStress[i+1*nElements] = materials[i].s_yy;
-        iniStress[i+2*nElements] = materials[i].s_zz;
-        iniStress[i+3*nElements] = materials[i].s_xy;
-        iniStress[i+4*nElements] = materials[i].s_yz;
-        iniStress[i+5*nElements] = materials[i].s_xz;
+        iniStress[i*6+0] = materials[i].s_xx;
+        iniStress[i*6+1] = materials[i].s_yy;
+        iniStress[i*6+2] = materials[i].s_zz;
+        iniStress[i*6+3] = materials[i].s_xy;
+        iniStress[i*6+4] = materials[i].s_yz;
+        iniStress[i*6+5] = materials[i].s_xz;
       }
     } 
   }
