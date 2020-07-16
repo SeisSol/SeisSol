@@ -39,8 +39,8 @@ bool AbstractTimeCluster::act() {
           const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
                   || ct.predictionsSinceLastSync >= neighbor.ct.nextCorrectionSteps();
-          assert(sendMessageSteps == sendMessageTime);
-        if (sendMessageTime) {
+          //assert(sendMessageSteps == sendMessageTime);
+        if (sendMessageSteps) {
           AdvancedPredictionTimeMessage message{};
           message.time = ct.predictionTime;
           message.stepsSinceSync = ct.predictionsSinceLastSync;
@@ -64,8 +64,9 @@ bool AbstractTimeCluster::act() {
           const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
                   || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
-          assert(sendMessageTime == sendMessageSteps);
         if (sendMessageTime) {
+          //assert(sendMessageTime == sendMessageSteps);
+        if (sendMessageSteps) {
           AdvancedCorrectionTimeMessage message{};
           message.time = ct.correctionTime;
           message.stepsSinceSync = ct.stepsSinceLastSync;
@@ -149,7 +150,7 @@ bool AbstractTimeCluster::mayPredict() {
             });
     bool stepBasedPredict = minNeighborSteps == neighbors.end()
             || ct.predictionsSinceLastSync < minNeighborSteps->ct.nextCorrectionSteps();
-    assert(timeBasedPredict == stepBasedPredict);
+    //assert(timeBasedPredict == stepBasedPredict);
 
     return stepBasedPredict;
 }
@@ -172,7 +173,7 @@ bool AbstractTimeCluster::mayCorrect() {
               && (isSynced || (ct.predictionsSinceLastSync <= neighbor.ct.predictionsSinceLastSync));
   }
 
-  assert(timeBasedCorrect == stepBasedCorrect);
+  //assert(timeBasedCorrect == stepBasedCorrect);
   return stepBasedCorrect;
 }
 
@@ -180,7 +181,7 @@ bool AbstractTimeCluster::mayCorrect() {
 bool AbstractTimeCluster::maySync() {
     const bool timeBasedSync = ct.correctionTime + timeTolerance >= syncTime;
     const bool stepBasedSync = ct.stepsSinceLastSync >= ct.stepsUntilSync;
-    assert(timeBasedSync == stepBasedSync);
+    //assert(timeBasedSync == stepBasedSync);
     return stepBasedSync && processMessages();
 }
 

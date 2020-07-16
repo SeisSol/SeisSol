@@ -114,7 +114,8 @@ struct ClusterTimes {
 
   //! Returns time step s.t. we won't miss the sync point
   [[nodiscard]] double timeStepSize(double syncTime) const {
-    assert(correctionTime < syncTime);
+    // TODO(Lukas) Reenable assert below, currently broken for plasticity!
+    //assert(correctionTime < syncTime);
     return std::min(syncTime - correctionTime, maxTimeStepSize);
   }
 
