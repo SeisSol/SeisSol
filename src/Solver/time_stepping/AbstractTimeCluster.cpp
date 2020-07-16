@@ -64,7 +64,6 @@ bool AbstractTimeCluster::act() {
           const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
           const bool sendMessageSteps = justBeforeSync
                   || ct.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
-        if (sendMessageTime) {
           //assert(sendMessageTime == sendMessageSteps);
         if (sendMessageSteps) {
           AdvancedCorrectionTimeMessage message{};
