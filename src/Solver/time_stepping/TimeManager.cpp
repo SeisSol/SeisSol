@@ -81,33 +81,34 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
   m_timeStepping = i_timeStepping;
 
   // iterate over local time clusters
-  for( unsigned int l_cluster = 0; l_cluster < m_timeStepping.numberOfLocalClusters; l_cluster++ ) {
-    struct MeshStructure          *l_meshStructure           = NULL;
-    struct GlobalData             *l_globalData              = NULL;
-
-    // get memory layout of this cluster
-    i_memoryManager.getMemoryLayout( l_cluster,
-                                     l_meshStructure,
-                                     l_globalData
+  for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters; localClusterId++) {
+    struct MeshStructure *l_meshStructure = nullptr;
+    struct GlobalData *l_globalData = nullptr;
+    i_memoryManager.getMemoryLayout(localClusterId,
+                                    l_meshStructure,
+                                    l_globalData
                                      );
 
-    const unsigned int l_globalClusterId = m_timeStepping.clusterIds[l_cluster];
+    const unsigned int l_globalClusterId = m_timeStepping.clusterIds[localClusterId];
     // chop of at synchronization time
     const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
-    const long timeStepRate = ipow(2l, static_cast<long>(l_globalClusterId));
+    const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
+         static_cast<long>(l_globalClusterId));
     const auto layerTypes = {Copy, Interior};
     for (auto type : layerTypes) {
-      const bool printProgress = (timeStepRate == 1) && (type == Copy);
+      // We print progress only if it is the cluster with the largest time step on each rank.
+      // This does not mean that it is the largest cluster globally!
+      const bool printProgress = (localClusterId == 0) && (type == Interior);
       clusters.push_back(new TimeCluster(
-          l_cluster,
-          m_timeStepping.clusterIds[l_cluster],
+          localClusterId,
+          m_timeStepping.clusterIds[localClusterId],
           timeStepSize,
           timeStepRate,
           getTimeTolerance(),
           printProgress,
           l_globalData,
-          &i_memoryManager.getLtsTree()->child(l_cluster).child(type),
-          &i_memoryManager.getDynamicRuptureTree()->child(l_cluster).child(type),
+          &i_memoryManager.getLtsTree()->child(localClusterId).child(type),
+          &i_memoryManager.getDynamicRuptureTree()->child(localClusterId).child(type),
           i_memoryManager.getLts(),
           i_memoryManager.getDynamicRupture(),
           &m_loopStatistics)
@@ -122,7 +123,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     // Then all clusters that are neighboring are connected.
     // Note: Only clusters with a distance of 1 time step factor
     // are connected.
-    if (l_cluster > 0) {
+    if (localClusterId > 0) {
       assert(clusters.size() >= 4);
       for (int i = 0; i < 2; ++i)  {
         copy->connect(
@@ -136,7 +137,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
 
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
-    const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[l_cluster]);
+    const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
     /*for (int otherGlobalClusterId = std::max(globalClusterId - 1, 0);
          otherGlobalClusterId < std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters));
          ++otherGlobalClusterId) {
