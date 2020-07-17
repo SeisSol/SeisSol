@@ -104,6 +104,9 @@ class SeissolUtils(Package):
 
         for key in copy_list:
             install_tree(copy_list[key][0], copy_list[key][1])
+            
+        # isntall vizualization tools
+        install_tree(join_path(self.stage.source_path, 'postprocessing/visualization/receiver'), prefix.viz.receiver)
     
     def setup_run_environment(self, env):
         dependencies = self.spec.dependencies_dict()
@@ -121,3 +124,6 @@ class SeissolUtils(Package):
         env.set('COOKBOOK', self.spec.prefix.cookbook)
         if "+benchmarks" in self.spec:
             env.set('BENCHMARKS', self.spec.prefix.benchmarks)
+
+        env.prepend_path('PATH', self.spec.prefix.viz.receiver.bin)
+        env.prepend_path('PYTNONPATH', self.spec.prefix.viz.receiver.src)
