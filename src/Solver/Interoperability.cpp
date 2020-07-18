@@ -813,7 +813,7 @@ void seissol::Interoperability::initializeIO(
 			numberOfQuantities, CONVERGENCE_ORDER,
 			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			seissol::SeisSol::main.meshReader(),
-      ClusteringFieldMap.data(),
+                        ClusteringFieldMap.data(),
 			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
 			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
 			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
