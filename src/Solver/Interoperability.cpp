@@ -802,11 +802,18 @@ void seissol::Interoperability::initializeIO(
 
   constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
 
+  // record the clustering info i.e., distribution of elements within an LTS tree
+  const std::vector<Element>& MeshElements = seissol::SeisSol::main.meshReader().getElements();
+  std::vector<unsigned> ClusteringFieldMap(MeshElements.size());
+  for (const auto& Element: MeshElements) {
+    ClusteringFieldMap[Element.localId] = m_ltsLut.cluster(Element.localId);
+  }
 	// Initialize wave field output
 	seissol::SeisSol::main.waveFieldWriter().init(
 			numberOfQuantities, CONVERGENCE_ORDER,
 			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
 			seissol::SeisSol::main.meshReader(),
+      ClusteringFieldMap.data(),
 			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
 			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
 			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
