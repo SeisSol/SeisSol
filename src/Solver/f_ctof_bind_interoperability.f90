@@ -343,11 +343,11 @@ module f_ctof_bind_interoperability
 
       !if (iFace .eq. 64 ) then
       !write (*,*) 'Face: ( iface: ', iFace, ' ): '
-        do j=1,CONVERGENCE_ORDER
+        !do j=1,CONVERGENCE_ORDER
           !do i=1,nBndGP
               !write (*,*) 'in: ( j: ', j, ' ): ',  l_domain%EQN%InitialStressInFaultCS(1,j,iFace)
           !end do
-        end do
+        !end do
       !end if
 
       call c_f_pointer( i_InitialStressInFaultCS, l_InitialStressInFaultCS, [nBndGP,6])
@@ -574,7 +574,7 @@ module f_ctof_bind_interoperability
     end subroutine
 
     !!Code added by ADRIAN
-    subroutine f_interoperability_setFrictionOutput(i_domain, i_face, i_numberOfPoints, nSide, &
+    subroutine f_interoperability_setFrictionOutput(i_domain, i_face, &
               i_mu, i_slip, i_slip1, i_slip2, i_rupture_time,&
               i_PeakSR, i_dynStress_time)&
               bind (c, name='f_interoperability_setFrictionOutput')
@@ -587,12 +587,11 @@ module f_ctof_bind_interoperability
         INTEGER     :: i ,j, k
         type(c_ptr), value                     :: i_domain
         type(tUnstructDomainDescript), pointer :: l_domain
-        integer(kind=c_int), value             :: i_numberOfPoints
-        integer(kind=c_int), value             :: nSide
+        integer                                :: nSide , nBndGP
         integer(kind=c_int), value             :: i_face
 
         type(c_ptr), value                     :: i_mu
-        REAL_TYPE, pointer                     :: l_mu(:,:)
+        REAL_TYPE, pointer                     :: l_mu(:)
         type(c_ptr), value                     :: i_slip
         REAL_TYPE, pointer                     :: l_slip(:)
         type(c_ptr), value                     :: i_slip1
@@ -611,16 +610,18 @@ module f_ctof_bind_interoperability
         ! convert c to fortran pointers
         call c_f_pointer( i_domain,             l_domain)
         nSide = l_domain%MESH%Fault%nSide
-        call c_f_pointer( i_mu, l_mu, [i_numberOfPoints,nSide])
-        call c_f_pointer( i_slip, l_slip, [i_numberOfPoints])
-        call c_f_pointer( i_slip1, l_slip1, [i_numberOfPoints])
-        call c_f_pointer( i_slip2, l_slip2, [i_numberOfPoints])
-        call c_f_pointer( i_rupture_time, l_rupture_time, [i_numberOfPoints])
-        call c_f_pointer( i_PeakSR, l_PeakSR, [i_numberOfPoints])
-        call c_f_pointer( i_dynStress_time, l_dynStress_time, [i_numberOfPoints])
+        nBndGP = l_domain%DISC%Galerkin%nBndGP
+
+        call c_f_pointer( i_mu, l_mu, [nBndGP])
+        call c_f_pointer( i_slip, l_slip, [nBndGP])
+        call c_f_pointer( i_slip1, l_slip1, [nBndGP])
+        call c_f_pointer( i_slip2, l_slip2, [nBndGP])
+        call c_f_pointer( i_rupture_time, l_rupture_time, [nBndGP])
+        call c_f_pointer( i_PeakSR, l_PeakSR, [nBndGP])
+        call c_f_pointer( i_dynStress_time, l_dynStress_time, [nBndGP])
 
         !copy to output
-        l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:,i_face)
+        l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:)
         l_domain%DISC%DynRup%output_Slip(:,i_face)                  = l_slip(:)    !l_domain%DISC%DynRup%Slip(:,i_face)
         l_domain%DISC%DynRup%output_Slip1(:,i_face)                 = l_slip1(:)       !l_domain%DISC%DynRup%Slip1(:,i_face)
         l_domain%DISC%DynRup%output_Slip2(:,i_face)                 = l_slip2(:)        !l_domain%DISC%DynRup%Slip2(:,i_face)

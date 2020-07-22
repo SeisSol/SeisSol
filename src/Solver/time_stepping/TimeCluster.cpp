@@ -316,7 +316,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
 
-
+/*
     if ( m_friction_data.function_call < 2){
         int iFace = static_cast<int>(faceInformation[face].meshFace);
         for(int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++) {
@@ -352,7 +352,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
         }
     }
-
+*/
 
 
 
@@ -393,8 +393,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 //*/
 
     m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, face, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
-    
-    m_DrOutput->tiePointers(layerData, *m_dynRup /*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
+
 
     //write some friction values back to fortran for output writing
     //e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], faceInformation[face].meshFace);
@@ -402,6 +401,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   } //End layerData.getNumberOfCells()-loop
 
+  //unsigned notusedface = 0;
+
+  m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 }
 

@@ -408,6 +408,7 @@ class seissol::Interoperability {
      * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h
      *
      * @param ltsFace current ltsFace to get Parameters
+     * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters saved in DRFaceInformation[ltsFace].meshFace
      * @param mu gets initial mu
      * @param slipRate1 gets initial sliprate in direction 1
      * @param slipRate2 gets initial sliprate in direction 2
@@ -421,6 +422,7 @@ class seissol::Interoperability {
      * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h for FL = 2
      *
      * @param ltsFace current ltsFace to get Parameters
+     * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters in DRFaceInformation[ltsFace].meshFace
      * @param t_0 gets initial forced rupture decay time
      * @param magnitude_out gets magnitude output (bool)
      * @param DS gets dynamic stress output (bool) per GP
@@ -429,6 +431,17 @@ class seissol::Interoperability {
 
     //TODO: delete this if not needed anymore
     void getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data);
+
+
+    void copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
+                                                                real (*mu)[seissol::init::QInterpolated::Stop[0]],
+                                                                real  (*slip)[init::QInterpolated::Stop[0]],
+                                                                real  (*slip1)[init::QInterpolated::Stop[0]],
+                                                                real  (*slip2)[init::QInterpolated::Stop[0]],
+                                                                real  (*rupture_time)[init::QInterpolated::Stop[0]],
+                                                                real  (*peakSR)[init::QInterpolated::Stop[0]],
+                                                                real  (*dynStress_time)[init::QInterpolated::Stop[0]]
+    );
 
     //todo: change to lts version
     void setFrictionOutput(seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData, int face);

@@ -75,8 +75,9 @@ int temporary_main() {
     //    dr::output::Base* m_DrOutput,
     // evaluate is called in void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData )
 
-    //FrictonLaw->evaluate(*DynRup /*+ DrLtsTree*/);
-    DrOutput->tiePointers(*DynRup /*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
+    //!FrictonLaw->evaluate(*DynRup /*+ DrLtsTree*/);
+
+    //!DrOutput->tiePointers(*DynRup /*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
 
 
     //end of program
