@@ -280,8 +280,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     real                    (*averaged_Slip)                                                                = layerData.var(ConcreteLts->averaged_Slip);
 
 
-  alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
-  alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
   //Code added by ADRIAN
     //TODO: outsource this to initialization:
@@ -301,7 +301,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     //local variables
 
     //TODO: right place for precalculation?
-    double DeltaT[CONVERGENCE_ORDER] = {};
+    real DeltaT[CONVERGENCE_ORDER] = {};
     DeltaT[0]=m_dynamicRuptureKernel.timePoints[0];
     for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
         DeltaT[iTimeGP] = m_dynamicRuptureKernel.timePoints[iTimeGP]-m_dynamicRuptureKernel.timePoints[iTimeGP-1];
@@ -310,7 +310,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
+  #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
 //TODO: split loop
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
@@ -361,8 +361,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                    &godunovData[face],
                                                     timeDerivativePlus[face],
                                                     timeDerivativeMinus[face],
-                                                    QInterpolatedPlus,
-                                                    QInterpolatedMinus,
+                                                    QInterpolatedPlus[face],
+                                                    QInterpolatedMinus[face],
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
@@ -392,16 +392,19 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
             m_friction_data, frictionData[face]);
 //*/
 
-    m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, face, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
 
     //write some friction values back to fortran for output writing
     //e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], faceInformation[face].meshFace);
 
 
+    //m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus[face], QInterpolatedMinus[face], face, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
+
   } //End layerData.getNumberOfCells()-loop
 
-  //unsigned notusedface = 0;
+  unsigned notusedface = 0;
+
+  m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, notusedface, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
   m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
