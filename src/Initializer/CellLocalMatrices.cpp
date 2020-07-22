@@ -383,10 +383,10 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
+
     //edit adrian test
-    real*                                mu                                                         = it->var(dynRup->mu);
-    real**                               cohesion                                                   = it->var(dynRup->cohesion);
     FrictionData*                        frictionData                                               = it->var(dynRup->frictionData);
+
 
 #ifdef _OPENMP
   #pragma omp parallel for private(TData, TinvData, APlusData, AMinusData) schedule(static)
@@ -396,15 +396,13 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
       ///adrian test
+      //TODO: remove this
       //real array[2]={1,2};
 //      unsigned iFace = meshFace;
-      mu[ltsFace] = 1;
 //      e_interoperability.getTmpFrictionData(m_friction_data);
 //      cohesion[ltsFace] = friction_data.getCohesionFace(meshFace);
       size_t numberOfPoints = tensor::QInterpolated::Shape[0];
 
-      //TODO: be careful here a double* of faultParameters is set to a real*
-      //TODO: also memory of each face is now not alligned anymore!? (it never was in old version)
       //frictionData[ltsFace].initialStressInFaultCS = &TmpFricData.initialStressInFaultCS[meshFace*6*numberOfPoints];   //not in faultParameters
 
       frictionData[ltsFace].d_c = &faultParameters["d_c"][meshFace * numberOfPoints];
@@ -419,9 +417,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       //FL fric independent
       //frictionData[ltsFace].FL = TmpFricData.FL;     //TODO: enum FL
 
-
-
-      //TODO: memory allocation somewhere else or use fortran memory allocation??
       //in-outputs:
       //frictionData[ltsFace].mu = &TmpFricData.mu[meshFace * numberOfPoints];     // = EQN%IniMu(:,:)
       frictionData[ltsFace].slip = (double*) calloc (numberOfPoints,sizeof(double));

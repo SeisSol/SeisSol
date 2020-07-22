@@ -66,10 +66,19 @@ struct seissol::initializers::DynamicRupture {
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
 
-  //test
-  Variable<real>                                                    mu;
-  Variable<real*>                                                   cohesion;
+  //friction Data
   Variable<FrictionData>                                            frictionData;
+  //size padded for vectorization
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    rupture_time;
+  Variable<bool[ init::QInterpolated::Stop[0] ]>                    RF;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    mu;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    slip;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    slip1;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    slip2;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    slipRate1;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    slipRate2;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    tracXY;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    tracXZ;
 
   virtual void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
@@ -83,19 +92,53 @@ struct seissol::initializers::DynamicRupture {
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
-    //test
-    tree.addVar(      mu,                             mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      cohesion,                       mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      frictionData,                   mask,                 1,      seissol::memory::Standard );
 
+    tree.addVar(      frictionData,                   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      rupture_time,                   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      RF,                             mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      mu,                             mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      slip,                           mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      slip1,                          mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      slip2,                          mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      slipRate1,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      slipRate2,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      tracXY,                         mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      tracXZ,                         mask,                 1,      seissol::memory::Standard );
   }
 };
 
 struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRupture {
-    int InitStress{};
+    Variable<real[init::QInterpolated::Stop[0]][6]>                 initialStressInFaultCS;
+    Variable<real[ init::QInterpolated::Stop[0] ]>                  cohesion;
+    Variable<real[ init::QInterpolated::Stop[0] ]>                  d_c;
+    Variable<real[ init::QInterpolated::Stop[0] ]>                  mu_S;
+    Variable<real[ init::QInterpolated::Stop[0] ]>                  mu_D;
+    Variable<real[ init::QInterpolated::Stop[0] ]>                  forced_rupture_time;
+    Variable<real>                                                  t_0;                    //face independent
+    Variable<bool>                                                  magnitude_out;
+    Variable<bool[ init::QInterpolated::Stop[0] ]>                  DS;
+    Variable<real[ init::QInterpolated::Stop[0] ]>                  peakSR;
+    Variable<real>                                                  averaged_Slip;
+    Variable<real[ init::QInterpolated::Stop[0] ]>                  dynStress_time;
+
 
     virtual void addTo(initializers::LTSTree& tree) {
         seissol::initializers::DynamicRupture::addTo(tree);
+        LayerMask mask = LayerMask(Ghost);
+        tree.addVar(      initialStressInFaultCS,           mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      cohesion,                         mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      d_c,                              mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      mu_S,                             mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      mu_D,                             mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      forced_rupture_time,              mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      t_0,                              mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      magnitude_out,                    mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      DS,                               mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      peakSR,                           mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      averaged_Slip,                    mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      dynStress_time,                   mask,                 1,      seissol::memory::Standard );
+
+
         std::cout << "add additional variables for FL_2\n";
     }
 };

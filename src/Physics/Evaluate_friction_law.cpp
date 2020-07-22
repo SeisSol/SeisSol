@@ -495,7 +495,7 @@ void seissol::physics::Evaluate_friction_law::Linear_slip_weakening_TPV1617(
         if (frictionData.rupture_time[iBndGP] > 0.0 &&
                 frictionData.rupture_time[iBndGP] <= time &&
                 frD.getDS(iBndGP,iFace) &&
-                std::abs(frictionData.slip[iBndGP] >= frictionData.d_c[iBndGP]))
+                std::abs(frictionData.slip[iBndGP]) >= frictionData.d_c[iBndGP])
         {
             frictionData.dynStress_time[iBndGP] = time;
             frD.getDS(iBndGP,iFace) = false;

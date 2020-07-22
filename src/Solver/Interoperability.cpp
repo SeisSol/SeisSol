@@ -300,9 +300,13 @@ extern "C" {
 
   extern void f_interoperability_getFL(void*  i_domain, int* FL);
 
+  extern void f_interoperability_getDynRup(void*  i_domain, int iFace, real* i_mu, real* i_slipRate1, real *i_slipRate2, bool* i_RF);
+
+  extern void f_interoperability_getDynRupFL_2(void*  i_domain, int iFace, real* i_InitialStressInFaultCS, real* i_t_0, bool* i_magnitude_out, bool* i_DS);
+
   extern void f_interoperability_getTmpFrictionData(void*  i_domain, int i_numberOfPoints,
                                                     int* iElem, int* iSide, real* i_InitialStressInFaultCS, real* i_cohesion, real* i_D_C, real* i_mu_S, real* i_mu_D,
-                                                    int* inst_healing, double* t_0, int* FL, real* i_forced_rupture_time, bool* i_magnitude_out,
+                                                    int* inst_healing, double* i_t_0, int* FL, real* i_forced_rupture_time, bool* i_magnitude_out,
                                                     real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time,
                                                     bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_averaged_Slip, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
 
@@ -721,9 +725,14 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            m_timeStepping );
 
   //added by adrian
-  //TODO: maybe put this into a function like above
-  seissol::SeisSol::main.getMemoryManager().getDrInitializer()->initializeFrictionMatrices( seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
-          seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree() /* + something from Easy*/);
+  //TODO: put this into a function like above
+  seissol::SeisSol::main.getMemoryManager().getDrInitializer()->initializeFrictionMatrices(
+          seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+          seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
+          m_faultParameters,
+          m_ltsFaceToMeshFace,
+          e_interoperability
+          );
 
   seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
                                                     seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
@@ -1031,6 +1040,25 @@ void seissol::Interoperability::getFL(){
     m_FL = static_cast<Friction_law_type>(FL);
 }
 
+void seissol::Interoperability::getDynRupParameters(int ltsFace, unsigned meshFace, real (*mu)[seissol::init::QInterpolated::Stop[0]], real  (*slipRate1)[init::QInterpolated::Stop[0]], real (*slipRate2)[init::QInterpolated::Stop[0]], bool  (*RF)[ init::QInterpolated::Stop[0] ] ){
+    //m_ltsFaceToMeshFace maps from lts index to fortran mesh index
+    //this function is called for each ltsFace
+    int fFace = meshFace + 1;
+    f_interoperability_getDynRup(m_domain, fFace, &mu[ltsFace][0], &slipRate1[ltsFace][0], &slipRate2[ltsFace][0], &RF[ltsFace][0]);
+}
+
+void seissol::Interoperability::getDynRupFL_2(int ltsFace,  unsigned meshFace, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6], real *t_0, bool *magnitude_out,  bool (*DS)[init::QInterpolated::Stop[0]]     ) {
+    real tmpInitialStressInFaultCS[tensor::QInterpolated::Shape[0]*6] ={0};
+    int fFace = meshFace + 1;
+    f_interoperability_getDynRupFL_2(m_domain,  fFace, &tmpInitialStressInFaultCS[0], &t_0[ltsFace], &magnitude_out[ltsFace],  &DS[ltsFace][0]);
+
+    for(int i = 0; i< 6; i++){
+        for(int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++){
+            initialStressInFaultCS[ltsFace][iBndGP][i] = tmpInitialStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
+        }
+    }
+
+}
 
 
 void seissol::Interoperability::getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data){

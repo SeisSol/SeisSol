@@ -248,11 +248,36 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
   real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
+
+
   real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
   real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
   FrictionData*                         frictionData                                                      = layerData.var(m_dynRup->frictionData);
+
+    seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(m_dynRup);
+    real*                                   lts_t_0                                                         = layerData.var(ConcreteLts->t_0);
+    real                    (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]                      = layerData.var(ConcreteLts->initialStressInFaultCS);
+    real                    (*cohesion)[init::QInterpolated::Stop[0]]                                       = layerData.var(ConcreteLts->cohesion);
+    real                    (*mu)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->mu);
+    real                    (*slip)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->slip);
+    real                    (*slip1)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip1);
+    real                    (*slip2)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip2);
+    real                    (*d_c)[init::QInterpolated::Stop[0]]                                            = layerData.var(ConcreteLts->d_c);
+    real                    (*mu_S)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_S);
+    real                    (*mu_D)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_D);
+    real                    (*rupture_time)[init::QInterpolated::Stop[0]]                                   = layerData.var(ConcreteLts->rupture_time);
+    bool                    (*RF)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->RF);
+    bool                    (*DS)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->DS);
+    real                    (*peakSR)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->peakSR);
+    real                    (*dynStress_time)[init::QInterpolated::Stop[0]]                                 = layerData.var(ConcreteLts->dynStress_time);
+    real                    (*tracXY)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXY);
+    real                    (*tracXZ)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXZ);
+    real                    (*slipRate1)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate1);
+    real                    (*slipRate2)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate2);
+    bool                    (*magnitude_out)                                                                = layerData.var(ConcreteLts->magnitude_out);
+    real                    (*averaged_Slip)                                                                = layerData.var(ConcreteLts->averaged_Slip);
 
 
   alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
@@ -265,20 +290,72 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
         e_interoperability.getTmpFrictionData(m_friction_data);
         m_friction_data.initialized = true;
     }
-
+    m_friction_data.function_call++;
+    //std::cout << "func call: "<<  m_friction_data.function_call << std::endl;
 //    std::cout << "data: "<< my_data[0] << std::endl;
 //    seissol::tensor::frictionData fric;
 //    dynamicRupture::kernel::calcfrictionData krnl;
 
 //    krnl.frictionData = fric;
 //    krnl.execute();
+    //local variables
+
+    //TODO: right place for precalculation?
+    double DeltaT[CONVERGENCE_ORDER] = {};
+    DeltaT[0]=m_dynamicRuptureKernel.timePoints[0];
+    for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
+        DeltaT[iTimeGP] = m_dynamicRuptureKernel.timePoints[iTimeGP]-m_dynamicRuptureKernel.timePoints[iTimeGP-1];
+    }
+    DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
 
 
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
+//TODO: split loop
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
+
+
+    if ( m_friction_data.function_call < 2){
+        int iFace = static_cast<int>(faceInformation[face].meshFace);
+        for(int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++) {
+            for (int i = 0; i < 6; i++) {
+                real test1 = initialStressInFaultCS[face][iBndGP][i];
+                real test2 = m_friction_data.getInitialStressInFaultCS(iBndGP, i, iFace);
+                assert(initialStressInFaultCS[face][iBndGP][i] == m_friction_data.getInitialStressInFaultCS(iBndGP, i, iFace));
+            }
+
+
+            //assert( (inputs && outputs) == true );
+
+            real test1 = cohesion[face][iBndGP];
+            real test2 =  m_friction_data.getCohesion(iBndGP, iFace);
+            assert(cohesion[face][iBndGP] == m_friction_data.getCohesion(iBndGP, iFace));
+            assert(mu[face][iBndGP] == m_friction_data.getMu(iBndGP, iFace));
+            assert(slip[face][iBndGP] == m_friction_data.getSlip(iBndGP, iFace));
+            assert(slip1[face][iBndGP] == m_friction_data.getSlip1(iBndGP, iFace));
+            assert(slip2[face][iBndGP] == m_friction_data.getSlip2(iBndGP, iFace));
+            assert(d_c[face][iBndGP] == m_friction_data.getD_C(iBndGP, iFace));
+            assert(mu_S[face][iBndGP] == m_friction_data.getMu_S(iBndGP, iFace));
+            assert(mu_D[face][iBndGP] == m_friction_data.getMu_D(iBndGP, iFace));
+
+            assert(rupture_time[face][iBndGP] == m_friction_data.getRupture_time(iBndGP, iFace));
+            assert(RF[face][iBndGP] == m_friction_data.getRF(iBndGP, iFace));
+            assert(DS[face][iBndGP] == m_friction_data.getDS(iBndGP, iFace));
+            assert(peakSR[face][iBndGP] == m_friction_data.getPeakSR(iBndGP, iFace));
+            assert(dynStress_time[face][iBndGP] == m_friction_data.getDynStress_time(iBndGP, iFace));
+            assert(tracXY[face][iBndGP] == m_friction_data.getTracXY(iBndGP, iFace));
+            assert(tracXZ[face][iBndGP] == m_friction_data.getTracXZ(iBndGP, iFace));
+            assert(slipRate1[face][iBndGP] == m_friction_data.getSlipRate1(iBndGP, iFace));
+            assert(slipRate2[face][iBndGP] == m_friction_data.getSlipRate2(iBndGP, iFace));
+
+        }
+    }
+
+
+
+
     m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
                                                     m_globalData,
                                                    &godunovData[face],
@@ -305,6 +382,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
       //Code added by ADRIAN
       // insert c++ evaluate_friction_law here:
+/*
     seissol::physics::Evaluate_friction_law evaluateFriction;
     evaluateFriction.Eval_friction_law(imposedStatePlus[face], imposedStateMinus[face],
             QInterpolatedPlus, QInterpolatedMinus,
@@ -312,12 +390,14 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
             waveSpeedsPlus, waveSpeedsMinus,
             const_cast<double *>(init::resample::Values),
             m_friction_data, frictionData[face]);
+//*/
 
-    m_FrictonLaw->evaluate(*m_dynRup);
-    m_DrOutput->tiePointers(*m_dynRup /*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
+    m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, face, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
+    
+    m_DrOutput->tiePointers(layerData, *m_dynRup /*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
 
     //write some friction values back to fortran for output writing
-    e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], faceInformation[face].meshFace);
+    //e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], faceInformation[face].meshFace);
 
 
   } //End layerData.getNumberOfCells()-loop

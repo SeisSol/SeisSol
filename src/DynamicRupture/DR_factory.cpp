@@ -2,6 +2,7 @@
 // Created by adrian on 09.07.20.
 //
 
+#include <Solver/Interoperability.h>
 #include "DR_factory.h"
 
 namespace seissol {
@@ -30,6 +31,9 @@ int temporary_main() {
     // in interoperability:
     // seissol::SeisSol::main.getMemoryManager().getDynamicRupture()
     seissol::initializers::LTSTree* dynRupTree = nullptr;
+    unsigned * m_ltsFaceToMeshFace;
+    std::unordered_map<std::string, double*>  faultParameters;
+    seissol::Interoperability interoperability;
 
     //in memoryManager.h
     //lts::Base* DrLts = nullptr;   //now in seissol::initializers::DynamicRupture implemented
@@ -58,7 +62,7 @@ int temporary_main() {
 
     //in interoperability
     //void seissol::Interoperability::initializeCellLocalMatrices()
-    DrInitializer->initializeFrictionMatrices(DynRup, dynRupTree /*+ DrLtsTree, + something from Easy*/);
+    DrInitializer->initializeFrictionMatrices(DynRup, dynRupTree, faultParameters, m_ltsFaceToMeshFace, interoperability);
 
     //computational part:
     //inside TimeCluster.cpp
@@ -70,7 +74,8 @@ int temporary_main() {
     //    dr::fr_law::Base* m_FrictonLaw;
     //    dr::output::Base* m_DrOutput,
     // evaluate is called in void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData )
-    FrictonLaw->evaluate(*DynRup /*+ DrLtsTree*/);
+
+    //FrictonLaw->evaluate(*DynRup /*+ DrLtsTree*/);
     DrOutput->tiePointers(*DynRup /*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
 
 

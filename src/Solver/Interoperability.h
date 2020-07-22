@@ -386,22 +386,52 @@ class seissol::Interoperability {
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
                               seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
 
-  /**
-  * Code added by Adrian
-  *
-  *
-  * gets friction data from fortran domain to c++
-  *
-  * @param input: i_numberOfPoints
-   * remain are outputs
-  */
-  int getnSide();
 
-  void getFL();
+    /**
+    * Code added by Adrian
+    */
 
-  void getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data);
+    /**
+    * gets domain%MESH%Fault%nSide from fortran to c++
+    */
+    //TODO: remove this function
+    int getnSide();
+    /**
+    * gets domain%EQN%FL from fortran to c++
+    * FL = friction law
+    */
+    void getFL();
 
-  void setFrictionOutput(seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData, int face);
+    /**
+     * get initial values from fortran
+     * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
+     * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h
+     *
+     * @param ltsFace current ltsFace to get Parameters
+     * @param mu gets initial mu
+     * @param slipRate1 gets initial sliprate in direction 1
+     * @param slipRate2 gets initial sliprate in direction 2
+     * @param RF gets intial value (bool) of rupture front output per GP
+     **/
+    void getDynRupParameters(int ltsFace, unsigned meshFace, real (*mu)[seissol::init::QInterpolated::Stop[0]], real  (*slipRate1)[init::QInterpolated::Stop[0]], real (*slipRate2)[init::QInterpolated::Stop[0]], bool  (*RF)[ init::QInterpolated::Stop[0] ] );
+
+    /**
+     * get initial values from fortran
+     * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
+     * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h for FL = 2
+     *
+     * @param ltsFace current ltsFace to get Parameters
+     * @param t_0 gets initial forced rupture decay time
+     * @param magnitude_out gets magnitude output (bool)
+     * @param DS gets dynamic stress output (bool) per GP
+     **/
+    void getDynRupFL_2(int ltsFace, unsigned meshFace, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6], real *t_0, bool *magnitude_out,  bool (*DS)[init::QInterpolated::Stop[0]]  );
+
+    //TODO: delete this if not needed anymore
+    void getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data);
+
+    //todo: change to lts version
+    void setFrictionOutput(seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData, int face);
 
 
    /**
