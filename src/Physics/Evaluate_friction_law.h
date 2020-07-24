@@ -133,6 +133,17 @@ private:
             seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData
     );
 
+    void Linear_slip_weakening_TPV1617_tmp(
+            double **TractionGP_XY,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+            double **TractionGP_XZ,                                              // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+            double **NorStressGP, double **XYStressGP, double **XZStressGP,        // IN: Godunov status
+            int iFace, int iSide, int iElem, int nBndGP, int nTimeGP,           // IN: element ID, nBndGP = Nr of boundary Gausspoints, nTimeGP = Nr of time Gausspoints
+            double rho, double rho_neig, double *w_speed, double *w_speed_neig, // IN: background values
+            double time, double *DeltaT,
+            double resampleMatrix[],
+            seissol::physics::TmpFrictionData &frD
+    );
+
     /*
      * !< T. Ulrich 27.07.17
      * !< This friction law allows imposing a slip rate on the DR boundary

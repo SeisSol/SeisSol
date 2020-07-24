@@ -69,14 +69,17 @@ struct seissol::initializers::DynamicRupture {
   //friction Data
   Variable<FrictionData>                                            frictionData;
   //size padded for vectorization
-  Variable<real[ init::QInterpolated::Stop[0] ]>                    rupture_time;
-  Variable<bool[ init::QInterpolated::Stop[0] ]>                    RF;
+
+
   Variable<real[ init::QInterpolated::Stop[0] ]>                    mu;
   Variable<real[ init::QInterpolated::Stop[0] ]>                    slip;
   Variable<real[ init::QInterpolated::Stop[0] ]>                    slip1;
   Variable<real[ init::QInterpolated::Stop[0] ]>                    slip2;
   Variable<real[ init::QInterpolated::Stop[0] ]>                    slipRate1;
   Variable<real[ init::QInterpolated::Stop[0] ]>                    slipRate2;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                    rupture_time;
+  Variable<bool[ init::QInterpolated::Stop[0] ]>                    RF;
+  Variable<real[ init::QInterpolated::Stop[0] ]>                  peakSR;
   Variable<real[ init::QInterpolated::Stop[0] ]>                    tracXY;
   Variable<real[ init::QInterpolated::Stop[0] ]>                    tracXZ;
 
@@ -102,10 +105,12 @@ struct seissol::initializers::DynamicRupture {
     tree.addVar(      slip2,                          mask,                 1,      seissol::memory::Standard );
     tree.addVar(      slipRate1,                      mask,                 1,      seissol::memory::Standard );
     tree.addVar(      slipRate2,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      peakSR,                           mask,                 1,      seissol::memory::Standard );
     tree.addVar(      tracXY,                         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      tracXZ,                         mask,                 1,      seissol::memory::Standard );
   }
 };
+
 
 struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRupture {
     Variable<real[init::QInterpolated::Stop[0]][6]>                 initialStressInFaultCS;
@@ -114,10 +119,11 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
     Variable<real[ init::QInterpolated::Stop[0] ]>                  mu_S;
     Variable<real[ init::QInterpolated::Stop[0] ]>                  mu_D;
     Variable<real[ init::QInterpolated::Stop[0] ]>                  forced_rupture_time;
+    Variable<bool>                                                  inst_healing;
     Variable<real>                                                  t_0;                    //face independent
     Variable<bool>                                                  magnitude_out;
     Variable<bool[ init::QInterpolated::Stop[0] ]>                  DS;
-    Variable<real[ init::QInterpolated::Stop[0] ]>                  peakSR;
+
     Variable<real>                                                  averaged_Slip;
     Variable<real[ init::QInterpolated::Stop[0] ]>                  dynStress_time;
 
@@ -131,10 +137,10 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
         tree.addVar(      mu_S,                             mask,                 1,      seissol::memory::Standard );
         tree.addVar(      mu_D,                             mask,                 1,      seissol::memory::Standard );
         tree.addVar(      forced_rupture_time,              mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      inst_healing,                     mask,                 1,      seissol::memory::Standard );
         tree.addVar(      t_0,                              mask,                 1,      seissol::memory::Standard );
         tree.addVar(      magnitude_out,                    mask,                 1,      seissol::memory::Standard );
         tree.addVar(      DS,                               mask,                 1,      seissol::memory::Standard );
-        tree.addVar(      peakSR,                           mask,                 1,      seissol::memory::Standard );
         tree.addVar(      averaged_Slip,                    mask,                 1,      seissol::memory::Standard );
         tree.addVar(      dynStress_time,                   mask,                 1,      seissol::memory::Standard );
 

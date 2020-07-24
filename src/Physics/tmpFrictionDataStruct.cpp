@@ -18,6 +18,7 @@ namespace seissol {
                 const size_t nsize;
                 bool initialized = false;
                 bool allocated = false;
+                bool tmpFrictionOnly = false;
                 int function_call = 0;
 
 

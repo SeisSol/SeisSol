@@ -250,38 +250,42 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup->timeDerivativeMinus);
 
 
+
+  //TODO: delete these if not required for debugging anymore:
   real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
   real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
   FrictionData*                         frictionData                                                      = layerData.var(m_dynRup->frictionData);
 
-    seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(m_dynRup);
-    real*                                   lts_t_0                                                         = layerData.var(ConcreteLts->t_0);
-    real                    (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]                      = layerData.var(ConcreteLts->initialStressInFaultCS);
-    real                    (*cohesion)[init::QInterpolated::Stop[0]]                                       = layerData.var(ConcreteLts->cohesion);
-    real                    (*mu)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->mu);
-    real                    (*slip)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->slip);
-    real                    (*slip1)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip1);
-    real                    (*slip2)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip2);
-    real                    (*d_c)[init::QInterpolated::Stop[0]]                                            = layerData.var(ConcreteLts->d_c);
-    real                    (*mu_S)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_S);
-    real                    (*mu_D)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_D);
-    real                    (*rupture_time)[init::QInterpolated::Stop[0]]                                   = layerData.var(ConcreteLts->rupture_time);
-    bool                    (*RF)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->RF);
-    bool                    (*DS)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->DS);
-    real                    (*peakSR)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->peakSR);
-    real                    (*dynStress_time)[init::QInterpolated::Stop[0]]                                 = layerData.var(ConcreteLts->dynStress_time);
-    real                    (*tracXY)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXY);
-    real                    (*tracXZ)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXZ);
-    real                    (*slipRate1)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate1);
-    real                    (*slipRate2)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate2);
-    bool                    (*magnitude_out)                                                                = layerData.var(ConcreteLts->magnitude_out);
-    real                    (*averaged_Slip)                                                                = layerData.var(ConcreteLts->averaged_Slip);
+  seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(m_dynRup);
+  real*                                   lts_t_0                                                         = layerData.var(ConcreteLts->t_0);
+  real                    (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]                      = layerData.var(ConcreteLts->initialStressInFaultCS);
+  real                    (*cohesion)[init::QInterpolated::Stop[0]]                                       = layerData.var(ConcreteLts->cohesion);
+  real                    (*mu)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->mu);
+  real                    (*slip)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->slip);
+  real                    (*slip1)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip1);
+  real                    (*slip2)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip2);
+  real                    (*d_c)[init::QInterpolated::Stop[0]]                                            = layerData.var(ConcreteLts->d_c);
+  real                    (*mu_S)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_S);
+  real                    (*mu_D)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_D);
+  real                    (*rupture_time)[init::QInterpolated::Stop[0]]                                   = layerData.var(ConcreteLts->rupture_time);
+  bool                    (*RF)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->RF);
+  bool                    (*DS)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->DS);
+  real                    (*peakSR)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->peakSR);
+  real                    (*dynStress_time)[init::QInterpolated::Stop[0]]                                 = layerData.var(ConcreteLts->dynStress_time);
+  real                    (*tracXY)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXY);
+  real                    (*tracXZ)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXZ);
+  real                    (*slipRate1)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate1);
+  real                    (*slipRate2)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate2);
+  bool                    (*magnitude_out)                                                                = layerData.var(ConcreteLts->magnitude_out);
+  real                    (*averaged_Slip)                                                                = layerData.var(ConcreteLts->averaged_Slip);
 
 
   alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+  alignas(ALIGNMENT) real imposedStatePlusTest[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
+  alignas(ALIGNMENT) real imposedStateMinusTest[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
 
   //Code added by ADRIAN
     //TODO: outsource this to initialization:
@@ -290,7 +294,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
         e_interoperability.getTmpFrictionData(m_friction_data);
         m_friction_data.initialized = true;
     }
+    m_friction_data.tmpFrictionOnly = true;
     m_friction_data.function_call++;
+
     //std::cout << "func call: "<<  m_friction_data.function_call << std::endl;
 //    std::cout << "data: "<< my_data[0] << std::endl;
 //    seissol::tensor::frictionData fric;
@@ -382,10 +388,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
       //Code added by ADRIAN
       // insert c++ evaluate_friction_law here:
-/*
+
     seissol::physics::Evaluate_friction_law evaluateFriction;
-    evaluateFriction.Eval_friction_law(imposedStatePlus[face], imposedStateMinus[face],
-            QInterpolatedPlus, QInterpolatedMinus,
+    evaluateFriction.Eval_friction_law(imposedStatePlusTest[face], imposedStateMinusTest[face],
+            QInterpolatedPlus[face], QInterpolatedMinus[face],
             faceInformation[face], m_fullUpdateTime, m_dynamicRuptureKernel.timePoints, m_dynamicRuptureKernel.timeWeights,
             waveSpeedsPlus, waveSpeedsMinus,
             const_cast<double *>(init::resample::Values),
@@ -408,6 +414,26 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
+
+  //debugging:
+
+  bool imposedStatePlusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
+  bool imposedStateMinusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
+  for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
+      for( unsigned int j = 0; j <tensor::QInterpolated::size(); j++ ) {
+          imposedStatePlusTestBool[iface][j] = ( imposedStatePlusTest[iface][j] -  imposedStatePlus[iface][j]) < 0.1;
+          imposedStateMinusTestBool[iface][j] = ( imposedStateMinusTest[iface][j] -  imposedStateMinus[iface][j]) < 0.1;
+      }
+  }
+  for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
+      for (unsigned int j = 0; j < tensor::QInterpolated::size(); j++) {
+          assert(imposedStatePlusTestBool[iface][j] == true);
+          assert(imposedStateMinusTestBool[iface][j] == true);
+      }
+  }
+  //*/
+
+
 }
 
 

@@ -35,8 +35,10 @@ namespace seissol {
                         real  (*slipRate2)[ init::QInterpolated::Stop[0] ] = it->var(dynRup->slipRate2);    //fortran
                         real  (*rupture_time)[ init::QInterpolated::Stop[0] ] = it->var(dynRup->rupture_time);
                         bool  (*RF)[ init::QInterpolated::Stop[0] ] = it->var(dynRup->RF);                  //fortran
+                        real (*peakSR)[init::QInterpolated::Stop[0]]   = it->var(dynRup->peakSR);
                         real  (*tracXY)[ init::QInterpolated::Stop[0] ] = it->var(dynRup->tracXY);
                         real  (*tracXZ)[ init::QInterpolated::Stop[0] ] = it->var(dynRup->tracXZ);
+
 
                         for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
                             unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
@@ -45,6 +47,7 @@ namespace seissol {
                                 slip1[ltsFace][iBndGP] = 0.0;
                                 slip2[ltsFace][iBndGP] = 0.0;
                                 rupture_time[ltsFace][iBndGP] = 0.0;
+                                peakSR[ltsFace][iBndGP] = 0.0;
                                 tracXY[ltsFace][iBndGP] = 0.0;
                                 tracXZ[ltsFace][iBndGP] = 0.0;
                             }
@@ -77,10 +80,12 @@ namespace seissol {
                         real (*mu_S)[init::QInterpolated::Stop[0]]                      = it->var(ConcreteLts->mu_S);
                         real (*mu_D)[init::QInterpolated::Stop[0]]                      = it->var(ConcreteLts->mu_D);
                         real (*forced_rupture_time)[init::QInterpolated::Stop[0]]       = it->var(ConcreteLts->forced_rupture_time);
+                        bool *inst_healing                                              = it->var(ConcreteLts->inst_healing);       //fortran
                         real *t_0                                                       = it->var(ConcreteLts->t_0);                //fortran
                         bool *magnitude_out                                             = it->var(ConcreteLts->magnitude_out);      //fortran
                         bool (*DS)[init::QInterpolated::Stop[0]]                        = it->var(ConcreteLts->DS);                 //fortran
-                        real (*peakSR)[init::QInterpolated::Stop[0]]                    = it->var(ConcreteLts->peakSR);
+
+
                         real *averaged_Slip                                             = it->var(ConcreteLts->averaged_Slip);
                         real (*dynStress_time)[init::QInterpolated::Stop[0]]            = it->var(ConcreteLts->dynStress_time);
 
@@ -110,10 +115,9 @@ namespace seissol {
 
                             //get initial values from fortran
                             //TODO: get intial initialStressInFaultCS;
-                            e_interoperability.getDynRupFL_2(ltsFace, meshFace, initialStressInFaultCS, t_0, magnitude_out, DS);
+                            e_interoperability.getDynRupFL_2(ltsFace, meshFace, initialStressInFaultCS, t_0, magnitude_out, DS, inst_healing);
 
                             for (unsigned iBndGP = 0; iBndGP < init::QInterpolated::Stop[0]; ++iBndGP) {    //loop includes padded elements
-                                peakSR[ltsFace][iBndGP] = 0.0;
                                 dynStress_time[ltsFace][iBndGP] = 0.0;
                             }
                         }//lts-face loop

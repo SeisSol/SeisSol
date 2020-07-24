@@ -302,7 +302,7 @@ extern "C" {
 
   extern void f_interoperability_getDynRup(void*  i_domain, int iFace, real* i_mu, real* i_slipRate1, real *i_slipRate2, bool* i_RF);
 
-  extern void f_interoperability_getDynRupFL_2(void*  i_domain, int iFace, real* i_InitialStressInFaultCS, real* i_t_0, bool* i_magnitude_out, bool* i_DS);
+  extern void f_interoperability_getDynRupFL_2(void*  i_domain, int iFace, real* i_InitialStressInFaultCS, real* i_t_0, bool* i_magnitude_out, bool* i_DS, bool* i_inst_healing) ;
 
   extern void f_interoperability_getTmpFrictionData(void*  i_domain, int i_numberOfPoints,
                                                     int* iElem, int* iSide, real* i_InitialStressInFaultCS, real* i_cohesion, real* i_D_C, real* i_mu_S, real* i_mu_D,
@@ -1053,11 +1053,13 @@ void seissol::Interoperability::getDynRupParameters(int ltsFace, unsigned meshFa
 
 void seissol::Interoperability::getDynRupFL_2(int ltsFace,  unsigned meshFace,
         real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
-        real *t_0, bool *magnitude_out,
-        bool (*DS)[init::QInterpolated::Stop[0]]     ) {
+        real *t_0,
+        bool *magnitude_out,
+        bool (*DS)[init::QInterpolated::Stop[0]],
+        bool* inst_healing) {
     real tmpInitialStressInFaultCS[tensor::QInterpolated::Shape[0]*6] ={0};
     int fFace = meshFace + 1;
-    f_interoperability_getDynRupFL_2(m_domain,  fFace, &tmpInitialStressInFaultCS[0], &t_0[ltsFace], &magnitude_out[ltsFace],  &DS[ltsFace][0]);
+    f_interoperability_getDynRupFL_2(m_domain,  fFace, &tmpInitialStressInFaultCS[0], &t_0[ltsFace], &magnitude_out[ltsFace],  &DS[ltsFace][0], &inst_healing[ltsFace]);
 
     for(int i = 0; i< 6; i++){
         for(int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++){
