@@ -76,6 +76,7 @@ enum TimeClustering {
 // Note: When introducting new types also change
 // int seissol::initializers::time_stepping::LtsWeights::getBoundaryCondition
 // and PUMLReader. Otherwise it might become a DR face...
+// Only relevant if bc id > 64!
 enum class FaceType {
   // regular: inside the computational domain
   regular = 0,
@@ -99,7 +100,14 @@ enum class FaceType {
   periodic = 6,
 
   // analytical boundary (from initial cond.)
-  analytical = 7
+  analytical = 7,
+
+  // velocity inlet
+  // TODO(Lukas) Actually include this better in the code.
+  velocityInlet = 8,
+
+  // Always keep this last!
+  NUMBER_OF_FACETYPES
 };
 
 // cross-cluster time stepping information

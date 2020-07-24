@@ -196,6 +196,7 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
       assert(cellBoundaryMapping != nullptr);
       auto applyAnalyticalSolution = [materialData, this](const real* nodes,
                                                     double time,
+                                                    init::INodal::view::type&,
                                                     init::INodal::view::type& boundaryDofs) {
           auto nodesVec = std::vector<std::array<double, 3>>{};
           int offset = 0;
@@ -222,6 +223,49 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
                                               timeStepWidth);
       nodalLfKrnl.execute(face);
       break;
+      }
+      case FaceType::velocityInlet:
+      {
+        assert(cellBoundaryMapping != nullptr);
+        // Note: Everything happens in [n, t_1, t_2] basis
+        // Comments of Dirichlet bc are also valid for this!
+        auto applyInlet = [materialData, this](const real* nodes,
+                                               double time,
+                                               init::INodal::view::type& boundaryDofsInterior,
+                                               init::INodal::view::type& boundaryDofs) {
+          int offset = 0;
+          for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+            const double mu = 6.0;
+            auto H = [mu](double t) -> double {
+              return t < mu ? 1.0 : 0.0;
+            };
+            const auto pi = std::acos(-1);
+            const auto x = nodes[offset+0];
+            const auto y = nodes[offset+1];
+            offset += 3;
+
+            const double uAtBnd =
+               (1.0/(1.0/time*std::sqrt(2*pi)))*std::exp(-0.5*x*x + -0.5*y*y)*H(time);
+            const double vAtBnd = 0.0;
+            const double wAtBnd = 0.0;
+
+            boundaryDofs(i,6) = 2 * uAtBnd - boundaryDofsInterior(i,6);
+            boundaryDofs(i,7) = 2 * vAtBnd - boundaryDofsInterior(i,7);
+            boundaryDofs(i,8) = 2 * wAtBnd - boundaryDofsInterior(i,8);
+          }
+        };
+
+        dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,
+                                                face,
+                                                (*cellBoundaryMapping)[face],
+                                                m_projectRotatedKrnlPrototype,
+                                                //m_projectKrnlPrototype,
+                                                applyInlet,
+                                                dofsFaceBoundaryNodal,
+                                                time,
+                                                timeStepWidth);
+        nodalLfKrnl.execute(face);
+        break;
       }
     default:
       // No boundary condition.

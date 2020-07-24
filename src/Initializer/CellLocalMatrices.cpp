@@ -210,7 +210,8 @@ void seissol::initializers::initializeCellLocalMatrices( MeshReader const&      
         neighKrnl.T = TData;
         neighKrnl.Tinv = TinvData;
         neighKrnl.star(0) = ATtildeData;
-        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet) {
+        if (cellInformation[cell].faceTypes[side] == FaceType::dirichlet ||
+            cellInformation[cell].faceTypes[side] == FaceType::velocityInlet) {
           // Already rotated!
           neighKrnl.Tinv = init::identityT::Values;
         }
@@ -274,7 +275,8 @@ void seissol::initializers::initializeBoundaryMappings(const MeshReader& i_meshR
       for (unsigned side = 0; side < 4; ++side) {
         if (cellInformation[cell].faceTypes[side] != FaceType::freeSurfaceGravity
             && cellInformation[cell].faceTypes[side] != FaceType::dirichlet
-            && cellInformation[cell].faceTypes[side] != FaceType::analytical) {
+            && cellInformation[cell].faceTypes[side] != FaceType::analytical
+            && cellInformation[cell].faceTypes[side] != FaceType::velocityInlet) {
           continue;
         }
         // Compute nodal points in global coordinates for each side.

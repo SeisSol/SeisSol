@@ -74,6 +74,14 @@ class DirichletBoundary {
 			     real* dofsFaceBoundaryNodal,
 			     double startTime,
 			     double timeStepWidth) const {
+    auto projectKrnl = projectKernelPrototype;
+    addRotationToProjectKernel(projectKrnl, boundaryMapping);
+    projectKrnl.I = dofsVolumeInteriorModal;
+    projectKrnl.INodal = dofsFaceBoundaryNodal;
+    projectKrnl.execute(faceIdx);
+
+    auto boundaryDofsInterior = init::INodal::view::create(dofsFaceBoundaryNodal);
+
     // TODO(Lukas) Implement functions which depend on the interior values...
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
   
@@ -105,6 +113,7 @@ class DirichletBoundary {
       boundaryDofsTmp.setZero();
       std::forward<Func>(evaluateBoundaryCondition)(boundaryMapping.nodes,
 						    timePoints[i],
+						    boundaryDofsInterior,
 						    boundaryDofsTmp);
     
       updateKernel.factor = timeWeights[i];

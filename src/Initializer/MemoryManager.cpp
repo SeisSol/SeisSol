@@ -318,7 +318,8 @@ void seissol::initializers::MemoryManager::initializeFaceNeighbors( unsigned    
       else if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface ||
 	       cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity ||
 	       cellInformation[cell].faceTypes[face] == FaceType::dirichlet ||
-	       cellInformation[cell].faceTypes[face] == FaceType::analytical) {
+	       cellInformation[cell].faceTypes[face] == FaceType::analytical ||
+	       cellInformation[cell].faceTypes[face] == FaceType::velocityInlet) {
         if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
           faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
         }
@@ -672,6 +673,7 @@ bool seissol::initializers::isAtElasticAcousticInterface(CellMaterialData &mater
 bool seissol::initializers::requiresNodalFlux(FaceType f) {
   return (f == FaceType::freeSurfaceGravity
           || f == FaceType::dirichlet
-          || f == FaceType::analytical);
+          || f == FaceType::analytical
+          || f == FaceType::velocityInlet);
 }
 
