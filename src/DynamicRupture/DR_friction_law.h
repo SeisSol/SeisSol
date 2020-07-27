@@ -114,6 +114,14 @@ public:
         //constexpr int numOfPointsPadded = numberOfPoints;
         constexpr int numOfPointsPadded = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
 
+        //TODO: for anisotropic case it must be face dependent
+        real Zp_inv, Zp_neig_inv, Zs_inv, Zs_neig_inv, eta_p, eta_s;
+        Zp_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
+        Zp_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
+        Zs_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
+        Zs_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
+        eta_p = 1.0 / (Zp_inv + Zp_neig_inv);
+        eta_s = 1.0 / (Zs_inv + Zs_neig_inv);
 
         #ifdef _OPENMP
         #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
@@ -122,23 +130,17 @@ public:
         for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
 
 
-            precompute();
+            //precompute();
 
             real TractionGP_XY[numOfPointsPadded][CONVERGENCE_ORDER] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
             real TractionGP_XZ[numOfPointsPadded][CONVERGENCE_ORDER] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
             real NorStressGP[numOfPointsPadded][CONVERGENCE_ORDER] = {{}};
             real XYStressGP[numOfPointsPadded][CONVERGENCE_ORDER]= {{}};
             real XZStressGP[numOfPointsPadded][CONVERGENCE_ORDER]= {{}};
-            real Zp_inv, Zp_neig_inv, Zs_inv, Zs_neig_inv, eta_p, eta_s;
+
 
             //int iFace = static_cast<int>(faceInformation.meshFace);
 
-            Zp_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
-            Zp_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
-            Zs_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
-            Zs_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
-            eta_p = 1.0 / (Zp_inv + Zp_neig_inv);
-            eta_s = 1.0 / (Zs_inv + Zs_neig_inv);
 
             for(int j = 0; j < CONVERGENCE_ORDER; j++){
                 auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[face][j]);

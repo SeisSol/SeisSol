@@ -252,12 +252,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 
   //TODO: delete these if not required for debugging anymore:
-  real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
-  real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
   FrictionData*                         frictionData                                                      = layerData.var(m_dynRup->frictionData);
-
+/*
   seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(m_dynRup);
   real*                                   lts_t_0                                                         = layerData.var(ConcreteLts->t_0);
   real                    (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]                      = layerData.var(ConcreteLts->initialStressInFaultCS);
@@ -280,7 +278,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   real                    (*slipRate2)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate2);
   bool                    (*magnitude_out)                                                                = layerData.var(ConcreteLts->magnitude_out);
   real                    (*averaged_Slip)                                                                = layerData.var(ConcreteLts->averaged_Slip);
-
+*/
 
   alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
@@ -372,13 +370,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
-/*
+
     // legacy code:
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
-                                            QInterpolatedPlus,
-                                            QInterpolatedMinus,
-                                            imposedStatePlus[face],
-                                            imposedStateMinus[face],
+                                            QInterpolatedPlus[face],
+                                            QInterpolatedMinus[face],
+                                            imposedStatePlusTest[face],
+                                            imposedStateMinusTest[face],
                                             m_fullUpdateTime,
                                             m_dynamicRuptureKernel.timePoints,
                                             m_dynamicRuptureKernel.timeWeights,
@@ -388,7 +386,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
       //Code added by ADRIAN
       // insert c++ evaluate_friction_law here:
-
+/*
     seissol::physics::Evaluate_friction_law evaluateFriction;
     evaluateFriction.Eval_friction_law(imposedStatePlusTest[face], imposedStateMinusTest[face],
             QInterpolatedPlus[face], QInterpolatedMinus[face],
@@ -416,7 +414,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
   //debugging:
-
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   bool imposedStatePlusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   bool imposedStateMinusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
