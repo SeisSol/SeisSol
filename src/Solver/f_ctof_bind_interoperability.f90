@@ -580,8 +580,8 @@ module f_ctof_bind_interoperability
 
     !!Code added by ADRIAN
     subroutine f_interoperability_setFrictionOutput(i_domain, i_face, &
-              i_mu, i_slip, i_slip1, i_slip2, i_rupture_time,&
-              i_PeakSR, i_dynStress_time)&
+              i_mu, i_slip, i_slip1, i_slip2, i_slipRate1, i_slipRate2, i_rupture_time,&
+              i_PeakSR, i_tracXY, i_tracXZ)&
               bind (c, name='f_interoperability_setFrictionOutput')
 
         use iso_c_binding
@@ -603,14 +603,20 @@ module f_ctof_bind_interoperability
         REAL_TYPE, pointer                     :: l_slip1(:)
         type(c_ptr), value                     :: i_slip2
         REAL_TYPE, pointer                     :: l_slip2(:)
+        type(c_ptr), value                     :: i_slipRate1
+        REAL_TYPE, pointer                     :: l_slipRate1(:)
+        type(c_ptr), value                     :: i_slipRate2
+        REAL_TYPE, pointer                     :: l_slipRate2(:)
+
         type(c_ptr), value                     :: i_rupture_time
         REAL_TYPE, pointer                     :: l_rupture_time(:)
         type(c_ptr), value                     :: i_PeakSR
         REAL_TYPE, pointer                     :: l_PeakSR(:)
-        type(c_ptr), value                     :: i_dynStress_time
-        REAL_TYPE, pointer                     :: l_dynStress_time(:)
+        type(c_ptr), value                     :: i_tracXY
+        REAL_TYPE, pointer                     :: l_tracXY(:)
+        type(c_ptr), value                     :: i_tracXZ
+        REAL_TYPE, pointer                     :: l_tracXZ(:)
 
-        !integer :: nSide
 
         ! convert c to fortran pointers
         call c_f_pointer( i_domain,             l_domain)
@@ -621,24 +627,70 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_slip, l_slip, [nBndGP])
         call c_f_pointer( i_slip1, l_slip1, [nBndGP])
         call c_f_pointer( i_slip2, l_slip2, [nBndGP])
+        call c_f_pointer( i_slipRate1, l_slipRate1, [nBndGP])
+        call c_f_pointer( i_slipRate2, l_slipRate2, [nBndGP])
         call c_f_pointer( i_rupture_time, l_rupture_time, [nBndGP])
         call c_f_pointer( i_PeakSR, l_PeakSR, [nBndGP])
-        call c_f_pointer( i_dynStress_time, l_dynStress_time, [nBndGP])
+        call c_f_pointer( i_tracXY, l_tracXY, [nBndGP])
+        call c_f_pointer( i_tracXZ, l_tracXZ, [nBndGP])
+
 
         !copy to output
         l_domain%DISC%DynRup%output_Mu(:,i_face)                    = l_mu(:)
         l_domain%DISC%DynRup%output_Slip(:,i_face)                  = l_slip(:)    !l_domain%DISC%DynRup%Slip(:,i_face)
         l_domain%DISC%DynRup%output_Slip1(:,i_face)                 = l_slip1(:)       !l_domain%DISC%DynRup%Slip1(:,i_face)
         l_domain%DISC%DynRup%output_Slip2(:,i_face)                 = l_slip2(:)        !l_domain%DISC%DynRup%Slip2(:,i_face)
+        l_domain%DISC%DynRup%SlipRate1(:,i_face)                    = l_slipRate1(:)
+        l_domain%DISC%DynRup%SlipRate2(:,i_face)                    = l_slipRate2(:)
         l_domain%DISC%DynRup%output_rupture_time(:,i_face)          = l_rupture_time(:) !l_domain%DISC%DynRup%rupture_time(:,i_face)
         l_domain%DISC%DynRup%output_PeakSR(:,i_face)                = l_PeakSR(:)       !l_domain%DISC%DynRup%PeakSR(:,i_face)
-        l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStress_time(:)  !l_domain%DISC%DynRup%dynStress_time(:,i_face)
+        l_domain%DISC%DynRup%TracXY(:,i_face)                       = l_tracXY(:)
+        l_domain%DISC%DynRup%TracXZ(:,i_face)                       = l_tracXZ(:)
 
         !TODO implement for other friction laws:
         !l_domain%disc%DynRup%output_Strength                       =  l_Strength(:,i_face)
         !l_domain%disc%DynRup%output_StateVar(:,:)                  =  l_StateVar(:,i_face)
     end subroutine
 
+    !!Code added by ADRIAN
+    subroutine f_interoperability_setFrictionOutputFL2(i_domain, i_face, &
+          i_averaged_Slip, i_dynStress_time)&
+          bind (c, name='f_interoperability_setFrictionOutputFL2')
+
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      INTEGER     :: i ,j, k
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      integer                                :: nSide , nBndGP
+      integer(kind=c_int), value             :: i_face
+      type(c_ptr), value                     :: i_averaged_Slip
+      REAL_TYPE, pointer                     :: l_averaged_Slip
+      type(c_ptr), value                     :: i_dynStress_time
+      REAL_TYPE, pointer                     :: l_dynStress_time(:)
+
+      !integer :: nSide
+
+      ! convert c to fortran pointers
+      call c_f_pointer( i_domain,             l_domain)
+      nSide = l_domain%MESH%Fault%nSide
+      nBndGP = l_domain%DISC%Galerkin%nBndGP
+
+      !call c_f_pointer( i_averaged_Slip,   l_averaged_Slip)
+      call c_f_pointer( i_dynStress_time, l_dynStress_time, [nBndGP])
+      !copy to output
+
+      !TODO: average slip only copy back if allocated
+      IF (l_domain%DISC%DynRup%magnitude_output_on.EQ.1) THEN
+        l_domain%DISC%DynRup%averaged_Slip(i_face)        = l_averaged_Slip
+      ENDIF
+      l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStress_time(:)  !l_domain%DISC%DynRup%dynStress_time(:,i_face)
+
+
+    end subroutine
 
 
 

@@ -439,9 +439,17 @@ class seissol::Interoperability {
                                                                 real  (*slip)[init::QInterpolated::Stop[0]],
                                                                 real  (*slip1)[init::QInterpolated::Stop[0]],
                                                                 real  (*slip2)[init::QInterpolated::Stop[0]],
+                                                                real  (*slipRate1)[init::QInterpolated::Stop[0]],
+                                                                real  (*slipRate2)[init::QInterpolated::Stop[0]],
                                                                 real  (*rupture_time)[init::QInterpolated::Stop[0]],
                                                                 real  (*peakSR)[init::QInterpolated::Stop[0]],
-                                                                real  (*dynStress_time)[init::QInterpolated::Stop[0]]
+                                                                real  (*tracXY)[init::QInterpolated::Stop[0]],
+                                                                real  (*tracXZ)[init::QInterpolated::Stop[0]]
+    );
+
+    void copyFrictionOutputToFortranFL2(unsigned ltsFace, unsigned meshFace,
+            real  *averaged_Slip,
+            real  (*dynStress_time)[init::QInterpolated::Stop[0]]
     );
 
     //todo: change to lts version

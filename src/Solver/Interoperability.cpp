@@ -311,8 +311,11 @@ extern "C" {
                                                     bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_averaged_Slip, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
 
   extern void f_interoperability_setFrictionOutput( void*  i_domain, int i_face,
-        real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_rupture_time,
-        real* i_PeakSR, real* i_dynStress_time);
+        real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time, real* i_PeakSR, real* i_tracXY, real* i_tracXZ);
+
+  extern void f_interoperability_setFrictionOutputFL2( void*  i_domain, int i_face,
+                                                  real* i_averaged_Slip,
+                                                  real* i_dynStress_time);
 
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
@@ -1121,9 +1124,12 @@ void seissol::Interoperability::copyFrictionOutputToFortran(unsigned ltsFace, un
         real  (*slip)[init::QInterpolated::Stop[0]],
         real  (*slip1)[init::QInterpolated::Stop[0]],
         real  (*slip2)[init::QInterpolated::Stop[0]],
+        real  (*slipRate1)[init::QInterpolated::Stop[0]],
+        real  (*slipRate2)[init::QInterpolated::Stop[0]],
         real  (*rupture_time)[init::QInterpolated::Stop[0]],
         real  (*peakSR)[init::QInterpolated::Stop[0]],
-        real  (*dynStress_time)[init::QInterpolated::Stop[0]]
+        real  (*tracXY)[init::QInterpolated::Stop[0]],
+        real  (*tracXZ)[init::QInterpolated::Stop[0]]
         ){
     int fFace = meshFace + 1;
     f_interoperability_setFrictionOutput(m_domain, fFace,
@@ -1131,10 +1137,24 @@ void seissol::Interoperability::copyFrictionOutputToFortran(unsigned ltsFace, un
                                          &slip[ltsFace][0],
                                          &slip1[ltsFace][0],
                                          &slip2[ltsFace][0],
+                                         &slipRate1[ltsFace][0],
+                                         &slipRate2[ltsFace][0],
                                          &rupture_time[ltsFace][0],
                                          &peakSR[ltsFace][0],
+                                         &tracXY[ltsFace][0],
+                                         &tracXZ[ltsFace][0]);
+}
+
+void seissol::Interoperability::copyFrictionOutputToFortranFL2(unsigned int ltsFace, unsigned int meshFace, real *averaged_Slip, real (*dynStress_time)[init::QInterpolated::Stop[0]]
+){
+    int fFace = meshFace + 1;
+    f_interoperability_setFrictionOutputFL2(m_domain, fFace,
+                                         &averaged_Slip[ltsFace],
                                          &dynStress_time[ltsFace][0]);
 }
+
+
+
 
 //TODO: delete:
 void seissol::Interoperability::setFrictionOutput(seissol::physics::TmpFrictionData &tmp_friction_data, FrictionData &frictionData, int face){
@@ -1144,9 +1164,13 @@ void seissol::Interoperability::setFrictionOutput(seissol::physics::TmpFrictionD
                                        &frictionData.slip[0],
                                        &frictionData.slip1[0],
                                        &frictionData.slip2[0],
+                                       &frictionData.slipRate1[0],
+                                       &frictionData.slipRate2[0],
                                        &frictionData.rupture_time[0],
                                        &frictionData.peakSR[0],
-                                       &frictionData.dynStress_time[0]);
+                                       &frictionData.tracXY[0],
+                                       &frictionData.tracXZ[0]
+                                       );
 }
 
 void seissol::Interoperability::calcElementwiseFaultoutput(double time)

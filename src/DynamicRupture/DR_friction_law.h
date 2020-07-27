@@ -114,7 +114,7 @@ public:
         //constexpr int numOfPointsPadded = numberOfPoints;
         constexpr int numOfPointsPadded = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
 
-        //TODO: for anisotropic case it must be face dependent
+        //TODO: for anisotropic case it must be face dependent?
         real Zp_inv, Zp_neig_inv, Zs_inv, Zs_neig_inv, eta_p, eta_s;
         Zp_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
         Zp_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
@@ -158,8 +158,6 @@ public:
 
             //required input:
             auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
-            //bool inst_healing = frD.inst_healing;    //DISC%DynRup%inst_healing
-
 
 
             //declare local variables
