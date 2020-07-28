@@ -74,15 +74,14 @@ class DirichletBoundary {
 			     real* dofsFaceBoundaryNodal,
 			     double startTime,
 			     double timeStepWidth) const {
+    alignas(ALIGNMENT) real dofsFaceBoundaryNodalInterior[tensor::INodal::size()];
     auto projectKrnl = projectKernelPrototype;
     addRotationToProjectKernel(projectKrnl, boundaryMapping);
     projectKrnl.I = dofsVolumeInteriorModal;
-    projectKrnl.INodal = dofsFaceBoundaryNodal;
+    projectKrnl.INodal = dofsFaceBoundaryNodalInterior;
     projectKrnl.execute(faceIdx);
 
-    auto boundaryDofsInterior = init::INodal::view::create(dofsFaceBoundaryNodal);
-
-    // TODO(Lukas) Implement functions which depend on the interior values...
+    auto boundaryDofsInterior = init::INodal::view::create(dofsFaceBoundaryNodalInterior);
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
   
     static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
