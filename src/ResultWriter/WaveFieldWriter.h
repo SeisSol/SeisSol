@@ -202,7 +202,7 @@ public:
 	 * @param timeTolerance The tolerance in the time for ignoring duplicate time steps
 	 */
 	void init(unsigned int numVars, int order, int numAlignedDOF,
-			const MeshReader &meshReader,
+			const MeshReader &meshReader,  const std::vector<unsigned> &LtsClusteringData,
 			const double* dofs,  const double* pstrain, const double* integrals,
 			unsigned int* map,
 			int refinement, int* outputMask, double* outputRegionBounds,

@@ -802,16 +802,24 @@ void seissol::Interoperability::initializeIO(
 
   constexpr auto numberOfQuantities = tensor::Q::Shape[ sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
 
+  // record the clustering info i.e., distribution of elements within an LTS tree
+  const std::vector<Element>& MeshElements = seissol::SeisSol::main.meshReader().getElements();
+  std::vector<unsigned> LtsClusteringData(MeshElements.size());
+  auto& LtsLayout = seissol::SeisSol::main.getLtsLayout();
+  for (const auto& Element: MeshElements) {
+    LtsClusteringData[Element.localId] = LtsLayout.getGlobalClusterId(Element.localId);
+  }
 	// Initialize wave field output
 	seissol::SeisSol::main.waveFieldWriter().init(
-			numberOfQuantities, CONVERGENCE_ORDER,
-			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-			seissol::SeisSol::main.meshReader(),
-			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
-			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
-			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
-			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			refinement, outputMask, outputRegionBounds,
+      numberOfQuantities, CONVERGENCE_ORDER,
+      NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+      seissol::SeisSol::main.meshReader(),
+      LtsClusteringData,
+      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
+      reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+      seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
+      m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
+      refinement, outputMask, outputRegionBounds,
       type);
 
 	// Initialize free surface output
