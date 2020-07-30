@@ -7,7 +7,7 @@
 
 #include <c++/8.3.0/iostream>
 #include "DR_LTS_Base.h"
-
+#include "DR_math.h"
 
 
 namespace seissol {
@@ -147,6 +147,7 @@ public:
                 auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[face][j]);
                 //TODO: does QInterpolatedMinusView work with padded access?
                 for(int i = 0; i < numOfPointsPadded; i++){
+                    //Carsten Uphoff Thesis: EQ.: 4.53
                     NorStressGP[i][j] = eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) * Zp_inv + QInterpolatedMinusView(i,0) * Zp_neig_inv);
                     XYStressGP[i][j]  = eta_s * (QInterpolatedMinusView(i,7) - QInterpolatedPlusView(i,7) + QInterpolatedPlusView(i,3) * Zs_inv + QInterpolatedMinusView(i,3) * Zs_neig_inv);
                     XZStressGP[i][j] = eta_s * (QInterpolatedMinusView(i,8) - QInterpolatedPlusView(i,8) + QInterpolatedPlusView(i,5) * Zs_inv + QInterpolatedMinusView(i,5) * Zs_neig_inv);
@@ -177,7 +178,7 @@ public:
             //no initialization required:
             std::array<real, numOfPointsPadded> P;
             std::array<real, numOfPointsPadded> Strength;
-            std::array<real, numOfPointsPadded> ShTest;
+            std::array<real, numOfPointsPadded> TotalShearStress;
             std::array<real, numOfPointsPadded> LocSR;
             std::array<real, numOfPointsPadded> LocSR1;
             std::array<real, numOfPointsPadded> LocSR2;
@@ -200,13 +201,11 @@ public:
                     P[iBndGP] = initialStressInFaultCS[face][iBndGP][0] + NorStressGP[iBndGP][iTimeGP];
                     Strength[iBndGP] = cohesion[face][iBndGP] - mu[face][iBndGP] * std::min(P[iBndGP], 0.0);
 
-
-                    ShTest[iBndGP] = std::sqrt(
-                            std::pow(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP][iTimeGP],
-                                     2) +
-                            std::pow(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP][iTimeGP],
-                                     2));
-                    LocSR[iBndGP] = std::max(0.0, (ShTest[iBndGP] - Strength[iBndGP]) / eta);
+                    //Carsten Uphoff Thesis: Eq. 4.59
+                    TotalShearStress[iBndGP] = std::sqrt(
+                            seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP][iTimeGP], 2) +
+                                    seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP][iTimeGP], 2));
+                    LocSR[iBndGP] = std::max(0.0, (TotalShearStress[iBndGP] - Strength[iBndGP]) / eta);
                     /*
                     LocSR1[iBndGP] =
                             LocSR[iBndGP] * (frD.getInitialStressInFaultCS(iBndGP, 3, iFace) + XYStressGP[iBndGP][iTimeGP]) /
@@ -218,10 +217,10 @@ public:
                     //TODO: check alternative faster calc??
                     LocSR1[iBndGP] = LocSR[iBndGP] * (initialStressInFaultCS[face][iBndGP][3] +
                                                       XYStressGP[iBndGP][iTimeGP]) /
-                                     (std::max(ShTest[iBndGP], Strength[iBndGP]));
+                                     (std::max(TotalShearStress[iBndGP], Strength[iBndGP]));
                     LocSR2[iBndGP] = LocSR[iBndGP] * (initialStressInFaultCS[face][iBndGP][5] +
                                                       XZStressGP[iBndGP][iTimeGP]) /
-                                     (std::max(ShTest[iBndGP], Strength[iBndGP]));
+                                     (std::max(TotalShearStress[iBndGP], Strength[iBndGP]));
 
                     LocTracXY[iBndGP] = XYStressGP[iBndGP][iTimeGP] - eta * LocSR1[iBndGP];
                     LocTracXZ[iBndGP] = XZStressGP[iBndGP][iTimeGP] - eta * LocSR2[iBndGP];
@@ -246,12 +245,12 @@ public:
 
 
                     //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-
                     f1 = std::min(std::abs(slip[face][iBndGP]) / d_c[face][iBndGP], 1.0);
 
                     //hook for FL_16: may calculate a different value for f1
                     hook(iBndGP, f1, tn, lts_t_0[face], fullUpdateTime, forced_rupture_time[init::QInterpolated::Stop[0]]); //for FL_16
 
+                    //Carsten Thesis: Eq. 2.45
                     mu[face][iBndGP] = mu_S[face][iBndGP] - (mu_S[face][iBndGP] - mu_D[face][iBndGP]) * f1;
 
                     //instantaneous healing option
@@ -292,8 +291,6 @@ public:
                     peakSR[face][iBndGP] = LocSR[iBndGP];
                 }
 
-                //Is this line not needed?
-                //TODO: find usage of DISC%DynRup%TracXY(:,iFace)
                 tracXY[face][iBndGP] = LocTracXY[iBndGP];
                 tracXZ[face][iBndGP] = LocTracXZ[iBndGP];
 
