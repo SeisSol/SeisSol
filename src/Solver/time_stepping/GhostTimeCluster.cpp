@@ -155,27 +155,28 @@ void GhostTimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster
   sendCopyLayer();
 }
 void GhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) {
-    /*
-  std::cout << globalClusterId << "," << otherGlobalClusterId << ":GhostTimeCluster: handled AdvancedCorrectionTime Message at t = "
-              << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
-              */
   assert(testForGhostLayerReceives());
 
-  auto upcomingCorrectionTime = ct.correctionTime;
+  //auto upcomingCorrectionTime = ct.correctionTime;
   auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
   if (state == ActorState::Predicted) {
-      upcomingCorrectionTime = ct.nextCorrectionTime(syncTime);
-      upcomingCorrectionSteps = std::min(
-              ct.stepsUntilSync + ct.timeStepRate,
-              ct.stepsUntilSync
-              );
+      //upcomingCorrectionTime = ct.nextCorrectionTime(syncTime);
+      upcomingCorrectionSteps = ct.nextCorrectionSteps();
+      //upcomingCorrectionSteps = std::min(
+              //ct.stepsSinceLastSync + ct.timeStepRate,
+              //ct.stepsUntilSync
+              //);
   }
-  const bool ignoreTime = std::abs(upcomingCorrectionTime - syncTime) < timeTolerance;
+  //const bool ignoreTime = std::abs(upcomingCorrectionTime - syncTime) < timeTolerance;
   const bool ignoreSteps = upcomingCorrectionSteps >= ct.stepsUntilSync;
-  //assert(ignoreTime == ignoreSteps);
+
+  // If we are already at a sync point, we must not post an additional receive, as otherwise start() posts an additional
+  // request!
+  // This is also true for the last sync point (i.e. end of simulation), as in this case we do not want to have any
+  // hanging request.
   if (ignoreSteps) {
-      logDebug(MPI::mpi.rank()) << "GhostTimeCluster: ignore AdvancedCorrectionTime Message at t = "
-              << neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
+      //logDebug(MPI::mpi.rank()) << "GhostTimeCluster: ignore AdvancedCorrectionTime Message at t = "
+              //<< neighborCluster.ct.correctionTime << ", next sync = " << syncTime << std::endl;
     return;
   } else {
 
@@ -209,7 +210,9 @@ void GhostTimeCluster::reset() {
         << " with other cluster id " << otherGlobalClusterId
         << " at state " << actorStateToString(state)
         << " mayPredict = " << mayPredict()
+        << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
         << " mayCorrect = " << mayCorrect()
+        << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
         << " maySync = " << maySync();
     }
 
