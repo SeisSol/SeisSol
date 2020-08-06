@@ -235,4 +235,12 @@ void AbstractTimeCluster::reset() {
 
 }
 
+int AbstractTimeCluster::getPriority() const {
+  return priority;
+}
+
+void AbstractTimeCluster::setPriority(int priority) {
+  this->priority = priority;
+}
+
 }

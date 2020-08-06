@@ -9,6 +9,8 @@
 namespace seissol::time_stepping {
 
 class AbstractTimeCluster {
+private:
+    int priority = 0;
 protected:
   ActorState state = ActorState::Synced;
   ClusterTimes ct;
@@ -35,6 +37,10 @@ public:
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void reset();
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
+  ///* Returns the priority of the cluster. Larger numbers indicate a higher priority.
+  ///* Can be used e.g. to always update copy clusters before interior ones.
+  virtual int getPriority() const;
+  virtual void setPriority(int priority);
 
   void connect(AbstractTimeCluster& other);
   void updateSyncTime(double newSyncTime);

@@ -116,6 +116,13 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     }
     auto* interior = clusters[clusters.size() - 1];
     auto* copy = clusters[clusters.size() - 2];
+
+    // Mark copy layers as higher priority layers.
+    constexpr int priorityLow = -1;
+    constexpr int priorityHigh = 42;
+    interior->setPriority(priorityLow);
+    copy->setPriority(priorityHigh);
+
     // Copy/interior with same timestep are neighbors
     interior->connect(*copy);
 
@@ -170,6 +177,13 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
     }
 #endif
   }
+
+  // Sort clusters by priority (higher ones first).
+  auto prioritySorter = [](const auto& a, const auto& b) {
+    return a->getPriority() < b->getPriority();
+  };
+  std::sort(clusters.begin(), clusters.end(), prioritySorter);
+  std::sort(ghostClusters.begin(), ghostClusters.end(), prioritySorter);
 }
 
 
