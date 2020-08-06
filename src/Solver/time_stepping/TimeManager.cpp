@@ -195,14 +195,12 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
   assert(m_timeStepping.synchronizationTime <= synchronizationTime);
 
   m_timeStepping.synchronizationTime = synchronizationTime;
-  std::cout << seissol::MPI::mpi.rank() << " new sync time = " << synchronizationTime << std::endl;
+  logInfo(seissol::MPI::mpi.rank()) << " new sync time = " << synchronizationTime;
 
   for (auto* cluster : clusters) {
     cluster->updateSyncTime(synchronizationTime);
     cluster->reset();
   }
-  // TODO(Lukas) Remove.
-  //seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
 
   for (auto& ghostCluster : ghostClusters) {
     ghostCluster->updateSyncTime(synchronizationTime);

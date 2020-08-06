@@ -147,7 +147,7 @@ bool GhostTimeCluster::mayPredict() {
 }
 
 bool GhostTimeCluster::maySync() {
-    return testForGhostLayerReceives() && testForCopyLayerSends() && AbstractTimeCluster::maySync();
+  return testForGhostLayerReceives() && testForCopyLayerSends() && AbstractTimeCluster::maySync();
 }
 
 void GhostTimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster&) {
@@ -214,6 +214,15 @@ void GhostTimeCluster::reset() {
         << " mayCorrect = " << mayCorrect()
         << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
         << " maySync = " << maySync();
+    for (auto& neighbor : neighbors) {
+      logWarning(rank)
+        << "Neighbor with rate = " << neighbor.ct.timeStepRate
+        << "PredTime = " << neighbor.ct.predictionTime
+        << "CorrTime = " << neighbor.ct.correctionTime
+        << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
+        << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
     }
+  }
+
 
 }

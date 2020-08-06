@@ -145,7 +145,7 @@ bool AbstractTimeCluster::mayPredict() {
     const auto minNeighborSteps = std::min_element(
             neighbors.begin(), neighbors.end(),
             [this](NeighborCluster const &a, NeighborCluster const &b) {
-                return a.ct.nextCorrectionSteps() <= b.ct.nextCorrectionSteps();
+                return a.ct.nextCorrectionSteps() < b.ct.nextCorrectionSteps();
             });
     bool stepBasedPredict = minNeighborSteps == neighbors.end()
             || ct.predictionsSinceLastSync < minNeighborSteps->ct.nextCorrectionSteps();
@@ -213,24 +213,21 @@ void AbstractTimeCluster::reset() {
   ct.stepsSinceLastSync = 0;
   ct.predictionsSinceLastSync = 0;
   ct.stepsUntilSync = ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);
-  std::cout << "Cluster with rate "
+  logInfo(MPI::mpi.rank()) << "Cluster with rate "
   << ct.timeStepRate
   << " has stepsUntilSync = "
-  << ct.stepsUntilSync
-  << std::endl;
+  << ct.stepsUntilSync;
 
-  std::cout
+  logInfo(MPI::mpi.rank())
   << "Our correction time = "
-  << ct.correctionTime
-  << std::endl;
+  << ct.correctionTime;
   for (auto& neighbor : neighbors) {
     neighbor.ct.stepsUntilSync = neighbor.ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);
     neighbor.ct.stepsSinceLastSync = 0;
     neighbor.ct.predictionsSinceLastSync = 0;
-    std::cout
+    logInfo(MPI::mpi.rank())
     << "\tneighbor correction time = "
-    << neighbor.ct.correctionTime
-    << std::endl;
+    << neighbor.ct.correctionTime;
   }
 
 }
