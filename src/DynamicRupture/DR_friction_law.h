@@ -158,15 +158,16 @@ public:
             static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
 
             //required input:
+            //TODO: outside of the loop?
             auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
+            real Z = waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity;
+            real Z_neig = waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity;
+            real eta = Z * Z_neig / (Z + Z_neig);
 
 
             //declare local variables
             real sum_tmpSlip;
-            real Z = waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity;
-            real Z_neig = waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity;
-            real eta = Z * Z_neig / (Z + Z_neig);
-            real f1;
+            real stateVariablePsi;
             //real time_inc = 0;
 
             //Initialized to Zero
@@ -178,7 +179,7 @@ public:
             //no initialization required:
             std::array<real, numOfPointsPadded> P;
             std::array<real, numOfPointsPadded> Strength;
-            std::array<real, numOfPointsPadded> TotalShearStress;
+            std::array<real, numOfPointsPadded> TotalShearStressYZ;
             std::array<real, numOfPointsPadded> LocSR;
             std::array<real, numOfPointsPadded> LocSR1;
             std::array<real, numOfPointsPadded> LocSR2;
@@ -186,8 +187,8 @@ public:
             std::array<real, numOfPointsPadded> LocTracXZ;
 
             //debugging:
-            real test3[numOfPointsPadded];
-            real test5[numOfPointsPadded];
+            //real test3[numOfPointsPadded];
+            //real test5[numOfPointsPadded];
 
             //tn only needed for FL=16
             real tn = fullUpdateTime;
@@ -199,13 +200,15 @@ public:
                     tn = tn + DeltaT[iTimeGP]; //could be moved to FL_16 hook()
 
                     P[iBndGP] = initialStressInFaultCS[face][iBndGP][0] + NorStressGP[iBndGP][iTimeGP];
+
+                    //fault strength (Uphoff eq 2.44)
                     Strength[iBndGP] = cohesion[face][iBndGP] - mu[face][iBndGP] * std::min(P[iBndGP], 0.0);
 
                     //Carsten Uphoff Thesis: Eq. 4.59
-                    TotalShearStress[iBndGP] = std::sqrt(
+                    TotalShearStressYZ[iBndGP] = std::sqrt(
                             seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP][iTimeGP], 2) +
                                     seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP][iTimeGP], 2));
-                    LocSR[iBndGP] = std::max(0.0, (TotalShearStress[iBndGP] - Strength[iBndGP]) / eta);
+                    LocSR[iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) / eta);
                     /*
                     LocSR1[iBndGP] =
                             LocSR[iBndGP] * (frD.getInitialStressInFaultCS(iBndGP, 3, iFace) + XYStressGP[iBndGP][iTimeGP]) /
@@ -217,10 +220,10 @@ public:
                     //TODO: check alternative faster calc??
                     LocSR1[iBndGP] = LocSR[iBndGP] * (initialStressInFaultCS[face][iBndGP][3] +
                                                       XYStressGP[iBndGP][iTimeGP]) /
-                                     (std::max(TotalShearStress[iBndGP], Strength[iBndGP]));
+                                     (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
                     LocSR2[iBndGP] = LocSR[iBndGP] * (initialStressInFaultCS[face][iBndGP][5] +
                                                       XZStressGP[iBndGP][iTimeGP]) /
-                                     (std::max(TotalShearStress[iBndGP], Strength[iBndGP]));
+                                     (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
 
                     LocTracXY[iBndGP] = XYStressGP[iBndGP][iTimeGP] - eta * LocSR1[iBndGP];
                     LocTracXZ[iBndGP] = XZStressGP[iBndGP][iTimeGP] - eta * LocSR2[iBndGP];
@@ -229,14 +232,14 @@ public:
                     slip1[face][iBndGP] = slip1[face][iBndGP] + LocSR1[iBndGP] * DeltaT[iTimeGP];
                     slip2[face][iBndGP] = slip2[face][iBndGP] + LocSR2[iBndGP] * DeltaT[iTimeGP];
                 }
-                //TODO: test if access would work with padded
+                //TODO: does not work with padded Points bc of resampleMatrix is not padded
                 for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
                     //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
                     //resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
                     //degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
                     matmul[iBndGP] = 0;
 
-                    //TODO: test if access works with padded
+                    //TODO: does not work with padded Points bc of resampleMatrix is not padded
                     for (int j = 0; j < numberOfPoints; j++) {
                         matmul[iBndGP] += resampleMatrixView(iBndGP, j) * LocSR[j];
                     }
@@ -245,13 +248,14 @@ public:
 
 
                     //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-                    f1 = std::min(std::abs(slip[face][iBndGP]) / d_c[face][iBndGP], 1.0);
+                    //f1 = state variable
+                    stateVariablePsi = std::min(std::abs(slip[face][iBndGP]) / d_c[face][iBndGP], 1.0);
 
-                    //hook for FL_16: may calculate a different value for f1
-                    hook(iBndGP, f1, tn, lts_t_0[face], fullUpdateTime, forced_rupture_time[init::QInterpolated::Stop[0]]); //for FL_16
+                    //hook for FL_16: may calculate a different value for the state variable f1
+                    hook(iBndGP, stateVariablePsi, tn, lts_t_0[face], fullUpdateTime, forced_rupture_time[init::QInterpolated::Stop[0]]); //for FL_16
 
                     //Carsten Thesis: Eq. 2.45
-                    mu[face][iBndGP] = mu_S[face][iBndGP] - (mu_S[face][iBndGP] - mu_D[face][iBndGP]) * f1;
+                    mu[face][iBndGP] = mu_S[face][iBndGP] - (mu_S[face][iBndGP] - mu_D[face][iBndGP]) * stateVariablePsi;
 
                     //instantaneous healing option
                     if (inst_healing[face] == true) {

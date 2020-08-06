@@ -420,8 +420,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   bool imposedStateMinusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
       for( unsigned int j = 0; j <tensor::QInterpolated::size(); j++ ) {
-          imposedStatePlusTestBool[iface][j] = ( imposedStatePlusTest[iface][j] -  imposedStatePlus[iface][j]) < 0.1;
-          imposedStateMinusTestBool[iface][j] = ( imposedStateMinusTest[iface][j] -  imposedStateMinus[iface][j]) < 0.1;
+          imposedStatePlusTestBool[iface][j] = ( imposedStatePlusTest[iface][j] -  imposedStatePlus[iface][j]) < 0.01;
+          imposedStateMinusTestBool[iface][j] = ( imposedStateMinusTest[iface][j] -  imposedStateMinus[iface][j]) < 0.01;
       }
   }
   for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
