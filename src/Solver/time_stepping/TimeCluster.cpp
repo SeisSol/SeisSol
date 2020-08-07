@@ -89,7 +89,6 @@
 #include <cstring>
 
 #include <generated_code/kernel.h>
-#include "../../../generated_code/kernel.h"
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 extern volatile unsigned int* volatile g_handleRecvs;
@@ -410,7 +409,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, notusedface, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
-  m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
+  //m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
   //debugging:
@@ -912,9 +911,11 @@ bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
   if( !m_updatable.neighboringInterior ) {
     // First cluster calls fault receiver output
     // TODO: Change from iteration based to time based
+    /*
     if (m_clusterId == 0) {
       e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
     }
+    */
 
     m_fullUpdateTime      += m_timeStepWidth;
     m_subTimeStart        += m_timeStepWidth;
@@ -956,9 +957,13 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
   if( !m_updatable.neighboringCopy ) {
     // First cluster calls fault receiver output
     // TODO: Change from iteration based to time based
+
+    /*
     if (m_clusterId == 0) {
+      //m_FrictonLaw
       e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
     }
+    */
 
     m_fullUpdateTime      += m_timeStepWidth;
     m_subTimeStart        += m_timeStepWidth;
@@ -1062,6 +1067,20 @@ void seissol::time_stepping::TimeCluster::computeFlops()
                                                   m_flops_hardware[PlasticityCheck],
                                                   m_flops_nonZero[PlasticityYield],
                                                   m_flops_hardware[PlasticityYield] );
+}
+
+void seissol::time_stepping::TimeCluster::updateFaultOutput() {
+#ifdef USE_MPI
+  initializers::Layer *Layers[2];
+  Layers[0] = &(m_dynRupClusterData->child<Interior>());
+  Layers[1] = &(m_dynRupClusterData->child<Copy>());
+#else
+  initializers::Layer *Layers[1];
+  Layers[0] = &(m_dynRupClusterData->child<Interior>());
+#endif
+  for (auto Layer : Layers) {
+      m_DrOutput->tiePointers(*Layer, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/);
+  }
 }
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)

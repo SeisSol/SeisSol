@@ -53,6 +53,8 @@ volatile unsigned int* volatile g_handleSends;
 pthread_t g_commThread;
 #endif
 
+extern seissol::Interoperability e_interoperability;
+
 seissol::time_stepping::TimeManager::TimeManager():
   m_logUpdates(std::numeric_limits<unsigned int>::max())
 {
@@ -276,6 +278,21 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
   }
 }
 
+void seissol::time_stepping::TimeManager::checkAndWriteFaultOutputIfReady() {
+  auto& FirstCluster = this->m_clusters[0];
+
+  // if the first (leading) cluster has been fully updated (both copy and interior layers)
+  if ((!FirstCluster->m_updatable.neighboringInterior) && (!FirstCluster->m_updatable.neighboringCopy)) {
+
+    // iterate over all clusters and update faults
+    for (auto Cluster: this->m_clusters) {
+      Cluster->updateFaultOutput();
+    }
+
+    e_interoperability.faultOutput(FirstCluster->m_fullUpdateTime, FirstCluster->timeStepWidth());
+  }
+}
+
 void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchronizationTime ) {
   SCOREP_USER_REGION( "advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION )
 
@@ -321,6 +338,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     // iterate over all items of the neighboring copy queue and update everything possible
     for( std::list<TimeCluster*>::iterator l_cluster = m_neighboringCopyQueue.begin(); l_cluster != m_neighboringCopyQueue.end(); ) {
       if( (*l_cluster)->computeNeighboringCopy() ) {
+        checkAndWriteFaultOutputIfReady();
         unsigned int l_clusterId = (*l_cluster)->m_clusterId;
         l_cluster = m_neighboringCopyQueue.erase( l_cluster );
         updateClusterDependencies( l_clusterId );
@@ -341,6 +359,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     if( !m_neighboringInteriorQueue.empty() ) {
       TimeCluster *l_timeCluster = m_neighboringInteriorQueue.top();
       l_timeCluster->computeNeighboringInterior();
+      checkAndWriteFaultOutputIfReady();
       m_neighboringInteriorQueue.pop();
       updateClusterDependencies(l_timeCluster->m_clusterId);
     }
