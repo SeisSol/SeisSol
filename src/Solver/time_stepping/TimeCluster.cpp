@@ -89,7 +89,6 @@
 #include <cstring>
 
 #include <generated_code/kernel.h>
-#include "../../../generated_code/kernel.h"
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 extern volatile unsigned int* volatile g_handleRecvs;
