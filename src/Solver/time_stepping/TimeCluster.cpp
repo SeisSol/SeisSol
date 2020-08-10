@@ -371,6 +371,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 
     // legacy code:
+    /*
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus[face],
                                             QInterpolatedMinus[face],
@@ -381,6 +382,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             m_dynamicRuptureKernel.timeWeights,
                                             waveSpeedsPlus[face],
                                             waveSpeedsMinus[face] );
+    */
       //*/
 
       //Code added by ADRIAN
@@ -411,7 +413,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   //m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
-
+  /*
   //debugging:
     real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
     real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
@@ -429,9 +431,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
           assert(imposedStateMinusTestBool[iface][j] == true);
       }
   }
-  //*/
-
-
+  */
 }
 
 
