@@ -42,10 +42,9 @@ public:
                          seissol::initializers::DynamicRupture *dynRup,
                          real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                          real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                         unsigned face,
-                          real fullUpdateTime,
-                          real timeWeights[CONVERGENCE_ORDER],
-                          real DeltaT[CONVERGENCE_ORDER]) = 0;
+                         real fullUpdateTime,
+                         real timeWeights[CONVERGENCE_ORDER],
+                         real DeltaT[CONVERGENCE_ORDER]) = 0;
 };
 /*
 *     !> friction case 16,17
@@ -66,7 +65,6 @@ public:
           seissol::initializers::DynamicRupture *dynRup,
           real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
           real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-          unsigned notusedface,
           real fullUpdateTime,
           real timeWeights[CONVERGENCE_ORDER],
           real DeltaT[CONVERGENCE_ORDER]) override {
@@ -106,57 +104,40 @@ public:
     real                    (*forced_rupture_time)[init::QInterpolated::Stop[0]]                            = layerData.var(ConcreteLts->forced_rupture_time);
     real*                                   lts_t_0                                                         = layerData.var(ConcreteLts->t_0);
 
-    constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
+    auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
+    constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
     //TODO: is start always 0?
     //TODO: implement padded calculation
     //constexpr int numOfPointsPadded = numberOfPoints;
     constexpr int numOfPointsPadded = init::QInterpolated::Stop[0] - init::QInterpolated::Start[0];
 
     //TODO: for anisotropic case it must be face dependent?
-    //calculate Impedances
-    real Zp, Zs, Zp_neig, Zs_neig, Zp_inv, Zp_neig_inv, Zs_inv, Zs_neig_inv, eta_p, eta_s;
+    //calculate Impedances Z
+    real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
     Zp = (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
     Zp_neig = (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
     Zs = (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
     Zs_neig = (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
 
-/*
-    Zp_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
-    Zp_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
-    Zs_inv = 1.0 / (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
-    Zs_neig_inv = 1.0 / (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
-    eta_p = 1.0 / (Zp_inv + Zp_neig_inv);
-    eta_s = 1.0 / (Zs_inv + Zs_neig_inv);
-*/
-    eta_p = Zp * Zp_neig / (Zp + Zp_neig);
-    eta_s = Zs * Zs_neig / (Zs + Zs_neig);
+    eta_p = 1.0 / (1.0/Zp + 1.0/Zp_neig);
+    eta_s = 1.0 / (1.0/Zs + 1.0/Zs_neig);
+    //a bit more inaccurate? (after my testings)
+    //eta_p = Zp * Zp_neig / (Zp + Zp_neig);
+    //eta_s = Zs * Zs_neig / (Zs + Zs_neig);
 
-
-    auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
-    /*
-    real Z = waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity;
-    real Z_neig = waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity;
-    real eta_s = Z * Z_neig / (Z + Z_neig);
-    */
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
     #endif
     //TODO: split loop
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
 
-
         //precompute();
-
         real TractionGP_XY[numOfPointsPadded][CONVERGENCE_ORDER] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
         real TractionGP_XZ[numOfPointsPadded][CONVERGENCE_ORDER] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
         real NorStressGP[numOfPointsPadded][CONVERGENCE_ORDER] = {{}};
         real XYStressGP[numOfPointsPadded][CONVERGENCE_ORDER]= {{}};
         real XZStressGP[numOfPointsPadded][CONVERGENCE_ORDER]= {{}};
-
-
-        //int iFace = static_cast<int>(faceInformation.meshFace);
-
 
         for(int j = 0; j < CONVERGENCE_ORDER; j++){
             auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[face][j]);
@@ -164,9 +145,9 @@ public:
             //TODO: does QInterpolatedMinusView work with padded access?
             for(int i = 0; i < numOfPointsPadded; i++){
                 //Carsten Uphoff Thesis: EQ.: 4.53
-                NorStressGP[i][j] = eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) * Zp_inv + QInterpolatedMinusView(i,0) * Zp_neig_inv);
-                XYStressGP[i][j]  = eta_s * (QInterpolatedMinusView(i,7) - QInterpolatedPlusView(i,7) + QInterpolatedPlusView(i,3) * Zs_inv + QInterpolatedMinusView(i,3) * Zs_neig_inv);
-                XZStressGP[i][j] = eta_s * (QInterpolatedMinusView(i,8) - QInterpolatedPlusView(i,8) + QInterpolatedPlusView(i,5) * Zs_inv + QInterpolatedMinusView(i,5) * Zs_neig_inv);
+                NorStressGP[i][j] = eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) / Zp + QInterpolatedMinusView(i,0) / Zp_neig);
+                XYStressGP[i][j]  = eta_s * (QInterpolatedMinusView(i,7) - QInterpolatedPlusView(i,7) + QInterpolatedPlusView(i,3) / Zs + QInterpolatedMinusView(i,3) / Zs_neig);
+                XZStressGP[i][j] = eta_s * (QInterpolatedMinusView(i,8) - QInterpolatedPlusView(i,8) + QInterpolatedPlusView(i,5) / Zs + QInterpolatedMinusView(i,5) / Zs_neig);
             }
         }
 
@@ -195,10 +176,6 @@ public:
         std::array<real, numOfPointsPadded> LocSR2;
         std::array<real, numOfPointsPadded> LocTracXY;
         std::array<real, numOfPointsPadded> LocTracXZ;
-
-        //debugging:
-        //real test3[numOfPointsPadded];
-        //real test5[numOfPointsPadded];
 
         //tn only needed for FL=16
         real tn = fullUpdateTime;
@@ -337,16 +314,16 @@ public:
           imposedStateMinusView(i, 0) += timeWeights[j] * NorStressGP[i][j];
           imposedStateMinusView(i, 3) += timeWeights[j] * TractionGP_XY[i][j];
           imposedStateMinusView(i, 5) += timeWeights[j] * TractionGP_XZ[i][j];
-          imposedStateMinusView(i, 6) += timeWeights[j] * (QInterpolatedMinusView(i, 6) - Zp_neig_inv * (NorStressGP[i][j] - QInterpolatedMinusView(i, 0)));
-          imposedStateMinusView(i, 7) += timeWeights[j] * (QInterpolatedMinusView(i, 7) - Zs_neig_inv * (TractionGP_XY[i][j] - QInterpolatedMinusView(i, 3)));
-          imposedStateMinusView(i, 8) += timeWeights[j] * (QInterpolatedMinusView(i, 8) - Zs_neig_inv * (TractionGP_XZ[i][j] - QInterpolatedMinusView(i, 5)));
+          imposedStateMinusView(i, 6) += timeWeights[j] * (QInterpolatedMinusView(i, 6) -  (NorStressGP[i][j] - QInterpolatedMinusView(i, 0))/  Zp_neig);
+          imposedStateMinusView(i, 7) += timeWeights[j] * (QInterpolatedMinusView(i, 7) -  (TractionGP_XY[i][j] - QInterpolatedMinusView(i, 3))/  Zs_neig);
+          imposedStateMinusView(i, 8) += timeWeights[j] * (QInterpolatedMinusView(i, 8) -  (TractionGP_XZ[i][j] - QInterpolatedMinusView(i, 5))/  Zs_neig);
 
           imposedStatePlusView(i, 0) += timeWeights[j] * NorStressGP[i][j];
           imposedStatePlusView(i, 3) += timeWeights[j] * TractionGP_XY[i][j];
           imposedStatePlusView(i, 5) += timeWeights[j] * TractionGP_XZ[i][j];
-          imposedStatePlusView(i, 6) += timeWeights[j] * (QInterpolatedPlusView(i, 6) + Zp_inv * (NorStressGP[i][j] - QInterpolatedPlusView(i, 0)));
-          imposedStatePlusView(i, 7) += timeWeights[j] * (QInterpolatedPlusView(i, 7) + Zs_inv * (TractionGP_XY[i][j] - QInterpolatedPlusView(i, 3)));
-          imposedStatePlusView(i, 8) += timeWeights[j] * (QInterpolatedPlusView(i, 8) + Zs_inv * (TractionGP_XZ[i][j] - QInterpolatedPlusView(i, 5)));
+          imposedStatePlusView(i, 6) += timeWeights[j] * (QInterpolatedPlusView(i, 6) +  (NorStressGP[i][j] - QInterpolatedPlusView(i, 0)) /  Zp);
+          imposedStatePlusView(i, 7) += timeWeights[j] * (QInterpolatedPlusView(i, 7) +  (TractionGP_XY[i][j] - QInterpolatedPlusView(i, 3)) / Zs);
+          imposedStatePlusView(i, 8) += timeWeights[j] * (QInterpolatedPlusView(i, 8) +  (TractionGP_XZ[i][j] - QInterpolatedPlusView(i, 5)) / Zs);
         } //End numberOfPoints-loop
       } //End CONVERGENCE_ORDER-loop
 
@@ -395,7 +372,6 @@ public:
                           seissol::initializers::DynamicRupture *dynRup,
                           real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                           real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                          unsigned face,
                           real fullUpdateTime,
                           real timeWeights[CONVERGENCE_ORDER],
                           real DeltaT[CONVERGENCE_ORDER]) override {
@@ -435,7 +411,6 @@ public:
                           seissol::initializers::DynamicRupture *dynRup,
                           real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                           real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                          unsigned face,
                           real fullUpdateTime,
                           real timeWeights[CONVERGENCE_ORDER],
                           real DeltaT[CONVERGENCE_ORDER]) override {

@@ -405,9 +405,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   } //End layerData.getNumberOfCells()-loop
 
-  unsigned notusedface = 0;
 
-  m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, notusedface, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
+  m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
   m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
