@@ -25,7 +25,6 @@ In SeisSol, the strike vector is (not normalized)
 
 :math:`s:=(-e_3)\times n`
 
-
 So, e.g., for *enu* we always have a left-lateral motion, as **s** and
 **l** are parallel, and for *ned* we always have a right-lateral motion
 as **s** and **l** are anti-parallel.
@@ -83,3 +82,8 @@ plane, which points from the foot wall to the hanging wall, is given by
 Hence, we set the reference point to **x** + a **N**, where a > 0 and
 **x** is an arbitrary point on the fault. In this case, the reference
 point is inside the hanging wall and we obtain a normal fault.
+
+Warning
+~~~~~~~
+
+Rake describes the slip direction of hanging wall measured in the fault plane and the dip vector. In SeisSol, the convention for the rake direction (positive strike slip = right-lateral) is opposite to typical convention (positive strike slip  = left-lateral). Thus, e.g., Ts0>0 and Td0=0 is a shear stress in rake 180° direction.
