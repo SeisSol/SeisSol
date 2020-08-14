@@ -284,7 +284,7 @@ module f_ctof_bind_interoperability
     end subroutine
 
 
-    subroutine f_interoperability_getDynRup(i_domain, iFace, i_mu, i_slipRate1, i_slipRate2,i_RF) bind (c, name='f_interoperability_getDynRup')
+    subroutine f_interoperability_getDynRup(i_domain, iFace, i_InitialStressInFaultCS, i_mu, i_slipRate1, i_slipRate2,i_RF) bind (c, name='f_interoperability_getDynRup')
         use iso_c_binding
         use typesDef
         use f_ftoc_bind_interoperability
@@ -294,6 +294,8 @@ module f_ctof_bind_interoperability
         type(c_ptr), value                     :: i_domain
         type(tUnstructDomainDescript), pointer :: l_domain
         integer(kind=c_int), value             :: iFace
+        type(c_ptr), value                     :: i_InitialStressInFaultCS
+        REAL_TYPE, pointer                     :: l_InitialStressInFaultCS(:,:)
         type(c_ptr), value                     :: i_mu
         REAL_TYPE, pointer                     :: l_mu(:)
         type(c_ptr), value                     :: i_slipRate1
@@ -306,19 +308,21 @@ module f_ctof_bind_interoperability
         call c_f_pointer( i_domain,             l_domain)
         nBndGP = l_domain%DISC%Galerkin%nBndGP
 
+        call c_f_pointer( i_InitialStressInFaultCS, l_InitialStressInFaultCS, [nBndGP,6])
         call c_f_pointer( i_mu, l_mu, [nBndGP])
         call c_f_pointer( i_slipRate1, l_slipRate1, [nBndGP])
         call c_f_pointer( i_slipRate2, l_slipRate2, [nBndGP])
         call c_f_pointer( i_RF, l_RF, [nBndGP])
 
-        !DISC%DynRup%StateVar(:,:)  = EQN%IniStateVar
-        l_mu(:)                     = l_domain%EQN%IniMu(:,iFace)
-        l_slipRate1(:)              = l_domain%EQN%IniSlipRate1
-        l_slipRate2(:)              = l_domain%EQN%IniSlipRate2
-        l_RF(:)                     = l_domain%DISC%DynRup%RF(:,iFace)
+        !DISC%DynRup%StateVar(:,:)      = EQN%IniStateVar
+        l_InitialStressInFaultCS(:,:)   = l_domain%EQN%InitialStressInFaultCS(:,:,iFace)
+        l_mu(:)                         = l_domain%EQN%IniMu(:,iFace)
+        l_slipRate1(:)                  = l_domain%EQN%IniSlipRate1
+        l_slipRate2(:)                  = l_domain%EQN%IniSlipRate2
+        l_RF(:)                         = l_domain%DISC%DynRup%RF(:,iFace)
     end subroutine
 
-    subroutine f_interoperability_getDynRupFL_2(i_domain, iFace, i_InitialStressInFaultCS ,i_t_0, i_magnitude_out,i_DS, i_inst_healing) bind (c, name='f_interoperability_getDynRupFL_2')
+    subroutine f_interoperability_getDynRupFL_2(i_domain, iFace ,i_t_0, i_magnitude_out,i_DS, i_inst_healing) bind (c, name='f_interoperability_getDynRupFL_2')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -329,8 +333,6 @@ module f_ctof_bind_interoperability
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       integer(kind=c_int), value             :: iFace
-      type(c_ptr), value                     :: i_InitialStressInFaultCS
-      REAL_TYPE, pointer                     :: l_InitialStressInFaultCS(:,:)
       type(c_ptr), value                     :: i_t_0
       real*8, pointer                        :: l_t_0
       type(c_ptr), value                     :: i_magnitude_out
@@ -343,24 +345,10 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_domain,             l_domain)
       nBndGP = l_domain%DISC%Galerkin%nBndGP
 
-      !if (iFace .eq. 64 ) then
-      !write (*,*) 'Face: ( iface: ', iFace, ' ): '
-        !do j=1,CONVERGENCE_ORDER
-          !do i=1,nBndGP
-              !write (*,*) 'in: ( j: ', j, ' ): ',  l_domain%EQN%InitialStressInFaultCS(1,j,iFace)
-          !end do
-        !end do
-      !end if
-
-      call c_f_pointer( i_InitialStressInFaultCS, l_InitialStressInFaultCS, [nBndGP,6])
       call c_f_pointer( i_t_0,                l_t_0  )
       call c_f_pointer( i_magnitude_out,      l_magnitude_out)
       call c_f_pointer( i_DS, l_DS, [nBndGP])
       call c_f_pointer( i_inst_healing,      l_inst_healing)
-
-
-
-      l_InitialStressInFaultCS(:,:)  = l_domain%EQN%InitialStressInFaultCS(:,:,iFace)
 
       l_t_0                     = l_domain%DISC%DynRup%t_0
       l_magnitude_out           = l_domain%DISC%DynRup%magnitude_out(iFace)
@@ -369,6 +357,52 @@ module f_ctof_bind_interoperability
       IF(l_domain%DISC%DynRup%inst_healing == 1) THEN
         l_inst_healing          = .true.
       END IF
+
+    end subroutine
+
+    subroutine f_interoperability_getDynRupFL_3(i_domain, iFace ,i_RS_f0, i_RS_a,i_RS_b, i_RS_sl0, i_RS_sr0, i_stateVar) bind (c, name='f_interoperability_getDynRupFL_3')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      !TODO: remove i, j ,k
+      integer                                :: i ,j, k, nBndGP
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      integer(kind=c_int), value             :: iFace
+      type(c_ptr), value                     :: i_RS_f0
+      real*8, pointer                        :: l_RS_f0
+      type(c_ptr), value                     :: i_RS_a
+      real*8, pointer                        :: l_RS_a
+      type(c_ptr), value                     :: i_RS_b
+      real*8, pointer                        :: l_RS_b
+      type(c_ptr), value                     :: i_RS_sl0
+      real*8, pointer                        :: l_RS_sl0
+      type(c_ptr), value                     :: i_RS_sr0
+      real*8, pointer                        :: l_RS_sr0
+
+      type(c_ptr), value                     :: i_stateVar
+      REAL_TYPE, pointer                     :: l_stateVar(:)
+
+      call c_f_pointer( i_domain,             l_domain)
+      nBndGP = l_domain%DISC%Galerkin%nBndGP
+
+      call c_f_pointer( i_RS_f0,                l_RS_f0  )
+      call c_f_pointer( i_RS_a,      l_RS_a)
+      call c_f_pointer( i_RS_b,      l_RS_b)
+      call c_f_pointer( i_RS_sl0,      l_RS_sl0)
+      call c_f_pointer( i_RS_sr0,      l_RS_sr0)
+      call c_f_pointer( i_stateVar, l_stateVar, [nBndGP])
+
+
+      l_RS_f0                   = l_domain%DISC%DynRup%RS_f0
+      l_RS_a                    = l_domain%DISC%DynRup%RS_a
+      l_RS_b                    = l_domain%DISC%DynRup%RS_b
+      l_RS_sl0                  = l_domain%DISC%DynRup%RS_sl0
+      l_RS_sr0                  = l_domain%DISC%DynRup%RS_sr0
+
+      l_stateVar           =  l_domain%DISC%DynRup%StateVar(:,iFace)
 
     end subroutine
 

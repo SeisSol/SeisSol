@@ -427,11 +427,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
           std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
           assert(false);
         }
-        if(iface ==3 && i == 13 && j == 1 ){
-          //std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
-          //std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
-          //assert(false);
-        }
       }
     }
     for( unsigned int j = 0; j <tensor::QInterpolated::size(); j++ ) {

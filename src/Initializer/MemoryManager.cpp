@@ -681,7 +681,7 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
 
 //added by adrian
 void seissol::initializers::MemoryManager::initializeFrictionFactory(Friction_law_type FrictionLaw) {
-    dr::factory::AbstractFactory *Factory = dr::factory::getFactory(FrictionLaw);
+    dr::factory::AbstractFactory *Factory = seissol::dr::factory::getFactory(FrictionLaw);
     std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
     delete Factory;    // prepare the data
 }

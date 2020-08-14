@@ -38,6 +38,8 @@ public:
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
     for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+      real  (*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(dynRup->initialStressInFaultCS);
+      real  (*cohesion)[numOfPointsPadded]                  = it->var(dynRup->cohesion);
       real  (*mu)[ numOfPointsPadded ]            = it->var(dynRup->mu);  //fortran
       real  (*slip)[ numOfPointsPadded ]          = it->var(dynRup->slip);
       real  (*slip1)[numOfPointsPadded ]          = it->var(dynRup->slip1);
@@ -46,7 +48,7 @@ public:
       real  (*slipRate2)[numOfPointsPadded ]      = it->var(dynRup->slipRate2);    //fortran
       real  (*rupture_time)[ numOfPointsPadded ]  = it->var(dynRup->rupture_time);
       bool  (*RF)[ numOfPointsPadded ]            = it->var(dynRup->RF);                  //fortran
-      real (*peakSR)[ numOfPointsPadded ]         = it->var(dynRup->peakSR);
+      real  (*peakSR)[ numOfPointsPadded ]        = it->var(dynRup->peakSR);
       real  (*tracXY)[ numOfPointsPadded ]        = it->var(dynRup->tracXY);
       real  (*tracXZ)[ numOfPointsPadded ]        = it->var(dynRup->tracXZ);
 
@@ -62,7 +64,14 @@ public:
           tracXZ[ltsFace][iBndGP] = 0.0;
         }
         //get initial values from fortran
-        e_interoperability.getDynRupParameters(ltsFace, meshFace, mu, slipRate1, slipRate2, RF);
+        for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
+          cohesion[ltsFace][iBndGP]               = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
+        }
+        //initialize padded elements for vectorization
+        for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
+          cohesion[ltsFace][iBndGP]               = 0.0;
+        }
+        e_interoperability.getDynRupParameters(ltsFace, meshFace, initialStressInFaultCS, mu, slipRate1, slipRate2, RF);
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
     }//leaf_iterator loop
@@ -83,8 +92,6 @@ public:
 
 
     for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
-      real (*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(ConcreteLts->initialStressInFaultCS);
-      real (*cohesion)[numOfPointsPadded]                  = it->var(ConcreteLts->cohesion);
       real (*d_c)[numOfPointsPadded]                       = it->var(ConcreteLts->d_c);
       real (*mu_S)[numOfPointsPadded]                      = it->var(ConcreteLts->mu_S);
       real (*mu_D)[numOfPointsPadded]                      = it->var(ConcreteLts->mu_D);
@@ -101,7 +108,6 @@ public:
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
-          cohesion[ltsFace][iBndGP]               = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
           d_c[ltsFace][iBndGP]                    = static_cast<real>( faultParameters["d_c"][meshFace * numberOfPoints] );
           mu_S[ltsFace][iBndGP]                   = static_cast<real>( faultParameters["mu_s"][meshFace * numberOfPoints] );
           mu_D[ltsFace][iBndGP]                   = static_cast<real>( faultParameters["mu_d"][meshFace * numberOfPoints] );
@@ -113,7 +119,6 @@ public:
         }
         //initialize padded elements for vectorization
         for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
-          cohesion[ltsFace][iBndGP]               = 0.0;
           d_c[ltsFace][iBndGP]                    = 0.0;
           mu_S[ltsFace][iBndGP]                   = 0.0;
           mu_D[ltsFace][iBndGP]                   = 0.0;
@@ -123,7 +128,7 @@ public:
 
         //get initial values from fortran
         //TODO: get intial initialStressInFaultCS;
-        e_interoperability.getDynRupFL_2(ltsFace, meshFace, initialStressInFaultCS, t_0, magnitude_out, DS, inst_healing);
+        e_interoperability.getDynRupFL_2(ltsFace, meshFace, t_0, magnitude_out, DS, inst_healing);
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;
@@ -160,7 +165,7 @@ public:
 
         //get initial values from fortran
         //TODO: write this function_
-        //e_interoperability.getDynRupFL_3(ltsFace, meshFace, RS_f0, RS_a, RS_b, RS_sl0, RS_sr0,StateVar);
+        e_interoperability.getDynRupFL_3(ltsFace, meshFace, RS_f0, RS_a, RS_b, RS_sl0, RS_sr0, StateVar);
 
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();

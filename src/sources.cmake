@@ -129,7 +129,6 @@ src/Physics/Evaluate_friction_law.h
 src/Physics/tmpFrictionDataStruct.cpp
 src/DynamicRupture/DR_math.h
 src/DynamicRupture/DR_factory.h
-src/DynamicRupture/DR_LTS_Base.h
 src/DynamicRupture/DR_initializer_base.h
 src/DynamicRupture/DR_friction_law.h
 src/DynamicRupture/DR_output.h

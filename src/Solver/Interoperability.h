@@ -409,12 +409,15 @@ class seissol::Interoperability {
      *
      * @param ltsFace current ltsFace to get Parameters
      * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters saved in DRFaceInformation[ltsFace].meshFace
+     * @param initialStressInFaultCS gets initialStressInFaultCS
      * @param mu gets initial mu
      * @param slipRate1 gets initial sliprate in direction 1
      * @param slipRate2 gets initial sliprate in direction 2
      * @param RF gets intial value (bool) of rupture front output per GP
      **/
-    void getDynRupParameters(int ltsFace, unsigned meshFace, real (*mu)[seissol::init::QInterpolated::Stop[0]], real  (*slipRate1)[init::QInterpolated::Stop[0]], real (*slipRate2)[init::QInterpolated::Stop[0]], bool  (*RF)[ init::QInterpolated::Stop[0] ] );
+    void getDynRupParameters(int ltsFace, unsigned meshFace, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
+        real (*mu)[seissol::init::QInterpolated::Stop[0]], real  (*slipRate1)[init::QInterpolated::Stop[0]],
+        real (*slipRate2)[init::QInterpolated::Stop[0]], bool  (*RF)[ init::QInterpolated::Stop[0] ] );
 
     /**
      * get initial values from fortran
@@ -428,9 +431,33 @@ class seissol::Interoperability {
      * @param DS gets dynamic stress output (bool) per GP
      * @param insta_healing if the option insta_healing is selected
      **/
-    void getDynRupFL_2(int ltsFace, unsigned meshFace, real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6], real *t_0, bool *magnitude_out,  bool (*DS)[init::QInterpolated::Stop[0]], bool *insta_healing  );
+    void getDynRupFL_2(int ltsFace, unsigned meshFace, real *t_0, bool *magnitude_out,  bool (*DS)[init::QInterpolated::Stop[0]], bool *insta_healing  );
 
-    //TODO: delete this if not needed anymore
+
+  /**
+   * get initial values from fortran
+   * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
+   * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h for FL = 2
+   *
+   * @param ltsFace current ltsFace to get Parameters
+   * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters in DRFaceInformation[ltsFace].meshFace
+   * @param i_RS_f0     Reference friction coefficient
+   * @param i_RS_a      RS constitutive parameter "a"
+   * @param i_RS_b      RS constitutive parameter "b"
+   * @param i_RS_sl0    Reference slip
+   * @param i_RS_sr0    Reference slip rate
+   * @param stateVar    State variable used at Rate-and-state friction laws
+   **/
+    void getDynRupFL_3(int ltsFace,  unsigned meshFace,
+                                                real *i_RS_f0,
+                                                real *i_RS_a,
+                                                real *i_RS_b,
+                                                real *i_RS_sl0,
+                                                real *i_RS_sr0,
+                                                real (*stateVar)[init::QInterpolated::Stop[0]]);
+
+
+  //TODO: delete this if not needed anymore
     void getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data);
 
 
