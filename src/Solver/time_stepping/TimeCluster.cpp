@@ -404,23 +404,40 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     //m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus[face], QInterpolatedMinus[face], face, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
   } //End layerData.getNumberOfCells()-loop
-
-
+  seissol::dr::fr_law::FL_2 *FL2 = dynamic_cast<seissol::dr::fr_law::FL_2*>(m_FrictonLaw);
+  //FL2->evaluate2(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
   m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
   m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
+/*
   //debugging:
     real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
     real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
   bool imposedStatePlusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   bool imposedStateMinusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
-      for( unsigned int j = 0; j <tensor::QInterpolated::size(); j++ ) {
-          imposedStatePlusTestBool[iface][j] = ( imposedStatePlusTest[iface][j] -  imposedStatePlus[iface][j]) < 0.01;
-          imposedStateMinusTestBool[iface][j] = ( imposedStateMinusTest[iface][j] -  imposedStateMinus[iface][j]) < 0.01;
+    auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[iface]);
+    auto imposedStateMinusViewTest = init::QInterpolated::view::create(imposedStateMinusTest[iface]);
+    for (int j = 0; j < 9; j++) {
+      for (int i = 0; i < numberOfPoints; i++) {
+        if(abs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.1 ){
+          std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
+          std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
+          assert(false);
+        }
+        if(iface ==3 && i == 13 && j == 1 ){
+          //std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
+          //std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
+          //assert(false);
+        }
       }
+    }
+    for( unsigned int j = 0; j <tensor::QInterpolated::size(); j++ ) {
+      imposedStatePlusTestBool[iface][j] = abs( imposedStatePlusTest[iface][j] -  imposedStatePlus[iface][j]) < 0.01;
+      imposedStateMinusTestBool[iface][j] = abs( imposedStateMinusTest[iface][j] -  imposedStateMinus[iface][j]) < 0.01;
+    }
   }
   for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
       for (unsigned int j = 0; j < tensor::QInterpolated::size(); j++) {
