@@ -42,6 +42,8 @@ protected:
    *
    * input:
    * QInterpolatedPlus, QInterpolatedMinus, eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig
+   *
+   * Calculate stress from jump of plus and minus side
    */
   void precomputeStressFromQInterpolated(
     real NorStressGP[CONVERGENCE_ORDER][numOfPointsPadded],
@@ -67,6 +69,12 @@ protected:
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],"Different number of quadrature points?");
   }//End of precompute Function
 
+  /*
+   * Output: imposedStatePlus, imposedStateMinus
+   *
+   * Integrate over all Time points with the time weights and calculate the traction vor each side according to
+   * Carsten Uphoff Thesis: EQ.: 4.60
+   */
   void postcomputeImposedStateFromNewStress(
       real imposedStatePlus[tensor::QInterpolated::size()],
       real imposedStateMinus[tensor::QInterpolated::size()],
@@ -89,6 +97,7 @@ protected:
       auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
       auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
       for (int i = 0; i < numberOfPoints; i++) {
+        //Carsten Uphoff Thesis: EQ.: 4.60
         imposedStateMinusView(i, 0) += timeWeights[j] * NorStressGP[j][i];
         imposedStateMinusView(i, 3) += timeWeights[j] * TractionGP_XY[j][i];
         imposedStateMinusView(i, 5) += timeWeights[j] * TractionGP_XZ[j][i];
@@ -124,7 +133,7 @@ public:
 
 
 class seissol::dr::fr_law::FL_2 : public seissol::dr::fr_law::Base {
-public:
+protected:
   //parameter for insta_healing
   //TODO: make this parameter better accessible?
   real u_0  = 10e-14; //slip rate is considered as being zero for instaneous healing
@@ -231,17 +240,12 @@ public:
   void integrateSliprateToGetSlip(
       real slip[numOfPointsPadded],
       std::array<real, numOfPointsPadded> &tmpSlip,
-      //yateto::DenseTensorView<2,double,unsigned> resampleMatrixView,
+      yateto::DenseTensorView<2,double,unsigned> &resampleMatrixView,
       std::array<real, numOfPointsPadded> &LocSlipRate,
       real DeltaT
   ){
     std::array<real, numOfPointsPadded> resampledSlipRate{0};
-    auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
-
-
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-      //matmul[iBndGP] = 0;
-
       //TODO: does not work with padded Points bc of resampleMatrix is not padded
       for (int j = 0; j < numberOfPoints; j++) {
         //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
@@ -266,7 +270,6 @@ public:
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
       //f1 = state variable
-      //TODO: remove this calc and add it to Friction function calculation
       stateVariablePsi[iBndGP] = std::min(std::abs(slip[iBndGP]) / d_c[iBndGP], 1.0);
     }
   }
@@ -300,7 +303,6 @@ public:
       }
     }
   }
-
 
   // output rupture front
   // outside of iTimeGP loop in order to safe an 'if' in a loop
@@ -341,7 +343,6 @@ public:
     }
   }
 
-
   void calcPeakSlipRate(
       real peakSR[numOfPointsPadded],
       std::array<real, numOfPointsPadded> &LocSlipRate){
@@ -351,7 +352,6 @@ public:
       }
     }
   }
-
 
   //---compute and store slip to determine the magnitude of an earthquake ---
   //    to this end, here the slip is computed and averaged per element
@@ -370,7 +370,7 @@ public:
     }
   }
 
-
+public:
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                         seissol::initializers::DynamicRupture *dynRup,
                         real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -427,9 +427,7 @@ public:
     //eta_p = Zp * Zp_neig / (Zp + Zp_neig);
     //eta_s = Zs * Zs_neig / (Zs + Zs_neig);
 
-
     #ifdef _OPENMP
-    //TODO: do parallel
     #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
     #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
@@ -465,8 +463,9 @@ public:
 
         updateDirectionalSlip(slip1[face], slip2[face], slipRate1[face], slipRate2[face], DeltaT[iTimeGP]);
 
-        integrateSliprateToGetSlip(slip[face], tmpSlip, LocSlipRate, DeltaT[iTimeGP]);
+        integrateSliprateToGetSlip(slip[face], tmpSlip, resampleMatrixView, LocSlipRate, DeltaT[iTimeGP]);
 
+        //actually slip is already the stateVariable for this FL, but to simplify the next equations we divide it here by d_C
         calcStateVariablePsi(stateVariablePsi, slip[face], d_c[face]);
 
         //hook for FL_16: may calculate a different value for the state variable Psi
@@ -560,8 +559,6 @@ public:
 
     auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
-
-
     //TODO: for anisotropic case it must be face dependent?
     //calculate Impedances Z
     real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
@@ -601,7 +598,7 @@ public:
       for(int j = 0; j < CONVERGENCE_ORDER; j++){
         auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[face][j]);
         auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[face][j]);
-        //TODO: does QInterpolatedMinusView work with padded access?
+        //TODO: does QInterpolatedMinusView work with padded access? No, but can we make it work?
         for(int i = 0; i < numOfPointsPadded; i++){
           //Carsten Uphoff Thesis: EQ.: 4.53
           NorStressGP[i][j] = eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) / Zp + QInterpolatedMinusView(i,0) / Zp_neig);
@@ -882,7 +879,7 @@ public:
           f2 = 0.0;
         }
       } else {
-        f2 = std::max(0.0, std::min((fullUpdateTime - forced_rupture_time[iBndGP] ) / t_0, 1.0));
+        f2 = std::max(0.0, std::min( 1.0, (fullUpdateTime - forced_rupture_time[iBndGP] ) / t_0));
       }
       stateVariablePsi[iBndGP] = std::max(stateVariablePsi[iBndGP], f2);
     }
