@@ -385,6 +385,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
 
     //edit adrian test
+    //TODO: delete my changes if frictionData is not needed anymore
     FrictionData*                        frictionData                                               = it->var(dynRup->frictionData);
 
 
@@ -607,3 +608,19 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
   }
 }
 
+//added by adrian
+void seissol::initializers::initializeFrictionMatrices(
+    seissol::dr::initializer::Base* FrictionInitializer,
+    DynamicRupture *dynRup,
+    LTSTree* dynRupTree,
+    std::unordered_map<std::string, double*> faultParameters,
+    unsigned*              ltsFaceToMeshFace,
+    seissol::Interoperability &e_interoperability
+    ){
+  FrictionInitializer->initializeFrictionMatrices(
+      dynRup,
+      dynRupTree,
+      faultParameters,
+      ltsFaceToMeshFace,
+      e_interoperability);
+}

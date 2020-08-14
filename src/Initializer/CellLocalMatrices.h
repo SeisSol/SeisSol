@@ -47,6 +47,7 @@
 #include <Initializer/tree/Lut.hpp>
 #include <Initializer/tree/LTSTree.hpp>
 #include <Initializer/DynamicRupture.h>
+#include <DynamicRupture/DR_factory.h>
 
 //added by adrian TODO remove:
 #include "Physics/tmpFrictionDataStruct.cpp"
@@ -79,6 +80,13 @@ namespace seissol {
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
+    void initializeFrictionMatrices(    seissol::dr::initializer::Base* FrictionInitializer,
+                                        DynamicRupture *dynRup,
+                                        LTSTree* dynRupTree,
+                                        std::unordered_map<std::string, double*> faultParameters,
+                                        unsigned*              ltsFaceToMeshFace,
+                                        seissol::Interoperability &e_interoperability
+    );
 
   }
 }

@@ -712,11 +712,6 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                       m_lts,
                                                       &m_ltsLut );
 
-  //added by adrian
-  // Code added by Adrian:
-  //TODO: remove tmpfricData
-  //m_friction_data = seissol::physics::TmpFrictionData(tensor::QInterpolated::Shape[0], getnSide() );
-
   seissol::initializers::initializeDynamicRuptureMatrices( seissol::SeisSol::main.meshReader(),
                                                            m_ltsTree,
                                                            m_lts,
@@ -729,7 +724,17 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                            m_timeStepping );
 
   //added by adrian
-  //TODO: put this into a function like above
+  //indirect call
+  //TODO: maybe put this function into the MemoryManager.cpp
+  seissol::initializers::initializeFrictionMatrices(
+      seissol::SeisSol::main.getMemoryManager().getDrInitializer(),
+      seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+      seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
+      m_faultParameters,
+      m_ltsFaceToMeshFace,
+      e_interoperability);
+
+  /* direct call
   seissol::SeisSol::main.getMemoryManager().getDrInitializer()->initializeFrictionMatrices(
           seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
           seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
@@ -737,7 +742,7 @@ void seissol::Interoperability::initializeCellLocalMatrices()
           m_ltsFaceToMeshFace,
           e_interoperability
           );
-
+*/
   seissol::initializers::initializeBoundaryMappings(seissol::SeisSol::main.meshReader(),
                                                     seissol::SeisSol::main.getMemoryManager().getEasiBoundaryReader(),
                                                     m_ltsTree,
