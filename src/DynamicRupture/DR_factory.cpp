@@ -12,8 +12,9 @@ namespace seissol {
                 switch (FrictionLawID) {
                     case Linear_slip_weakening: return new FL_2;
                     case Linear_slip_weakening_forced_time_rapture: return new FL_16;
-                    //case Linear_slip_weakening_insta_healing: return new FL_1002;
-                    //case Linear_slip_weakening_forced_time_rapture_insta_healing: return new FL_1016;
+
+                    case 3: return new FL_3;
+                    case 4: return new FL_4;
                     case 33: return new FL_33;
                     default:
                         throw std::runtime_error("unknown friction law");

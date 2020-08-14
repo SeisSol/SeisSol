@@ -5,14 +5,13 @@
 #ifndef SEISSOL_DR_OUTPUT_H
 #define SEISSOL_DR_OUTPUT_H
 
-#include "DR_LTS_Base.h"
 
 namespace seissol {
     namespace dr {
         namespace output {
             class Base;
             class FL_2;
-            class FL_16;
+            class FL_3;
             class FL_33;
         }
     }
@@ -84,19 +83,22 @@ public:
     }
 };
 
-class seissol::dr::output::FL_16 : public seissol::dr::output::Base {
+class seissol::dr::output::FL_3 : public seissol::dr::output::Base {
 public:
-    virtual void tiePointers(seissol::initializers::Layer&  layerData,
-            seissol::initializers::DynamicRupture *dynRup,
-            seissol::Interoperability &e_interoperability) override {
-        seissol::initializers::DR_FL_16 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_16 *>(dynRup);
-        std::cout << "tie ptr for FL_16\n";
-    }
+  virtual void tiePointers(seissol::initializers::Layer&  layerData,
+                           seissol::initializers::DynamicRupture *dynRup,
+                           seissol::Interoperability &e_interoperability) override {
+    seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
+    std::cout << "tie ptr for FL_33\n";
+  }
 
-    virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
-        std::cout << "output vars for FL_16\n";
-    }
+  virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
+    seissol::initializers::DR_FL_33 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 &>(DynRup);
+    std::cout << "output vars for FL_33\n";
+  }
 };
+
+
 
 class seissol::dr::output::FL_33 : public seissol::dr::output::Base {
 public:

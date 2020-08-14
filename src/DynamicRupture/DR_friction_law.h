@@ -6,7 +6,6 @@
 #define SEISSOL_DR_FRICTION_LAW_H
 
 #include <c++/8.3.0/iostream>
-#include "DR_LTS_Base.h"
 #include "DR_math.h"
 
 
@@ -15,8 +14,9 @@ namespace seissol {
     namespace fr_law {
       class Base;
       class FL_2;
+      class FL_3;  //aging law
+      class FL_4; //slip law
       class FL_16;
-      class FL_17;
       class FL_33;
     }
   }
@@ -381,35 +381,37 @@ public:
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
 
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()] = layerData.var(ConcreteLts->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()] = layerData.var(ConcreteLts->imposedStateMinus);
-    seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus = layerData.var(ConcreteLts->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus = layerData.var(ConcreteLts->waveSpeedsMinus);
-    real                    (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6] = layerData.var(ConcreteLts->initialStressInFaultCS);
-    real                    (*cohesion)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->cohesion);
-    real                    (*mu)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->mu);
-    real                    (*slip)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->slip);
-    real                    (*slip1)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->slip1);
-    real                    (*slip2)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->slip2);
-    real                    (*d_c)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->d_c);
-    real                    (*mu_S)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->mu_S);
-    real                    (*mu_D)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->mu_D);
-    bool                    (*inst_healing) = layerData.var(ConcreteLts->inst_healing);
-    real                    (*rupture_time)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->rupture_time);
-    bool                    (*RF)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->RF);
-    bool                    (*DS)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->DS);
-    real                    (*peakSR)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->peakSR);
-    real                    (*dynStress_time)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->dynStress_time);
-    real                    (*tracXY)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->tracXY);
-    real                    (*tracXZ)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->tracXZ);
-    real                    (*slipRate1)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->slipRate1);
-    real                    (*slipRate2)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->slipRate2);
-    bool                    (*magnitude_out) = layerData.var(ConcreteLts->magnitude_out);
-    real                    (*averaged_Slip) = layerData.var(ConcreteLts->averaged_Slip);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                        = layerData.var(ConcreteLts->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                       = layerData.var(ConcreteLts->waveSpeedsMinus);
+    real                    (*initialStressInFaultCS)[numOfPointsPadded][6]                     = layerData.var(ConcreteLts->initialStressInFaultCS);
+    real                    (*cohesion)[numOfPointsPadded]                                      = layerData.var(ConcreteLts->cohesion);
+    real                    (*d_c)[numOfPointsPadded]                                           = layerData.var(ConcreteLts->d_c);
+    real                    (*mu_S)[numOfPointsPadded]                                          = layerData.var(ConcreteLts->mu_S);
+    real                    (*mu_D)[numOfPointsPadded]                                          = layerData.var(ConcreteLts->mu_D);
+    bool                    (*inst_healing)                                                     = layerData.var(ConcreteLts->inst_healing);
+    bool                    (*magnitude_out)                                                    = layerData.var(ConcreteLts->magnitude_out);
+
+    real                    (*mu)[numOfPointsPadded]                                            = layerData.var(ConcreteLts->mu);
+    real                    (*slip)[numOfPointsPadded]                                          = layerData.var(ConcreteLts->slip);
+    real                    (*slip1)[numOfPointsPadded]                                         = layerData.var(ConcreteLts->slip1);
+    real                    (*slip2)[numOfPointsPadded]                                         = layerData.var(ConcreteLts->slip2);
+    real                    (*slipRate1)[numOfPointsPadded]                                     = layerData.var(ConcreteLts->slipRate1);
+    real                    (*slipRate2)[numOfPointsPadded]                                     = layerData.var(ConcreteLts->slipRate2);
+    real                    (*rupture_time)[numOfPointsPadded]                                  = layerData.var(ConcreteLts->rupture_time);
+    bool                    (*RF)[numOfPointsPadded]                                            = layerData.var(ConcreteLts->RF);
+    bool                    (*DS)[numOfPointsPadded]                                            = layerData.var(ConcreteLts->DS);
+    real                    (*peakSR)[numOfPointsPadded]                                        = layerData.var(ConcreteLts->peakSR);
+    real                    (*averaged_Slip)                                                    = layerData.var(ConcreteLts->averaged_Slip);
+
+    real                    (*dynStress_time)[numOfPointsPadded]                                = layerData.var(ConcreteLts->dynStress_time);
+    real                    (*tracXY)[numOfPointsPadded]                                        = layerData.var(ConcreteLts->tracXY);
+    real                    (*tracXZ)[numOfPointsPadded]                                        = layerData.var(ConcreteLts->tracXZ);
+    real                    (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(ConcreteLts->imposedStatePlus);
+    real                     (*imposedStateMinus)[tensor::QInterpolated::size()]                = layerData.var(ConcreteLts->imposedStateMinus);
 
     //only for FL16:
-    real                    (*forced_rupture_time)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->forced_rupture_time);
-    real                    *lts_t_0 = layerData.var(ConcreteLts->t_0);
+    real                    (*forced_rupture_time)[numOfPointsPadded]                           = layerData.var(ConcreteLts->forced_rupture_time);
+    real*                                   lts_t_0                                             = layerData.var(ConcreteLts->t_0);
 
     auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
@@ -524,38 +526,38 @@ public:
 
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
-    //std::cout << "computing DR for FL_2\n";
 
-    //DRFaceInformation*                    faceInformation                                                  = layerData.var(ConcreteLts->faceInformation);
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(ConcreteLts->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(ConcreteLts->imposedStateMinus);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(ConcreteLts->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(ConcreteLts->waveSpeedsMinus);
-    real                    (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]                      = layerData.var(ConcreteLts->initialStressInFaultCS);
-    real                    (*cohesion)[init::QInterpolated::Stop[0]]                                       = layerData.var(ConcreteLts->cohesion);
-    real                    (*mu)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->mu);
-    real                    (*slip)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->slip);
-    real                    (*slip1)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip1);
-    real                    (*slip2)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip2);
-    real                    (*d_c)[init::QInterpolated::Stop[0]]                                            = layerData.var(ConcreteLts->d_c);
-    real                    (*mu_S)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_S);
-    real                    (*mu_D)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_D);
-    bool                    (*inst_healing)                                                                 = layerData.var(ConcreteLts->inst_healing);
-    real                    (*rupture_time)[init::QInterpolated::Stop[0]]                                   = layerData.var(ConcreteLts->rupture_time);
-    bool                    (*RF)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->RF);
-    bool                    (*DS)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->DS);
-    real                    (*peakSR)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->peakSR);
-    real                    (*dynStress_time)[init::QInterpolated::Stop[0]]                                 = layerData.var(ConcreteLts->dynStress_time);
-    real                    (*tracXY)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXY);
-    real                    (*tracXZ)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXZ);
-    real                    (*slipRate1)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate1);
-    real                    (*slipRate2)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate2);
-    bool                    (*magnitude_out)                                                                = layerData.var(ConcreteLts->magnitude_out);
-    real                    (*averaged_Slip)                                                                = layerData.var(ConcreteLts->averaged_Slip);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                        = layerData.var(ConcreteLts->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                       = layerData.var(ConcreteLts->waveSpeedsMinus);
+    real                    (*initialStressInFaultCS)[numOfPointsPadded][6]                     = layerData.var(ConcreteLts->initialStressInFaultCS);
+    real                    (*cohesion)[numOfPointsPadded]                                      = layerData.var(ConcreteLts->cohesion);
+    real                    (*d_c)[numOfPointsPadded]                                           = layerData.var(ConcreteLts->d_c);
+    real                    (*mu_S)[numOfPointsPadded]                                          = layerData.var(ConcreteLts->mu_S);
+    real                    (*mu_D)[numOfPointsPadded]                                          = layerData.var(ConcreteLts->mu_D);
+    bool                    (*inst_healing)                                                     = layerData.var(ConcreteLts->inst_healing);
+    bool                    (*magnitude_out)                                                    = layerData.var(ConcreteLts->magnitude_out);
+
+    real                    (*mu)[numOfPointsPadded]                                            = layerData.var(ConcreteLts->mu);
+    real                    (*slip)[numOfPointsPadded]                                          = layerData.var(ConcreteLts->slip);
+    real                    (*slip1)[numOfPointsPadded]                                         = layerData.var(ConcreteLts->slip1);
+    real                    (*slip2)[numOfPointsPadded]                                         = layerData.var(ConcreteLts->slip2);
+    real                    (*slipRate1)[numOfPointsPadded]                                     = layerData.var(ConcreteLts->slipRate1);
+    real                    (*slipRate2)[numOfPointsPadded]                                     = layerData.var(ConcreteLts->slipRate2);
+    real                    (*rupture_time)[numOfPointsPadded]                                  = layerData.var(ConcreteLts->rupture_time);
+    bool                    (*RF)[numOfPointsPadded]                                            = layerData.var(ConcreteLts->RF);
+    bool                    (*DS)[numOfPointsPadded]                                            = layerData.var(ConcreteLts->DS);
+    real                    (*peakSR)[numOfPointsPadded]                                        = layerData.var(ConcreteLts->peakSR);
+    real                    (*averaged_Slip)                                                    = layerData.var(ConcreteLts->averaged_Slip);
+
+    real                    (*dynStress_time)[numOfPointsPadded]                                = layerData.var(ConcreteLts->dynStress_time);
+    real                    (*tracXY)[numOfPointsPadded]                                        = layerData.var(ConcreteLts->tracXY);
+    real                    (*tracXZ)[numOfPointsPadded]                                        = layerData.var(ConcreteLts->tracXZ);
+    real                    (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(ConcreteLts->imposedStatePlus);
+    real                     (*imposedStateMinus)[tensor::QInterpolated::size()]                = layerData.var(ConcreteLts->imposedStateMinus);
 
     //only for FL16:
-    real                    (*forced_rupture_time)[init::QInterpolated::Stop[0]]                            = layerData.var(ConcreteLts->forced_rupture_time);
-    real*                                   lts_t_0                                                         = layerData.var(ConcreteLts->t_0);
+    real                    (*forced_rupture_time)[numOfPointsPadded]                           = layerData.var(ConcreteLts->forced_rupture_time);
+    real*                                   lts_t_0                                             = layerData.var(ConcreteLts->t_0);
 
     auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
@@ -580,33 +582,14 @@ public:
     //TODO: split loop
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
 
-      real TractionGP_XY2[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-      real TractionGP_XZ2[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-      real NorStressGP2[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
-      real XYStressGP2[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
-      real XZStressGP2[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+      real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+      real TractionGP_XZ[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+      real NorStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+      real XYStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+      real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
 
-      precomputeStressFromQInterpolated(NorStressGP2, XYStressGP2, XZStressGP2,
-                                        QInterpolatedPlus[face], QInterpolatedMinus[face],  eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig);
-/*
-      real TractionGP_XY[numOfPointsPadded][CONVERGENCE_ORDER] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-      real TractionGP_XZ[numOfPointsPadded][CONVERGENCE_ORDER] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-      real NorStressGP[numOfPointsPadded][CONVERGENCE_ORDER] = {{}};
-      real XYStressGP[numOfPointsPadded][CONVERGENCE_ORDER]= {{}};
-      real XZStressGP[numOfPointsPadded][CONVERGENCE_ORDER]= {{}};
-
-      for(int j = 0; j < CONVERGENCE_ORDER; j++){
-        auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[face][j]);
-        auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[face][j]);
-        //TODO: does QInterpolatedMinusView work with padded access? No, but can we make it work?
-        for(int i = 0; i < numOfPointsPadded; i++){
-          //Carsten Uphoff Thesis: EQ.: 4.53
-          NorStressGP[i][j] = eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) / Zp + QInterpolatedMinusView(i,0) / Zp_neig);
-          XYStressGP[i][j]  = eta_s * (QInterpolatedMinusView(i,7) - QInterpolatedPlusView(i,7) + QInterpolatedPlusView(i,3) / Zs + QInterpolatedMinusView(i,3) / Zs_neig);
-          XZStressGP[i][j] = eta_s * (QInterpolatedMinusView(i,8) - QInterpolatedPlusView(i,8) + QInterpolatedPlusView(i,5) / Zs + QInterpolatedMinusView(i,5) / Zs_neig);
-        }
-      }
-*/
+      precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP,
+                                        QInterpolatedPlus[face], QInterpolatedMinus[face], eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig);
 
       //TODO: is this assert really needed?
       static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
@@ -644,7 +627,7 @@ public:
           tn = tn + DeltaT[iTimeGP]; //could be moved to FL_16 hook()
 
           //P[iBndGP] = initialStressInFaultCS[face][iBndGP][0] + NorStressGP[iBndGP][iTimeGP];
-          P[iBndGP] = initialStressInFaultCS[face][iBndGP][0] + NorStressGP2[iTimeGP][iBndGP];
+          P[iBndGP] = initialStressInFaultCS[face][iBndGP][0] + NorStressGP[iTimeGP][iBndGP];
 
           //fault strength (Uphoff eq 2.44)
           Strength[iBndGP] = cohesion[face][iBndGP] - mu[face][iBndGP] * std::min(P[iBndGP], 0.0);
@@ -654,8 +637,8 @@ public:
           //    seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP][iTimeGP], 2) +
           //    seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP][iTimeGP], 2));
           TotalShearStressYZ[iBndGP] = std::sqrt(
-              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP2[iTimeGP][iBndGP], 2) +
-              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP2[iTimeGP][iBndGP], 2));
+              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iTimeGP][iBndGP], 2) +
+              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iTimeGP][iBndGP], 2));
 
 
           LocSR[iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) / eta_s);
@@ -682,13 +665,13 @@ public:
           */
 
           LocSR1[iBndGP] = LocSR[iBndGP] * (initialStressInFaultCS[face][iBndGP][3] +
-                                            XYStressGP2[iTimeGP][iBndGP]) /
+                                            XYStressGP[iTimeGP][iBndGP]) /
                            (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
           LocSR2[iBndGP] = LocSR[iBndGP] * (initialStressInFaultCS[face][iBndGP][5] +
-                                            XZStressGP2[iTimeGP][iBndGP]) /
+                                            XZStressGP[iTimeGP][iBndGP]) /
                            (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
-          LocTracXY[iBndGP] = XYStressGP2[iTimeGP][iBndGP] - eta_s * LocSR1[iBndGP];
-          LocTracXZ[iBndGP] = XZStressGP2[iTimeGP][iBndGP] - eta_s * LocSR2[iBndGP];
+          LocTracXY[iBndGP] = XYStressGP[iTimeGP][iBndGP] - eta_s * LocSR1[iBndGP];
+          LocTracXZ[iBndGP] = XZStressGP[iTimeGP][iBndGP] - eta_s * LocSR2[iBndGP];
 
           //Update slip
           slip1[face][iBndGP] = slip1[face][iBndGP] + LocSR1[iBndGP] * DeltaT[iTimeGP];
@@ -728,8 +711,8 @@ public:
           }
 
           //TODO: why do we need LocTracXY
-          TractionGP_XY2[iTimeGP][iBndGP] = LocTracXY[iBndGP];
-          TractionGP_XZ2[iTimeGP][iBndGP] = LocTracXZ[iBndGP];
+          TractionGP_XY[iTimeGP][iBndGP] = LocTracXY[iBndGP];
+          TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ[iBndGP];
 
         }
       }     //end iTimeGP loop
@@ -778,34 +761,9 @@ public:
 
       postcomputeImposedStateFromNewStress(imposedStatePlus[face], imposedStateMinus[face],
                                            QInterpolatedPlus[face], QInterpolatedMinus[face],
-                                           NorStressGP2, TractionGP_XY2, TractionGP_XZ2,
+                                           NorStressGP, TractionGP_XY, TractionGP_XZ,
                                            timeWeights, Zp, Zp_neig, Zs, Zs_neig);
       /*
-      auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus[face]);
-      auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[face]);
-      //initialize to 0
-      imposedStateMinusView.setZero();
-      imposedStatePlusView.setZero();
-
-      for (int j = 0; j < CONVERGENCE_ORDER; j++) {
-        auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[face][j]);
-        auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[face][j]);
-        for (int i = 0; i < numberOfPoints; i++) {
-          imposedStateMinusView(i, 0) += timeWeights[j] * NorStressGP[i][j];
-          imposedStateMinusView(i, 3) += timeWeights[j] * TractionGP_XY[i][j];
-          imposedStateMinusView(i, 5) += timeWeights[j] * TractionGP_XZ[i][j];
-          imposedStateMinusView(i, 6) += timeWeights[j] * (QInterpolatedMinusView(i, 6) -  (NorStressGP[i][j] - QInterpolatedMinusView(i, 0))/  Zp_neig);
-          imposedStateMinusView(i, 7) += timeWeights[j] * (QInterpolatedMinusView(i, 7) -  (TractionGP_XY[i][j] - QInterpolatedMinusView(i, 3))/  Zs_neig);
-          imposedStateMinusView(i, 8) += timeWeights[j] * (QInterpolatedMinusView(i, 8) -  (TractionGP_XZ[i][j] - QInterpolatedMinusView(i, 5))/  Zs_neig);
-
-          imposedStatePlusView(i, 0) += timeWeights[j] * NorStressGP[i][j];
-          imposedStatePlusView(i, 3) += timeWeights[j] * TractionGP_XY[i][j];
-          imposedStatePlusView(i, 5) += timeWeights[j] * TractionGP_XZ[i][j];
-          imposedStatePlusView(i, 6) += timeWeights[j] * (QInterpolatedPlusView(i, 6) +  (NorStressGP[i][j] - QInterpolatedPlusView(i, 0)) /  Zp);
-          imposedStatePlusView(i, 7) += timeWeights[j] * (QInterpolatedPlusView(i, 7) +  (TractionGP_XY[i][j] - QInterpolatedPlusView(i, 3)) / Zs);
-          imposedStatePlusView(i, 8) += timeWeights[j] * (QInterpolatedPlusView(i, 8) +  (TractionGP_XZ[i][j] - QInterpolatedPlusView(i, 5)) / Zs);
-        } //End numberOfPoints-loop
-      } //End CONVERGENCE_ORDER-loop
 
       //assert(face != 4);
       */
@@ -831,22 +789,7 @@ public:
 
 };//End of Class
 
-class seissol::dr::fr_law::FL_17 : public seissol::dr::fr_law::Base {
-public:
-    virtual void hook() {}
 
-    virtual void evaluate(seissol::initializers::Layer&  layerData,
-                          seissol::initializers::DynamicRupture *dynRup,
-                          real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                          real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-                          real fullUpdateTime,
-                          real timeWeights[CONVERGENCE_ORDER],
-                          real DeltaT[CONVERGENCE_ORDER]) override {
-        //std::cout << "computing ";
-        hook();
-        //std::cout << " DR for FL_16\n";
-    }
-};
 
 class seissol::dr::fr_law::FL_16 : public seissol::dr::fr_law::FL_2 {
 public:
@@ -888,6 +831,94 @@ public:
 
 
 };
+
+
+class seissol::dr::fr_law::FL_3 : public seissol::dr::fr_law::Base {
+public:
+  virtual void hook() {}
+
+  virtual void evaluate(seissol::initializers::Layer&  layerData,
+                        seissol::initializers::DynamicRupture *dynRup,
+                        real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                        real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                        real fullUpdateTime,
+                        real timeWeights[CONVERGENCE_ORDER],
+                        real DeltaT[CONVERGENCE_ORDER]) override {
+
+    seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
+
+    seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus                           = layerData.var(ConcreteLts->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus                          = layerData.var(ConcreteLts->waveSpeedsMinus);
+    real                    (*initialStressInFaultCS)[numOfPointsPadded][6]       = layerData.var(ConcreteLts->initialStressInFaultCS);
+    real                    (*cohesion)[numOfPointsPadded]                        = layerData.var(ConcreteLts->cohesion);
+    real*                   RS_f0                                                 = layerData.var(ConcreteLts->RS_f0);
+    real*                   RS_a                                                  = layerData.var(ConcreteLts->RS_a);
+    real*                   RS_b                                                  = layerData.var(ConcreteLts->RS_b);
+    real*                   RS_sl0                                                = layerData.var(ConcreteLts->RS_sl0);
+    real*                   RS_sr0                                                = layerData.var(ConcreteLts->RS_sr0);
+
+    real                    (*mu)[numOfPointsPadded]                              = layerData.var(ConcreteLts->mu);
+    real                    (*slip)[numOfPointsPadded]                            = layerData.var(ConcreteLts->slip);
+    real                    (*slip1)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slip1);
+    real                    (*slip2)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slip2);
+    real                    (*slipRate1)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRate1);
+    real                    (*slipRate2)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRate2);
+    real                    (*rupture_time)[numOfPointsPadded]                    = layerData.var(ConcreteLts->rupture_time);
+    bool                    (*RF)[numOfPointsPadded]                              = layerData.var(ConcreteLts->RF);
+    real                    (*peakSR)[numOfPointsPadded]                          = layerData.var(ConcreteLts->peakSR);
+    real                    (*StateVar)[numOfPointsPadded]                        = layerData.var(ConcreteLts->StateVar);
+
+    real                    (*tracXY)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tracXY);
+    real                    (*tracXZ)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tracXZ);
+    real                    (*imposedStatePlus)[tensor::QInterpolated::size()]    = layerData.var(ConcreteLts->imposedStatePlus);
+    real                    (*imposedStateMinus)[tensor::QInterpolated::size()]   = layerData.var(ConcreteLts->imposedStateMinus);
+
+    //TODO: for anisotropic case it must be face dependent?
+    //calculate Impedances Z
+    real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
+    Zp = (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
+    Zp_neig = (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
+    Zs = (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
+    Zs_neig = (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
+
+    eta_p = 1.0 / (1.0 / Zp + 1.0 / Zp_neig);
+    eta_s = 1.0 / (1.0 / Zs + 1.0 / Zs_neig);
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
+#endif
+    for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+
+      //TODO: merge TractionGP_XY and tracXY in one variable
+      real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+      real TractionGP_XZ[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
+      real NorStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+      real XYStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+      real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+
+      precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP,
+                                        QInterpolatedPlus[face], QInterpolatedMinus[face], eta_p, Zp, Zp_neig, eta_s,
+                                        Zs, Zs_neig);
+
+
+      hook();
+
+      postcomputeImposedStateFromNewStress(imposedStatePlus[face], imposedStateMinus[face],
+                                           QInterpolatedPlus[face], QInterpolatedMinus[face],
+                                           NorStressGP, TractionGP_XY, TractionGP_XZ,
+                                           timeWeights, Zp, Zp_neig, Zs, Zs_neig);
+    } //end face-loop
+  } //end evaluate function
+};
+
+class seissol::dr::fr_law::FL_4 : public seissol::dr::fr_law::FL_3 {
+public:
+  virtual void hook() override{
+
+  }
+
+};
+
 
 class seissol::dr::fr_law::FL_33 : public seissol::dr::fr_law::Base {
 public:
