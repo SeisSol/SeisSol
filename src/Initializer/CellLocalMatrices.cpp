@@ -405,7 +405,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       size_t numberOfPoints = tensor::QInterpolated::Shape[0];
 
       //frictionData[ltsFace].initialStressInFaultCS = &TmpFricData.initialStressInFaultCS[meshFace*6*numberOfPoints];   //not in faultParameters
-
+/*
       frictionData[ltsFace].d_c = &faultParameters["d_c"][meshFace * numberOfPoints];
       frictionData[ltsFace].cohesion = &faultParameters["cohesion"][meshFace * numberOfPoints];
       frictionData[ltsFace].mu_S = &faultParameters["mu_s"][meshFace * numberOfPoints];
@@ -439,7 +439,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       frictionData[ltsFace].dynStress_time  = (double*) calloc (numberOfPoints,sizeof(double));
       frictionData[ltsFace].tracXY = (double*) calloc (numberOfPoints,sizeof(double));
       frictionData[ltsFace].tracXZ = (double*) calloc (numberOfPoints,sizeof(double));
-
+*/
 
       /// Face information
       faceInformation[ltsFace].meshFace = meshFace;

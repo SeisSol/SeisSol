@@ -402,7 +402,7 @@ module f_ctof_bind_interoperability
       l_RS_sl0                  = l_domain%DISC%DynRup%RS_sl0
       l_RS_sr0                  = l_domain%DISC%DynRup%RS_sr0
 
-      l_stateVar           =  l_domain%DISC%DynRup%StateVar(:,iFace)
+      !l_stateVar           =  l_domain%DISC%DynRup%StateVar(:,iFace)
 
     end subroutine
 

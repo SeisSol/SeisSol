@@ -254,6 +254,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
   FrictionData*                         frictionData                                                      = layerData.var(m_dynRup->frictionData);
+  real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
+  real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
+
 /*
   seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(m_dynRup);
   real*                                   lts_t_0                                                         = layerData.var(ConcreteLts->t_0);
@@ -288,7 +291,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     //TODO: outsource this to initialization:
     const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
     if(m_friction_data.initialized == false){
-        e_interoperability.getTmpFrictionData(m_friction_data);
+        //e_interoperability.getTmpFrictionData(m_friction_data);
         m_friction_data.initialized = true;
     }
     m_friction_data.tmpFrictionOnly = true;
@@ -374,8 +377,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus[face],
                                             QInterpolatedMinus[face],
-                                            imposedStatePlusTest[face],
-                                            imposedStateMinusTest[face],
+                                            imposedStatePlus[face],
+                                            imposedStateMinus[face],
                                             m_fullUpdateTime,
                                             m_dynamicRuptureKernel.timePoints,
                                             m_dynamicRuptureKernel.timeWeights,
@@ -404,17 +407,17 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     //m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus[face], QInterpolatedMinus[face], face, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
   } //End layerData.getNumberOfCells()-loop
+
   seissol::dr::fr_law::FL_2 *FL2 = dynamic_cast<seissol::dr::fr_law::FL_2*>(m_FrictonLaw);
   //FL2->evaluate2(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
-  m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
+  //m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
-  m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
+  //m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
-
+/*
   //debugging:
-    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
-    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
+
   bool imposedStatePlusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   bool imposedStateMinusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {

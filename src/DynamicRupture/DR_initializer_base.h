@@ -65,7 +65,8 @@ public:
         }
         //get initial values from fortran
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
-          cohesion[ltsFace][iBndGP]               = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
+          //does not work???
+          //cohesion[ltsFace][iBndGP]               = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
         }
         //initialize padded elements for vectorization
         for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
