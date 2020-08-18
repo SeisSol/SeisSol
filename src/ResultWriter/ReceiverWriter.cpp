@@ -56,8 +56,8 @@ std::string seissol::writer::ReceiverWriter::fileName(unsigned pointId) const {
   return fns.str();
 }
 
-void seissol::writer::ReceiverWriter::writeHeader(  unsigned                          pointId,
-                                    glm::dvec3 const&                 point   ) {
+void seissol::writer::ReceiverWriter::writeHeader( unsigned               pointId,
+                                                   Eigen::Vector3d const& point   ) {
   auto name = fileName(pointId);
 
   std::vector<std::string> names({"xx", "yy", "zz", "xy", "yz", "xz", "u", "v", "w"});
@@ -131,11 +131,11 @@ void seissol::writer::ReceiverWriter::init( std::string const&  fileNamePrefix,
   Modules::registerHook(*this, SYNCHRONIZATION_POINT);
 }
 
-void seissol::writer::ReceiverWriter::addPoints(  std::vector<glm::dvec3> const&    points,
-                                                  MeshReader const&                 mesh,
-                                                  seissol::initializers::Lut const& ltsLut,
-                                                  seissol::initializers::LTS const& lts,
-                                                  GlobalData const*                 global ) {
+void seissol::writer::ReceiverWriter::addPoints(  std::vector<Eigen::Vector3d> const& points,
+                                                  MeshReader const&                   mesh,
+                                                  seissol::initializers::Lut const&   ltsLut,
+                                                  seissol::initializers::LTS const&   lts,
+                                                  GlobalData const*                   global ) {
   int rank = seissol::MPI::mpi.rank();
   unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);

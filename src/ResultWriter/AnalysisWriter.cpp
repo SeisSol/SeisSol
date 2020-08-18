@@ -182,8 +182,8 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       MPI_MAXLOC,
       comm);
 
-    for (unsigned int i = 0; i < numberOfQuantities; ++i) {
-      VrtxCoords centerSend;
+    for (int i = 0; i < numberOfQuantities; ++i) {
+      VrtxCoords centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]],
             vertices,
             centerSend);
@@ -194,7 +194,7 @@ void seissol::writer::AnalysisWriter::printAnalysis(double simulationTime) {
       }
 
       if (mpi.rank() == 0) {
-        VrtxCoords centerRecv;
+        VrtxCoords centerRecv{};
         if (errLInfRecv[i].rank == 0) {
           std::copy_n(centerSend, 3, centerRecv);
         } else {

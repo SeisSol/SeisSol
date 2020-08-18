@@ -108,14 +108,13 @@ unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::Mesh
 }
 
 void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
-                                            int order, int numAlignedDOF,
-                                            const MeshReader &meshReader,
-                                            const double* dofs, const double* pstrain, const double* integrals,
-                                            unsigned int* map,
-                                            int refinement, int* outputMask,
-                                            const double* outputRegionBounds,
-                                            const std::unordered_set<int>& outputGroups,
-                                            xdmfwriter::BackendType backend)
+		int order, int numAlignedDOF,
+		const MeshReader &meshReader, const std::vector<unsigned> &LtsClusteringData,
+		const double* dofs,  const double* pstrain, const double* integrals,
+		unsigned int* map,
+		int refinement, int* outputMask, double* outputRegionBounds,
+    const std::unordered_set<int>& outputGroups,
+    xdmfwriter::BackendType backend)
 {
 	if (!m_enabled)
 		return;
@@ -346,6 +345,7 @@ void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
 
 	// Initialize the executor
 	callInit(param);
+  m_executor.setClusteringData(LtsClusteringData.data());
 
 	// Remove buffers
 	removeBuffer(param.bufferIds[OUTPUT_PREFIX]);

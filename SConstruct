@@ -347,8 +347,8 @@ if env['scalasca'] == 'kernels_2.x':
 #
 
 # enforce restrictive C/C++-Code
-env.Append(CFLAGS   = ['-Wall', '-Werror', '-ansi'],
-           CXXFLAGS = ['-Wall', '-Werror', '-ansi'])
+env.Append(CFLAGS   = ['-Wall', '-Werror', '-ansi', '-Wno-unused-function'],
+           CXXFLAGS = ['-Wall', '-Werror', '-ansi', '-Wno-unused-function'])
 if env['compiler'] == 'intel':
     env.Append(CXXFLGAS = ['-wd13379'])
 elif env['compiler'] == 'gcc':
@@ -424,7 +424,7 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
         env.Append(F90FLAGS = ['-fno-alias'])
 
 # C++ Standard
-env.Append(CXXFLAGS=['-std=c++11'])
+env.Append(CXXFLAGS=['-std=c++17'])
 
 #
 # Basic preprocessor defines
@@ -503,7 +503,7 @@ else:
   assert(false)
 
 # add include path for submodules
-env.Append( CPPPATH=['#/submodules', '#/submodules/glm', '#/submodules/yateto/include', '#/submodules/eigen3'] )
+env.Append( CPPPATH=['#/submodules', '#/submodules/yateto/include', '#/submodules/eigen3'] )
 #
 # add libraries
 #
@@ -515,10 +515,6 @@ env.Tool('LibxsmmTool', required=True)
 
 # Library pathes
 env.Tool('DirTool', fortran=True)
-
-# GLM
-# Some C++ GLM features are not working with the Intel Compiler
-env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
 # netCDF
 if env['netcdf'] == 'yes':
@@ -632,7 +628,7 @@ env.generatedSourceFiles = []
 env.generatedTestSourceFiles = []
 
 # Generate the version file
-utils.gitversion.generateHeader(env, target='#/src/version.h')
+utils.gitversion.generateHeader(env, target=env['buildDir']+'/version.h')
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir=env['buildDir'] + '/generated_code', duplicate=0)

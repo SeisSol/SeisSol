@@ -50,9 +50,11 @@ solverFiles = [ 'calc_seissol.f90',
                 'f_ctof_bind_interoperability.f90',
                 'FreeSurfaceIntegrator.cpp',
                 'Interoperability.cpp',
+                'time_stepping/AbstractTimeCluster.cpp',
                 'time_stepping/MiniSeisSol.cpp',
                 'time_stepping/TimeCluster.cpp',
                 'time_stepping/TimeManager.cpp',
+                'time_stepping/GhostTimeCluster.cpp',
                 'Simulator.cpp' ]
 
 # source files for mpi parallelizazion

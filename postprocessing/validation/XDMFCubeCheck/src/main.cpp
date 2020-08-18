@@ -42,8 +42,7 @@
 
 #include <hdf5.h>
 
-#include <glm/vec3.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#include <Eigen/Dense>
 
 #include "utils/args.h"
 
@@ -133,14 +132,14 @@ int main(int argc, char* argv[])
 	// Compute parameters
 	const double maxDiff = args.getArgument("diff", 0.001);
 
-	glm::dvec3 vec_n(1, 1, 1);
-	const double n = 1.0/glm::length(vec_n);
-	const double mu = 1.0;
-	const double lambda = 2.0;
-	const double rho = 1.0;
+      Eigen::Vector3d vec_n(1, 1, 1);
+      const double n = 1.0/(vec_n.norm());
+      const double mu = 1.0;
+      const double lambda = 2.0;
+      const double rho = 1.0;
 
-	const double r1[9] = {
-			rho * (-2.0*pow2(n)*mu - 2.0*pow2(n)*mu + lambda + 2.0*mu),
+      const double r1[9] = {
+                      rho * (-2.0*pow2(n)*mu - 2.0*pow2(n)*mu + lambda + 2.0*mu),
 			rho * (2.0*pow2(n)*mu + lambda),
 			rho * (2.0*pow2(n)*mu + lambda),
 			2.0 * n * mu * n * rho,
@@ -163,21 +162,21 @@ int main(int argc, char* argv[])
 			0
 	};
 
-	const glm::dvec3 k = 2.0 * M_PI / 100 * glm::dvec3(1, 1, 1);
+	const Eigen::Vector3d k = 2.0 * M_PI / 100 * Eigen::Vector3d(1, 1, 1);
 
 	// Check cells
 	bool failed = false;
 
 	for (unsigned int i = 0; i < numCells; i++) {
-		const glm::dvec3 a = glm::make_vec3(&vertices[cells[i*4] * 3]);
-		const glm::dvec3 b = glm::make_vec3(&vertices[cells[i*4 + 1] * 3]);
-		const glm::dvec3 c = glm::make_vec3(&vertices[cells[i*4 + 2] * 3]);
-		const glm::dvec3 d = glm::make_vec3(&vertices[cells[i*4 + 3] * 3]);
+		const Eigen::Vector3d a = Eigen::Vector3d(&vertices[cells[i*4] * 3]);
+		const Eigen::Vector3d b = Eigen::Vector3d(&vertices[cells[i*4 + 1] * 3]);
+		const Eigen::Vector3d c = Eigen::Vector3d(&vertices[cells[i*4 + 2] * 3]);
+		const Eigen::Vector3d d = Eigen::Vector3d(&vertices[cells[i*4 + 3] * 3]);
 
 		seissol::refinement::Tetrahedron<double> tet(a, b, c, d);
-		const glm::dvec3 center = tet.center();
+		const Eigen::Vector3d center = tet.center();
 
-		const double kx = glm::dot(k, center);
+		const double kx = k.dot(center);
 
 		for (unsigned int j = 0; j < 9; j++) {
 			const double value = r1[j]*sin(kx) + r8[j]*sin(kx);

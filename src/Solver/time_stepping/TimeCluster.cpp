@@ -95,61 +95,48 @@ extern volatile unsigned int* volatile g_handleSends;
 //! fortran interoperability
 extern seissol::Interoperability e_interoperability;
 
-seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                   i_clusterId,
-                                                  unsigned int                   i_globalClusterId,
-                                                  struct MeshStructure          *i_meshStructure,
-                                                  struct GlobalData             *i_globalData,
-                                                  seissol::initializers::TimeCluster* i_clusterData,
-                                                  seissol::initializers::TimeCluster* i_dynRupClusterData,
-                                                  seissol::initializers::LTS*         i_lts,
-                                                  seissol::initializers::DynamicRupture* i_dynRup,
-                                                  LoopStatistics*                        i_loopStatistics ):
- // cluster ids
- m_clusterId(               i_clusterId                ),
- m_globalClusterId(         i_globalClusterId          ),
- // mesh structure
- m_meshStructure(           i_meshStructure            ),
- // global data
- m_globalData(              i_globalData               ),
- m_clusterData(             i_clusterData              ),
- m_dynRupClusterData(       i_dynRupClusterData        ),
- m_lts(                     i_lts                      ),
- m_dynRup(                  i_dynRup                   ),
- // cells
- m_cellToPointSources(      NULL                       ),
- m_numberOfCellToPointSourcesMappings(0                ),
- m_pointSources(            NULL                       ),
-
- m_loopStatistics(          i_loopStatistics           ),
- m_receiverCluster(          nullptr                   )
+seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
+                                                 unsigned int i_globalClusterId,
+                                                 double maxTimeStepSize,
+                                                 long timeStepRate,
+                                                 double timeTolerance,
+                                                 bool printProgress,
+                                                 struct GlobalData *i_globalData,
+                                                 seissol::initializers::Layer *i_clusterData,
+                                                 seissol::initializers::Layer *i_dynRupClusterData,
+                                                 seissol::initializers::LTS *i_lts,
+                                                 seissol::initializers::DynamicRupture *i_dynRup,
+                                                 LoopStatistics *i_loopStatistics) :
+    AbstractTimeCluster(maxTimeStepSize, timeTolerance, timeStepRate),
+    // cluster ids
+    m_clusterId(i_clusterId),
+    m_globalClusterId(i_globalClusterId),
+    // global data
+    m_globalData(i_globalData),
+    m_clusterData(i_clusterData),
+    m_dynRupClusterData(i_dynRupClusterData),
+    m_lts(i_lts),
+    m_dynRup(i_dynRup),
+    // cells
+    m_cellToPointSources(nullptr),
+    m_numberOfCellToPointSourcesMappings(0),
+    m_pointSources(nullptr),
+    m_loopStatistics(i_loopStatistics),
+    m_receiverCluster(nullptr),
+    printProgress(printProgress)
 {
-    // assert all pointers are valid
-    assert( m_meshStructure                            != NULL );
-    assert( m_globalData                               != NULL );
-    assert( m_clusterData                              != NULL );
+    assert( m_globalData                               != nullptr);
+    assert( m_clusterData                              != nullptr);
 
   // default: no updates are allowed
-  m_updatable.localCopy           = false;
-  m_updatable.neighboringCopy     = false;
-  m_updatable.localInterior       = false;
-  m_updatable.neighboringInterior = false;
 #ifdef USE_MPI
-  m_sendLtsBuffers                = false;
+  //m_sendLtsBuffers                = false;
 #endif
-  m_resetLtsBuffers               = false;
   // set timings to zero
-  m_numberOfTimeSteps             = 0;
   m_receiverTime                  = 0;
-  m_timeStepWidth                 = 0;
-  m_subTimeStart                  = 0;
-  m_numberOfFullUpdates           = 0;
-  m_fullUpdateTime                = 0;
-  m_predictionTime                = 0;
 
-  m_dynamicRuptureFaces = (i_dynRupClusterData->child<Ghost>().getNumberOfCells() > 0)
-	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
-	|| (i_dynRupClusterData->child<Interior>().getNumberOfCells() > 0);
-  
+  m_dynamicRuptureFaces = i_dynRupClusterData->getNumberOfCells() > 0;
+
   m_timeKernel.setGlobalData(m_globalData);
   m_localKernel.setGlobalData(m_globalData);
   m_localKernel.setInitConds(&e_interoperability.getInitialConditions());
@@ -165,7 +152,7 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
 #ifndef NDEBUG
-  logInfo() << "#(time steps):" << m_numberOfTimeSteps;
+  logInfo() << "#(time steps):" << numberOfTimeSteps;
 #endif
 }
 
@@ -182,7 +169,7 @@ void seissol::time_stepping::TimeCluster::writeReceivers() {
   SCOREP_USER_REGION( "writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   if (m_receiverCluster != nullptr) {
-    m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, m_fullUpdateTime, m_timeStepWidth);
+    m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize());
   }
 }
 
@@ -205,8 +192,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
                                                        m_pointSources->A[source],
                                                        m_pointSources->stiffnessTensor[source],
                                                        m_pointSources->slipRates[source],
-                                                       m_fullUpdateTime,
-                                                       m_fullUpdateTime + m_timeStepWidth,
+                                                       ct.correctionTime,
+                                                       ct.correctionTime + timeStepSize(),
                                                        *m_cellToPointSources[mapping].dofs );
         }
       } else {
@@ -214,8 +201,8 @@ void seissol::time_stepping::TimeCluster::computeSources() {
           sourceterm::addTimeIntegratedPointSourceFSRM( m_pointSources->mInvJInvPhisAtSources[source],
                                                         m_pointSources->tensor[source],
                                                         m_pointSources->slipRates[source][0],
-                                                        m_fullUpdateTime,
-                                                        m_fullUpdateTime + m_timeStepWidth,
+                                                        ct.correctionTime,
+                                                        ct.correctionTime + timeStepSize(),
                                                         *m_cellToPointSources[mapping].dofs );
         }
       }
@@ -240,6 +227,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
+  m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
@@ -260,7 +248,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             QInterpolatedMinus,
                                             imposedStatePlus[face],
                                             imposedStateMinus[face],
-                                            m_fullUpdateTime,
+                                            ct.correctionTime,
                                             m_dynamicRuptureKernel.timePoints,
                                             m_dynamicRuptureKernel.timeWeights,
                                             waveSpeedsPlus[face],
@@ -271,10 +259,10 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 }
 
 
-void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::initializers::Layer& layerData,
-                                                                      long long&                    nonZeroFlops,
-                                                                      long long&                    hardwareFlops )
+void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops(seissol::initializers::Layer& layerData)
 {
+  auto& nonZeroFlops = m_flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)];
+  auto& hardwareFlops = m_flops_hardware[static_cast<int>(ComputePart::DRNeighbor)];
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
@@ -282,142 +270,14 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::i
 
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     long long faceNonZeroFlops, faceHardwareFlops;
-    m_dynamicRuptureKernel.flopsGodunovState( faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
+    m_dynamicRuptureKernel.flopsGodunovState(faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
 
     nonZeroFlops += faceNonZeroFlops;
     hardwareFlops += faceHardwareFlops;
   }
 }
 
-#ifdef USE_MPI
-/*
- * MPI-Communication during the simulation; exchange of DOFs.
- */
-void seissol::time_stepping::TimeCluster::receiveGhostLayer(){
-  SCOREP_USER_REGION( "receiveGhostLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-  /*
-   * Receive data of the ghost regions
-   */
-  for( unsigned int l_region = 0; l_region < m_meshStructure->numberOfRegions; l_region++ ) {
-    // continue only if the cluster qualifies for communication
-    if( m_resetLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= static_cast<int>(m_globalClusterId) ) {
-      // post receive request
-      MPI_Irecv(   m_meshStructure->ghostRegions[l_region],                // initial address
-                   m_meshStructure->ghostRegionSizes[l_region],            // number of elements in the receive buffer
-                   MPI_C_REAL,                                               // datatype of each receive buffer element
-                   m_meshStructure->neighboringClusters[l_region][0],      // rank of source
-                   timeData+m_meshStructure->receiveIdentifiers[l_region], // message tag
-                   seissol::MPI::mpi.comm(),                               // communicator
-                   m_meshStructure->receiveRequests + l_region             // communication request
-               );
-
-      // add receive request to list of receives
-      m_receiveQueue.push_back( m_meshStructure->receiveRequests + l_region );
-    }
-  }
-}
-
-void seissol::time_stepping::TimeCluster::sendCopyLayer(){
-  SCOREP_USER_REGION( "sendCopyLayer", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-  /*
-   * Send data of the copy regions
-   */
-  for( unsigned int l_region = 0; l_region < m_meshStructure->numberOfRegions; l_region++ ) {
-    if( m_sendLtsBuffers || m_meshStructure->neighboringClusters[l_region][1] <= static_cast<int>(m_globalClusterId) ) {
-      // post send request
-      MPI_Isend(   m_meshStructure->copyRegions[l_region],              // initial address
-                   m_meshStructure->copyRegionSizes[l_region],          // number of elements in the send buffer
-                   MPI_C_REAL,                                            // datatype of each send buffer element
-                   m_meshStructure->neighboringClusters[l_region][0],   // rank of destination
-                   timeData+m_meshStructure->sendIdentifiers[l_region], // message tag
-                   seissol::MPI::mpi.comm(),                            // communicator
-                   m_meshStructure->sendRequests + l_region             // communication request
-               );
-
-      // add send request to list of sends
-      m_sendQueue.push_back(m_meshStructure->sendRequests + l_region );
-    }
-  }
-}
-
-bool seissol::time_stepping::TimeCluster::testForGhostLayerReceives(){
-  SCOREP_USER_REGION( "testForGhostLayerReceives", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-#if defined(_OPENMP) && defined(USE_COMM_THREAD)
-  bool l_return;
-  if (g_handleRecvs[m_clusterId] == 0) {
-    l_return = true;
-  } else {
-    l_return = false;
-  }
-  return l_return;
-#else
-  // iterate over all pending receives
-  for( std::list<MPI_Request*>::iterator l_receive = m_receiveQueue.begin(); l_receive != m_receiveQueue.end(); ) {
-    int l_mpiStatus = 0;
-
-    // check if the receive is complete
-    MPI_Test( *l_receive, &l_mpiStatus, MPI_STATUS_IGNORE );
-
-    // remove from list of pending receives if completed
-    if( l_mpiStatus == 1 )   l_receive = m_receiveQueue.erase( l_receive );
-    // continue otherwise
-    else                   ++l_receive;
-  }
-
-  // return true if the communication is finished
-  return m_receiveQueue.empty();
-#endif
-}
-
-bool seissol::time_stepping::TimeCluster::testForCopyLayerSends(){
-  SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-#if defined(_OPENMP) && defined(USE_COMM_THREAD)
-  bool l_return;
-  if (g_handleSends[m_clusterId] == 0) {
-    l_return = true;
-  } else {
-    l_return = false;
-  }
-  return l_return;
-#else
-  for( std::list<MPI_Request*>::iterator l_send = m_sendQueue.begin(); l_send != m_sendQueue.end(); ) {
-    int l_mpiStatus = 0;
-
-    // check if the send is complete
-    MPI_Test( *l_send, &l_mpiStatus, MPI_STATUS_IGNORE );
-
-    // remove from list of pending sends if completed
-    if( l_mpiStatus == 1 )   l_send = m_sendQueue.erase( l_send );
-    // continue otherwise
-    else                   ++l_send;
-  }
-
-  // return true if the communication is finished
-  return m_sendQueue.empty();
-#endif
-}
-
-#if defined(_OPENMP) && defined(USE_COMM_THREAD)
-void seissol::time_stepping::TimeCluster::initReceiveGhostLayer(){
-  g_handleRecvs[m_clusterId] = 1;
-}
-
-void seissol::time_stepping::TimeCluster::initSendCopyLayer(){
-  g_handleSends[m_clusterId] = 1;
-}
-
-void seissol::time_stepping::TimeCluster::waitForInits() {
-  while( g_handleRecvs[m_clusterId] == 1 || g_handleSends[m_clusterId] == 1 );
-}
-#endif
-
-#endif
-
-void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData ) {
+void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initializers::Layer& i_layerData, bool resetBuffers ) {
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
@@ -435,20 +295,22 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
 
   kernels::LocalData::Loader loader;
   loader.load(*m_lts, i_layerData);
-  kernels::LocalTmp tmp;
+  kernels::LocalTmp tmp{};
 
 #ifdef _OPENMP
   #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer, tmp) schedule(static)
 #endif
-  for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
+  for (unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++) {
     auto data = loader.entry(l_cell);
-    // overwrite cell buffer
-    // TODO: Integrate this step into the kernel
 
-    bool l_buffersProvided = (data.cellInformation.ltsSetup >> 8)%2 == 1; // buffers are provided
-    bool l_resetBuffers = l_buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || m_resetLtsBuffers ); // they should be reset
+    // We need to check, whether we can overwrite the buffer or if it is
+    // needed by some other time cluster.
+    // If we cannot overwrite the buffer, we compute everything in a temporary
+    // local buffer and accumulate the results later in the shared buffer.
+    const bool buffersProvided = (data.cellInformation.ltsSetup >> 8) % 2 == 1; // buffers are provided
+    const bool resetMyBuffers = buffersProvided && ( (data.cellInformation.ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
 
-    if (l_resetBuffers) {
+    if (resetMyBuffers) {
       // assert presence of the buffer
       assert(buffers[l_cell] != nullptr);
 
@@ -458,7 +320,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       l_bufferPointer = l_integrationBuffer;
     }
 
-    m_timeKernel.computeAder(m_timeStepWidth,
+    m_timeKernel.computeAder(timeStepSize(),
                              data,
                              tmp,
                              l_bufferPointer,
@@ -471,10 +333,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
                                   tmp,
                                   &materialData[l_cell],
                                   &boundaryMapping[l_cell],
-                                  m_fullUpdateTime,
-                                  m_timeStepWidth
+                                  ct.correctionTime,
+                                  timeStepSize()
     );
-    
+
     // Update displacement
     if (displacements[l_cell] != nullptr) {
       kernel::addVelocity krnl;
@@ -484,10 +346,11 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       krnl.execute();
     }
 
-    // update lts buffers if required
     // TODO: Integrate this step into the kernel
-    if (!l_resetBuffers && l_buffersProvided) {
-      assert (buffers[l_cell] != nullptr);
+    // We've used a temporary buffer -> need to accumulate update in
+    // shared buffer.
+    if (!resetMyBuffers && buffersProvided) {
+      assert(buffers[l_cell] != nullptr);
 
       for (unsigned int l_dof = 0; l_dof < tensor::I::size(); ++l_dof) {
         buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
@@ -498,7 +361,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
   m_loopStatistics->end(m_regionComputeLocalIntegration, i_layerData.getNumberOfCells());
 }
 
-void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
+void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData, double subTimeStart ) {
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
@@ -507,6 +370,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
   CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
 #ifdef USE_PLASTICITY
+  updateRelaxTime();
   PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
   real (*pstrain)[7] = i_layerData.var(m_lts->pstrain);
   unsigned numberOTetsWithPlasticYielding = 0;
@@ -517,6 +381,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
   real *l_timeIntegrated[4];
   real *l_faceNeighbors_prefetch[4];
+
+  //std::cout << "dt_max=" << ct.maxTimeStepSize << " dt=" << timeStepSize() << " t_sub=" << subTimeStart << std::endl;
 
 #ifdef _OPENMP
 #ifdef USE_PLASTICITY
@@ -530,8 +396,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
     seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
                                                    data.cellInformation.ltsSetup,
                                                    data.cellInformation.faceTypes,
-                                                   m_subTimeStart,
-                                                   m_timeStepWidth,
+                                                   subTimeStart,
+                                                   timeStepSize(),
                                                    faceNeighbors[l_cell],
 #ifdef _OPENMP
                                                    *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalData->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
@@ -573,14 +439,14 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
 
 #ifdef USE_PLASTICITY
   numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_relaxTime,
-                                                                                     m_timeStepWidth,
+                                                                                     timeStepSize(),
                                                                                      m_globalData,
                                                                                      &plasticity[l_cell],
                                                                                      data.dofs,
                                                                                      pstrain[l_cell] );
 #endif
 #ifdef INTEGRATE_QUANTITIES
-  seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
+  seissol::SeisSol::main.postProcessor().integrateQuantities( timeStepSize(),
                                                               i_layerData,
                                                               l_cell,
                                                               dofs[l_cell] );
@@ -588,361 +454,172 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
   }
 
   #ifdef USE_PLASTICITY
-  g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_nonZero[PlasticityYield];
-  g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_hardware[PlasticityYield];
+  g_SeisSolNonZeroFlopsPlasticity +=
+    i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]
+    + numberOTetsWithPlasticYielding * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)];
+  g_SeisSolHardwareFlopsPlasticity +=
+    i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]
+    + numberOTetsWithPlasticYielding * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
   #endif
 
   m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells());
 }
 
-#ifdef USE_MPI
-bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
-  SCOREP_USER_REGION( "computeLocalCopy", SCOREP_USER_REGION_TYPE_FUNCTION )
+void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::initializers::Layer& layerData) {
+  auto& flopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::Local)];
+  auto& flopsHardware = m_flops_hardware[static_cast<int>(ComputePart::Local)];
+  flopsNonZero = 0;
+  flopsHardware = 0;
 
-  // ensure a valid call
-  if( !m_updatable.localCopy ) {
-    logError() << "Invalid call of computeLocalCopy, aborting:"
-      << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
-      << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
-  }
-
-  // continue only if copy layer sends are complete
-  if( !testForCopyLayerSends() ) return false;
-
-  // post receive requests
-#if defined(_OPENMP) && defined(USE_COMM_THREAD)
-  initReceiveGhostLayer();
-#else
-  receiveGhostLayer();
-#endif
-
-  // MPI checks for receiver writes receivers either in the copy layer or interior
-  if( m_updatable.localInterior ) {
-    writeReceivers();
-  }
-
-  // integrate copy layer locally
-  computeLocalIntegration( m_clusterData->child<Copy>() );
-
-  g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[LocalCopy];
-  g_SeisSolHardwareFlopsLocal += m_flops_hardware[LocalCopy];
-
-#if defined(_OPENMP) && defined(USE_COMM_THREAD)
-  initSendCopyLayer();
-#else
-  sendCopyLayer();
-#endif
-
-#ifndef USE_COMM_THREAD
-  // continue with communication
-  testForGhostLayerReceives();
-#endif
-
-  // compute sources, update simulation time
-  if( !m_updatable.localInterior ) {
-    computeSources();
-    m_predictionTime += m_timeStepWidth;
-  }
-
-  // update finished
-  m_updatable.localCopy  = false;
-
-  // wait until communication thread finished initializing the receives
-#if defined(_OPENMP) && defined(USE_COMM_THREAD)
-  waitForInits();
-#endif
-
-  return true;
-}
-#endif
-
-void seissol::time_stepping::TimeCluster::computeLocalInterior(){
-  SCOREP_USER_REGION( "computeLocalInterior", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-  // ensure a valid call
-  if( !m_updatable.localInterior ) {
-    logError() << "Invalid call of computeLocalInterior, aborting:"
-      << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
-      << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
-  }
-
-  // MPI checks for receiver writes receivers either in the copy layer or interior
-#ifdef USE_MPI
-  if( m_updatable.localCopy ) {
-    writeReceivers();
-  }
-#else
-  // non-MPI checks for write in the interior
-  writeReceivers();
-#endif
-
-  // integrate interior cells locally
-  computeLocalIntegration( m_clusterData->child<Interior>() );
-
-  g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[LocalInterior];
-  g_SeisSolHardwareFlopsLocal += m_flops_hardware[LocalInterior];
-
-#ifdef USE_MPI
-#ifndef USE_COMM_THREAD
-  // continue with communication
-  testForGhostLayerReceives();
-  testForCopyLayerSends();
-#endif
-#endif
-
-  // compute sources, update simulation time
-  if( !m_updatable.localCopy ) {
-    computeSources();
-    m_predictionTime += m_timeStepWidth;
-  }
-
-  // update finished
-  m_updatable.localInterior = false;
-}
-
-#ifdef USE_MPI
-bool seissol::time_stepping::TimeCluster::computeNeighboringCopy() {
-  SCOREP_USER_REGION( "computeNeighboringCopy", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-  // ensure a valid call
-  if( !m_updatable.neighboringCopy ) {
-    logError() << "Invalid call of computeNeighboringCopy aborting:"
-      << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
-      << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
-  }
-
-  // continue only of ghost layer receives are complete
-  if( !testForGhostLayerReceives() ) return false;
-
-#ifndef USE_COMM_THREAD
-  // continue with communication
-  testForCopyLayerSends();
-#endif
-
-  if (m_dynamicRuptureFaces == true) {
-    if (m_updatable.neighboringInterior) {
-      computeDynamicRupture(m_dynRupClusterData->child<Interior>());
-      g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawInterior];
-      g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawInterior];
-    }
-
-    computeDynamicRupture(m_dynRupClusterData->child<Copy>());
-    g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawCopy];
-    g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawCopy];
-  }
-
-  computeNeighboringIntegration( m_clusterData->child<Copy>() );
-
-  g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[NeighborCopy];
-  g_SeisSolHardwareFlopsNeighbor += m_flops_hardware[NeighborCopy];
-  g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRNeighborCopy];
-  g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRNeighborCopy];
-
-#ifndef USE_COMM_THREAD
-  // continue with communication
-  testForCopyLayerSends();
-#endif
-
-  // compute dynamic rupture, update simulation time and statistics
-  if( !m_updatable.neighboringInterior ) {
-    // First cluster calls fault receiver output
-    // TODO: Change from iteration based to time based
-    if (m_clusterId == 0) {
-      e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
-    }
-
-    m_fullUpdateTime      += m_timeStepWidth;
-    m_subTimeStart        += m_timeStepWidth;
-    m_numberOfFullUpdates += 1;
-    m_numberOfTimeSteps   += 1;
-  }
-
-  // update finished
-  m_updatable.neighboringCopy = false;
-
-  return true;
-}
-#endif
-
-void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
-  SCOREP_USER_REGION( "computeNeighboringInterior", SCOREP_USER_REGION_TYPE_FUNCTION )
-  // ensure a valid call
-  if( !m_updatable.neighboringInterior ) {
-    logError() << "Invalid call of computeNeighboringInterior, aborting:"
-      << this             << m_clusterId      << m_globalClusterId << m_numberOfTimeSteps
-      << m_fullUpdateTime << m_predictionTime << m_timeStepWidth   << m_subTimeStart      << m_resetLtsBuffers;
-  }
-
-  if (m_dynamicRuptureFaces == true && m_updatable.neighboringCopy == true) {
-    computeDynamicRupture(m_dynRupClusterData->child<Interior>());
-    g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRFrictionLawInterior];
-    g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRFrictionLawInterior];
-  }
-
-  // Update all cells in the interior with the neighboring boundary contribution.
-  computeNeighboringIntegration( m_clusterData->child<Interior>() );
-
-  g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[NeighborInterior];
-  g_SeisSolHardwareFlopsNeighbor += m_flops_hardware[NeighborInterior];
-  g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[DRNeighborInterior];
-  g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRNeighborInterior];
-
-  // compute dynamic rupture, update simulation time and statistics
-  if( !m_updatable.neighboringCopy ) {
-    // First cluster calls fault receiver output
-    // TODO: Change from iteration based to time based
-    if (m_clusterId == 0) {
-      e_interoperability.faultOutput( m_fullUpdateTime, m_timeStepWidth );
-    }
-
-    m_fullUpdateTime      += m_timeStepWidth;
-    m_subTimeStart        += m_timeStepWidth;
-    m_numberOfFullUpdates += 1;
-    m_numberOfTimeSteps   += 1;
-  }
-
-  // update finished
-  m_updatable.neighboringInterior = false;
-}
-
-void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops( unsigned                    numberOfCells,
-                                                                        CellLocalInformation const* cellInformation,
-                                                                        long long&                  nonZeroFlops,
-                                                                        long long&                  hardwareFlops  )
-{
-  nonZeroFlops = 0;
-  hardwareFlops = 0;
-
-  for (unsigned cell = 0; cell < numberOfCells; ++cell) {
+  auto* cellInformation = layerData.var(m_lts->cellInformation);
+  for (unsigned cell = 0; cell < layerData.getNumberOfCells(); ++cell) {
     unsigned cellNonZero, cellHardware;
     // TODO(Lukas) Maybe include avg. displacement computation here at some point.
     m_timeKernel.flopsAder(cellNonZero, cellHardware);
-    nonZeroFlops += cellNonZero;
-    hardwareFlops += cellHardware;
+    flopsNonZero += cellNonZero;
+    flopsHardware += cellHardware;
     m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, cellNonZero, cellHardware);
-    nonZeroFlops += cellNonZero;
-    hardwareFlops += cellHardware;
+    flopsNonZero += cellNonZero;
+    flopsHardware += cellHardware;
   }
 }
 
-void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(  unsigned                    numberOfCells,
-                                                                            CellLocalInformation const* cellInformation,
-                                                                            CellDRMapping const       (*drMapping)[4],
-                                                                            long long&                  nonZeroFlops,
-                                                                            long long&                  hardwareFlops,
-                                                                            long long&                  drNonZeroFlops,
-                                                                            long long&                  drHardwareFlops )
-{
-  nonZeroFlops = 0;
-  hardwareFlops = 0;
-  drNonZeroFlops = 0;
-  drHardwareFlops = 0;
+void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(seissol::initializers::Layer& layerData) {
+  auto& flopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];
+  auto& flopsHardware = m_flops_hardware[static_cast<int>(ComputePart::Neighbor)];
+  auto& drFlopsNonZero = m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLaw)];
+  auto& drFlopsHardware = m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLaw)];
+  flopsNonZero = 0;
+  flopsHardware = 0;
+  drFlopsNonZero = 0;
+  drFlopsHardware = 0;
 
-  for (unsigned cell = 0; cell < numberOfCells; ++cell) {
+  auto* cellInformation = layerData.var(m_lts->cellInformation);
+  auto* drMapping = layerData.var(m_lts->drMapping);
+  for (unsigned cell = 0; cell < layerData.getNumberOfCells(); ++cell) {
     unsigned cellNonZero, cellHardware;
     long long cellDRNonZero, cellDRHardware;
-    m_neighborKernel.flopsNeighborsIntegral(  cellInformation[cell].faceTypes,
-                                              cellInformation[cell].faceRelations,
-                                              drMapping[cell],
-                                              cellNonZero,
-                                              cellHardware,
-                                              cellDRNonZero,
-                                              cellDRHardware );
-    nonZeroFlops += cellNonZero;
-    hardwareFlops += cellHardware;
-    drNonZeroFlops += cellDRNonZero;
-    drHardwareFlops += cellDRHardware;
+    m_neighborKernel.flopsNeighborsIntegral(cellInformation[cell].faceTypes,
+                                            cellInformation[cell].faceRelations,
+                                            drMapping[cell],
+                                            cellNonZero,
+                                            cellHardware,
+                                            cellDRNonZero,
+                                            cellDRHardware );
+    flopsNonZero += cellNonZero;
+    flopsHardware += cellHardware;
+    drFlopsNonZero += cellDRNonZero;
+    drFlopsHardware += cellDRHardware;
 
     /// \todo add lts time integration
     /// \todo add plasticity
   }
 }
 
-void seissol::time_stepping::TimeCluster::computeFlops()
-{
-#ifdef USE_MPI
-  computeLocalIntegrationFlops( m_meshStructure->numberOfCopyCells,
-                                m_clusterData->child<Copy>().var(m_lts->cellInformation),
-                                m_flops_nonZero[LocalCopy],
-                                m_flops_hardware[LocalCopy] );
-#endif
-
-  computeLocalIntegrationFlops( m_meshStructure->numberOfInteriorCells,
-                                m_clusterData->child<Interior>().var(m_lts->cellInformation),
-                                m_flops_nonZero[LocalInterior],
-                                m_flops_hardware[LocalInterior] );
-
-#ifdef USE_MPI
-  computeNeighborIntegrationFlops(  m_meshStructure->numberOfCopyCells,
-                                    m_clusterData->child<Copy>().var(m_lts->cellInformation),
-                                    m_clusterData->child<Copy>().var(m_lts->drMapping),
-                                    m_flops_nonZero[NeighborCopy],
-                                    m_flops_hardware[NeighborCopy],
-                                    m_flops_nonZero[DRNeighborCopy],
-                                    m_flops_hardware[DRNeighborCopy] );
-#endif
-
-  computeNeighborIntegrationFlops(  m_meshStructure->numberOfInteriorCells,
-                                    m_clusterData->child<Interior>().var(m_lts->cellInformation),
-                                    m_clusterData->child<Interior>().var(m_lts->drMapping),
-                                    m_flops_nonZero[NeighborInterior],
-                                    m_flops_hardware[NeighborInterior],
-                                    m_flops_nonZero[DRNeighborInterior],
-                                    m_flops_hardware[DRNeighborInterior] );
-
-  computeDynamicRuptureFlops( m_dynRupClusterData->child<Copy>(), m_flops_nonZero[DRFrictionLawCopy], m_flops_hardware[DRFrictionLawCopy] );
-  computeDynamicRuptureFlops( m_dynRupClusterData->child<Interior>(), m_flops_nonZero[DRFrictionLawInterior], m_flops_hardware[DRFrictionLawInterior] );
-
-  seissol::kernels::Plasticity::flopsPlasticity(  m_flops_nonZero[PlasticityCheck],
-                                                  m_flops_hardware[PlasticityCheck],
-                                                  m_flops_nonZero[PlasticityYield],
-                                                  m_flops_hardware[PlasticityYield] );
+void seissol::time_stepping::TimeCluster::computeFlops() {
+  computeLocalIntegrationFlops(*m_clusterData);
+  computeNeighborIntegrationFlops(*m_clusterData);
+  computeDynamicRuptureFlops(*m_dynRupClusterData);
+  seissol::kernels::Plasticity::flopsPlasticity(
+          m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)],
+          m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)],
+          m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)],
+          m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)]
+          );
 }
 
-#if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
-void seissol::time_stepping::TimeCluster::pollForCopyLayerSends(){
-  for( std::list<MPI_Request*>::iterator l_send = m_sendQueue.begin(); l_send != m_sendQueue.end(); ) {
-    int l_mpiStatus = 0;
-
-    // check if the send is complete
-    MPI_Test( *l_send, &l_mpiStatus, MPI_STATUS_IGNORE );
-
-    // remove from list of pending sends if completed
-    if( l_mpiStatus == 1 )   l_send = m_sendQueue.erase( l_send );
-    // continue otherwise
-    else                   ++l_send;
-  }
-
-  if (m_sendQueue.empty()) {
-    g_handleSends[m_clusterId] = 0;
+namespace seissol::time_stepping {
+void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) {
+  if (neighborCluster.ct.maxTimeStepSize > ct.maxTimeStepSize) {
+    lastSubTime = neighborCluster.ct.correctionTime;
   }
 }
-
-void seissol::time_stepping::TimeCluster::pollForGhostLayerReceives(){
-  // iterate over all pending receives
-  for( std::list<MPI_Request*>::iterator l_receive = m_receiveQueue.begin(); l_receive != m_receiveQueue.end(); ) {
-    int l_mpiStatus = 0;
-
-    // check if the receive is complete
-    MPI_Test( *l_receive, &l_mpiStatus, MPI_STATUS_IGNORE );
-
-    // remove from list of pending receives if completed
-    if( l_mpiStatus == 1 )   l_receive = m_receiveQueue.erase( l_receive );
-    // continue otherwise
-    else                   ++l_receive;
+void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
+  // Doesn't do anything
+}
+void TimeCluster::predict() {
+  assert(state == ActorState::Corrected);
+  bool resetBuffers = true;
+  for (auto& neighbor : neighbors) {
+      if (neighbor.ct.timeStepRate > ct.timeStepRate
+          && ct.stepsSinceLastSync > neighbor.ct.stepsSinceLastSync) {
+          resetBuffers = false;
+        }
+  }
+  if (ct.stepsSinceLastSync == 0) resetBuffers = true;
+  if (ct.stepsSinceLastSync == 0) {
+    assert(resetBuffers);
   }
 
-  if (m_receiveQueue.empty()) {
-    g_handleRecvs[m_clusterId] = 0;
+  writeReceivers(); // TODO(Lukas) Check if receivers are correct
+  computeLocalIntegration(*m_clusterData, resetBuffers);
+  computeSources(); // TODO(Lukas) Check if sources are correct
+
+  g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[static_cast<int>(ComputePart::Local)];
+  g_SeisSolHardwareFlopsLocal += m_flops_hardware[static_cast<int>(ComputePart::Local)];
+}
+void TimeCluster::correct() {
+  assert(state == ActorState::Predicted);
+
+  double subTimeStart = ct.correctionTime - lastSubTime;
+  // Note, the following is likely wrong
+  // TODO(Lukas) Check scheduling if this is correct
+  if (m_dynamicRuptureFaces) {
+    computeDynamicRupture(*m_dynRupClusterData);
+    g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLaw)];
+    g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLaw)];
   }
+
+  computeNeighboringIntegration(*m_clusterData, subTimeStart);
+
+  g_SeisSolNonZeroFlopsNeighbor += m_flops_nonZero[static_cast<int>(ComputePart::Neighbor)];
+  g_SeisSolHardwareFlopsNeighbor += m_flops_hardware[static_cast<int>(ComputePart::Neighbor)];
+  g_SeisSolNonZeroFlopsDynamicRupture += m_flops_nonZero[static_cast<int>(ComputePart::DRNeighbor)];
+  g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[static_cast<int>(ComputePart::DRNeighbor)];
+
+  // First cluster calls fault receiver output
+  // TODO: Change from iteration based to time based
+  // TODO(Lukas): Watch out that we use correct timestepSize here
+  if (m_clusterId == 0) {
+    e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+  }
+
+  // TODO Use next correction time
+  const auto nextCorrectionSteps = ct.nextCorrectionSteps();
+  if constexpr (USE_MPI) {
+    if (printProgress && ((nextCorrectionSteps % 100) == 0)) {
+      const int rank = MPI::mpi.rank();
+      logInfo(rank) << "#max-updates since sync: " << nextCorrectionSteps
+                    << " @ " << ct.nextCorrectionTime(syncTime);
+
+      }
+  }
+
 }
 
-void seissol::time_stepping::TimeCluster::startReceiveGhostLayer() {
-  receiveGhostLayer();
-}
+void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
+  const auto rank = MPI::mpi.rank();
+  logWarning(rank)
+      << "No update since " << timeSinceLastUpdate.count()
+      << "[s] for global cluster " << m_globalClusterId
+      << " with local cluster id " << m_clusterId
+      << " at state " << actorStateToString(state)
+      << " predTime = " << ct.predictionTime
+      << " predictionsSinceSync = " << ct.predictionsSinceLastSync
+      << " corrTime = " << ct.correctionTime
+      << " correctionsSinceSync = " << ct.stepsSinceLastSync
+      << " stepsTillSync = " << ct.stepsUntilSync
+      << " mayPredict = " << mayPredict()
+      << " mayCorrect = " << mayCorrect()
+      << " maySync = " << maySync();
+  for (auto& neighbor : neighbors) {
+    logWarning(rank)
+    << "Neighbor with rate = " << neighbor.ct.timeStepRate
+    << "PredTime = " << neighbor.ct.predictionTime
+    << "CorrTime = " << neighbor.ct.correctionTime
+    << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
+    << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
+  }
 
-void seissol::time_stepping::TimeCluster::startSendCopyLayer() {
-  sendCopyLayer();
 }
-#endif
-
+}

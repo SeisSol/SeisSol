@@ -43,7 +43,7 @@
 #include <yateto.h>
 #include <Initializer/typedefs.hpp>
 #include <Geometry/MeshDefinition.h>
-#include <glm/vec3.hpp>
+#include <Eigen/Dense>
 
 namespace seissol {
   namespace transformations {
@@ -61,11 +61,11 @@ namespace seissol {
      * Calculates the reference tetrahedron coordinates from
      * global tetrahedron coordinates.
      */
-    glm::dvec3 tetrahedronGlobalToReference(  double const      v0[3],
-                                              double const      v1[3],
-                                              double const      v2[3],
-                                              double const      v3[3],
-                                              glm::dvec3 const& xyz );
+    Eigen::Vector3d tetrahedronGlobalToReference( double const           v0[3],
+                                                  double const           v1[3],
+                                                  double const           v2[3],
+                                                  double const           v3[3],
+                                                  Eigen::Vector3d const& xyz );
 
     /**
      * Calculates the Jacobian for the coordinate transformation

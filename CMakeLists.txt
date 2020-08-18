@@ -5,7 +5,6 @@ if(POLICY CMP0075)
 endif()
 
 project(SeisSol LANGUAGES C CXX Fortran)
-message(WARNING "We do not provide support for CMake currently. Please use scons instead!")
 
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
@@ -29,7 +28,7 @@ set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
@@ -39,17 +38,13 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
-find_package(Git QUIET)
 # Generate version.h
-execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
-                WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-                OUTPUT_VARIABLE PACKAGE_GIT_VERSION
-                ERROR_QUIET
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-configure_file (
-  "${PROJECT_SOURCE_DIR}/src/version.h"
-  "${PROJECT_BINARY_DIR}/src/version.h"
-  )
+
+include(GetGitRevisionDescription)
+git_describe(PACKAGE_GIT_VERSION  --dirty=\ \(modified\) --always)
+configure_file("src/version_template.h"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/version.h")
+message(STATUS "Current Git description: " ${PACKAGE_GIT_VERSION})
 
 find_package(GemmTools REQUIRED)
 include(src/sources.cmake)
@@ -111,6 +106,7 @@ add_custom_command(
 
 if (PLASTICITY)
   target_compile_definitions(SeisSol-lib PUBLIC USE_PLASTICITY)
+  set(PLASTICITY_NAME_SUFFIX "_plasticity")
 endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
@@ -138,17 +134,30 @@ target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
 #    flags.extend(['-ip'])
 
 # Libs
-find_package(yaml-cpp REQUIRED)
-target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
-target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
+include(ExternalProject)
+ExternalProject_Add(yaml-cpp-build
+  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
+  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
+  CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+  -DYAML_CPP_BUILD_TOOLS=OFF
+  -DYAML_CPP_BUILD_TESTS=OFF
+)
+add_dependencies(SeisSol-lib yaml-cpp-build)
+target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
+target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
 
-find_package(PkgConfig REQUIRED)
-
-pkg_check_modules(ImpalaJIT REQUIRED impalajit)
-target_link_libraries(SeisSol-lib PUBLIC ${ImpalaJIT_LINK_LIBRARIES})
-target_include_directories(SeisSol-lib PUBLIC ${ImpalaJIT_INCLUDE_DIRS})
-
-# In the future, we should maybe use find_package(Eigen3).
+ExternalProject_Add(ImpalaJIT-build
+  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/
+  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT
+  CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+)
+add_dependencies(SeisSol-lib ImpalaJIT-build)
+target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/lib/libimpalajit.a")
+target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/ImpalaJIT-install/include/)
 
 # todo: if parallelization == omp/hybrid
 if (OPENMP)
@@ -201,6 +210,7 @@ if (METIS)
   target_compile_definitions(SeisSol-lib PUBLIC USE_METIS)
 endif()
 
+find_package(PkgConfig REQUIRED) 
 if (ASAGI)
   # todo warn if netcdf is off
   pkg_check_modules(ASAGI REQUIRED asagi) # asagi_nompi?
@@ -221,6 +231,7 @@ target_include_directories(SeisSol-lib PUBLIC
 				   ${CMAKE_CURRENT_SOURCE_DIR}/src
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
+				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
 				   # todo: use reexport from easi?
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/easi/include
 				   ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
@@ -229,14 +240,12 @@ target_include_directories(SeisSol-lib PUBLIC
 
 target_include_directories(SeisSol-lib SYSTEM PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/submodules/eigen3
-        ${CMAKE_CURRENT_SOURCE_DIR}/submodules/glm
 )
 
 target_compile_definitions(SeisSol-lib PUBLIC
 				   CONVERGENCE_ORDER=${ORDER}
 				   NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
 				   NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-				   GLM_FORCE_CXX98
 				   ENABLE_MATRIX_PREFETCH
 				   )
 
@@ -251,16 +260,17 @@ elseif ("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -cpp -r8 -WB -qopenmp")
 endif()
 
+string( REPLACE "-DNDEBUG" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   target_compile_options(SeisSol-lib PUBLIC -fopenmp -Wall -Wextra -pedantic $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:C>>:-Wno-unused-parameter -Wno-unknown-pragmas>)
-  target_link_options(SeisSol-lib PUBLIC -fopenmp)
+  target_link_libraries(SeisSol-lib PUBLIC "-fopenmp")
 
   # using GCC
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -qopenmp")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -qopenmp")
 
   # only if openmp
   set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -qopenmp")
@@ -268,17 +278,17 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # Activate interprocedual optimization.
   #set_property(TARGET SeisSol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) 
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fopenmp=libomp")
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "CRAY")
-  # TODO: Cray
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fopenmp=libomp -Wall -Wextra -pedantic")
 endif()
 
 # Generated code does only work without red-zone.
-set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+if (HAS_REDZONE)
+  set_source_files_properties(src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone)
+endif()
 
 add_executable(SeisSol-bin src/main.cpp)
 target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}_${ORDER}")
+set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${CMAKE_BUILD_TYPE}_${ARCH_STRING}_${EQUATIONS}${PLASTICITY_NAME_SUFFIX}_${ORDER}")
 
 add_executable(SeisSol-proxy
         auto_tuning/proxy/src/proxy_seissol.cpp
@@ -311,6 +321,25 @@ if (TESTING)
     target_link_libraries(test_kernel_test_suite PRIVATE SeisSol-lib)
     target_include_directories(test_kernel_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
   endif()
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/mesh.h5
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
+    COPYONLY
+    )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/material.yaml
+    ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
+    COPYONLY
+    )
+
+  if (NETCDF)
+  configure_file(
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/source_loh.nrf 
+          ${CMAKE_CURRENT_BINARY_DIR}/Testing/source_loh.nrf 
+          COPYONLY
+  )
+  set(SeisSol_NETCDF_TEST_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Reader/NRFReader.t.h)
+  endif()
 
   CXXTEST_ADD_TEST_MPI(
           test_serial_test_suite
@@ -318,8 +347,15 @@ if (TESTING)
           test_serial.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Functions.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Quadrature.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
+	  ${SeisSol_NETCDF_TEST_FILES}
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/LTSWeights.t.h
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/PointMapper.t.h
   )
   target_link_libraries(test_serial_test_suite PRIVATE SeisSol-lib)
   target_include_directories(test_serial_test_suite PRIVATE ${CXXTEST_INCLUDE_DIR})
