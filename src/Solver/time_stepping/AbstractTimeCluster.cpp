@@ -178,10 +178,9 @@ bool AbstractTimeCluster::mayCorrect() {
 
 
 bool AbstractTimeCluster::maySync() {
-    const bool timeBasedSync = ct.correctionTime + timeTolerance >= syncTime;
+    processMessages(); // TODO(Lukas) Do we actually need to do this here?
     const bool stepBasedSync = ct.stepsSinceLastSync >= ct.stepsUntilSync;
-    //assert(timeBasedSync == stepBasedSync);
-    return stepBasedSync && processMessages();
+    return stepBasedSync;
 }
 
 void AbstractTimeCluster::connect(AbstractTimeCluster &other) {
