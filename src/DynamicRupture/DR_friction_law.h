@@ -116,6 +116,55 @@ protected:
 
   }
 
+  // output rupture front
+  // outside of iTimeGP loop in order to safe an 'if' in a loop
+  // this way, no subtimestep resolution possible
+  void outputRuptureFront(
+      bool RF[numOfPointsPadded],
+      std::array<real, numOfPointsPadded> &LocSlipRate,
+      real rupture_time[numOfPointsPadded],
+      real fullUpdateTime
+  ){
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      if (RF[iBndGP] && LocSlipRate[iBndGP] > 0.001) {
+        rupture_time[iBndGP] = fullUpdateTime;
+        RF[iBndGP] = false;
+      }
+    }
+  }
+
+  //output time when shear stress is equal to the dynamic stress after rupture arrived
+  //currently only for linear slip weakening
+  void outputDynamicStress(
+      bool DS[numOfPointsPadded],
+      real dynStress_time[numOfPointsPadded],
+      real rupture_time[numOfPointsPadded],
+      real slip[numOfPointsPadded],
+      real d_c[numOfPointsPadded],
+      real fullUpdateTime
+  ){
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+
+      if (rupture_time[iBndGP] > 0.0 &&
+          rupture_time[iBndGP] <= fullUpdateTime &&
+          DS[iBndGP] &&
+          std::abs(slip[iBndGP]) >= d_c[iBndGP]) {
+        dynStress_time[iBndGP] = fullUpdateTime;
+        DS[iBndGP] = false;
+      }
+    }
+  }
+
+  void calcPeakSlipRate(
+      real peakSR[numOfPointsPadded],
+      std::array<real, numOfPointsPadded> &LocSlipRate){
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      if (LocSlipRate[iBndGP] > peakSR[iBndGP]) {
+        peakSR[iBndGP] = LocSlipRate[iBndGP];
+      }
+    }
+  }
+
 public:
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                          seissol::initializers::DynamicRupture *dynRup,
@@ -300,55 +349,6 @@ protected:
       if (LocSlipRate[iBndGP] < u_0) {
         mu[iBndGP] = mu_S[iBndGP];
         slip[iBndGP] = 0.0;
-      }
-    }
-  }
-
-  // output rupture front
-  // outside of iTimeGP loop in order to safe an 'if' in a loop
-  // this way, no subtimestep resolution possible
-  void outputRuptureFront(
-      bool RF[numOfPointsPadded],
-      std::array<real, numOfPointsPadded> &LocSlipRate,
-      real rupture_time[numOfPointsPadded],
-      real fullUpdateTime
-  ){
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (RF[iBndGP] && LocSlipRate[iBndGP] > 0.001) {
-        rupture_time[iBndGP] = fullUpdateTime;
-        RF[iBndGP] = false;
-      }
-    }
-  }
-
-  //output time when shear stress is equal to the dynamic stress after rupture arrived
-  //currently only for linear slip weakening
-  void outputDynamicStress(
-      bool DS[numOfPointsPadded],
-      real dynStress_time[numOfPointsPadded],
-      real rupture_time[numOfPointsPadded],
-      real slip[numOfPointsPadded],
-      real d_c[numOfPointsPadded],
-      real fullUpdateTime
-  ){
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-
-      if (rupture_time[iBndGP] > 0.0 &&
-          rupture_time[iBndGP] <= fullUpdateTime &&
-          DS[iBndGP] &&
-          std::abs(slip[iBndGP]) >= d_c[iBndGP]) {
-        dynStress_time[iBndGP] = fullUpdateTime;
-        DS[iBndGP] = false;
-      }
-    }
-  }
-
-  void calcPeakSlipRate(
-      real peakSR[numOfPointsPadded],
-      std::array<real, numOfPointsPadded> &LocSlipRate){
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (LocSlipRate[iBndGP] > peakSR[iBndGP]) {
-        peakSR[iBndGP] = LocSlipRate[iBndGP];
       }
     }
   }
@@ -834,9 +834,12 @@ public:
 
 
 class seissol::dr::fr_law::FL_3 : public seissol::dr::fr_law::Base {
-public:
-  virtual void hook() {}
+protected:
+  virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0) {
+    return SV0*exp(-tmp*time_inc/RS_sl0)+RS_sl0/tmp*(1.0-exp(-tmp*time_inc/RS_sl0));
+  }
 
+public:
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                         seissol::initializers::DynamicRupture *dynRup,
                         real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -884,6 +887,12 @@ public:
     eta_p = 1.0 / (1.0 / Zp + 1.0 / Zp_neig);
     eta_s = 1.0 / (1.0 / Zs + 1.0 / Zs_neig);
 
+
+    //loop parameter fixed??
+    unsigned int nSRupdates, nSVupdates;
+    nSRupdates = 5;
+    nSVupdates = 2;
+
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
@@ -900,8 +909,128 @@ public:
                                         QInterpolatedPlus[face], QInterpolatedMinus[face], eta_p, Zp, Zp_neig, eta_s,
                                         Zs, Zs_neig);
 
+      real LocSlip, LocSlip1, LocSlip2, LocSR1, LocSR2, LocSV, LocCohesion, P_0, LocP, time_inc, P, TotalShearStressYZ, SV0, tmp,tmp2, SlipRateGuess, NR, dNR, LocMu;
+      real LocTracXY, LocTracXZ;
+      std::array<real, numOfPointsPadded> LocSlipRate;
 
-      hook();
+      for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+
+        LocSlip = slip[face][iBndGP]; //DISC%DynRup%Slip(iBndGP,iFace)              //!< Slip path at given fault node
+        LocSlip1 = slip1[face][iBndGP]; //DISC%DynRup%Slip1(iBndGP,iFace)            //!< Slip at given fault node along loc dir 1
+        LocSlip2 = slip2[face][iBndGP]; //DISC%DynRup%Slip2(iBndGP,iFace)            // !< Slip at given fault node along loc dir 2
+        LocSR1 = slipRate1[face][iBndGP]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
+        LocSR2 = slipRate2[face][iBndGP]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
+        LocSV = StateVar[face][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)
+        LocCohesion = cohesion[face][iBndGP]; //DISC%DynRup%cohesion(iBndGP,iFace)          // !< cohesion at given fault node  (should be negative since negative normal stress is compression)
+        P_0 = initialStressInFaultCS[face][iBndGP][0]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
+
+        for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
+          LocP = NorStressGP[iTimeGP][iBndGP];
+          time_inc = DeltaT[iTimeGP];
+
+          //SignSR1   = SIGN(1.0,LocSR1)                    ! Gets the sign of the slip rate
+          //SignSR2   = SIGN(1.0,LocSR2)                    ! Gets the sign of the slip rate
+
+          // load traction and normal stress
+          P = LocP + P_0;
+
+          TotalShearStressYZ = std::sqrt(
+              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iTimeGP][iBndGP], 2) +
+              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iTimeGP][iBndGP], 2));
+
+          // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
+          // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
+
+          SV0 = LocSV;    // Careful, the SV must always be corrected using SV0 and not LocSV!
+
+          // The following process is adapted from that described by Kaneko et al. (2008) TODO: look up
+
+          LocSlipRate[iBndGP]      = std::sqrt(seissol::dr::aux::power(LocSR1,2) + seissol::dr::aux::power(LocSR2,2));
+          tmp        = abs( LocSlipRate[iBndGP]);
+
+          for(int j = 0; j < nSVupdates; j++){ //!This loop corrects SV values
+            LocSlipRate[iBndGP]=abs( LocSlipRate[iBndGP]);
+
+            // FL= 3 aging law and FL=4 slip law
+            LocSV = calcStateVariableHook( SV0,  tmp,  time_inc,  RS_sl0[face]);
+
+            // Newton-Raphson algorithm to determine the value of the slip rate.
+            // We wish to find SR that fulfills g(SR)=f(SR), by building up the function NR=f-g , which has
+            //  a derivative dNR = d(NR)/d(SR). We can then find SR by iterating SR_{i+1}=SR_i-( NR_i / dNR_i ).
+            // In our case we equalize the values of the traction for two equations:
+            //             g = SR*mu/2/cs + T^G             (eq. 18 of de la Puente et al. (2009))
+            //             f = (mu*P_0-|S_0|)*S_0/|S_0|     (Coulomb's model of friction)
+            //               where mu=a*asinh(SR/2/SR0*exp((F0+b*log(SR0*SV/L))/a (eq. 2a of Lapusta and Rice (2003))
+
+            SlipRateGuess = LocSlipRate[iBndGP];   // SRtest: We use as first guess the SR value of the previous time step
+
+            for(int i = 0; i < nSRupdates; i++){   //!This loop corrects SR values
+              tmp          = 0.5/RS_sr0[face]* exp( (RS_f0[face]+RS_b[face]*log(RS_sr0[face]*LocSV/RS_sl0[face]) ) /RS_a[face]);
+              tmp2         = tmp * SlipRateGuess;
+              NR           = -(1.0/waveSpeedsPlus->sWaveVelocity/waveSpeedsPlus->density+1.0/waveSpeedsMinus->sWaveVelocity/waveSpeedsMinus->density) *
+                             (abs(P)*RS_a[face]*log(tmp2+sqrt(seissol::dr::aux::power(tmp2,2)+1.0))-TotalShearStressYZ)-SlipRateGuess;    //!TODO: author before me: not sure if ShTest=TotalShearStressYZ should be + or -...
+              dNR          = -(1.0/waveSpeedsPlus->sWaveVelocity/waveSpeedsPlus->density+1.0/waveSpeedsMinus->sWaveVelocity/waveSpeedsMinus->density) *
+                             (abs(P)*RS_a[face]/sqrt(1+pow(tmp2,2))*tmp)-1.0;
+              SlipRateGuess = abs(SlipRateGuess-NR/dNR);             // no ABS needed around NR/dNR at least for aging law
+            }   // End
+            tmp=0.5*( LocSlipRate[iBndGP]+abs(SlipRateGuess));  //! For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
+            LocSlipRate[iBndGP]=abs(SlipRateGuess);
+          }   // End SV-Loop
+
+          // FL= 3 aging law and FL=4 slip law
+          LocSV= calcStateVariableHook( SV0,  tmp,  time_inc,  RS_sl0[face]);
+
+          //TODO: reused calc from above -> simplify
+          tmp  = 0.5 * ( LocSlipRate[iBndGP])/RS_sr0[face] * exp((RS_f0[face] + RS_b[face]*log(RS_sr0[face]*LocSV/RS_sl0[face])) / RS_a[face]);
+
+          LocMu    = RS_a[face] * log(tmp + sqrt(seissol::dr::aux::power(tmp,2) + 1.0));
+
+          // 2D:
+          // LocTrac  = -(ABS(S_0)-LocMu*(LocP+P_0))*(S_0/ABS(S_0))
+          // LocTrac  = ABS(LocTrac)*(-SignSR)  !!! line commented as it leads NOT to correct results
+          // update stress change
+          LocTracXY = -((initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP][iTimeGP])/TotalShearStressYZ)*(LocMu*P+abs(LocCohesion));
+          LocTracXZ = -((initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP][iTimeGP])/TotalShearStressYZ)*(LocMu*P+abs(LocCohesion));
+          LocTracXY = LocTracXY - initialStressInFaultCS[face][iBndGP][3];
+          LocTracXZ = LocTracXZ - initialStressInFaultCS[face][iBndGP][5];
+
+          // Compute slip
+          LocSlip   = LocSlip  + ( LocSlipRate[iBndGP])*time_inc; // ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
+
+          //Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
+          LocSR1     = -(1.0/(waveSpeedsPlus->sWaveVelocity*waveSpeedsPlus->density)+1.0/(waveSpeedsMinus->sWaveVelocity*waveSpeedsMinus->density))*(LocTracXY-XYStressGP[iTimeGP][iBndGP]);
+          LocSR2     = -(1.0/(waveSpeedsPlus->sWaveVelocity*waveSpeedsPlus->density)+1.0/(waveSpeedsMinus->sWaveVelocity*waveSpeedsMinus->density))*(LocTracXZ-XZStressGP[iTimeGP][iBndGP]);
+
+          LocSlip1   = LocSlip1  + (LocSR1)*time_inc;
+          LocSlip2   = LocSlip2  + (LocSR2)*time_inc;
+
+          //LocSR1     = SignSR1*ABS(LocSR1)
+          //LocSR2     = SignSR2*ABS(LocSR2)
+
+          //Save traction for flux computation
+          TractionGP_XY[iTimeGP][iBndGP] = LocTracXY;
+          TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ;
+        }//End of iTimeGP- loop
+
+        mu[face][iBndGP]       = LocMu;
+        slipRate1[face][iBndGP]  = LocSR1;
+        slipRate2[face][iBndGP]  = LocSR2;
+        slip[face][iBndGP]       = LocSlip;
+        slip1[face][iBndGP]     = LocSlip1;
+        slip2[face][iBndGP]      = LocSlip2;
+        StateVar[face][iBndGP]   = LocSV;
+        tracXY[face][iBndGP] = LocTracXY;
+        tracXZ[face][iBndGP] = LocTracXZ;
+
+      }//End of iBndGP-loop
+
+      // output rupture front
+      // outside of iTimeGP loop in order to safe an 'if' in a loop
+      // this way, no subtimestep resolution possible
+      outputRuptureFront(RF[face], LocSlipRate, rupture_time[face],fullUpdateTime);
+
+      calcPeakSlipRate(peakSR[face], LocSlipRate);
+
 
       postcomputeImposedStateFromNewStress(imposedStatePlus[face], imposedStateMinus[face],
                                            QInterpolatedPlus[face], QInterpolatedMinus[face],
@@ -913,8 +1042,9 @@ public:
 
 class seissol::dr::fr_law::FL_4 : public seissol::dr::fr_law::FL_3 {
 public:
-  virtual void hook() override{
 
+  virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0) override {
+    return RS_sl0/tmp*seissol::dr::aux::power(tmp*SV0/RS_sl0, exp(-tmp*time_inc/RS_sl0));
   }
 
 };
