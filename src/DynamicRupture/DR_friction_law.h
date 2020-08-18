@@ -116,6 +116,21 @@ protected:
 
   }
 
+  //calculate Impedances Z and eta
+  void calcImpedancesAndEta(real &Zp,real &Zs, real &Zp_neig, real &Zs_neig, real &eta_p, real &eta_s, seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus, seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus){
+    //TODO: for anisotropic case it must be face dependent?
+    Zp = (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
+    Zp_neig = (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
+    Zs = (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
+    Zs_neig = (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
+
+    eta_p = 1.0 / (1.0 / Zp + 1.0 / Zp_neig);
+    eta_s = 1.0 / (1.0 / Zs + 1.0 / Zs_neig);
+    //a bit more inaccurate? (after my testings)
+    //eta_p = Zp * Zp_neig / (Zp + Zp_neig);
+    //eta_s = Zs * Zs_neig / (Zs + Zs_neig);
+  };
+
   // output rupture front
   // outside of iTimeGP loop in order to safe an 'if' in a loop
   // this way, no subtimestep resolution possible
@@ -415,19 +430,9 @@ public:
 
     auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
-    //TODO: for anisotropic case it must be face dependent?
     //calculate Impedances Z
     real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
-    Zp = (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
-    Zp_neig = (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
-    Zs = (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
-    Zs_neig = (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
-
-    eta_p = 1.0 / (1.0 / Zp + 1.0 / Zp_neig);
-    eta_s = 1.0 / (1.0 / Zs + 1.0 / Zs_neig);
-    //a bit more inaccurate? (after my testings)
-    //eta_p = Zp * Zp_neig / (Zp + Zp_neig);
-    //eta_s = Zs * Zs_neig / (Zs + Zs_neig);
+    calcImpedancesAndEta(Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, waveSpeedsPlus, waveSpeedsMinus);
 
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
@@ -441,9 +446,6 @@ public:
       real XYStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
       real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
 
-      precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP,
-          QInterpolatedPlus[face], QInterpolatedMinus[face],  eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig);
-
       //declare local variables
       std::array<real, numOfPointsPadded> tmpSlip{0};
       std::array<real, numOfPointsPadded> Strength;
@@ -452,6 +454,9 @@ public:
       std::array<real, numOfPointsPadded> stateVariablePsi;
       //tn only needed for FL=16
       real tn = fullUpdateTime;
+
+      precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP,
+          QInterpolatedPlus[face], QInterpolatedMinus[face],  eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig);
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
         //fault strength (Uphoff eq 2.44)
@@ -876,22 +881,14 @@ public:
     real                    (*imposedStatePlus)[tensor::QInterpolated::size()]    = layerData.var(ConcreteLts->imposedStatePlus);
     real                    (*imposedStateMinus)[tensor::QInterpolated::size()]   = layerData.var(ConcreteLts->imposedStateMinus);
 
-    //TODO: for anisotropic case it must be face dependent?
-    //calculate Impedances Z
-    real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
-    Zp = (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
-    Zp_neig = (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
-    Zs = (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
-    Zs_neig = (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
-
-    eta_p = 1.0 / (1.0 / Zp + 1.0 / Zp_neig);
-    eta_s = 1.0 / (1.0 / Zs + 1.0 / Zs_neig);
-
-
-    //loop parameter fixed??
+    //loop parameter are fixed, not variable??
     unsigned int nSRupdates, nSVupdates;
     nSRupdates = 5;
     nSVupdates = 2;
+
+    //calculate Impedances Z
+    real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
+    calcImpedancesAndEta(Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, waveSpeedsPlus, waveSpeedsMinus);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
@@ -1060,7 +1057,7 @@ public:
                           real timeWeights[CONVERGENCE_ORDER],
                           real DeltaT[CONVERGENCE_ORDER]) override {
         seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
-        std::cout << "computing DR for FL_33\n";
+        std::cout << "computing DR for FL_33 (not implemented)\n";
     }
 };
 
