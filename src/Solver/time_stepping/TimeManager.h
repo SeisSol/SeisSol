@@ -122,6 +122,8 @@ class seissol::time_stepping::TimeManager {
      **/
     void updateClusterDependencies( unsigned int i_localClusterId );
 
+    void checkAndWriteFaultOutputIfReady();
+
   public:
     /**
      * Construct a new time manager.

@@ -492,6 +492,8 @@ private:
      **/
     void computeNeighboringInterior();
 
+    void updateFaultOutput();
+
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
     /**
      * Tests for pending ghost layer communication, active when using communication thread 
