@@ -551,9 +551,9 @@ void TimeCluster::predict() {
     assert(resetBuffers);
   }
 
-  //writeReceivers(); // TODO(Lukas) Reenable receivers
+  writeReceivers(); // TODO(Lukas) Check if receivers are correct
   computeLocalIntegration(*m_clusterData, resetBuffers);
-  //computeSources(); // TODO(Lukas) Reenable sources
+  computeSources(); // TODO(Lukas) Check if sources are correct
 
   g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[static_cast<int>(ComputePart::Local)];
   g_SeisSolHardwareFlopsLocal += m_flops_hardware[static_cast<int>(ComputePart::Local)];
@@ -579,9 +579,9 @@ void TimeCluster::correct() {
 
   // First cluster calls fault receiver output
   // TODO: Change from iteration based to time based
-  // TODO: Re-enable. Watch out that we use correct timestepSize here
+  // TODO(Lukas): Watch out that we use correct timestepSize here
   if (m_clusterId == 0) {
-    //e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+    e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
   }
 
   // TODO Use next correction time
