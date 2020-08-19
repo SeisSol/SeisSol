@@ -323,46 +323,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
 
-/*
-    if ( m_friction_data.function_call < 2){
-        int iFace = static_cast<int>(faceInformation[face].meshFace);
-        for(int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++) {
-            for (int i = 0; i < 6; i++) {
-                real test1 = initialStressInFaultCS[face][iBndGP][i];
-                real test2 = m_friction_data.getInitialStressInFaultCS(iBndGP, i, iFace);
-                assert(initialStressInFaultCS[face][iBndGP][i] == m_friction_data.getInitialStressInFaultCS(iBndGP, i, iFace));
-            }
-
-
-            //assert( (inputs && outputs) == true );
-
-            real test1 = cohesion[face][iBndGP];
-            real test2 =  m_friction_data.getCohesion(iBndGP, iFace);
-            assert(cohesion[face][iBndGP] == m_friction_data.getCohesion(iBndGP, iFace));
-            assert(mu[face][iBndGP] == m_friction_data.getMu(iBndGP, iFace));
-            assert(slip[face][iBndGP] == m_friction_data.getSlip(iBndGP, iFace));
-            assert(slip1[face][iBndGP] == m_friction_data.getSlip1(iBndGP, iFace));
-            assert(slip2[face][iBndGP] == m_friction_data.getSlip2(iBndGP, iFace));
-            assert(d_c[face][iBndGP] == m_friction_data.getD_C(iBndGP, iFace));
-            assert(mu_S[face][iBndGP] == m_friction_data.getMu_S(iBndGP, iFace));
-            assert(mu_D[face][iBndGP] == m_friction_data.getMu_D(iBndGP, iFace));
-
-            assert(rupture_time[face][iBndGP] == m_friction_data.getRupture_time(iBndGP, iFace));
-            assert(RF[face][iBndGP] == m_friction_data.getRF(iBndGP, iFace));
-            assert(DS[face][iBndGP] == m_friction_data.getDS(iBndGP, iFace));
-            assert(peakSR[face][iBndGP] == m_friction_data.getPeakSR(iBndGP, iFace));
-            assert(dynStress_time[face][iBndGP] == m_friction_data.getDynStress_time(iBndGP, iFace));
-            assert(tracXY[face][iBndGP] == m_friction_data.getTracXY(iBndGP, iFace));
-            assert(tracXZ[face][iBndGP] == m_friction_data.getTracXZ(iBndGP, iFace));
-            assert(slipRate1[face][iBndGP] == m_friction_data.getSlipRate1(iBndGP, iFace));
-            assert(slipRate2[face][iBndGP] == m_friction_data.getSlipRate2(iBndGP, iFace));
-
-        }
-    }
-*/
-
-
-
     m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
                                                     m_globalData,
                                                    &godunovData[face],
@@ -386,27 +346,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             waveSpeedsPlus[face],
                                             waveSpeedsMinus[face] );
       //*/
-
-      //Code added by ADRIAN
-      // insert c++ evaluate_friction_law here:
-/*
-    seissol::physics::Evaluate_friction_law evaluateFriction;
-    evaluateFriction.Eval_friction_law(imposedStatePlusTest[face], imposedStateMinusTest[face],
-            QInterpolatedPlus[face], QInterpolatedMinus[face],
-            faceInformation[face], m_fullUpdateTime, m_dynamicRuptureKernel.timePoints, m_dynamicRuptureKernel.timeWeights,
-            waveSpeedsPlus, waveSpeedsMinus,
-            const_cast<double *>(init::resample::Values),
-            m_friction_data, frictionData[face]);
-//*/
-
-
-
-    //write some friction values back to fortran for output writing
-    //e_interoperability.setFrictionOutput( m_friction_data, frictionData[face], faceInformation[face].meshFace);
-
-
-    //m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus[face], QInterpolatedMinus[face], face, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
-
   } //End layerData.getNumberOfCells()-loop
 
   //seissol::dr::fr_law::FL_2 *FL2 = dynamic_cast<seissol::dr::fr_law::FL_2*>(m_FrictonLaw);
@@ -431,16 +370,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
           assert(false);
         }
       }
-    }
-    for( unsigned int j = 0; j <tensor::QInterpolated::size(); j++ ) {
-      imposedStatePlusTestBool[iface][j] = abs( imposedStatePlusTest[iface][j] -  imposedStatePlus[iface][j]) < 0.01;
-      imposedStateMinusTestBool[iface][j] = abs( imposedStateMinusTest[iface][j] -  imposedStateMinus[iface][j]) < 0.01;
-    }
-  }
-  for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
-    for (unsigned int j = 0; j < tensor::QInterpolated::size(); j++) {
-      assert(imposedStatePlusTestBool[iface][j] == true);
-      assert(imposedStateMinusTestBool[iface][j] == true);
     }
   }
   //*/
