@@ -737,11 +737,6 @@ void seissol::Interoperability::initializeCellLocalMatrices()
       m_ltsFaceToMeshFace,
       e_interoperability);
 
-  //test
-  seissol::SeisSol::main.getMemoryManager().getFrictionLaw()->initialize(
-      seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
-      seissol::SeisSol::main.getMemoryManager().getDynamicRupture() );
-
   /* direct call
   seissol::SeisSol::main.getMemoryManager().getDrInitializer()->initializeFrictionMatrices(
           seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),

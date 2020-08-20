@@ -490,6 +490,7 @@ struct BoundaryFaceInformation {
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
 
+//TODO: delete
 struct FrictionData{
     //inputs
     real* initialStressInFaultCS; // 2d array of size [nBndGP][6]
@@ -539,12 +540,10 @@ struct FrictionData{
 enum Friction_law_type{
     no_fault = 0,
     Linear_slip_weakening = 2,
-    Linear_slip_weakening_insta_healing = 1002,
     Linear_slip_weakening_forced_time_rapture = 16,
-    Linear_slip_weakening_forced_time_rapture_insta_healing = 1016,
 
     rate_and_state_aging_law = 3,
-    rate_and_state_slip_law =4,
+    rate_and_state_slip_law = 4,
     Linear_slip_weakening_bimaterial = 6,
     rate_and_state_vw = 7,
 
