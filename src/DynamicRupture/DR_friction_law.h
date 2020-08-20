@@ -50,10 +50,38 @@ protected:
   bool                    (*RF)[numOfPointsPadded];
   real                    (*peakSR)[numOfPointsPadded];
 
+  //TODO: merge TractionGP_XY and tracXY in one variable
   real                    (*tracXY)[numOfPointsPadded];
   real                    (*tracXZ)[numOfPointsPadded];
   real                    (*imposedStatePlus)[tensor::QInterpolated::size()];
   real                    (*imposedStateMinus)[tensor::QInterpolated::size()];
+
+  /*
+ * copies all parameters from the DynamicRupture LTS to the local attributes
+ */
+  virtual void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
+                          seissol::initializers::DynamicRupture *dynRup){
+    waveSpeedsPlus                                = layerData.var(dynRup->waveSpeedsPlus);
+    waveSpeedsMinus                               = layerData.var(dynRup->waveSpeedsMinus);
+    initialStressInFaultCS                        = layerData.var(dynRup->initialStressInFaultCS);
+    cohesion                                      = layerData.var(dynRup->cohesion);
+
+    mu                                            = layerData.var(dynRup->mu);
+    slip                                          = layerData.var(dynRup->slip);
+    slip1                                         = layerData.var(dynRup->slip1);
+    slip2                                         = layerData.var(dynRup->slip2);
+    slipRate1                                     = layerData.var(dynRup->slipRate1);
+    slipRate2                                     = layerData.var(dynRup->slipRate2);
+    rupture_time                                  = layerData.var(dynRup->rupture_time);
+    RF                                            = layerData.var(dynRup->RF);
+    peakSR                                        = layerData.var(dynRup->peakSR);
+
+    tracXY                                        = layerData.var(dynRup->tracXY);
+    tracXZ                                        = layerData.var(dynRup->tracXZ);
+    imposedStatePlus                              = layerData.var(dynRup->imposedStatePlus);
+    imposedStateMinus                             = layerData.var(dynRup->imposedStateMinus);
+  }
+
 
   /*
    * output:
@@ -209,7 +237,7 @@ protected:
 
   //only for FL16:
   real                    (*forced_rupture_time)[numOfPointsPadded];
-  real*                   lts_t_0;
+  real                    *lts_t_0;
 
 protected:
   //Hook for FL_16
@@ -222,6 +250,33 @@ protected:
   virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime, unsigned int face) {
     //!Do nothing
   }
+
+  /*
+   * copies all parameters from the DynamicRupture LTS to the local attributes
+   */
+  void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
+                          seissol::initializers::DynamicRupture *dynRup) override {
+    //first copy all Variables from the Base Lts dynRup tree
+    Base::copyLtsTreeToLocal(layerData, dynRup);
+    //TODO: change later to const_cast
+    seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
+    d_c                                           = layerData.var(ConcreteLts->d_c);
+    mu_S                                          = layerData.var(ConcreteLts->mu_S);
+    mu_D                                          = layerData.var(ConcreteLts->mu_D);
+    inst_healing                                  = layerData.var(ConcreteLts->inst_healing);
+    magnitude_out                                 = layerData.var(ConcreteLts->magnitude_out);
+
+    DS                                            = layerData.var(ConcreteLts->DS);
+    averaged_Slip                                 = layerData.var(ConcreteLts->averaged_Slip);
+
+    dynStress_time                                = layerData.var(ConcreteLts->dynStress_time);
+
+    //only for FL16:
+    forced_rupture_time                           = layerData.var(ConcreteLts->forced_rupture_time);
+    lts_t_0                                       = layerData.var(ConcreteLts->t_0);
+  }
+
+
 
   //fault strength (Uphoff eq 2.44)
   void calcFaultStrength(std::array<real, numOfPointsPadded> &Strength, real NorStressGP[numOfPointsPadded], unsigned int face){
@@ -388,15 +443,14 @@ protected:
   //    in calc_seissol.f90 this value will be multiplied by the element surface
   //    and an output happened once at the end of the simulation
   void calcAverageSlip(
-      real &averaged_Slip,
-      bool magnitude_out,
-      std::array<real, numOfPointsPadded> &tmpSlip
+      std::array<real, numOfPointsPadded> &tmpSlip,
+      unsigned int face
   ){
     real sum_tmpSlip = 0;
-    if (magnitude_out) {
+    if (magnitude_out[face]) {
       for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++)
         sum_tmpSlip += tmpSlip[iBndGP];
-      averaged_Slip = averaged_Slip + sum_tmpSlip / numberOfPoints;
+      averaged_Slip[face] = averaged_Slip[face] + sum_tmpSlip / numberOfPoints;
     }
   }
 
@@ -409,41 +463,8 @@ public:
                         real fullUpdateTime,
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
-    //TODO: change later to const_cast
-    seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
 
-//TODO put this inside function
-    waveSpeedsPlus                                = layerData.var(ConcreteLts->waveSpeedsPlus);
-    waveSpeedsMinus                               = layerData.var(ConcreteLts->waveSpeedsMinus);
-    initialStressInFaultCS                        = layerData.var(ConcreteLts->initialStressInFaultCS);
-    cohesion                                      = layerData.var(ConcreteLts->cohesion);
-    d_c                                           = layerData.var(ConcreteLts->d_c);
-    mu_S                                          = layerData.var(ConcreteLts->mu_S);
-    mu_D                                          = layerData.var(ConcreteLts->mu_D);
-    inst_healing                                  = layerData.var(ConcreteLts->inst_healing);
-    magnitude_out                                 = layerData.var(ConcreteLts->magnitude_out);
-
-    mu                                            = layerData.var(ConcreteLts->mu);
-    slip                                          = layerData.var(ConcreteLts->slip);
-    slip1                                         = layerData.var(ConcreteLts->slip1);
-    slip2                                         = layerData.var(ConcreteLts->slip2);
-    slipRate1                                     = layerData.var(ConcreteLts->slipRate1);
-    slipRate2                                     = layerData.var(ConcreteLts->slipRate2);
-    rupture_time                                  = layerData.var(ConcreteLts->rupture_time);
-    RF                                            = layerData.var(ConcreteLts->RF);
-    DS                                            = layerData.var(ConcreteLts->DS);
-    peakSR                                        = layerData.var(ConcreteLts->peakSR);
-    averaged_Slip                                 = layerData.var(ConcreteLts->averaged_Slip);
-
-    dynStress_time                                = layerData.var(ConcreteLts->dynStress_time);
-    tracXY                                        = layerData.var(ConcreteLts->tracXY);
-    tracXZ                                        = layerData.var(ConcreteLts->tracXZ);
-    imposedStatePlus                              = layerData.var(ConcreteLts->imposedStatePlus);
-    imposedStateMinus                             = layerData.var(ConcreteLts->imposedStateMinus);
-
-    //only for FL16:
-    forced_rupture_time                           = layerData.var(ConcreteLts->forced_rupture_time);
-    lts_t_0                                       = layerData.var(ConcreteLts->t_0);
+    copyLtsTreeToLocal(layerData, dynRup);
 
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
@@ -515,7 +536,7 @@ public:
       //    to this end, here the slip is computed and averaged per element
       //    in calc_seissol.f90 this value will be multiplied by the element surface
       //    and an output happened once at the end of the simulation
-      calcAverageSlip(averaged_Slip[face],magnitude_out[face],tmpSlip);
+      calcAverageSlip(tmpSlip, face);
 
       postcomputeImposedStateFromNewStress(
           QInterpolatedPlus[face], QInterpolatedMinus[face],
