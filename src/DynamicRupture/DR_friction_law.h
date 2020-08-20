@@ -14,7 +14,7 @@ namespace seissol {
     namespace fr_law {
       class Base;
       class FL_2;
-      class FL_3;  //aging law
+      class FL_3; //aging law
       class FL_4; //slip law
       class FL_16;
       class FL_33;
@@ -24,9 +24,36 @@ namespace seissol {
 
 
 class seissol::dr::fr_law::Base {
+
 public:
   //TODO: rename e.g. BaseSolverFL
   virtual ~Base() {}
+
+  virtual void initialize( initializers::LTSTree* dynRupTree,
+                   seissol::initializers::DynamicRupture *dynRup) {
+    for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+      waveSpeedsPlus                    = it->var(dynRup->waveSpeedsPlus);
+      waveSpeedsMinus                   = it->var(dynRup->waveSpeedsMinus);
+
+      initialStressInFaultCS            = it->var(dynRup->initialStressInFaultCS);
+      cohesion                          = it->var(dynRup->cohesion);
+
+      mu                                            = it->var(dynRup->mu);
+      slip                                          = it->var(dynRup->slip);
+      slip1                                         = it->var(dynRup->slip1);
+      slip2                                         = it->var(dynRup->slip2);
+      slipRate1                                    = it->var(dynRup->slipRate1);
+      slipRate2                                     = it->var(dynRup->slipRate2);
+      rupture_time                                 = it->var(dynRup->rupture_time);
+      RF                                           = it->var(dynRup->RF);
+      peakSR                                        = it->var(dynRup->peakSR);
+
+      tracXY                                       = it->var(dynRup->tracXY);
+      tracXZ                                        = it->var(dynRup->tracXZ);
+      imposedStatePlus                 = it->var(dynRup->imposedStatePlus);
+      imposedStateMinus               = it->var(dynRup->imposedStateMinus);
+    }
+  }
 
 protected:
   static constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
@@ -35,6 +62,26 @@ protected:
   //TODO: implement padded calculation
   //static constexpr int numOfPointsPadded = numberOfPoints;
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
+
+  seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus;
+  seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus;
+  real                    (*initialStressInFaultCS)[numOfPointsPadded][6];
+  real                    (*cohesion)[numOfPointsPadded];
+
+  real                    (*mu)[numOfPointsPadded];
+  real                    (*slip)[numOfPointsPadded];
+  real                    (*slip1)[numOfPointsPadded];
+  real                    (*slip2)[numOfPointsPadded];
+  real                    (*slipRate1)[numOfPointsPadded];
+  real                    (*slipRate2)[numOfPointsPadded];
+  real                    (*rupture_time)[numOfPointsPadded];
+  bool                    (*RF)[numOfPointsPadded];
+  real                    (*peakSR)[numOfPointsPadded];
+
+  real                    (*tracXY)[numOfPointsPadded];
+  real                    (*tracXZ)[numOfPointsPadded];
+  real                    (*imposedStatePlus)[tensor::QInterpolated::size()];
+  real                     (*imposedStateMinus)[tensor::QInterpolated::size()];
 
   /*
    * output:
@@ -117,12 +164,12 @@ protected:
   }
 
   //calculate Impedances Z and eta
-  void calcImpedancesAndEta(real &Zp,real &Zs, real &Zp_neig, real &Zs_neig, real &eta_p, real &eta_s, seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus, seissol::model::IsotropicWaveSpeeds *waveSpeedsMinus){
+  void calcImpedancesAndEta(real &Zp,real &Zs, real &Zp_neig, real &Zs_neig, real &eta_p, real &eta_s, seissol::model::IsotropicWaveSpeeds &waveSpeedsPlus, seissol::model::IsotropicWaveSpeeds &waveSpeedsMinus){
     //TODO: for anisotropic case it must be face dependent?
-    Zp = (waveSpeedsPlus->density * waveSpeedsPlus->pWaveVelocity);
-    Zp_neig = (waveSpeedsMinus->density * waveSpeedsMinus->pWaveVelocity);
-    Zs = (waveSpeedsPlus->density * waveSpeedsPlus->sWaveVelocity);
-    Zs_neig = (waveSpeedsMinus->density * waveSpeedsMinus->sWaveVelocity);
+    Zp = (waveSpeedsPlus.density * waveSpeedsPlus.pWaveVelocity);
+    Zp_neig = (waveSpeedsMinus.density * waveSpeedsMinus.pWaveVelocity);
+    Zs = (waveSpeedsPlus.density * waveSpeedsPlus.sWaveVelocity);
+    Zs_neig = (waveSpeedsMinus.density * waveSpeedsMinus.sWaveVelocity);
 
     eta_p = 1.0 / (1.0 / Zp + 1.0 / Zp_neig);
     eta_s = 1.0 / (1.0 / Zs + 1.0 / Zs_neig);
@@ -201,7 +248,50 @@ protected:
   //parameter for insta_healing
   //TODO: make this parameter better accessible?
   real u_0  = 10e-14; //slip rate is considered as being zero for instaneous healing
+  yateto::DenseTensorView<2,double,unsigned> resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
+  real                    (*d_c)[numOfPointsPadded];
+  real                    (*mu_S)[numOfPointsPadded];
+  real                    (*mu_D)[numOfPointsPadded];
+  bool                    (*inst_healing);
+  bool                    (*magnitude_out);
+
+  bool                    (*DS)[numOfPointsPadded];
+  real                    (*averaged_Slip);
+
+  real                    (*dynStress_time)[numOfPointsPadded];
+
+  //only for FL16:
+  real                    (*forced_rupture_time)[numOfPointsPadded];
+  real*                                   lts_t_0;
+
+public:
+  void initialize( initializers::LTSTree* dynRupTree,
+                  seissol::initializers::DynamicRupture *dynRup) override {
+    Base::initialize(dynRupTree,dynRup);
+
+    //TODO: change later to const_cast
+    seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
+
+    for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+      d_c                               = it->var(ConcreteLts->d_c);
+      mu_S                                    = it->var(ConcreteLts->mu_S);
+      mu_D                                          = it->var(ConcreteLts->mu_D);
+      inst_healing                                                     = it->var(ConcreteLts->inst_healing);
+      magnitude_out                                                   = it->var(ConcreteLts->magnitude_out);
+
+      DS                                           = it->var(ConcreteLts->DS);
+      averaged_Slip                                                   = it->var(ConcreteLts->averaged_Slip);
+
+      dynStress_time                                = it->var(ConcreteLts->dynStress_time);
+
+      //only for FL16:
+      forced_rupture_time                          = it->var(ConcreteLts->forced_rupture_time);
+      lts_t_0                                            = it->var(ConcreteLts->t_0);
+    }
+  }
+
+protected:
   //Hook for FL_16
   //TODO: remove this hook - is only needed for evaluate2
   virtual void hook(int iBndGP, real &f1, real tn, real t_0, real fullUpdateTime, real forced_rupture_time[init::QInterpolated::Stop[0]] ) {
@@ -304,7 +394,6 @@ protected:
   void integrateSliprateToGetSlip(
       real slip[numOfPointsPadded],
       std::array<real, numOfPointsPadded> &tmpSlip,
-      yateto::DenseTensorView<2,double,unsigned> &resampleMatrixView,
       std::array<real, numOfPointsPadded> &LocSlipRate,
       real DeltaT
   ){
@@ -396,6 +485,21 @@ public:
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
 
+    mu                                            = layerData.var(ConcreteLts->mu);
+    slip                                          = layerData.var(ConcreteLts->slip);
+    slip1                                         = layerData.var(ConcreteLts->slip1);
+    slip2                                         = layerData.var(ConcreteLts->slip2);
+    slipRate1                                     = layerData.var(ConcreteLts->slipRate1);
+    slipRate2                                     = layerData.var(ConcreteLts->slipRate2);
+    rupture_time                                  = layerData.var(ConcreteLts->rupture_time);
+    RF                                            = layerData.var(ConcreteLts->RF);
+    DS                                            = layerData.var(ConcreteLts->DS);
+    peakSR                                        = layerData.var(ConcreteLts->peakSR);
+    averaged_Slip                                 = layerData.var(ConcreteLts->averaged_Slip);
+
+    /*
+
+
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                        = layerData.var(ConcreteLts->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                       = layerData.var(ConcreteLts->waveSpeedsMinus);
     real                    (*initialStressInFaultCS)[numOfPointsPadded][6]                     = layerData.var(ConcreteLts->initialStressInFaultCS);
@@ -428,16 +532,16 @@ public:
     real                    (*forced_rupture_time)[numOfPointsPadded]                           = layerData.var(ConcreteLts->forced_rupture_time);
     real*                                   lts_t_0                                             = layerData.var(ConcreteLts->t_0);
 
-    auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
-
-    //calculate Impedances Z
-    real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
-    calcImpedancesAndEta(Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, waveSpeedsPlus, waveSpeedsMinus);
+*/
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
+    #pragma omp parallel for schedule(static)
     #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+
+      //calculate Impedances Z
+      real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
+      (Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, waveSpeedsPlus[face], waveSpeedsMinus[face]);
 
       //TODO: merge TractionGP_XY and tracXY in one variable
       real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
@@ -470,7 +574,7 @@ public:
 
         updateDirectionalSlip(slip1[face], slip2[face], slipRate1[face], slipRate2[face], DeltaT[iTimeGP]);
 
-        integrateSliprateToGetSlip(slip[face], tmpSlip, resampleMatrixView, LocSlipRate, DeltaT[iTimeGP]);
+        integrateSliprateToGetSlip(slip[face], tmpSlip, LocSlipRate, DeltaT[iTimeGP]);
 
         //actually slip is already the stateVariable for this FL, but to simplify the next equations we divide it here by d_C
         calcStateVariablePsi(stateVariablePsi, slip[face], d_c[face]);
@@ -564,7 +668,6 @@ public:
     real                    (*forced_rupture_time)[numOfPointsPadded]                           = layerData.var(ConcreteLts->forced_rupture_time);
     real*                                   lts_t_0                                             = layerData.var(ConcreteLts->t_0);
 
-    auto resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
 
     //TODO: for anisotropic case it must be face dependent?
     //calculate Impedances Z
@@ -886,14 +989,15 @@ public:
     nSRupdates = 5;
     nSVupdates = 2;
 
-    //calculate Impedances Z
-    real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
-    calcImpedancesAndEta(Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, waveSpeedsPlus, waveSpeedsMinus);
+
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+      //calculate Impedances Z
+      real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
+      calcImpedancesAndEta(Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, waveSpeedsPlus[face], waveSpeedsMinus[face]);
 
       //TODO: merge TractionGP_XY and tracXY in one variable
       real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]

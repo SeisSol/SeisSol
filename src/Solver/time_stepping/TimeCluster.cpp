@@ -333,7 +333,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
-/*
+
     // legacy code:
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus[face],
@@ -356,7 +356,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
   //debugging:
-/*
   bool imposedStatePlusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   bool imposedStateMinusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {

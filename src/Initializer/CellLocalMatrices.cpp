@@ -623,4 +623,5 @@ void seissol::initializers::initializeFrictionMatrices(
       faultParameters,
       ltsFaceToMeshFace,
       e_interoperability);
+
 }
