@@ -34,13 +34,11 @@ protected:
   //TODO: is init::QInterpolated::Start[0] always 0?
   //assert(init::QInterpolated::Start[0] == 0);
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
-
   ImpedancesAndEta*                     impAndEta;
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus;
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus;
   real                    (*initialStressInFaultCS)[numOfPointsPadded][6];
   real                    (*cohesion)[numOfPointsPadded];
-
   real                    (*mu)[numOfPointsPadded];
   real                    (*slip)[numOfPointsPadded];
   real                    (*slip1)[numOfPointsPadded];
@@ -50,7 +48,6 @@ protected:
   real                    (*rupture_time)[numOfPointsPadded];
   bool                    (*RF)[numOfPointsPadded];
   real                    (*peakSR)[numOfPointsPadded];
-
   //TODO: merge TractionGP_XY and tracXY in one variable
   real                    (*tracXY)[numOfPointsPadded];
   real                    (*tracXZ)[numOfPointsPadded];
@@ -67,7 +64,6 @@ protected:
     waveSpeedsMinus                               = layerData.var(dynRup->waveSpeedsMinus);
     initialStressInFaultCS                        = layerData.var(dynRup->initialStressInFaultCS);
     cohesion                                      = layerData.var(dynRup->cohesion);
-
     mu                                            = layerData.var(dynRup->mu);
     slip                                          = layerData.var(dynRup->slip);
     slip1                                         = layerData.var(dynRup->slip1);
@@ -77,13 +73,11 @@ protected:
     rupture_time                                  = layerData.var(dynRup->rupture_time);
     RF                                            = layerData.var(dynRup->RF);
     peakSR                                        = layerData.var(dynRup->peakSR);
-
     tracXY                                        = layerData.var(dynRup->tracXY);
     tracXZ                                        = layerData.var(dynRup->tracXZ);
     imposedStatePlus                              = layerData.var(dynRup->imposedStatePlus);
     imposedStateMinus                             = layerData.var(dynRup->imposedStateMinus);
   }
-
 
   /*
    * output:
@@ -191,6 +185,7 @@ protected:
   }
 
 public:
+  //TODO: change arguments to "const double& ref" for all arguments that are not changed (only input)
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                          seissol::initializers::DynamicRupture *dynRup,
                          real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -212,25 +207,21 @@ protected:
   //TODO: make this parameter better accessible?
   real u_0  = 10e-14; //slip rate is considered as being zero for instaneous healing
   yateto::DenseTensorView<2,double,unsigned> resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
-
   real                    (*d_c)[numOfPointsPadded];
   real                    (*mu_S)[numOfPointsPadded];
   real                    (*mu_D)[numOfPointsPadded];
   bool                    (*inst_healing);
   bool                    (*magnitude_out);
-
   bool                    (*DS)[numOfPointsPadded];
   real                    (*averaged_Slip);
-
   real                    (*dynStress_time)[numOfPointsPadded];
-
   //only for FL16:
   real                    (*forced_rupture_time)[numOfPointsPadded];
   real                    *lts_t_0;
 
 protected:
   //Hook for FL_16
-  virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime, unsigned int face) {
+  virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime, unsigned int iBndGP, unsigned int face  ) {
     //!Do nothing
   }
 
@@ -259,92 +250,73 @@ protected:
     lts_t_0                                       = layerData.var(ConcreteLts->t_0);
   }
 
-  //fault strength (Uphoff eq 2.44)
-  void calcFaultStrength(std::array<real, numOfPointsPadded> &Strength, real NorStressGP[numOfPointsPadded], unsigned int face){
-    std::array<real, numOfPointsPadded> P;
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      P[iBndGP] = initialStressInFaultCS[face][iBndGP][0] + NorStressGP[iBndGP];
-      Strength[iBndGP] = cohesion[face][iBndGP] - mu[face][iBndGP] * std::min(P[iBndGP], 0.0);
-    }
-  }
-
-  void calcTotalShearStressYZ(std::array<real, numOfPointsPadded> &TotalShearStressYZ,
-      real XYStressGP[numOfPointsPadded],
-      real XZStressGP[numOfPointsPadded], unsigned int face){
-
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      TotalShearStressYZ[iBndGP] = std::sqrt(
-          seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP], 2) +
-          seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP], 2));
-    }
-  }
-
-  void calcSlipRate(
-      std::array<real, numOfPointsPadded> &LocSlipRate,
+  /*
+   *
+   */
+  void calcSlipRateAndTraction(
+      real TractionGP_XY[numOfPointsPadded],
+      real TractionGP_XZ[numOfPointsPadded],
+      real NorStressGP[numOfPointsPadded],
       real XYStressGP[numOfPointsPadded],
       real XZStressGP[numOfPointsPadded],
-      std::array<real, numOfPointsPadded> &Strength,
+      std::array<real, numOfPointsPadded> &LocSlipRate,
+      real DeltaT,
       unsigned int face
       ){
     std::array<real, numOfPointsPadded> TotalShearStressYZ;
-    std::array<real, numOfPointsPadded> LocSR1;
-    std::array<real, numOfPointsPadded> LocSR2;
+    std::array<real, numOfPointsPadded> Strength;
 
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+    //-------------------------------------
+    //calculate Fault Strength
+      //fault strength (Uphoff eq 2.44)
+      Strength[iBndGP] = cohesion[face][iBndGP] - mu[face][iBndGP] * std::min(initialStressInFaultCS[face][iBndGP][0] + NorStressGP[iBndGP], 0.0);
 
-      calcTotalShearStressYZ(TotalShearStressYZ, XYStressGP, XZStressGP, face);
+    //-------------------------------------
+    //calculate TotalShearStress in Y and Z direction
+      TotalShearStressYZ[iBndGP] = std::sqrt(
+          seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP], 2) +
+          seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP], 2));
 
+    //-------------------------------------
+    // calculate SlipRates
       LocSlipRate[iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) / impAndEta[face].eta_s);
-
-      LocSR1[iBndGP] = LocSlipRate[iBndGP] * (initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP]) /
+      slipRate1[face][iBndGP] = LocSlipRate[iBndGP] * (initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP]) /
                        (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
-      LocSR2[iBndGP] = LocSlipRate[iBndGP] * (initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP]) /
+      slipRate2[face][iBndGP]  = LocSlipRate[iBndGP] * (initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP]) /
                        (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
 
-      slipRate1[face][iBndGP] = LocSR1[iBndGP];
-      slipRate2[face][iBndGP] = LocSR2[iBndGP];
-    }
-  }
-
-  void calcTraction(
-      real TractionGP_XY[numOfPointsPadded],
-      real TractionGP_XZ[numOfPointsPadded],
-      real XYStressGP[numOfPointsPadded],
-      real XZStressGP[numOfPointsPadded],
-      unsigned int face
-      ){
-
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+    //-------------------------------------
+    //calculateTraction
       TractionGP_XY[iBndGP] = XYStressGP[iBndGP] - impAndEta[face].eta_s * slipRate1[face][iBndGP];
       TractionGP_XZ[iBndGP] = XZStressGP[iBndGP] - impAndEta[face].eta_s * slipRate2[face][iBndGP];
       tracXY[face][iBndGP] = TractionGP_XY[iBndGP];
       tracXZ[face][iBndGP] = TractionGP_XY[iBndGP];
-    }
-  }
 
-  void updateDirectionalSlip(
-      real DeltaT,
-      unsigned int face
-      ){
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      //Update slip
+    //-------------------------------------
+    //update Directional Slip
       slip1[face][iBndGP] = slip1[face][iBndGP] + slipRate1[face][iBndGP] * DeltaT;
       slip2[face][iBndGP] = slip2[face][iBndGP] + slipRate2[face][iBndGP] * DeltaT;
     }
   }
 
 /*
- * tmp slip is used to calculate the averaged_Slip
+ * tmpSlip output
  */
-  void integrateSliprateToGetSlip(
+  void calcStateVariableAndFrictionFunc(
       std::array<real, numOfPointsPadded> &tmpSlip,
       std::array<real, numOfPointsPadded> &LocSlipRate,
+      real tn,
+      real fullUpdateTime,
       real DeltaT,
       unsigned int face
-  ){
+      ){
     std::array<real, numOfPointsPadded> resampledSlipRate{0};
+    std::array<real, numOfPointsPadded> stateVariablePsi;
 
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+      //-------------------------------------
+      //integrate Sliprate To Get Slip = State Variable
       //TODO: does not work with padded Points bc of resampleMatrix is not padded
       for (int j = 0; j < numberOfPoints; j++) {
         //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
@@ -354,48 +326,32 @@ protected:
       }
       slip[face][iBndGP] = slip[face][iBndGP] + resampledSlipRate[iBndGP] * DeltaT;
       tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipRate[iBndGP] * DeltaT;
-    }
-  }
 
-  /*
-   * the state variable is devided by d_C to simplfy the next equations
-   */
-  void calcStateVariablePsi(
-      std::array<real, numOfPointsPadded> &stateVariablePsi,
-      unsigned int face
-      ){
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      //-------------------------------------
       //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
-      //f1 = state variable
+      //actually slip is already the stateVariable for this FL, but to simplify the next equations we divide it here by d_C
       stateVariablePsi[iBndGP] = std::min(std::abs(slip[face][iBndGP]) / d_c[face][iBndGP], 1.0);
-    }
-  }
 
-  /*
-   * Carsten Thesis: Eq. 2.45
-   * calculate updated mu -> friction law
-   *
-   */
-  void evaluateFrictionFunction(
-      std::array<real, numOfPointsPadded> &stateVariablePsi,
-      unsigned int face
-      ){
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      //-------------------------------------
+      //hook for FL_16: may calculate a different value for the state variable Psi
+      hookCalcStateVariable(stateVariablePsi, tn, fullUpdateTime, iBndGP, face); //for FL_16
+
+      //-------------------------------------
+      //Carsten Thesis: Eq. 2.45
+      //evaluate friction law: updated mu -> friction law
       mu[face][iBndGP] = mu_S[face][iBndGP] - (mu_S[face][iBndGP] - mu_D[face][iBndGP]) * stateVariablePsi[iBndGP];
-    }
-  }
 
-  void instaHealingResetMuAndSlip(
-      std::array<real, numOfPointsPadded> &LocSlipRate,
-      unsigned int face
-  ){
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (LocSlipRate[iBndGP] < u_0) {
-        mu[face][iBndGP] = mu_S[face][iBndGP];
-        slip[face][iBndGP] = 0.0;
+      //-------------------------------------
+      //instantaneous healing option Reset Mu and Slip
+      if (inst_healing[face] == true) {
+        if (LocSlipRate[iBndGP] < u_0) {
+          mu[face][iBndGP] = mu_S[face][iBndGP];
+          slip[face][iBndGP] = 0.0;
+        }
       }
-    }
-  }
+    }//end of iBndGP-loop
+  }//end of function calcStateVariableAndFrictionFunc
+
 
   //output time when shear stress is equal to the dynamic stress after rupture arrived
   //currently only for linear slip weakening
@@ -457,10 +413,7 @@ public:
 
       //declare local variables
       std::array<real, numOfPointsPadded> tmpSlip{0};
-      std::array<real, numOfPointsPadded> Strength;
-
       std::array<real, numOfPointsPadded> LocSlipRate;
-      std::array<real, numOfPointsPadded> stateVariablePsi;
       //tn only needed for FL=16
       real tn = fullUpdateTime;
 
@@ -468,30 +421,12 @@ public:
           QInterpolatedPlus[face], QInterpolatedMinus[face],  face);
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
-        //fault strength (Uphoff eq 2.44)
-        calcFaultStrength(Strength, NorStressGP[iTimeGP], face);
+        tn=tn + DeltaT[iTimeGP];
 
-        calcSlipRate( LocSlipRate, XYStressGP[iTimeGP], XZStressGP[iTimeGP], Strength, face);
+        calcSlipRateAndTraction(TractionGP_XY[iTimeGP], TractionGP_XZ[iTimeGP], NorStressGP[iTimeGP], XYStressGP[iTimeGP], XZStressGP[iTimeGP],
+            LocSlipRate, DeltaT[iTimeGP], face);
 
-        calcTraction(TractionGP_XY[iTimeGP], TractionGP_XZ[iTimeGP], XYStressGP[iTimeGP], XZStressGP[iTimeGP], face);
-
-        updateDirectionalSlip(DeltaT[iTimeGP], face);
-
-        integrateSliprateToGetSlip(tmpSlip, LocSlipRate, DeltaT[iTimeGP], face);
-
-        //actually slip is already the stateVariable for this FL, but to simplify the next equations we divide it here by d_C
-        calcStateVariablePsi(stateVariablePsi, face);
-
-        //hook for FL_16: may calculate a different value for the state variable Psi
-        hookCalcStateVariable(stateVariablePsi, tn, fullUpdateTime, face); //for FL_16
-
-        //Carsten Thesis: Eq. 2.45
-        evaluateFrictionFunction(stateVariablePsi, face);
-
-        //instantaneous healing option
-        if (inst_healing[face] == true) {
-          instaHealingResetMuAndSlip(LocSlipRate, face);
-        }
+        calcStateVariableAndFrictionFunc(tmpSlip, LocSlipRate, tn, fullUpdateTime, DeltaT[iTimeGP], face);
       }//End of iTimeGP-Loop
 
       // output rupture front
@@ -516,11 +451,14 @@ public:
           NorStressGP, TractionGP_XY, TractionGP_XZ,
           timeWeights, face);
 
+      /*
+      //debugging
       for(int i = 0; i < tensor::QInterpolated::size(); i++){
         assert( !std::isnan(imposedStatePlus[face][i]) );
       }
-
+      //*/
 //      assert(face != 4);
+
     }//End of Loop over Faces
   }//End of Function evaluate
 
@@ -531,25 +469,20 @@ public:
 class seissol::dr::fr_law::FL_16 : public seissol::dr::fr_law::FL_2 {
 public:
 
-  virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime, unsigned int face) override{
+  virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime,  unsigned int iBndGP,  unsigned int face) override{
     real f2 = 0.0;
 
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (lts_t_0[face] == 0) {
-        if (tn >= forced_rupture_time[face][iBndGP] ) {
-          f2 = 1.0;
-        } else {
-          f2 = 0.0;
-        }
+    if (lts_t_0[face] == 0) {
+      if (tn >= forced_rupture_time[face][iBndGP] ) {
+        f2 = 1.0;
       } else {
-        f2 = std::max(0.0, std::min( 1.0, (fullUpdateTime - forced_rupture_time[face][iBndGP] ) / lts_t_0[face]));
+        f2 = 0.0;
       }
-      stateVariablePsi[iBndGP] = std::max(stateVariablePsi[iBndGP], f2);
+    } else {
+      f2 = std::max(0.0, std::min( 1.0, (fullUpdateTime - forced_rupture_time[face][iBndGP] ) / lts_t_0[face]));
     }
-
+    stateVariablePsi[iBndGP] = std::max(stateVariablePsi[iBndGP], f2);
   }
-
-
 };
 
 
