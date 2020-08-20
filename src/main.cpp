@@ -38,6 +38,8 @@
  */
 
 #include "SeisSol.h"
+#include <yaml-cpp/yaml.h>
+#include <fty/include/Fty.hpp>
 
 extern "C" {
   void fortran_main();
@@ -45,16 +47,28 @@ extern "C" {
 
 int main(int argc, char* argv[])
 {
-	EPIK_TRACER("SeisSol");
-	SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
+  EPIK_TRACER("SeisSol");
+  SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	// Initialize SeisSol
-	bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
+  // Initialize SeisSol
+  bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
 
-	// Initialize Fortan Part and run SeisSol
-	if (runSeisSol)
-		fortran_main();
+  // read and parse an input file with parameters
+  fty::Loader<fty::As_lowercase> Loader{};
+  try {
+    YAML::Node Params = Loader.load(seissol::SeisSol::main.parameterFile());
+    seissol::SeisSol::main.setInputParams(Params);
+  }
+  catch (const std::exception& Error) {
+    logError() << Error.what();
+    seissol::SeisSol::main.finalize();
+    return 1;
+  }
 
-	// Finalize SeisSol
-	seissol::SeisSol::main.finalize();
+  // Initialize Fortan Part and run SeisSol
+  if (runSeisSol)
+    fortran_main();
+
+  // Finalize SeisSol
+  seissol::SeisSol::main.finalize();
 }

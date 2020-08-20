@@ -60,6 +60,8 @@
 
 #include "ResultWriter/AnalysisWriter.h"
 
+#include <yaml-cpp/yaml.h>
+
 class MeshReader;
 
 namespace seissol
@@ -121,6 +123,8 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
+  //! Input parameters
+  YAML::Node m_inputParams;
 
 private:
 	/**
@@ -265,6 +269,20 @@ public:
 	{
 		return *m_meshReader;
 	}
+
+
+	/**
+	 * Sets input parameters of SeisSol
+	 */
+  void setInputParams(const YAML::Node& Params);
+
+
+  /**
+    * Returns input parameters of SeisSol
+    */
+  const YAML::Node& getInputParams() {
+    return m_inputParams;
+  }
 
 public:
 	/** The only instance of this class; the main C++ functionality */
