@@ -296,8 +296,6 @@ extern "C" {
                                                       real const* resampleMatrix );
 
   //Code added by ADRIAN
-  extern void f_interoperability_getnSide(void*  i_domain, int* i_nSide);
-
   extern void f_interoperability_getFL(void*  i_domain, int* FL);
 
   extern void f_interoperability_getDynRup(void*  i_domain, int iFace, real* i_InitialStressInFaultCS, real* i_mu, real* i_slipRate1, real *i_slipRate2, bool* i_RF);
@@ -305,13 +303,6 @@ extern "C" {
   extern void f_interoperability_getDynRupFL_2(void*  i_domain, int iFace, real* i_t_0, bool* i_magnitude_out, bool* i_DS, bool* i_inst_healing) ;
 
   extern void f_interoperability_getDynRupFL_3(void*  i_domain, int iFace, real* i_RS_f0, real* i_RS_a, real* i_RS_b, real* i_RS_sl0, real* i_RS_sr0, real* i_stateVar) ;
-
-
-  extern void f_interoperability_getTmpFrictionData(void*  i_domain, int i_numberOfPoints,
-                                                    int* iElem, int* iSide, real* i_InitialStressInFaultCS, real* i_cohesion, real* i_D_C, real* i_mu_S, real* i_mu_D,
-                                                    int* inst_healing, double* i_t_0, int* FL, real* i_forced_rupture_time, bool* i_magnitude_out,
-                                                    real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time,
-                                                    bool* i_RF, bool* i_DS, real* i_PeakSR, real* i_averaged_Slip, real* i_dynStress_time, real* i_TracXY, real* i_TracXZ);
 
   extern void f_interoperability_setFrictionOutput( void*  i_domain, int i_face,
         real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time, real* i_PeakSR, real* i_tracXY, real* i_tracXZ);
@@ -1046,12 +1037,6 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
 }
 
 
-//Code added by ADRIAN
-int seissol::Interoperability::getnSide(){
-    int nSide = 0;
-    f_interoperability_getnSide(m_domain, &nSide);
-    return nSide;
-}
 
 //Code added by ADRIAN
 void seissol::Interoperability::getFL(){
@@ -1097,57 +1082,10 @@ void seissol::Interoperability::getDynRupFL_3(int ltsFace,  unsigned meshFace,
                                               real *i_RS_sl0,
                                               real *i_RS_sr0,
                                               real (*stateVar)[init::QInterpolated::Stop[0]]) {
-  real tmpInitialStressInFaultCS[tensor::QInterpolated::Shape[0]*6] ={0};
   int fFace = meshFace + 1;
   f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_f0[ltsFace], &i_RS_a[ltsFace], &i_RS_b[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace], &stateVar[ltsFace][0]);
-
 }
 
-
-void seissol::Interoperability::getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data){
-    f_interoperability_getTmpFrictionData(m_domain, friction_data.numberOfPoints,
-                                          &friction_data.elem[0],
-                                          &friction_data.side[0],
-                                          &friction_data.initialStressInFaultCS[0],
-                                          &friction_data.cohesion[0],
-                                          &friction_data.D_C[0],
-                                          &friction_data.mu_S[0],
-                                          &friction_data.mu_D[0],
-                                          &friction_data.inst_healing, &friction_data.t_0,
-                                          &friction_data.FL,
-                                          &friction_data.forced_rupture_time[0],
-                                          &friction_data.magnitude_out[0],
-                                          &friction_data.mu[0],
-                                          &friction_data.slip[0],
-                                          &friction_data.slip1[0],
-                                          &friction_data.slip2[0],
-                                          &friction_data.slipRate1[0],
-                                          &friction_data.slipRate2[0],
-                                          &friction_data.rupture_time[0],
-                                          &friction_data.RF[0],
-                                          &friction_data.DS[0],
-                                          &friction_data.peakSR[0],
-                                          &friction_data.averaged_Slip[0],
-                                          &friction_data.dynStress_time[0],
-                                          &friction_data.tracXY[0],
-                                          &friction_data.tracXZ[0]);
-
-}
-
-/*
-void seissol::Interoperability::getFrictionData(FrictionData &friction_data){
-    f_interoperability_getFrictionData(m_domain, tensor::QInterpolated::Shape[0],
-                                          &friction_data.inst_healing,
-                                          &friction_data.t_0,
-                                          &friction_data.FL,
-                                          &friction_data.magnitude_out[0],
-                                          &friction_data.mu[0],
-                                          &friction_data.slipRate1[0],
-                                          &friction_data.slipRate2[0],
-                                          &friction_data.RF[0],
-                                          &friction_data.DS[0]
-}
-*/
 
 void seissol::Interoperability::copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
         real (*mu)[seissol::init::QInterpolated::Stop[0]],
@@ -1183,25 +1121,6 @@ void seissol::Interoperability::copyFrictionOutputToFortranFL2(unsigned int ltsF
                                          &dynStress_time[ltsFace][0]);
 }
 
-
-
-
-//TODO: delete:
-void seissol::Interoperability::setFrictionOutput(seissol::physics::TmpFrictionData &tmp_friction_data, FrictionData &frictionData, int face){
-    int fFace = face + 1;
-    f_interoperability_setFrictionOutput(m_domain, fFace,
-                                       &tmp_friction_data.mu[0],
-                                       &frictionData.slip[0],
-                                       &frictionData.slip1[0],
-                                       &frictionData.slip2[0],
-                                       &frictionData.slipRate1[0],
-                                       &frictionData.slipRate2[0],
-                                       &frictionData.rupture_time[0],
-                                       &frictionData.peakSR[0],
-                                       &frictionData.tracXY[0],
-                                       &frictionData.tracXZ[0]
-                                       );
-}
 
 void seissol::Interoperability::calcElementwiseFaultoutput(double time)
 {

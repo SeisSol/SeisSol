@@ -384,10 +384,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
 
-    //edit adrian test
-    //TODO: delete my changes if frictionData is not needed anymore
-    FrictionData*                        frictionData                                               = it->var(dynRup->frictionData);
-
 
 #ifdef _OPENMP
   #pragma omp parallel for private(TData, TinvData, APlusData, AMinusData) schedule(static)
@@ -396,50 +392,6 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
-      ///adrian test
-      //TODO: remove this
-      //real array[2]={1,2};
-//      unsigned iFace = meshFace;
-//      e_interoperability.getTmpFrictionData(m_friction_data);
-//      cohesion[ltsFace] = friction_data.getCohesionFace(meshFace);
-      size_t numberOfPoints = tensor::QInterpolated::Shape[0];
-
-      //frictionData[ltsFace].initialStressInFaultCS = &TmpFricData.initialStressInFaultCS[meshFace*6*numberOfPoints];   //not in faultParameters
-/*
-      frictionData[ltsFace].d_c = &faultParameters["d_c"][meshFace * numberOfPoints];
-      frictionData[ltsFace].cohesion = &faultParameters["cohesion"][meshFace * numberOfPoints];
-      frictionData[ltsFace].mu_S = &faultParameters["mu_s"][meshFace * numberOfPoints];
-      frictionData[ltsFace].mu_D = &faultParameters["mu_d"][meshFace * numberOfPoints];
-      frictionData[ltsFace].forced_rupture_time = &faultParameters["forced_rupture_time"][meshFace * numberOfPoints];
-
-      //frictionData[ltsFace].inst_healing = TmpFricData.inst_healing;   //in readpar.f90 inst_healing
-      //frictionData[ltsFace].t_0 = TmpFricData.t_0;                   //in readpar.f90 t_0
-
-      //FL fric independent
-      //frictionData[ltsFace].FL = TmpFricData.FL;     //TODO: enum FL
-
-      //in-outputs:
-      //frictionData[ltsFace].mu = &TmpFricData.mu[meshFace * numberOfPoints];     // = EQN%IniMu(:,:)
-      frictionData[ltsFace].slip = (double*) calloc (numberOfPoints,sizeof(double));
-      frictionData[ltsFace].slip1 = (double*) calloc (numberOfPoints,sizeof(double));
-      frictionData[ltsFace].slip2 = (double*) calloc (numberOfPoints,sizeof(double));
-      //frictionData[ltsFace].slipRate1 = //EQN%IniSlipRate1
-      //frictionData[ltsFace].slipRate2 = // EQN%IniSlipRate1
-      frictionData[ltsFace].rupture_time = (double*) calloc (numberOfPoints,sizeof(double));
-      //frictionData[ltsFace].RF;     //ini_model_DR.f90
-      //frictionData[ltsFace].DS;     //ini_model_DR.f90
-      frictionData[ltsFace].peakSR = (double*) calloc (numberOfPoints,sizeof(double));
-      //frictionData[ltsFace].StateVar;   //EQN%IniStateVar
-
-      //if(DISC%DynRup%magnitude_output_on.EQ.1.)
-      //frictionData[ltsFace].magnitude_out = true;   //in readpar.f90 magnitude_out
-      frictionData[ltsFace].averaged_Slip = 0.0;
-
-      //outputs
-      frictionData[ltsFace].dynStress_time  = (double*) calloc (numberOfPoints,sizeof(double));
-      frictionData[ltsFace].tracXY = (double*) calloc (numberOfPoints,sizeof(double));
-      frictionData[ltsFace].tracXZ = (double*) calloc (numberOfPoints,sizeof(double));
-*/
 
       /// Face information
       faceInformation[ltsFace].meshFace = meshFace;

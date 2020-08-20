@@ -142,12 +142,7 @@ private:
      //! global data structures
     struct GlobalData *m_globalData;
 
-    /*
-     * Code added by Adrian:
-     * Friction data struct
-     */
-    struct seissol::physics::TmpFrictionData m_friction_data;
-    //added by Adrian
+  //added by Adrian
     dr::fr_law::Base* m_FrictonLaw;
     dr::output::Base* m_DrOutput;
 

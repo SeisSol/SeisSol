@@ -391,11 +391,7 @@ class seissol::Interoperability {
     * Code added by Adrian
     */
 
-    /**
-    * gets domain%MESH%Fault%nSide from fortran to c++
-    */
-    //TODO: remove this function
-    int getnSide();
+
     /**
     * gets domain%EQN%FL from fortran to c++
     * FL = friction law
@@ -457,10 +453,6 @@ class seissol::Interoperability {
                                                 real (*stateVar)[init::QInterpolated::Stop[0]]);
 
 
-  //TODO: delete this if not needed anymore
-    void getTmpFrictionData(seissol::physics::TmpFrictionData &friction_data);
-
-
     void copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,
                                                                 real (*mu)[seissol::init::QInterpolated::Stop[0]],
                                                                 real  (*slip)[init::QInterpolated::Stop[0]],
@@ -479,8 +471,6 @@ class seissol::Interoperability {
             real  (*dynStress_time)[init::QInterpolated::Stop[0]]
     );
 
-    //todo: change to lts version
-    void setFrictionOutput(seissol::physics::TmpFrictionData &friction_data, FrictionData &frictionData, int face);
 
 
    /**

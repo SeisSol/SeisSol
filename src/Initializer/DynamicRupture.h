@@ -70,11 +70,7 @@ public:
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
 
-  //friction Data
-  //TODO: delete:
-  Variable<FrictionData>                                            frictionData;
   //size padded for vectorization
-
   Variable<real[numOfPointsPadded][6]>                  initialStressInFaultCS;
   Variable<real[ numOfPointsPadded ]>                   cohesion;
   Variable<real[ numOfPointsPadded ]>                   mu;
@@ -101,8 +97,6 @@ public:
     tree.addVar(         faceInformation,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
-
-    tree.addVar(      frictionData,                   mask,                 1,      seissol::memory::Standard );
 
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      cohesion,                       mask,                 1,      seissol::memory::Standard );

@@ -131,8 +131,8 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  m_receiverCluster(          nullptr                   ),
  //Code added by Adrian:
  m_FrictonLaw(              i_FrictonLaw               ),
- m_DrOutput(                   i_DrOutput                    ),
- m_friction_data(tensor::QInterpolated::Shape[0], e_interoperability.getnSide() )
+ m_DrOutput(                   i_DrOutput                    )
+
 
 {
     // assert all pointers are valid
@@ -158,9 +158,6 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
   m_fullUpdateTime                = 0;
   m_predictionTime                = 0;
 
-
-//Code added by adrian
-//e_interoperability.getTmpFrictionData(tensor::QInterpolated::Shape[0], m_friction_data);
 
   m_dynamicRuptureFaces = (i_dynRupClusterData->child<Ghost>().getNumberOfCells() > 0)
 	|| (i_dynRupClusterData->child<Copy>().getNumberOfCells() > 0)
@@ -254,34 +251,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   //TODO: delete these if not required for debugging anymore:
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(m_dynRup->waveSpeedsMinus);
-  FrictionData*                         frictionData                                                      = layerData.var(m_dynRup->frictionData);
   real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(m_dynRup->imposedStatePlus);
   real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(m_dynRup->imposedStateMinus);
 
-/*
-  seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(m_dynRup);
-  real*                                   lts_t_0                                                         = layerData.var(ConcreteLts->t_0);
-  real                    (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6]                      = layerData.var(ConcreteLts->initialStressInFaultCS);
-  real                    (*cohesion)[init::QInterpolated::Stop[0]]                                       = layerData.var(ConcreteLts->cohesion);
-  real                    (*mu)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->mu);
-  real                    (*slip)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->slip);
-  real                    (*slip1)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip1);
-  real                    (*slip2)[init::QInterpolated::Stop[0]]                                          = layerData.var(ConcreteLts->slip2);
-  real                    (*d_c)[init::QInterpolated::Stop[0]]                                            = layerData.var(ConcreteLts->d_c);
-  real                    (*mu_S)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_S);
-  real                    (*mu_D)[init::QInterpolated::Stop[0]]                                           = layerData.var(ConcreteLts->mu_D);
-  real                    (*rupture_time)[init::QInterpolated::Stop[0]]                                   = layerData.var(ConcreteLts->rupture_time);
-  bool                    (*RF)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->RF);
-  bool                    (*DS)[init::QInterpolated::Stop[0]]                                             = layerData.var(ConcreteLts->DS);
-  real                    (*peakSR)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->peakSR);
-  real                    (*dynStress_time)[init::QInterpolated::Stop[0]]                                 = layerData.var(ConcreteLts->dynStress_time);
-  real                    (*tracXY)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXY);
-  real                    (*tracXZ)[init::QInterpolated::Stop[0]]                                         = layerData.var(ConcreteLts->tracXZ);
-  real                    (*slipRate1)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate1);
-  real                    (*slipRate2)[init::QInterpolated::Stop[0]]                                      = layerData.var(ConcreteLts->slipRate2);
-  bool                    (*magnitude_out)                                                                = layerData.var(ConcreteLts->magnitude_out);
-  real                    (*averaged_Slip)                                                                = layerData.var(ConcreteLts->averaged_Slip);
-*/
 
   alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
@@ -291,21 +263,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   //Code added by ADRIAN
     //TODO: outsource this to initialization:
     const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
-    if(m_friction_data.initialized == false){
-        //e_interoperability.getTmpFrictionData(m_friction_data);
-        m_friction_data.initialized = true;
-    }
-    m_friction_data.tmpFrictionOnly = true;
-    m_friction_data.function_call++;
 
-    //std::cout << "func call: "<<  m_friction_data.function_call << std::endl;
-//    std::cout << "data: "<< my_data[0] << std::endl;
 //    seissol::tensor::frictionData fric;
 //    dynamicRupture::kernel::calcfrictionData krnl;
 
 //    krnl.frictionData = fric;
 //    krnl.execute();
-    //local variables
+
 
     //TODO: right place for precalculation?
     real DeltaT[CONVERGENCE_ORDER] = {};
