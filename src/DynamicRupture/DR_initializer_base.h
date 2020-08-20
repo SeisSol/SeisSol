@@ -34,20 +34,19 @@ public:
         double*> faultParameters,
         unsigned* ltsFaceToMeshFace,
         seissol::Interoperability &e_interoperability) {
-    //TODO: add base initialization of DynamicRupture here
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
     for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
-      real  (*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(dynRup->initialStressInFaultCS);
-      real  (*cohesion)[numOfPointsPadded]                  = it->var(dynRup->cohesion);
-      real  (*mu)[ numOfPointsPadded ]            = it->var(dynRup->mu);  //fortran
+      real  (*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(dynRup->initialStressInFaultCS); //get from fortran
+      real  (*cohesion)[numOfPointsPadded]                  = it->var(dynRup->cohesion); //get from fortran
+      real  (*mu)[ numOfPointsPadded ]            = it->var(dynRup->mu);  //get from fortran
       real  (*slip)[ numOfPointsPadded ]          = it->var(dynRup->slip);
       real  (*slip1)[numOfPointsPadded ]          = it->var(dynRup->slip1);
       real  (*slip2)[ numOfPointsPadded ]         = it->var(dynRup->slip2);
-      real  (*slipRate1)[ numOfPointsPadded ]     = it->var(dynRup->slipRate1);    //fortran
-      real  (*slipRate2)[numOfPointsPadded ]      = it->var(dynRup->slipRate2);    //fortran
+      real  (*slipRate1)[ numOfPointsPadded ]     = it->var(dynRup->slipRate1);    //get from fortran
+      real  (*slipRate2)[numOfPointsPadded ]      = it->var(dynRup->slipRate2);    //get from fortran
       real  (*rupture_time)[ numOfPointsPadded ]  = it->var(dynRup->rupture_time);
-      bool  (*RF)[ numOfPointsPadded ]            = it->var(dynRup->RF);                  //fortran
+      bool  (*RF)[ numOfPointsPadded ]            = it->var(dynRup->RF);            //get from fortran
       real  (*peakSR)[ numOfPointsPadded ]        = it->var(dynRup->peakSR);
       real  (*tracXY)[ numOfPointsPadded ]        = it->var(dynRup->tracXY);
       real  (*tracXZ)[ numOfPointsPadded ]        = it->var(dynRup->tracXZ);
@@ -65,21 +64,30 @@ public:
         }
         //get initial values from fortran
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
-          //does not work???
-          //TODO: dont use Easi for initialization
-          cohesion[ltsFace][iBndGP]               = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
+          if(faultParameters["cohesion"] != NULL ){
+            cohesion[ltsFace][iBndGP] = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
+          }else{
+            //TODO: maybe not log it = too much spam?
+            std::cout << "DR_initializer_base: cohesion set to 0, not found from faultParameters";
+            cohesion[ltsFace][iBndGP] = 0;
+          }
         }
         //initialize padded elements for vectorization
         for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
           cohesion[ltsFace][iBndGP]               = 0.0;
         }
         e_interoperability.getDynRupParameters(ltsFace, meshFace, initialStressInFaultCS, mu, slipRate1, slipRate2, RF);
+
+
+
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
     }//leaf_iterator loop
     std::cout << "init DR for Base\n";
   }
+
 };
+
 class seissol::dr::initializer::FL_2 : public seissol::dr::initializer::Base {
 public:
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,

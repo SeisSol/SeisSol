@@ -35,6 +35,7 @@ protected:
   //assert(init::QInterpolated::Start[0] == 0);
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
 
+  ImpedancesAndEta*                     impAndEta;
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus;
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus;
   real                    (*initialStressInFaultCS)[numOfPointsPadded][6];
@@ -61,6 +62,7 @@ protected:
  */
   virtual void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
                           seissol::initializers::DynamicRupture *dynRup){
+    impAndEta                                     = layerData.var(dynRup->impAndEta);
     waveSpeedsPlus                                = layerData.var(dynRup->waveSpeedsPlus);
     waveSpeedsMinus                               = layerData.var(dynRup->waveSpeedsMinus);
     initialStressInFaultCS                        = layerData.var(dynRup->initialStressInFaultCS);
@@ -98,23 +100,24 @@ protected:
     real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded],
     real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
     real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    real eta_p, real Zp, real Zp_neig,
-    real eta_s, real Zs, real Zs_neig
+    unsigned int face
     ){
+
     for(int j = 0; j < CONVERGENCE_ORDER; j++){
       auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
       auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
       //TODO: does QInterpolatedMinusView work with padded access?
       for(int i = 0; i < numberOfPoints; i++){
         //Carsten Uphoff Thesis: EQ.: 4.53
-        NorStressGP[j][i] = eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) / Zp + QInterpolatedMinusView(i,0) / Zp_neig);
-        XYStressGP[j][i]  = eta_s * (QInterpolatedMinusView(i,7) - QInterpolatedPlusView(i,7) + QInterpolatedPlusView(i,3) / Zs + QInterpolatedMinusView(i,3) / Zs_neig);
-        XZStressGP[j][i] = eta_s * (QInterpolatedMinusView(i,8) - QInterpolatedPlusView(i,8) + QInterpolatedPlusView(i,5) / Zs + QInterpolatedMinusView(i,5) / Zs_neig);
+        NorStressGP[j][i] = impAndEta[face].eta_p * (QInterpolatedMinusView(i,6) - QInterpolatedPlusView(i,6) + QInterpolatedPlusView(i,0) / impAndEta[face].Zp + QInterpolatedMinusView(i,0) / impAndEta[face].Zp_neig);
+        XYStressGP[j][i]  = impAndEta[face].eta_s * (QInterpolatedMinusView(i,7) - QInterpolatedPlusView(i,7) + QInterpolatedPlusView(i,3) / impAndEta[face].Zs + QInterpolatedMinusView(i,3) / impAndEta[face].Zs_neig);
+        XZStressGP[j][i] = impAndEta[face].eta_s * (QInterpolatedMinusView(i,8) - QInterpolatedPlusView(i,8) + QInterpolatedPlusView(i,5) / impAndEta[face].Zs + QInterpolatedMinusView(i,5) / impAndEta[face].Zs_neig);
       }
     }
     //TODO: is this assert really needed?
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],"Different number of quadrature points?");
   }//End of precompute Function
+
 
   /*
    * Output: imposedStatePlus, imposedStateMinus
@@ -129,8 +132,6 @@ protected:
       real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded],
       real TractionGP_XZ[CONVERGENCE_ORDER][numOfPointsPadded],
       real timeWeights[CONVERGENCE_ORDER],
-      real Zp, real Zp_neig,
-      real Zs, real Zs_neig,
       unsigned int face
       ){
     auto imposedStatePlusView = init::QInterpolated::view::create(imposedStatePlus[face]);
@@ -147,22 +148,23 @@ protected:
         imposedStateMinusView(i, 0) += timeWeights[j] * NorStressGP[j][i];
         imposedStateMinusView(i, 3) += timeWeights[j] * TractionGP_XY[j][i];
         imposedStateMinusView(i, 5) += timeWeights[j] * TractionGP_XZ[j][i];
-        imposedStateMinusView(i, 6) += timeWeights[j] * (QInterpolatedMinusView(i, 6) -  (NorStressGP[j][i] - QInterpolatedMinusView(i, 0))/  Zp_neig);
-        imposedStateMinusView(i, 7) += timeWeights[j] * (QInterpolatedMinusView(i, 7) -  (TractionGP_XY[j][i] - QInterpolatedMinusView(i, 3))/  Zs_neig);
-        imposedStateMinusView(i, 8) += timeWeights[j] * (QInterpolatedMinusView(i, 8) -  (TractionGP_XZ[j][i] - QInterpolatedMinusView(i, 5))/  Zs_neig);
+        imposedStateMinusView(i, 6) += timeWeights[j] * (QInterpolatedMinusView(i, 6) -  (NorStressGP[j][i] - QInterpolatedMinusView(i, 0))/  impAndEta[face].Zp_neig);
+        imposedStateMinusView(i, 7) += timeWeights[j] * (QInterpolatedMinusView(i, 7) -  (TractionGP_XY[j][i] - QInterpolatedMinusView(i, 3))/  impAndEta[face].Zs_neig);
+        imposedStateMinusView(i, 8) += timeWeights[j] * (QInterpolatedMinusView(i, 8) -  (TractionGP_XZ[j][i] - QInterpolatedMinusView(i, 5))/  impAndEta[face].Zs_neig);
 
         imposedStatePlusView(i, 0) += timeWeights[j] * NorStressGP[j][i];
         imposedStatePlusView(i, 3) += timeWeights[j] * TractionGP_XY[j][i];
         imposedStatePlusView(i, 5) += timeWeights[j] * TractionGP_XZ[j][i];
-        imposedStatePlusView(i, 6) += timeWeights[j] * (QInterpolatedPlusView(i, 6) +  (NorStressGP[j][i] - QInterpolatedPlusView(i, 0)) /  Zp);
-        imposedStatePlusView(i, 7) += timeWeights[j] * (QInterpolatedPlusView(i, 7) +  (TractionGP_XY[j][i] - QInterpolatedPlusView(i, 3)) / Zs);
-        imposedStatePlusView(i, 8) += timeWeights[j] * (QInterpolatedPlusView(i, 8) +  (TractionGP_XZ[j][i] - QInterpolatedPlusView(i, 5)) / Zs);
+        imposedStatePlusView(i, 6) += timeWeights[j] * (QInterpolatedPlusView(i, 6) +  (NorStressGP[j][i] - QInterpolatedPlusView(i, 0)) /  impAndEta[face].Zp);
+        imposedStatePlusView(i, 7) += timeWeights[j] * (QInterpolatedPlusView(i, 7) +  (TractionGP_XY[j][i] - QInterpolatedPlusView(i, 3)) / impAndEta[face].Zs);
+        imposedStatePlusView(i, 8) += timeWeights[j] * (QInterpolatedPlusView(i, 8) +  (TractionGP_XZ[j][i] - QInterpolatedPlusView(i, 5)) / impAndEta[face].Zs);
       } //End numberOfPoints-loop
     } //End CONVERGENCE_ORDER-loop
 
   }
 
   //calculate Impedances Z and eta
+  //TODO: delete:
   void calcImpedancesAndEta(real &Zp,real &Zs, real &Zp_neig, real &Zs_neig, real &eta_p, real &eta_s, unsigned int face){
     //TODO: for anisotropic case it must be face dependent?
     Zp = (waveSpeedsPlus[face].density * waveSpeedsPlus[face].pWaveVelocity);
@@ -304,7 +306,6 @@ protected:
       real XYStressGP[numOfPointsPadded],
       real XZStressGP[numOfPointsPadded],
       std::array<real, numOfPointsPadded> &Strength,
-      real eta_s,
       unsigned int face
       ){
     std::array<real, numOfPointsPadded> TotalShearStressYZ;
@@ -315,7 +316,7 @@ protected:
 
       calcTotalShearStressYZ(TotalShearStressYZ, XYStressGP, XZStressGP, face);
 
-      LocSlipRate[iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) / eta_s);
+      LocSlipRate[iBndGP] = std::max(0.0, (TotalShearStressYZ[iBndGP] - Strength[iBndGP]) / impAndEta[face].eta_s);
 
       LocSR1[iBndGP] = LocSlipRate[iBndGP] * (initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP]) /
                        (std::max(TotalShearStressYZ[iBndGP], Strength[iBndGP]));
@@ -332,13 +333,12 @@ protected:
       real TractionGP_XZ[numOfPointsPadded],
       real XYStressGP[numOfPointsPadded],
       real XZStressGP[numOfPointsPadded],
-      real eta_s,
       unsigned int face
       ){
 
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      TractionGP_XY[iBndGP] = XYStressGP[iBndGP] - eta_s * slipRate1[face][iBndGP];
-      TractionGP_XZ[iBndGP] = XZStressGP[iBndGP] - eta_s * slipRate2[face][iBndGP];
+      TractionGP_XY[iBndGP] = XYStressGP[iBndGP] - impAndEta[face].eta_s * slipRate1[face][iBndGP];
+      TractionGP_XZ[iBndGP] = XZStressGP[iBndGP] - impAndEta[face].eta_s * slipRate2[face][iBndGP];
       tracXY[face][iBndGP] = TractionGP_XY[iBndGP];
       tracXZ[face][iBndGP] = TractionGP_XY[iBndGP];
     }
@@ -471,10 +471,6 @@ public:
     #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
 
-      //calculate Impedances Z
-      real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
-      calcImpedancesAndEta(Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, face);
-
       //TODO: merge TractionGP_XY and tracXY in one variable
       real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
       real TractionGP_XZ[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
@@ -492,15 +488,15 @@ public:
       real tn = fullUpdateTime;
 
       precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP,
-          QInterpolatedPlus[face], QInterpolatedMinus[face],  eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig);
+          QInterpolatedPlus[face], QInterpolatedMinus[face],  face);
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
         //fault strength (Uphoff eq 2.44)
         calcFaultStrength(Strength, NorStressGP[iTimeGP], face);
 
-        calcSlipRate( LocSlipRate, XYStressGP[iTimeGP], XZStressGP[iTimeGP], Strength, eta_s, face);
+        calcSlipRate( LocSlipRate, XYStressGP[iTimeGP], XZStressGP[iTimeGP], Strength, face);
 
-        calcTraction(TractionGP_XY[iTimeGP], TractionGP_XZ[iTimeGP], XYStressGP[iTimeGP], XZStressGP[iTimeGP], eta_s, face);
+        calcTraction(TractionGP_XY[iTimeGP], TractionGP_XZ[iTimeGP], XYStressGP[iTimeGP], XZStressGP[iTimeGP], face);
 
         updateDirectionalSlip(DeltaT[iTimeGP], face);
 
@@ -541,7 +537,7 @@ public:
       postcomputeImposedStateFromNewStress(
           QInterpolatedPlus[face], QInterpolatedMinus[face],
           NorStressGP, TractionGP_XY, TractionGP_XZ,
-          timeWeights, Zp, Zp_neig, Zs, Zs_neig, face);
+          timeWeights, face);
 
       for(int i = 0; i < tensor::QInterpolated::size(); i++){
         assert( !std::isnan(imposedStatePlus[face][i]) );
@@ -627,7 +623,7 @@ public:
       real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
 
       precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP,
-                                        QInterpolatedPlus[face], QInterpolatedMinus[face], eta_p, Zp, Zp_neig, eta_s, Zs, Zs_neig);
+                                        QInterpolatedPlus[face], QInterpolatedMinus[face], face);
 
       //TODO: is this assert really needed?
       static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0], "Different number of quadrature points?");
@@ -799,7 +795,7 @@ public:
 
       postcomputeImposedStateFromNewStress(QInterpolatedPlus[face], QInterpolatedMinus[face],
                                            NorStressGP, TractionGP_XY, TractionGP_XZ,
-                                           timeWeights, Zp, Zp_neig, Zs, Zs_neig, face);
+                                           timeWeights, face);
       /*
 
       //assert(face != 4);
@@ -936,8 +932,7 @@ public:
       real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
 
       precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP,
-                                        QInterpolatedPlus[face], QInterpolatedMinus[face], eta_p, Zp, Zp_neig, eta_s,
-                                        Zs, Zs_neig);
+                                        QInterpolatedPlus[face], QInterpolatedMinus[face], face);
 
       real LocSlip, LocSlip1, LocSlip2, LocSR1, LocSR2, LocSV, LocCohesion, P_0, LocP, time_inc, P, TotalShearStressYZ, SV0, tmp,tmp2, SlipRateGuess, NR, dNR, LocMu;
       real LocTracXY, LocTracXZ;
@@ -1064,7 +1059,7 @@ public:
 
       postcomputeImposedStateFromNewStress(QInterpolatedPlus[face], QInterpolatedMinus[face],
                                            NorStressGP, TractionGP_XY, TractionGP_XZ,
-                                           timeWeights, Zp, Zp_neig, Zs, Zs_neig, face);
+                                           timeWeights, face);
     } //end face-loop
   } //end evaluate function
 };

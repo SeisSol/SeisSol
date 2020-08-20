@@ -383,6 +383,7 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
     DRFaceInformation*                    faceInformation                                           = it->var(dynRup->faceInformation);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                            = it->var(dynRup->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                           = it->var(dynRup->waveSpeedsMinus);
+    ImpedancesAndEta*                     impAndEta                                                 = it->var(dynRup->impAndEta);
 
 
 #ifdef _OPENMP
@@ -504,6 +505,17 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
+      //code added by Adrian:
+      //calculate Impedances Z and eta
+      impAndEta[ltsFace].Zp = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
+      impAndEta[ltsFace].Zp_neig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
+      impAndEta[ltsFace].Zs = (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
+      impAndEta[ltsFace].Zs_neig = (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
+
+      impAndEta[ltsFace].eta_p = 1.0 / (1.0 / impAndEta[ltsFace].Zp + 1.0 / impAndEta[ltsFace].Zp_neig);
+      impAndEta[ltsFace].eta_s = 1.0 / (1.0 / impAndEta[ltsFace].Zs + 1.0 / impAndEta[ltsFace].Zs_neig);
+
+
       switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::anisotropic: {
           logError() << "Dynamic Rupture does not work with anisotropy yet.";
@@ -569,6 +581,7 @@ void seissol::initializers::initializeFrictionMatrices(
     unsigned*              ltsFaceToMeshFace,
     seissol::Interoperability &e_interoperability
     ){
+  //TODO: this function looks quite empty maybe put this function call at the end of "initializeDynamicRuptureMatrices"?
   FrictionInitializer->initializeFrictionMatrices(
       dynRup,
       dynRupTree,

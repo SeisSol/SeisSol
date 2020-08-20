@@ -70,6 +70,7 @@ public:
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsPlus;
   Variable<model::IsotropicWaveSpeeds>                              waveSpeedsMinus;
 
+  Variable<ImpedancesAndEta>                            impAndEta;
   //size padded for vectorization
   Variable<real[numOfPointsPadded][6]>                  initialStressInFaultCS;
   Variable<real[ numOfPointsPadded ]>                   cohesion;
@@ -98,6 +99,7 @@ public:
     tree.addVar(          waveSpeedsPlus,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
 
+    tree.addVar(      impAndEta,                      mask,                 1,      seissol::memory::Standard );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      cohesion,                       mask,                 1,      seissol::memory::Standard );
     tree.addVar(      rupture_time,                   mask,                 1,      seissol::memory::Standard );

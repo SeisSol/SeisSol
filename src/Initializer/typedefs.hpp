@@ -507,4 +507,8 @@ enum Friction_law_type{
     rate_and_state_nuc103 = 103
 };
 
+struct ImpedancesAndEta{
+  real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
+};
+
 #endif
