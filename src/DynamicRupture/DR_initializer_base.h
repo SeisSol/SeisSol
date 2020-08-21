@@ -8,6 +8,7 @@
 #include <c++/8.3.0/iostream>
 #include <c++/8.3.0/unordered_map>
 #include <Solver/Interoperability.h>
+#include <yaml-cpp/yaml.h>
 
 namespace seissol {
   namespace dr {
@@ -25,8 +26,10 @@ class seissol::dr::initializer::Base {
 protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
+  YAML::Node m_InputParam;
 public:
   virtual ~Base() {}
+  void setInputParam(const YAML::Node& Param) {m_InputParam = Param;}
 
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
         initializers::LTSTree* dynRupTree,
@@ -138,11 +141,15 @@ public:
 
         //get initial values from fortran
         //TODO: get intial initialStressInFaultCS;
+        //TODO: inst_healing not needed -> remove
         e_interoperability.getDynRupFL_2(ltsFace, meshFace, t_0, magnitude_out, DS, inst_healing);
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;
         }
+
+        inst_healing[ltsFace] = (m_InputParam["inst_healing"]) ? true : false;
+
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
     }//leaf_iterator loop

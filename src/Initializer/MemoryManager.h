@@ -88,6 +88,7 @@
 
 //added by adrian
 #include <DynamicRupture/DR_factory.h>
+#include <yaml-cpp/yaml.h>
 
 namespace seissol {
   namespace initializers {
@@ -164,6 +165,8 @@ class seissol::initializers::MemoryManager {
     seissol::dr::initializer::Base* m_DrInitializer = nullptr;
     seissol::dr::fr_law::Base* m_FrictonLaw = nullptr;
     seissol::dr::output::Base* m_DrOutput = nullptr;
+
+    YAML::Node m_inputParams;
 
     LTSTree m_boundaryTree;
     Boundary m_boundary;
@@ -317,6 +320,10 @@ class seissol::initializers::MemoryManager {
     }
     inline seissol::dr::output::Base* getDrOutput() {
         return m_DrOutput;
+    }
+
+    void setInputParams(const YAML::Node& Params) {
+      m_inputParams = Params;
     }
 };
 

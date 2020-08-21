@@ -7,6 +7,7 @@
 
 #include <c++/8.3.0/iostream>
 #include "DR_math.h"
+#include <yaml-cpp/yaml.h>
 
 
 namespace seissol {
@@ -28,12 +29,14 @@ class seissol::dr::fr_law::Base {
 public:
   //TODO: rename e.g. BaseSolverFL
   virtual ~Base() {}
+  void setInputParam(const YAML::Node& Param) {m_InputParam = Param;}
 
 protected:
   static constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
   //TODO: is init::QInterpolated::Start[0] always 0?
   //assert(init::QInterpolated::Start[0] == 0);
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
+  YAML::Node m_InputParam;
   ImpedancesAndEta*                     impAndEta;
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus;
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus;

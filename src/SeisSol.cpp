@@ -167,4 +167,15 @@ void seissol::SeisSol::finalize()
 	logInfo(rank) << "SeisSol done. Goodbye.";
 }
 
+void seissol::SeisSol::setInputParams(const YAML::Node& Params) {
+  m_inputParams = Params;
+  const int rank = MPI::mpi.rank();
+  if (rank == 0) {
+    logInfo(rank) << "Input Parameters:\n"
+                  << m_inputParams;
+  }
+
+  m_memoryManager.setInputParams(m_inputParams);
+}
+
 seissol::SeisSol seissol::SeisSol::main;

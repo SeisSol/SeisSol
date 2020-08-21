@@ -503,7 +503,7 @@ enum Friction_law_type{
     rate_and_state_vw = 7,
 
     ImposedSlipRateOnDRBoundary = 33,
-    rate_and_state_nuc101 = 101, //Currently_disabled TODO: why?
+    //rate_and_state_nuc101 = 101, //Currently_disabled TODO: why?
     rate_and_state_nuc103 = 103
 };
 

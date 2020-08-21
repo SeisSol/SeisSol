@@ -59,6 +59,7 @@
 #include "ResultWriter/FaultWriter.h"
 
 #include "ResultWriter/AnalysisWriter.h"
+#include <yaml-cpp/yaml.h>
 
 class MeshReader;
 
@@ -121,6 +122,8 @@ private:
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
 
+  //! Input parameters
+  YAML::Node m_inputParams;
 
 private:
 	/**
@@ -264,6 +267,12 @@ public:
 	MeshReader& meshReader()
 	{
 		return *m_meshReader;
+	}
+
+	void setInputParams(const YAML::Node& Params);
+
+	const YAML::Node& getInputParams() {
+	  return m_inputParams;
 	}
 
 public:

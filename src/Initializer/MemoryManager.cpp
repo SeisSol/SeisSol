@@ -680,8 +680,35 @@ bool seissol::initializers::requiresNodalFlux(FaceType f) {
 }
 
 //added by adrian
-void seissol::initializers::MemoryManager::initializeFrictionFactory(Friction_law_type FrictionLaw) {
-    dr::factory::AbstractFactory *Factory = seissol::dr::factory::getFactory(FrictionLaw);
+void seissol::initializers::MemoryManager::initializeFrictionFactory(Friction_law_type fl) {
+  /*
+  dr::factory::AbstractFactory *Factory = seissol::dr::factory::getFactory(FrictionLaw);
+  std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
+  delete Factory;    // prepare the data
+*/
+  dr::factory::AbstractFactory *Factory = nullptr;
+  try {
+    // reading input provided by parameters.par
+    YAML::Node DynamicRupture = m_inputParams["dynamicrupture"];
+    int FrictionLawID = DynamicRupture["fl"] ? DynamicRupture["fl"].as<int>() : 0;
+    bool InstantHealing = (DynamicRupture["inst_healing"]) ? true : false;
+    Friction_law_type FrictionLaw = Friction_law_type(FrictionLawID);
+
+
+    Factory = seissol::dr::factory::getFactory(FrictionLaw);
     std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
+
+    m_DrInitializer->setInputParam(DynamicRupture);
+
+    //TODO: do we actually need the parameters int these classes?
+    m_FrictonLaw->setInputParam(DynamicRupture);
+    m_DrOutput->setInputParam(m_inputParams);
+
     delete Factory;    // prepare the data
+  }
+  catch (const std::exception& Error) {
+    std::cerr << Error.what() << std::endl;
+    delete Factory;
+    throw Error;
+  }
 }

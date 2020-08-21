@@ -5,6 +5,7 @@
 #ifndef SEISSOL_DR_OUTPUT_H
 #define SEISSOL_DR_OUTPUT_H
 
+#include <yaml-cpp/yaml.h>
 
 namespace seissol {
     namespace dr {
@@ -22,6 +23,7 @@ namespace seissol {
 class seissol::dr::output::Base{
 public:
     virtual ~Base() {}
+    void setInputParam(const YAML::Node& Param) {m_InputParam = Param;}
 
     virtual void tiePointers(seissol::initializers::Layer&  layerData,
             seissol::initializers::DynamicRupture *dynRup,
@@ -52,6 +54,9 @@ public:
     }
 
     virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) = 0;
+
+protected:
+  YAML::Node m_InputParam;
 };
 
 class seissol::dr::output::FL_2 : public seissol::dr::output::Base {
