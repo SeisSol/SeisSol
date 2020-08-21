@@ -40,6 +40,7 @@
 
 import numpy as np
 from abc import ABC, abstractmethod
+from common import *
 
 from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
@@ -174,15 +175,15 @@ class ADERDGBase(ABC):
     generator.add('computeChristoffel', computeChristoffel)
 
   @abstractmethod
-  def addLocal(self, generator):
+  def addLocal(self, generator, platforms):
     pass
 
   @abstractmethod
-  def addNeighbor(self, generator):
+  def addNeighbor(self, generator, platforms):
     pass
 
   @abstractmethod
-  def addTime(self, generator):
+  def addTime(self, generator, platforms):
     pass
 
   def add_include_tensors(self, include_tensors):
@@ -210,46 +211,73 @@ class LinearADERDG(ADERDGBase):
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
-  def addLocal(self, generator):
-    volumeSum = self.Q['kp']
-    for i in range(3):
-      volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.starMatrix(i)['qp']
-    if self.sourceMatrix():
-      volumeSum += self.I['kq'] * self.sourceMatrix()['qp']
-    volume = (self.Q['kp'] <= volumeSum)
-    generator.add('volume', volume)
-
-    localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
-    localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
-    generator.addFamily('localFlux', simpleParameterSpace(4), localFlux, localFluxPrefetch)
-
-    localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
-    localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
-    generator.addFamily('localFluxNodal', simpleParameterSpace(4), localFluxNodal, localFluxNodalPrefetch)
-
-  def addNeighbor(self, generator):
-    neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
-    neighbourFluxPrefetch = lambda h,j,i: self.I
-    generator.addFamily('neighboringFlux', simpleParameterSpace(3,4,4), neighbourFlux, neighbourFluxPrefetch)
-
-  def addTime(self, generator):
-    qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
-    dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
-    power = Scalar('power')
-    derivatives = [dQ0]
-    generator.add('derivativeTaylorExpansion(0)', self.I['kp'] <= power * dQ0['kp'])
-    for i in range(1,self.order):
-      derivativeSum = Add()
+  def addLocal(self, generator, platforms):
+    for platform in platforms:
+      name_prefix = generate_kernename_prefix(platform)
+      volumeSum = self.Q['kp']
+      for i in range(3):
+        volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.starMatrix(i)['qp']
       if self.sourceMatrix():
-        derivativeSum += derivatives[-1]['kq'] * self.sourceMatrix()['qp']
-      for j in range(3):
-        derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
-      derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
-      derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
-      dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
-      generator.add('derivative({})'.format(i), dQ['kp'] <= derivativeSum)
-      generator.add('derivativeTaylorExpansion({})'.format(i), self.I['kp'] <= self.I['kp'] + power * dQ['kp'])
-      derivatives.append(dQ)
+        volumeSum += self.I['kq'] * self.sourceMatrix()['qp']
+      volume = (self.Q['kp'] <= volumeSum)
+      generator.add(f'{name_prefix}volume', volume, platform=platform)
+
+      localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
+      localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+      generator.addFamily(f'{name_prefix}localFlux',
+                          simpleParameterSpace(4),
+                          localFlux,
+                          localFluxPrefetch,
+                          platform=platform)
+
+      localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
+      localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+      generator.addFamily(f'{name_prefix}localFluxNodal',
+                          simpleParameterSpace(4),
+                          localFluxNodal,
+                          localFluxNodalPrefetch,
+                          platform=platform)
+
+  def addNeighbor(self, generator, platforms):
+    for platform in platforms:
+      name_prefix = generate_kernename_prefix(platform)
+      neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
+      neighbourFluxPrefetch = lambda h,j,i: self.I
+      generator.addFamily(f'{name_prefix}neighboringFlux',
+                          simpleParameterSpace(3,4,4),
+                          neighbourFlux,
+                          neighbourFluxPrefetch,
+                          platform=platform)
+
+  def addTime(self, generator, platforms):
+    for platform in platforms:
+      name_prefix = generate_kernename_prefix(platform)
+
+      qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+      dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
+      power = Scalar('power')
+      derivatives = [dQ0]
+      generator.add(f'{name_prefix}derivativeTaylorExpansion(0)',
+                    self.I['kp'] <= power * dQ0['kp'],
+                    platform=platform)
+
+      for i in range(1,self.order):
+        derivativeSum = Add()
+        if self.sourceMatrix():
+          derivativeSum += derivatives[-1]['kq'] * self.sourceMatrix()['qp']
+        for j in range(3):
+          derivativeSum += self.db.kDivMT[j][self.t('kl')] * derivatives[-1]['lq'] * self.starMatrix(j)['qp']
+
+        derivativeSum = DeduceIndices( self.Q['kp'].indices ).visit(derivativeSum)
+        derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
+        dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
+
+        generator.add(f'{name_prefix}derivative({i})', dQ['kp'] <= derivativeSum, platform=platform)
+        generator.add(f'{name_prefix}derivativeTaylorExpansion({i})',
+                      self.I['kp'] <= self.I['kp'] + power * dQ['kp'],
+                      platform=platform)
+
+        derivatives.append(dQ)
 
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)

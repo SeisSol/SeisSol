@@ -27,10 +27,22 @@ set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
-set(ARCH "hsw" CACHE STRING "Type of the target architecture")
-set(ARCH_OPTIONS noarch wsm snb hsw knc knl skx thunderx2t99)
-set(ARCH_ALIGNMENT   16  16  32  32  64  64  64 16)  # size of a vector registers in bytes for a given architecture
-set_property(CACHE ARCH PROPERTY STRINGS ${ARCH_OPTIONS})
+set(HOST_ARCH "hsw" CACHE STRING "Type of the target host architecture")
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx thunderx2t99 power9)
+# size of a vector registers in bytes for a given architecture
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64           16     16)
+set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
+
+
+set(COMPUTE_ARCH "same" CACHE STRING "Type of the target compute architecture")
+set(COMPUTE_ARCH_OPTIONS    same nvidia amd_gpu)
+set(COMPUTE_ARCH_ALIGNMENT  same     64     128)
+set_property(CACHE COMPUTE_ARCH PROPERTY STRINGS ${COMPUTE_ARCH_OPTIONS})
+
+
+set(COMPUTE_SUB_ARCH "same" CACHE STRING "Sub-type of the target GPU architecture")
+set(COMPUTE_SUB_ARCH_OPTIONS same sm_60 sm_61 sm_62 sm_70 sm_71 sm_75)
+set_property(CACHE COMPUTE_SUB_ARCH PROPERTY STRINGS ${COMPUTE_SUB_ARCH_OPTIONS})
 
 
 set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/float")
@@ -67,11 +79,6 @@ set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
 set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS})
 
 
-set(ACCELERATOR_TYPE "NONE" CACHE STRING "type of accelerator")
-set(ACCELERATOR_TYPE_OPTIONS NONE GPU)
-set_property(CACHE ACCELERATOR_TYPE PROPERTY STRINGS ${ACCELERATOR_TYPE_OPTIONS})
-
-
 set(GEMM_TOOLS_LIST "LIBXSMM,PSpaMM" CACHE STRING "choose a gemm tool(s) for the code generator")
 set(GEMM_TOOLS_OPTIONS "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
@@ -92,15 +99,44 @@ endfunction()
 
 
 check_parameter("ORDER" ${ORDER} "${ORDER_OPTIONS}")
-check_parameter("ARCH" ${ARCH} "${ARCH_OPTIONS}")
+check_parameter("HOST_ARCH" ${HOST_ARCH} "${HOST_ARCH_OPTIONS}")
+check_parameter("COMPUTE_ARCH" ${COMPUTE_ARCH} "${COMPUTE_ARCH_OPTIONS}")
+check_parameter("COMPUTE_SUB_ARCH" ${COMPUTE_SUB_ARCH} "${COMPUTE_SUB_ARCH_OPTIONS}")
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("DYNAMIC_RUPTURE_METHOD" ${DYNAMIC_RUPTURE_METHOD} "${RUPTURE_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
-check_parameter("ACCELERATOR_TYPE" ${ACCELERATOR_TYPE} "${ACCELERATOR_TYPE_OPTIONS}")
 check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
+
+# check compute sub architecture (relevant only for GPU)
+if (${COMPUTE_ARCH} STREQUAL "same")
+    if (NOT ${COMPUTE_SUB_ARCH} STREQUAL "same")
+        message(FATAL_ERROR "COMPUTE_SUB_ARCH must be the same as HOST_ARCH and COMPUTE_ARCH. Please, choose \"same\"")
+    endif()
+    set(COMPUTE_ARCH ${HOST_ARCH})
+    list(FIND HOST_ARCH_OPTIONS ${COMPUTE_ARCH} INDEX)
+    list(GET HOST_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
+    set(DEVICE_BACKEND "NONE")
+else()
+    if (${COMPUTE_ARCH} STREQUAL "nvidia")
+        list(FIND COMPUTE_ARCH_OPTIONS ${COMPUTE_ARCH} INDEX)
+        list(GET COMPUTE_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
+        set(DEVICE_BACKEND "CUDA")
+    elseif(${COMPUTE_ARCH} STREQUAL "amd_gpu")
+        list(FIND COMPUTE_ARCH_OPTIONS ${COMPUTE_ARCH} INDEX)
+        list(GET COMPUTE_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
+        set(DEVICE_BACKEND "HIP")
+        # amd_gpu will be supported in some near future
+        message(FATAL_ERROR "amd_gpu currently is not supported")
+    else()
+        message(FATAL_ERROR "Unknown compute arch. provided: ${COMPUTE_ARCH}. nvidia and amd_gpu are currently supported")
+    endif()
+    if (${COMPUTE_SUB_ARCH} STREQUAL "same")
+        message(FATAL_ERROR "Please, provide a specific COMPUTE_SUB_ARCH. Given: \"same\"")
+    endif()
+endif()
 
 
 # check NUMBER_OF_MECHANISMS
@@ -121,11 +157,6 @@ elseif ("${PRECISION}" STREQUAL "float")
 endif()
 
 
-# compute alignment
-list(FIND ARCH_OPTIONS ${ARCH} INDEX)
-list(GET ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
-
-
 # check NUMBER_OF_FUSED_SIMULATIONS
 math(EXPR IS_ALIGNED_MULT_SIMULATIONS 
         "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
@@ -144,9 +175,11 @@ MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)
 if (${PRECISION} STREQUAL "double")
-    set(ARCH_STRING "d${ARCH}")
+    set(COMPUTE_ARCH_STR "d${COMPUTE_ARCH}")
+    set(HOST_ARCH_STR "d${HOST_ARCH}")
 elseif(${PRECISION} STREQUAL "float")
-    set(ARCH_STRING "s${ARCH}")
+    set(COMPUTE_ARCH_STR "s${COMPUTE_ARCH}")
+    set(HOST_ARCH_STR "s${HOST_ARCH}")
 endif()
 
 

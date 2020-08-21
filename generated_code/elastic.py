@@ -60,5 +60,5 @@ class ElasticADERDG(LinearADERDG):
   def starMatrix(self, dim):
     return self.db.star[dim]
 
-  def addLocal(self, generator):
-    super().addLocal(generator)
+  def addLocal(self, generator, platforms):
+    super().addLocal(generator, platforms)

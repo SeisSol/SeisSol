@@ -38,11 +38,12 @@
 # @section DESCRIPTION
 #
 
+from common import *
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 
-def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
+def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, platforms):
   if dynamicRuptureMethod == 'quadrature':
     numberOfPoints = (aderdg.order+1)**2
   elif dynamicRuptureMethod == 'cellaverage':
@@ -79,6 +80,13 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
 
   nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
-  generator.addFamily('nodalFlux', simpleParameterSpace(4,4), nodalFluxGenerator, nodalFluxPrefetch)
+
+  for platform in platforms:
+    name_prefix = generate_kernename_prefix(platform)
+    generator.addFamily(f'{name_prefix}nodalFlux',
+                        simpleParameterSpace(4,4),
+                        nodalFluxGenerator,
+                        nodalFluxPrefetch,
+                        platform=platform)
 
   return {db.resample}

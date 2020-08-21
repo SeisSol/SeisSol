@@ -12,11 +12,12 @@ message(WARNING "We do not provide support for CMake currently. Please use scons
 #
 #       switches: HDF5, NETCDF, METIS, MPI, OPENMP, ASAGI, SIONLIB, MEMKIND
 #
-#       user's input: ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
-#                     ARCH, PRECISION, DYNAMIC_RUPTURE_METHOD,
+#       user's input: HOST_ARCH, COMPUTE_ARCH, COMPUTE_SUB_ARCH,
+#                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
+#                     PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     PLASTICITY, NUMBER_OF_FUSED_SIMULATIONS,
-#                     MEMORY_LAYOUT, COMMTHREAD, LOG_LEVEL,
-#                     LOG_LEVEL_MASTER, ACCELERATOR_TYPE, 
+#                     MEMORY_LAYOUT, COMMTHREAD,
+#                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST
 #
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, ARCH_STRING, NUMBER_OF_QUANTITIES
@@ -69,7 +70,9 @@ add_custom_command(
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
-     "--arch" ${ARCH_STRING}
+     "--host_arch" ${HOST_ARCH_STR}
+     "--compute_arch" ${COMPUTE_ARCH_STR}
+     "--compute_sub_arch" ${COMPUTE_SUB_ARCH}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
@@ -119,7 +122,7 @@ endif()
 # and the target compiler
 # 'get_arch_specific_flags' returns: CPU_ARCH_FLAGS
 include(cmake/cpu_arch_flags.cmake)
-get_arch_flags(${ARCH} ${CMAKE_CXX_COMPILER_ID})
+get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
 target_compile_definitions(SeisSol-lib PUBLIC ${HARDWARE_DEFINITIONS})

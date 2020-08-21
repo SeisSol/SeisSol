@@ -68,17 +68,18 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( globalMatrixMemSize * sizeof(real), PAGESIZE_HEAP, memkind ));
 
   real* globalMatrixMemPtr = globalMatrixMem;
-  yateto::copyFamilyToMemAndSetPtr<init::kDivMT, real>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, ALIGNMENT);
-  yateto::copyFamilyToMemAndSetPtr<init::kDivM, real>(globalMatrixMemPtr, globalData.stiffnessMatrices, ALIGNMENT);
-  yateto::copyFamilyToMemAndSetPtr<init::rDivM, real>(globalMatrixMemPtr, globalData.changeOfBasisMatrices, ALIGNMENT);
-  yateto::copyFamilyToMemAndSetPtr<init::rT, real>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, ALIGNMENT);
-  yateto::copyFamilyToMemAndSetPtr<init::fMrT, real>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, ALIGNMENT);
-  yateto::copyFamilyToMemAndSetPtr<init::fP, real>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, ALIGNMENT);
-  yateto::copyFamilyToMemAndSetPtr<nodal::init::V3mTo2nFace, real>(globalMatrixMemPtr, globalData.V3mTo2nFace, ALIGNMENT);
-  yateto::copyFamilyToMemAndSetPtr<init::project2nFaceTo3m, real>(globalMatrixMemPtr, globalData.project2nFaceTo3m, ALIGNMENT);
+  yateto::CopyManager<real> copyManager;
+  copyManager.copyFamilyToMemAndSetPtr<init::kDivMT>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<init::kDivM>(globalMatrixMemPtr, globalData.stiffnessMatrices, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<init::rDivM>(globalMatrixMemPtr, globalData.changeOfBasisMatrices, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<init::rT>(globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<init::fMrT>(globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<init::fP>(globalMatrixMemPtr, globalData.neighbourFluxMatrices, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<nodal::init::V3mTo2nFace>(globalMatrixMemPtr, globalData.V3mTo2nFace, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<init::project2nFaceTo3m>(globalMatrixMemPtr, globalData.project2nFaceTo3m, ALIGNMENT);
 
-  yateto::copyTensorToMemAndSetPtr<init::evalAtQP, real>(globalMatrixMemPtr, globalData.evalAtQPMatrix, ALIGNMENT);
-  yateto::copyTensorToMemAndSetPtr<init::projectQP, real>(globalMatrixMemPtr, globalData.projectQPMatrix, ALIGNMENT);
+  copyManager.copyTensorToMemAndSetPtr<init::evalAtQP>(globalMatrixMemPtr, globalData.evalAtQPMatrix, ALIGNMENT);
+  copyManager.copyTensorToMemAndSetPtr<init::projectQP>(globalMatrixMemPtr, globalData.projectQPMatrix, ALIGNMENT);
   
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
 
@@ -98,8 +99,8 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   real* drGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( drGlobalMatrixMemSize  * sizeof(real), PAGESIZE_HEAP, memkind ));
   
   real* drGlobalMatrixMemPtr = drGlobalMatrixMem;
-  yateto::copyFamilyToMemAndSetPtr<init::V3mTo2nTWDivM, real>(drGlobalMatrixMemPtr, globalData.nodalFluxMatrices, ALIGNMENT);
-  yateto::copyFamilyToMemAndSetPtr<init::V3mTo2n,       real>(drGlobalMatrixMemPtr, globalData.faceToNodalMatrices, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<init::V3mTo2nTWDivM>(drGlobalMatrixMemPtr, globalData.nodalFluxMatrices, ALIGNMENT);
+  copyManager.copyFamilyToMemAndSetPtr<init::V3mTo2n>(drGlobalMatrixMemPtr, globalData.faceToNodalMatrices, ALIGNMENT);
   
   assert(drGlobalMatrixMemPtr == drGlobalMatrixMem + drGlobalMatrixMemSize);
 
@@ -111,8 +112,8 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   real* plasticityGlobalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( plasticityGlobalMatrixMemSize * sizeof(real), PAGESIZE_HEAP, memkind ));
   
   real* plasticityGlobalMatrixMemPtr = plasticityGlobalMatrixMem;
-  yateto::copyTensorToMemAndSetPtr<init::v,    real>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrix, ALIGNMENT);
-  yateto::copyTensorToMemAndSetPtr<init::vInv, real>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrixInverse, ALIGNMENT);
+  copyManager.copyTensorToMemAndSetPtr<init::v>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrix, ALIGNMENT);
+  copyManager.copyTensorToMemAndSetPtr<init::vInv>(plasticityGlobalMatrixMemPtr, globalData.vandermondeMatrixInverse, ALIGNMENT);
   
   assert(plasticityGlobalMatrixMemPtr == plasticityGlobalMatrixMem + plasticityGlobalMatrixMemSize);
   
