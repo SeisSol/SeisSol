@@ -86,4 +86,6 @@ point is inside the hanging wall and we obtain a normal fault.
 Warning
 ~~~~~~~
 
-Rake describes the slip direction of hanging wall measured in the fault plane and the dip vector. In SeisSol, the convention for the rake direction (positive strike slip = right-lateral) is opposite to typical convention (positive strike slip  = left-lateral). Thus, e.g., Ts0>0 and Td0=0 is a shear stress in rake 180° direction.
+The rake angle describes the direction of slip. In SeisSol, the convention for the rake angle is to assume a positive rake angle refers to right-lateral strike slip.
+!Warning!
+This is opposite to the common convention in seismology which assumes positive rake angle implying left-lateral strike slip faulting. Thus, e.g., the case of Ts0>0 and Td0=0 means initial shear stress loading in rake 180° direction.
