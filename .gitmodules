@@ -34,3 +34,6 @@
 [submodule "submodules/eigen3"]
 	path = submodules/eigen3
 	url = ../../eigenteam/eigen-git-mirror
+[submodule "submodules/fty"]
+	path = submodules/fty
+	url = https://github.com/ravil-mobile/fty.git
