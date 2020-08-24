@@ -296,8 +296,6 @@ extern "C" {
                                                       real const* resampleMatrix );
 
   //Code added by ADRIAN
-  extern void f_interoperability_getFL(void*  i_domain, int* FL);
-
   extern void f_interoperability_getDynRup(void*  i_domain, int iFace, real* i_InitialStressInFaultCS, real* i_mu, real* i_slipRate1, real *i_slipRate2, bool* i_RF);
 
   extern void f_interoperability_getDynRupFL_2(void*  i_domain, int iFace, real* i_t_0, bool* i_magnitude_out, bool* i_DS, bool* i_inst_healing) ;
@@ -387,10 +385,8 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool e
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
 
-
   //added by Adrian
-  getFL();
-  seissol::SeisSol::main.getMemoryManager().initializeFrictionFactory(m_FL);
+  seissol::SeisSol::main.getMemoryManager().initializeFrictionFactory();
 
   unsigned* numberOfDRCopyFaces;
   unsigned* numberOfDRInteriorFaces;
@@ -1039,12 +1035,6 @@ void seissol::Interoperability::evaluateFrictionLaw(  int face,
 
 
 //Code added by ADRIAN
-void seissol::Interoperability::getFL(){
-    int FL = 0;
-    f_interoperability_getFL(m_domain, &FL);
-    m_FL = static_cast<Friction_law_type>(FL);
-}
-
 void seissol::Interoperability::getDynRupParameters(int ltsFace, unsigned meshFace,
         real (*initialStressInFaultCS)[init::QInterpolated::Stop[0]][6],
         real (*mu)[seissol::init::QInterpolated::Stop[0]],

@@ -245,23 +245,6 @@ module f_ctof_bind_interoperability
 
 
     !!Code added by ADRIAN
-    subroutine f_interoperability_getFL(i_domain, i_FL) bind (c, name='f_interoperability_getFL')
-      use iso_c_binding
-      use typesDef
-      use f_ftoc_bind_interoperability
-      implicit none
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
-      type(c_ptr), value                     :: i_FL
-      integer(kind=c_int), pointer           :: l_FL
-
-      ! convert c to fortran pointers
-      call c_f_pointer( i_domain,             l_domain)
-      call c_f_pointer( i_FL,                 l_FL  )
-      l_FL                    = l_domain%EQN%FL
-    end subroutine
-
-
     subroutine f_interoperability_getDynRup(i_domain, iFace, i_InitialStressInFaultCS, i_mu, i_slipRate1, i_slipRate2,i_RF) bind (c, name='f_interoperability_getDynRup')
         use iso_c_binding
         use typesDef

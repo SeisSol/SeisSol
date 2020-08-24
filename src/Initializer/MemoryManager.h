@@ -310,7 +310,7 @@ class seissol::initializers::MemoryManager {
     }
 
     //added by Adrian
-    void initializeFrictionFactory(Friction_law_type FrictionLaw);
+    void initializeFrictionFactory();
 
     inline dr::fr_law::Base* getFrictionLaw() {
         return m_FrictonLaw;

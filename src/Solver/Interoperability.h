@@ -104,8 +104,6 @@ class seissol::Interoperability {
     //! Vector of initial conditions
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    //adrian:
-    Friction_law_type m_FL;
 
     void initInitialConditions();
  public:
@@ -391,12 +389,6 @@ class seissol::Interoperability {
     * Code added by Adrian
     */
 
-
-    /**
-    * gets domain%EQN%FL from fortran to c++
-    * FL = friction law
-    */
-    void getFL();
 
     /**
      * get initial values from fortran
