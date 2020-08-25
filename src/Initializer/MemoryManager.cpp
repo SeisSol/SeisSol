@@ -691,9 +691,13 @@ void seissol::initializers::MemoryManager::initializeFrictionFactory() {
     // reading input provided by parameters.par
     YAML::Node DynamicRupture = m_inputParams["dynamicrupture"];
     int FrictionLawID = DynamicRupture["fl"] ? DynamicRupture["fl"].as<int>() : 0;
-    bool InstantHealing = (DynamicRupture["inst_healing"]) ? true : false;
     Friction_law_type FrictionLaw = Friction_law_type(FrictionLawID);
 
+    /*
+    bool RF_output_on = (DynamicRupture["rf_output_on"]) ? true : false;
+    bool InstantHealing = (DynamicRupture["inst_healing"]) ? true : false;
+    double RS_b = DynamicRupture["rs_b"] ? DynamicRupture["rs_b"].as<double>() : -1;
+    */
 
     Factory = seissol::dr::factory::getFactory(FrictionLaw);
     std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();

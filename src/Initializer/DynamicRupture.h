@@ -50,6 +50,7 @@ namespace seissol {
     struct DR_FL_2;
     struct DR_FL_3;
     struct DR_FL_33;
+    struct DR_FL_103;
   }
 }
 
@@ -173,4 +174,40 @@ struct seissol::initializers::DR_FL_33 : public seissol::initializers::DynamicRu
     }
 };
 
+struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicRupture {
+  Variable<real[numOfPointsPadded][6]>                            nucleationStressInFaultCS;
+  Variable<bool>                                                  magnitude_out;
+  Variable<real>                                                  t_0;                        //face independent
+  Variable<real>                                                  RS_f0;                      //face independent
+  Variable<real>                                                  RS_b;                       //face independent
+  Variable<real>                                                  RS_sl0;                     //face independent
+  Variable<real>                                                  RS_sr0;                     //face independent
+  Variable<real>                                                  Mu_w;                       //face independent
+  Variable<real[ numOfPointsPadded ]>                             RS_a_array;
+  Variable<real[ numOfPointsPadded ]>                             RS_srW_array;
+
+  Variable<bool[ numOfPointsPadded ]>                             DS;
+  Variable<real>                                                  averaged_Slip;
+  Variable<real[ numOfPointsPadded ]>                             stateVar;
+  Variable<real[ numOfPointsPadded ]>                             dynStress_time;
+
+  virtual void addTo(initializers::LTSTree& tree) {
+    seissol::initializers::DynamicRupture::addTo(tree);
+    LayerMask mask = LayerMask(Ghost);
+    tree.addVar(      nucleationStressInFaultCS,  mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      magnitude_out,              mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      t_0,                        mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      RS_f0,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      RS_b,                       mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      RS_sl0,                     mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      RS_sr0,                     mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      Mu_w,                       mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      RS_a_array,                 mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      RS_srW_array,               mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      DS,                         mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      stateVar,                   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      averaged_Slip,              mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      dynStress_time,             mask,                 1,      seissol::memory::Standard );
+  }
+};
 #endif

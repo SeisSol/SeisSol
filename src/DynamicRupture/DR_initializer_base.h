@@ -17,6 +17,7 @@ namespace seissol {
       struct FL_2;
       struct FL_3; //aging law
       struct FL_33;
+      struct FL_103;
     }
   }
 }
@@ -202,6 +203,20 @@ public:
           seissol::Interoperability &e_interoperability) override {
     Base::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
+
+  }
+};
+
+class seissol::dr::initializer::FL_103 : public seissol::dr::initializer::Base {
+public:
+  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
+                                          initializers::LTSTree* dynRupTree,
+                                          std::unordered_map<std::string,
+                                              double*> faultParameters,
+                                          unsigned* ltsFaceToMeshFace,
+                                          seissol::Interoperability &e_interoperability) override {
+    Base::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
 
   }
 };

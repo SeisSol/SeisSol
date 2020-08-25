@@ -13,9 +13,11 @@ namespace seissol {
                     case Linear_slip_weakening: return new FL_2;
                     case Linear_slip_weakening_forced_time_rapture: return new FL_16;
 
+                    //TODO: use enum:
                     case 3: return new FL_3;
                     case 4: return new FL_4;
                     case 33: return new FL_33;
+                    case 103: return new FL_103;
                     default:
                         throw std::runtime_error("unknown friction law");
                 }

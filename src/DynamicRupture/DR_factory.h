@@ -23,6 +23,7 @@ namespace seissol {
       struct FL_4; //slip law
       struct FL_16;
       struct FL_33;
+      struct FL_103;
       seissol::dr::factory::AbstractFactory* getFactory(Friction_law_type FrictionLawID);
     }
   }
@@ -78,6 +79,16 @@ class seissol::dr::factory::FL_33 : public seissol::dr::factory::AbstractFactory
                                new seissol::dr::output::FL_33);
     }
 };
+
+class seissol::dr::factory::FL_103 : public seissol::dr::factory::AbstractFactory {
+  virtual products produce() override {
+    return std::make_tuple(new seissol::initializers::DR_FL_103,
+                           new seissol::dr::initializer::FL_103,
+                           new seissol::dr::fr_law::FL_103,
+                           new seissol::dr::output::FL_103);
+  }
+};
+
 seissol::dr::factory::AbstractFactory* seissol::dr::factory::getFactory(Friction_law_type FrictionLawID);
 
 int temporary_main();
