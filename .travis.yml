@@ -56,7 +56,7 @@ script:
             dirname="build_${equation}_${precision}_${build_type}"
             echo "mkdir ${dirname}"
             mkdir -p $dirname && cd $dirname
-            CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/: cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM ..
+            CMAKE_PREFIX_PATH=~ PKG_CONFIG_PATH=~/lib/pkgconfig/: cmake -DNETCDF=OFF -DMETIS=ON -DCOMMTHREAD=ON -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=$build_type -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=$precision -DEQUATIONS=$equation -DNUMBER_OF_MECHANISMS=$mechanisms -DGEMM_TOOLS_LIST=LIBXSMM ..
             make -j $(nproc)
             make test
             cd ..
