@@ -138,18 +138,26 @@ target_compile_definitions(SeisSol-lib PUBLIC LOG_LEVEL=${LOG_LEVEL_MASTER}
 
 # Libs
 include(ExternalProject)
-ExternalProject_Add(yaml-cpp-build
-  SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
-  INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
-  CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
-  -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-  -DYAML_CPP_BUILD_TOOLS=OFF
-  -DYAML_CPP_BUILD_TESTS=OFF
-)
-add_dependencies(SeisSol-lib yaml-cpp-build)
-target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
-target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
+
+find_package(YAML-CPP 0.5.3)
+if (YAML-CPP_FOUND)
+  target_link_libraries(SeisSol-lib PUBLIC ${YAML_CPP_LIBRARIES})
+  target_include_directories(SeisSol-lib PUBLIC ${YAML_CPP_INCLUDE_DIR})
+else()
+  ExternalProject_Add(yaml-cpp-build
+    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/yaml-cpp/
+    INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install
+    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp
+    CMAKE_ARGS -D CMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+    -DYAML_CPP_BUILD_TOOLS=OFF
+    -DYAML_CPP_BUILD_TESTS=OFF
+  )
+  add_dependencies(SeisSol-lib yaml-cpp-build)
+  target_link_libraries(SeisSol-lib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/lib/libyaml-cpp.a")
+  target_include_directories(SeisSol-lib PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp-install/include/)
+endif()
+
 
 ExternalProject_Add(ImpalaJIT-build
   SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/submodules/ImpalaJIT/

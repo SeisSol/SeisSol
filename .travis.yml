@@ -16,6 +16,7 @@ before_install:
  - sudo apt-get update -qq
  - wget https://syncandshare.lrz.de/dl/fiJNAokgbe2vNU66Ru17DAjT/netcdf-4.6.1.tar.gz
  - wget https://github.com/hfp/libxsmm/archive/master.zip
+ - cp -r $TRAVIS_BUILD_DIR/submodules/yaml-cpp .
 
 install:
  - |
@@ -34,6 +35,7 @@ install:
  - sudo pip3 install sphinx
  - sudo pip3 install sphinx_rtd_theme
  - sudo pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+ - cd yaml-cpp && cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_TESTS=OFF . && make && sudo make install && cd ..
  - tar -xaf netcdf-4.6.1.tar.gz
  - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
  - unzip master.zip
