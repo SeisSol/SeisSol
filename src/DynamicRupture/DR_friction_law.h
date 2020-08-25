@@ -907,8 +907,6 @@ public:
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
 
-    seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
-
 
     //***********************************
     // GET THESE FROM DATA STRUCT
@@ -928,13 +926,9 @@ public:
     double temp_0;          //EQN%Temp_0     !< Initial temperature for TP
     double pressure_0;            //EQN%Pressure_0           !< Initial pressure for TP
 */
-
-
     //***********************************
-
     //double S[nBndGP];
     //double Theta_tmp[TP_grid_nz], Sigma_tmp[TP_grid_nz];
-
 
 
     //--------------------------------------------------------
@@ -942,27 +936,21 @@ public:
 
     //first copy all Variables from the Base Lts dynRup tree
     Base::copyLtsTreeToLocal(layerData, dynRup);
-
+    seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
     nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS); ;
     magnitude_out                                 = layerData.var(ConcreteLts->magnitude_out);
     t_0  = layerData.var(ConcreteLts->t_0)[0];
     RS_f0  = layerData.var(ConcreteLts->RS_f0)[0];
-
     RS_b  = layerData.var(ConcreteLts->RS_b)[0];
     RS_sl0  = layerData.var(ConcreteLts->RS_sl0)[0];
     RS_sr0  = layerData.var(ConcreteLts->RS_sr0)[0];
     Mu_w = layerData.var(ConcreteLts->RS_b)[0];
     RS_a_array  = layerData.var(ConcreteLts->RS_a_array);
     RS_srW_array  = layerData.var(ConcreteLts->RS_srW_array);
-
     DS                       = layerData.var(ConcreteLts->DS);
     averaged_Slip                                 = layerData.var(ConcreteLts->averaged_Slip);
     stateVar           = layerData.var(ConcreteLts->dynStress_time);
     dynStress_time           = layerData.var(ConcreteLts->dynStress_time);
-
-
-
-
 
 
     //initialize local variables

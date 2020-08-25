@@ -130,7 +130,7 @@ public:
                            seissol::Interoperability &e_interoperability) override {
     Base::tiePointers(layerData, dynRup, e_interoperability);
     seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
-    std::cout << "tie ptr for FL_103\n";
+    //std::cout << "tie ptr for FL_103\n";
 
 
     DRFaceInformation*                    faceInformation = layerData.var(ConcreteLts->faceInformation);

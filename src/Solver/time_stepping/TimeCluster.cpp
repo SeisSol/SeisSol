@@ -300,12 +300,11 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 
     // legacy code:
-
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus[face],
                                             QInterpolatedMinus[face],
-                                            imposedStatePlusTest[face],
-                                            imposedStateMinusTest[face],
+                                            imposedStatePlus[face],
+                                            imposedStateMinus[face],
                                             m_fullUpdateTime,
                                             m_dynamicRuptureKernel.timePoints,
                                             m_dynamicRuptureKernel.timeWeights,
@@ -316,12 +315,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   //seissol::dr::fr_law::FL_2 *FL2 = dynamic_cast<seissol::dr::fr_law::FL_2*>(m_FrictonLaw);
   //FL2->evaluate2(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
-  m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
+  //m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
   //m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
   //debugging:
+  /*
   bool imposedStatePlusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   bool imposedStateMinusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
