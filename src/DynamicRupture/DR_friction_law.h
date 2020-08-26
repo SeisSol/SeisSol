@@ -718,11 +718,12 @@ protected:
   real  t_0;                        //face independent
   real  RS_f0;                      //face independent
   real  RS_b;                       //face independent
-  real  RS_sl0;                     //face independent
   real  RS_sr0;                     //face independent
   real  Mu_w;                       //face independent
   real  (*RS_a_array)[numOfPointsPadded];
   real  (*RS_srW_array)[numOfPointsPadded];
+  real  (*RS_sl0_array)[numOfPointsPadded];
+
 
 
   bool  (*DS)[numOfPointsPadded];
@@ -771,6 +772,7 @@ protected:
     double RS_fw = Mu_w;
     double RS_srW = RS_srW_array[face][iBndGP];
     double RS_a = RS_a_array[face][iBndGP];
+    double RS_sl0 = RS_sl0_array[face][iBndGP];
 
     // low-velocity steady state friction coefficient
     flv = RS_f0 - (RS_b-RS_a)* log(SR_tmp/RS_sr0);
@@ -942,14 +944,14 @@ public:
     t_0  = layerData.var(ConcreteLts->t_0)[0];
     RS_f0  = layerData.var(ConcreteLts->RS_f0)[0];
     RS_b  = layerData.var(ConcreteLts->RS_b)[0];
-    RS_sl0  = layerData.var(ConcreteLts->RS_sl0)[0];
     RS_sr0  = layerData.var(ConcreteLts->RS_sr0)[0];
-    Mu_w = layerData.var(ConcreteLts->RS_b)[0];
+    Mu_w = layerData.var(ConcreteLts->Mu_w)[0];
+    RS_sl0_array  = layerData.var(ConcreteLts->RS_sl0_array);
     RS_a_array  = layerData.var(ConcreteLts->RS_a_array);
     RS_srW_array  = layerData.var(ConcreteLts->RS_srW_array);
     DS                       = layerData.var(ConcreteLts->DS);
     averaged_Slip                                 = layerData.var(ConcreteLts->averaged_Slip);
-    stateVar           = layerData.var(ConcreteLts->dynStress_time);
+    stateVar           = layerData.var(ConcreteLts->stateVar);
     dynStress_time           = layerData.var(ConcreteLts->dynStress_time);
 
 
@@ -1007,7 +1009,7 @@ public:
 
 
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static)
+    //#pragma omp parallel for schedule(static)
     #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
 

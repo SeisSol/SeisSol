@@ -180,9 +180,9 @@ struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicR
   Variable<real>                                                  t_0;                        //face independent
   Variable<real>                                                  RS_f0;                      //face independent
   Variable<real>                                                  RS_b;                       //face independent
-  Variable<real>                                                  RS_sl0;                     //face independent
   Variable<real>                                                  RS_sr0;                     //face independent
   Variable<real>                                                  Mu_w;                       //face independent
+  Variable<real[ numOfPointsPadded ]>                             RS_sl0_array;
   Variable<real[ numOfPointsPadded ]>                             RS_a_array;
   Variable<real[ numOfPointsPadded ]>                             RS_srW_array;
 
@@ -199,9 +199,9 @@ struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicR
     tree.addVar(      t_0,                        mask,                 1,      seissol::memory::Standard );
     tree.addVar(      RS_f0,                      mask,                 1,      seissol::memory::Standard );
     tree.addVar(      RS_b,                       mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      RS_sl0,                     mask,                 1,      seissol::memory::Standard );
     tree.addVar(      RS_sr0,                     mask,                 1,      seissol::memory::Standard );
     tree.addVar(      Mu_w,                       mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      RS_sl0_array,               mask,                 1,      seissol::memory::Standard );
     tree.addVar(      RS_a_array,                 mask,                 1,      seissol::memory::Standard );
     tree.addVar(      RS_srW_array,               mask,                 1,      seissol::memory::Standard );
     tree.addVar(      DS,                         mask,                 1,      seissol::memory::Standard );

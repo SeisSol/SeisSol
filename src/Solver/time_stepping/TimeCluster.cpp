@@ -282,12 +282,12 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
+  //#pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
 //TODO: split loop
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
-
+    //int fortran_face = static_cast<int>(faceInformation[face].meshFace) ;
     m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
                                                     m_globalData,
                                                    &godunovData[face],

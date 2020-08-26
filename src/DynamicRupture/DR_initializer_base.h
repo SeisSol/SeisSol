@@ -72,7 +72,7 @@ public:
             cohesion[ltsFace][iBndGP] = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
           }else{
             //TODO: maybe not log it = too much spam?
-            std::cout << "DR_initializer_base: cohesion set to 0, not found from faultParameters";
+            //std::cout << "DR_initializer_base: cohesion set to 0, not found from faultParameters";
             cohesion[ltsFace][iBndGP] = 0;
           }
         }
@@ -222,9 +222,9 @@ public:
       real *t_0                                                 = it->var(ConcreteLts->t_0);                //par file
       real *RS_f0                                               = it->var(ConcreteLts->RS_f0);              //par file
       real *RS_b                                                = it->var(ConcreteLts->RS_b);               //par file
-      real *RS_sl0                                              = it->var(ConcreteLts->RS_sl0);             //par file
       real *RS_sr0                                              = it->var(ConcreteLts->RS_sr0);             //par file
       real *Mu_w                                                = it->var(ConcreteLts->Mu_w);               //par file
+      real (*RS_sl0_array)[numOfPointsPadded]                   = it->var(ConcreteLts->RS_sl0_array);       //get from faultParameters
       real (*RS_a_array)[numOfPointsPadded]                     = it->var(ConcreteLts->RS_a_array);         //get from faultParameters
       real (*RS_srW_array)[numOfPointsPadded]                   = it->var(ConcreteLts->RS_srW_array);       //get from faultParameters
       bool (*DS)[numOfPointsPadded]                             = it->var(ConcreteLts->DS);                 //par file
@@ -236,12 +236,11 @@ public:
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
 
-        e_interoperability.getDynRupFL_103(ltsFace, meshFace,nucleationStressInFaultCS, stateVar);
+        e_interoperability.getDynRupFL_103(ltsFace, meshFace, nucleationStressInFaultCS, stateVar);
 
         t_0[ltsFace]      = m_InputParam["t_0"] ?     m_InputParam["t_0"].as<real>()    : 0;
         RS_f0[ltsFace]    = m_InputParam["rs_f0"] ?   m_InputParam["rs_f0"].as<real>()  : 0;
         RS_b[ltsFace]     = m_InputParam["rs_b"] ?    m_InputParam["rs_b"].as<real>()   : 0;
-        RS_sl0[ltsFace]   = m_InputParam["rs_sl0"] ?  m_InputParam["rs_sl0"].as<real>() : 0;
         RS_sr0[ltsFace]   = m_InputParam["rs_sr0"] ?  m_InputParam["rs_sr0"].as<real>() : 0;
         Mu_w[ltsFace]     = m_InputParam["mu_w"] ?    m_InputParam["mu_w"].as<real>()   : 0;
 
@@ -255,12 +254,13 @@ public:
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
           RS_a_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["rs_a"][meshFace * numberOfPoints] );
           RS_srW_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["rs_srW"][meshFace * numberOfPoints] );
-
+          RS_sl0_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["RS_sl0"][meshFace * numberOfPoints] );
         }
         //initialize padded elements for vectorization
         for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
           RS_a_array[ltsFace][iBndGP] = 0.0;
           RS_srW_array[ltsFace][iBndGP] = 0.0;
+          RS_sl0_array[ltsFace][iBndGP] = 0.0;
         }
 
       }//lts-face loop

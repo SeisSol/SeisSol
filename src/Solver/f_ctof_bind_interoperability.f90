@@ -289,7 +289,7 @@ module f_ctof_bind_interoperability
       use f_ftoc_bind_interoperability
       implicit none
 
-      integer                                :: nBndGP
+      integer                                :: nBndGP, i
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       integer(kind=c_int), value             :: iFace
@@ -303,6 +303,10 @@ module f_ctof_bind_interoperability
 
       call c_f_pointer( i_nucleationStressInFaultCS, l_nucleationStressInFaultCS, [nBndGP,6])
       call c_f_pointer( i_stateVar, l_stateVar, [nBndGP])
+
+      !do i = 1, nBndGP
+      !  write(*,*) 'IniStateVar = ', l_domain%EQN%IniStateVar(:,5)
+      !end do
 
       l_stateVar     = l_domain%EQN%IniStateVar(:,iFace)
       l_nucleationStressInFaultCS(:,:)   = l_domain%EQN%InitialStressInFaultCS(:,:,iFace)
