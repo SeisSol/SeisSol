@@ -283,7 +283,7 @@ module f_ctof_bind_interoperability
         l_RF(:)                         = l_domain%DISC%DynRup%RF(:,iFace)
     end subroutine
 
-    subroutine f_interoperability_getDynRupFL_2(i_domain, iFace ,i_t_0, i_magnitude_out,i_DS, i_inst_healing) bind (c, name='f_interoperability_getDynRupFL_2')
+    subroutine f_interoperability_getDynRupFL_2(i_domain, iFace ,i_t_0, i_magnitude_out,i_DS) bind (c, name='f_interoperability_getDynRupFL_2')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -300,8 +300,6 @@ module f_ctof_bind_interoperability
       logical(kind=C_bool), pointer          :: l_magnitude_out
       type(c_ptr), value                     :: i_DS
       logical(kind=C_bool), pointer          :: l_DS(:)
-      type(c_ptr), value                     :: i_inst_healing
-      logical(kind=C_bool), pointer          :: l_inst_healing
 
       call c_f_pointer( i_domain,             l_domain)
       nBndGP = l_domain%DISC%Galerkin%nBndGP
@@ -309,15 +307,10 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_t_0,                l_t_0  )
       call c_f_pointer( i_magnitude_out,      l_magnitude_out)
       call c_f_pointer( i_DS, l_DS, [nBndGP])
-      call c_f_pointer( i_inst_healing,      l_inst_healing)
 
       l_t_0                     = l_domain%DISC%DynRup%t_0
       l_magnitude_out           = l_domain%DISC%DynRup%magnitude_out(iFace)
       l_DS                      = l_domain%DISC%DynRup%DS(:,iFace)
-      l_inst_healing            = .false.
-      IF(l_domain%DISC%DynRup%inst_healing == 1) THEN
-        l_inst_healing          = .true.
-      END IF
 
     end subroutine
 

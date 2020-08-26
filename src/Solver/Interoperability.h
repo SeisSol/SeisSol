@@ -417,9 +417,8 @@ class seissol::Interoperability {
      * @param t_0 gets initial forced rupture decay time
      * @param magnitude_out gets magnitude output (bool)
      * @param DS gets dynamic stress output (bool) per GP
-     * @param insta_healing if the option insta_healing is selected
      **/
-    void getDynRupFL_2(int ltsFace, unsigned meshFace, real *t_0, bool *magnitude_out,  bool (*DS)[init::QInterpolated::Stop[0]], bool *insta_healing  );
+    void getDynRupFL_2(int ltsFace, unsigned meshFace, real *t_0, bool *magnitude_out,  bool (*DS)[init::QInterpolated::Stop[0]]);
 
 
   /**
