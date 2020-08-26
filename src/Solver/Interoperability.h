@@ -410,15 +410,13 @@ class seissol::Interoperability {
     /**
      * get initial values from fortran
      * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
-     * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h for FL = 2
+     * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h for FL = 103
      *
-     * @param ltsFace current ltsFace to get Parameters
-     * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters in DRFaceInformation[ltsFace].meshFace
-     * @param t_0 gets initial forced rupture decay time
-     * @param magnitude_out gets magnitude output (bool)
-     * @param DS gets dynamic stress output (bool) per GP
+     * @param nucleationStressInFaultCS gets nucleationStressInFaultCS
+     * @param stateVar gets EQN%IniStateVar
+     *
      **/
-    void getDynRupFL_2(int ltsFace, unsigned meshFace, real *t_0, bool *magnitude_out,  bool (*DS)[init::QInterpolated::Stop[0]]);
+    void getDynRupFL_103(int ltsFace, unsigned meshFace, real (*nucleationStressInFaultCS)[init::QInterpolated::Stop[0]][6], real (*stateVar)[init::QInterpolated::Stop[0]]);
 
 
   /**

@@ -298,7 +298,7 @@ extern "C" {
   //Code added by ADRIAN
   extern void f_interoperability_getDynRup(void*  i_domain, int iFace, real* i_InitialStressInFaultCS, real* i_mu, real* i_slipRate1, real *i_slipRate2, bool* i_RF);
 
-  extern void f_interoperability_getDynRupFL_2(void*  i_domain, int iFace, real* i_t_0, bool* i_magnitude_out, bool* i_DS) ;
+  extern void f_interoperability_getDynRupFL_103(void*  i_domain, int iFace,  real *nucleationStressInFaultCS, real *stateVar) ;
 
   extern void f_interoperability_getDynRupFL_3(void*  i_domain, int iFace, real* i_RS_f0, real* i_RS_a, real* i_RS_b, real* i_RS_sl0, real* i_RS_sr0, real* i_stateVar) ;
 
@@ -1055,13 +1055,17 @@ void seissol::Interoperability::getDynRupParameters(int ltsFace, unsigned meshFa
 }
 
 
-void seissol::Interoperability::getDynRupFL_2(int ltsFace,  unsigned meshFace,
-                                              real *t_0,
-                                              bool *magnitude_out,
-                                              bool (*DS)[init::QInterpolated::Stop[0]]) {
+void seissol::Interoperability::getDynRupFL_103(int ltsFace,  unsigned meshFace,
+                                                real (*nucleationStressInFaultCS)[init::QInterpolated::Stop[0]][6],
+                                                real (*stateVar)[init::QInterpolated::Stop[0]]) {
   int fFace = meshFace + 1;
-  f_interoperability_getDynRupFL_2(m_domain,  fFace, &t_0[ltsFace], &magnitude_out[ltsFace],  &DS[ltsFace][0]);
-
+  real tmpNucleationStressInFaultCS[tensor::QInterpolated::Shape[0]*6] ={0};
+  f_interoperability_getDynRupFL_103(m_domain,  fFace, &tmpNucleationStressInFaultCS[0],  &stateVar[ltsFace][0]);
+  for(int i = 0; i< 6; i++){
+    for(int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++){
+      nucleationStressInFaultCS[ltsFace][iBndGP][i] = tmpNucleationStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
+    }
+  }
 }
 
 void seissol::Interoperability::getDynRupFL_3(int ltsFace,  unsigned meshFace,

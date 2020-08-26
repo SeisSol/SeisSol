@@ -283,34 +283,29 @@ module f_ctof_bind_interoperability
         l_RF(:)                         = l_domain%DISC%DynRup%RF(:,iFace)
     end subroutine
 
-    subroutine f_interoperability_getDynRupFL_2(i_domain, iFace ,i_t_0, i_magnitude_out,i_DS) bind (c, name='f_interoperability_getDynRupFL_2')
+    subroutine f_interoperability_getDynRupFL_103(i_domain, iFace ,i_nucleationStressInFaultCS, i_stateVar) bind (c, name='f_interoperability_getDynRupFL_103')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
       implicit none
 
-      !TODO: remove i, j ,k
-      integer                                :: i ,j, k, nBndGP
+      integer                                :: nBndGP
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       integer(kind=c_int), value             :: iFace
-      type(c_ptr), value                     :: i_t_0
-      real*8, pointer                        :: l_t_0
-      type(c_ptr), value                     :: i_magnitude_out
-      logical(kind=C_bool), pointer          :: l_magnitude_out
-      type(c_ptr), value                     :: i_DS
-      logical(kind=C_bool), pointer          :: l_DS(:)
+      type(c_ptr), value                     :: i_nucleationStressInFaultCS
+      REAL_TYPE, pointer                     :: l_nucleationStressInFaultCS(:,:)
+      type(c_ptr), value                     :: i_stateVar
+      REAL_TYPE, pointer                     :: l_stateVar(:)
 
       call c_f_pointer( i_domain,             l_domain)
       nBndGP = l_domain%DISC%Galerkin%nBndGP
 
-      call c_f_pointer( i_t_0,                l_t_0  )
-      call c_f_pointer( i_magnitude_out,      l_magnitude_out)
-      call c_f_pointer( i_DS, l_DS, [nBndGP])
+      call c_f_pointer( i_nucleationStressInFaultCS, l_nucleationStressInFaultCS, [nBndGP,6])
+      call c_f_pointer( i_stateVar, l_stateVar, [nBndGP])
 
-      l_t_0                     = l_domain%DISC%DynRup%t_0
-      l_magnitude_out           = l_domain%DISC%DynRup%magnitude_out(iFace)
-      l_DS                      = l_domain%DISC%DynRup%DS(:,iFace)
+      l_stateVar     = l_domain%EQN%IniStateVar(:,iFace)
+      l_nucleationStressInFaultCS(:,:)   = l_domain%EQN%InitialStressInFaultCS(:,:,iFace)
 
     end subroutine
 

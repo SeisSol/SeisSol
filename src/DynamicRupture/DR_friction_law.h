@@ -766,7 +766,7 @@ protected:
     return Gnuc;
   }
 
-  void updateStateVariable(int iBndGP, unsigned int face, real SV0, real time_inc, real SR_tmp, real &LocSV){
+  void updateStateVariable(int iBndGP, unsigned int face, real SV0, real time_inc, real &SR_tmp, real &LocSV){
     double flv, fss, SVss;
     double RS_fw = Mu_w;
     double RS_srW = RS_srW_array[face][iBndGP];
@@ -954,11 +954,11 @@ public:
 
 
     //initialize local variables
-    double dt;
-    double Gnuc;
-    double invZ;
-    bool has_converged;
-    double matmul;
+    double dt = 0;
+    double Gnuc = 0;
+    double invZ = 0;
+    bool has_converged = false;
+    double matmul = 0;
     std::array<real, numOfPointsPadded> ShTest{0};
     std::array<real, numOfPointsPadded> P{0};
     std::array<real, numOfPointsPadded> P_f{0};
@@ -1147,6 +1147,7 @@ public:
         if (!has_converged) {
           //!logError(*) 'nonConvergence RS Newton', time
           //TODO: error logging : logError(*) 'NaN detected', time
+          //std::cout << "nonConvergence RS Newton" << std::endl;
           assert( !std::isnan(tmp[0]) && "nonConvergence RS Newton");
         }
 
