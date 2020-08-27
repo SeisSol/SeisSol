@@ -47,6 +47,14 @@
 
 namespace init = seissol::init;
 
+class CustomCopyPolicy {
+public:
+  float_t* copy(float_t const* first, float_t const* last, float_t*& mem) {
+    mem = std::copy(first, last, mem);
+    return mem;
+  }
+};
+
 void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory::ManagedAllocator& memoryAllocator, enum seissol::memory::Memkind memkind)
 {
   // We ensure that global matrices always start at an aligned memory address,
@@ -65,10 +73,10 @@ void seissol::initializers::initializeGlobalData(GlobalData& globalData, memory:
   globalMatrixMemSize += yateto::alignedUpper(tensor::evalAtQP::size(),  yateto::alignedReals<real>(ALIGNMENT));
   globalMatrixMemSize += yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(ALIGNMENT));
   
-  real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory( globalMatrixMemSize * sizeof(real), PAGESIZE_HEAP, memkind ));
+  real* globalMatrixMem = static_cast<real*>(memoryAllocator.allocateMemory(globalMatrixMemSize * sizeof(real), PAGESIZE_HEAP, memkind));
 
   real* globalMatrixMemPtr = globalMatrixMem;
-  yateto::CopyManager<real> copyManager;
+  yateto::DefaultCopyManager<real> copyManager;
   copyManager.copyFamilyToMemAndSetPtr<init::kDivMT>(globalMatrixMemPtr, globalData.stiffnessMatricesTransposed, ALIGNMENT);
   copyManager.copyFamilyToMemAndSetPtr<init::kDivM>(globalMatrixMemPtr, globalData.stiffnessMatrices, ALIGNMENT);
   copyManager.copyFamilyToMemAndSetPtr<init::rDivM>(globalMatrixMemPtr, globalData.changeOfBasisMatrices, ALIGNMENT);
