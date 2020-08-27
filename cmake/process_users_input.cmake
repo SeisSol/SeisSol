@@ -33,15 +33,15 @@ set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64           16     16)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
-set(COMPUTE_ARCH "same" CACHE STRING "Type of the target compute architecture")
-set(COMPUTE_ARCH_OPTIONS    same nvidia amd_gpu)
-set(COMPUTE_ARCH_ALIGNMENT  same     64     128)
-set_property(CACHE COMPUTE_ARCH PROPERTY STRINGS ${COMPUTE_ARCH_OPTIONS})
+set(DEVICE_ARCH "none" CACHE STRING "Type of the target compute architecture")
+set(DEVICE_ARCH_OPTIONS    none nvidia amd_gpu)
+set(DEVICE_ARCH_ALIGNMENT  none     64     128)
+set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 
-set(COMPUTE_SUB_ARCH "same" CACHE STRING "Sub-type of the target GPU architecture")
-set(COMPUTE_SUB_ARCH_OPTIONS same sm_60 sm_61 sm_62 sm_70 sm_71 sm_75)
-set_property(CACHE COMPUTE_SUB_ARCH PROPERTY STRINGS ${COMPUTE_SUB_ARCH_OPTIONS})
+set(DEVICE_SUB_ARCH "none" CACHE STRING "Sub-type of the target GPU architecture")
+set(DEVICE_SUB_ARCH_OPTIONS none sm_60 sm_61 sm_62 sm_70 sm_71 sm_75)
+set_property(CACHE DEVICE_SUB_ARCH PROPERTY STRINGS ${DEVICE_SUB_ARCH_OPTIONS})
 
 
 set(PRECISION "double" CACHE STRING "type of floating point precision, namely: double/single")
@@ -79,7 +79,7 @@ set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS}
 
 
 set(GEMM_TOOLS_LIST "LIBXSMM,PSpaMM" CACHE STRING "choose a gemm tool(s) for the code generator")
-set(GEMM_TOOLS_OPTIONS "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen")
+set(GEMM_TOOLS_OPTIONS "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
 #-------------------------------------------------------------------------------
@@ -99,8 +99,8 @@ endfunction()
 
 check_parameter("ORDER" ${ORDER} "${ORDER_OPTIONS}")
 check_parameter("HOST_ARCH" ${HOST_ARCH} "${HOST_ARCH_OPTIONS}")
-check_parameter("COMPUTE_ARCH" ${COMPUTE_ARCH} "${COMPUTE_ARCH_OPTIONS}")
-check_parameter("COMPUTE_SUB_ARCH" ${COMPUTE_SUB_ARCH} "${COMPUTE_SUB_ARCH_OPTIONS}")
+check_parameter("DEVICE_ARCH" ${DEVICE_ARCH} "${DEVICE_ARCH_OPTIONS}")
+check_parameter("DEVICE_SUB_ARCH" ${DEVICE_SUB_ARCH} "${DEVICE_SUB_ARCH_OPTIONS}")
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("DYNAMIC_RUPTURE_METHOD" ${DYNAMIC_RUPTURE_METHOD} "${RUPTURE_OPTIONS}")
@@ -110,33 +110,29 @@ check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIO
 
 
 # check compute sub architecture (relevant only for GPU)
-if (${COMPUTE_ARCH} STREQUAL "same")
-    if (NOT ${COMPUTE_SUB_ARCH} STREQUAL "same")
-        message(FATAL_ERROR "COMPUTE_SUB_ARCH must be the same as HOST_ARCH and COMPUTE_ARCH. Please, choose \"same\"")
+if (NOT ${DEVICE_ARCH} STREQUAL "none")
+    if (${DEVICE_SUB_ARCH} STREQUAL "none")
+        message(FATAL_ERROR "DEVICE_SUB_ARCH is not provided for ${DEVICE_ARCH}")
     endif()
-    set(COMPUTE_ARCH ${HOST_ARCH})
-    list(FIND HOST_ARCH_OPTIONS ${COMPUTE_ARCH} INDEX)
-    list(GET HOST_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
-    set(DEVICE_BACKEND "NONE")
-else()
-    if (${COMPUTE_ARCH} STREQUAL "nvidia")
-        list(FIND COMPUTE_ARCH_OPTIONS ${COMPUTE_ARCH} INDEX)
-        list(GET COMPUTE_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
+
+    if (${DEVICE_ARCH} STREQUAL "nvidia")
+        list(FIND DEVICE_ARCH_OPTIONS ${DEVICE_ARCH} INDEX)
+        list(GET DEVICE_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
         set(DEVICE_BACKEND "CUDA")
-    elseif(${COMPUTE_ARCH} STREQUAL "amd_gpu")
-        list(FIND COMPUTE_ARCH_OPTIONS ${COMPUTE_ARCH} INDEX)
-        list(GET COMPUTE_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
+    elseif(${DEVICE_ARCH} STREQUAL "amd_gpu")
+        list(FIND DEVICE_ARCH_OPTIONS ${DEVICE_ARCH} INDEX)
+        list(GET DEVICE_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
         set(DEVICE_BACKEND "HIP")
         # amd_gpu will be supported in some near future
         message(FATAL_ERROR "amd_gpu currently is not supported")
     else()
-        message(FATAL_ERROR "Unknown compute arch. provided: ${COMPUTE_ARCH}. nvidia and amd_gpu are currently supported")
+        message(FATAL_ERROR "Unknown device arch. provided: ${DEVICE_ARCH}. nvidia and amd_gpu are currently supported")
     endif()
-    if (${COMPUTE_SUB_ARCH} STREQUAL "same")
-        message(FATAL_ERROR "Please, provide a specific COMPUTE_SUB_ARCH. Given: \"same\"")
-    endif()
+else()
+    list(FIND HOST_ARCH_OPTIONS ${HOST_ARCH} INDEX)
+    list(GET HOST_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
+    set(DEVICE_BACKEND "NONE")
 endif()
-
 
 # check NUMBER_OF_MECHANISMS
 if (("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "anisotropic") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
@@ -174,11 +170,15 @@ MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)
 if (${PRECISION} STREQUAL "double")
-    set(COMPUTE_ARCH_STR "d${COMPUTE_ARCH}")
     set(HOST_ARCH_STR "d${HOST_ARCH}")
+    set(DEVICE_ARCH_STR "d${DEVICE_ARCH}")
 elseif(${PRECISION} STREQUAL "single")
-    set(COMPUTE_ARCH_STR "s${COMPUTE_ARCH}")
     set(HOST_ARCH_STR "s${HOST_ARCH}")
+    set(DEVICE_ARCH_STR "s${DEVICE_ARCH}")
+endif()
+
+if (${DEVICE_ARCH} STREQUAL "none")
+    set(DEVICE_ARCH_STR "none")
 endif()
 
 

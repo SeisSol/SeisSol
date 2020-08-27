@@ -70,8 +70,8 @@ add_custom_command(
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
-     "--compute_arch" ${COMPUTE_ARCH_STR}
-     "--compute_sub_arch" ${COMPUTE_SUB_ARCH}
+     "--device_arch" ${DEVICE_ARCH_STR}
+     "--device_sub_arch" ${DEVICE_SUB_ARCH}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}

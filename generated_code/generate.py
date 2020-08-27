@@ -59,8 +59,8 @@ cmdLineParser.add_argument('--equations')
 cmdLineParser.add_argument('--matricesDir')
 cmdLineParser.add_argument('--outputDir')
 cmdLineParser.add_argument('--host_arch')
-cmdLineParser.add_argument('--compute_arch', default=None)
-cmdLineParser.add_argument('--compute_sub_arch', default=None)
+cmdLineParser.add_argument('--device_arch', default=None)
+cmdLineParser.add_argument('--device_sub_arch', default=None)
 cmdLineParser.add_argument('--order', type=int)
 cmdLineParser.add_argument('--numberOfMechanisms', type=int)
 cmdLineParser.add_argument('--memLayout')
@@ -75,15 +75,26 @@ if cmdLineArgs.memLayout == 'auto':
   env = {
     'equations': cmdLineArgs.equations,
     'order': cmdLineArgs.order,
-    'arch': cmdLineArgs.compute_arch,
+    'arch': cmdLineArgs.host_arch,
+    'device': cmdLineArgs.device_arch,
     'multipleSimulations': cmdLineArgs.multipleSimulations
   }
   mem_layout = memlayout.guessMemoryLayout(env)
 else:
   mem_layout = cmdLineArgs.memLayout
-  
 
-arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch, cmdLineArgs.compute_arch, cmdLineArgs.compute_sub_arch)
+
+if cmdLineArgs.device_arch == 'none':
+  compute_arch = cmdLineArgs.host_arch
+  compute_sub_arch = None
+  host_arch = cmdLineArgs.host_arch
+else:
+  compute_arch = cmdLineArgs.device_arch
+  compute_sub_arch = cmdLineArgs.device_sub_arch
+  host_arch = cmdLineArgs.host_arch
+
+arch = useArchitectureIdentifiedBy(compute_arch, compute_sub_arch, host_arch)
+
 
 equationsSpec = importlib.util.find_spec(cmdLineArgs.equations)
 try:
@@ -94,7 +105,7 @@ except:
 
 # derive the compute platform
 gpu_platforms = ['nvidia', 'amd-gpu']
-platforms = ['gpu', 'cpu'] if cmdLineArgs.compute_arch[1:] in gpu_platforms else ['cpu']
+platforms = ['gpu', 'cpu'] if compute_arch[1:] in gpu_platforms else ['cpu']
 
 cmdArgsDict = vars(cmdLineArgs)
 cmdArgsDict['memLayout'] = mem_layout
