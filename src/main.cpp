@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 	// Initialize SeisSol
 	bool runSeisSol = seissol::SeisSol::main.init(argc, argv);
 
-  fty::Loader<fty::As_lowercase> Loader{};
+  fty::Loader<fty::AsLowercase> Loader{};
   try {
     YAML::Node Params = Loader.load(seissol::SeisSol::main.parameterFile());
     seissol::SeisSol::main.setInputParams(Params);
