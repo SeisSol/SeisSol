@@ -34,7 +34,7 @@ install:
  - sudo pip3 install setuptools
  - sudo pip3 install sphinx
  - sudo pip3 install sphinx_rtd_theme
- - sudo pip3 install git+https://github.com/ravil-mobile/gemmforge.git
+ - sudo pip3 install gemmforge
  - cd yaml-cpp && cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DYAML_CPP_BUILD_TOOLS=OFF -DYAML_CPP_BUILD_TESTS=OFF . && make && sudo make install && cd ..
  - tar -xaf netcdf-4.6.1.tar.gz
  - cd netcdf-4.6.1 && CC=h5pcc ./configure --prefix=/usr --enable-shared=no --disable-dap && make && sudo make install && cd ..
