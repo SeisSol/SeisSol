@@ -269,7 +269,11 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 //    krnl.frictionData = fric;
 //    krnl.execute();
-
+  //debugging:
+  m_FrictonLaw->numberOfFunctionCalls++;
+  if(  m_FrictonLaw->numberOfFunctionCalls ==  165){
+    std::cout << "now its: "<< m_FrictonLaw->numberOfFunctionCalls << std::endl;
+  }
 
     //TODO: right place for precalculation?
     //requires m_dynamicRuptureKernel for calculation
@@ -287,7 +291,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 //TODO: split loop
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
-    //int fortran_face = static_cast<int>(faceInformation[face].meshFace) ;
+    //TODO remove - only for debugging:
+    int fortran_face = static_cast<int>(faceInformation[face].meshFace) + 1;
     m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
                                                     m_globalData,
                                                    &godunovData[face],
@@ -321,17 +326,33 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
   //debugging:
+  auto imposedStateMinusView2 = init::QInterpolated::view::create(imposedStateMinus[4]);
+  auto imposedStateMinusViewTest2 = init::QInterpolated::view::create(imposedStateMinusTest[4]);
+  //std::cout << "imposedStateMinusView: (" << m_FrictonLaw->numberOfFunctionCalls << ") " << imposedStateMinusView2(41, 3) << std::endl;
+  //std::cout << "imposedStateMinusViewTest: (" << m_FrictonLaw->numberOfFunctionCalls << ") " << imposedStateMinusViewTest2(41, 3) << std::endl;
 
   bool imposedStatePlusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   bool imposedStateMinusTestBool[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
-  for( unsigned int iface = 0; iface < layerData.getNumberOfCells(); iface++ ) {
-    auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[iface]);
-    auto imposedStateMinusViewTest = init::QInterpolated::view::create(imposedStateMinusTest[iface]);
+  for(unsigned int lts_face = 0; lts_face < layerData.getNumberOfCells(); lts_face++ ) {
+    auto imposedStateMinusView = init::QInterpolated::view::create(imposedStateMinus[lts_face]);
+    auto imposedStateMinusViewTest = init::QInterpolated::view::create(imposedStateMinusTest[lts_face]);
+    auto imposedStatePlusView = init::QInterpolated::view::create(imposedStateMinus[lts_face]);
+    auto imposedStatePlusViewTest = init::QInterpolated::view::create(imposedStateMinusTest[lts_face]);
     for (int j = 0; j < 9; j++) {
       for (int i = 0; i < numberOfPoints; i++) {
-        if(abs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.1 ){
+        if(lts_face == 4 && j == 3 && i== 41 && false){
           std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
+        }
+        if(abs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.01 ){
+          std::cout << "Function call of error: "<< m_FrictonLaw->numberOfFunctionCalls << std::endl;
+          std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
+          std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
+          assert(false);
+        }
+        if(abs( imposedStatePlusView(i, j) - imposedStatePlusViewTest(i, j) ) > 0.01 ){
+          std::cout << "imposedStateMinusView: "<< imposedStatePlusView(i, j) << std::endl;
+          std::cout << "imposedStateMinusViewTest: "<< imposedStatePlusViewTest(i, j) << std::endl;
           assert(false);
         }
       }

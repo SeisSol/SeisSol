@@ -32,6 +32,9 @@ public:
   virtual ~Base() {}
   void setInputParam(const YAML::Node& Param) {m_InputParam = Param;}
 
+  //TODO: remove only for debugging:
+  int numberOfFunctionCalls = 0;
+
 protected:
   static constexpr int numberOfPoints =  tensor::QInterpolated::Shape[0];// DISC%Galerkin%nBndGP
   //TODO: is init::QInterpolated::Start[0] always 0?
@@ -777,7 +780,7 @@ protected:
     // low-velocity steady state friction coefficient
     flv = RS_f0 - (RS_b-RS_a)* log(SR_tmp/RS_sr0);
     // steady state friction coefficient
-    fss = RS_fw + (flv - RS_fw)/pow(1.0+pow(SR_tmp/RS_srW,8) ,1.0/8.0);
+    fss = RS_fw + (flv - RS_fw)/seissol::dr::aux::power(1.0+seissol::dr::aux::power(SR_tmp/RS_srW,8.0) ,1.0/8.0);
     // steady-state state variable
     // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
     SVss = RS_a * log(2.0*RS_sr0/SR_tmp * (exp(fss/RS_a)-exp(-fss/RS_a))/2.0);
@@ -802,7 +805,7 @@ protected:
     std::array<real, numOfPointsPadded> &LocSV, std::array<real, numOfPointsPadded> &n_stress,
     std::array<real, numOfPointsPadded> &sh_stress, double invZ,  std::array<real, numOfPointsPadded> &SRtest ){
 
-    double tmp, tmp2, tmp3, mu_f, dmu_f, NR[numberOfPoints], dNR;
+    double tmp[numberOfPoints], tmp2[numberOfPoints], tmp3[numberOfPoints], mu_f[numberOfPoints], dmu_f[numberOfPoints], NR[numberOfPoints], dNR[numberOfPoints];
     double aTolF = 1e-8;
     double AlmostZero = 1e-45;
     bool has_converged = false;
@@ -821,7 +824,7 @@ protected:
     for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
       //! first guess = SR value of the previous step
       SRtest[iBndGP] = LocSR[iBndGP];
-      tmp   =  0.5 / RS_sr0 *exp(LocSV[iBndGP]/RS_a_array[face][iBndGP]);
+      tmp[iBndGP]   =  0.5 / RS_sr0 *exp(LocSV[iBndGP]/RS_a_array[face][iBndGP]);
     }
 
     for(int i = 0; i < nSRupdates; i++){
@@ -834,10 +837,10 @@ protected:
         //!for compiling reasons ASINH(X)=LOG(X+SQRT(X^2+1))
 
         //!calculate friction coefficient
-        tmp2  = tmp*SRtest[iBndGP];
-        mu_f  = RS_a_array[face][iBndGP] * log(tmp2+sqrt(pow(tmp2,2)+1.0));
-        dmu_f = RS_a_array[face][iBndGP] / sqrt(1.0+pow(tmp2,2))*tmp;
-        NR[iBndGP]    = -invZ * (abs(n_stress[iBndGP])*mu_f-sh_stress[iBndGP])-SRtest[iBndGP];
+        tmp2[iBndGP]  = tmp[iBndGP]*SRtest[iBndGP];
+        mu_f[iBndGP]  = RS_a_array[face][iBndGP] * log(tmp2[iBndGP]+sqrt(pow(tmp2[iBndGP],2)+1.0));
+        dmu_f[iBndGP] = RS_a_array[face][iBndGP] / sqrt(1.0+pow(tmp2[iBndGP],2))*tmp[iBndGP];
+        NR[iBndGP]    = -invZ * (abs(n_stress[iBndGP])*mu_f[iBndGP]-sh_stress[iBndGP])-SRtest[iBndGP];
       }
       has_converged = true;
 
@@ -853,13 +856,14 @@ protected:
         return has_converged;
       }
       for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
+
         //!derivative of NR
-        dNR   = -invZ * (abs(n_stress[iBndGP])*dmu_f) - 1.0;
+        dNR[iBndGP]   = -invZ * (abs(n_stress[iBndGP])*dmu_f[iBndGP]) - 1.0;
         //!ratio
-        tmp3 = NR[iBndGP]/dNR;
+        tmp3[iBndGP] = NR[iBndGP]/dNR[iBndGP];
 
         //!update SRtest
-        SRtest[iBndGP] = std::max(AlmostZero,SRtest[iBndGP]-tmp3);
+        SRtest[iBndGP] = std::max(AlmostZero,SRtest[iBndGP]-tmp3[iBndGP]);
       }
     }
   }
@@ -1042,11 +1046,15 @@ public:
 
         for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
           for (int i = 0; i < 6; i++) {
-            initialStressInFaultCS[face][iBndGP][i] += nucleationStressInFaultCS[face][iBndGP][i] * Gnuc;
+            initialStressInFaultCS[face][iBndGP][i] = initialStressInFaultCS[face][iBndGP][i] + nucleationStressInFaultCS[face][iBndGP][i] * Gnuc;
           }
         }
 
       } //end If-Tnuc
+
+      //debugging
+      real  (*TestInitialStress)[numOfPointsPadded][6] = &initialStressInFaultCS[face];
+      real  (*TestNucleationStress)[numOfPointsPadded][6] = &nucleationStressInFaultCS[face];
 
       for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
         LocMu[iBndGP] = mu[face][iBndGP];     // Current friction coefficient at given fault node
@@ -1187,15 +1195,15 @@ public:
           //! mu from LocSR
           LocMu[iBndGP] = RS_a_array[face][iBndGP] * log(tmp2[iBndGP] + sqrt(seissol::dr::aux::power(tmp2[iBndGP], 2) + 1.0));
 
+          //debugging:
+          real LocTracXY_inbetween;
           //! update stress change
-          LocTracXY[iBndGP] =
-              -((initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) *
-              LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
-          LocTracXZ[iBndGP] =
-              -((initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) *
-              LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
-          LocTracXY[iBndGP] = LocTracXY[iBndGP] - initialStressInFaultCS[face][iBndGP][3];
+          LocTracXY_inbetween = -((initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
+          LocTracXZ[iBndGP] = -((initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
+          LocTracXY[iBndGP] = LocTracXY_inbetween - initialStressInFaultCS[face][iBndGP][3];
           LocTracXZ[iBndGP] = LocTracXZ[iBndGP] - initialStressInFaultCS[face][iBndGP][5];
+          //testing alternative calculation:
+          //LocTracXY[iBndGP] = (initialStressInFaultCS[face][iBndGP][3] * ( LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]) - ShTest[iBndGP]) +  XYStressGP[iTimeGP][iBndGP] *  LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]) ) / ShTest[iBndGP];
 
           //Compute slip
           //! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening

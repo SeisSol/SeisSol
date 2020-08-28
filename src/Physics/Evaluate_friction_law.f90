@@ -1335,7 +1335,7 @@ MODULE Eval_friction_law_mod
     REAL        :: rho,rho_neig,w_speed(:),w_speed_neig(:)
     REAL        :: time_inc
     REAL        :: Deltat(1:nTimeGP)
-    REAL        :: SV0(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP), SR_tmp(nBndGP), SRtest(nBndGP)
+    REAL        :: SV0(nBndGP), tmp(nBndGP), tmp2(nBndGP), tmp3(nBndGP), SR_tmp(nBndGP), SRtest(nBndGP), testNumber(nBndGP)
     REAL        :: LocSV(nBndGP)
     REAL        :: tmpSlip(nBndGP)
     REAL        :: RS_f0,RS_a(nBndGP),RS_b,RS_sl0(nBndGP),RS_sr0
@@ -1509,6 +1509,7 @@ MODULE Eval_friction_law_mod
          ! update stress change
          LocTracXY = -((EQN%InitialStressInFaultCS(:,4,iFace) + XYStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
          LocTracXZ = -((EQN%InitialStressInFaultCS(:,6,iFace) + XZStressGP(:,iTimeGP))/ShTest)*LocMu*(P-P_f)
+         testNumber = LocTracXY
          LocTracXY = LocTracXY - EQN%InitialStressInFaultCS(:,4,iFace)
          LocTracXZ = LocTracXZ - EQN%InitialStressInFaultCS(:,6,iFace)
          !

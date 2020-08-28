@@ -309,7 +309,7 @@ module f_ctof_bind_interoperability
       !end do
 
       l_stateVar     = l_domain%EQN%IniStateVar(:,iFace)
-      l_nucleationStressInFaultCS(:,:)   = l_domain%EQN%InitialStressInFaultCS(:,:,iFace)
+      l_nucleationStressInFaultCS(:,:)   = l_domain%EQN%NucleationStressInFaultCS(:,:,iFace)
 
     end subroutine
 
