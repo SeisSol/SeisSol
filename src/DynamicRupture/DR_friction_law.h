@@ -463,8 +463,6 @@ public:
         assert( !std::isnan(imposedStatePlus[face][i]) );
       }
       //*/
-//      assert(face != 4);
-
     }//End of Loop over Faces
   }//End of Function evaluate
 
@@ -776,18 +774,22 @@ protected:
     double RS_srW = RS_srW_array[face][iBndGP];
     double RS_a = RS_a_array[face][iBndGP];
     double RS_sl0 = RS_sl0_array[face][iBndGP];
+    double exp1;
 
     // low-velocity steady state friction coefficient
     flv = RS_f0 - (RS_b-RS_a)* log(SR_tmp/RS_sr0);
     // steady state friction coefficient
-    fss = RS_fw + (flv - RS_fw)/seissol::dr::aux::power(1.0+seissol::dr::aux::power(SR_tmp/RS_srW,8.0) ,1.0/8.0);
+    fss = RS_fw + (flv - RS_fw)/pow(1.0+seissol::dr::aux::power(SR_tmp/RS_srW,8.0) ,1.0/8.0);
     // steady-state state variable
     // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
     SVss = RS_a * log(2.0*RS_sr0/SR_tmp * (exp(fss/RS_a)-exp(-fss/RS_a))/2.0);
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
-    LocSV = SVss*(1.0-exp(-SR_tmp*time_inc/RS_sl0))+exp(-SR_tmp*time_inc/RS_sl0)*SV0;
 
+    exp1 = exp(-SR_tmp*(time_inc/RS_sl0) );
+    LocSV = SVss*(1.0-exp1)+exp1*SV0;
+
+    //LocSV = SVss*(1.0-exp(-SR_tmp*time_inc/RS_sl0))+exp(-SR_tmp*time_inc/RS_sl0)*SV0;
 
 
     /*  //TODO log error NaN detected
@@ -838,10 +840,11 @@ protected:
 
         //!calculate friction coefficient
         tmp2[iBndGP]  = tmp[iBndGP]*SRtest[iBndGP];
-        mu_f[iBndGP]  = RS_a_array[face][iBndGP] * log(tmp2[iBndGP]+sqrt(pow(tmp2[iBndGP],2)+1.0));
-        dmu_f[iBndGP] = RS_a_array[face][iBndGP] / sqrt(1.0+pow(tmp2[iBndGP],2))*tmp[iBndGP];
+        mu_f[iBndGP]  = RS_a_array[face][iBndGP] * log(tmp2[iBndGP]+sqrt(seissol::dr::aux::power(tmp2[iBndGP],2)+1.0));
+        dmu_f[iBndGP] = RS_a_array[face][iBndGP] / sqrt(1.0+seissol::dr::aux::power(tmp2[iBndGP],2))*tmp[iBndGP];
         NR[iBndGP]    = -invZ * (abs(n_stress[iBndGP])*mu_f[iBndGP]-sh_stress[iBndGP])-SRtest[iBndGP];
       }
+
       has_converged = true;
 
       //TODO: write max element function for absolute values
@@ -1040,7 +1043,7 @@ public:
       }
 
       if (fullUpdateTime <= Tnuc) {
-        Gnuc = Calc_SmoothStepIncrement(fullUpdateTime, Tnuc, dt);
+        Gnuc = Calc_SmoothStepIncrement(fullUpdateTime, Tnuc, dt) ;
 
         //DISC%DynRup%NucBulk_** is already in fault coordinate system
 
@@ -1092,7 +1095,7 @@ public:
           SV0[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
           // The following process is adapted from that described by Kaneko et al. (2008)
-          LocSR[iBndGP] = std::sqrt(seissol::dr::aux::power(LocSR1[iBndGP], 2) + seissol::dr::aux::power(LocSR2[iBndGP], 2));
+          LocSR[iBndGP] = std::sqrt(seissol::dr::aux::power(LocSR1[iBndGP], 2) + seissol::dr::aux::power(LocSR2[iBndGP], 2) );
           LocSR[iBndGP] = std::max(AlmostZero, LocSR[iBndGP]);
 
           SR_tmp[iBndGP] = LocSR[iBndGP];
@@ -1251,7 +1254,7 @@ public:
         for (int j = 0; j < numberOfPoints; j++) {
           matmul += resampleMatrixView(iBndGP, j) * (LocSV[j] - stateVar[face][j]);
         }
-        stateVar[face][iBndGP] += matmul;
+        stateVar[face][iBndGP] = stateVar[face][iBndGP] + matmul;
       }
 
       // output rupture front

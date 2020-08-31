@@ -344,13 +344,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
           std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
         }
-        if(abs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.01 ){
+        if(abs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.1 ){
           std::cout << "Function call of error: "<< m_FrictonLaw->numberOfFunctionCalls << std::endl;
           std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
           assert(false);
         }
-        if(abs( imposedStatePlusView(i, j) - imposedStatePlusViewTest(i, j) ) > 0.01 ){
+        if(abs( imposedStatePlusView(i, j) - imposedStatePlusViewTest(i, j) ) > 0.1 ){
           std::cout << "imposedStateMinusView: "<< imposedStatePlusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStatePlusViewTest(i, j) << std::endl;
           assert(false);
