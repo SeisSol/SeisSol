@@ -97,6 +97,17 @@ Installing PSpaMM
    git clone https://github.com/peterwauligmann/PSpaMM.git
    ln -s $(pwd)/PSpaMM/pspamm.py $HOME/bin
 
+Installing GemmForge
+--------------------
+
+
+.. code-block:: bash
+
+   pip install gemmforge
+
+   # in case if you need GemmForge with the latest chagens
+   pip install git+https://github.com/ravil-mobile/gemmforge.git 
+
 Installing ParMetis (Optional: PUML mesh format)
 ------------------------------------------------
 
