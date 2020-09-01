@@ -303,7 +303,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
-
+/*
     // legacy code:
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus[face],
@@ -325,6 +325,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   //m_DrOutput->tiePointers(layerData, m_dynRup, e_interoperability/*+ DrLtsTree, + faultWriter*/); // pass ptrs of the first cluster    // inside of a compute loop
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
+  /*
   //debugging:
   auto imposedStateMinusView2 = init::QInterpolated::view::create(imposedStateMinus[4]);
   auto imposedStateMinusViewTest2 = init::QInterpolated::view::create(imposedStateMinusTest[4]);
@@ -344,13 +345,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
           std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
         }
-        if(abs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.1 ){
-          std::cout << "Function call of error: "<< m_FrictonLaw->numberOfFunctionCalls << std::endl;
+        if(fabs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.00000000000001 ){
+          std::cout << "Function call of error: "<< m_FrictonLaw->numberOfFunctionCalls << " error: " << fabs(  imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) <<  std::endl;
           std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
           assert(false);
         }
-        if(abs( imposedStatePlusView(i, j) - imposedStatePlusViewTest(i, j) ) > 0.1 ){
+        if(abs( imposedStatePlusView(i, j) - imposedStatePlusViewTest(i, j) ) > 0.00000000001 ){
           std::cout << "imposedStateMinusView: "<< imposedStatePlusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStatePlusViewTest(i, j) << std::endl;
           assert(false);
