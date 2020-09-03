@@ -80,7 +80,7 @@ namespace seissol {
                                             unsigned*              ltsFaceToMeshFace,
                                             GlobalData const&      global,
                                             TimeStepping const&    timeStepping );
-    void initializeFrictionMatrices(    seissol::dr::initializer::Base* FrictionInitializer,
+    void initializeFrictionMatrices(    seissol::initializers::BaseDrInitializer* FrictionInitializer,
                                         DynamicRupture *dynRup,
                                         LTSTree* dynRupTree,
                                         std::unordered_map<std::string, double*> faultParameters,

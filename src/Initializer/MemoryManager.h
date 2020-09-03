@@ -162,9 +162,9 @@ class seissol::initializers::MemoryManager {
     DynamicRupture*        m_dynRup;
 
     //added by Adrian
-    seissol::dr::initializer::Base* m_DrInitializer = nullptr;
-    seissol::dr::fr_law::Base* m_FrictonLaw = nullptr;
-    seissol::dr::output::Base* m_DrOutput = nullptr;
+    seissol::initializers::BaseDrInitializer* m_DrInitializer = nullptr;
+    seissol::dr::fr_law::BaseFrictionSolver* m_FrictonLaw = nullptr;
+    seissol::dr::output::Output_Base* m_DrOutput = nullptr;
 
     YAML::Node m_inputParams;
 
@@ -312,13 +312,13 @@ class seissol::initializers::MemoryManager {
     //added by Adrian
     void initializeFrictionFactory();
 
-    inline dr::fr_law::Base* getFrictionLaw() {
+    inline dr::fr_law::BaseFrictionSolver* getFrictionLaw() {
         return m_FrictonLaw;
     }
-    inline  dr::initializer::Base* getDrInitializer() {
+    inline  initializers::BaseDrInitializer* getDrInitializer() {
         return m_DrInitializer;
     }
-    inline seissol::dr::output::Base* getDrOutput() {
+    inline seissol::dr::output::Output_Base* getDrOutput() {
         return m_DrOutput;
     }
 

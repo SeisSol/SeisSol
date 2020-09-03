@@ -143,8 +143,8 @@ private:
     struct GlobalData *m_globalData;
 
   //added by Adrian
-    dr::fr_law::Base* m_FrictonLaw;
-    dr::output::Base* m_DrOutput;
+    dr::fr_law::BaseFrictionSolver* m_FrictonLaw;
+    dr::output::Output_Base* m_DrOutput;
 
 
     /*
@@ -397,8 +397,8 @@ private:
                  seissol::initializers::TimeCluster* i_dynRupClusterData,
                  seissol::initializers::LTS*         i_lts,
                  seissol::initializers::DynamicRupture* i_dynRup,
-                 seissol::dr::fr_law::Base* i_FrictonLaw,
-                 dr::output::Base*            i_DrOutput,
+                 seissol::dr::fr_law::BaseFrictionSolver* i_FrictonLaw,
+                 dr::output::Output_Base*            i_DrOutput,
                  LoopStatistics*                        i_loopStatistics );
 
     /**

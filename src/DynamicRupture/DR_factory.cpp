@@ -10,14 +10,14 @@ namespace seissol {
         namespace factory {
             AbstractFactory* getFactory(Friction_law_type FrictionLawID) {
                 switch (FrictionLawID) {
-                    case Linear_slip_weakening: return new FL_2;
-                    case Linear_slip_weakening_forced_time_rapture: return new FL_16;
+                    case Linear_slip_weakening: return new Factory_FL_2;
+                    case Linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
 
                     //TODO: use enum:
-                    case 3: return new FL_3;
-                    case 4: return new FL_4;
-                    case 33: return new FL_33;
-                    case 103: return new FL_103;
+                    case 3: return new Factory_FL_3;
+                    case 4: return new Factory_FL_4;
+                    case 33: return new Factory_FL_33;
+                    case 103: return new Factory_FL_103;
                     default:
                         throw std::runtime_error("unknown friction law");
                 }
@@ -42,9 +42,9 @@ int temporary_main() {
     //in memoryManager.h
     //lts::Base* DrLts = nullptr;   //now in seissol::initializers::DynamicRupture implemented
     seissol::initializers::DynamicRupture* DynRup = nullptr;
-    initializer::Base* DrInitializer = nullptr;
-    fr_law::Base* FrictonLaw = nullptr;
-    output::Base* DrOutput = nullptr;
+    seissol::initializers::BaseDrInitializer* DrInitializer = nullptr;
+    fr_law::BaseFrictionSolver* FrictonLaw = nullptr;
+    output::Output_Base* DrOutput = nullptr;
 
     //Interoperability:
     //in void seissol::Interoperability::initializeClusteredLts

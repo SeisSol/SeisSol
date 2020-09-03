@@ -10,20 +10,20 @@
 namespace seissol {
     namespace dr {
         namespace output {
-            class Base;
-            class FL_2;
-            class FL_3;
-            class FL_33;
-            class FL_103;
+            class Output_Base;
+            class Output_FL_2;
+            class Output_FL_3;
+            class Output_FL_33;
+            class Output_FL_103;
         }
     }
 }
 
 
 
-class seissol::dr::output::Base{
+class seissol::dr::output::Output_Base{
 public:
-    virtual ~Base() {}
+    virtual ~Output_Base() {}
     void setInputParam(const YAML::Node& Param) {m_InputParam = Param;}
 
     virtual void tiePointers(seissol::initializers::Layer&  layerData,
@@ -60,13 +60,13 @@ protected:
   YAML::Node m_InputParam;
 };
 
-class seissol::dr::output::FL_2 : public seissol::dr::output::Base {
+class seissol::dr::output::Output_FL_2 : public seissol::dr::output::Output_Base {
 public:
     virtual void tiePointers(seissol::initializers::Layer&  layerData,
             seissol::initializers::DynamicRupture *dynRup,
             seissol::Interoperability &e_interoperability) override {
 
-        Base::tiePointers(layerData, dynRup, e_interoperability);
+        Output_Base::tiePointers(layerData, dynRup, e_interoperability);
 
         seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
 
@@ -85,52 +85,52 @@ public:
     }
 
     virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
-        std::cout << "output vars for FL_2\n";
+        std::cout << "output vars for Factory_FL_2\n";
     }
 };
 
-class seissol::dr::output::FL_3 : public seissol::dr::output::Base {
+class seissol::dr::output::Output_FL_3 : public seissol::dr::output::Output_Base {
 public:
   virtual void tiePointers(seissol::initializers::Layer&  layerData,
                            seissol::initializers::DynamicRupture *dynRup,
                            seissol::Interoperability &e_interoperability) override {
-    Base::tiePointers(layerData, dynRup, e_interoperability);
+    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
     seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
-    std::cout << "tie ptr for FL_3\n";
+    std::cout << "tie ptr for Init_FL_3\n";
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
     seissol::initializers::DR_FL_3 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 &>(DynRup);
-    std::cout << "output vars for FL_3\n";
+    std::cout << "output vars for Init_FL_3\n";
   }
 };
 
 
 
-class seissol::dr::output::FL_33 : public seissol::dr::output::Base {
+class seissol::dr::output::Output_FL_33 : public seissol::dr::output::Output_Base {
 public:
     virtual void tiePointers(seissol::initializers::Layer&  layerData,
             seissol::initializers::DynamicRupture *dynRup,
             seissol::Interoperability &e_interoperability) override {
-        Base::tiePointers(layerData, dynRup, e_interoperability);
+        Output_Base::tiePointers(layerData, dynRup, e_interoperability);
         seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
-        std::cout << "tie ptr for FL_33\n";
+        std::cout << "tie ptr for Init_FL_33\n";
     }
 
     virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
         seissol::initializers::DR_FL_33 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 &>(DynRup);
-        std::cout << "output vars for FL_33\n";
+        std::cout << "output vars for Init_FL_33\n";
     }
 };
 
-class seissol::dr::output::FL_103 : public seissol::dr::output::Base {
+class seissol::dr::output::Output_FL_103 : public seissol::dr::output::Output_Base {
 public:
   virtual void tiePointers(seissol::initializers::Layer&  layerData,
                            seissol::initializers::DynamicRupture *dynRup,
                            seissol::Interoperability &e_interoperability) override {
-    Base::tiePointers(layerData, dynRup, e_interoperability);
+    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
     seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
-    //std::cout << "tie ptr for FL_103\n";
+    //std::cout << "tie ptr for Init_FL_103\n";
 
 
     DRFaceInformation*                    faceInformation = layerData.var(ConcreteLts->faceInformation);
@@ -143,12 +143,13 @@ public:
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranFL2(ltsFace,  meshFace, averaged_Slip,  dynStress_time);
+      //TODO: output StateVar
     }
   }
 
   virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
     seissol::initializers::DR_FL_103 &ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 &>(DynRup);
-    std::cout << "output vars for FL_103\n";
+    std::cout << "output vars for Init_FL_103\n";
   }
 };
 

@@ -13,26 +13,25 @@
 namespace seissol {
   namespace dr {
     namespace fr_law {
-      class Base;
-      class FL_2;
-      class FL_3; //aging law
-      class FL_4; //slip law
-      class FL_16;
-      class FL_33;
-      class FL_103;
+      class BaseFrictionSolver;
+      class LinearSlipWeakeningSolverFL2;  //linear slip weakening
+      class Solver_FL_3; //rate and state aging law
+      class Solver_FL_4; //rate and state slip law
+      class Solver_FL_16; //Linear slip weakening forced time rapture
+      class Solver_FL_33; //ImposedSlipRateOnDRBoundary
+      class Solver_FL_103;  //rate and state nuc103
     }
   }
 }
 
 
-class seissol::dr::fr_law::Base {
+class seissol::dr::fr_law::BaseFrictionSolver {
 
 public:
-  //TODO: rename e.g. BaseSolverFL
-  virtual ~Base() {}
+  virtual ~BaseFrictionSolver() {}
   void setInputParam(const YAML::Node& Param) {m_InputParam = Param;}
 
-  //TODO: remove only for debugging:
+  //TODO: remove (later) only for debugging:
   int numberOfFunctionCalls = 0;
 
 protected:
@@ -208,7 +207,7 @@ public:
 *     !> Specific conditions for SCEC TPV16/17
 *     !> basically, introduction of a time dependent forced rupture
 */
-class seissol::dr::fr_law::FL_2 : public seissol::dr::fr_law::Base {
+class seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   //parameter for insta_healing
   //TODO: make this parameter better accessible?
@@ -226,7 +225,7 @@ protected:
   real                    (*forced_rupture_time)[numOfPointsPadded];
   real                    *lts_t_0;
 
-  //Hook for FL_16
+  //Hook for Factory_FL_16
   virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime, unsigned int iBndGP, unsigned int face  ) {
     //!Do nothing
   }
@@ -237,7 +236,7 @@ protected:
   void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
                           seissol::initializers::DynamicRupture *dynRup) override {
     //first copy all Variables from the Base Lts dynRup tree
-    Base::copyLtsTreeToLocal(layerData, dynRup);
+    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_2 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_2 *>(dynRup);
     d_c                                           = layerData.var(ConcreteLts->d_c);
@@ -339,8 +338,8 @@ protected:
       stateVariablePsi[iBndGP] = std::min(std::fabs(slip[face][iBndGP]) / d_c[face][iBndGP], 1.0);
 
       //-------------------------------------
-      //hook for FL_16: may calculate a different value for the state variable Psi
-      hookCalcStateVariable(stateVariablePsi, tn, fullUpdateTime, iBndGP, face); //for FL_16
+      //hook for Factory_FL_16: may calculate a different value for the state variable Psi
+      hookCalcStateVariable(stateVariablePsi, tn, fullUpdateTime, iBndGP, face); //for Factory_FL_16
 
       //-------------------------------------
       //Carsten Thesis: Eq. 2.45
@@ -470,7 +469,7 @@ public:
 
 
 
-class seissol::dr::fr_law::FL_16 : public seissol::dr::fr_law::FL_2 {
+class seissol::dr::fr_law::Solver_FL_16 : public seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 {
 public:
 
   virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime,  unsigned int iBndGP,  unsigned int face) override{
@@ -490,7 +489,7 @@ public:
 };
 
 
-class seissol::dr::fr_law::FL_3 : public seissol::dr::fr_law::Base {
+class seissol::dr::fr_law::Solver_FL_3 : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0) {
     return SV0*exp(-tmp*time_inc/RS_sl0)+RS_sl0/tmp*(1.0-exp(-tmp*time_inc/RS_sl0));
@@ -685,7 +684,7 @@ public:
   } //end evaluate function
 };
 
-class seissol::dr::fr_law::FL_4 : public seissol::dr::fr_law::FL_3 {
+class seissol::dr::fr_law::Solver_FL_4 : public seissol::dr::fr_law::Solver_FL_3 {
 public:
 
   virtual real calcStateVariableHook(real SV0, real tmp, real time_inc, real RS_sl0) override {
@@ -695,7 +694,7 @@ public:
 };
 
 
-class seissol::dr::fr_law::FL_33 : public seissol::dr::fr_law::Base {
+class seissol::dr::fr_law::Solver_FL_33 : public seissol::dr::fr_law::BaseFrictionSolver {
 public:
     virtual void evaluate(seissol::initializers::Layer&  layerData,
                           seissol::initializers::DynamicRupture *dynRup,
@@ -705,11 +704,11 @@ public:
                           real timeWeights[CONVERGENCE_ORDER],
                           real DeltaT[CONVERGENCE_ORDER]) override {
         seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
-        std::cout << "computing DR for FL_33 (not implemented)\n";
+        std::cout << "computing DR for Init_FL_33 (not implemented)\n";
     }
 };
 
-class seissol::dr::fr_law::FL_103 : public seissol::dr::fr_law::Base {
+class seissol::dr::fr_law::Solver_FL_103 : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   //Attributes
   yateto::DenseTensorView<2,double,unsigned> resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
@@ -944,7 +943,7 @@ public:
     int ThermalPress = 0; //DISC%DynRup%ThermalPress   !< thermal pressurization switch
 
     //first copy all Variables from the Base Lts dynRup tree
-    Base::copyLtsTreeToLocal(layerData, dynRup);
+    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
     seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
     nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS); ;
     magnitude_out                                 = layerData.var(ConcreteLts->magnitude_out);
@@ -1301,6 +1300,6 @@ public:
 
     }//end face loop
   }//end evaluate function
-}; //end class FL_103
+}; //end class Init_FL_103
 
 #endif //SEISSOL_DR_FRICTION_LAW_H
