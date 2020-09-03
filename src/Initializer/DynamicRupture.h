@@ -54,6 +54,10 @@ namespace seissol {
   }
 }
 
+//TODO: remove space independent parameters: inst_healing, t_0, rs_f0, rs_b, rs_sr0, mu_w
+
+
+
 struct seissol::initializers::DynamicRupture {
   //assert(init::QInterpolated::Start[0] == 0); ?
 protected:

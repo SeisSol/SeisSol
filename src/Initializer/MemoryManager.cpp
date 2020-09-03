@@ -702,10 +702,10 @@ void seissol::initializers::MemoryManager::initializeFrictionFactory() {
     Factory = seissol::dr::factory::getFactory(FrictionLaw);
     std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
 
-    m_DrInitializer->setInputParam(DynamicRupture);
+    m_DrInitializer->setInputParam(m_inputParams);
 
     //TODO: do we actually need the parameters int these classes?
-    m_FrictonLaw->setInputParam(DynamicRupture);
+    m_FrictonLaw->setInputParam(m_inputParams);
     m_DrOutput->setInputParam(m_inputParams);
 
     delete Factory;    // prepare the data

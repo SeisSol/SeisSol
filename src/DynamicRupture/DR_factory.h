@@ -12,6 +12,7 @@
 #include "DR_initializer_base.h"
 #include "DR_friction_law.h"
 #include "DR_output.h"
+#include "DR_solver_rate_and_state.h"
 
 
 namespace seissol {

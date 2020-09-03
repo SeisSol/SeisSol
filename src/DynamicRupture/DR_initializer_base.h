@@ -9,6 +9,8 @@
 #include <c++/8.3.0/unordered_map>
 #include <Solver/Interoperability.h>
 #include <yaml-cpp/yaml.h>
+#include "Initializer/InputAux.hpp"
+#include <DynamicRupture/DR_Parameters.h>
 
 namespace seissol {
     namespace initializers {
@@ -21,14 +23,24 @@ namespace seissol {
 }
 
 
+
 class seissol::initializers::BaseDrInitializer {
 protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
-  YAML::Node m_InputParam;
+  //YAML::Node m_InputParam;
+  dr::DrParameterT m_Params;
+
 public:
   virtual ~BaseDrInitializer() {}
-  void setInputParam(const YAML::Node& Param) {m_InputParam = Param;}
+
+  //set the parameters from .par file with yaml to this class attributes.
+  void setInputParam(const YAML::Node& Params) {
+    using namespace initializers;
+    //TODO: maybe allocate dr::DrParameterT in MemoryManager and copy here only the reference
+    m_Params.setAllInputParam(Params);
+  }
+
 
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
         initializers::LTSTree* dynRupTree,
@@ -136,12 +148,12 @@ public:
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;
-          DS[ltsFace][iBndGP] = (m_InputParam["ds_output_on"]) ? true : false;
+          DS[ltsFace][iBndGP] = m_Params.IsDsOutputOn;
         }
 
-        inst_healing[ltsFace] = (m_InputParam["inst_healing"]) ? true : false;
-        t_0[ltsFace] = (m_InputParam["t_0"]) ? m_InputParam["t_0"].as<real>() : 0;
-        magnitude_out[ltsFace] = (m_InputParam["magnitude_output_on"]) ? true : false;
+        inst_healing[ltsFace] = m_Params.IsInstaHealingOn;
+        t_0[ltsFace] = m_Params.t_0;
+        magnitude_out[ltsFace] = m_Params.IsMagnitudeOutputOn;
 
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
@@ -236,18 +248,18 @@ public:
 
         e_interoperability.getDynRupFL_103(ltsFace, meshFace, nucleationStressInFaultCS, stateVar);
 
-        t_0[ltsFace]      = m_InputParam["t_0"] ?     m_InputParam["t_0"].as<real>()    : 0;
-        RS_f0[ltsFace]    = m_InputParam["rs_f0"] ?   m_InputParam["rs_f0"].as<real>()  : 0;
-        RS_b[ltsFace]     = m_InputParam["rs_b"] ?    m_InputParam["rs_b"].as<real>()   : 0;
-        RS_sr0[ltsFace]   = m_InputParam["rs_sr0"] ?  m_InputParam["rs_sr0"].as<real>() : 0;
-        Mu_w[ltsFace]     = m_InputParam["mu_w"] ?    m_InputParam["mu_w"].as<real>()   : 0;
+        t_0[ltsFace]      = m_Params.t_0;
+        RS_f0[ltsFace]    = m_Params.rs_f0;
+        RS_b[ltsFace]     = m_Params.rs_b;
+        RS_sr0[ltsFace]   = m_Params.rs_sr0;
+        Mu_w[ltsFace]     = m_Params.mu_w;
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;
-          DS[ltsFace][iBndGP] = (m_InputParam["ds_output_on"]) ? true : false;
+          DS[ltsFace][iBndGP] = m_Params.IsDsOutputOn;
         }
         averaged_Slip[ltsFace]= 0.0;
-        magnitude_out[ltsFace] = (m_InputParam["magnitude_output_on"]) ? true : false;
+        magnitude_out[ltsFace] = m_Params.IsMagnitudeOutputOn;
 
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
           RS_a_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["rs_a"][meshFace * numberOfPoints] );

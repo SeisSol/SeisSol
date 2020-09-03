@@ -132,7 +132,9 @@ src/DynamicRupture/DR_factory.h
 src/DynamicRupture/DR_initializer_base.h
 src/DynamicRupture/DR_friction_law.h
 src/DynamicRupture/DR_output.h
-src/DynamicRupture/DR_factory.cpp)
+src/DynamicRupture/DR_factory.cpp
+src/DynamicRupture/DR_solver_rate_and_state.h
+src/DynamicRupture/DR_Parameters.h)
 
 
 
