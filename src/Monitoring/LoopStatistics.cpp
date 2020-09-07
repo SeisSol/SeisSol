@@ -152,7 +152,7 @@ void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
       //logInfo(rank) << "time spend in DR iteration: "<< it->numIters  << " time: "<< it->time;
       time_DR += it->time;
     }
-    logInfo(rank) << "Total time spend in DR iteration: " << time_DR;
+    logInfo(rank) << "Total time spent in Dynamic Rupture iteration: " << time_DR;
   }
 }
 #endif
