@@ -398,10 +398,9 @@ protected:
                             std::array<real, numOfPointsPadded> &LocSV, std::array<real, numOfPointsPadded> &n_stress,
                             std::array<real, numOfPointsPadded> &sh_stress, double invZ,  std::array<real, numOfPointsPadded> &SRtest ){
 
-    double a = -impAndEta[face].eta_s;
-    double b  = impAndEta[face].eta_s;
+
     std::function<double(double, int)> F;
-    double tol = 1e-8;
+    double tol = 1e-24;
 
     double RS_fw = Mu_w;
     double *RS_srW = RS_srW_array[face];
@@ -409,18 +408,23 @@ protected:
     double *RS_sl0 = RS_sl0_array[face];
     double RS_sr0_ = RS_sr0;
 
-    F = [invZ, &sh_stress, n_stress, SRtest, RS_a, LocSV, RS_sr0_](double SR, int iBndGP){
+    F = [invZ, &sh_stress, n_stress, RS_a, LocSV, RS_sr0_](double SR, int iBndGP){
       double tmp   =  0.5 / RS_sr0_ *exp(LocSV[iBndGP]/RS_a[iBndGP]);
-      double tmp2  = tmp*SRtest[iBndGP];
+      double tmp2  = tmp*SR;
       double mu_f  = RS_a[iBndGP] * log(tmp2+sqrt(seissol::dr::aux::power(tmp2,2)+1.0));
-      return -invZ * (fabs(n_stress[iBndGP])*mu_f-sh_stress[iBndGP])-SRtest[iBndGP];
+      return -invZ * (fabs(n_stress[iBndGP])*mu_f-sh_stress[iBndGP])-SR;
     };
 
     //TODO: padded?
     for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
+      double a = LocSR[iBndGP] -impAndEta[face].eta_s;
+      double b  = LocSR[iBndGP] + impAndEta[face].eta_s;
 
       double eps = std::numeric_limits<double>::epsilon();
       double Fa = F(a, iBndGP);
+      //if(std::isinf(Fa)){
+      //  Fa = std::numeric_limits<double>::max();
+      //}
       double Fb = F(b, iBndGP);
       assert(std::copysign(Fa, Fb) != Fa); // Fa and Fb have different signs
       double c = a;
@@ -489,9 +493,10 @@ protected:
         }
         Fb = F(b, iBndGP);
       }
+      SRtest[iBndGP] = b;
     }
 
-    return b;
+    return true;
   }
 
   //output time when shear stress is equal to the dynamic stress after rupture arrived
@@ -640,7 +645,7 @@ public:
 
 
 #ifdef _OPENMP
-    //#pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static)
 #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
 
