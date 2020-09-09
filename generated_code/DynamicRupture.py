@@ -75,6 +75,15 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
   frictionData = Tensor('frictionData', (aderdg.order, aderdg.order) , spp=identiy)
   generator.add('calcfrictionData', frictionData['ij'] <= 2 * frictionData['ij'] )
 
+  #parameter = Vector('parameter', (numberOfPoints) )
+  #parameter = np.zeros(numberOfPoints)
+  parameter = Tensor('parameter', (numberOfPoints,))
+  #resampledPar = Tensor('resampledPar', (numberOfPoints,))
+  resampleM = Tensor('resampleM', (numberOfPoints, numberOfPoints) )
+  #db.resample['ij']
+  resampleKernel = parameter['i'] <= resampleM['ij'] * parameter['j']
+  generator.add('resampleParameter', resampleKernel )
+  #--------------------------------------------------
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
 

@@ -335,8 +335,24 @@ protected:
         //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
         //resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
         //degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
+
         resampledSlipRate[iBndGP] += resampleMatrixView(iBndGP, j) * LocSlipRate[j];
       }
+      dynamicRupture::kernel::resampleParameter krnl;
+      krnl.parameter = LocSlipRate.data();
+      krnl.resampleM = init::resample::Values;
+      krnl.execute();
+      for (int j = 0; j < numberOfPoints; j++) {
+        if(fabs( resampledSlipRate[iBndGP] -krnl.parameter[iBndGP] ) > 0.001 ){  // 0.00000000000001
+          std::cout << "Function call of error: "<< this->numberOfFunctionCalls << " error: " << fabs( resampledSlipRate[iBndGP] -krnl.parameter[iBndGP] ) <<  std::endl;
+          std::cout << "resampledSlipRate: "<< resampledSlipRate[iBndGP] << std::endl;
+          std::cout << "krnl.parameter: "<< krnl.parameter[iBndGP] << std::endl;
+          assert(false);
+        }
+      }
+
+
+      //slip[face][iBndGP] = slip[face][iBndGP] +  krnl.parameter[iBndGP] * DeltaT;
       slip[face][iBndGP] = slip[face][iBndGP] + resampledSlipRate[iBndGP] * DeltaT;
       tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipRate[iBndGP] * DeltaT;
 
