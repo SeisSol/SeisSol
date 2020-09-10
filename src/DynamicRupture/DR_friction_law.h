@@ -175,7 +175,7 @@ protected:
   // outside of iTimeGP loop in order to safe an 'if' in a loop
   // this way, no subtimestep resolution possible
   void outputRuptureFront(
-      std::array<real, numOfPointsPadded> &LocSlipRate,
+      real LocSlipRate[seissol::tensor::resamplePar::size()],
       real fullUpdateTime,
       unsigned int face
   ){
@@ -189,7 +189,7 @@ protected:
 
 
   void calcPeakSlipRate(
-      std::array<real, numOfPointsPadded> &LocSlipRate,
+      real LocSlipRate[seissol::tensor::resamplePar::size()],
       unsigned int face){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       if (LocSlipRate[iBndGP] > peakSR[face][iBndGP]) {
@@ -224,14 +224,11 @@ protected:
   real                    (*d_c)[numOfPointsPadded];
   real                    (*mu_S)[numOfPointsPadded];
   real                    (*mu_D)[numOfPointsPadded];
-  //bool                    (*inst_healing);
-  //bool                    (*magnitude_out);
   bool                    (*DS)[numOfPointsPadded];
   real                    (*averaged_Slip);
   real                    (*dynStress_time)[numOfPointsPadded];
   //only for FL16:
   real                    (*forced_rupture_time)[numOfPointsPadded];
-  //real                    *lts_t_0;
 
   //Hook for Factory_FL_16
   virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime, unsigned int iBndGP, unsigned int face  ) {
@@ -250,17 +247,12 @@ protected:
     d_c                                           = layerData.var(ConcreteLts->d_c);
     mu_S                                          = layerData.var(ConcreteLts->mu_S);
     mu_D                                          = layerData.var(ConcreteLts->mu_D);
-    //inst_healing                                  = layerData.var(ConcreteLts->inst_healing);
-    //magnitude_out                                 = layerData.var(ConcreteLts->magnitude_out);
-
     DS                                            = layerData.var(ConcreteLts->DS);
     averaged_Slip                                 = layerData.var(ConcreteLts->averaged_Slip);
-
     dynStress_time                                = layerData.var(ConcreteLts->dynStress_time);
 
     //only for FL16:
     forced_rupture_time                           = layerData.var(ConcreteLts->forced_rupture_time);
-    //lts_t_0                                       = layerData.var(ConcreteLts->t_0);
   }
 
   /*
@@ -272,7 +264,7 @@ protected:
       real NorStressGP[numOfPointsPadded],
       real XYStressGP[numOfPointsPadded],
       real XZStressGP[numOfPointsPadded],
-      std::array<real, numOfPointsPadded> &LocSlipRate,
+      real LocSlipRate[seissol::tensor::resamplePar::size()],
       real DeltaT,
       unsigned int face
       ){
@@ -318,42 +310,28 @@ protected:
  */
   void calcStateVariableAndFrictionFunc(
       std::array<real, numOfPointsPadded> &tmpSlip,
-      std::array<real, numOfPointsPadded> &LocSlipRate,
+      real LocSlipRate[seissol::tensor::resamplePar::size()],
+      dynamicRupture::kernel::resampleParameter &resampleKrnl,
       real tn,
       real fullUpdateTime,
       real DeltaT,
       unsigned int face
       ){
-    std::array<real, numOfPointsPadded> resampledSlipRate{0};
     std::array<real, numOfPointsPadded> stateVariablePsi;
+    real resampledSlipRate[seissol::tensor::resamplePar::size()];
+    resampleKrnl.resamplePar = LocSlipRate;
+    resampleKrnl.resampledPar = resampledSlipRate;  //output from execute
 
+    //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
+    //resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
+    //degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
+    resampleKrnl.execute();
+
+    //TODO: does not work with padded Points bc of resampleMatrix is not padded
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
       //-------------------------------------
       //integrate Sliprate To Get Slip = State Variable
-      //TODO: does not work with padded Points bc of resampleMatrix is not padded
-      for (int j = 0; j < numberOfPoints; j++) {
-        //Resample slip-rate, such that the state (Slip) lies in the same polynomial space as the degrees of freedom
-        //resampleMatrix first projects LocSR on the two-dimensional basis on the reference triangle with
-        //degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
-
-        resampledSlipRate[iBndGP] += resampleMatrixView(iBndGP, j) * LocSlipRate[j];
-      }
-      dynamicRupture::kernel::resampleParameter krnl;
-      krnl.parameter = LocSlipRate.data();
-      krnl.resampleM = init::resample::Values;
-      krnl.execute();
-      for (int j = 0; j < numberOfPoints; j++) {
-        if(fabs( resampledSlipRate[iBndGP] -krnl.parameter[iBndGP] ) > 0.001 ){  // 0.00000000000001
-          std::cout << "Function call of error: "<< this->numberOfFunctionCalls << " error: " << fabs( resampledSlipRate[iBndGP] -krnl.parameter[iBndGP] ) <<  std::endl;
-          std::cout << "resampledSlipRate: "<< resampledSlipRate[iBndGP] << std::endl;
-          std::cout << "krnl.parameter: "<< krnl.parameter[iBndGP] << std::endl;
-          assert(false);
-        }
-      }
-
-
-      //slip[face][iBndGP] = slip[face][iBndGP] +  krnl.parameter[iBndGP] * DeltaT;
-      slip[face][iBndGP] = slip[face][iBndGP] + resampledSlipRate[iBndGP] * DeltaT;
+      slip[face][iBndGP] = slip[face][iBndGP] +  resampledSlipRate[iBndGP] * DeltaT;
       tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipRate[iBndGP] * DeltaT;
 
       //-------------------------------------
@@ -428,6 +406,7 @@ public:
 
     copyLtsTreeToLocal(layerData, dynRup);
 
+
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
     #endif
@@ -442,7 +421,9 @@ public:
 
       //declare local variables
       std::array<real, numOfPointsPadded> tmpSlip{0};
-      std::array<real, numOfPointsPadded> LocSlipRate;
+      real LocSlipRate[seissol::tensor::resamplePar::size()];
+      dynamicRupture::kernel::resampleParameter resampleKrnl;
+      resampleKrnl.resampleM = init::resample::Values;
       //tn only needed for FL=16
       real tn = fullUpdateTime;
 
@@ -455,7 +436,7 @@ public:
         calcSlipRateAndTraction(TractionGP_XY[iTimeGP], TractionGP_XZ[iTimeGP], NorStressGP[iTimeGP], XYStressGP[iTimeGP], XZStressGP[iTimeGP],
             LocSlipRate, DeltaT[iTimeGP], face);
 
-        calcStateVariableAndFrictionFunc(tmpSlip, LocSlipRate, tn, fullUpdateTime, DeltaT[iTimeGP], face);
+        calcStateVariableAndFrictionFunc(tmpSlip, LocSlipRate, resampleKrnl, tn, fullUpdateTime, DeltaT[iTimeGP], face);
       }//End of iTimeGP-Loop
 
       // output rupture front
@@ -480,12 +461,6 @@ public:
           NorStressGP, TractionGP_XY, TractionGP_XZ,
           timeWeights, face);
 
-      /*
-      //debugging
-      for(int i = 0; i < tensor::QInterpolated::size(); i++){
-        assert( !std::isnan(imposedStatePlus[face][i]) );
-      }
-      //*/
     }//End of Loop over Faces
   }//End of Function evaluate
 

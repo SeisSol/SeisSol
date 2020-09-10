@@ -77,11 +77,11 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod):
 
   #parameter = Vector('parameter', (numberOfPoints) )
   #parameter = np.zeros(numberOfPoints)
-  parameter = Tensor('parameter', (numberOfPoints,))
-  #resampledPar = Tensor('resampledPar', (numberOfPoints,))
+  resamplePar = Tensor('resamplePar', (numberOfPoints,))
+  resampledPar = Tensor('resampledPar', (numberOfPoints,))
   resampleM = Tensor('resampleM', (numberOfPoints, numberOfPoints) )
   #db.resample['ij']
-  resampleKernel = parameter['i'] <= resampleM['ij'] * parameter['j']
+  resampleKernel = resampledPar['i'] <= resampleM['ij'] * resamplePar['j']
   generator.add('resampleParameter', resampleKernel )
   #--------------------------------------------------
 

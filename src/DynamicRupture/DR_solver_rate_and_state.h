@@ -90,7 +90,7 @@ public:
 
       real LocSlip, LocSlip1, LocSlip2, LocSR1, LocSR2, LocSV, LocCohesion, P_0, LocP, time_inc, P, TotalShearStressYZ, SV0, tmp,tmp2, SlipRateGuess, NR, dNR, LocMu;
       real LocTracXY, LocTracXZ;
-      std::array<real, numOfPointsPadded> LocSlipRate;
+      real LocSlipRate[seissol::tensor::resamplePar::size()];
 
       for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
 
@@ -322,7 +322,7 @@ protected:
   /*
    * If the function did not converge it returns false
    */
-  bool IterativelyInvertSR (unsigned int face, int nSRupdates, std::array<real, numOfPointsPadded> &LocSR,
+  bool IterativelyInvertSR (unsigned int face, int nSRupdates,  real LocSR[seissol::tensor::resamplePar::size()],
                             std::array<real, numOfPointsPadded> &LocSV, std::array<real, numOfPointsPadded> &n_stress,
                             std::array<real, numOfPointsPadded> &sh_stress, double invZ,  std::array<real, numOfPointsPadded> &SRtest ){
 
@@ -394,7 +394,7 @@ protected:
  * If the function did not converge it returns false
    * From Upoffc git Zero.ccp
  */
-  bool IterativelyInvertSR_Brent(unsigned int face, int nSRupdates, std::array<real, numOfPointsPadded> &LocSR,
+  bool IterativelyInvertSR_Brent(unsigned int face, int nSRupdates, real LocSR[seissol::tensor::resamplePar::size()],
                             std::array<real, numOfPointsPadded> &LocSV, std::array<real, numOfPointsPadded> &n_stress,
                             std::array<real, numOfPointsPadded> &sh_stress, double invZ,  std::array<real, numOfPointsPadded> &SRtest ){
 
@@ -603,7 +603,8 @@ public:
 
     std::array<real, numOfPointsPadded> SV0{0};
     //TODO: rename LocSlipRate:
-    std::array<real, numOfPointsPadded> LocSR{0};
+    real LocSR[seissol::tensor::resamplePar::size()];
+    //std::array<real, numOfPointsPadded> LocSR{0};
     std::array<real, numOfPointsPadded> LocSR1{0};
     std::array<real, numOfPointsPadded> LocSR2{0};
     std::array<real, numOfPointsPadded> SR_tmp{0};
@@ -927,6 +928,13 @@ public:
           QInterpolatedPlus[face], QInterpolatedMinus[face],
           NorStressGP, TractionGP_XY, TractionGP_XZ,
           timeWeights, face);
+
+      /*
+      //debugging
+      for(int i = 0; i < tensor::QInterpolated::size(); i++){
+        assert( !std::isnan(imposedStatePlus[face][i]) );
+      }
+      //*/
 
     }//end face loop
   }//end evaluate function
