@@ -78,15 +78,9 @@ public:
 #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
 
-      //TODO: merge TractionGP_XY and tracXY in one variable
-      real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-      real TractionGP_XZ[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-      real NorStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
-      real XYStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
-      real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+      FaultStresses faultStresses{};
 
-      precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP,
-                                        QInterpolatedPlus[face], QInterpolatedMinus[face], face);
+      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[face], QInterpolatedMinus[face], face);
 
       real LocSlip, LocSlip1, LocSlip2, LocSR1, LocSR2, LocSV, LocCohesion, P_0, LocP, time_inc, P, TotalShearStressYZ, SV0, tmp,tmp2, SlipRateGuess, NR, dNR, LocMu;
       real LocTracXY, LocTracXZ;
@@ -104,7 +98,7 @@ public:
         P_0 = initialStressInFaultCS[face][iBndGP][0]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
 
         for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
-          LocP = NorStressGP[iTimeGP][iBndGP];
+          LocP = faultStresses.NorStressGP[iTimeGP][iBndGP];
           time_inc = DeltaT[iTimeGP];
 
           //SignSR1   = SIGN(1.0,LocSR1)                    ! Gets the sign of the slip rate
@@ -114,8 +108,8 @@ public:
           P = LocP + P_0;
 
           TotalShearStressYZ = std::sqrt(
-              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iTimeGP][iBndGP], 2) +
-              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iTimeGP][iBndGP], 2));
+              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP], 2) +
+              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP], 2));
 
           // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
           // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
@@ -168,8 +162,8 @@ public:
           // LocTrac  = -(ABS(S_0)-LocMu*(LocP+P_0))*(S_0/ABS(S_0))
           // LocTrac  = ABS(LocTrac)*(-SignSR)  !!! line commented as it leads NOT to correct results
           // update stress change
-          LocTracXY = -((initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iBndGP][iTimeGP])/TotalShearStressYZ)*(LocMu*P+fabs(LocCohesion));
-          LocTracXZ = -((initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iBndGP][iTimeGP])/TotalShearStressYZ)*(LocMu*P+fabs(LocCohesion));
+          LocTracXY = -((initialStressInFaultCS[face][iBndGP][3] + faultStresses.XYStressGP[iBndGP][iTimeGP])/TotalShearStressYZ)*(LocMu*P+fabs(LocCohesion));
+          LocTracXZ = -((initialStressInFaultCS[face][iBndGP][5] + faultStresses.XZStressGP[iBndGP][iTimeGP])/TotalShearStressYZ)*(LocMu*P+fabs(LocCohesion));
           LocTracXY = LocTracXY - initialStressInFaultCS[face][iBndGP][3];
           LocTracXZ = LocTracXZ - initialStressInFaultCS[face][iBndGP][5];
 
@@ -177,8 +171,8 @@ public:
           LocSlip   = LocSlip  + ( LocSlipRate[iBndGP])*time_inc; // ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
 
           //Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-          LocSR1     = -(1.0/(waveSpeedsPlus->sWaveVelocity*waveSpeedsPlus->density)+1.0/(waveSpeedsMinus->sWaveVelocity*waveSpeedsMinus->density))*(LocTracXY-XYStressGP[iTimeGP][iBndGP]);
-          LocSR2     = -(1.0/(waveSpeedsPlus->sWaveVelocity*waveSpeedsPlus->density)+1.0/(waveSpeedsMinus->sWaveVelocity*waveSpeedsMinus->density))*(LocTracXZ-XZStressGP[iTimeGP][iBndGP]);
+          LocSR1     = -(1.0/(waveSpeedsPlus->sWaveVelocity*waveSpeedsPlus->density)+1.0/(waveSpeedsMinus->sWaveVelocity*waveSpeedsMinus->density))*(LocTracXY-faultStresses.XYStressGP[iTimeGP][iBndGP]);
+          LocSR2     = -(1.0/(waveSpeedsPlus->sWaveVelocity*waveSpeedsPlus->density)+1.0/(waveSpeedsMinus->sWaveVelocity*waveSpeedsMinus->density))*(LocTracXZ-faultStresses.XZStressGP[iTimeGP][iBndGP]);
 
           LocSlip1   = LocSlip1  + (LocSR1)*time_inc;
           LocSlip2   = LocSlip2  + (LocSR2)*time_inc;
@@ -187,8 +181,8 @@ public:
           //LocSR2     = SignSR2*ABS(LocSR2)
 
           //Save traction for flux computation
-          TractionGP_XY[iTimeGP][iBndGP] = LocTracXY;
-          TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ;
+          faultStresses.TractionGP_XY[iTimeGP][iBndGP] = LocTracXY;
+          faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ;
         }//End of iTimeGP- loop
 
         mu[face][iBndGP]       = LocMu;
@@ -212,8 +206,7 @@ public:
 
 
       postcomputeImposedStateFromNewStress(QInterpolatedPlus[face], QInterpolatedMinus[face],
-                                           NorStressGP, TractionGP_XY, TractionGP_XZ,
-                                           timeWeights, face);
+                                           faultStresses, timeWeights, face);
     } //end face-loop
   } //end evaluate function
 };
@@ -649,20 +642,13 @@ public:
     #pragma omp parallel for schedule(static)
 #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
-
-
-      //TODO: merge TractionGP_XY and tracXY in one variable
-      real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-      real TractionGP_XZ[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
-      real NorStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
-      real XYStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
-      real XZStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
+      FaultStresses faultStresses;
 
       //declare local variables
       std::array<real, numOfPointsPadded> tmpSlip{0};
       //               std::array<real, numOfPointsPadded> LocSlipRate;
 
-      precomputeStressFromQInterpolated(NorStressGP, XYStressGP, XZStressGP, QInterpolatedPlus[face], QInterpolatedMinus[face],  face);
+      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[face], QInterpolatedMinus[face],  face);
 
       //TODO: outside face loop
       dt = 0;
@@ -711,11 +697,11 @@ public:
           //                                      mu_lv = mu_0 - (b-a) ln (V/V0)
 
           // load traction and normal stress
-          P[iBndGP] = NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[face][iBndGP][0];
+          P[iBndGP] = faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[face][iBndGP][0];
           //TODO:rename ShTest
           ShTest[iBndGP] = std::sqrt(
-              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iTimeGP][iBndGP], 2) +
-              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iTimeGP][iBndGP], 2));
+              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP], 2) +
+              seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP], 2));
 
           // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
           // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
@@ -845,8 +831,8 @@ public:
 
 
           //! update stress change
-          LocTracXY_inbetween = -((initialStressInFaultCS[face][iBndGP][3] + XYStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
-          LocTracXZ[iBndGP] = -((initialStressInFaultCS[face][iBndGP][5] + XZStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
+          LocTracXY_inbetween = -((initialStressInFaultCS[face][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
+          LocTracXZ[iBndGP] = -((initialStressInFaultCS[face][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
           LocTracXY[iBndGP] = LocTracXY_inbetween - initialStressInFaultCS[face][iBndGP][3];
           LocTracXZ[iBndGP] = LocTracXZ[iBndGP] - initialStressInFaultCS[face][iBndGP][5];
           //testing alternative calculation:
@@ -857,8 +843,8 @@ public:
           LocSlip[iBndGP] = LocSlip[iBndGP] + (LocSR[iBndGP]) * DeltaT[iTimeGP];
 
           //!Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-          LocSR1[iBndGP] = -invZ * (LocTracXY[iBndGP] - XYStressGP[iTimeGP][iBndGP]);
-          LocSR2[iBndGP] = -invZ * (LocTracXZ[iBndGP] - XZStressGP[iTimeGP][iBndGP]);
+          LocSR1[iBndGP] = -invZ * (LocTracXY[iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
+          LocSR2[iBndGP] = -invZ * (LocTracXZ[iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
 
           //!TU 07.07.16: correct LocSR1_2 to avoid numerical errors
           tmp[iBndGP] = sqrt(pow(LocSR1[iBndGP], 2) + pow(LocSR2[iBndGP], 2));
@@ -875,8 +861,8 @@ public:
           //LocSR2     = SignSR2*ABS(LocSR2)
 
           //!Save traction for flux computation
-          TractionGP_XY[iTimeGP][iBndGP] = LocTracXY[iBndGP];
-          TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ[iBndGP];
+          faultStresses.TractionGP_XY[iTimeGP][iBndGP] = LocTracXY[iBndGP];
+          faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ[iBndGP];
 /*
           if(face == 9 && iBndGP == 0){
             std::cout.precision(17);
@@ -926,8 +912,7 @@ public:
 
       postcomputeImposedStateFromNewStress(
           QInterpolatedPlus[face], QInterpolatedMinus[face],
-          NorStressGP, TractionGP_XY, TractionGP_XZ,
-          timeWeights, face);
+          faultStresses, timeWeights, face);
 
       /*
       //debugging
