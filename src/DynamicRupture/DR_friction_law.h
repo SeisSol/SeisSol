@@ -143,7 +143,7 @@ protected:
   void postcomputeImposedStateFromNewStress(
       real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
       real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-      FaultStresses &faultStresses,
+      const FaultStresses &faultStresses,
       real timeWeights[CONVERGENCE_ORDER],
       unsigned int face
       ){

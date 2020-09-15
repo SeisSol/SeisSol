@@ -584,65 +584,68 @@ public:
     dynStress_time           = layerData.var(ConcreteLts->dynStress_time);
 
 
-    //initialize local variables
-    double dt = 0;
-    double Gnuc = 0;
-    double invZ = 0;
-    bool has_converged = false;
-    double matmul = 0;
-    std::array<real, numOfPointsPadded> ShTest{0};
-    std::array<real, numOfPointsPadded> P{0};
-    std::array<real, numOfPointsPadded> P_f{0};
-
-    std::array<real, numOfPointsPadded> SV0{0};
-    //TODO: rename LocSlipRate:
-    real LocSR[seissol::tensor::resamplePar::size()];
-    //std::array<real, numOfPointsPadded> LocSR{0};
-    std::array<real, numOfPointsPadded> LocSR1{0};
-    std::array<real, numOfPointsPadded> LocSR2{0};
-    std::array<real, numOfPointsPadded> SR_tmp{0};
-
-    std::array<real, numOfPointsPadded> LocMu{0};
-    std::array<real, numOfPointsPadded> LocSlip{0};
-    std::array<real, numOfPointsPadded> LocSlip1{0};
-    std::array<real, numOfPointsPadded> LocSlip2{0};
-    std::array<real, numOfPointsPadded> LocSV{0};
-
-    std::array<real, numOfPointsPadded> n_stress{0};
-    std::array<real, numOfPointsPadded> SRtest{0};
-
-
-    std::array<real, numOfPointsPadded> tmp{0};
-    std::array<real, numOfPointsPadded> tmp2{0};
-
-    std::array<real, numOfPointsPadded> LocTracXY{0};
-    std::array<real, numOfPointsPadded> LocTracXZ{0};
-
-
-    // switch for Gauss node wise stress assignment
-    bool nodewise; //= true;    //TODO: configureable? not used in this FL
-
-    //Apply time dependent nucleation at global time step not sub time steps for simplicity
-    //initialize time and space dependent nucleation
-    double Tnuc = m_Params.t_0;
-
-    //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
-    //!as a consequence, the SR is affected the AlmostZero value when too small
-    double AlmostZero = 1e-45; //d-45;
-
-    //!PARAMETERS of THE optimisation loops
-    //!absolute tolerance on the function to be optimzed
-    //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
-    //! Number of iteration in the loops
-    unsigned int nSRupdates = 60;
-    unsigned int nSVupdates = 2;
-
-
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
 #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+
+      //initialize local variables
+      double dt = 0;
+      double Gnuc = 0;
+      double invZ = 0;
+      bool has_converged = false;
+      double matmul = 0;
+      std::array<real, numOfPointsPadded> ShTest{0};
+      std::array<real, numOfPointsPadded> P{0};
+      std::array<real, numOfPointsPadded> P_f{0};
+
+      std::array<real, numOfPointsPadded> SV0{0};
+      //TODO: rename LocSlipRate:
+      real LocSR[seissol::tensor::resamplePar::size()];
+      //std::array<real, numOfPointsPadded> LocSR{0};
+      std::array<real, numOfPointsPadded> LocSR1{0};
+      std::array<real, numOfPointsPadded> LocSR2{0};
+      std::array<real, numOfPointsPadded> SR_tmp{0};
+
+      std::array<real, numOfPointsPadded> LocMu{0};
+      std::array<real, numOfPointsPadded> LocSlip{0};
+      std::array<real, numOfPointsPadded> LocSlip1{0};
+      std::array<real, numOfPointsPadded> LocSlip2{0};
+      std::array<real, numOfPointsPadded> LocSV{0};
+
+      std::array<real, numOfPointsPadded> n_stress{0};
+      std::array<real, numOfPointsPadded> SRtest{0};
+
+
+      std::array<real, numOfPointsPadded> tmp{0};
+      std::array<real, numOfPointsPadded> tmp2{0};
+
+      std::array<real, numOfPointsPadded> LocTracXY{0};
+      std::array<real, numOfPointsPadded> LocTracXZ{0};
+
+
+      // switch for Gauss node wise stress assignment
+      bool nodewise; //= true;    //TODO: configureable? not used in this FL
+
+      //Apply time dependent nucleation at global time step not sub time steps for simplicity
+      //initialize time and space dependent nucleation
+      double Tnuc = m_Params.t_0;
+
+      //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
+      //!as a consequence, the SR is affected the AlmostZero value when too small
+      double AlmostZero = 1e-45; //d-45;
+
+      //!PARAMETERS of THE optimisation loops
+      //!absolute tolerance on the function to be optimzed
+      //! This value is quite arbitrary (a bit bigger as the expected numerical error) and may not be the most adapted
+      //! Number of iteration in the loops
+      unsigned int nSRupdates = 60;
+      unsigned int nSVupdates = 2;
+
       FaultStresses faultStresses;
+
+      dynamicRupture::kernel::resampleParameter resampleKrnl;
+      resampleKrnl.resampleM = init::resample::Values;
 
       //declare local variables
       std::array<real, numOfPointsPadded> tmpSlip{0};
@@ -664,7 +667,6 @@ public:
             initialStressInFaultCS[face][iBndGP][i] = initialStressInFaultCS[face][iBndGP][i] + nucleationStressInFaultCS[face][iBndGP][i] * Gnuc;
           }
         }
-
       } //end If-Tnuc
 
       //debugging
@@ -873,6 +875,19 @@ public:
 
       } // End of iTimeGP-loop
 
+      real resampledStateVar[seissol::tensor::resamplePar::size()];
+      real difStateVar[seissol::tensor::resamplePar::size()];
+
+      for (int j = 0; j < numberOfPoints; j++) {
+        difStateVar[j] = LocSV[j] - stateVar[face][j];
+      }
+
+      resampleKrnl.resamplePar = difStateVar;
+      resampleKrnl.resampledPar = resampledStateVar;  //output from execute
+
+      resampleKrnl.execute();
+
+
       //TODO: test padded
       for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
 
@@ -886,11 +901,15 @@ public:
         tracXY[face][iBndGP] = LocTracXY[iBndGP];
         tracXZ[face][iBndGP] = LocTracXZ[iBndGP];
 
+        /*
         matmul = 0.0;
         for (int j = 0; j < numberOfPoints; j++) {
           matmul += resampleMatrixView(iBndGP, j) * (LocSV[j] - stateVar[face][j]);
         }
+
         stateVar[face][iBndGP] = stateVar[face][iBndGP] + matmul;
+        */
+        stateVar[face][iBndGP] = stateVar[face][iBndGP] + resampledStateVar[iBndGP];
       }
 
       // output rupture front
