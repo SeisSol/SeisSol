@@ -224,8 +224,6 @@ public:
 class seissol::dr::fr_law::Solver_FL_103 : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   //Attributes
-  yateto::DenseTensorView<2,double,unsigned> resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
-
   real  (*nucleationStressInFaultCS)[numOfPointsPadded][6];
 //  bool  *magnitude_out;
 //  real  t_0;                        //face independent
@@ -237,13 +235,10 @@ protected:
   real  (*RS_srW_array)[numOfPointsPadded];
   real  (*RS_sl0_array)[numOfPointsPadded];
 
-
-
   bool  (*DS)[numOfPointsPadded];
   real  *averaged_Slip;
   real  (*stateVar)[numOfPointsPadded];
   real  (*dynStress_time)[numOfPointsPadded];
-
 
   /*
  * Function in NucleationFunctions_mod
@@ -646,6 +641,8 @@ public:
 
       dynamicRupture::kernel::resampleParameter resampleKrnl;
       resampleKrnl.resampleM = init::resample::Values;
+      real resampledDeltaStateVar[seissol::tensor::resamplePar::size()];
+      real deltaStateVar[seissol::tensor::resamplePar::size()];
 
       //declare local variables
       std::array<real, numOfPointsPadded> tmpSlip{0};
@@ -865,7 +862,10 @@ public:
           //!Save traction for flux computation
           faultStresses.TractionGP_XY[iTimeGP][iBndGP] = LocTracXY[iBndGP];
           faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ[iBndGP];
-/*
+
+          deltaStateVar[iBndGP] = LocSV[iBndGP] - stateVar[face][iBndGP];
+
+          /*
           if(face == 9 && iBndGP == 0){
             std::cout.precision(17);
             std::cout << "C++ change in LocTracXZ[face=9,iTimeGP=" << iTimeGP << ",iBndGP=0] 1: " << std::scientific << LocTracXZ[0] << std::endl;
@@ -875,18 +875,9 @@ public:
 
       } // End of iTimeGP-loop
 
-      real resampledStateVar[seissol::tensor::resamplePar::size()];
-      real difStateVar[seissol::tensor::resamplePar::size()];
-
-      for (int j = 0; j < numberOfPoints; j++) {
-        difStateVar[j] = LocSV[j] - stateVar[face][j];
-      }
-
-      resampleKrnl.resamplePar = difStateVar;
-      resampleKrnl.resampledPar = resampledStateVar;  //output from execute
-
+      resampleKrnl.resamplePar = deltaStateVar;
+      resampleKrnl.resampledPar = resampledDeltaStateVar;  //output from execute
       resampleKrnl.execute();
-
 
       //TODO: test padded
       for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
@@ -900,16 +891,7 @@ public:
         slip2[face][iBndGP] = LocSlip2[iBndGP];
         tracXY[face][iBndGP] = LocTracXY[iBndGP];
         tracXZ[face][iBndGP] = LocTracXZ[iBndGP];
-
-        /*
-        matmul = 0.0;
-        for (int j = 0; j < numberOfPoints; j++) {
-          matmul += resampleMatrixView(iBndGP, j) * (LocSV[j] - stateVar[face][j]);
-        }
-
-        stateVar[face][iBndGP] = stateVar[face][iBndGP] + matmul;
-        */
-        stateVar[face][iBndGP] = stateVar[face][iBndGP] + resampledStateVar[iBndGP];
+        stateVar[face][iBndGP] = stateVar[face][iBndGP] + resampledDeltaStateVar[iBndGP];
       }
 
       // output rupture front

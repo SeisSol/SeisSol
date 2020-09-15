@@ -225,7 +225,6 @@ protected:
   //parameter for insta_healing
   //TODO: make this parameter better accessible?
   real u_0  = 10e-14; //slip rate is considered as being zero for instaneous healing
-  yateto::DenseTensorView<2,double,unsigned> resampleMatrixView = init::resample::view::create(const_cast<double *>(init::resample::Values));
   real                    (*d_c)[numOfPointsPadded];
   real                    (*mu_S)[numOfPointsPadded];
   real                    (*mu_D)[numOfPointsPadded];
