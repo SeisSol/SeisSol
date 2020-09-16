@@ -508,7 +508,7 @@ enum Friction_law_type{
 };
 
 struct ImpedancesAndEta{
-  real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s;
+  real Zp, Zs, Zp_neig, Zs_neig, eta_p, eta_s, inv_eta_s;
 };
 
 
