@@ -38,6 +38,7 @@ public:
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
 
+
     seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
 
     seissol::model::IsotropicWaveSpeeds *waveSpeedsPlus                           = layerData.var(ConcreteLts->waveSpeedsPlus);
@@ -232,6 +233,28 @@ protected:
   real  (*dynStress_time)[numOfPointsPadded];
 
   double dt = 0;
+
+
+  /*
+   * copies all parameters from the DynamicRupture LTS to the local attributes
+   */
+  void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
+                          seissol::initializers::DynamicRupture *dynRup) override {
+    //first copy all Variables from the Base Lts dynRup tree
+    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
+    //TODO: change later to const_cast
+    seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
+    nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS); ;
+
+    RS_sl0_array    = layerData.var(ConcreteLts->RS_sl0_array);
+    RS_a_array      = layerData.var(ConcreteLts->RS_a_array);
+    RS_srW_array    = layerData.var(ConcreteLts->RS_srW_array);
+    DS              = layerData.var(ConcreteLts->DS);
+    averaged_Slip   = layerData.var(ConcreteLts->averaged_Slip);
+    stateVar        = layerData.var(ConcreteLts->stateVar);
+    dynStress_time  = layerData.var(ConcreteLts->dynStress_time);
+  }
+
 
   /*
  * Function in NucleationFunctions_mod
@@ -529,7 +552,6 @@ public:
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
 
-
     //***********************************
     // GET THESE FROM DATA STRUCT
     /*
@@ -548,26 +570,16 @@ public:
     double temp_0;          //EQN%Temp_0     !< Initial temperature for TP
     double pressure_0;            //EQN%Pressure_0           !< Initial pressure for TP
 */
-    //***********************************
+
     //double S[nBndGP];
     //double Theta_tmp[TP_grid_nz], Sigma_tmp[TP_grid_nz];
-
-
-    //--------------------------------------------------------
     int ThermalPress = 0; //DISC%DynRup%ThermalPress   !< thermal pressurization switch
+    //***********************************
+    //--------------------------------------------------------
+
 
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
-    seissol::initializers::DR_FL_103 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103 *>(dynRup);
-    nucleationStressInFaultCS =  layerData.var(ConcreteLts->nucleationStressInFaultCS); ;
-
-    RS_sl0_array    = layerData.var(ConcreteLts->RS_sl0_array);
-    RS_a_array      = layerData.var(ConcreteLts->RS_a_array);
-    RS_srW_array    = layerData.var(ConcreteLts->RS_srW_array);
-    DS              = layerData.var(ConcreteLts->DS);
-    averaged_Slip   = layerData.var(ConcreteLts->averaged_Slip);
-    stateVar        = layerData.var(ConcreteLts->stateVar);
-    dynStress_time  = layerData.var(ConcreteLts->dynStress_time);
 
     //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     //!as a consequence, the SR is affected the AlmostZero value when too small
@@ -579,13 +591,9 @@ public:
     //! Number of iteration in the loops
     unsigned int nSRupdates = 60;
     unsigned int nSVupdates = 2;
-
-    // switch for Gauss node wise stress assignment
-    bool nodewise; //= true;    //TODO: configureable? not used in this FL
-
-    dt = 0;
+    
     double Gnuc = 0;
-
+    dt = 0;
     for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
       dt += DeltaT[iTimeGP];
     }
@@ -599,7 +607,6 @@ public:
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
 
       //initialize local variables
-      std::array<real, numOfPointsPadded> P_f{0};
       std::array<real, numOfPointsPadded> SV0{0};
 
       std::array<real, numOfPointsPadded> LocSR1{0};
@@ -626,6 +633,9 @@ public:
       std::array<real, numOfPointsPadded> normalStress{0};
       std::array<real, numOfPointsPadded> TotalShearStressYZ{0};
       std::array<real, numOfPointsPadded> LocSlipTmp{0};
+
+      //for thermalPressure
+      std::array<real, numOfPointsPadded> P_f{0};
 
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
