@@ -220,12 +220,6 @@ public:
 
 
       real  (*nucleationStressInFaultCS)[numOfPointsPadded][6]  = it->var(ConcreteLts->nucleationStressInFaultCS); //get from fortran
-      bool *magnitude_out                                       = it->var(ConcreteLts->magnitude_out);      //par file
-      real *t_0                                                 = it->var(ConcreteLts->t_0);                //par file
-      real *RS_f0                                               = it->var(ConcreteLts->RS_f0);              //par file
-      real *RS_b                                                = it->var(ConcreteLts->RS_b);               //par file
-      real *RS_sr0                                              = it->var(ConcreteLts->RS_sr0);             //par file
-      real *Mu_w                                                = it->var(ConcreteLts->Mu_w);               //par file
       real (*RS_sl0_array)[numOfPointsPadded]                   = it->var(ConcreteLts->RS_sl0_array);       //get from faultParameters
       real (*RS_a_array)[numOfPointsPadded]                     = it->var(ConcreteLts->RS_a_array);         //get from faultParameters
       real (*RS_srW_array)[numOfPointsPadded]                   = it->var(ConcreteLts->RS_srW_array);       //get from faultParameters
@@ -237,21 +231,13 @@ public:
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
-
         e_interoperability.getDynRupFL_103(ltsFace, meshFace, nucleationStressInFaultCS, stateVar);
-
-        t_0[ltsFace]      = m_Params.t_0;
-        RS_f0[ltsFace]    = m_Params.rs_f0;
-        RS_b[ltsFace]     = m_Params.rs_b;
-        RS_sr0[ltsFace]   = m_Params.rs_sr0;
-        Mu_w[ltsFace]     = m_Params.mu_w;
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;
           DS[ltsFace][iBndGP] = m_Params.IsDsOutputOn;
         }
         averaged_Slip[ltsFace]= 0.0;
-        magnitude_out[ltsFace] = m_Params.IsMagnitudeOutputOn;
 
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
           RS_a_array[ltsFace][iBndGP] = static_cast<real>( faultParameters["rs_a"][meshFace * numberOfPoints] );
