@@ -259,6 +259,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   alignas(ALIGNMENT) real imposedStatePlusTest[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   alignas(ALIGNMENT) real imposedStateMinusTest[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
   m_FrictonLaw->numberOfFunctionCalls++;
+  /*
   if(  m_FrictonLaw->numberOfFunctionCalls ==  165){
     std::cout << "now its: "<< m_FrictonLaw->numberOfFunctionCalls << std::endl;
   }
