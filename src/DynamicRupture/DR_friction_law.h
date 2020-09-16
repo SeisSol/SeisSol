@@ -49,8 +49,6 @@ protected:
   //YAML::Node m_InputParam;
   dr::DrParameterT m_Params;
   ImpedancesAndEta*                     impAndEta;
-  seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus;
-  seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus;
   real                    (*initialStressInFaultCS)[numOfPointsPadded][6];
   real                    (*cohesion)[numOfPointsPadded];
   real                    (*mu)[numOfPointsPadded];
@@ -83,8 +81,6 @@ protected:
   virtual void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
                           seissol::initializers::DynamicRupture *dynRup){
     impAndEta                                     = layerData.var(dynRup->impAndEta);
-    waveSpeedsPlus                                = layerData.var(dynRup->waveSpeedsPlus);
-    waveSpeedsMinus                               = layerData.var(dynRup->waveSpeedsMinus);
     initialStressInFaultCS                        = layerData.var(dynRup->initialStressInFaultCS);
     cohesion                                      = layerData.var(dynRup->cohesion);
     mu                                            = layerData.var(dynRup->mu);

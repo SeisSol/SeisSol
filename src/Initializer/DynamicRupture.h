@@ -127,9 +127,6 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
     Variable<real[ numOfPointsPadded ]>                   mu_S;
     Variable<real[ numOfPointsPadded ]>                   mu_D;
     Variable<real[ numOfPointsPadded ]>                   forced_rupture_time;
-    Variable<bool>                                        inst_healing;
-    Variable<real>                                        t_0;                    //face independent
-    Variable<bool>                                        magnitude_out;
     Variable<bool[ numOfPointsPadded ]>                   DS;
     Variable<real>                                        averaged_Slip;
     Variable<real[ numOfPointsPadded ]>                   dynStress_time;
@@ -141,9 +138,6 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
         tree.addVar(      mu_S,                             mask,                 1,      seissol::memory::Standard );
         tree.addVar(      mu_D,                             mask,                 1,      seissol::memory::Standard );
         tree.addVar(      forced_rupture_time,              mask,                 1,      seissol::memory::Standard );
-        tree.addVar(      inst_healing,                     mask,                 1,      seissol::memory::Standard );
-        tree.addVar(      t_0,                              mask,                 1,      seissol::memory::Standard );
-        tree.addVar(      magnitude_out,                    mask,                 1,      seissol::memory::Standard );
         tree.addVar(      DS,                               mask,                 1,      seissol::memory::Standard );
         tree.addVar(      averaged_Slip,                    mask,                 1,      seissol::memory::Standard );
         tree.addVar(      dynStress_time,                   mask,                 1,      seissol::memory::Standard );

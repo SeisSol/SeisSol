@@ -118,9 +118,6 @@ public:
       real (*mu_S)[numOfPointsPadded]                      = it->var(ConcreteLts->mu_S);                //from faultParameters
       real (*mu_D)[numOfPointsPadded]                      = it->var(ConcreteLts->mu_D);                //from faultParameters
       real (*forced_rupture_time)[numOfPointsPadded]       = it->var(ConcreteLts->forced_rupture_time); //from faultParameters
-      bool *inst_healing                                   = it->var(ConcreteLts->inst_healing);        //from parameter file
-      real *t_0                                            = it->var(ConcreteLts->t_0);                 //from parameter file
-      bool *magnitude_out                                  = it->var(ConcreteLts->magnitude_out);       //from parameter file
       bool (*DS)[numOfPointsPadded]                        = it->var(ConcreteLts->DS);                  //from parameter file
       real *averaged_Slip                                  = it->var(ConcreteLts->averaged_Slip);       // = 0
       real (*dynStress_time)[numOfPointsPadded]            = it->var(ConcreteLts->dynStress_time);      // = 0
@@ -150,11 +147,6 @@ public:
           dynStress_time[ltsFace][iBndGP] = 0.0;
           DS[ltsFace][iBndGP] = m_Params.IsDsOutputOn;
         }
-
-        inst_healing[ltsFace] = m_Params.IsInstaHealingOn;
-        t_0[ltsFace] = m_Params.t_0;
-        magnitude_out[ltsFace] = m_Params.IsMagnitudeOutputOn;
-
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
     }//leaf_iterator loop

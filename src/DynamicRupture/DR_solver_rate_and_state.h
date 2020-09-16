@@ -240,10 +240,12 @@ protected:
   real  (*stateVar)[numOfPointsPadded];
   real  (*dynStress_time)[numOfPointsPadded];
 
+  double dt = 0;
+
   /*
  * Function in NucleationFunctions_mod
  */
-  double Calc_SmoothStepIncrement(double fullUpdateTime, double Tnuc, double dt){
+  double Calc_SmoothStepIncrement(double fullUpdateTime, double Tnuc){
     double Gnuc;
     double prevtime;
     if(fullUpdateTime > 0.0 && fullUpdateTime <= Tnuc){
@@ -579,13 +581,18 @@ public:
     dynStress_time           = layerData.var(ConcreteLts->dynStress_time);
 
 
+    //TODO: outside face loop
+    dt = 0;
+    for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
+      dt += DeltaT[iTimeGP];
+    }
+
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
 #endif
     for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
 
       //initialize local variables
-      double dt = 0;
       double Gnuc = 0;
       double invZ = 0;
       bool has_converged = false;
@@ -650,14 +657,10 @@ public:
 
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[face], QInterpolatedMinus[face],  face);
 
-      //TODO: outside face loop
-      dt = 0;
-      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
-        dt += DeltaT[iTimeGP];
-      }
+
 
       if (fullUpdateTime <= Tnuc) {
-        Gnuc = Calc_SmoothStepIncrement(fullUpdateTime, Tnuc, dt) ;
+        Gnuc = Calc_SmoothStepIncrement(fullUpdateTime, Tnuc) ;
         //TODO: test padded
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
           for (int i = 0; i < 6; i++) {
@@ -678,7 +681,7 @@ public:
         LocSlip2[iBndGP] = slip2[face][iBndGP]; //DISC%DynRup%Slip2(iBndGP,iFace)            // !< Slip at given fault node along loc dir 2
         LocSR1[iBndGP] = slipRate1[face][iBndGP]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSR2[iBndGP] = slipRate2[face][iBndGP]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
-        LocSV[iBndGP] = stateVar[face][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)
+        LocSV[iBndGP] = stateVar[face][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)      //local varriable required
       }
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
@@ -817,22 +820,12 @@ public:
           //! mu from LocSR
           LocMu[iBndGP] = RS_a_array[face][iBndGP] * log(tmp2[iBndGP] + sqrt(seissol::dr::aux::power(tmp2[iBndGP], 2) + 1.0));
 
-          //debugging:
-          /*
-          if(face == 9 && iTimeGP == 0 && iBndGP == 0){
-            std::cout.precision(17);
-            std::cout << "C++ change in tmp[face=9,iTimeGP=0,iBndGP=0] 1: " << std::scientific << tmp[0] << std::endl;
-            std::cout << "C++ change in tmp2[face=9,iTimeGP=0,iBndGP=0] 1: " << std::scientific << tmp2[0] << std::endl;
-            std::cout << "C++ change in LocMu[face=9,iTimeGP=0,iBndGP=0] 1: " << std::scientific << LocMu[0] << std::endl;
-          }
-          //*/
-          real LocTracXY_inbetween;
 
 
           //! update stress change
-          LocTracXY_inbetween = -((initialStressInFaultCS[face][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
+          LocTracXY[iBndGP] = -((initialStressInFaultCS[face][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
           LocTracXZ[iBndGP] = -((initialStressInFaultCS[face][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / ShTest[iBndGP]) * LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
-          LocTracXY[iBndGP] = LocTracXY_inbetween - initialStressInFaultCS[face][iBndGP][3];
+          LocTracXY[iBndGP] = LocTracXY[iBndGP] - initialStressInFaultCS[face][iBndGP][3];
           LocTracXZ[iBndGP] = LocTracXZ[iBndGP] - initialStressInFaultCS[face][iBndGP][5];
           //testing alternative calculation:
           //LocTracXY[iBndGP] = (initialStressInFaultCS[face][iBndGP][3] * ( LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]) - ShTest[iBndGP]) +  XYStressGP[iTimeGP][iBndGP] *  LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]) ) / ShTest[iBndGP];
@@ -864,13 +857,6 @@ public:
           faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ[iBndGP];
 
           deltaStateVar[iBndGP] = LocSV[iBndGP] - stateVar[face][iBndGP];
-
-          /*
-          if(face == 9 && iBndGP == 0){
-            std::cout.precision(17);
-            std::cout << "C++ change in LocTracXZ[face=9,iTimeGP=" << iTimeGP << ",iBndGP=0] 1: " << std::scientific << LocTracXZ[0] << std::endl;
-          }
-          //*/
         }
 
       } // End of iTimeGP-loop
