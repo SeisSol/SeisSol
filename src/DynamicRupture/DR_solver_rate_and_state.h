@@ -5,7 +5,7 @@
 #ifndef SEISSOL_DR_SOLVER_RATE_AND_STATE_H
 #define SEISSOL_DR_SOLVER_RATE_AND_STATE_H
 
-#include "DR_friction_law.h"
+#include "DR_solver_base.h"
 
 #include <c++/8.3.0/iostream>
 #include "DR_math.h"
@@ -18,7 +18,7 @@ namespace seissol {
     namespace fr_law {
       class Solver_FL_3; //rate and state aging law
       class Solver_FL_4; //rate and state slip law
-      class Solver_FL_103;  //rate and state nuc103
+      class RateAndStateNucFL103;  //rate and state nuc103
     }
   }
 }
@@ -216,23 +216,19 @@ public:
 };
 
 
-class seissol::dr::fr_law::Solver_FL_103 : public seissol::dr::fr_law::BaseFrictionSolver {
+class seissol::dr::fr_law::RateAndStateNucFL103 : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   //Attributes
   real  (*nucleationStressInFaultCS)[numOfPointsPadded][6];
-//  bool  *magnitude_out;
-//  real  t_0;                        //face independent
+  real dt = 0;
 
   real  (*RS_a_array)[numOfPointsPadded];
   real  (*RS_srW_array)[numOfPointsPadded];
   real  (*RS_sl0_array)[numOfPointsPadded];
 
   bool  (*DS)[numOfPointsPadded];
-  real  *averaged_Slip;
   real  (*stateVar)[numOfPointsPadded];
   real  (*dynStress_time)[numOfPointsPadded];
-
-  double dt = 0;
 
 
   /*
@@ -253,42 +249,9 @@ protected:
     averaged_Slip   = layerData.var(ConcreteLts->averaged_Slip);
     stateVar        = layerData.var(ConcreteLts->stateVar);
     dynStress_time  = layerData.var(ConcreteLts->dynStress_time);
-  }
 
 
-  /*
- * Function in NucleationFunctions_mod
- */
-  double Calc_SmoothStepIncrement(double fullUpdateTime){
-    double Gnuc;
-    double prevtime;
-    if(fullUpdateTime > 0.0 && fullUpdateTime <= m_Params.t_0){
-      Gnuc = Calc_SmoothStep(fullUpdateTime);
-      prevtime = fullUpdateTime - dt;
-      if(prevtime > 0.0){
-        Gnuc = Gnuc - Calc_SmoothStep(prevtime);
-      }
-    }else{
-      Gnuc = 0.0;
-    }
-    return Gnuc;
-  }
 
-  /*
- * Function in NucleationFunctions_mod
- */
-  double Calc_SmoothStep(double fullUpdateTime){
-    double Gnuc;
-    if (fullUpdateTime <= 0){
-      Gnuc=0.0;
-    }else{
-      if (fullUpdateTime < m_Params.t_0){
-        Gnuc = std::exp(seissol::dr::aux::power(fullUpdateTime - m_Params.t_0, 2) / (fullUpdateTime * (fullUpdateTime - 2.0 * m_Params.t_0)));
-      }else{
-        Gnuc=1.0;
-      }
-    }
-    return Gnuc;
   }
 
   void updateStateVariable(int iBndGP, unsigned int face, real SV0, real time_inc, real &SR_tmp, real &LocSV){
@@ -525,22 +488,6 @@ protected:
     }
   }
 
-  //TODO: move this to Base class with the attributes
-  //---compute and store slip to determine the magnitude of an earthquake ---
-  //    to this end, here the slip is computed and averaged per element
-  //    in calc_seissol.f90 this value will be multiplied by the element surface
-  //    and an output happened once at the end of the simulation
-  void calcAverageSlip(
-      std::array<real, numOfPointsPadded> &tmpSlip,
-      unsigned int face
-  ){
-    real sum_tmpSlip = 0;
-    if (m_Params.IsMagnitudeOutputOn) {
-      for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++)
-        sum_tmpSlip += tmpSlip[iBndGP];
-      averaged_Slip[face] = averaged_Slip[face] + sum_tmpSlip / numberOfPoints;
-    }
-  }
 
 
 public:
@@ -598,7 +545,7 @@ public:
       dt += DeltaT[iTimeGP];
     }
     if (fullUpdateTime <= m_Params.t_0) {
-      Gnuc = Calc_SmoothStepIncrement(fullUpdateTime);
+      Gnuc = Calc_SmoothStepIncrement(fullUpdateTime, dt);
     }
 
 #ifdef _OPENMP
@@ -607,8 +554,6 @@ public:
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
 
       //initialize local variables
-      std::array<real, numOfPointsPadded> SV0{0};
-
       std::array<real, numOfPointsPadded> LocSR1{0};
       std::array<real, numOfPointsPadded> LocSR2{0};
       std::array<real, numOfPointsPadded> SR_tmp{0};
@@ -633,6 +578,7 @@ public:
       std::array<real, numOfPointsPadded> normalStress{0};
       std::array<real, numOfPointsPadded> TotalShearStressYZ{0};
       std::array<real, numOfPointsPadded> LocSlipTmp{0};
+      std::array<real, numOfPointsPadded> stateVarZero{0};
 
       //for thermalPressure
       std::array<real, numOfPointsPadded> P_f{0};
@@ -675,7 +621,7 @@ public:
 
           // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
           // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
-          SV0[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
+          stateVarZero[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
           // The following process is adapted from that described by Kaneko et al. (2008)
           LocSlipRate[iBndGP] = std::sqrt(seissol::dr::aux::power(LocSR1[iBndGP], 2) + seissol::dr::aux::power(LocSR2[iBndGP], 2) );
@@ -695,7 +641,7 @@ public:
           for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
             //fault strength using LocMu and P_f from previous timestep/iteration
             //1.update SV using Vold from the previous time step
-            updateStateVariable(iBndGP, ltsFace, SV0[iBndGP], DeltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
+            updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], DeltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
 
             if (ThermalPress == 1) {
               /*
@@ -746,7 +692,7 @@ public:
         }
 
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-          updateStateVariable(iBndGP, ltsFace, SV0[iBndGP], DeltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
+          updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], DeltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
 
           //! 5. get final theta, mu, traction and slip
           //! SV from mean slip rate in tmp

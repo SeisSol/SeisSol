@@ -265,14 +265,21 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   }
 //*/
 
-    //TODO: right place for precalculation?
-    //requires m_dynamicRuptureKernel for calculation
-    real DeltaT[CONVERGENCE_ORDER] = {};
-    DeltaT[0]=m_dynamicRuptureKernel.timePoints[0];
-    for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
-        DeltaT[iTimeGP] = m_dynamicRuptureKernel.timePoints[iTimeGP]-m_dynamicRuptureKernel.timePoints[iTimeGP-1];
-    }
-    DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
+  //TODO: right place for precalculation?
+  //requires m_dynamicRuptureKernel for calculation
+  real DeltaT[CONVERGENCE_ORDER] = {};
+  DeltaT[0]=m_dynamicRuptureKernel.timePoints[0];
+  for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
+      DeltaT[iTimeGP] = m_dynamicRuptureKernel.timePoints[iTimeGP]-m_dynamicRuptureKernel.timePoints[iTimeGP-1];
+  }
+  DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
+
+  /*
+   * //TODO: maybe use this in the FL103/33 etc. instead of dt = sum(DeltaT(:))??
+  real dt = 0;
+  dt = m_dynamicRuptureKernel.timePoints[CONVERGENCE_ORDER-1]-m_dynamicRuptureKernel.timePoints[0];
+  */
+
 
 
 #ifdef _OPENMP

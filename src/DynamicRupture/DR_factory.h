@@ -10,9 +10,10 @@
 #include <stdexcept>
 #include <Initializer/DynamicRupture.h>
 #include "DR_initializer_base.h"
-#include "DR_friction_law.h"
+#include "DR_solver_base.h"
 #include "DR_output.h"
 #include "DR_solver_rate_and_state.h"
+#include "DR_solver_linear.h"
 
 
 namespace seissol {
@@ -85,7 +86,7 @@ class seissol::dr::factory::Factory_FL_103 : public seissol::dr::factory::Abstra
   virtual products produce() override {
     return std::make_tuple(new seissol::initializers::DR_FL_103,
                            new seissol::initializers::Init_FL_103,
-                           new seissol::dr::fr_law::Solver_FL_103,
+                           new seissol::dr::fr_law::RateAndStateNucFL103,
                            new seissol::dr::output::Output_FL_103);
   }
 };

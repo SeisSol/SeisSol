@@ -166,9 +166,14 @@ struct seissol::initializers::DR_FL_3 : public seissol::initializers::DynamicRup
 
 
 struct seissol::initializers::DR_FL_33 : public seissol::initializers::DynamicRupture {
+  Variable<real[numOfPointsPadded][6]>                            nucleationStressInFaultCS;
+  Variable<real>                                                  averaged_Slip;
 
     virtual void addTo(initializers::LTSTree& tree) {
-        seissol::initializers::DynamicRupture::addTo(tree);
+      seissol::initializers::DynamicRupture::addTo(tree);
+      LayerMask mask = LayerMask(Ghost);
+      tree.addVar(      nucleationStressInFaultCS,  mask,                 1,      seissol::memory::Standard );
+      tree.addVar(      averaged_Slip,              mask,                 1,      seissol::memory::Standard );
     }
 };
 
