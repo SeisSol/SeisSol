@@ -19,6 +19,7 @@ namespace seissol {
       class Solver_FL_3; //rate and state aging law
       class Solver_FL_4; //rate and state slip law
       class RateAndStateNucFL103;  //rate and state nuc103
+      class RateAndStateThermalFL103;
     }
   }
 }
@@ -249,9 +250,6 @@ protected:
     averaged_Slip   = layerData.var(ConcreteLts->averaged_Slip);
     stateVar        = layerData.var(ConcreteLts->stateVar);
     dynStress_time  = layerData.var(ConcreteLts->dynStress_time);
-
-
-
   }
 
   void updateStateVariable(int iBndGP, unsigned int face, real SV0, real time_inc, real &SR_tmp, real &LocSV){
@@ -488,6 +486,43 @@ protected:
     }
   }
 
+  virtual void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f){
+    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+      P_f[iBndGP] = 0.0;
+      /*
+      if (ThermalPress == 1) {
+        //P_f[iBndGP] = TP[iBndGP][iFace][1];
+      }
+      */
+    }
+  }
+
+  virtual void hookCalcP_f(){
+    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+      /*
+      S[iBndGP] = -LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
+
+      for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+       //!recover original values as it gets overwritten in the ThermalPressure routine
+       //TODO: maybe tmp values can be removed here?
+        Theta_tmp[iTP_grid_nz] = TP_Theta[iBndGP][iFace][iTP_grid_nz];
+        Sigma_tmp[iTP_grid_nz] = TP_sigma[iBndGP][iFace][iTP_grid_nz];
+        //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
+
+        Calc_ThermalPressure(temp_0, pressure_0, time_inc, TP_grid_nz, TP_half_width_shear_zone[iBndGP][iFace],
+                             alpha_th, alpha_hy[iBndGP][iFace], rho_c, TP_Lambda, Theta_tmp, Sigma_tmp, S[iBndGP],
+                             LocSR[iBndGP], TP_grid, TP_DFinv, TP[iBndGP][iFace][0], TP[iBndGP][iFace][1]);
+
+        P_f[iBndGP] = TP[iBndGP][iFace][1];
+      }
+      */
+    }
+  }
+
+  virtual void hookSaveFinalThetaAndSigma(unsigned int ltsFace){
+    //TP_Theta[iBndGP][iFace][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
+    //TP_sigma[iBndGP][iFace][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
+  }
 
 
 public:
@@ -499,32 +534,8 @@ public:
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
 
-    //***********************************
-    // GET THESE FROM DATA STRUCT
-    /*
-    //required input for thermal pressure:
-    int TP_grid_nz; //DISC%dynRup%TP_grid_nz;  !< number of grid points to solve advection for TP in z-direction
-    double TP[nBndGP][nFace][unkown];     //DISC%DynRup%TP(:,iFace,2)    !< Temperature and Pressure for TP along each fault point
-    double TP_Theta[nBndGP][nFace][TP_grid_nz]; //DISC%DynRup%TP_Theta(iBndGP, iFace,:) !< Fourier transformed pressure
-    double TP_sigma[nBndGP][nFace][TP_grid_nz]; //DISC%DynRup%TP_sigma(iBndGP, iFace,:) !< Fourier transformed temperature
-    double TP_half_width_shear_zone[nBndGP][nFace];  //DISC%DynRup%TP_half_width_shear_zone(iBndGP,iFace)    !< spatial dependent half width of the shearing layer for TP
-    double alpha_th;        //DISC%DynRup%alpha_th   !< thermal diffusion parameter for TP
-    double alpha_hy[nBndGP][nFace];    //DISC%DynRup%alpha_hy(iBndGP,iFace)    !< spatial dependent hydraulic diffusion parameter for TP
-    double rho_c;        //DISC%DynRup%rho_c !< heat capacity for TP
-    double TP_Lambda;          // DISC%DynRup%TP_Lambda    !< pore pressure increase per unit increase
-    double TP_grid[TP_grid_nz];    //DISC%DynRup%TP_grid   !< grid for TP
-    double TP_DFinv[TP_grid_nz]; //DISC%DynRup%TP_DFinv  !< inverse Fourier coefficients
-    double temp_0;          //EQN%Temp_0     !< Initial temperature for TP
-    double pressure_0;            //EQN%Pressure_0           !< Initial pressure for TP
-*/
 
-    //double S[nBndGP];
-    //double Theta_tmp[TP_grid_nz], Sigma_tmp[TP_grid_nz];
-    int ThermalPress = 0; //DISC%DynRup%ThermalPress   !< thermal pressurization switch
-    //***********************************
-    //--------------------------------------------------------
-
-
+    
     //first copy all Variables from the Base Lts dynRup tree
     BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
 
@@ -553,19 +564,6 @@ public:
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
 
-      //initialize local variables
-      std::array<real, numOfPointsPadded> LocSR1{0};
-      std::array<real, numOfPointsPadded> LocSR2{0};
-      std::array<real, numOfPointsPadded> SR_tmp{0};
-
-      std::array<real, numOfPointsPadded> LocSlip{0};
-      std::array<real, numOfPointsPadded> LocSlip1{0};
-      std::array<real, numOfPointsPadded> LocSlip2{0};
-      std::array<real, numOfPointsPadded> LocSV{0};
-
-      std::array<real, numOfPointsPadded> SRtest{0};
-
-
       //initialize local variables inside parallel face loop
       bool has_converged = false;
       FaultStresses faultStresses;
@@ -579,6 +577,9 @@ public:
       std::array<real, numOfPointsPadded> TotalShearStressYZ{0};
       std::array<real, numOfPointsPadded> LocSlipTmp{0};
       std::array<real, numOfPointsPadded> stateVarZero{0};
+      std::array<real, numOfPointsPadded> SR_tmp{0};
+      std::array<real, numOfPointsPadded> LocSV{0};
+      std::array<real, numOfPointsPadded> SRtest{0};
 
       //for thermalPressure
       std::array<real, numOfPointsPadded> P_f{0};
@@ -595,17 +596,10 @@ public:
       } //end If-Tnuc
 
       for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-        //TODO: remove local values as much as possible
-        LocSlip[iBndGP] = slip[ltsFace][iBndGP]; //DISC%DynRup%Slip(iBndGP,iFace)              //!< Slip path at given fault node
-        LocSlip1[iBndGP] = slip1[ltsFace][iBndGP]; //DISC%DynRup%Slip1(iBndGP,iFace)            //!< Slip at given fault node along loc dir 1
-        LocSlip2[iBndGP] = slip2[ltsFace][iBndGP]; //DISC%DynRup%Slip2(iBndGP,iFace)            // !< Slip at given fault node along loc dir 2
-        LocSR1[iBndGP] = slipRate1[ltsFace][iBndGP]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
-        LocSR2[iBndGP] = slipRate2[ltsFace][iBndGP]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
         LocSV[iBndGP] = stateVar[ltsFace][iBndGP];     //DISC%DynRup%StateVar(iBndGP,iFace)      //local varriable required
       }
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
-
         //TODO: test padded:
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
 
@@ -624,48 +618,28 @@ public:
           stateVarZero[iBndGP] = LocSV[iBndGP];    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
           // The following process is adapted from that described by Kaneko et al. (2008)
-          LocSlipRate[iBndGP] = std::sqrt(seissol::dr::aux::power(LocSR1[iBndGP], 2) + seissol::dr::aux::power(LocSR2[iBndGP], 2) );
+          LocSlipRate[iBndGP] = std::sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2) );
           LocSlipRate[iBndGP] = std::max(AlmostZero, LocSlipRate[iBndGP]);
           SR_tmp[iBndGP] = LocSlipRate[iBndGP];
 
-
-          if (ThermalPress == 1) {
-            //P_f[iBndGP] = TP[iBndGP][iFace][1];
-          } else {
-            P_f[iBndGP] = 0.0;
-          }
         }// End of iBndGP-loop
 
+        hookSetInitialP_f(P_f);
+
         for (int j = 0; j < nSVupdates; j++) {
+
+          hookCalcP_f();
+
           //TODO: test for padded:
           for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
             //fault strength using LocMu and P_f from previous timestep/iteration
             //1.update SV using Vold from the previous time step
             updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], DeltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
-
-            if (ThermalPress == 1) {
-              /*
-               * //TODO: check if this works:
-              S[iBndGP] = -LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
-
-              for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
-                //!recover original values as it gets overwritten in the ThermalPressure routine
-                Theta_tmp[iTP_grid_nz] = TP_Theta[iBndGP][iFace][iTP_grid_nz];
-                Sigma_tmp[iTP_grid_nz] = TP_sigma[iBndGP][iFace][iTP_grid_nz];
-              }
-              Calc_ThermalPressure(temp_0, pressure_0, time_inc, TP_grid_nz, TP_half_width_shear_zone[iBndGP][iFace],
-                                   alpha_th, alpha_hy[iBndGP][iFace], rho_c, TP_Lambda, Theta_tmp, Sigma_tmp, S[iBndGP],
-                                   LocSR[iBndGP], TP_grid,
-                                   TP_DFinv, TP[iBndGP][iFace][0], TP[iBndGP][iFace][1]);
-              P_f[iBndGP] = TP[iBndGP][iFace][1];
-               */
-            }
-            //2. solve for Vnew , applying the Newton-Raphson algorithm
-            //effective normal stress including initial stresses and pore fluid pressure
             normalStress[iBndGP] = faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP];
-
           }// End of iBndGP-loop
 
+          //2. solve for Vnew , applying the Newton-Raphson algorithm
+          //effective normal stress including initial stresses and pore fluid pressure
           has_converged = IterativelyInvertSR(ltsFace, nSRupdates, LocSlipRate, LocSV, normalStress, TotalShearStressYZ, SRtest);
 
           //TODO: test padded
@@ -691,32 +665,17 @@ public:
           assert(!std::isnan(LocSlipTmp[0]) && "nonConvergence RS Newton");
         }
 
+        //! 5. get final theta, mu, traction and slip
+        hookCalcP_f();
+
+        hookSaveFinalThetaAndSigma(ltsFace);
+        //+
+        //TP_Theta[iBndGP][iFace][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
+        //TP_sigma[iBndGP][iFace][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
+
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-          updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], DeltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
-
-          //! 5. get final theta, mu, traction and slip
           //! SV from mean slip rate in tmp
-
-          if (ThermalPress == 1) {
-            /* //TODO: check if this works:
-            S[iBndGP] = -LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
-
-            for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
-              Theta_tmp[iTP_grid_nz] = TP_Theta[iBndGP][iFace][iTP_grid_nz];
-              Sigma_tmp[iTP_grid_nz] = TP_sigma[iBndGP][iFace][iTP_grid_nz];
-              //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-
-              Calc_ThermalPressure(temp_0, pressure_0, time_inc, TP_grid_nz, TP_half_width_shear_zone[iBndGP][iFace],
-                                   alpha_th, alpha_hy[iBndGP][iFace], rho_c, TP_Lambda, Theta_tmp, Sigma_tmp, S[iBndGP],
-                                   LocSR[iBndGP], TP_grid,
-                                   TP_DFinv, TP[iBndGP][iFace][0], TP[iBndGP][iFace][1]);
-
-              P_f[iBndGP] = TP[iBndGP][iFace][1];
-              TP_Theta[iBndGP][iFace][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
-              TP_sigma[iBndGP][iFace][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
-            }
-            */
-          }
+          updateStateVariable(iBndGP, ltsFace, stateVarZero[iBndGP], DeltaT[iTimeGP], SR_tmp[iBndGP], LocSV[iBndGP]);
 
           //!update LocMu for next strength determination, only needed for last update
           updateMu(ltsFace, iBndGP, LocSV[iBndGP], LocSlipRate[iBndGP]);
@@ -729,23 +688,23 @@ public:
 
           //Compute slip
           //! ABS of LocSR removed as it would be the accumulated slip that is usually not needed in the solver, see linear slip weakening
-          LocSlip[iBndGP] = LocSlip[iBndGP] + (LocSlipRate[iBndGP]) * DeltaT[iTimeGP];
+          slip[ltsFace][iBndGP] += LocSlipRate[iBndGP] * DeltaT[iTimeGP];
 
           //!Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-          LocSR1[iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXY[ltsFace][iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
-          LocSR2[iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
+          slipRate1[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXY[ltsFace][iBndGP] - faultStresses.XYStressGP[iTimeGP][iBndGP]);
+          slipRate2[ltsFace][iBndGP] = -impAndEta[ltsFace].inv_eta_s * (tracXZ[ltsFace][iBndGP] - faultStresses.XZStressGP[iTimeGP][iBndGP]);
 
           //!TU 07.07.16: correct LocSR1_2 to avoid numerical errors
-          LocSlipTmp[iBndGP] = sqrt(seissol::dr::aux::power(LocSR1[iBndGP], 2) + seissol::dr::aux::power(LocSR2[iBndGP], 2));
+          LocSlipTmp[iBndGP] = sqrt(seissol::dr::aux::power(slipRate1[ltsFace][iBndGP], 2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP], 2));
           if (LocSlipTmp[iBndGP] != 0) {
-            LocSR1[iBndGP] = LocSlipRate[iBndGP] * LocSR1[iBndGP] / LocSlipTmp[iBndGP];
-            LocSR2[iBndGP] = LocSlipRate[iBndGP] * LocSR2[iBndGP] / LocSlipTmp[iBndGP];
+            slipRate1[ltsFace][iBndGP] = LocSlipRate[iBndGP] * slipRate1[ltsFace][iBndGP] / LocSlipTmp[iBndGP];
+            slipRate2[ltsFace][iBndGP] = LocSlipRate[iBndGP] * slipRate2[ltsFace][iBndGP] / LocSlipTmp[iBndGP];
           }
 
           tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipTmp[iBndGP] * DeltaT[iTimeGP];
 
-          LocSlip1[iBndGP] = LocSlip1[iBndGP] + (LocSR1[iBndGP]) * DeltaT[iTimeGP];
-          LocSlip2[iBndGP] = LocSlip2[iBndGP] + (LocSR2[iBndGP]) * DeltaT[iTimeGP];
+          slip1[ltsFace][iBndGP] += slipRate1[ltsFace][iBndGP] * DeltaT[iTimeGP];
+          slip2[ltsFace][iBndGP] += slipRate2[ltsFace][iBndGP] * DeltaT[iTimeGP];
 
           //!Save traction for flux computation
           faultStresses.TractionGP_XY[iTimeGP][iBndGP] = tracXY[ltsFace][iBndGP];
@@ -761,13 +720,7 @@ public:
 
       //TODO: test padded
       for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-
-        //TODO: dont use these local variables if possible:
-        slipRate1[ltsFace][iBndGP] = LocSR1[iBndGP];
-        slipRate2[ltsFace][iBndGP] = LocSR2[iBndGP];
-        slip[ltsFace][iBndGP] = LocSlip[iBndGP];
-        slip1[ltsFace][iBndGP] = LocSlip1[iBndGP];
-        slip2[ltsFace][iBndGP] = LocSlip2[iBndGP];
+        //write back State Variable to lts tree
         stateVar[ltsFace][iBndGP] = stateVar[ltsFace][iBndGP] + resampledDeltaStateVar[iBndGP];
       }
 
@@ -795,5 +748,86 @@ public:
     }//end face loop
   }//end evaluate function
 }; //end class Init_FL_103
+
+
+class seissol::dr::fr_law::RateAndStateThermalFL103 : public seissol::dr::fr_law::RateAndStateNucFL103 {
+protected:
+  static constexpr unsigned int TP_grid_nz = 60;  //todo: make this global?
+
+  real (*TP)[numOfPointsPadded][2];
+  real (*TP_Theta)[numOfPointsPadded][TP_grid_nz];
+  real (*TP_sigma)[numOfPointsPadded][TP_grid_nz];
+  real (*TP_half_width_shear_zone)[numOfPointsPadded];
+  real (*alpha_hy)[numOfPointsPadded];
+
+  real alpha_th;
+  real rho_c;
+  real TP_Lambda;
+  real TP_grid[TP_grid_nz];
+  real TP_DFinv[TP_grid_nz];
+  real temp_0;
+  real pressure_0;
+
+  real S[numOfPointsPadded];
+  real Theta_tmp[TP_grid_nz];
+  real Sigma_tmp[TP_grid_nz];
+
+
+  /*
+ * copies all parameters from the DynamicRupture LTS to the local attributes
+ */
+  void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
+                          seissol::initializers::DynamicRupture *dynRup) override {
+    //first copy all Variables from the Base Lts dynRup tree
+    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
+    RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup);
+
+    //TODO: change later to const_cast
+    seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
+
+  }
+
+  void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f) override{
+    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+        //P_f[iBndGP] = TP[iBndGP][iFace][1];
+    }
+  }
+
+  void hookCalcP_f() override {
+    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+      /*
+      S[iBndGP] = -LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
+
+      for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+       //!recover original values as it gets overwritten in the ThermalPressure routine
+       //TODO: maybe tmp values can be removed here?
+        Theta_tmp[iTP_grid_nz] = TP_Theta[iBndGP][iFace][iTP_grid_nz];
+        Sigma_tmp[iTP_grid_nz] = TP_sigma[iBndGP][iFace][iTP_grid_nz];
+        //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
+
+        Calc_ThermalPressure(temp_0, pressure_0, time_inc, TP_grid_nz, TP_half_width_shear_zone[iBndGP][iFace],
+                             alpha_th, alpha_hy[iBndGP][iFace], rho_c, TP_Lambda, Theta_tmp, Sigma_tmp, S[iBndGP],
+                             LocSR[iBndGP], TP_grid, TP_DFinv, TP[iBndGP][iFace][0], TP[iBndGP][iFace][1]);
+
+        P_f[iBndGP] = TP[iBndGP][iFace][1];
+      }
+      */
+    }
+  }
+
+  void hookSaveFinalThetaAndSigma(unsigned int ltsFace) override{
+    //TODO: works with padded?
+    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+      for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+        //TODO:does not work here, bc Theta_tmp only saves 1 BndGP
+        //TP_Theta[ltsFace][iBndGP][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
+        //TP_sigma[ltsFace][iBndGP][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
+
+      }
+    }
+
+  }
+
+};
 
 #endif //SEISSOL_DR_SOLVER_RATE_AND_STATE_H

@@ -688,24 +688,29 @@ void seissol::initializers::MemoryManager::initializeFrictionFactory() {
 */
   dr::factory::AbstractFactory *Factory = nullptr;
   try {
-    // reading input provided by parameters.par
+
+    /*
     YAML::Node DynamicRupture = m_inputParams["dynamicrupture"];
     int FrictionLawID = DynamicRupture["fl"] ? DynamicRupture["fl"].as<int>() : 0;
     Friction_law_type FrictionLaw = Friction_law_type(FrictionLawID);
 
-    /*
     bool RF_output_on = (DynamicRupture["rf_output_on"]) ? true : false;
     bool InstantHealing = (DynamicRupture["inst_healing"]) ? true : false;
     double RS_b = DynamicRupture["rs_b"] ? DynamicRupture["rs_b"].as<double>() : -1;
     */
 
-    Factory = seissol::dr::factory::getFactory(FrictionLaw);
+    // reading input provided by parameters.par
+
+    dr::DrParameterT DynRupParameter;
+    DynRupParameter.setAllInputParam(m_inputParams);
+    Factory = seissol::dr::factory::getFactory(DynRupParameter);
     std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
 
+    //TODO: maybe just copy  "DynRupParameter" instead of initializing it often, make a reference to a "global" DynRupParameter?
     m_DrInitializer->setInputParam(m_inputParams);
-
-    //TODO: do we actually need the parameters int these classes?
     m_FrictonLaw->setInputParam(m_inputParams);
+
+    //TODO: do we actually need the parameters int this classes?
     m_DrOutput->setInputParam(m_inputParams);
 
     delete Factory;    // prepare the data

@@ -26,7 +26,8 @@ namespace seissol {
       struct Factory_FL_16;
       struct Factory_FL_33;
       struct Factory_FL_103;
-      seissol::dr::factory::AbstractFactory* getFactory(Friction_law_type FrictionLawID);
+      struct Factory_FL_103_Thermal;
+      seissol::dr::factory::AbstractFactory* getFactory(dr::DrParameterT DynRupParameter);
     }
   }
 }
@@ -35,16 +36,16 @@ namespace seissol {
 using products = std::tuple<seissol::initializers::DynamicRupture*,seissol::initializers::BaseDrInitializer*, seissol::dr::fr_law::BaseFrictionSolver*, seissol::dr::output::Output_Base*>;
 class seissol::dr::factory::AbstractFactory {
 public:
-    virtual ~AbstractFactory() {}
-    virtual products produce() = 0;
+  virtual ~AbstractFactory() {}
+  virtual products produce() = 0;
 };
 class seissol::dr::factory::Factory_FL_2 : public seissol::dr::factory::AbstractFactory {
-    virtual products produce() override {
-        return std::make_tuple(new seissol::initializers::DR_FL_2,
-                               new seissol::initializers::Init_FL_2,
-                               new seissol::dr::fr_law::LinearSlipWeakeningSolverFL2,
-                               new seissol::dr::output::Output_FL_2);
-    }
+  virtual products produce() override {
+    return std::make_tuple(new seissol::initializers::DR_FL_2,
+                           new seissol::initializers::Init_FL_2,
+                           new seissol::dr::fr_law::LinearSlipWeakeningSolverFL2,
+                           new seissol::dr::output::Output_FL_2);
+  }
 };
 class seissol::dr::factory::Factory_FL_3 : public seissol::dr::factory::AbstractFactory {
   virtual products produce() override {
@@ -65,21 +66,21 @@ class seissol::dr::factory::Factory_FL_4 : public seissol::dr::factory::Abstract
 };
 
 class seissol::dr::factory::Factory_FL_16 : public seissol::dr::factory::AbstractFactory {
-    virtual products produce() override {
-        return std::make_tuple(new seissol::initializers::DR_FL_2,
-                               new seissol::initializers::Init_FL_2,
-                               new seissol::dr::fr_law::Solver_FL_16,
-                               new seissol::dr::output::Output_FL_2);
-    }
+  virtual products produce() override {
+    return std::make_tuple(new seissol::initializers::DR_FL_2,
+                           new seissol::initializers::Init_FL_2,
+                           new seissol::dr::fr_law::Solver_FL_16,
+                           new seissol::dr::output::Output_FL_2);
+  }
 };
 
 class seissol::dr::factory::Factory_FL_33 : public seissol::dr::factory::AbstractFactory {
-    virtual products produce() override {
-        return std::make_tuple(new seissol::initializers::DR_FL_33,
-                               new seissol::initializers::Init_FL_33,
-                               new seissol::dr::fr_law::Solver_FL_33,
-                               new seissol::dr::output::Output_FL_33);
-    }
+  virtual products produce() override {
+    return std::make_tuple(new seissol::initializers::DR_FL_33,
+                           new seissol::initializers::Init_FL_33,
+                           new seissol::dr::fr_law::Solver_FL_33,
+                           new seissol::dr::output::Output_FL_33);
+  }
 };
 
 class seissol::dr::factory::Factory_FL_103 : public seissol::dr::factory::AbstractFactory {
@@ -91,7 +92,16 @@ class seissol::dr::factory::Factory_FL_103 : public seissol::dr::factory::Abstra
   }
 };
 
-seissol::dr::factory::AbstractFactory* seissol::dr::factory::getFactory(Friction_law_type FrictionLawID);
+class seissol::dr::factory::Factory_FL_103_Thermal : public seissol::dr::factory::AbstractFactory {
+  virtual products produce() override {
+    return std::make_tuple(new seissol::initializers::DR_FL_103_Thermal,
+                           new seissol::initializers::Init_FL_103_Thermal,
+                           new seissol::dr::fr_law::RateAndStateThermalFL103,
+                           new seissol::dr::output::Output_FL_103); //TODO: does it need a different output?
+  }
+};
+
+seissol::dr::factory::AbstractFactory* seissol::dr::factory::getFactory(dr::DrParameterT DynRupParameter);
 
 int temporary_main();
 

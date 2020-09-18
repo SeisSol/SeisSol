@@ -51,6 +51,7 @@ namespace seissol {
     struct DR_FL_3;
     struct DR_FL_33;
     struct DR_FL_103;
+    struct DR_FL_103_Thermal;
   }
 }
 
@@ -182,7 +183,6 @@ struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicR
   Variable<real[ numOfPointsPadded ]>                             RS_sl0_array;
   Variable<real[ numOfPointsPadded ]>                             RS_a_array;
   Variable<real[ numOfPointsPadded ]>                             RS_srW_array;
-
   Variable<bool[ numOfPointsPadded ]>                             DS;
   Variable<real>                                                  averaged_Slip;
   Variable<real[ numOfPointsPadded ]>                             stateVar;
@@ -201,4 +201,26 @@ struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicR
     tree.addVar(      dynStress_time,             mask,                 1,      seissol::memory::Standard );
   }
 };
+
+struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::DR_FL_103 {
+
+  static constexpr unsigned int TP_grid_nz = 60;  //todo: make this global?
+  Variable<real[numOfPointsPadded][2]>                            TP;
+  Variable<real[numOfPointsPadded][TP_grid_nz]>                   TP_Theta;
+  Variable<real[numOfPointsPadded][TP_grid_nz]>                   TP_sigma;
+  Variable<real[numOfPointsPadded]>                               TP_half_width_shear_zone;
+  Variable<real[numOfPointsPadded]>                               alpha_hy;
+
+  virtual void addTo(initializers::LTSTree& tree) {
+    seissol::initializers::DynamicRupture::addTo(tree);
+    LayerMask mask = LayerMask(Ghost);
+    tree.addVar(      TP,                         mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      TP_Theta,                   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      TP_sigma,                   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      TP_half_width_shear_zone,   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      alpha_hy,                   mask,                 1,      seissol::memory::Standard );
+  }
+};
+
+
 #endif

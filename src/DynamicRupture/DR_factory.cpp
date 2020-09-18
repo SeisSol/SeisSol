@@ -6,24 +6,28 @@
 #include "DR_factory.h"
 
 namespace seissol {
-    namespace dr {
-        namespace factory {
-            AbstractFactory* getFactory(Friction_law_type FrictionLawID) {
-                switch (FrictionLawID) {
-                    case Linear_slip_weakening: return new Factory_FL_2;
-                    case Linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
+  namespace dr {
+    namespace factory {
+      AbstractFactory* getFactory(dr::DrParameterT DynRupParameter) {
+        switch (DynRupParameter.FrictionLawType) {
+            case Linear_slip_weakening: return new Factory_FL_2;
+            case Linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
 
-                    //TODO: use enum:
-                    case 3: return new Factory_FL_3;
-                    case 4: return new Factory_FL_4;
-                    case 33: return new Factory_FL_33;
-                    case 103: return new Factory_FL_103;
-                    default:
-                        throw std::runtime_error("unknown friction law");
-                }
-            }
+            //TODO: use enum:
+            case 3: return new Factory_FL_3;
+            case 4: return new Factory_FL_4;
+            case 33: return new Factory_FL_33;
+            case 103:
+              if(DynRupParameter.IsTermalPressureOn == false) //TODO: do it right
+                return new Factory_FL_103;
+              else
+                return new Factory_FL_103_Thermal;
+            default:
+                throw std::runtime_error("unknown friction law");
         }
+      }
     }
+  }
 }
 
 
@@ -55,9 +59,9 @@ int temporary_main() {
 
     //in memory manager.cpp
     //void seissol::initializers::MemoryManager::initializeFrictionFactory(Friction_law_type FrictionLaw)
-    factory::AbstractFactory* Factory = factory::getFactory(FrictionLaw);
-    std::tie(DynRup, DrInitializer, FrictonLaw, DrOutput) = Factory->produce();
-    delete Factory;    // prepare the data
+    //factory::AbstractFactory* Factory = factory::getFactory(FrictionLaw);
+    //std::tie(DynRup, DrInitializer, FrictonLaw, DrOutput) = Factory->produce();
+    //delete Factory;    // prepare the data
 
     //in memory manager.cpp
     //void seissol::initializers::MemoryManager::fixateLtsTree

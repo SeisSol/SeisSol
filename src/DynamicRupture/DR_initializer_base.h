@@ -19,10 +19,9 @@ namespace seissol {
       struct Init_FL_3; //aging law
       struct Init_FL_33;
       struct Init_FL_103;
+      struct Init_FL_103_Thermal;
     }
 }
-
-
 
 class seissol::initializers::BaseDrInitializer {
 protected:
@@ -200,6 +199,23 @@ public:
     BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
     seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
 
+    unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
+
+    for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+
+      real  (*nucleationStressInFaultCS)[numOfPointsPadded][6]  = it->var(ConcreteLts->nucleationStressInFaultCS); //get from fortran
+      real *averaged_Slip                                       = it->var(ConcreteLts->averaged_Slip);      // = 0
+
+      for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+
+        //TODO:write get only for nucleantionStressInFaultCS
+        //e_interoperability.getDynRupFL_103(ltsFace, meshFace, nucleationStressInFaultCS, stateVar);
+        averaged_Slip[ltsFace]= 0.0;
+
+      }//lts-face loop
+      layerLtsFaceToMeshFace += it->getNumberOfCells();
+    }//leaf_iterator loop
   }
 };
 
@@ -250,6 +266,45 @@ public:
           RS_srW_array[ltsFace][iBndGP] = 0.0;
           RS_sl0_array[ltsFace][iBndGP] = 0.0;
         }
+
+      }//lts-face loop
+      layerLtsFaceToMeshFace += it->getNumberOfCells();
+    }//leaf_iterator loop
+
+  }
+};
+
+class seissol::initializers::Init_FL_103_Thermal : public seissol::initializers::Init_FL_103 {
+public:
+  static constexpr unsigned int TP_grid_nz = 60;  //todo: make this global?
+
+  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
+                                          initializers::LTSTree* dynRupTree,
+                                          std::unordered_map<std::string,
+                                              double*> faultParameters,
+                                          unsigned* ltsFaceToMeshFace,
+                                          seissol::Interoperability &e_interoperability) override {
+    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    Init_FL_103::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+
+    seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
+
+    unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
+
+    for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+
+
+      real (*TP)[numOfPointsPadded][2]                          = it->var(ConcreteLts->TP); //get from fortran
+      real (*TP_Theta)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_Theta);       //get from faultParameters
+      real (*TP_sigma)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_sigma);         //get from faultParameters
+      real (*TP_half_width_shear_zone)[numOfPointsPadded]       = it->var(ConcreteLts->TP_half_width_shear_zone);       //get from faultParameters
+      real (*alpha_hy)[numOfPointsPadded]                       = it->var(ConcreteLts->alpha_hy);                 //par file
+
+
+      for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+
+        //TODO: initialize all TPs
 
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
