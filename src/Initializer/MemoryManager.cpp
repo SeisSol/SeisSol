@@ -700,7 +700,6 @@ void seissol::initializers::MemoryManager::initializeFrictionFactory() {
     */
 
     // reading input provided by parameters.par
-
     dr::DrParameterT DynRupParameter;
     DynRupParameter.setAllInputParam(m_inputParams);
     Factory = seissol::dr::factory::getFactory(DynRupParameter);

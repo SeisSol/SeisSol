@@ -533,11 +533,8 @@ public:
                         real fullUpdateTime,
                         real timeWeights[CONVERGENCE_ORDER],
                         real DeltaT[CONVERGENCE_ORDER]) override {
-
-
-    
     //first copy all Variables from the Base Lts dynRup tree
-    BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
+    RateAndStateNucFL103::copyLtsTreeToLocal(layerData, dynRup);
 
     //!TU 7.07.16: if the SR is too close to zero, we will have problems (NaN)
     //!as a consequence, the SR is affected the AlmostZero value when too small
