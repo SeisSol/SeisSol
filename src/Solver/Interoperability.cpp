@@ -309,6 +309,7 @@ extern "C" {
                                                   real* i_averaged_Slip,
                                                   real* i_dynStress_time);
 
+  extern void f_interoperability_setFrictionOutputStateVar( void*  i_domain, int i_face, real* stateVar);
 
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
@@ -1112,6 +1113,12 @@ void seissol::Interoperability::copyFrictionOutputToFortranFL2(unsigned int ltsF
     f_interoperability_setFrictionOutputFL2(m_domain, fFace,
                                          &averaged_Slip[ltsFace],
                                          &dynStress_time[ltsFace][0]);
+}
+
+void seissol::Interoperability::copyFrictionOutputToFortranStateVar(unsigned int ltsFace, unsigned int meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]
+){
+  int fFace = meshFace + 1;
+  f_interoperability_setFrictionOutputStateVar(m_domain, fFace,&stateVar[ltsFace][0]);
 }
 
 

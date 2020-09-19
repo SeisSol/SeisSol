@@ -136,6 +136,7 @@ public:
     DRFaceInformation*                    faceInformation = layerData.var(ConcreteLts->faceInformation);
     real  *averaged_Slip = layerData.var(ConcreteLts->averaged_Slip);
     real  (*dynStress_time)[ init::QInterpolated::Stop[0] ] = layerData.var(ConcreteLts->dynStress_time);
+    real  (*stateVar)[init::QInterpolated::Stop[0]] = layerData.var(ConcreteLts->stateVar);
 
     #ifdef _OPENMP
     #pragma omp parallel for schedule(static)
@@ -143,6 +144,7 @@ public:
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranFL2(ltsFace,  meshFace, averaged_Slip,  dynStress_time);
+      e_interoperability.copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVar);
       //TODO: output StateVar
     }
   }

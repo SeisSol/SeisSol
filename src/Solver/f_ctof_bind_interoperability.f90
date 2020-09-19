@@ -534,11 +534,37 @@ module f_ctof_bind_interoperability
         l_domain%DISC%DynRup%averaged_Slip(i_face)        = l_averaged_Slip
       ENDIF
       l_domain%DISC%DynRup%output_dynStress_time(:,i_face)        = l_dynStress_time(:)  !l_domain%DISC%DynRup%dynStress_time(:,i_face)
-
-
     end subroutine
 
+    !!Code added by ADRIAN
+    subroutine f_interoperability_setFrictionOutputStateVar(i_domain, i_face, i_stateVar)&
+            bind (c, name='f_interoperability_setFrictionOutputStateVar')
 
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      INTEGER     :: i ,j, k
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      integer                                :: nSide , nBndGP
+      integer(kind=c_int), value             :: i_face
+      type(c_ptr), value                     :: i_stateVar
+      REAL_TYPE, pointer                     :: l_stateVar(:)
+
+      !integer :: nSide
+      ! convert c to fortran pointers
+      call c_f_pointer( i_domain,             l_domain)
+      nSide = l_domain%MESH%Fault%nSide
+      nBndGP = l_domain%DISC%Galerkin%nBndGP
+
+      !call c_f_pointer( i_averaged_Slip,   l_averaged_Slip)
+      call c_f_pointer( i_stateVar, l_stateVar, [nBndGP])
+      !copy to output
+
+      l_domain%DISC%DynRup%output_StateVar(:,i_face) = l_stateVar(:)  !l_domain%DISC%DynRup%dynStress_time(:,i_face)
+    end subroutine
 
     subroutine f_interoperability_calcElementwiseFaultoutput(i_domain, time) bind (c, name="f_interoperability_calcElementwiseFaultoutput")
       use iso_c_binding

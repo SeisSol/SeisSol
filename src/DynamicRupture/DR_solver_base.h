@@ -15,7 +15,7 @@ namespace seissol {
     namespace fr_law {
       class BaseFrictionSolver;
       class Solver_FL_33; //ImposedSlipRateOnDRBoundary
-      class SolverTemplate;
+      class SolverBluePrint;
     }
   }
 }
@@ -355,7 +355,7 @@ public:
 };
 
 
-class seissol::dr::fr_law::SolverTemplate : public seissol::dr::fr_law::BaseFrictionSolver {
+class seissol::dr::fr_law::SolverBluePrint : public seissol::dr::fr_law::BaseFrictionSolver {
 protected:
   //Attributes
   real  (*templateAttribute)[numOfPointsPadded];

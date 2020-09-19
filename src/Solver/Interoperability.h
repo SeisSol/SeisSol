@@ -460,6 +460,10 @@ class seissol::Interoperability {
             real  (*dynStress_time)[init::QInterpolated::Stop[0]]
     );
 
+  void copyFrictionOutputToFortranStateVar(unsigned ltsFace, unsigned meshFace,
+                                      real  (*stateVar)[init::QInterpolated::Stop[0]]
+  );
+
 
 
    /**
