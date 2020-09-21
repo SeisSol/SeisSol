@@ -145,7 +145,6 @@ public:
       unsigned meshFace = static_cast<int>(faceInformation[ltsFace].meshFace);
       e_interoperability.copyFrictionOutputToFortranFL2(ltsFace,  meshFace, averaged_Slip,  dynStress_time);
       e_interoperability.copyFrictionOutputToFortranStateVar(ltsFace, meshFace, stateVar);
-      //TODO: output StateVar
     }
   }
 
