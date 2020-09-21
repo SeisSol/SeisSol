@@ -486,43 +486,15 @@ protected:
     }
   }
 
-  virtual void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f){
+  virtual void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f, unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
       P_f[iBndGP] = 0.0;
-      /*
-      if (ThermalPress == 1) {
-        //P_f[iBndGP] = TP[iBndGP][iFace][1];
-      }
-      */
     }
   }
 
-  virtual void hookCalcP_f(){
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-      /*
-      S[iBndGP] = -LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
-
-      for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
-       //!recover original values as it gets overwritten in the ThermalPressure routine
-       //TODO: maybe tmp values can be removed here?
-        Theta_tmp[iTP_grid_nz] = TP_Theta[iBndGP][iFace][iTP_grid_nz];
-        Sigma_tmp[iTP_grid_nz] = TP_sigma[iBndGP][iFace][iTP_grid_nz];
-        //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-
-        Calc_ThermalPressure(temp_0, pressure_0, time_inc, TP_grid_nz, TP_half_width_shear_zone[iBndGP][iFace],
-                             alpha_th, alpha_hy[iBndGP][iFace], rho_c, TP_Lambda, Theta_tmp, Sigma_tmp, S[iBndGP],
-                             LocSR[iBndGP], TP_grid, TP_DFinv, TP[iBndGP][iFace][0], TP[iBndGP][iFace][1]);
-
-        P_f[iBndGP] = TP[iBndGP][iFace][1];
-      }
-      */
-    }
+  virtual void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f, real LocSlipRate[seissol::tensor::resamplePar::size()], FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace){
   }
 
-  virtual void hookSaveFinalThetaAndSigma(unsigned int ltsFace){
-    //TP_Theta[iBndGP][iFace][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
-    //TP_sigma[iBndGP][iFace][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
-  }
 
 
 public:
@@ -621,11 +593,11 @@ public:
 
         }// End of iBndGP-loop
 
-        hookSetInitialP_f(P_f);
+        hookSetInitialP_f(P_f, ltsFace);
 
         for (int j = 0; j < nSVupdates; j++) {
 
-          hookCalcP_f();
+          hookCalcP_f(P_f, LocSlipRate, faultStresses, false, iTimeGP, ltsFace);
 
           //TODO: test for padded:
           for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
@@ -663,12 +635,7 @@ public:
         }
 
         //! 5. get final theta, mu, traction and slip
-        hookCalcP_f();
-
-        hookSaveFinalThetaAndSigma(ltsFace);
-        //+
-        //TP_Theta[iBndGP][iFace][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
-        //TP_sigma[iBndGP][iFace][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
+        hookCalcP_f(P_f, LocSlipRate, faultStresses, true, iTimeGP, ltsFace);
 
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
           //! SV from mean slip rate in tmp
@@ -757,18 +724,21 @@ protected:
   real (*TP_half_width_shear_zone)[numOfPointsPadded];
   real (*alpha_hy)[numOfPointsPadded];
 
-  real alpha_th;
-  real rho_c;
-  real TP_Lambda;
-  real TP_grid[TP_grid_nz];
-  real TP_DFinv[TP_grid_nz];
-  real temp_0;
-  real pressure_0;
+  std::array<real, TP_grid_nz> TP_grid{0};
+  std::array<real, TP_grid_nz> TP_DFinv{0};
 
-  real S[numOfPointsPadded];
+  real Sh[numOfPointsPadded];
   real Theta_tmp[TP_grid_nz];
   real Sigma_tmp[TP_grid_nz];
 
+  //in m_param:
+  /*
+  real alpha_th;  //= m_Params.alpha_th
+  real rho_c; //= m_Params.rho_c
+  real TP_Lambda; //= m_Params.TP_lambda
+  real temp_0;  //= m_Params.IniTemp
+  real pressure_0; //= m_Params.IniPressure
+  */
 
   /*
  * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -781,50 +751,92 @@ protected:
 
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
-
+    TP                        = layerData.var(ConcreteLts->TP); ;
+    TP_Theta                  = layerData.var(ConcreteLts->TP_Theta);
+    TP_sigma                  = layerData.var(ConcreteLts->TP_sigma);
+    TP_half_width_shear_zone  = layerData.var(ConcreteLts->TP_half_width_shear_zone);
+    alpha_hy                  = layerData.var(ConcreteLts->alpha_hy);
   }
 
-  void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f) override{
+  void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f, unsigned int ltsFace) override{
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-        //P_f[iBndGP] = TP[iBndGP][iFace][1];
+        P_f[iBndGP] = TP[iBndGP][ltsFace][1];
     }
   }
 
-  void hookCalcP_f() override {
+  void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f, real LocSlipRate[seissol::tensor::resamplePar::size()], FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace) override {
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-      /*
-      S[iBndGP] = -LocMu[iBndGP] * (P[iBndGP] - P_f[iBndGP]);
+
+      Sh[iBndGP] = -mu[ltsFace][iBndGP] * (faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP]);
 
       for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
        //!recover original values as it gets overwritten in the ThermalPressure routine
        //TODO: maybe tmp values can be removed here?
-        Theta_tmp[iTP_grid_nz] = TP_Theta[iBndGP][iFace][iTP_grid_nz];
-        Sigma_tmp[iTP_grid_nz] = TP_sigma[iBndGP][iFace][iTP_grid_nz];
-        //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
-
-        Calc_ThermalPressure(temp_0, pressure_0, time_inc, TP_grid_nz, TP_half_width_shear_zone[iBndGP][iFace],
-                             alpha_th, alpha_hy[iBndGP][iFace], rho_c, TP_Lambda, Theta_tmp, Sigma_tmp, S[iBndGP],
-                             LocSR[iBndGP], TP_grid, TP_DFinv, TP[iBndGP][iFace][0], TP[iBndGP][iFace][1]);
-
-        P_f[iBndGP] = TP[iBndGP][iFace][1];
+        Theta_tmp[iTP_grid_nz] = TP_Theta[ltsFace][iBndGP][iTP_grid_nz];
+        Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][iBndGP][iTP_grid_nz];
       }
-      */
+      //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
+      Calc_ThermalPressure(LocSlipRate, iBndGP, ltsFace); //TODO: maybe move iBndGP loop inside this function
+
+      P_f[iBndGP] = TP[ltsFace][iBndGP][1];
+      if(saveTmpInTP){
+        for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+          TP_Theta[ltsFace][iBndGP][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
+          TP_sigma[ltsFace][iBndGP][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
+        }
+      }
     }
   }
 
-  void hookSaveFinalThetaAndSigma(unsigned int ltsFace) override{
-    //TODO: works with padded?
-    for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-      for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
-        //TODO:does not work here, bc Theta_tmp only saves 1 BndGP
-        //TP_Theta[ltsFace][iBndGP][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
-        //TP_sigma[ltsFace][iBndGP][iTP_grid_nz] = Sigma_tmp[iTP_grid_nz];
+  void Calc_ThermalPressure(real LocSlipRate[seissol::tensor::resamplePar::size()] , unsigned int iBndGP, unsigned int ltsFace){
+    real tauV, Lambda_prime, tmp, omega, T, p, theta_current, sigma_current;
 
-      }
+    T = 0.0;
+    p = 0.0;
+
+    for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
+      tauV = Sh[iBndGP] * LocSlipRate[iBndGP]; //!fault strenght*slip rate
+      Lambda_prime = m_Params.TP_lambda * m_Params.alpha_th / (alpha_hy[ltsFace][iBndGP] - m_Params.alpha_th);
+      //!Gaussian shear zone in spectral domain, normalized by w
+      tmp = seissol::dr::aux::power(TP_grid[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP], 2);
+      //!1. Calculate diffusion of the field at previous timestep
+
+      //!temperature
+      theta_current = Theta_tmp[iTP_grid_nz] * exp(-m_Params.alpha_th * dt * tmp);
+      //!pore pressure + lambda'*temp
+      sigma_current = Sigma_tmp[iTP_grid_nz] * exp(-alpha_hy[ltsFace][iBndGP] * dt * tmp);
+
+      //!2. Add current contribution and get new temperature
+      omega = heat_source(tmp, m_Params.alpha_th, iTP_grid_nz);
+      Theta_tmp[iTP_grid_nz] = theta_current + (tauV / m_Params.rho_c) * omega;
+      omega = heat_source(tmp, alpha_hy[ltsFace][iBndGP], iTP_grid_nz);
+      Sigma_tmp[iTP_grid_nz] = sigma_current + ((m_Params.TP_lambda + Lambda_prime) * tauV) / (m_Params.rho_c) * omega;
+
+      //!3. Recover temperature and pressure using inverse Fourier
+      //! transformation with the calculated fourier coefficients
+
+      //!new contribution
+      T += (TP_DFinv[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP]) * Theta_tmp[iTP_grid_nz];
+      p += (TP_DFinv[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP]) * Sigma_tmp[iTP_grid_nz];
     }
+    //Update pore pressure change (sigma = pore pressure + lambda'*temp)
+    //In the BIEM code (Lapusta) they use T without initial value
+    p = p - Lambda_prime*T;
 
+    //Temp and pore pressure change at single GP on the fault + initial values
+    TP[iBndGP][ltsFace][0] = T + m_Params.IniTemp;
+    TP[iBndGP][ltsFace][1] = -p + m_Params.IniPressure;
   }
 
+  real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz){
+    //!original function in spatial domain
+    //!omega = 1/(w*sqrt(2*pi))*exp(-0.5*(z/TP_half_width_shear_zone).^2);
+    //!function in the wavenumber domain *including additional factors in front of the heat source function*
+    //!omega = 1/(*alpha*Dwn**2**(sqrt(2.0*pi))*exp(-0.5*(Dwn*TP_half_width_shear_zone)**2)*(1-exp(-alpha**dt**tmp))
+    //!inserting Dwn/TP_half_width_shear_zone (scaled) for Dwn cancels out TP_half_width_shear_zone
+    return 1.0/(alpha*tmp*(sqrt(2.0*M_PI)))*exp(-0.5*seissol::dr::aux::power(TP_grid[iTP_grid_nz], 2))*(1.0 - exp(-alpha*dt*tmp));
+  }
 };
+
 
 #endif //SEISSOL_DR_SOLVER_RATE_AND_STATE_H

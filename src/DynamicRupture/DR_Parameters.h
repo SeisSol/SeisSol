@@ -32,7 +32,11 @@ struct seissol::dr::DrParameterT {
   real rs_b{0.0};
   real rs_sr0{0.0};
   real mu_w{0.0};
-
+  real alpha_th{0.0};
+  real rho_c {0.0};
+  real TP_lambda {0.0};
+  real IniTemp {0.0};
+  real IniPressure {0.0};
 
   void setAllInputParam(const YAML::Node& Params) {
     using namespace initializers;
@@ -55,6 +59,13 @@ struct seissol::dr::DrParameterT {
     rs_b = getParamIfExists(DrParams, "rs_b", 0.0);
     rs_sr0 = getParamIfExists(DrParams, "rs_sr0", 0.0);
     mu_w = getParamIfExists(DrParams, "mu_w", 0.0);
+
+    //if ThermalPress == true
+    alpha_th = getParamIfExists(DrParams, "alpha_th", 0.0);
+    rho_c = getParamIfExists(DrParams, "rho_c", 0.0);
+    TP_lambda = getParamIfExists(DrParams, "tp_lambda", 0.0);
+    IniTemp = getParamIfExists(DrParams, "initemp", 0.0);
+    IniPressure = getParamIfExists(DrParams, "inipressure", 0.0);
   }
 };
 

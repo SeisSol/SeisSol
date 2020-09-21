@@ -1072,8 +1072,7 @@ void seissol::Interoperability::getDynRupNucStress(int ltsFace, unsigned int mes
   f_interoperability_getDynRupNucStress(m_domain, fFace, &tmpNucleationStressInFaultCS[0]);
   for (int i = 0; i < 6; i++) {
     for (int iBndGP = 0; iBndGP < tensor::QInterpolated::Shape[0]; iBndGP++) {
-      nucleationStressInFaultCS[ltsFace][iBndGP][i] = tmpNucleationStressInFaultCS[iBndGP +
-                                                                                   i * tensor::QInterpolated::Shape[0]];
+      nucleationStressInFaultCS[ltsFace][iBndGP][i] = tmpNucleationStressInFaultCS[iBndGP + i * tensor::QInterpolated::Shape[0]];
     }
   }
 }

@@ -291,19 +291,32 @@ public:
 
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
+
+
     for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
 
 
-      real (*TP)[numOfPointsPadded][2]                          = it->var(ConcreteLts->TP); //get from fortran
-      real (*TP_Theta)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_Theta);       //get from faultParameters
-      real (*TP_sigma)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_sigma);         //get from faultParameters
-      real (*TP_half_width_shear_zone)[numOfPointsPadded]       = it->var(ConcreteLts->TP_half_width_shear_zone);       //get from faultParameters
-      real (*alpha_hy)[numOfPointsPadded]                       = it->var(ConcreteLts->alpha_hy);                 //par file
+      real (*TP)[numOfPointsPadded][2]                          = it->var(ConcreteLts->TP);
+      real (*TP_Theta)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_Theta);
+      real (*TP_sigma)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_sigma);
+
+      real (*TP_half_width_shear_zone)[numOfPointsPadded]       = it->var(ConcreteLts->TP_half_width_shear_zone);
+      real (*alpha_hy)[numOfPointsPadded]                       = it->var(ConcreteLts->alpha_hy);
 
 
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
+        for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
+          TP[ltsFace][iBndGP][0] = m_Params.IniTemp;
+          TP[ltsFace][iBndGP][1] = m_Params.IniPressure;
+          TP_half_width_shear_zone[ltsFace][iBndGP] = static_cast<real>( faultParameters["TP_half_width_shear_zone"][meshFace * numberOfPoints] );
+          alpha_hy[ltsFace][iBndGP] = static_cast<real>( faultParameters["alpha_hy"][meshFace * numberOfPoints] );
+          for (unsigned iTP_grid_nz = TP_grid_nz; iTP_grid_nz < TP_grid_nz; ++iTP_grid_nz) {
+            TP_Theta[ltsFace][iBndGP][iTP_grid_nz] = 0.0;
+            TP_sigma[ltsFace][iBndGP][iTP_grid_nz] = 0.0;
+          }
+        }
         //TODO: initialize all TPs
 
       }//lts-face loop
