@@ -209,8 +209,7 @@ public:
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
-        //TODO:write get only for nucleantionStressInFaultCS
-        //e_interoperability.getDynRupFL_103(ltsFace, meshFace, nucleationStressInFaultCS, stateVar);
+        e_interoperability.getDynRupNucStress(ltsFace, meshFace, nucleationStressInFaultCS);
         averaged_Slip[ltsFace]= 0.0;
 
       }//lts-face loop
@@ -247,7 +246,8 @@ public:
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
-        e_interoperability.getDynRupFL_103(ltsFace, meshFace, nucleationStressInFaultCS, stateVar);
+        e_interoperability.getDynRupStateVar(ltsFace, meshFace, stateVar);
+        e_interoperability.getDynRupNucStress(ltsFace, meshFace, nucleationStressInFaultCS);
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;

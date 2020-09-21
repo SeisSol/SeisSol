@@ -410,29 +410,39 @@ class seissol::Interoperability {
     /**
      * get initial values from fortran
      * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
-     * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h for FL = 103
      *
-     * @param nucleationStressInFaultCS gets nucleationStressInFaultCS
+
      * @param stateVar gets EQN%IniStateVar
      *
      **/
-    void getDynRupFL_103(int ltsFace, unsigned meshFace, real (*nucleationStressInFaultCS)[init::QInterpolated::Stop[0]][6], real (*stateVar)[init::QInterpolated::Stop[0]]);
+    void getDynRupStateVar(int ltsFace, unsigned meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]);
+
+
+    /**
+     * get initial values from fortran
+     * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
+     *
+     * @param nucleationStressInFaultCS gets nucleationStressInFaultCS
+     *
+     **/
+    void getDynRupNucStress(int ltsFace, unsigned meshFace, real (*nucleationStressInFaultCS)[init::QInterpolated::Stop[0]][6]);
+
 
 
   /**
-   * get initial values from fortran
-   * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
-   * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h for FL = 2
-   *
-   * @param ltsFace current ltsFace to get Parameters
-   * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters in DRFaceInformation[ltsFace].meshFace
-   * @param i_RS_f0     Reference friction coefficient
-   * @param i_RS_a      RS constitutive parameter "a"
-   * @param i_RS_b      RS constitutive parameter "b"
-   * @param i_RS_sl0    Reference slip
-   * @param i_RS_sr0    Reference slip rate
-   * @param stateVar    State variable used at Rate-and-state friction laws
-   **/
+ * get initial values from fortran
+ * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
+ * used in ltsFace loop to initialize all missing parameters in initializers::DynamicRupture.h for FL = 2
+ *
+ * @param ltsFace current ltsFace to get Parameters
+ * @param meshFace corresponding meshFace (indexing in fortran) to get Parameters in DRFaceInformation[ltsFace].meshFace
+ * @param i_RS_f0     Reference friction coefficient
+ * @param i_RS_a      RS constitutive parameter "a"
+ * @param i_RS_b      RS constitutive parameter "b"
+ * @param i_RS_sl0    Reference slip
+ * @param i_RS_sr0    Reference slip rate
+ * @param stateVar    State variable used at Rate-and-state friction laws
+ **/
     void getDynRupFL_3(int ltsFace,  unsigned meshFace,
                                                 real *i_RS_f0,
                                                 real *i_RS_a,

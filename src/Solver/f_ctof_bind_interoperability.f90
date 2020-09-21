@@ -283,7 +283,28 @@ module f_ctof_bind_interoperability
         l_RF(:)                         = l_domain%DISC%DynRup%RF(:,iFace)
     end subroutine
 
-    subroutine f_interoperability_getDynRupFL_103(i_domain, iFace ,i_nucleationStressInFaultCS, i_stateVar) bind (c, name='f_interoperability_getDynRupFL_103')
+    subroutine f_interoperability_getDynRupStateVar(i_domain, iFace, i_stateVar) bind (c, name='f_interoperability_getDynRupStateVar')
+      use iso_c_binding
+      use typesDef
+      use f_ftoc_bind_interoperability
+      implicit none
+
+      integer                                :: nBndGP, i
+      type(c_ptr), value                     :: i_domain
+      type(tUnstructDomainDescript), pointer :: l_domain
+      integer(kind=c_int), value             :: iFace
+      type(c_ptr), value                     :: i_stateVar
+      REAL_TYPE, pointer                     :: l_stateVar(:)
+
+      call c_f_pointer( i_domain,             l_domain)
+      nBndGP = l_domain%DISC%Galerkin%nBndGP
+
+      call c_f_pointer( i_stateVar, l_stateVar, [nBndGP])
+
+      l_stateVar     = l_domain%EQN%IniStateVar(:,iFace)
+    end subroutine
+
+    subroutine f_interoperability_getDynRupNucStress(i_domain, iFace ,i_nucleationStressInFaultCS) bind (c, name='f_interoperability_getDynRupNucStress')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
@@ -295,22 +316,13 @@ module f_ctof_bind_interoperability
       integer(kind=c_int), value             :: iFace
       type(c_ptr), value                     :: i_nucleationStressInFaultCS
       REAL_TYPE, pointer                     :: l_nucleationStressInFaultCS(:,:)
-      type(c_ptr), value                     :: i_stateVar
-      REAL_TYPE, pointer                     :: l_stateVar(:)
 
       call c_f_pointer( i_domain,             l_domain)
       nBndGP = l_domain%DISC%Galerkin%nBndGP
 
       call c_f_pointer( i_nucleationStressInFaultCS, l_nucleationStressInFaultCS, [nBndGP,6])
-      call c_f_pointer( i_stateVar, l_stateVar, [nBndGP])
 
-      !do i = 1, nBndGP
-      !  write(*,*) 'IniStateVar = ', l_domain%EQN%IniStateVar(:,5)
-      !end do
-
-      l_stateVar     = l_domain%EQN%IniStateVar(:,iFace)
       l_nucleationStressInFaultCS(:,:)   = l_domain%EQN%NucleationStressInFaultCS(:,:,iFace)
-
     end subroutine
 
     subroutine f_interoperability_getDynRupFL_3(i_domain, iFace ,i_RS_f0, i_RS_a,i_RS_b, i_RS_sl0, i_RS_sr0, i_stateVar) bind (c, name='f_interoperability_getDynRupFL_3')
