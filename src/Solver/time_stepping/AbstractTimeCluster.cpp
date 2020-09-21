@@ -30,6 +30,7 @@ bool AbstractTimeCluster::act() {
     } else if (mayPredict()) {
       predict();
       ct.predictionsSinceLastSync += ct.timeStepRate;
+      ct.predictionsSinceStart += ct.timeStepRate;
       ct.predictionTime += timeStepSize();
 
       for (auto &neighbor : neighbors) {
@@ -59,6 +60,7 @@ bool AbstractTimeCluster::act() {
       ct.correctionTime += timeStepSize();
       ++numberOfTimeSteps;
       ct.stepsSinceLastSync += ct.timeStepRate;
+      ct.stepsSinceStart += ct.timeStepRate;
       for (auto &neighbor : neighbors) {
           const bool sendMessageTime = ct.correctionTime >= neighbor.ct.predictionTime - timeTolerance;
           const bool justBeforeSync = ct.stepsUntilSync <= ct.predictionsSinceLastSync;
@@ -212,6 +214,7 @@ void AbstractTimeCluster::reset() {
   ct.stepsSinceLastSync = 0;
   ct.predictionsSinceLastSync = 0;
   ct.stepsUntilSync = ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);
+  /*
   logInfo(MPI::mpi.rank()) << "Cluster with rate "
   << ct.timeStepRate
   << " has stepsUntilSync = "
@@ -220,13 +223,16 @@ void AbstractTimeCluster::reset() {
   logInfo(MPI::mpi.rank())
   << "Our correction time = "
   << ct.correctionTime;
+   */
   for (auto& neighbor : neighbors) {
     neighbor.ct.stepsUntilSync = neighbor.ct.computeStepsUntilSyncTime(ct.correctionTime, syncTime);
     neighbor.ct.stepsSinceLastSync = 0;
     neighbor.ct.predictionsSinceLastSync = 0;
+    /*
     logInfo(MPI::mpi.rank())
     << "\tneighbor correction time = "
     << neighbor.ct.correctionTime;
+     */
   }
 
 }

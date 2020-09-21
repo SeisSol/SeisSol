@@ -109,6 +109,8 @@ class seissol::time_stepping::TimeCluster : public seissol::time_stepping::Abstr
 private:
     double lastSubTime;
 
+    const LayerType layerType;
+
     void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
     void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
     void start() override {}
@@ -268,6 +270,7 @@ public:
      **/
     TimeCluster(unsigned int i_clusterId,
                 unsigned int i_globalClusterId,
+                LayerType layerType,
                 double maxTimeStepSize,
                 long timeStepRate,
                 double timeTolerance,
@@ -284,7 +287,6 @@ public:
      * TODO: Currently prints only statistics in debug mode.
      **/
     ~TimeCluster() override;
-
 
     /**
      * Adds a source to the cluster.
@@ -323,6 +325,7 @@ public:
     const unsigned int m_globalClusterId;
 
     void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
+    void reset() override;
 };
 
 #endif

@@ -90,7 +90,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
                                      );
 
     const unsigned int l_globalClusterId = m_timeStepping.clusterIds[localClusterId];
-    // chop of at synchronization time
+    // chop off at synchronization time
     const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
     const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
          static_cast<long>(l_globalClusterId));
@@ -102,6 +102,7 @@ void seissol::time_stepping::TimeManager::addClusters(struct TimeStepping& i_tim
       clusters.push_back(new TimeCluster(
           localClusterId,
           m_timeStepping.clusterIds[localClusterId],
+          type,
           timeStepSize,
           timeStepRate,
           getTimeTolerance(),
@@ -242,17 +243,17 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources )
 {
-  for (unsigned cluster = 0; cluster < clusters.size(); ++cluster) {
-    clusters[cluster]->setPointSources(cms[cluster].cellToSources,
-                                       cms[cluster].numberOfMappings,
-                                       &pointSources[cluster] );
+  for (auto* cluster : clusters) {
+    cluster->setPointSources(cms[cluster->m_clusterId].cellToSources,
+                             cms[cluster->m_clusterId].numberOfMappings,
+                             &pointSources[cluster->m_clusterId]);
   }
 }
 
 void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
 {
-  for (unsigned cluster = 0; cluster < clusters.size(); ++cluster) {
-    clusters[cluster]->setReceiverCluster(receiverWriter.receiverCluster(cluster));
+  for (auto* cluster : clusters) {
+    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->m_clusterId));
   }
 }
 

@@ -178,9 +178,9 @@ void seissol::sourceterm::Manager::mapPointSourcesToClusters( unsigned const*   
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
     // Determine number of mappings by counting unique mesh Ids
     std::sort(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
-    std::vector<unsigned>::iterator last = std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
+    auto last = std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
     unsigned numberOfMappings = 0;
-    for (std::vector<unsigned>::iterator it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
+    for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
       unsigned meshId = *it;
       for (unsigned dup = 0; dup < seissol::initializers::Lut::MaxDuplicates && ltsLut->ltsId(lts->dofs.mask, meshId, dup) != std::numeric_limits<unsigned>::max(); ++dup) {
         ++numberOfMappings;
@@ -298,6 +298,7 @@ void seissol::sourceterm::Manager::loadSourcesFromFSRM( double const*           
       logError() << "posix_memalign failed in source term manager.";
     }
     sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
+    sources[cluster].lastPredictionSteps.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];
@@ -399,6 +400,7 @@ void seissol::sourceterm::Manager::loadSourcesFromNRF(  char const*             
     sources[cluster].A.resize(cmps[cluster].numberOfSources);
     sources[cluster].stiffnessTensor.resize(cmps[cluster].numberOfSources);
     sources[cluster].slipRates.resize(cmps[cluster].numberOfSources);
+    sources[cluster].lastPredictionSteps.resize(cmps[cluster].numberOfSources);
 
     for (unsigned clusterSource = 0; clusterSource < cmps[cluster].numberOfSources; ++clusterSource) {
       unsigned sourceIndex = cmps[cluster].sources[clusterSource];

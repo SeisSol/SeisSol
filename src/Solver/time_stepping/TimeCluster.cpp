@@ -97,6 +97,7 @@ extern seissol::Interoperability e_interoperability;
 
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
                                                  unsigned int i_globalClusterId,
+                                                 LayerType layerType,
                                                  double maxTimeStepSize,
                                                  long timeStepRate,
                                                  double timeTolerance,
@@ -111,6 +112,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId,
     // cluster ids
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
+    layerType(layerType),
     // global data
     m_globalData(i_globalData),
     m_clusterData(i_clusterData),
@@ -166,10 +168,13 @@ void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPoi
 }
 
 void seissol::time_stepping::TimeCluster::writeReceivers() {
-  SCOREP_USER_REGION( "writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION )
+  SCOREP_USER_REGION("writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  if (m_receiverCluster != nullptr) {
+  if (m_receiverCluster != nullptr
+    // Ensure that we do not compute the receivers twice
+    && m_receiverCluster->lastPredictionSteps < ct.predictionsSinceStart) {
     m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize());
+    m_receiverCluster->lastPredictionSteps = ct.predictionsSinceStart;
   }
 }
 
@@ -185,26 +190,28 @@ void seissol::time_stepping::TimeCluster::computeSources() {
     for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
       unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
       unsigned endSource = m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
-      if (m_pointSources->mode == sourceterm::PointSources::NRF) {
-        for (unsigned source = startSource; source < endSource; ++source) {
-          sourceterm::addTimeIntegratedPointSourceNRF( m_pointSources->mInvJInvPhisAtSources[source],
-                                                       m_pointSources->tensor[source],
-                                                       m_pointSources->A[source],
-                                                       m_pointSources->stiffnessTensor[source],
-                                                       m_pointSources->slipRates[source],
-                                                       ct.correctionTime,
-                                                       ct.correctionTime + timeStepSize(),
-                                                       *m_cellToPointSources[mapping].dofs );
-        }
-      } else {
-        for (unsigned source = startSource; source < endSource; ++source) {
-          sourceterm::addTimeIntegratedPointSourceFSRM( m_pointSources->mInvJInvPhisAtSources[source],
-                                                        m_pointSources->tensor[source],
-                                                        m_pointSources->slipRates[source][0],
-                                                        ct.correctionTime,
-                                                        ct.correctionTime + timeStepSize(),
-                                                        *m_cellToPointSources[mapping].dofs );
-        }
+      for (unsigned source = startSource; source < endSource; ++source) {
+          // Ensure that we do not compute sources twice
+          if (m_pointSources->lastPredictionSteps[source] < ct.predictionsSinceStart) {
+            m_pointSources->lastPredictionSteps[source] = ct.predictionsSinceStart;
+            if (m_pointSources->mode == sourceterm::PointSources::NRF) {
+              sourceterm::addTimeIntegratedPointSourceNRF(m_pointSources->mInvJInvPhisAtSources[source],
+                                                          m_pointSources->tensor[source],
+                                                          m_pointSources->A[source],
+                                                          m_pointSources->stiffnessTensor[source],
+                                                          m_pointSources->slipRates[source],
+                                                          ct.correctionTime,
+                                                          ct.correctionTime + timeStepSize(),
+                                                          *m_cellToPointSources[mapping].dofs);
+            } else {
+              sourceterm::addTimeIntegratedPointSourceFSRM(m_pointSources->mInvJInvPhisAtSources[source],
+                                                           m_pointSources->tensor[source],
+                                                           m_pointSources->slipRates[source][0],
+                                                           ct.correctionTime,
+                                                           ct.correctionTime + timeStepSize(),
+                                                           *m_cellToPointSources[mapping].dofs);
+            }
+          }
       }
     }
   }
@@ -551,9 +558,12 @@ void TimeCluster::predict() {
     assert(resetBuffers);
   }
 
-  writeReceivers(); // TODO(Lukas) Check if receivers are correct
+  // These methods compute the receivers/sources for both interior and copy cluster
+  // and are called in actors for both copy AND interior.
+  // TODO(Lukas) Make threadsafe later! (Concurrent copy/interior is unsafe due to shared state)
+  writeReceivers();
   computeLocalIntegration(*m_clusterData, resetBuffers);
-  computeSources(); // TODO(Lukas) Check if sources are correct
+  computeSources();
 
   g_SeisSolNonZeroFlopsLocal += m_flops_nonZero[static_cast<int>(ComputePart::Local)];
   g_SeisSolHardwareFlopsLocal += m_flops_hardware[static_cast<int>(ComputePart::Local)];
@@ -580,6 +590,7 @@ void TimeCluster::correct() {
   // First cluster calls fault receiver output
   // TODO: Change from iteration based to time based
   // TODO(Lukas): Watch out that we use correct timestepSize here
+  // TODO(Lukas) Are we onlyx calling this once?!
   if (m_clusterId == 0) {
     e_interoperability.faultOutput(ct.correctionTime + timeStepSize(), timeStepSize());
   }
@@ -595,6 +606,22 @@ void TimeCluster::correct() {
       }
   }
 
+}
+
+void TimeCluster::reset() {
+    AbstractTimeCluster::reset();
+    /*
+    // TODO(Lukas) Do we need to do this in this way?
+    for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
+        unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
+        unsigned endSource =
+                m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
+        for (unsigned source = startSource; source < endSource; ++source) {
+            logInfo(MPI::mpi.rank()) << "Resetting " << source;
+            m_pointSources->lastPredictionSteps[source] = -1;
+        }
+    }
+     */
 }
 
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
@@ -622,4 +649,5 @@ void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) 
   }
 
 }
+
 }
