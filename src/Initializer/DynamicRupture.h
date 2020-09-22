@@ -227,16 +227,11 @@ struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::
 struct seissol::initializers::DR_FL_6 : public seissol::initializers::DR_FL_2 {
 
   Variable<real[numOfPointsPadded]>                               strengthData;
-  Variable<real[numOfPointsPadded]>                               alpha_hy;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::DynamicRupture::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(      TP,                         mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      TP_Theta,                   mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      TP_sigma,                   mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      TP_half_width_shear_zone,   mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      alpha_hy,                   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      strengthData,                   mask,                 1,      seissol::memory::Standard );
   }
 };
 
