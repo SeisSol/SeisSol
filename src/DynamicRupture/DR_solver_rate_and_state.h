@@ -864,16 +864,6 @@ protected:
      */
   }
 
-  void calcSlipRate(
-      FaultStresses faultStresses,
-      real LocSlipRate[seissol::tensor::resamplePar::size()],
-      unsigned int iTimeGP,
-      unsigned int face
-  ) {
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      LocSlipRate[iBndGP] = 0;
-    }
-  }
 
 
 public:

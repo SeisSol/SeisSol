@@ -474,6 +474,9 @@ class seissol::Interoperability {
                                       real  (*stateVar)[init::QInterpolated::Stop[0]]
   );
 
+  void copyFrictionOutputToFortranStrength(unsigned ltsFace, unsigned meshFace,
+                                           real  (*strength)[init::QInterpolated::Stop[0]]
+  );
 
 
    /**

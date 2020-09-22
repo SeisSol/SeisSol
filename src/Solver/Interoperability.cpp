@@ -314,6 +314,9 @@ extern "C" {
 
   extern void f_interoperability_setFrictionOutputStateVar( void*  i_domain, int i_face, real* stateVar);
 
+  extern void f_interoperability_setFrictionOutputStrength( void*  i_domain, int i_face, real* strength);
+
+
   extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
 	                                                     double time );
 
@@ -1128,6 +1131,12 @@ void seissol::Interoperability::copyFrictionOutputToFortranStateVar(unsigned int
 ){
   int fFace = meshFace + 1;
   f_interoperability_setFrictionOutputStateVar(m_domain, fFace,&stateVar[ltsFace][0]);
+}
+
+void seissol::Interoperability::copyFrictionOutputToFortranStrength(unsigned int ltsFace, unsigned int meshFace, real (*strength)[init::QInterpolated::Stop[0]]
+){
+  int fFace = meshFace + 1;
+  f_interoperability_setFrictionOutputStrength(m_domain, fFace,&strength[ltsFace][0]);
 }
 
 

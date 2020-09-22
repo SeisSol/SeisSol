@@ -17,6 +17,7 @@ namespace seissol {
       struct BaseDrInitializer;
       struct Init_FL_2;
       struct Init_FL_3; //aging law
+      struct Init_FL_6;
       struct Init_FL_33;
       struct Init_FL_103;
       struct Init_FL_103_Thermal;
@@ -325,5 +326,36 @@ public:
 
   }
 };
+
+
+class seissol::initializers::Init_FL_6 : public seissol::initializers::Init_FL_2 {
+public:
+  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
+                                          initializers::LTSTree* dynRupTree,
+                                          std::unordered_map<std::string,
+                                              double*> faultParameters,
+                                          unsigned* ltsFaceToMeshFace,
+                                          seissol::Interoperability &e_interoperability) override {
+    Init_FL_2::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
+    seissol::initializers::DR_FL_6 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_6 *>(dynRup);
+
+    unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
+
+    for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+      real (*strengthData)[numOfPointsPadded]            = it->var(ConcreteLts->strengthData);
+      real (*mu)[numOfPointsPadded]            = it->var(ConcreteLts->mu);
+      real  (*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(dynRup->initialStressInFaultCS);
+
+      for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+        for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {
+          strengthData[ltsFace][iBndGP] =  mu[ltsFace][iBndGP] * initialStressInFaultCS[ltsFace][iBndGP][0];
+        }
+      }//lts-face loop
+      layerLtsFaceToMeshFace += it->getNumberOfCells();
+    }//leaf_iterator loop
+  }
+};
+
 
 #endif //SEISSOL_DR_INITIALIZER_BASE_H
