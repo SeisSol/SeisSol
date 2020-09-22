@@ -70,7 +70,7 @@ protected:
    *
    */
   void calcSlipRateAndTraction(
-      FaultStresses faultStresses,
+      FaultStresses &faultStresses,
       real LocSlipRate[seissol::tensor::resamplePar::size()],
       real DeltaT,
       unsigned int iTimeGP,

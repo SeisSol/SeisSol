@@ -376,7 +376,7 @@ protected:
   }
 
   void calcSlipRate(
-      FaultStresses faultStresses,
+      FaultStresses &faultStresses,
       real LocSlipRate[seissol::tensor::resamplePar::size()],
       unsigned int iTimeGP,
       unsigned int face
