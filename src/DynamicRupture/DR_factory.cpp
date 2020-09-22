@@ -10,21 +10,21 @@ namespace seissol {
     namespace factory {
       AbstractFactory* getFactory(dr::DrParameterT DynRupParameter) {
         switch (DynRupParameter.FrictionLawType) {
-            case Linear_slip_weakening: return new Factory_FL_2;
-            case Linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
-
-            //TODO: use enum:
-            case 3: return new Factory_FL_3;
-            case 4: return new Factory_FL_4;
-            case 7: return new Factory_FL_7;
-            case 33: return new Factory_FL_33;
-            case 103:
-              if(DynRupParameter.IsTermalPressureOn == false) //TODO: do it right
-                return new Factory_FL_103;
-              else
-                return new Factory_FL_103_Thermal;
-            default:
-                throw std::runtime_error("unknown friction law");
+          case Linear_slip_weakening: return new Factory_FL_2;
+          case Linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
+          //TODO: use enum:
+          case 3: return new Factory_FL_3;
+          case 4: return new Factory_FL_4;
+          case 6: return new Factory_FL_6;
+          case 7: return new Factory_FL_7;
+          case 33: return new Factory_FL_33;
+          case 103:
+            if(DynRupParameter.IsTermalPressureOn == false)
+              return new Factory_FL_103;
+            else
+              return new Factory_FL_103_Thermal;
+          default:
+              throw std::runtime_error("unknown friction law");
         }
       }
     }
