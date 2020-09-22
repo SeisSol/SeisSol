@@ -11,6 +11,7 @@ namespace seissol {
     namespace dr {
         namespace output {
             class Output_Base;
+            class Output_FL_0;
             class Output_FL_2;
             class Output_FL_3;
             class Output_FL_6;
@@ -59,6 +60,17 @@ public:
 
 protected:
   YAML::Node m_InputParam;
+};
+
+class seissol::dr::output::Output_FL_0 : public seissol::dr::output::Output_Base {
+  virtual void tiePointers(seissol::initializers::Layer&  layerData,
+                           seissol::initializers::DynamicRupture *dynRup,
+                           seissol::Interoperability &e_interoperability) override {
+    //do nothing
+  }
+  virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
+    //do nothing
+  }
 };
 
 class seissol::dr::output::Output_FL_2 : public seissol::dr::output::Output_Base {

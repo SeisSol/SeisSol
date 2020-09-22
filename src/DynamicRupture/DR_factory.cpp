@@ -10,6 +10,7 @@ namespace seissol {
     namespace factory {
       AbstractFactory* getFactory(dr::DrParameterT DynRupParameter) {
         switch (DynRupParameter.FrictionLawType) {
+          case no_fault: return new Factory_FL_0;
           case Linear_slip_weakening: return new Factory_FL_2;
           case Linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
           //TODO: use enum:

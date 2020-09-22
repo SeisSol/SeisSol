@@ -15,6 +15,7 @@
 namespace seissol {
     namespace initializers {
       struct BaseDrInitializer;
+      struct Init_FL_0;
       struct Init_FL_2;
       struct Init_FL_3; //aging law
       struct Init_FL_6;
@@ -99,6 +100,19 @@ public:
   }
 
 };
+
+class seissol::initializers::Init_FL_0: public seissol::initializers::BaseDrInitializer {
+public:
+  virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
+                                          initializers::LTSTree* dynRupTree,
+                                          std::unordered_map<std::string,
+                                              double*> faultParameters,
+                                          unsigned* ltsFaceToMeshFace,
+                                          seissol::Interoperability &e_interoperability) override {
+    //Dont initialize anything Nothing
+  }
+};
+
 
 class seissol::initializers::Init_FL_2 : public seissol::initializers::BaseDrInitializer {
 public:

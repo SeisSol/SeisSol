@@ -14,6 +14,7 @@ namespace seissol {
   namespace dr {
     namespace fr_law {
       class BaseFrictionSolver;
+      class SolverNoFaultFL0;
       class Solver_FL_33; //ImposedSlipRateOnDRBoundary
       class SolverBluePrint;
     }
@@ -258,6 +259,40 @@ public:
                          real fullUpdateTime,
                          real timeWeights[CONVERGENCE_ORDER],
                          real DeltaT[CONVERGENCE_ORDER]) = 0;
+};
+
+
+class seissol::dr::fr_law::SolverNoFaultFL0 : public seissol::dr::fr_law::BaseFrictionSolver {
+
+public:
+  virtual void evaluate(seissol::initializers::Layer&  layerData,
+                        seissol::initializers::DynamicRupture *dynRup,
+                        real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                        real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                        real fullUpdateTime,
+                        real timeWeights[CONVERGENCE_ORDER],
+                        real DeltaT[CONVERGENCE_ORDER]) override {
+    copyLtsTreeToLocal(layerData, dynRup);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+      //initialize struct for in/outputs stresses
+      FaultStresses faultStresses{};
+
+      //compute stresses from Qinterpolated
+      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+
+      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
+        for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
+          faultStresses.TractionGP_XY[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP];
+          faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP];
+        }
+      }
+      //save stresses in imposedState
+      postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], faultStresses, timeWeights, ltsFace);
+    }//End of Loop over Faces
+  }//End of Function evaluate
 };
 
 
