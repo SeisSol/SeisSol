@@ -17,6 +17,7 @@ namespace seissol {
     namespace fr_law {
       class LinearSlipWeakeningSolverFL2;  //linear slip weakening
       class Solver_FL_16; //Linear slip weakening forced time rapture
+      class LinearSlipWeakSolverBimaterialFL6;
     }
   }
 }
@@ -270,6 +271,83 @@ public:
   }
 };
 
+
+class seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6 : public seissol::dr::fr_law::BaseFrictionSolver {
+protected:
+  //Attributes
+  real  (*templateAttribute)[numOfPointsPadded];
+
+  /*
+ * copies all parameters from the DynamicRupture LTS to the local attributes
+ */
+  void copyLtsTreeToLocal(seissol::initializers::Layer&  layerData,
+                          seissol::initializers::DynamicRupture *dynRup) override {
+    //first copy all Variables from the Base Lts dynRup tree
+    LinearSlipWeakSolverBimaterialFL6::BaseFrictionSolver::copyLtsTreeToLocal(layerData, dynRup);
+    //TODO: change later to const_cast
+    //seissol::initializers::DR_lts_template *ConcreteLts = dynamic_cast<seissol::initializers::DR_lts_template *>(dynRup);
+
+    /*
+     * Add new LTS parameter specific for this
+     */
+  }
+
+  void calcSlipRate(
+      FaultStresses faultStresses,
+      real LocSlipRate[seissol::tensor::resamplePar::size()],
+      unsigned int iTimeGP,
+      unsigned int face
+  ) {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      LocSlipRate[iBndGP] = 0;
+    }
+  }
+
+
+public:
+  virtual void evaluate(seissol::initializers::Layer&  layerData,
+                        seissol::initializers::DynamicRupture *dynRup,
+                        real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                        real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+                        real fullUpdateTime,
+                        real timeWeights[CONVERGENCE_ORDER],
+                        real DeltaT[CONVERGENCE_ORDER]) override {
+    copyLtsTreeToLocal(layerData, dynRup);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+      //initialize struct for in/outputs stresses
+      FaultStresses faultStresses{};
+
+      //declare local variables
+      real LocSlipRate[seissol::tensor::resamplePar::size()];
+
+      //compute stresses from Qinterpolated
+      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+
+
+      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
+        /*
+         * add friction law calculation here:
+         */
+        calcSlipRate(faultStresses, LocSlipRate, iTimeGP , ltsFace);
+      }
+      // output rupture front
+      // outside of iTimeGP loop in order to safe an 'if' in a loop
+      // this way, no subtimestep resolution possible
+      outputRuptureFront(LocSlipRate, fullUpdateTime, ltsFace);
+
+      //output peak slip rate
+      calcPeakSlipRate(LocSlipRate, ltsFace);
+
+      //save stresses in imposedState
+      postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], faultStresses, timeWeights, ltsFace);
+
+    }//End of Loop over Faces
+
+  }//End of Function evaluate
+};
 
 
 #endif //SEISSOL_DR_SOLVER_LINEAR_H

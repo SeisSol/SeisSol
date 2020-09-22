@@ -37,6 +37,9 @@ struct seissol::dr::DrParameterT {
   real TP_lambda {0.0};
   real IniTemp {0.0};
   real IniPressure {0.0};
+  real v_star{0.0};        // Prakash-Clifton regularization parameter
+  real prakash_length{0.0};
+
 
   void setAllInputParam(const YAML::Node& Params) {
     using namespace initializers;
@@ -66,6 +69,10 @@ struct seissol::dr::DrParameterT {
     TP_lambda = getParamIfExists(DrParams, "tp_lambda", 0.0);
     IniTemp = getParamIfExists(DrParams, "initemp", 0.0);
     IniPressure = getParamIfExists(DrParams, "inipressure", 0.0);
+
+    // Prakash-Clifton regularization parameter
+    v_star = getParamIfExists(DrParams, "v_star", 0.0);
+    prakash_length = getParamIfExists(DrParams, "L", 0.0);
   }
 };
 

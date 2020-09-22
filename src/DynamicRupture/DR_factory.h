@@ -23,6 +23,7 @@ namespace seissol {
       struct Factory_FL_2;
       struct Factory_FL_3; //aging law
       struct Factory_FL_4; //slip law
+      struct Factory_FL_7;
       struct Factory_FL_16;
       struct Factory_FL_33;
       struct Factory_FL_103;
@@ -61,6 +62,15 @@ class seissol::dr::factory::Factory_FL_4 : public seissol::dr::factory::Abstract
     return std::make_tuple(new seissol::initializers::DR_FL_3,
                            new seissol::initializers::Init_FL_3,
                            new seissol::dr::fr_law::Solver_FL_4,
+                           new seissol::dr::output::Output_FL_3);
+  }
+};
+
+class seissol::dr::factory::Factory_FL_7 : public seissol::dr::factory::AbstractFactory {
+  virtual products produce() override {
+    return std::make_tuple(new seissol::initializers::DR_FL_3,
+                           new seissol::initializers::Init_FL_3,
+                           new seissol::dr::fr_law::SolverRateAndStateVwFL7,
                            new seissol::dr::output::Output_FL_3);
   }
 };

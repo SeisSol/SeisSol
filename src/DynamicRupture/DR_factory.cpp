@@ -16,6 +16,7 @@ namespace seissol {
             //TODO: use enum:
             case 3: return new Factory_FL_3;
             case 4: return new Factory_FL_4;
+            case 7: return new Factory_FL_7;
             case 33: return new Factory_FL_33;
             case 103:
               if(DynRupParameter.IsTermalPressureOn == false) //TODO: do it right
