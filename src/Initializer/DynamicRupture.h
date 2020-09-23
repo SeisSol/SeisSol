@@ -56,7 +56,7 @@ namespace seissol {
   }
 }
 
-//TODO: remove space independent parameters: inst_healing, t_0, rs_f0, rs_b, rs_sr0, mu_w
+//TODO: remove space independent parameters:  rs_f0, rs_b, rs_sr0
 
 
 
@@ -213,7 +213,7 @@ struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::
   Variable<real[numOfPointsPadded]>                               alpha_hy;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DynamicRupture::addTo(tree);
+    seissol::initializers::DR_FL_103::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      TP,                         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      TP_Theta,                   mask,                 1,      seissol::memory::Standard );
@@ -229,7 +229,7 @@ struct seissol::initializers::DR_FL_6 : public seissol::initializers::DR_FL_2 {
   Variable<real[numOfPointsPadded]>                               strengthData;
 
   virtual void addTo(initializers::LTSTree& tree) {
-    seissol::initializers::DynamicRupture::addTo(tree);
+    seissol::initializers::DR_FL_2::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
     tree.addVar(      strengthData,                   mask,                 1,      seissol::memory::Standard );
   }

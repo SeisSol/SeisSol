@@ -356,8 +356,8 @@ public:
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
     for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
-      real (*strengthData)[numOfPointsPadded]            = it->var(ConcreteLts->strengthData);
-      real (*mu)[numOfPointsPadded]            = it->var(ConcreteLts->mu);
+      real (*strengthData)[numOfPointsPadded]               = it->var(ConcreteLts->strengthData);
+      real (*mu)[numOfPointsPadded]                         = it->var(ConcreteLts->mu);
       real  (*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(dynRup->initialStressInFaultCS);
 
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
