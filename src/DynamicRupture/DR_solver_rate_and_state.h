@@ -379,8 +379,8 @@ protected:
     //TODO: padded?
     for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
       //TODO: change boundaries?
-      double a = LocSR[iBndGP] -impAndEta[ltsFace].eta_s;
-      double b  = LocSR[iBndGP] + impAndEta[ltsFace].eta_s;
+      double a = LocSR[iBndGP] - impAndEta[ltsFace].inv_eta_s*sh_stress[iBndGP];
+      double b  = LocSR[iBndGP] + impAndEta[ltsFace].inv_eta_s*sh_stress[iBndGP];
 
       double eps = std::numeric_limits<double>::epsilon();
       double Fa = F(a, iBndGP);
@@ -610,7 +610,7 @@ public:
 
           //2. solve for Vnew , applying the Newton-Raphson algorithm
           //effective normal stress including initial stresses and pore fluid pressure
-          has_converged = IterativelyInvertSR(ltsFace, nSRupdates, LocSlipRate, LocSV, normalStress, TotalShearStressYZ, SRtest);
+          has_converged = IterativelyInvertSR_Brent(ltsFace, nSRupdates, LocSlipRate, LocSV, normalStress, TotalShearStressYZ, SRtest);
 
           //TODO: test padded
           for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
