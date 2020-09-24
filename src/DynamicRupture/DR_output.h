@@ -126,8 +126,6 @@ public:
             seissol::initializers::DynamicRupture *dynRup,
             seissol::Interoperability &e_interoperability) override {
         Output_Base::tiePointers(layerData, dynRup, e_interoperability);
-        seissol::initializers::DR_FL_33 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_33 *>(dynRup);
-        std::cout << "tie ptr for Init_FL_33\n";
     }
 
     virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
