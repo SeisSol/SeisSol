@@ -60,8 +60,7 @@ The point source needs to be turned on in *parameter.par* file.
   FileName=’LOH1_source.dat’
   /
 
-The source input file can be found at . Duration of the source is 4
-seconds.
+The source input file can be found at https://github.com/daisy20170101/SeisSol_Cookbook. Duration for all receivers is 0-9 seconds.
 
 Results
 ~~~~~~~
