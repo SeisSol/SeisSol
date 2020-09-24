@@ -82,7 +82,6 @@ public:
           if(faultParameters["cohesion"] != NULL ){
             cohesion[ltsFace][iBndGP] = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
           }else{
-            //TODO: maybe not log it = too much spam?
             //std::cout << "DR_initializer_base: cohesion set to 0, not found from faultParameters";
             cohesion[ltsFace][iBndGP] = 0;
           }
@@ -109,7 +108,7 @@ public:
                                               double*> faultParameters,
                                           unsigned* ltsFaceToMeshFace,
                                           seissol::Interoperability &e_interoperability) override {
-    //Dont initialize anything Nothing
+    BaseDrInitializer::initializeFrictionMatrices(dynRup, dynRupTree, faultParameters, ltsFaceToMeshFace, e_interoperability);
   }
 };
 

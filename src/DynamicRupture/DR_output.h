@@ -66,7 +66,7 @@ class seissol::dr::output::Output_FL_0 : public seissol::dr::output::Output_Base
   virtual void tiePointers(seissol::initializers::Layer&  layerData,
                            seissol::initializers::DynamicRupture *dynRup,
                            seissol::Interoperability &e_interoperability) override {
-    //do nothing
+    Output_Base::tiePointers(layerData, dynRup, e_interoperability);
   }
   virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) override {
     //do nothing
