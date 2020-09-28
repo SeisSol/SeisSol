@@ -52,6 +52,12 @@ public:
     unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
     for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
+      real  (*iniBulkXX)[numOfPointsPadded]                = it->var(dynRup->iniBulkXX);                //get from faultParameters
+      real  (*iniBulkYY)[numOfPointsPadded]                = it->var(dynRup->iniBulkYY);                //get from faultParameters
+      real  (*iniBulkZZ)[numOfPointsPadded]                = it->var(dynRup->iniBulkZZ);                //get from faultParameters
+      real  (*iniShearXY)[numOfPointsPadded]                = it->var(dynRup->iniShearXY);                //get from faultParameters
+      real  (*iniShearXZ)[numOfPointsPadded]                = it->var(dynRup->iniShearXZ);                //get from faultParameters
+      real  (*iniShearYZ)[numOfPointsPadded]                = it->var(dynRup->iniShearYZ);                //get from faultParameters
       real  (*initialStressInFaultCS)[numOfPointsPadded][6] = it->var(dynRup->initialStressInFaultCS);  //get from fortran  EQN%InitialStressInFaultCS
       real  (*cohesion)[numOfPointsPadded]                  = it->var(dynRup->cohesion);                //get from faultParameters
       real  (*mu)[ numOfPointsPadded ]            = it->var(dynRup->mu);                                //get from fortran  EQN%IniMu(:,:)
@@ -66,6 +72,8 @@ public:
       real  (*tracXY)[ numOfPointsPadded ]        = it->var(dynRup->tracXY);                            // = 0
       real  (*tracXZ)[ numOfPointsPadded ]        = it->var(dynRup->tracXZ);                            // = 0
 
+      dynRup->IsFaultParameterizedByTraction = false;
+
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
         for (unsigned iBndGP = 0; iBndGP < init::QInterpolated::Stop[0]; ++iBndGP) {    //loop includes padded elements
@@ -79,11 +87,48 @@ public:
         }
         //get initial values from fortran
         for (unsigned iBndGP = 0; iBndGP < numberOfPoints; ++iBndGP) {
+          if(faultParameters["T_n"] != NULL ){
+            iniBulkXX[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_n"][meshFace * numberOfPoints] );
+            dynRup->IsFaultParameterizedByTraction = true;
+          }
+          else if(faultParameters["s_xx"] != NULL )
+            iniBulkXX[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xx"][meshFace * numberOfPoints] );
+          else
+            iniBulkXX[ltsFace][iBndGP] = 0.0;
+
+          if(faultParameters["s_yy"] != NULL )
+            iniBulkYY[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_yy"][meshFace * numberOfPoints] );
+          else
+            iniBulkYY[ltsFace][iBndGP] = 0.0;
+
+          if(faultParameters["s_zz"] != NULL )
+            iniBulkZZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_zz"][meshFace * numberOfPoints] );
+          else
+            iniBulkZZ[ltsFace][iBndGP] = 0.0;
+
+          if(faultParameters["T_s"] != NULL )
+            iniShearXY[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_s"][meshFace * numberOfPoints] );
+          else if(faultParameters["s_xy"] != NULL )
+            iniShearXY[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xy"][meshFace * numberOfPoints] );
+          else
+            iniShearXY[ltsFace][iBndGP] = 0.0;
+
+          if(faultParameters["T_d"] != NULL )
+            iniShearXZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["T_d"][meshFace * numberOfPoints] );
+          else if(faultParameters["s_xz"] != NULL )
+            iniShearXZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_xz"][meshFace * numberOfPoints] );
+          else
+            iniShearXZ[ltsFace][iBndGP] = 0.0;
+
+          if(faultParameters["s_yz"] != NULL )
+            iniShearYZ[ltsFace][iBndGP] = static_cast<real>( faultParameters["s_yz"][meshFace * numberOfPoints] );
+          else
+            iniShearYZ[ltsFace][iBndGP] = 0.0;
+
           if(faultParameters["cohesion"] != NULL ){
             cohesion[ltsFace][iBndGP] = static_cast<real>( faultParameters["cohesion"][meshFace * numberOfPoints] );
           }else{
-            //std::cout << "DR_initializer_base: cohesion set to 0, not found from faultParameters";
-            cohesion[ltsFace][iBndGP] = 0;
+            cohesion[ltsFace][iBndGP] = 0.0;
           }
         }
         //initialize padded elements for vectorization

@@ -66,6 +66,7 @@ protected:
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
 public:
   virtual ~DynamicRupture() {}
+  bool IsFaultParameterizedByTraction;        //true if Traction T_n , T_s, T_d is stored in iniBulk_XX, iniShearXY, iniShearXZ
   Variable<real*>                                                   timeDerivativePlus;
   Variable<real*>                                                   timeDerivativeMinus;
   Variable<real[tensor::QInterpolated::size()]>                     imposedStatePlus;
@@ -79,6 +80,14 @@ public:
 
   Variable<ImpedancesAndEta>                            impAndEta;
   //size padded for vectorization
+
+  Variable<real[ numOfPointsPadded ]>                   iniBulkXX;
+  Variable<real[ numOfPointsPadded ]>                   iniBulkYY;
+  Variable<real[ numOfPointsPadded ]>                   iniBulkZZ;
+  Variable<real[ numOfPointsPadded ]>                   iniShearXY;
+  Variable<real[ numOfPointsPadded ]>                   iniShearYZ;
+  Variable<real[ numOfPointsPadded ]>                   iniShearXZ;
+
   Variable<real[numOfPointsPadded][6]>                  initialStressInFaultCS;
   Variable<real[ numOfPointsPadded ]>                   cohesion;
   Variable<real[ numOfPointsPadded ]>                   mu;
@@ -107,6 +116,12 @@ public:
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
 
     tree.addVar(      impAndEta,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniBulkXX,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniBulkYY,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniBulkZZ,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniShearXY,                     mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniShearYZ,                     mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniShearXZ,                     mask,                 1,      seissol::memory::Standard );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      cohesion,                       mask,                 1,      seissol::memory::Standard );
     tree.addVar(      rupture_time,                   mask,                 1,      seissol::memory::Standard );
