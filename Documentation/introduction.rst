@@ -13,7 +13,7 @@ frictional failure coupled to seismic waves traveling over large
 distances in terms of propagated wavelengths with minimal dispersion
 errors, whereas it is intrinsically dissipative and removes frequencies
 unresolved by the mesh without affecting longer and physically
-meaningful wavelengths. de la Puente et al.(2009) and Pelties et al.(2012) introduced Riemann solution to handle discontinuous fault slip conditions and achieve earthquake dynamics with seismic wave propagation. 
+meaningful wavelengths. de la Puente et al. (2009) and Pelties et al. (2012) introduced Riemann solution to handle discontinuous fault slip conditions and achieve earthquake dynamics with seismic wave propagation. 
 
 The software has recently proven to be highly scalable on current and
 future HPC infrastructure. It reached multi-petaflop/s performance on
@@ -26,7 +26,7 @@ stepping (Uphoff et al.,2017), resolving the 2004
 Sumatra-Andaman earthquake including complex splay fault geometries. The
 paper won the prestigious “Best Paper Award” of the International
 Supercomputing Conference (SC17). SeisSol results imply that
-acknowledging geometrical complexity, realistic fault properties and
+acknowledging geometrical complexity, realistic fault properties, and
 velocity models affect not only earthquake source dynamics but the
 synthetic ground shaking crucially. The software package is available to
 the community as an open-source distribution (www.github.com/SeisSol/SeisSol).
