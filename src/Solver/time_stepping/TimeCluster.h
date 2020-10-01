@@ -109,8 +109,6 @@ class seissol::time_stepping::TimeCluster : public seissol::time_stepping::Abstr
 private:
     double lastSubTime;
 
-    const LayerType layerType;
-
     void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
     void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
     void start() override {}
@@ -247,6 +245,8 @@ private:
     }
 
 public:
+    const LayerType layerType;
+
     //! time of the next receiver output
     double m_receiverTime;
 

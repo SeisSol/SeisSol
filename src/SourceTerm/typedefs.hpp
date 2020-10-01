@@ -65,10 +65,6 @@ namespace seissol {
       };
       enum Mode mode;
 
-      // TODO(Lukas) Fix const correctness here!
-      /// Store last timestep number where it was computed. Avoids duplicate computations.
-      mutable std::vector<long> lastPredictionSteps;
-
       /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is the l-th
        *  basis function and xi_s, eta_s, and zeta_s are the space position
        *  of the point source in the reference tetrahedron. */

@@ -113,8 +113,6 @@ namespace seissol {
         return 1 + ncols;
       }
 
-      /// last number of prediction steps when this was computed
-      long lastPredictionSteps = -1;
     private:
       std::vector<Receiver> m_receivers;
       seissol::kernels::Time m_timeKernel;

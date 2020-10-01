@@ -170,12 +170,10 @@ void seissol::time_stepping::TimeCluster::setPointSources( sourceterm::CellToPoi
 void seissol::time_stepping::TimeCluster::writeReceivers() {
   SCOREP_USER_REGION("writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  if (m_receiverCluster != nullptr
-    // Ensure that we do not compute the receivers twice
-    && m_receiverCluster->lastPredictionSteps < ct.predictionsSinceStart) {
+  if (m_receiverCluster != nullptr) {
     m_receiverTime = m_receiverCluster->calcReceivers(m_receiverTime, ct.correctionTime, timeStepSize());
-    m_receiverCluster->lastPredictionSteps = ct.predictionsSinceStart;
   }
+
 }
 
 void seissol::time_stepping::TimeCluster::computeSources() {
@@ -189,29 +187,28 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 #endif
     for (unsigned mapping = 0; mapping < m_numberOfCellToPointSourcesMappings; ++mapping) {
       unsigned startSource = m_cellToPointSources[mapping].pointSourcesOffset;
-      unsigned endSource = m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
-      for (unsigned source = startSource; source < endSource; ++source) {
-          // Ensure that we do not compute sources twice
-          if (m_pointSources->lastPredictionSteps[source] < ct.predictionsSinceStart) {
-            m_pointSources->lastPredictionSteps[source] = ct.predictionsSinceStart;
-            if (m_pointSources->mode == sourceterm::PointSources::NRF) {
-              sourceterm::addTimeIntegratedPointSourceNRF(m_pointSources->mInvJInvPhisAtSources[source],
-                                                          m_pointSources->tensor[source],
-                                                          m_pointSources->A[source],
-                                                          m_pointSources->stiffnessTensor[source],
-                                                          m_pointSources->slipRates[source],
-                                                          ct.correctionTime,
-                                                          ct.correctionTime + timeStepSize(),
-                                                          *m_cellToPointSources[mapping].dofs);
-            } else {
-              sourceterm::addTimeIntegratedPointSourceFSRM(m_pointSources->mInvJInvPhisAtSources[source],
-                                                           m_pointSources->tensor[source],
-                                                           m_pointSources->slipRates[source][0],
-                                                           ct.correctionTime,
-                                                           ct.correctionTime + timeStepSize(),
-                                                           *m_cellToPointSources[mapping].dofs);
-            }
-          }
+      unsigned endSource =
+          m_cellToPointSources[mapping].pointSourcesOffset + m_cellToPointSources[mapping].numberOfPointSources;
+      if (m_pointSources->mode == sourceterm::PointSources::NRF) {
+        for (unsigned source = startSource; source < endSource; ++source) {
+          sourceterm::addTimeIntegratedPointSourceNRF(m_pointSources->mInvJInvPhisAtSources[source],
+                                                      m_pointSources->tensor[source],
+                                                      m_pointSources->A[source],
+                                                      m_pointSources->stiffnessTensor[source],
+                                                      m_pointSources->slipRates[source],
+                                                      ct.correctionTime,
+                                                      ct.correctionTime + timeStepSize(),
+                                                      *m_cellToPointSources[mapping].dofs);
+        }
+      } else {
+        for (unsigned source = startSource; source < endSource; ++source) {
+          sourceterm::addTimeIntegratedPointSourceFSRM(m_pointSources->mInvJInvPhisAtSources[source],
+                                                       m_pointSources->tensor[source],
+                                                       m_pointSources->slipRates[source][0],
+                                                       ct.correctionTime,
+                                                       ct.correctionTime + timeStepSize(),
+                                                       *m_cellToPointSources[mapping].dofs);
+        }
       }
     }
   }

@@ -178,14 +178,16 @@ class seissol::time_stepping::TimeManager {
     /**
      * Distributes point sources pointers to clusters
      * 
-     * @param i_pointSources Array of PointSources
-     * @param i_numberOfLocalClusters Number of entries in i_pointSources
+     * @param clusterMappings Maps layers+clusters to point sources
+     * @param pointSources Map from layer to list of point sources
      */
-    void setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources );
+    void setPointSourcesForClusters(
+        std::unordered_map<LayerType, std::vector<sourceterm::ClusterMapping>>& clusterMappings,
+        std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources);
 
-    /**
-     * Returns the writer for the receivers
-     */
+  /**
+   * Returns the writer for the receivers
+   */
     void setReceiverClusters(writer::ReceiverWriter& receiverWriter); 
 
     /**

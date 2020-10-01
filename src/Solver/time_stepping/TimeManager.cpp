@@ -241,19 +241,23 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
   return 1E-5 * m_timeStepping.globalCflTimeStepWidths[0];
 }
 
-void seissol::time_stepping::TimeManager::setPointSourcesForClusters( sourceterm::ClusterMapping const* cms, sourceterm::PointSources const* pointSources )
-{
+void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
+    std::unordered_map<LayerType, std::vector<sourceterm::ClusterMapping>>& clusterMappings,
+    std::unordered_map<LayerType, std::vector<sourceterm::PointSources>>& pointSources) {
   for (auto* cluster : clusters) {
-    cluster->setPointSources(cms[cluster->m_clusterId].cellToSources,
-                             cms[cluster->m_clusterId].numberOfMappings,
-                             &pointSources[cluster->m_clusterId]);
+    cluster->setPointSources(
+        clusterMappings[cluster->layerType][cluster->m_clusterId].cellToSources,
+        clusterMappings[cluster->layerType][cluster->m_clusterId].numberOfMappings,
+        &(pointSources[cluster->layerType][cluster->m_clusterId])
+        );
   }
 }
 
 void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
 {
   for (auto* cluster : clusters) {
-    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->m_clusterId));
+    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->m_clusterId,
+                                                               cluster->layerType));
   }
 }
 
