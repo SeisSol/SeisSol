@@ -12,7 +12,8 @@ Validation interface established within the 6th Framework Programme
 project.
 
 LOH1 is used as an example here to illustrate the implementation of
-source point for earthquake nucleation in SeisSol. The details of the LOH1 model can also be found at .
+source point for earthquake nucleation in SeisSol. The details of the LOH1 model can also be found at 
+https://github.com/daisy20170101/SeisSol_Cookbook/tree/81dc61fa5e8e7c2583ab086a9a54c482bcb157f5/PointSource.
 
 The model uses Right-handed Cartesian, x positive North, y positive
 East, z positive downward, all coordinates in meters. The source is
@@ -60,7 +61,7 @@ The point source needs to be turned on in *parameter.par* file.
   FileName=’LOH1_source.dat’
   /
 
-The source input file can be found at . Duration of the source is 4
+The source input file can be found at above link. Duration of the source is 4
 seconds.
 
 Results
