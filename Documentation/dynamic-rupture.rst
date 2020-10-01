@@ -150,7 +150,16 @@ Friction laws
 Linear-Slip Weakening Friction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Rate-and-State Friction
+Linear-Slip Weakening Friction - with instanaeous healing
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Rate-and-State Friction - slip law 
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Rate-and-State Friction - ageing law 
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Rate-and-State Friction - slip law with strong rate-weakening
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Thermal Pressurization
