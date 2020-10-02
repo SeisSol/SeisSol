@@ -57,7 +57,6 @@ protected:
   real                    (*rupture_time)[numOfPointsPadded];
   bool                    (*RF)[numOfPointsPadded];
   real                    (*peakSR)[numOfPointsPadded];
-  //TODO: merge TractionGP_XY and tracXY in one variable
   real                    (*tracXY)[numOfPointsPadded];
   real                    (*tracXZ)[numOfPointsPadded];
   real                    (*imposedStatePlus)[tensor::QInterpolated::size()];
@@ -67,7 +66,6 @@ protected:
   real  *averaged_Slip;
 
   struct FaultStresses{
-    //TODO: merge TractionGP_XY and tracXY in one variable
     real TractionGP_XY[CONVERGENCE_ORDER][numOfPointsPadded] = {{}}; // OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
     real TractionGP_XZ[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};// OUT: updated Traction 2D array with size [1:i_numberOfPoints, CONVERGENCE_ORDER]
     real NorStressGP[CONVERGENCE_ORDER][numOfPointsPadded] = {{}};
@@ -117,7 +115,6 @@ protected:
     for(int j = 0; j < CONVERGENCE_ORDER; j++){
       auto QInterpolatedPlusView = init::QInterpolated::view::create(QInterpolatedPlus[j]);
       auto QInterpolatedMinusView = init::QInterpolated::view::create(QInterpolatedMinus[j]);
-      //TODO: does QInterpolatedMinusView work with padded access?
       for(int i = 0; i < numberOfPoints; i++){
         //Carsten Uphoff Thesis: EQ.: 4.53
         faultStresses.NorStressGP[j][i] = impAndEta[ltsFace].eta_p * (QInterpolatedMinusView(i, 6) - QInterpolatedPlusView(i, 6) + QInterpolatedPlusView(i, 0) / impAndEta[ltsFace].Zp + QInterpolatedMinusView(i, 0) / impAndEta[ltsFace].Zp_neig);
@@ -125,7 +122,6 @@ protected:
         faultStresses.XZStressGP[j][i] = impAndEta[ltsFace].eta_s * (QInterpolatedMinusView(i, 8) - QInterpolatedPlusView(i, 8) + QInterpolatedPlusView(i, 5) / impAndEta[ltsFace].Zs + QInterpolatedMinusView(i, 5) / impAndEta[ltsFace].Zs_neig);
       }
     }
-    //TODO: is this assert really needed?
     static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],"Different number of quadrature points?");
   }//End of precompute Function
 
@@ -251,7 +247,6 @@ protected:
   }
 
 public:
-  //TODO: change arguments to "const double& ref" for all arguments that are not changed (only input)
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                          seissol::initializers::DynamicRupture *dynRup,
                          real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
@@ -364,7 +359,6 @@ public:
             slip[ltsFace][iBndGP] += LocSlipRate[iBndGP]*time_inc;
             tmpSlip[iBndGP] += LocSlipRate[iBndGP]*time_inc;
 
-            //TODO: remove this and combine tracXY with TractionGP_XY
             tracXY[ltsFace][iBndGP] = faultStresses.TractionGP_XY[iTimeGP][iBndGP];
             tracXZ[ltsFace][iBndGP] = faultStresses.TractionGP_XY[iTimeGP][iBndGP];
           }

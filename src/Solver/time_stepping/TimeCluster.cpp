@@ -288,8 +288,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 //TODO: split loop
   for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
     unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
-    //TODO remove - only for debugging:
-    int fortran_face = static_cast<int>(faceInformation[face].meshFace) + 1;
+
     m_dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[face],
                                                     m_globalData,
                                                    &godunovData[face],
@@ -302,6 +301,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
 
     // legacy code:
+    //TODO remove - only for debugging:
+    int fortran_face = static_cast<int>(faceInformation[face].meshFace) + 1;
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus[face],
                                             QInterpolatedMinus[face],

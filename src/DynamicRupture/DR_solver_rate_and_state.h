@@ -108,13 +108,12 @@ public:
               seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP], 2) +
               seissol::dr::aux::power(initialStressInFaultCS[face][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP], 2));
 
-          // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
+          // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996)
           // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
 
           SV0 = LocSV;    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
-          // The following process is adapted from that described by Kaneko et al. (2008) TODO: look up
-
+          // The following process is adapted from that described by Kaneko et al. (2008)
           LocSlipRate[iBndGP]      = std::sqrt(seissol::dr::aux::power(LocSR1,2) + seissol::dr::aux::power(LocSR2,2));
           tmp        = fabs( LocSlipRate[iBndGP]);
 
@@ -274,14 +273,6 @@ protected:
     exp1 = exp(-SR_tmp*(time_inc/RS_sl0) );
     LocSV = SVss*(1.0-exp1)+exp1*SV0;
 
-    //LocSV = SVss*(1.0-exp(-SR_tmp*time_inc/RS_sl0))+exp(-SR_tmp*time_inc/RS_sl0)*SV0;
-
-
-    /*  //TODO log error NaN detected
-    if (ANY(IsNaN(LocSV)) == true){
-        logError(*) 'NaN detected'
-    }
-     */
     assert( !std::isnan(LocSV) && "NaN detected");
   }
 
@@ -318,7 +309,6 @@ protected:
       //TODO: padded?
       for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
 
-
         //!f = ( tmp2 * ABS(LocP+P_0)- ABS(S_0))*(S_0)/ABS(S_0)
         //!g = SRtest * 1.0/(1.0/w_speed(2)/rho+1.0/w_speed_neig(2)/rho_neig) + ABS(ShTest)
         //!for compiling reasons ASINH(X)=LOG(X+SQRT(X^2+1))
@@ -332,8 +322,8 @@ protected:
 
       has_converged = true;
 
-      //TODO: write max element function for absolute values
       //TODO: padded?
+      //max element of NR must be smaller then aTolF
       for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
         if (fabs(NR[iBndGP]) >= aTolF ){
           has_converged = false;
@@ -560,7 +550,7 @@ public:
         //TODO: test padded
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
           for (int i = 0; i < 6; i++) {
-            initialStressInFaultCS[ltsFace][iBndGP][i] = initialStressInFaultCS[ltsFace][iBndGP][i] + nucleationStressInFaultCS[ltsFace][iBndGP][i] * Gnuc;
+            initialStressInFaultCS[ltsFace][iBndGP][i] += nucleationStressInFaultCS[ltsFace][iBndGP][i] * Gnuc;
           }
         }
       } //end If-Tnuc
@@ -773,7 +763,6 @@ protected:
 
       for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
        //!recover original values as it gets overwritten in the ThermalPressure routine
-       //TODO: maybe tmp values can be removed here?
         Theta_tmp[iTP_grid_nz] = TP_Theta[ltsFace][iBndGP][iTP_grid_nz];
         Sigma_tmp[iTP_grid_nz] = TP_sigma[ltsFace][iBndGP][iTP_grid_nz];
       }
@@ -934,12 +923,12 @@ public:
               seissol::dr::aux::power(initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP], 2) +
                   seissol::dr::aux::power(initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP], 2));
 
-          // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996) //TODO: look up
+          // We use the regularized rate-and-state friction, after Rice & Ben-Zion (1996)
           // ( Numerical note: ASINH(X)=LOG(X+SQRT(X^2+1)) )
 
           SV0 = LocSV;    // Careful, the SV must always be corrected using SV0 and not LocSV!
 
-          // The following process is adapted from that described by Kaneko et al. (2008) TODO: look up
+          // The following process is adapted from that described by Kaneko et al. (2008)
           nSRupdates = 5; //TODO: can be put outside of loop
           nSVupdates = 2;
 
@@ -987,7 +976,6 @@ public:
           // RS_sl0 = characteristic velocity scale (V_c)
           LocMu = m_Params.rs_f0+RS_a[ltsFace]*LocSlipRate[iBndGP]/(LocSlipRate[iBndGP]+m_Params.rs_sr0)-m_Params.rs_b*LocSV/(LocSV+RS_sl0[ltsFace]);
 
-
           // update stress change
           LocTracXY = -((initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / ShTest) *LocMu * P;
           LocTracXZ = -((initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP]) / ShTest) *LocMu * P;
@@ -1020,7 +1008,6 @@ public:
         tracXY[ltsFace][iBndGP] = LocTracXY;
         tracXZ[ltsFace][iBndGP] = LocTracXZ;
       }//End of iBndGP-loop
-
 
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop

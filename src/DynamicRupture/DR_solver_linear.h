@@ -397,6 +397,7 @@ public:
 
         } //End of time loop
 
+        //TODO: remove local variables
         mu[ltsFace][iBndGP]       = LocMu;
         slipRate1[ltsFace][iBndGP] = LocSR1;
         slipRate2[ltsFace][iBndGP] = LocSR2;

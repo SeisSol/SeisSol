@@ -116,12 +116,6 @@ public:
     tree.addVar(         waveSpeedsMinus,             mask,                 1,      seissol::memory::Standard );
 
     tree.addVar(      impAndEta,                      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniBulkXX,                      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniBulkYY,                      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniBulkZZ,                      mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniShearXY,                     mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniShearYZ,                     mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      iniShearXZ,                     mask,                 1,      seissol::memory::Standard );
     tree.addVar(      initialStressInFaultCS,         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      cohesion,                       mask,                 1,      seissol::memory::Standard );
     tree.addVar(      rupture_time,                   mask,                 1,      seissol::memory::Standard );
@@ -135,6 +129,14 @@ public:
     tree.addVar(      peakSR,                         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      tracXY,                         mask,                 1,      seissol::memory::Standard );
     tree.addVar(      tracXZ,                         mask,                 1,      seissol::memory::Standard );
+
+    //only for output:
+    tree.addVar(      iniBulkXX,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniBulkYY,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniBulkZZ,                      mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniShearXY,                     mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniShearYZ,                     mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      iniShearXZ,                     mask,                 1,      seissol::memory::Standard );
   }
 };
 
