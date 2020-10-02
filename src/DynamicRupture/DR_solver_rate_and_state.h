@@ -719,7 +719,8 @@ class seissol::dr::fr_law::RateAndStateThermalFL103 : public seissol::dr::fr_law
 protected:
   static constexpr unsigned int TP_grid_nz = 60;  //todo: make this global?
 
-  real (*TP)[numOfPointsPadded][2];
+  real (*temperature)[numOfPointsPadded];
+  real (*pressure)[numOfPointsPadded];
   real (*TP_Theta)[numOfPointsPadded][TP_grid_nz];
   real (*TP_sigma)[numOfPointsPadded][TP_grid_nz];
   real (*TP_half_width_shear_zone)[numOfPointsPadded];
@@ -751,8 +752,9 @@ protected:
 
     //TODO: change later to const_cast
     seissol::initializers::DR_FL_103_Thermal *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_103_Thermal *>(dynRup);
-    TP                        = layerData.var(ConcreteLts->TP); ;
-    TP_Theta                  = layerData.var(ConcreteLts->TP_Theta);
+    temperature               = layerData.var(ConcreteLts->temperature);
+    pressure                  = layerData.var(ConcreteLts->pressure);
+    TP_Theta                  = layerData.var(ConcreteLts->TP_theta);
     TP_sigma                  = layerData.var(ConcreteLts->TP_sigma);
     TP_half_width_shear_zone  = layerData.var(ConcreteLts->TP_half_width_shear_zone);
     alpha_hy                  = layerData.var(ConcreteLts->alpha_hy);
@@ -760,7 +762,7 @@ protected:
 
   void hookSetInitialP_f(std::array<real, numOfPointsPadded> &P_f, unsigned int ltsFace) override{
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
-        P_f[iBndGP] = TP[iBndGP][ltsFace][1];
+        P_f[iBndGP] = pressure[iBndGP][ltsFace];
     }
   }
 
@@ -778,7 +780,7 @@ protected:
       //!use Theta/Sigma from last call in this update, dt/2 and new SR from NS
       Calc_ThermalPressure(LocSlipRate, iBndGP, ltsFace); //TODO: maybe move iBndGP loop inside this function
 
-      P_f[iBndGP] = TP[ltsFace][iBndGP][1];
+      P_f[iBndGP] = pressure[ltsFace][iBndGP];
       if(saveTmpInTP){
         for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
           TP_Theta[ltsFace][iBndGP][iTP_grid_nz] = Theta_tmp[iTP_grid_nz];
@@ -824,8 +826,8 @@ protected:
     p = p - Lambda_prime*T;
 
     //Temp and pore pressure change at single GP on the fault + initial values
-    TP[iBndGP][ltsFace][0] = T + m_Params.IniTemp;
-    TP[iBndGP][ltsFace][1] = -p + m_Params.IniPressure;
+    temperature[iBndGP][ltsFace] = T + m_Params.IniTemp;
+    pressure[iBndGP][ltsFace] = -p + m_Params.IniPressure;
   }
 
   real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz){

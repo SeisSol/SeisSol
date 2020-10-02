@@ -248,7 +248,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
   //Code added by ADRIAN
-/*
+
   //debugging:
   //TODO: delete these if not required for debugging anymore:
   seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(m_dynRup->waveSpeedsPlus);
@@ -300,7 +300,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                                     timeDerivativePlus[prefetchFace],
                                                     timeDerivativeMinus[prefetchFace] );
 
-/*
+
     // legacy code:
     e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[face].meshFace),
                                             QInterpolatedPlus[face],
@@ -319,7 +319,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
 
-/*
+
   //debugging:
   const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
   auto imposedStateMinusView2 = init::QInterpolated::view::create(imposedStateMinus[4]);

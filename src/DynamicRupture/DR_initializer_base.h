@@ -236,7 +236,6 @@ public:
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
         //get initial values from fortran
-        //TODO: write this function_
         e_interoperability.getDynRupFL_3(ltsFace, meshFace, RS_f0, RS_a, RS_b, RS_sl0, RS_sr0, StateVar);
 
       }//lts-face loop
@@ -355,8 +354,10 @@ public:
     for (initializers::LTSTree::leaf_iterator it = dynRupTree->beginLeaf(initializers::LayerMask(Ghost)); it != dynRupTree->endLeaf(); ++it) {
 
 
-      real (*TP)[numOfPointsPadded][2]                          = it->var(ConcreteLts->TP);
-      real (*TP_Theta)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_Theta);
+      real (*temperature)[numOfPointsPadded]                    = it->var(ConcreteLts->temperature);
+      real (*pressure)[numOfPointsPadded]                       = it->var(ConcreteLts->pressure);
+
+      real (*TP_Theta)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_theta);
       real (*TP_sigma)[numOfPointsPadded][TP_grid_nz]           = it->var(ConcreteLts->TP_sigma);
 
       real (*TP_half_width_shear_zone)[numOfPointsPadded]       = it->var(ConcreteLts->TP_half_width_shear_zone);
@@ -367,8 +368,8 @@ public:
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
         for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
-          TP[ltsFace][iBndGP][0] = m_Params.IniTemp;
-          TP[ltsFace][iBndGP][1] = m_Params.IniPressure;
+          temperature[ltsFace][iBndGP] = m_Params.IniTemp;
+          pressure[ltsFace][iBndGP] = m_Params.IniPressure;
           TP_half_width_shear_zone[ltsFace][iBndGP] = static_cast<real>( faultParameters["TP_half_width_shear_zone"][meshFace * numberOfPoints] );
           alpha_hy[ltsFace][iBndGP] = static_cast<real>( faultParameters["alpha_hy"][meshFace * numberOfPoints] );
           for (unsigned iTP_grid_nz = TP_grid_nz; iTP_grid_nz < TP_grid_nz; ++iTP_grid_nz) {
@@ -376,8 +377,6 @@ public:
             TP_sigma[ltsFace][iBndGP][iTP_grid_nz] = 0.0;
           }
         }
-        //TODO: initialize all TPs
-
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
     }//leaf_iterator loop

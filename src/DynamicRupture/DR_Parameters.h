@@ -15,6 +15,7 @@ namespace seissol {
 }
 
 struct seissol::dr::DrParameterT {
+  static constexpr unsigned int TP_grid_nz = 60;
   int OutputPointType{3};
   int SlipRateOutputType{1};
   int FrictionLawType{0};

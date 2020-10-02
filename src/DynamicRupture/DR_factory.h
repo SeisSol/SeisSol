@@ -128,7 +128,7 @@ class seissol::dr::factory::Factory_FL_103_Thermal : public seissol::dr::factory
     return std::make_tuple(new seissol::initializers::DR_FL_103_Thermal,
                            new seissol::initializers::Init_FL_103_Thermal,
                            new seissol::dr::fr_law::RateAndStateThermalFL103,
-                           new seissol::dr::output::Output_FL_103); //TODO: does it need a different output?
+                           new seissol::dr::output::Output_FL_103);
   }
 };
 

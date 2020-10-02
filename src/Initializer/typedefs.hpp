@@ -494,17 +494,17 @@ struct BoundaryFaceInformation {
 
 enum Friction_law_type{
     no_fault = 0,
-    Linear_slip_weakening = 2,
-    Linear_slip_weakening_forced_time_rapture = 16,
+    linear_slip_weakening = 2,
+    linear_slip_weakening_forced_time_rapture = 16,
 
     rate_and_state_aging_law = 3,
     rate_and_state_slip_law = 4,
-    Linear_slip_weakening_bimaterial = 6,
-    rate_and_state_vw = 7,
+    linear_slip_weakening_bimaterial = 6,
+    rate_and_state_velocity_weakening = 7,
 
-    ImposedSlipRateOnDRBoundary = 33,
-    //rate_and_state_nuc101 = 101, //Currently_disabled TODO: why?
-    rate_and_state_nuc103 = 103
+    imposed_slip_rate_on_DR_boundary = 33,
+    rate_and_state_aging_nucleation = 101, //Currently_disabled
+    rate_and_state_slip_nucleation = 103
 };
 
 struct ImpedancesAndEta{

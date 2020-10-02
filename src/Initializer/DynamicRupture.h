@@ -221,8 +221,9 @@ struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicR
 struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::DR_FL_103 {
 
   static constexpr unsigned int TP_grid_nz = 60;  //todo: make this global?
-  Variable<real[numOfPointsPadded][2]>                            TP;
-  Variable<real[numOfPointsPadded][TP_grid_nz]>                   TP_Theta;
+  Variable<real[numOfPointsPadded]>                               temperature;  //this is TP[1] in fortran
+  Variable<real[numOfPointsPadded]>                               pressure;     //this is TP[2] in fortran
+  Variable<real[numOfPointsPadded][TP_grid_nz]>                   TP_theta;
   Variable<real[numOfPointsPadded][TP_grid_nz]>                   TP_sigma;
   Variable<real[numOfPointsPadded]>                               TP_half_width_shear_zone;
   Variable<real[numOfPointsPadded]>                               alpha_hy;
@@ -230,8 +231,9 @@ struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::DR_FL_103::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(      TP,                         mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      TP_Theta,                   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      temperature,                mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      pressure,                   mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      TP_theta,                   mask,                 1,      seissol::memory::Standard );
     tree.addVar(      TP_sigma,                   mask,                 1,      seissol::memory::Standard );
     tree.addVar(      TP_half_width_shear_zone,   mask,                 1,      seissol::memory::Standard );
     tree.addVar(      alpha_hy,                   mask,                 1,      seissol::memory::Standard );

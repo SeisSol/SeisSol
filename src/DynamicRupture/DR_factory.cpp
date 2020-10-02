@@ -10,20 +10,37 @@ namespace seissol {
     namespace factory {
       AbstractFactory* getFactory(dr::DrParameterT DynRupParameter) {
         switch (DynRupParameter.FrictionLawType) {
+          //! no fault
           case no_fault: return new Factory_FL_0;
-          case Linear_slip_weakening: return new Factory_FL_2;
-          case Linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
-          //TODO: use enum:
-          case 3: return new Factory_FL_3;
-          case 4: return new Factory_FL_4;
-          case 6: return new Factory_FL_6;
-          case 7: return new Factory_FL_7;
-          case 33: return new Factory_FL_33;
-          case 103:
+          //! imposed slip rate on the dynamic rupture boundary
+          case imposed_slip_rate_on_DR_boundary: return new Factory_FL_33;
+
+          //!---- linear slip weakening -----
+          //! coulomb model for linear slip weakening
+          case linear_slip_weakening: return new Factory_FL_2;
+          case linear_slip_weakening_forced_time_rapture: return new Factory_FL_16;
+          //! Coulomb model for linear slip weakening and bimaterial
+          case linear_slip_weakening_bimaterial: return new Factory_FL_6;
+
+          //!---- rate and state -----
+          //! rate and state aging law
+          case rate_and_state_aging_law: return new Factory_FL_3;
+          //! rate and state slip law
+          case rate_and_state_slip_law: return new Factory_FL_4;
+          //! severe velocity weakening friction as in Ampuero&Ben-Zion2008
+          case rate_and_state_velocity_weakening: return new Factory_FL_7;
+          //! specific conditions for SCEC TPV101 rate and state aging law + time and space dependent nucleation
+          case rate_and_state_aging_nucleation:
+            throw std::runtime_error("friction law 101 currently disables");
+          //! specific conditions for SCEC TPV103 rate and state slip law + time and space dependent nucleation
+          case rate_and_state_slip_nucleation:
             if(DynRupParameter.IsTermalPressureOn == false)
+              //!without thermal pressure
               return new Factory_FL_103;
             else
+              //!with thermal pressure
               return new Factory_FL_103_Thermal;
+
           default:
               throw std::runtime_error("unknown friction law");
         }
@@ -36,7 +53,7 @@ namespace seissol {
 int temporary_main() {
     // instantiate all components necessary for the program
     using namespace seissol::dr;
-    Friction_law_type FrictionLaw = Linear_slip_weakening_forced_time_rapture;
+    Friction_law_type FrictionLaw = linear_slip_weakening_forced_time_rapture;
 
     // in interoperability:
     // seissol::SeisSol::main.getMemoryManager().getDynamicRupture()
@@ -91,7 +108,6 @@ int temporary_main() {
 
 
     //end of program
-    //TODO: dont know where to put this
     DrOutput->postCompute(*DynRup /*+ DrLtsTree*/);    // at the end of program
 
     //in MemoryManager.h ~MemoryManager()
