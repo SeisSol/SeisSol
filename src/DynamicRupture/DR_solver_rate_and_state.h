@@ -134,7 +134,7 @@ public:
             SlipRateGuess = LocSlipRate[iBndGP];   // SRtest: We use as first guess the SR value of the previous time step
 
             for(int i = 0; i < nSRupdates; i++){   //!This loop corrects SR values
-              tmp          = 0.5/RS_sr0[face]* exp( (m_Params.rs_f0+m_Params.rs_b*log(RS_sr0[face]*LocSV/RS_sl0[face]) ) /RS_a[face]);
+              tmp          = 0.5/RS_sr0[face]* exp( (m_Params->rs_f0+m_Params->rs_b*log(RS_sr0[face]*LocSV/RS_sl0[face]) ) /RS_a[face]);
               tmp2         = tmp * SlipRateGuess;
               NR           = -(1.0/waveSpeedsPlus->sWaveVelocity/waveSpeedsPlus->density+1.0/waveSpeedsMinus->sWaveVelocity/waveSpeedsMinus->density) *
                              (fabs(P)*RS_a[face]*log(tmp2+sqrt(seissol::dr::aux::power(tmp2,2)+1.0))-TotalShearStressYZ)-SlipRateGuess;    //!TODO: author before me: not sure if ShTest=TotalShearStressYZ should be + or -...
@@ -150,7 +150,7 @@ public:
           LocSV= calcStateVariableHook( SV0,  tmp,  time_inc,  RS_sl0[face]);
 
           //TODO: reused calc from above -> simplify
-          tmp  = 0.5 * ( LocSlipRate[iBndGP])/RS_sr0[face] * exp((m_Params.rs_f0 + m_Params.rs_b*log(RS_sr0[face]*LocSV/RS_sl0[face])) / RS_a[face]);
+          tmp  = 0.5 * ( LocSlipRate[iBndGP])/RS_sr0[face] * exp((m_Params->rs_f0 + m_Params->rs_b*log(RS_sr0[face]*LocSV/RS_sl0[face])) / RS_a[face]);
 
           LocMu    = RS_a[face] * log(tmp + sqrt(seissol::dr::aux::power(tmp,2) + 1.0));
 
@@ -254,19 +254,19 @@ protected:
 
   void updateStateVariable(int iBndGP, unsigned int face, real SV0, real time_inc, real &SR_tmp, real &LocSV){
     double flv, fss, SVss;
-    double RS_fw = m_Params.mu_w;
+    double RS_fw = m_Params->mu_w;
     double RS_srW = RS_srW_array[face][iBndGP];
     double RS_a = RS_a_array[face][iBndGP];
     double RS_sl0 = RS_sl0_array[face][iBndGP];
     double exp1;
 
     // low-velocity steady state friction coefficient
-    flv = m_Params.rs_f0 - (m_Params.rs_b-RS_a)* log(SR_tmp/m_Params.rs_sr0);
+    flv = m_Params->rs_f0 - (m_Params->rs_b-RS_a)* log(SR_tmp/m_Params->rs_sr0);
     // steady state friction coefficient
     fss = RS_fw + (flv - RS_fw)/pow(1.0+seissol::dr::aux::power(SR_tmp/RS_srW,8.0) ,1.0/8.0);
     // steady-state state variable
     // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
-    SVss = RS_a * log(2.0*m_Params.rs_sr0/SR_tmp * (exp(fss/RS_a)-exp(-fss/RS_a))/2.0);
+    SVss = RS_a * log(2.0*m_Params->rs_sr0/SR_tmp * (exp(fss/RS_a)-exp(-fss/RS_a))/2.0);
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
@@ -302,7 +302,7 @@ protected:
     for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){
       //! first guess = SR value of the previous step
       SRtest[iBndGP] = LocSR[iBndGP];
-      tmp[iBndGP]   =  0.5 / m_Params.rs_sr0 *exp(LocSV[iBndGP]/RS_a_array[ltsFace][iBndGP]);
+      tmp[iBndGP]   =  0.5 / m_Params->rs_sr0 *exp(LocSV[iBndGP]/RS_a_array[ltsFace][iBndGP]);
     }
 
     for(int i = 0; i < nSRupdates; i++){
@@ -357,7 +357,7 @@ protected:
     double tol = 1e-30;
 
     double *RS_a = RS_a_array[ltsFace];
-    double RS_sr0_ = m_Params.rs_sr0;
+    double RS_sr0_ = m_Params->rs_sr0;
     double invEta = impAndEta[ltsFace].inv_eta_s;
 
     F = [invEta, &sh_stress, n_stress, RS_a, LocSV, RS_sr0_](double SR, int iBndGP){
@@ -454,7 +454,7 @@ protected:
    */
   void updateMu(unsigned int ltsFace, unsigned int iBndGP, real LocSV, real LocSR){
     //! X in Asinh(x) for mu calculation
-    real tmp = 0.5 / m_Params.rs_sr0 * exp(LocSV / RS_a_array[ltsFace][iBndGP]) * LocSR;
+    real tmp = 0.5 / m_Params->rs_sr0 * exp(LocSV / RS_a_array[ltsFace][iBndGP]) * LocSR;
     //! mu from LocSR
     mu[ltsFace][iBndGP] = RS_a_array[ltsFace][iBndGP] * log(tmp + sqrt(seissol::dr::aux::power(tmp, 2) + 1.0));
   }
@@ -470,7 +470,7 @@ protected:
       if (rupture_time[face][iBndGP] > 0.0 &&
           rupture_time[face][iBndGP] <= fullUpdateTime &&
           DS[iBndGP] &&
-          mu[face][iBndGP] <= ( m_Params.mu_w+0.05*(m_Params.rs_f0-m_Params.mu_w) ) ) {
+          mu[face][iBndGP] <= ( m_Params->mu_w+0.05*(m_Params->rs_f0-m_Params->mu_w) ) ) {
         dynStress_time[face][iBndGP] = fullUpdateTime;
         DS[face][iBndGP] = false;
       }
@@ -515,7 +515,7 @@ public:
     for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {
       dt += DeltaT[iTimeGP];
     }
-    if (fullUpdateTime <= m_Params.t_0) {
+    if (fullUpdateTime <= m_Params->t_0) {
       Gnuc = Calc_SmoothStepIncrement(fullUpdateTime, dt);
     }
 
@@ -546,7 +546,7 @@ public:
 
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
-      if (fullUpdateTime <= m_Params.t_0) {
+      if (fullUpdateTime <= m_Params->t_0) {
         //TODO: test padded
         for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
           for (int i = 0; i < 6; i++) {
@@ -787,21 +787,21 @@ protected:
 
     for (int iTP_grid_nz = 0; iTP_grid_nz < TP_grid_nz; iTP_grid_nz++) {
       tauV = Sh[iBndGP] * LocSlipRate[iBndGP]; //!fault strenght*slip rate
-      Lambda_prime = m_Params.TP_lambda * m_Params.alpha_th / (alpha_hy[ltsFace][iBndGP] - m_Params.alpha_th);
+      Lambda_prime = m_Params->TP_lambda * m_Params->alpha_th / (alpha_hy[ltsFace][iBndGP] - m_Params->alpha_th);
       //!Gaussian shear zone in spectral domain, normalized by w
       tmp = seissol::dr::aux::power(TP_grid[iTP_grid_nz] / TP_half_width_shear_zone[ltsFace][iBndGP], 2);
       //!1. Calculate diffusion of the field at previous timestep
 
       //!temperature
-      theta_current = Theta_tmp[iTP_grid_nz] * exp(-m_Params.alpha_th * dt * tmp);
+      theta_current = Theta_tmp[iTP_grid_nz] * exp(-m_Params->alpha_th * dt * tmp);
       //!pore pressure + lambda'*temp
       sigma_current = Sigma_tmp[iTP_grid_nz] * exp(-alpha_hy[ltsFace][iBndGP] * dt * tmp);
 
       //!2. Add current contribution and get new temperature
-      omega = heat_source(tmp, m_Params.alpha_th, iTP_grid_nz);
-      Theta_tmp[iTP_grid_nz] = theta_current + (tauV / m_Params.rho_c) * omega;
+      omega = heat_source(tmp, m_Params->alpha_th, iTP_grid_nz);
+      Theta_tmp[iTP_grid_nz] = theta_current + (tauV / m_Params->rho_c) * omega;
       omega = heat_source(tmp, alpha_hy[ltsFace][iBndGP], iTP_grid_nz);
-      Sigma_tmp[iTP_grid_nz] = sigma_current + ((m_Params.TP_lambda + Lambda_prime) * tauV) / (m_Params.rho_c) * omega;
+      Sigma_tmp[iTP_grid_nz] = sigma_current + ((m_Params->TP_lambda + Lambda_prime) * tauV) / (m_Params->rho_c) * omega;
 
       //!3. Recover temperature and pressure using inverse Fourier
       //! transformation with the calculated fourier coefficients
@@ -815,8 +815,8 @@ protected:
     p = p - Lambda_prime*T;
 
     //Temp and pore pressure change at single GP on the fault + initial values
-    temperature[iBndGP][ltsFace] = T + m_Params.IniTemp;
-    pressure[iBndGP][ltsFace] = -p + m_Params.IniPressure;
+    temperature[iBndGP][ltsFace] = T + m_Params->IniTemp;
+    pressure[iBndGP][ltsFace] = -p + m_Params->IniPressure;
   }
 
   real heat_source(real tmp, real alpha, unsigned int iTP_grid_nz){
@@ -935,7 +935,7 @@ public:
           LocSlipRate[iBndGP] = std::sqrt(seissol::dr::aux::power(LocSR1, 2) + seissol::dr::aux::power(LocSR2, 2)); //can be put outside of the loop
 
           //charact. time scale Tc
-          Tc = RS_sl0[ltsFace] / m_Params.rs_sr0;
+          Tc = RS_sl0[ltsFace] / m_Params->rs_sr0;
           // exponent
           coeft= exp(-time_inc / Tc);
 
@@ -953,10 +953,10 @@ public:
             //!
             SRtest = LocSlipRate[iBndGP];   // We use as first guess the SR value of the previous time step
             for (int i = 0; i < nSRupdates; i++) {   //!This loop corrects SR values
-              tmp = m_Params.rs_f0+ RS_a[ltsFace] *SRtest/(SRtest+m_Params.rs_sr0)-m_Params.rs_b*LocSV/(LocSV+RS_sl0[ltsFace]); //=mu
+              tmp = m_Params->rs_f0+ RS_a[ltsFace] *SRtest/(SRtest+m_Params->rs_sr0)-m_Params->rs_b*LocSV/(LocSV+RS_sl0[ltsFace]); //=mu
               NR = - impAndEta[ltsFace].inv_eta_s * (abs(P)*tmp-ShTest)-SRtest;
               dNR          = -impAndEta[ltsFace].inv_eta_s *
-                             (abs(P)*(RS_a[ltsFace]/(SRtest+m_Params.rs_sr0)-RS_a[ltsFace]*SRtest/seissol::dr::aux::power(SRtest+m_Params.rs_sr0,2))) -1.0;
+                             (abs(P)*(RS_a[ltsFace]/(SRtest+m_Params->rs_sr0)-RS_a[ltsFace]*SRtest/seissol::dr::aux::power(SRtest+m_Params->rs_sr0,2))) -1.0;
               SRtest = SRtest-NR/dNR;
             }   // End nSRupdates-Loop
             tmp=0.5*(LocSlipRate[iBndGP]+abs(SRtest));  // For the next SV update, use the mean slip rate between the initial guess and the one found (Kaneko 2008, step 6)
@@ -964,7 +964,7 @@ public:
           }   // End nSVupdates-Loop -  This loop corrects SV values
 
           LocSV    = Tc*tmp*(1-coeft) + coeft*SV0;
-          tmp = 0.5 * (LocSlipRate[iBndGP])/m_Params.rs_sr0 * exp((m_Params.rs_f0 + m_Params.rs_b*log(m_Params.rs_sr0*LocSV/RS_sl0[ltsFace])) / RS_a[ltsFace]);
+          tmp = 0.5 * (LocSlipRate[iBndGP])/m_Params->rs_sr0 * exp((m_Params->rs_f0 + m_Params->rs_b*log(m_Params->rs_sr0*LocSV/RS_sl0[ltsFace])) / RS_a[ltsFace]);
 
           //! Ampuero and Ben-Zion 2008 (eq. 1):
           // LocMu = friction coefficient (mu_f)
@@ -974,7 +974,7 @@ public:
           // RS_sr0 = characteristic velocity scale (V_c)
           // RS_b = positive coefficient, quantifying  the evolution effect (beta)
           // RS_sl0 = characteristic velocity scale (V_c)
-          LocMu = m_Params.rs_f0+RS_a[ltsFace]*LocSlipRate[iBndGP]/(LocSlipRate[iBndGP]+m_Params.rs_sr0)-m_Params.rs_b*LocSV/(LocSV+RS_sl0[ltsFace]);
+          LocMu = m_Params->rs_f0+RS_a[ltsFace]*LocSlipRate[iBndGP]/(LocSlipRate[iBndGP]+m_Params->rs_sr0)-m_Params->rs_b*LocSV/(LocSV+RS_sl0[ltsFace]);
 
           // update stress change
           LocTracXY = -((initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP]) / ShTest) *LocMu * P;

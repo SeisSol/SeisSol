@@ -30,16 +30,14 @@ protected:
   static constexpr int numberOfPoints = tensor::QInterpolated::Shape[0];
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
   //YAML::Node m_InputParam;
-  dr::DrParameterT m_Params;
+  dr::DrParameterT *m_Params;
 
 public:
   virtual ~BaseDrInitializer() {}
 
   //set the parameters from .par file with yaml to this class attributes.
-  void setInputParam(const YAML::Node& Params) {
-    using namespace initializers;
-    //TODO: maybe allocate dr::DrParameterT in MemoryManager and copy here only the reference
-    m_Params.setAllInputParam(Params);
+  void setInputParam(dr::DrParameterT *DynRupParameter) {
+    m_Params = DynRupParameter;
   }
 
 
@@ -203,7 +201,7 @@ public:
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;
-          DS[ltsFace][iBndGP] = m_Params.IsDsOutputOn;
+          DS[ltsFace][iBndGP] = m_Params->IsDsOutputOn;
         }
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
@@ -309,7 +307,7 @@ public:
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;
-          DS[ltsFace][iBndGP] = m_Params.IsDsOutputOn;
+          DS[ltsFace][iBndGP] = m_Params->IsDsOutputOn;
         }
         averaged_Slip[ltsFace]= 0.0;
 
@@ -368,8 +366,8 @@ public:
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
         for (unsigned iBndGP = numberOfPoints; iBndGP < numOfPointsPadded; ++iBndGP) {
-          temperature[ltsFace][iBndGP] = m_Params.IniTemp;
-          pressure[ltsFace][iBndGP] = m_Params.IniPressure;
+          temperature[ltsFace][iBndGP] = m_Params->IniTemp;
+          pressure[ltsFace][iBndGP] = m_Params->IniPressure;
           TP_half_width_shear_zone[ltsFace][iBndGP] = static_cast<real>( faultParameters["TP_half_width_shear_zone"][meshFace * numberOfPoints] );
           alpha_hy[ltsFace][iBndGP] = static_cast<real>( faultParameters["alpha_hy"][meshFace * numberOfPoints] );
           for (unsigned iTP_grid_nz = TP_grid_nz; iTP_grid_nz < TP_grid_nz; ++iTP_grid_nz) {

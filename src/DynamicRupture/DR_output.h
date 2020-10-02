@@ -24,9 +24,15 @@ namespace seissol {
 
 
 class seissol::dr::output::Output_Base{
+protected:
+  dr::DrParameterT *m_Params;
 public:
     virtual ~Output_Base() {}
-    void setInputParam(const YAML::Node& Param) {m_InputParam = Param;}
+
+  //set the parameters from .par file with yaml to this class attributes.
+  void setInputParam(dr::DrParameterT *DynRupParameter) {
+    m_Params = DynRupParameter;
+  }
 
     virtual void tiePointers(seissol::initializers::Layer&  layerData,
             seissol::initializers::DynamicRupture *dynRup,
@@ -58,8 +64,8 @@ public:
 
     virtual void postCompute(seissol::initializers::DynamicRupture &DynRup) = 0;
 
-protected:
-  YAML::Node m_InputParam;
+
+
 };
 
 class seissol::dr::output::Output_FL_0 : public seissol::dr::output::Output_Base {

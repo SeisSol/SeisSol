@@ -30,7 +30,7 @@ namespace seissol {
       struct Factory_FL_33;
       struct Factory_FL_103;
       struct Factory_FL_103_Thermal;
-      seissol::dr::factory::AbstractFactory* getFactory(dr::DrParameterT DynRupParameter);
+      seissol::dr::factory::AbstractFactory* getFactory(dr::DrParameterT *DynRupParameter);
     }
   }
 }
@@ -132,7 +132,7 @@ class seissol::dr::factory::Factory_FL_103_Thermal : public seissol::dr::factory
   }
 };
 
-seissol::dr::factory::AbstractFactory* seissol::dr::factory::getFactory(dr::DrParameterT DynRupParameter);
+seissol::dr::factory::AbstractFactory* seissol::dr::factory::getFactory(dr::DrParameterT *DynRupParameter);
 
 int temporary_main();
 

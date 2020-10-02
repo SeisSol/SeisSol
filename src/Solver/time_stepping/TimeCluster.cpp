@@ -337,13 +337,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
     auto imposedStatePlusViewTest = init::QInterpolated::view::create(imposedStateMinusTest[lts_face]);
     for (int j = 0; j < 9; j++) {
       for (int i = 0; i < numberOfPoints; i++) {
-        if(fabs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 0.1 ){  // 0.00000000000001
+        if(fabs( imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) > 1 ){  // 0.00000000000001
           std::cout << "Function call of error: "<< m_FrictonLaw->numberOfFunctionCalls << " error: " << fabs(  imposedStateMinusView(i, j) - imposedStateMinusViewTest(i, j) ) <<  std::endl;
           std::cout << "imposedStateMinusView: "<< imposedStateMinusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStateMinusViewTest(i, j) << std::endl;
           assert(false);
         }
-        if(abs( imposedStatePlusView(i, j) - imposedStatePlusViewTest(i, j) ) > 0.1 ){
+        if(abs( imposedStatePlusView(i, j) - imposedStatePlusViewTest(i, j) ) > 1 ){
           std::cout << "imposedStateMinusView: "<< imposedStatePlusView(i, j) << std::endl;
           std::cout << "imposedStateMinusViewTest: "<< imposedStatePlusViewTest(i, j) << std::endl;
           assert(false);

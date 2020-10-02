@@ -165,7 +165,7 @@ class seissol::initializers::MemoryManager {
     seissol::initializers::BaseDrInitializer* m_DrInitializer = nullptr;
     seissol::dr::fr_law::BaseFrictionSolver* m_FrictonLaw = nullptr;
     seissol::dr::output::Output_Base* m_DrOutput = nullptr;
-
+    dr::DrParameterT* m_dynRupParameter;
     YAML::Node m_inputParams;
 
     LTSTree m_boundaryTree;
@@ -233,6 +233,7 @@ class seissol::initializers::MemoryManager {
         delete m_DrInitializer;
         delete m_FrictonLaw;
         delete m_DrOutput;
+        delete m_dynRupParameter;
     }
     
     /**

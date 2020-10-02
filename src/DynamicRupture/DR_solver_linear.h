@@ -158,7 +158,7 @@ protected:
 
       //-------------------------------------
       //instantaneous healing option Reset Mu and Slip
-      if (m_Params.IsInstaHealingOn == true) {
+      if (m_Params->IsInstaHealingOn == true) {
         if (LocSlipRate[iBndGP] < u_0) {
           mu[face][iBndGP] = mu_S[face][iBndGP];
           slip[face][iBndGP] = 0.0;
@@ -255,14 +255,14 @@ public:
   virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime,  unsigned int iBndGP,  unsigned int face) override{
     real f2 = 0.0;
 
-    if (m_Params.t_0 == 0) {
+    if (m_Params->t_0 == 0) {
       if (tn >= forced_rupture_time[face][iBndGP] ) {
         f2 = 1.0;
       } else {
         f2 = 0.0;
       }
     } else {
-      f2 = std::max(0.0, std::min( 1.0, (fullUpdateTime - forced_rupture_time[face][iBndGP] ) / m_Params.t_0));
+      f2 = std::max(0.0, std::min( 1.0, (fullUpdateTime - forced_rupture_time[face][iBndGP] ) / m_Params->t_0));
     }
     stateVariablePsi[iBndGP] = std::max(stateVariablePsi[iBndGP], f2);
   }
@@ -291,7 +291,7 @@ protected:
    */
   void prak_clif_mod(real &strength, real &sigma, real &LocSlipRate, real &mu, real &dt){
     real expterm;
-    expterm = std::exp(-(std::abs(LocSlipRate) + m_Params.v_star)*dt/ m_Params.prakash_length);
+    expterm = std::exp(-(std::abs(LocSlipRate) + m_Params->v_star)*dt/ m_Params->prakash_length);
     strength =  strength* expterm - std::max(0.0,-mu*sigma)*(expterm-1.0);
   }
 
@@ -383,7 +383,7 @@ public:
           }
 
           // instantaneous healing
-          if( m_Params.IsInstaHealingOn == true){
+          if( m_Params->IsInstaHealingOn == true){
             if(LocSlipRate[iBndGP] < u_0){
               LocMu = LocMu_S;
               // reset slip history for LSW

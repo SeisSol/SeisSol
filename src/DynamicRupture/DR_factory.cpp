@@ -8,8 +8,8 @@
 namespace seissol {
   namespace dr {
     namespace factory {
-      AbstractFactory* getFactory(dr::DrParameterT DynRupParameter) {
-        switch (DynRupParameter.FrictionLawType) {
+      AbstractFactory* getFactory(dr::DrParameterT* DynRupParameter) {
+        switch (DynRupParameter->FrictionLawType) {
           //! no fault
           case no_fault: return new Factory_FL_0;
           //! imposed slip rate on the dynamic rupture boundary
@@ -34,7 +34,7 @@ namespace seissol {
             throw std::runtime_error("friction law 101 currently disables");
           //! specific conditions for SCEC TPV103 rate and state slip law + time and space dependent nucleation
           case rate_and_state_slip_nucleation:
-            if(DynRupParameter.IsTermalPressureOn == false)
+            if(DynRupParameter->IsTermalPressureOn == false)
               //!without thermal pressure
               return new Factory_FL_103;
             else

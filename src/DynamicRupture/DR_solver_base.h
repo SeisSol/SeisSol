@@ -31,10 +31,8 @@ public:
   virtual ~BaseFrictionSolver() {}
 
   //set the parameters from .par file with yaml to this class attributes.
-  void setInputParam(const YAML::Node& Params) {
-    using namespace initializers;
-    //TODO: maybe allocate dr::DrParameterT in MemoryManager and copy here only the reference
-    m_Params.setAllInputParam(Params);
+  void setInputParam(dr::DrParameterT *DynRupParameter) {
+    m_Params = DynRupParameter;
   }
 
 
@@ -44,7 +42,7 @@ protected:
   //assert(init::QInterpolated::Start[0] == 0);
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
   //YAML::Node m_InputParam;
-  dr::DrParameterT m_Params;
+  dr::DrParameterT *m_Params;
   ImpedancesAndEta*                     impAndEta;
   real                    (*initialStressInFaultCS)[numOfPointsPadded][6];
   real                    (*cohesion)[numOfPointsPadded];
@@ -174,7 +172,7 @@ protected:
   double Calc_SmoothStepIncrement(double fullUpdateTime, real dt){
     double Gnuc;
     double prevtime;
-    if(fullUpdateTime > 0.0 && fullUpdateTime <= m_Params.t_0){
+    if(fullUpdateTime > 0.0 && fullUpdateTime <= m_Params->t_0){
       Gnuc = Calc_SmoothStep(fullUpdateTime);
       prevtime = fullUpdateTime - dt;
       if(prevtime > 0.0){
@@ -194,8 +192,8 @@ protected:
     if (fullUpdateTime <= 0){
       Gnuc=0.0;
     }else{
-      if (fullUpdateTime < m_Params.t_0){
-        Gnuc = std::exp(seissol::dr::aux::power(fullUpdateTime - m_Params.t_0, 2) / (fullUpdateTime * (fullUpdateTime - 2.0 * m_Params.t_0)));
+      if (fullUpdateTime < m_Params->t_0){
+        Gnuc = std::exp(seissol::dr::aux::power(fullUpdateTime - m_Params->t_0, 2) / (fullUpdateTime * (fullUpdateTime - 2.0 * m_Params->t_0)));
       }else{
         Gnuc=1.0;
       }
@@ -239,7 +237,7 @@ protected:
       unsigned int face
   ){
     real sum_tmpSlip = 0;
-    if (m_Params.IsMagnitudeOutputOn) {
+    if (m_Params->IsMagnitudeOutputOn) {
       for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++)
         sum_tmpSlip += tmpSlip[iBndGP];
       averaged_Slip[face] = averaged_Slip[face] + sum_tmpSlip / numberOfPoints;
