@@ -5,7 +5,8 @@ When working with SI units in earthquake scenarios numbers might get very large.
 Rescaling the equations might be advantageous, e.g. when working with single precision arithmetic.
 In this section, we show how to properly scale the elastic wave equation.
 
-The elastic wave equation in velocity-stress form with source terms is given by
+The elastic wave equation in velocity-stress form with source terms :math:`s_i` and :math:`f_i`
+is given by
 
 .. math::
 
@@ -23,8 +24,9 @@ We define scaled quantities
 .. math::
 
    \bar{x}_i = \frac{x_i}{L}, \quad \bar{u}_i = \frac{u_i}{u_c}, \quad
-       \bar{\sigma}_{ij} = \frac{\sigma_{ij}}{\sigma_c}
+       \bar{\sigma}_{ij} = \frac{\sigma_{ij}}{\sigma_c},
 
+where :math:`L, u_c, \sigma_c` are :ref:`scaling constants<Scaling Example>`.
 Inserting these into the elastic wave equation gives
 
 .. math::
@@ -39,8 +41,8 @@ Inserting these into the elastic wave equation gives
          \frac{\partial \bar{\sigma}_{ij}}{\partial \bar{x}_j} &= f_i
    \end{aligned}
 
-Multiplying the first equation with :math:`\sigma_c^{-1}`, the second with :math:`L\sigma_c^{-1}`,
-and defining
+Multiplying the first equation with :math:`\sigma_c^{-1}`, multiplying the second equation with
+:math:`L\sigma_c^{-1}`, and defining
 
 .. math::
 
@@ -63,13 +65,16 @@ leads to
      \bar{\rho}\frac{\partial \bar{u}_i}{\partial t } -
       \frac{\partial \bar{\sigma}_{ij}}{\partial \bar{x}_j } &= \bar{f}_i\end{aligned}
 
+.. _Scaling Example:
+
 Example
 -------
-Set
+We change units with the scaling constants
 
 .. math:: L = 10^3, \quad u_c = 1, \quad \sigma_c = 10^6
 
-Then the spatial dimension of the mesh is [km], velocities are in [m/s], and stresses are in [MPa].
+In the rescaled equations, the spatial dimension of the mesh is [km],
+velocities are in [m/s], and stresses are in [MPa].
 Parameters and source terms are scaled with
 
 .. math::
