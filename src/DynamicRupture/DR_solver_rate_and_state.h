@@ -600,7 +600,7 @@ public:
 
           //2. solve for Vnew , applying the Newton-Raphson algorithm
           //effective normal stress including initial stresses and pore fluid pressure
-          has_converged = IterativelyInvertSR_Brent(ltsFace, nSRupdates, LocSlipRate, LocSV, normalStress, TotalShearStressYZ, SRtest);
+          has_converged = IterativelyInvertSR(ltsFace, nSRupdates, LocSlipRate, LocSV, normalStress, TotalShearStressYZ, SRtest);
 
           //TODO: test padded
           for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
