@@ -8,6 +8,7 @@
 #include <c++/8.3.0/iostream>
 #include "DR_math.h"
 #include <yaml-cpp/yaml.h>
+#include <Kernels/DynamicRupture.h>
 
 
 namespace seissol {
@@ -252,7 +253,109 @@ public:
                          real fullUpdateTime,
                          real timeWeights[CONVERGENCE_ORDER],
                          real DeltaT[CONVERGENCE_ORDER]) = 0;
-};
+
+
+  void dynamicRuptureCalc(seissol::initializers::Layer&  layerData,
+                          seissol::initializers::DynamicRupture *dynRup,
+                          real fullUpdateTime,
+                          kernels::DynamicRupture  dynamicRuptureKernel,
+                          GlobalData const* globalData){
+
+
+    DRFaceInformation*                    faceInformation                                                   = layerData.var(dynRup->faceInformation);
+    DRGodunovData*                        godunovData                                                       = layerData.var(dynRup->godunovData);
+    real**                                timeDerivativePlus                                                = layerData.var(dynRup->timeDerivativePlus);
+    real**                                timeDerivativeMinus                                               = layerData.var(dynRup->timeDerivativeMinus);
+    //TODO: if computation loop is not splitted -> smaller size
+    alignas(ALIGNMENT) real QInterpolatedPlus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+    alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+
+    //Code added by ADRIAN
+
+    //debugging:
+    //TODO: delete these if not required for debugging anymore:
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsPlus                                                    = layerData.var(dynRup->waveSpeedsPlus);
+    seissol::model::IsotropicWaveSpeeds*  waveSpeedsMinus                                                   = layerData.var(dynRup->waveSpeedsMinus);
+    real                                (*imposedStatePlus)[tensor::QInterpolated::size()]                  = layerData.var(dynRup->imposedStatePlus);
+    real                                (*imposedStateMinus)[tensor::QInterpolated::size()]                 = layerData.var(dynRup->imposedStateMinus);
+
+    alignas(ALIGNMENT) real imposedStatePlusTest[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
+    alignas(ALIGNMENT) real imposedStateMinusTest[layerData.getNumberOfCells()][tensor::QInterpolated::size()];
+
+
+    real DeltaT[CONVERGENCE_ORDER] = {};
+    DeltaT[0]= dynamicRuptureKernel.timePoints[0];
+    for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
+      DeltaT[iTimeGP] = dynamicRuptureKernel.timePoints[iTimeGP]- dynamicRuptureKernel.timePoints[iTimeGP-1];
+    }
+    DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
+
+    //this copies all lts data pointers to local class attributes
+    copyLtsTreeToLocal(layerData, dynRup);
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
+#endif
+    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+      //initialize struct for in/outputs stresses
+      FaultStresses faultStresses{};
+
+      //declare local variables
+      real LocSlipRate[seissol::tensor::resamplePar::size()];
+
+      //compute stresses from Qinterpolated
+      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
+
+
+      unsigned prefetchFace = (ltsFace < layerData.getNumberOfCells() - 1) ? ltsFace + 1 : ltsFace;
+
+      dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[ltsFace],
+                                                      globalData,
+                                                      &godunovData[ltsFace],
+                                                      timeDerivativePlus[ltsFace],
+                                                      timeDerivativeMinus[ltsFace],
+                                                      QInterpolatedPlus[ltsFace],
+                                                      QInterpolatedMinus[ltsFace],
+                                                      timeDerivativePlus[prefetchFace],
+                                                      timeDerivativeMinus[prefetchFace] );
+
+      // legacy code:
+      //TODO remove - only for debugging:
+      int fortran_face = static_cast<int>(faceInformation[ltsFace].meshFace) + 1;
+      e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[ltsFace].meshFace),
+                                              QInterpolatedPlus[ltsFace],
+                                              QInterpolatedMinus[ltsFace],
+                                              imposedStatePlusTest[ltsFace],
+                                              imposedStateMinusTest[ltsFace],
+                                              fullUpdateTime,
+                                              dynamicRuptureKernel.timePoints,
+                                              dynamicRuptureKernel.timeWeights,
+                                              waveSpeedsPlus[ltsFace],
+                                              waveSpeedsMinus[ltsFace] );
+
+
+      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
+        /*
+         * add friction law calculation here:
+         */
+
+      }
+
+      // output rupture front
+      // outside of iTimeGP loop in order to safe an 'if' in a loop
+      // this way, no subtimestep resolution possible
+      outputRuptureFront(LocSlipRate, fullUpdateTime, ltsFace);
+
+      //output peak slip rate
+      calcPeakSlipRate(LocSlipRate, ltsFace);
+
+      //save stresses in imposedState
+      postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], faultStresses, dynamicRuptureKernel.timeWeights, ltsFace);
+
+      //*/
+    } //End layerData.getNumberOfCells()-loop
+  }
+};  //End BaseFrictionSolver Class
 
 
 class seissol::dr::fr_law::SolverNoFaultFL0 : public seissol::dr::fr_law::BaseFrictionSolver {
