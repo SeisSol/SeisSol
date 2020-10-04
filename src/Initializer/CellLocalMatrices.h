@@ -49,9 +49,6 @@
 #include <Initializer/DynamicRupture.h>
 #include <DynamicRupture/DR_factory.h>
 
-//added by adrian TODO remove:
-#include "Physics/tmpFrictionDataStruct.cpp"
-#include <unordered_map>
 
 namespace seissol {
   namespace initializers {

@@ -5,7 +5,6 @@
 #ifndef SEISSOL_DR_SOLVER_BASE_H
 #define SEISSOL_DR_SOLVER_BASE_H
 
-#include <c++/8.3.0/iostream>
 #include "DR_math.h"
 #include <yaml-cpp/yaml.h>
 #include <Kernels/DynamicRupture.h>

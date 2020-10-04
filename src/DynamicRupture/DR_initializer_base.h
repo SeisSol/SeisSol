@@ -5,8 +5,7 @@
 #ifndef SEISSOL_DR_INITIALIZER_BASE_H
 #define SEISSOL_DR_INITIALIZER_BASE_H
 
-#include <c++/8.3.0/iostream>
-#include <c++/8.3.0/unordered_map>
+
 #include <Solver/Interoperability.h>
 #include <yaml-cpp/yaml.h>
 #include "Initializer/InputAux.hpp"
