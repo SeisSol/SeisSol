@@ -320,7 +320,6 @@ public:
       real sigma;
       real ShTest;
       real Strength;
-      real LocTracXY, LocTracXZ;
 
       for(int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++){ //loop over time steps
         //TODO: test if works padded??
@@ -334,24 +333,27 @@ public:
 
           if(ShTest > Strength){
             // 1 evaluate friction
-            LocTracXY = ((initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP])/ShTest)*Strength;
-            LocTracXZ = ((initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP])/ShTest)*Strength;
+            faultStresses.TractionGP_XY[iTimeGP][iBndGP] = ((initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP])/ShTest)*Strength;
+            faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = ((initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP])/ShTest)*Strength;
 
             // 2 update stress change
-            LocTracXY = LocTracXY - initialStressInFaultCS[ltsFace][iBndGP][3];
-            LocTracXZ = LocTracXZ - initialStressInFaultCS[ltsFace][iBndGP][5];
+            faultStresses.TractionGP_XY[iTimeGP][iBndGP] -= initialStressInFaultCS[ltsFace][iBndGP][3];
+            faultStresses.TractionGP_XZ[iTimeGP][iBndGP] -= initialStressInFaultCS[ltsFace][iBndGP][5];
           }else{
-            LocTracXY = faultStresses.XYStressGP[iTimeGP][iBndGP];
-            LocTracXZ = faultStresses.XZStressGP[iTimeGP][iBndGP];
+            faultStresses.TractionGP_XY[iTimeGP][iBndGP] = faultStresses.XYStressGP[iTimeGP][iBndGP];
+            faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP];
           }
+
           //!Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-          slipRate1[ltsFace][iBndGP]     = -impAndEta[ltsFace].inv_eta_s*(LocTracXY-faultStresses.XYStressGP[iTimeGP][iBndGP]);
-          slipRate2[ltsFace][iBndGP]     = -impAndEta[ltsFace].inv_eta_s*(LocTracXZ-faultStresses.XZStressGP[iTimeGP][iBndGP]);
+          slipRate1[ltsFace][iBndGP]     = -impAndEta[ltsFace].inv_eta_s*(faultStresses.TractionGP_XY[iTimeGP][iBndGP]-faultStresses.XYStressGP[iTimeGP][iBndGP]);
+          slipRate2[ltsFace][iBndGP]     = -impAndEta[ltsFace].inv_eta_s*(faultStresses.TractionGP_XZ[iTimeGP][iBndGP]-faultStresses.XZStressGP[iTimeGP][iBndGP]);
           LocSlipRate[iBndGP]      = sqrt(slipRate1[ltsFace][iBndGP]*slipRate1[ltsFace][iBndGP] + slipRate2[ltsFace][iBndGP]*slipRate2[ltsFace][iBndGP]);
           // Update slip
           slip1[ltsFace][iBndGP] = slip1[ltsFace][iBndGP] + slipRate1[ltsFace][iBndGP]*DeltaT[iTimeGP];
           slip2[ltsFace][iBndGP] = slip2[ltsFace][iBndGP] + slipRate2[ltsFace][iBndGP]*DeltaT[iTimeGP];
           slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + LocSlipRate[iBndGP]*DeltaT[iTimeGP];
+
+          //friction function
           if(abs(slip[ltsFace][iBndGP]) < d_c[ltsFace][iBndGP]){
             mu[ltsFace][iBndGP] = mu_S[ltsFace][iBndGP] - (mu_S[ltsFace][iBndGP]-mu_D[ltsFace][iBndGP])/d_c[ltsFace][iBndGP]*abs(slip[ltsFace][iBndGP]);
           }else{
@@ -366,10 +368,6 @@ public:
               slip[ltsFace][iBndGP] = 0.0; //0.0D0
             }
           }
-
-          //Save traction for flux computation
-          faultStresses.TractionGP_XY[iTimeGP][iBndGP] = LocTracXY;
-          faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ;
         }//End loop over all points
       } //End of time loop
 
