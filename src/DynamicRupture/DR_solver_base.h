@@ -322,16 +322,6 @@ public:
       // legacy code:
       //TODO remove - only for debugging:
       int fortran_face = static_cast<int>(faceInformation[ltsFace].meshFace) + 1;
-      e_interoperability.evaluateFrictionLaw( static_cast<int>(faceInformation[ltsFace].meshFace),
-                                              QInterpolatedPlus[ltsFace],
-                                              QInterpolatedMinus[ltsFace],
-                                              imposedStatePlusTest[ltsFace],
-                                              imposedStateMinusTest[ltsFace],
-                                              fullUpdateTime,
-                                              dynamicRuptureKernel.timePoints,
-                                              dynamicRuptureKernel.timeWeights,
-                                              waveSpeedsPlus[ltsFace],
-                                              waveSpeedsMinus[ltsFace] );
 
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps

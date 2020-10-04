@@ -317,43 +317,19 @@ public:
       //compute stresses from Qinterpolated
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
-      //initialize local variables
-      real LocMu, LocD_C, LocSlip, LocSlip1, LocSlip2, LocP;
-      real LocMu_S, LocMu_D;
-      real LocSR1, LocSR2;
-      real LocCohesion;
-      real Strength_exp;
-      real P_0;
-      real time_inc;
       real sigma;
       real ShTest;
       real Strength;
       real LocTracXY, LocTracXZ;
 
-      //TODO: test if works padded??
-      for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){ //loop over all points
+      for(int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++){ //loop over time steps
+        //TODO: test if works padded??
+        for(int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++){ //loop over all points
 
-        LocMu     = mu[ltsFace][iBndGP];     // Current friction coefficient at given fault node
-        LocMu_S   = mu_S[ltsFace][iBndGP];  //DISC%DynRup%Mu_S(iBndGP,iFace)               //!< Static friction coefficient at given fault node - seisolxx.f90->ini_seisol.f90->readpar.f90->parameters.par found in fault.yaml
-        LocMu_D   = mu_D[ltsFace][iBndGP]; //DISC%DynRup%Mu_D(iBndGP,iFace)               //!< Dynamic friction coefficient at given fault node - found in fault.yaml
-        LocD_C    = d_c[ltsFace][iBndGP]; //DISC%DynRup%D_C(iBndGP,iFace)               //!< Critical slip at given fault node - found in fault.yaml
-        LocSlip   = slip[ltsFace][iBndGP]; //DISC%DynRup%Slip(iBndGP,iFace)              //!< Slip path at given fault node
-        LocSlip1   = slip1[ltsFace][iBndGP]; //DISC%DynRup%Slip1(iBndGP,iFace)            //!< Slip at given fault node along loc dir 1
-        LocSlip2   = slip2[ltsFace][iBndGP]; //DISC%DynRup%Slip2(iBndGP,iFace)            // !< Slip at given fault node along loc dir 2
-        LocSR1    = slipRate1[ltsFace][iBndGP]; //DISC%DynRup%SlipRate1(iBndGP,iFace)         // !< Slip Rate at given fault node
-        LocSR2    = slipRate2[ltsFace][iBndGP]; //DISC%DynRup%SlipRate2(iBndGP,iFace)         // !< Slip Rate at given fault node
-        LocCohesion  = cohesion[ltsFace][iBndGP]; //DISC%DynRup%cohesion(iBndGP,iFace)          // !< cohesion at given fault node  (should be negative since negative normal stress is compression)
-        P_0       = initialStressInFaultCS[ltsFace][iBndGP][0]; //EQN%InitialStressInFaultCS[iBndGP][1][iFace];
-        Strength_exp = strengthData[ltsFace][iBndGP]; //DISC%DynRup%Strength[iBndGP][iFace];         //!< save strength since it is used for bimaterial
-
-        for(int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++){ //loop over time steps
-
-          LocP   = faultStresses.NorStressGP[iTimeGP][iBndGP];
-          time_inc = DeltaT[iTimeGP];
           //  modify strength according to prakash clifton
-          LocSlipRate[iBndGP] = std::sqrt(LocSR1*LocSR1 + LocSR2*LocSR1);
-          sigma = LocP+P_0;
-          prak_clif_mod(Strength_exp, sigma, LocSlipRate[iBndGP], LocMu, time_inc);
+          LocSlipRate[iBndGP] = std::sqrt(slipRate1[ltsFace][iBndGP]*slipRate1[ltsFace][iBndGP] + slipRate2[ltsFace][iBndGP]*slipRate2[ltsFace][iBndGP]);
+          sigma = faultStresses.NorStressGP[iTimeGP][iBndGP]+initialStressInFaultCS[ltsFace][iBndGP][0];
+          prak_clif_mod(strengthData[ltsFace][iBndGP], sigma, LocSlipRate[iBndGP], mu[ltsFace][iBndGP], DeltaT[iTimeGP]);
           ShTest = sqrt(seissol::dr::aux::power(initialStressInFaultCS[ltsFace][iBndGP][3] + faultStresses.XYStressGP[iTimeGP][iBndGP], 2) + seissol::dr::aux::power(initialStressInFaultCS[ltsFace][iBndGP][5] + faultStresses.XZStressGP[iTimeGP][iBndGP],2) );
 
           if(ShTest > Strength){
@@ -369,45 +345,33 @@ public:
             LocTracXZ = faultStresses.XZStressGP[iTimeGP][iBndGP];
           }
           //!Update slip rate (notice that LocSR(T=0)=-2c_s/mu*s_xy^{Godunov} is the slip rate caused by a free surface!)
-          LocSR1     = -impAndEta[ltsFace].inv_eta_s*(LocTracXY-faultStresses.XYStressGP[iTimeGP][iBndGP]);
-          LocSR2     = -impAndEta[ltsFace].inv_eta_s*(LocTracXZ-faultStresses.XZStressGP[iTimeGP][iBndGP]);
-          LocSlipRate[iBndGP]      = sqrt(LocSR1*LocSR1 + LocSR2*LocSR2);
+          slipRate1[ltsFace][iBndGP]     = -impAndEta[ltsFace].inv_eta_s*(LocTracXY-faultStresses.XYStressGP[iTimeGP][iBndGP]);
+          slipRate2[ltsFace][iBndGP]     = -impAndEta[ltsFace].inv_eta_s*(LocTracXZ-faultStresses.XZStressGP[iTimeGP][iBndGP]);
+          LocSlipRate[iBndGP]      = sqrt(slipRate1[ltsFace][iBndGP]*slipRate1[ltsFace][iBndGP] + slipRate2[ltsFace][iBndGP]*slipRate2[ltsFace][iBndGP]);
           // Update slip
-          LocSlip1 = LocSlip1 + LocSR1*time_inc;
-          LocSlip2 = LocSlip2 + LocSR2*time_inc;
-          LocSlip = LocSlip + LocSlipRate[iBndGP]*time_inc;
-          if(abs(LocSlip) < LocD_C){
-            LocMu = LocMu_S - (LocMu_S-LocMu_D)/LocD_C*abs(LocSlip);
+          slip1[ltsFace][iBndGP] = slip1[ltsFace][iBndGP] + slipRate1[ltsFace][iBndGP]*DeltaT[iTimeGP];
+          slip2[ltsFace][iBndGP] = slip2[ltsFace][iBndGP] + slipRate2[ltsFace][iBndGP]*DeltaT[iTimeGP];
+          slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + LocSlipRate[iBndGP]*DeltaT[iTimeGP];
+          if(abs(slip[ltsFace][iBndGP]) < d_c[ltsFace][iBndGP]){
+            mu[ltsFace][iBndGP] = mu_S[ltsFace][iBndGP] - (mu_S[ltsFace][iBndGP]-mu_D[ltsFace][iBndGP])/d_c[ltsFace][iBndGP]*abs(slip[ltsFace][iBndGP]);
           }else{
-            LocMu = LocMu_D;
+            mu[ltsFace][iBndGP] = mu_D[ltsFace][iBndGP];
           }
 
           // instantaneous healing
           if( m_Params->IsInstaHealingOn == true){
             if(LocSlipRate[iBndGP] < u_0){
-              LocMu = LocMu_S;
+              mu[ltsFace][iBndGP] = mu_S[ltsFace][iBndGP];
               // reset slip history for LSW
-              LocSlip = 0.0; //0.0D0
+              slip[ltsFace][iBndGP] = 0.0; //0.0D0
             }
           }
 
           //Save traction for flux computation
           faultStresses.TractionGP_XY[iTimeGP][iBndGP] = LocTracXY;
           faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = LocTracXZ;
-
-        } //End of time loop
-
-        //TODO: remove local variables
-        mu[ltsFace][iBndGP]       = LocMu;
-        slipRate1[ltsFace][iBndGP] = LocSR1;
-        slipRate2[ltsFace][iBndGP] = LocSR2;
-        slip[ltsFace][iBndGP]     = LocSlip;
-        slip1[ltsFace][iBndGP]     = LocSlip1;
-        slip2[ltsFace][iBndGP]     = LocSlip2;
-        tracXY[ltsFace][iBndGP]    = LocTracXY;
-        tracXZ[ltsFace][iBndGP]    = LocTracXZ;
-        strengthData[ltsFace][iBndGP]  = Strength_exp;
-      }//End loop over all points
+        }//End loop over all points
+      } //End of time loop
 
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
