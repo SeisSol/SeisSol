@@ -8,12 +8,12 @@ earthquake source governed by a constitutive law that describes the
 relationship between fault stress and slip across a geometrically complex
 fault. SeisSol is a high-order accurate *Discontinuous Galerkin Finite
 Element* solver, based on the ADER-DG method presented
-in Kaser and Dumbser [2006], enabling precise modeling of on-fault
+in Kaser and Dumbser (2006), enabling precise modeling of on-fault
 frictional failure coupled to seismic waves traveling over large
 distances in terms of propagated wavelengths with minimal dispersion
 errors, whereas it is intrinsically dissipative and removes frequencies
 unresolved by the mesh without affecting longer and physically
-meaningful wavelengths. de la Puente et al.[2009] and Pelties et al.[2012] introduced Riemann solution to handle discontinuous fault slip conditions and achieve earthquake dynamics with seismic wave propagation. 
+meaningful wavelengths. de la Puente et al. (2009) and Pelties et al. (2012) introduced Riemann solution to handle discontinuous fault slip conditions and achieve earthquake dynamics with seismic wave propagation.
 
 The software has recently proven to be highly scalable on current and
 future HPC infrastructure. It reached multi-petaflop/s performance on
@@ -22,13 +22,12 @@ some of the largest supercomputers worldwide in a pioneering simulation of the 1
 engineering frequency band (0-10 Hz) were modeled on a non-planar
 earthquake fault structure. In early 2017, SeisSol performed the longest
 and largest dynamic rupture scenario to date, enabled by local time
-stepping [Uphoff et al.,2017], resolving the 2004
+stepping (Uphoff et al.,2017), resolving the 2004
 Sumatra-Andaman earthquake including complex splay fault geometries. The
 paper won the prestigious “Best Paper Award” of the International
 Supercomputing Conference (SC17). SeisSol results imply that
-acknowledging geometrical complexity, realistic fault properties and
+acknowledging geometrical complexity, realistic fault properties, and
 velocity models affect not only earthquake source dynamics but the
 synthetic ground shaking crucially. The software package is available to
-the community as an open-source distribution
-(`www.github.com/SeisSol/SeisSol <www.github.com/SeisSol/SeisSol>`__).
-
+the community as an open-source distribution 
+(https://github.com/SeisSol/SeisSol).

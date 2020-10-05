@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.7)
 
 project(SeisSol-RConv LANGUAGES C CXX)
 
@@ -25,7 +25,7 @@ add_executable(SeisSol-rconv
 target_include_directories(SeisSol-rconv PUBLIC src
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../src" # SeisSol :(
    "${CMAKE_CURRENT_SOURCE_DIR}/../../../submodules/"
-   "${CMAKE_CURRENT_SOURCE_DIR}/../../../submodules/glm"
+   "${CMAKE_CURRENT_SOURCE_DIR}/../../../submodules/eigen3"
 
 )
 
@@ -36,5 +36,11 @@ target_link_libraries(SeisSol-rconv PUBLIC ${NetCDF_LIBRARY})
 find_package(PROJ4)
 target_include_directories(SeisSol-rconv PUBLIC ${PROJ4_INCLUDE_DIRS})
 target_link_libraries(SeisSol-rconv PUBLIC ${PROJ4_LIBRARIES})
+
+if(NOT PROJ4_FOUND)
+    target_compile_definitions(SeisSol-rconv PRIVATE -Dnoproj)
+    message(WARNING "Compiling without proj.4 support.")
+endif()
+
 
 set_target_properties(SeisSol-rconv PROPERTIES OUTPUT_NAME "rconv")
