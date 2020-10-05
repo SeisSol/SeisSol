@@ -131,7 +131,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
     generator.add('projectIniCond', [projectIniCondEla, projectIniCondAne])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
-  def addLocal(self, generator, platforms):
+  def addLocal(self, generator, targets):
     volumeSum = Add()
     for i in range(3):
       volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.db.star[i]['qp']
@@ -147,7 +147,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
       self.Q['kp'] <= self.Q['kp'] + self.Qext['kq'] * self.selectEla['qp'] + self.Iane['kqm'] * self.E['qmp']
     ])
 
-  def addNeighbor(self, generator, platforms):
+  def addNeighbor(self, generator, targets):
     neighbourFluxExt = lambda h,j,i: self.Qext['kp'] <= self.Qext['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
     neighbourFluxExtPrefetch = lambda h,j,i: self.I
     generator.addFamily('neighbourFluxExt', simpleParameterSpace(3,4,4), neighbourFluxExt, neighbourFluxExtPrefetch)
@@ -157,7 +157,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
       self.Q['kp'] <= self.Q['kp'] + self.Qext['kq'] * self.selectEla['qp']
     ])
 
-  def addTime(self, generator, platforms):
+  def addTime(self, generator, targets):
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     dQ = [OptionalDimTensor('dQ({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True) for d in range(self.order)]
     dQext = [OptionalDimTensor('dQext({})'.format(d), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), self._qShapeExtended, alignStride=True) for d in range(self.order)]

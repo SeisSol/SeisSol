@@ -53,7 +53,7 @@ foreach(component ${_GEMM_TOOLS_LIST})
         execute_process(COMMAND python -c "import gemmforge; gemmforge.print_cmake_path()"
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
         set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_MODULE_PATH})
-        find_package(GemmForge 0.0.2 REQUIRED)
+        find_package(GemmForge 0.0.200 REQUIRED)
 
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \

@@ -70,6 +70,10 @@ cmdLineParser.add_argument('--PlasticityMethod')
 cmdLineParser.add_argument('--gemm_tools')
 cmdLineArgs = cmdLineParser.parse_args()
 
+# derive the compute platform
+gpu_platforms = ['nvidia', 'amd-gpu']
+targets = ['gpu', 'cpu'] if cmdLineArgs.device_arch[1:] in gpu_platforms else ['cpu']
+
 if cmdLineArgs.memLayout == 'auto':
   # TODO(Lukas) Don't hardcode this
   env = {
@@ -77,21 +81,21 @@ if cmdLineArgs.memLayout == 'auto':
     'order': cmdLineArgs.order,
     'arch': cmdLineArgs.host_arch,
     'device': cmdLineArgs.device_arch,
-    'multipleSimulations': cmdLineArgs.multipleSimulations
+    'multipleSimulations': cmdLineArgs.multipleSimulations,
+    'targets': targets
   }
   mem_layout = memlayout.guessMemoryLayout(env)
 else:
   mem_layout = cmdLineArgs.memLayout
 
 
+host_arch = cmdLineArgs.host_arch
 if cmdLineArgs.device_arch == 'none':
   compute_arch = cmdLineArgs.host_arch
   compute_sub_arch = None
-  host_arch = cmdLineArgs.host_arch
 else:
   compute_arch = cmdLineArgs.device_arch
   compute_sub_arch = cmdLineArgs.device_sub_arch
-  host_arch = cmdLineArgs.host_arch
 
 arch = useArchitectureIdentifiedBy(compute_arch, compute_sub_arch, host_arch)
 
@@ -101,11 +105,6 @@ try:
   equations = equationsSpec.loader.load_module()
 except:
   raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
-
-
-# derive the compute platform
-gpu_platforms = ['nvidia', 'amd-gpu']
-platforms = ['gpu', 'cpu'] if compute_arch[1:] in gpu_platforms else ['cpu']
 
 cmdArgsDict = vars(cmdLineArgs)
 cmdArgsDict['memLayout'] = mem_layout
@@ -124,9 +123,9 @@ generator = Generator(arch)
 
 # Equation-specific kernels
 adg.addInit(generator)
-adg.addLocal(generator, platforms)
-adg.addNeighbor(generator, platforms)
-adg.addTime(generator, platforms)
+adg.addLocal(generator, targets)
+adg.addNeighbor(generator, targets)
+adg.addTime(generator, targets)
 adg.add_include_tensors(include_tensors)
 
 # Common kernels
@@ -134,7 +133,7 @@ include_tensors.update(DynamicRupture.addKernels(NamespacedGenerator(generator, 
                                                  adg,
                                                  cmdLineArgs.matricesDir,
                                                  cmdLineArgs.dynamicRuptureMethod,
-                                                 platforms))
+                                                 targets))
 
 Plasticity.addKernels(generator, adg, cmdLineArgs.matricesDir, cmdLineArgs.PlasticityMethod)
 NodalBoundaryConditions.addKernels(generator, adg, include_tensors, cmdLineArgs.matricesDir, cmdLineArgs)

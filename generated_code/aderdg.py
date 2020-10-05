@@ -175,15 +175,15 @@ class ADERDGBase(ABC):
     generator.add('computeChristoffel', computeChristoffel)
 
   @abstractmethod
-  def addLocal(self, generator, platforms):
+  def addLocal(self, generator, targets):
     pass
 
   @abstractmethod
-  def addNeighbor(self, generator, platforms):
+  def addNeighbor(self, generator, targets):
     pass
 
   @abstractmethod
-  def addTime(self, generator, platforms):
+  def addTime(self, generator, targets):
     pass
 
   def add_include_tensors(self, include_tensors):
@@ -211,16 +211,16 @@ class LinearADERDG(ADERDGBase):
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
 
-  def addLocal(self, generator, platforms):
-    for platform in platforms:
-      name_prefix = generate_kernename_prefix(platform)
+  def addLocal(self, generator, targets):
+    for target in targets:
+      name_prefix = generate_kernename_prefix(target)
       volumeSum = self.Q['kp']
       for i in range(3):
         volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.starMatrix(i)['qp']
       if self.sourceMatrix():
         volumeSum += self.I['kq'] * self.sourceMatrix()['qp']
       volume = (self.Q['kp'] <= volumeSum)
-      generator.add(f'{name_prefix}volume', volume, platform=platform)
+      generator.add(f'{name_prefix}volume', volume, target=target)
 
       localFlux = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fMrT[i][self.t('ml')] * self.I['lq'] * self.AplusT['qp']
       localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
@@ -228,7 +228,7 @@ class LinearADERDG(ADERDGBase):
                           simpleParameterSpace(4),
                           localFlux,
                           localFluxPrefetch,
-                          platform=platform)
+                          target=target)
 
       localFluxNodal = lambda i: self.Q['kp'] <= self.Q['kp'] + self.db.project2nFaceTo3m[i]['kn'] * self.INodal['no'] * self.AminusT['op']
       localFluxNodalPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
@@ -236,22 +236,22 @@ class LinearADERDG(ADERDGBase):
                           simpleParameterSpace(4),
                           localFluxNodal,
                           localFluxNodalPrefetch,
-                          platform=platform)
+                          target=target)
 
-  def addNeighbor(self, generator, platforms):
-    for platform in platforms:
-      name_prefix = generate_kernename_prefix(platform)
+  def addNeighbor(self, generator, targets):
+    for target in targets:
+      name_prefix = generate_kernename_prefix(target)
       neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
       neighbourFluxPrefetch = lambda h,j,i: self.I
       generator.addFamily(f'{name_prefix}neighboringFlux',
                           simpleParameterSpace(3,4,4),
                           neighbourFlux,
                           neighbourFluxPrefetch,
-                          platform=platform)
+                          target=target)
 
-  def addTime(self, generator, platforms):
-    for platform in platforms:
-      name_prefix = generate_kernename_prefix(platform)
+  def addTime(self, generator, targets):
+    for target in targets:
+      name_prefix = generate_kernename_prefix(target)
 
       qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
       dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)
@@ -259,7 +259,7 @@ class LinearADERDG(ADERDGBase):
       derivatives = [dQ0]
       generator.add(f'{name_prefix}derivativeTaylorExpansion(0)',
                     self.I['kp'] <= power * dQ0['kp'],
-                    platform=platform)
+                    target=target)
 
       for i in range(1,self.order):
         derivativeSum = Add()
@@ -272,10 +272,10 @@ class LinearADERDG(ADERDGBase):
         derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
         dQ = OptionalDimTensor('dQ({})'.format(i), self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, spp=derivativeSum.eqspp(), alignStride=True)
 
-        generator.add(f'{name_prefix}derivative({i})', dQ['kp'] <= derivativeSum, platform=platform)
+        generator.add(f'{name_prefix}derivative({i})', dQ['kp'] <= derivativeSum, target=target)
         generator.add(f'{name_prefix}derivativeTaylorExpansion({i})',
                       self.I['kp'] <= self.I['kp'] + power * dQ['kp'],
-                      platform=platform)
+                      target=target)
 
         derivatives.append(dQ)
 
