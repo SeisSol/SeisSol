@@ -205,7 +205,7 @@ protected:
   // outside of iTimeGP loop in order to safe an 'if' in a loop
   // this way, no subtimestep resolution possible
   void outputRuptureFront(
-      real LocSlipRate[seissol::tensor::resamplePar::size()],
+      real LocSlipRate[numberOfPoints],
       real fullUpdateTime,
       unsigned int face
   ){
@@ -219,7 +219,7 @@ protected:
 
 
   void calcPeakSlipRate(
-      real LocSlipRate[seissol::tensor::resamplePar::size()],
+      real LocSlipRate[numberOfPoints],
       unsigned int face){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
       if (LocSlipRate[iBndGP] > peakSR[face][iBndGP]) {
@@ -300,7 +300,7 @@ public:
       FaultStresses faultStresses{};
 
       //declare local variables
-      real LocSlipRate[seissol::tensor::resamplePar::size()];
+      real LocSlipRate[numberOfPoints];
 
       //compute stresses from Qinterpolated
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
@@ -421,7 +421,7 @@ public:
         FaultStresses faultStresses{};
 
         //declare local variables
-        real LocSlipRate[seissol::tensor::resamplePar::size()];
+        real LocSlipRate[numberOfPoints];
         std::array<real, numOfPointsPadded> tmpSlip{0};
         real tn = fullUpdateTime;
         real time_inc;
@@ -496,7 +496,7 @@ protected:
 
   void calcSlipRate(
       FaultStresses &faultStresses,
-      real LocSlipRate[seissol::tensor::resamplePar::size()],
+      real LocSlipRate[numberOfPoints],
       unsigned int iTimeGP,
       unsigned int face
   ) {
@@ -523,7 +523,7 @@ public:
       FaultStresses faultStresses{};
 
       //declare local variables
-      real LocSlipRate[seissol::tensor::resamplePar::size()];
+      real LocSlipRate[numberOfPoints];
 
       //compute stresses from Qinterpolated
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);

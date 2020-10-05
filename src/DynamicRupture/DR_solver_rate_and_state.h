@@ -80,7 +80,7 @@ public:
 
       real LocSlip, LocSlip1, LocSlip2, LocSR1, LocSR2, LocSV, LocCohesion, P_0, LocP, time_inc, P, TotalShearStressYZ, SV0, tmp,tmp2, SlipRateGuess, NR, dNR, LocMu;
       real LocTracXY, LocTracXZ;
-      real LocSlipRate[seissol::tensor::resamplePar::size()];
+      real LocSlipRate[numberOfPoints];
 
       for(int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
 
@@ -278,7 +278,7 @@ protected:
   /*
    * If the function did not converge it returns false
    */
-  bool IterativelyInvertSR (unsigned int ltsFace, int nSRupdates, real LocSR[seissol::tensor::resamplePar::size()],
+  bool IterativelyInvertSR (unsigned int ltsFace, int nSRupdates, real LocSR[numberOfPoints],
                             std::array<real, numOfPointsPadded> &LocSV, std::array<real, numOfPointsPadded> &n_stress,
                             std::array<real, numOfPointsPadded> &sh_stress, std::array<real, numOfPointsPadded> &SRtest ){
 
@@ -349,7 +349,7 @@ protected:
  * If the function did not converge it returns false
    * From Upoffc git Zero.ccp
  */
-  bool IterativelyInvertSR_Brent(unsigned int ltsFace, int nSRupdates, real LocSR[seissol::tensor::resamplePar::size()],
+  bool IterativelyInvertSR_Brent(unsigned int ltsFace, int nSRupdates, real LocSR[numberOfPoints],
                             std::array<real, numOfPointsPadded> &LocSV, std::array<real, numOfPointsPadded> &n_stress,
                             std::array<real, numOfPointsPadded> &sh_stress,  std::array<real, numOfPointsPadded> &SRtest ){
     std::function<double(double, int)> F;
@@ -482,7 +482,7 @@ protected:
     }
   }
 
-  virtual void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f, real LocSlipRate[seissol::tensor::resamplePar::size()], FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace){
+  virtual void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f, real LocSlipRate[numberOfPoints], FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace){
   }
 
 
@@ -528,9 +528,9 @@ public:
       FaultStresses faultStresses;
       dynamicRupture::kernel::resampleParameter resampleKrnl;
       resampleKrnl.resampleM = init::resample::Values;
-      real resampledDeltaStateVar[seissol::tensor::resamplePar::size()];
-      real deltaStateVar[seissol::tensor::resamplePar::size()];
-      real LocSlipRate[seissol::tensor::resamplePar::size()];
+      real resampledDeltaStateVar[numberOfPoints];
+      real deltaStateVar[numberOfPoints];
+      real LocSlipRate[numberOfPoints];
       std::array<real, numOfPointsPadded> tmpSlip{0};   //required for averageSlip calculation
       std::array<real, numOfPointsPadded> normalStress{0};
       std::array<real, numOfPointsPadded> TotalShearStressYZ{0};
@@ -755,7 +755,7 @@ protected:
     }
   }
 
-  void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f, real LocSlipRate[seissol::tensor::resamplePar::size()], FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace) override {
+  void hookCalcP_f(std::array<real, numOfPointsPadded> &P_f, real LocSlipRate[numberOfPoints], FaultStresses &faultStresses, bool saveTmpInTP, unsigned int iTimeGP, unsigned int ltsFace) override {
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
 
       Sh[iBndGP] = -mu[ltsFace][iBndGP] * (faultStresses.NorStressGP[iTimeGP][iBndGP] + initialStressInFaultCS[ltsFace][iBndGP][0] - P_f[iBndGP]);
@@ -778,7 +778,7 @@ protected:
     }
   }
 
-  void Calc_ThermalPressure(real LocSlipRate[seissol::tensor::resamplePar::size()] , unsigned int iBndGP, unsigned int ltsFace){
+  void Calc_ThermalPressure(real LocSlipRate[numberOfPoints] , unsigned int iBndGP, unsigned int ltsFace){
     real tauV, Lambda_prime, tmp, omega, T, p, theta_current, sigma_current;
 
     T = 0.0;
@@ -873,7 +873,7 @@ public:
       FaultStresses faultStresses{};
 
       //declare local variables
-      real LocSlipRate[seissol::tensor::resamplePar::size()];
+      real LocSlipRate[numberOfPoints];
 
       //compute stresses from Qinterpolated
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
