@@ -39,9 +39,11 @@ protected:
   real                    (*dynStress_time)[numOfPointsPadded];
   //only for FL16:
   real                    (*forced_rupture_time)[numOfPointsPadded];
+  real                    *tn;
+
 
   //Hook for Factory_FL_16
-  virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime, unsigned int iBndGP, unsigned int face  ) {
+  virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real fullUpdateTime, unsigned int iBndGP, unsigned int ltsFace  ) {
     //!Do nothing
   }
 
@@ -63,6 +65,7 @@ protected:
 
     //only for FL16:
     forced_rupture_time                           = layerData.var(ConcreteLts->forced_rupture_time);
+    tn                                            = layerData.var(ConcreteLts->tn);
   }
 
   /*
@@ -119,10 +122,9 @@ protected:
       std::array<real, numOfPointsPadded> &tmpSlip,
       real LocSlipRate[seissol::tensor::resamplePar::size()],
       dynamicRupture::kernel::resampleParameter &resampleKrnl,
-      real tn,
       real fullUpdateTime,
       real DeltaT,
-      unsigned int face
+      unsigned int ltsFace
   ){
     std::array<real, numOfPointsPadded> stateVariablePsi;
     real resampledSlipRate[seissol::tensor::resamplePar::size()];
@@ -134,33 +136,35 @@ protected:
     //degree less or equal than CONVERGENCE_ORDER-1, and then evaluates the polynomial at the quadrature points
     resampleKrnl.execute();
 
+
+
     //TODO: does not work with padded Points bc of resampleMatrix is not padded
     for (int iBndGP = 0; iBndGP < numberOfPoints; iBndGP++) {
       //-------------------------------------
       //integrate Sliprate To Get Slip = State Variable
-      slip[face][iBndGP] = slip[face][iBndGP] +  resampledSlipRate[iBndGP] * DeltaT;
+      slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + resampledSlipRate[iBndGP] * DeltaT;
       tmpSlip[iBndGP] = tmpSlip[iBndGP] + LocSlipRate[iBndGP] * DeltaT;
 
       //-------------------------------------
       //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
       //actually slip is already the stateVariable for this FL, but to simplify the next equations we divide it here by d_C
-      stateVariablePsi[iBndGP] = std::min(std::fabs(slip[face][iBndGP]) / d_c[face][iBndGP], 1.0);
+      stateVariablePsi[iBndGP] = std::min(std::fabs(slip[ltsFace][iBndGP]) / d_c[ltsFace][iBndGP], 1.0);
 
       //-------------------------------------
       //hook for Factory_FL_16: may calculate a different value for the state variable Psi
-      hookCalcStateVariable(stateVariablePsi, tn, fullUpdateTime, iBndGP, face); //for Factory_FL_16
+      hookCalcStateVariable(stateVariablePsi, fullUpdateTime, iBndGP, ltsFace); //for Factory_FL_16
 
       //-------------------------------------
       //Carsten Thesis: Eq. 2.45
       //evaluate friction law: updated mu -> friction law
-      mu[face][iBndGP] = mu_S[face][iBndGP] - (mu_S[face][iBndGP] - mu_D[face][iBndGP]) * stateVariablePsi[iBndGP];
+      mu[ltsFace][iBndGP] = mu_S[ltsFace][iBndGP] - (mu_S[ltsFace][iBndGP] - mu_D[ltsFace][iBndGP]) * stateVariablePsi[iBndGP];
 
       //-------------------------------------
       //instantaneous healing option Reset Mu and Slip
       if (m_Params->IsInstaHealingOn == true) {
         if (LocSlipRate[iBndGP] < u_0) {
-          mu[face][iBndGP] = mu_S[face][iBndGP];
-          slip[face][iBndGP] = 0.0;
+          mu[ltsFace][iBndGP] = mu_S[ltsFace][iBndGP];
+          slip[ltsFace][iBndGP] = 0.0;
         }
       }
     }//end of iBndGP-loop
@@ -209,15 +213,15 @@ public:
       dynamicRupture::kernel::resampleParameter resampleKrnl;
       resampleKrnl.resampleM = init::resample::Values;
       //tn only needed for FL=16
-      real tn = fullUpdateTime;
+      tn[ltsFace] = fullUpdateTime;
 
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
-        tn=tn + DeltaT[iTimeGP];
+        tn[ltsFace] += DeltaT[iTimeGP];
         calcSlipRateAndTraction(faultStresses, LocSlipRate, DeltaT[iTimeGP], iTimeGP , ltsFace);
 
-        calcStateVariableAndFrictionFunc(tmpSlip, LocSlipRate, resampleKrnl, tn, fullUpdateTime, DeltaT[iTimeGP], ltsFace);
+        calcStateVariableAndFrictionFunc(tmpSlip, LocSlipRate, resampleKrnl, fullUpdateTime, DeltaT[iTimeGP], ltsFace);
       }//End of iTimeGP-Loop
 
       // output rupture front
@@ -251,17 +255,17 @@ public:
 class seissol::dr::fr_law::Solver_FL_16 : public seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 {
 public:
 
-  virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real tn, real fullUpdateTime,  unsigned int iBndGP,  unsigned int face) override{
+  virtual void hookCalcStateVariable(std::array<real, numOfPointsPadded> &stateVariablePsi, real fullUpdateTime,  unsigned int iBndGP,  unsigned int ltsFace) override{
     real f2 = 0.0;
 
     if (m_Params->t_0 == 0) {
-      if (tn >= forced_rupture_time[face][iBndGP] ) {
+      if (tn[ltsFace] >= forced_rupture_time[ltsFace][iBndGP] ) {
         f2 = 1.0;
       } else {
         f2 = 0.0;
       }
     } else {
-      f2 = std::max(0.0, std::min( 1.0, (fullUpdateTime - forced_rupture_time[face][iBndGP] ) / m_Params->t_0));
+      f2 = std::max(0.0, std::min( 1.0, (fullUpdateTime - forced_rupture_time[ltsFace][iBndGP] ) / m_Params->t_0));
     }
     stateVariablePsi[iBndGP] = std::max(stateVariablePsi[iBndGP], f2);
   }

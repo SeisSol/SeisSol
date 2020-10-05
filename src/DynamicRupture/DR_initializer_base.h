@@ -176,6 +176,7 @@ public:
       bool (*DS)[numOfPointsPadded]                        = it->var(ConcreteLts->DS);                  //from parameter file
       real *averaged_Slip                                  = it->var(ConcreteLts->averaged_Slip);       // = 0
       real (*dynStress_time)[numOfPointsPadded]            = it->var(ConcreteLts->dynStress_time);      // = 0
+      real *tn                                             = it->var(ConcreteLts->tn);                  // = 0
 
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
@@ -197,6 +198,7 @@ public:
           forced_rupture_time[ltsFace][iBndGP]    = 0.0;
         }
         averaged_Slip[ltsFace]= 0.0;
+        tn[ltsFace]= 0.0;
 
         for (unsigned iBndGP = 0; iBndGP < numOfPointsPadded; ++iBndGP) {    //loop includes padded elements
           dynStress_time[ltsFace][iBndGP] = 0.0;

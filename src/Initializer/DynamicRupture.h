@@ -149,6 +149,7 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
     Variable<bool[ numOfPointsPadded ]>                   DS;
     Variable<real>                                        averaged_Slip;
     Variable<real[ numOfPointsPadded ]>                   dynStress_time;
+    Variable<real>                                        tn;
 
     virtual void addTo(initializers::LTSTree& tree) {
         seissol::initializers::DynamicRupture::addTo(tree);
@@ -160,6 +161,7 @@ struct seissol::initializers::DR_FL_2 : public seissol::initializers::DynamicRup
         tree.addVar(      DS,                               mask,                 1,      seissol::memory::Standard );
         tree.addVar(      averaged_Slip,                    mask,                 1,      seissol::memory::Standard );
         tree.addVar(      dynStress_time,                   mask,                 1,      seissol::memory::Standard );
+        tree.addVar(      tn,                               mask,                 1,      seissol::memory::Standard );
     }
 };
 
