@@ -1,4 +1,6 @@
 function(get_arch_flags architecture compiler)
+    set(HAS_REDZONE ON PARENT_SCOPE)
+
     # Westmere cpu architecture
     if ("${ARCH}" STREQUAL "wsm")
         set(CPU_ARCH_FLAGS "-msse3" PARENT_SCOPE)
@@ -34,6 +36,17 @@ function(get_arch_flags architecture compiler)
         elseif(compiler STREQUAL "GNU")
             set(CPU_ARCH_FLAGS "-march=skylake-avx512" PARENT_SCOPE)
         endif()
+
+    elseif ("${ARCH}" STREQUAL "thunderx2t99")
+        set(HAS_REDZONE OFF PARENT_SCOPE)
+        if (compiler STREQUAL "Intel")
+
+        elseif(compiler STREQUAL "GNU")
+	    # Note: mcpu/march/mtune are weird on arm, see:
+	    # https://community.arm.com/developer/tools-software/tools/b/tools-software-ides-blog/posts/compiler-flags-across-architectures-march-mtune-and-mcpu
+            set(CPU_ARCH_FLAGS "-mcpu=thunderx2t99" PARENT_SCOPE)
+        endif()
+
     endif()
 
 endfunction()

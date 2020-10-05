@@ -23,13 +23,13 @@ set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic viscoelastic viscoelastic2)
+set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(ARCH "hsw" CACHE STRING "Type of the target architecture")
-set(ARCH_OPTIONS noarch wsm snb hsw knc knl skx)
-set(ARCH_ALIGNMENT   16  16  32  32  64  64  64)  # size of a vector registers in bytes for a given architecture
+set(ARCH_OPTIONS noarch wsm snb hsw knc knl skx thunderx2t99)
+set(ARCH_ALIGNMENT   16  16  32  32  64  64  64 16)  # size of a vector registers in bytes for a given architecture
 set_property(CACHE ARCH PROPERTY STRINGS ${ARCH_OPTIONS})
 
 
@@ -73,7 +73,7 @@ set_property(CACHE ACCELERATOR_TYPE PROPERTY STRINGS ${ACCELERATOR_TYPE_OPTIONS}
 
 
 set(GEMM_TOOLS_LIST "LIBXSMM,PSpaMM" CACHE STRING "choose a gemm tool(s) for the code generator")
-set(GEMM_TOOLS_OPTIONS "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS")
+set(GEMM_TOOLS_OPTIONS "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
 #-------------------------------------------------------------------------------
@@ -104,7 +104,7 @@ check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIO
 
 
 # check NUMBER_OF_MECHANISMS
-if ("${EQUATIONS}" STREQUAL "elastic" AND ${NUMBER_OF_MECHANISMS} GREATER 0)
+if (("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "anisotropic") AND ${NUMBER_OF_MECHANISMS} GREATER 0)
     message(FATAL_ERROR "${EQUATIONS} does not support a NUMBER_OF_MECHANISMS > 0.")
 endif()
 

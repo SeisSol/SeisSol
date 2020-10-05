@@ -7,9 +7,6 @@
 [submodule "submodules/utils"]
 	path = submodules/utils
 	url = ../../TUM-I5/utils.git
-[submodule "submodules/glm"]
-	path = submodules/glm
-	url = ../../g-truc/glm.git
 [submodule "submodules/async"]
 	path = submodules/async
 	url = ../../TUM-I5/ASYNC.git
@@ -37,4 +34,3 @@
 [submodule "submodules/eigen3"]
 	path = submodules/eigen3
 	url = ../../eigenteam/eigen-git-mirror
-

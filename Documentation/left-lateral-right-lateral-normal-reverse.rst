@@ -25,7 +25,6 @@ In SeisSol, the strike vector is (not normalized)
 
 :math:`s:=(-e_3)\times n`
 
-
 So, e.g., for *enu* we always have a left-lateral motion, as **s** and
 **l** are parallel, and for *ned* we always have a right-lateral motion
 as **s** and **l** are anti-parallel.
@@ -83,3 +82,10 @@ plane, which points from the foot wall to the hanging wall, is given by
 Hence, we set the reference point to **x** + a **N**, where a > 0 and
 **x** is an arbitrary point on the fault. In this case, the reference
 point is inside the hanging wall and we obtain a normal fault.
+
+Warning
+~~~~~~~
+
+The rake angle describes the direction of slip. In SeisSol, the convention for the rake angle is to assume a positive rake angle refers to right-lateral strike slip.
+!Warning!
+This is opposite to the common convention in seismology which assumes positive rake angle implying left-lateral strike slip faulting. Thus, e.g., the case of Ts0>0 and Td0=0 means initial shear stress loading in rake 180° direction.

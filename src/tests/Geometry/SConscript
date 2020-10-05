@@ -45,5 +45,8 @@ Import('env')
 
 # Tests
 #env.mpiTestSourceFiles[2].append(os.path.abspath('MeshReader.t.h'))
+env.testSourceFiles.append(os.path.abspath('MeshRefiner.t.h'))
+env.testSourceFiles.append(os.path.abspath('TriangleRefiner.t.h'))
+env.testSourceFiles.append(os.path.abspath('VariableSubsampler.t.h'))
 
 Export('env')

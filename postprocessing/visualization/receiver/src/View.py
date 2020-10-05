@@ -108,6 +108,10 @@ class View(QWidget):
     saveAll = QPushButton(QIcon.fromTheme('document-save'), '', self)
     saveAll.clicked.connect(self.savePlots)
 
+    self.normalize = QPushButton('Normalize', self) 
+    self.normalize.setCheckable(True)
+    self.normalize.clicked.connect(self.plot)
+
     toolLayout = QHBoxLayout()
     toolLayout.addWidget(addNaviButton)
     toolLayout.addWidget(self.diff)
@@ -115,6 +119,7 @@ class View(QWidget):
     toolLayout.addWidget(self.maxFreq)
     toolLayout.addWidget(autoRefresh)
     toolLayout.addWidget(saveAll)
+    toolLayout.addWidget(self.normalize)
     toolLayout.addWidget(toolbar)
     plotLayout = QVBoxLayout()
     plotLayout.addLayout(toolLayout)
@@ -152,7 +157,12 @@ class View(QWidget):
       if filt.isChecked():
         for wf in wfc:
           filt.apply(wf)
-          
+
+    if self.normalize.isChecked():
+      #normalize traces
+      for nWf, wf in enumerate(wfc):
+        wfc[nWf].normalize()
+
     if self.diff.isChecked() and len(wfc) > 0:
       wf0 = wfc.pop()
       for nWf, wf in enumerate(wfc):

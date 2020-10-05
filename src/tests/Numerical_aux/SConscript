@@ -42,5 +42,6 @@ Import('env')
 
 env.testSourceFiles.append(os.path.abspath('Functions.t.h'))
 env.testSourceFiles.append(os.path.abspath('Quadrature.t.h'))
+env.testSourceFiles.append(os.path.abspath('Transformations.t.h'))
 
 Export('env')

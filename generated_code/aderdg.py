@@ -65,6 +65,7 @@ class ADERDGBase(ABC):
       'vInv': [ 'projectQP' ]
     }
     self.db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(matricesDir, order), clonesQP, transpose=self.transpose, alignStride=self.alignStride))
+    self.db.update( parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir), transpose=self.transpose, alignStride=self.alignStride))
 
     qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
     self.Q = OptionalDimTensor('Q', 's', multipleSimulations, 0, qShape, alignStride=True)
@@ -165,6 +166,13 @@ class ADERDGBase(ABC):
 
     generator.add('copyQToQFortran', copyQToQFortran)
 
+    stiffnessTensor = Tensor('stiffnessTensor', (3, 3, 3, 3))
+    direction = Tensor('direction', (3,))
+    christoffel = Tensor('christoffel', (3,3))
+
+    computeChristoffel = christoffel['ik'] <= stiffnessTensor['ijkl'] * direction['j'] * direction['l']
+    generator.add('computeChristoffel', computeChristoffel)
+
   @abstractmethod
   def addLocal(self, generator):
     pass
@@ -178,10 +186,11 @@ class ADERDGBase(ABC):
     pass
 
   def add_include_tensors(self, include_tensors):
-      pass
+    include_tensors.add(self.db.samplingDirections)
 
 
 class LinearADERDG(ADERDGBase):
+
   def sourceMatrix(self):
     return None
 
