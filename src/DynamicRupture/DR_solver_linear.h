@@ -329,6 +329,48 @@ protected:
     strength =  strength* expterm - std::max(0.0,-mu*sigma)*(expterm-1.0);
   }
 
+  virtual void calcStrengthHook(
+      std::array<real, numOfPointsPadded> &Strength,
+      FaultStresses &faultStresses,
+      real DeltaT,
+      unsigned int iTimeGP,
+      unsigned int ltsFace
+  ) override{
+    std::array<real, numOfPointsPadded> LocSlipRate;
+    std::array<real, numOfPointsPadded> sigma;
+
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      //  modify strength according to prakash clifton
+      // literature e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
+      LocSlipRate[iBndGP] = std::sqrt(slipRate1[ltsFace][iBndGP]*slipRate1[ltsFace][iBndGP] + slipRate2[ltsFace][iBndGP]*slipRate2[ltsFace][iBndGP]);
+      sigma[iBndGP] = faultStresses.NorStressGP[iTimeGP][iBndGP]+initialStressInFaultCS[ltsFace][iBndGP][0];
+      prak_clif_mod(strengthData[ltsFace][iBndGP], sigma[iBndGP], LocSlipRate[iBndGP], mu[ltsFace][iBndGP], DeltaT);
+
+      //TODO: add this line:
+      //Strength[iBndGP] = strengthData[ltsFace][iBndGP];
+    }
+  }
+
+  virtual void calcStateVariableHook(
+      std::array<real, numOfPointsPadded> &stateVariablePsi,
+      std::array<real, numOfPointsPadded> &tmpSlip,
+      real LocSlipRate[numberOfPoints],
+      dynamicRupture::kernel::resampleParameter &resampleKrnl,
+      real fullUpdateTime,
+      real DeltaT,
+      unsigned int ltsFace) override {
+    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
+      slip[ltsFace][iBndGP] = slip[ltsFace][iBndGP] + LocSlipRate[iBndGP]*DeltaT;
+      tmpSlip[iBndGP] = slip[ltsFace][iBndGP];
+
+      //-------------------------------------
+      //Modif T. Ulrich-> generalisation of tpv16/17 to 30/31
+      //actually slip is already the stateVariable for this FL, but to simplify the next equations we divide it here by d_C
+      stateVariablePsi[iBndGP] = std::min(std::fabs(slip[ltsFace][iBndGP]) / d_c[ltsFace][iBndGP], 1.0);
+    }
+  }
+
+
 public:
   virtual void evaluate(seissol::initializers::Layer&  layerData,
                         seissol::initializers::DynamicRupture *dynRup,
