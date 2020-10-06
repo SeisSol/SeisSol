@@ -21,7 +21,6 @@ namespace seissol {
   }
 }
 
-
 /*
 *     !> friction case 16,17
 *     !> Specific conditions for SCEC TPV16/17
@@ -40,8 +39,6 @@ protected:
   //only for FL16:
   real                    (*forced_rupture_time)[numOfPointsPadded];
   real                    *tn;
-
-
 
   /*
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -63,7 +60,6 @@ protected:
     forced_rupture_time                           = layerData.var(ConcreteLts->forced_rupture_time);
     tn                                            = layerData.var(ConcreteLts->tn);
   }
-
 
   virtual void calcStrengthHook(
       std::array<real, numOfPointsPadded> &Strength,
@@ -269,6 +265,100 @@ public:
     }//End of Loop over Faces
   }//End of Function evaluate
 
+  virtual void evaluateFast(seissol::initializers::Layer&  layerData,
+                            seissol::initializers::DynamicRupture *dynRup,
+                            real fullUpdateTime,
+                            kernels::DynamicRupture &dynamicRuptureKernel,
+                            GlobalData const* globalData) {
+
+    DRFaceInformation*                    faceInformation                                                   = layerData.var(dynRup->faceInformation);
+    DRGodunovData*                        godunovData                                                       = layerData.var(dynRup->godunovData);
+    real**                                timeDerivativePlus                                                = layerData.var(dynRup->timeDerivativePlus);
+    real**                                timeDerivativeMinus                                               = layerData.var(dynRup->timeDerivativeMinus);
+
+    alignas(ALIGNMENT) real QInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+    alignas(ALIGNMENT) real QInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()];
+
+
+    real DeltaT[CONVERGENCE_ORDER] = {};
+    DeltaT[0]= dynamicRuptureKernel.timePoints[0];
+    for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
+      DeltaT[iTimeGP] = dynamicRuptureKernel.timePoints[iTimeGP]- dynamicRuptureKernel.timePoints[iTimeGP-1];
+    }
+    DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
+
+    //this copies all lts data pointers to local class attributes
+    copyLtsTreeToLocal(layerData, dynRup);
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static) private(QInterpolatedPlus,QInterpolatedMinus)
+#endif
+    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+      //initialize struct for in/outputs stresses
+      FaultStresses faultStresses{};
+
+      //declare local variables
+      real LocSlipRate[numberOfPoints];
+      dynamicRupture::kernel::resampleParameter resampleKrnl;
+      resampleKrnl.resampleM = init::resample::Values;
+      //tn only needed for FL=16
+      tn[ltsFace] = fullUpdateTime;
+      std::array<real, numOfPointsPadded> tmpSlip{0};
+      std::array<real, numOfPointsPadded> stateVariablePsi;
+      std::array<real, numOfPointsPadded> Strength{0};
+
+      unsigned prefetchFace = (ltsFace < layerData.getNumberOfCells() - 1) ? ltsFace + 1 : ltsFace;
+      dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[ltsFace],
+                                                    globalData,
+                                                    &godunovData[ltsFace],
+                                                    timeDerivativePlus[ltsFace],
+                                                    timeDerivativeMinus[ltsFace],
+                                                    QInterpolatedPlus,
+                                                    QInterpolatedMinus,
+                                                    timeDerivativePlus[prefetchFace],
+                                                    timeDerivativeMinus[prefetchFace] );
+
+      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus, QInterpolatedMinus, ltsFace);
+
+      for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
+        calcStrengthHook(Strength, faultStresses, DeltaT[iTimeGP], iTimeGP, ltsFace);
+
+        calcSlipRateAndTraction(Strength, faultStresses, LocSlipRate, DeltaT[iTimeGP], iTimeGP , ltsFace);
+
+        //function g, output: stateVariablePsi & tmpSlip
+        calcStateVariableHook(stateVariablePsi, tmpSlip, LocSlipRate, resampleKrnl, fullUpdateTime, DeltaT[iTimeGP], ltsFace);
+
+        //function f, output: calculated mu
+        frictionFunctionHook(stateVariablePsi, ltsFace);
+
+        //instantaneous healing option Reset Mu and Slip
+        if (m_Params->IsInstaHealingOn == true) {
+          instantaneousHealing(LocSlipRate, ltsFace);
+        }
+      }//End of iTimeGP-Loop
+
+      // output rupture front
+      // outside of iTimeGP loop in order to safe an 'if' in a loop
+      // this way, no subtimestep resolution possible
+      outputRuptureFront(LocSlipRate, fullUpdateTime, ltsFace);
+
+      //output time when shear stress is equal to the dynamic stress after rupture arrived
+      //currently only for linear slip weakening
+      outputDynamicStress(fullUpdateTime, ltsFace);
+
+      //output peak slip rate
+      calcPeakSlipRate(LocSlipRate, ltsFace);
+
+      //---compute and store slip to determine the magnitude of an earthquake ---
+      //    to this end, here the slip is computed and averaged per element
+      //    in calc_seissol.f90 this value will be multiplied by the element surface
+      //    and an output happened once at the end of the simulation
+      calcAverageSlip(tmpSlip, ltsFace);
+
+      postcomputeImposedStateFromNewStress(QInterpolatedPlus, QInterpolatedMinus,faultStresses, dynamicRuptureKernel.timeWeights, ltsFace);
+    }//End of Loop over Faces
+  }//End of Function evaluate
+
 };//End of Class
 
 
@@ -325,7 +415,7 @@ protected:
   void prak_clif_mod(real &strength, real &sigma, real &LocSlipRate, real &mu, real &dt){
     real expterm;
     expterm = std::exp(-(std::abs(LocSlipRate) + m_Params->v_star)*dt/ m_Params->prakash_length);
-    strength =  strength* expterm - std::max(0.0,-mu*sigma)*(expterm-1.0);
+    strength =  strength*expterm - std::max(0.0,-mu*sigma)*(expterm-1.0);
   }
 
   virtual void calcStrengthHook(

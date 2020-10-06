@@ -298,16 +298,10 @@ public:
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       //initialize struct for in/outputs stresses
       FaultStresses faultStresses{};
-
       //declare local variables
       real LocSlipRate[numberOfPoints];
 
-      //compute stresses from Qinterpolated
-      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
-
-
       unsigned prefetchFace = (ltsFace < layerData.getNumberOfCells() - 1) ? ltsFace + 1 : ltsFace;
-
       dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[ltsFace],
                                                       globalData,
                                                       &godunovData[ltsFace],
@@ -318,10 +312,8 @@ public:
                                                       timeDerivativePlus[prefetchFace],
                                                       timeDerivativeMinus[prefetchFace] );
 
-      // legacy code:
-      //TODO remove - only for debugging:
-      int fortran_face = static_cast<int>(faceInformation[ltsFace].meshFace) + 1;
-
+      //compute stresses from Qinterpolated
+      precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
       for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
         /*
