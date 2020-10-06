@@ -147,8 +147,11 @@ Also note that that ``SlipRateOutputType=0`` is slightly less accurate than the 
 Friction laws
 ~~~~~~~~~~~~~
 
+In SeisSol frictional failure is treated as an internal boundary condition for which the exact solution of the elastodynamic wave equation is modified to incoporate frictional boundary conditions.
+
 Linear-Slip Weakening Friction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
 Rate-and-State Friction
 ^^^^^^^^^^^^^^^^^^^^^^^
