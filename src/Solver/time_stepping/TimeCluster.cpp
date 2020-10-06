@@ -240,11 +240,11 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
 
-  seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 *FL2 = dynamic_cast< seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 *>(m_FrictonLaw);
-  FL2->evaluateFast(layerData, m_dynRup, m_fullUpdateTime, m_dynamicRuptureKernel, m_globalData);
+  //seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 *FL2 = dynamic_cast< seissol::dr::fr_law::LinearSlipWeakeningSolverFL2 *>(m_FrictonLaw);
+  //FL2->evaluateFast(layerData, m_dynRup, m_fullUpdateTime, m_dynamicRuptureKernel, m_globalData);
 
 
-  /*
+
   DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
@@ -270,7 +270,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   }
 //*/
 
-  /*
+
   //TODO: right place for precalculation?
   //requires m_dynamicRuptureKernel for calculation
   real DeltaT[CONVERGENCE_ORDER] = {};
@@ -287,7 +287,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   */
 
 
-/*
+
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) //private(QInterpolatedPlus,QInterpolatedMinus)
 #endif
@@ -319,7 +319,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             waveSpeedsPlus[face],
                                             waveSpeedsMinus[face] );
       //*/
-/*
+
   } //End layerData.getNumberOfCells()-loop
 
   //seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6 *FL6 = dynamic_cast< seissol::dr::fr_law::LinearSlipWeakSolverBimaterialFL6 *>(  m_FrictonLaw);
@@ -328,9 +328,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
- */
+
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());
-/*
+
   //debugging:
   const size_t numberOfPoints = tensor::QInterpolated::Shape[0];
   auto imposedStateMinusView2 = init::QInterpolated::view::create(imposedStateMinus[4]);
