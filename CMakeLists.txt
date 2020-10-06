@@ -368,7 +368,7 @@ if (TESTING)
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Numerical_aux/Transformations.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Physics/PointSource.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Model/GodunovState.t.h
-	  ${SeisSol_NETCDF_TEST_FILES}
+	      ${SeisSol_NETCDF_TEST_FILES}
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/MeshRefiner.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/VariableSubsampler.t.h
           ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Geometry/TriangleRefiner.t.h

@@ -7,12 +7,12 @@ In order to run SeisSol, you need to first install:
 -  Numpy (>= 1.12.0)
 -  hdf5 (>= 1.8, for instructions see below)
 -  netcdf (C-Release) (>= 4.4, for instructions see below)
--  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 7.0, gcc, g++, gfortran)
+-  Intel compiler (>= 18.0, icc, icpc, ifort) or GCC (>= 8.0, gcc, g++, gfortran)
 -  Some MPI implementation (e.g. OpenMPI)
 -  ParMETIS for partitioning
 -  libxsmm (libxsmm\_gemm\_generator) for small matrix multiplications
 -  PSpaMM (pspamm.py) for small sparse matrix multiplications (required only on Knights Landing or Skylake)
--  CMake (>3.15), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself
+-  CMake (>3.10), for compiling submodules ImpalaJIT and yaml-cpp, and for SeisSol itself
 
 Initial Adjustments to .bashrc
 ------------------------------
@@ -39,7 +39,7 @@ Installing CMake
 
 .. code-block:: bash
 
-  wget -qO- https://github.com/Kitware/CMake/releases/download/v3.16.4/cmake-3.16.4-Linux-x86_64.tar.gz | tar -xvz -C "/" && mv "/cmake-3.16.4-Linux-x86_64" "${HOME}/bin/cmake"
+  cd $(mktemp -d) && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.10.2/cmake-3.10.2-Linux-x86_64.tar.gz | tar -xvz -C "." && mv "./cmake-3.10.2-Linux-x86_64" ./cache
   ln -s ${HOME}/bin/cmake/bin/cmake ${HOME}/bin
 
 

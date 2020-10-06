@@ -82,7 +82,7 @@ def addKernels(generator, aderdg, matricesDir, dynamicRuptureMethod, targets):
   nodalFluxPrefetch = lambda i,h: aderdg.I
 
   for target in targets:
-    name_prefix = generate_kernename_prefix(target)
+    name_prefix = generate_kernel_name_prefix(target)
     generator.addFamily(f'{name_prefix}nodalFlux',
                         simpleParameterSpace(4,4),
                         nodalFluxGenerator,

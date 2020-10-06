@@ -213,7 +213,7 @@ class LinearADERDG(ADERDGBase):
 
   def addLocal(self, generator, targets):
     for target in targets:
-      name_prefix = generate_kernename_prefix(target)
+      name_prefix = generate_kernel_name_prefix(target)
       volumeSum = self.Q['kp']
       for i in range(3):
         volumeSum += self.db.kDivM[i][self.t('kl')] * self.I['lq'] * self.starMatrix(i)['qp']
@@ -240,7 +240,7 @@ class LinearADERDG(ADERDGBase):
 
   def addNeighbor(self, generator, targets):
     for target in targets:
-      name_prefix = generate_kernename_prefix(target)
+      name_prefix = generate_kernel_name_prefix(target)
       neighbourFlux = lambda h,j,i: self.Q['kp'] <= self.Q['kp'] + self.db.rDivM[i][self.t('km')] * self.db.fP[h][self.t('mn')] * self.db.rT[j][self.t('nl')] * self.I['lq'] * self.AminusT['qp']
       neighbourFluxPrefetch = lambda h,j,i: self.I
       generator.addFamily(f'{name_prefix}neighboringFlux',
@@ -251,7 +251,7 @@ class LinearADERDG(ADERDGBase):
 
   def addTime(self, generator, targets):
     for target in targets:
-      name_prefix = generate_kernename_prefix(target)
+      name_prefix = generate_kernel_name_prefix(target)
 
       qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
       dQ0 = OptionalDimTensor('dQ(0)', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), qShape, alignStride=True)

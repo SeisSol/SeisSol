@@ -78,7 +78,7 @@ set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
 set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS})
 
 
-set(GEMM_TOOLS_LIST "LIBXSMM,PSpaMM" CACHE STRING "choose a gemm tool(s) for the code generator")
+set(GEMM_TOOLS_LIST "Eigen" CACHE STRING "choose a gemm tool(s) for the code generator")
 set(GEMM_TOOLS_OPTIONS "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
 
