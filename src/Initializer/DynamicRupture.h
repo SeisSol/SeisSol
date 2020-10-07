@@ -224,7 +224,6 @@ struct seissol::initializers::DR_FL_103 : public seissol::initializers::DynamicR
 
 struct seissol::initializers::DR_FL_103_Thermal : public seissol::initializers::DR_FL_103 {
 
-  static constexpr unsigned int TP_grid_nz = 60;  //todo: make this global?
   Variable<real[numOfPointsPadded]>                               temperature;  //this is TP[1] in fortran
   Variable<real[numOfPointsPadded]>                               pressure;     //this is TP[2] in fortran
   Variable<real[numOfPointsPadded][TP_grid_nz]>                   TP_theta;

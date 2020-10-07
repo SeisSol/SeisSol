@@ -52,6 +52,7 @@
 #include <Kernels/equations.hpp>
 #include "Equations/datastructures.hpp"
 #include <generated_code/tensor.h>
+#include <DynamicRupture/DR_constant.hpp>
 
 #include <cstddef>
 

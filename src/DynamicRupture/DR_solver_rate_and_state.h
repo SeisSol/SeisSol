@@ -706,7 +706,6 @@ public:
 
 class seissol::dr::fr_law::RateAndStateThermalFL103 : public seissol::dr::fr_law::RateAndStateNucFL103 {
 protected:
-  static constexpr unsigned int TP_grid_nz = 60;  //todo: make this global?
 
   real (*temperature)[numOfPointsPadded];
   real (*pressure)[numOfPointsPadded];

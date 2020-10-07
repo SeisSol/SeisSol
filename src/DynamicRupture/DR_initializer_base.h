@@ -137,7 +137,6 @@ public:
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();
     }//leaf_iterator loop
-    std::cout << "init DR for Base\n";
   }
 
 };
@@ -333,7 +332,6 @@ public:
 
 class seissol::initializers::Init_FL_103_Thermal : public seissol::initializers::Init_FL_103 {
 public:
-  static constexpr unsigned int TP_grid_nz = 60;  //todo: make this global?
 
   virtual void initializeFrictionMatrices(seissol::initializers::DynamicRupture *dynRup,
                                           initializers::LTSTree* dynRupTree,
