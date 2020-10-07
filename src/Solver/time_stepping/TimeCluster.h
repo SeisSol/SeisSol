@@ -89,7 +89,7 @@
 #include <Kernels/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Monitoring/LoopStatistics.h>
-#include <Physics/Evaluate_friction_law.h>
+
 
 namespace seissol {
   namespace time_stepping {

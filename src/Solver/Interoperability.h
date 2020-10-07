@@ -54,7 +54,7 @@
 #include <Initializer/tree/Lut.hpp>
 #include <Physics/InitialField.h>
 #include "Equations/datastructures.hpp"
-#include "Physics/tmpFrictionDataStruct.cpp"
+
 
 namespace seissol {
   class Interoperability;
