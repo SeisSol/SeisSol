@@ -411,8 +411,7 @@ class seissol::Interoperability {
      * get initial values from fortran
      * for each ltsFace mapped to the corresponding fortran mesh face Dynamic Rupture
      *
-
-     * @param stateVar gets EQN%IniStateVar
+     * @param stateVar    State variable used at Rate-and-state friction laws, gets EQN%IniStateVar
      *
      **/
     void getDynRupStateVar(int ltsFace, unsigned meshFace, real (*stateVar)[init::QInterpolated::Stop[0]]);
@@ -441,15 +440,13 @@ class seissol::Interoperability {
  * @param i_RS_b      RS constitutive parameter "b"
  * @param i_RS_sl0    Reference slip
  * @param i_RS_sr0    Reference slip rate
- * @param stateVar    State variable used at Rate-and-state friction laws
  **/
     void getDynRupFL_3(int ltsFace,  unsigned meshFace,
                                                 real *i_RS_f0,
                                                 real *i_RS_a,
                                                 real *i_RS_b,
                                                 real *i_RS_sl0,
-                                                real *i_RS_sr0,
-                                                real (*stateVar)[init::QInterpolated::Stop[0]]);
+                                                real *i_RS_sr0);
 
 
     void copyFrictionOutputToFortran(unsigned ltsFace, unsigned meshFace,

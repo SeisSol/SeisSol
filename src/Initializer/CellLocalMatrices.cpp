@@ -583,12 +583,10 @@ void seissol::initializers::initializeFrictionMatrices(
     unsigned*              ltsFaceToMeshFace,
     seissol::Interoperability &e_interoperability
     ){
-  //TODO: this function looks quite empty maybe put this function call at the end of "initializeDynamicRuptureMatrices"?
   FrictionInitializer->initializeFrictionMatrices(
       dynRup,
       dynRupTree,
       faultParameters,
       ltsFaceToMeshFace,
       e_interoperability);
-
 }

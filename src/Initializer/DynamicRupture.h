@@ -171,7 +171,7 @@ struct seissol::initializers::DR_FL_3 : public seissol::initializers::DynamicRup
   Variable<real>                                                  RS_b;                       //face independent
   Variable<real>                                                  RS_sl0;                     //face independent
   Variable<real>                                                  RS_sr0;                     //face independent
-  Variable<real[ numOfPointsPadded ]>                             StateVar;
+  Variable<real[ numOfPointsPadded ]>                             stateVar;
 
   virtual void addTo(initializers::LTSTree& tree) {
     seissol::initializers::DynamicRupture::addTo(tree);
@@ -181,7 +181,7 @@ struct seissol::initializers::DR_FL_3 : public seissol::initializers::DynamicRup
     tree.addVar(      RS_b,             mask,                 1,      seissol::memory::Standard );
     tree.addVar(      RS_sl0,           mask,                 1,      seissol::memory::Standard );
     tree.addVar(      RS_sr0,           mask,                 1,      seissol::memory::Standard );
-    tree.addVar(      StateVar,         mask,                 1,      seissol::memory::Standard );
+    tree.addVar(stateVar, mask, 1, seissol::memory::Standard );
   }
 };
 

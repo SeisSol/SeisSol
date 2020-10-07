@@ -57,7 +57,7 @@ public:
     real                    (*slip2)[numOfPointsPadded]                           = layerData.var(ConcreteLts->slip2);
     real                    (*slipRate1)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRate1);
     real                    (*slipRate2)[numOfPointsPadded]                       = layerData.var(ConcreteLts->slipRate2);
-    real                    (*StateVar)[numOfPointsPadded]                        = layerData.var(ConcreteLts->StateVar);
+    real                    (*StateVar)[numOfPointsPadded]                        = layerData.var(ConcreteLts->stateVar);
 
     real                    (*tracXY)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tracXY);
     real                    (*tracXZ)[numOfPointsPadded]                          = layerData.var(ConcreteLts->tracXZ);
@@ -844,7 +844,7 @@ protected:
     //seissol::initializers::DR_lts_template *ConcreteLts = dynamic_cast<seissol::initializers::DR_lts_template *>(dynRup);
 
     seissol::initializers::DR_FL_3 *ConcreteLts = dynamic_cast<seissol::initializers::DR_FL_3 *>(dynRup);
-    stateVar                        = layerData.var(ConcreteLts->StateVar);
+    stateVar                        = layerData.var(ConcreteLts->stateVar);
     RS_sl0                          = layerData.var(ConcreteLts->RS_sl0);
     RS_a                            = layerData.var(ConcreteLts->RS_a);
 

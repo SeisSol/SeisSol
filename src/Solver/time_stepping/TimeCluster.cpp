@@ -271,7 +271,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 //*/
 
 
-  //TODO: right place for precalculation?
   //requires m_dynamicRuptureKernel for calculation
   real DeltaT[CONVERGENCE_ORDER] = {};
   DeltaT[0]=m_dynamicRuptureKernel.timePoints[0];

@@ -695,7 +695,6 @@ void seissol::initializers::MemoryManager::initializeFrictionFactory() {
     Factory = seissol::dr::factory::getFactory(m_dynRupParameter);
     std::tie(m_dynRup, m_DrInitializer, m_FrictonLaw, m_DrOutput) = Factory->produce();
 
-    //TODO: maybe just copy  "DynRupParameter" instead of initializing it often, make a reference to a "global" DynRupParameter?
     m_DrInitializer->setInputParam(m_dynRupParameter);
     m_FrictonLaw->setInputParam(m_dynRupParameter);
     m_DrOutput->setInputParam(m_dynRupParameter);

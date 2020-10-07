@@ -303,7 +303,7 @@ extern "C" {
   extern void f_interoperability_getDynRupNucStress(void*  i_domain, int iFace,  real *nucleationStressInFaultCS) ;
 
 
-  extern void f_interoperability_getDynRupFL_3(void*  i_domain, int iFace, real* i_RS_f0, real* i_RS_a, real* i_RS_b, real* i_RS_sl0, real* i_RS_sr0, real* i_stateVar) ;
+  extern void f_interoperability_getDynRupFL_3(void*  i_domain, int iFace, real* i_RS_f0, real* i_RS_a, real* i_RS_b, real* i_RS_sl0, real* i_RS_sr0) ;
 
   extern void f_interoperability_setFrictionOutput( void*  i_domain, int i_face,
         real* i_mu, real* i_slip, real* i_slip1, real* i_slip2, real* i_slipRate1, real* i_slipRate2, real* i_rupture_time, real* i_PeakSR, real* i_tracXY, real* i_tracXZ);
@@ -1086,10 +1086,9 @@ void seissol::Interoperability::getDynRupFL_3(int ltsFace,  unsigned meshFace,
                                               real *i_RS_a,
                                               real *i_RS_b,
                                               real *i_RS_sl0,
-                                              real *i_RS_sr0,
-                                              real (*stateVar)[init::QInterpolated::Stop[0]]) {
+                                              real *i_RS_sr0) {
   int fFace = meshFace + 1;
-  f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_f0[ltsFace], &i_RS_a[ltsFace], &i_RS_b[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace], &stateVar[ltsFace][0]);
+  f_interoperability_getDynRupFL_3(m_domain,  fFace, &i_RS_f0[ltsFace], &i_RS_a[ltsFace], &i_RS_b[ltsFace], &i_RS_sl0[ltsFace], &i_RS_sr0[ltsFace]);
 }
 
 

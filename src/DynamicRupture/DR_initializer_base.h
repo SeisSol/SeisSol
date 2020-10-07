@@ -228,13 +228,14 @@ public:
       real *RS_b                                                = it->var(ConcreteLts->RS_b);
       real *RS_sl0                                              = it->var(ConcreteLts->RS_sl0);
       real *RS_sr0                                              = it->var(ConcreteLts->RS_sr0);
-      real (*StateVar)[numOfPointsPadded]                       = it->var(ConcreteLts->StateVar);
+      real (*stateVar)[numOfPointsPadded]                       = it->var(ConcreteLts->stateVar);
 
       for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
         unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
 
         //get initial values from fortran
-        e_interoperability.getDynRupFL_3(ltsFace, meshFace, RS_f0, RS_a, RS_b, RS_sl0, RS_sr0, StateVar);
+        e_interoperability.getDynRupFL_3(ltsFace, meshFace, RS_f0, RS_a, RS_b, RS_sl0, RS_sr0);
+        e_interoperability.getDynRupStateVar(ltsFace, meshFace, stateVar);
 
       }//lts-face loop
       layerLtsFaceToMeshFace += it->getNumberOfCells();

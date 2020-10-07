@@ -325,14 +325,13 @@ module f_ctof_bind_interoperability
       l_nucleationStressInFaultCS(:,:)   = l_domain%EQN%NucleationStressInFaultCS(:,:,iFace)
     end subroutine
 
-    subroutine f_interoperability_getDynRupFL_3(i_domain, iFace ,i_RS_f0, i_RS_a,i_RS_b, i_RS_sl0, i_RS_sr0, i_stateVar) bind (c, name='f_interoperability_getDynRupFL_3')
+    subroutine f_interoperability_getDynRupFL_3(i_domain, iFace ,i_RS_f0, i_RS_a,i_RS_b, i_RS_sl0, i_RS_sr0) bind (c, name='f_interoperability_getDynRupFL_3')
       use iso_c_binding
       use typesDef
       use f_ftoc_bind_interoperability
       implicit none
 
-      !TODO: remove i, j ,k
-      integer                                :: i ,j, k, nBndGP
+      integer                                :: nBndGP
       type(c_ptr), value                     :: i_domain
       type(tUnstructDomainDescript), pointer :: l_domain
       integer(kind=c_int), value             :: iFace
@@ -347,8 +346,6 @@ module f_ctof_bind_interoperability
       type(c_ptr), value                     :: i_RS_sr0
       real*8, pointer                        :: l_RS_sr0
 
-      type(c_ptr), value                     :: i_stateVar
-      REAL_TYPE, pointer                     :: l_stateVar(:)
 
       call c_f_pointer( i_domain,             l_domain)
       nBndGP = l_domain%DISC%Galerkin%nBndGP
@@ -358,8 +355,6 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_RS_b,      l_RS_b)
       call c_f_pointer( i_RS_sl0,      l_RS_sl0)
       call c_f_pointer( i_RS_sr0,      l_RS_sr0)
-      call c_f_pointer( i_stateVar, l_stateVar, [nBndGP])
-
 
       l_RS_f0                   = l_domain%DISC%DynRup%RS_f0
       l_RS_a                    = l_domain%DISC%DynRup%RS_a
@@ -367,74 +362,8 @@ module f_ctof_bind_interoperability
       l_RS_sl0                  = l_domain%DISC%DynRup%RS_sl0
       l_RS_sr0                  = l_domain%DISC%DynRup%RS_sr0
 
-      !l_stateVar           =  l_domain%DISC%DynRup%StateVar(:,iFace)
-
     end subroutine
 
-
-    !!Code added by ADRIAN
-      !TODO: remove this function?
-    subroutine f_interoperability_getFrictionData(i_domain, i_numberOfPoints, &
-          i_inst_healing, i_t_0, i_FL, i_magnitude_out, i_mu, i_RF, i_DS )&
-          bind (c, name='f_interoperability_getFrictionData')
-      use iso_c_binding
-      use typesDef
-      use f_ftoc_bind_interoperability
-      implicit none
-
-      INTEGER     :: i ,j, k
-      type(c_ptr), value                     :: i_domain
-      type(tUnstructDomainDescript), pointer :: l_domain
-      integer(kind=c_int), value             :: i_numberOfPoints
-
-      type(c_ptr), value                     :: i_inst_healing
-      integer(kind=c_int), pointer           :: l_inst_healing
-      type(c_ptr), value                     :: i_t_0
-      real*8, pointer                        :: l_t_0
-      type(c_ptr), value                     :: i_FL
-      integer(kind=c_int), pointer           :: l_FL
-
-
-      type(c_ptr), value                     :: i_magnitude_out
-      logical(kind=C_bool), pointer          :: l_magnitude_out(:)
-      type(c_ptr), value                     :: i_mu
-      REAL_TYPE, pointer                     :: l_mu(:,:)
-      type(c_ptr), value                     :: i_RF
-      logical(kind=C_bool), pointer          :: l_RF(:,:)
-      type(c_ptr), value                     :: i_DS
-      logical(kind=C_bool), pointer          :: l_DS(:,:)
-
-      integer :: nSide
-
-      ! convert c to fortran pointers
-      call c_f_pointer( i_domain,             l_domain)
-      call c_f_pointer( i_inst_healing,       l_inst_healing  )
-      call c_f_pointer( i_t_0,                l_t_0  )
-      call c_f_pointer( i_FL,                 l_FL  )
-
-      nSide = l_domain%MESH%Fault%nSide
-
-      call c_f_pointer( i_magnitude_out,      l_magnitude_out, [nSide])
-      call c_f_pointer( i_mu, l_mu, [i_numberOfPoints,nSide])
-      call c_f_pointer( i_RF, l_RF, [i_numberOfPoints,nSide])
-      call c_f_pointer( i_DS, l_DS, [i_numberOfPoints,nSide])
-
-
-      !TODO: don't use this existing function. create own and call it in the fortran code part
-      call c_interoperability_addFaultParameter("SlipRate1" // c_null_char, l_domain%DISC%DynRup%SlipRate1)
-      call c_interoperability_addFaultParameter("SlipRate2" // c_null_char, l_domain%DISC%DynRup%SlipRate2)
-      call c_interoperability_addFaultParameter("InitialStressInFaultCS" // c_null_char, l_domain%EQN%InitialStressInFaultCS)
-
-
-      l_inst_healing               = l_domain%DISC%DynRup%inst_healing
-      l_t_0                        = l_domain%DISC%DynRup%t_0
-      l_FL                         = l_domain%EQN%FL
-      l_magnitude_out              = l_domain%DISC%DynRup%magnitude_out
-      l_mu                         = l_domain%EQN%IniMu(:,:) !l_domain%DISC%DynRup%Mu
-      l_RF                         = l_domain%DISC%DynRup%RF
-      l_DS                         = l_domain%DISC%DynRup%DS !.false.
-
-    end subroutine
 
     !!Code added by ADRIAN
     subroutine f_interoperability_setFrictionOutput(i_domain, i_face, &
