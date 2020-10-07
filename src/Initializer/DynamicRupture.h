@@ -94,6 +94,7 @@ public:
   Variable<real[ numOfPointsPadded ]>                   slip;
   Variable<real[ numOfPointsPadded ]>                   slip1;
   Variable<real[ numOfPointsPadded ]>                   slip2;
+  Variable<real[ numOfPointsPadded ]>                   locSlipRate;
   Variable<real[ numOfPointsPadded ]>                   slipRate1;
   Variable<real[ numOfPointsPadded ]>                   slipRate2;
   Variable<real[ numOfPointsPadded ]>                   rupture_time;
@@ -124,6 +125,7 @@ public:
     tree.addVar(      slip,                           mask,                 1,      seissol::memory::Standard );
     tree.addVar(      slip1,                          mask,                 1,      seissol::memory::Standard );
     tree.addVar(      slip2,                          mask,                 1,      seissol::memory::Standard );
+    tree.addVar(      locSlipRate,                    mask,                 1,      seissol::memory::Standard );
     tree.addVar(      slipRate1,                      mask,                 1,      seissol::memory::Standard );
     tree.addVar(      slipRate2,                      mask,                 1,      seissol::memory::Standard );
     tree.addVar(      peakSR,                         mask,                 1,      seissol::memory::Standard );

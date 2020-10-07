@@ -271,20 +271,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 //*/
 
 
-  //requires m_dynamicRuptureKernel for calculation
-  real DeltaT[CONVERGENCE_ORDER] = {};
-  DeltaT[0]=m_dynamicRuptureKernel.timePoints[0];
-  for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
-      DeltaT[iTimeGP] = m_dynamicRuptureKernel.timePoints[iTimeGP]-m_dynamicRuptureKernel.timePoints[iTimeGP-1];
-  }
-  DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
+  m_FrictonLaw->computeDeltaT(m_dynamicRuptureKernel.timePoints);
 
   /*
    * //TODO: maybe use this in the FL103/33 etc. instead of dt = sum(DeltaT(:))??
   real dt = 0;
   dt = m_dynamicRuptureKernel.timePoints[CONVERGENCE_ORDER-1]-m_dynamicRuptureKernel.timePoints[0];
   */
-
 
 
 #ifdef _OPENMP
@@ -325,7 +318,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
   //FL6->evaluateGeneral(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
 
 
-  m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights, DeltaT);
+  m_FrictonLaw->evaluate(layerData, m_dynRup, QInterpolatedPlus, QInterpolatedMinus, m_fullUpdateTime, m_dynamicRuptureKernel.timeWeights);
 
 
   m_loopStatistics->end(m_regionComputeDynamicRupture, layerData.getNumberOfCells());

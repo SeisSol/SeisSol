@@ -62,6 +62,7 @@ public:
       real  (*slip)[ numOfPointsPadded ]          = it->var(dynRup->slip);                              // = 0
       real  (*slip1)[numOfPointsPadded ]          = it->var(dynRup->slip1);                             // = 0
       real  (*slip2)[ numOfPointsPadded ]         = it->var(dynRup->slip2);                             // = 0
+      real  (*locSlipRate)[ numOfPointsPadded ]     = it->var(dynRup->locSlipRate);                     // = 0
       real  (*slipRate1)[ numOfPointsPadded ]     = it->var(dynRup->slipRate1);                         //get from fortran  EQN%IniSlipRate1
       real  (*slipRate2)[numOfPointsPadded ]      = it->var(dynRup->slipRate2);                         //get from fortran  EQN%IniSlipRate2
       real  (*rupture_time)[ numOfPointsPadded ]  = it->var(dynRup->rupture_time);                      // = 0
@@ -78,6 +79,7 @@ public:
           slip[ltsFace][iBndGP] = 0.0;
           slip1[ltsFace][iBndGP] = 0.0;
           slip2[ltsFace][iBndGP] = 0.0;
+          locSlipRate[ltsFace][iBndGP] = 0.0;
           rupture_time[ltsFace][iBndGP] = 0.0;
           peakSR[ltsFace][iBndGP] = 0.0;
           tracXY[ltsFace][iBndGP] = 0.0;

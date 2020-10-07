@@ -42,15 +42,17 @@ protected:
   //assert(init::QInterpolated::Start[0] == 0);
   static constexpr int numOfPointsPadded = init::QInterpolated::Stop[0];
   //YAML::Node m_InputParam;
-  dr::DrParameterT         *m_Params;
-  ImpedancesAndEta*        impAndEta;
-  real                     m_fullUpdateTime;
+  dr::DrParameterT        *m_Params;
+  ImpedancesAndEta*       impAndEta;
+  real                    m_fullUpdateTime;
+  real                    deltaT[CONVERGENCE_ORDER] = {};
   real                    (*initialStressInFaultCS)[numOfPointsPadded][6];
   real                    (*cohesion)[numOfPointsPadded];
   real                    (*mu)[numOfPointsPadded];
   real                    (*slip)[numOfPointsPadded];
   real                    (*slip1)[numOfPointsPadded];
   real                    (*slip2)[numOfPointsPadded];
+  real                    (*locSlipRate)[numOfPointsPadded];
   real                    (*slipRate1)[numOfPointsPadded];
   real                    (*slipRate2)[numOfPointsPadded];
   real                    (*rupture_time)[numOfPointsPadded];
@@ -85,6 +87,7 @@ protected:
     slip                                          = layerData.var(dynRup->slip);
     slip1                                         = layerData.var(dynRup->slip1);
     slip2                                         = layerData.var(dynRup->slip2);
+    locSlipRate                                   = layerData.var(dynRup->locSlipRate);
     slipRate1                                     = layerData.var(dynRup->slipRate1);
     slipRate2                                     = layerData.var(dynRup->slipRate2);
     rupture_time                                  = layerData.var(dynRup->rupture_time);
@@ -208,24 +211,22 @@ protected:
   // outside of iTimeGP loop in order to safe an 'if' in a loop
   // this way, no subtimestep resolution possible
   void outputRuptureFront(
-      real LocSlipRate[numberOfPoints],
-      unsigned int face
+      unsigned int ltsFace
   ){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (RF[face][iBndGP] && LocSlipRate[iBndGP] > 0.001) {
-        rupture_time[face][iBndGP] = m_fullUpdateTime;
-        RF[face][iBndGP] = false;
+      if (RF[ltsFace][iBndGP] && locSlipRate[ltsFace][iBndGP] > 0.001) {
+        rupture_time[ltsFace][iBndGP] = m_fullUpdateTime;
+        RF[ltsFace][iBndGP] = false;
       }
     }
   }
 
 
   void calcPeakSlipRate(
-      real LocSlipRate[numberOfPoints],
-      unsigned int face){
+      unsigned int ltsFace){
     for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      if (LocSlipRate[iBndGP] > peakSR[face][iBndGP]) {
-        peakSR[face][iBndGP] = LocSlipRate[iBndGP];
+      if (locSlipRate[ltsFace][iBndGP] > peakSR[ltsFace][iBndGP]) {
+        peakSR[ltsFace][iBndGP] = locSlipRate[ltsFace][iBndGP];
       }
     }
   }
@@ -236,13 +237,13 @@ protected:
   //    and an output happened once at the end of the simulation
   void calcAverageSlip(
       std::array<real, numOfPointsPadded> &tmpSlip,
-      unsigned int face
+      unsigned int ltsFace
   ){
     real sum_tmpSlip = 0;
     if (m_Params->IsMagnitudeOutputOn) {
       for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++)
         sum_tmpSlip += tmpSlip[iBndGP];
-      averaged_Slip[face] = averaged_Slip[face] + sum_tmpSlip / numberOfPoints;
+      averaged_Slip[ltsFace] = averaged_Slip[ltsFace] + sum_tmpSlip / numberOfPoints;
     }
   }
 
@@ -252,9 +253,15 @@ public:
                          real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                          real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                          real fullUpdateTime,
-                         real timeWeights[CONVERGENCE_ORDER],
-                         real DeltaT[CONVERGENCE_ORDER]) = 0;
+                         real timeWeights[CONVERGENCE_ORDER]) = 0;
 
+  void computeDeltaT(double timePoints[CONVERGENCE_ORDER]){
+    deltaT[0]= timePoints[0];
+    for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
+      deltaT[iTimeGP] = timePoints[iTimeGP]- timePoints[iTimeGP-1];
+    }
+    deltaT[CONVERGENCE_ORDER-1] = deltaT[CONVERGENCE_ORDER-1] + deltaT[0];  // to fill last segment of Gaussian integration
+  }
 
   void dynamicRuptureCalc(seissol::initializers::Layer&  layerData,
                           seissol::initializers::DynamicRupture *dynRup,
@@ -271,12 +278,7 @@ public:
     alignas(ALIGNMENT) real QInterpolatedMinus[layerData.getNumberOfCells()][CONVERGENCE_ORDER][tensor::QInterpolated::size()];
 
 
-    real DeltaT[CONVERGENCE_ORDER] = {};
-    DeltaT[0]= dynamicRuptureKernel.timePoints[0];
-    for(int iTimeGP = 1; iTimeGP< CONVERGENCE_ORDER; iTimeGP++ ){
-      DeltaT[iTimeGP] = dynamicRuptureKernel.timePoints[iTimeGP]- dynamicRuptureKernel.timePoints[iTimeGP-1];
-    }
-    DeltaT[CONVERGENCE_ORDER-1] = DeltaT[CONVERGENCE_ORDER-1] + DeltaT[0];  // to fill last segment of Gaussian integration
+    computeDeltaT(dynamicRuptureKernel.timePoints);
 
     //this copies all lts data pointers to local class attributes
     copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -287,8 +289,6 @@ public:
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       //initialize struct for in/outputs stresses
       FaultStresses faultStresses{};
-      //declare local variables
-      real LocSlipRate[numberOfPoints];
 
       unsigned prefetchFace = (ltsFace < layerData.getNumberOfCells() - 1) ? ltsFace + 1 : ltsFace;
       dynamicRuptureKernel.spaceTimeInterpolation(  faceInformation[ltsFace],
@@ -314,10 +314,10 @@ public:
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      outputRuptureFront(LocSlipRate, ltsFace);
+      outputRuptureFront(ltsFace);
 
       //output peak slip rate
-      calcPeakSlipRate(LocSlipRate, ltsFace);
+      calcPeakSlipRate(ltsFace);
 
       //save stresses in imposedState
       postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], faultStresses, dynamicRuptureKernel.timeWeights, ltsFace);
@@ -336,8 +336,7 @@ public:
                         real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real fullUpdateTime,
-                        real timeWeights[CONVERGENCE_ORDER],
-                        real DeltaT[CONVERGENCE_ORDER]) override {
+                        real timeWeights[CONVERGENCE_ORDER]) override {
     copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -390,8 +389,7 @@ public:
                           real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                           real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                           real fullUpdateTime,
-                          real timeWeights[CONVERGENCE_ORDER],
-                          real DeltaT[CONVERGENCE_ORDER]) override {
+                          real timeWeights[CONVERGENCE_ORDER]) override {
 
       copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 
@@ -403,7 +401,6 @@ public:
         FaultStresses faultStresses{};
 
         //declare local variables
-        real LocSlipRate[numberOfPoints];
         std::array<real, numOfPointsPadded> tmpSlip{0};
         real tn = fullUpdateTime;
         real time_inc;
@@ -413,7 +410,7 @@ public:
         precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
 
         for (int iTimeGP = 0; iTimeGP < CONVERGENCE_ORDER; iTimeGP++) {  //loop over time steps
-          time_inc = DeltaT[iTimeGP];
+          time_inc = deltaT[iTimeGP];
           tn = tn + time_inc;
           Gnuc = Calc_SmoothStepIncrement(tn, time_inc)/time_inc;
 
@@ -423,13 +420,13 @@ public:
             faultStresses.TractionGP_XZ[iTimeGP][iBndGP] = faultStresses.XZStressGP[iTimeGP][iBndGP] - impAndEta[ltsFace].eta_s * nucleationStressInFaultCS[ltsFace][iBndGP][1] *Gnuc;
             slipRate1[ltsFace][iBndGP] = nucleationStressInFaultCS[ltsFace][iBndGP][0] * Gnuc;
             slipRate2[ltsFace][iBndGP] = nucleationStressInFaultCS[ltsFace][iBndGP][1] * Gnuc;
-            LocSlipRate[iBndGP]  = std::sqrt( seissol::dr::aux::power(slipRate1[ltsFace][iBndGP],2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP],2));
+            locSlipRate[ltsFace][iBndGP]  = std::sqrt( seissol::dr::aux::power(slipRate1[ltsFace][iBndGP],2) + seissol::dr::aux::power(slipRate2[ltsFace][iBndGP],2));
 
             //! Update slip
             slip1[ltsFace][iBndGP] += slipRate1[ltsFace][iBndGP]*time_inc;
             slip2[ltsFace][iBndGP] += slipRate2[ltsFace][iBndGP]*time_inc;
-            slip[ltsFace][iBndGP] += LocSlipRate[iBndGP]*time_inc;
-            tmpSlip[iBndGP] += LocSlipRate[iBndGP]*time_inc;
+            slip[ltsFace][iBndGP] += locSlipRate[ltsFace][iBndGP]*time_inc;
+            tmpSlip[iBndGP] += locSlipRate[ltsFace][iBndGP]*time_inc;
 
             tracXY[ltsFace][iBndGP] = faultStresses.TractionGP_XY[iTimeGP][iBndGP];
             tracXZ[ltsFace][iBndGP] = faultStresses.TractionGP_XY[iTimeGP][iBndGP];
@@ -438,10 +435,10 @@ public:
         // output rupture front
         // outside of iTimeGP loop in order to safe an 'if' in a loop
         // this way, no subtimestep resolution possible
-        outputRuptureFront(LocSlipRate, ltsFace);
+        outputRuptureFront(ltsFace);
 
         //output peak slip rate
-        calcPeakSlipRate(LocSlipRate, ltsFace);
+        calcPeakSlipRate(ltsFace);
 
         //---compute and store slip to determine the magnitude of an earthquake ---
         //    to this end, here the slip is computed and averaged per element
@@ -476,16 +473,6 @@ protected:
      */
   }
 
-  void calcSlipRate(
-      FaultStresses &faultStresses,
-      real LocSlipRate[numberOfPoints],
-      unsigned int iTimeGP,
-      unsigned int face
-  ) {
-    for (int iBndGP = 0; iBndGP < numOfPointsPadded; iBndGP++) {
-      LocSlipRate[iBndGP] = 0;
-    }
-  }
 
 
 public:
@@ -494,8 +481,7 @@ public:
                         real (*QInterpolatedPlus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real (*QInterpolatedMinus)[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
                         real fullUpdateTime,
-                        real timeWeights[CONVERGENCE_ORDER],
-                        real DeltaT[CONVERGENCE_ORDER]) override {
+                        real timeWeights[CONVERGENCE_ORDER]) override {
     copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
@@ -503,9 +489,6 @@ public:
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
       //initialize struct for in/outputs stresses
       FaultStresses faultStresses{};
-
-      //declare local variables
-      real LocSlipRate[numberOfPoints];
 
       //compute stresses from Qinterpolated
       precomputeStressFromQInterpolated(faultStresses, QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], ltsFace);
@@ -515,15 +498,14 @@ public:
         /*
          * add friction law calculation here:
          */
-        calcSlipRate(faultStresses, LocSlipRate, iTimeGP , ltsFace);
       }
       // output rupture front
       // outside of iTimeGP loop in order to safe an 'if' in a loop
       // this way, no subtimestep resolution possible
-      outputRuptureFront(LocSlipRate, ltsFace);
+      outputRuptureFront(ltsFace);
 
       //output peak slip rate
-      calcPeakSlipRate(LocSlipRate, ltsFace);
+      calcPeakSlipRate(ltsFace);
 
       //save stresses in imposedState
       postcomputeImposedStateFromNewStress(QInterpolatedPlus[ltsFace], QInterpolatedMinus[ltsFace], faultStresses, timeWeights, ltsFace);
